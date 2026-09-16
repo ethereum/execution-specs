@@ -728,6 +728,10 @@ def test_access_list_intrinsic_at_transition(
 
 @EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
 @EIPChecklist.GasCostChanges.Test.ForkTransition.After()
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedBeforeFork()
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork()
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork()
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork()
 @pytest.mark.exception_test
 def test_access_list_intrinsic_straddles_validity(
     blockchain_test: BlockchainTestFiller,
@@ -742,7 +746,8 @@ def test_access_list_intrinsic_straddles_validity(
     For this access list the raised per-entry surcharge outweighs the
     EIP-2780 fall in the base cost, so the same transaction that is
     valid before the fork is rejected with ``INTRINSIC_GAS_TOO_LOW``
-    after it.
+    after it. Off-by-one limits on either side pin the constraint in
+    each regime, so all four accept/reject arms are exercised.
     """
     before = fork.fork_at(timestamp=BEFORE_TS)
     after = fork.fork_at(timestamp=AFTER_TS)
@@ -753,39 +758,50 @@ def test_access_list_intrinsic_straddles_validity(
             access_list=access_list
         )
 
-    gas_limit = minimum_gas_limit(before)
-    assert minimum_gas_limit(after) > gas_limit
+    intrinsic_before = minimum_gas_limit(before)
+    intrinsic_after = minimum_gas_limit(after)
+    # The straddle only exists because this access list's surcharge rises
+    # by more than the EIP-2780 base cost falls.
+    assert intrinsic_after > intrinsic_before
 
     recipient = pre.fund_eoa(amount=0)
 
+    def make_tx(
+        gas_limit: int, error: TransactionException | None = None
+    ) -> Transaction:
+        return Transaction(
+            to=recipient,
+            access_list=access_list,
+            gas_limit=gas_limit,
+            sender=pre.fund_eoa(),
+            error=error,
+            # Accepted arms are handed exactly their regime's intrinsic
+            # and the recipient runs no code, so the whole limit is
+            # consumed and the receipt pins it.
+            expected_receipt=None
+            if error
+            else TransactionReceipt(cumulative_gas_used=gas_limit),
+        )
+
+    too_low = TransactionException.INTRINSIC_GAS_TOO_LOW
     blocks = [
+        # Rejected before the fork: one gas below the pre-fork intrinsic.
         Block(
             timestamp=BEFORE_TS,
-            txs=[
-                Transaction(
-                    to=recipient,
-                    access_list=access_list,
-                    gas_limit=gas_limit,
-                    sender=pre.fund_eoa(),
-                    expected_receipt=TransactionReceipt(
-                        cumulative_gas_used=gas_limit
-                    ),
-                ),
-            ],
+            txs=[make_tx(intrinsic_before - 1, error=too_low)],
+            exception=too_low,
         ),
+        # Accepted before the fork: the exact pre-fork intrinsic.
+        Block(timestamp=BEFORE_TS, txs=[make_tx(intrinsic_before)]),
+        # Rejected after the fork: the very limit the previous block
+        # accepted — the straddle itself.
         Block(
             timestamp=AFTER_TS,
-            txs=[
-                Transaction(
-                    to=recipient,
-                    access_list=access_list,
-                    gas_limit=gas_limit,
-                    sender=pre.fund_eoa(),
-                    error=TransactionException.INTRINSIC_GAS_TOO_LOW,
-                ),
-            ],
-            exception=TransactionException.INTRINSIC_GAS_TOO_LOW,
+            txs=[make_tx(intrinsic_before, error=too_low)],
+            exception=too_low,
         ),
+        # Accepted after the fork: the exact post-fork intrinsic.
+        Block(timestamp=AFTER_TS, txs=[make_tx(intrinsic_after)]),
     ]
 
     blockchain_test(pre=pre, blocks=blocks, post={})
