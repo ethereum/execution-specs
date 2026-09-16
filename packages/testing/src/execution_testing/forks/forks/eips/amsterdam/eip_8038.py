@@ -1,5 +1,5 @@
 """
-EIP-8038: State Access Gas Cost Increase.
+EIP-8038: State-access gas cost update.
 
 Harmonization and increase of state-access gas costs, repricing warm and
 cold account and storage access, account writes, and the related access

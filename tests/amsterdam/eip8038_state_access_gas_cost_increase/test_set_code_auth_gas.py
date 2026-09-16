@@ -1,6 +1,6 @@
 """
 Tests for the EIP-7702 authorization *execution*-gas repricing under
-[EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+[EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 Under EIP-2780 each EIP-7702 authorization is charged in two parts: a
 state-independent *execution* base cost paid in the intrinsic, and

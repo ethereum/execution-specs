@@ -1,5 +1,5 @@
 """
-Tests for [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+Tests for [EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 Covers the EIP-8038 ``EXT*`` "double-read" surcharge: ``EXTCODESIZE`` and
 ``EXTCODECOPY`` perform two database reads (the account leaf and then the

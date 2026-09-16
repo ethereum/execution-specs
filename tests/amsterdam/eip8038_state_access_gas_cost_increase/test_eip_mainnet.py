@@ -1,6 +1,6 @@
 """
 Mainnet-marked happy-path smoke tests for
-[EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+[EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 One minimal success per repriced dimension (no boundaries, no exact
 magnitudes): a state slot is written, a value-bearing cold ``CALL``

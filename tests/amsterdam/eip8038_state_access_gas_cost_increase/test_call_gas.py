@@ -1,5 +1,5 @@
 """
-Tests for the EIP-8038 [State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038)
+Tests for the EIP-8038 [State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038)
 ``CALL``-family execution-gas dimension.
 
 Under EIP-8038 the call opcodes are repriced in their *execution* gas

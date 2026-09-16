@@ -1,5 +1,5 @@
 """
-Tests for [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+Tests for [EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 Covers ``SSTORE`` refund and charge accounting across frames that fail.
 A frame's refund-counter adjustments are discarded when the frame

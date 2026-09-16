@@ -1,7 +1,7 @@
 """
 Tests for the EIP-2780 first-write ``ACCOUNT_WRITE`` exemptions during
 EIP-7702 authorization processing under
-[EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+[EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 Applying an authorization writes the authority's leaf (code and nonce)
 and pays ``ACCOUNT_WRITE`` for the transaction's *first* write to that

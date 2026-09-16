@@ -1,5 +1,5 @@
 """
-Tests for [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+Tests for [EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 The headline mechanism of the pinned spec version ``a8862ae`` is the
 ``SSTORE`` clear-refund *reversal*: ``refund_counter`` is decremented by
