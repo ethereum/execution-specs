@@ -91,9 +91,11 @@ def build_benchmark_txs(
     return txs, total_gas_consumed
 
 
-# One block is enough to leave the client's first-block state; a handful of
-# transactions also takes the per-transaction paths past their first run.
-STARTUP_BLOCK_TX_COUNT = 10
+# Enough transactions to promote the per-transaction paths out of a JIT
+# runtime's first-call tier before the measured block runs.  .NET promotes a
+# method at 30 invocations and does not begin counting until its startup
+# delay expires, so the count carries headroom over that threshold.
+STARTUP_BLOCK_TX_COUNT = 64
 
 
 def build_startup_block(pre: Alloc) -> Block:
