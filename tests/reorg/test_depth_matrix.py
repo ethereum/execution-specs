@@ -165,7 +165,7 @@ def test_side_chain_reorg_depth_default(
 
 
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize("depth", [64, 256])
+@pytest.mark.parametrize("depth", [64, 129])
 def test_side_chain_reorg_depth_tuned(
     reorg_test: ReorgTestFiller, pre: Alloc, depth: int
 ) -> None:
@@ -174,18 +174,36 @@ def test_side_chain_reorg_depth_tuned(
     the reorg depth, so the reorg must be applied. Clients without such a
     knob run their defaults here (reth: unlimited; nethermind: 64; besu 512).
 
-    The depth-256 case is a capability probe rather than a conformance
-    assertion, and go-ethereum does not currently serve it: raising the
-    Engine API depth cap does not help, because ``newPayload`` for a side
-    block whose parent state has fallen out of the in-memory trie layers
-    (128 of them, `state.scheme=path`) is answered ``ACCEPTED`` without the
-    block being executed, so the next block in that side chain has an
-    unknown parent and is answered ``SYNCING``. Archive mode makes no
-    difference, since the layer window and not history retention is the
-    limit. Depth 128 passes. Rather than dropping the case and losing the
-    signal, the result is reported: the effective ceiling for a side chain
-    delivered by ``newPayload`` alone is a client property that EIP-8252
-    needs to know.
+    Depths above 128 are capability probes rather than conformance
+    assertions. Measured 2026-09-16 (Cancun, five clients):
+
+    ===== ======= ======= ========== ======= =======
+    depth geth    reth    nethermind besu    erigon
+    ===== ======= ======= ========== ======= =======
+    128   applied applied applied    applied applied
+    129   SYNCING applied applied    applied applied
+    256   SYNCING applied applied    applied applied
+    512   SYNCING applied SYNCING    INVALID applied
+    ===== ======= ======= ========== ======= =======
+
+    Only 64 and 129 are in the corpus: 129 pins go-ethereum's ceiling, and
+    256 measured the same behaviour for twice the steps. 512 costs ~1500
+    steps per client and is where besu answers ``INVALID`` with ``"Unable to
+    process block because parent world state ... is not available"``, i.e.
+    reports missing state as block invalidity where the others report a sync
+    state. Add either depth above to reproduce.
+
+    go-ethereum's ceiling is exactly the 128 in-memory trie layers
+    (`state.scheme=path`): raising the Engine API depth cap does not help,
+    because ``newPayload`` for a side block whose parent state has fallen out
+    of the window is answered ``ACCEPTED`` without the block being executed,
+    so the next side block has an unknown parent and is answered
+    ``SYNCING``. Archive mode makes no difference - the layer window, not
+    history retention, is the limit.
+
+    No client returned ``-38006`` at any depth, which is the datum EIP-8252
+    needs: the specified refusal code is unused, and clients instead degrade
+    into sync states (or, for besu, into ``INVALID``).
     """
     blocks, steps = two_branches(pre, depth)
     steps += matrix_steps(depth, applied_only=True)
