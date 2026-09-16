@@ -36,7 +36,6 @@ from execution_testing import (
 from execution_testing import Macros as Om
 
 from .spec import ref_spec_7928
-from .test_block_access_lists_eip2935 import HISTORY_STORAGE_ADDRESS
 from .test_block_access_lists_eip4788 import (
     BEACON_ROOTS_ADDRESS,
     SYSTEM_ADDRESS,
@@ -533,47 +532,51 @@ def _system_contracts_called(
 
 
 @pytest.mark.pre_alloc_mutable()
-def test_bal_pre_execution_calls_net_storage_at_index_zero(
+def test_bal_post_execution_calls_net_storage_at_last_index(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     fork: Fork,
 ) -> None:
     """
-    Both pre-execution system calls write the same account at block access
-    index 0. A slot toggled back to its starting value is a read, while a
-    slot bumped twice and a nonce bumped by two CREATEs are single changes
-    with the final values: writes are netted over the whole index, not per
-    call. The slot holding the last caller pins the order of the two calls.
+    Two post-execution system calls write the same account at the last
+    block access index: writes are netted over the whole index, not per
+    call. The slot holding the last caller pins the call order.
     """
-    # `apply_body` calls the beacon roots contract first and the history
-    # contract second; the fork's declared phases must agree on the set.
-    assert _system_contracts_called(
-        fork, SystemCallPhase.BEFORE_TRANSACTIONS
-    ) == sorted([BEACON_ROOTS_ADDRESS, HISTORY_STORAGE_ADDRESS]), (
-        "the fork grew a pre-execution system call this test does not "
-        "account for"
+    # The request predeploys carry this because EIP-7002 and EIP-7251
+    # require the EVM call, while EIP-2935 and EIP-4788 let a client skip
+    # the EVM and write the storage itself, so substituted code there
+    # would test a choice the client is free to make.
+    post_execution = _system_contracts_called(
+        fork, SystemCallPhase.AFTER_TRANSACTIONS
+    )
+    assert {
+        WITHDRAWAL_REQUEST_ADDRESS,
+        CONSOLIDATION_REQUEST_ADDRESS,
+    }.issubset(post_execution), (
+        "the request predeploys are no longer called after transactions"
     )
 
     toggle_slot = 1
     counter_slot = 2
     last_caller_slot = 3
 
-    # The history contract toggles one slot, counts its calls, notes who
-    # called and deploys an empty contract; the beacon roots contract
-    # calls it, so the block runs it twice: once from the beacon roots
-    # call and then from its own system call.
-    pre[HISTORY_STORAGE_ADDRESS] = Account(
+    # Requests are made in ascending request type, so the withdrawal
+    # contract runs first and calls the consolidation contract, whose
+    # own system call then runs the same code a second time.
+    pre[CONSOLIDATION_REQUEST_ADDRESS] = Account(
         nonce=1,
         code=Op.SSTORE(toggle_slot, Op.ISZERO(Op.SLOAD(toggle_slot)))
         + Op.SSTORE(counter_slot, Op.ADD(Op.SLOAD(counter_slot), 1))
         + Op.SSTORE(last_caller_slot, Op.CALLER)
         + Op.POP(Op.CREATE(0, 0, 0)),
     )
-    pre[BEACON_ROOTS_ADDRESS] = Account(
-        code=Op.POP(Op.CALL(address=HISTORY_STORAGE_ADDRESS)),
+    pre[WITHDRAWAL_REQUEST_ADDRESS] = Account(
+        code=Op.POP(Op.CALL(address=CONSOLIDATION_REQUEST_ADDRESS)),
     )
     created = [
-        compute_create_address(address=HISTORY_STORAGE_ADDRESS, nonce=nonce)
+        compute_create_address(
+            address=CONSOLIDATION_REQUEST_ADDRESS, nonce=nonce
+        )
         for nonce in (1, 2)
     ]
 
@@ -584,13 +587,13 @@ def test_bal_pre_execution_calls_net_storage_at_index_zero(
                 txs=[],
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
-                        HISTORY_STORAGE_ADDRESS: BalAccountExpectation(
+                        CONSOLIDATION_REQUEST_ADDRESS: BalAccountExpectation(
                             storage_changes=[
                                 BalStorageSlot(
                                     slot=counter_slot,
                                     slot_changes=[
                                         BalStorageChange(
-                                            block_access_index=0,
+                                            block_access_index=1,
                                             post_value=2,
                                         )
                                     ],
@@ -599,7 +602,7 @@ def test_bal_pre_execution_calls_net_storage_at_index_zero(
                                     slot=last_caller_slot,
                                     slot_changes=[
                                         BalStorageChange(
-                                            block_access_index=0,
+                                            block_access_index=1,
                                             post_value=SYSTEM_ADDRESS,
                                         )
                                     ],
@@ -608,7 +611,7 @@ def test_bal_pre_execution_calls_net_storage_at_index_zero(
                             storage_reads=[toggle_slot],
                             nonce_changes=[
                                 BalNonceChange(
-                                    block_access_index=0, post_nonce=3
+                                    block_access_index=1, post_nonce=3
                                 )
                             ],
                         ),
@@ -616,21 +619,23 @@ def test_bal_pre_execution_calls_net_storage_at_index_zero(
                             address: BalAccountExpectation(
                                 nonce_changes=[
                                     BalNonceChange(
-                                        block_access_index=0, post_nonce=1
+                                        block_access_index=1, post_nonce=1
                                     )
                                 ],
                                 code_changes=[],
                             )
                             for address in created
                         },
-                        BEACON_ROOTS_ADDRESS: BalAccountExpectation.empty(),
+                        WITHDRAWAL_REQUEST_ADDRESS: (
+                            BalAccountExpectation.empty()
+                        ),
                         SYSTEM_ADDRESS: None,
                     }
                 ),
             )
         ],
         post={
-            HISTORY_STORAGE_ADDRESS: Account(
+            CONSOLIDATION_REQUEST_ADDRESS: Account(
                 nonce=3,
                 storage={
                     toggle_slot: 0,
@@ -644,49 +649,51 @@ def test_bal_pre_execution_calls_net_storage_at_index_zero(
 
 
 @pytest.mark.pre_alloc_mutable()
-def test_bal_system_call_change_kept_when_tx_restores_slot(
+def test_bal_tx_change_kept_when_system_call_restores_slot(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
-    Netting stops at the index boundary: a slot the history system call
-    sets at index 0 and a transaction restores at index 1 keeps both
-    changes, although the block leaves it at its starting value.
+    Netting stops at the index boundary: a slot a transaction sets at
+    index 1 and the consolidation system call restores at index 2 keeps
+    both changes, although the block leaves it at its starting value.
     """
     caller_slot = 1
     counter_slot = 2
     alice = pre.fund_eoa()
 
-    # The contract records its caller and counts its calls. Alice's
-    # address is the caller slot's starting value, so the system call
-    # moves it and her transaction puts it back; the counter reaching two
+    # The contract records its caller and counts its calls. The system
+    # address is the caller slot's starting value, so Alice's transaction
+    # moves it and the system call puts it back; the counter reaching two
     # is what separates that round trip from neither call running.
-    pre[HISTORY_STORAGE_ADDRESS] = Account(
+    pre[CONSOLIDATION_REQUEST_ADDRESS] = Account(
         nonce=1,
         code=Op.SSTORE(caller_slot, Op.CALLER)
         + Op.SSTORE(counter_slot, Op.ADD(Op.SLOAD(counter_slot), 1)),
-        storage={caller_slot: alice},
+        storage={caller_slot: SYSTEM_ADDRESS},
     )
 
     blockchain_test(
         pre=pre,
         blocks=[
             Block(
-                txs=[Transaction(sender=alice, to=HISTORY_STORAGE_ADDRESS)],
+                txs=[
+                    Transaction(sender=alice, to=CONSOLIDATION_REQUEST_ADDRESS)
+                ],
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
-                        HISTORY_STORAGE_ADDRESS: BalAccountExpectation(
+                        CONSOLIDATION_REQUEST_ADDRESS: BalAccountExpectation(
                             storage_changes=[
                                 BalStorageSlot(
                                     slot=caller_slot,
                                     slot_changes=[
                                         BalStorageChange(
-                                            block_access_index=0,
-                                            post_value=SYSTEM_ADDRESS,
-                                        ),
-                                        BalStorageChange(
                                             block_access_index=1,
                                             post_value=alice,
+                                        ),
+                                        BalStorageChange(
+                                            block_access_index=2,
+                                            post_value=SYSTEM_ADDRESS,
                                         ),
                                     ],
                                 ),
@@ -694,11 +701,11 @@ def test_bal_system_call_change_kept_when_tx_restores_slot(
                                     slot=counter_slot,
                                     slot_changes=[
                                         BalStorageChange(
-                                            block_access_index=0,
+                                            block_access_index=1,
                                             post_value=1,
                                         ),
                                         BalStorageChange(
-                                            block_access_index=1,
+                                            block_access_index=2,
                                             post_value=2,
                                         ),
                                     ],
@@ -718,8 +725,8 @@ def test_bal_system_call_change_kept_when_tx_restores_slot(
             )
         ],
         post={
-            HISTORY_STORAGE_ADDRESS: Account(
-                storage={caller_slot: alice, counter_slot: 2}
+            CONSOLIDATION_REQUEST_ADDRESS: Account(
+                storage={caller_slot: SYSTEM_ADDRESS, counter_slot: 2}
             ),
             alice: Account(nonce=1),
         },
