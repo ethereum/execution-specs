@@ -63,6 +63,8 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
                 f"--state.chainid={content['state']['chainid']}",
                 f"--state.reward={content['state']['reward']}",
             ]
+            if content["state"].get("forkActivation", False):
+                args.append("--state.fork-activation")
 
             trace = content.get("trace", False)
             output_basedir = content.get("output-basedir")
