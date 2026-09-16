@@ -9,6 +9,7 @@ from execution_testing import (
     Block,
     Fork,
     Hash,
+    TestPhaseManager,
     Transaction,
 )
 
@@ -88,6 +89,35 @@ def build_benchmark_txs(
 
     assert txs, "Gas loop produced zero transactions"
     return txs, total_gas_consumed
+
+
+# One block is enough to leave the client's first-block state; a handful of
+# transactions also takes the per-transaction paths past their first run.
+STARTUP_BLOCK_TX_COUNT = 10
+
+
+def build_startup_block(pre: Alloc) -> Block:
+    """
+    Build a setup block so the benchmark block is not the client's first.
+
+    A client pays one-off costs on the first block a process sees:
+    compiling its hot paths, filling caches that start empty, opening
+    database handles.  A benchmark whose only block is the measured one
+    bills all of that to the benchmark.  Every account this block touches
+    is created by it, so the state the benchmark reads stays cold.
+    """
+    with TestPhaseManager.setup():
+        sender = pre.fund_eoa()
+        return Block(
+            txs=[
+                Transaction(
+                    to=pre.fund_eoa(amount=0),
+                    value=1,
+                    sender=sender,
+                )
+                for _ in range(STARTUP_BLOCK_TX_COUNT)
+            ]
+        )
 
 
 def build_cache_strategy_blocks(

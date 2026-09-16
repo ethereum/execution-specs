@@ -29,6 +29,7 @@ from tests.benchmark.helper.account_sender_receiver import (
     yield_distinct_nonexistent_receiver,
     yield_distinct_sender,
 )
+from tests.benchmark.helper.transactions import build_startup_block
 
 
 @pytest.mark.repricing
@@ -191,7 +192,7 @@ def test_ether_transfers_onchain_receivers(
     benchmark_test(
         pre=pre,
         post={},
-        blocks=[Block(txs=txs)],
+        blocks=[build_startup_block(pre), Block(txs=txs)],
         expected_benchmark_gas_used=iteration_count * iteration_cost,
         expected_receipt_status=1,
     )
