@@ -58,6 +58,13 @@ activate after Amsterdam; mapper aliases alone cannot bypass fork-order checks.
 These scenarios are therefore excluded from automatic fixture releases pending
 client support. Successful filling does not establish client compatibility.
 
+The Python Specification workflow fills from Amsterdam through BPODecrease
+in its existing Amsterdam matrix entry. The `not slow and primary_format`
+filter includes standalone reserve-price and excess-blob-gas cases, but excludes
+the synthetic transition tests marked `slow`. These CI fixtures are not
+published. Release splitting uses `.github/configs/fork-ranges.yaml`; the
+internal fill jobs are configured separately in `.github/workflows/test.yaml`.
+
 ## Further Help
 
 1. [`geth`/`evm` build documentation](https://geth.ethereum.org/docs/getting-started/installing-geth#build-from-source).
