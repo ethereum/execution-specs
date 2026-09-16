@@ -15,6 +15,7 @@ from execution_testing import (
 )
 
 from tests.benchmark.helper.loops import DECREMENT_COUNTER_CONDITION
+from tests.benchmark.helper.transactions import build_startup_blocks
 
 
 def test_call_value_to_empty(
@@ -106,6 +107,7 @@ def test_call_value_to_empty(
     )
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         pre=pre,
         post=post,
         blocks=[Block(txs=txs)],

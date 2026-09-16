@@ -40,6 +40,7 @@ from tests.benchmark.helper.storage import (
     executor_calldata_generator,
     initializer_calldata_generator,
 )
+from tests.benchmark.helper.transactions import build_startup_blocks
 
 
 def _max_sloads_per_tx(tx_gas_limit: int, fork: Fork) -> int:
@@ -205,6 +206,7 @@ def test_sload_benchmark(
     blocks.append(Block(txs=exec_txs))
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         pre=pre,
         blocks=blocks,
         expected_benchmark_gas_used=expected_gas_used,
@@ -215,6 +217,7 @@ def test_sload_benchmark(
 @pytest.mark.parametrize("storage_keys_pre_set", [False, True])
 def test_sload_same_key_benchmark(
     benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
     storage_keys_pre_set: bool,
 ) -> None:
     """
@@ -229,6 +232,7 @@ def test_sload_same_key_benchmark(
         contract_storage[1] = 1
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         target_opcode=Op.SLOAD,
         code_generator=JumpLoopGenerator(
             setup=Op.PUSH1(1) if storage_keys_pre_set else Op.PUSH0,
@@ -455,6 +459,7 @@ def test_sload_bloated_prefetch_miss(
     )
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         pre=pre,
         blocks=blocks,
         skip_gas_used_validation=True,
@@ -615,6 +620,7 @@ def test_sload_bloated_multi_contract(
     ]
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         pre=pre,
         blocks=blocks,
         skip_gas_used_validation=True,

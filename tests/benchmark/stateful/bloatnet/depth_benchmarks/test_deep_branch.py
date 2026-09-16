@@ -51,6 +51,8 @@ from execution_testing import (
 from execution_testing.base_types import StorageRootType
 from pydantic import BaseModel, BeforeValidator, Field
 
+from tests.benchmark.helper.transactions import build_startup_blocks
+
 # Folder path to the submodule and mined assets
 WORST_CASE_MINER_SUBMODULE_PATH = Path(__file__).parent / ".worst_case_miner"
 MINED_ASSETS_PATH = WORST_CASE_MINER_SUBMODULE_PATH / "mined_assets"
@@ -577,6 +579,7 @@ def test_worst_depth_stateroot_recomp(
     total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         pre=pre,
         blocks=[Block(txs=attack_txs)],
         post=post,
@@ -660,6 +663,7 @@ def test_worst_depth_get_deepest(
     total_gas_cost = sum(tx.gas_cost for tx in read_txs)
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         pre=pre,
         blocks=[Block(txs=read_txs)],
         expected_benchmark_gas_used=total_gas_cost,

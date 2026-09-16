@@ -31,6 +31,7 @@ from tests.benchmark.helper.storage import (
     executor_calldata_generator,
     initializer_calldata_generator,
 )
+from tests.benchmark.helper.transactions import build_startup_blocks
 
 
 @pytest.mark.repricing
@@ -409,6 +410,7 @@ def test_sstore_variants(
     blocks.append(Block(txs=exec_txs))
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         pre=pre,
         blocks=blocks,
         expected_benchmark_gas_used=expected_gas_used,
@@ -569,6 +571,7 @@ def test_sstore_dirty_transitions(
     blocks.append(Block(txs=exec_txs))
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         pre=pre,
         blocks=blocks,
         skip_gas_used_validation=True,

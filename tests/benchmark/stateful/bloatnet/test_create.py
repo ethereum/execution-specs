@@ -19,6 +19,7 @@ from execution_testing import (
 )
 
 from tests.benchmark.helper.loops import DECREMENT_COUNTER_CONDITION
+from tests.benchmark.helper.transactions import build_startup_blocks
 
 
 @pytest.mark.parametrize(
@@ -169,6 +170,7 @@ def test_create2_immediate_access(
     )
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         pre=pre,
         post=post,
         blocks=[block],

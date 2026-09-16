@@ -35,6 +35,7 @@ from tests.benchmark.helper.storage import (
     StorageInitRange,
     build_sequential_storage_init,
 )
+from tests.benchmark.helper.transactions import build_startup_blocks
 
 CURSOR_SLOT = 0
 CURSOR_INIT = 1
@@ -329,6 +330,7 @@ def run_bal_benchmark(
     }
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         pre=pre,
         post=post,
         blocks=blocks,
