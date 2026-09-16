@@ -68,7 +68,7 @@ Ordered, branching script of Engine API / JSON-RPC steps.
 
 Additional clients besides `main`, keyed by the name used in a step's `on` field. Empty when the test only exercises a single client.
 
-Every fixture in `tests/reorg` is currently single-client, so `clients` is empty and every step's `on` is `"main"`. The field pair exists because a block that one client has and another does not is the only way to drive a client into a genuine syncing state or to deliver a reorg over the wire, and because `on` appears on every step: adding it later would change the schema for every consumer. The first fixtures that use it deliver a chain to a peer and reorg the main client from it.
+Most fixtures in `tests/reorg` are single-client, leaving `clients` empty and every step's `on` at `"main"`. A block that one client has and another does not is the only way to drive a client into a genuine syncing state or to deliver a chain over the wire, which is what `tests/reorg/test_sync_delivery.py` does: the peer is sent the chain through the Engine API, the main client is given the resulting head without ever receiving a payload, and has to converge on it by syncing from the peer.
 
 #### - `requires`: [`Optional`](./common_types.md#optional)`[`[`Mapping`](./common_types.md#mapping)`[String,``String``]]`
 
