@@ -35,8 +35,11 @@ EVM_CONFIG = Path(".github/configs/evm.yaml")
 
 VERSION_RE = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 
-# Devnet release branches follow `devnets/<feat-or-fork>/<n>`, e.g.
-# `devnets/bal/7` or `devnets/glamsterdam/6`; `<n>` is the devnet number.
+# A devnet release can be cut from any branch. Branches following the
+# `devnets/<feat-or-fork>/<n>` scheme (e.g. `devnets/bal/7` or
+# `devnets/glamsterdam/6`) encode the devnet number `<n>`, which the
+# version major is checked against; any other branch (e.g.
+# `eips/amsterdam/eip-8141`) carries no number to check.
 DEVNET_BRANCH_RE = re.compile(r"^devnets/[^/]+/([0-9]+)$")
 
 # Canonical fork ordering used to filter fork ranges per feature.
@@ -90,9 +93,11 @@ def validate_inputs(feature: str, version: str, branch: str, evm: str) -> None:
     unit-testable rather than living as inline bash in the release
     workflow.
 
-    For `<feat>-devnet` releases the major version (`X` of `vX.Y.Z`)
-    must equal the devnet number encoded in the release branch, so a
-    `bal-devnet` release from `devnets/bal/7` must be tagged `v7.*.*`.
+    `<feat>-devnet` releases need a `branch` to build from, which can
+    be any branch. When it follows the `devnets/<feat>/<n>` scheme, the
+    major version (`X` of `vX.Y.Z`) must equal its devnet number `<n>`,
+    so a `bal-devnet` release from `devnets/bal/7` must be tagged
+    `v7.*.*`; a release from `eips/amsterdam/eip-8141` is not checked.
     """
     if not feature:
         fail("feature name is empty")
@@ -121,14 +126,13 @@ def validate_inputs(feature: str, version: str, branch: str, evm: str) -> None:
         if not branch:
             fail(
                 "devnet releases require a 'branch' input, "
-                "e.g. branch=devnets/bal/7"
+                "e.g. branch=devnets/bal/7 or branch=eips/amsterdam/eip-8141"
             )
+        # Only a `devnets/<feat>/<n>` branch encodes a devnet number to
+        # cross-check the version major against.
         match = DEVNET_BRANCH_RE.match(branch)
-        if not match:
-            fail(
-                f"could not parse a devnet number from branch '{branch}' "
-                "(expected devnets/<feat>/<n>, e.g. devnets/bal/7)"
-            )
+        if match is None:
+            return
         devnet_number = int(match.group(1))
         major = int(version.lstrip("v").split(".")[0])
         if major != devnet_number:
