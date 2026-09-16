@@ -133,10 +133,30 @@ lint-actions:
 coverage:
     uv run coverage html -d "{{ output_dir }}/fill/coverage-html"
 
-# Generate EIP test checklists from eip_checklist markers                                                                         
-[group('consensus tests')] 
+# Generate EIP test checklists from eip_checklist markers
+[group('consensus tests')]
 checklist *args:
     uv run checklist --output tmp/checklist "$@"
+
+# --- Development ---
+
+# Static checks plus minimal test suite for quick validation
+[group('development')]
+smoke *args: typecheck lint-spec lock-check lint-actions format-check
+    @mkdir -p "{{ output_dir }}/smoke/tmp"
+    uv run fill \
+        -m "eels_base_coverage and not derived_test" \
+        -n 14 \
+        -x \
+        --skip-index \
+        --clean \
+        --generate-all-formats \
+        --until {{ latest_fork }} \
+        --basetemp="{{ output_dir }}/smoke/tmp" \
+        "$@" \
+        tests
+
+# --- Fill Tests ---
 
 # Fill the consensus tests using EELS (with Python)
 [group('consensus tests')]
