@@ -276,6 +276,206 @@ def test_cross_frame_refund_repays_spill_at_merge(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize("call_opcode", [Op.CALLCODE, Op.DELEGATECALL])
+@pytest.mark.parametrize(
+    "fund_half_slot",
+    [False, True],
+    ids=["empty-reservoir", "half-slot-reservoir"],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_sibling_frame_credit_repays_child_spill(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_opcode: Opcode,
+    fork: Fork,
+    fund_half_slot: bool,
+) -> None:
+    """
+    Test a sibling frame's credit repays a spill raised in a child.
+
+    One child sharing the caller's storage sets the slot and spills
+    the uncovered state charge; its claim merges into the parent. A
+    second child, entered after the first has returned, clears the
+    slot, and its credit repays that claim on its own merge: the
+    clearing window costs exactly the spilled amount less than a
+    no-op window. Half-slot funding makes the spill smaller than the
+    full-slot refund, catching repayment tracked by slot count.
+    """
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    reservoir = sstore_state_gas // 2 if fund_half_slot else 0
+    spilled = sstore_state_gas - reservoir
+
+    setter = pre.deploy_contract(code=Op.SSTORE(SLOT_X, 1))
+    clearer = pre.deploy_contract(code=Op.SSTORE(SLOT_X, 0))
+    window = Op.POP(call_opcode(address=clearer))
+    contract = pre.deploy_contract(
+        code=clearing_probe_code(
+            Op.POP(call_opcode(address=setter)), [window] * 3
+        )
+    )
+
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=reservoir,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        contract: Account(
+            storage={
+                SLOT_X: 0,
+                SLOT_MARKER: 1,
+                SLOT_INCREASED: 1,
+                SLOT_RESULT: -spilled,
+            }
+        )
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("reservoir_slots", [0, 1])
+@pytest.mark.valid_from("EIP8037")
+def test_later_set_spills_after_sibling_repayment(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    reservoir_slots: int,
+) -> None:
+    """
+    Test a later set spills again once a sibling's credit is repaid.
+
+    A child sets the slot and a sibling clears it. With no reservoir
+    the set spilled, the sibling's merge repays the credit into
+    `gas_left`, and a fresh set in the parent finds the reservoir
+    empty and spills: the window costs the execution premium plus the
+    state cost. With a reservoir covering the set, nothing spilled, the
+    credit parks in the reservoir and the later set draws on it, so
+    the window costs the premium alone.
+    """
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    setter_code = FRESH_SET(SLOT_X, 1)
+    setter = pre.deploy_contract(code=setter_code)
+    clearer_code = WARM_CLEAR(SLOT_X, 0)
+    clearer = pre.deploy_contract(code=clearer_code)
+    window_1 = FRESH_SET(SLOT_Y, 1)
+    window_2 = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=1,
+    )(SLOT_Y, 1)
+    execution_premium = window_1.execution_cost(
+        fork
+    ) - window_2.execution_cost(fork)
+    later_spill = sstore_state_gas if reservoir_slots == 0 else 0
+    code = (
+        Op.MSTORE(64, 0, new_memory_size=96, old_memory_size=0)
+        + Op.POP(
+            Op.DELEGATECALL(
+                gas=budget_above_sstore_stipend(fork, setter_code),
+                address=setter,
+                address_warm=False,
+            )
+        )
+        + Op.POP(
+            Op.DELEGATECALL(
+                gas=budget_above_sstore_stipend(fork, clearer_code),
+                address=clearer,
+                address_warm=False,
+            )
+        )
+        + Op.MSTORE(0, Op.GAS)
+        + window_1
+        + Op.MSTORE(32, Op.GAS)
+        + window_2
+        + Op.MSTORE(64, Op.GAS)
+        + window_cost_excess()
+    )
+    contract = pre.deploy_contract(code=code)
+
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=reservoir_slots * sstore_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        contract: Account(
+            storage={
+                SLOT_X: 0,
+                SLOT_Y: 1,
+                SLOT_RESULT: execution_premium + later_spill,
+            }
+        )
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("reservoir_slots", [0, 1, 2])
+@pytest.mark.valid_from("EIP8037")
+def test_sibling_credit_receipt_with_reservoir_grant(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    reservoir_slots: int,
+) -> None:
+    """
+    Test the receipt after a sibling's credit, however much reservoir.
+
+    A child sets the slot, spilling unless the reservoir covers it, a
+    sibling clears it, and a later set in the parent survives. The
+    surviving set is billed at the full state price and the receipt
+    is the same with no, one or a surplus slot of reservoir, so
+    routing the refund through a sibling frame buys no discount.
+    """
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    setter_code = FRESH_SET(SLOT_X, 1)
+    setter = pre.deploy_contract(code=setter_code)
+    clearer_code = WARM_CLEAR(SLOT_X, 0)
+    clearer = pre.deploy_contract(code=clearer_code)
+
+    code = (
+        Op.POP(
+            Op.DELEGATECALL(
+                gas=budget_above_sstore_stipend(fork, setter_code),
+                address=setter,
+                address_warm=False,
+            )
+        )
+        + Op.POP(
+            Op.DELEGATECALL(
+                gas=budget_above_sstore_stipend(fork, clearer_code),
+                address=clearer,
+                address_warm=False,
+            )
+        )
+        + FRESH_SET(SLOT_PROBE, 1)
+    )
+    contract = pre.deploy_contract(code=code)
+
+    # The cleared slot cancels out of the settlement sum; only the
+    # probe's state charge survives.
+    gas_used = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + code.gas_cost(fork)
+        + setter_code.gas_cost(fork)
+        + clearer_code.gas_cost(fork)
+        - clearer_code.state_refund(fork)
+    )
+    refund = clearer_code.refund(fork) - clearer_code.state_refund(fork)
+    gas_used -= min(gas_used // fork.max_refund_quotient(), refund)
+
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=reservoir_slots * sstore_state_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
+    )
+
+    post = {contract: Account(storage={SLOT_X: 0, SLOT_PROBE: 1})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
 @pytest.mark.parametrize(
     "fund_half_slot",
     [False, True],
