@@ -62,7 +62,8 @@ class EthrexExceptionMapper(ExceptionMapper):
     }
     mapping_regex = {
         TransactionException.INVALID_SIGNATURE_VRS: (
-            r"Couldn't recover addresses with error: invalid signature|"
+            r"Couldn't recover addresses with error: "
+            r"(invalid signature|recovery failed)|"
             r"Error decoding field 'signature_y_parity' of type bool: "
             r"MalformedBoolean"
         ),
