@@ -301,6 +301,19 @@ BLOCK_EXCEPTION_TYPE = (
 )
 
 
+def expects_only_transaction_exceptions(
+    exception: BLOCK_EXCEPTION_TYPE,
+) -> bool:
+    """
+    Return whether every exception a block expects is a transaction
+    exception, so the block is invalid only because of a transaction.
+    """
+    if exception is None:
+        return False
+    exceptions = exception if isinstance(exception, list) else [exception]
+    return all(isinstance(e, TransactionException) for e in exceptions)
+
+
 class Block(Header):
     """Block type used to describe block properties in test specs."""
 
@@ -1081,6 +1094,24 @@ class BlockchainTest(BaseTest):
                     f"computed hash from BAL: {header.block_access_list_hash} "
                     f"!= {computed_block_access_list_hash}"
                 )
+
+        # A header that claims zero gas used while the block carries
+        # transactions is inconsistent on its own, and some clients reject
+        # it before validating any transaction. A block that is invalid
+        # only because of one of its transactions must reach that
+        # validation, so claim the gas the rejected transactions could have
+        # used, and at least one gas when their limits are zero. A
+        # test-supplied `rlp_modifier` is applied afterwards and still wins.
+        if (
+            txs
+            and header.gas_used == 0
+            and expects_only_transaction_exceptions(block.exception)
+        ):
+            claimed_gas_used = min(
+                sum(int(tx.gas_limit) for tx in txs),
+                int(env.gas_limit),
+            )
+            header.gas_used = ZeroPaddedHexNumber(max(claimed_gas_used, 1))
 
         if block.rlp_modifier is not None:
             # Modify any parameter specified in the `rlp_modifier` after
