@@ -12,7 +12,7 @@
   until: Prague
 - label: osaka
   from: Osaka
-  until: BPO5
+  until: BPO2
 - label: amsterdam
   from: Amsterdam
   until: Amsterdam
