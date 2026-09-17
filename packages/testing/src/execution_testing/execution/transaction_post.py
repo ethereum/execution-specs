@@ -26,6 +26,10 @@ from .base import BaseExecute, ExecuteResult
 
 logger = get_logger(__name__)
 
+EMPTY_STORAGE_ROOT = (
+    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+)
+
 
 class TransactionPost(BaseExecute):
     """
@@ -201,9 +205,6 @@ class TransactionPost(BaseExecute):
                     "storage" in expected_account.model_fields_set
                     and expected_account.storage is None
                 ):
-                    EMPTY_STORAGE_ROOT = (
-                        "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
-                    )
                     proof = eth_rpc.get_proof(address)
                     storage_hash = proof.get("storageHash", "")
                     assert storage_hash == EMPTY_STORAGE_ROOT, (

@@ -139,8 +139,8 @@ def state_test(  # noqa: D103
                 address=ADDRESS_UNDER_TEST, key=1, want=2, got=0
             ),
         ),
-        (  # mismatch_3_a: Storage.EMPTY vs 1:2
-            {ADDRESS_UNDER_TEST: Account(storage=Storage.EMPTY, nonce=1)},
+        (  # mismatch_3_a: 0:0 (empty) vs 1:2
+            {ADDRESS_UNDER_TEST: Account(storage={}, nonce=1)},
             {ADDRESS_UNDER_TEST: Account(storage={"0x01": "0x02"})},
             Storage.KeyValueMismatchError(
                 address=ADDRESS_UNDER_TEST, key=1, want=2, got=0

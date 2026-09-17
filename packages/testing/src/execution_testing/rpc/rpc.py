@@ -1104,7 +1104,11 @@ class EthRPC(BaseRPC):
         )
         call_info.append(("nonce", None))
 
-        if account is not None and "storage" in account.model_fields_set:
+        if (
+            account is not None
+            and "storage" in account.model_fields_set
+            and account.storage is not None
+        ):
             for key in account.storage.root:
                 calls.append(
                     RPCCall(
