@@ -188,3 +188,54 @@ def test_single_small_withdrawal_root_is_hashed(
             )
         ],
     )
+
+
+@pytest.mark.parametrize("count", [3, 16], ids=["count_3", "count_16"])
+def test_withdrawal_branch_mixes_embedded_and_hashed(
+    blockchain_test: BlockchainTestFiller, pre: Alloc, count: int
+) -> None:
+    """
+    Pre: no withdrawals-trie content (each block builds its own).
+    Op: one block with `count` withdrawals; odd indices carry 2**16 Gwei,
+    even ones 2**24 Gwei.
+    Post: root branch -> {nibble 8: leaf for index 0 (path `[0]`),
+    nibble 0: branch of `count - 1` leaves with an *empty* path}. Odd
+    leaves encode to 31 bytes and are inlined in that branch, even ones to
+    32 bytes and are hashed, so one branch mixes both child encodings.
+    Exercises: zero-length leaf paths (compact prefix `0x20`), unreachable
+    in state tries, and a branch whose children alternate between inline
+    lists and 32-byte hashes. With 16 withdrawals the inner branch is at
+    the protocol maximum of 15 children plus the index-0 leaf elsewhere.
+    """
+    recipients = [pre.fund_eoa(amount=0) for _ in range(count)]
+    amounts = [2**16 if i % 2 else 2**24 for i in range(count)]
+    assert _shape(count, 1) == [
+        (0, "branch", 2),
+        (1, "branch", count - 1),
+        (2, "leaf", 0),
+    ]
+    assert _shape(count, 0) == [(0, "branch", 2), (1, "leaf", 1)]
+    for i in range(1, count):
+        size = _leaf_rlp_size(count, i, i, bytes(recipients[i]), amounts[i])
+        assert (size < 32) == bool(i % 2), (i, size)
+
+    blockchain_test(
+        pre=pre,
+        post={
+            recipient: Account(balance=amount * GWEI)
+            for recipient, amount in zip(recipients, amounts, strict=True)
+        },
+        blocks=[
+            Block(
+                withdrawals=[
+                    Withdrawal(
+                        index=i,
+                        validator_index=i,
+                        address=recipients[i],
+                        amount=amounts[i],
+                    )
+                    for i in range(count)
+                ]
+            )
+        ],
+    )
