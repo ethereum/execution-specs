@@ -1,33 +1,29 @@
 """
-Exercise the Merkle Patricia Trie as a data structure via account addresses.
+Exercise the Merkle Patricia Trie via account addresses.
 
-The account trie has the same mechanics as the storage trie (both key on
-keccak256 of the preimage), but most clients implement it as a separate
-code path (reth's account vs storage walkers, Besu's Bonsai account
-accumulator, erigon's unified `HexPatriciaHashed` keying), so the same
-shapes are exercised here over addresses (`*_ADDRS_*` constants).
+The account trie runs the same node code as a storage trie in every
+surveyed client; what differs is the bookkeeping around it: account
+destruction and resurrection, the storage root carried inside the leaf
+value, and the accounts every block touches (sender, coinbase, system
+contracts). The tests here target that bookkeeping on mined addresses
+(`*_ADDRS_*` in `constants.py`).
 
-Address control uses `pre.fund_address()` (public API, no
-`pre_alloc_mutable`, execute-mode aware). The account trie also holds
-uncontrolled accounts -- sender, fee recipient, the deterministic factory
--- so shape assertions are *local*: they check the node at the mined
-group's shared depth, which uncontrolled accounts can only perturb if one
-shares that prefix, which the fill-time assertion would then report.
+The account trie also holds accounts the test does not control, so shape
+assertions are computed over the full genesis set (pre-alloc plus the
+fork's system contracts, plus the coinbase after the block) and pin the
+node kind around the mined group rather than the whole path; an
+uncontrolled account sharing the group's prefix would fail the fill.
 
-Deleting a committed account leaf on a post-Cancun fork is only possible
-for a contract created in the same transaction (EIP-6780). The deletion
-tests therefore fund a mined address at genesis and, in a later
-transaction, CREATE2 onto it via the deterministic factory with init code
-that immediately `SELFDESTRUCT`s: creation at a balance-only address is
-legal (no nonce or code), the contract counts as created in the
-transaction, and its pre-existing leaf is removed. Wiping a committed
-*storage* trie in one step while its account survives (the SELFDESTRUCT
-storage clear that client wipe tests model) is not expressible on these
-forks: storage is only emptied slot by slot, and EIP-6780 removes the
-whole account.
-
-Pinned to the latest deployed fork so every client consumes one identical
-fixture set; MPT rules are fork-invariant.
+Deleting a committed account leaf on these forks is only possible for a
+contract created in the same transaction (EIP-6780). The deletion tests
+fund a mined address at genesis and CREATE2 onto it through the
+deterministic factory with init code that immediately self-destructs:
+creation at a balance-only address is legal, the contract counts as
+created in the transaction, and the pre-existing leaf is removed. Not
+expressible on these forks: wiping a committed storage trie in one step
+while its account survives, and (excluded on purpose) CREATE2 onto an
+address with pre-existing storage, where this specification and geth
+currently disagree.
 """
 
 from typing import Iterable, List
@@ -42,6 +38,8 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Environment,
+    Fork,
     Hash,
     Op,
     StateTestFiller,
@@ -56,9 +54,10 @@ from .constants import (
     EXT_MERGE_SALT,
     SINGLE_SLOT,
     SIXTEEN_ADDRS_BRANCH4,
+    SURVIVOR_SALT,
     TWO_ADDRS_EXT4,
 )
-from .trie_shape import Shape, node_at, path_shape
+from .trie_shape import Shape, account_shape, covering, node_at
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -66,12 +65,16 @@ REFERENCE_SPEC_VERSION = "N/A"
 pytestmark = pytest.mark.valid_from("Osaka")
 
 FUNDING = 10**18
+SLOT_WRITER = Op.SSTORE(Op.CALLDATALOAD(0), Op.CALLDATALOAD(32)) + Op.STOP
 
-# Beneficiary is ORIGIN so the init code, and therefore every CREATE2
-# address derived from it, does not depend on any per-test address. The
-# salts in `constants.py` were mined against these exact bytes.
+# The salts in `constants.py` were mined against exactly these bytes and
+# this factory address; either changing would silently move every doomed
+# address.
 DELETE_INITCODE = bytes(Op.SELFDESTRUCT(Op.ORIGIN))
 assert DELETE_INITCODE == bytes.fromhex("32ff")
+assert DETERMINISTIC_FACTORY_ADDRESS == Address(
+    0x4E59B44847B379578588920CA78FBF26C0B4956C
+)
 
 
 def create2_preimage(salt: int) -> bytes:
@@ -83,26 +86,20 @@ def create2_preimage(salt: int) -> bytes:
     )
 
 
-def _shape(accounts: Iterable[Address], target: Address) -> Shape:
-    return path_shape([bytes(a) for a in accounts], bytes(target))
-
-
 def _ensure_factory(pre: Alloc) -> None:
     """
-    Bring the deterministic factory into the pre-alloc. The filler only
-    injects it on first use of `deterministic_deploy_contract`, so deploy a
-    trivial contract through it; the mined salts assume the factory sits at
-    `DETERMINISTIC_FACTORY_ADDRESS`.
+    Bring the deterministic factory into the pre-alloc.
+
+    The filler only injects it on first use of
+    `deterministic_deploy_contract`, so deploy a trivial contract through
+    it.
     """
     pre.deterministic_deploy_contract(deploy_code=Op.STOP)
     assert DETERMINISTIC_FACTORY_ADDRESS in pre
 
 
 def _delete_tx(sender: EOA, salt: int) -> Transaction:
-    """
-    Ask the deterministic factory to CREATE2 `DELETE_INITCODE` with `salt`;
-    the created contract self-destructs to ORIGIN in the same transaction.
-    """
+    """CREATE2 `DELETE_INITCODE` with `salt`; it self-destructs at once."""
     return Transaction(
         sender=sender,
         to=DETERMINISTIC_FACTORY_ADDRESS,
@@ -110,37 +107,70 @@ def _delete_tx(sender: EOA, salt: int) -> Transaction:
     )
 
 
-# --- inserts at genesis -----------------------------------------------
+def _genesis(pre: Alloc, fork: Fork) -> List[Address]:
+    """Every address in the genesis trie: pre-alloc and system contracts."""
+    return [*pre, *(Address(a) for a in fork.pre_allocation_blockchain())]
 
 
-def test_insert_splits_into_extension_and_branch(
-    state_test: StateTestFiller, pre: Alloc
+def _after_block(
+    genesis: Iterable[Address], *removed: Address
+) -> List[Address]:
+    """Addresses after a block: `removed` gone, the coinbase credited."""
+    return [a for a in genesis if a not in removed] + [
+        Environment().fee_recipient
+    ]
+
+
+def _shape(addresses: Iterable[Address], target: Address) -> Shape:
+    return account_shape(addresses, target)
+
+
+# --- shapes present at genesis ------------------------------------------
+
+
+def test_genesis_extension_and_branch(
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
 ) -> None:
-    """Two addresses sharing 4 nibbles meet in a 2-child branch at depth 4."""
+    """
+    Two funded addresses sharing four nibbles sit under one branch.
+
+    pre:  .. -> branch@4 -> {leaf, leaf}
+    post: unchanged (an unrelated transfer)
+    """
     a, b = (Address(x) for x in TWO_ADDRS_EXT4)
     pre.fund_address(a, amount=1)
     pre.fund_address(b, amount=2)
-    assert node_at(_shape(pre, a), 4) == ("branch", 2)
+    sender, recipient = pre.fund_eoa(), pre.fund_eoa(amount=1)
+    assert node_at(_shape(_genesis(pre, fork), a), 4) == ("branch", 2)
 
     state_test(
         pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=pre.fund_eoa(amount=1)),
+        tx=Transaction(sender=sender, to=recipient),
         post={a: Account(balance=1), b: Account(balance=2)},
     )
 
 
-def test_insert_full_branch_arity_sixteen(
-    state_test: StateTestFiller, pre: Alloc
+def test_genesis_full_branch_arity_sixteen(
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
 ) -> None:
-    """Sixteen addresses sharing 4 nibbles fill every child of one branch."""
+    """
+    Sixteen funded addresses sharing four nibbles fill one branch.
+
+    pre:  .. -> branch@4 -> {16 x leaf}
+    post: unchanged (an unrelated transfer)
+    """
     addresses = [Address(x) for x in SIXTEEN_ADDRS_BRANCH4]
     for i, address in enumerate(addresses):
         pre.fund_address(address, amount=i + 1)
-    assert node_at(_shape(pre, addresses[0]), 4) == ("branch", 16)
+    sender, recipient = pre.fund_eoa(), pre.fund_eoa(amount=1)
+    assert node_at(_shape(_genesis(pre, fork), addresses[0]), 4) == (
+        "branch",
+        16,
+    )
 
     state_test(
         pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=pre.fund_eoa(amount=1)),
+        tx=Transaction(sender=sender, to=recipient),
         post={a: Account(balance=i + 1) for i, a in enumerate(addresses)},
     )
 
@@ -156,23 +186,25 @@ def _pay_each(addresses: List[Address]) -> Bytecode:
 
 
 def test_insert_full_branch_during_execution(
-    state_test: StateTestFiller, pre: Alloc
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """
-    A contract pays 1 wei to each of sixteen mined addresses, creating
-    the 16-way branch against the committed genesis trie rather than in
-    the genesis allocation.
+    A contract pays sixteen mined addresses, creating their leaves.
+
+    pre:  no node at depth 4 on the group's path
+    post: .. -> branch@4 -> {16 x leaf}
     """
     addresses = [Address(x) for x in SIXTEEN_ADDRS_BRANCH4]
     payer = pre.deploy_contract(code=_pay_each(addresses), balance=16)
-    assert node_at(_shape([*pre, *addresses], addresses[0]), 4) == (
-        "branch",
-        16,
-    )
+    sender = pre.fund_eoa()
+    genesis = _genesis(pre, fork)
+    assert covering(_shape(genesis, addresses[0]), 4)[1] != "branch"
+    after = _after_block(genesis) + addresses
+    assert node_at(_shape(after, addresses[0]), 4) == ("branch", 16)
 
     state_test(
         pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=payer),
+        tx=Transaction(sender=sender, to=payer),
         post={
             payer: Account(balance=0),
             **{a: Account(balance=1) for a in addresses},
@@ -184,11 +216,15 @@ def test_touched_empty_account_never_persists(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    A zero-value call to a never-seen address creates a transiently empty
-    account that EIP-161 state clearing prunes before the state root is
-    computed; it must not appear in the trie.
+    A zero-value call to a never-seen address creates nothing.
+
+    pre:  no leaf for the target
+    post: still none
+    Control: EIP-161 clears the transiently empty account before the root
+    is computed.
     """
     target = pre.fund_eoa(amount=0)
+    assert target not in pre
 
     state_test(
         pre=pre,
@@ -201,12 +237,13 @@ def test_touched_empty_account_never_persists(
 
 
 def test_delete_collapses_branch_into_leaf(
-    state_test: StateTestFiller, pre: Alloc
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """
-    Two funded accounts share 4 nibbles (ext -> branch -> 2 leaves). The
-    same-transaction CREATE2 + SELFDESTRUCT deletes one; the branch
-    collapses onto the survivor.
+    Delete one of two funded accounts sharing four nibbles.
+
+    pre:  .. -> ext -> branch@4 -> {survivor, doomed}
+    post: .. -> leaf   (the survivor absorbs the nibble and the extension)
     """
     survivor = Address(TWO_ADDRS_EXT4[0])
     doomed = Address(create2_preimage(COLLAPSE_SALT))
@@ -214,10 +251,12 @@ def test_delete_collapses_branch_into_leaf(
     pre.fund_address(doomed, amount=FUNDING)
     _ensure_factory(pre)
     sender = pre.fund_eoa()
-    assert node_at(_shape(pre, survivor), 4) == ("branch", 2)
-    after = [a for a in pre if a != doomed]
-    assert all(
-        kind != "branch" for d, kind, _ in _shape(after, survivor) if d == 4
+    genesis = _genesis(pre, fork)
+    before = _shape(genesis, survivor)
+    assert node_at(before, 4) == ("branch", 2)
+    assert before[before.index((4, "branch", 2)) - 1][1] == "ext"
+    assert covering(_shape(_after_block(genesis, doomed), survivor), 4)[1] == (
+        "leaf"
     )
 
     state_test(
@@ -231,11 +270,13 @@ def test_delete_collapses_branch_into_leaf(
 
 
 def test_delete_merges_adjacent_extensions(
-    state_test: StateTestFiller, pre: Alloc
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """
-    ext(2) -> branch -> {doomed leaf, ext(2) -> branch -> 2 leaves}:
-    deleting the doomed leaf merges the two extensions into ext(5).
+    Delete the shallow sibling of a nested extension.
+
+    pre:  .. -> ext -> branch@2 -> {doomed, ext(2) -> branch@5 -> {l1, l2}}
+    post: .. -> ext -> branch@5 -> {l1, l2}   (one extension ends at 5)
     """
     l1, l2 = (Address(x) for x in ADDR_EXT_MERGE_TRIO[:2])
     doomed = Address(create2_preimage(EXT_MERGE_SALT))
@@ -244,11 +285,16 @@ def test_delete_merges_adjacent_extensions(
     pre.fund_address(doomed, amount=FUNDING)
     _ensure_factory(pre)
     sender = pre.fund_eoa()
-    assert node_at(_shape(pre, l1), 2) == ("branch", 2)
-    assert node_at(_shape(pre, l1), 5) == ("branch", 2)
-    after = [a for a in pre if a != doomed]
-    assert node_at(_shape(after, l1), 5) == ("branch", 2)
-    assert all(kind != "branch" for d, kind, _ in _shape(after, l1) if d == 2)
+    genesis = _genesis(pre, fork)
+    before = _shape(genesis, l1)
+    assert node_at(before, 2) == ("branch", 2)
+    assert before[before.index((2, "branch", 2)) - 1][1] == "ext"
+    assert node_at(before, 3) == ("ext", 2)
+    assert node_at(before, 5) == ("branch", 2)
+    after = _shape(_after_block(genesis, doomed), l1)
+    depth, kind, size = covering(after, 2)
+    assert kind == "ext" and depth + size == 5
+    assert node_at(after, 5) == ("branch", 2)
 
     state_test(
         pre=pre,
@@ -265,21 +311,14 @@ def test_delete_merges_adjacent_extensions(
 
 
 def test_account_deleted_and_recreated_same_block(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """
-    Pre: two funded accounts sharing 4 nibbles (ext -> branch@4 -> 2
-    leaves), one of them the CREATE2 target `doomed`.
-    Op: in one block, tx1 CREATE2s onto `doomed` and SELFDESTRUCTs in the
-    same transaction (leaf deleted, branch@4 would collapse), tx2 sends
-    1 wei to the same address.
-    Post: `doomed` exists again as a balance-only leaf (nonce 0, no code,
-    no storage) and branch@4 has two children: the pre shape with one
-    changed leaf value.
-    Exercises: account resurrection inside one block diff. Clients that
-    record per-block destructions (geth `stateObjectsDestruct`, erigon
-    incarnations, reth destroyed-account status) must let the later write
-    re-create the leaf instead of keeping it deleted.
+    Delete a leaf and re-create it by a value transfer in the same block.
+
+    pre:  .. -> branch@4 -> {survivor, doomed}
+    post: the same shape; doomed is a balance-only leaf again
+    A per-block destruction record must not shadow the later write.
     """
     survivor = Address(TWO_ADDRS_EXT4[0])
     doomed = Address(create2_preimage(COLLAPSE_SALT))
@@ -287,10 +326,11 @@ def test_account_deleted_and_recreated_same_block(
     pre.fund_address(doomed, amount=FUNDING)
     _ensure_factory(pre)
     sender = pre.fund_eoa()
-    assert node_at(_shape(pre, survivor), 4) == ("branch", 2)
-    without = [a for a in pre if a != doomed]
-    assert all(
-        kind != "branch" for d, kind, _ in _shape(without, survivor) if d == 4
+    genesis = _genesis(pre, fork)
+    assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
+    assert node_at(_shape(_after_block(genesis), survivor), 4) == (
+        "branch",
+        2,
     )
 
     blockchain_test(
@@ -320,45 +360,47 @@ def test_account_deleted_and_recreated_same_block(
 def test_storage_root_flip_with_account_shape_change(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     pre_storage: StorageRootType,
     value: int,
 ) -> None:
     """
-    Pre: the ext -> branch@4 pair of the deletion tests, plus a contract
-    whose storage trie is either empty or a single leaf.
-    Op: in one block, tx1 deletes the doomed leaf (branch@4 collapses),
-    tx2 writes the contract's only slot: first write into the empty trie,
-    or zeroing of the single leaf.
-    Post: the account trie lost a leaf and the contract's leaf value
-    changed its storage-root field between EMPTY_TRIE_ROOT and a hash.
-    Exercises: an account-trie restructuring and a storage-root
-    transition in the same block diff. Clients that compute storage roots
-    before account-trie updates, or lazily, must combine both correctly.
+    The collapse survivor is a contract whose storage root flips.
+
+    pre:  .. -> ext -> branch@4 -> {survivor contract, doomed}
+    post: .. -> leaf whose value carries the flipped storage root
+    Storage root and account re-pathing change in one block diff. The
+    survivor is created through the factory with a salt mined so that its
+    address shares four nibbles with the doomed one.
     """
-    survivor = Address(TWO_ADDRS_EXT4[0])
     doomed = Address(create2_preimage(COLLAPSE_SALT))
-    pre.fund_address(survivor, amount=1)
-    pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre)
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(SINGLE_SLOT, value) + Op.STOP, storage=pre_storage
+    survivor = pre.deterministic_deploy_contract(
+        deploy_code=SLOT_WRITER, salt=SURVIVOR_SALT, storage=pre_storage
     )
+    pre.fund_address(doomed, amount=FUNDING)
     sender = pre.fund_eoa()
-    assert node_at(_shape(pre, survivor), 4) == ("branch", 2)
+    genesis = _genesis(pre, fork)
+    assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
+    assert covering(_shape(_after_block(genesis, doomed), survivor), 4)[1] == (
+        "leaf"
+    )
     post_storage = {SINGLE_SLOT: value} if value else {}
 
     blockchain_test(
         pre=pre,
         post={
-            survivor: Account(balance=1),
+            survivor: Account(storage=post_storage),
             doomed: Account.NONEXISTENT,
-            contract: Account(storage=post_storage),
         },
         blocks=[
             Block(
                 txs=[
                     _delete_tx(sender, COLLAPSE_SALT),
-                    Transaction(sender=sender, to=contract),
+                    Transaction(
+                        sender=sender,
+                        to=survivor,
+                        data=Hash(SINGLE_SLOT) + Hash(value),
+                    ),
                 ]
             )
         ],

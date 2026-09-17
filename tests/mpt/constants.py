@@ -152,6 +152,11 @@ EXT_MERGE_SALT: Final = 58  # shares exactly 2 nibbles with ADDR_EXT_MERGE_TRIO
 SHARE2_SALT: Final = 30  # shares exactly 2 nibbles with TWO_ADDRS_EXT4
 SHARE3_SALT: Final = 2620  # shares exactly 3 nibbles with TWO_ADDRS_EXT4
 
+# Smallest salt whose factory address for the account tests' SLOT_WRITER
+# init code (`Initcode(deploy_code=SLOT_WRITER)`) shares exactly 4 nibbles
+# with COLLAPSE_SALT's address: a contract survivor in that branch.
+SURVIVOR_SALT: Final = 22435
+
 # Smallest salts whose created addresses fall under SIXTEEN_ADDRS_BRANCH4's
 # 4-nibble prefix with 5th nibbles 0x1..0xf; with SIXTEEN_ADDRS_BRANCH4[0]
 # (5th nibble 0x0) they fill a 16-child branch of deletable leaves.
