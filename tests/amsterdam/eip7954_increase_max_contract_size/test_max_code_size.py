@@ -16,6 +16,7 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionReceipt,
     compute_create_address,
     keccak256,
 )
@@ -176,25 +177,32 @@ def test_max_code_size_deposit_gas(
         contract_creation=True,
     )
 
+    exact_gas = (
+        intrinsic_gas
+        + top_frame_state_gas
+        + initcode.evm_gas(fork)
+        + initcode.deployment_gas(fork)
+    )
     tx = Transaction(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=(
-            intrinsic_gas
-            + top_frame_state_gas
-            + initcode.evm_gas(fork)
-            + initcode.deployment_gas(fork)
-            - gas_shortfall
-        ),
+        gas_limit=exact_gas - gas_shortfall,
     )
-    # With shortfall, code deposit OOGs: tx succeeds but
-    # contract is not deployed
-    post = {
-        create_address: Account(code=deploy_code)
-        if not gas_shortfall
-        else Account.NONEXISTENT,
-    }
+
+    post: dict[Any, Account | None] = {}
+    if gas_shortfall:
+        # The deposit halts the frame, burning the whole execution gas
+        # allowance while the state gas reservoir is handed back.
+        tx.expected_receipt = TransactionReceipt(
+            cumulative_gas_used=fork.transaction_gas_limit_cap()
+        )
+        post[create_address] = Account.NONEXISTENT
+    else:
+        # Both gas pools land on exactly zero, so a misprice in any term
+        # shows up here.
+        tx.expected_receipt = TransactionReceipt(cumulative_gas_used=exact_gas)
+        post[create_address] = Account(code=deploy_code)
 
     state_test(pre=pre, tx=tx, post=post)
 
@@ -423,13 +431,14 @@ def test_max_code_size_high_jumpdest(
 
     target = pre.deploy_contract(target_code)
     caller = pre.deploy_contract(
-        Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP
+        Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP,
+        storage={0: FACTORY_SENTINEL},
     )
 
     tx = Transaction(sender=pre.fund_eoa(), to=caller)
 
     # Valid: jump completes, call succeeds (1), and the store is kept.
-    # Invalid: jump reverts, call fails (0), and nothing is stored.
+    # Invalid: jump reverts, the call fails and writes 0 over the sentinel.
     stored = 1 if valid_jumpdest else 0
     post = {
         caller: Account(storage={0: stored}),
@@ -484,13 +493,14 @@ def test_max_code_size_jumpdest_in_immediate(
 
     target = pre.deploy_contract(target_code)
     caller = pre.deploy_contract(
-        Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP
+        Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP,
+        storage={0: FACTORY_SENTINEL},
     )
 
     tx = Transaction(sender=pre.fund_eoa(), to=caller)
 
     # Accepted: jump completes, the call succeeds (1), the store is kept.
-    # Rejected: jump reverts, the call fails (0), nothing is stored.
+    # Rejected: jump reverts, the call fails and writes 0 over the sentinel.
     stored = 1 if accepted else 0
     post = {
         caller: Account(storage={0: stored}),

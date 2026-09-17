@@ -10,12 +10,15 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    BalAccountExpectation,
+    BlockAccessListExpectation,
     Fork,
     Initcode,
     Op,
     StateTestFiller,
     Transaction,
     TransactionException,
+    TransactionReceipt,
     compute_create_address,
     keccak256,
 )
@@ -145,57 +148,84 @@ def test_max_initcode_size_via_create(
             storage={0: create_address if created else FACTORY_SENTINEL}
         ),
     }
+    bal = None
     if created:
         post[create_address] = Account(code=Op.STOP)
     else:
+        # The child address is never computed, so it must be missing from
+        # the block access list, and the aborted factory frame leaves no
+        # changes of its own.
         post[create_address] = Account.NONEXISTENT
+        bal = BlockAccessListExpectation(
+            account_expectations={
+                factory: BalAccountExpectation.empty(),
+                create_address: None,
+            }
+        )
 
-    state_test(pre=pre, tx=tx, post=post)
+    state_test(pre=pre, tx=tx, post=post, expected_block_access_list=bal)
 
 
 @pytest.mark.inclusion_test
 @pytest.mark.parametrize(
-    "gas_shortfall",
+    "gas_limit_delta",
     [
-        pytest.param(0, id="exact_gas"),
         pytest.param(
-            1,
-            id="short_one_gas",
+            -1,
+            id="below_floor",
             marks=pytest.mark.exception_test,
         ),
+        pytest.param(0, id="at_floor"),
+        # Slack above the floor separates the gas limit from the gas
+        # charged, so the receipt can only match if the floor is priced.
+        pytest.param(100_000, id="above_floor"),
     ],
 )
-def test_max_initcode_size_gas_metering(
+def test_max_initcode_size_calldata_floor(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    gas_shortfall: int,
+    gas_limit_delta: int,
 ) -> None:
-    """Verify initcode gas metering at the new max initcode size."""
+    """
+    Ensure a creation transaction carrying a max-size initcode must cover the
+    calldata floor of that initcode, and pays exactly it.
+    """
     initcode = Initcode(
         deploy_code=Op.STOP, initcode_length=fork.max_initcode_size()
     )
     alice = pre.fund_eoa()
 
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
-        calldata=initcode, contract_creation=True
+    floor_gas = fork.transaction_data_floor_cost_calculator()(
+        data=initcode, contract_creation=True
     )
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=initcode,
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
+    )
+    # An initcode this large costs more by the floor than by the intrinsic
+    # cost, so the floor is the threshold the transaction is held to and the
+    # shortfall case is rejected for missing the floor, not the intrinsic.
+    assert floor_gas > intrinsic_gas
 
     tx = Transaction(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=intrinsic_gas - gas_shortfall,
-        error=TransactionException.INTRINSIC_GAS_TOO_LOW
-        if gas_shortfall
-        else None,
+        gas_limit=floor_gas + gas_limit_delta,
     )
 
-    post = {
-        compute_create_address(address=alice, nonce=0): Account.NONEXISTENT
-        if gas_shortfall
-        else Account(code=Op.STOP),
-    }
+    create_address = compute_create_address(address=alice, nonce=0)
+    post: dict[Any, Account | None] = {}
+    if gas_limit_delta < 0:
+        tx.error = TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
+        post[create_address] = Account.NONEXISTENT
+    else:
+        # The deployment spends a fraction of the floor, so the floor is
+        # what the sender is charged, spare gas or not.
+        tx.expected_receipt = TransactionReceipt(cumulative_gas_used=floor_gas)
+        post[create_address] = Account(code=Op.STOP)
 
     state_test(pre=pre, tx=tx, post=post)
 
