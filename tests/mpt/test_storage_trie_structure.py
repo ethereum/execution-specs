@@ -870,6 +870,40 @@ def test_mass_delete_sixteen_to_one(
     )
 
 
+def test_one_to_sixteen_into_committed_leaf(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: one slot of SIXTEEN_SLOTS_BRANCH4 committed at genesis as the
+    root leaf.
+    Op: write the other 15 slots in one block, one transaction each.
+    Post: ext(4) -> branch@4 with all 16 children.
+    Exercises: one split of a committed leaf into ext+branch followed by
+    14 slot fills of the branch it just created, all inside one block
+    diff. `test_insert_full_branch_across_blocks` grows a committed
+    branch from 8 to 16 but never starts from a leaf.
+    """
+    slots = SIXTEEN_SLOTS_BRANCH4
+    first, rest = slots[0], slots[1:]
+    assert _shape([first], first) == [(0, "leaf", 64)]
+    assert _shape(slots, first) == [
+        (0, "ext", 4),
+        (4, "branch", 16),
+        (5, "leaf", 59),
+    ]
+    values = {s: i + 1 for i, s in enumerate(slots)}
+    contract = pre.deploy_contract(code=SLOT_WRITER, storage={first: 1})
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage=values)},
+        blocks=[
+            Block(txs=[_write(sender, contract, s, values[s]) for s in rest])
+        ],
+    )
+
+
 # --- node embedding ----------------------------------------------------
 
 
