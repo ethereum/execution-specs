@@ -47,7 +47,14 @@ from .spec import Spec, ref_spec_7997
 REFERENCE_SPEC_GIT_PATH = ref_spec_7997.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7997.version
 
-pytestmark = pytest.mark.valid_from("EIP7997")
+pytestmark = [
+    pytest.mark.valid_from("EIP7997"),
+    pytest.mark.execute(
+        pytest.mark.skip(
+            reason="Fixed-salt deployments are single-shot on a live chain"
+        )
+    ),
+]
 
 FACTORY = Spec.FACTORY_ADDRESS
 RUNTIME_CODE = Op.RETURN(0, 1)
