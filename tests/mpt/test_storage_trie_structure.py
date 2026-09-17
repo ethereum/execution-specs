@@ -50,6 +50,8 @@ from .constants import (
     SIXTEEN_SLOTS_BRANCH4,
     TWO_SLOTS_EXT4,
     TWO_SLOTS_EXT4_SIBLING_DEPTH1,
+    TWO_SLOTS_EXT4_SIBLING_DEPTH2,
+    TWO_SLOTS_EXT4_SIBLING_DEPTH3,
 )
 from .trie_shape import Shape, storage_leaf_size, storage_shape
 
@@ -325,6 +327,93 @@ def test_insert_diverges_at_extension_first_nibble(
         pre=pre,
         tx=Transaction(sender=pre.fund_eoa(), to=contract),
         post={contract: Account(storage={**storage, new_slot: 3})},
+    )
+
+
+@pytest.mark.parametrize(
+    "committed,new_slot,post_shape",
+    [
+        pytest.param(
+            (*TWO_SLOTS_EXT4, SINGLE_SLOT),
+            TWO_SLOTS_EXT4_SIBLING_DEPTH1,
+            [
+                (0, "branch", 2),
+                (1, "branch", 2),
+                (2, "ext", 2),
+                (4, "branch", 2),
+                (5, "leaf", 59),
+            ],
+            id="offset0",
+        ),
+        pytest.param(
+            (SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH2, ROOT_PAIR[1]),
+            SINGLE_SLOT_SIBLING_DEPTH1,
+            [
+                (0, "branch", 2),
+                (1, "branch", 2),
+                (2, "branch", 2),
+                (3, "leaf", 61),
+            ],
+            id="offset0_vanishes",
+        ),
+        pytest.param(
+            (*TWO_SLOTS_EXT4, SINGLE_SLOT),
+            TWO_SLOTS_EXT4_SIBLING_DEPTH2,
+            [
+                (0, "branch", 2),
+                (1, "ext", 1),
+                (2, "branch", 2),
+                (3, "ext", 1),
+                (4, "branch", 2),
+                (5, "leaf", 59),
+            ],
+            id="middle",
+        ),
+        pytest.param(
+            (*TWO_SLOTS_EXT4, SINGLE_SLOT),
+            TWO_SLOTS_EXT4_SIBLING_DEPTH3,
+            [
+                (0, "branch", 2),
+                (1, "ext", 2),
+                (3, "branch", 2),
+                (4, "branch", 2),
+                (5, "leaf", 59),
+            ],
+            id="last_nibble",
+        ),
+    ],
+)
+def test_insert_splits_extension_under_branch(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    committed: Sequence[int],
+    new_slot: int,
+    post_shape: Shape,
+) -> None:
+    """
+    Split an extension that hangs off a root branch, at every offset.
+
+    pre:  branch@0 -> {ext(3) -> branch@4 -> {p, q}, leaf(63)}
+    post: branch@0 -> {branch@1 -> {new, ext(2) -> ..}, ..}     offset 0
+          branch@0 -> {ext(1) -> branch@2 -> {new, ext(1) ..}}  middle
+          branch@0 -> {ext(2) -> branch@3 -> {new, branch@4}}   last
+    pre:  branch@0 -> {ext(1) -> branch@2 -> {..}, leaf(63)}
+    post: branch@0 -> {branch@1 -> {new, branch@2 -> {..}}}     vanishes
+    The split result is re-parented into the root branch's slot.
+    """
+    target = committed[0]
+    assert storage_shape(committed, target)[0] == (0, "branch", 2)
+    assert storage_shape(committed, target)[1][1] == "ext"
+    assert storage_shape([*committed, new_slot], target) == post_shape
+    storage = _storage(committed)
+    contract = pre.deploy_contract(
+        code=_writer_code([(new_slot, 9)]), storage=_alloc(storage)
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={**storage, new_slot: 9})},
     )
 
 
