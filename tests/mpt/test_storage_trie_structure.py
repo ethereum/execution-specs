@@ -53,6 +53,7 @@ from .constants import (
     TWO_SLOTS_EXT4_SIBLING_DEPTH1,
     TWO_SLOTS_EXT4_SIBLING_DEPTH2,
     TWO_SLOTS_EXT4_SIBLING_DEPTH3,
+    VALUE_BOUNDARY_PAIR,
 )
 from .trie_shape import Shape, storage_leaf_size, storage_shape
 
@@ -1295,6 +1296,12 @@ def test_two_shape_changes_at_different_depths(
         pytest.param(
             EMBEDDED_LEAF_PAIR, 128, 33, id="depth8_value128_hashed_33"
         ),
+        pytest.param(
+            VALUE_BOUNDARY_PAIR, 1, 30, id="depth10_value1_embedded_30"
+        ),
+        pytest.param(
+            VALUE_BOUNDARY_PAIR, 128, 32, id="depth10_value128_hashed_32"
+        ),
     ],
 )
 def test_embedded_leaf_boundary(
@@ -1305,13 +1312,14 @@ def test_embedded_leaf_boundary(
     leaf_size: int,
 ) -> None:
     """
-    Leaf RLP of exactly 31, 32 and 33 bytes.
+    Leaf RLP of exactly 30, 31, 32 and 33 bytes.
 
     pre:  empty
     post: ext(8) -> branch@8 -> {leaf(55), leaf(55)}   31 B inline, 33 B
           ext(7) -> branch@7 -> {leaf(56), leaf(56)}   32 B hashed
-    The threshold is crossed from the key side (one more nibble) and from
-    the value side (one more byte).
+          ext(10) -> branch@10 -> {leaf(53), leaf(53)} 30 B inline, 32 B
+    Exactly 32 bytes is reached from the key side (one more nibble at a
+    1-byte value) and from the value side (a 2-byte value at 53 nibbles).
     """
     a, b = pair
     depth, kind, rest = storage_shape([a, b], a)[-1]
