@@ -38,6 +38,7 @@ from ethereum.merkle_patricia_trie import nibble_list_to_compact
 from .constants import (
     BRANCH_SURVIVOR_TRIO,
     EMBEDDED_LEAF_PAIR,
+    EMBEDDED_LEAF_PAIR_SIBLING_DEPTH4,
     EXT_MERGE_TRIO,
     EXT_MERGE_TRIO_SIBLING_DEPTH3,
     HASHED_LEAF_PAIR,
@@ -1166,5 +1167,62 @@ def test_embedded_leaf_becomes_hashed_and_back(
                 },
             ),
             Block(txs=[_write(sender, contract, a, 1)]),
+        ],
+    )
+
+
+def test_embedded_leaf_deletion_flips_sibling_to_hashed(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: ext(4) -> branch@4 -> {c (59-nibble leaf, 33 B, hashed), ext(3)
+    -> branch@8 -> {a, b}} with a and b 55-nibble leaves of 31 B, both
+    embedded inline in branch@8. Committed at genesis.
+    Op: block 1 zeroes b; block 2 writes it back.
+    Post after block 1: branch@8 collapses, a absorbs the nibble and the
+    ext(3), and sits in branch@4's slot as a 59-nibble leaf of 33 B: the
+    same key, the same 1-byte value, but hashed instead of embedded.
+    Post after block 2: the pre shape, a embedded again.
+    Exercises: deleting an embedded leaf; an embedding flip caused by path
+    growth rather than value size (`test_embedded_leaf_becomes_hashed_and_
+    back` only changes the value); a committed hashed leaf shrinking below
+    32 bytes when re-split; a branch (branch@4) keeping its slot while the
+    subtree below it reshapes.
+    """
+    a, b = EMBEDDED_LEAF_PAIR
+    c = EMBEDDED_LEAF_PAIR_SIBLING_DEPTH4
+    assert _shape([a, b, c], a) == [
+        (0, "ext", 4),
+        (4, "branch", 2),
+        (5, "ext", 3),
+        (8, "branch", 2),
+        (9, "leaf", 55),
+    ]
+    assert _shape([a, b, c], c) == [
+        (0, "ext", 4),
+        (4, "branch", 2),
+        (5, "leaf", 59),
+    ]
+    assert _shape([a, c], a) == [
+        (0, "ext", 4),
+        (4, "branch", 2),
+        (5, "leaf", 59),
+    ]
+    assert _leaf_rlp_size(55, 1) == 31
+    assert _leaf_rlp_size(59, 1) == 33
+    contract = pre.deploy_contract(
+        code=SLOT_WRITER, storage={a: 1, b: 1, c: 1}
+    )
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={a: 1, b: 1, c: 1})},
+        blocks=[
+            Block(
+                txs=[_write(sender, contract, b, 0)],
+                expected_post_state={contract: Account(storage={a: 1, c: 1})},
+            ),
+            Block(txs=[_write(sender, contract, b, 1)]),
         ],
     )
