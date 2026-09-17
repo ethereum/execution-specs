@@ -152,7 +152,12 @@ def test_max_initcode_size_via_create(
     else:
         # The child address is never computed, so it must be missing from
         # the block access list, and the aborted factory frame leaves no
-        # changes of its own.
+        # changes of its own. The abort is an exceptional halt, so the
+        # whole gas allowance burns: a client that merely reverted the
+        # factory would leave the same state but refund the rest.
+        tx.expected_receipt = TransactionReceipt(
+            cumulative_gas_used=tx.gas_limit
+        )
         post[create_address] = Account.NONEXISTENT
         bal = BlockAccessListExpectation(
             account_expectations={

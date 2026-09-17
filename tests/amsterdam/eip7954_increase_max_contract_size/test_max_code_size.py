@@ -66,6 +66,14 @@ def test_max_code_size(
     if code_size <= fork.max_code_size():
         post[create_address] = Account(code=deploy_code)
     else:
+        # The oversized deposit halts the frame: the state gas reservoir
+        # is handed back and the whole execution allowance burns, so the
+        # sender pays exactly the cap.
+        gas_limit_cap = fork.transaction_gas_limit_cap()
+        assert gas_limit_cap is not None
+        tx.expected_receipt = TransactionReceipt(
+            cumulative_gas_used=gas_limit_cap
+        )
         post[create_address] = Account.NONEXISTENT
 
     state_test(pre=pre, tx=tx, post=post)
