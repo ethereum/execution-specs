@@ -43,6 +43,7 @@ from .constants import (
     EXT_MERGE_TRIO,
     EXT_MERGE_TRIO_SIBLING_DEPTH3,
     HASHED_LEAF_PAIR,
+    INLINE_TRIO,
     ROOT_PAIR,
     SINGLE_SLOT,
     SINGLE_SLOT_SIBLING_DEPTH1,
@@ -1358,48 +1359,127 @@ def test_embedded_leaf_becomes_hashed_and_back(
     )
 
 
-def test_embedded_leaf_deletion_flips_sibling_to_hashed(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+@pytest.mark.parametrize(
+    "values,doomed,survivor_sizes",
+    [
+        pytest.param(
+            {0: 1, 1: 1, 2: 1}, 1, (31, 33), id="deleted_inline_survivor_flips"
+        ),
+        pytest.param(
+            {0: 1, 1: 128, 2: 1},
+            0,
+            (33, 35),
+            id="deleted_inline_survivor_hashed",
+        ),
+        pytest.param(
+            {0: 128, 1: 1, 2: 1},
+            0,
+            (31, 33),
+            id="deleted_hashed_survivor_flips",
+        ),
+        pytest.param(
+            {0: 1, 1: 1, 2: 1},
+            2,
+            (31, 31),
+            id="deleted_hashed_siblings_inline",
+        ),
+    ],
+)
+def test_delete_around_inline_leaves(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    values: Dict[int, int],
+    doomed: int,
+    survivor_sizes: Tuple[int, int],
 ) -> None:
     """
-    Delete an inline leaf; its inline sibling grows past 32 bytes.
+    Delete next to inline leaves; re-insert in the next block.
 
     pre:  ext(4) -> branch@4 -> {c, ext(3) -> branch@8 -> {a, b}}
-          with a, b = leaf(55) 31 B inline and c = leaf(59) 33 B hashed
-    post: block 1: ext(4) -> branch@4 -> {c, a = leaf(59) 33 B hashed}
-          block 2: the pre shape, a inline again
-    The flip comes from path growth, not from a value change.
+          a, b = leaf(55): 31 B inline with a 1-byte value, 33 B hashed
+          with a 2-byte value; c = leaf(59), always hashed
+    post: deleting a or b: branch@8 collapses, the survivor becomes a
+          leaf(59) under branch@4 (31 -> 33 B flips inline to hashed,
+          33 -> 35 B stays hashed); deleting c: ext(8) -> branch@8 with
+          both leaves still inline
+    Block 2 restores the pre shape, re-inlining what block 1 hashed.
     """
-    a, b = EMBEDDED_LEAF_PAIR
-    c = EMBEDDED_LEAF_PAIR_SIBLING_DEPTH4
-    assert storage_shape([a, b, c], a) == [
-        (0, "ext", 4),
-        (4, "branch", 2),
-        (5, "ext", 3),
+    trio = (*EMBEDDED_LEAF_PAIR, EMBEDDED_LEAF_PAIR_SIBLING_DEPTH4)
+    storage = {trio[i]: v for i, v in values.items()}
+    doomed_slot = trio[doomed]
+    survivor = trio[0] if doomed else trio[1]
+    before, after = survivor_sizes
+    assert storage_shape(trio, survivor)[-1] == (9, "leaf", 55)
+    assert storage_leaf_size(55, values[trio.index(survivor)]) == before
+    remaining = [s for s in trio if s != doomed_slot]
+    depth, kind, rest = storage_shape(remaining, survivor)[-1]
+    assert storage_leaf_size(rest, values[trio.index(survivor)]) == after
+    if doomed == 2:
+        assert storage_shape(remaining, survivor)[0] == (0, "ext", 8)
+    else:
+        assert storage_shape(remaining, survivor)[-1] == (5, "leaf", 59)
+    contract = pre.deploy_contract(code=SLOT_WRITER, storage=_alloc(storage))
+    sender = pre.fund_eoa()
+    without = {s: v for s, v in storage.items() if s != doomed_slot}
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage=storage)},
+        blocks=[
+            Block(
+                txs=[_write(sender, contract, doomed_slot, 0)],
+                expected_post_state={contract: Account(storage=without)},
+            ),
+            Block(
+                txs=[
+                    _write(sender, contract, doomed_slot, storage[doomed_slot])
+                ]
+            ),
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "doomed_value", [1, 128], ids=["deleted_inline", "deleted_hashed"]
+)
+def test_delete_inline_leaf_survivor_stays_inline(
+    blockchain_test: BlockchainTestFiller, pre: Alloc, doomed_value: int
+) -> None:
+    """
+    Collapse a branch of inline leaves; the survivor stays inline.
+
+    pre:  ext(8) -> branch@8 -> {s, branch@9 -> {x, y}}
+          x, y = leaf(54) 31 B, s = leaf(55) 31 B, all inline with 1-byte
+          values; y is 33 B hashed when its value has 2 bytes
+    post: ext(8) -> branch@8 -> {s, x = leaf(55) 31 B}   still inline
+    Block 2 re-inserts y, splitting an inline leaf into two inline ones.
+    """
+    x, y, s = INLINE_TRIO
+    assert storage_shape([x, y, s], x) == [
+        (0, "ext", 8),
+        (8, "branch", 2),
+        (9, "branch", 2),
+        (10, "leaf", 54),
+    ]
+    assert storage_shape([x, s], x) == [
+        (0, "ext", 8),
         (8, "branch", 2),
         (9, "leaf", 55),
     ]
-    assert storage_shape([a, b, c], c)[-1] == (5, "leaf", 59)
-    assert storage_shape([a, c], a) == [
-        (0, "ext", 4),
-        (4, "branch", 2),
-        (5, "leaf", 59),
-    ]
-    assert storage_leaf_size(55, 1) == 31
-    assert storage_leaf_size(59, 1) == 33
-    contract = pre.deploy_contract(
-        code=SLOT_WRITER, storage={a: 1, b: 1, c: 1}
-    )
+    assert storage_leaf_size(54, 1) == 31 and storage_leaf_size(55, 1) == 31
+    assert storage_leaf_size(54, doomed_value) in (31, 33)
+    storage = {x: 1, y: doomed_value, s: 1}
+    contract = pre.deploy_contract(code=SLOT_WRITER, storage=_alloc(storage))
     sender = pre.fund_eoa()
 
     blockchain_test(
         pre=pre,
-        post={contract: Account(storage={a: 1, b: 1, c: 1})},
+        post={contract: Account(storage=storage)},
         blocks=[
             Block(
-                txs=[_write(sender, contract, b, 0)],
-                expected_post_state={contract: Account(storage={a: 1, c: 1})},
+                txs=[_write(sender, contract, y, 0)],
+                expected_post_state={contract: Account(storage={x: 1, s: 1})},
             ),
-            Block(txs=[_write(sender, contract, b, 1)]),
+            Block(txs=[_write(sender, contract, y, doomed_value)]),
         ],
     )
