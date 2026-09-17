@@ -46,6 +46,7 @@ from .constants import (
     SINGLE_SLOT_SIBLING_DEPTH2,
     SIXTEEN_SLOTS_BRANCH4,
     TWO_SLOTS_EXT4,
+    TWO_SLOTS_EXT4_SIBLING_DEPTH1,
 )
 from .trie_shape import Shape, path_shape, slot_key
 
@@ -630,6 +631,48 @@ def test_root_branch_collapses_onto_branch(
         pre=pre,
         tx=Transaction(sender=pre.fund_eoa(), to=contract),
         post={contract: Account(storage={a: 1, sibling: 2})},
+    )
+
+
+def test_collapse_under_branch_parent_extension_survivor(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: root branch -> {branch@1 -> {depth-1 sibling of TWO_SLOTS_EXT4,
+    ext(2) -> branch@4 -> TWO_SLOTS_EXT4}, leaf SINGLE_SLOT}.
+    Op: zero the depth-1 sibling.
+    Post: branch@1 collapses onto an extension survivor, which absorbs the
+    branch's nibble: ext(2) becomes ext(3) under the root branch, which
+    keeps its slot. No merge with a parent extension is involved.
+    Exercises: geth `Trie.delete` fullNode reduction with a shortNode
+    (extension) survivor under a fullNode parent, the extension-lengthens
+    path that `test_delete_merges_adjacent_extensions` only reaches with
+    an extension parent.
+    """
+    p, q = TWO_SLOTS_EXT4
+    sibling, other = TWO_SLOTS_EXT4_SIBLING_DEPTH1, SINGLE_SLOT
+    assert _shape([p, q, sibling, other], p) == [
+        (0, "branch", 2),
+        (1, "branch", 2),
+        (2, "ext", 2),
+        (4, "branch", 2),
+        (5, "leaf", 59),
+    ]
+    assert _shape([p, q, other], p) == [
+        (0, "branch", 2),
+        (1, "ext", 3),
+        (4, "branch", 2),
+        (5, "leaf", 59),
+    ]
+    contract = pre.deploy_contract(
+        code=_writer_code([(sibling, 0)]),
+        storage={p: 1, q: 2, sibling: 3, other: 4},
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={p: 1, q: 2, other: 4})},
     )
 
 
