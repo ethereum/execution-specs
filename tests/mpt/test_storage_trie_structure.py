@@ -1320,6 +1320,154 @@ def test_two_shape_changes_at_different_depths(
     )
 
 
+@pytest.mark.parametrize(
+    "second_write,post_second",
+    [
+        pytest.param(
+            (SINGLE_SLOT_SIBLING_DEPTH1, 0),
+            [(0, "branch", 2), (1, "leaf", 63)],
+            id="two_collapses",
+        ),
+        pytest.param(
+            (SINGLE_SLOT_SIBLING_DEPTH2, 9),
+            [
+                (0, "branch", 2),
+                (1, "branch", 2),
+                (2, "branch", 2),
+                (3, "leaf", 61),
+            ],
+            id="collapse_and_split",
+        ),
+    ],
+)
+def test_restructure_two_disjoint_paths_same_block(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    second_write: Tuple[int, int],
+    post_second: Shape,
+) -> None:
+    """
+    Restructure two sibling subtrees of the root branch in one block.
+
+    pre:  branch@0 -> {ext(3) -> branch@4 -> {p, q}, branch@1 -> {1, 14}}
+    post: branch@0 -> {leaf(63) p, leaf(63) 1}             two_collapses
+          branch@0 -> {leaf(63) p, branch@1 -> {14, branch@2}}  and_split
+    Two touched prefixes under one root; the root's child count never
+    changes.
+    """
+    p, q = TWO_SLOTS_EXT4
+    a, sibling = SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1
+    slot, value = second_write
+    assert storage_shape([p, q, a, sibling], p) == [
+        (0, "branch", 2),
+        (1, "ext", 3),
+        (4, "branch", 2),
+        (5, "leaf", 59),
+    ]
+    assert storage_shape([p, q, a, sibling], a)[:2] == [
+        (0, "branch", 2),
+        (1, "branch", 2),
+    ]
+    after = {p: 1, a: 3, sibling: 4}
+    after.pop(slot, None)
+    if value:
+        after[slot] = value
+    assert storage_shape(list(after), p) == [(0, "branch", 2), (1, "leaf", 63)]
+    assert storage_shape(list(after), a) == post_second
+    contract = pre.deploy_contract(
+        code=SLOT_WRITER, storage={p: 1, q: 2, a: 3, sibling: 4}
+    )
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage=after)},
+        blocks=[
+            Block(
+                txs=[
+                    _write(sender, contract, q, 0),
+                    _write(sender, contract, slot, value),
+                ]
+            )
+        ],
+    )
+
+
+def test_two_storage_tries_reshaped_same_block(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Collapse one contract's trie and split another's in one block.
+
+    pre:  A: ext(4) -> branch@4 -> {p, q}    B: ext(5) -> branch@5 -> {l1, l2}
+    post: A: leaf(64)                        B: ext(2) -> branch@2 -> {l3, ..}
+    Two storage roots change in one diff; both feed the account trie.
+    """
+    p, q = TWO_SLOTS_EXT4
+    l1, l2, l3 = EXT_MERGE_TRIO
+    assert storage_shape([p], p) == [(0, "leaf", 64)]
+    assert storage_shape([l1, l2, l3], l1)[:2] == [
+        (0, "ext", 2),
+        (2, "branch", 2),
+    ]
+    contract_a = pre.deploy_contract(code=SLOT_WRITER, storage={p: 1, q: 2})
+    contract_b = pre.deploy_contract(code=SLOT_WRITER, storage={l1: 1, l2: 2})
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={
+            contract_a: Account(storage={p: 1}),
+            contract_b: Account(storage={l1: 1, l2: 2, l3: 3}),
+        },
+        blocks=[
+            Block(
+                txs=[
+                    _write(sender, contract_a, q, 0),
+                    _write(sender, contract_b, l3, 3),
+                ]
+            )
+        ],
+    )
+
+
+def test_shared_node_deleted_in_one_trie(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Two contracts hold byte-identical storage tries; one is emptied.
+
+    pre:  A: leaf(64)   B: leaf(64)   (the same node, one hash)
+    post: block 1: A empty, B unchanged; block 2: B grows to ext(4) -> ..
+    A hash-keyed store that drops or refcounts the shared node on A's
+    delete must still serve it when B is extended in the next block.
+    """
+    a, b = TWO_SLOTS_EXT4
+    assert storage_shape([a], a) == [(0, "leaf", 64)]
+    assert storage_shape([a, b], a)[0] == (0, "ext", 4)
+    contract_a = pre.deploy_contract(code=SLOT_WRITER, storage={a: 1})
+    contract_b = pre.deploy_contract(code=SLOT_WRITER, storage={a: 1})
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={
+            contract_a: Account(storage={}),
+            contract_b: Account(storage={a: 1, b: 2}),
+        },
+        blocks=[
+            Block(
+                txs=[_write(sender, contract_a, a, 0)],
+                expected_post_state={
+                    contract_a: Account(storage={}),
+                    contract_b: Account(storage={a: 1}),
+                },
+            ),
+            Block(txs=[_write(sender, contract_b, b, 2)]),
+        ],
+    )
+
+
 # --- node embedding ----------------------------------------------------
 
 
