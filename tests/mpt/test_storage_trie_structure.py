@@ -39,6 +39,7 @@ from .constants import (
     BRANCH_SURVIVOR_TRIO,
     EMBEDDED_LEAF_PAIR,
     EXT_MERGE_TRIO,
+    EXT_MERGE_TRIO_SIBLING_DEPTH3,
     HASHED_LEAF_PAIR,
     ROOT_PAIR,
     SINGLE_SLOT,
@@ -1044,6 +1045,57 @@ def test_replace_child_within_branch_slot(
                 txs=[
                     _write(sender, contract, old, 0),
                     _write(sender, contract, new, 3),
+                ]
+            )
+        ],
+    )
+
+
+def test_two_shape_changes_at_different_depths(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: EXT_MERGE_TRIO committed at genesis: ext(2) -> branch@2 -> {l3,
+    ext(2) -> branch@5 -> {l1, l2}}.
+    Op: in one block, tx1 zeroes l3 (collapse at depth 2 and merge into
+    ext(5)), tx2 writes a slot sharing exactly 3 nibbles with l1 (split of
+    that ext(5) at depth 3).
+    Post: ext(3) -> branch@3 -> {new leaf, ext(1) -> branch@5 -> {l1,
+    l2}}: neither the pre shape nor either single-step result.
+    Exercises: two restructurings on the same path inside one block diff,
+    where the second operates on nodes the first just created. Path-keyed
+    caches must not serve the pre-state ext(2)/branch@2 to the split.
+    """
+    l1, l2, l3 = EXT_MERGE_TRIO
+    new = EXT_MERGE_TRIO_SIBLING_DEPTH3
+    assert _shape([l1, l2, l3], l1) == [
+        (0, "ext", 2),
+        (2, "branch", 2),
+        (3, "ext", 2),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    assert _shape([l1, l2], l1)[0] == (0, "ext", 5)
+    assert _shape([l1, l2, new], l1) == [
+        (0, "ext", 3),
+        (3, "branch", 2),
+        (4, "ext", 1),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    contract = pre.deploy_contract(
+        code=SLOT_WRITER, storage={l1: 1, l2: 2, l3: 3}
+    )
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={l1: 1, l2: 2, new: 4})},
+        blocks=[
+            Block(
+                txs=[
+                    _write(sender, contract, l3, 0),
+                    _write(sender, contract, new, 4),
                 ]
             )
         ],
