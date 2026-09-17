@@ -56,8 +56,13 @@ EXT_MERGE_TRIO: Final = (663, 800, 84)
 # branch@2 -> {c, branch@3 -> {a, b}} with no extension between branches.
 BRANCH_SURVIVOR_TRIO: Final = (82, 125, 615)
 
-# Lowest pair sharing exactly 0 nibbles: a root branch with two leaves.
-ROOT_PAIR: Final = (1, 2)
+# SINGLE_SLOT and the smallest slot sharing exactly 0 nibbles with it: a
+# root branch with two leaves.
+ROOT_PAIR: Final = (SINGLE_SLOT, 2)
+
+# Smallest slot per first nibble 0x0..0xf, ordered by that nibble: a root
+# branch with all 16 children.
+ROOT_SIXTEEN: Final = (5, 16, 93, 17, 2, 21, 9, 36, 4, 25, 7, 1, 3, 12, 40, 6)
 
 # Lowest pair sharing exactly 8 nibbles: 55 remaining nibbles, so a leaf
 # with a single-byte value is 31 bytes (embedded); a 2-byte value makes it
@@ -87,6 +92,23 @@ EXT_MERGE_TRIO_SIBLING_DEPTH3: Final = 16294
 # both: ext(4) -> branch@4 -> {sibling, ext(3) -> branch@8 -> pair}.
 EMBEDDED_LEAF_PAIR_SIBLING_DEPTH4: Final = 102457
 
+# Smallest slots outside TWO_SLOTS_EXT4 sharing exactly 2 and exactly 3
+# nibbles with both: split a committed extension in the middle or at its
+# last nibble.
+TWO_SLOTS_EXT4_SIBLING_DEPTH2: Final = 1326
+TWO_SLOTS_EXT4_SIBLING_DEPTH3: Final = 549
+
+# Lowest pair sharing exactly 10 nibbles: 53 remaining nibbles, so a leaf
+# with a single-byte value is 30 bytes and a 2-byte value gives exactly
+# 32, the first hashed size, from the value side.
+VALUE_BOUNDARY_PAIR: Final = (247476, 515151)
+
+# (x, y, s): x/y share exactly 9 nibbles, s exactly 8 with both, found by
+# scanning for the first 8-nibble bucket holding such a triple. Every leaf
+# is 31 bytes with a single-byte value: x/y have 54 remaining nibbles
+# (even, 28-byte compact path), s has 55 (odd, also 28 bytes).
+INLINE_TRIO: Final = (175378, 2311414, 458416)
+
 # --- addresses ----------------------------------------------------------
 
 # Same rules over 20-byte addresses. `pre.fund_address` raises if a mined
@@ -114,6 +136,11 @@ SIXTEEN_ADDRS_BRANCH4: Final = (
 
 ADDR_EXT_MERGE_TRIO: Final = (65755, 66515, 66334)
 
+# Smallest addresses outside TWO_ADDRS_EXT4 sharing exactly 1 and exactly
+# 3 nibbles with both: controlled branch parents above the mined group.
+TWO_ADDRS_EXT4_SIBLING_DEPTH1: Final = 65545
+TWO_ADDRS_EXT4_SIBLING_DEPTH3: Final = 68252
+
 # --- CREATE2 salts ------------------------------------------------------
 
 # Smallest salt whose factory-created address (see `DELETE_INITCODE` in
@@ -122,3 +149,26 @@ ADDR_EXT_MERGE_TRIO: Final = (65755, 66515, 66334)
 # same transaction deletes a committed account leaf (EIP-6780).
 COLLAPSE_SALT: Final = 212508  # shares exactly 4 nibbles with TWO_ADDRS_EXT4
 EXT_MERGE_SALT: Final = 58  # shares exactly 2 nibbles with ADDR_EXT_MERGE_TRIO
+SHARE2_SALT: Final = 30  # shares exactly 2 nibbles with TWO_ADDRS_EXT4
+SHARE3_SALT: Final = 2620  # shares exactly 3 nibbles with TWO_ADDRS_EXT4
+
+# Smallest salts whose created addresses fall under SIXTEEN_ADDRS_BRANCH4's
+# 4-nibble prefix with 5th nibbles 0x1..0xf; with SIXTEEN_ADDRS_BRANCH4[0]
+# (5th nibble 0x0) they fill a 16-child branch of deletable leaves.
+SIXTEEN_SALTS_BRANCH4: Final = (
+    180582,
+    952249,
+    486347,
+    180435,
+    1714432,
+    662143,
+    664659,
+    1263774,
+    4447739,
+    216590,
+    1338274,
+    1320265,
+    85523,
+    1275998,
+    487577,
+)
