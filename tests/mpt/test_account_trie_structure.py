@@ -44,6 +44,7 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Transaction,
+    Withdrawal,
     compute_create2_address,
 )
 from execution_testing.base_types import StorageRootType
@@ -402,6 +403,126 @@ def test_storage_root_flip_with_account_shape_change(
                         data=Hash(SINGLE_SLOT) + Hash(value),
                     ),
                 ]
+            )
+        ],
+    )
+
+
+def test_delete_and_update_survivor_same_block(
+    blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork
+) -> None:
+    """
+    Delete one sibling and credit the other within one block.
+
+    pre:  .. -> branch@4 -> {survivor = 1 wei, doomed}
+    post: .. -> leaf survivor = 2 wei
+    The collapsed leaf must carry the survivor's updated balance.
+    """
+    survivor = Address(TWO_ADDRS_EXT4[0])
+    doomed = Address(create2_preimage(COLLAPSE_SALT))
+    pre.fund_address(survivor, amount=1)
+    pre.fund_address(doomed, amount=FUNDING)
+    _ensure_factory(pre)
+    sender = pre.fund_eoa()
+    genesis = _genesis(pre, fork)
+    assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
+    assert covering(_shape(_after_block(genesis, doomed), survivor), 4)[1] == (
+        "leaf"
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={survivor: Account(balance=2), doomed: Account.NONEXISTENT},
+        blocks=[
+            Block(
+                txs=[
+                    _delete_tx(sender, COLLAPSE_SALT),
+                    Transaction(sender=sender, to=survivor, value=1),
+                ]
+            )
+        ],
+    )
+
+
+def test_delete_resurrect_delete_across_blocks(
+    blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork
+) -> None:
+    """
+    Delete a leaf, re-create it by a transfer, delete it again.
+
+    pre:  .. -> branch@4 -> {survivor, doomed}
+    post: block 1: leaf survivor; block 2: the pre shape; block 3: leaf
+    The resurrected balance-only account is deployable again, so the
+    same CREATE2 deletes it a second time from persisted nodes.
+    """
+    survivor = Address(TWO_ADDRS_EXT4[0])
+    doomed = Address(create2_preimage(COLLAPSE_SALT))
+    pre.fund_address(survivor, amount=1)
+    pre.fund_address(doomed, amount=FUNDING)
+    _ensure_factory(pre)
+    sender = pre.fund_eoa()
+    genesis = _genesis(pre, fork)
+    assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
+    assert covering(_shape(_after_block(genesis, doomed), survivor), 4)[1] == (
+        "leaf"
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={survivor: Account(balance=1), doomed: Account.NONEXISTENT},
+        blocks=[
+            Block(
+                txs=[_delete_tx(sender, COLLAPSE_SALT)],
+                expected_post_state={doomed: Account.NONEXISTENT},
+            ),
+            Block(
+                txs=[Transaction(sender=sender, to=doomed, value=1)],
+                expected_post_state={doomed: Account(balance=1)},
+            ),
+            Block(txs=[_delete_tx(sender, COLLAPSE_SALT)]),
+        ],
+    )
+
+
+@pytest.mark.parametrize("amount", [1, 0], ids=["credited", "zero_amount"])
+def test_resurrection_via_withdrawal(
+    blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork, amount: int
+) -> None:
+    """
+    Delete a leaf, then a withdrawal targets its address in the same block.
+
+    pre:  .. -> branch@4 -> {survivor, doomed}
+    post: the pre shape with doomed re-created by the withdrawal credit,
+          or the collapsed leaf when the withdrawal carries 0 Gwei
+    Withdrawals are applied after the transactions; a zero one must not
+    leave an empty account behind.
+    """
+    survivor = Address(TWO_ADDRS_EXT4[0])
+    doomed = Address(create2_preimage(COLLAPSE_SALT))
+    pre.fund_address(survivor, amount=1)
+    pre.fund_address(doomed, amount=FUNDING)
+    _ensure_factory(pre)
+    sender = pre.fund_eoa()
+    genesis = _genesis(pre, fork)
+    assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
+    resurrected = (
+        Account(balance=amount * 10**9) if amount else Account.NONEXISTENT
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={survivor: Account(balance=1), doomed: resurrected},
+        blocks=[
+            Block(
+                txs=[_delete_tx(sender, COLLAPSE_SALT)],
+                withdrawals=[
+                    Withdrawal(
+                        index=0,
+                        validator_index=0,
+                        address=doomed,
+                        amount=amount,
+                    )
+                ],
             )
         ],
     )
