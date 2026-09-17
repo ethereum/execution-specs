@@ -20,10 +20,11 @@ fund a mined address at genesis and CREATE2 onto it through the
 deterministic factory with init code that immediately self-destructs:
 creation at a balance-only address is legal, the contract counts as
 created in the transaction, and the pre-existing leaf is removed. Not
-expressible on these forks: wiping a committed storage trie in one step
-while its account survives, and (excluded on purpose) CREATE2 onto an
-address with pre-existing storage, where this specification and geth
-currently disagree.
+expressible: wiping a committed storage trie in one step while its
+account survives; EIP-161 clearing of a committed empty account (the
+filler does not emit empty genesis accounts); and, excluded on purpose,
+CREATE2 onto an address with pre-existing storage, where this
+specification and geth currently disagree.
 """
 
 from typing import Iterable, List
