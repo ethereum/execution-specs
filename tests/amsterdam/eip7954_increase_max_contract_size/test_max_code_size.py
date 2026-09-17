@@ -376,9 +376,13 @@ def test_warm_after_failed_create_over_max_code_size(
         + Op.STOP
     )
 
+    # Fund the oversized deposit's state gas so the size check is the only
+    # thing standing between the initcode's RETURN and a deployed contract.
     tx = Transaction(
         to=entry_address,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        state_gas_reservoir=fork.create_state_gas(
+            code_size=fork.max_code_size() + 1
+        ),
         sender=pre.fund_eoa(),
     )
 
