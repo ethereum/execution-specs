@@ -1,5 +1,6 @@
 """
-TODO revertOpcodeInInit followed by OOG.
+Verify REVERT in create-tx initcode discards the account (unreachable
+ops after REVERT do not run).
 
 Ported from:
 state_tests/stRevertTest/RevertOpcodeInInitFiller.json
@@ -59,7 +60,7 @@ def test_revert_opcode_in_init(
     g: int,
     v: int,
 ) -> None:
-    """TODO revertOpcodeInInit followed by OOG."""
+    """REVERT in initcode leaves no created account; sender nonce advances."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 

@@ -1,4 +1,11 @@
-"""Test `CALL` opcode."""
+"""
+Test `CALL` opcode.
+
+Gas-measurement cases below floor at Berlin: they use EIP-2929
+`address_warm` / cold-access costs. Pre-Berlin CALL schedules are a
+different model, so `valid_from("Berlin")` is intentional (see
+https://github.com/ethereum/execution-spec-tests/pull/1952#discussion_r2237634275).
+"""
 
 import pytest
 from execution_testing import (
@@ -13,9 +20,6 @@ from execution_testing import (
 )
 
 
-# TODO: There's an issue with gas definitions on forks previous to Berlin,
-# remove this when fixed. https://github.com/ethereum/execution-spec-
-# tests/pull/1952#discussion_r2237634275
 @pytest.mark.valid_from("Berlin")
 def test_call_large_offset_mstore(
     state_test: StateTestFiller,
@@ -77,9 +81,6 @@ def test_call_large_offset_mstore(
     )
 
 
-# TODO: There's an issue with gas definitions on forks previous to Berlin,
-# remove this when fixed. https://github.com/ethereum/execution-spec-
-# tests/pull/1952#discussion_r2237634275
 @pytest.mark.valid_from("Berlin")
 def test_call_memory_expands_on_early_revert(
     state_test: StateTestFiller,
@@ -129,17 +130,14 @@ def test_call_memory_expands_on_early_revert(
         sender=sender,
     )
 
-    # call cost:
-    #   address_access_cost+new_acc_cost+memory_expansion_cost+value-stipend
-    # CALL_STIPEND is a threshold check, not a gas cost — keep from gas_costs
     gsc = fork.gas_costs()
     call_cost = (
         Op.CALL(
             address_warm=False,
             value_transfer=True,
-            account_new=not fork.is_eip_enabled(8037),  # TODO: Gas calc check
+            account_new=True,
             new_memory_size=ret_size,
-        ).gas_cost(fork)
+        ).execution_cost(fork)
         - gsc.CALL_STIPEND
     )
 
@@ -160,9 +158,6 @@ def test_call_memory_expands_on_early_revert(
     )
 
 
-# TODO: There's an issue with gas definitions on forks previous to Berlin,
-# remove this when fixed. https://github.com/ethereum/execution-spec-
-# tests/pull/1952#discussion_r2237634275
 @pytest.mark.with_all_call_opcodes
 @pytest.mark.valid_from("Berlin")
 def test_call_large_args_offset_size_zero(
