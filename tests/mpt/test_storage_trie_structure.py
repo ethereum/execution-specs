@@ -248,6 +248,67 @@ def test_insert_splits_below_root_branch(
     )
 
 
+@pytest.mark.parametrize(
+    "committed,new_slot,pre_shape,post_shape",
+    [
+        pytest.param(
+            TWO_SLOTS_EXT4,
+            SINGLE_SLOT,
+            [(0, "ext", 4), (4, "branch", 2), (5, "leaf", 59)],
+            [
+                (0, "branch", 2),
+                (1, "ext", 3),
+                (4, "branch", 2),
+                (5, "leaf", 59),
+            ],
+            id="ext4_shortened_to_ext3",
+        ),
+        pytest.param(
+            (SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1),
+            ROOT_PAIR[1],
+            [(0, "ext", 1), (1, "branch", 2), (2, "leaf", 62)],
+            [(0, "branch", 2), (1, "branch", 2), (2, "leaf", 62)],
+            id="ext1_vanishes",
+        ),
+    ],
+)
+def test_insert_diverges_at_extension_first_nibble(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    committed: Sequence[int],
+    new_slot: int,
+    pre_shape: Shape,
+    post_shape: Shape,
+) -> None:
+    """
+    Pre: a pair whose root is an extension (4 nibbles, or a single one).
+    Op: write a slot whose hashed key differs from the pair in nibble 0.
+    Post: the root becomes a branch. A 4-nibble extension survives one
+    nibble shorter as the branch child; a 1-nibble extension disappears
+    and its branch becomes the child directly, no ext(0) is created.
+    Exercises: extension split at offset 0 (geth `Trie.insert` shortNode
+    case with `matchlen == 0`), including the zero-length remainder path
+    that returns the child node instead of building a shortNode.
+    """
+    target = committed[0]
+    assert _shape(committed, target) == pre_shape
+    assert _shape([*committed, new_slot], target) == post_shape
+    assert _shape([*committed, new_slot], new_slot) == [
+        (0, "branch", 2),
+        (1, "leaf", 63),
+    ]
+    storage: StorageRootType = {s: i + 1 for i, s in enumerate(committed)}
+    contract = pre.deploy_contract(
+        code=_writer_code([(new_slot, 3)]), storage=storage
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={**storage, new_slot: 3})},
+    )
+
+
 def test_insert_full_branch_arity_sixteen(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
