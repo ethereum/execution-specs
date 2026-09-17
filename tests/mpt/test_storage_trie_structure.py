@@ -830,6 +830,46 @@ def test_delete_against_committed_trie(
     )
 
 
+# --- several mutations inside one block --------------------------------
+
+
+@pytest.mark.parametrize("per_tx", [False, True], ids=["single_tx", "per_tx"])
+def test_mass_delete_sixteen_to_one(
+    blockchain_test: BlockchainTestFiller, pre: Alloc, per_tx: bool
+) -> None:
+    """
+    Pre: ext(4) -> branch@4 with all 16 children committed at genesis.
+    Op: zero 15 of the 16 slots inside one block, either from one
+    transaction or one transaction per slot.
+    Post: the branch collapses onto its last child and merges with the
+    extension: the root is a single 64-nibble leaf.
+    Exercises: a branch losing 15 children in one block diff. Flat-diff
+    clients see the child mask go from 0xffff to a single bit in one pass
+    instead of 15 separate reductions; the existing cases only cover
+    16 -> 15 and 16 -> 0.
+    """
+    slots = SIXTEEN_SLOTS_BRANCH4
+    survivor, doomed = slots[0], slots[1:]
+    assert _shape(slots, survivor)[1] == (4, "branch", 16)
+    assert _shape([survivor], survivor) == [(0, "leaf", 64)]
+    storage: StorageRootType = {s: i + 1 for i, s in enumerate(slots)}
+    sender = pre.fund_eoa()
+    if per_tx:
+        contract = pre.deploy_contract(code=SLOT_WRITER, storage=storage)
+        txs = [_write(sender, contract, s, 0) for s in doomed]
+    else:
+        contract = pre.deploy_contract(
+            code=_writer_code([(s, 0) for s in doomed]), storage=storage
+        )
+        txs = [Transaction(sender=sender, to=contract)]
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={survivor: 1})},
+        blocks=[Block(txs=txs)],
+    )
+
+
 # --- node embedding ----------------------------------------------------
 
 
