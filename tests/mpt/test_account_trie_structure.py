@@ -20,9 +20,11 @@ tests therefore fund a mined address at genesis and, in a later
 transaction, CREATE2 onto it via the deterministic factory with init code
 that immediately `SELFDESTRUCT`s: creation at a balance-only address is
 legal (no nonce or code), the contract counts as created in the
-transaction, and its pre-existing leaf is removed. Clearing a committed
-*storage* trie while its account survives is not expressible on these
-forks (EIP-6780 removes the whole account) and stays out of scope.
+transaction, and its pre-existing leaf is removed. Wiping a committed
+*storage* trie in one step while its account survives (the SELFDESTRUCT
+storage clear that client wipe tests model) is not expressible on these
+forks: storage is only emptied slot by slot, and EIP-6780 removes the
+whole account.
 
 Pinned to the latest deployed fork so every client consumes one identical
 fixture set; MPT rules are fork-invariant.
@@ -46,11 +48,13 @@ from execution_testing import (
     Transaction,
     compute_create2_address,
 )
+from execution_testing.base_types import StorageRootType
 
 from .constants import (
     ADDR_EXT_MERGE_TRIO,
     COLLAPSE_SALT,
     EXT_MERGE_SALT,
+    SINGLE_SLOT,
     SIXTEEN_ADDRS_BRANCH4,
     TWO_ADDRS_EXT4,
 )
@@ -300,6 +304,61 @@ def test_account_deleted_and_recreated_same_block(
                 txs=[
                     _delete_tx(sender, COLLAPSE_SALT),
                     Transaction(sender=sender, to=doomed, value=1),
+                ]
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "pre_storage,value",
+    [
+        pytest.param({}, 1, id="empty_to_hash"),
+        pytest.param({SINGLE_SLOT: 1}, 0, id="hash_to_empty"),
+    ],
+)
+def test_storage_root_flip_with_account_shape_change(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    pre_storage: StorageRootType,
+    value: int,
+) -> None:
+    """
+    Pre: the ext -> branch@4 pair of the deletion tests, plus a contract
+    whose storage trie is either empty or a single leaf.
+    Op: in one block, tx1 deletes the doomed leaf (branch@4 collapses),
+    tx2 writes the contract's only slot: first write into the empty trie,
+    or zeroing of the single leaf.
+    Post: the account trie lost a leaf and the contract's leaf value
+    changed its storage-root field between EMPTY_TRIE_ROOT and a hash.
+    Exercises: an account-trie restructuring and a storage-root
+    transition in the same block diff. Clients that compute storage roots
+    before account-trie updates, or lazily, must combine both correctly.
+    """
+    survivor = Address(TWO_ADDRS_EXT4[0])
+    doomed = Address(create2_preimage(COLLAPSE_SALT))
+    pre.fund_address(survivor, amount=1)
+    pre.fund_address(doomed, amount=FUNDING)
+    _ensure_factory(pre)
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(SINGLE_SLOT, value) + Op.STOP, storage=pre_storage
+    )
+    sender = pre.fund_eoa()
+    assert node_at(_shape(pre, survivor), 4) == ("branch", 2)
+    post_storage = {SINGLE_SLOT: value} if value else {}
+
+    blockchain_test(
+        pre=pre,
+        post={
+            survivor: Account(balance=1),
+            doomed: Account.NONEXISTENT,
+            contract: Account(storage=post_storage),
+        },
+        blocks=[
+            Block(
+                txs=[
+                    _delete_tx(sender, COLLAPSE_SALT),
+                    Transaction(sender=sender, to=contract),
                 ]
             )
         ],
