@@ -480,13 +480,20 @@ def test_max_code_size_high_jumpdest(
         pytest.param(
             Op.EXCHANGE[b"\x5b"], True, id="exchange_immediate_accepted"
         ),
+        # A PUSH2 with only one immediate byte left before the end of the
+        # code: the analysis skips past the end and never marks the byte.
+        pytest.param(
+            bytes(Op.PUSH2) + b"\x5b",
+            False,
+            id="push2_truncated_data_rejected",
+        ),
     ],
 )
 def test_max_code_size_jumpdest_in_immediate(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    tail: Bytecode,
+    tail: Bytecode | bytes,
     accepted: bool,
 ) -> None:
     """
@@ -501,6 +508,9 @@ def test_max_code_size_jumpdest_in_immediate(
     - ``dupn``/``swapn``/``exchange``: per EIP-8024 `0x5B` is an *invalid*
       immediate for these opcodes, so it is not skipped and stays a valid
       `JUMPDEST`, and the jump is accepted.
+    - ``push2_truncated``: the `PUSH2` has a single immediate byte left,
+      so the analysis skips past the end of the code; the `0x5B` is data
+      and the jump is rejected.
 
     Exercises the immediate-skipping branches of jumpdest analysis well past
     the old 24 KiB code and 48 KiB initcode limits.
