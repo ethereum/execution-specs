@@ -422,6 +422,33 @@ def test_delete_missing_into_empty_branch_slot(
     )
 
 
+def test_delete_absent_key_ending_at_other_leaf(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: a single committed leaf for SINGLE_SLOT (the root itself).
+    Op: zero ROOT_PAIR[1], whose hashed key diverges from the leaf's path
+    at nibble 0.
+    Post: unchanged; the root is still the same 64-nibble leaf.
+    Exercises: delete-missing whose walk ends at a leaf with a different
+    path, the third no-op shape after the extension mismatch and the empty
+    branch slot. geth and Nethermind take the shared shortNode mismatch
+    path; Besu's `RemoveVisitor` has a leaf-specific visit.
+    """
+    present, absent = SINGLE_SLOT, ROOT_PAIR[1]
+    assert _shape([present], present) == [(0, "leaf", 64)]
+    assert _shape([present, absent], present)[0] == (0, "branch", 2)
+    contract = pre.deploy_contract(
+        code=_writer_code([(absent, 0)]), storage={present: 1}
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={present: 1})},
+    )
+
+
 def test_delete_collapses_branch_into_leaf(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
