@@ -25,6 +25,7 @@ from tests.benchmark.helper.account_creator import (
 from tests.benchmark.helper.enums import CacheStrategy
 from tests.benchmark.helper.transactions import (
     build_cache_strategy_blocks,
+    build_startup_blocks,
 )
 
 
@@ -103,6 +104,7 @@ def test_ext_account_query_warm(
         post[target_addr] = Account(**contract_kwargs)
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         target_opcode=opcode,
         post=post,
         code_generator=JumpLoopGenerator(
@@ -333,6 +335,7 @@ def test_account_access(
     blocks = build_cache_strategy_blocks(cache_strategy, attack_txs, cache_txs)
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         pre=pre,
         post=post,
         blocks=blocks,

@@ -13,7 +13,10 @@ from execution_testing import (
 )
 
 from tests.benchmark.helper.loops import DECREMENT_COUNTER_CONDITION
-from tests.benchmark.helper.transactions import build_benchmark_txs
+from tests.benchmark.helper.transactions import (
+    build_benchmark_txs,
+    build_startup_blocks,
+)
 
 
 @pytest.mark.parametrize("with_tload", [True, False])
@@ -67,6 +70,7 @@ def test_tstore_unique_keys(
     )
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         pre=pre,
         blocks=[Block(txs=txs)],
         expected_benchmark_gas_used=total_gas_consumed,
@@ -76,6 +80,7 @@ def test_tstore_unique_keys(
 @pytest.mark.parametrize("with_tload", [True, False])
 def test_tstore_same_key(
     benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
     with_tload: bool,
 ) -> None:
     """Benchmark TSTORE writing the same key repeatedly."""
@@ -85,6 +90,7 @@ def test_tstore_same_key(
         attack_block += Op.POP(Op.TLOAD(0))
 
     benchmark_test(
+        setup_blocks=build_startup_blocks(pre),
         target_opcode=Op.TSTORE,
         code_generator=JumpLoopGenerator(
             setup=Bytecode(),
