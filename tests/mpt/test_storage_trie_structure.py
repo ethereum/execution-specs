@@ -677,6 +677,41 @@ def test_delete_root_branch_onto_branch(
     )
 
 
+def test_delete_root_branch_onto_extension(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Collapse the root branch onto an extension.
+
+    pre:  branch@0 -> {ext(3) -> branch@4 -> {p, q}, leaf(63)}
+    post: ext(4) -> branch@4 -> {p, q}
+    The root changes kind from branch to extension and the extension
+    grows by the branch nibble; the last survivor-parent cell.
+    """
+    p, q = TWO_SLOTS_EXT4
+    other = SINGLE_SLOT
+    assert storage_shape([p, q, other], p) == [
+        (0, "branch", 2),
+        (1, "ext", 3),
+        (4, "branch", 2),
+        (5, "leaf", 59),
+    ]
+    assert storage_shape([p, q], p) == [
+        (0, "ext", 4),
+        (4, "branch", 2),
+        (5, "leaf", 59),
+    ]
+    contract = pre.deploy_contract(
+        code=_writer_code([(other, 0)]), storage={p: 1, q: 2, other: 3}
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={p: 1, q: 2})},
+    )
+
+
 def test_delete_under_branch_parent_extension_survivor(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
