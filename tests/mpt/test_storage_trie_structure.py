@@ -977,6 +977,39 @@ def test_delete_then_reinsert_same_block(
     )
 
 
+def test_delete_sibling_and_update_survivor_same_block(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: TWO_SLOTS_EXT4 committed at genesis as ext(4) -> branch@4.
+    Op: in one block, tx1 zeroes TWO_SLOTS_EXT4[0], tx2 overwrites
+    TWO_SLOTS_EXT4[1] with a new value.
+    Post: the branch collapses and merges with the extension into a root
+    leaf that must carry the survivor's new value, not its committed one.
+    Exercises: a collapse whose survivor is itself dirty in the same block
+    diff; the reduction must read the updated leaf, and flat-diff clients
+    must order the delete and the update correctly.
+    """
+    a, b = TWO_SLOTS_EXT4
+    assert _shape([a, b], b)[:2] == [(0, "ext", 4), (4, "branch", 2)]
+    assert _shape([b], b) == [(0, "leaf", 64)]
+    contract = pre.deploy_contract(code=SLOT_WRITER, storage={a: 1, b: 2})
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={b: 7})},
+        blocks=[
+            Block(
+                txs=[
+                    _write(sender, contract, a, 0),
+                    _write(sender, contract, b, 7),
+                ]
+            )
+        ],
+    )
+
+
 # --- node embedding ----------------------------------------------------
 
 
