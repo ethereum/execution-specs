@@ -596,6 +596,43 @@ def test_collapse_under_branch_parent_branch_survivor(
     )
 
 
+def test_root_branch_collapses_onto_branch(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: root branch -> {branch@1 -> {SINGLE_SLOT, its depth-1 sibling},
+    leaf ROOT_PAIR[1]}.
+    Op: zero ROOT_PAIR[1].
+    Post: the root branch collapses onto branch@1; the root becomes a
+    1-nibble extension pointing at that branch. Root kind changes from
+    branch to extension, the one root transition the suite lacked.
+    Exercises: geth `Trie.delete` fullNode reduction at the root with a
+    fullNode survivor. `test_delete_collapses_root_branch_into_leaf` is
+    the leaf-survivor counterpart.
+    """
+    a, sibling, other = SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1, ROOT_PAIR[1]
+    assert _shape([a, sibling, other], a) == [
+        (0, "branch", 2),
+        (1, "branch", 2),
+        (2, "leaf", 62),
+    ]
+    assert _shape([a, sibling], a) == [
+        (0, "ext", 1),
+        (1, "branch", 2),
+        (2, "leaf", 62),
+    ]
+    contract = pre.deploy_contract(
+        code=_writer_code([(other, 0)]),
+        storage={a: 1, sibling: 2, other: 3},
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={a: 1, sibling: 2})},
+    )
+
+
 def test_delete_from_full_branch_keeps_branch(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
