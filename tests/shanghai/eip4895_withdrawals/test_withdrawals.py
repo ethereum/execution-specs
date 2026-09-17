@@ -17,6 +17,7 @@ from execution_testing import (
     Hash,
     Op,
     RecipientType,
+    Storage,
     Transaction,
     TransactionException,
     Withdrawal,
@@ -371,7 +372,7 @@ class TestMultipleWithdrawalsSameAddress:
         for addr in addresses:
             post[addr] = Account(
                 balance=16 * ONE_GWEI,
-                storage={},
+                storage=Storage.EMPTY,
             )
 
         blockchain_test(pre=pre, post=post, blocks=blocks)
@@ -401,7 +402,7 @@ def test_many_withdrawals(
         post[addr] = Account(
             code=Op.SSTORE(Op.NUMBER, 1),
             balance=amount * ONE_GWEI,
-            storage={},
+            storage=Storage.EMPTY,
         )
 
     blocks = [

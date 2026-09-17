@@ -910,6 +910,28 @@ class EthRPC(BaseRPC):
         ).result_or_raise()
         return Hash(response)
 
+    def get_proof(
+        self,
+        address: Address,
+        storage_keys: List[Hash] | None = None,
+        block_number: BlockNumberType = "latest",
+    ) -> Dict[str, Any]:
+        """
+        `eth_getProof`: Returns the account and storage values of the specified
+        account including the Merkle-proof.
+        """
+        block = (
+            hex(block_number)
+            if isinstance(block_number, int)
+            else block_number
+        )
+        keys = [f"{k}" for k in storage_keys] if storage_keys else []
+        logger.info(f"Requesting proof for account {address}")
+        params = [f"{address}", keys, block]
+        return self.post_request(
+            request=RPCCall(method="getProof", params=params)
+        ).result_or_raise()
+
     def _get_gas_information(
         self,
         *,
@@ -1082,7 +1104,11 @@ class EthRPC(BaseRPC):
         )
         call_info.append(("nonce", None))
 
-        if account is not None and "storage" in account.model_fields_set:
+        if (
+            account is not None
+            and "storage" in account.model_fields_set
+            and account.storage is not None
+        ):
             for key in account.storage.root:
                 calls.append(
                     RPCCall(
