@@ -695,6 +695,41 @@ def test_delete_from_full_branch_keeps_branch(
     )
 
 
+def test_delete_from_three_child_branch(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: ext(4) -> branch@4 with exactly three children (the first three
+    of SIXTEEN_SLOTS_BRANCH4).
+    Op: zero the first child.
+    Post: branch@4 keeps two children; no collapse, no extension change.
+    Exercises: the smallest non-collapsing delete. A client that reduces a
+    branch when two or fewer children remain, instead of exactly one,
+    passes the 16 -> 15 case and fails here.
+    """
+    slots = SIXTEEN_SLOTS_BRANCH4[:3]
+    assert _shape(slots, slots[1]) == [
+        (0, "ext", 4),
+        (4, "branch", 3),
+        (5, "leaf", 59),
+    ]
+    assert _shape(slots[1:], slots[1]) == [
+        (0, "ext", 4),
+        (4, "branch", 2),
+        (5, "leaf", 59),
+    ]
+    storage: StorageRootType = {s: i + 1 for i, s in enumerate(slots)}
+    contract = pre.deploy_contract(
+        code=_writer_code([(slots[0], 0)]), storage=storage
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={slots[1]: 2, slots[2]: 3})},
+    )
+
+
 def test_delete_all_slots_empties_trie(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
