@@ -551,6 +551,51 @@ def test_collapse_under_branch_parent_leaf_survivor(
     )
 
 
+def test_collapse_under_branch_parent_branch_survivor(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: root branch -> {branch@1 -> {depth-1 sibling, branch@2 ->
+    {SINGLE_SLOT, its depth-2 sibling}}, leaf ROOT_PAIR[1]}.
+    Op: zero the depth-1 sibling.
+    Post: branch@1 collapses onto a branch survivor, so a fresh 1-nibble
+    extension appears between the root branch and branch@2; the root
+    branch keeps its slot.
+    Exercises: geth `Trie.delete` fullNode reduction where the survivor is
+    a fullNode and the parent is a fullNode (a new shortNode is created,
+    not merged). `test_delete_collapses_branch_onto_branch` covers the
+    extension-parent variant where the nibble merges into ext(k+1).
+    """
+    a, d1, d2, other = (
+        SINGLE_SLOT,
+        SINGLE_SLOT_SIBLING_DEPTH1,
+        SINGLE_SLOT_SIBLING_DEPTH2,
+        ROOT_PAIR[1],
+    )
+    assert _shape([a, d1, d2, other], a) == [
+        (0, "branch", 2),
+        (1, "branch", 2),
+        (2, "branch", 2),
+        (3, "leaf", 61),
+    ]
+    assert _shape([a, d2, other], a) == [
+        (0, "branch", 2),
+        (1, "ext", 1),
+        (2, "branch", 2),
+        (3, "leaf", 61),
+    ]
+    contract = pre.deploy_contract(
+        code=_writer_code([(d1, 0)]),
+        storage={a: 1, d1: 2, d2: 3, other: 4},
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={a: 1, d2: 3, other: 4})},
+    )
+
+
 def test_delete_from_full_branch_keeps_branch(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
