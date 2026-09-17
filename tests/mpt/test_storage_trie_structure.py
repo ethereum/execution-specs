@@ -42,6 +42,7 @@ from .constants import (
     HASHED_LEAF_PAIR,
     ROOT_PAIR,
     SINGLE_SLOT,
+    SINGLE_SLOT_SIBLING_DEPTH1,
     SIXTEEN_SLOTS_BRANCH4,
     TWO_SLOTS_EXT4,
 )
@@ -126,6 +127,34 @@ def test_insert_splits_into_extension_and_branch(
         (0, "ext", 4),
         (4, "branch", 2),
         (5, "leaf", 59),
+    ]
+    contract = pre.deploy_contract(code=_writer_code([(a, 1), (b, 2)]))
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={a: 1, b: 2})},
+    )
+
+
+def test_insert_pair_sharing_one_nibble(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: empty storage trie.
+    Op: write two slots whose hashed keys share exactly one nibble.
+    Post: ext(1) -> branch@1 -> two 62-nibble leaves; the shortest
+    extension a leaf split can create.
+    Exercises: leaf split with a one-nibble common prefix (geth
+    `Trie.insert`, shortNode case with `matchlen == 1`), as opposed to
+    the four-nibble split of `test_insert_splits_into_extension_and_branch`
+    and the prefix-free split of `ROOT_PAIR`.
+    """
+    a, b = SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1
+    assert _shape([a, b], a) == [
+        (0, "ext", 1),
+        (1, "branch", 2),
+        (2, "leaf", 62),
     ]
     contract = pre.deploy_contract(code=_writer_code([(a, 1), (b, 2)]))
 
