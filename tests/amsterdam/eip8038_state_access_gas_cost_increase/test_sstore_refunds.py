@@ -34,6 +34,11 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    BalAccountExpectation,
+    BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
+    BlockAccessListExpectation,
     Bytecode,
     Fork,
     GasConsumer,
@@ -152,16 +157,45 @@ def test_sstore_clear_then_reset_nets_zero(
     assert code.refund(fork) == 0
     expected_cumulative = _cumulative_gas_used(code, fork)
 
+    sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        sender=pre.fund_eoa(),
+        sender=sender,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_cumulative
         ),
     )
 
     post = {contract: Account(storage={0: 2})}
-    state_test(pre=pre, post=post, tx=tx)
+    state_test(
+        pre=pre,
+        post=post,
+        tx=tx,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                # The clear and the reset net into one change holding the
+                # final value, not one entry per write.
+                contract: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=2
+                                )
+                            ],
+                        )
+                    ],
+                    storage_reads=[],
+                ),
+            }
+        ),
+    )
 
 
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()

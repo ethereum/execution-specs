@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    AuthorizationTuple,
     BalAccountChange,
     BalAccountExpectation,
     BalBalanceChange,
@@ -65,10 +66,17 @@ from execution_testing.test_types.block_access_list.modifiers import (
     remove_storage,
     remove_storage_reads,
     reverse_accounts,
+    reverse_balance_changes,
+    reverse_code_changes,
+    reverse_nonce_changes,
+    reverse_slot_changes,
+    reverse_storage_reads,
+    reverse_storage_slots,
     sort_accounts_by_address,
     swap_bal_indices,
 )
 
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_7928
 from .test_block_access_lists_eip2935 import (
     HISTORY_STORAGE_ADDRESS,
@@ -1256,6 +1264,162 @@ def test_bal_invalid_duplicate_entries(
     )
 
 
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        pytest.param(
+            lambda oracle, **_: reverse_storage_slots(oracle),
+            id="storage_slots_out_of_order",
+        ),
+        pytest.param(
+            lambda oracle, **_: reverse_slot_changes(oracle, 1),
+            id="slot_changes_out_of_order",
+        ),
+        pytest.param(
+            lambda oracle, **_: reverse_storage_reads(oracle),
+            id="storage_reads_out_of_order",
+        ),
+        pytest.param(
+            lambda alice, **_: reverse_balance_changes(alice),
+            id="balance_changes_out_of_order",
+        ),
+        pytest.param(
+            lambda alice, **_: reverse_nonce_changes(alice),
+            id="nonce_changes_out_of_order",
+        ),
+        pytest.param(
+            lambda authority, **_: reverse_code_changes(authority),
+            id="code_changes_out_of_order",
+        ),
+    ],
+)
+def test_bal_invalid_ordering(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    modifier: Callable,
+) -> None:
+    """
+    Test that clients reject blocks where a list inside one BAL account
+    breaks its canonical order: slots and reads by key, changes by block
+    access index. Two transactions give every list a second entry.
+    """
+    alice = pre.fund_eoa()
+    authority = pre.fund_eoa(amount=0)
+    delegate_a = pre.deploy_contract(code=Op.STOP)
+    delegate_b = pre.deploy_contract(code=Op.STOP)
+    oracle = pre.deploy_contract(
+        code=(
+            Op.SSTORE(1, Op.ADD(Op.SLOAD(1), 1))
+            + Op.SSTORE(2, 0x43)
+            + Op.POP(Op.SLOAD(3))
+            + Op.POP(Op.SLOAD(4))
+        ),
+    )
+
+    txs = [
+        Transaction(
+            sender=alice,
+            to=oracle,
+            authorization_list=[
+                AuthorizationTuple(
+                    address=delegate_a, nonce=0, signer=authority
+                )
+            ],
+        ),
+        Transaction(
+            sender=alice,
+            to=oracle,
+            authorization_list=[
+                AuthorizationTuple(
+                    address=delegate_b, nonce=1, signer=authority
+                )
+            ],
+        ),
+    ]
+
+    blockchain_test(
+        pre=pre,
+        post=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                ),
+                                BalNonceChange(
+                                    block_access_index=2, post_nonce=2
+                                ),
+                            ],
+                        ),
+                        authority: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                ),
+                                BalNonceChange(
+                                    block_access_index=2, post_nonce=2
+                                ),
+                            ],
+                            code_changes=[
+                                BalCodeChange(
+                                    block_access_index=1,
+                                    new_code=Spec7702.delegation_designation(
+                                        delegate_a
+                                    ),
+                                ),
+                                BalCodeChange(
+                                    block_access_index=2,
+                                    new_code=Spec7702.delegation_designation(
+                                        delegate_b
+                                    ),
+                                ),
+                            ],
+                        ),
+                        oracle: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=1,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=1,
+                                        ),
+                                        BalStorageChange(
+                                            block_access_index=2,
+                                            post_value=2,
+                                        ),
+                                    ],
+                                ),
+                                BalStorageSlot(
+                                    slot=2,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=0x43,
+                                        ),
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[3, 4],
+                        ),
+                        delegate_a: None,
+                        delegate_b: None,
+                    }
+                ).modify(
+                    modifier(alice=alice, oracle=oracle, authority=authority)
+                ),
+            )
+        ],
+    )
+
+
 @EIPChecklist.BlockHeaderField.Test.ValueBehavior.Reject()
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.exception_test
@@ -1726,24 +1890,32 @@ def test_bal_invalid_extraneous_coinbase(
         pytest.param(b"\xc1", id="rlp_truncated_list"),
     ],
 )
+@pytest.mark.parametrize("header_commits_to", ["canonical_rlp", "payload_rlp"])
 def test_bal_invalid_engine_payload_encoding(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     invalid_bal_payload: bytes,
+    header_commits_to: str,
 ) -> None:
     """
-    Reject a `newPayload` whose `blockAccessList` does not decode as an RLP
-    list: the empty byte string `0x` (an empty BAL is `0xc0`), the RLP
-    empty byte string `0x80` (valid RLP but not a list), or a truncated
-    list header `0xc1`.
-
-    The field is present but not a valid encoding, so the payload is
-    invalid rather than the request being malformed.
+    Reject malformed BAL RLP with both matching and mismatched header
+    commitments, so a block-hash check cannot hide missing RLP validation.
     """
     sender = pre.fund_eoa()
     receiver = pre.nonexistent_account()
-
     tx = Transaction(sender=sender, to=receiver)
+
+    expectation = BlockAccessListExpectation()
+    exceptions = [BlockException.INVALID_BLOCK_ACCESS_LIST]
+    if header_commits_to == "canonical_rlp":
+        expectation = expectation.modify_rlp(
+            lambda _: Bytes(invalid_bal_payload)
+        )
+        exceptions.append(BlockException.INVALID_BLOCK_HASH)
+    else:
+        expectation = expectation.modify(
+            override_rlp(lambda _: Bytes(invalid_bal_payload))
+        )
 
     blockchain_test(
         pre=pre,
@@ -1754,10 +1926,8 @@ def test_bal_invalid_engine_payload_encoding(
         blocks=[
             Block(
                 txs=[tx],
-                engine_new_payload_block_access_list=Bytes(
-                    invalid_bal_payload
-                ),
-                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=expectation,
+                exception=exceptions,
             )
         ],
     )
@@ -1796,6 +1966,10 @@ def test_bal_invalid_non_minimal_scalar_encoding(
     a matching hash and accepts. With the header committing to the
     payload RLP, a client that decodes leniently and hashes the bytes as
     received accepts instead.
+
+    A strict client may notice the bad scalar while decoding, or only
+    once the hash it derives from the payload disagrees with the header;
+    both verdicts reject the block, so both are accepted.
     """
     alice = pre.fund_eoa()
     oracle = pre.deploy_contract(code=Op.SSTORE(1, 1) + Op.SLOAD(2))
@@ -1856,7 +2030,10 @@ def test_bal_invalid_non_minimal_scalar_encoding(
         blocks=[
             Block(
                 txs=[tx],
-                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                exception=[
+                    BlockException.INVALID_BLOCK_ACCESS_LIST,
+                    BlockException.INVALID_BLOCK_HASH,
+                ],
                 expected_block_access_list=expectation,
             )
         ],
@@ -2352,6 +2529,68 @@ def test_bal_invalid_missing_pre_block_system_call_read(
                         SYSTEM_ADDRESS: None,
                     }
                 ).modify(remove_storage_reads(BEACON_ROOTS_ADDRESS)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_noop_system_call_write_as_change(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a BAL that records the beacon-root system call's no-op write
+    as a storage change rather than a read.
+
+    A zero parent beacon root rewrites the root slot with the value it
+    already holds. A client that lists the slots a call wrote, instead
+    of diffing them against the value the block access index started
+    with, would report the change this BAL carries.
+    """
+    block_timestamp = 12
+    timestamp_slot, root_slot = get_beacon_root_slots(block_timestamp)
+    # The spurious change is appended, so it has to sort last or the
+    # block would be rejected for ordering instead.
+    assert root_slot > timestamp_slot, (
+        "expected the root slot to sort after the timestamp slot"
+    )
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                timestamp=block_timestamp,
+                parent_beacon_block_root=Hash(0),
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        BEACON_ROOTS_ADDRESS: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=timestamp_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=0,
+                                            post_value=block_timestamp,
+                                        )
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[root_slot],
+                        ),
+                        SYSTEM_ADDRESS: None,
+                    }
+                ).modify(
+                    remove_storage_reads(BEACON_ROOTS_ADDRESS),
+                    append_storage(
+                        BEACON_ROOTS_ADDRESS,
+                        root_slot,
+                        BalStorageChange(block_access_index=0, post_value=0),
+                    ),
+                ),
             )
         ],
     )

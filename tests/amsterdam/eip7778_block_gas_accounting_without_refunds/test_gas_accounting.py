@@ -9,7 +9,10 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    BalAccountExpectation,
+    BalBalanceChange,
     Block,
+    BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
     EIPChecklist,
@@ -60,6 +63,26 @@ def test_simple_gas_accounting(
     )
 
     refund_tx.set_pre(pre)
+    post = refund_tx.post(pre)
+
+    expected_block_access_list = None
+    if fork.is_eip_enabled(7928):
+        # The refund reaches the sender's balance even though it stays
+        # out of the block's gas accounting.
+        sender_post = post[refund_tx.sender]
+        assert sender_post is not None, "RefundTransaction.post sets it"
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                refund_tx.sender: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=sender_post.balance,
+                        )
+                    ],
+                ),
+            }
+        )
 
     blockchain_test(
         pre=pre,
@@ -67,9 +90,10 @@ def test_simple_gas_accounting(
             Block(
                 txs=[refund_tx],
                 expected_gas_used=refund_tx.block_gas_used(),
+                expected_block_access_list=expected_block_access_list,
             )
         ],
-        post=refund_tx.post(pre),
+        post=post,
     )
 
 

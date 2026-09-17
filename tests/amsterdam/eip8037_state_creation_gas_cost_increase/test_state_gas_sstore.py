@@ -17,7 +17,12 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
     Block,
+    BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
     CodeGasMeasure,
@@ -1022,10 +1027,11 @@ def test_sstore_restoration_then_reset(
     expected = max(tx_execution, sstore_state_gas)
 
     contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
         state_gas_reservoir=sstore_state_gas,
-        sender=pre.fund_eoa(),
+        sender=sender,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=sender_gas_used(
                 fork, tx_execution + sstore_state_gas, code
@@ -1035,7 +1041,39 @@ def test_sstore_restoration_then_reset(
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], header_verify=Header(gas_used=expected))],
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected),
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        sender: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        # The restore leaves no read behind once the slot
+                        # is set again: one change, nothing in reads.
+                        contract: BalAccountExpectation(
+                            storage_reads=[],
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=0,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=1,
+                                        )
+                                    ],
+                                )
+                            ],
+                        ),
+                    }
+                ),
+            )
+        ],
         post={contract: Account(storage={0: 1})},
     )
 

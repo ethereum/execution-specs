@@ -560,12 +560,13 @@ class BuiltBlock(CamelModel):
         self,
     ) -> "FixtureExecutionPayloadModifier | None":
         """
-        Propagate ``rlp_modifier``'s header changes to the engine payload.
+        Propagate header changes and explicit overrides to the engine payload.
 
         The engine ``ExecutionPayload`` schema does not carry
-        ``block_access_list_hash`` directly; the equivalent payload field is
-        the ``block_access_list`` body. So a header modifier that touches the
-        BAL hash needs to drive a matching change on the payload body.
+        ``block_access_list_hash`` directly; the corresponding payload
+        field is the ``block_access_list`` body. Removing the header hash
+        therefore removes the payload field. Adding or changing the hash
+        is reflected in ``blockHash`` without synthesizing a BAL body.
         """
         if self.engine_new_payload_slot_number is not None:
             return FixtureExecutionPayloadModifier(
@@ -586,14 +587,9 @@ class BuiltBlock(CamelModel):
                     FixtureExecutionPayloadModifier.REMOVE_FIELD
                 ),
             )
-        # The user injected a header BAL hash; mirror that on the engine
-        # payload by forcing a body to be present. Its exact value is
-        # irrelevant for negative tests — a non-``None`` value is enough to
-        # make a payload-version mismatch detectable.
-        if self.block_access_list is None:
-            return FixtureExecutionPayloadModifier(
-                block_access_list=Bytes(b""),
-            )
+        # Do not introduce an unsupported pre-fork payload field when the
+        # intended defect is the header hash. API field-presence tests use
+        # an explicit engine_new_payload_block_access_list override.
         return None
 
     def get_fixture_engine_new_payload(self) -> FixtureEngineNewPayload:

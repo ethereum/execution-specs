@@ -780,8 +780,8 @@ def incorporate_tx_into_block(
     Merge transaction writes into the block state and clear for reuse.
 
     Update the BAL builder incrementally by diffing this transaction's
-    writes against the block's cumulative state.  Merge reads and
-    touches into block-level sets.
+    writes against the state at the start of the current block access
+    index.  Merge reads and touches into block-level sets.
 
     Parameters
     ----------

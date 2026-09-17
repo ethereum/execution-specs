@@ -18,7 +18,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayloadModifier,
     FixtureHeader,
 )
-from execution_testing.forks import Amsterdam
+from execution_testing.forks import Amsterdam, Fork, Osaka
 from execution_testing.test_types import Alloc, Environment
 from execution_testing.test_types.block_access_list import (
     BlockAccessList,
@@ -166,6 +166,7 @@ def test_fixture_header_join(
 
 def built_block(
     *,
+    fork: Fork = Amsterdam,
     rlp_modifier: Header | None = None,
     block_access_list: BlockAccessList | None = None,
     engine_new_payload_block_access_list: Bytes | None = None,
@@ -181,7 +182,7 @@ def built_block(
         withdrawals=None,
         requests=None,
         result=result_empty,
-        fork=Amsterdam,
+        fork=fork,
         rlp_modifier=rlp_modifier,
         block_access_list=block_access_list,
         engine_new_payload_block_access_list=engine_new_payload_block_access_list,
@@ -228,18 +229,19 @@ class TestDeriveEnginePayloadModifier:
             FixtureExecutionPayloadModifier.REMOVE_FIELD
         )
 
-    def test_inject_bal_hash_on_pre_fork_adds_body(self) -> None:
+    def test_inject_bal_hash_on_pre_fork_keeps_body_absent(self) -> None:
         """
-        Injecting a header BAL hash on a block that has no body (pre-fork)
-        triggers a body to be added to the engine payload, so a payload-
-        version mismatch is detectable.
+        Keep pre-fork payload parameters valid when only the header hash
+        is corrupted, so rejection tests the block hash alone.
         """
-        modifier = built_block(
-            rlp_modifier=Header(block_access_list_hash=Hash(0)),
-            block_access_list=None,
-        ).engine_payload_modifier()
-        assert isinstance(modifier, FixtureExecutionPayloadModifier)
-        assert modifier.block_access_list == Bytes(b"")
+        assert (
+            built_block(
+                fork=Osaka,
+                rlp_modifier=Header(block_access_list_hash=Hash(0)),
+                block_access_list=None,
+            ).engine_payload_modifier()
+            is None
+        )
 
     def test_inject_bal_hash_on_post_fork_leaves_body_alone(self) -> None:
         """
@@ -255,10 +257,12 @@ class TestDeriveEnginePayloadModifier:
             is None
         )
 
-    def test_empty_bytes_override_sends_raw_body(self) -> None:
+    @pytest.mark.parametrize("fork", [Osaka, Amsterdam])
+    def test_empty_bytes_override_sends_raw_body(self, fork: Fork) -> None:
         """Raw `Bytes` (e.g. the invalid `0x`) are sent verbatim."""
         modifier = built_block(
-            engine_new_payload_block_access_list=Bytes(b"")
+            fork=fork,
+            engine_new_payload_block_access_list=Bytes(b""),
         ).engine_payload_modifier()
         assert isinstance(modifier, FixtureExecutionPayloadModifier)
         assert modifier.block_access_list == Bytes(b"")
