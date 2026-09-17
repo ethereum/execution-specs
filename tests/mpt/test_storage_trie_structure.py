@@ -938,6 +938,45 @@ def test_insert_then_delete_same_block(
     )
 
 
+@pytest.mark.parametrize("new_value", [2, 5], ids=["same_value", "new_value"])
+def test_delete_then_reinsert_same_block(
+    blockchain_test: BlockchainTestFiller, pre: Alloc, new_value: int
+) -> None:
+    """
+    Pre: TWO_SLOTS_EXT4 committed at genesis as ext(4) -> branch@4.
+    Op: in one block, tx1 zeroes TWO_SLOTS_EXT4[1] (which would collapse
+    the branch into a root leaf), tx2 writes it back with the same value
+    or a new one.
+    Post: the pre shape; the same-value case leaves the storage root
+    byte-identical to genesis, the new-value case changes one leaf value.
+    Exercises: a per-key delete marker followed by a write inside one
+    block diff. The delete must not shadow the re-insert, and the
+    same-value case must fold to a no-op rather than delete+insert.
+    """
+    a, b = TWO_SLOTS_EXT4
+    assert _shape([a, b], a) == [
+        (0, "ext", 4),
+        (4, "branch", 2),
+        (5, "leaf", 59),
+    ]
+    assert _shape([a], a) == [(0, "leaf", 64)]
+    contract = pre.deploy_contract(code=SLOT_WRITER, storage={a: 1, b: 2})
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={a: 1, b: new_value})},
+        blocks=[
+            Block(
+                txs=[
+                    _write(sender, contract, b, 0),
+                    _write(sender, contract, b, new_value),
+                ]
+            )
+        ],
+    )
+
+
 # --- node embedding ----------------------------------------------------
 
 
