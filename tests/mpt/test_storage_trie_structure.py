@@ -1,24 +1,27 @@
 """
 Exercise the Merkle Patricia Trie as a data structure via storage slots.
 
-Storage trie keys are `keccak256(slot)`: fixed 64 nibbles, so no key is a
-prefix of another and a branch never carries a value. Within that
-constraint, mined slot indices (`constants.py`) force the shapes an
-unconstrained slot choice essentially never produces: branch arity,
-extension length, and the branch/extension collapse that only happens on
-delete. Each test asserts the shape it claims against the reference
-`patricialize` (`trie_shape.py`) at fill time; the state root each block
-commits is the cross-client oracle.
+Every test writes storage slots whose keccak256 hashes were chosen (see
+`constants.py`) to force one specific node operation: a leaf split, an
+extension split, a branch collapse, an extension merge, or a change of a
+leaf's RLP size across the 32-byte inlining threshold. The committed
+`stateRoot` is the oracle: a client that reshapes or encodes a node
+differently from the reference `patricialize` disagrees on the root.
 
-Pinned to the latest deployed fork so every client consumes one identical
-fixture set; MPT rules are fork-invariant.
+Each docstring gives the node path along the slot of interest as
+`pre:`/`post:` lines in the notation `ext(n) -> branch@d -> {children}`,
+where `n` counts extension nibbles, `d` is the branch's depth in nibbles
+and `leaf(r)` a leaf with `r` remaining nibbles; the same shapes are
+asserted at fill time against `patricialize`.
+
+Writes go through `SLOT_WRITER`, which stores `calldata[32:64]` at slot
+`calldata[0:32]`, so successive transactions or blocks can write different
+slots to one contract; single-transaction tests use fixed code instead.
 """
 
-from typing import List, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 import pytest
-from ethereum_rlp import rlp
-from ethereum_types.numeric import U256
 from execution_testing import (
     EOA,
     Account,
@@ -32,8 +35,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.base_types import StorageRootType
-
-from ethereum.merkle_patricia_trie import nibble_list_to_compact
 
 from .constants import (
     BRANCH_SURVIVOR_TRIO,
@@ -50,15 +51,13 @@ from .constants import (
     TWO_SLOTS_EXT4,
     TWO_SLOTS_EXT4_SIBLING_DEPTH1,
 )
-from .trie_shape import Shape, path_shape, slot_key
+from .trie_shape import Shape, storage_leaf_size, storage_shape
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 pytestmark = pytest.mark.valid_from("Osaka")
 
-# Writes `calldata[0:32]` -> `calldata[32:64]`; one transaction per slot
-# lets multi-block tests commit each mutation separately.
 SLOT_WRITER = Op.SSTORE(Op.CALLDATALOAD(0), Op.CALLDATALOAD(32)) + Op.STOP
 
 
@@ -81,14 +80,18 @@ def _write(
     )
 
 
-def _shape(slots: Sequence[int], target: int) -> Shape:
-    return path_shape([slot_key(s) for s in slots], slot_key(target))
+def _storage(slots: Sequence[int]) -> Dict[int, int]:
+    """Storage mapping `slot -> position + 1` for `slots`."""
+    assert len(set(slots)) == len(slots)
+    return {slot: i + 1 for i, slot in enumerate(slots)}
 
 
-def _leaf_rlp_size(rest_nibbles: int, value: int) -> int:
-    """RLP size of a storage leaf with `rest_nibbles` left and `value`."""
-    compact = nibble_list_to_compact(bytes([0] * rest_nibbles), True)
-    return len(rlp.encode((compact, rlp.encode(U256(value)))))
+def _alloc(values: Dict[int, int]) -> StorageRootType:
+    """`values` typed for `deploy_contract(storage=...)`."""
+    storage: StorageRootType = {}
+    for slot, value in values.items():
+        storage[slot] = value
+    return storage
 
 
 # --- inserts -----------------------------------------------------------
@@ -97,8 +100,13 @@ def _leaf_rlp_size(rest_nibbles: int, value: int) -> int:
 def test_insert_leaf_into_empty_trie(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
-    """A single `SSTORE` into an empty storage trie creates one leaf."""
-    assert _shape([SINGLE_SLOT], SINGLE_SLOT) == [(0, "leaf", 64)]
+    """
+    First write into an empty storage trie.
+
+    pre:  empty
+    post: leaf(64)
+    """
+    assert storage_shape([SINGLE_SLOT], SINGLE_SLOT) == [(0, "leaf", 64)]
     contract = pre.deploy_contract(code=_writer_code([(SINGLE_SLOT, 1)]))
 
     state_test(
@@ -109,10 +117,15 @@ def test_insert_leaf_into_empty_trie(
 
 
 def test_update_existing_leaf(state_test: StateTestFiller, pre: Alloc) -> None:
-    """Overwriting an existing slot changes its value, not the trie shape."""
+    """
+    Overwrite the only leaf; the value changes, the shape does not.
+
+    pre:  leaf(64) = 1
+    post: leaf(64) = 2
+    """
+    assert storage_shape([SINGLE_SLOT], SINGLE_SLOT) == [(0, "leaf", 64)]
     contract = pre.deploy_contract(
-        code=_writer_code([(SINGLE_SLOT, 2)]),
-        storage={SINGLE_SLOT: 1},
+        code=_writer_code([(SINGLE_SLOT, 2)]), storage={SINGLE_SLOT: 1}
     )
 
     state_test(
@@ -125,9 +138,14 @@ def test_update_existing_leaf(state_test: StateTestFiller, pre: Alloc) -> None:
 def test_insert_splits_into_extension_and_branch(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
-    """Two slots sharing 4 nibbles build ext(4) -> branch -> 2 leaves."""
+    """
+    Two slots sharing four nibbles, written into an empty trie.
+
+    pre:  empty
+    post: ext(4) -> branch@4 -> {leaf(59), leaf(59)}
+    """
     a, b = TWO_SLOTS_EXT4
-    assert _shape([a, b], a) == [
+    assert storage_shape([a, b], a) == [
         (0, "ext", 4),
         (4, "branch", 2),
         (5, "leaf", 59),
@@ -145,17 +163,13 @@ def test_insert_pair_sharing_one_nibble(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    Pre: empty storage trie.
-    Op: write two slots whose hashed keys share exactly one nibble.
-    Post: ext(1) -> branch@1 -> two 62-nibble leaves; the shortest
-    extension a leaf split can create.
-    Exercises: leaf split with a one-nibble common prefix (geth
-    `Trie.insert`, shortNode case with `matchlen == 1`), as opposed to
-    the four-nibble split of `test_insert_splits_into_extension_and_branch`
-    and the prefix-free split of `ROOT_PAIR`.
+    Two slots sharing one nibble: the shortest extension a split creates.
+
+    pre:  empty
+    post: ext(1) -> branch@1 -> {leaf(62), leaf(62)}
     """
     a, b = SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1
-    assert _shape([a, b], a) == [
+    assert storage_shape([a, b], a) == [
         (0, "ext", 1),
         (1, "branch", 2),
         (2, "leaf", 62),
@@ -173,16 +187,18 @@ def test_insert_into_committed_extension(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    Inserting a key that diverges inside a committed 5-nibble extension
-    splits it: ext(2) -> branch -> {new leaf, ext(2) -> branch -> 2 leaves}.
+    Insert a key that diverges in the middle of a committed extension.
+
+    pre:  ext(5) -> branch@5 -> {l1, l2}
+    post: ext(2) -> branch@2 -> {l3, ext(2) -> branch@5 -> {l1, l2}}
     """
     l1, l2, l3 = EXT_MERGE_TRIO
-    assert _shape([l1, l2], l1) == [
+    assert storage_shape([l1, l2], l1) == [
         (0, "ext", 5),
         (5, "branch", 2),
         (6, "leaf", 58),
     ]
-    assert _shape([l1, l2, l3], l1) == [
+    assert storage_shape([l1, l2, l3], l1) == [
         (0, "ext", 2),
         (2, "branch", 2),
         (3, "ext", 2),
@@ -227,19 +243,20 @@ def test_insert_splits_below_root_branch(
     post_shape: Shape,
 ) -> None:
     """
-    Pre: ROOT_PAIR committed as a root branch with two direct leaves.
-    Op: write a slot that shares the first nibble with ROOT_PAIR[0].
-    Post: the root branch keeps both slots; the leaf in the shared slot is
-    split in place, into ext(1) -> branch@2 when the new key shares two
-    nibbles, or into a branch@1 directly when it shares only the first.
-    Exercises: a split whose result is re-parented into an existing branch
-    slot instead of becoming the root (geth `Trie.insert` fullNode case
-    recursing into a shortNode).
+    Split a leaf that hangs off a committed root branch.
+
+    pre:  branch@0 -> {leaf(63) SINGLE_SLOT, leaf(63)}
+    post: branch@0 -> {ext(1) -> branch@2 -> {..}, leaf(63)}   two shared
+          branch@0 -> {branch@1 -> {..}, leaf(63)}             one shared
+    The split result is re-parented into the existing slot, not the root.
     """
     a, b = ROOT_PAIR
-    assert _shape([a, b], a) == [(0, "branch", 2), (1, "leaf", 63)]
-    assert _shape([a, b, new_slot], a) == post_shape
-    assert _shape([a, b, new_slot], b) == [(0, "branch", 2), (1, "leaf", 63)]
+    assert storage_shape([a, b], a) == [(0, "branch", 2), (1, "leaf", 63)]
+    assert storage_shape([a, b, new_slot], a) == post_shape
+    assert storage_shape([a, b, new_slot], b) == [
+        (0, "branch", 2),
+        (1, "leaf", 63),
+    ]
     contract = pre.deploy_contract(
         code=_writer_code([(new_slot, 3)]), storage={a: 1, b: 2}
     )
@@ -284,25 +301,24 @@ def test_insert_diverges_at_extension_first_nibble(
     post_shape: Shape,
 ) -> None:
     """
-    Pre: a pair whose root is an extension (4 nibbles, or a single one).
-    Op: write a slot whose hashed key differs from the pair in nibble 0.
-    Post: the root becomes a branch. A 4-nibble extension survives one
-    nibble shorter as the branch child; a 1-nibble extension disappears
-    and its branch becomes the child directly, no ext(0) is created.
-    Exercises: extension split at offset 0 (geth `Trie.insert` shortNode
-    case with `matchlen == 0`), including the zero-length remainder path
-    that returns the child node instead of building a shortNode.
+    Insert a key that differs from a root extension in its first nibble.
+
+    pre:  ext(4) -> branch@4 -> {..}
+    post: branch@0 -> {ext(3) -> branch@4 -> {..}, leaf(63)}
+    pre:  ext(1) -> branch@1 -> {..}
+    post: branch@0 -> {branch@1 -> {..}, leaf(63)}
+    A 1-nibble extension vanishes; no zero-length extension is created.
     """
     target = committed[0]
-    assert _shape(committed, target) == pre_shape
-    assert _shape([*committed, new_slot], target) == post_shape
-    assert _shape([*committed, new_slot], new_slot) == [
+    assert storage_shape(committed, target) == pre_shape
+    assert storage_shape([*committed, new_slot], target) == post_shape
+    assert storage_shape([*committed, new_slot], new_slot) == [
         (0, "branch", 2),
         (1, "leaf", 63),
     ]
-    storage: StorageRootType = {s: i + 1 for i, s in enumerate(committed)}
+    storage = _storage(committed)
     contract = pre.deploy_contract(
-        code=_writer_code([(new_slot, 3)]), storage=storage
+        code=_writer_code([(new_slot, 3)]), storage=_alloc(storage)
     )
 
     state_test(
@@ -315,9 +331,14 @@ def test_insert_diverges_at_extension_first_nibble(
 def test_insert_full_branch_arity_sixteen(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
-    """Sixteen slots sharing 4 nibbles fill every child of one branch."""
+    """
+    Sixteen slots sharing four nibbles fill every child of one branch.
+
+    pre:  empty
+    post: ext(4) -> branch@4 -> {16 x leaf(59)}
+    """
     slots = SIXTEEN_SLOTS_BRANCH4
-    assert _shape(slots, slots[0]) == [
+    assert storage_shape(slots, slots[0]) == [
         (0, "ext", 4),
         (4, "branch", 16),
         (5, "leaf", 59),
@@ -337,15 +358,17 @@ def test_insert_full_branch_across_blocks(
     blockchain_test: BlockchainTestFiller, pre: Alloc, reverse: bool
 ) -> None:
     """
-    Build the 16-way branch across two blocks, one slot per transaction,
-    so the second half is inserted into an already-committed branch. The
-    two orderings must reach the same root; only across a block boundary
-    is insertion order observable by an incremental trie.
+    Fill a 16-way branch over two blocks, in two orders.
+
+    pre:  empty
+    post: ext(4) -> branch@4 -> {16 x leaf(59)}   after block 2
+    Block 2 inserts into a committed 8-child branch; both orders must
+    reach the same root.
     """
     slots = list(SIXTEEN_SLOTS_BRANCH4)
     if reverse:
         slots.reverse()
-    values = {slot: i + 1 for i, slot in enumerate(SIXTEEN_SLOTS_BRANCH4)}
+    values = _storage(SIXTEEN_SLOTS_BRANCH4)
     contract = pre.deploy_contract(code=SLOT_WRITER)
     sender = pre.fund_eoa()
     first, second = slots[:8], slots[8:]
@@ -373,10 +396,15 @@ def test_insert_full_branch_across_blocks(
 def test_delete_via_zero_value(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
-    """`SSTORE(slot, 0)` removes the slot: the trie is empty afterwards."""
+    """
+    Zero the only slot.
+
+    pre:  leaf(64)
+    post: empty
+    """
+    assert storage_shape([SINGLE_SLOT], SINGLE_SLOT) == [(0, "leaf", 64)]
     contract = pre.deploy_contract(
-        code=_writer_code([(SINGLE_SLOT, 0)]),
-        storage={SINGLE_SLOT: 1},
+        code=_writer_code([(SINGLE_SLOT, 0)]), storage={SINGLE_SLOT: 1}
     )
 
     state_test(
@@ -386,35 +414,50 @@ def test_delete_via_zero_value(
     )
 
 
-def test_delete_missing_through_extension(
-    state_test: StateTestFiller, pre: Alloc
+@pytest.mark.parametrize(
+    "committed,absent,pre_shape",
+    [
+        pytest.param(
+            [SINGLE_SLOT],
+            ROOT_PAIR[1],
+            [(0, "leaf", 64)],
+            id="leaf_mismatch",
+        ),
+        pytest.param(
+            EXT_MERGE_TRIO[:2],
+            EXT_MERGE_TRIO[2],
+            [(0, "ext", 5), (5, "branch", 2), (6, "leaf", 58)],
+            id="ext_mismatch",
+        ),
+        pytest.param(
+            SIXTEEN_SLOTS_BRANCH4[:15],
+            SIXTEEN_SLOTS_BRANCH4[15],
+            [(0, "ext", 4), (4, "branch", 15), (5, "leaf", 59)],
+            id="empty_slot",
+        ),
+    ],
+)
+def test_delete_missing_is_noop(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    committed: Sequence[int],
+    absent: int,
+    pre_shape: Shape,
 ) -> None:
     """
-    Zeroing a key that diverges inside a committed extension is a no-op:
-    the walk must reject the extension mismatch without touching nodes.
+    Zero a slot that is not in the trie.
+
+    pre:  leaf(64) / ext(5) -> branch@5 / ext(4) -> branch@4 (15 children)
+    post: identical
+    Control: the walk ends at a different leaf, inside an extension, or in
+    an empty branch slot; clients skip the write in their state layer and
+    the root must equal the pre-state root.
     """
-    l1, l2, l3 = EXT_MERGE_TRIO
-    assert _shape([l1, l2], l1)[0] == (0, "ext", 5)
+    storage = _storage(committed)
+    assert storage_shape(committed, committed[0]) == pre_shape
+    assert absent not in storage
     contract = pre.deploy_contract(
-        code=_writer_code([(l3, 0)]), storage={l1: 1, l2: 2}
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage={l1: 1, l2: 2})},
-    )
-
-
-def test_delete_missing_into_empty_branch_slot(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
-    """Zeroing a key whose branch child slot is empty is a no-op."""
-    present, absent = SIXTEEN_SLOTS_BRANCH4[:15], SIXTEEN_SLOTS_BRANCH4[15]
-    assert _shape(present, present[0])[1] == (4, "branch", 15)
-    storage: StorageRootType = {slot: i + 1 for i, slot in enumerate(present)}
-    contract = pre.deploy_contract(
-        code=_writer_code([(absent, 0)]), storage=storage
+        code=_writer_code([(absent, 0)]), storage=_alloc(storage)
     )
 
     state_test(
@@ -424,42 +467,19 @@ def test_delete_missing_into_empty_branch_slot(
     )
 
 
-def test_delete_absent_key_ending_at_other_leaf(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
-    """
-    Pre: a single committed leaf for SINGLE_SLOT (the root itself).
-    Op: zero ROOT_PAIR[1], whose hashed key diverges from the leaf's path
-    at nibble 0.
-    Post: unchanged; the root is still the same 64-nibble leaf.
-    Exercises: delete-missing whose walk ends at a leaf with a different
-    path, the third no-op shape after the extension mismatch and the empty
-    branch slot. geth and Nethermind take the shared shortNode mismatch
-    path; Besu's `RemoveVisitor` has a leaf-specific visit.
-    """
-    present, absent = SINGLE_SLOT, ROOT_PAIR[1]
-    assert _shape([present], present) == [(0, "leaf", 64)]
-    assert _shape([present, absent], present)[0] == (0, "branch", 2)
-    contract = pre.deploy_contract(
-        code=_writer_code([(absent, 0)]), storage={present: 1}
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage={present: 1})},
-    )
-
-
 def test_delete_collapses_branch_into_leaf(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    Deleting one of two siblings under ext(4) -> branch collapses the
-    branch and extension into a single leaf.
+    Delete one of two siblings under a root extension.
+
+    pre:  ext(4) -> branch@4 -> {leaf(59), leaf(59)}
+    post: leaf(64)
+    The survivor absorbs the branch nibble and the extension.
     """
     a, b = TWO_SLOTS_EXT4
-    assert _shape([b], b) == [(0, "leaf", 64)]
+    assert storage_shape([a, b], b)[:2] == [(0, "ext", 4), (4, "branch", 2)]
+    assert storage_shape([b], b) == [(0, "leaf", 64)]
     contract = pre.deploy_contract(
         code=_writer_code([(a, 0)]), storage={a: 1, b: 2}
     )
@@ -475,17 +495,19 @@ def test_delete_merges_adjacent_extensions(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    Deleting the shallow sibling of ext(2) -> branch -> {leaf, ext(2) ->
-    branch} leaves the outer branch with one child; it collapses and the
-    two extensions merge into ext(5).
+    Delete the shallow sibling of a nested extension.
+
+    pre:  ext(2) -> branch@2 -> {l3, ext(2) -> branch@5 -> {l1, l2}}
+    post: ext(5) -> branch@5 -> {l1, l2}
+    Two extensions and the collapsed branch's nibble merge into one.
     """
     l1, l2, l3 = EXT_MERGE_TRIO
-    assert _shape([l1, l2, l3], l1)[:3] == [
+    assert storage_shape([l1, l2, l3], l1)[:3] == [
         (0, "ext", 2),
         (2, "branch", 2),
         (3, "ext", 2),
     ]
-    assert _shape([l1, l2], l1)[0] == (0, "ext", 5)
+    assert storage_shape([l1, l2], l1)[0] == (0, "ext", 5)
     contract = pre.deploy_contract(
         code=_writer_code([(l3, 0)]), storage={l1: 1, l2: 2, l3: 3}
     )
@@ -501,18 +523,20 @@ def test_delete_collapses_branch_onto_branch(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    Deleting the shallow sibling of ext(2) -> branch -> {leaf, branch}
-    collapses the outer branch onto a *branch* survivor: the extension
-    absorbs the surviving nibble and points straight at the inner branch.
+    Delete the leaf sibling of a branch under a root extension.
+
+    pre:  ext(2) -> branch@2 -> {c, branch@3 -> {a, b}}
+    post: ext(3) -> branch@3 -> {a, b}
+    The survivor is a branch; the extension grows by one nibble.
     """
     a, b, c = BRANCH_SURVIVOR_TRIO
-    assert _shape([a, b, c], a) == [
+    assert storage_shape([a, b, c], a) == [
         (0, "ext", 2),
         (2, "branch", 2),
         (3, "branch", 2),
         (4, "leaf", 60),
     ]
-    assert _shape([a, b], a) == [
+    assert storage_shape([a, b], a) == [
         (0, "ext", 3),
         (3, "branch", 2),
         (4, "leaf", 60),
@@ -532,11 +556,14 @@ def test_delete_collapses_root_branch_into_leaf(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    Two leaves diverging at nibble 0 sit under a root branch; deleting
-    one turns the root itself into a leaf (no extension anywhere).
+    Delete one of two leaves under a root branch.
+
+    pre:  branch@0 -> {leaf(63), leaf(63)}
+    post: leaf(64)
     """
     a, b = ROOT_PAIR
-    assert _shape([a, b], a) == [(0, "branch", 2), (1, "leaf", 63)]
+    assert storage_shape([a, b], a) == [(0, "branch", 2), (1, "leaf", 63)]
+    assert storage_shape([b], b) == [(0, "leaf", 64)]
     contract = pre.deploy_contract(
         code=_writer_code([(a, 0)]), storage={a: 1, b: 2}
     )
@@ -548,27 +575,23 @@ def test_delete_collapses_root_branch_into_leaf(
     )
 
 
-def test_collapse_under_branch_parent_leaf_survivor(
+def test_delete_under_branch_parent_leaf_survivor(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    Pre: root branch -> {branch@1 -> {SINGLE_SLOT, its depth-1 sibling},
-    leaf ROOT_PAIR[1]}.
-    Op: zero the depth-1 sibling.
-    Post: branch@1 collapses; the surviving leaf gains the branch's nibble
-    (62 -> 63 remaining) and stays in the root branch's slot. Nothing
-    merges: the parent is a branch, not an extension.
-    Exercises: geth `Trie.delete` fullNode reduction with a shortNode
-    survivor whose parent frame is itself a fullNode. Every other collapse
-    in the suite either becomes the root or merges into an extension.
+    Collapse a branch whose parent is a branch, onto a leaf.
+
+    pre:  branch@0 -> {branch@1 -> {leaf(62), leaf(62)}, leaf(63)}
+    post: branch@0 -> {leaf(63), leaf(63)}
+    Nothing merges: the survivor only gains the branch nibble.
     """
     a, sibling, other = SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1, ROOT_PAIR[1]
-    assert _shape([a, sibling, other], a) == [
+    assert storage_shape([a, sibling, other], a) == [
         (0, "branch", 2),
         (1, "branch", 2),
         (2, "leaf", 62),
     ]
-    assert _shape([a, other], a) == [(0, "branch", 2), (1, "leaf", 63)]
+    assert storage_shape([a, other], a) == [(0, "branch", 2), (1, "leaf", 63)]
     contract = pre.deploy_contract(
         code=_writer_code([(sibling, 0)]),
         storage={a: 1, sibling: 2, other: 3},
@@ -581,20 +604,15 @@ def test_collapse_under_branch_parent_leaf_survivor(
     )
 
 
-def test_collapse_under_branch_parent_branch_survivor(
+def test_delete_under_branch_parent_branch_survivor(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    Pre: root branch -> {branch@1 -> {depth-1 sibling, branch@2 ->
-    {SINGLE_SLOT, its depth-2 sibling}}, leaf ROOT_PAIR[1]}.
-    Op: zero the depth-1 sibling.
-    Post: branch@1 collapses onto a branch survivor, so a fresh 1-nibble
-    extension appears between the root branch and branch@2; the root
-    branch keeps its slot.
-    Exercises: geth `Trie.delete` fullNode reduction where the survivor is
-    a fullNode and the parent is a fullNode (a new shortNode is created,
-    not merged). `test_delete_collapses_branch_onto_branch` covers the
-    extension-parent variant where the nibble merges into ext(k+1).
+    Collapse a branch whose parent is a branch, onto a branch.
+
+    pre:  branch@0 -> {branch@1 -> {leaf, branch@2 -> {..}}, leaf(63)}
+    post: branch@0 -> {ext(1) -> branch@2 -> {..}, leaf(63)}
+    A fresh 1-nibble extension appears between two branches.
     """
     a, d1, d2, other = (
         SINGLE_SLOT,
@@ -602,13 +620,13 @@ def test_collapse_under_branch_parent_branch_survivor(
         SINGLE_SLOT_SIBLING_DEPTH2,
         ROOT_PAIR[1],
     )
-    assert _shape([a, d1, d2, other], a) == [
+    assert storage_shape([a, d1, d2, other], a) == [
         (0, "branch", 2),
         (1, "branch", 2),
         (2, "branch", 2),
         (3, "leaf", 61),
     ]
-    assert _shape([a, d2, other], a) == [
+    assert storage_shape([a, d2, other], a) == [
         (0, "branch", 2),
         (1, "ext", 1),
         (2, "branch", 2),
@@ -626,27 +644,23 @@ def test_collapse_under_branch_parent_branch_survivor(
     )
 
 
-def test_root_branch_collapses_onto_branch(
+def test_delete_root_branch_onto_branch(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    Pre: root branch -> {branch@1 -> {SINGLE_SLOT, its depth-1 sibling},
-    leaf ROOT_PAIR[1]}.
-    Op: zero ROOT_PAIR[1].
-    Post: the root branch collapses onto branch@1; the root becomes a
-    1-nibble extension pointing at that branch. Root kind changes from
-    branch to extension, the one root transition the suite lacked.
-    Exercises: geth `Trie.delete` fullNode reduction at the root with a
-    fullNode survivor. `test_delete_collapses_root_branch_into_leaf` is
-    the leaf-survivor counterpart.
+    Collapse the root branch onto a branch.
+
+    pre:  branch@0 -> {branch@1 -> {leaf(62), leaf(62)}, leaf(63)}
+    post: ext(1) -> branch@1 -> {leaf(62), leaf(62)}
+    The root changes kind from branch to extension.
     """
     a, sibling, other = SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1, ROOT_PAIR[1]
-    assert _shape([a, sibling, other], a) == [
+    assert storage_shape([a, sibling, other], a) == [
         (0, "branch", 2),
         (1, "branch", 2),
         (2, "leaf", 62),
     ]
-    assert _shape([a, sibling], a) == [
+    assert storage_shape([a, sibling], a) == [
         (0, "ext", 1),
         (1, "branch", 2),
         (2, "leaf", 62),
@@ -663,31 +677,26 @@ def test_root_branch_collapses_onto_branch(
     )
 
 
-def test_collapse_under_branch_parent_extension_survivor(
+def test_delete_under_branch_parent_extension_survivor(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    Pre: root branch -> {branch@1 -> {depth-1 sibling of TWO_SLOTS_EXT4,
-    ext(2) -> branch@4 -> TWO_SLOTS_EXT4}, leaf SINGLE_SLOT}.
-    Op: zero the depth-1 sibling.
-    Post: branch@1 collapses onto an extension survivor, which absorbs the
-    branch's nibble: ext(2) becomes ext(3) under the root branch, which
-    keeps its slot. No merge with a parent extension is involved.
-    Exercises: geth `Trie.delete` fullNode reduction with a shortNode
-    (extension) survivor under a fullNode parent, the extension-lengthens
-    path that `test_delete_merges_adjacent_extensions` only reaches with
-    an extension parent.
+    Collapse a branch whose parent is a branch, onto an extension.
+
+    pre:  branch@0 -> {branch@1 -> {leaf, ext(2) -> branch@4 -> {..}}, ..}
+    post: branch@0 -> {ext(3) -> branch@4 -> {..}, ..}
+    The extension grows by the branch nibble; nothing above it merges.
     """
     p, q = TWO_SLOTS_EXT4
     sibling, other = TWO_SLOTS_EXT4_SIBLING_DEPTH1, SINGLE_SLOT
-    assert _shape([p, q, sibling, other], p) == [
+    assert storage_shape([p, q, sibling, other], p) == [
         (0, "branch", 2),
         (1, "branch", 2),
         (2, "ext", 2),
         (4, "branch", 2),
         (5, "leaf", 59),
     ]
-    assert _shape([p, q, other], p) == [
+    assert storage_shape([p, q, other], p) == [
         (0, "branch", 2),
         (1, "ext", 3),
         (4, "branch", 2),
@@ -708,13 +717,19 @@ def test_collapse_under_branch_parent_extension_survivor(
 def test_delete_from_full_branch_keeps_branch(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
-    """Deleting one of 16 children leaves a 15-child branch: no collapse."""
+    """
+    Delete one of sixteen children.
+
+    pre:  ext(4) -> branch@4 -> {16 x leaf(59)}
+    post: ext(4) -> branch@4 -> {15 x leaf(59)}
+    """
     slots = SIXTEEN_SLOTS_BRANCH4
-    storage: StorageRootType = {slot: i + 1 for i, slot in enumerate(slots)}
+    storage = _storage(slots)
     remaining = {s: v for s, v in storage.items() if s != slots[0]}
-    assert _shape(slots[1:], slots[1])[1] == (4, "branch", 15)
+    assert storage_shape(slots, slots[1])[1] == (4, "branch", 16)
+    assert storage_shape(slots[1:], slots[1])[1] == (4, "branch", 15)
     contract = pre.deploy_contract(
-        code=_writer_code([(slots[0], 0)]), storage=storage
+        code=_writer_code([(slots[0], 0)]), storage=_alloc(storage)
     )
 
     state_test(
@@ -728,28 +743,26 @@ def test_delete_from_three_child_branch(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    Pre: ext(4) -> branch@4 with exactly three children (the first three
-    of SIXTEEN_SLOTS_BRANCH4).
-    Op: zero the first child.
-    Post: branch@4 keeps two children; no collapse, no extension change.
-    Exercises: the smallest non-collapsing delete. A client that reduces a
-    branch when two or fewer children remain, instead of exactly one,
-    passes the 16 -> 15 case and fails here.
+    Delete one of three children: the smallest non-collapsing delete.
+
+    pre:  ext(4) -> branch@4 -> {leaf, leaf, leaf}
+    post: ext(4) -> branch@4 -> {leaf, leaf}
+    A client that collapses at two remaining children fails here and
+    passes the 16-to-15 case.
     """
     slots = SIXTEEN_SLOTS_BRANCH4[:3]
-    assert _shape(slots, slots[1]) == [
+    assert storage_shape(slots, slots[1]) == [
         (0, "ext", 4),
         (4, "branch", 3),
         (5, "leaf", 59),
     ]
-    assert _shape(slots[1:], slots[1]) == [
+    assert storage_shape(slots[1:], slots[1]) == [
         (0, "ext", 4),
         (4, "branch", 2),
         (5, "leaf", 59),
     ]
-    storage: StorageRootType = {s: i + 1 for i, s in enumerate(slots)}
     contract = pre.deploy_contract(
-        code=_writer_code([(slots[0], 0)]), storage=storage
+        code=_writer_code([(slots[0], 0)]), storage=_alloc(_storage(slots))
     )
 
     state_test(
@@ -762,11 +775,17 @@ def test_delete_from_three_child_branch(
 def test_delete_all_slots_empties_trie(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
-    """Deleting all 16 children of a branch yields the empty trie root."""
+    """
+    Delete every slot of a full branch in one transaction.
+
+    pre:  ext(4) -> branch@4 -> {16 x leaf(59)}
+    post: empty
+    """
     slots = SIXTEEN_SLOTS_BRANCH4
+    assert storage_shape(slots, slots[0])[1] == (4, "branch", 16)
     contract = pre.deploy_contract(
         code=_writer_code([(s, 0) for s in slots]),
-        storage={slot: i + 1 for i, slot in enumerate(slots)},
+        storage=_alloc(_storage(slots)),
     )
 
     state_test(
@@ -776,7 +795,7 @@ def test_delete_all_slots_empties_trie(
     )
 
 
-# --- deletes against a trie committed by an earlier block -------------
+# --- deletes against nodes built by an earlier block --------------------
 
 
 @pytest.mark.parametrize(
@@ -804,12 +823,21 @@ def test_delete_against_committed_trie(
     target: int,
 ) -> None:
     """
-    Insert the group in block 1, delete `target` in block 2, re-insert it
-    in block 3. Each block commits, so the delete and the re-insert run
-    against hashed, persisted nodes rather than the same block's journal.
+    Insert a group in block 1, delete `target` in block 2, re-insert it in
+    block 3.
+
+    pre:  empty
+    post: the group's shape, after a round trip through the reduced shape
+    Block 2 works on nodes the client itself built in block 1 (its diff
+    layer or dirty cache), not on genesis-imported ones; block 3 splits
+    the reduced shape back open the same way.
     """
-    values = {slot: i + 1 for i, slot in enumerate(group)}
+    values = _storage(group)
     without = {s: v for s, v in values.items() if s != target}
+    survivor = next(s for s in group if s != target)
+    assert storage_shape(group, survivor) != storage_shape(
+        list(without), survivor
+    )
     contract = pre.deploy_contract(code=SLOT_WRITER)
     sender = pre.fund_eoa()
 
@@ -835,40 +863,29 @@ def test_delete_against_committed_trie(
 # --- several mutations inside one block --------------------------------
 
 
-@pytest.mark.parametrize("per_tx", [False, True], ids=["single_tx", "per_tx"])
 def test_mass_delete_sixteen_to_one(
-    blockchain_test: BlockchainTestFiller, pre: Alloc, per_tx: bool
+    blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
-    Pre: ext(4) -> branch@4 with all 16 children committed at genesis.
-    Op: zero 15 of the 16 slots inside one block, either from one
-    transaction or one transaction per slot.
-    Post: the branch collapses onto its last child and merges with the
-    extension: the root is a single 64-nibble leaf.
-    Exercises: a branch losing 15 children in one block diff. Flat-diff
-    clients see the child mask go from 0xffff to a single bit in one pass
-    instead of 15 separate reductions; the existing cases only cover
-    16 -> 15 and 16 -> 0.
+    Zero fifteen of sixteen children in one block.
+
+    pre:  ext(4) -> branch@4 -> {16 x leaf(59)}
+    post: leaf(64)
+    One block diff takes the branch from 16 children to a collapsed leaf.
     """
     slots = SIXTEEN_SLOTS_BRANCH4
     survivor, doomed = slots[0], slots[1:]
-    assert _shape(slots, survivor)[1] == (4, "branch", 16)
-    assert _shape([survivor], survivor) == [(0, "leaf", 64)]
-    storage: StorageRootType = {s: i + 1 for i, s in enumerate(slots)}
-    sender = pre.fund_eoa()
-    if per_tx:
-        contract = pre.deploy_contract(code=SLOT_WRITER, storage=storage)
-        txs = [_write(sender, contract, s, 0) for s in doomed]
-    else:
-        contract = pre.deploy_contract(
-            code=_writer_code([(s, 0) for s in doomed]), storage=storage
-        )
-        txs = [Transaction(sender=sender, to=contract)]
+    assert storage_shape(slots, survivor)[1] == (4, "branch", 16)
+    assert storage_shape([survivor], survivor) == [(0, "leaf", 64)]
+    contract = pre.deploy_contract(
+        code=_writer_code([(s, 0) for s in doomed]),
+        storage=_alloc(_storage(slots)),
+    )
 
     blockchain_test(
         pre=pre,
         post={contract: Account(storage={survivor: 1})},
-        blocks=[Block(txs=txs)],
+        blocks=[Block(txs=[Transaction(sender=pre.fund_eoa(), to=contract)])],
     )
 
 
@@ -876,24 +893,17 @@ def test_one_to_sixteen_into_committed_leaf(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
-    Pre: one slot of SIXTEEN_SLOTS_BRANCH4 committed at genesis as the
-    root leaf.
-    Op: write the other 15 slots in one block, one transaction each.
-    Post: ext(4) -> branch@4 with all 16 children.
-    Exercises: one split of a committed leaf into ext+branch followed by
-    14 slot fills of the branch it just created, all inside one block
-    diff. `test_insert_full_branch_across_blocks` grows a committed
-    branch from 8 to 16 but never starts from a leaf.
+    Grow a committed single leaf into a full branch in one block.
+
+    pre:  leaf(64)
+    post: ext(4) -> branch@4 -> {16 x leaf(59)}
+    One split followed by fourteen slot fills of the branch it created.
     """
     slots = SIXTEEN_SLOTS_BRANCH4
     first, rest = slots[0], slots[1:]
-    assert _shape([first], first) == [(0, "leaf", 64)]
-    assert _shape(slots, first) == [
-        (0, "ext", 4),
-        (4, "branch", 16),
-        (5, "leaf", 59),
-    ]
-    values = {s: i + 1 for i, s in enumerate(slots)}
+    assert storage_shape([first], first) == [(0, "leaf", 64)]
+    assert storage_shape(slots, first)[1] == (4, "branch", 16)
+    values = _storage(slots)
     contract = pre.deploy_contract(code=SLOT_WRITER, storage={first: 1})
     sender = pre.fund_eoa()
 
@@ -906,34 +916,47 @@ def test_one_to_sixteen_into_committed_leaf(
     )
 
 
+@pytest.mark.parametrize(
+    "committed,slot",
+    [
+        pytest.param(TWO_SLOTS_EXT4[:1], TWO_SLOTS_EXT4[1], id="leaf_split"),
+        pytest.param(EXT_MERGE_TRIO[:2], EXT_MERGE_TRIO[2], id="ext_split"),
+        pytest.param(
+            SIXTEEN_SLOTS_BRANCH4[:15],
+            SIXTEEN_SLOTS_BRANCH4[15],
+            id="branch_slot",
+        ),
+    ],
+)
 def test_insert_then_delete_same_block(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    committed: Sequence[int],
+    slot: int,
 ) -> None:
     """
-    Pre: TWO_SLOTS_EXT4[0] committed at genesis as the root leaf.
-    Op: in one block, tx1 writes TWO_SLOTS_EXT4[1] (which would split the
-    leaf into ext(4) -> branch@4), tx2 zeroes it again.
-    Post: storage identical to the pre-state, so the contract's storage
-    root must be byte-identical to its genesis value: no residual
-    extension or one-child branch may survive the round trip.
-    Exercises: a key whose final value equals its original inside one
-    block diff. Object-diff clients must skip it; touched-key clients
-    (erigon, reth) process it and must arrive at the same node set.
+    Write a slot and zero it again within one block.
+
+    pre:  leaf(64) / ext(5) -> branch@5 / ext(4) -> branch@4 (15 children)
+    post: identical, storage root byte-identical to genesis
+    Control: the transient write would split a leaf, split an extension or
+    fill a branch slot; the block diff must leave no residue of it.
     """
-    a, b = TWO_SLOTS_EXT4
-    assert _shape([a], a) == [(0, "leaf", 64)]
-    assert _shape([a, b], a)[:2] == [(0, "ext", 4), (4, "branch", 2)]
-    contract = pre.deploy_contract(code=SLOT_WRITER, storage={a: 1})
+    storage = _storage(committed)
+    assert storage_shape([*committed, slot], slot) != storage_shape(
+        committed, committed[0]
+    )
+    contract = pre.deploy_contract(code=SLOT_WRITER, storage=_alloc(storage))
     sender = pre.fund_eoa()
 
     blockchain_test(
         pre=pre,
-        post={contract: Account(storage={a: 1})},
+        post={contract: Account(storage=storage)},
         blocks=[
             Block(
                 txs=[
-                    _write(sender, contract, b, 2),
-                    _write(sender, contract, b, 0),
+                    _write(sender, contract, slot, 9),
+                    _write(sender, contract, slot, 0),
                 ]
             )
         ],
@@ -945,23 +968,14 @@ def test_delete_then_reinsert_same_block(
     blockchain_test: BlockchainTestFiller, pre: Alloc, new_value: int
 ) -> None:
     """
-    Pre: TWO_SLOTS_EXT4 committed at genesis as ext(4) -> branch@4.
-    Op: in one block, tx1 zeroes TWO_SLOTS_EXT4[1] (which would collapse
-    the branch into a root leaf), tx2 writes it back with the same value
-    or a new one.
-    Post: the pre shape; the same-value case leaves the storage root
-    byte-identical to genesis, the new-value case changes one leaf value.
-    Exercises: a per-key delete marker followed by a write inside one
-    block diff. The delete must not shadow the re-insert, and the
-    same-value case must fold to a no-op rather than delete+insert.
+    Zero a slot and write it back within one block.
+
+    pre:  ext(4) -> branch@4 -> {leaf(59), leaf(59)}
+    post: identical shape; same_value leaves the root byte-identical
+    Control: a delete marker must not shadow the later write.
     """
     a, b = TWO_SLOTS_EXT4
-    assert _shape([a, b], a) == [
-        (0, "ext", 4),
-        (4, "branch", 2),
-        (5, "leaf", 59),
-    ]
-    assert _shape([a], a) == [(0, "leaf", 64)]
+    assert storage_shape([a, b], a)[:2] == [(0, "ext", 4), (4, "branch", 2)]
     contract = pre.deploy_contract(code=SLOT_WRITER, storage={a: 1, b: 2})
     sender = pre.fund_eoa()
 
@@ -983,18 +997,15 @@ def test_delete_sibling_and_update_survivor_same_block(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
-    Pre: TWO_SLOTS_EXT4 committed at genesis as ext(4) -> branch@4.
-    Op: in one block, tx1 zeroes TWO_SLOTS_EXT4[0], tx2 overwrites
-    TWO_SLOTS_EXT4[1] with a new value.
-    Post: the branch collapses and merges with the extension into a root
-    leaf that must carry the survivor's new value, not its committed one.
-    Exercises: a collapse whose survivor is itself dirty in the same block
-    diff; the reduction must read the updated leaf, and flat-diff clients
-    must order the delete and the update correctly.
+    Zero one sibling and overwrite the other within one block.
+
+    pre:  ext(4) -> branch@4 -> {leaf(59) = 1, leaf(59) = 2}
+    post: leaf(64) = 7
+    The collapsed leaf must carry the survivor's new value.
     """
     a, b = TWO_SLOTS_EXT4
-    assert _shape([a, b], b)[:2] == [(0, "ext", 4), (4, "branch", 2)]
-    assert _shape([b], b) == [(0, "leaf", 64)]
+    assert storage_shape([a, b], b)[:2] == [(0, "ext", 4), (4, "branch", 2)]
+    assert storage_shape([b], b) == [(0, "leaf", 64)]
     contract = pre.deploy_contract(code=SLOT_WRITER, storage={a: 1, b: 2})
     sender = pre.fund_eoa()
 
@@ -1016,23 +1027,27 @@ def test_replace_child_within_branch_slot(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
-    Pre: ROOT_PAIR committed at genesis as a root branch with two leaves.
-    Op: in one block, tx1 zeroes SINGLE_SLOT (= ROOT_PAIR[0]), tx2 writes
-    its depth-1 sibling, whose hashed key lands in the same root-branch
-    slot.
-    Post: the root branch still has two children; the slot that held
-    SINGLE_SLOT's leaf now holds the sibling's leaf, a different key with
-    a different 63-nibble remaining path.
-    Exercises: a branch whose child count is unchanged while one child's
-    content is swapped inside one block diff. Clients that key cached
-    nodes by path must not reuse the old leaf; child-mask based
-    appliers see no mask change at all.
+    Zero a leaf and write another key into the same branch slot.
+
+    pre:  branch@0 -> {leaf(63) SINGLE_SLOT, leaf(63)}
+    post: branch@0 -> {leaf(63) sibling, leaf(63)}
+    The child count is unchanged while the slot's content is swapped; had
+    both keys stayed, the slot would hold ext(1) -> branch@2.
     """
     old, other = ROOT_PAIR
     new = SINGLE_SLOT_SIBLING_DEPTH1
-    assert _shape([old, other], other) == [(0, "branch", 2), (1, "leaf", 63)]
-    assert _shape([new, other], other) == [(0, "branch", 2), (1, "leaf", 63)]
-    assert _shape([new, other], new) == [(0, "branch", 2), (1, "leaf", 63)]
+    assert storage_shape([old, other], other) == [
+        (0, "branch", 2),
+        (1, "leaf", 63),
+    ]
+    assert storage_shape([new, other], new) == [
+        (0, "branch", 2),
+        (1, "leaf", 63),
+    ]
+    assert storage_shape([old, new], old)[:2] == [
+        (0, "ext", 1),
+        (1, "branch", 2),
+    ]
     contract = pre.deploy_contract(
         code=SLOT_WRITER, storage={old: 1, other: 2}
     )
@@ -1056,28 +1071,23 @@ def test_two_shape_changes_at_different_depths(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
-    Pre: EXT_MERGE_TRIO committed at genesis: ext(2) -> branch@2 -> {l3,
-    ext(2) -> branch@5 -> {l1, l2}}.
-    Op: in one block, tx1 zeroes l3 (collapse at depth 2 and merge into
-    ext(5)), tx2 writes a slot sharing exactly 3 nibbles with l1 (split of
-    that ext(5) at depth 3).
-    Post: ext(3) -> branch@3 -> {new leaf, ext(1) -> branch@5 -> {l1,
-    l2}}: neither the pre shape nor either single-step result.
-    Exercises: two restructurings on the same path inside one block diff,
-    where the second operates on nodes the first just created. Path-keyed
-    caches must not serve the pre-state ext(2)/branch@2 to the split.
+    Collapse at depth 2 and split at depth 3 within one block.
+
+    pre:  ext(2) -> branch@2 -> {l3, ext(2) -> branch@5 -> {l1, l2}}
+    post: ext(3) -> branch@3 -> {new, ext(1) -> branch@5 -> {l1, l2}}
+    Neither the pre shape nor either single-step result; sorted appliers
+    apply the insert first, node walkers the delete first.
     """
     l1, l2, l3 = EXT_MERGE_TRIO
     new = EXT_MERGE_TRIO_SIBLING_DEPTH3
-    assert _shape([l1, l2, l3], l1) == [
+    assert storage_shape([l1, l2, l3], l1) == [
         (0, "ext", 2),
         (2, "branch", 2),
         (3, "ext", 2),
         (5, "branch", 2),
         (6, "leaf", 58),
     ]
-    assert _shape([l1, l2], l1)[0] == (0, "ext", 5)
-    assert _shape([l1, l2, new], l1) == [
+    assert storage_shape([l1, l2, new], l1) == [
         (0, "ext", 3),
         (3, "branch", 2),
         (4, "ext", 1),
@@ -1126,15 +1136,18 @@ def test_embedded_leaf_boundary(
     leaf_size: int,
 ) -> None:
     """
-    Leaf RLP size straddles the 32-byte embedding threshold: 55 remaining
-    nibbles with a single-byte value encode to 31 bytes (inlined into the
-    parent branch); one more path nibble (56) or a two-byte value pushes
-    it to 32 or 33 (hashed child).
+    Leaf RLP of exactly 31, 32 and 33 bytes.
+
+    pre:  empty
+    post: ext(8) -> branch@8 -> {leaf(55), leaf(55)}   31 B inline, 33 B
+          ext(7) -> branch@7 -> {leaf(56), leaf(56)}   32 B hashed
+    The threshold is crossed from the key side (one more nibble) and from
+    the value side (one more byte).
     """
     a, b = pair
-    depth, kind, rest = _shape([a, b], a)[-1]
+    depth, kind, rest = storage_shape([a, b], a)[-1]
     assert kind == "leaf"
-    assert _leaf_rlp_size(rest, value) == leaf_size
+    assert storage_leaf_size(rest, value) == leaf_size
     contract = pre.deploy_contract(code=_writer_code([(a, value), (b, value)]))
 
     state_test(
@@ -1148,11 +1161,17 @@ def test_embedded_leaf_becomes_hashed_and_back(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
-    Growing one embedded leaf's value past the threshold turns it into a
-    hashed child; shrinking it back re-embeds it. Each step commits.
+    Grow an inline leaf's value past 32 bytes and shrink it back.
+
+    pre:  ext(8) -> branch@8 -> {leaf(55) 31 B, leaf(55) 31 B}
+    post: block 1: one child 33 B hashed; block 2: both inline again
+    Each step commits; the branch RLP alternates between an inline list
+    and a 32-byte hash for that child.
     """
     a, b = EMBEDDED_LEAF_PAIR
-    assert _leaf_rlp_size(55, 1) < 32 <= _leaf_rlp_size(55, 128)
+    assert storage_shape([a, b], a)[-1] == (9, "leaf", 55)
+    assert storage_leaf_size(55, 1) == 31
+    assert storage_leaf_size(55, 128) == 33
     contract = pre.deploy_contract(code=SLOT_WRITER, storage={a: 1, b: 1})
     sender = pre.fund_eoa()
 
@@ -1175,41 +1194,31 @@ def test_embedded_leaf_deletion_flips_sibling_to_hashed(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
-    Pre: ext(4) -> branch@4 -> {c (59-nibble leaf, 33 B, hashed), ext(3)
-    -> branch@8 -> {a, b}} with a and b 55-nibble leaves of 31 B, both
-    embedded inline in branch@8. Committed at genesis.
-    Op: block 1 zeroes b; block 2 writes it back.
-    Post after block 1: branch@8 collapses, a absorbs the nibble and the
-    ext(3), and sits in branch@4's slot as a 59-nibble leaf of 33 B: the
-    same key, the same 1-byte value, but hashed instead of embedded.
-    Post after block 2: the pre shape, a embedded again.
-    Exercises: deleting an embedded leaf; an embedding flip caused by path
-    growth rather than value size (`test_embedded_leaf_becomes_hashed_and_
-    back` only changes the value); a committed hashed leaf shrinking below
-    32 bytes when re-split; a branch (branch@4) keeping its slot while the
-    subtree below it reshapes.
+    Delete an inline leaf; its inline sibling grows past 32 bytes.
+
+    pre:  ext(4) -> branch@4 -> {c, ext(3) -> branch@8 -> {a, b}}
+          with a, b = leaf(55) 31 B inline and c = leaf(59) 33 B hashed
+    post: block 1: ext(4) -> branch@4 -> {c, a = leaf(59) 33 B hashed}
+          block 2: the pre shape, a inline again
+    The flip comes from path growth, not from a value change.
     """
     a, b = EMBEDDED_LEAF_PAIR
     c = EMBEDDED_LEAF_PAIR_SIBLING_DEPTH4
-    assert _shape([a, b, c], a) == [
+    assert storage_shape([a, b, c], a) == [
         (0, "ext", 4),
         (4, "branch", 2),
         (5, "ext", 3),
         (8, "branch", 2),
         (9, "leaf", 55),
     ]
-    assert _shape([a, b, c], c) == [
+    assert storage_shape([a, b, c], c)[-1] == (5, "leaf", 59)
+    assert storage_shape([a, c], a) == [
         (0, "ext", 4),
         (4, "branch", 2),
         (5, "leaf", 59),
     ]
-    assert _shape([a, c], a) == [
-        (0, "ext", 4),
-        (4, "branch", 2),
-        (5, "leaf", 59),
-    ]
-    assert _leaf_rlp_size(55, 1) == 31
-    assert _leaf_rlp_size(59, 1) == 33
+    assert storage_leaf_size(55, 1) == 31
+    assert storage_leaf_size(59, 1) == 33
     contract = pre.deploy_contract(
         code=SLOT_WRITER, storage={a: 1, b: 1, c: 1}
     )
