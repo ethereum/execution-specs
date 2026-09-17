@@ -1334,21 +1334,32 @@ def test_embedded_leaf_boundary(
     )
 
 
-def test_embedded_leaf_becomes_hashed_and_back(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+@pytest.mark.parametrize(
+    "new_value,new_size",
+    [
+        pytest.param(128, 33, id="flips_to_hashed"),
+        pytest.param(2, 31, id="stays_inline"),
+    ],
+)
+def test_update_inline_leaf(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    new_value: int,
+    new_size: int,
 ) -> None:
     """
-    Grow an inline leaf's value past 32 bytes and shrink it back.
+    Overwrite an inline leaf's value, then restore it.
 
     pre:  ext(8) -> branch@8 -> {leaf(55) 31 B, leaf(55) 31 B}
-    post: block 1: one child 33 B hashed; block 2: both inline again
-    Each step commits; the branch RLP alternates between an inline list
-    and a 32-byte hash for that child.
+    post: block 1: the leaf is 33 B hashed, or still 31 B inline with a
+          different 1-byte value; block 2: the pre state
+    Each step commits. The inline case rewrites the leaf inside its
+    parent's RLP without ever giving it a hash of its own.
     """
     a, b = EMBEDDED_LEAF_PAIR
     assert storage_shape([a, b], a)[-1] == (9, "leaf", 55)
     assert storage_leaf_size(55, 1) == 31
-    assert storage_leaf_size(55, 128) == 33
+    assert storage_leaf_size(55, new_value) == new_size
     contract = pre.deploy_contract(code=SLOT_WRITER, storage={a: 1, b: 1})
     sender = pre.fund_eoa()
 
@@ -1357,9 +1368,9 @@ def test_embedded_leaf_becomes_hashed_and_back(
         post={contract: Account(storage={a: 1, b: 1})},
         blocks=[
             Block(
-                txs=[_write(sender, contract, a, 128)],
+                txs=[_write(sender, contract, a, new_value)],
                 expected_post_state={
-                    contract: Account(storage={a: 128, b: 1})
+                    contract: Account(storage={a: new_value, b: 1})
                 },
             ),
             Block(txs=[_write(sender, contract, a, 1)]),
