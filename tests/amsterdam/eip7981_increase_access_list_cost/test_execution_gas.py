@@ -1,5 +1,7 @@
 """Test execution gas after the EIP-7981 access list surcharge."""
 
+from typing import Literal
+
 import pytest
 from execution_testing import (
     AccessList,
@@ -7,6 +9,7 @@ from execution_testing import (
     Alloc,
     EIPChecklist,
     Fork,
+    GasConsumer,
     Hash,
     Header,
     Op,
@@ -124,10 +127,11 @@ def test_access_list_surcharge_with_refund(
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
 @pytest.mark.parametrize(
-    "floor_binds_total",
+    "gas_dominance",
     [
-        pytest.param(True, id="floor_binds_total"),
-        pytest.param(False, id="state_gas_lifts_total"),
+        pytest.param("floor_binds_total", id="floor_binds_total"),
+        pytest.param("state_gas_lifts_total", id="state_gas_lifts_total"),
+        pytest.param("execution_dominates", id="execution_dominates"),
     ],
 )
 def test_access_list_surcharge_in_block_execution_gas(
@@ -135,20 +139,24 @@ def test_access_list_surcharge_in_block_execution_gas(
     pre: Alloc,
     fork: Fork,
     tx_type: int,
-    floor_binds_total: bool,
+    gas_dominance: Literal[
+        "floor_binds_total", "state_gas_lifts_total", "execution_dominates"
+    ],
 ) -> None:
     """
-    Charge the surcharged floor to the block's execution dimension.
+    Pin the surcharged floor and execution branches of block gas accounting.
 
     An over-cap reservoir funds the state gas of a storage set, so the
-    floor is compared against the execution portion alone: the header
-    gas used is the floor whether or not the sender's bill is.
+    floor is compared against the execution portion alone.
     """
     storage = Storage()
     code = Op.SSTORE(storage.store_next(1), 1, new_value=1, key_warm=True)
+    state_cost = code.state_cost(fork)
+    assert state_cost > 0
+    if gas_dominance == "execution_dominates":
+        code += GasConsumer(gas=state_cost, fork=fork)
     contract = pre.deploy_contract(code=code)
     access_list = [AccessList(address=contract, storage_keys=[Hash(0)])]
-    state_cost = code.state_cost(fork)
     intrinsic_calculator = fork.transaction_intrinsic_cost_calculator()
     floor_calculator = fork.transaction_data_floor_cost_calculator()
 
@@ -162,21 +170,32 @@ def test_access_list_surcharge_in_block_execution_gas(
         ) + code.execution_cost(fork)
         return floor, tx_execution
 
-    # Smallest zero-byte calldata whose floor clears the target.
-    size = 0
-    while True:
-        data = b"\x00" * size
+    if gas_dominance == "execution_dominates":
+        data = b""
         floor, tx_execution = bill(data)
-        target = tx_execution + state_cost if floor_binds_total else state_cost
-        if floor > target:
-            break
-        size += 32
-    tx_total = tx_execution + state_cost
-    if floor_binds_total:
-        assert floor > tx_total
+        assert tx_execution > max(floor, state_cost)
+        expected_header_gas = tx_execution
+    elif gas_dominance in ("floor_binds_total", "state_gas_lifts_total"):
+        # Size calldata in word increments until the floor clears the target.
+        size = 0
+        while True:
+            data = b"\x00" * size
+            floor, tx_execution = bill(data)
+            target = state_cost
+            if gas_dominance == "floor_binds_total":
+                target += tx_execution
+            if floor > target:
+                break
+            size += 32
+        if gas_dominance == "floor_binds_total":
+            assert floor > tx_execution + state_cost
+        else:
+            assert tx_execution < floor < tx_execution + state_cost
+        assert floor > state_cost
+        expected_header_gas = floor
     else:
-        assert tx_execution < floor < tx_total
-    assert floor > state_cost
+        raise ValueError(f"Unknown gas dominance: {gas_dominance}")
+    tx_total = tx_execution + state_cost
 
     tx = Transaction(
         ty=tx_type,
@@ -193,5 +212,5 @@ def test_access_list_surcharge_in_block_execution_gas(
         pre=pre,
         post={contract: Account(storage=storage)},
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=floor),
+        blockchain_test_header_verify=Header(gas_used=expected_header_gas),
     )
