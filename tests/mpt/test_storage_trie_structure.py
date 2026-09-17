@@ -929,17 +929,28 @@ def test_delete_from_three_child_branch(
     )
 
 
+@pytest.mark.parametrize(
+    "slots,root_kind",
+    [
+        pytest.param(SIXTEEN_SLOTS_BRANCH4, "ext", id="root_extension"),
+        pytest.param(ROOT_PAIR, "branch", id="root_branch"),
+        pytest.param([SINGLE_SLOT], "leaf", id="root_leaf"),
+    ],
+)
 def test_delete_all_slots_empties_trie(
-    state_test: StateTestFiller, pre: Alloc
+    state_test: StateTestFiller,
+    pre: Alloc,
+    slots: Sequence[int],
+    root_kind: str,
 ) -> None:
     """
-    Delete every slot of a full branch in one transaction.
+    Delete every slot in one transaction.
 
-    pre:  ext(4) -> branch@4 -> {16 x leaf(59)}
+    pre:  ext(4) -> branch@4 -> {16 x leaf}  /  branch@0 -> {..}  /  leaf
     post: empty
+    Every root kind reaches the empty trie root.
     """
-    slots = SIXTEEN_SLOTS_BRANCH4
-    assert storage_shape(slots, slots[0])[1] == (4, "branch", 16)
+    assert storage_shape(slots, slots[0])[0][1] == root_kind
     contract = pre.deploy_contract(
         code=_writer_code([(s, 0) for s in slots]),
         storage=_alloc(_storage(slots)),
