@@ -518,6 +518,39 @@ def test_delete_collapses_root_branch_into_leaf(
     )
 
 
+def test_collapse_under_branch_parent_leaf_survivor(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: root branch -> {branch@1 -> {SINGLE_SLOT, its depth-1 sibling},
+    leaf ROOT_PAIR[1]}.
+    Op: zero the depth-1 sibling.
+    Post: branch@1 collapses; the surviving leaf gains the branch's nibble
+    (62 -> 63 remaining) and stays in the root branch's slot. Nothing
+    merges: the parent is a branch, not an extension.
+    Exercises: geth `Trie.delete` fullNode reduction with a shortNode
+    survivor whose parent frame is itself a fullNode. Every other collapse
+    in the suite either becomes the root or merges into an extension.
+    """
+    a, sibling, other = SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1, ROOT_PAIR[1]
+    assert _shape([a, sibling, other], a) == [
+        (0, "branch", 2),
+        (1, "branch", 2),
+        (2, "leaf", 62),
+    ]
+    assert _shape([a, other], a) == [(0, "branch", 2), (1, "leaf", 63)]
+    contract = pre.deploy_contract(
+        code=_writer_code([(sibling, 0)]),
+        storage={a: 1, sibling: 2, other: 3},
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={a: 1, other: 3})},
+    )
+
+
 def test_delete_from_full_branch_keeps_branch(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
