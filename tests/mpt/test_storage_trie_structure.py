@@ -904,6 +904,40 @@ def test_one_to_sixteen_into_committed_leaf(
     )
 
 
+def test_insert_then_delete_same_block(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: TWO_SLOTS_EXT4[0] committed at genesis as the root leaf.
+    Op: in one block, tx1 writes TWO_SLOTS_EXT4[1] (which would split the
+    leaf into ext(4) -> branch@4), tx2 zeroes it again.
+    Post: storage identical to the pre-state, so the contract's storage
+    root must be byte-identical to its genesis value: no residual
+    extension or one-child branch may survive the round trip.
+    Exercises: a key whose final value equals its original inside one
+    block diff. Object-diff clients must skip it; touched-key clients
+    (erigon, reth) process it and must arrive at the same node set.
+    """
+    a, b = TWO_SLOTS_EXT4
+    assert _shape([a], a) == [(0, "leaf", 64)]
+    assert _shape([a, b], a)[:2] == [(0, "ext", 4), (4, "branch", 2)]
+    contract = pre.deploy_contract(code=SLOT_WRITER, storage={a: 1})
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={a: 1})},
+        blocks=[
+            Block(
+                txs=[
+                    _write(sender, contract, b, 2),
+                    _write(sender, contract, b, 0),
+                ]
+            )
+        ],
+    )
+
+
 # --- node embedding ----------------------------------------------------
 
 
