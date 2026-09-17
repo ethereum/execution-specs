@@ -53,10 +53,15 @@ from .constants import (
     ADDR_EXT_MERGE_TRIO,
     COLLAPSE_SALT,
     EXT_MERGE_SALT,
+    SHARE2_SALT,
+    SHARE3_SALT,
     SINGLE_SLOT,
     SIXTEEN_ADDRS_BRANCH4,
+    SIXTEEN_SALTS_BRANCH4,
     SURVIVOR_SALT,
     TWO_ADDRS_EXT4,
+    TWO_ADDRS_EXT4_SIBLING_DEPTH1,
+    TWO_ADDRS_EXT4_SIBLING_DEPTH3,
 )
 from .trie_shape import Shape, account_shape, covering, node_at
 
@@ -524,5 +529,195 @@ def test_resurrection_via_withdrawal(
                     )
                 ],
             )
+        ],
+    )
+
+
+# --- collapse cells with a controlled parent -----------------------------
+
+
+def _cell(
+    pre: Alloc,
+    fork: Fork,
+    funded: List[Address],
+    salt: int,
+    target: Address,
+    depth: int,
+    parent_kind: str,
+    survivor_kind: str,
+) -> Address:
+    """
+    Fund `funded` and the address created by `salt`; pin the collapse cell.
+
+    Asserts that `target`'s path holds a 2-child branch at `depth` whose
+    parent is `parent_kind`, and that after the block the node covering
+    `depth` is `survivor_kind`.
+    """
+    doomed = Address(create2_preimage(salt))
+    for address in funded:
+        pre.fund_address(address, amount=1)
+    pre.fund_address(doomed, amount=FUNDING)
+    _ensure_factory(pre)
+    genesis = _genesis(pre, fork)
+    before = _shape(genesis, target)
+    assert node_at(before, depth) == ("branch", 2)
+    assert before[before.index((depth, "branch", 2)) - 1][1] == parent_kind
+    after = _shape(_after_block(genesis, doomed), target)
+    assert covering(after, depth)[1] == survivor_kind
+    return doomed
+
+
+@pytest.mark.parametrize(
+    "funded,salt,depth,parent_kind,survivor_kind",
+    [
+        pytest.param(
+            [TWO_ADDRS_EXT4[0], TWO_ADDRS_EXT4_SIBLING_DEPTH3],
+            COLLAPSE_SALT,
+            4,
+            "branch",
+            "leaf",
+            id="leaf_under_branch",
+        ),
+        pytest.param(
+            [*TWO_ADDRS_EXT4, TWO_ADDRS_EXT4_SIBLING_DEPTH1],
+            SHARE2_SALT,
+            2,
+            "branch",
+            "ext",
+            id="ext_under_branch",
+        ),
+        pytest.param(
+            [
+                TWO_ADDRS_EXT4[0],
+                TWO_ADDRS_EXT4_SIBLING_DEPTH3,
+                TWO_ADDRS_EXT4_SIBLING_DEPTH1,
+            ],
+            SHARE2_SALT,
+            2,
+            "branch",
+            "ext",
+            id="branch_under_branch",
+        ),
+        pytest.param(
+            [*TWO_ADDRS_EXT4, TWO_ADDRS_EXT4_SIBLING_DEPTH1],
+            SHARE3_SALT,
+            3,
+            "ext",
+            "ext",
+            id="branch_under_ext",
+        ),
+    ],
+)
+def test_delete_collapse_cells(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    funded: List[int],
+    salt: int,
+    depth: int,
+    parent_kind: str,
+    survivor_kind: str,
+) -> None:
+    """
+    Account-trie collapses whose parent node is controlled.
+
+    pre:  branch@3 -> {d3, branch@4 -> {p, doomed}}         leaf_under_branch
+          branch@1 -> {d1, branch@2 -> {doomed, ext(1) ..}} ext_under_branch
+          branch@1 -> {d1, branch@2 -> {doomed, branch@3}}  branch_under_branch
+          branch@1 -> {d1, ext(1) -> branch@3 -> {doomed, branch@4}} under_ext
+    post: leaf under branch@3; ext(2) under branch@1; ext(1) -> branch@3
+          under branch@1; ext(2) -> branch@4 under branch@1
+    Mined siblings at depths 1 and 3 make the parent kind independent of
+    the uncontrolled accounts, up to a 16^-2 collision the assert reports.
+    """
+    addresses = [Address(x) for x in funded]
+    doomed = _cell(
+        pre,
+        fork,
+        addresses,
+        salt,
+        addresses[0],
+        depth,
+        parent_kind,
+        survivor_kind,
+    )
+
+    state_test(
+        pre=pre,
+        tx=_delete_tx(pre.fund_eoa(), salt),
+        post={
+            **{a: Account(balance=1) for a in addresses},
+            doomed: Account.NONEXISTENT,
+        },
+    )
+
+
+def test_delete_from_three_child_branch(
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
+) -> None:
+    """
+    Delete one of three accounts under one branch.
+
+    pre:  .. -> branch@4 -> {p, q, doomed}
+    post: .. -> branch@4 -> {p, q}
+    """
+    p, q = (Address(x) for x in TWO_ADDRS_EXT4)
+    doomed = Address(create2_preimage(COLLAPSE_SALT))
+    pre.fund_address(p, amount=1)
+    pre.fund_address(q, amount=2)
+    pre.fund_address(doomed, amount=FUNDING)
+    _ensure_factory(pre)
+    genesis = _genesis(pre, fork)
+    assert node_at(_shape(genesis, p), 4) == ("branch", 3)
+    assert node_at(_shape(_after_block(genesis, doomed), p), 4) == (
+        "branch",
+        2,
+    )
+
+    state_test(
+        pre=pre,
+        tx=_delete_tx(pre.fund_eoa(), COLLAPSE_SALT),
+        post={
+            p: Account(balance=1),
+            q: Account(balance=2),
+            doomed: Account.NONEXISTENT,
+        },
+    )
+
+
+def test_mass_delete_sixteen_to_one(
+    blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork
+) -> None:
+    """
+    Delete fifteen of sixteen accounts under one branch in one block.
+
+    pre:  .. -> ext -> branch@4 -> {survivor, 15 x doomed}
+    post: .. -> leaf survivor
+    Fifteen CREATE2 deletions in one block collapse the branch onto the
+    survivor and merge it into the extension above.
+    """
+    survivor = Address(SIXTEEN_ADDRS_BRANCH4[0])
+    doomed = [Address(create2_preimage(s)) for s in SIXTEEN_SALTS_BRANCH4]
+    pre.fund_address(survivor, amount=1)
+    for address in doomed:
+        pre.fund_address(address, amount=FUNDING)
+    _ensure_factory(pre)
+    sender = pre.fund_eoa()
+    genesis = _genesis(pre, fork)
+    before = _shape(genesis, survivor)
+    assert node_at(before, 4) == ("branch", 16)
+    assert before[before.index((4, "branch", 16)) - 1][1] == "ext"
+    assert covering(_shape(_after_block(genesis, *doomed), survivor), 4)[
+        1
+    ] == ("leaf")
+
+    blockchain_test(
+        pre=pre,
+        post={
+            survivor: Account(balance=1),
+            **dict.fromkeys(doomed, Account.NONEXISTENT),
+        },
+        blocks=[
+            Block(txs=[_delete_tx(sender, s) for s in SIXTEEN_SALTS_BRANCH4])
         ],
     )
