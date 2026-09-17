@@ -102,7 +102,7 @@ def test_call_value_to_empty(
 
     expected_gas_used = (
         sum(tx.gas_cost for tx in txs)
-        - fork.gas_costs().CALL_STIPEND * total_iterations
+        - fork.call_value_stipend() * total_iterations
     )
 
     benchmark_test(
