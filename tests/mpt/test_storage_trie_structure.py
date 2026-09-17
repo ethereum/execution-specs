@@ -45,6 +45,7 @@ from .constants import (
     HASHED_LEAF_PAIR,
     INLINE_TRIO,
     ROOT_PAIR,
+    ROOT_SIXTEEN,
     SINGLE_SLOT,
     SINGLE_SLOT_SIBLING_DEPTH1,
     SINGLE_SLOT_SIBLING_DEPTH2,
@@ -416,6 +417,100 @@ def test_insert_splits_extension_under_branch(
         pre=pre,
         tx=Transaction(sender=pre.fund_eoa(), to=contract),
         post={contract: Account(storage={**storage, new_slot: 9})},
+    )
+
+
+def test_insert_splits_nested_extension_first_nibble(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Insert a key that differs from a nested extension in its first nibble.
+
+    pre:  ext(2) -> branch@2 -> {l3, ext(2) -> branch@5 -> {l1, l2}}
+    post: ext(2) -> branch@2 -> {l3, branch@3 -> {new, ext(1) -> branch@5}}
+    The inner extension is replaced by a branch and shortened in one
+    step, below a root extension and a branch.
+    """
+    l1, l2, l3 = EXT_MERGE_TRIO
+    new = EXT_MERGE_TRIO_SIBLING_DEPTH3
+    assert storage_shape([l1, l2, l3], l1)[2] == (3, "ext", 2)
+    assert storage_shape([l1, l2, l3, new], l1) == [
+        (0, "ext", 2),
+        (2, "branch", 2),
+        (3, "branch", 2),
+        (4, "ext", 1),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    assert storage_shape([l1, l2, l3, new], new)[-1] == (4, "leaf", 60)
+    contract = pre.deploy_contract(
+        code=_writer_code([(new, 4)]), storage={l1: 1, l2: 2, l3: 3}
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={l1: 1, l2: 2, l3: 3, new: 4})},
+    )
+
+
+@pytest.mark.parametrize(
+    "present,writes,post_shape",
+    [
+        pytest.param(
+            ROOT_SIXTEEN[:1],
+            [(s, 0) for s in ROOT_SIXTEEN[1:]],
+            [(0, "leaf", 64)],
+            id="sixteen_to_one",
+        ),
+        pytest.param(
+            ROOT_SIXTEEN[1:],
+            [(ROOT_SIXTEEN[0], 0)],
+            [(0, "branch", 15), (1, "leaf", 63)],
+            id="sixteen_to_fifteen",
+        ),
+        pytest.param(
+            ROOT_SIXTEEN,
+            [(s, i + 1) for i, s in enumerate(ROOT_SIXTEEN)],
+            [(0, "branch", 16), (1, "leaf", 63)],
+            id="fill",
+        ),
+    ],
+)
+def test_root_branch_arity_sixteen(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    present: Sequence[int],
+    writes: List[Tuple[int, int]],
+    post_shape: Shape,
+) -> None:
+    """
+    A 16-way branch at the root: filled from empty, reduced to 15, to 1.
+
+    pre:  empty / branch@0 -> {16 x leaf(63)}
+    post: branch@0 -> {16 x leaf(63)} / branch@0 (15) / leaf(64)
+    The depth-4 cases sit under an extension; root nodes are handled by
+    dedicated code in several clients.
+    """
+    assert storage_shape(ROOT_SIXTEEN, ROOT_SIXTEEN[0]) == [
+        (0, "branch", 16),
+        (1, "leaf", 63),
+    ]
+    assert storage_shape(present, present[0]) == post_shape
+    committed = _storage(ROOT_SIXTEEN) if len(writes) < 16 else {}
+    contract = pre.deploy_contract(
+        code=_writer_code(writes), storage=_alloc(committed)
+    )
+    expected = dict(committed)
+    for slot, value in writes:
+        expected.pop(slot, None)
+        if value:
+            expected[slot] = value
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage=expected)},
     )
 
 
@@ -1164,6 +1259,37 @@ def test_insert_then_delete_same_block(
                 txs=[
                     _write(sender, contract, slot, 9),
                     _write(sender, contract, slot, 0),
+                ]
+            )
+        ],
+    )
+
+
+def test_insert_then_delete_beside_real_change(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Round-trip one leaf's value while its sibling really changes.
+
+    pre:  ext(4) -> branch@4 -> {leaf p = 1, leaf q = 2}
+    post: the same shape with p = 9 and q = 2
+    Control: q ends at its original value inside a subtree that changed;
+    a touched-key applier must neither skip the subtree nor rewrite q.
+    """
+    p, q = TWO_SLOTS_EXT4
+    assert storage_shape([p, q], p)[:2] == [(0, "ext", 4), (4, "branch", 2)]
+    contract = pre.deploy_contract(code=SLOT_WRITER, storage={p: 1, q: 2})
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={p: 9, q: 2})},
+        blocks=[
+            Block(
+                txs=[
+                    _write(sender, contract, q, 5),
+                    _write(sender, contract, q, 2),
+                    _write(sender, contract, p, 9),
                 ]
             )
         ],
