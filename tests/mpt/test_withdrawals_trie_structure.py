@@ -14,6 +14,7 @@ fixture set.
 
 import pytest
 from ethereum_rlp import rlp
+from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, Uint
 from execution_testing import (
     Account,
@@ -23,12 +24,18 @@ from execution_testing import (
     Withdrawal,
 )
 
+from ethereum.crypto.hash import keccak256
 from ethereum.forks.osaka.blocks import Withdrawal as SpecWithdrawal
 from ethereum.merkle_patricia_trie import (
+    Trie,
     bytes_to_nibble_list,
     nibble_list_to_compact,
+    root,
+    trie_set,
 )
 from ethereum.state import Address as SpecAddress
+
+from .trie_shape import Shape, path_shape
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -38,27 +45,47 @@ pytestmark = pytest.mark.valid_from("Osaka")
 GWEI = 10**9
 
 
-def _leaf_rlp_size(
+def _keys(count: int) -> list[bytes]:
+    """Withdrawals-trie keys for a block with `count` withdrawals."""
+    return [bytes(rlp.encode(Uint(i))) for i in range(count)]
+
+
+def _shape(count: int, index: int) -> Shape:
+    return path_shape(_keys(count), _keys(index + 1)[index], secured=False)
+
+
+def _value_rlp(
     index: int, validator_index: int, address: bytes, amount: int
-) -> int:
-    """
-    RLP size of the withdrawals-trie leaf for `index`, mirroring
-    `encode_internal_node`: under 32 bytes the node is inlined into its
-    parent instead of hashed.
-    """
-    value_rlp = rlp.encode(
-        SpecWithdrawal(
-            index=U64(index),
-            validator_index=U64(validator_index),
-            address=SpecAddress(address),
-            amount=U64(amount),
+) -> bytes:
+    return bytes(
+        rlp.encode(
+            SpecWithdrawal(
+                index=U64(index),
+                validator_index=U64(validator_index),
+                address=SpecAddress(address),
+                amount=U64(amount),
+            )
         )
     )
-    key_nibbles = bytes_to_nibble_list(rlp.encode(Uint(index)))
-    # Indices 0 and 1 diverge at nibble 0, so the root branch consumes one
-    # nibble before each leaf's own path.
-    assert key_nibbles[0] in (0x8, 0x0)
-    compact_key = nibble_list_to_compact(key_nibbles[1:], True)
+
+
+def _leaf_rlp_size(
+    count: int, index: int, validator_index: int, address: bytes, amount: int
+) -> int:
+    """
+    RLP size of the leaf for withdrawal `index` in a trie of `count`
+    withdrawals, mirroring `encode_internal_node`: under 32 bytes the node
+    is inlined into its parent instead of hashed. The remaining path
+    comes from the reference trie, so the root branch, or the branch of
+    empty-path leaves under nibble 0, is accounted for.
+    """
+    depth, kind, rest = _shape(count, index)[-1]
+    assert kind == "leaf"
+    key_nibbles = bytes_to_nibble_list(Bytes(_keys(index + 1)[index]))
+    compact_key = nibble_list_to_compact(
+        key_nibbles[-rest:] if rest else Bytes(b""), True
+    )
+    value_rlp = _value_rlp(index, validator_index, address, amount)
     return len(rlp.encode((compact_key, value_rlp)))
 
 
@@ -82,8 +109,9 @@ def test_withdrawal_leaf_embedding_boundary(
     """
     recipient_a = pre.fund_eoa(amount=0)
     recipient_b = pre.fund_eoa(amount=0)
+    assert _shape(2, 0) == [(0, "branch", 2), (1, "leaf", 1)]
     for index, recipient in ((0, recipient_a), (1, recipient_b)):
-        size = _leaf_rlp_size(index, index + 1, bytes(recipient), amount)
+        size = _leaf_rlp_size(2, index, index + 1, bytes(recipient), amount)
         assert size == leaf_size, (index, size)
 
     blockchain_test(
@@ -107,6 +135,55 @@ def test_withdrawal_leaf_embedding_boundary(
                         address=recipient_b,
                         amount=amount,
                     ),
+                ]
+            )
+        ],
+    )
+
+
+def test_single_small_withdrawal_root_is_hashed(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: no withdrawals-trie content (each block builds its own).
+    Op: one block with a single withdrawal of 100 Gwei, index 0 and
+    validator 0, so the whole trie is one leaf with path `[8, 0]` whose
+    RLP is 30 bytes.
+    Post: `withdrawalsRoot` must be keccak256 of that 30-byte RLP. A node
+    under 32 bytes is embedded everywhere except at the root, where the
+    root is always hashed; state-trie roots are never this small, so only
+    the withdrawals trie can exercise the rule.
+    Exercises: `root()` hashing an under-32-byte root node instead of
+    returning its inline encoding, and the empty-trie constant not being
+    confused with a small non-empty root.
+    """
+    recipient = pre.fund_eoa(amount=0)
+    amount = 100
+    assert _shape(1, 0) == [(0, "leaf", 2)]
+    leaf_size = _leaf_rlp_size(1, 0, 0, bytes(recipient), amount)
+    assert leaf_size == 30
+    key = Bytes(_keys(1)[0])
+    value = Bytes(_value_rlp(0, 0, bytes(recipient), amount))
+    trie: Trie[Bytes, Bytes] = Trie(secured=False, default=Bytes(b""))
+    trie_set(trie, key, value)
+    leaf_rlp = rlp.encode(
+        (nibble_list_to_compact(bytes_to_nibble_list(key), True), value)
+    )
+    assert len(leaf_rlp) == leaf_size
+    assert root(trie) == keccak256(leaf_rlp)
+
+    blockchain_test(
+        pre=pre,
+        post={recipient: Account(balance=amount * GWEI)},
+        blocks=[
+            Block(
+                withdrawals=[
+                    Withdrawal(
+                        index=0,
+                        validator_index=0,
+                        address=recipient,
+                        amount=amount,
+                    )
                 ]
             )
         ],
