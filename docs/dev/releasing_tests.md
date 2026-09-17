@@ -14,7 +14,7 @@ gh workflow run release_fixtures.yaml -f feature=<feature> -f version=vX.Y.Z [-f
 | ---------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
 | `feature`  | yes               | Feature name, e.g. `tests`, `benchmark`, or a `<feat>-devnet` name.                                   |
 | `version`  | yes               | Release version `vX.Y.Z` (validated against `^v[0-9]+\.[0-9]+\.[0-9]+$`). Tagged as `tests-<feature>@<version>` (the `tests` feature tags as `tests@<version>`). |
-| `branch`   | devnet only       | Branch to build and release from (any branch). Optional for non-devnet features; **required** for devnet releases. |
+| `branch`   | for `*-devnet`    | Branch to build and release from (any branch). Defaults to the dispatch ref for other fresh fills; must be empty for [cached releases](#cached-releases). |
 | `evm`      | no                | Override the evm impl (e.g. `geth`, `evmone`). Defaults to the feature's `evm-type` in `feature.yaml`. |
 | `evm_repo` | no                | Override the t8n tool repo (e.g. `ethereum/go-ethereum`).                                              |
 | `evm_ref`  | no                | Override the t8n tool branch / tag / commit.                                                          |
@@ -29,16 +29,21 @@ Input validation runs in [`generate_build_matrix.py`](https://github.com/ethereu
 - an `evm` override that is not a key in `.github/configs/evm.yaml`;
 - a bare `devnet` feature name (must carry a `<feat>-` prefix, e.g. `bal-devnet`);
 - a `<feat>-devnet-<n>` feature name — the devnet index belongs in the `version` major, not the feature name (so `feature=bal-devnet-7` is rejected in favour of `feature=bal-devnet version=v7.0.0`);
-- a `*-devnet` release missing a `branch`, or one whose `branch` follows the `devnets/<feat>/<n>` scheme with a `version` major that does not equal the devnet number `<n>` (so `feature=bal-devnet branch=devnets/bal/7` must use `version=v7.*.*`). Any other branch (e.g. `eips/amsterdam/eip-8141`) is accepted as-is.
+- a `*-devnet` release missing a `branch`; a `branch` under `devnets/` that does not follow `devnets/<feat>/<n>` (e.g. `devnets/bal/7-benchmark`); or a `devnets/<feat>/<n>` branch whose devnet number `<n>` does not equal the `version` major (so `feature=bal-devnet branch=devnets/bal/7` must use `version=v7.*.*`). A branch outside `devnets/` (e.g. `eips/amsterdam/eip-8141`) carries no number to check and is accepted as-is.
 
 ## Devnet releases
 
-Devnet releases must use a `<feat>-devnet` feature name (e.g. `feature=bal-devnet`) and must specify the branch to release from. Any branch works: a dedicated `devnets/<feat>/<n>` branch (e.g. `devnets/bal/7`), or the EIP feature branch itself (e.g. `eips/amsterdam/eip-8141`) when the devnet tracks it one-to-one. The `version` major is the devnet number either way (see the [Versioning Scheme](../running_tests/releases.md#versioning-scheme)); it is only validated when the branch encodes it, so `branch=devnets/bal/7` must use `version=v7.*.*`:
+Devnet releases must use a `<feat>-devnet` feature name (e.g. `feature=bal-devnet`) and must specify the branch to release from. Any branch works: a dedicated `devnets/<feat>/<n>` branch (e.g. `devnets/bal/7`), or the EIP feature branch itself (e.g. `eips/amsterdam/eip-8141`) when the devnet tracks it one-to-one.
+
+The `version` major is the devnet number (see the [Versioning Scheme](../running_tests/releases.md#versioning-scheme)): the `<n>` of the `<feat>-devnet-<n>` the fixtures target, so a `frames-devnet-0` release is `v0.*.*`. A `devnets/<feat>/<n>` branch encodes that number and a mismatched major is rejected, so `branch=devnets/bal/7` must use `version=v7.*.*`. Any other branch is not checked, so take the major from the devnet name yourself:
 
 ```bash
 gh workflow run release_fixtures.yaml -f feature=bal-devnet -f version=v7.0.0 -f branch=devnets/bal/7
 gh workflow run release_fixtures.yaml -f feature=frames-devnet -f version=v0.1.0 -f branch=eips/amsterdam/eip-8141
 ```
+
+!!! warning "The selected branch supplies the release scripts"
+    The `setup` job checks out `branch` first and runs the input validation and build-matrix script from that tree, so `gh workflow run --ref` only selects the workflow file. The selected branch must itself contain the current release scripts: rebase it onto its `forks/<fork>` base (or cherry-pick the scripts onto it) before releasing. A stale branch also fills without whatever landed on the base since.
 
 ## What the workflow produces
 

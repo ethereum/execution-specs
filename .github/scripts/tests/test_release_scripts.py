@@ -160,6 +160,35 @@ class TestValidateInputs:
         out = parse_matrix_output(result.stdout)
         assert out["feature_name"] == "frames-devnet"
 
+    def test_malformed_devnets_branch_fails(self):
+        """Verify a `devnets/` branch with no devnet number is rejected."""
+        # A real near miss: `devnets/bal/7-benchmark` exists upstream, so
+        # accepting it would draft a mis-versioned release.
+        result = run_script(
+            BUILD_MATRIX_SCRIPT,
+            "bal-devnet",
+            "v99.0.0",
+            "devnets/bal/7-benchmark",
+        )
+        assert result.returncode == 1
+        assert "could not parse a devnet number" in result.stderr
+
+    def test_devnet_blank_branch_fails(self):
+        """Verify a whitespace-only branch counts as missing."""
+        result = run_script(BUILD_MATRIX_SCRIPT, "bal-devnet", "v7.0.0", "   ")
+        assert result.returncode == 1
+        assert "require a 'branch' input" in result.stderr
+
+    def test_devnet_branch_whitespace_is_trimmed(self):
+        """Verify a padded `devnets/<feat>/<n>` branch is still checked."""
+        # `actions/checkout` trims its `ref` input, so the padded branch
+        # resolves to `devnets/bal/7` and its number must still match.
+        result = run_script(
+            BUILD_MATRIX_SCRIPT, "bal-devnet", "v3.0.0", " devnets/bal/7 "
+        )
+        assert result.returncode == 1
+        assert "must equal the devnet number" in result.stderr
+
     def test_devnet_major_must_match_branch_number(self):
         """Verify the major version must equal the branch devnet number."""
         result = run_script(
