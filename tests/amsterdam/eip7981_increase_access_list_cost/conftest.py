@@ -22,16 +22,6 @@ from execution_testing import (
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP_4844_Spec
 
-GAS_SURPLUS = 1000
-"""
-Gas added to the limit of valid fixture-built transactions.
-
-With the exact expected gas as the limit, a receipt equal to the limit
-cannot tell exact billing from consuming everything that was available.
-The surplus makes the receipt show that unused gas is returned as well.
-Boundary tests override it with zero through the `tx_gas_surplus` fixture.
-"""
-
 
 @pytest.fixture
 def to(
@@ -70,55 +60,29 @@ def access_list() -> List[AccessList] | None:
 
 
 @pytest.fixture
-def authorization_refund() -> bool:
-    """
-    Return whether the transaction has an existing authority in the
-    authorization list.
-    """
-    return False
-
-
-@pytest.fixture
 def authorization_list(
     request: pytest.FixtureRequest,
     pre: Alloc,
-    authorization_refund: bool,
     tx_type: int,
 ) -> List[AuthorizationTuple] | None:
     """
     Authorization-list for the transaction.
 
-    This fixture needs to be parametrized indirectly in order to generate the
-    authorizations with valid signers using `pre` in this function, and the
-    parametrized value should be a list of addresses.
+    Parametrize indirectly with a list of delegation addresses. Each
+    authority is a fresh account, so applying its authorization creates it.
     """
-    if not hasattr(request, "param"):
-        if tx_type == 4:
-            return [
-                AuthorizationTuple(
-                    signer=pre.fund_eoa(1 if authorization_refund else 0),
-                    address=Address(1),
-                    creates_account=not authorization_refund,
-                )
-            ]
-        return None
-    if request.param is None:
-        if tx_type == 4:
-            return [
-                AuthorizationTuple(
-                    signer=pre.fund_eoa(1 if authorization_refund else 0),
-                    address=Address(1),
-                    creates_account=not authorization_refund,
-                )
-            ]
-        return None
+    addresses = getattr(request, "param", None)
+    if addresses is None:
+        if tx_type != 4:
+            return None
+        addresses = [Address(1)]
     return [
         AuthorizationTuple(
-            signer=pre.fund_eoa(1 if authorization_refund else 0),
+            signer=pre.fund_eoa(0),
             address=address,
-            creates_account=not authorization_refund,
+            creates_account=True,
         )
-        for address in request.param
+        for address in addresses
     ]
 
 
@@ -227,9 +191,12 @@ def tx_gas_surplus() -> int:
     """
     Return the gas added to the limit of a valid transaction.
 
-    Parametrize with zero in tests that pin the exact gas limit boundary.
+    With the exact expected gas as the limit, a receipt equal to the limit
+    cannot tell exact billing from consuming everything available, so the
+    surplus shows that unused gas is returned. Parametrize with zero in
+    tests that pin the exact gas limit boundary.
     """
-    return GAS_SURPLUS
+    return 1000
 
 
 @pytest.fixture
@@ -250,6 +217,8 @@ def tx_expected_gas_used(
     is higher. A test that targets other bytecode or sends value must set
     its own receipt.
     """
+    # Below the gas limit cap the state gas reservoir is empty, so the
+    # authorizations' state gas spills into the sender's bill.
     top_frame_gas = fork.transaction_top_frame_gas_calculator()(
         contract_creation=contract_creating_tx,
         authorizations=authorization_list or [],
