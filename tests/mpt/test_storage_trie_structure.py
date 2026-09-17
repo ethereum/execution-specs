@@ -608,6 +608,39 @@ def test_delete_merges_adjacent_extensions(
     )
 
 
+def test_delete_collapses_into_nested_extension(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Delete a deep sibling; the survivor merges into a non-root extension.
+
+    pre:  ext(2) -> branch@2 -> {l3, ext(2) -> branch@5 -> {l1, l2}}
+    post: ext(2) -> branch@2 -> {l3, leaf(61)}
+    The merged leaf sits under branch@2 rather than becoming the root, so
+    the merge and the parent branch's slot update happen together.
+    """
+    l1, l2, l3 = EXT_MERGE_TRIO
+    assert storage_shape([l1, l2, l3], l2)[2:] == [
+        (3, "ext", 2),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    assert storage_shape([l2, l3], l2) == [
+        (0, "ext", 2),
+        (2, "branch", 2),
+        (3, "leaf", 61),
+    ]
+    contract = pre.deploy_contract(
+        code=_writer_code([(l1, 0)]), storage={l1: 1, l2: 2, l3: 3}
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={l2: 2, l3: 3})},
+    )
+
+
 def test_delete_collapses_branch_onto_branch(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
