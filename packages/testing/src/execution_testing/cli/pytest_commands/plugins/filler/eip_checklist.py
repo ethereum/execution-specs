@@ -498,6 +498,8 @@ class EIPChecklistCollector:
             for item_id in marker.args:
                 item_id = str(item_id)
                 covered_ids = resolve_id(item_id.strip())
+                if marker.kwargs.get("exact", False):
+                    covered_ids &= {item_id.strip()}
                 if not covered_ids:
                     logger.warning(
                         f"Item ID {item_id} not found in checklist template "

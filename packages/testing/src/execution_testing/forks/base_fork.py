@@ -1127,9 +1127,9 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def deterministic_factory_predeploy_address(cls) -> Address | None:
+    def deterministic_factory_contract_address(cls) -> Address | None:
         """
-        Return the address of the deterministic factory predeploy at a
+        Return the address of the deterministic factory contract at a
         given fork. Return `None` if the fork does not support deterministic
         deployment.
         """
