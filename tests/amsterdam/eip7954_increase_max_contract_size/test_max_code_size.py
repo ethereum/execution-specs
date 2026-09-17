@@ -23,6 +23,7 @@ from execution_testing import (
 from execution_testing import Macros as Om
 from execution_testing.forks import Osaka
 
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_7954
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7954.git_path
@@ -314,6 +315,48 @@ def test_max_code_size_self_opcodes(
             storage={
                 0: len(target_code),
                 1: keccak256(bytes(target_code)),
+            }
+        )
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+def test_max_code_size_via_delegation(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Ensure an EIP-7702 delegation runs a max-size contract in full.
+
+    The delegated account's frame executes the target's code, so CODESIZE
+    and CODECOPY see all `MAX_CODE_SIZE` bytes, while EXTCODESIZE on
+    ADDRESS sees the delegation designation instead.
+    """
+    logic = (
+        Op.SSTORE(0, Op.CODESIZE)
+        + Op.CODECOPY(0, 0, Op.CODESIZE)
+        + Op.SSTORE(1, Op.SHA3(0, Op.CODESIZE))
+        + Op.SSTORE(2, Op.EXTCODESIZE(Op.ADDRESS))
+        + Op.STOP
+    )
+    target_code = logic + Op.JUMPDEST * (fork.max_code_size() - len(logic))
+    target = pre.deploy_contract(target_code)
+    delegated = pre.fund_eoa(delegation=target)
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=delegated,
+        gas_limit=fork.transaction_gas_limit_cap(),
+    )
+
+    post = {
+        delegated: Account(
+            storage={
+                0: len(target_code),
+                1: keccak256(bytes(target_code)),
+                2: len(Spec7702.delegation_designation(target)),
             }
         )
     }
