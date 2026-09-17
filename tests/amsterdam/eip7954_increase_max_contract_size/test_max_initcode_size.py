@@ -278,25 +278,30 @@ def test_max_initcode_size_code_opcodes(
 
 
 @pytest.mark.parametrize(
-    "valid_jumpdest",
+    "past_end,valid_jumpdest",
     [
-        pytest.param(True, id="valid_high_jumpdest"),
-        pytest.param(False, id="invalid_high_dest"),
+        pytest.param(False, True, id="valid_high_jumpdest"),
+        pytest.param(False, False, id="invalid_high_dest"),
+        # The tail and its JUMPDEST are in place, but the target is
+        # MAX_INITCODE_SIZE itself, one past the last byte.
+        pytest.param(True, True, id="invalid_past_end"),
     ],
 )
 def test_max_initcode_size_high_jumpdest(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    past_end: bool,
     valid_jumpdest: bool,
 ) -> None:
     """
     Ensure jumpdest analysis reaches the last bytes of a max-size initcode,
-    far past the previous initcode limit.
+    far past the previous initcode limit, and stops at its end.
     """
     max_initcode_size = fork.max_initcode_size()
     tail = Op.JUMPDEST + Op.SSTORE(0, 1) + Op.RETURN(0, 0)
-    dest = max_initcode_size - len(tail)
+    tail_offset = max_initcode_size - len(tail)
+    dest = max_initcode_size if past_end else tail_offset
     push_size = (dest.bit_length() + 7) // 8
     push_op = getattr(Op, f"PUSH{push_size}")
 
@@ -304,7 +309,7 @@ def test_max_initcode_size_high_jumpdest(
     # Without the tail the jump lands on a zero byte, a STOP that is not a
     # valid jump destination.
     if valid_jumpdest:
-        factory_code += Om.MSTORE(bytes(tail), dest)
+        factory_code += Om.MSTORE(bytes(tail), tail_offset)
     factory_code += (
         Op.SSTORE(0, Op.CREATE(value=0, offset=0, size=max_initcode_size))
         + Op.STOP
@@ -316,7 +321,7 @@ def test_max_initcode_size_high_jumpdest(
     tx = Transaction(sender=pre.fund_eoa(), to=factory)
 
     post: dict[Any, Account | None] = {}
-    if valid_jumpdest:
+    if valid_jumpdest and not past_end:
         post[factory] = Account(storage={0: create_address})
         post[create_address] = Account(storage={0: 1})
     else:

@@ -404,48 +404,53 @@ def test_warm_after_failed_create_over_max_code_size(
 
 
 @pytest.mark.parametrize(
-    "valid_jumpdest",
+    "dest_delta,tail,valid_jump",
     [
-        pytest.param(True, id="valid_high_jumpdest"),
-        pytest.param(False, id="invalid_high_dest"),
+        pytest.param(-1, Op.JUMPDEST, True, id="valid_high_jumpdest"),
+        # A bare STOP, not a JUMPDEST: a client that wrongly accepts the
+        # jump halts normally and keeps the prefix store.
+        pytest.param(-1, Op.STOP, False, id="invalid_high_dest"),
+        # One past the last byte, which is itself a JUMPDEST: the code
+        # bounds must reject the jump before any JUMPDEST lookup.
+        pytest.param(0, Op.JUMPDEST, False, id="invalid_past_end"),
     ],
 )
 def test_max_code_size_high_jumpdest(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    valid_jumpdest: bool,
+    dest_delta: int,
+    tail: Bytecode,
+    valid_jump: bool,
 ) -> None:
     """
     Ensure jump destination validity is enforced past the old size limits.
 
-    Deploy a `MAX_CODE_SIZE` contract that stores a sentinel and then jumps
-    near the new limit, far beyond the old 24 KiB code and 48 KiB initcode
+    Deploy a `MAX_CODE_SIZE` contract that stores a flag and then jumps to
+    the new limit, far beyond the old 24 KiB code and 48 KiB initcode
     limits, then call it through a caller that records the call's success:
 
-    - ``valid_high_jumpdest``: the target byte is a real ``JUMPDEST``, so the
-      jump succeeds, the frame returns, and the sentinel store is kept.
-    - ``invalid_high_dest``: the target byte is a ``STOP`` (not a
+    - ``valid_high_jumpdest``: the last byte is a real ``JUMPDEST``, so the
+      jump succeeds, the frame returns, and the prefix store is kept.
+    - ``invalid_high_dest``: the last byte is a ``STOP`` (not a
       ``JUMPDEST``), so the jump is rejected, the frame reverts, and the
-      sentinel store is discarded.
+      prefix store is discarded.
+    - ``invalid_past_end``: the target is `MAX_CODE_SIZE` itself, one past
+      the last byte, which is again a real ``JUMPDEST``. The code bounds
+      must reject the jump; a lookup that clamps or wraps would accept it.
 
     A client whose jumpdest analysis or code execution does not cover the
-    full new code range fails one of the two cases. No existing test
-    executes a contract at a program counter beyond the old limit.
+    full new code range fails one of the cases. No existing test executes
+    a contract at a program counter beyond the old limit.
     """
-    if valid_jumpdest:
-        tail = Op.JUMPDEST
-    else:
-        # A bare STOP, not a JUMPDEST: jumping here is invalid. A client that
-        # wrongly accepts it halts normally and keeps the prefix store (1).
-        tail = Op.STOP
-
-    dest = fork.max_code_size() - len(tail)
+    max_code_size = fork.max_code_size()
+    dest = max_code_size + dest_delta
     push_size = (dest.bit_length() + 7) // 8
     push_op = getattr(Op, f"PUSH{push_size}")
     prefix = Op.SSTORE(0, 1) + push_op(dest) + Op.JUMP
-    target_code = prefix + Op.INVALID * (dest - len(prefix)) + tail
-    assert len(target_code) == fork.max_code_size()
+    filler_len = max_code_size - len(prefix) - len(tail)
+    target_code = prefix + Op.INVALID * filler_len + tail
+    assert len(target_code) == max_code_size
 
     target = pre.deploy_contract(target_code)
     caller = pre.deploy_contract(
@@ -457,7 +462,7 @@ def test_max_code_size_high_jumpdest(
 
     # Valid: jump completes, call succeeds (1), and the store is kept.
     # Invalid: jump reverts, the call fails and writes 0 over the sentinel.
-    stored = 1 if valid_jumpdest else 0
+    stored = 1 if valid_jump else 0
     post = {
         caller: Account(storage={0: stored}),
         target: Account(storage={0: stored}),
