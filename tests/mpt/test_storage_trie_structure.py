@@ -984,6 +984,42 @@ def test_delete_all_slots_empties_trie(
             SIXTEEN_SLOTS_BRANCH4[0],
             id="full_branch_minus_one",
         ),
+        pytest.param(
+            SIXTEEN_SLOTS_BRANCH4[:3],
+            SIXTEEN_SLOTS_BRANCH4[0],
+            id="three_to_two",
+        ),
+        pytest.param(
+            (SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1, ROOT_PAIR[1]),
+            SINGLE_SLOT_SIBLING_DEPTH1,
+            id="leaf_under_branch",
+        ),
+        pytest.param(
+            (*TWO_SLOTS_EXT4, TWO_SLOTS_EXT4_SIBLING_DEPTH1, SINGLE_SLOT),
+            TWO_SLOTS_EXT4_SIBLING_DEPTH1,
+            id="ext_under_branch",
+        ),
+        pytest.param(
+            (
+                SINGLE_SLOT,
+                SINGLE_SLOT_SIBLING_DEPTH1,
+                SINGLE_SLOT_SIBLING_DEPTH2,
+                ROOT_PAIR[1],
+            ),
+            SINGLE_SLOT_SIBLING_DEPTH1,
+            id="branch_under_branch",
+        ),
+        pytest.param(
+            (SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1, ROOT_PAIR[1]),
+            ROOT_PAIR[1],
+            id="root_onto_branch",
+        ),
+        pytest.param(
+            (*TWO_SLOTS_EXT4, SINGLE_SLOT),
+            SINGLE_SLOT,
+            id="root_onto_ext",
+        ),
+        pytest.param(EXT_MERGE_TRIO, EXT_MERGE_TRIO[0], id="nested_ext_leaf"),
     ],
 )
 def test_delete_against_committed_trie(
@@ -998,9 +1034,10 @@ def test_delete_against_committed_trie(
 
     pre:  empty
     post: the group's shape, after a round trip through the reduced shape
-    Block 2 works on nodes the client itself built in block 1 (its diff
-    layer or dirty cache), not on genesis-imported ones; block 3 splits
-    the reduced shape back open the same way.
+    Every collapse cell of the genesis-committed tests, replayed on nodes
+    the client itself built in block 1 (its diff layer or dirty cache)
+    rather than imported at genesis; block 3 splits the reduced shape
+    back open the same way.
     """
     values = _storage(group)
     without = {s: v for s, v in values.items() if s != target}
