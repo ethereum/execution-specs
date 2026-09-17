@@ -43,6 +43,7 @@ from .constants import (
     ROOT_PAIR,
     SINGLE_SLOT,
     SINGLE_SLOT_SIBLING_DEPTH1,
+    SINGLE_SLOT_SIBLING_DEPTH2,
     SIXTEEN_SLOTS_BRANCH4,
     TWO_SLOTS_EXT4,
 )
@@ -193,6 +194,57 @@ def test_insert_into_committed_extension(
         pre=pre,
         tx=Transaction(sender=pre.fund_eoa(), to=contract),
         post={contract: Account(storage={l1: 1, l2: 2, l3: 3})},
+    )
+
+
+@pytest.mark.parametrize(
+    "new_slot,post_shape",
+    [
+        pytest.param(
+            SINGLE_SLOT_SIBLING_DEPTH2,
+            [
+                (0, "branch", 2),
+                (1, "ext", 1),
+                (2, "branch", 2),
+                (3, "leaf", 61),
+            ],
+            id="ext_then_branch",
+        ),
+        pytest.param(
+            SINGLE_SLOT_SIBLING_DEPTH1,
+            [(0, "branch", 2), (1, "branch", 2), (2, "leaf", 62)],
+            id="branch_direct",
+        ),
+    ],
+)
+def test_insert_splits_below_root_branch(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    new_slot: int,
+    post_shape: Shape,
+) -> None:
+    """
+    Pre: ROOT_PAIR committed as a root branch with two direct leaves.
+    Op: write a slot that shares the first nibble with ROOT_PAIR[0].
+    Post: the root branch keeps both slots; the leaf in the shared slot is
+    split in place, into ext(1) -> branch@2 when the new key shares two
+    nibbles, or into a branch@1 directly when it shares only the first.
+    Exercises: a split whose result is re-parented into an existing branch
+    slot instead of becoming the root (geth `Trie.insert` fullNode case
+    recursing into a shortNode).
+    """
+    a, b = ROOT_PAIR
+    assert _shape([a, b], a) == [(0, "branch", 2), (1, "leaf", 63)]
+    assert _shape([a, b, new_slot], a) == post_shape
+    assert _shape([a, b, new_slot], b) == [(0, "branch", 2), (1, "leaf", 63)]
+    contract = pre.deploy_contract(
+        code=_writer_code([(new_slot, 3)]), storage={a: 1, b: 2}
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={a: 1, b: 2, new_slot: 3})},
     )
 
 
