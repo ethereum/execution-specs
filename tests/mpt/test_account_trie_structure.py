@@ -37,6 +37,8 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Bytecode,
     Hash,
     Op,
@@ -252,4 +254,53 @@ def test_delete_merges_adjacent_extensions(
             l2: Account(balance=2),
             doomed: Account.NONEXISTENT,
         },
+    )
+
+
+# --- delete and re-create inside one block ------------------------------
+
+
+def test_account_deleted_and_recreated_same_block(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: two funded accounts sharing 4 nibbles (ext -> branch@4 -> 2
+    leaves), one of them the CREATE2 target `doomed`.
+    Op: in one block, tx1 CREATE2s onto `doomed` and SELFDESTRUCTs in the
+    same transaction (leaf deleted, branch@4 would collapse), tx2 sends
+    1 wei to the same address.
+    Post: `doomed` exists again as a balance-only leaf (nonce 0, no code,
+    no storage) and branch@4 has two children: the pre shape with one
+    changed leaf value.
+    Exercises: account resurrection inside one block diff. Clients that
+    record per-block destructions (geth `stateObjectsDestruct`, erigon
+    incarnations, reth destroyed-account status) must let the later write
+    re-create the leaf instead of keeping it deleted.
+    """
+    survivor = Address(TWO_ADDRS_EXT4[0])
+    doomed = Address(create2_preimage(COLLAPSE_SALT))
+    pre.fund_address(survivor, amount=1)
+    pre.fund_address(doomed, amount=FUNDING)
+    _ensure_factory(pre)
+    sender = pre.fund_eoa()
+    assert node_at(_shape(pre, survivor), 4) == ("branch", 2)
+    without = [a for a in pre if a != doomed]
+    assert all(
+        kind != "branch" for d, kind, _ in _shape(without, survivor) if d == 4
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={
+            survivor: Account(balance=1),
+            doomed: Account(balance=1, nonce=0, code=b"", storage={}),
+        },
+        blocks=[
+            Block(
+                txs=[
+                    _delete_tx(sender, COLLAPSE_SALT),
+                    Transaction(sender=sender, to=doomed, value=1),
+                ]
+            )
+        ],
     )
