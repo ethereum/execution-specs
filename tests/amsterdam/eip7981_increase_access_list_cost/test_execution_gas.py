@@ -8,8 +8,10 @@ from execution_testing import (
     EIPChecklist,
     Fork,
     Hash,
+    Header,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
     TransactionReceipt,
 )
@@ -116,4 +118,80 @@ def test_access_list_surcharge_with_refund(
         pre=pre,
         post={contract: Account(storage={0: 1 if reverts else 0})},
         tx=tx,
+    )
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
+@pytest.mark.parametrize(
+    "floor_binds_total",
+    [
+        pytest.param(True, id="floor_binds_total"),
+        pytest.param(False, id="state_gas_lifts_total"),
+    ],
+)
+def test_access_list_surcharge_in_block_execution_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_type: int,
+    floor_binds_total: bool,
+) -> None:
+    """
+    Charge the surcharged floor to the block's execution dimension.
+
+    An over-cap reservoir funds the state gas of a storage set, so the
+    floor is compared against the execution portion alone: the header
+    gas used is the floor whether or not the sender's bill is.
+    """
+    storage = Storage()
+    code = Op.SSTORE(storage.store_next(1), 1, new_value=1, key_warm=True)
+    contract = pre.deploy_contract(code=code)
+    access_list = [AccessList(address=contract, storage_keys=[Hash(0)])]
+    state_cost = code.state_cost(fork)
+    intrinsic_calculator = fork.transaction_intrinsic_cost_calculator()
+    floor_calculator = fork.transaction_data_floor_cost_calculator()
+
+    def bill(data: bytes) -> tuple[int, int]:
+        """Return the floor and the pre-floor execution bill for `data`."""
+        floor = floor_calculator(data=data, access_list=access_list)
+        tx_execution = intrinsic_calculator(
+            calldata=data,
+            access_list=access_list,
+            return_cost_deducted_prior_execution=True,
+        ) + code.execution_cost(fork)
+        return floor, tx_execution
+
+    # Smallest zero-byte calldata whose floor clears the target.
+    size = 0
+    while True:
+        data = b"\x00" * size
+        floor, tx_execution = bill(data)
+        target = tx_execution + state_cost if floor_binds_total else state_cost
+        if floor > target:
+            break
+        size += 32
+    tx_total = tx_execution + state_cost
+    if floor_binds_total:
+        assert floor > tx_total
+    else:
+        assert tx_execution < floor < tx_total
+    assert floor > state_cost
+
+    tx = Transaction(
+        ty=tx_type,
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=data,
+        access_list=access_list,
+        state_gas_reservoir=state_cost,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=max(tx_total, floor)
+        ),
+    )
+    state_test(
+        pre=pre,
+        post={contract: Account(storage=storage)},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=floor),
     )
