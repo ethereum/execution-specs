@@ -1010,6 +1010,46 @@ def test_delete_sibling_and_update_survivor_same_block(
     )
 
 
+def test_replace_child_within_branch_slot(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Pre: ROOT_PAIR committed at genesis as a root branch with two leaves.
+    Op: in one block, tx1 zeroes SINGLE_SLOT (= ROOT_PAIR[0]), tx2 writes
+    its depth-1 sibling, whose hashed key lands in the same root-branch
+    slot.
+    Post: the root branch still has two children; the slot that held
+    SINGLE_SLOT's leaf now holds the sibling's leaf, a different key with
+    a different 63-nibble remaining path.
+    Exercises: a branch whose child count is unchanged while one child's
+    content is swapped inside one block diff. Clients that key cached
+    nodes by path must not reuse the old leaf; child-mask based
+    appliers see no mask change at all.
+    """
+    old, other = ROOT_PAIR
+    new = SINGLE_SLOT_SIBLING_DEPTH1
+    assert _shape([old, other], other) == [(0, "branch", 2), (1, "leaf", 63)]
+    assert _shape([new, other], other) == [(0, "branch", 2), (1, "leaf", 63)]
+    assert _shape([new, other], new) == [(0, "branch", 2), (1, "leaf", 63)]
+    contract = pre.deploy_contract(
+        code=SLOT_WRITER, storage={old: 1, other: 2}
+    )
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={other: 2, new: 3})},
+        blocks=[
+            Block(
+                txs=[
+                    _write(sender, contract, old, 0),
+                    _write(sender, contract, new, 3),
+                ]
+            )
+        ],
+    )
+
+
 # --- node embedding ----------------------------------------------------
 
 
