@@ -238,6 +238,7 @@ class T8N(Load):
             if t8n_data.inclusion_list_txs is not None
             else None
         )
+        self.inclusion_list_satisfied: bool | None = None
 
     def _tracer(self, type_: Type[T]) -> T:
         group = self.tracers
@@ -406,15 +407,26 @@ class T8N(Load):
             # before constructing the data).
             self.pay_block_rewards(U256(self.state_reward), block_env)
 
-        if self.fork.has_inclusion_list_satisfied:
-            if self.inclusion_list_txs is None:
-                raise Exception(
-                    f"the `{self.fork.hardfork.short_name}` fork spec tracks "
-                    "`inclusion_list_satisfied`, so inclusion list "
-                    "transactions are required; a block without an inclusion "
-                    "list must pass an empty one"
-                )
-            block_output.inclusion_list_satisfied = (
+        # Report a verdict only when the check runs, never a default;
+        # `BlockchainTest` fails the fill when a fork with lists gets none.
+        # TODO: Amsterdam blocks arrive without a list only because EIP-7805
+        # lives in the Amsterdam spec. Once a dedicated `bogota` fork module
+        # exists in the spec, replace the condition below with #3373's guard,
+        # keeping the body as is:
+        #
+        # if self.fork.has_inclusion_list_satisfied:
+        #     if self.inclusion_list_txs is None:
+        #         raise Exception(
+        #             f"the `{self.fork.hardfork.short_name}` fork spec "
+        #             "tracks `inclusion_list_satisfied`, so inclusion list "
+        #             "transactions are required; a block without an "
+        #             "inclusion list must pass an empty one"
+        #         )
+        if (
+            self.fork.has_inclusion_list_satisfied
+            and self.inclusion_list_txs is not None
+        ):
+            self.inclusion_list_satisfied = (
                 self.fork.check_inclusion_list_transactions(
                     block_env,
                     block_output,
