@@ -277,6 +277,48 @@ def test_max_initcode_size_code_opcodes(
     state_test(pre=pre, tx=tx, post=post)
 
 
+def test_max_initcode_size_linear_execution(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Ensure a max-size initcode executes from its first byte to its last
+    without a jump.
+
+    The factory assembles the initcode in memory from two copies of a
+    `MAX_CODE_SIZE` JUMPDEST contract, overwrites the last word with a
+    store and a RETURN, and runs CREATE over it. The child's storage can
+    only be set by stepping through every byte before the tail.
+    """
+    max_code_size = fork.max_code_size()
+    max_initcode_size = fork.max_initcode_size()
+    assert max_initcode_size == 2 * max_code_size
+
+    source = pre.deploy_contract(Op.JUMPDEST * max_code_size)
+    tail = Op.SSTORE(0, 1) + Op.RETURN(0, 0)
+    last_word = bytes(Op.JUMPDEST * (32 - len(tail)) + tail)
+
+    factory = pre.deploy_contract(
+        Op.EXTCODECOPY(source, 0, 0, max_code_size)
+        + Op.EXTCODECOPY(source, max_code_size, 0, max_code_size)
+        + Om.MSTORE(last_word, max_initcode_size - 32)
+        + Op.SSTORE(0, Op.CREATE(value=0, offset=0, size=max_initcode_size))
+        + Op.STOP,
+        storage={0: SENTINEL},
+    )
+    create_address = compute_create_address(address=factory, nonce=1)
+
+    tx = Transaction(sender=pre.fund_eoa(), to=factory)
+
+    post: dict[Any, Account | None] = {
+        factory: Account(storage={0: create_address}),
+        create_address: Account(code=b"", storage={0: 1}),
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
 @pytest.mark.parametrize(
     "past_end,valid_jumpdest",
     [

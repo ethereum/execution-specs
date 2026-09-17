@@ -321,6 +321,35 @@ def test_max_code_size_self_opcodes(
     state_test(pre=pre, tx=tx, post=post)
 
 
+def test_max_code_size_linear_execution(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Ensure a max-size contract executes from its first byte to its last
+    without a jump, then halts at the end of the code.
+
+    The body is `MAX_CODE_SIZE` JUMPDESTs, so the receipt pins one gas per
+    byte on top of the intrinsic cost: a client that stops short, or fails
+    past the old limit, charges a different amount.
+    """
+    target_code = Op.JUMPDEST * fork.max_code_size()
+    target = pre.deploy_contract(target_code)
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=target,
+        gas_limit=fork.transaction_gas_limit_cap(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=intrinsic_gas + target_code.gas_cost(fork)
+        ),
+    )
+
+    state_test(pre=pre, tx=tx, post={target: Account(code=target_code)})
+
+
 @pytest.mark.parametrize(
     "create_opcode",
     [
