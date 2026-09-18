@@ -11,6 +11,7 @@ next or subsequent hard fork.
 |   0x5C   | TLOAD           | Transient data load                             | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153)                          |
 |   0x5D   | TSTORE          | Transient data store                            | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153)                          |
 |   0x5E   | MCOPY           | Memory copy                                     | [EIP-5656](https://eips.ethereum.org/EIPS/eip-5656)                          |
+|   0xAE   | EXTENSION       | Extension prefix for non-Ethereum-L1 EVM chains | [EIP-8163](https://eips.ethereum.org/EIPS/eip-8163)                          |
 |   0xD0   | DATALOAD        | Loads data from EOF data section, via stack     | [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480) |
 |   0xD1   | DATALOADN       | Loads data from EOF data section, via immediate | [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480) |
 |   0xD2   | DATASIZE        | Size of the EOF data section                    | [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480) |
@@ -222,7 +223,7 @@ scheduled or accepted) are in *italics*.
 | 0xAB   |                  |                         |                  |                                                                                |
 | 0xAC   |                  |                         |                  |                                                                                |
 | 0xAD   |                  |                         |                  |                                                                                |
-| 0xAE   |                  |                         |                  |                                                                                |
+| *0xAE* | *EXTENSION*      | *System*                | *Bogota*         | *[EIP-8163](https://eips.ethereum.org/EIPS/eip-8163)*                          |
 | 0xAF   |                  |                         |                  |                                                                                |
 | 0xB0   |                  |                         |                  |                                                                                |
 | 0xB1   |                  |                         |                  |                                                                                |
