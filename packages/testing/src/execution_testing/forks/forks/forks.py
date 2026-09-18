@@ -1093,8 +1093,8 @@ class Frontier(BaseFork):
         return {}
 
     @classmethod
-    def deterministic_factory_predeploy_address(cls) -> Address | None:
-        """At Genesis, no deterministic factory predeploy is present."""
+    def deterministic_factory_contract_address(cls) -> Address | None:
+        """Return None because Genesis defines no factory contract."""
         return None
 
     @classmethod

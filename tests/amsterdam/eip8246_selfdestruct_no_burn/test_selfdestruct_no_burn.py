@@ -34,7 +34,7 @@ from execution_testing import (
 from execution_testing.checklists import EIPChecklist
 
 from ..eip7708_eth_transfer_logs.spec import transfer_log
-from ..eip7997_deterministic_factory_predeploy.spec import Spec
+from ..eip7997_deterministic_factory_contract.spec import Spec
 from .spec import ref_spec_8246
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8246.git_path
