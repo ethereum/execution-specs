@@ -10,6 +10,7 @@ import pytest
 from execution_testing import (
     Alloc,
     Block,
+    Header,
     Requests,
     Transaction,
     TransitionFork,
@@ -43,6 +44,7 @@ def test_system_contract_deployment(
         validator_pubkey=0x01,
         amount=1,
         source_address=sender,
+        fee=WithdrawalRequest.get_fee(0),
     )
     intrinsic_gas_calculator = (
         fork.transitions_to().transaction_intrinsic_cost_calculator()
@@ -61,5 +63,5 @@ def test_system_contract_deployment(
 
     yield Block(
         txs=[test_transaction],
-        requests_hash=Requests(withdrawal_request),
+        header_verify=Header(requests_hash=Requests(withdrawal_request)),
     )
