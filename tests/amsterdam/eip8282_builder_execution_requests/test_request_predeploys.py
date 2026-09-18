@@ -358,7 +358,7 @@ def test_fee_getter_inhibited(
     predeploy = request_class.system_contract_address
     pre.update_account(
         predeploy,
-        storage={request_class.excess_slot: Spec.EXCESS_INHIBITOR},
+        storage={request_class.excess_slot: Spec.INHIBITOR},
     )
 
     # The result is stored offset by one, so a relay that never made the call
