@@ -14,10 +14,14 @@ from execution_testing import (
     Initcode,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
+    TransactionReceipt,
     compute_create_address,
     keccak256,
 )
+from execution_testing import Macros as Om
+from execution_testing.forks import Osaka
 
 from .spec import ref_spec_7954
 
@@ -26,9 +30,12 @@ REFERENCE_SPEC_VERSION = ref_spec_7954.version
 
 pytestmark = pytest.mark.valid_from("EIP7954")
 
-CREATE2_SALT = 0xC0FFEE
+FACTORY_SENTINEL = 0xFF
+"""Pre-set factory storage value, left untouched by an aborted frame."""
 
 DEPLOY_CODE_SIZE_PARAMS = [
+    pytest.param(lambda _: Osaka.max_code_size() + 1, id="over_previous_max"),
+    pytest.param(lambda f: f.max_code_size() - 1, id="under_max"),
     pytest.param(lambda f: f.max_code_size(), id="at_max"),
     pytest.param(lambda f: f.max_code_size() + 1, id="over_max"),
 ]
@@ -82,9 +89,7 @@ def test_max_code_size_via_create(
     alice = pre.fund_eoa()
 
     create_call = (
-        create_opcode(
-            value=0, offset=0, size=Op.CALLDATASIZE, salt=CREATE2_SALT
-        )
+        create_opcode(value=0, offset=0, size=Op.CALLDATASIZE, salt=0)
         if create_opcode == Op.CREATE2
         else create_opcode(value=0, offset=0, size=Op.CALLDATASIZE)
     )
@@ -95,12 +100,11 @@ def test_max_code_size_via_create(
         + Op.STOP
     )
 
-    factory = pre.deploy_contract(factory_code)
+    factory = pre.deploy_contract(factory_code, storage={0: FACTORY_SENTINEL})
 
     create_address = compute_create_address(
         address=factory,
         nonce=1,
-        salt=CREATE2_SALT,
         initcode=initcode,
         opcode=create_opcode,
     )
@@ -111,6 +115,8 @@ def test_max_code_size_via_create(
         data=initcode_bytes,
     )
 
+    # The oversized code is only detected once the initcode returns, so the
+    # create opcode pushes zero and the factory keeps running.
     created = code_size <= fork.max_code_size()
     post: dict[Any, Account | None] = {
         factory: Account(storage={0: create_address if created else 0}),
@@ -130,15 +136,31 @@ def test_max_code_size_via_create(
         pytest.param(1, id="short_one_gas"),
     ],
 )
+@pytest.mark.parametrize(
+    "initcode_length",
+    [
+        pytest.param(None, id="minimal_initcode"),
+        # Pins the initcode word cost over the whole new initcode range: the
+        # exact-fit gas limit only covers the deployment if every word of the
+        # padded initcode is charged.
+        pytest.param(lambda f: f.max_initcode_size(), id="max_initcode"),
+    ],
+)
 def test_max_code_size_deposit_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     gas_shortfall: int,
+    initcode_length: Callable[[Fork], int] | None,
 ) -> None:
     """Ensure code deposit gas is charged correctly at the new max."""
     deploy_code = Op.JUMPDEST * fork.max_code_size()
-    initcode = Initcode(deploy_code=deploy_code)
+    initcode = Initcode(
+        deploy_code=deploy_code,
+        initcode_length=(
+            initcode_length(fork) if initcode_length is not None else None
+        ),
+    )
 
     alice = pre.fund_eoa()
     create_address = compute_create_address(address=alice, nonce=0)
@@ -155,25 +177,32 @@ def test_max_code_size_deposit_gas(
         contract_creation=True,
     )
 
+    exact_gas = (
+        intrinsic_gas
+        + top_frame_state_gas
+        + initcode.evm_gas(fork)
+        + initcode.deployment_gas(fork)
+    )
     tx = Transaction(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=(
-            intrinsic_gas
-            + top_frame_state_gas
-            + initcode.evm_gas(fork)
-            + initcode.deployment_gas(fork)
-            - gas_shortfall
-        ),
+        gas_limit=exact_gas - gas_shortfall,
     )
-    # With shortfall, code deposit OOGs: tx succeeds but
-    # contract is not deployed
-    post = {
-        create_address: Account(code=deploy_code)
-        if not gas_shortfall
-        else Account.NONEXISTENT,
-    }
+
+    post: dict[Any, Account | None] = {}
+    if gas_shortfall:
+        # The deposit halts the frame, burning the whole execution gas
+        # allowance while the state gas reservoir is handed back.
+        tx.expected_receipt = TransactionReceipt(
+            cumulative_gas_used=fork.transaction_gas_limit_cap()
+        )
+        post[create_address] = Account.NONEXISTENT
+    else:
+        # Both gas pools land on exactly zero, so a misprice in any term
+        # shows up here.
+        tx.expected_receipt = TransactionReceipt(cumulative_gas_used=exact_gas)
+        post[create_address] = Account(code=deploy_code)
 
     state_test(pre=pre, tx=tx, post=post)
 
@@ -302,15 +331,13 @@ def test_warm_after_failed_create_over_max_code_size(
     initcode = Op.RETURN(offset=0, size=fork.max_code_size() + 1)
     initcode_bytes = bytes(initcode)
     if create_opcode == Op.CREATE2:
-        salt = CREATE2_SALT
         create_call = create_opcode(
             value=0,
             offset=0,
             size=len(initcode_bytes),
-            salt=salt,
+            salt=0,
         )
     else:
-        salt = 0
         create_call = create_opcode(
             value=0, offset=0, size=len(initcode_bytes)
         )
@@ -324,7 +351,6 @@ def test_warm_after_failed_create_over_max_code_size(
     contract_address = compute_create_address(
         address=creator_address,
         nonce=1,
-        salt=salt,
         initcode=initcode_bytes,
         opcode=create_opcode,
     )
@@ -405,13 +431,14 @@ def test_max_code_size_high_jumpdest(
 
     target = pre.deploy_contract(target_code)
     caller = pre.deploy_contract(
-        Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP
+        Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP,
+        storage={0: FACTORY_SENTINEL},
     )
 
     tx = Transaction(sender=pre.fund_eoa(), to=caller)
 
     # Valid: jump completes, call succeeds (1), and the store is kept.
-    # Invalid: jump reverts, call fails (0), and nothing is stored.
+    # Invalid: jump reverts, the call fails and writes 0 over the sentinel.
     stored = 1 if valid_jumpdest else 0
     post = {
         caller: Account(storage={0: stored}),
@@ -466,17 +493,101 @@ def test_max_code_size_jumpdest_in_immediate(
 
     target = pre.deploy_contract(target_code)
     caller = pre.deploy_contract(
-        Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP
+        Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP,
+        storage={0: FACTORY_SENTINEL},
     )
 
     tx = Transaction(sender=pre.fund_eoa(), to=caller)
 
     # Accepted: jump completes, the call succeeds (1), the store is kept.
-    # Rejected: jump reverts, the call fails (0), nothing is stored.
+    # Rejected: jump reverts, the call fails and writes 0 over the sentinel.
     stored = 1 if accepted else 0
     post = {
         caller: Account(storage={0: stored}),
         target: Account(storage={0: stored}),
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+def test_max_code_size_external_code_bounds(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Ensure the external code opcodes address a max-size contract from
+    another account, including its last word and the zero fill past its end.
+    """
+    max_code_size = fork.max_code_size()
+    target_code = Op.JUMPDEST * (max_code_size - 1) + Op.INVALID
+    target = pre.deploy_contract(target_code)
+    code_hash = keccak256(bytes(target_code))
+    last_word = int.from_bytes(bytes(target_code)[-32:], "big")
+
+    storage = Storage()
+    checker = pre.deploy_contract(
+        Op.SSTORE(storage.store_next(max_code_size), Op.EXTCODESIZE(target))
+        + Op.SSTORE(storage.store_next(code_hash), Op.EXTCODEHASH(target))
+        + Op.EXTCODECOPY(target, 0, 0, Op.EXTCODESIZE(target))
+        + Op.SSTORE(
+            storage.store_next(code_hash),
+            Op.SHA3(0, Op.EXTCODESIZE(target)),
+        )
+        + Op.EXTCODECOPY(target, 0, max_code_size - 32, 32)
+        + Op.SSTORE(storage.store_next(last_word), Op.MLOAD(0))
+        # A read starting at the code size zero-fills, clearing the word
+        # copied above.
+        + Op.EXTCODECOPY(target, 0, max_code_size, 32)
+        + Op.SSTORE(storage.store_next(1), Op.ISZERO(Op.MLOAD(0)))
+        + Op.STOP
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=checker)
+
+    state_test(pre=pre, tx=tx, post={checker: Account(storage=storage)})
+
+
+@pytest.mark.with_all_create_opcodes()
+def test_max_code_size_with_max_initcode_via_create(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """
+    Ensure max-size code deploys from max-size initcode through the create
+    opcodes.
+    """
+    max_code_size = fork.max_code_size()
+    max_initcode_size = fork.max_initcode_size()
+    # Memory is zeroed, so both the deployed code and the initcode padding
+    # need no factory writes.
+    initcode_prefix = bytes(Op.RETURN(0, max_code_size))
+    initcode_bytes = initcode_prefix.ljust(max_initcode_size, b"\x00")
+
+    create_call = (
+        create_opcode(value=0, offset=0, size=max_initcode_size, salt=0)
+        if create_opcode == Op.CREATE2
+        else create_opcode(value=0, offset=0, size=max_initcode_size)
+    )
+    factory = pre.deploy_contract(
+        Om.MSTORE(initcode_prefix, 0) + Op.SSTORE(0, create_call) + Op.STOP,
+        storage={0: FACTORY_SENTINEL},
+    )
+
+    create_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        initcode=initcode_bytes,
+        opcode=create_opcode,
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=factory)
+
+    post: dict[Any, Account | None] = {
+        factory: Account(storage={0: create_address}),
+        create_address: Account(code=b"\x00" * max_code_size),
     }
 
     state_test(pre=pre, tx=tx, post=post)
