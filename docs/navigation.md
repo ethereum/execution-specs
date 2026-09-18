@@ -68,6 +68,7 @@
               * [Consume Cache & Fixture Inputs](running_tests/consume/cache.md)
               * [Consume Direct](running_tests/consume/direct.md)
               * [Consume Simulators](running_tests/consume/simulators.md)
+              * [Consume WireX](running_tests/consume/wirex.md)
               * [Exception Tests](running_tests/consume/exceptions.md)
           * [Execute Commands](./running_tests/execute/index.md)
               * [Execute Hive](./running_tests/execute/hive.md)
