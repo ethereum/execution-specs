@@ -1,0 +1,20 @@
+# Mainnet fixture release series (`tests@vX.Y.Z`) selected by
+# maintainers.
+#
+# - `fork` (X): the released mainnet fork line. A new-mainnet-fork PR
+#   increments it and resets `consensus_revision` to zero.
+# - `consensus_revision` (Y): the acknowledged consensus revision of
+#   the released fork. A consensus-changing PR for the released fork
+#   increments it.
+#
+# This file records semantic release intent, the fixture index records
+# artifact content. While this series matches the newest published
+# release, the first eligible nightly at least 14 days after that
+# release publishes accumulated fixture-content changes as the next
+# patch (Z). Moving the series here never authorizes the nightly to
+# create a major or minor release: it pauses the automation until the
+# matching `vX.Y.0` release is dispatched manually. A cached dispatch
+# is valid only when that nightly was built after this series change;
+# otherwise dispatch a fresh fill.
+fork: 20
+consensus_revision: 0
