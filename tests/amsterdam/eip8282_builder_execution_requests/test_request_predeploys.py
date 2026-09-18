@@ -363,7 +363,7 @@ def test_fee_getter_inhibited(
     pre[predeploy] = Account(
         nonce=genesis_account.nonce,
         code=genesis_account.code,
-        storage={request_class.excess_slot: Spec.EXCESS_INHIBITOR},
+        storage={request_class.excess_slot: Spec.INHIBITOR},
     )
 
     # The result is stored offset by one, so a relay that never made the call
