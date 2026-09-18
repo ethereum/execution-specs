@@ -28,7 +28,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 from tests.ported_static.post_state_resolution import (
@@ -95,15 +95,13 @@ def test_manual_create(
     # EIP-8037 SSTORE-set spill into regular gas (empty reservoir).
     # Derive the warm and cold fresh-set deltas from the fork's own
     # gas model so each is exactly 0 pre-EIP-8037.
-    def _sstore_delta(cancun_cost: int, **metadata: int) -> int:
+    def _sstore_delta(**metadata: int) -> int:
         op = Op.SSTORE.with_metadata(**metadata)
-        return op.gas_cost(fork) - cancun_cost
+        return op.gas_cost(fork) - op.gas_cost(Cancun)
 
-    warm_set_delta = _sstore_delta(
-        20000, key_warm=True, current_value=0, new_value=2
-    )
+    warm_set_delta = _sstore_delta(key_warm=True, current_value=0, new_value=2)
     cold_set_delta = _sstore_delta(
-        22100, key_warm=False, current_value=0, new_value=2
+        key_warm=False, current_value=0, new_value=2
     )
 
     expect_entries_: list[dict] = [
