@@ -1494,10 +1494,15 @@ class EngineRPC(BaseJwtRPC):
         *,
         version: int,
         custody_columns: bytes | None = None,
+        custody_columns_null: bool = False,
     ) -> ForkchoiceUpdateResponse:
         """
         `engine_forkchoiceUpdatedVX`: Updates the forkchoice state of the
         execution client.
+
+        `custody_columns_null` sends an explicit `null` as the
+        `custodyColumns` parameter (EIP-8070: the client treats it as a
+        no-op for its blobpool).
         """
         method = f"forkchoiceUpdatedV{version}"
 
@@ -1511,6 +1516,9 @@ class EngineRPC(BaseJwtRPC):
             # a bitmap of the blob columns custodied by the node.
             assert version >= 4, "custodyColumns requires forkchoiceUpdatedV4."
             params.append(f"0x{custody_columns.hex()}")
+        elif custody_columns_null:
+            assert version >= 4, "custodyColumns requires forkchoiceUpdatedV4."
+            params.append(None)
 
         return ForkchoiceUpdateResponse.model_validate(
             self.post_request(

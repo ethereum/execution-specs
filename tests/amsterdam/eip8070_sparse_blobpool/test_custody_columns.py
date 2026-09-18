@@ -8,6 +8,7 @@ https://eips.ethereum.org/EIPS/eip-8070).
 `custodyColumns` is an optional 16-byte bitmap informing the execution
 client of the blob columns it must custody. A well-formed bitmap must be
 accepted (custody set update errors must not affect the forkchoice flow);
+a `null` value is a no-op for the blobpool and must also be accepted;
 a bitmap of any other length must be rejected with `-32602: Invalid
 params`. Blob serving via `engine_getBlobsV4` must be unaffected either
 way, since the client holds the full blobs.
@@ -76,6 +77,27 @@ def test_fcu_custody_columns(
         get_blobs_version=4,
         cell_mask=ALL_CELLS_MASK,
         custody_columns=custody_columns,
+    )
+
+
+@pytest.mark.parametrize_by_fork("txs_blobs", generate_single_blob_layout)
+@pytest.mark.exception_test
+def test_fcu_custody_columns_null(
+    blobs_test: BlobsTestFiller,
+    pre: Alloc,
+    txs: List[NetworkWrappedTransaction | Transaction],
+) -> None:
+    """
+    Test that `engine_forkchoiceUpdatedV4` accepts a `null`
+    `custodyColumns` with a VALID payload status, treating it as a no-op
+    for the blobpool, and that blob serving via `getBlobsV4` is unaffected.
+    """
+    blobs_test(
+        pre=pre,
+        txs=txs,
+        get_blobs_version=4,
+        cell_mask=ALL_CELLS_MASK,
+        custody_columns_null=True,
     )
 
 

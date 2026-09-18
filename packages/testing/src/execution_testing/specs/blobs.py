@@ -28,6 +28,7 @@ class BlobsTest(BaseTest):
     get_blobs_version: int | None = None
     cell_mask: int | None = None
     custody_columns: bytes | None = None
+    custody_columns_null: bool = False
 
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
@@ -63,6 +64,7 @@ class BlobsTest(BaseTest):
                 get_blobs_version=self.get_blobs_version,
                 cell_mask=self.cell_mask,
                 custody_columns=self.custody_columns,
+                custody_columns_null=self.custody_columns_null,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
 
