@@ -3,15 +3,11 @@
 from typing import Any, Dict
 
 import pytest
-from ethereum_rlp import rlp
 
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp
 
-from .helpers.load_blockchain_tests import (
-    HEADER_NUMBER_INDEX,
-    HEADER_TIMESTAMP_INDEX,
-    ForkTransition,
-)
+from . import FORKS
+from .helpers.load_blockchain_tests import TRANSITION_FORKS, ForkTransition
 
 
 def test_parse_timestamp_transition() -> None:
@@ -40,19 +36,33 @@ def test_parse_plain_fork_name(network: str) -> None:
     assert ForkTransition.parse(network) is None
 
 
+@pytest.mark.parametrize("network", sorted(TRANSITION_FORKS))
+def test_every_transition_fork_names_known_forks(network: str) -> None:
+    """Map both ends of every transition fork to a fork of the spec."""
+    transition = ForkTransition.parse(network)
+
+    assert transition is not None
+    assert transition.from_fork in FORKS
+    assert transition.to_fork in FORKS
+
+
 def decoded_block(number: int, timestamp: int) -> Dict[str, Any]:
     """Return a fixture block with a decoded header."""
     return {
-        "blockHeader": {"number": hex(number), "timestamp": hex(timestamp)}
+        "blockHeader": {
+            "coinbase": "0x" + "00" * 20,
+            "stateRoot": "0x" + "00" * 32,
+            "number": hex(number),
+            "gasLimit": "0x00",
+            "timestamp": hex(timestamp),
+            "extraData": "0x",
+        }
     }
 
 
-def encoded_block(number: int, timestamp: int) -> Dict[str, Any]:
-    """Return a fixture block that carries only its RLP."""
-    header = [b""] * (HEADER_TIMESTAMP_INDEX + 1)
-    header[HEADER_NUMBER_INDEX] = number.to_bytes(4, "big").lstrip(b"\0")
-    header[HEADER_TIMESTAMP_INDEX] = timestamp.to_bytes(4, "big").lstrip(b"\0")
-    return {"rlp": "0x" + rlp.encode([header, [], []]).hex()}
+def invalid_block(number: int, timestamp: int) -> Dict[str, Any]:
+    """Return a fixture block that is expected to be rejected."""
+    return {"rlp": "0x", "rlp_decoded": decoded_block(number, timestamp)}
 
 
 def test_activates_at_the_transition_timestamp() -> None:
@@ -65,13 +75,13 @@ def test_activates_at_the_transition_timestamp() -> None:
     assert transition.activates(decoded_block(3, 15_001))
 
 
-def test_activates_from_encoded_header() -> None:
-    """Read the activation point from the RLP of an undecoded block."""
+def test_activates_from_decoded_invalid_block() -> None:
+    """Read the activation point from an invalid block's decoded header."""
     transition = ForkTransition.parse("BPO2ToAmsterdamAtTime15k")
     assert transition is not None
 
-    assert not transition.activates(encoded_block(1, 14_999))
-    assert transition.activates(encoded_block(2, 15_000))
+    assert not transition.activates(invalid_block(1, 14_999))
+    assert transition.activates(invalid_block(2, 15_000))
 
 
 def test_activates_by_block_number() -> None:
@@ -81,13 +91,34 @@ def test_activates_by_block_number() -> None:
 
     assert not transition.activates(decoded_block(4, 0))
     assert transition.activates(decoded_block(5, 0))
-    assert transition.activates(encoded_block(6, 0))
+    assert transition.activates(invalid_block(6, 0))
 
 
 def test_undecodable_block_does_not_activate() -> None:
-    """Leave a block whose RLP does not decode to the fork before it."""
+    """Leave a block without a decoded header to the fork before it."""
     transition = ForkTransition.parse("BPO2ToAmsterdamAtTime15k")
     assert transition is not None
 
     assert not transition.activates({"rlp": "0xc0"})
-    assert not transition.activates({"rlp": "0xff"})
+
+
+@pytest.mark.parametrize("timestamp", [2**256, 2**300])
+def test_oversized_timestamp_does_not_activate(timestamp: int) -> None:
+    """Leave a header with a timestamp above `U256` to the fork before it."""
+    transition = ForkTransition.parse("BPO2ToAmsterdamAtTime15k")
+    assert transition is not None
+
+    assert not transition.activates(decoded_block(2, timestamp))
+    assert not transition.activates(invalid_block(2, timestamp))
+
+
+@pytest.mark.parametrize("number, timestamp", [(-1, 15_000), (2, -1)])
+def test_negative_header_value_does_not_activate(
+    number: int, timestamp: int
+) -> None:
+    """Leave negative activation values to the fork before the transition."""
+    transition = ForkTransition.parse("BPO2ToAmsterdamAtTime15k")
+    assert transition is not None
+
+    assert not transition.activates(decoded_block(number, timestamp))
+    assert not transition.activates(invalid_block(number, timestamp))

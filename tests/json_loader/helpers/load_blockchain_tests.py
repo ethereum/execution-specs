@@ -1,6 +1,5 @@
 """Helpers to load and run blockchain tests from JSON files."""
 
-import re
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +11,8 @@ from _pytest.config import Config
 from ethereum_rlp import rlp
 from ethereum_rlp.exceptions import RLPException
 from ethereum_types.numeric import U64, U256, Uint
+from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.forks import get_transition_forks
 
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException, StateWithEmptyAccount
@@ -25,19 +26,14 @@ from ..stash_keys import desired_forks_key
 from .exceptional_test_patterns import exceptional_blockchain_test_patterns
 from .fixtures import Fixture, FixturesFile, FixtureTestItem
 
-TRANSITION_NETWORK = re.compile(
-    r"^(?P<from_fork>.+?)To(?P<to_fork>.+?)"
-    r"At(?P<by_time>Time)?(?P<value>\d+)(?P<kilo>k)?$"
-)
+TRANSITION_FORKS = {fork.name(): fork for fork in get_transition_forks()}
 """
-Network name of a fork-transition fixture, such as `BPO2ToAmsterdamAtTime15k`
-or `BerlinToLondonAt5`: the chain starts on the first fork and the second
-fork activates at the given timestamp (`AtTime`) or block number (`At`).
+Transition forks of the testing framework by name. The network of a
+fork-transition fixture, such as `BPO2ToAmsterdamAtTime15k` or
+`BerlinToLondonAt5`, is the name of the transition fork it was filled for:
+the chain starts on the first fork and the second fork activates at the
+transition fork's timestamp or block number.
 """
-
-HEADER_NUMBER_INDEX = 8
-HEADER_TIMESTAMP_INDEX = 11
-"""Positions of the number and timestamp in an RLP-encoded block header."""
 
 
 class NoTestsFoundError(Exception):
@@ -63,51 +59,45 @@ class ForkTransition:
     @classmethod
     def parse(cls, network: str) -> Optional["ForkTransition"]:
         """
-        Parse a transition fixture's network name, or return `None` for a
-        plain fork name.
+        Look up a transition fixture's network name among the transition
+        forks, or return `None` for a plain fork name.
         """
-        match = TRANSITION_NETWORK.match(network)
-        if match is None:
+        fork = TRANSITION_FORKS.get(network)
+        if fork is None:
             return None
-        value = int(match["value"]) * (1000 if match["kilo"] else 1)
         criteria: ForkCriteria = (
-            ByTimestamp(value) if match["by_time"] else ByBlockNumber(value)
+            ByBlockNumber(fork.at_block)
+            if fork.at_block
+            else ByTimestamp(fork.at_timestamp)
         )
-        return cls(match["from_fork"], match["to_fork"], criteria)
+        return cls(
+            fork.transitions_from().name(),
+            fork.transitions_to().name(),
+            criteria,
+        )
 
     def activates(self, json_block: Dict[str, Any]) -> bool:
         """
         Return whether `to_fork` is active for `json_block`.
 
-        A block that is expected to be invalid carries only its RLP, so the
-        number and timestamp are read from the encoded header when the
-        decoded header is absent. Their positions in the header are the
-        same in every fork. A block whose RLP does not decode is left to the
-        fork that is active before it.
+        A block that is expected to be invalid carries its RLP and, when
+        that RLP decodes, the decoded block under `rlp_decoded`. A block
+        without a header to read, because its RLP does not decode, is left
+        to the fork that is active before it, as is a header whose
+        number or timestamp does not fit in a `Uint` or `U256`, respectively.
         """
-        if "blockHeader" in json_block:
-            json_header = json_block["blockHeader"]
-            number = int(json_header["number"], 16)
-            timestamp = int(json_header["timestamp"], 16)
-        else:
-            try:
-                block = rlp.decode(hex_to_bytes(json_block["rlp"]))
-                if not isinstance(block, list):
-                    return False
-                header = block[0]
-                if not isinstance(header, list):
-                    return False
-                number_bytes = header[HEADER_NUMBER_INDEX]
-                timestamp_bytes = header[HEADER_TIMESTAMP_INDEX]
-                if not isinstance(number_bytes, bytes) or not isinstance(
-                    timestamp_bytes, bytes
-                ):
-                    return False
-            except (RLPException, IndexError):
-                return False
-            number = int.from_bytes(number_bytes, "big")
-            timestamp = int.from_bytes(timestamp_bytes, "big")
-        return self.criteria.check(Uint(number), U256(timestamp))
+        header = json_block.get("blockHeader")
+        if header is None:
+            header = json_block.get("rlp_decoded", {}).get("blockHeader")
+        if header is None:
+            return False
+        fixture_header = FixtureHeader.model_validate(header)
+        try:
+            return self.criteria.check(
+                Uint(fixture_header.number), U256(fixture_header.timestamp)
+            )
+        except OverflowError:
+            return False
 
 
 def add_block_to_chain(
@@ -321,8 +311,17 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
         Make the fork of `load` activate at `criteria` for the duration of
         `stack`, so that the fork detects its own fork block as a client
         with a matching chain configuration would.
+
+        `FORK_CRITERIA` is defined in the fork's package, where the fork
+        tooling reads it. A fork whose `fork` module needs it imports it by
+        name, which binds a copy in that module at import time, so that
+        copy is patched as well.
         """
-        fork_module = load.fork.hardfork.module("fork")
+        hardfork = load.fork.hardfork
+        stack.enter_context(
+            patch.object(hardfork.mod, "FORK_CRITERIA", criteria)
+        )
+        fork_module = hardfork.module("fork")
         if hasattr(fork_module, "FORK_CRITERIA"):
             stack.enter_context(
                 patch.object(fork_module, "FORK_CRITERIA", criteria)
