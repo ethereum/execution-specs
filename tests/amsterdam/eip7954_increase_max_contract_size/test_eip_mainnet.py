@@ -15,6 +15,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
+    TransactionReceipt,
     compute_create_address,
     keccak256,
 )
@@ -32,19 +33,44 @@ def test_over_max_code_size_mainnet(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """Verify deployment above the new limit is rejected on mainnet."""
+    """
+    Verify deployment above the new limit is rejected on mainnet.
+
+    The transaction is funded for a successful deposit of this size, so
+    the size rule is the only thing that makes it fail. With the capped
+    gas limit alone the deposit ran out of state gas first, and raising
+    the limit did not change the outcome.
+    """
     deploy_code = Op.JUMPDEST * (fork.max_code_size() + 1)
     initcode = Initcode(deploy_code=deploy_code)
 
     alice = pre.fund_eoa()
     create_address = compute_create_address(address=alice, nonce=0)
 
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=initcode,
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        contract_creation=True,
+    )
     tx = Transaction(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        gas_limit=(
+            intrinsic_gas
+            + top_frame_state_gas
+            + initcode.evm_gas(fork)
+            + initcode.deployment_gas(fork)
+        ),
     )
+    # The oversized deposit halts the frame: the whole execution
+    # allowance burns while the state gas reservoir is handed back.
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    tx.expected_receipt = TransactionReceipt(cumulative_gas_used=gas_limit_cap)
 
     post: dict[Any, Account | None] = {
         create_address: Account.NONEXISTENT,
