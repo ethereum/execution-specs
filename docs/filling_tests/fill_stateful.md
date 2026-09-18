@@ -123,6 +123,7 @@ Optional:
 - `--output PATH` — default `./fixtures`.
 - `--clean` — wipe the output dir before filling.
 - `--extract-opcode-count` — after building each block, trace it via `debug_traceBlockByHash` (a JS opcode-counting tracer) and record per-opcode execution counts (execution-phase blocks only) in the fixture's `_info.metadata.opcode_counts` — an array with one entry per `engineNewPayloads` block (`opcode_counts[i]` is the count for `engineNewPayloads[i]`, or `null` if its trace was unavailable), so multi-block benchmarks keep per-payload granularity. When a benchmark test declares a target opcode count (`fixed_opcode_count`/`expected_opcode_count`), the live-client count is verified against it and the fill fails on >5% divergence. Requires the `debug` namespace with JS tracer support. Adds a full re-execution trace per block, so it is slow and opt-in.
+- `--no-reset-between-tests` — skip the between-test rewind to `start_block`, so each test builds on the state the previous one left behind and the client head accumulates upward. Used to pre-populate a datadir (e.g. deploy setup contracts) whose persisted state a later run builds on. The written fixtures are unchanged — each still records its own `start_block` — so a fixture produced this way is only valid to replay against a client already at that `start_block`; do not mix accumulate-state fills and normal single-anchor fills in one output dir.
 
 ## Output layout
 
@@ -198,6 +199,7 @@ Both backends satisfy `FillerBackend` (`client_clis/filler_backend.py`). `Client
 |---|---|---|
 | `--snapshot-block` | `fill-stateful` | Anchor by 32-byte hash (reorg-safe) or block number; defaults to `latest`. |
 | `--rpc-seed-key` | `fill-stateful` | Pin the seed EOA; otherwise generated + funded via CL withdrawal. |
+| `--no-reset-between-tests` | `fill-stateful` | Skip the between-test rewind so tests accumulate state on the live client (pre-populate a datadir a later run builds on). |
 | `--default-gas-price`, `--default-max-fee-per-gas`, `--default-max-priority-fee-per-gas`, `--default-max-fee-per-blob-gas` | `shared/live_client_flags` | Pin per-session fees; defaults bump a one-shot live query by `1.5x`. |
 | `--max-gas-per-test`, `--max-tx-per-batch`, `--transaction-gas-limit`, ... | `shared/live_client_flags` | Generic live-client knobs reused across commands. |
 
