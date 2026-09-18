@@ -25,6 +25,7 @@ from execution_testing import (
     Environment,
     FeeSystemContractRequest,
     Fork,
+    Header,
     ParameterSet,
     Requests,
     SystemContractInteractionContract,
@@ -32,7 +33,6 @@ from execution_testing import (
     SystemContractRequest,
     TestAddress,
     Transaction,
-    TransitionFork,
     WithdrawalRequest,
 )
 
@@ -40,6 +40,8 @@ from .spec import ref_spec_7685
 
 REFERENCE_SPEC_GIT_PATH: str = ref_spec_7685.git_path
 REFERENCE_SPEC_VERSION: str = ref_spec_7685.version
+
+pytestmark: pytest.MarkDecorator = pytest.mark.valid_from("Prague")
 
 SAME_BLOCK_DEPLOYMENT_CASES = [
     pytest.param(
@@ -165,7 +167,6 @@ def get_fork_permutations(fork: Fork) -> Generator[ParameterSet, None, None]:
 
 @pytest.mark.parametrize_by_fork("requests", get_fork_permutations)
 @pytest.mark.eels_base_coverage
-@pytest.mark.valid_from("Prague")
 @EIPChecklist.ExecutionLayerRequest.Test.CrossRequestType.Update(eip=[8282])
 def test_valid_multi_type_requests(
     blockchain_test: BlockchainTestFiller,
@@ -387,7 +388,6 @@ def invalid_requests_block_combinations(
     invalid_requests_block_combinations(correct_requests_hash_in_header=False),
 )
 @pytest.mark.exception_test
-@pytest.mark.valid_from("Prague")
 def test_invalid_multi_type_requests(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -417,7 +417,6 @@ def test_invalid_multi_type_requests(
 @pytest.mark.parametrize("correct_requests_hash_in_header", [True])
 @pytest.mark.blockchain_test_engine_only
 @pytest.mark.exception_test
-@pytest.mark.valid_from("Prague")
 def test_invalid_multi_type_requests_engine(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -453,50 +452,67 @@ def test_invalid_multi_type_requests_engine(
     )
 
 
-@pytest.mark.parametrize_by_fork(
-    "request_type,deployment_path", lambda _fork: SAME_BLOCK_DEPLOYMENT_CASES
+@pytest.mark.parametrize(
+    "request_type,deployment_path", SAME_BLOCK_DEPLOYMENT_CASES
 )
 @pytest.mark.pre_alloc_mutable
-@pytest.mark.valid_at_transition_to("Prague")
+# The pre-signed deployment transactions carry a fixed gas limit that no
+# longer covers contract creation under Amsterdam's state gas pricing.
+@pytest.mark.valid_until("Osaka")
 def test_system_contract_deployed_and_called_in_same_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: TransitionFork,
+    fork: Fork,
     request_type: type[FeeSystemContractRequest],
     deployment_path: Path,
 ) -> None:
-    """Verify same-block system calls observe newly deployed contracts."""
+    """
+    Deploy a request system contract and call it in the same block.
+
+    The post-execution system call must run against the block's accumulated
+    state: it finds the code deployed earlier in the block (empty code would
+    invalidate the block) and clears the inhibitor the deployment stores, so
+    a request sent in the deployment block is rejected and one sent in the
+    next block is accepted.
+    """
     deployment_tx = Transaction.model_validate_json(
         deployment_path.read_text()
     ).with_signature_and_sender()
     deployer = deployment_tx.sender
     assert deployer is not None
+    gas_price = deployment_tx.gas_price
+    assert gas_price is not None
+    pre.fund_address(deployer, deployment_tx.gas_limit * gas_price)
 
+    # Drop the pre-allocated contract so the deployment transaction creates
+    # it.
     pre[request_type.system_contract_address] = Account(
         balance=0,
         code=b"",
         nonce=0,
         storage={},
     )
-    gas_price = deployment_tx.gas_price
-    assert gas_price is not None
-    pre.fund_address(deployer, deployment_tx.gas_limit * gas_price)
-    request_sender = pre.fund_eoa()
 
-    request = request_type.from_index(0).with_source_address(request_sender)
-    intrinsic_gas = (
-        fork.transitions_to().transaction_intrinsic_cost_calculator()
-    )(calldata=request.calldata)
-    request_tx = Transaction(
-        to=request_type.system_contract_address,
-        data=request.calldata,
-        gas_limit=intrinsic_gas * 10,
-        sender=request_sender,
-        value=request.value,
+    request_sender = pre.fund_eoa()
+    # The fee once the inhibitor is cleared; the same-block request pays it
+    # too, so only the inhibitor rejects it.
+    fee = request_type.get_fee(0)
+    rejected_request = request_type.from_index(0).copy(fee=fee)
+    accepted_request = (
+        request_type.from_index(1)
+        .copy(fee=fee)
+        .with_source_address(request_sender)
     )
 
-    fork_pre_allocation = fork.transitions_to().pre_allocation_blockchain()
-    expected_code = fork_pre_allocation[
+    def request_tx(request: FeeSystemContractRequest) -> Transaction:
+        return Transaction(
+            to=request_type.system_contract_address,
+            data=request.calldata,
+            value=request.value,
+            sender=request_sender,
+        )
+
+    expected_code = fork.pre_allocation_blockchain()[
         int.from_bytes(request_type.system_contract_address, "big")
     ]["code"]
 
@@ -504,16 +520,22 @@ def test_system_contract_deployed_and_called_in_same_block(
         pre=pre,
         blocks=[
             Block(
-                txs=[deployment_tx, request_tx],
-                requests_hash=Requests(request),
-            )
+                txs=[deployment_tx, request_tx(rejected_request)],
+                header_verify=Header(requests_hash=Requests()),
+            ),
+            Block(
+                txs=[request_tx(accepted_request)],
+                header_verify=Header(requests_hash=Requests(accepted_request)),
+            ),
         ],
         post={
             request_type.system_contract_address: Account(
                 code=expected_code,
                 nonce=1,
+                # The rejected request's fee was refunded.
+                balance=fee,
             ),
             deployer: Account(nonce=1),
-            request_sender: Account(nonce=1),
+            request_sender: Account(nonce=2),
         },
     )
