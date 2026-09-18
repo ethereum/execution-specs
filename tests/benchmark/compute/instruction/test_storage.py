@@ -12,12 +12,14 @@ import math
 
 import pytest
 from execution_testing import (
+    Address,
     Alloc,
     AuthorizationTuple,
     BenchmarkTestFiller,
     Block,
     Bytecode,
     Conditional,
+    Environment,
     ExtCallGenerator,
     Fork,
     Hash,
@@ -68,25 +70,46 @@ def test_tload(
     )
 
 
-@pytest.mark.repricing(fixed_key=False, fixed_value=False)
+@pytest.mark.repricing(fixed_key=False, tload="none")
 @pytest.mark.parametrize("fixed_key", [True, False])
-@pytest.mark.parametrize("fixed_value", [True, False])
+@pytest.mark.parametrize("tload", ["none", "hit", "miss"])
 def test_tstore(
     benchmark_test: BenchmarkTestFiller,
     fixed_key: bool,
-    fixed_value: bool,
+    tload: str,
 ) -> None:
-    """Benchmark TSTORE instruction."""
-    init_key = 42
-    setup = Op.PUSH1(init_key)
+    """
+    Benchmark TSTORE against a growing transient store.
 
-    attack_block = Op.TSTORE(Op.DUP2, Op.GAS if not fixed_value else Op.DUP1)
-    cleanup = Op.POP + Op.GAS if not fixed_key else Bytecode()
+    GAS gives a unique key per write with no memory counter, and COINBASE a
+    nonzero value, so every write inserts an entry instead of being elided.
+    """
+    assert Environment().fee_recipient != Address(0), (
+        "coinbase must be nonzero so the TSTORE value is nonzero"
+    )
+
+    key = Op.PUSH0 if fixed_key else Op.GAS
+    setup = Bytecode()
+    value = Op.COINBASE
+    match tload:
+        case "hit":
+            # Seed the value and feed each read into the next TSTORE so
+            # the TLOAD is not discarded. Stack carries [value].
+            setup = Op.COINBASE
+            attack_block = key + Op.SWAP1 + Op.DUP2 + Op.TSTORE + Op.TLOAD
+        case "miss":
+            # Read a fresh, never-written key: a miss on a growing store.
+            attack_block = Op.TSTORE(key, value) + Op.POP(Op.TLOAD(Op.GAS))
+        case "none":
+            attack_block = Op.TSTORE(key, value)
+        case _:
+            raise ValueError(f"Unknown tload mode: {tload}")
 
     benchmark_test(
         target_opcode=Op.TSTORE,
         code_generator=JumpLoopGenerator(
-            setup=setup, attack_block=attack_block, cleanup=cleanup
+            setup=setup,
+            attack_block=attack_block,
         ),
     )
 
