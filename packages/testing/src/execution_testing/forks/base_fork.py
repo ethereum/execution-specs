@@ -1052,6 +1052,19 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def transaction_total_gas_limit_cap(cls) -> int | None:
+        """
+        Return the cap on a transaction's total gas limit, or None if no
+        such cap is imposed.
+
+        Where `transaction_gas_limit_cap` bounds only execution gas (from
+        EIP-8037 onwards), this cap bounds `tx.gas` as a whole, including
+        any state gas reservoir.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def state_gas_reservoir_enabled(cls) -> bool:
         """
         Return True if the fork enables a state gas reservoir.
