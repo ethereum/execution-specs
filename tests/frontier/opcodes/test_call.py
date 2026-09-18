@@ -1,11 +1,4 @@
-"""
-Test `CALL` opcode.
-
-Gas-measurement cases below floor at Berlin: they use EIP-2929
-`address_warm` / cold-access costs. Pre-Berlin CALL schedules are a
-different model, so `valid_from("Berlin")` is intentional (see
-https://github.com/ethereum/execution-spec-tests/pull/1952#discussion_r2237634275).
-"""
+"""Test `CALL` opcode."""
 
 import pytest
 from execution_testing import (
@@ -20,7 +13,7 @@ from execution_testing import (
 )
 
 
-@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_from("Frontier")
 def test_call_large_offset_mstore(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -34,6 +27,9 @@ def test_call_large_offset_mstore(
     when it shouldn't.
     """
     sender = pre.fund_eoa()
+    # Existing callee so pre-EIP-161 forks do not charge NEW_ACCOUNT on a
+    # zero-value CALL to the empty default address.
+    callee = pre.deploy_contract(Op.STOP)
 
     mem_offset = 128  # arbitrary number
 
@@ -42,7 +38,7 @@ def test_call_large_offset_mstore(
     mstore_push_cost = (Op.PUSH1(0) * len(Op.MSTORE.kwargs)).gas_cost(fork)
 
     call_measure = CodeGasMeasure(
-        code=Op.CALL(gas=0, ret_offset=mem_offset, ret_size=0),
+        code=Op.CALL(gas=0, address=callee, ret_offset=mem_offset, ret_size=0),
         overhead_cost=call_push_cost,
         extra_stack_items=1,  # Because CALL pushes 1 item to the stack
         sstore_key=0,
@@ -60,10 +56,11 @@ def test_call_large_offset_mstore(
         to=contract,
         value=0,
         sender=sender,
+        protected=fork.supports_protected_txs(),
     )
 
-    # this call cost is just the address_access_cost
-    call_cost = Op.CALL(address_warm=False).gas_cost(fork)
+    # Address-access cost (cold under EIP-2929; flat CALL cost before).
+    call_cost = Op.CALL(address_warm=False, account_new=False).gas_cost(fork)
 
     # mstore cost: base cost + expansion cost
     mstore_cost = Op.MSTORE(new_memory_size=mem_offset + 32).gas_cost(fork)
@@ -81,7 +78,7 @@ def test_call_large_offset_mstore(
     )
 
 
-@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_from("Frontier")
 def test_call_memory_expands_on_early_revert(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -128,8 +125,12 @@ def test_call_memory_expands_on_early_revert(
         to=contract,
         value=0,
         sender=sender,
+        protected=fork.supports_protected_txs(),
     )
 
+    # Empty callee + value → NEW_ACCOUNT on the schedule. CodeGasMeasure
+    # reads execution gas only (`execution_cost`); EIP-8037 parks
+    # NEW_ACCOUNT in state gas.
     gsc = fork.gas_costs()
     call_cost = (
         Op.CALL(
@@ -159,7 +160,7 @@ def test_call_memory_expands_on_early_revert(
 
 
 @pytest.mark.with_all_call_opcodes
-@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_from("Frontier")
 def test_call_large_args_offset_size_zero(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -171,6 +172,9 @@ def test_call_large_args_offset_size_zero(
     Since the size is zero, the large offset should not cause a revert.
     """
     sender = pre.fund_eoa()
+    # Existing callee so pre-EIP-161 forks do not charge NEW_ACCOUNT on a
+    # zero-value call to the empty default address.
+    callee = pre.deploy_contract(Op.STOP)
 
     very_large_offset = 2**100
 
@@ -178,7 +182,12 @@ def test_call_large_args_offset_size_zero(
     push_cost = (Op.PUSH1(0) * len(call_opcode.kwargs)).gas_cost(fork)
 
     call_measure = CodeGasMeasure(
-        code=call_opcode(gas=0, args_offset=very_large_offset, args_size=0),
+        code=call_opcode(
+            gas=0,
+            address=callee,
+            args_offset=very_large_offset,
+            args_size=0,
+        ),
         overhead_cost=push_cost,
         extra_stack_items=1,  # Because xCALL pushes 1 item to the stack
         sstore_key=0,
@@ -190,10 +199,15 @@ def test_call_large_args_offset_size_zero(
         to=contract,
         value=0,
         sender=sender,
+        protected=fork.supports_protected_txs(),
     )
 
-    # this call cost is just the address_access_cost
-    call_cost = call_opcode(address_warm=False).gas_cost(fork)
+    # Address-access cost (cold under EIP-2929; flat call cost before).
+    # Only CALL/CALLCODE take account_new; STATICCALL/DELEGATECALL reject it.
+    cost_meta: dict = {"address_warm": False}
+    if call_opcode in (Op.CALL, Op.CALLCODE):
+        cost_meta["account_new"] = False
+    call_cost = call_opcode(**cost_meta).gas_cost(fork)
 
     state_test(
         env=Environment(),
