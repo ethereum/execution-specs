@@ -56,10 +56,7 @@ class EIP8038(BaseFork):
         execution_per_auth_base_cost = (
             1_616 + 3_000 + cold_account_access + 2 * warm_access
         )
-        # Derived with the EIP's own formula, mirroring `vm/gas.py`, so a
-        # future repricing of either input moves this in step with the
-        # spec instead of stranding a literal. Floor division; exact at
-        # 11,616 for the values above.
+        # Derived with the EIP's formula, as in `vm/gas.py`.
         refund_storage_clear = (
             (storage_write + cold_storage_access) * 4_800 // 5_000
         )
@@ -80,11 +77,6 @@ class EIP8038(BaseFork):
             STORAGE_SET=storage_write,
             OPCODE_CREATE_BASE=create_access,
             TX_CREATE=create_access,
-            # The EIP names this parameter `CREATE_ACCESS`, and `GasCosts`
-            # declares a field for it, but nothing had ever assigned it —
-            # so `gas_costs().CREATE_ACCESS` read 0 for anyone reaching
-            # for the published name, while the live value sat only in
-            # `OPCODE_CREATE_BASE`.
             CREATE_ACCESS=create_access,
             AUTH_PER_EMPTY_ACCOUNT=account_write
             + execution_per_auth_base_cost,

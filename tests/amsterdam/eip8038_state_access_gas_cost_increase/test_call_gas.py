@@ -302,7 +302,11 @@ def test_call_value_to_new_account_seam(
     # block_gas_used = max(block_execution, block_state). The CALL's
     # NEW_ACCOUNT lands on the state axis; the execution axis is the
     # access plus value-transfer cost.
-    tx_execution = intrinsic + caller_code.execution_cost(fork)
+    tx_execution = (
+        intrinsic
+        + caller_code.execution_cost(fork)
+        - fork.call_value_stipend()
+    )
     tx_state = caller_code.state_cost(fork)
     expected_gas_used = max(tx_execution, tx_state)
     # State must dominate here, proving NEW_ACCOUNT hit the state axis.
@@ -312,6 +316,9 @@ def test_call_value_to_new_account_seam(
         to=caller,
         sender=pre.fund_eoa(),
         state_gas_reservoir=new_account_state_gas,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=tx_execution + tx_state
+        ),
     )
 
     state_test(
@@ -626,18 +633,10 @@ def test_call_value_to_precompile_creates_leaf(
     fork: Fork,
 ) -> None:
     """
-    A value CALL to a precompile creates the leaf and is charged
-    ``GAS_NEW_ACCOUNT``.
+    Pin both gas dimensions of a value CALL that creates a precompile leaf.
 
-    A precompile is in the accessed set from the start, so the access is
-    free — but it holds no state entry and is dead under EIP-161, so a
-    positive value takes the account-creation branch. The block header's
-    ``max(execution, state)`` is dominated by the creation charge, which
-    pins it without needing the precompile's own execution gas (the
-    framework exposes no accessor for that). The execution-side
-    ``ACCOUNT_WRITE`` is pinned by
-    ``test_call_value_alive_target_gas`` and, for the same dead-leaf
-    mechanism, by ``test_selfdestruct_value_to_precompile_beneficiary``.
+    The header witnesses state gas and the receipt also witnesses execution
+    gas, including the warm access and the precompile's empty-input cost.
     """
     identity_precompile = Address(4)
 
@@ -659,7 +658,12 @@ def test_call_value_to_precompile_creates_leaf(
 
     new_account_state_gas = call.state_cost(fork)
 
-    tx_execution = intrinsic + caller_code.execution_cost(fork)
+    tx_execution = (
+        intrinsic
+        + caller_code.execution_cost(fork)
+        - fork.call_value_stipend()
+        + fork.gas_costs().PRECOMPILE_IDENTITY_BASE
+    )
     tx_state = caller_code.state_cost(fork)
     expected_gas_used = max(tx_execution, tx_state)
     # The state axis must dominate, or the header would not witness the
@@ -670,6 +674,9 @@ def test_call_value_to_precompile_creates_leaf(
         to=caller,
         sender=pre.fund_eoa(),
         state_gas_reservoir=new_account_state_gas,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=tx_execution + tx_state
+        ),
     )
 
     state_test(

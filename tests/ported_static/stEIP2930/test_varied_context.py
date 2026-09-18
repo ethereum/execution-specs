@@ -35,7 +35,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 from tests.ported_static.post_state_resolution import (
@@ -1165,8 +1165,12 @@ def test_varied_context(
     _cold_reset = Op.SSTORE.with_metadata(
         key_warm=False, original_value=1, current_value=1, new_value=2
     )
-    valid_write_gas = 0xB65 + (_warm_reset.gas_cost(fork) - 2900)
-    valid_read_gas = 0x1800 + (_cold_reset.gas_cost(fork) - 5000)
+    valid_write_gas = 0xB65 + (
+        _warm_reset.gas_cost(fork) - _warm_reset.gas_cost(Cancun)
+    )
+    valid_read_gas = 0x1800 + (
+        _cold_reset.gas_cost(fork) - _cold_reset.gas_cost(Cancun)
+    )
 
     contract_13 = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
@@ -1360,26 +1364,30 @@ def test_varied_context(
     # parameter changes.
     gas_costs = fork.gas_costs()
 
-    def _sstore_delta(cancun_cost: int, **metadata: int) -> int:
+    def _sstore_delta(**metadata: int) -> int:
         op = Op.SSTORE.with_metadata(**metadata)
-        return op.gas_cost(fork) - cancun_cost
+        return op.gas_cost(fork) - op.gas_cost(Cancun)
 
     # Fresh SSTORE-set (state-gas spill dominates), warm vs cold key.
-    warm_set_delta = _sstore_delta(
-        20000, key_warm=True, current_value=0, new_value=2
-    )
+    warm_set_delta = _sstore_delta(key_warm=True, current_value=0, new_value=2)
     cold_set_delta = _sstore_delta(
-        22100, key_warm=False, current_value=0, new_value=2
+        key_warm=False, current_value=0, new_value=2
     )
-    # CALL value transfer to a non-alive account: the 25 000 NEW_ACCOUNT
+    # CALL value transfer to a non-alive account: the Cancun NEW_ACCOUNT
     # base becomes a spilling state-gas charge.
     new_account_delta = (
-        (fork.create_state_gas() - 25000) if fork.is_eip_enabled(8037) else 0
+        (fork.create_state_gas() - Cancun.gas_costs().NEW_ACCOUNT)
+        if fork.is_eip_enabled(8037)
+        else 0
     )
     # Cold account access reprice (0 pre-Amsterdam).
-    cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
+    cold_account_delta = (
+        gas_costs.COLD_ACCOUNT_ACCESS - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
+    )
     # Cold storage access (SLOAD) reprice (0 pre-Amsterdam).
-    cold_storage_delta = gas_costs.COLD_STORAGE_ACCESS - 2100
+    cold_storage_delta = (
+        gas_costs.COLD_STORAGE_ACCESS - Cancun.gas_costs().COLD_STORAGE_ACCESS
+    )
     # SELFDESTRUCT to a non-alive cold beneficiary: new-account spill,
     # the new ACCOUNT_WRITE charge (0 pre-Amsterdam), and the cold
     # reprice.

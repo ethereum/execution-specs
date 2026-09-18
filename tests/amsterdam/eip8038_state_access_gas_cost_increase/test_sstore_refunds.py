@@ -1,7 +1,7 @@
 """
 Tests for [EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
-The headline mechanism of the pinned spec version ``a8862ae`` is the
+The headline mechanism of the spec is the
 ``SSTORE`` clear-refund *reversal*: ``refund_counter`` is decremented by
 ``REFUND_STORAGE_CLEAR`` when a slot's original value is non-zero, its
 current value is zero and the new value is non-zero (a slot cleared

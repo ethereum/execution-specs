@@ -97,14 +97,9 @@ def sstore(evm: Evm) -> None:
     else:
         gas_cost += GasCosts.WARM_ACCESS
 
-    # Enforce the EIP-2200 sentry: more than `CALL_STIPEND` must remain,
-    # whatever the write itself costs. Checked here, before the state
-    # access below records the slot read in the Block Access List, so a
-    # frame that cannot afford the write leaves no entry behind.
-    #
-    # Under this fork's schedule the stipend is the binding floor for
-    # both warmths, so the `max` always takes its second branch; it
-    # guards the case of an access cost repriced above the stipend.
+    # EIP-2200 stipend sentry, checked before the state access below
+    # records the slot read in the Block Access List. The `max` guards an
+    # access cost repriced above the stipend; neither warmth is today.
     check_gas(
         evm, max(gas_cost, ExecutionGas(GasCosts.CALL_STIPEND + Uint(1)))
     )
@@ -122,19 +117,16 @@ def sstore(evm: Evm) -> None:
 
     state_gas = StateGas(Uint(0))
 
-    # Write cost: charged whenever the slot moves away from the value it
-    # held at the start of the transaction. Net metering makes this
-    # recur rather than fire once: `x -> y -> x -> z` pays it twice,
-    # because returning to `x` refunds the first charge below.
+    # Write cost: charged each time the slot moves away from its
+    # transaction-start value; restoring it refunds the charge below.
     if original_value == current_value and current_value != new_value:
         gas_cost += GasCosts.STORAGE_WRITE
 
     # Refund Counter Calculation
     if current_value != new_value:
         if original_value != 0 and current_value != 0 and new_value == 0:
-            # Clearing a slot that was non-zero at the start of the
-            # transaction. Granted on each such clear, so
-            # `x -> 0 -> y -> 0` earns it twice.
+            # Slot non-zero at transaction start is cleared; granted on
+            # each such clear.
             evm.gas_meter.refund_counter += GasCosts.REFUND_STORAGE_CLEAR
 
         if original_value != 0 and current_value == 0:

@@ -7,11 +7,10 @@ state_tests/stEIP150singleCodeGasPrices/gasCostMemoryFiller.yml
 @manually-enhanced: Do not overwrite. The second expect-entry (data
 36-48) stores the regular gas of a measured window that includes one
 extra cold `CALL` to a previously untouched contract relative to its
-baseline. EIP-8038 reprices `COLD_ACCOUNT_ACCESS` (2600 -> 3000), so
-that net cost shifts by `COLD_ACCOUNT_ACCESS - 2600`, derived from the
-fork's own constant so it is exactly 0 pre-EIP-8038. The first entry
-measures a difference of two equal-cost operations and is unchanged.
-Do not hardcode the Amsterdam number.
+baseline. EIP-8038 raises `COLD_ACCOUNT_ACCESS`, so that net cost
+shifts by the fork's `COLD_ACCOUNT_ACCESS` less Cancun's, exactly 0
+pre-EIP-8038. The first entry measures a difference of two equal-cost
+operations and is unchanged. Do not hardcode the Amsterdam number.
 """
 
 import pytest
@@ -25,7 +24,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 from tests.ported_static.post_state_resolution import (
@@ -505,8 +504,11 @@ def test_gas_cost_memory(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    # EIP-8038 cold account repricing (2600 -> 3000); 0 on earlier forks.
-    cold_account_delta = fork.gas_costs().COLD_ACCOUNT_ACCESS - 2600
+    # EIP-8038 raises COLD_ACCOUNT_ACCESS, 0 on earlier forks.
+    cold_account_delta = (
+        fork.gas_costs().COLD_ACCOUNT_ACCESS
+        - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
+    )
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x000000000000000000000000000000000000BA5E)
     contract_1 = Address(0x000000000000000000000000000000000010BA5E)

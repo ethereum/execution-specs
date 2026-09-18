@@ -832,13 +832,10 @@ def calculate_message_call_gas(
     memory_cost :
         The amount needed to extend the memory in the current frame.
     extra_gas :
-        The call's own execution charge that the forwarding budget must
-        account for: the account access cost, the value-transfer cost
-        where the opcode transfers value, and the delegation-resolution
-        access cost for an EIP-7702 target. It carries no
-        account-creation component; creating the recipient is charged on
-        the state-gas dimension, separately. `CALL` charges this itself
-        before the call and passes zero here.
+        The call's own execution charge (access, value transfer and
+        delegation resolution) that the forwarding budget must cover.
+        Account creation is charged in state gas separately; `CALL`
+        charges this itself and passes zero here.
     call_stipend :
         The amount of stipend provided to a message call to execute code while
         transferring value (ETH).

@@ -238,12 +238,9 @@ def test_existing_authority_refund(
     new_target = pre.deploy_contract(code=Op.STOP)
 
     # The authority already carries a delegation, so its leaf exists and
-    # no account-creation component applies. Amsterdam prices this case
-    # by omission: the osaka refund for an existing authority
-    # (`REFUND_AUTH_PER_EXISTING_ACCOUNT`) is gone, replaced by charging
-    # the state-dependent authorization components only when they apply.
-    # The exact charges are pinned in
-    # `test_set_code_auth_write_exemptions.py`; this test only checks the
+    # no account-creation component applies; the osaka existing-authority
+    # refund is gone. The exact charges are pinned by the EIP-2780
+    # suite's `test_authorization_charges.py`; this test only checks the
     # delegation is re-pointed on a mainnet-marked path.
     auth_signer = pre.fund_eoa(delegation=old_target)
 

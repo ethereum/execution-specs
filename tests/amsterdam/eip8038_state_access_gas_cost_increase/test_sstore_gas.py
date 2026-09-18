@@ -17,6 +17,8 @@ from execution_testing import (
     AccessList,
     Account,
     Alloc,
+    BalAccountExpectation,
+    BlockAccessListExpectation,
     Bytecode,
     CodeGasMeasure,
     Fork,
@@ -174,8 +176,9 @@ def test_sstore_stipend_sentry_boundary(
     minimum gas an ``SSTORE`` needs.
 
     The measured write is a *no-op* (``new == current``), so it is
-    charged the access cost alone and nothing else — 100 warm, 2,100
-    cold, both under ``CALL_STIPEND``. The sentry nevertheless demands
+    charged the access cost alone and nothing else, ``WARM_ACCESS`` or
+    ``COLD_STORAGE_ACCESS``, both under ``CALL_STIPEND``. The sentry
+    nevertheless demands
     more than the stipend before any state is touched, so the boundary
     sits at ``CALL_STIPEND + 1`` in both warmths rather than at the
     cost actually charged. Pinning both warmths shows the floor does not
@@ -225,7 +228,19 @@ def test_sstore_stipend_sentry_boundary(
         caller: Account(storage=storage),
         child: Account(storage={slot: 1}),
     }
-    state_test(pre=pre, post=post, tx=tx)
+    state_test(
+        pre=pre,
+        post=post,
+        tx=tx,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                child: BalAccountExpectation(
+                    storage_reads=[slot] if sufficient_gas else [],
+                    storage_changes=[],
+                )
+            }
+        ),
+    )
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()

@@ -24,7 +24,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -46,14 +46,17 @@ def test_extcodesize_to_epmty_paris(
     # cold account reprice plus a second WARM_ACCESS for the code read;
     # the cold SSTORE-clear (nonzero -> 0) spills its state-gas back
     # into regular gas.
+    cold_extcodesize = Op.EXTCODESIZE.with_metadata(address_warm=False)
+    cancun_extcodesize_cost = cold_extcodesize.gas_cost(Cancun)
     extcodesize_delta = (
-        Op.EXTCODESIZE.with_metadata(address_warm=False).gas_cost(fork) - 2600
+        cold_extcodesize.gas_cost(fork) - cancun_extcodesize_cost
     )
+    cold_clear_sstore = Op.SSTORE.with_metadata(
+        key_warm=False, original_value=1, current_value=1, new_value=0
+    )
+    cancun_clear_sstore_cost = cold_clear_sstore.gas_cost(Cancun)
     cold_clear_sstore_delta = (
-        Op.SSTORE.with_metadata(
-            key_warm=False, original_value=1, current_value=1, new_value=0
-        ).gas_cost(fork)
-        - 5000
+        cold_clear_sstore.gas_cost(fork) - cancun_clear_sstore_cost
     )
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
