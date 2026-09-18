@@ -11,6 +11,7 @@ from _pytest.config import Config
 from ethereum_rlp import rlp
 from ethereum_rlp.exceptions import RLPException
 from ethereum_types.numeric import U64, U256, Uint
+from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.forks import get_transition_forks
 
 from ethereum.crypto.hash import keccak256
@@ -83,17 +84,18 @@ class ForkTransition:
         that RLP decodes, the decoded block under `rlp_decoded`. A block
         without a header to read, because its RLP does not decode, is left
         to the fork that is active before it, as is a header whose
-        timestamp does not fit in a `U256`.
+        number or timestamp does not fit in a `Uint` or `U256`, respectively.
         """
         header = json_block.get("blockHeader")
         if header is None:
             header = json_block.get("rlp_decoded", {}).get("blockHeader")
         if header is None:
             return False
-        number = Uint(int(header["number"], 16))
-        timestamp = int(header["timestamp"], 16)
+        fixture_header = FixtureHeader.model_validate(header)
         try:
-            return self.criteria.check(number, U256(timestamp))
+            return self.criteria.check(
+                Uint(fixture_header.number), U256(fixture_header.timestamp)
+            )
         except OverflowError:
             return False
 

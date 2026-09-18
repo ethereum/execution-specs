@@ -49,7 +49,14 @@ def test_every_transition_fork_names_known_forks(network: str) -> None:
 def decoded_block(number: int, timestamp: int) -> Dict[str, Any]:
     """Return a fixture block with a decoded header."""
     return {
-        "blockHeader": {"number": hex(number), "timestamp": hex(timestamp)}
+        "blockHeader": {
+            "coinbase": "0x" + "00" * 20,
+            "stateRoot": "0x" + "00" * 32,
+            "number": hex(number),
+            "gasLimit": "0x00",
+            "timestamp": hex(timestamp),
+            "extraData": "0x",
+        }
     }
 
 
@@ -103,3 +110,15 @@ def test_oversized_timestamp_does_not_activate(timestamp: int) -> None:
 
     assert not transition.activates(decoded_block(2, timestamp))
     assert not transition.activates(invalid_block(2, timestamp))
+
+
+@pytest.mark.parametrize("number, timestamp", [(-1, 15_000), (2, -1)])
+def test_negative_header_value_does_not_activate(
+    number: int, timestamp: int
+) -> None:
+    """Leave negative activation values to the fork before the transition."""
+    transition = ForkTransition.parse("BPO2ToAmsterdamAtTime15k")
+    assert transition is not None
+
+    assert not transition.activates(decoded_block(number, timestamp))
+    assert not transition.activates(invalid_block(number, timestamp))
