@@ -79,35 +79,31 @@ def test_tstore(
     tload: str,
 ) -> None:
     """
-    Benchmark TSTORE with a fixed (PUSH0) or unique (GAS) key each op.
+    Benchmark TSTORE against a growing transient store.
 
-    A unique key (GAS) targets a distinct transient slot per write with no
-    memory counter, the worst case for a client's key structure. The value
-    is COINBASE (a nonzero op) so each write actually inserts an entry; a
-    zero value lets clients skip the insert and silently hide the store
-    growth, so the coinbase is asserted nonzero. ``tload`` adds a read of
-    the written key (hit) or of a fresh, never-written key (miss).
+    GAS gives a unique key per write with no memory counter, and COINBASE a
+    nonzero value, so every write inserts an entry instead of being elided.
     """
     assert Environment().fee_recipient != Address(0), (
         "coinbase must be nonzero so the TSTORE value is nonzero"
     )
 
     key = Op.PUSH0 if fixed_key else Op.GAS
+    setup = Bytecode()
     value = Op.COINBASE
-    if tload == "hit":
-        # Seed the value once; each iteration stores it under the key and
-        # reads it back, feeding the result into the next TSTORE so the
-        # read is used, not discarded. Stack carries [value].
-        setup = Bytecode(value)
-        attack_block = key + Op.SWAP1 + Op.DUP2 + Op.TSTORE + Op.TLOAD
-    elif tload == "miss":
-        # Write the key, then read a fresh, never-written key: a TLOAD
-        # miss on the growing store. Value stays COINBASE (nonzero).
-        setup = Bytecode()
-        attack_block = Op.TSTORE(key, value) + Op.POP(Op.TLOAD(Op.GAS))
-    else:
-        setup = Bytecode()
-        attack_block = Op.TSTORE(key, value)
+    match tload:
+        case "hit":
+            # Seed the value and feed each read into the next TSTORE so
+            # the TLOAD is not discarded. Stack carries [value].
+            setup = Op.COINBASE
+            attack_block = key + Op.SWAP1 + Op.DUP2 + Op.TSTORE + Op.TLOAD
+        case "miss":
+            # Read a fresh, never-written key: a miss on a growing store.
+            attack_block = Op.TSTORE(key, value) + Op.POP(Op.TLOAD(Op.GAS))
+        case "none":
+            attack_block = Op.TSTORE(key, value)
+        case _:
+            raise ValueError(f"Unknown tload mode: {tload}")
 
     benchmark_test(
         target_opcode=Op.TSTORE,
