@@ -249,6 +249,7 @@ class BlobTransaction(BaseExecute):
     get_blobs_version: int | None = None
     cell_mask: int | None = None
     custody_columns: bytes | None = None
+    custody_columns_null: bool = False
 
     def prepare_transactions(
         self,
@@ -308,12 +309,13 @@ class BlobTransaction(BaseExecute):
         """
         Send a forkchoice update carrying the `custodyColumns` bitmap.
 
-        A 16-byte bitmap must be accepted with a VALID payload status
-        (custody set update errors must not affect the forkchoice flow,
+        A 16-byte bitmap or an explicit `null` must be accepted with a
+        VALID payload status (`null` is a no-op for the blobpool, and
+        custody set update errors must not affect the forkchoice flow,
         per `engine_forkchoiceUpdatedV4`); any other length must be
         rejected with `-32602: Invalid params`.
         """
-        assert self.custody_columns is not None
+        assert self.custody_columns is not None or self.custody_columns_null
         fcu_version = fork.engine_forkchoice_updated_version()
         assert fcu_version is not None and fcu_version >= 4, (
             "custodyColumns requires engine_forkchoiceUpdatedV4."
@@ -323,6 +325,21 @@ class BlobTransaction(BaseExecute):
         forkchoice_state = ForkchoiceState(
             head_block_hash=Hash(latest_block["hash"]),
         )
+        if self.custody_columns is None:
+            response = engine_rpc.forkchoice_updated(
+                forkchoice_state,
+                None,
+                version=fcu_version,
+                custody_columns_null=True,
+            )
+            status = response.payload_status.status
+            if status != PayloadStatusEnum.VALID:
+                raise ValueError(
+                    f"forkchoiceUpdatedV{fcu_version} with a null "
+                    f"custodyColumns returned payload status {status}, "
+                    "expected VALID."
+                )
+            return
         valid_length = len(self.custody_columns) == CUSTODY_COLUMNS_BYTE_LENGTH
         try:
             response = engine_rpc.forkchoice_updated(
@@ -429,7 +446,7 @@ class BlobTransaction(BaseExecute):
             else:
                 list_versioned_hashes.extend(self.nonexisting_blob_hashes)
 
-        if self.custody_columns is not None:
+        if self.custody_columns is not None or self.custody_columns_null:
             self._update_custody_columns(fork, eth_rpc, engine_rpc)
 
         indices_bitarray = self.cell_mask if version >= 4 else None
