@@ -21,6 +21,8 @@ from execution_testing import (
     BalAccountExpectation,
     BalCodeChange,
     BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
     BlockAccessListExpectation,
     Bytecode,
     Bytes,
@@ -972,12 +974,24 @@ def test_factory_receives_balance_via_selfdestruct(
 
 
 @EIPChecklist.SystemContract.Test.CallContexts.SetCode()
+@pytest.mark.parametrize(
+    "forwarded_value",
+    [
+        pytest.param(0, id="no_value"),
+        pytest.param(1, id="with_value"),
+    ],
+)
 def test_factory_via_eip7702_delegation(
     state_test: StateTestFiller,
     pre: Alloc,
+    forwarded_value: int,
 ) -> None:
-    """Execute delegated factory code with the authorized EOA as deployer."""
-    auth_signer = pre.fund_eoa()
+    """
+    Execute delegated factory code with the authorized EOA as deployer.
+
+    The delegated EOA funds the CREATE2 endowment from the forwarded value.
+    """
+    auth_signer = pre.fund_eoa(amount=0)
     auth_signer_nonce = auth_signer.nonce
 
     salt = 0x42
@@ -991,7 +1005,7 @@ def test_factory_via_eip7702_delegation(
             Op.CALL(
                 gas=Op.GAS,
                 address=auth_signer,
-                value=0,
+                value=forwarded_value,
                 args_offset=0,
                 args_size=Op.CALLDATASIZE,
                 ret_offset=0x100,
@@ -999,6 +1013,7 @@ def test_factory_via_eip7702_delegation(
             ),
         )
         + Op.STOP,
+        balance=forwarded_value,
     )
 
     state_test(
@@ -1018,9 +1033,15 @@ def test_factory_via_eip7702_delegation(
         post={
             auth_signer: Account(
                 nonce=auth_signer_nonce + 2,
+                balance=0,
                 code=Spec7702.delegation_designation(Address(FACTORY)),
             ),
-            expected_address: Account(nonce=1, code=bytes(runtime_code)),
+            caller: Account(balance=0),
+            expected_address: Account(
+                nonce=1,
+                balance=forwarded_value,
+                code=bytes(runtime_code),
+            ),
             FACTORY: Account(
                 nonce=1,
                 balance=0,
@@ -1177,14 +1198,31 @@ def test_factory_initcode_size_boundary(
     )
 
 
+@pytest.mark.parametrize(
+    "creation_succeeds",
+    [
+        pytest.param(True, id="deploys"),
+        pytest.param(False, id="initcode_reverts"),
+    ],
+)
 def test_factory_block_access_list(
     state_test: StateTestFiller,
     pre: Alloc,
+    creation_succeeds: bool,
 ) -> None:
-    """Record factory and created-account nonce and code writes in the BAL."""
+    """
+    Record factory and created-account nonce and code writes in the BAL.
+
+    A reverted creation leaves the factory and the target address as
+    accessed accounts without changes.
+    """
     salt = 0x42
     runtime_code = Op.PUSH1(0x01) + Op.PUSH1(0x00) + Op.RETURN
-    initcode = Initcode(deploy_code=runtime_code)
+    initcode: Bytecode = (
+        Initcode(deploy_code=runtime_code)
+        if creation_succeeds
+        else Op.MSTORE(0, 0xDEADBEEF) + Op.REVERT(0, 32)
+    )
     expected_address = compute_create2_address(FACTORY, salt, initcode)
 
     sender = pre.fund_eoa()
@@ -1198,11 +1236,15 @@ def test_factory_block_access_list(
         ),
         post={
             FACTORY: Account(
-                nonce=2,
+                nonce=2 if creation_succeeds else 1,
                 balance=0,
                 code=Spec.FACTORY_BYTECODE,
             ),
-            expected_address: Account(nonce=1, code=bytes(runtime_code)),
+            expected_address: (
+                Account(nonce=1, code=bytes(runtime_code))
+                if creation_succeeds
+                else Account.NONEXISTENT
+            ),
         },
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
@@ -1211,12 +1253,118 @@ def test_factory_block_access_list(
                         BalNonceChange(block_access_index=1, post_nonce=1),
                     ],
                 ),
+                Address(FACTORY): (
+                    BalAccountExpectation(
+                        nonce_changes=[
+                            BalNonceChange(block_access_index=1, post_nonce=2),
+                        ],
+                    )
+                    if creation_succeeds
+                    else BalAccountExpectation.empty()
+                ),
+                expected_address: (
+                    BalAccountExpectation(
+                        nonce_changes=[
+                            BalNonceChange(block_access_index=1, post_nonce=1),
+                        ],
+                        code_changes=[
+                            BalCodeChange(
+                                block_access_index=1,
+                                new_code=bytes(runtime_code),
+                            ),
+                        ],
+                    )
+                    if creation_succeeds
+                    else BalAccountExpectation.empty()
+                ),
+            },
+        ),
+    )
+
+
+def test_factory_block_access_list_address_collision(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Keep a reverted CREATE2 address collision out of the BAL.
+
+    The colliding retry increments the factory nonce before the factory
+    reverts, so the BAL records one nonce change and one creation.
+    """
+    salt = 0x42
+    runtime_code = Op.PUSH1(0x01) + Op.PUSH1(0x00) + Op.RETURN
+    initcode = Initcode(deploy_code=runtime_code)
+    target = compute_create2_address(FACTORY, salt, initcode)
+
+    storage = Storage()
+    first_call_slot = storage.store_next(1, "first_call_success")
+    second_call_slot = storage.store_next(0, "second_call_failed")
+    factory_call = Op.CALL(
+        gas=Op.GAS,
+        address=FACTORY,
+        value=0,
+        args_offset=0,
+        args_size=Op.CALLDATASIZE,
+    )
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(first_call_slot, factory_call)
+        + Op.SSTORE(second_call_slot, factory_call)
+        + Op.STOP,
+        storage=storage.canary(),
+    )
+    sender = pre.fund_eoa()
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=sender,
+            to=caller,
+            data=Hash(salt) + bytes(initcode),
+        ),
+        post={
+            caller: Account(storage=storage),
+            target: Account(nonce=1, code=bytes(runtime_code)),
+            FACTORY: Account(
+                nonce=2,
+                balance=0,
+                code=Spec.FACTORY_BYTECODE,
+            ),
+        },
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1),
+                    ],
+                ),
+                caller: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=first_call_slot,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=1
+                                ),
+                            ],
+                        ),
+                        BalStorageSlot(
+                            slot=second_call_slot,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
                 Address(FACTORY): BalAccountExpectation(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=2),
                     ],
                 ),
-                expected_address: BalAccountExpectation(
+                target: BalAccountExpectation(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=1),
                     ],
