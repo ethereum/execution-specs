@@ -217,8 +217,8 @@ def tx_expected_gas_used(
     is higher. A test that targets other bytecode or sends value must set
     its own receipt.
     """
-    # Below the gas limit cap the state gas reservoir is empty, so the
-    # authorizations' state gas spills into the sender's bill.
+    # The sender pays for authorization state gas regardless of whether
+    # a state gas reservoir is available.
     top_frame_gas = fork.transaction_top_frame_gas_calculator()(
         contract_creation=contract_creating_tx,
         authorizations=authorization_list or [],

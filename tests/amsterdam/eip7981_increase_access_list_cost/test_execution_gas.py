@@ -146,8 +146,9 @@ def test_access_list_surcharge_in_block_execution_gas(
     """
     Pin the surcharged floor and execution branches of block gas accounting.
 
-    An over-cap reservoir funds the state gas of a storage set, so the
-    floor is compared against the execution portion alone.
+    An over-cap reservoir funds the state gas of a storage set. The block's
+    execution dimension applies the floor to execution gas; the receipt
+    applies it to the sum of execution and state gas.
     """
     storage = Storage()
     code = Op.SSTORE(storage.store_next(1), 1, new_value=1, key_warm=True)
