@@ -35,6 +35,7 @@ from execution_testing import (
     FeeSystemContractRequest,
     Fork,
     Hash,
+    Header,
     Initcode,
     Op,
     RecipientType,
@@ -3398,8 +3399,8 @@ def test_set_code_to_system_contract(
         blocks=[
             Block(
                 txs=txs,
-                requests_hash=Requests(),  # Verify nothing slipped into the
-                # requests trie
+                # Verify nothing slipped into the requests trie.
+                header_verify=Header(requests_hash=Requests()),
             )
         ],
         post={
