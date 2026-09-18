@@ -23,20 +23,17 @@ from execution_testing.fixtures import (
 )
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.logging import get_logger
-from execution_testing.rpc import (
-    EngineRPC,
-    EthRPC,
-    ForkchoiceUpdateTimeoutError,
-)
+from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     JSONRPCError,
     PayloadStatusEnum,
 )
 
-from ..helpers.exceptions import (
-    GenesisBlockMismatchExceptionError,
-    LoggedError,
+from ..helpers.exceptions import LoggedError
+from ..helpers.genesis import (
+    send_forkchoice_update_to_genesis,
+    verify_genesis_block_hash,
 )
 from ..helpers.rejected_blocks import (
     BlockRejectionTracker,
@@ -82,45 +79,15 @@ def test_blockchain_via_engine(
     therefore verified against the error from the client's first rejection
     of the same block before failing the test.
     """
-    with timing_data.time("Initial forkchoice update"):
-        logger.info("Sending initial forkchoice update to genesis block...")
-        try:
-            response = engine_rpc.forkchoice_updated_with_retry(
-                forkchoice_state=ForkchoiceState(
-                    head_block_hash=genesis_header.block_hash,
-                ),
-                forkchoice_version=fixture.payloads[
-                    0
-                ].forkchoice_updated_version,
-                max_attempts=30,
-                wait_fixed=1.0,
-            )
-            if response.payload_status.status != PayloadStatusEnum.VALID:
-                raise LoggedError(
-                    f"Unexpected status on forkchoice updated to genesis: "
-                    f"{response.payload_status.status}"
-                )
-        except ForkchoiceUpdateTimeoutError as e:
-            raise LoggedError(
-                f"Timed out waiting for forkchoice update to genesis: {e}"
-            ) from None
+    send_forkchoice_update_to_genesis(
+        engine_rpc,
+        genesis_header=genesis_header,
+        forkchoice_version=fixture.payloads[0].forkchoice_updated_version,
+        timing_data=timing_data,
+    )
 
     if client.id not in genesis_verified_clients:
-        with timing_data.time("Get genesis block"):
-            logger.info("Calling getBlockByNumber to get genesis block...")
-            genesis_block = eth_rpc.get_block_by_number(0)
-            assert genesis_block is not None, "genesis_block is None"
-            if genesis_block["hash"] != str(genesis_header.block_hash):
-                expected = genesis_header.block_hash
-                got = genesis_block["hash"]
-                logger.fail(
-                    f"Genesis block hash mismatch. "
-                    f"Expected: {expected}, Got: {got}"
-                )
-                raise GenesisBlockMismatchExceptionError(
-                    expected_header=genesis_header,
-                    got_genesis_block=genesis_block,
-                )
+        verify_genesis_block_hash(eth_rpc, genesis_header, timing_data)
         # Genesis is immutable per client, so verify it once per client. In
         # shared-client (enginex) mode the same client serves every test in a
         # pre-alloc group, so later tests skip the redundant getBlockByNumber

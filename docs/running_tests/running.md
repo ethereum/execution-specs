@@ -16,6 +16,7 @@ Both `consume` and `execute` provide sub-commands which correspond to different 
 | [`consume engine`](#engine)             | Client imports blocks via Engine API `EngineNewPayload` in Hive                         | EVM, block processing, Engine API                            | Staging, Hive | System test                       |
 | [`consume enginex`](#enginex)           | Client imports blocks via Engine API in Hive, optimized by client reuse            | EVM, block processing, Engine API, chain reorgs (implicit\*\*) | Staging, Hive | System test                       |
 | [`consume sync`](#sync)                 | Client syncs from another client using Engine API in Hive                               | EVM, block processing, Engine API, P2P sync                  | Staging, Hive | System test                       |
+| [`consume reorg`](#reorg)               | Client is driven through a DAG of payloads and forkchoice updates in Hive                | EVM, block processing, Engine API, chain reorgs               | Staging, Hive | System test                       |
 | [`consume rlp`](#rlp)                   | Client imports RLP-encoded blocks upon start-up in Hive                                 | EVM, block processing, RLP import (sync\*)                   | Staging, Hive | System test                       |
 | [`build-block`](#block-building)        | Client builds blocks via `testing_buildBlockV1` in Hive, validated against fixture       | EVM, block production, Engine API (testing namespace)        | Staging, Hive | System test                       |
 | [`execute hive`](./execute/hive.md)     | Tests executed against a client via JSON RPC `eth_sendRawTransaction` in Hive           | EVM, JSON RPC, mempool                                       | Staging, Hive | System test                       |
@@ -172,6 +173,25 @@ The `consume sync` command:
 4. **Triggers synchronization** by sending the target block to the sync client via `engine_newPayload` followed by `engine_forkchoiceUpdated` requests.
 5. **Monitors sync progress** and validates that the sync client reaches the same state.
 6. **Verifies final state** matches between both clients.
+
+## Reorg
+
+| Nomenclature   |                                 |
+| -------------- | ------------------------------- |
+| Command        | `consume reorg`                 |
+| Simulator      | `eels/consume-reorg`            |
+| Fixture format | `blockchain_test_engine_reorg`  |
+
+The consume reorg method drives a client through a DAG of Engine API payloads and forkchoice updates to test chain reorganization behavior directly, rather than as a side effect of client reuse (see [Implicit Chain Reorg Coverage](#implicit-chain-reorg-coverage)). Each test describes a block DAG (side chains are first-class, identified by label) and an ordered, branching script of `engine_newPayloadVX`/`engine_forkchoiceUpdatedVX`/JSON-RPC steps together with every outcome the [execution-apis](https://github.com/ethereum/execution-apis) specification allows a conformant client to return.
+
+The `consume reorg` command:
+
+1. **Initializes the client under test** with genesis state, plus any additional clients declared by the fixture, peered with the main client via `admin_addPeer` (for reorgs delivered by sync rather than direct submission).
+2. **Sends an initial forkchoice update** to genesis and verifies the client's genesis block hash via `eth_getBlockByNumber(0)`.
+3. **Runs the fixture's step script** against the labeled clients: sends each request verbatim, selects the first outcome (of possibly several spec-legal ones) that matches the observed response, and runs that outcome's branch steps.
+4. **Fails** on the first step whose observed result matches none of its listed outcomes.
+
+Unlike `consume engine`, which sends a linear payload list and always follows each valid payload with a forkchoice update to it, `consume reorg` fixtures describe explicit forkchoice states (head, safe, finalized), client-built payloads bound to new labels via `engine_getPayloadVX`, and assertions of observable state (`eth_getBalance`, `eth_getLogs`, `eth_getTransactionReceipt`, ...) after each forkchoice update. See the [Blockchain Engine Reorg Tests](./test_formats/blockchain_test_engine_reorg.md) format page for the full fixture structure.
 
 ## Block Building
 
