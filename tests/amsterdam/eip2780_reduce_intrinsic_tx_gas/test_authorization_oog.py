@@ -1442,8 +1442,6 @@ def test_preparation_rollback_restores_block_state_budget(
     """
     cap = fork.transaction_gas_limit_cap()
     assert cap is not None, "EIP-7825 cap expected on this fork"
-    block_gas_limit = 100_000_000
-
     target = pre.deploy_contract(code=Op.STOP)
     recipient = pre.fund_eoa(delegation=target)
     probe = build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
@@ -1496,6 +1494,8 @@ def test_preparation_rollback_restores_block_state_budget(
     seed_execution = _intrinsic_execution(
         fork, [], recipient_type=RecipientType.CONTRACT
     ) + seed_code.execution_cost(fork)
+    # Leave execution headroom for the probe's capped gas reservation.
+    block_gas_limit = seed_state + seed_execution + failed_execution + 2 * cap
     seed_tx = Transaction(
         sender=pre.fund_eoa(),
         to=seed_recipient,
