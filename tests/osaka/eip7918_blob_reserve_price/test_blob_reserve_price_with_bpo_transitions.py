@@ -20,7 +20,6 @@ from execution_testing import (
     TransitionFork,
     add_kzg_version,
 )
-from execution_testing.forks import BPO2ToBPO3AtTime15k
 
 from .spec import Spec, ref_spec_7918
 
@@ -533,19 +532,6 @@ def get_fork_scenarios(fork: TransitionFork) -> Iterator[ParameterSet]:
                             f"parent_blobs_{source_blob_count}"
                         ),
                     )
-
-    if fork == BPO2ToBPO3AtTime15k:
-        # Explicitly add the exact scenario that triggered the Fusaka Devnet-4
-        # fork.
-        yield pytest.param(
-            0x32,
-            0x125BF5F,
-            19,
-            0x33,
-            9,
-            0x132CF5F,
-            id="devnet-4-fork-scenario",
-        )
 
 
 @pytest.mark.parametrize_by_fork(

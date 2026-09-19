@@ -5,7 +5,6 @@ from typing import Dict
 from execution_testing.forks import (
     ALL_FORKS_WITH_TRANSITIONS,
     Amsterdam,
-    BPO2ToAmsterdamAtTime15k,
     Byzantium,
     Fork,
     London,
@@ -23,7 +22,7 @@ def ruleset_format(fork: Fork | TransitionFork) -> Dict[str, int]:
     if fork > London:
         default_values["HIVE_TERMINAL_TOTAL_DIFFICULTY"] = 0
     entries = default_values | fork.ruleset()
-    if fork in [Amsterdam, BPO2ToAmsterdamAtTime15k]:
+    if fork >= Amsterdam:
         entries.pop("HIVE_AMSTERDAM_BLOB_BASE_FEE_UPDATE_FRACTION")
         entries.pop("HIVE_AMSTERDAM_BLOB_MAX")
         entries.pop("HIVE_AMSTERDAM_BLOB_TARGET")
