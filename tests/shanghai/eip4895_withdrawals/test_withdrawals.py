@@ -3,7 +3,7 @@ Tests for [EIP-4895: Beacon chain withdrawals](https://eips.ethereum.org/EIPS/ei
 """
 
 from enum import Enum, unique
-from typing import Dict, List, Mapping
+from typing import Dict, List
 
 import pytest
 from execution_testing import (
@@ -660,31 +660,37 @@ def test_zero_amount(
             amount=2**64 - 1,
         ),
     ]
-    all_post = {
-        empty_accounts[0]: Account.NONEXISTENT,
-        zero_balance_contract: Account(code=Op.STOP, balance=0),
-        empty_accounts[1]: Account(balance=ONE_GWEI),
-        empty_accounts[2]: Account(balance=(2**64 - 1) * ONE_GWEI),
-    }
+    all_post = Alloc(
+        {
+            empty_accounts[0]: Account.NONEXISTENT,
+            zero_balance_contract: Account(code=Op.STOP, balance=0),
+            empty_accounts[1]: Account(balance=ONE_GWEI),
+            empty_accounts[2]: Account(balance=(2**64 - 1) * ONE_GWEI),
+        }
+    )
 
     withdrawals: List[Withdrawal] = []
-    post: Mapping[Address, Account | object] = {}
+    post: Alloc
     if test_case == ZeroAmountTestCases.TWO_ZERO:
         withdrawals = all_withdrawals[0:2]
-        post = {
-            account: all_post[account]
-            for account in [empty_accounts[0], zero_balance_contract]
-        }
+        post = Alloc(
+            {
+                account: all_post[account]
+                for account in [empty_accounts[0], zero_balance_contract]
+            }
+        )
     elif test_case == ZeroAmountTestCases.THREE_ONE_WITH_VALUE:
         withdrawals = all_withdrawals[0:3]
-        post = {
-            account: all_post[account]
-            for account in [
-                empty_accounts[0],
-                zero_balance_contract,
-                empty_accounts[1],
-            ]
-        }
+        post = Alloc(
+            {
+                account: all_post[account]
+                for account in [
+                    empty_accounts[0],
+                    zero_balance_contract,
+                    empty_accounts[1],
+                ]
+            }
+        )
     elif test_case == ZeroAmountTestCases.FOUR_ONE_WITH_MAX:
         withdrawals = all_withdrawals
         post = all_post
@@ -702,8 +708,6 @@ def test_zero_amount(
 
     blockchain_test(
         pre=pre,
-        # TODO: Fix in BlockchainTest? post: Mapping[str, Account | object]
-        # to allow for Account.NONEXISTENT
         post=post,
         blocks=[Block(withdrawals=withdrawals)],
     )
