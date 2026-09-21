@@ -14,6 +14,7 @@ from execution_testing import (
     Alloc,
     BenchmarkCodeGenerator,
     BenchmarkTestFiller,
+    Block,
     Bytecode,
     Conditional,
     ExtCallGenerator,
@@ -163,6 +164,8 @@ def test_nested_frame_memory(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
     depth: int,
     mem_size: int,
 ) -> None:
@@ -183,24 +186,62 @@ def test_nested_frame_memory(
             address=Op.ADDRESS,
             args_offset=0,
             args_size=32,
+            address_warm=True,
         ),
         if_false=Op.REVERT(0, 0),
     )
 
-    entry_address = pre.deploy_contract(
-        code=frame_memory
-        + Conditional(
-            condition=Op.ISZERO(Op.CALLDATALOAD(0)),
-            if_true=Op.POP(Op.CALL(gas=Op.GAS, address=leaf_address)),
-            if_false=descend,
-        )
+    frame_code = frame_memory + Conditional(
+        condition=Op.ISZERO(Op.CALLDATALOAD(0)),
+        if_true=Op.POP(Op.CALL(gas=Op.GAS, address=leaf_address)),
+        if_false=descend,
+    )
+    entry_address = pre.deploy_contract(code=frame_code)
+
+    # gas_cost counts both Conditional branches and a cold leaf CALL,
+    # so the estimate is conservative and the clamp errs shallow.
+    mem_expansion = fork.memory_expansion_gas_calculator()
+    frame_gas = frame_code.gas_cost(fork) + mem_expansion(new_bytes=mem_size)
+
+    def reachable_depth(execution_gas: int) -> int:
+        """Return the deepest frame the budget can fund."""
+        frames = 0
+        while True:
+            forwarded_gas = execution_gas - frame_gas
+            forwarded_gas -= forwarded_gas // 64
+            if forwarded_gas < frame_gas:
+                return frames
+            execution_gas = forwarded_gas
+            frames += 1
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=b"\xff" * 32,
+        return_cost_deducted_prior_execution=True,
     )
 
+    txs = []
+    remaining_gas = gas_benchmark_value
+    while remaining_gas > 0:
+        execution_gas = min(tx_gas_limit, remaining_gas)
+        remaining_gas -= execution_gas
+        if execution_gas < intrinsic_gas + frame_gas:
+            break
+        txs.append(
+            Transaction(
+                to=entry_address,
+                gas_limit=execution_gas,
+                data=Hash(
+                    min(
+                        depth,
+                        reachable_depth(execution_gas - intrinsic_gas),
+                    )
+                ),
+                sender=pre.fund_eoa(),
+            )
+        )
+
     benchmark_test(
-        tx=Transaction(
-            to=entry_address,
-            data=Hash(depth),
-            sender=pre.fund_eoa(),
-        ),
+        blocks=[Block(txs=txs)],
         skip_gas_used_validation=True,
+        expected_receipt_status=1,
     )
