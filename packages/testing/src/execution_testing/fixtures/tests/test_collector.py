@@ -253,6 +253,7 @@ class TestPartialFixtureFiles:
         # Verify partial file is deleted after merge
         partial_files = list(output_dir.rglob("*.partial.*.jsonl"))
         assert len(partial_files) == 0
+        assert not list(output_dir.rglob("*.part"))
 
 
 class TestLegacyCompatibility:
@@ -425,3 +426,100 @@ class TestLegacyCompatibility:
         new_output = new_files[0].read_text()
 
         assert new_output == legacy_output
+
+
+class TestStreamingMerge:
+    """Tests that fixture contents are streamed, never held in memory."""
+
+    def _make_big_fixture(self, nonce: int, size: int) -> TransactionFixture:
+        """Create a fixture whose JSON spans many copy chunks."""
+        fixture = TransactionFixture(
+            transaction="0x" + "ab" * size,
+            result={"Paris": FixtureResult(intrinsic_gas=nonce)},
+        )
+        fixture.fill_info(
+            "t8n-test",
+            f"big fixture {nonce}",
+            fixture_source_url="http://example.com",
+            ref_spec=None,
+            _info_metadata={},
+        )
+        return fixture
+
+    def test_merge_peak_memory_is_independent_of_fixture_size(
+        self, output_dir: Path, filler_path: Path, module_path: Path
+    ) -> None:
+        """Merging must allocate far less than the fixture being merged."""
+        tracemalloc = pytest.importorskip("tracemalloc")  # CPython only
+        collector = FixtureCollector(
+            output_dir=output_dir,
+            single_fixture_per_file=False,
+            filler_path=filler_path,
+            generate_index=False,
+        )
+        fixture = self._make_big_fixture(0, size=2 << 20)
+        collector.add_fixture(_make_info("big", module_path), fixture)
+        collector.close_streaming_files()
+        document_size = sum(
+            p.stat().st_size for p in output_dir.rglob("*.part")
+        )
+        assert document_size > 4 << 20
+
+        tracemalloc.start()
+        merge_partial_fixture_files(output_dir)
+        _, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+
+        assert peak < document_size // 2
+
+    def test_large_fixture_matches_json_dumps(
+        self, output_dir: Path, filler_path: Path, module_path: Path
+    ) -> None:
+        """A fixture larger than one copy chunk round-trips byte for byte."""
+        collector = FixtureCollector(
+            output_dir=output_dir,
+            single_fixture_per_file=False,
+            filler_path=filler_path,
+            generate_index=False,
+        )
+        fixture = self._make_big_fixture(1, size=256 << 10)
+        info = _make_info("big", module_path)
+        collector.add_fixture(info, fixture)
+        collector.close_streaming_files()
+        merge_partial_fixture_files(output_dir)
+
+        json_files = list(output_dir.rglob("*.json"))
+        assert len(json_files) == 1
+        expected = json.dumps(
+            {info.get_id(): fixture.json_dict_with_info()}, indent=4
+        )
+        assert json_files[0].read_text() == expected
+
+    def test_existing_target_file_is_merged(
+        self, output_dir: Path, filler_path: Path, module_path: Path
+    ) -> None:
+        """A second session must accumulate into the existing target file."""
+        pairs = []
+        for i in range(2):
+            collector = FixtureCollector(
+                output_dir=output_dir,
+                single_fixture_per_file=False,
+                filler_path=filler_path,
+                generate_index=False,
+            )
+            fixture = _make_fixture(i)
+            info = _make_info(f"tx_test_{i}", module_path)
+            collector.add_fixture(info, fixture)
+            collector.close_streaming_files()
+            merge_partial_fixture_files(output_dir)
+            pairs.append((info, fixture))
+
+        json_files = list(output_dir.rglob("*.json"))
+        assert len(json_files) == 1
+        assert not list(output_dir.rglob("*.part"))
+        expected_dict = {
+            info.get_id(): fixture.json_dict_with_info()
+            for info, fixture in pairs
+        }
+        expected = json.dumps(dict(sorted(expected_dict.items())), indent=4)
+        assert json_files[0].read_text() == expected
