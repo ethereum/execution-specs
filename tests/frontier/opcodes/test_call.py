@@ -60,7 +60,7 @@ def test_call_large_offset_mstore(
     )
 
     # Address-access cost (cold under EIP-2929; flat CALL cost before).
-    call_cost = Op.CALL(address_warm=False, account_new=False).gas_cost(fork)
+    call_cost = Op.CALL(address_warm=False).execution_cost(fork)
 
     # mstore cost: base cost + expansion cost
     mstore_cost = Op.MSTORE(new_memory_size=mem_offset + 32).gas_cost(fork)
@@ -203,11 +203,8 @@ def test_call_large_args_offset_size_zero(
     )
 
     # Address-access cost (cold under EIP-2929; flat call cost before).
-    # Only CALL/CALLCODE take account_new; STATICCALL/DELEGATECALL reject it.
-    cost_meta: dict = {"address_warm": False}
-    if call_opcode in (Op.CALL, Op.CALLCODE):
-        cost_meta["account_new"] = False
-    call_cost = call_opcode(**cost_meta).gas_cost(fork)
+    # account_new defaults to False on all call opcodes.
+    call_cost = call_opcode(address_warm=False).execution_cost(fork)
 
     state_test(
         env=Environment(),
