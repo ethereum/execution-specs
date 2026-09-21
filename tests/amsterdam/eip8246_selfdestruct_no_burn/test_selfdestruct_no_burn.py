@@ -481,9 +481,10 @@ def test_deployed_code_selfdestruct_clears_code(
     selfdestruct_to_self: bool,
 ) -> None:
     """
-    A contract created and then called in the same transaction
-    self-destructs from its deployed code, so it still holds code when the
-    transaction finalizes. The code is cleared and the balance stays.
+    Verify finalization clears deployed code and preserves the balance.
+
+    Call a contract created in the same transaction so that it holds
+    deployed code when it self-destructs.
     """
     endowment = 5
     sender = pre.fund_eoa()

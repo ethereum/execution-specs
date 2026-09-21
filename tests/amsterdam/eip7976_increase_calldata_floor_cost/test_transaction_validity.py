@@ -378,9 +378,10 @@ def test_transaction_validity_zero_byte_data(
     tx: Transaction,
 ) -> None:
     """
-    Zero calldata bytes keep their lower standard token weight while the
-    floor counts every byte alike; the authorizations lift the intrinsic
-    gas above the floor so the gas limit is set by that standard cost.
+    Pin the standard zero-byte weight at both validity boundaries.
+
+    Use authorizations to lift the standard cost above the floor for
+    short calldata, then cross into floor-dominated pricing.
     """
     state_test(
         pre=pre,
