@@ -350,6 +350,46 @@ def test_transaction_validity_type_4(
 
 
 @pytest.mark.parametrize(
+    "data_byte",
+    [pytest.param(b"\x00", id="zero_bytes")],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "authorization_list",
+    [
+        pytest.param(
+            [Address(1)],
+            id="single_authorization",
+        ),
+        pytest.param(
+            [Address(i + 1) for i in range(10)],
+            id="multiple_authorizations",
+        ),
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "ty",
+    [pytest.param(4, id="type_4")],
+)
+def test_transaction_validity_zero_byte_data(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx: Transaction,
+) -> None:
+    """
+    Zero calldata bytes keep their lower standard token weight while the
+    floor counts every byte alike; the authorizations lift the intrinsic
+    gas above the floor so the gas limit is set by that standard cost.
+    """
+    state_test(
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@pytest.mark.parametrize(
     "ty",
     [pytest.param(0, id="type_0"), pytest.param(2, id="type_2")],
 )
