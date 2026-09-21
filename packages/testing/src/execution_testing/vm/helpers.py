@@ -1,6 +1,9 @@
 """Helper functions for the EVM."""
 
+from typing import Any
+
 from .bytecode import Bytecode
+from .opcodes import Opcode
 from .opcodes import Opcodes as Op
 
 
@@ -101,13 +104,13 @@ def call_return_code(opcode: Op, success: bool) -> int:
 
 
 def create_op(
-    opcode: Op,
+    opcode: Opcode,
     *,
     value: int | Bytecode = 0,
     offset: int | Bytecode = 0,
     size: int | Bytecode = 0,
     salt: int | Bytecode = 0,
-    **metadata: int,
+    **metadata: Any,
 ) -> Bytecode:
     """Return a CREATE or CREATE2 call, passing `salt` only to CREATE2."""
     if opcode == Op.CREATE:
