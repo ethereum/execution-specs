@@ -139,6 +139,7 @@ from .vm import (
     OpcodeCallArg,
     Opcodes,
     call_return_code,
+    create_op,
 )
 
 __all__ = (
@@ -256,6 +257,7 @@ __all__ = (
     "compute_create_address",
     "compute_create2_address",
     "compute_deterministic_create2_address",
+    "create_op",
     "Create2PreimageLayout",
     "CreatePreimageLayout",
     "extend_with_defaults",

@@ -98,3 +98,22 @@ def call_return_code(opcode: Op, success: bool) -> int:
     if opcode in [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]:
         return int(success)
     raise ValueError(f"Not a call opcode: {opcode}")
+
+
+def create_op(
+    opcode: Op,
+    *,
+    value: int | Bytecode = 0,
+    offset: int | Bytecode = 0,
+    size: int | Bytecode = 0,
+    salt: int | Bytecode = 0,
+    **metadata: int,
+) -> Bytecode:
+    """Return a CREATE or CREATE2 call, passing `salt` only to CREATE2."""
+    if opcode == Op.CREATE:
+        return opcode(value=value, offset=offset, size=size, **metadata)
+    if opcode == Op.CREATE2:
+        return opcode(
+            value=value, offset=offset, size=size, salt=salt, **metadata
+        )
+    raise ValueError(f"Not a create opcode: {opcode}")
