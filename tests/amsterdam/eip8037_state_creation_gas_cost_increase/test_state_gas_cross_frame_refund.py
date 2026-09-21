@@ -34,6 +34,7 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionReceipt,
+    create_op,
 )
 
 from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
@@ -1281,9 +1282,9 @@ def test_cross_frame_refund_repays_spill_at_a_create(
     def window(salt: int) -> Bytecode:
         # A repeated CREATE2 salt would collide with the account the
         # previous window created.
-        if create_opcode == Op.CREATE2:
-            return Op.POP(Op.CREATE2(0, code_offset, size, salt))
-        return Op.POP(Op.CREATE(0, code_offset, size))
+        return Op.POP(
+            create_op(create_opcode, offset=code_offset, size=size, salt=salt)
+        )
 
     contract = pre.deploy_contract(
         code=Op.MSTORE(code_offset, mstore_value)

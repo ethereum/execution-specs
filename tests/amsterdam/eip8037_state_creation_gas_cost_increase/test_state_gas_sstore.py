@@ -34,6 +34,7 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionReceipt,
+    create_op,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -1683,10 +1684,7 @@ def test_sstore_restoration_create_init_revert(
     probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
 
     mstore_value, init_code_size = init_code_at_high_bytes(init_code)
-    if create_opcode == Op.CREATE:
-        create_call = Op.CREATE(0, 0, init_code_size)
-    else:
-        create_call = Op.CREATE2(0, 0, init_code_size, 0)
+    create_call = create_op(create_opcode, size=init_code_size)
 
     # Inner contract performs the CREATE then REVERTs.
     inner = pre.deploy_contract(
@@ -1748,10 +1746,7 @@ def test_sstore_restoration_create_init_success(
     )
 
     mstore_value, init_code_size = init_code_at_high_bytes(init_code)
-    if create_opcode == Op.CREATE:
-        create_call = Op.CREATE(0, 0, init_code_size)
-    else:
-        create_call = Op.CREATE2(0, 0, init_code_size, 0)
+    create_call = create_op(create_opcode, size=init_code_size)
 
     probe_code = Op.SSTORE(0, 1)
     probe = pre.deploy_contract(code=probe_code)
