@@ -114,6 +114,49 @@ def test_tstore(
     )
 
 
+def test_tstore_minimal_loop(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+) -> None:
+    """
+    Benchmark the six-byte TSTORE loop observed on devnet.
+
+    The loop has no exit, so every transaction runs out of gas and the
+    transient store it grew is discarded instead of committed.
+    """
+    assert Environment().fee_recipient != Address(0), (
+        "coinbase must be nonzero so the TSTORE value is nonzero"
+    )
+
+    loop = (
+        Op.JUMPDEST
+        + Op.COINBASE
+        + Op.GAS
+        + Op.TSTORE
+        + Op.CALLDATASIZE
+        + Op.JUMP
+    )
+    loop_address = pre.deploy_contract(code=loop)
+
+    sender = pre.fund_eoa()
+    txs = []
+    remaining_gas = gas_benchmark_value
+    while remaining_gas > 0:
+        gas_limit = min(tx_gas_limit, remaining_gas)
+        remaining_gas -= gas_limit
+        txs.append(
+            Transaction(to=loop_address, gas_limit=gas_limit, sender=sender)
+        )
+
+    benchmark_test(
+        target_opcode=Op.TSTORE,
+        expected_receipt_status=0,
+        blocks=[Block(txs=txs)],
+    )
+
+
 def create_storage_initializer() -> IteratingBytecode:
     """
     Create a contract that initializes storage slots from calldata parameters.
