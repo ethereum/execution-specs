@@ -90,6 +90,7 @@ from ..shared.fixture_output import (
 )
 from ..shared.helpers import (
     get_spec_format_for_item,
+    get_spec_type_for_item,
     is_help_or_collectonly_mode,
     option_was_explicitly_set,
 )
@@ -1821,6 +1822,9 @@ def pytest_collection_modifyitems(
     """
     # Track specs with no fixture formats for warning message
     specs_without_fixture_formats: Dict[str, Set[str]] = {}
+    # Track test items that request no spec type at all (e.g. plain pytest
+    # tests collected from a fixture directory) for warning message
+    tests_without_spec_type: List[str] = []
 
     items_for_removal = []
     for i, item in enumerate(items):
@@ -1834,6 +1838,13 @@ def pytest_collection_modifyitems(
             items_for_removal.append(i)
             continue
         fork: Fork | TransitionFork = params["fork"]
+        if get_spec_type_for_item(params) is None:
+            # Plain pytest test: it requests none of the spec type fixtures, so
+            # no fixture can be filled for it. Deselect it instead of raising,
+            # which pytest would report as an INTERNALERROR.
+            items_for_removal.append(i)
+            tests_without_spec_type.append(item.nodeid)
+            continue
         spec_type, fixture_format = get_spec_format_for_item(params)
         if isinstance(fixture_format, NotSetType):
             items_for_removal.append(i)
@@ -1916,6 +1927,38 @@ def pytest_collection_modifyitems(
             reporter.write_line(
                 "  Use 'uv run execute hive' or 'uv run execute remote' "
                 "instead.",
+                yellow=True,
+            )
+            reporter.write_sep("=", yellow=True, bold=True)
+            reporter.write_line("")
+
+    # Warn users if tests were removed because they request no spec type
+    if tests_without_spec_type:
+        spec_type_names = ", ".join(
+            sorted(
+                spec_type.pytest_parameter_name()
+                for spec_type in BaseTest.spec_types.values()
+            )
+        )
+        reporter = config.pluginmanager.get_plugin("terminalreporter")
+        if reporter and isinstance(reporter, TerminalReporter):
+            reporter.write_line("")
+            reporter.write_sep(
+                "=",
+                "NOTICE: Tests ignored (no spec type requested)",
+                yellow=True,
+                bold=True,
+            )
+            for nodeid in sorted(tests_without_spec_type):
+                reporter.write_line(f"  - {nodeid}", yellow=True)
+            reporter.write_line("")
+            reporter.write_line(
+                f"  Fillable tests must request one of: {spec_type_names}.",
+                yellow=True,
+            )
+            reporter.write_line(
+                "  Move helper self-checks out of the fill path (e.g. into a "
+                "non-'test_' module) if they are not meant to be filled.",
                 yellow=True,
             )
             reporter.write_sep("=", yellow=True, bold=True)
