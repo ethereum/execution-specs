@@ -32,8 +32,8 @@ REFERENCE_SPEC_VERSION = ref_spec_7954.version
 
 pytestmark = pytest.mark.valid_from("EIP7954")
 
-FACTORY_SENTINEL = 0xFF
-"""Pre-set factory storage value, left untouched by an aborted frame."""
+SENTINEL = 0xFF
+"""Pre-set storage value that only a store which actually ran can replace."""
 
 INITCODE_SIZE_PARAMS = [
     pytest.param(
@@ -124,7 +124,7 @@ def test_max_initcode_size_via_create(
         + Op.STOP
     )
 
-    factory = pre.deploy_contract(factory_code, storage={0: FACTORY_SENTINEL})
+    factory = pre.deploy_contract(factory_code, storage={0: SENTINEL})
 
     create_address = compute_create_address(
         address=factory,
@@ -144,9 +144,7 @@ def test_max_initcode_size_via_create(
     # runs, taking the factory frame down with it, so the sentinel survives.
     created = size <= fork.max_initcode_size()
     post: dict[Any, Account | None] = {
-        factory: Account(
-            storage={0: create_address if created else FACTORY_SENTINEL}
-        ),
+        factory: Account(storage={0: create_address if created else SENTINEL}),
     }
     bal = None
     if created:
@@ -154,7 +152,12 @@ def test_max_initcode_size_via_create(
     else:
         # The child address is never computed, so it must be missing from
         # the block access list, and the aborted factory frame leaves no
-        # changes of its own.
+        # changes of its own. The abort is an exceptional halt, so the
+        # whole gas allowance burns: a client that merely reverted the
+        # factory would leave the same state but refund the rest.
+        tx.expected_receipt = TransactionReceipt(
+            cumulative_gas_used=tx.gas_limit
+        )
         post[create_address] = Account.NONEXISTENT
         bal = BlockAccessListExpectation(
             account_expectations={
@@ -254,7 +257,7 @@ def test_max_initcode_size_code_opcodes(
         Om.MSTORE(bytes(logic), 0)
         + Op.SSTORE(0, Op.CREATE(value=0, offset=0, size=max_initcode_size))
         + Op.STOP,
-        storage={0: FACTORY_SENTINEL},
+        storage={0: SENTINEL},
     )
     create_address = compute_create_address(address=factory, nonce=1)
 
@@ -274,26 +277,73 @@ def test_max_initcode_size_code_opcodes(
     state_test(pre=pre, tx=tx, post=post)
 
 
+def test_max_initcode_size_linear_execution(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Ensure a max-size initcode executes from its first byte to its last
+    without a jump.
+
+    The factory assembles the initcode in memory from two copies of a
+    `MAX_CODE_SIZE` JUMPDEST contract, overwrites the last word with a
+    store and a RETURN, and runs CREATE over it. The child's storage can
+    only be set by stepping through every byte before the tail.
+    """
+    max_code_size = fork.max_code_size()
+    max_initcode_size = fork.max_initcode_size()
+    assert max_initcode_size == 2 * max_code_size
+
+    source = pre.deploy_contract(Op.JUMPDEST * max_code_size)
+    tail = Op.SSTORE(0, 1) + Op.RETURN(0, 0)
+    last_word = bytes(Op.JUMPDEST * (32 - len(tail)) + tail)
+
+    factory = pre.deploy_contract(
+        Op.EXTCODECOPY(source, 0, 0, max_code_size)
+        + Op.EXTCODECOPY(source, max_code_size, 0, max_code_size)
+        + Om.MSTORE(last_word, max_initcode_size - 32)
+        + Op.SSTORE(0, Op.CREATE(value=0, offset=0, size=max_initcode_size))
+        + Op.STOP,
+        storage={0: SENTINEL},
+    )
+    create_address = compute_create_address(address=factory, nonce=1)
+
+    tx = Transaction(sender=pre.fund_eoa(), to=factory)
+
+    post: dict[Any, Account | None] = {
+        factory: Account(storage={0: create_address}),
+        create_address: Account(code=b"", storage={0: 1}),
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
 @pytest.mark.parametrize(
-    "valid_jumpdest",
+    "past_end,valid_jumpdest",
     [
-        pytest.param(True, id="valid_high_jumpdest"),
-        pytest.param(False, id="invalid_high_dest"),
+        pytest.param(False, True, id="valid_high_jumpdest"),
+        pytest.param(False, False, id="invalid_high_dest"),
+        # The tail and its JUMPDEST are in place, but the target is
+        # MAX_INITCODE_SIZE itself, one past the last byte.
+        pytest.param(True, True, id="invalid_past_end"),
     ],
 )
 def test_max_initcode_size_high_jumpdest(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    past_end: bool,
     valid_jumpdest: bool,
 ) -> None:
     """
     Ensure jumpdest analysis reaches the last bytes of a max-size initcode,
-    far past the previous initcode limit.
+    far past the previous initcode limit, and stops at its end.
     """
     max_initcode_size = fork.max_initcode_size()
     tail = Op.JUMPDEST + Op.SSTORE(0, 1) + Op.RETURN(0, 0)
-    dest = max_initcode_size - len(tail)
+    tail_offset = max_initcode_size - len(tail)
+    dest = max_initcode_size if past_end else tail_offset
     push_size = (dest.bit_length() + 7) // 8
     push_op = getattr(Op, f"PUSH{push_size}")
 
@@ -301,19 +351,19 @@ def test_max_initcode_size_high_jumpdest(
     # Without the tail the jump lands on a zero byte, a STOP that is not a
     # valid jump destination.
     if valid_jumpdest:
-        factory_code += Om.MSTORE(bytes(tail), dest)
+        factory_code += Om.MSTORE(bytes(tail), tail_offset)
     factory_code += (
         Op.SSTORE(0, Op.CREATE(value=0, offset=0, size=max_initcode_size))
         + Op.STOP
     )
 
-    factory = pre.deploy_contract(factory_code, storage={0: FACTORY_SENTINEL})
+    factory = pre.deploy_contract(factory_code, storage={0: SENTINEL})
     create_address = compute_create_address(address=factory, nonce=1)
 
     tx = Transaction(sender=pre.fund_eoa(), to=factory)
 
     post: dict[Any, Account | None] = {}
-    if valid_jumpdest:
+    if valid_jumpdest and not past_end:
         post[factory] = Account(storage={0: create_address})
         post[create_address] = Account(storage={0: 1})
     else:

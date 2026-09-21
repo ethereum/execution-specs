@@ -23,6 +23,7 @@ from execution_testing import (
 from execution_testing import Macros as Om
 from execution_testing.forks import Osaka
 
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_7954
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7954.git_path
@@ -30,8 +31,8 @@ REFERENCE_SPEC_VERSION = ref_spec_7954.version
 
 pytestmark = pytest.mark.valid_from("EIP7954")
 
-FACTORY_SENTINEL = 0xFF
-"""Pre-set factory storage value, left untouched by an aborted frame."""
+SENTINEL = 0xFF
+"""Pre-set storage value that only a store which actually ran can replace."""
 
 DEPLOY_CODE_SIZE_PARAMS = [
     pytest.param(lambda _: Osaka.max_code_size() + 1, id="over_previous_max"),
@@ -66,6 +67,14 @@ def test_max_code_size(
     if code_size <= fork.max_code_size():
         post[create_address] = Account(code=deploy_code)
     else:
+        # The oversized deposit halts the frame: the state gas reservoir
+        # is handed back and the whole execution allowance burns, so the
+        # sender pays exactly the cap.
+        gas_limit_cap = fork.transaction_gas_limit_cap()
+        assert gas_limit_cap is not None
+        tx.expected_receipt = TransactionReceipt(
+            cumulative_gas_used=gas_limit_cap
+        )
         post[create_address] = Account.NONEXISTENT
 
     state_test(pre=pre, tx=tx, post=post)
@@ -100,7 +109,7 @@ def test_max_code_size_via_create(
         + Op.STOP
     )
 
-    factory = pre.deploy_contract(factory_code, storage={0: FACTORY_SENTINEL})
+    factory = pre.deploy_contract(factory_code, storage={0: SENTINEL})
 
     create_address = compute_create_address(
         address=factory,
@@ -190,12 +199,18 @@ def test_max_code_size_deposit_gas(
         gas_limit=exact_gas - gas_shortfall,
     )
 
+    # The receipt pin below reads the cap, which only holds while the exact
+    # fit exceeds it and the deposit is funded from the reservoir.
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    assert exact_gas > gas_limit_cap
+
     post: dict[Any, Account | None] = {}
     if gas_shortfall:
         # The deposit halts the frame, burning the whole execution gas
         # allowance while the state gas reservoir is handed back.
         tx.expected_receipt = TransactionReceipt(
-            cumulative_gas_used=fork.transaction_gas_limit_cap()
+            cumulative_gas_used=gas_limit_cap
         )
         post[create_address] = Account.NONEXISTENT
     else:
@@ -307,6 +322,77 @@ def test_max_code_size_self_opcodes(
     state_test(pre=pre, tx=tx, post=post)
 
 
+def test_max_code_size_via_delegation(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Ensure an EIP-7702 delegation runs a max-size contract in full.
+
+    The delegated account's frame executes the target's code, so CODESIZE
+    and CODECOPY see all `MAX_CODE_SIZE` bytes, while EXTCODESIZE on
+    ADDRESS sees the delegation designation instead.
+    """
+    logic = (
+        Op.SSTORE(0, Op.CODESIZE)
+        + Op.CODECOPY(0, 0, Op.CODESIZE)
+        + Op.SSTORE(1, Op.SHA3(0, Op.CODESIZE))
+        + Op.SSTORE(2, Op.EXTCODESIZE(Op.ADDRESS))
+        + Op.STOP
+    )
+    target_code = logic + Op.JUMPDEST * (fork.max_code_size() - len(logic))
+    target = pre.deploy_contract(target_code)
+    delegated = pre.fund_eoa(delegation=target)
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=delegated,
+        gas_limit=fork.transaction_gas_limit_cap(),
+    )
+
+    post = {
+        delegated: Account(
+            storage={
+                0: len(target_code),
+                1: keccak256(bytes(target_code)),
+                2: len(Spec7702.delegation_designation(target)),
+            }
+        )
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+def test_max_code_size_linear_execution(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Ensure a max-size contract executes from its first byte to its last
+    without a jump, then halts at the end of the code.
+
+    The body is `MAX_CODE_SIZE` JUMPDESTs, so the receipt pins one gas per
+    byte on top of the intrinsic cost: a client that stops short, or fails
+    past the old limit, charges a different amount.
+    """
+    target_code = Op.JUMPDEST * fork.max_code_size()
+    target = pre.deploy_contract(target_code)
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=target,
+        gas_limit=fork.transaction_gas_limit_cap(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=intrinsic_gas + target_code.gas_cost(fork)
+        ),
+    )
+
+    state_test(pre=pre, tx=tx, post={target: Account(code=target_code)})
+
+
 @pytest.mark.parametrize(
     "create_opcode",
     [
@@ -370,9 +456,13 @@ def test_warm_after_failed_create_over_max_code_size(
         + Op.STOP
     )
 
+    # Fund the oversized deposit's state gas so the size check is the only
+    # thing standing between the initcode's RETURN and a deployed contract.
     tx = Transaction(
         to=entry_address,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        state_gas_reservoir=fork.create_state_gas(
+            code_size=fork.max_code_size() + 1
+        ),
         sender=pre.fund_eoa(),
     )
 
@@ -386,60 +476,65 @@ def test_warm_after_failed_create_over_max_code_size(
 
 
 @pytest.mark.parametrize(
-    "valid_jumpdest",
+    "dest_delta,tail,valid_jump",
     [
-        pytest.param(True, id="valid_high_jumpdest"),
-        pytest.param(False, id="invalid_high_dest"),
+        pytest.param(-1, Op.JUMPDEST, True, id="valid_high_jumpdest"),
+        # A bare STOP, not a JUMPDEST: a client that wrongly accepts the
+        # jump halts normally and keeps the prefix store.
+        pytest.param(-1, Op.STOP, False, id="invalid_high_dest"),
+        # One past the last byte, which is itself a JUMPDEST: the code
+        # bounds must reject the jump before any JUMPDEST lookup.
+        pytest.param(0, Op.JUMPDEST, False, id="invalid_past_end"),
     ],
 )
 def test_max_code_size_high_jumpdest(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    valid_jumpdest: bool,
+    dest_delta: int,
+    tail: Bytecode,
+    valid_jump: bool,
 ) -> None:
     """
     Ensure jump destination validity is enforced past the old size limits.
 
-    Deploy a `MAX_CODE_SIZE` contract that stores a sentinel and then jumps
-    near the new limit, far beyond the old 24 KiB code and 48 KiB initcode
+    Deploy a `MAX_CODE_SIZE` contract that stores a flag and then jumps to
+    the new limit, far beyond the old 24 KiB code and 48 KiB initcode
     limits, then call it through a caller that records the call's success:
 
-    - ``valid_high_jumpdest``: the target byte is a real ``JUMPDEST``, so the
-      jump succeeds, the frame returns, and the sentinel store is kept.
-    - ``invalid_high_dest``: the target byte is a ``STOP`` (not a
+    - ``valid_high_jumpdest``: the last byte is a real ``JUMPDEST``, so the
+      jump succeeds, the frame returns, and the prefix store is kept.
+    - ``invalid_high_dest``: the last byte is a ``STOP`` (not a
       ``JUMPDEST``), so the jump is rejected, the frame reverts, and the
-      sentinel store is discarded.
+      prefix store is discarded.
+    - ``invalid_past_end``: the target is `MAX_CODE_SIZE` itself, one past
+      the last byte, which is again a real ``JUMPDEST``. The code bounds
+      must reject the jump; a lookup that clamps or wraps would accept it.
 
     A client whose jumpdest analysis or code execution does not cover the
-    full new code range fails one of the two cases. No existing test
-    executes a contract at a program counter beyond the old limit.
+    full new code range fails one of the cases. No existing test executes
+    a contract at a program counter beyond the old limit.
     """
-    if valid_jumpdest:
-        tail = Op.JUMPDEST
-    else:
-        # A bare STOP, not a JUMPDEST: jumping here is invalid. A client that
-        # wrongly accepts it halts normally and keeps the prefix store (1).
-        tail = Op.STOP
-
-    dest = fork.max_code_size() - len(tail)
+    max_code_size = fork.max_code_size()
+    dest = max_code_size + dest_delta
     push_size = (dest.bit_length() + 7) // 8
     push_op = getattr(Op, f"PUSH{push_size}")
     prefix = Op.SSTORE(0, 1) + push_op(dest) + Op.JUMP
-    target_code = prefix + Op.INVALID * (dest - len(prefix)) + tail
-    assert len(target_code) == fork.max_code_size()
+    filler_len = max_code_size - len(prefix) - len(tail)
+    target_code = prefix + Op.INVALID * filler_len + tail
+    assert len(target_code) == max_code_size
 
     target = pre.deploy_contract(target_code)
     caller = pre.deploy_contract(
         Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP,
-        storage={0: FACTORY_SENTINEL},
+        storage={0: SENTINEL},
     )
 
     tx = Transaction(sender=pre.fund_eoa(), to=caller)
 
     # Valid: jump completes, call succeeds (1), and the store is kept.
     # Invalid: jump reverts, the call fails and writes 0 over the sentinel.
-    stored = 1 if valid_jumpdest else 0
+    stored = 1 if valid_jump else 0
     post = {
         caller: Account(storage={0: stored}),
         target: Account(storage={0: stored}),
@@ -457,13 +552,20 @@ def test_max_code_size_high_jumpdest(
         pytest.param(
             Op.EXCHANGE[b"\x5b"], True, id="exchange_immediate_accepted"
         ),
+        # A PUSH2 with only one immediate byte left before the end of the
+        # code: the analysis skips past the end and never marks the byte.
+        pytest.param(
+            bytes(Op.PUSH2) + b"\x5b",
+            False,
+            id="push2_truncated_data_rejected",
+        ),
     ],
 )
 def test_max_code_size_jumpdest_in_immediate(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    tail: Bytecode,
+    tail: Bytecode | bytes,
     accepted: bool,
 ) -> None:
     """
@@ -478,6 +580,9 @@ def test_max_code_size_jumpdest_in_immediate(
     - ``dupn``/``swapn``/``exchange``: per EIP-8024 `0x5B` is an *invalid*
       immediate for these opcodes, so it is not skipped and stays a valid
       `JUMPDEST`, and the jump is accepted.
+    - ``push2_truncated``: the `PUSH2` has a single immediate byte left,
+      so the analysis skips past the end of the code; the `0x5B` is data
+      and the jump is rejected.
 
     Exercises the immediate-skipping branches of jumpdest analysis well past
     the old 24 KiB code and 48 KiB initcode limits.
@@ -494,7 +599,7 @@ def test_max_code_size_jumpdest_in_immediate(
     target = pre.deploy_contract(target_code)
     caller = pre.deploy_contract(
         Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP,
-        storage={0: FACTORY_SENTINEL},
+        storage={0: SENTINEL},
     )
 
     tx = Transaction(sender=pre.fund_eoa(), to=caller)
@@ -573,7 +678,7 @@ def test_max_code_size_with_max_initcode_via_create(
     )
     factory = pre.deploy_contract(
         Om.MSTORE(initcode_prefix, 0) + Op.SSTORE(0, create_call) + Op.STOP,
-        storage={0: FACTORY_SENTINEL},
+        storage={0: SENTINEL},
     )
 
     create_address = compute_create_address(

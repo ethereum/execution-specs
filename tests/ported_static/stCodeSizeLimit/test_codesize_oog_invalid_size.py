@@ -26,7 +26,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stCodeSizeLimit/codesizeOOGInvalidSizeFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_before("EIP7954")
 @pytest.mark.parametrize(
     "d, g, v",
     [
