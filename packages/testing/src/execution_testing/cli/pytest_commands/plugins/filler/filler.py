@@ -184,6 +184,15 @@ class FillingSession:
         """
         formats_str = config.getoption("formats", None)
         formats = formats_str.split(",") if formats_str else None
+        
+        if formats:
+            invalid_formats = set(formats) - set(BaseFixture.formats.keys())
+            if invalid_formats:
+                raise pytest.UsageError(
+                    f"Invalid fixture format(s) specified: {', '.join(invalid_formats)}. "
+                    f"Valid formats are: {', '.join(BaseFixture.formats.keys())}"
+                )
+
         return cls(
             fixture_output=FixtureOutput.from_config(config),
             filling_phase=cls.filling_phase_from_config(config),
