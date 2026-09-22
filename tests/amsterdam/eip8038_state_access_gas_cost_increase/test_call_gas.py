@@ -532,7 +532,6 @@ def test_call_value_insufficient_balance_preflight(
         ret_offset=0,
         ret_size=0,
     )
-    cost_metadata = Op.CALL(address_warm=False, value_transfer=True)
     own_cold = Op.CALL(address_warm=False, value_transfer=True)
 
     # Balance 0: the transfer can never be funded, so the preflight at
@@ -541,7 +540,7 @@ def test_call_value_insufficient_balance_preflight(
         pre, fork, measured_code, own_cold, balance=0
     )
 
-    measured_gas = cost_metadata.gas_cost(fork) - fork.call_value_stipend()
+    measured_gas = own_cold.gas_cost(fork) - fork.call_value_stipend()
 
     tx = Transaction(
         to=measure_address,
