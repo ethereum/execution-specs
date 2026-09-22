@@ -39,34 +39,29 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 #   - executable: builds the runnable opcode targeting ``target``
 #   - cost_metadata: builds the metadata-only opcode for gas computation
 #   - extra_stack_items: stack items left by the opcode (for CodeGasMeasure)
-#   - code_read_surcharge: whether EIP-8038 adds the extra WARM_ACCESS read
 EXT_OPCODES = [
     pytest.param(
         lambda target: Op.EXTCODESIZE(target),
         lambda warm: Op.EXTCODESIZE(address_warm=warm),
         1,
-        True,
         id="EXTCODESIZE",
     ),
     pytest.param(
         lambda target: Op.EXTCODECOPY(target, 0, 0, 0),
         lambda warm: Op.EXTCODECOPY(address_warm=warm),
         0,
-        True,
         id="EXTCODECOPY",
     ),
     pytest.param(
         lambda target: Op.EXTCODEHASH(target),
         lambda warm: Op.EXTCODEHASH(address_warm=warm),
         1,
-        False,
         id="EXTCODEHASH",
     ),
     pytest.param(
         lambda target: Op.BALANCE(target),
         lambda warm: Op.BALANCE(address_warm=warm),
         1,
-        False,
         id="BALANCE",
     ),
 ]
@@ -75,7 +70,7 @@ EXT_OPCODES = [
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 @pytest.mark.parametrize(
-    "executable,cost_metadata,extra_stack_items,code_read_surcharge",
+    "executable,cost_metadata,extra_stack_items",
     EXT_OPCODES,
 )
 def test_ext_code_opcode_gas(
@@ -87,7 +82,6 @@ def test_ext_code_opcode_gas(
     executable: Callable[[object], Bytecode],
     cost_metadata: Callable[[bool], Bytecode],
     extra_stack_items: int,
-    code_read_surcharge: bool,
 ) -> None:
     """
     Measure the exact gas of an external-code/account-access opcode and
@@ -97,8 +91,6 @@ def test_ext_code_opcode_gas(
     more than ``BALANCE``/``EXTCODEHASH`` at equal warmth (the second,
     code-reading database access).
     """
-    del code_read_surcharge  # encoded in `cost_metadata`
-
     target = pre.deploy_contract(Op.STOP)
 
     measured_code = executable(target)
@@ -143,7 +135,7 @@ def test_ext_code_opcode_gas(
     "target_kind", ["funded_eoa", "delegated"], ids=["funded_eoa", "delegated"]
 )
 @pytest.mark.parametrize(
-    "executable,cost_metadata,extra_stack_items,code_read_surcharge",
+    "executable,cost_metadata,extra_stack_items",
     EXT_OPCODES,
 )
 def test_ext_code_opcode_gas_by_target_kind(
@@ -156,7 +148,6 @@ def test_ext_code_opcode_gas_by_target_kind(
     executable: Callable[[object], Bytecode],
     cost_metadata: Callable[[bool], Bytecode],
     extra_stack_items: int,
-    code_read_surcharge: bool,
 ) -> None:
     """
     The ``EXT*`` charge does not depend on what occupies the target.
@@ -169,8 +160,6 @@ def test_ext_code_opcode_gas_by_target_kind(
     call opcodes, which pay one for the target leaf and another for the
     delegation leaf.
     """
-    del code_read_surcharge  # encoded in `cost_metadata`
-
     if target_kind == "funded_eoa":
         # Exists and has a balance, but holds no code — distinct from the
         # non-existent target the empty-account tests cover.
@@ -209,7 +198,7 @@ def test_ext_code_opcode_gas_by_target_kind(
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
-    "executable,cost_metadata,extra_stack_items,code_read_surcharge",
+    "executable,cost_metadata,extra_stack_items",
     EXT_OPCODES,
 )
 def test_ext_code_opcode_gas_precompile_target(
@@ -220,7 +209,6 @@ def test_ext_code_opcode_gas_precompile_target(
     executable: Callable[[object], Bytecode],
     cost_metadata: Callable[[bool], Bytecode],
     extra_stack_items: int,
-    code_read_surcharge: bool,
 ) -> None:
     """
     An ``EXT*`` read of a precompile pays the warm access cost.
@@ -230,8 +218,6 @@ def test_ext_code_opcode_gas_precompile_target(
     applies. The code-read surcharge still does, even though a precompile
     holds no code to read — it is unconditional.
     """
-    del code_read_surcharge  # encoded in `cost_metadata`
-
     identity_precompile = Address(4)
 
     measured_code = executable(identity_precompile)
