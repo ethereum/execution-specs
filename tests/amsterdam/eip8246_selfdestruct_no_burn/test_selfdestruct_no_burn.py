@@ -481,19 +481,20 @@ def test_deployed_code_selfdestruct_clears_code(
     selfdestruct_to_self: bool,
 ) -> None:
     """
-    Verify finalization clears deployed code and preserves the balance.
+    Verify finalization clears deployed code and storage but keeps balance.
 
     Call a contract created in the same transaction so that it holds
-    deployed code when it self-destructs.
+    deployed code and a written storage slot when it self-destructs.
     """
     endowment = 5
     sender = pre.fund_eoa()
     if selfdestruct_to_self:
         beneficiary = None
-        initcode = Initcode(deploy_code=Op.SELFDESTRUCT(Op.ADDRESS))
+        selfdestruct = Op.SELFDESTRUCT(Op.ADDRESS)
     else:
         beneficiary = pre.fund_eoa(amount=1)
-        initcode = Initcode(deploy_code=Op.SELFDESTRUCT(beneficiary))
+        selfdestruct = Op.SELFDESTRUCT(beneficiary)
+    initcode = Initcode(deploy_code=Op.SSTORE(0, 1) + selfdestruct)
     factory_code = Om.MSTORE(initcode, 0) + Op.SSTORE(
         0, Op.CREATE(value=endowment, offset=0, size=len(initcode))
     )
