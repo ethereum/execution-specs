@@ -19,6 +19,7 @@ from execution_testing import (
     Conditional,
     Fork,
     Hash,
+    Initcode,
     Op,
     StateTestFiller,
     Storage,
@@ -465,3 +466,56 @@ def test_deterministic_factory_redeploy_takes_balance(
             created: Account.NONEXISTENT,
         },
     )
+
+
+@pytest.mark.parametrize(
+    "selfdestruct_to_self",
+    [
+        pytest.param(True, id="selfdestruct_to_self"),
+        pytest.param(False, id="selfdestruct_to_other_then_refunded"),
+    ],
+)
+def test_deployed_code_selfdestruct_clears_code(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    selfdestruct_to_self: bool,
+) -> None:
+    """
+    Verify finalization clears deployed code and storage but keeps balance.
+
+    Call a contract created in the same transaction so that it holds
+    deployed code and a written storage slot when it self-destructs.
+    """
+    endowment = 5
+    sender = pre.fund_eoa()
+    if selfdestruct_to_self:
+        beneficiary = None
+        selfdestruct = Op.SELFDESTRUCT(Op.ADDRESS)
+    else:
+        beneficiary = pre.fund_eoa(amount=1)
+        selfdestruct = Op.SELFDESTRUCT(beneficiary)
+    initcode = Initcode(deploy_code=Op.SSTORE(0, 1) + selfdestruct)
+    factory_code = Om.MSTORE(initcode, 0) + Op.SSTORE(
+        0, Op.CREATE(value=endowment, offset=0, size=len(initcode))
+    )
+    factory_code += Op.POP(Op.CALL(gas=Op.GAS, address=Op.SLOAD(0)))
+    if beneficiary is not None:
+        # A donor's SELFDESTRUCT refunds the swept endowment without running
+        # the victim's code again, so EIP-161 does not remove the remnant.
+        factory_code += Op.POP(Op.CALL(gas=Op.GAS, address=Op.CALLDATALOAD(0)))
+    factory = pre.deploy_contract(code=factory_code + Op.STOP)
+    created = compute_create_address(address=factory, nonce=1)
+    tx_data = b""
+    post = {
+        factory: Account(balance=0, nonce=2, storage={0: created}),
+        created: Account(balance=endowment, nonce=0, code=b"", storage={}),
+    }
+    if beneficiary is not None:
+        donor = pre.deploy_contract(
+            code=Op.SELFDESTRUCT(created), balance=endowment
+        )
+        tx_data = Hash(donor, left_padding=True)
+        post[donor] = Account(balance=0)
+        post[beneficiary] = Account(balance=1 + endowment)
+    tx = Transaction(sender=sender, to=factory, value=endowment, data=tx_data)
+    state_test(pre=pre, post=post, tx=tx)

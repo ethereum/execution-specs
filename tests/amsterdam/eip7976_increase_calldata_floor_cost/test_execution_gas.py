@@ -7,6 +7,7 @@ from typing import List
 import pytest
 from execution_testing import (
     AccessList,
+    Account,
     Address,
     Alloc,
     AuthorizationTuple,
@@ -175,3 +176,38 @@ class TestGasConsumptionBelowDataFloor:
             post={},
             tx=tx,
         )
+
+
+@pytest.mark.with_all_tx_types(selector=lambda ty: ty < 3)
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(b"\x00" * 32, id="zero_bytes"),
+        pytest.param(b"\x00\x01" * 16, id="mixed_bytes"),
+    ],
+)
+def test_standard_calldata_cost_above_floor(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_type: int,
+    data: bytes,
+) -> None:
+    """Pin zero-byte pricing for plain calldata with execution above floor."""
+    code = Op.SSTORE(0, 2, original_value=1, current_value=1, new_value=2)
+    contract = pre.deploy_contract(code=code, storage={0: 1})
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=data, return_cost_deducted_prior_execution=True
+    )
+    gas_used = intrinsic + code.gas_cost(fork)
+    floor = fork.transaction_data_floor_cost_calculator()(data=data)
+    assert gas_used > floor
+    tx = Transaction(
+        ty=tx_type,
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=data,
+        gas_limit=gas_used + 1,
+        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
+    )
+    state_test(pre=pre, tx=tx, post={contract: Account(storage={0: 2})})
