@@ -3,7 +3,7 @@
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Type
 from unittest.mock import call, patch
 
 import pytest
@@ -12,7 +12,8 @@ from ethereum_rlp import rlp
 from ethereum_rlp.exceptions import RLPException
 from ethereum_types.numeric import U64, U256, Uint
 from execution_testing.fixtures.blockchain import FixtureHeader
-from execution_testing.forks import get_transition_forks
+from execution_testing.forks import get_forks, get_transition_forks
+from execution_testing.forks.base_fork import BaseFork
 
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException, StateWithEmptyAccount
@@ -25,6 +26,15 @@ from .. import FORKS
 from ..stash_keys import desired_forks_key
 from .exceptional_test_patterns import exceptional_blockchain_test_patterns
 from .fixtures import Fixture, FixturesFile, FixtureTestItem
+
+TESTING_FORKS: Dict[str, Type[BaseFork]] = {
+    fork.name(): fork for fork in get_forks()
+}
+"""
+Forks of the testing framework by name. The network of a fixture, or either
+end of a transition fixture's network, is the name of the testing fork it
+was filled for.
+"""
 
 TRANSITION_FORKS = {fork.name(): fork for fork in get_transition_forks()}
 """
@@ -256,8 +266,16 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
             )
 
         with ExitStack() as stack:
-            if self.transition is not None:
+            if self.transition is None:
+                self._schedule_blob_params(stack, load, self.fork_name)
+            else:
                 self._schedule_fork(stack, load, self.transition.criteria)
+                self._schedule_blob_params(
+                    stack, current, self.transition.from_fork
+                )
+                self._schedule_blob_params(
+                    stack, load, self.transition.to_fork
+                )
 
             for json_block in json_data["blocks"]:
                 if (
@@ -326,6 +344,45 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
             stack.enter_context(
                 patch.object(fork_module, "FORK_CRITERIA", criteria)
             )
+
+    @staticmethod
+    def _schedule_blob_params(
+        stack: ExitStack, load: Load, fork_name: str
+    ) -> None:
+        """
+        Give the fork of `load` the blob schedule that the testing
+        framework's fork `fork_name` is filled with, for the duration of
+        `stack`, when that fork is a blob parameter only (BPO) fork.
+
+        A BPO fork of the spec is a copy of its predecessor whose blob
+        schedule is a placeholder; the schedule lives in the testing
+        framework's fork of the same name. The fill's `T8N` clones the spec
+        fork with that schedule, but a clone cannot validate a chain across
+        a fork transition: `calculate_excess_blob_gas` recognises the
+        parent header by the previous fork's `Header` class, which the
+        clone refers to under another name. The constants are patched in
+        place instead. `GasCosts.BLOB_TARGET_GAS_PER_BLOCK` and the `fork`
+        module's `MAX_BLOB_GAS_PER_BLOCK` are derived from the schedule at
+        import time, so they are patched along with it.
+        """
+        testing_fork = TESTING_FORKS.get(fork_name)
+        if testing_fork is None or not testing_fork.bpo_fork():
+            return
+        gas_costs = load.fork.hardfork.module("vm.gas").GasCosts
+        fork_module = load.fork.hardfork.module("fork")
+        per_blob: U64 = gas_costs.PER_BLOB
+        target = U64(testing_fork.target_blobs_per_block())
+        maximum = U64(testing_fork.max_blobs_per_block())
+        update_fraction = Uint(testing_fork.blob_base_fee_update_fraction())
+        patches = (
+            (gas_costs, "BLOB_SCHEDULE_TARGET", target),
+            (gas_costs, "BLOB_SCHEDULE_MAX", maximum),
+            (gas_costs, "BLOB_TARGET_GAS_PER_BLOCK", per_blob * target),
+            (gas_costs, "BLOB_BASE_FEE_UPDATE_FRACTION", update_fraction),
+            (fork_module, "MAX_BLOB_GAS_PER_BLOCK", per_blob * maximum),
+        )
+        for owner, name, value in patches:
+            stack.enter_context(patch.object(owner, name, value))
 
     def reportinfo(self) -> Tuple[Path, int, str]:
         """Return information for test reporting."""
