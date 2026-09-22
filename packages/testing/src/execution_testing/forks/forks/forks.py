@@ -1660,3 +1660,35 @@ class Amsterdam(
         limit.
         """
         return True
+
+
+class BPOIncrease(
+    Amsterdam,
+    bpo_fork=True,
+    transition_tool_name="Amsterdam",
+    ruleset_name="BPO_INCREASE",
+    update_blob_constants={
+        "BLOB_BASE_FEE_UPDATE_FRACTION": 20609697,
+        "TARGET_BLOBS_PER_BLOCK": 21,
+        "MAX_BLOBS_PER_BLOCK": 32,
+    },
+):
+    """Exercise an increased blob schedule under Amsterdam rules."""
+
+    pass
+
+
+class BPODecrease(
+    BPOIncrease,
+    bpo_fork=True,
+    transition_tool_name="Amsterdam",
+    ruleset_name="BPO_DECREASE",
+    update_blob_constants={
+        "BLOB_BASE_FEE_UPDATE_FRACTION": 13739630,
+        "TARGET_BLOBS_PER_BLOCK": 14,
+        "MAX_BLOBS_PER_BLOCK": 21,
+    },
+):
+    """Exercise a decreased blob schedule after BPOIncrease."""
+
+    pass

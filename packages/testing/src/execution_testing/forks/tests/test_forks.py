@@ -19,6 +19,8 @@ from ..forks.forks import (
     BPO5,
     Amsterdam,
     Berlin,
+    BPODecrease,
+    BPOIncrease,
     Cancun,
     Frontier,
     Homestead,
@@ -30,11 +32,13 @@ from ..forks.forks import (
     Shanghai,
 )
 from ..forks.transition import (
+    AmsterdamToBPOIncreaseAtTime15k,
     BerlinToLondonAt5,
     BPO1ToBPO2AtTime15k,
     BPO2ToAmsterdamAtTime15k,
     BPO2ToBPO3AtTime15k,
     BPO3ToBPO4AtTime15k,
+    BPOIncreaseToBPODecreaseAtTime15k,
     CancunToPragueAtTime15k,
     OsakaToBPO1AtTime15k,
     ParisToShanghaiAtTime15k,
@@ -70,6 +74,9 @@ def test_transition_forks() -> None:
     assert transition_fork_from_to(Berlin, London) == BerlinToLondonAt5
     assert transition_fork_from_to(Berlin, Paris) is None
     assert transition_fork_to(Shanghai) == {ParisToShanghaiAtTime15k}
+    assert transition_fork_from_to(BPO2, Amsterdam) == BPO2ToAmsterdamAtTime15k
+    assert transition_fork_to(BPO3) == {BPO2ToBPO3AtTime15k}
+    assert transition_fork_to(BPO4) == {BPO3ToBPO4AtTime15k}
 
     # Test forks transitioned to and from
     assert BerlinToLondonAt5.transitions_to() == London
@@ -721,20 +728,24 @@ class TestSelectedForkSetWithTransitionBoundaries:
         assert BPO1ToBPO2AtTime15k in result
         assert BPO2ToAmsterdamAtTime15k not in result
 
-    def test_until_amsterdam_includes_bpo_siblings(self) -> None:
-        """`--until=Amsterdam` pulls in the parallel BPO branch."""
+    def test_until_amsterdam_excludes_bpo_siblings(self) -> None:
+        """Keep speculative BPO siblings out of Amsterdam generation."""
         result = get_selected_fork_set(
             single_fork=set(),
             forks_from=set(),
             forks_until={Amsterdam},
         )
         normal = self._normal_forks(result)
-        assert {BPO1, BPO2, BPO3, BPO4, BPO5, Amsterdam} <= normal
-        assert BPO2ToBPO3AtTime15k in result
-        assert BPO3ToBPO4AtTime15k in result
+        assert {BPO1, BPO2, Amsterdam} <= normal
+        assert not ({BPO3, BPO4, BPO5} & normal)
+        assert {
+            fork
+            for fork in self._transition_forks(result)
+            if fork.transitions_from() >= BPO2
+        } == {BPO2ToAmsterdamAtTime15k}
 
-    def test_from_osaka_until_amsterdam_spans_bpo_branch(self) -> None:
-        """`--from=Osaka --until=Amsterdam` spans the full BPO branch."""
+    def test_from_osaka_until_amsterdam_follows_ancestry(self) -> None:
+        """Include only BPO ancestors in the Osaka-to-Amsterdam range."""
         result = get_selected_fork_set(
             single_fork=set(),
             forks_from={Osaka},
@@ -744,23 +755,29 @@ class TestSelectedForkSetWithTransitionBoundaries:
             Osaka,
             BPO1,
             BPO2,
-            BPO3,
-            BPO4,
-            BPO5,
             Amsterdam,
         }
 
-    def test_until_amsterdam_bpo_siblings_disabled(self) -> None:
-        """`bpo_siblings=False` keeps the parallel BPO branch out."""
+    def test_until_amsterdam_bpo_siblings_enabled(self) -> None:
+        """Allow callers to explicitly include parallel BPO branches."""
         result = get_selected_fork_set(
             single_fork=set(),
             forks_from=set(),
             forks_until={Amsterdam},
-            bpo_siblings=False,
+            bpo_siblings=True,
         )
         normal = self._normal_forks(result)
-        assert {BPO1, BPO2, Amsterdam} <= normal
-        assert not ({BPO3, BPO4, BPO5} & normal)
+        assert {BPO1, BPO2, BPO3, BPO4, BPO5, Amsterdam} <= normal
+
+    @pytest.mark.parametrize("fork", [BPO3, BPO4, BPO5])
+    def test_explicit_bpo_selection(self, fork: Fork) -> None:
+        """Retain explicit selection of speculative BPO forks."""
+        result = get_selected_fork_set(
+            single_fork={fork},
+            forks_from=set(),
+            forks_until=set(),
+        )
+        assert self._normal_forks(result) == {fork}
 
     def test_until_bpo2_excludes_later_bpo_siblings(self) -> None:
         """`--until=BPO2` must not pull in the later BPO branch."""
@@ -958,3 +975,43 @@ def test_abstract_memoized_declarations_are_left_alone() -> None:
         declaration = BaseFork.__dict__[method_name]
         assert getattr(declaration, "__isabstractmethod__", False)
         assert not hasattr(declaration.__func__, "cache_info")
+
+
+@pytest.mark.parametrize("fork", [BPOIncrease, BPODecrease])
+def test_amsterdam_bpo_rules(fork: Fork) -> None:
+    """Retain Amsterdam execution rules with a distinct blob schedule."""
+    assert fork.non_bpo_ancestor() is Amsterdam
+    assert fork.transition_tool_name() == "Amsterdam"
+    assert (
+        fork.engine_new_payload_version()
+        == Amsterdam.engine_new_payload_version()
+    )
+    assert fork.header_bal_hash_required()
+    assert not fork.is_deployed()
+
+
+def test_amsterdam_bpo_selection() -> None:
+    """Select both synthetic schedules and transitions without legacy BPOs."""
+    selected = get_selected_fork_set(
+        single_fork=set(), forks_from={Amsterdam}, forks_until={BPODecrease}
+    )
+    assert selected == {
+        Amsterdam,
+        BPOIncrease,
+        BPODecrease,
+        BPO2ToAmsterdamAtTime15k,
+        AmsterdamToBPOIncreaseAtTime15k,
+        BPOIncreaseToBPODecreaseAtTime15k,
+    }
+    assert (
+        BPOIncrease.target_blobs_per_block()
+        > Amsterdam.target_blobs_per_block()
+    )
+    assert BPOIncrease.max_blobs_per_block() > Amsterdam.max_blobs_per_block()
+    assert (
+        BPODecrease.target_blobs_per_block()
+        < BPOIncrease.target_blobs_per_block()
+    )
+    assert (
+        BPODecrease.max_blobs_per_block() < BPOIncrease.max_blobs_per_block()
+    )
