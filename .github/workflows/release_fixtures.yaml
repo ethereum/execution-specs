@@ -27,7 +27,7 @@ on:
         required: true
         type: string
       branch:
-        description: "Branch to release from, e.g. devnets/bal/7 (required for *-devnet features)"
+        description: "Branch to release from, e.g. devnets/bal/7 or eips/amsterdam/eip-8141 (required for *-devnet features)"
         required: false
         type: string
       evm:

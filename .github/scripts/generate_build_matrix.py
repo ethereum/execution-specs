@@ -35,8 +35,11 @@ EVM_CONFIG = Path(".github/configs/evm.yaml")
 
 VERSION_RE = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 
-# Devnet release branches follow `devnets/<feat-or-fork>/<n>`, e.g.
-# `devnets/bal/7` or `devnets/glamsterdam/6`; `<n>` is the devnet number.
+# A devnet release can be cut from any branch. A branch in the `devnets/`
+# namespace must follow `devnets/<feat-or-fork>/<n>` (e.g. `devnets/bal/7`
+# or `devnets/glamsterdam/6`), where `<n>` is the devnet number the
+# version major is checked against; a branch outside that namespace
+# (e.g. `eips/amsterdam/eip-8141`) carries no number to check.
 DEVNET_BRANCH_RE = re.compile(r"^devnets/[^/]+/([0-9]+)$")
 
 # Canonical fork ordering used to filter fork ranges per feature.
@@ -90,9 +93,12 @@ def validate_inputs(feature: str, version: str, branch: str, evm: str) -> None:
     unit-testable rather than living as inline bash in the release
     workflow.
 
-    For `<feat>-devnet` releases the major version (`X` of `vX.Y.Z`)
-    must equal the devnet number encoded in the release branch, so a
-    `bal-devnet` release from `devnets/bal/7` must be tagged `v7.*.*`.
+    `<feat>-devnet` releases need a `branch` to build from, which can
+    be any branch. A branch in the `devnets/` namespace must follow
+    `devnets/<feat>/<n>`, and the major version (`X` of `vX.Y.Z`) must
+    equal its devnet number `<n>`, so a `bal-devnet` release from
+    `devnets/bal/7` must be tagged `v7.*.*`. A branch outside that
+    namespace (e.g. `eips/amsterdam/eip-8141`) is not checked.
     """
     if not feature:
         fail("feature name is empty")
@@ -118,26 +124,34 @@ def validate_inputs(feature: str, version: str, branch: str, evm: str) -> None:
         )
 
     if feature.endswith("-devnet"):
+        # `actions/checkout` trims its `ref` input, so validate the branch
+        # the workflow will actually check out.
+        branch = branch.strip()
         if not branch:
             fail(
                 "devnet releases require a 'branch' input, "
-                "e.g. branch=devnets/bal/7"
+                "e.g. branch=devnets/bal/7 or branch=eips/amsterdam/eip-8141"
             )
-        match = DEVNET_BRANCH_RE.match(branch)
-        if not match:
-            fail(
-                f"could not parse a devnet number from branch '{branch}' "
-                "(expected devnets/<feat>/<n>, e.g. devnets/bal/7)"
-            )
-        devnet_number = int(match.group(1))
-        major = int(version.lstrip("v").split(".")[0])
-        if major != devnet_number:
-            minor_patch = version.split(".", 1)[1]
-            fail(
-                f"version major (v{major}) must equal the devnet number "
-                f"({devnet_number}) from branch '{branch}'; "
-                f"did you mean version=v{devnet_number}.{minor_patch}?"
-            )
+        # A branch in the `devnets/` namespace must encode a devnet number
+        # that the version major is checked against; a branch outside it
+        # (e.g. an EIP branch) carries no number to check.
+        if branch.startswith("devnets/"):
+            match = DEVNET_BRANCH_RE.match(branch)
+            if not match:
+                fail(
+                    f"could not parse a devnet number from branch "
+                    f"'{branch}' (expected devnets/<feat>/<n>, e.g. "
+                    "devnets/bal/7)"
+                )
+            devnet_number = int(match.group(1))
+            major = int(version.lstrip("v").split(".")[0])
+            if major != devnet_number:
+                minor_patch = version.split(".", 1)[1]
+                fail(
+                    f"version major (v{major}) must equal the devnet "
+                    f"number ({devnet_number}) from branch '{branch}'; "
+                    f"did you mean version=v{devnet_number}.{minor_patch}?"
+                )
 
 
 def parse_until_fork(fill_params: str) -> str | None:

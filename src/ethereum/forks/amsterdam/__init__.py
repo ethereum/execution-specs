@@ -1,6 +1,6 @@
 """
 The Amsterdam fork ([EIP-7773]) includes block-level access lists and the
-deterministic ``CREATE2`` factory predeploy.
+deterministic ``CREATE2`` factory contract.
 
 ### Changes
 
@@ -12,7 +12,7 @@ deterministic ``CREATE2`` factory predeploy.
 - [EIP-7954: Increase Maximum Contract Size][EIP-7954]
 - [EIP-7976: Increase calldata floor cost][EIP-7976]
 - [EIP-7981: Increase Access List Cost][EIP-7981]
-- [EIP-7997: Deterministic Factory Predeploy][EIP-7997]
+- [EIP-7997: Deterministic Factory Contract][EIP-7997]
 - [EIP-8024: Stack Access Instructions][EIP-8024]
 - [EIP-8037: State Creation Gas Cost Increase][EIP-8037]
 - [EIP-8038: State Access Gas Cost Increase][EIP-8038]

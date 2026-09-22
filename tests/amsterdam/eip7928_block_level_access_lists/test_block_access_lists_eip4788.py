@@ -13,6 +13,7 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    Fork,
     Hash,
     Op,
     Transaction,
@@ -582,4 +583,61 @@ def test_bal_4788_absent_contract(
             )
         ],
         post={BEACON_ROOTS_ADDRESS: Account.NONEXISTENT},
+    )
+
+
+@pytest.mark.pre_alloc_mutable()
+def test_bal_4788_noop_writes_are_reads(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+) -> None:
+    """
+    The beacon roots system call writes both ring-buffer slots with the
+    values they already hold. A write that leaves a slot unchanged is a
+    read, so the contract enters the block access list with two storage
+    reads and no changes.
+    """
+    block_timestamp = 12
+    beacon_root = Hash(0xABCDEF)
+    timestamp_slot, root_slot = get_beacon_root_slots(block_timestamp)
+
+    # EIP-4788 lets a client write these slots without running the
+    # contract; either way an unchanged value must surface as a read.
+    predeploy = Alloc.model_validate(fork.pre_allocation_blockchain())[
+        BEACON_ROOTS_ADDRESS
+    ]
+    assert predeploy is not None
+    pre[BEACON_ROOTS_ADDRESS] = Account(
+        nonce=predeploy.nonce,
+        code=predeploy.code,
+        storage={timestamp_slot: block_timestamp, root_slot: beacon_root},
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                timestamp=block_timestamp,
+                parent_beacon_block_root=beacon_root,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        BEACON_ROOTS_ADDRESS: BalAccountExpectation(
+                            storage_changes=[],
+                            storage_reads=[timestamp_slot, root_slot],
+                        ),
+                        SYSTEM_ADDRESS: None,
+                    }
+                ),
+            )
+        ],
+        post={
+            BEACON_ROOTS_ADDRESS: Account(
+                storage={
+                    timestamp_slot: block_timestamp,
+                    root_slot: beacon_root,
+                },
+            ),
+        },
     )

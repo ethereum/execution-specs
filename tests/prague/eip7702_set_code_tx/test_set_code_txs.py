@@ -35,6 +35,7 @@ from execution_testing import (
     FeeSystemContractRequest,
     Fork,
     Hash,
+    Header,
     Initcode,
     Op,
     RecipientType,
@@ -1398,6 +1399,28 @@ def test_ext_code_on_set_code(
             ),
             callee_address: Account(storage=callee_storage),
         },
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                auth_signer: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=Spec.delegation_designation(
+                                set_code_to_address
+                            ),
+                        )
+                    ],
+                    balance_changes=[],
+                ),
+                # Code-reading opcodes return the designation itself
+                # rather than resolving it, so the address it points at
+                # is never accessed.
+                set_code_to_address: None,
+            }
+        ),
     )
 
 
@@ -3376,8 +3399,8 @@ def test_set_code_to_system_contract(
         blocks=[
             Block(
                 txs=txs,
-                requests_hash=Requests(),  # Verify nothing slipped into the
-                # requests trie
+                # Verify nothing slipped into the requests trie.
+                header_verify=Header(requests_hash=Requests()),
             )
         ],
         post={

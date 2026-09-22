@@ -107,13 +107,20 @@ def test_codecopy(
 
 @pytest.mark.repricing
 @pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])
-@pytest.mark.parametrize("code_size", [0, 32, 256, 1024, 24576])
+@pytest.mark.parametrize(
+    "code_size",
+    [0, 32, 256, 1024, pytest.param(None, id="code_size_max")],
+)
 def test_codecopy_benchmark(
     benchmark_test: BenchmarkTestFiller,
+    fork: Fork,
     mem_size: int,
-    code_size: int,
+    code_size: int | None,
 ) -> None:
     """Benchmark CODECOPY with varying memory and code size config."""
+    if code_size is None:
+        code_size = fork.max_code_size()
+
     setup = Op.MSTORE8(mem_size, 0xFF) if mem_size > 0 else Bytecode()
 
     attack_block = Op.CODECOPY(Op.PUSH0, Op.PUSH0, code_size)
@@ -128,17 +135,21 @@ def test_codecopy_benchmark(
     )
 
 
-@pytest.mark.repricing(copied_size=512)
+@pytest.mark.repricing(copy_size=512)
 @pytest.mark.parametrize(
     "copy_size",
-    [0, 32, 256, 512, 1024],
+    [0, 32, 256, 512, 1024, pytest.param(None, id="copy_size_max")],
 )
 def test_extcodecopy_warm(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
-    copy_size: int,
+    fork: Fork,
+    copy_size: int | None,
 ) -> None:
     """Benchmark EXTCODECOPY instruction."""
+    if copy_size is None:
+        copy_size = fork.max_code_size()
+
     copied_contract_address = pre.deploy_contract(
         code=Op.JUMPDEST * copy_size,
     )

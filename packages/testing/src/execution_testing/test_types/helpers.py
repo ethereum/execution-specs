@@ -115,7 +115,7 @@ def compute_deterministic_create2_address(
     opcode using the `DETERMINISTIC_FACTORY_ADDRESS`.
     """
     factory_address = (
-        fork.deterministic_factory_predeploy_address()
+        fork.deterministic_factory_contract_address()
         or DETERMINISTIC_FACTORY_ADDRESS
     )
     return compute_create2_address(

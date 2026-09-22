@@ -107,9 +107,9 @@ def test_invalid_pre_fork_block_with_bal_hash_field(
     Reject a pre-Amsterdam block whose header carries
     `block_access_list_hash`.
 
-    The engine fixture sends a pre-Amsterdam `newPayload` carrying an
-    empty `blockAccessList` param; the client's reconstructed header
-    omits the hash, so the block hash check fails.
+    The engine fixture omits `blockAccessList`, keeping the pre-fork API
+    parameters valid. Its block hash still commits to the extra header
+    field, so the client's reconstructed header cannot match it.
     """
     sender = pre.fund_eoa()
     receiver = pre.fund_eoa(amount=0)
@@ -138,11 +138,11 @@ def test_bal_invalid_engine_payload_field_before_fork(
     pre: Alloc,
 ) -> None:
     """
-    Reject a pre-Amsterdam `newPayload` that carries a `blockAccessList`.
+    Reject an extra BAL field under the inherited strict-field API rule.
 
-    The block and its header are otherwise valid, so the spurious payload
-    field is the only defect: clients that silently drop unknown
-    `newPayloadV4` fields would answer VALID and must fail this test.
+    Prague's newPayloadV4 inherits Cancun's newPayloadV3 parameter checks
+    and accepts ExecutionPayloadV3, which has no blockAccessList field.
+    The otherwise-valid block isolates the required Invalid params error.
     """
     sender = pre.fund_eoa()
     receiver = pre.nonexistent_account()
@@ -156,8 +156,7 @@ def test_bal_invalid_engine_payload_field_before_fork(
             Block(
                 timestamp=FORK_TIMESTAMP - 1,
                 txs=[tx],
-                # A valid empty-BAL encoding: field presence alone, not
-                # decodability, must trigger the rejection.
+                # Isolate field presence from BAL decoding validity.
                 engine_new_payload_block_access_list=Bytes(b"\xc0"),
                 exception=BlockException.INCORRECT_BLOCK_FORMAT,
                 engine_api_error_code=EngineAPIError.InvalidParams,

@@ -31,6 +31,7 @@ from .exceptions import (
     InvalidBlobVersionedHashError,
     NoBlobDataError,
     PriorityFeeGreaterThanMaxFeeError,
+    TransactionGasLimitExceededError,
     TransactionTypeContractCreationError,
     TransactionTypeError,
 )
@@ -601,6 +602,11 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     Also, the code size of a contract creation transaction must be within
     limits of the protocol.
 
+    The gas limit of a transaction may not exceed [`TX_MAX_TOTAL_GAS_LIMIT`]
+    ([EIP-8037]). [`TX_MAX_GAS_LIMIT`] ([EIP-7825]) bounds only the
+    execution-gas a transaction can spend, so it is checked against the
+    intrinsic execution cost rather than against the gas limit.
+
     This function takes a transaction and gas_limit as parameters and
     returns the intrinsic gas costs for the transaction after validation.
     It throws an `InsufficientTransactionGasError` exception if the
@@ -608,13 +614,18 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     and a `NonceOverflowError` exception if the nonce overflows.
     It also raises an `InitCodeTooLargeError` if the code
     size of a contract creation transaction exceeds the maximum allowed
-    size, and a `PriorityFeeGreaterThanMaxFeeError` if the maximum
-    priority fee per gas of a fee market transaction exceeds its maximum
-    fee per gas.
+    size, a `TransactionGasLimitExceededError` if the gas limit exceeds
+    `TX_MAX_TOTAL_GAS_LIMIT`, and a `PriorityFeeGreaterThanMaxFeeError` if
+    the maximum priority fee per gas of a fee market transaction exceeds
+    its maximum fee per gas.
 
+    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.vm.gas.GasCosts.TX_MAX_GAS_LIMIT
+    [`TX_MAX_TOTAL_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.vm.gas.GasCosts.TX_MAX_TOTAL_GAS_LIMIT
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
-    """
+    [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+    """  # noqa: E501
     from .vm.gas import GasCosts
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
@@ -623,6 +634,9 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
 
     if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
         raise InitCodeTooLargeError("Code size too large")
+
+    if tx.gas > GasCosts.TX_MAX_TOTAL_GAS_LIMIT:
+        raise TransactionGasLimitExceededError("Gas limit too high")
 
     if isinstance(tx, FeeMarketCapableTransaction):
         if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
