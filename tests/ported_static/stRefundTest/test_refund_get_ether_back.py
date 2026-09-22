@@ -91,7 +91,7 @@ def test_refund_get_ether_back(
         sends_value=bool(tx.value),
         return_cost_deducted_prior_execution=True,
     )
-    cancun_base_gross = cancun_intrinsic + 2 * gas_costs.VERY_LOW
+    cancun_base_gross = cancun_intrinsic + 2 * Cancun.gas_costs().VERY_LOW
 
     def clear_gas_used(
         sstore_charge: int, clear_refund: int, gross_base: int

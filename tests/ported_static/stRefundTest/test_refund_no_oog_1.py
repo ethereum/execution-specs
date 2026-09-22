@@ -99,7 +99,7 @@ def test_refund_no_oog_1(
     # two PUSH1s that feed the single SSTORE (STOP is free).
     gas_costs = fork.gas_costs()
     base_gross = intrinsic + 2 * gas_costs.VERY_LOW
-    cancun_base_gross = cancun_intrinsic + 2 * gas_costs.VERY_LOW
+    cancun_base_gross = cancun_intrinsic + 2 * Cancun.gas_costs().VERY_LOW
 
     def clear_gas_used(charge: int, clear_refund: int, gross_base: int) -> int:
         gross = gross_base + charge
