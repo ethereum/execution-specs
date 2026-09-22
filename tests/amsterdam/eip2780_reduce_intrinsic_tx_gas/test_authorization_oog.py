@@ -110,6 +110,47 @@ def _intrinsic_execution(
     )
 
 
+def _build_preparation_authorizations(
+    fork: Fork,
+    pre: Alloc,
+    *,
+    cap: int,
+    with_reservoir: bool,
+) -> tuple[list[AuthorizationScenario], int]:
+    """
+    Build authorizations and return the gas needed to apply all of them.
+
+    When a reservoir is required, add enough authorizations for preparation
+    to consume the execution cap before it exhausts state gas.
+    """
+    sample_auth = build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
+    base_intrinsic = _intrinsic_execution(
+        fork, [], recipient_type=RecipientType.DELEGATION_7702
+    )
+    per_auth_intrinsic = (
+        _intrinsic_execution(
+            fork,
+            [sample_auth.authorization],
+            recipient_type=RecipientType.DELEGATION_7702,
+        )
+        - base_intrinsic
+    )
+    per_auth_gas = per_auth_intrinsic + (
+        _auth_top_frame_charges(fork, [sample_auth.authorization])
+    )
+    auth_count = (
+        (cap - base_intrinsic) // per_auth_gas + 2 if with_reservoir else 2
+    )
+    authorizations = [sample_auth] + [
+        build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
+        for _ in range(auth_count - 1)
+    ]
+    return (
+        authorizations,
+        base_intrinsic + auth_count * per_auth_gas,
+    )
+
+
 def _applied_delegation_bal(
     scenario: AuthorizationScenario,
 ) -> BalAccountExpectation:
@@ -1420,10 +1461,15 @@ def test_reverted_dispatch_state_gas_counts_toward_block_limit(
     "with_reservoir", [False, True], ids=["spill", "mixed"]
 )
 @pytest.mark.parametrize(
-    "delta",
+    "probe_delta,probe_error",
     [
-        pytest.param(0, id="exact_fit"),
-        pytest.param(1, id="exceeded", marks=pytest.mark.exception_test),
+        pytest.param(0, None, id="exact_fit"),
+        pytest.param(
+            1,
+            TransactionException.GAS_ALLOWANCE_EXCEEDED,
+            id="exceeded",
+            marks=pytest.mark.exception_test,
+        ),
     ],
 )
 def test_preparation_rollback_restores_block_state_budget(
@@ -1432,7 +1478,8 @@ def test_preparation_rollback_restores_block_state_budget(
     blockchain_test: BlockchainTestFiller,
     failure_point: str,
     with_reservoir: bool,
-    delta: int,
+    probe_delta: int,
+    probe_error: TransactionException | None,
 ) -> None:
     """
     Exclude rolled-back authorization charges from the block state budget.
@@ -1442,115 +1489,124 @@ def test_preparation_rollback_restores_block_state_budget(
     """
     cap = fork.transaction_gas_limit_cap()
     assert cap is not None, "EIP-7825 cap expected on this fork"
-    target = pre.deploy_contract(code=Op.STOP)
-    recipient = pre.fund_eoa(delegation=target)
-    probe = build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
-    base_intrinsic = _intrinsic_execution(
-        fork, [], recipient_type=RecipientType.DELEGATION_7702
-    )
-    per_auth_intrinsic = (
-        _intrinsic_execution(
-            fork,
-            [probe.authorization],
-            recipient_type=RecipientType.DELEGATION_7702,
-        )
-        - base_intrinsic
-    )
-    per_auth_charges = _auth_top_frame_charges(fork, [probe.authorization])
-    per_auth_total = per_auth_intrinsic + per_auth_charges
-    # Preparation can exhaust a nonzero reservoir only with enough
-    # authorizations to consume the execution cap as well.
-    auth_count = (
-        (cap - base_intrinsic) // per_auth_total + 2 if with_reservoir else 2
-    )
-    auths = [probe] + [
-        build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
-        for _ in range(auth_count - 1)
-    ]
-    authorization_list = [auth.authorization for auth in auths]
-    preparation_gas = base_intrinsic + auth_count * per_auth_total
-    if failure_point == "dispatch_access":
-        preparation_gas += fork.transaction_top_frame_execution_gas(
-            recipient_type=RecipientType.DELEGATION_7702,
-        )
-    # Starve the last AUTH_BASE charge, or the access after all
-    # authorizations have applied and their state gas has been committed.
-    failed_gas_limit = preparation_gas - 1
-    failed_execution = min(cap, failed_gas_limit)
-    auth_state = fork.transaction_top_frame_state_gas(
-        recipient_type=RecipientType.CONTRACT,
-        authorizations=authorization_list,
-    )
-    if with_reservoir:
-        assert 0 < failed_gas_limit - cap < auth_state
-    else:
-        assert failed_gas_limit < cap
 
-    # Keep the probe below the block's standalone gas limit in both
-    # cases, so only cumulative state accounting decides inclusion.
+    execution_gas, state_gas, cumulative_gas_used = 0, 0, 0
+
+    # Seed the block with state gas that must remain charged.
     seed_code = Op.SSTORE(0, 1, original_value=0, new_value=1)
     seed_recipient = pre.deploy_contract(code=seed_code)
-    seed_state = seed_code.state_cost(fork)
-    seed_execution = _intrinsic_execution(
+
+    execution_gas = _intrinsic_execution(
         fork, [], recipient_type=RecipientType.CONTRACT
     ) + seed_code.execution_cost(fork)
-    # Leave execution headroom for the probe's capped gas reservation.
-    block_gas_limit = seed_state + seed_execution + failed_execution + 2 * cap
+    state_gas += seed_code.state_cost(fork)
+    cumulative_gas_used = execution_gas + state_gas
+
     seed_tx = Transaction(
         sender=pre.fund_eoa(),
         to=seed_recipient,
-        gas_limit=seed_execution + seed_state,
+        gas_limit=cumulative_gas_used,
     )
-    failed_sender = pre.fund_eoa()
-    failed_tx = Transaction(
-        sender=failed_sender,
-        to=recipient,
+
+    # Build a transaction that runs out of gas during preparation.
+    authorizations, preparation_gas = _build_preparation_authorizations(
+        fork,
+        pre,
+        cap=cap,
+        with_reservoir=with_reservoir,
+    )
+    authorization_list = [
+        authorization.authorization for authorization in authorizations
+    ]
+
+    # Starve the last AUTH_BASE charge, or the access after all
+    # authorizations have applied and their state gas has been committed.
+    match failure_point:
+        case "authorization":
+            failing_gas_limit = preparation_gas - 1
+        case "dispatch_access":
+            failing_gas_limit = (
+                preparation_gas
+                + fork.transaction_top_frame_execution_gas(
+                    recipient_type=RecipientType.DELEGATION_7702,
+                )
+                - 1
+            )
+        case _:
+            raise ValueError(f"Unexpected failure point: {failure_point}")
+
+    failing_execution_gas = min(cap, failing_gas_limit)
+    auth_state_gas = fork.transaction_top_frame_state_gas(
+        recipient_type=RecipientType.CONTRACT,
+        authorizations=authorization_list,
+    )
+    gas_above_cap = failing_gas_limit - cap
+    if with_reservoir:
+        assert 0 < gas_above_cap < auth_state_gas
+    else:
+        assert gas_above_cap < 0
+
+    # Preparation rollback restores its state gas, so only execution gas
+    # remains charged to the block.
+    execution_gas += failing_execution_gas
+    cumulative_gas_used += failing_execution_gas
+
+    stop_contract = pre.deploy_contract(code=Op.STOP)
+    failing_sender = pre.fund_eoa()
+    failing_tx = Transaction(
+        sender=failing_sender,
+        to=pre.fund_eoa(delegation=stop_contract),
         authorization_list=authorization_list,
-        gas_limit=failed_gas_limit,
+        gas_limit=failing_gas_limit,
         expected_receipt=TransactionReceipt(
-            cumulative_gas_used=seed_execution + seed_state + failed_execution,
+            cumulative_gas_used=cumulative_gas_used,
         ),
     )
-    last_gas_limit = block_gas_limit - seed_state + delta
-    assert last_gas_limit < block_gas_limit
-    assert min(cap, last_gas_limit) < (
-        block_gas_limit - seed_execution - failed_execution
-    ), "the execution budget must not decide the probe's inclusion"
-    last_error = TransactionException.GAS_ALLOWANCE_EXCEEDED if delta else None
-    last_tx = Transaction(
+
+    # Give the block enough execution headroom that only its cumulative
+    # state budget can decide whether the boundary probe is included.
+    block_gas_limit = state_gas + execution_gas + 2 * cap
+    probe_gas_limit = block_gas_limit - state_gas + probe_delta
+    execution_headroom = block_gas_limit - execution_gas
+    assert probe_gas_limit < block_gas_limit
+    assert min(cap, probe_gas_limit) < execution_headroom, (
+        "the execution budget must not decide the probe's inclusion"
+    )
+
+    probe_tx = Transaction(
         sender=pre.fund_eoa(),
-        to=target,
-        gas_limit=last_gas_limit,
-        error=last_error,
+        to=stop_contract,
+        gas_limit=probe_gas_limit,
+        error=probe_error,
     )
-    last_execution = _intrinsic_execution(
-        fork, [], recipient_type=RecipientType.CONTRACT
-    )
-    post: dict[Address, Account | None] = (
-        {}
-        if delta
-        else {
+
+    post = {}
+    expected_header = None
+    if probe_error is None:
+        execution_gas += _intrinsic_execution(
+            fork,
+            [],
+            recipient_type=RecipientType.CONTRACT,
+        )
+        post: dict[Address, Account | None] = {
             seed_recipient: Account(storage={0: 1}),
-            failed_sender: Account(nonce=1),
-            **{auth.authority: Account.NONEXISTENT for auth in auths},
+            failing_sender: Account(nonce=1),
+            **{
+                authorization.authority: Account.NONEXISTENT
+                for authorization in authorizations
+            },
         }
-    )
+        expected_header = Header(gas_used=max(execution_gas, state_gas))
+
     blockchain_test(
         genesis_environment=Environment(gas_limit=block_gas_limit),
         pre=pre,
         blocks=[
             Block(
-                txs=[seed_tx, failed_tx, last_tx],
+                txs=[seed_tx, failing_tx, probe_tx],
                 gas_limit=block_gas_limit,
-                exception=last_error,
-                header_verify=None
-                if delta
-                else Header(
-                    gas_used=max(
-                        seed_execution + failed_execution + last_execution,
-                        seed_state,
-                    ),
-                ),
+                exception=probe_error,
+                header_verify=expected_header,
             ),
         ],
         post=post,
