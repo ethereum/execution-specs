@@ -95,7 +95,6 @@ class GasCosts:
     CALL_VALUE: Final[ExecutionGas] = ACCOUNT_WRITE + CALL_STIPEND
 
     # Contract Creation
-    CODE_DEPOSIT_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(200))
     CODE_INIT_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(2))
     CREATE_ACCESS: Final[ExecutionGas] = ACCOUNT_WRITE + COLD_ACCOUNT_ACCESS
 
@@ -151,7 +150,6 @@ class GasCosts:
 
     # Transactions
     TX_BASE: Final[ExecutionGas] = ExecutionGas(Uint(12000))
-    TX_CREATE: Final[ExecutionGas] = ExecutionGas(Uint(32000))
     TX_VALUE_COST: Final[ExecutionGas] = ExecutionGas(Uint(6000))
     TX_DATA_TOKEN_STANDARD: Final[ExecutionGas] = ExecutionGas(Uint(4))
     TX_DATA_TOKEN_FLOOR: Final[ExecutionGas] = ExecutionGas(Uint(16))
@@ -835,8 +833,10 @@ def calculate_message_call_gas(
     memory_cost :
         The amount needed to extend the memory in the current frame.
     extra_gas :
-        The amount of gas needed for transferring value + creating a new
-        account inside a message call.
+        The call's own execution charge (access, value transfer and
+        delegation resolution) that the forwarding budget must cover.
+        Account creation is charged in state gas separately; `CALL`
+        charges this itself and passes zero here.
     call_stipend :
         The amount of stipend provided to a message call to execute code while
         transferring value (ETH).

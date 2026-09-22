@@ -35,7 +35,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 from tests.ported_static.post_state_resolution import (
@@ -859,8 +859,12 @@ def test_eip2929(
     # EIP-8038 access-repricing component deltas (each 0 pre-EIP-8037).
     gas_costs = fork.gas_costs()
     eip_active = fork.is_eip_enabled(8037)
-    cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
-    cold_storage_delta = gas_costs.COLD_STORAGE_ACCESS - 2100
+    cold_account_delta = (
+        gas_costs.COLD_ACCOUNT_ACCESS - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
+    )
+    cold_storage_delta = (
+        gas_costs.COLD_STORAGE_ACCESS - Cancun.gas_costs().COLD_STORAGE_ACCESS
+    )
     # EIP-8038 charges an extra warm access for an EXTCODE* code read,
     # on every access (cold adds it on top of the cold account cost,
     # warm pays it as a second warm access).
@@ -868,16 +872,17 @@ def test_eip2929(
     cold_code_read_delta = cold_account_delta + extra_code_read
     warm_code_read_delta = extra_code_read
 
-    def _sstore_delta(cancun_cost: int, **metadata: int) -> int:
-        return Op.SSTORE.with_metadata(**metadata).gas_cost(fork) - cancun_cost
+    def _sstore_delta(**metadata: int) -> int:
+        sstore = Op.SSTORE.with_metadata(**metadata)
+        return sstore.gas_cost(fork) - sstore.gas_cost(Cancun)
 
     # SSTORE 24743 -> 5 (existing nonzero slot changed to a new nonzero
     # value): cold first write vs warm subsequent write.
     cold_sstore_write_delta = _sstore_delta(
-        5000, key_warm=False, original_value=1, current_value=1, new_value=2
+        key_warm=False, original_value=1, current_value=1, new_value=2
     )
     warm_sstore_write_delta = _sstore_delta(
-        2900, key_warm=True, original_value=1, current_value=1, new_value=2
+        key_warm=True, original_value=1, current_value=1, new_value=2
     )
 
     # Operation opcodes (from the calldata oper words).

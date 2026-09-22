@@ -1,6 +1,6 @@
 """
 Mainnet-marked happy-path smoke tests for
-[EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+[EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 One minimal success per repriced dimension (no boundaries, no exact
 magnitudes): a state slot is written, a value-bearing cold ``CALL``
@@ -230,15 +230,18 @@ def test_existing_authority_refund(
     pre: Alloc,
 ) -> None:
     """
-    Re-authorizing an already-delegated authority applies the
-    existing-authority refund and re-points the delegation; the tx
-    succeeds with the new designation installed.
+    Re-authorizing an already-delegated authority re-points the
+    delegation; the tx succeeds with the new designation installed and
+    the authority's nonce bumped.
     """
     old_target = pre.deploy_contract(code=Op.STOP)
     new_target = pre.deploy_contract(code=Op.STOP)
 
-    # Authority already carries a delegation, so the new authorization
-    # triggers REFUND_AUTH_PER_EXISTING_ACCOUNT.
+    # The authority already carries a delegation, so its leaf exists and
+    # no account-creation component applies; the osaka existing-authority
+    # refund is gone. The exact charges are pinned by the EIP-2780
+    # suite's `test_authorization_charges.py`; this test only checks the
+    # delegation is re-pointed on a mainnet-marked path.
     auth_signer = pre.fund_eoa(delegation=old_target)
 
     authorization_list = [

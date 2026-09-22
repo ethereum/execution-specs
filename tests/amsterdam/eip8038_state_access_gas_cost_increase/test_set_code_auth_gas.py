@@ -1,6 +1,6 @@
 """
 Tests for the EIP-7702 authorization *execution*-gas repricing under
-[EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+[EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 Under EIP-2780 each EIP-7702 authorization is charged in two parts: a
 state-independent *execution* base cost paid in the intrinsic, and
@@ -633,3 +633,72 @@ def test_many_auths_block_limit(
         for signer in signers
     }
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize(
+    "delegate_warm", [False, True], ids=["cold_delegate", "warm_delegate"]
+)
+def test_tx_to_delegated_authority_resolution_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    delegate_warm: bool,
+) -> None:
+    """
+    A transaction sent straight to a delegated authority pays the
+    repriced delegation-resolution access, cold or warm.
+
+    Resolving a delegation designation charges one account access for
+    the delegation's own leaf, and EIP-8038 reprices it. The top frame
+    resolves its target's code through a different path from the one the
+    call opcodes use -- ``resolve_delegated_code_address`` rather than
+    each opcode's inline delegation surcharge -- so the warm and cold
+    arms are pinned here as well as in
+    ``test_call_gas.py::test_call_to_delegated_target_double_access``.
+
+    The transaction target is warm from the start, so the only account
+    access the top frame pays is the delegation's. The delegated code is
+    a bare ``STOP``, costing nothing, which leaves the receipt equal to
+    the intrinsic plus that single access. Warming the delegation leaf
+    via the access list moves the charge from ``COLD_ACCOUNT_ACCESS`` to
+    ``WARM_ACCESS``; the access list's own intrinsic cost is taken from
+    the fork's calculator, so the two arms differ by the repricing
+    alone.
+    """
+    delegate = pre.deploy_contract(Op.STOP)
+    authority = pre.fund_eoa(amount=0, delegation=delegate)
+
+    access_list = (
+        [AccessList(address=delegate, storage_keys=[])]
+        if delegate_warm
+        else []
+    )
+
+    gas_costs = fork.gas_costs()
+    resolution_cost = (
+        gas_costs.WARM_ACCESS
+        if delegate_warm
+        else gas_costs.COLD_ACCOUNT_ACCESS
+    )
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        access_list=access_list
+    )
+
+    tx = Transaction(
+        to=authority,
+        sender=pre.fund_eoa(),
+        access_list=access_list or None,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=intrinsic + resolution_cost
+        ),
+    )
+
+    # The delegation is only read, never rewritten: the authority keeps
+    # its designation and the nonce it was funded with.
+    post = {
+        authority: Account(
+            nonce=1, code=Spec7702.delegation_designation(delegate)
+        ),
+    }
+    state_test(pre=pre, post=post, tx=tx)

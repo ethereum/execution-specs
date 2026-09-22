@@ -97,10 +97,9 @@ def sstore(evm: Evm) -> None:
     else:
         gas_cost += GasCosts.WARM_ACCESS
 
-    # Gas must cover the access cost before the state access below
-    # records the slot read in the Block Access List. Post-repricing the
-    # access cost can exceed the stipend, so the EIP-2200 stipend sentry
-    # (`gas_left > CALL_STIPEND`) is no longer sufficient on its own.
+    # EIP-2200 stipend sentry, checked before the state access below
+    # records the slot read in the Block Access List. The `max` guards an
+    # access cost repriced above the stipend; neither warmth is today.
     check_gas(
         evm, max(gas_cost, ExecutionGas(GasCosts.CALL_STIPEND + Uint(1)))
     )
@@ -118,14 +117,16 @@ def sstore(evm: Evm) -> None:
 
     state_gas = StateGas(Uint(0))
 
-    # Write cost: charged on the first change to the slot this transaction.
+    # Write cost: charged each time the slot moves away from its
+    # transaction-start value; restoring it refunds the charge below.
     if original_value == current_value and current_value != new_value:
         gas_cost += GasCosts.STORAGE_WRITE
 
     # Refund Counter Calculation
     if current_value != new_value:
         if original_value != 0 and current_value != 0 and new_value == 0:
-            # Storage is cleared for the first time in the transaction
+            # Slot non-zero at transaction start is cleared; granted on
+            # each such clear.
             evm.gas_meter.refund_counter += GasCosts.REFUND_STORAGE_CLEAR
 
         if original_value != 0 and current_value == 0:
@@ -133,8 +134,8 @@ def sstore(evm: Evm) -> None:
             evm.gas_meter.refund_counter -= GasCosts.REFUND_STORAGE_CLEAR
 
         if original_value == new_value:
-            # Slot restored to its original value: refund the STORAGE_WRITE
-            # charged on the first-time change earlier this transaction.
+            # Slot restored to its original value: refund the
+            # STORAGE_WRITE charged when it was moved away.
             evm.gas_meter.refund_counter += int(GasCosts.STORAGE_WRITE)
 
     # STATE GAS

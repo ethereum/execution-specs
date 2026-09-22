@@ -1,15 +1,17 @@
 """
-Tests for [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+Tests for [EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
-The headline mechanism of the pinned spec version ``a8862ae`` is the
+The headline mechanism of the spec is the
 ``SSTORE`` clear-refund *reversal*: ``refund_counter`` is decremented by
 ``REFUND_STORAGE_CLEAR`` when a slot's original value is non-zero, its
 current value is zero and the new value is non-zero (a slot cleared
-earlier in the same transaction is restored). The spec reverses the clear
-refund "so that clearing and then restoring a slot within the same
-transaction is never net-profitable", closing the ``x -> 0 -> x`` round
-trip; this reversal is exercised by
-``test_sstore_clear_then_reset_nets_zero``.
+earlier in the same transaction is set to a non-zero value again). The
+spec reverses the clear refund "so that clearing and then restoring a
+slot within the same transaction is never net-profitable". The reversal
+fires on any non-zero rewrite: ``test_sstore_clear_then_reset_nets_zero``
+covers the ``x -> 0 -> y`` path and
+``test_sstore_clear_then_restore_original`` the ``x -> 0 -> x`` round
+trip, where the reversal coincides with the ``STORAGE_WRITE`` refund.
 
 This module covers the EIP-8038 *execution* ``SSTORE`` refund schedule via
 the transaction receipt's ``cumulative_gas_used``:
@@ -200,6 +202,69 @@ def test_sstore_clear_then_reset_nets_zero(
 
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Under()
+def test_sstore_clear_then_rewrite_zero_grants_refund_once(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Rewriting zero over an already-cleared slot grants no second refund.
+
+    The first ``SSTORE`` clears the slot and grants
+    ``REFUND_STORAGE_CLEAR``. The second writes zero again: the new value
+    equals the current value, so every refund rule is skipped and the
+    write charges only its access cost. An implementation that keyed the
+    clear grant off the original and new values alone, without comparing
+    the new value to the current one, would grant the refund twice. The
+    receipt pins exactly one grant.
+
+    Enough unrelated gas is burned that the EIP-3529 quotient cap stays
+    clear of *two* grants; were the cap to bind at or below a single
+    grant, a double grant would be capped back to the same figure and
+    the test would not see it.
+    """
+    clear = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=1,
+        current_value=1,
+        new_value=0,
+    )(0, 0)
+    rewrite_zero = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=1,
+        current_value=0,
+        new_value=0,
+    )(0, 0)
+    burn = GasConsumer(gas=clear.refund(fork) * 15, fork=fork)
+    code = clear + rewrite_zero + burn
+
+    contract = pre.deploy_contract(code=code, storage={0: 1})
+
+    # The redundant zero write adds nothing to the refund counter.
+    assert code.refund(fork) == clear.refund(fork)
+    expected_cumulative = _cumulative_gas_used(code, fork)
+
+    # Keep the cap clear of two grants so a spurious one would show.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        return_cost_deducted_prior_execution=True
+    )
+    gross = intrinsic + code.execution_cost(fork)
+    assert gross // 5 > clear.refund(fork) * 2
+
+    tx = Transaction(
+        to=contract,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative
+        ),
+    )
+
+    post = {contract: Account(storage={0: 0})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Under()
 def test_sstore_restore_nonzero_refunds_write(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -252,7 +317,208 @@ def test_sstore_restore_nonzero_refunds_write(
 
 
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Exact()
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Under()
+def test_sstore_clear_then_restore_original(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Clearing then restoring a slot's original value nets one write refund.
+
+    The ``x -> 0 -> x`` round trip: the clear grants
+    ``REFUND_STORAGE_CLEAR``; the restore both reverses that grant and
+    refunds ``STORAGE_WRITE`` (the only row where the two adjustments
+    coincide). The net refund equals a pure restore's write refund, so
+    the round trip pays access costs plus nothing net for the write.
+    """
+    code = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=1,
+        current_value=1,
+        new_value=0,
+    )(0, 0) + Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=1,
+        current_value=0,
+        new_value=1,
+    )(0, 1)
+    burn = GasConsumer(gas=code.refund(fork) * 5, fork=fork)
+    code += burn
+
+    contract = pre.deploy_contract(code=code, storage={0: 1})
+
+    # The clear grant and its reversal cancel; only the STORAGE_WRITE
+    # refund of the restore survives, exactly as for a plain non-zero
+    # restore (the (x, y, x) row).
+    restore_refund = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=1,
+        current_value=2,
+        new_value=1,
+    ).refund(fork)
+    assert code.refund(fork) == restore_refund
+    expected_cumulative = _cumulative_gas_used(code, fork)
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        return_cost_deducted_prior_execution=True
+    )
+    gross = intrinsic + code.execution_cost(fork)
+    assert gross // 5 > restore_refund
+    assert expected_cumulative == gross - restore_refund
+
+    tx = Transaction(
+        to=contract,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative
+        ),
+    )
+
+    post = {contract: Account(storage={0: 1})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Under()
+def test_sstore_write_charged_each_move_away(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    ``STORAGE_WRITE`` is charged by each write that moves the slot away
+    from its transaction-start value, not once per transaction.
+
+    The ``x -> y -> x -> z`` sequence charges the write cost twice (the
+    first and third writes each find ``current == original``) with one
+    refund between them, so the net refund is exactly one write refund
+    while the gross gas carries both charges.
+    """
+    code = (
+        Op.SSTORE.with_metadata(
+            key_warm=False,
+            original_value=1,
+            current_value=1,
+            new_value=2,
+        )(0, 2)
+        + Op.SSTORE.with_metadata(
+            key_warm=True,
+            original_value=1,
+            current_value=2,
+            new_value=1,
+        )(0, 1)
+        + Op.SSTORE.with_metadata(
+            key_warm=True,
+            original_value=1,
+            current_value=1,
+            new_value=3,
+        )(0, 3)
+    )
+    burn = GasConsumer(gas=code.refund(fork) * 5, fork=fork)
+    code += burn
+
+    contract = pre.deploy_contract(code=code, storage={0: 1})
+
+    # One restore refund survives; the second move-away is charged in
+    # full again with no further refund.
+    restore_refund = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=1,
+        current_value=2,
+        new_value=1,
+    ).refund(fork)
+    assert code.refund(fork) == restore_refund
+    expected_cumulative = _cumulative_gas_used(code, fork)
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        return_cost_deducted_prior_execution=True
+    )
+    gross = intrinsic + code.execution_cost(fork)
+    assert gross // 5 > restore_refund
+    assert expected_cumulative == gross - restore_refund
+
+    tx = Transaction(
+        to=contract,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative
+        ),
+    )
+
+    post = {contract: Account(storage={0: 3})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Under()
+def test_sstore_clear_refund_granted_twice(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    The clear refund is granted on each clear of a non-zero slot, not
+    once per transaction.
+
+    The ``x -> 0 -> y -> 0`` sequence grants ``REFUND_STORAGE_CLEAR``,
+    reverses it on the non-zero rewrite, then grants it again on the
+    second clear, netting exactly one grant.
+    """
+    code = (
+        Op.SSTORE.with_metadata(
+            key_warm=False,
+            original_value=1,
+            current_value=1,
+            new_value=0,
+        )(0, 0)
+        + Op.SSTORE.with_metadata(
+            key_warm=True,
+            original_value=1,
+            current_value=0,
+            new_value=2,
+        )(0, 2)
+        + Op.SSTORE.with_metadata(
+            key_warm=True,
+            original_value=1,
+            current_value=2,
+            new_value=0,
+        )(0, 0)
+    )
+    burn = GasConsumer(gas=code.refund(fork) * 5, fork=fork)
+    code += burn
+
+    contract = pre.deploy_contract(code=code, storage={0: 1})
+
+    # Grant, reversal, grant: the net refund is one clear grant, the
+    # same as a single clear of a non-zero-original slot.
+    single_clear_refund = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=1,
+        current_value=1,
+        new_value=0,
+    ).refund(fork)
+    assert code.refund(fork) == single_clear_refund
+    expected_cumulative = _cumulative_gas_used(code, fork)
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        return_cost_deducted_prior_execution=True
+    )
+    gross = intrinsic + code.execution_cost(fork)
+    assert gross // 5 > single_clear_refund
+    assert expected_cumulative == gross - single_clear_refund
+
+    tx = Transaction(
+        to=contract,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative
+        ),
+    )
+
+    post = {contract: Account(storage={0: 0})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Over()
 @pytest.mark.parametrize("num_clears", [1, 8, 32])
 def test_sstore_refund_quotient_cap(
     state_test: StateTestFiller,

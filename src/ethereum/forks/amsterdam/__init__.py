@@ -15,7 +15,7 @@ deterministic ``CREATE2`` factory contract.
 - [EIP-7997: Deterministic Factory Contract][EIP-7997]
 - [EIP-8024: Stack Access Instructions][EIP-8024]
 - [EIP-8037: State Creation Gas Cost Increase][EIP-8037]
-- [EIP-8038: State Access Gas Cost Increase][EIP-8038]
+- [EIP-8038: State-access gas cost update][EIP-8038]
 - [EIP-8246: Remove SELFDESTRUCT balance burn][EIP-8246]
 - [EIP-8282: Builder Execution Requests][EIP-8282]
 

@@ -6,14 +6,12 @@ state_tests/stEIP150singleCodeGasPrices/RawExtCodeCopyMemoryGasFiller.json
 
 @manually-enhanced: Do not overwrite. This measures the regular gas
 that a single cold `EXTCODECOPY` (with memory expansion) consumes via
-`Op.GAS`. EIP-8038 reprices the cold account access
-(`COLD_ACCOUNT_ACCESS`, 2600 -> 3000) and charges an extra
-`WARM_ACCESS` for the opcode's second read (the code). The stored cost
-therefore shifts by `(COLD_ACCOUNT_ACCESS - 2600) + WARM_ACCESS`. The
-cold term comes from the fork's own constant; the extra warm term is
-gated on the `is_eip_enabled(8037)` flag (the registered flag that
-activates the repricing at Amsterdam), so the delta is exactly 0 on
-earlier forks. Do not hardcode it.
+`Op.GAS`. EIP-8038 raises the cold account access
+(`COLD_ACCOUNT_ACCESS`) and charges an extra `WARM_ACCESS` for the
+opcode's second read (the code). The stored cost therefore shifts by
+the opcode's own cold cost on the fork less its cost on Cancun, taken
+from `Op.EXTCODECOPY` metadata so the delta is exactly 0 on earlier
+forks. Do not hardcode it.
 """
 
 import pytest
@@ -26,7 +24,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -46,14 +44,12 @@ def test_raw_ext_code_copy_memory_gas(
     fork: Fork,
 ) -> None:
     """Test_raw_ext_code_copy_memory_gas."""
-    gas_costs = fork.gas_costs()
-    # EIP-8038: cold account repricing plus the extra warm access charged
-    # for the opcode's second read (the code). Both terms are 0 before
-    # EIP-8038, so the stored cost is unchanged on earlier forks.
-    cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
-    code_read_delta = cold_account_delta + (
-        gas_costs.WARM_ACCESS if fork.is_eip_enabled(8037) else 0
-    )
+    # EIP-8038 delta, 0 before EIP-8038: the cold account reprice plus a
+    # second WARM_ACCESS for the code read, both carried by the opcode's
+    # cost metadata.
+    cold_extcodecopy = Op.EXTCODECOPY.with_metadata(address_warm=False)
+    cancun_extcodecopy_cost = cold_extcodecopy.gas_cost(Cancun)
+    code_read_delta = cold_extcodecopy.gas_cost(fork) - cancun_extcodecopy_cost
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 
