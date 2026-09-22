@@ -690,10 +690,9 @@ def test_access_list_intrinsic_at_transition(
     access-list entries at the other regime's constants either rejects
     the transaction or consumes a different amount.
 
-    The rise itself is not EIP-8038's alone: after the fork each entry
-    also carries EIP-8037's state-gas share, so the exact receipt pin,
-    not the direction of the rise, is what checks the access-list
-    constants.
+    The rise combines EIP-8038's access-cost increase with EIP-7981's
+    per-entry data surcharge, charged in execution gas. The exact receipt
+    pin checks the resulting access-list cost.
     """
     before = fork.fork_at(timestamp=BEFORE_TS)
     after = fork.fork_at(timestamp=AFTER_TS)
@@ -754,10 +753,9 @@ def test_access_list_intrinsic_straddles_validity(
     EIP-2780 fall in the base cost, so the same transaction that is
     valid before the fork is rejected with ``INTRINSIC_GAS_TOO_LOW``
     after it. Off-by-one limits on either side pin the constraint in
-    each regime, so all four accept/reject arms are exercised. The
-    surcharge also carries EIP-8037's state-gas share of each entry,
-    so the direction of the rise is not EIP-8038's alone; the
-    off-by-one limits are what pin its constants.
+    each regime, so all four accept/reject arms are exercised. EIP-7981's
+    per-entry data surcharge, charged in execution gas, also contributes
+    to the rise; the off-by-one limits pin the resulting access-list cost.
     """
     before = fork.fork_at(timestamp=BEFORE_TS)
     after = fork.fork_at(timestamp=AFTER_TS)
