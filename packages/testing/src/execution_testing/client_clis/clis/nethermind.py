@@ -245,7 +245,6 @@ class NethtestFixtureConsumer(
     ) -> None:
         """Execute the the fixture at `fixture_path` via `nethtest`."""
         del fixture_path
-        del fixture_name
         result = subprocess.run(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
@@ -260,6 +259,63 @@ class NethtestFixtureConsumer(
                 f"stdout:\n{result.stdout}\n"
                 f"stderr:\n{result.stderr}\n"
                 f"{' '.join(command)}"
+            )
+
+        # `nethtest --blockTest` always exits 0, regardless of test outcome,
+        # so the result has to be read from stdout. Nethermind >= 2.0.0
+        # writes a JSON array (like `evm blocktest`); older versions only
+        # print a human-readable "<name padded> PASS"/"FAIL" line per test.
+        # Support both, and treat "no recognizable result" as a failure
+        # rather than a pass, since a `--filter` that matches nothing would
+        # otherwise look identical to a pass.
+        stdout = result.stdout
+        try:
+            file_results = json.loads(stdout)
+        except json.JSONDecodeError:
+            file_results = None
+
+        if isinstance(file_results, list):
+            if not file_results:
+                raise Exception(
+                    f"nethtest reported no block test results for "
+                    f"'{fixture_name}'.\nstdout:\n{stdout}\n"
+                    f"stderr:\n{result.stderr}"
+                )
+            failures = [
+                test_result
+                for test_result in file_results
+                if not test_result.get("pass", False)
+            ]
+            if failures:
+                exception_text = "Blockchain test failed: \n" + "\n".join(
+                    f"{test_result.get('name', '<unknown>')}: "
+                    f"{test_result.get('error', '<no error reported>')}"
+                    for test_result in failures
+                )
+                raise Exception(exception_text)
+            return
+
+        passed = False
+        failed = False
+        for line in stdout.splitlines():
+            tokens = line.split()
+            if not tokens:
+                continue
+            status = tokens[-1]
+            if status == "PASS":
+                passed = True
+            elif status == "FAIL":
+                failed = True
+
+        if failed:
+            raise Exception(
+                f"Blockchain test '{fixture_name}' failed.\n"
+                f"stdout:\n{stdout}\nstderr:\n{result.stderr}"
+            )
+        if not passed:
+            raise Exception(
+                f"nethtest reported no recognizable PASS/FAIL result for "
+                f"'{fixture_name}'.\nstdout:\n{stdout}\nstderr:\n{result.stderr}"
             )
 
     def consume_fixture(
