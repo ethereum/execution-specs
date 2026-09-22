@@ -1505,6 +1505,9 @@ class EngineRPC(BaseJwtRPC):
         no-op for its blobpool).
         """
         method = f"forkchoiceUpdatedV{version}"
+        assert custody_columns is None or not custody_columns_null, (
+            "Pass either custody_columns or custody_columns_null, not both."
+        )
 
         params: List[Any]
         if payload_attributes is None:

@@ -248,8 +248,7 @@ class BlobTransaction(BaseExecute):
     interleave_nonexisting_blob_hashes: bool = False
     get_blobs_version: int | None = None
     cell_mask: int | None = None
-    custody_columns: bytes | None = None
-    custody_columns_null: bool = False
+    custody_columns_updates: List[bytes | None] | None = None
 
     def prepare_transactions(
         self,
@@ -300,22 +299,24 @@ class BlobTransaction(BaseExecute):
             balances[sender] += tx.signer_minimum_balance(fork=fork)
         return balances
 
-    def _update_custody_columns(
+    def _send_custody_columns_updates(
         self,
         fork: Fork,
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC,
     ) -> None:
         """
-        Send a forkchoice update carrying the `custodyColumns` bitmap.
+        Send one forkchoice update per entry of `custody_columns_updates`.
 
         A 16-byte bitmap or an explicit `null` must be accepted with a
-        VALID payload status (`null` is a no-op for the blobpool, and
-        custody set update errors must not affect the forkchoice flow,
-        per `engine_forkchoiceUpdatedV4`); any other length must be
-        rejected with `-32602: Invalid params`.
+        VALID payload status (`null` and a bitmap identical to the current
+        set are blobpool no-ops, and custody set update errors must not
+        affect the forkchoice flow, per `engine_forkchoiceUpdatedV4`); any
+        other length must be rejected with `-32602: Invalid params`.
         """
-        assert self.custody_columns is not None or self.custody_columns_null
+        assert self.custody_columns_updates, (
+            "custody_columns_updates must hold at least one update."
+        )
         fcu_version = fork.engine_forkchoice_updated_version()
         assert fcu_version is not None and fcu_version >= 4, (
             "custodyColumns requires engine_forkchoiceUpdatedV4."
@@ -325,54 +326,55 @@ class BlobTransaction(BaseExecute):
         forkchoice_state = ForkchoiceState(
             head_block_hash=Hash(latest_block["hash"]),
         )
-        if self.custody_columns is None:
-            response = engine_rpc.forkchoice_updated(
-                forkchoice_state,
-                None,
-                version=fcu_version,
-                custody_columns_null=True,
-            )
+        for custody_columns in self.custody_columns_updates:
+            if custody_columns is None:
+                response = engine_rpc.forkchoice_updated(
+                    forkchoice_state,
+                    None,
+                    version=fcu_version,
+                    custody_columns_null=True,
+                )
+                status = response.payload_status.status
+                if status != PayloadStatusEnum.VALID:
+                    raise ValueError(
+                        f"forkchoiceUpdatedV{fcu_version} with a null "
+                        f"custodyColumns returned payload status {status}, "
+                        "expected VALID."
+                    )
+                continue
+            valid_length = len(custody_columns) == CUSTODY_COLUMNS_BYTE_LENGTH
+            try:
+                response = engine_rpc.forkchoice_updated(
+                    forkchoice_state,
+                    None,
+                    version=fcu_version,
+                    custody_columns=custody_columns,
+                )
+            except JSONRPCError as e:
+                if valid_length:
+                    raise
+                if e.code != -32602:
+                    raise ValueError(
+                        f"Expected error -32602 (Invalid params) for a "
+                        f"{len(custody_columns)}-byte custodyColumns, "
+                        f"got {e.code}: {e.message}"
+                    ) from e
+                logger.info(
+                    f"Client correctly rejected a "
+                    f"{len(custody_columns)}-byte custodyColumns bitmap."
+                )
+                continue
+            if not valid_length:
+                raise ValueError(
+                    f"Client accepted a {len(custody_columns)}-byte "
+                    "custodyColumns bitmap; expected -32602 (Invalid params)."
+                )
             status = response.payload_status.status
             if status != PayloadStatusEnum.VALID:
                 raise ValueError(
-                    f"forkchoiceUpdatedV{fcu_version} with a null "
-                    f"custodyColumns returned payload status {status}, "
-                    "expected VALID."
+                    f"forkchoiceUpdatedV{fcu_version} with custodyColumns "
+                    f"returned payload status {status}, expected VALID."
                 )
-            return
-        valid_length = len(self.custody_columns) == CUSTODY_COLUMNS_BYTE_LENGTH
-        try:
-            response = engine_rpc.forkchoice_updated(
-                forkchoice_state,
-                None,
-                version=fcu_version,
-                custody_columns=self.custody_columns,
-            )
-        except JSONRPCError as e:
-            if valid_length:
-                raise
-            if e.code != -32602:
-                raise ValueError(
-                    f"Expected error -32602 (Invalid params) for a "
-                    f"{len(self.custody_columns)}-byte custodyColumns, "
-                    f"got {e.code}: {e.message}"
-                ) from e
-            logger.info(
-                f"Client correctly rejected a "
-                f"{len(self.custody_columns)}-byte custodyColumns bitmap."
-            )
-            return
-        if not valid_length:
-            raise ValueError(
-                f"Client accepted a {len(self.custody_columns)}-byte "
-                "custodyColumns bitmap; expected -32602 (Invalid params)."
-            )
-        status = response.payload_status.status
-        if status != PayloadStatusEnum.VALID:
-            raise ValueError(
-                f"forkchoiceUpdatedV{fcu_version} with custodyColumns "
-                f"returned payload status {status}, expected VALID."
-            )
 
     def execute(
         self,
@@ -446,8 +448,8 @@ class BlobTransaction(BaseExecute):
             else:
                 list_versioned_hashes.extend(self.nonexisting_blob_hashes)
 
-        if self.custody_columns is not None or self.custody_columns_null:
-            self._update_custody_columns(fork, eth_rpc, engine_rpc)
+        if self.custody_columns_updates is not None:
+            self._send_custody_columns_updates(fork, eth_rpc, engine_rpc)
 
         indices_bitarray = self.cell_mask if version >= 4 else None
         blob_response: GetBlobsResponse | GetBlobsV4Response | None = (
