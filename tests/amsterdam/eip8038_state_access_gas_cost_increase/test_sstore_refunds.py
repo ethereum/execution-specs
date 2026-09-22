@@ -484,7 +484,7 @@ def test_sstore_clear_refund_granted_twice(
 
 
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Exact()
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Over()
 @pytest.mark.parametrize("num_clears", [1, 8, 32])
 def test_sstore_refund_quotient_cap(
     state_test: StateTestFiller,
