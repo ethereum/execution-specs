@@ -97,9 +97,11 @@ def sstore(evm: Evm) -> None:
     else:
         gas_cost += GasCosts.WARM_ACCESS
 
-    # EIP-2200 stipend sentry, checked before the state access below
-    # records the slot read in the Block Access List. The `max` guards an
-    # access cost repriced above the stipend; neither warmth is today.
+    # EIP-2200 stipend sentry: SSTORE needs more than CALL_STIPEND left,
+    # so even a cheap warm no-op write fails in a stipend-funded frame.
+    # Checked before the state access below records the slot read in
+    # the Block Access List. The `max` also covers an access cost
+    # repriced above the stipend, which neither warmth reaches today.
     check_gas(
         evm, max(gas_cost, ExecutionGas(GasCosts.CALL_STIPEND + Uint(1)))
     )
