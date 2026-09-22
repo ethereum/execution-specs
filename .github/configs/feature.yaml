@@ -10,7 +10,7 @@
 # release-ready rehearsal of the next tests@ release.
 tests:
   evm-type: eels
-  fill-params: --until=BPO4 --generate-all-formats
+  fill-params: --until=Amsterdam --generate-all-formats
 
 benchmark:
   evm-type: benchmark
