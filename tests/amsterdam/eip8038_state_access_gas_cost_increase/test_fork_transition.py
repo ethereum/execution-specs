@@ -164,6 +164,13 @@ def _access_list(pre: Alloc) -> List[AccessList]:
     ]
 
 
+def _minimum_gas_limit(regime: Fork, access_list: List[AccessList]) -> int:
+    """Return the regime's intrinsic cost of an access-list transaction."""
+    return regime.transaction_intrinsic_cost_calculator()(
+        access_list=access_list
+    )
+
+
 @EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
 @EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_cold_account_access_at_transition(
@@ -694,11 +701,6 @@ def test_access_list_intrinsic_at_transition(
             return_cost_deducted_prior_execution=True,
         ) - calculator(return_cost_deducted_prior_execution=True)
 
-    def minimum_gas_limit(regime: Fork) -> int:
-        return regime.transaction_intrinsic_cost_calculator()(
-            access_list=access_list
-        )
-
     # The access list itself got more expensive, independently of the
     # transaction base cost moving the other way under EIP-2780.
     assert surcharge(after) > surcharge(before)
@@ -706,7 +708,7 @@ def test_access_list_intrinsic_at_transition(
     recipient = pre.fund_eoa(amount=0)
 
     def block(timestamp: int, regime: Fork) -> Block:
-        gas_limit = minimum_gas_limit(regime)
+        gas_limit = _minimum_gas_limit(regime, access_list)
         return Block(
             timestamp=timestamp,
             txs=[
@@ -753,13 +755,8 @@ def test_access_list_intrinsic_straddles_validity(
     after = fork.fork_at(timestamp=AFTER_TS)
     access_list = _access_list(pre)
 
-    def minimum_gas_limit(regime: Fork) -> int:
-        return regime.transaction_intrinsic_cost_calculator()(
-            access_list=access_list
-        )
-
-    intrinsic_before = minimum_gas_limit(before)
-    intrinsic_after = minimum_gas_limit(after)
+    intrinsic_before = _minimum_gas_limit(before, access_list)
+    intrinsic_after = _minimum_gas_limit(after, access_list)
     # The straddle only exists because this access list's surcharge rises
     # by more than the EIP-2780 base cost falls.
     assert intrinsic_after > intrinsic_before
