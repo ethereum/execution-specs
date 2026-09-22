@@ -8,10 +8,8 @@ state_tests/stEIP150singleCodeGasPrices/RawExtCodeSizeGasFiller.json
 that a single cold `EXTCODESIZE` consumes via `Op.GAS`. EIP-8038
 raises the cold account access (`COLD_ACCOUNT_ACCESS`) and charges an
 extra `WARM_ACCESS` for the opcode's second read (the code). The
-stored cost therefore shifts by the `COLD_ACCOUNT_ACCESS` rise plus
-`WARM_ACCESS`. The cold term is the fork's own constant less Cancun's.
-The extra warm term is gated on the `is_eip_enabled(8037)` flag (the
-registered flag that activates the repricing at Amsterdam), so the
+stored cost therefore shifts by the opcode's own cold cost on the fork
+less its cost on Cancun, taken from `Op.EXTCODESIZE` metadata so the
 delta is exactly 0 on earlier forks. Do not hardcode it.
 """
 
@@ -43,16 +41,12 @@ def test_raw_ext_code_size_gas(
     fork: Fork,
 ) -> None:
     """Test_raw_ext_code_size_gas."""
-    gas_costs = fork.gas_costs()
-    # EIP-8038: cold account repricing plus the extra warm access charged
-    # for the opcode's second read (the code). Both terms are 0 before
-    # EIP-8038, so the stored cost is unchanged on earlier forks.
-    cold_account_delta = (
-        gas_costs.COLD_ACCOUNT_ACCESS - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
-    )
-    code_read_delta = cold_account_delta + (
-        gas_costs.WARM_ACCESS if fork.is_eip_enabled(8037) else 0
-    )
+    # EIP-8038 delta, 0 before EIP-8038: the cold account reprice plus a
+    # second WARM_ACCESS for the code read, both carried by the opcode's
+    # cost metadata.
+    cold_extcodesize = Op.EXTCODESIZE.with_metadata(address_warm=False)
+    cancun_extcodesize_cost = cold_extcodesize.gas_cost(Cancun)
+    code_read_delta = cold_extcodesize.gas_cost(fork) - cancun_extcodesize_cost
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 
