@@ -1580,15 +1580,15 @@ def test_preparation_rollback_restores_block_state_budget(
         error=probe_error,
     )
 
-    post = {}
-    expected_header = None
+    post: dict[Address, Account | None] = {}
+    expected_header: Header | None = None
     if probe_error is None:
         execution_gas += _intrinsic_execution(
             fork,
             [],
             recipient_type=RecipientType.CONTRACT,
         )
-        post: dict[Address, Account | None] = {
+        post = {
             seed_recipient: Account(storage={0: 1}),
             failing_sender: Account(nonce=1),
             **{
