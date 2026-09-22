@@ -2,10 +2,10 @@ name: Create Fixture Release
 
 run-name: ${{ github.event_name == 'schedule' && 'Nightly Fill' || format('Create Fixture Release {0}@{1}{2}', inputs.feature, inputs.version, (inputs.cached || inputs.commit != '') && ' (cached)' || '') }}
 
-# Scheduled runs fill the mainnet `tests` feature (all tests, all fixture
-# formats, up to the latest mainnet fork -- no dev forks) through the exact
+# Scheduled runs fill the `tests` feature (all tests, all fixture formats,
+# per its fill-params in .github/configs/feature.yaml) through the exact
 # release pipeline, but skip the `release` job, so no tag or draft release
-# is created: a rotating, always-available artifact of the mainnet
+# is created: a rotating, always-available artifact of the `tests`
 # fixtures. The cron fires at 02:00 UTC: the self-hosted runners are past
 # the EU/US daytime peaks and results are ready before the EU morning.
 #
@@ -122,8 +122,8 @@ jobs:
         id: matrix
         shell: bash
         env:
-          # Scheduled runs have no inputs: fill the mainnet `tests`
-          # feature; the placeholder version passes validation and is
+          # Scheduled runs have no inputs: fill the `tests` feature;
+          # the placeholder version passes validation and is
           # otherwise unused because the `release` job is skipped for
           # scheduled runs.
           INPUT_FEATURE: ${{ inputs.feature || 'tests' }}
