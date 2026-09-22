@@ -5,9 +5,11 @@
 # Any `<feat>-devnet` input resolves to the shared `devnet` entry but keeps
 # its name in the tag; the devnet number lives in the version (X), not the
 # feature name, so this file needs no edits for new devnets.
-# `tests` is also what the scheduled nightly run of the `release_fixtures`
-# workflow fills: mainnet forks only, so the rotating nightly artifact is a
-# release-ready rehearsal of the next tests@ release.
+# `tests` is the stable release clients gate their master branches on; its
+# `--until` tracks the fork those branches implement (the policy is stated
+# in docs/running_tests/releases.md). `tests` is also what the scheduled
+# nightly run of the `release_fixtures` workflow fills, so the rotating
+# nightly artifact is a release-ready rehearsal of the next tests@ release.
 tests:
   evm-type: eels
   fill-params: --until=Amsterdam --generate-all-formats
