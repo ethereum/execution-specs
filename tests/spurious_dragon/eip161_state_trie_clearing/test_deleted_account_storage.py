@@ -22,7 +22,16 @@ from .spec import ref_spec_161
 REFERENCE_SPEC_GIT_PATH = ref_spec_161.git_path
 REFERENCE_SPEC_VERSION = ref_spec_161.version
 
+# TODO: Deletion of an empty account that holds storage stays undefined
+# for clients until EIP-8253 (Hegota) bumps the nonce of the mainnet
+# accounts of that shape. Revisit this test once EIP-8253 ships: unskip
+# it or drop it. See PR #3508.
+STORAGE_ONLY_ACCOUNT_SKIP = pytest.mark.skip(
+    reason="Undefined until EIP-8253 (Hegota), see PR #3508"
+)
 
+
+@STORAGE_ONLY_ACCOUNT_SKIP
 @pytest.mark.valid_from("London")
 @pytest.mark.pre_alloc_mutable
 def test_zero_tip_deletes_coinbase_storage(

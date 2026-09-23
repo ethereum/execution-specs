@@ -384,6 +384,14 @@ STORAGE_PROBE_INITCODE = Initcode(
 STORAGE_ONLY_PRE_STORAGE = {0x01: 0x01, 0x02: 0x02}
 STORAGE_ONLY_POST_STORAGE = {0x00: 0x01, 0x01: 0x00, 0x02: 0x00}
 
+# TODO: Contract creation over a zero-nonce account that holds storage
+# stays undefined for clients until EIP-8253 (Hegota) bumps the nonce of
+# the mainnet accounts of that shape. Revisit the storage-only tests once
+# EIP-8253 ships: unskip them or drop them. See PR #3508.
+STORAGE_ONLY_ACCOUNT_SKIP = pytest.mark.skip(
+    reason="Undefined until EIP-8253 (Hegota), see PR #3508"
+)
+
 
 STORAGE_ONLY_INITCODE_OUTCOMES = [
     pytest.param("correct", id="correct-initcode"),
@@ -454,6 +462,7 @@ def creation_tx_gas(fork: Fork, initcode: Bytecode) -> int | None:
     return max(execution_gas, floor_gas)
 
 
+@STORAGE_ONLY_ACCOUNT_SKIP
 @pytest.mark.parametrize("initcode_outcome", STORAGE_ONLY_INITCODE_OUTCOMES)
 @pytest.mark.parametrize("balance", [0, 1])
 @pytest.mark.with_all_contract_creating_tx_types
@@ -499,6 +508,7 @@ def test_create_tx_storage_only_target(
     )
 
 
+@STORAGE_ONLY_ACCOUNT_SKIP
 @pytest.mark.parametrize("initcode_outcome", STORAGE_ONLY_INITCODE_OUTCOMES)
 @pytest.mark.parametrize("balance", [0, 1])
 @pytest.mark.with_all_create_opcodes
@@ -561,6 +571,7 @@ def test_create_opcode_storage_only_target(
     )
 
 
+@STORAGE_ONLY_ACCOUNT_SKIP
 def test_create_tx_storage_only_target_later_tx(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
