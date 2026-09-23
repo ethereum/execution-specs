@@ -79,7 +79,9 @@ def test_jumpdest_analysis(
         + Op.CREATE(value=Op.PUSH0, offset=Op.PUSH0, size=Op.MSIZE)
     )
 
-    setup = code_prepare_initcode + Op.PUSH0
+    setup = code_prepare_initcode + Op.CREATE(
+        value=Op.PUSH0, offset=Op.PUSH0, size=Op.MSIZE
+    )
 
     benchmark_test(
         code_generator=JumpLoopGenerator(

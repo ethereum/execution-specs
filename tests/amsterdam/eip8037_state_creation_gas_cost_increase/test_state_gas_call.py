@@ -21,7 +21,10 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BalBalanceChange,
     Block,
+    BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
     CodeGasMeasure,
@@ -44,6 +47,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
+@pytest.mark.parametrize("funding", ["reservoir", "spill"])
 @pytest.mark.parametrize(
     "sufficient_gas",
     ["sufficient_gas", "insufficient_execute", "insufficient_state"],
@@ -54,13 +58,14 @@ def test_child_call_uses_reservoir(
     pre: Alloc,
     fork: Fork,
     sufficient_gas: str,
+    funding: str,
 ) -> None:
     """
     Test child call can use parent's state gas reservoir.
 
-    The parent calls a child contract that performs an SSTORE
-    (zero-to-nonzero). The state gas for the SSTORE is drawn from
-    the reservoir passed from the parent.
+    Parent calls child SSTORE. Test two modes:
+    reservoir (uses parent's state gas) vs spill (uses forwarded gas).
+    Both test behavior when gas runs out.
     """
     child_storage = Storage()
     code = Op.SSTORE(
@@ -79,6 +84,14 @@ def test_child_call_uses_reservoir(
         execution_gas -= 1
     elif sufficient_gas == "insufficient_state":
         state_gas -= 1
+
+    if funding == "spill":
+        child_gas = execution_gas + state_gas
+        reservoir = 0
+    else:
+        child_gas = execution_gas
+        reservoir = state_gas
+
     child = pre.deploy_contract(
         code=code,
     )
@@ -90,14 +103,14 @@ def test_child_call_uses_reservoir(
                 parent_storage.store_next(
                     1 if sufficient_gas == "sufficient_gas" else 0
                 ),
-                Op.CALL(gas=execution_gas, address=child),
+                Op.CALL(gas=child_gas, address=child),
             )
         )
     )
 
     tx = Transaction(
         to=parent,
-        state_gas_reservoir=state_gas,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
     )
 
@@ -108,11 +121,13 @@ def test_child_call_uses_reservoir(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize("funding", ["spill", "mixed"])
 @pytest.mark.valid_from("EIP8037")
 def test_delegatecall_child_spill_not_double_charged(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    funding: str,
 ) -> None:
     """
     Test DELEGATECALL child state gas paid from `gas_left` is not recharged.
@@ -123,6 +138,9 @@ def test_delegatecall_child_spill_not_double_charged(
     `gas_left`. The parent frame must not charge the same state growth again
     at frame end: the header bills the storage sets once, in the state
     dimension, so a second charge surfaces as inflated `gas_used`.
+
+    `mixed` funds one set from the reservoir and spills the rest, so the
+    header must stay put however the charge is split.
     """
     num_sstores = 6
     child_code = (
@@ -164,9 +182,14 @@ def test_delegatecall_child_spill_not_double_charged(
         "expected state gas to dominate execution gas"
     )
 
+    if funding == "mixed":
+        reservoir = Op.SSTORE(new_value=1).state_cost(fork)
+    else:
+        reservoir = 0
+
     tx = Transaction(
         to=caller,
-        state_gas_reservoir=0,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
     )
 
@@ -356,11 +379,16 @@ def test_reservoir_restored_after_child_spill_and_revert(
     )
 
 
+@pytest.mark.parametrize(
+    "call_opcode",
+    [Op.CALL, Op.CALLCODE, Op.DELEGATECALL],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_reservoir_restored_after_child_spill_and_halt(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    call_opcode: Op,
 ) -> None:
     """
     Test parent gets reservoir back after child spill + halt.
@@ -377,7 +405,7 @@ def test_reservoir_restored_after_child_spill_and_halt(
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
-    child_code = Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.INVALID
+    child_code = Op.SSTORE(0xDEAD, 1) + Op.SSTORE(0xBEAF, 1) + Op.INVALID
     child = pre.deploy_contract(code=child_code)
     # Exactly enough for both SSTOREs: the reservoir funds the first and
     # the second spills, leaving nothing for the INVALID to burn.
@@ -392,7 +420,7 @@ def test_reservoir_restored_after_child_spill_and_halt(
     funded_slot = parent_storage.store_next(1)
     starved_slot = parent_storage.store_next(0)
     parent_code = (
-        Op.POP(Op.CALL(gas=child_gas, address=child))
+        Op.POP(call_opcode(gas=child_gas, address=child))
         + Op.SSTORE(
             funded_slot,
             Op.CALL(gas=probe_gas, address=funded_probe),
@@ -443,8 +471,8 @@ def test_reservoir_restored_after_child_spill_and_halt(
 
     post = {
         parent: Account(storage=parent_storage),
-        funded_probe: Account(storage={0: 1}),
-        starved_probe: Account(storage={0: 0}),
+        funded_probe: Account(storage={funded_slot: 1}),
+        starved_probe: Account(storage={starved_slot: 0}),
     }
     state_test(
         pre=pre,
@@ -693,73 +721,125 @@ def test_nested_calls_reservoir_passing(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize(
+    "value_is_affordable",
+    [
+        pytest.param(True, id="value_transferred"),
+        pytest.param(False, id="insufficient_balance"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_call_value_transfer_new_account(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    value_is_affordable: bool,
 ) -> None:
     """
     Test CALL with value to non-existent account charges state gas.
 
     A CALL that transfers value to a non-existent account creates a
-    new account, charging new-account state gas of state gas.
+    new account, charging new-account state gas. Aborting that call for
+    want of balance credits the charge back, so the whole reservoir
+    returns and the target is left warm but uncreated.
     """
     # Target address that doesn't exist in pre-state
     target = pre.nonexistent_account()
+
+    call_value = 1
+    parent_balance = call_value if value_is_affordable else call_value - 1
+    call_result = 1 if value_is_affordable else 0
 
     parent_storage = Storage()
     # The slot already holds the value the CALL returns, so the
     # recording SSTORE is a no-op write that adds no state gas; the
     # reservoir then covers exactly the CALL's new-account charge.
-    call_slot = parent_storage.store_next(1)
+    call_slot = parent_storage.store_next(call_result)
     parent_code = Op.SSTORE(
         call_slot,
         Op.CALL(
             gas=0,
             address=target,
-            value=1,
+            value=call_value,
             value_transfer=True,
             account_new=True,
         ),
         # gas accounting
-        original_value=1,
-        current_value=1,
-        new_value=1,
+        original_value=call_result,
+        current_value=call_result,
+        new_value=call_result,
         key_warm=False,
     )
     parent = pre.deploy_contract(
-        code=parent_code, balance=1, storage={call_slot: 1}
+        code=parent_code,
+        balance=parent_balance,
+        storage={call_slot: call_result},
     )
 
-    state_gas = parent_code.state_cost(fork)
+    reservoir = parent_code.state_cost(fork)
     # The codeless target returns the forwarded value-call stipend
-    # unused, so it is charged but never consumed.
+    # unused, so it is charged but never consumed; the aborted call
+    # restores the same grant untouched.
     execution_gas = (
         fork.transaction_intrinsic_cost_calculator()()
         + parent_code.execution_cost(fork)
         - fork.call_value_stipend()
     )
-    expected_gas_used = max(execution_gas, state_gas)
-    assert expected_gas_used == state_gas, (
-        "expected state gas to dominate execution gas"
-    )
+    # Only a call that goes through keeps its new-account charge.
+    state_gas_spent = reservoir if value_is_affordable else 0
+    expected_gas_used = max(execution_gas, state_gas_spent)
+    target_post: Account | None
+    if value_is_affordable:
+        assert expected_gas_used == state_gas_spent, (
+            "expected state gas to dominate execution gas"
+        )
+        parent_balance_changes = [
+            BalBalanceChange(block_access_index=1, post_balance=0)
+        ]
+        target_expectation = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=call_value)
+            ]
+        )
+        target_post = Account(balance=call_value)
+    else:
+        assert expected_gas_used == execution_gas, (
+            "expected execution gas to dominate once the charge is credited"
+        )
+        parent_balance_changes = []
+        target_expectation = BalAccountExpectation.empty()
+        target_post = Account.NONEXISTENT
 
     tx = Transaction(
         to=parent,
-        state_gas_reservoir=state_gas,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=execution_gas + state_gas_spent
+        ),
     )
 
     post = {
-        parent: Account(storage=parent_storage),
-        target: Account(balance=1),
+        parent: Account(balance=0, storage=parent_storage),
+        target: target_post,
     }
     state_test(
         pre=pre,
         post=post,
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                parent: BalAccountExpectation(
+                    # The no-op recording write demotes to a read.
+                    storage_reads=[call_slot],
+                    storage_changes=[],
+                    balance_changes=parent_balance_changes,
+                ),
+                target: target_expectation,
+            }
+        ),
     )
 
 
@@ -933,41 +1013,65 @@ def test_delegatecall_reservoir_passing(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "child_action,reservoir_shortfall",
+    [
+        pytest.param("write_rejected", 0, id="write_rejected"),
+        pytest.param("read_only", 0, id="read_only"),
+        pytest.param("create", 0, id="create_exact"),
+        pytest.param("create", 1, id="create_one_short"),
+        pytest.param("create2", 0, id="create2_exact"),
+        pytest.param("create2", 1, id="create2_one_short"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_staticcall_passes_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    child_action: str,
+    reservoir_shortfall: int,
 ) -> None:
-    """
-    Test STATICCALL passes reservoir but cannot use it for state ops.
-
-    The static child is handed the full execution cost of an SSTORE,
-    so only the static-context restriction can stop it, and it halts.
-    The parent then calls a probe handed only its SSTORE's execution
-    cost, so the probe has no `gas_left` to spill from and succeeds
-    only if the rejected write left the reservoir untouched.
-    """
+    """Preserve the reservoir across successful and rejected static calls."""
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
-    child_code = Op.SSTORE(0, 1)
+    if child_action == "read_only":
+        child_code: Bytecode = Op.POP(Op.SLOAD(0, key_warm=False))
+        static_result = 1
+    elif child_action == "write_rejected":
+        child_code = Op.SSTORE(0, 1)
+        static_result = 0
+    else:
+        create_opcode = Op.CREATE if child_action == "create" else Op.CREATE2
+        child_code = create_opcode(value=0, offset=0, size=0, init_code_size=0)
+        static_result = 0
     child = pre.deploy_contract(code=child_code)
     child_gas = child_code.execution_cost(fork)
+    creating = child_action in ("create", "create2")
+    if creating:
+        # Fund a misplaced account charge far enough to expose spill handling.
+        child_gas += child_code.state_cost(fork)
+        assert child_code.state_cost(fork) > sstore_state_gas
+    probe_succeeds = reservoir_shortfall == 0
 
     probe_code = Op.SSTORE(0, 1)
     probe = pre.deploy_contract(code=probe_code)
     probe_gas = probe_code.execution_cost(fork)
 
     parent_storage = Storage()
-    static_slot = parent_storage.store_next(1, "staticcall_fails")
-    probe_slot = parent_storage.store_next(2, "probe_succeeds")
+    static_slot = parent_storage.store_next(
+        static_result + 1, "staticcall_result"
+    )
+    # The probe receives execution gas only: exact reservoir succeeds;
+    # one short must fail, exposing either lost gas or an inflated reservoir.
+    probe_slot = parent_storage.store_next(1 + probe_succeeds, "probe_result")
     parent_code = Op.SSTORE(
         static_slot,
         Op.ADD(Op.STATICCALL(gas=child_gas, address=child), 1),
         # gas accounting
         original_value=1,
         current_value=1,
-        new_value=1,
+        new_value=static_result + 1,
         key_warm=False,
     ) + Op.SSTORE(
         probe_slot,
@@ -975,7 +1079,7 @@ def test_staticcall_passes_reservoir(
         # gas accounting
         original_value=1,
         current_value=1,
-        new_value=2,
+        new_value=1 + probe_succeeds,
         key_warm=False,
     )
     parent = pre.deploy_contract(
@@ -988,22 +1092,29 @@ def test_staticcall_passes_reservoir(
         + child_gas
         + probe_gas
     )
-    expected_gas_used = max(execution_gas, sstore_state_gas)
-    assert expected_gas_used == sstore_state_gas, (
-        "expected state gas to dominate execution gas"
-    )
+    state_gas = sstore_state_gas if probe_succeeds else 0
+    expected_gas_used = max(execution_gas, state_gas)
+    if not creating:
+        assert expected_gas_used == state_gas, (
+            "expected state gas to dominate execution gas"
+        )
 
     tx = Transaction(
         to=parent,
-        state_gas_reservoir=sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas - reservoir_shortfall,
         sender=pre.fund_eoa(),
     )
 
-    post = {
+    post: dict[Address, Account | None] = {
         parent: Account(storage=parent_storage),
-        child: Account(storage={0: 0}),
-        probe: Account(storage={0: 1}),
+        child: Account(nonce=1, storage={0: 0}),
+        probe: Account(storage={0: int(probe_succeeds)}),
     }
+    if creating:
+        created = compute_create_address(
+            address=child, nonce=1, salt=0, initcode=b"", opcode=create_opcode
+        )
+        post[created] = Account.NONEXISTENT
     state_test(
         pre=pre,
         post=post,
@@ -1170,7 +1281,7 @@ def test_create_insufficient_balance_returns_reservoir(
 
 
 @pytest.mark.valid_from("EIP8037")
-def test_call_stack_depth_returns_reservoir(
+def test_recursive_revert_returns_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -1225,6 +1336,35 @@ def test_call_stack_depth_returns_reservoir(
         caller: Account(storage=storage),
         probe: Account(storage={0: 1}),
     }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_recursive_calls_preserve_state_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify a recursive CALL chain preserves the reservoir for a storage set.
+    """
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+
+    storage = Storage()
+    recursive = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(Op.GAS, Op.ADDRESS, 0, 0, 0, 0, 0))
+            + Op.SSTORE(storage.store_next(1, "reservoir_ok"), 1)
+        ),
+    )
+
+    tx = Transaction(
+        to=recursive,
+        state_gas_reservoir=sstore_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {recursive: Account(storage=storage)}
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -1301,73 +1441,6 @@ def test_call_pre_charged_costs_excluded_from_forwarding(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@pytest.mark.valid_from("EIP8037")
-def test_call_new_account_header_gas_used(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Verify block gas accounting for CALL creating a new account.
-
-    A contract CALLs a non-existent address with value, charging
-    GAS_NEW_ACCOUNT state gas. The block must be accepted with
-    correct 2D max(execution, state) accounting in the header.
-    """
-    target = pre.fund_eoa(amount=0)
-
-    storage = Storage()
-    # Capture the CALL result in a pre-existing slot (2 -> 1) so the
-    # instrumentation SSTORE modifies rather than creates a key and
-    # adds no state gas; the reservoir then covers exactly the CALL's
-    # new-account charge.
-    slot = storage.store_next(1, "call_succeeds")
-    contract_code = Op.SSTORE(
-        slot,
-        Op.CALL(
-            gas=0,
-            address=target,
-            value=1,
-            value_transfer=True,
-            account_new=True,
-        ),
-        original_value=2,
-        current_value=2,
-        new_value=1,
-        key_warm=False,
-    )
-    contract = pre.deploy_contract(
-        code=contract_code, balance=1, storage={slot: 2}
-    )
-
-    state_gas = contract_code.state_cost(fork)
-    # The codeless target returns the forwarded value-call stipend
-    # unused, so it is charged but never consumed.
-    execution_gas = (
-        fork.transaction_intrinsic_cost_calculator()()
-        + contract_code.execution_cost(fork)
-        - fork.call_value_stipend()
-    )
-    expected_gas_used = max(execution_gas, state_gas)
-    assert expected_gas_used == state_gas, (
-        "expected state gas to dominate execution gas"
-    )
-
-    tx = Transaction(
-        to=contract,
-        state_gas_reservoir=state_gas,
-        sender=pre.fund_eoa(),
-    )
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(txs=[tx], header_verify=Header(gas_used=expected_gas_used))
-        ],
-        post={contract: Account(storage=storage)},
-    )
-
-
 @pytest.mark.parametrize(
     "create_opcode",
     [
@@ -1375,7 +1448,6 @@ def test_call_new_account_header_gas_used(
         pytest.param(Op.CREATE2, id="create2"),
     ],
 )
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.valid_from("EIP8037")
 def test_call_value_to_self_destructed_same_tx_account(
     state_test: StateTestFiller,
@@ -1935,6 +2007,7 @@ def test_call_new_account_no_execution_account_creation_cost(
     "gas_delta",
     [pytest.param(0, id="exact_fit"), pytest.param(-1, id="one_short")],
 )
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_call_new_account_state_gas_boundary(
     state_test: StateTestFiller,
@@ -1943,10 +2016,12 @@ def test_call_new_account_state_gas_boundary(
     gas_delta: int,
 ) -> None:
     """
-    Pin the CALL new-account state charge at its exact-fit spill
-    boundary. At `exact_fit` the charge just fits and the target is
-    materialized; one gas short the caller frame goes out of gas, so
-    nothing is created and the value transfer is rolled back.
+    Pin the CALL new-account state charge at its exact-fit boundary.
+
+    With `gas_limit` set explicitly the transaction has no reservoir, so
+    the charge spills from `gas_left`. At `exact_fit` the target is
+    materialized; one gas short the caller frame goes out of gas and the
+    value transfer is rolled back.
     """
     target = pre.nonexistent_account()
     caller_code = (
@@ -1961,10 +2036,13 @@ def test_call_new_account_state_gas_boundary(
     )
     caller = pre.deploy_contract(code=caller_code, balance=1)
 
-    exact_fit = (
+    state_gas = caller_code.state_cost(fork)
+    execution_gas = (
         fork.transaction_intrinsic_cost_calculator()()
-        + caller_code.gas_cost(fork)
+        + caller_code.execution_cost(fork)
     )
+    exact_fit = execution_gas + state_gas
+
     post: dict
     if gas_delta == 0:
         gas_used = exact_fit - fork.call_value_stipend()
@@ -1994,6 +2072,11 @@ def test_call_new_account_state_gas_boundary(
             Op.CALL,
             "call_value_new_account",
             id="call_call_value_new_account_charge",
+        ),
+        pytest.param(
+            Op.DELEGATECALL,
+            "call_value_new_account",
+            id="delegatecall_call_value_new_account_charge",
         ),
     ],
 )
@@ -2033,7 +2116,10 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
         child_balance = 1
     child_state_charge = child_code.state_cost(fork)
 
-    child = pre.deploy_contract(code=child_code, balance=child_balance)
+    delegated = call_opcode == Op.DELEGATECALL
+    child = pre.deploy_contract(
+        code=child_code, balance=0 if delegated else child_balance
+    )
     probe = pre.deploy_contract(probe_code)
     probe_stipend = probe_code.execution_cost(fork)
 
@@ -2042,6 +2128,7 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
             Op.POP(call_opcode(gas=Op.GAS, address=child))
             + Op.POP(call_opcode(gas=probe_stipend, address=probe))
         ),
+        balance=child_balance if delegated else 0,
     )
 
     # Reservoir must cover the child's state charge (refunded on
@@ -2057,7 +2144,7 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
     # DELEGATECALL executes the callee in the caller's storage
     # context, so the probe's SSTORE lands on `parent` instead of
     # `probe`.
-    if call_opcode == Op.DELEGATECALL:
+    if delegated:
         post: dict = {parent: Account(storage=probe_storage)}
     else:
         post = {probe: Account(storage=probe_storage)}
@@ -2070,11 +2157,21 @@ def test_child_failure_refunds_state_gas_to_reservoir_not_gas_left(
     )
 
 
+@pytest.mark.parametrize("depth", ["top", "child"])
+@pytest.mark.parametrize(
+    "funding",
+    [
+        pytest.param("reservoir", id="reservoir"),
+        pytest.param("mixed", id="mixed"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_call_insufficient_balance_refunds_new_account_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    funding: str,
+    depth: str,
 ) -> None:
     """
     Refill NEW_ACCOUNT state gas on a value CALL that fails the balance
@@ -2106,17 +2203,32 @@ def test_call_insufficient_balance_refunds_new_account_state_gas(
     )
 
     new_account_state_gas = value_call.state_cost(fork)
-    assert new_account_state_gas >= sstore_state_gas
-    reservoir = new_account_state_gas
+    assert new_account_state_gas > sstore_state_gas
+    if funding == "mixed":
+        reservoir = sstore_state_gas
+    else:
+        reservoir = new_account_state_gas
+
+    if depth == "child":
+        target = pre.deploy_contract(
+            code=Op.POP(Op.CALL(gas=Op.GAS, address=parent))
+        )
+    else:
+        target = parent
 
     tx = Transaction(
-        to=parent,
+        to=target,
         state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
     )
 
     post = {probe: Account(storage=probe_storage)}
-    state_test(pre=pre, post=post, tx=tx)
+    state_test(
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=sstore_state_gas),
+    )
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -2242,7 +2354,7 @@ def test_call_value_new_account_state_gas_consumed_on_caller_halt(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.parametrize("reservoir", ["in_cap", "over_cap"])
+@pytest.mark.parametrize("reservoir", ["in_cap", "over_cap", "full"])
 @pytest.mark.valid_from("EIP8037")
 def test_call_value_new_account_state_gas_returned_on_caller_revert(
     state_test: StateTestFiller,
@@ -2286,11 +2398,12 @@ def test_call_value_new_account_state_gas_returned_on_caller_revert(
 
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    gas_limit = (
-        gas_limit_cap + caller_code.state_cost(fork) // 2
-        if reservoir == "over_cap"
-        else 1_000_000
-    )
+    if reservoir == "full":
+        gas_limit = gas_limit_cap + caller_code.state_cost(fork)
+    elif reservoir == "over_cap":
+        gas_limit = gas_limit_cap + caller_code.state_cost(fork) // 2
+    else:
+        gas_limit = 1_000_000
 
     tx = Transaction(
         to=caller,

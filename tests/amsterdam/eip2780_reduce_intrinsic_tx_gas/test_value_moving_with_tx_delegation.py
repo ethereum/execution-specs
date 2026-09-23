@@ -42,6 +42,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.checklists import EIPChecklist
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_2780
@@ -52,6 +53,7 @@ REFERENCE_SPEC_VERSION = ref_spec_2780.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -106,7 +108,7 @@ def test_tx_installs_delegation_on_funded_recipient(
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=False,
@@ -150,6 +152,7 @@ def test_tx_installs_delegation_on_funded_recipient(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -203,7 +206,7 @@ def test_tx_installs_delegation_on_empty_recipient(
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=False,
@@ -245,6 +248,7 @@ def test_tx_installs_delegation_on_empty_recipient(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -333,7 +337,7 @@ def test_tx_installs_delegation_on_sender(
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=top_frame_recipient_type,
         delegation_warm=False,

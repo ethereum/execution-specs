@@ -33,7 +33,6 @@ from ..fork_types import (
     VersionedHash,
 )
 from ..transactions import (
-    TX_MAX_GAS_LIMIT,
     BlobTransaction,
     IntrinsicGasCost,
     Transaction,
@@ -91,13 +90,11 @@ class GasCosts:
     STORAGE_WRITE: Final[ExecutionGas] = ExecutionGas(Uint(10000))
 
     # Call
-    # ACCOUNT_WRITE + CALL_STIPEND
-    CALL_VALUE: Final[ExecutionGas] = ExecutionGas(Uint(11300))
     CALL_STIPEND: Final[ExecutionGas] = ExecutionGas(Uint(2300))
     ACCOUNT_WRITE: Final[ExecutionGas] = ExecutionGas(Uint(9000))
+    CALL_VALUE: Final[ExecutionGas] = ACCOUNT_WRITE + CALL_STIPEND
 
     # Contract Creation
-    CODE_DEPOSIT_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(200))
     CODE_INIT_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(2))
     CREATE_ACCESS: Final[ExecutionGas] = ACCOUNT_WRITE + COLD_ACCOUNT_ACCESS
 
@@ -153,7 +150,6 @@ class GasCosts:
 
     # Transactions
     TX_BASE: Final[ExecutionGas] = ExecutionGas(Uint(12000))
-    TX_CREATE: Final[ExecutionGas] = ExecutionGas(Uint(32000))
     TX_VALUE_COST: Final[ExecutionGas] = ExecutionGas(Uint(6000))
     TX_DATA_TOKEN_STANDARD: Final[ExecutionGas] = ExecutionGas(Uint(4))
     TX_DATA_TOKEN_FLOOR: Final[ExecutionGas] = ExecutionGas(Uint(16))
@@ -163,6 +159,8 @@ class GasCosts:
     TX_ACCESS_LIST_STORAGE_KEY: Final[ExecutionGas] = (
         COLD_STORAGE_ACCESS - WARM_ACCESS
     )
+    TX_MAX_GAS_LIMIT: Final[Uint] = Uint(16_777_216)
+    TX_MAX_TOTAL_GAS_LIMIT: Final[Uint] = Uint(4_294_967_295)
 
     # Authorization
     AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
@@ -226,6 +224,7 @@ class GasCosts:
     OPCODE_PREVRANDAO: Final[ExecutionGas] = BASE
     OPCODE_RETURNDATASIZE: Final[ExecutionGas] = BASE
     OPCODE_CHAINID: Final[ExecutionGas] = BASE
+    OPCODE_SELFBALANCE: Final[ExecutionGas] = FAST_STEP
     OPCODE_BASEFEE: Final[ExecutionGas] = BASE
     OPCODE_BLOBBASEFEE: Final[ExecutionGas] = BASE
     OPCODE_SLOTNUM: Final[ExecutionGas] = BASE
@@ -311,10 +310,13 @@ class GasMeter:
     state_gas_spilled: StateGas = StateGas(Uint(0))
     """
     Execution gas spent covering state charges after the reservoir
-    emptied. Credited back to `gas_left` first, in LIFO order, on a
-    refund or failure. [EIP-8037] names this quantity
-    `state_gas_from_gas_left`.
+    emptied, not yet credited back. Credited back to `gas_left` first,
+    in LIFO order, on a refund or failure, and repaid from the
+    reservoir when a successful child merges
+    ([`repay_state_gas_spill`][repay]). [EIP-8037] names this
+    quantity `state_gas_from_gas_left`.
 
+    [repay]: ref:ethereum.forks.amsterdam.vm.gas.repay_state_gas_spill
     [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
     """
 
@@ -626,6 +628,37 @@ def credit_state_gas_refund(gas_meter: GasMeter, amount: StateGas) -> None:
     gas_meter.state_gas_left += amount - from_gas_left
 
 
+def repay_state_gas_spill(gas_meter: GasMeter) -> None:
+    """
+    Repay outstanding [spill] from the reservoir after a child merges.
+
+    A refund may land in a different frame than the charge it undoes:
+    the refunding frame's spill can be smaller than the refund, so the
+    excess credits the reservoir even though the charge drew from
+    `gas_left`. Once a successful child's meter is absorbed, the claim
+    and the credit sit in one meter, and the reservoir repays
+    `gas_left` up to the spill still outstanding. No state creation is
+    undone, so the used counters do not move; gas only crosses back
+    between the two pools it drifted across.
+
+    Parameters
+    ----------
+    gas_meter :
+        The merged gas meter.
+
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+
+    """  # noqa: E501
+    repayment = min(gas_meter.state_gas_left, gas_meter.state_gas_spilled)
+    gas_meter.gas_left = ExecutionGas(gas_meter.gas_left + Uint(repayment))
+    gas_meter.state_gas_left -= repayment
+    gas_meter.state_gas_spilled -= repayment
+    # The claim and the credit cannot both survive a repayment.
+    assert gas_meter.state_gas_left == Uint(0) or (
+        gas_meter.state_gas_spilled == Uint(0)
+    )
+
+
 def forfeit_remaining_gas(gas_meter: GasMeter) -> None:
     """
     Consume all remaining execution gas on an exceptional halt.
@@ -803,8 +836,10 @@ def calculate_message_call_gas(
     memory_cost :
         The amount needed to extend the memory in the current frame.
     extra_gas :
-        The amount of gas needed for transferring value + creating a new
-        account inside a message call.
+        The call's own execution charge (access, value transfer and
+        delegation resolution) that the forwarding budget must cover.
+        Account creation is charged in state gas separately; `CALL`
+        charges this itself and passes zero here.
     call_stipend :
         The amount of stipend provided to a message call to execute code while
         transferring value (ETH).
@@ -1047,7 +1082,7 @@ def check_block_gas_capacity(
     BlobGasLimitExceededError :
         If the transaction exceeds the block's remaining blob gas.
 
-    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.transactions.TX_MAX_GAS_LIMIT
+    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.vm.gas.GasCosts.TX_MAX_GAS_LIMIT
 
     """  # noqa: E501
     execution_gas_available = (
@@ -1058,7 +1093,7 @@ def check_block_gas_capacity(
     )
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
-    if min(TX_MAX_GAS_LIMIT, tx_gas) > execution_gas_available:
+    if min(GasCosts.TX_MAX_GAS_LIMIT, tx_gas) > execution_gas_available:
         raise GasUsedExceedsLimitError("execution gas used exceeds limit")
 
     if tx_gas > state_gas_available:
@@ -1111,7 +1146,7 @@ def allocate_evm_gas(
 
     """
     evm_gas = tx_gas - Uint(intrinsic.execution)
-    execution_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.execution
+    execution_gas_budget = GasCosts.TX_MAX_GAS_LIMIT - intrinsic.execution
     execution_gas = ExecutionGas(min(execution_gas_budget, evm_gas))
     state_gas_reservoir = StateGas(evm_gas - execution_gas)
     return EvmGasAllocation(execution_gas, state_gas_reservoir)

@@ -208,15 +208,10 @@ def authorization_transaction_cost(
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    return intrinsic_gas + fork.transaction_top_frame_gas_calculator()(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorization_list,
     )
-    top_frame_state = fork.transaction_top_frame_state_gas(
-        recipient_type=RecipientType.CONTRACT,
-        authorizations=authorization_list,
-    )
-    return intrinsic_gas + top_frame_execution + top_frame_state
 
 
 def setup_target(

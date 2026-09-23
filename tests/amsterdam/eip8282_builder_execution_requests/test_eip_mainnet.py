@@ -9,40 +9,29 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    BuilderDepositRequest,
+    BuilderExitRequest,
     SystemContractInteractionTransaction,
 )
 
-from .helpers import BuilderDepositRequest, BuilderExitRequest
-from .spec import Spec, ref_spec_8282
+from .spec import ref_spec_8282
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8282.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8282.version
 
 pytestmark = [pytest.mark.valid_at("Amsterdam"), pytest.mark.mainnet]
 
-MIN_DEPOSIT_GWEI = Spec.BUILDER_MIN_DEPOSIT // 10**9
+MIN_DEPOSIT_GWEI = BuilderDepositRequest.min_deposit_wei // 10**9
+
+# Every accepted deposit locks its stake in the predeploy: the contract has
+# no withdrawal path, and the consensus layer drops a record whose
+# withdrawal credentials are not a builder's before it checks the
+# signature. One case therefore carries the only deposit, alongside an exit.
 
 
 @pytest.mark.parametrize(
     "system_contract_interactions_per_block",
     [
-        pytest.param(
-            [
-                [
-                    SystemContractInteractionTransaction(
-                        requests=[
-                            BuilderDepositRequest(
-                                pubkey=0x01,
-                                withdrawal_credentials=0x02,
-                                amount=MIN_DEPOSIT_GWEI,
-                                signature=0x03,
-                            )
-                        ],
-                    ),
-                ],
-            ],
-            id="single_builder_deposit_request",
-        ),
         pytest.param(
             [
                 [

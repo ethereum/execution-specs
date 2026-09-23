@@ -29,6 +29,11 @@ from tests.istanbul.eip152_blake2.spec import Spec as Blake2bSpec
             Blake2bInput(rounds=0xFFFF, f=True),
             id="blake2f",
         ),
+        pytest.param(
+            Blake2bSpec.BLAKE2_PRECOMPILE_ADDRESS,
+            Blake2bInput(rounds=0, f=True),
+            id="blake2f_zero_rounds",
+        ),
     ],
 )
 def test_blake2f(

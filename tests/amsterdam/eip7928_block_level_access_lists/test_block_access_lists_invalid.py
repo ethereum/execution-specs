@@ -4,13 +4,14 @@ Test cases for invalid Block Access Lists.
 These tests verify that clients properly reject blocks with corrupted BALs.
 """
 
-from typing import Callable
+from typing import Callable, Type
 
 import pytest
 from execution_testing import (
     Account,
     Address,
     Alloc,
+    AuthorizationTuple,
     BalAccountChange,
     BalAccountExpectation,
     BalBalanceChange,
@@ -25,6 +26,7 @@ from execution_testing import (
     Bytes,
     EIPChecklist,
     Environment,
+    FeeSystemContractRequest,
     Fork,
     Hash,
     Header,
@@ -64,14 +66,27 @@ from execution_testing.test_types.block_access_list.modifiers import (
     remove_storage,
     remove_storage_reads,
     reverse_accounts,
+    reverse_balance_changes,
+    reverse_code_changes,
+    reverse_nonce_changes,
+    reverse_slot_changes,
+    reverse_storage_reads,
+    reverse_storage_slots,
     sort_accounts_by_address,
     swap_bal_indices,
 )
 
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_7928
+from .test_block_access_lists_eip2935 import (
+    HISTORY_STORAGE_ADDRESS,
+    block_hash_system_call_expectations,
+)
 from .test_block_access_lists_eip4788 import (
+    BEACON_ROOTS_ADDRESS,
     SYSTEM_ADDRESS,
     beacon_root_system_call_expectations,
+    get_beacon_root_slots,
 )
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -718,23 +733,48 @@ def test_bal_invalid_missing_withdrawal_account(
 
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "withdrawal_amount,initial_balance",
+    [
+        pytest.param(10, 0, id="nonzero_amount"),
+        pytest.param(0, 1, id="zero_amount_existing_recipient"),
+        pytest.param(0, 0, id="zero_amount_new_recipient"),
+    ],
+)
 def test_bal_invalid_missing_withdrawal_account_empty_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    withdrawal_amount: int,
+    initial_balance: int,
 ) -> None:
     """
-    Test that clients reject blocks where BAL is missing an account
-    that was modified only by a withdrawal, in a block with no transactions.
+    Test that clients reject blocks where BAL is missing a withdrawal
+    recipient, in a block with no transactions.
 
-    Charlie receives 10 gwei withdrawal in an empty block.
-    BAL is corrupted by removing Charlie's entry entirely.
+    EIP-7928 records the recipient whether or not the amount is non-zero, so
+    for a zero-amount withdrawal the BAL entry is the recipient's only trace:
+    dropping it leaves both the state root and the gas used untouched.
     """
-    charlie = pre.fund_eoa(amount=0)
+    charlie = pre.fund_eoa(amount=initial_balance)
+
+    if withdrawal_amount > 0:
+        charlie_expectation = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(
+                    block_access_index=1,
+                    post_balance=withdrawal_amount * 10**9,
+                )
+            ],
+        )
+    else:
+        charlie_expectation = BalAccountExpectation.empty()
 
     blockchain_test(
         pre=pre,
         post={
-            charlie: None,
+            charlie: Account(balance=initial_balance)
+            if initial_balance > 0
+            else Account.NONEXISTENT,
         },
         blocks=[
             Block(
@@ -744,20 +784,13 @@ def test_bal_invalid_missing_withdrawal_account_empty_block(
                         index=0,
                         validator_index=0,
                         address=charlie,
-                        amount=10,
+                        amount=withdrawal_amount,
                     )
                 ],
                 exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
-                        charlie: BalAccountExpectation(
-                            balance_changes=[
-                                BalBalanceChange(
-                                    block_access_index=1,
-                                    post_balance=10 * 10**9,
-                                )
-                            ],
-                        ),
+                        charlie: charlie_expectation,
                     }
                 ).modify(remove_accounts(charlie)),
             )
@@ -1225,6 +1258,162 @@ def test_bal_invalid_duplicate_entries(
                         oracle=oracle,
                         created=created,
                     )
+                ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        pytest.param(
+            lambda oracle, **_: reverse_storage_slots(oracle),
+            id="storage_slots_out_of_order",
+        ),
+        pytest.param(
+            lambda oracle, **_: reverse_slot_changes(oracle, 1),
+            id="slot_changes_out_of_order",
+        ),
+        pytest.param(
+            lambda oracle, **_: reverse_storage_reads(oracle),
+            id="storage_reads_out_of_order",
+        ),
+        pytest.param(
+            lambda alice, **_: reverse_balance_changes(alice),
+            id="balance_changes_out_of_order",
+        ),
+        pytest.param(
+            lambda alice, **_: reverse_nonce_changes(alice),
+            id="nonce_changes_out_of_order",
+        ),
+        pytest.param(
+            lambda authority, **_: reverse_code_changes(authority),
+            id="code_changes_out_of_order",
+        ),
+    ],
+)
+def test_bal_invalid_ordering(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    modifier: Callable,
+) -> None:
+    """
+    Test that clients reject blocks where a list inside one BAL account
+    breaks its canonical order: slots and reads by key, changes by block
+    access index. Two transactions give every list a second entry.
+    """
+    alice = pre.fund_eoa()
+    authority = pre.fund_eoa(amount=0)
+    delegate_a = pre.deploy_contract(code=Op.STOP)
+    delegate_b = pre.deploy_contract(code=Op.STOP)
+    oracle = pre.deploy_contract(
+        code=(
+            Op.SSTORE(1, Op.ADD(Op.SLOAD(1), 1))
+            + Op.SSTORE(2, 0x43)
+            + Op.POP(Op.SLOAD(3))
+            + Op.POP(Op.SLOAD(4))
+        ),
+    )
+
+    txs = [
+        Transaction(
+            sender=alice,
+            to=oracle,
+            authorization_list=[
+                AuthorizationTuple(
+                    address=delegate_a, nonce=0, signer=authority
+                )
+            ],
+        ),
+        Transaction(
+            sender=alice,
+            to=oracle,
+            authorization_list=[
+                AuthorizationTuple(
+                    address=delegate_b, nonce=1, signer=authority
+                )
+            ],
+        ),
+    ]
+
+    blockchain_test(
+        pre=pre,
+        post=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                ),
+                                BalNonceChange(
+                                    block_access_index=2, post_nonce=2
+                                ),
+                            ],
+                        ),
+                        authority: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                ),
+                                BalNonceChange(
+                                    block_access_index=2, post_nonce=2
+                                ),
+                            ],
+                            code_changes=[
+                                BalCodeChange(
+                                    block_access_index=1,
+                                    new_code=Spec7702.delegation_designation(
+                                        delegate_a
+                                    ),
+                                ),
+                                BalCodeChange(
+                                    block_access_index=2,
+                                    new_code=Spec7702.delegation_designation(
+                                        delegate_b
+                                    ),
+                                ),
+                            ],
+                        ),
+                        oracle: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=1,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=1,
+                                        ),
+                                        BalStorageChange(
+                                            block_access_index=2,
+                                            post_value=2,
+                                        ),
+                                    ],
+                                ),
+                                BalStorageSlot(
+                                    slot=2,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=0x43,
+                                        ),
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[3, 4],
+                        ),
+                        delegate_a: None,
+                        delegate_b: None,
+                    }
+                ).modify(
+                    modifier(alice=alice, oracle=oracle, authority=authority)
                 ),
             )
         ],
@@ -1701,24 +1890,32 @@ def test_bal_invalid_extraneous_coinbase(
         pytest.param(b"\xc1", id="rlp_truncated_list"),
     ],
 )
+@pytest.mark.parametrize("header_commits_to", ["canonical_rlp", "payload_rlp"])
 def test_bal_invalid_engine_payload_encoding(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     invalid_bal_payload: bytes,
+    header_commits_to: str,
 ) -> None:
     """
-    Reject a `newPayload` whose `blockAccessList` does not decode as an RLP
-    list: the empty byte string `0x` (an empty BAL is `0xc0`), the RLP
-    empty byte string `0x80` (valid RLP but not a list), or a truncated
-    list header `0xc1`.
-
-    The field is present but not a valid encoding, so the payload is
-    invalid rather than the request being malformed.
+    Reject malformed BAL RLP with both matching and mismatched header
+    commitments, so a block-hash check cannot hide missing RLP validation.
     """
     sender = pre.fund_eoa()
     receiver = pre.nonexistent_account()
-
     tx = Transaction(sender=sender, to=receiver)
+
+    expectation = BlockAccessListExpectation()
+    exceptions = [BlockException.INVALID_BLOCK_ACCESS_LIST]
+    if header_commits_to == "canonical_rlp":
+        expectation = expectation.modify_rlp(
+            lambda _: Bytes(invalid_bal_payload)
+        )
+        exceptions.append(BlockException.INVALID_BLOCK_HASH)
+    else:
+        expectation = expectation.modify(
+            override_rlp(lambda _: Bytes(invalid_bal_payload))
+        )
 
     blockchain_test(
         pre=pre,
@@ -1729,10 +1926,8 @@ def test_bal_invalid_engine_payload_encoding(
         blocks=[
             Block(
                 txs=[tx],
-                engine_new_payload_block_access_list=Bytes(
-                    invalid_bal_payload
-                ),
-                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=expectation,
+                exception=exceptions,
             )
         ],
     )
@@ -1771,6 +1966,10 @@ def test_bal_invalid_non_minimal_scalar_encoding(
     a matching hash and accepts. With the header committing to the
     payload RLP, a client that decodes leniently and hashes the bytes as
     received accepts instead.
+
+    A strict client may notice the bad scalar while decoding, or only
+    once the hash it derives from the payload disagrees with the header;
+    both verdicts reject the block, so both are accepted.
     """
     alice = pre.fund_eoa()
     oracle = pre.deploy_contract(code=Op.SSTORE(1, 1) + Op.SLOAD(2))
@@ -1831,7 +2030,10 @@ def test_bal_invalid_non_minimal_scalar_encoding(
         blocks=[
             Block(
                 txs=[tx],
-                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                exception=[
+                    BlockException.INVALID_BLOCK_ACCESS_LIST,
+                    BlockException.INVALID_BLOCK_HASH,
+                ],
                 expected_block_access_list=expectation,
             )
         ],
@@ -2222,6 +2424,217 @@ def test_bal_invalid_phantom_read_on_selfdestruct(
                         ),
                     }
                 ).modify(insert_storage_read(created, phantom_slot)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        pytest.param(remove_accounts, id="missing_entry"),
+        pytest.param(remove_storage_reads, id="missing_reads"),
+    ],
+)
+# The deposit contract keeps no queue, so it has no slots to read.
+@pytest.mark.with_all_system_contract_request_types(
+    selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
+)
+def test_bal_invalid_missing_request_predeploy_accesses(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    request_class: Type[FeeSystemContractRequest],
+    modifier: Callable,
+) -> None:
+    """
+    Reject a BAL that hides the queue slots the post-execution system call
+    read from a request predeploy, either by dropping the predeploy's entry
+    outright or by clearing only its storage reads.
+
+    Nothing but the BAL records those reads, so the block stays
+    self-consistent on state root and gas.
+    """
+    predeploy = request_class.system_contract_address
+    queue_slots = [
+        request_class.excess_slot,
+        request_class.count_slot,
+        request_class.queue_head_slot,
+        request_class.queue_tail_slot,
+    ]
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        predeploy: BalAccountExpectation(
+                            storage_reads=queue_slots,
+                            storage_changes=[],
+                        ),
+                        SYSTEM_ADDRESS: None,
+                    }
+                ).modify(modifier(predeploy)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_missing_pre_block_system_call_read(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a BAL that drops the storage read made by the pre-execution
+    beacon-root system call.
+
+    With a zero parent beacon root the root slot is rewritten with its
+    current value, which EIP-7928 records as a read next to the timestamp
+    slot write. The timestamp and the zero root are the framework defaults,
+    spelled out here because the scenario turns on both.
+    """
+    block_timestamp = 12
+    timestamp_slot, root_slot = get_beacon_root_slots(block_timestamp)
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                timestamp=block_timestamp,
+                parent_beacon_block_root=Hash(0),
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        BEACON_ROOTS_ADDRESS: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=timestamp_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=0,
+                                            post_value=block_timestamp,
+                                        )
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[root_slot],
+                        ),
+                        SYSTEM_ADDRESS: None,
+                    }
+                ).modify(remove_storage_reads(BEACON_ROOTS_ADDRESS)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_noop_system_call_write_as_change(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a BAL that records the beacon-root system call's no-op write
+    as a storage change rather than a read.
+
+    A zero parent beacon root rewrites the root slot with the value it
+    already holds. A client that lists the slots a call wrote, instead
+    of diffing them against the value the block access index started
+    with, would report the change this BAL carries.
+    """
+    block_timestamp = 12
+    timestamp_slot, root_slot = get_beacon_root_slots(block_timestamp)
+    # The spurious change is appended, so it has to sort last or the
+    # block would be rejected for ordering instead.
+    assert root_slot > timestamp_slot, (
+        "expected the root slot to sort after the timestamp slot"
+    )
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                timestamp=block_timestamp,
+                parent_beacon_block_root=Hash(0),
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        BEACON_ROOTS_ADDRESS: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=timestamp_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=0,
+                                            post_value=block_timestamp,
+                                        )
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[root_slot],
+                        ),
+                        SYSTEM_ADDRESS: None,
+                    }
+                ).modify(
+                    remove_storage_reads(BEACON_ROOTS_ADDRESS),
+                    append_storage(
+                        BEACON_ROOTS_ADDRESS,
+                        root_slot,
+                        BalStorageChange(block_access_index=0, post_value=0),
+                    ),
+                ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "system_contract",
+    [
+        pytest.param(HISTORY_STORAGE_ADDRESS, id="history_storage"),
+        pytest.param(BEACON_ROOTS_ADDRESS, id="beacon_roots"),
+    ],
+)
+def test_bal_invalid_missing_system_contract_entry(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    system_contract: Address,
+) -> None:
+    """
+    Reject a BAL that omits a system contract written by a pre-execution
+    system call, in a block with no transactions.
+    """
+    block_timestamp = 12
+    beacon_root = Hash(0xABCDEF)
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                timestamp=block_timestamp,
+                parent_beacon_block_root=beacon_root,
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        # Block 1 stores its parent's (genesis) hash.
+                        **block_hash_system_call_expectations(0),
+                        **beacon_root_system_call_expectations(
+                            block_timestamp,
+                            beacon_root,
+                        ),
+                    }
+                ).modify(remove_accounts(system_contract)),
             )
         ],
     )

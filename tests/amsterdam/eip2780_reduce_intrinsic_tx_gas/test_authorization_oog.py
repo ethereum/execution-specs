@@ -55,6 +55,7 @@ from execution_testing import (
     TransactionException,
     TransactionReceipt,
 )
+from execution_testing.checklists import EIPChecklist
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .helpers import (
@@ -82,7 +83,7 @@ def _auth_top_frame_charges(fork: Fork, authorizations: list) -> int:
     ``AUTH_BASE``. Under the zero state reservoir these all draw from
     ``gas_left``.
     """
-    execution = fork.transaction_top_frame_gas_calculator()(
+    execution = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorizations,
     )
@@ -106,6 +107,47 @@ def _intrinsic_execution(
         sends_value=sends_value,
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
+    )
+
+
+def _build_preparation_authorizations(
+    fork: Fork,
+    pre: Alloc,
+    *,
+    cap: int,
+    with_reservoir: bool,
+) -> tuple[list[AuthorizationScenario], int]:
+    """
+    Build authorizations and return the gas needed to apply all of them.
+
+    When a reservoir is required, add enough authorizations for preparation
+    to consume the execution cap before it exhausts state gas.
+    """
+    sample_auth = build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
+    base_intrinsic = _intrinsic_execution(
+        fork, [], recipient_type=RecipientType.DELEGATION_7702
+    )
+    per_auth_intrinsic = (
+        _intrinsic_execution(
+            fork,
+            [sample_auth.authorization],
+            recipient_type=RecipientType.DELEGATION_7702,
+        )
+        - base_intrinsic
+    )
+    per_auth_gas = per_auth_intrinsic + (
+        _auth_top_frame_charges(fork, [sample_auth.authorization])
+    )
+    auth_count = (
+        (cap - base_intrinsic) // per_auth_gas + 2 if with_reservoir else 2
+    )
+    authorizations = [sample_auth] + [
+        build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
+        for _ in range(auth_count - 1)
+    ]
+    return (
+        authorizations,
+        base_intrinsic + auth_count * per_auth_gas,
     )
 
 
@@ -136,6 +178,8 @@ def _applied_delegation_bal(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "outcome", ["new_account", "account_write", "auth_base", "succeeds"]
 )
@@ -268,6 +312,7 @@ def test_set_delegation_oog_charge_point(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.parametrize(
     "first_action",
     [
@@ -361,6 +406,8 @@ def test_set_delegation_oog_rolls_back_first_auth(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "succeeds",
     [
@@ -518,6 +565,8 @@ def test_recipient_charge_oog_rolls_back_delegations(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "failure_point",
     [
@@ -764,6 +813,8 @@ def test_reservoir_settlement_by_failure_point(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "failure_point",
     ["set_delegation_oog", "dispatch_charge_oog", "execution_halt"],
@@ -971,6 +1022,7 @@ def test_reservoir_settlement_with_value_to_empty_recipient(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.parametrize(
     "value",
     [pytest.param(0, id="no_value"), pytest.param(1, id="with_value")],
@@ -1062,6 +1114,7 @@ def test_delegation_persists_on_execution_oog(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "auth_action",
     [
@@ -1147,6 +1200,7 @@ def test_auth_state_charges_survive_dispatch_revert(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_auth_state_charges_survive_dispatch_halt_with_reservoir(
     fork: Fork,
     pre: Alloc,
@@ -1218,6 +1272,7 @@ def test_auth_state_charges_survive_dispatch_halt_with_reservoir(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_auth_state_gas_in_header_on_dispatch_revert(
     fork: Fork,
     pre: Alloc,
@@ -1251,7 +1306,7 @@ def test_auth_state_gas_in_header_on_dispatch_revert(
     intrinsic_execution = _intrinsic_execution(
         fork, authorization_list, recipient_type=RecipientType.CONTRACT
     )
-    auth_execution = fork.transaction_top_frame_gas_calculator()(
+    auth_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorization_list,
     )
@@ -1290,6 +1345,7 @@ def test_auth_state_gas_in_header_on_dispatch_revert(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "delta",
@@ -1336,7 +1392,7 @@ def test_reverted_dispatch_state_gas_counts_toward_block_limit(
     intrinsic_execution = _intrinsic_execution(
         fork, authorization_list, recipient_type=RecipientType.CONTRACT
     )
-    auth_execution = fork.transaction_top_frame_gas_calculator()(
+    auth_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorization_list,
     )
@@ -1398,6 +1454,166 @@ def test_reverted_dispatch_state_gas_counts_toward_block_limit(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.inclusion_test
+@pytest.mark.parametrize("failure_point", ["authorization", "dispatch_access"])
+@pytest.mark.parametrize(
+    "with_reservoir", [False, True], ids=["spill", "mixed"]
+)
+@pytest.mark.parametrize(
+    "probe_delta,probe_error",
+    [
+        pytest.param(0, None, id="exact_fit"),
+        pytest.param(
+            1,
+            TransactionException.GAS_ALLOWANCE_EXCEEDED,
+            id="exceeded",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+def test_preparation_rollback_restores_block_state_budget(
+    fork: Fork,
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    failure_point: str,
+    with_reservoir: bool,
+    probe_delta: int,
+    probe_error: TransactionException | None,
+) -> None:
+    """
+    Exclude rolled-back authorization charges from the block state budget.
+
+    Fail before or after the authorization gas commit, then probe the next
+    transaction's inclusion at the restored state-budget boundary.
+    """
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None, "EIP-7825 cap expected on this fork"
+
+    execution_gas, state_gas, cumulative_gas_used = 0, 0, 0
+
+    # Seed the block with state gas that must remain charged.
+    seed_code = Op.SSTORE(0, 1, original_value=0, new_value=1)
+    seed_recipient = pre.deploy_contract(code=seed_code)
+
+    execution_gas = _intrinsic_execution(
+        fork, [], recipient_type=RecipientType.CONTRACT
+    ) + seed_code.execution_cost(fork)
+    state_gas += seed_code.state_cost(fork)
+    cumulative_gas_used = execution_gas + state_gas
+
+    seed_tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=seed_recipient,
+        gas_limit=cumulative_gas_used,
+    )
+
+    # Build a transaction that runs out of gas during preparation.
+    authorizations, preparation_gas = _build_preparation_authorizations(
+        fork,
+        pre,
+        cap=cap,
+        with_reservoir=with_reservoir,
+    )
+    authorization_list = [
+        authorization.authorization for authorization in authorizations
+    ]
+
+    # Starve the last AUTH_BASE charge, or the access after all
+    # authorizations have applied and their state gas has been committed.
+    match failure_point:
+        case "authorization":
+            failing_gas_limit = preparation_gas - 1
+        case "dispatch_access":
+            failing_gas_limit = (
+                preparation_gas
+                + fork.transaction_top_frame_execution_gas(
+                    recipient_type=RecipientType.DELEGATION_7702,
+                )
+                - 1
+            )
+        case _:
+            raise ValueError(f"Unexpected failure point: {failure_point}")
+
+    failing_execution_gas = min(cap, failing_gas_limit)
+    auth_state_gas = fork.transaction_top_frame_state_gas(
+        recipient_type=RecipientType.CONTRACT,
+        authorizations=authorization_list,
+    )
+    gas_above_cap = failing_gas_limit - cap
+    if with_reservoir:
+        assert 0 < gas_above_cap < auth_state_gas
+    else:
+        assert gas_above_cap < 0
+
+    # Preparation rollback restores its state gas, so only execution gas
+    # remains charged to the block.
+    execution_gas += failing_execution_gas
+    cumulative_gas_used += failing_execution_gas
+
+    stop_contract = pre.deploy_contract(code=Op.STOP)
+    failing_sender = pre.fund_eoa()
+    failing_tx = Transaction(
+        sender=failing_sender,
+        to=pre.fund_eoa(delegation=stop_contract),
+        authorization_list=authorization_list,
+        gas_limit=failing_gas_limit,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=cumulative_gas_used,
+        ),
+    )
+
+    # Give the block enough execution headroom that only its cumulative
+    # state budget can decide whether the boundary probe is included.
+    block_gas_limit = state_gas + execution_gas + 2 * cap
+    probe_gas_limit = block_gas_limit - state_gas + probe_delta
+    execution_headroom = block_gas_limit - execution_gas
+    assert probe_gas_limit < block_gas_limit
+    assert min(cap, probe_gas_limit) < execution_headroom, (
+        "the execution budget must not decide the probe's inclusion"
+    )
+
+    probe_tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=stop_contract,
+        gas_limit=probe_gas_limit,
+        error=probe_error,
+    )
+
+    post: dict[Address, Account | None] = {}
+    expected_header: Header | None = None
+    if probe_error is None:
+        execution_gas += _intrinsic_execution(
+            fork,
+            [],
+            recipient_type=RecipientType.CONTRACT,
+        )
+        post = {
+            seed_recipient: Account(storage={0: 1}),
+            failing_sender: Account(nonce=1),
+            **{
+                authorization.authority: Account.NONEXISTENT
+                for authorization in authorizations
+            },
+        }
+        expected_header = Header(gas_used=max(execution_gas, state_gas))
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[seed_tx, failing_tx, probe_tx],
+                gas_limit=block_gas_limit,
+                exception=probe_error,
+                header_verify=expected_header,
+            ),
+        ],
+        post=post,
+    )
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_recipient_new_account_refilled_on_dispatch_halt_with_reservoir(
     fork: Fork,
     pre: Alloc,
@@ -1464,6 +1680,7 @@ def test_recipient_new_account_refilled_on_dispatch_halt_with_reservoir(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_dispatched_frame_state_gas_still_refills_on_revert(
     fork: Fork,
     pre: Alloc,
@@ -1479,10 +1696,10 @@ def test_dispatched_frame_state_gas_still_refills_on_revert(
     ``SSTORE``s a fresh slot -- charging ``STORAGE_SET`` state gas --
     and reverts, rolling the slot back, so that state gas is refilled.
 
-    This brackets the rollback boundary from both sides: the current
-    over-refill (returning the ``AUTH_BASE`` too) underpays by 35,190,
-    while an over-correction that stops refilling frame state gas
-    altogether would overcharge by the 97,920 ``STORAGE_SET``.
+    This brackets the rollback boundary from both sides: refilling the
+    ``AUTH_BASE`` along with the frame's rollback would underpay by
+    35,190, while an over-correction that stops refilling frame state
+    gas altogether would overcharge by the 97,920 ``STORAGE_SET``.
     """
     sender = pre.fund_eoa()
 

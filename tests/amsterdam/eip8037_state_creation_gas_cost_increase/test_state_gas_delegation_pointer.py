@@ -67,7 +67,7 @@ def test_sstore_via_delegation_pointer(
         recipient_type=RecipientType.DELEGATION_7702,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=False,
         authorizations=[authorization],
@@ -128,7 +128,7 @@ def test_sstore_direct_call_same_contract(
     intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.CONTRACT,
     )
     top_frame_state = fork.transaction_top_frame_state_gas(
@@ -211,7 +211,7 @@ def test_delegation_pointer_new_account_state_gas(
         recipient_type=RecipientType.DELEGATION_7702,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=False,
         authorizations=[authorization],
@@ -257,4 +257,157 @@ def test_delegation_pointer_new_account_state_gas(
         blockchain_test_header_verify=Header(
             gas_used=max(block_execution, block_state)
         ),
+    )
+
+
+@pytest.mark.parametrize(
+    "state_op",
+    [Op.CREATE, Op.CREATE2, Op.SELFDESTRUCT],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_account_state_gas_via_delegation_pointer(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    state_op: Op,
+) -> None:
+    """
+    Test account-creating charges are billed the same via a delegation
+    pointer as they are directly.
+
+    Delegated code runs in the authority's context, so a CREATE takes the
+    authority's nonce and a SELFDESTRUCT moves the authority's balance.
+    Each still bills its state charge from the reservoir, and the header
+    reports it in the state dimension.
+    """
+    if state_op == Op.CREATE:
+        code = Op.POP(Op.CREATE(0, 0, 0))
+    elif state_op == Op.CREATE2:
+        code = Op.POP(Op.CREATE2(0, 0, 0, 0))
+    else:
+        code = Op.SELFDESTRUCT(pre.nonexistent_account(), account_new=True)
+    contract = pre.deploy_contract(code=code)
+
+    delegator = pre.fund_eoa(delegation=contract, amount=1)
+    state_gas = code.state_cost(fork)
+    assert state_gas > 0, "the op must carry a state charge"
+
+    tx = Transaction(
+        to=delegator,
+        state_gas_reservoir=state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        pre=pre,
+        post={},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=state_gas),
+    )
+
+
+@pytest.mark.parametrize(
+    "failure_mode",
+    [
+        pytest.param("revert", id="revert"),
+        pytest.param("halt", id="halt"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_delegation_pointer_state_gas_on_frame_failure(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    failure_mode: str,
+) -> None:
+    """
+    Test a delegated frame's state charge is undone when it fails.
+
+    The storage the charge pays for belongs to the authority, not the
+    delegated code's own account, so the rollback has to reach the
+    authority's slot. Either failure leaves the state dimension empty.
+    """
+    ending = Op.REVERT(0, 0) if failure_mode == "revert" else Op.INVALID
+    code = Op.SSTORE(0, 1) + ending
+    contract = pre.deploy_contract(code=code)
+
+    delegator = pre.fund_eoa(delegation=contract)
+
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
+        recipient_type=RecipientType.DELEGATION_7702,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
+        recipient_type=RecipientType.DELEGATION_7702,
+        delegation_warm=False,
+    )
+    gas_limit = 200_000
+    # The rolled-back set leaves the state dimension empty, so the
+    # header is the execution total: a halt burns the whole budget, a
+    # revert returns everything the frame did not spend.
+    if failure_mode == "halt":
+        expected_gas_used = gas_limit
+    else:
+        expected_gas_used = (
+            intrinsic_execution
+            + top_frame_execution
+            + code.execution_cost(fork)
+        )
+
+    tx = Transaction(
+        to=delegator,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        post={delegator: Account(storage={0: 0})},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_delegation_pointer_to_delegated_account(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test a pointer aimed at an already-delegated account.
+
+    Delegation resolves only once,
+    so the frame executes the designator bytes (0xef0100 || writer) as code.
+    Since 0xef is undefined, execution halts before reaching writer's SSTORE.
+    The reservoir stays untouched and is refunded, so the bill equals the cap,
+    not the full gas limit.
+    """
+    writer = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    inner = pre.fund_eoa(delegation=writer)
+    outer = pre.fund_eoa(delegation=inner)
+
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    tx = Transaction(
+        to=outer,
+        state_gas_reservoir=sstore_state_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_limit_cap),
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            outer: Account(storage={}),
+            inner: Account(storage={}),
+            writer: Account(storage={}),
+        },
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=gas_limit_cap),
     )

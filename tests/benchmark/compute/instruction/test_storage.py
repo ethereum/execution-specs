@@ -12,11 +12,14 @@ import math
 
 import pytest
 from execution_testing import (
+    Address,
     Alloc,
     AuthorizationTuple,
     BenchmarkTestFiller,
     Block,
     Bytecode,
+    Conditional,
+    Environment,
     ExtCallGenerator,
     Fork,
     Hash,
@@ -27,6 +30,7 @@ from execution_testing import (
     TestPhaseManager,
     Transaction,
     While,
+    WhileGas,
     compute_create_address,
 )
 
@@ -66,25 +70,46 @@ def test_tload(
     )
 
 
-@pytest.mark.repricing(fixed_key=False, fixed_value=False)
+@pytest.mark.repricing(fixed_key=False, tload="none")
 @pytest.mark.parametrize("fixed_key", [True, False])
-@pytest.mark.parametrize("fixed_value", [True, False])
+@pytest.mark.parametrize("tload", ["none", "hit", "miss"])
 def test_tstore(
     benchmark_test: BenchmarkTestFiller,
     fixed_key: bool,
-    fixed_value: bool,
+    tload: str,
 ) -> None:
-    """Benchmark TSTORE instruction."""
-    init_key = 42
-    setup = Op.PUSH1(init_key)
+    """
+    Benchmark TSTORE against a growing transient store.
 
-    attack_block = Op.TSTORE(Op.DUP2, Op.GAS if not fixed_value else Op.DUP1)
-    cleanup = Op.POP + Op.GAS if not fixed_key else Bytecode()
+    GAS gives a unique key per write with no memory counter, and COINBASE a
+    nonzero value, so every write inserts an entry instead of being elided.
+    """
+    assert Environment().fee_recipient != Address(0), (
+        "coinbase must be nonzero so the TSTORE value is nonzero"
+    )
+
+    key = Op.PUSH0 if fixed_key else Op.GAS
+    setup = Bytecode()
+    value = Op.COINBASE
+    match tload:
+        case "hit":
+            # Seed the value and feed each read into the next TSTORE so
+            # the TLOAD is not discarded. Stack carries [value].
+            setup = Op.COINBASE
+            attack_block = key + Op.SWAP1 + Op.DUP2 + Op.TSTORE + Op.TLOAD
+        case "miss":
+            # Read a fresh, never-written key: a miss on a growing store.
+            attack_block = Op.TSTORE(key, value) + Op.POP(Op.TLOAD(Op.GAS))
+        case "none":
+            attack_block = Op.TSTORE(key, value)
+        case _:
+            raise ValueError(f"Unknown tload mode: {tload}")
 
     benchmark_test(
         target_opcode=Op.TSTORE,
         code_generator=JumpLoopGenerator(
-            setup=setup, attack_block=attack_block, cleanup=cleanup
+            setup=setup,
+            attack_block=attack_block,
         ),
     )
 
@@ -520,4 +545,138 @@ def test_storage_access_warm_benchmark(
         if storage_action == StorageAction.READ
         else Op.SSTORE,
         code_generator=ExtCallGenerator(attack_block=attack_block),
+    )
+
+
+@pytest.mark.parametrize("revert", [True, False])
+@pytest.mark.parametrize("depth", [1, pytest.param(None, id="max")])
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.SLOAD,
+        Op.SSTORE,
+        Op.TLOAD,
+        Op.TSTORE,
+    ],
+)
+def test_nested_frame_state_access(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_gas_limit: int,
+    gas_benchmark_value: int,
+    depth: int | None,
+    opcode: Op,
+    revert: bool,
+) -> None:
+    """Benchmark warm state access from the bottom of a deep frame stack."""
+    match opcode:
+        case Op.SLOAD:
+            body = Op.POP(Op.SLOAD(Op.PUSH0))
+        case Op.SSTORE:
+            body = Op.SSTORE(Op.GAS, Op.GAS)
+        case Op.TLOAD:
+            body = Op.POP(Op.TLOAD(Op.GAS))
+        case Op.TSTORE:
+            body = Op.TSTORE(Op.GAS, Op.GAS)
+        case _:
+            raise ValueError(f"Unsupported opcode: {opcode}")
+
+    # A leaf that runs out of gas returns no data, unlike one that reverts.
+    epilogue = (
+        Op.REVERT(
+            0,
+            32,
+            # gas accounting
+            old_memory_size=0,
+            new_memory_size=32,
+        )
+        if revert
+        else Op.RETURN(
+            0,
+            32,
+            # gas accounting
+            old_memory_size=0,
+            new_memory_size=32,
+        )
+    )
+    leaf_code = (
+        WhileGas(body=body, fork=fork, extra_gas=epilogue.gas_cost(fork))
+        + epilogue
+    )
+    leaf_address = pre.deploy_contract(code=leaf_code)
+
+    descend = Op.MSTORE(0, Op.SUB(Op.CALLDATALOAD(0), 1)) + Conditional(
+        condition=Op.CALL(
+            gas=Op.GAS,
+            address=Op.ADDRESS,
+            args_offset=0,
+            args_size=32,
+            address_warm=True,
+        ),
+        if_false=Op.REVERT(0, 0),
+    )
+    invoke_leaf = Op.CALL(
+        gas=Op.GAS, address=leaf_address, address_warm=False
+    ) + Conditional(
+        condition=Op.RETURNDATASIZE, if_false=Op.REVERT(Op.PUSH0, Op.PUSH0)
+    )
+
+    frame_code = Conditional(
+        condition=Op.CALLDATALOAD(0),
+        if_true=descend,
+        if_false=invoke_leaf,
+    )
+    entry_address = pre.deploy_contract(code=frame_code)
+
+    frame_gas = frame_code.gas_cost(fork)
+    leaf_gas = leaf_code.gas_cost(fork)
+    leaf_state_gas = leaf_code.state_cost(fork)
+
+    def deepest_frame(execution_gas: int) -> int:
+        """Return the deepest frame that can still afford the leaf call."""
+        leaf_call_gas = frame_gas + math.ceil(leaf_gas * 64 / 63)
+        frames = 0
+        while True:
+            forwarded_gas = execution_gas - frame_gas
+            forwarded_gas -= forwarded_gas // 64
+            if forwarded_gas < leaf_call_gas:
+                return frames
+            execution_gas = forwarded_gas
+            frames += 1
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=b"\xff" * 32,
+        return_cost_deducted_prior_execution=True,
+    )
+
+    txs = []
+    remaining_gas = gas_benchmark_value
+    while remaining_gas > 0:
+        execution_gas = min(tx_gas_limit, remaining_gas)
+        remaining_gas -= execution_gas
+        reservoir_gas = (
+            leaf_state_gas
+            if fork.state_gas_reservoir_enabled()
+            and execution_gas == tx_gas_limit
+            else 0
+        )
+        txs.append(
+            Transaction(
+                to=entry_address,
+                gas_limit=execution_gas + reservoir_gas,
+                data=Hash(
+                    deepest_frame(execution_gas - intrinsic_gas)
+                    if depth is None
+                    else depth
+                ),
+                sender=pre.fund_eoa(),
+            )
+        )
+
+    benchmark_test(
+        target_opcode=opcode,
+        skip_gas_used_validation=True,
+        expected_receipt_status=1,
+        blocks=[Block(txs=txs)],
     )

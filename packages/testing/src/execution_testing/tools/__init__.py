@@ -11,6 +11,7 @@ from .tools_code import (
     Create2PreimageLayout,
     CreatePreimageLayout,
     FixedIterationsBytecode,
+    GasConsumer,
     Initcode,
     IteratingBytecode,
     SequentialAddressLayout,
@@ -20,8 +21,10 @@ from .tools_code import (
     While,
     WhileGas,
 )
+from .utility.gas import max_count_with_gas_limit
 from .utility.generators import (
     DeploymentTestType,
+    FactoryDeployment,
     gas_test,
     generate_system_contract_deploy_test,
     generate_system_contract_error_test,
@@ -37,7 +40,9 @@ __all__ = (
     "Create2PreimageLayout",
     "CreatePreimageLayout",
     "DeploymentTestType",
+    "FactoryDeployment",
     "FixedIterationsBytecode",
+    "GasConsumer",
     "Initcode",
     "IteratingBytecode",
     "ParameterSet",
@@ -49,6 +54,7 @@ __all__ = (
     "WhileGas",
     "extend_with_defaults",
     "gas_test",
+    "max_count_with_gas_limit",
     "generate_system_contract_deploy_test",
     "generate_system_contract_error_test",
     "get_current_commit_hash_or_tag",

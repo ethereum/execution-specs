@@ -99,3 +99,74 @@ def test_create_oog_full_burn_no_state_credit(
         ],
         post={},
     )
+
+
+@pytest.mark.parametrize(
+    "state_op_kind",
+    [
+        pytest.param("sstore", id="sstore_set"),
+        pytest.param("call_new_account", id="call_new_account"),
+        pytest.param("selfdestruct", id="selfdestruct_beneficiary"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_state_charge_oog_full_burn_no_state_credit(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    state_op_kind: str,
+) -> None:
+    """
+    Verify every state charge burns the whole tx gas_limit when it OOGs.
+
+    The CREATE path is covered by
+    ``test_create_oog_full_burn_no_state_credit``; the same tx-end rule
+    has to hold for the other three charges. Each frame is handed one gas
+    less than its charge needs, so it runs out mid-charge and no
+    state-gas leftover may be credited back at settlement.
+    """
+    if state_op_kind == "sstore":
+        body = Op.SSTORE(0, 1)
+        contract = pre.deploy_contract(body)
+    elif state_op_kind == "call_new_account":
+        body = Op.POP(
+            Op.CALL(
+                gas=0,
+                address=pre.nonexistent_account(),
+                value=1,
+                value_transfer=True,
+                account_new=True,
+            )
+        )
+        contract = pre.deploy_contract(body, balance=1)
+    else:
+        body = Op.SELFDESTRUCT(pre.nonexistent_account(), account_new=True)
+        contract = pre.deploy_contract(body, balance=1)
+
+    assert body.state_cost(fork) > 0, "the op must carry a state charge"
+
+    # One gas short of the full two-dimension cost, so the charge itself
+    # is what runs out. The value call forwards a stipend the codeless
+    # recipient returns unused, so that part is never needed.
+    unused_stipend = (
+        fork.call_value_stipend() if state_op_kind == "call_new_account" else 0
+    )
+    tx_gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + body.gas_cost(fork)
+        - unused_stipend
+        - 1
+    )
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=contract,
+        gas_limit=tx_gas_limit,
+        state_gas_reservoir=0,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx], header_verify=Header(gas_used=tx_gas_limit))],
+        post={},
+    )

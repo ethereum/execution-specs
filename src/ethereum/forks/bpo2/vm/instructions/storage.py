@@ -144,7 +144,7 @@ def tload(evm: Evm) -> None:
     key = pop(evm.stack).to_be_bytes32()
 
     # GAS
-    charge_gas(evm, GasCosts.WARM_ACCESS)
+    charge_gas(evm, GasCosts.OPCODE_TLOAD)
 
     # OPERATION
     value = get_transient_storage(
@@ -171,7 +171,7 @@ def tstore(evm: Evm) -> None:
     new_value = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GasCosts.WARM_ACCESS)
+    charge_gas(evm, GasCosts.OPCODE_TSTORE)
     if evm.message.is_static:
         raise WriteInStaticContext
     set_transient_storage(

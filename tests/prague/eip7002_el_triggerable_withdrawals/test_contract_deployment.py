@@ -8,18 +8,18 @@ from typing import Any, Generator
 
 import pytest
 from execution_testing import (
-    Address,
     Alloc,
     Block,
+    Header,
     Requests,
     Transaction,
     TransitionFork,
+    WithdrawalRequest,
     generate_system_contract_deploy_test,
 )
 from execution_testing.forks import Prague
 
-from .helpers import WithdrawalRequest
-from .spec import Spec, ref_spec_7002
+from .spec import ref_spec_7002
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7002.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7002.version
@@ -29,7 +29,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7002.version
 @generate_system_contract_deploy_test(
     fork=Prague,
     tx_json_path=Path(realpath(__file__)).parent / "contract_deploy_tx.json",
-    expected_deploy_address=Address(Spec.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS),
+    expected_deploy_address=WithdrawalRequest.system_contract_address,
     fail_on_empty_code=True,
 )
 def test_system_contract_deployment(
@@ -44,6 +44,7 @@ def test_system_contract_deployment(
         validator_pubkey=0x01,
         amount=1,
         source_address=sender,
+        fee=WithdrawalRequest.get_fee(0),
     )
     intrinsic_gas_calculator = (
         fork.transitions_to().transaction_intrinsic_cost_calculator()
@@ -55,12 +56,12 @@ def test_system_contract_deployment(
     test_transaction = Transaction(
         data=withdrawal_request.calldata,
         gas_limit=test_transaction_gas * 10,
-        to=Spec.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+        to=WithdrawalRequest.system_contract_address,
         sender=sender,
         value=withdrawal_request.value,
     )
 
     yield Block(
         txs=[test_transaction],
-        requests_hash=Requests(withdrawal_request),
+        header_verify=Header(requests_hash=Requests(withdrawal_request)),
     )

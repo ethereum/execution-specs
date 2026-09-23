@@ -82,6 +82,18 @@ runs:
       run: |
         uv run -q .github/scripts/validate_zkevm_benchmark_fixtures.py \
           fixtures_${{ inputs.release_name }}.tar.gz
+    - name: Validate blockchain fixtures with EELS
+      if: inputs.split_label != '' && steps.evm-builder.outputs.impl == 'eels'
+      shell: bash
+      env:
+        PYTEST_XDIST_AUTO_NUM_WORKERS: ${{ steps.evm-builder.outputs.xdist }}
+      run: |
+        FIXTURES="fixtures_${{ inputs.release_name }}/blockchain_tests"
+        if [ ! -d "$FIXTURES" ]; then
+          echo "No blockchain_tests fixtures to validate."
+          exit 0
+        fi
+        just validate-blocks "$FIXTURES" --no-cov
     - name: Generate Benchmark Genesis Files
       if: inputs.split_label == '' && inputs.release_name != 'zkevm-benchmark' && contains(inputs.release_name, 'benchmark')
       uses: ./.github/actions/build-benchmark-genesis

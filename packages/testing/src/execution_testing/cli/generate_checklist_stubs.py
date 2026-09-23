@@ -106,7 +106,7 @@ def generate_checklist_stubs(output: str | None, dry_run: bool) -> None:
     """
     try:
         # Add src to path so we can import the module
-        src_path = Path(__file__).parent.parent
+        src_path = Path(__file__).parents[2]
         sys.path.insert(0, str(src_path))
 
         from execution_testing.checklists.eip_checklist import (
@@ -129,6 +129,9 @@ F = TypeVar("F", bound=Callable[..., Any])
 class _CallableChecklistItem:
     """Base type for all callable checklist items."""
 
+    # Items with sub-items are emitted as classes, so a call on them is a
+    # constructor call to mypy: accept the same arguments as `__call__`.
+    def __new__(cls, *args: Any, eip: Any = ..., **kwargs: Any) -> Any: ...
     @overload
     def __call__(self, func: F) -> F: ...
     @overload

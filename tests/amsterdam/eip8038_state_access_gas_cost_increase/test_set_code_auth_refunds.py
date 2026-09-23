@@ -1,6 +1,6 @@
 """
 Tests for the EIP-7702 authorization charge on an *existing* authority
-leaf under [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+leaf under [EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 EIP-8038 originally over-charged every authorization as if it created a
 new account and *refunded* the difference (``ACCOUNT_WRITE`` on the
@@ -98,7 +98,7 @@ def test_existing_authority_no_new_account_charge(
         authorization_list_or_count=n,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         authorizations=authorization_list,
     )
     top_frame_state = fork.transaction_top_frame_state_gas(
@@ -173,7 +173,7 @@ def test_clearing_delegation_no_state_charge(
         authorization_list_or_count=n,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         authorizations=authorization_list,
     )
     top_frame_state = fork.transaction_top_frame_state_gas(

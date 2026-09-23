@@ -121,6 +121,11 @@ class ForkLoad:
         return self._module("fork").state_transition
 
     @property
+    def apply_fork(self) -> Any:
+        """apply_fork function of the fork."""
+        return self._module("fork").apply_fork
+
+    @property
     def signing_hash(self) -> Any:
         """signing_hash function of the fork."""
         return self._module("transactions").signing_hash

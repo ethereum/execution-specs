@@ -27,13 +27,15 @@ and cadence.
 | Type      | Release name           | Artifact                        | Scope                                                                          | Built from              |
 | --------- | ---------------------- | ------------------------------- | ------------------------------------------------------------------------------ | ----------------------- |
 | Tests     | `tests@vX.Y.Z`         | `fixtures.tar.gz`               | All forks, all tests (eventually including `ethereum/tests` state tests)        | latest `forks/*` branch |
-| Devnet    | `<feat>-devnet@vX.Y.Z` | `fixtures_<feat>-devnet.tar.gz` | All forks, all tests, for an upcoming-fork feature under active devnet testing   | the devnet branch       |
+| Devnet    | `<feat>-devnet@vX.Y.Z` | `fixtures_<feat>-devnet.tar.gz` | All forks, all tests, for an upcoming-fork feature under active devnet testing   | the devnet or EIP branch |
 | Benchmark | `benchmark@vX.Y.Z`     | `fixtures_benchmark.tar.gz`     | EVM benchmarking tests                                                          | latest `forks/*` branch |
 | zkEVM benchmark | `zkevm-benchmark@vX.Y.Z` | `fixtures_zkevm-benchmark.tar.gz` | Amsterdam compute benchmarks with stateless input and output bytes | matching `tests-zkevm@vX.Y.Z` tag |
 
-- "Tests" releases track clients' production branches and are tagged frequently (roughly
-  once or twice a week). They are the "must pass" release for mainnet CI, and supersede the
-  old `fixtures_stable` / `fixtures_develop` artifacts.
+- "Tests" releases aim to match clients' master branches. Once clients have merged the
+  upcoming fork into those branches ahead of a pending client release, the `tests` release
+  includes that fork too, and `X` bumps to its fork number. They are the "must pass" release
+  for client CI, tagged frequently (roughly once or twice a week), and supersede the old
+  `fixtures_stable` / `fixtures_develop` artifacts.
 - "Devnet" releases target a specific feature under active development (e.g. `bal-devnet`).
   They are advisory/non-blocking and may not yet cover every EIP; see the corresponding
   release notes for the coverage provided.
@@ -152,7 +154,7 @@ fixtures/
 
 Mapped to a typical client CI setup:
 
-- **Blocking gate (current + past forks)**: Pin a specific `tests@vX.Y.Z` for reproducible,
+- **Blocking gate (the forks on your `master` branch)**: Pin a specific `tests@vX.Y.Z` for reproducible,
   no-rug-pull CI on your `master`/production branch, or follow the latest `tests` release if
   a moving target is acceptable. This supersedes the old `fixtures_develop` / `fixtures_stable`
   artifacts.

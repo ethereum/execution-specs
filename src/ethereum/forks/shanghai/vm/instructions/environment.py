@@ -513,7 +513,7 @@ def self_balance(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.FAST_STEP)
+    charge_gas(evm, GasCosts.OPCODE_SELFBALANCE)
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.

@@ -1,5 +1,5 @@
 """
-EIP-8038: State Access Gas Cost Increase.
+EIP-8038: State-access gas cost update.
 
 Harmonization and increase of state-access gas costs, repricing warm and
 cold account and storage access, account writes, and the related access
@@ -56,6 +56,10 @@ class EIP8038(BaseFork):
         execution_per_auth_base_cost = (
             1_616 + 3_000 + cold_account_access + 2 * warm_access
         )
+        # Derived with the EIP's formula, as in `vm/gas.py`.
+        refund_storage_clear = (
+            (storage_write + cold_storage_access) * 4_800 // 5_000
+        )
 
         return replace(
             parent,
@@ -66,13 +70,14 @@ class EIP8038(BaseFork):
             COLD_STORAGE_WRITE=cold_storage_write,
             ACCOUNT_WRITE=account_write,
             CALL_VALUE=account_write + 2_300,  # ACCOUNT_WRITE + CALL_STIPEND
-            REFUND_STORAGE_CLEAR=11_616,
+            REFUND_STORAGE_CLEAR=refund_storage_clear,
             TX_ACCESS_LIST_ADDRESS=cold_account_access - warm_access,
             TX_ACCESS_LIST_STORAGE_KEY=cold_storage_access - warm_access,
             BLOCK_ACCESS_LIST_ITEM=2000,
             STORAGE_SET=storage_write,
             OPCODE_CREATE_BASE=create_access,
             TX_CREATE=create_access,
+            CREATE_ACCESS=create_access,
             AUTH_PER_EMPTY_ACCOUNT=account_write
             + execution_per_auth_base_cost,
             EXECUTION_PER_AUTH_BASE_COST=execution_per_auth_base_cost,

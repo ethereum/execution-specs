@@ -104,10 +104,6 @@ def generate_block_check_code(
     return code
 
 
-# TODO: Test at transition: `BLOCKHASH_OLD_WINDOW + 1` blocks before transition
-# TODO: Test post fork: `HISTORY_SERVE_WINDOW` + 1 blocks after transition
-
-
 @pytest.mark.parametrize(
     "blocks_before_fork, blocks_after_fork",
     [

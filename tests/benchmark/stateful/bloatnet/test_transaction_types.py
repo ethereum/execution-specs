@@ -160,7 +160,7 @@ def test_ether_transfers_onchain_receivers(
             sends_value=sends_value,
             recipient_type=recipient_type,
         )
-        + fork.transaction_top_frame_gas_calculator()(
+        + fork.transaction_top_frame_execution_gas(
             sends_value=sends_value,
             recipient_type=recipient_type,
         )

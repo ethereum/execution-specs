@@ -17,7 +17,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.exceptions import ExceptionBase, ExceptionMapper
-from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks import Fork, Requests, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import (
     BlockNumberType,
@@ -37,7 +37,6 @@ from execution_testing.rpc.rpc_types import (
 from execution_testing.test_types import (
     Alloc,
     Environment,
-    Requests,
     Transaction,
     Withdrawal,
 )

@@ -63,6 +63,12 @@ class BlockState:
     ``account_reads`` and ``storage_reads`` accumulate across all transactions
     for BAL generation. ``code_reads`` accumulates code accesses used for
     execution witness generation.
+
+    ``storage_clears`` records addresses whose pre-existing storage
+    was wiped earlier in the block, so later reads must not fall back
+    to ``pre_state``. Contract creation over a storage-only account
+    and deletion of an empty account that still holds storage both
+    wipe storage.
     """
 
     pre_state: PreState
@@ -77,6 +83,7 @@ class BlockState:
     code_reads: Set[CodeRead] = field(default_factory=set)
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
     oldest_ancestor_offset: Optional[Uint] = None
+    storage_clears: Set[Address] = field(default_factory=set)
 
 
 @final
@@ -104,6 +111,7 @@ class TransactionState:
     code_reads: Set[CodeRead] = field(default_factory=set)
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
     created_accounts: Set[Address] = field(default_factory=set)
+    storage_clears: Set[Address] = field(default_factory=set)
     transient_storage: Dict[Tuple[Address, Bytes32], U256] = field(
         default_factory=dict
     )
@@ -296,9 +304,13 @@ def get_storage(
     if address in tx_state.storage_writes:
         if key in tx_state.storage_writes[address]:
             return tx_state.storage_writes[address][key]
+    if address in tx_state.storage_clears:
+        return U256(0)
     if address in tx_state.parent.storage_writes:
         if key in tx_state.parent.storage_writes[address]:
             return tx_state.parent.storage_writes[address][key]
+    if address in tx_state.parent.storage_clears:
+        return U256(0)
     return tx_state.parent.pre_state.get_storage(address, key)
 
 
@@ -326,6 +338,8 @@ def get_storage_original(
     if address in tx_state.parent.storage_writes:
         if key in tx_state.parent.storage_writes[address]:
             return tx_state.parent.storage_writes[address][key]
+    if address in tx_state.parent.storage_clears:
+        return U256(0)
     return tx_state.parent.pre_state.get_storage(address, key)
 
 
@@ -536,7 +550,8 @@ def destroy_storage(tx_state: TransactionState, address: Address) -> None:
 
     Convert storage writes to reads before deleting so that accesses
     from created-then-destroyed accounts appear in the Block Access
-    List. Only supports same transaction destruction.
+    List. Record the address in ``storage_clears`` so that reads no
+    longer fall back to earlier block writes or ``pre_state``.
 
     Parameters
     ----------
@@ -550,6 +565,7 @@ def destroy_storage(tx_state: TransactionState, address: Address) -> None:
         for key in tx_state.storage_writes[address]:
             tx_state.storage_reads.add((address, key))
         del tx_state.storage_writes[address]
+    tx_state.storage_clears.add(address)
 
 
 def mark_account_created(tx_state: TransactionState, address: Address) -> None:
@@ -773,6 +789,7 @@ def copy_tx_state(tx_state: TransactionState) -> TransactionState:
         code_reads=tx_state.code_reads,
         code_writes=dict(tx_state.code_writes),
         created_accounts=tx_state.created_accounts,
+        storage_clears=set(tx_state.storage_clears),
         transient_storage=dict(tx_state.transient_storage),
         storage_reads=tx_state.storage_reads,
         account_reads=tx_state.account_reads,
@@ -796,6 +813,7 @@ def restore_tx_state(
     tx_state.account_writes = snapshot.account_writes
     tx_state.storage_writes = snapshot.storage_writes
     tx_state.code_writes = snapshot.code_writes
+    tx_state.storage_clears = snapshot.storage_clears
     tx_state.transient_storage = snapshot.transient_storage
 
 
@@ -810,8 +828,8 @@ def incorporate_tx_into_block(
     Merge transaction writes into the block state and clear for reuse.
 
     Update the BAL builder incrementally by diffing this transaction's
-    writes against the block's cumulative state.  Merge reads and
-    touches into block-level sets.
+    writes against the state at the start of the current block access
+    index.  Merge reads and touches into block-level sets.
 
     Parameters
     ----------
@@ -837,6 +855,10 @@ def incorporate_tx_into_block(
     for address, account in tx_state.account_writes.items():
         block.account_writes[address] = account
 
+    for address in tx_state.storage_clears:
+        block.storage_clears.add(address)
+        block.storage_writes.pop(address, None)
+
     for address, slots in tx_state.storage_writes.items():
         if address not in block.storage_writes:
             block.storage_writes[address] = {}
@@ -848,6 +870,7 @@ def incorporate_tx_into_block(
     tx_state.storage_writes.clear()
     tx_state.code_writes.clear()
     tx_state.created_accounts.clear()
+    tx_state.storage_clears.clear()
     tx_state.transient_storage.clear()
     tx_state.storage_reads = set()
     tx_state.account_reads = set()
@@ -873,6 +896,7 @@ def extract_block_diff(block_state: BlockState) -> BlockDiff:
         account_changes=block_state.account_writes,
         storage_changes=block_state.storage_writes,
         code_changes=block_state.code_writes,
+        storage_clears=block_state.storage_clears,
     )
 
 
