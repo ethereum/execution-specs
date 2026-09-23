@@ -680,3 +680,60 @@ def test_nested_frame_state_access(
         expected_receipt_status=1,
         blocks=[Block(txs=txs)],
     )
+
+
+def _besu_colliding_slots(n: int) -> list[int]:
+    """
+    Return ``n`` distinct slots that share one Java ``Arrays.hashCode``.
+
+    besu keys transient storage by a hash of ``(address, slot)`` in which the
+    address is constant for a contract's own writes, so slots with an equal
+    ``Arrays.hashCode`` all fall in one bucket. Each of 16 byte pairs is
+    ``(0x00, 0x1F)`` or ``(0x01, 0x00)``, contributing the same amount to the
+    polynomial hash (``31*0 + 31 == 31*1 + 0``); the 16-bit index selects.
+    """
+    assert n <= 1 << 16, "only 65536 distinct colliding slots (16 byte pairs)"
+    slots = []
+    for idx in range(n):
+        b = bytearray(32)
+        for p in range(16):
+            if (idx >> p) & 1:
+                b[2 * p], b[2 * p + 1] = 0x01, 0x00
+            else:
+                b[2 * p], b[2 * p + 1] = 0x00, 0x1F
+        slots.append(int.from_bytes(b, "big"))
+    return slots
+
+
+@pytest.mark.parametrize("distribution", ["spread", "besu_collision"])
+def test_tstore_key_distribution(
+    benchmark_test: BenchmarkTestFiller,
+    fork: Fork,
+    distribution: str,
+) -> None:
+    """
+    Benchmark TSTORE with colliding versus spread transient-storage keys.
+
+    The ``besu_collision`` arm writes distinct slots that share one
+    ``Arrays.hashCode``, so a client keying transient storage by a plain hash
+    of the slot funnels every write into a single bucket; the ``spread`` arm
+    writes sequential slots. The value is a fixed nonzero so the write is not
+    elided. besu keys this way; other clients are unaffected.
+    """
+    # Worst-case bytes per write (PUSH32 slot); bounds the block so it fits
+    # under max_code_size and JumpLoopGenerator packs at least one copy.
+    max_write_bytes = 36  # PUSH1 value + PUSH32 slot + TSTORE
+    n = (fork.max_code_size() - 2048) // max_write_bytes
+    if distribution == "spread":
+        slots = list(range(1, n + 1))
+    elif distribution == "besu_collision":
+        slots = _besu_colliding_slots(n)
+    else:
+        raise ValueError(f"unknown distribution: {distribution}")
+
+    value = 0x2A  # nonzero so the write is not elided
+    attack_block = sum((Op.TSTORE(slot, value) for slot in slots), Bytecode())
+    benchmark_test(
+        target_opcode=Op.TSTORE,
+        code_generator=JumpLoopGenerator(attack_block=attack_block),
+    )
