@@ -3116,7 +3116,16 @@ def test_bal_cross_tx_deploy_then_call(
     "failure_mode",
     [
         pytest.param("none", id="no_failure"),
-        pytest.param("collision", id="mid_chain_collision"),
+        pytest.param(
+            "collision",
+            id="mid_chain_collision",
+            marks=pytest.mark.pre_alloc_group(
+                "separate",
+                reason="Seeds code at a factory CREATE address that the "
+                "other failure modes deploy to, so sharing their genesis "
+                "turns their deployment into a collision.",
+            ),
+        ),
         pytest.param("oog", id="mid_chain_oog"),
     ],
 )
