@@ -192,13 +192,13 @@ def test_block_with_failing_included_il_tx_is_valid(
             # authority undelegated.
             post[authority] = Account.NONEXISTENT
         case "creation_address_collision":
-            # The creation target already has non-empty storage, so the
-            # contract creation exceptionally aborts (EIP-7610) and the
-            # pre-existing account is left untouched.
+            # The creation target already has a nonce, so the contract
+            # creation exceptionally aborts (EIP-684) and the pre-existing
+            # account is left untouched.
             failing_il_tx = Transaction(sender=sender, to=None, data=Op.STOP)
             collision_address = failing_il_tx.created_contract
-            pre[collision_address] = Account(storage={0x01: 0x01})
-            post[collision_address] = Account(storage={0x01: 0x01})
+            pre[collision_address] = Account(nonce=1)
+            post[collision_address] = Account(nonce=1)
         case _:
             raise ValueError(f"unknown scenario: {scenario}")
 
