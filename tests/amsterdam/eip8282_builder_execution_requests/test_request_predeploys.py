@@ -39,6 +39,7 @@ from execution_testing import (
     TransactionException,
     TransactionReceipt,
     compute_create_address,
+    create_op,
     relay_contract_code,
 )
 from execution_testing import Macros as Om
@@ -546,27 +547,26 @@ def test_request_from_initcode(
             sender=sender, to=None, data=initcode, value=request.value
         )
         created = compute_create_address(address=sender, nonce=0)
-    elif create_opcode == Op.CREATE:
-        factory = pre.deploy_contract(
-            Om.MSTORE(bytes(initcode), 0)
-            + Op.SSTORE(0, Op.CREATE(Op.CALLVALUE, 0, len(initcode)))
-        )
-        tx = Transaction(sender=sender, to=factory, value=request.value)
-        created = compute_create_address(address=factory, nonce=1)
-    elif create_opcode == Op.CREATE2:
+    elif create_opcode in (Op.CREATE, Op.CREATE2):
         factory = pre.deploy_contract(
             Om.MSTORE(bytes(initcode), 0)
             + Op.SSTORE(
                 0,
-                Op.CREATE2(Op.CALLVALUE, 0, len(initcode), CREATE2_SALT),
+                create_op(
+                    create_opcode,
+                    value=Op.CALLVALUE,
+                    size=len(initcode),
+                    salt=CREATE2_SALT,
+                ),
             )
         )
         tx = Transaction(sender=sender, to=factory, value=request.value)
         created = compute_create_address(
             address=factory,
+            nonce=1,
             salt=CREATE2_SALT,
             initcode=initcode,
-            opcode=Op.CREATE2,
+            opcode=create_opcode,
         )
     else:
         raise ValueError(f"unhandled create opcode {create_opcode}")
