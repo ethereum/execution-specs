@@ -66,7 +66,7 @@ class RandomInitcode:
             id="random_stop_jumpdest_2push1",
         ),
     ],
-    ids=lambda x: x.hex() if isinstance(x, Bytecode) else None,
+    ids=lambda x: x.hex(),
 )
 def test_jumpdest_analysis(
     benchmark_test: BenchmarkTestFiller,
@@ -74,22 +74,15 @@ def test_jumpdest_analysis(
     fork: Fork,
     pattern: Bytecode | RandomInitcode,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
     fixed_opcode_count: float | None,
 ) -> None:
     """
     Benchmark jumpdest analysis of CREATE initcode.
 
-    Each transaction fills a max-size initcode and CREATEs it in a loop up to
-    the gas limit; the initcode jumps to its last byte, forcing a full analysis
-    with almost no execution, and the returned address is mixed in so every
-    analysis is of new code. Periodic ``pattern`` tiles run with the branch
-    predictor warm; a ``RandomInitcode`` fills the initcode with non-repeating
-    bytes the predictor cannot learn, raising mispredictions.
-
-    In gas-driven mode every CREATE target is pre-funded with 1 wei so it is
-    already alive and the creation skips ``NEW_ACCOUNT``, isolating the
-    analysis cost. In fill these are genesis pre-allocation; on-chain the
-    analysis is gated behind that per-account charge.
+    Each CREATE runs a max-size initcode that jumps straight to its last byte,
+    so its cost is almost all analysis. Tiled patterns repeat with a period the
+    branch predictor learns; ``RandomInitcode`` does not repeat.
     """
     initcode_size = fork.max_initcode_size()
 
@@ -105,12 +98,13 @@ def test_jumpdest_analysis(
             code_prepare_initcode += Op.EXTCODECOPY(
                 address=source, dest_offset=offset, size=chunk
             )
-        tx_kwargs: dict = {}
+        tx_data = b""
     else:
         # Tile a small calldata window to fill the initcode: cheap, but the
         # period is learnable.
-        tx_data = bytes(pattern) * (1024 // len(pattern))
-        tx_data += (1024 - len(tx_data)) * bytes(Op.JUMPDEST)
+        tx_data_len = 1024
+        tx_data = bytes(pattern) * (tx_data_len // len(pattern))
+        tx_data += (tx_data_len - len(tx_data)) * bytes(Op.JUMPDEST)
         assert initcode_size % len(tx_data) == 0
         code_prepare_initcode = sum(
             (
@@ -123,7 +117,6 @@ def test_jumpdest_analysis(
             ),
             Bytecode(),
         )
-        tx_kwargs = {"data": tx_data}
 
     # Jump to the last byte, forcing a full analysis, and make it a JUMPDEST.
     initcode_prefix = Op.JUMP(initcode_size - 1)
@@ -144,25 +137,16 @@ def test_jumpdest_analysis(
         value=Op.PUSH0, offset=Op.PUSH0, size=Op.MSIZE
     )
     code_generator = JumpLoopGenerator(
-        setup=setup, attack_block=attack_block, tx_kwargs=tx_kwargs
+        setup=setup, attack_block=attack_block, tx_kwargs={"data": tx_data}
     )
 
-    if fixed_opcode_count is None:
-        # Pre-fund every address the loop will CREATE so it is already alive
-        # and the creation skips NEW_ACCOUNT. Each transaction OOGs and
-        # reverts, rolling back the CREATEs, so the targets stay deployable and
-        # are reused by every transaction and block (a one-time cost) and the
-        # loop nonce restarts at 1. Distinct targets are therefore bounded by
-        # one transaction's gas (each CREATE costs at least create_cost), not
-        # the whole budget; the range carries one spare. The fixed-opcode-count
-        # mode creates from a different account, so skip it.
-        create_cost = Op.CREATE.with_metadata(
-            init_code_size=initcode_size
-        ).execution_cost(fork)
-        tx_budget = min(
-            gas_benchmark_value,
-            fork.transaction_gas_limit_cap() or gas_benchmark_value,
-        )
+    create = Op.CREATE.with_metadata(init_code_size=initcode_size)
+    if fixed_opcode_count is None and create.state_cost(fork) > 0:
+        # Pre-fund the CREATE targets so creation skips NEW_ACCOUNT. Each
+        # transaction runs out of gas and reverts, so every transaction reuses
+        # the same targets and one transaction's gas bounds how many there are.
+        create_cost = create.execution_cost(fork)
+        tx_budget = min(gas_benchmark_value, tx_gas_limit)
         loop_contract = code_generator.deploy_contracts_once(
             pre=pre, fork=fork
         )

@@ -108,11 +108,8 @@ class BenchmarkCodeGenerator(ABC):
 
     def deploy_contracts_once(self, *, pre: Alloc, fork: Fork) -> Address:
         """
-        Deploy the benchmark contracts, reusing an earlier deployment.
-
-        A test that needs the deployed address while it is still building
-        its pre-state calls this; the spec calls it again later and gets
-        the same contract back instead of a second copy at a new address.
+        Deploy the gas-driven benchmark contracts on the first call and
+        return the same address on later calls.
         """
         if self._contract_address is None:
             return self.deploy_contracts(pre=pre, fork=fork)
