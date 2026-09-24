@@ -1,7 +1,6 @@
 """Test cases for the execution_testing.fixtures.collector module."""
 
 import json
-import tracemalloc
 from pathlib import Path
 
 import pytest
@@ -265,6 +264,7 @@ class TestPartialFixtureFiles:
         self, output_dir: Path, filler_path: Path, module_path: Path
     ) -> None:
         """Merging must allocate far less than the fixture being merged."""
+        tracemalloc = pytest.importorskip("tracemalloc")  # CPython only
         collector = FixtureCollector(
             output_dir=output_dir,
             single_fixture_per_file=False,
