@@ -283,8 +283,11 @@ def test_account_state_gas_via_delegation_pointer(
     """
     if state_op in (Op.CREATE, Op.CREATE2):
         code = Op.POP(create_op(state_op))
-    else:
+    elif state_op == Op.SELFDESTRUCT:
         code = Op.SELFDESTRUCT(pre.nonexistent_account(), account_new=True)
+    else:
+        raise ValueError(f"unexpected state_op {state_op}")
+
     contract = pre.deploy_contract(code=code)
 
     delegator = pre.fund_eoa(delegation=contract, amount=1)
