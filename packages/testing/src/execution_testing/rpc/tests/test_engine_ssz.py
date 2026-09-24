@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 import requests
-from coincurve import PrivateKey
+from spec256k1 import PrivateKey
 
 from execution_testing.base_types import Address, Bloom, Bytes, Hash
 from execution_testing.fixtures.blockchain import FixtureExecutionPayload
