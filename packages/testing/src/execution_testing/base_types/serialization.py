@@ -1,9 +1,11 @@
 """Ethereum test types for serialization and encoding."""
 
+from dataclasses import astuple, is_dataclass
 from typing import Any, ClassVar, List, Self, Sequence
 
 import ethereum_rlp as eth_rlp
-from ethereum_types.numeric import Uint
+from ethereum_rlp.exceptions import EncodingError
+from ethereum_types.numeric import FixedUnsigned, Uint
 from trie import HexaryTrie
 
 from execution_testing.base_types import Bytes
@@ -24,6 +26,68 @@ def to_serializable_element(v: Any) -> Any:
     elif v is None:
         return b""
     raise Exception(f"Unable to serialize element {v} of type {type(v)}.")
+
+
+def encoded_prefixed_size(payload_size: int) -> int:
+    """
+    Return the encoded size of an item with a payload of `payload_size`
+    bytes, its length prefix included.
+    """
+    if payload_size < 0x38:
+        return 1 + payload_size
+    return 1 + len(Uint(payload_size).to_be_bytes()) + payload_size
+
+
+def _encoded_bytes_size(raw_bytes: bytes | bytearray) -> int:
+    """Return the length of `eth_rlp.encode_bytes(raw_bytes)`."""
+    if len(raw_bytes) == 1 and raw_bytes[0] < 0x80:
+        return 1
+    return encoded_prefixed_size(len(raw_bytes))
+
+
+def _encoded_sequence_size(raw_sequence: Sequence[Any]) -> int:
+    """Return the length of `eth_rlp.encode_sequence(raw_sequence)`."""
+    return encoded_prefixed_size(
+        sum(encoded_size(item) for item in raw_sequence)
+    )
+
+
+def _encoded_unsigned_size(value: int) -> int:
+    """Return the length of `eth_rlp.encode(Uint(value))`."""
+    if value < 0x80:
+        return 1
+    return encoded_prefixed_size((value.bit_length() + 7) // 8)
+
+
+def encoded_size(raw_data: Any) -> int:
+    """
+    Return `len(eth_rlp.encode(raw_data))` without building the encoding.
+
+    This covers the same cases as `ethereum_rlp.encode`, so measuring the
+    size of a large structure costs a walk over it instead of megabytes of
+    intermediate byte strings. The concrete types come first: the abstract
+    `Sequence` check is slow enough to dominate the walk.
+    """
+    if isinstance(raw_data, (bytearray, bytes)):
+        return _encoded_bytes_size(raw_data)
+    elif isinstance(raw_data, (list, tuple)):
+        return _encoded_sequence_size(raw_data)
+    elif isinstance(raw_data, (Uint, FixedUnsigned)):
+        return _encoded_unsigned_size(int(raw_data))
+    elif isinstance(raw_data, bool):
+        return 1
+    elif isinstance(raw_data, str):
+        return _encoded_bytes_size(raw_data.encode())
+    elif isinstance(raw_data, Sequence):
+        return _encoded_sequence_size(raw_data)
+    elif is_dataclass(raw_data) and not isinstance(raw_data, type):
+        return _encoded_sequence_size(astuple(raw_data))
+    else:
+        raise EncodingError(
+            "RLP encoded size of type {} is not supported".format(
+                type(raw_data)
+            )
+        )
 
 
 class RLPSerializable:
@@ -152,6 +216,14 @@ class RLPSerializable:
             return self.rlp_override
         return Bytes(
             self.get_rlp_prefix() + eth_rlp.encode(self.to_list(signing=False))
+        )
+
+    def rlp_size(self) -> int:
+        """Return `len(self.rlp())` without building the encoding."""
+        if self.rlp_override is not None:
+            return len(self.rlp_override)
+        return len(self.get_rlp_prefix()) + encoded_size(
+            self.to_list(signing=False)
         )
 
     @classmethod

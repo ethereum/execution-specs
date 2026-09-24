@@ -77,6 +77,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureTransaction,
     FixtureWithdrawal,
     InvalidFixtureBlock,
+    block_rlp_size,
 )
 from execution_testing.fixtures.common import (
     FixtureBlobSchedule,
@@ -618,6 +619,30 @@ class BuiltBlock(CamelModel):
             transition_tool_exceptions_reliable=transition_tool_exceptions_reliable,
         )
 
+    def rlp_size(self) -> int:
+        """
+        Return the RLP size of the block.
+
+        ``get_block_rlp`` reaches it through ``get_fixture_block``, which
+        first converts every transaction and receipt into its fixture model
+        and dumps the whole block; on a benchmark block carrying tens of
+        thousands of transactions that costs more than executing the block.
+        Measuring the size needs neither those models nor the encoded bytes.
+        """
+        return block_rlp_size(
+            header=self.header,
+            txs=self.txs,
+            ommers=[],
+            withdrawals=(
+                [
+                    FixtureWithdrawal.from_withdrawal(w)
+                    for w in self.withdrawals
+                ]
+                if self.withdrawals is not None
+                else None
+            ),
+        )
+
     def verify_block_exception(
         self, transition_tool_exceptions_reliable: bool
     ) -> None:
@@ -628,7 +653,7 @@ class BuiltBlock(CamelModel):
         # Verify exceptions that are not caught by the transition tool.
         fork_block_rlp_size_limit = self.fork.block_rlp_size_limit()
         if fork_block_rlp_size_limit is not None:
-            rlp_size = len(self.get_block_rlp())
+            rlp_size = self.rlp_size()
             if rlp_size > fork_block_rlp_size_limit:
                 got_exception = BlockExceptionWithMessage(
                     exceptions=[BlockException.RLP_BLOCK_LIMIT_EXCEEDED],
