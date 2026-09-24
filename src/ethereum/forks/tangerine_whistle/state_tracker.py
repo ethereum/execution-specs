@@ -26,6 +26,7 @@ from ethereum_types.frozen import modify
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.exceptions import InvalidBlock
 from ethereum.state import (
     EMPTY_ACCOUNT,
     EMPTY_CODE_HASH,
@@ -516,7 +517,7 @@ def move_ether(
         sender.balance -= amount
 
     def increase_recipient_balance(recipient: Account) -> None:
-        recipient.balance += amount
+        recipient.balance = recipient.balance.wrapping_add(amount)
 
     modify_state(tx_state, sender_address, reduce_sender_balance)
     modify_state(tx_state, recipient_address, increase_recipient_balance)
@@ -540,6 +541,8 @@ def create_ether(
     """
 
     def increase_balance(account: Account) -> None:
+        if Uint(account.balance) + Uint(amount) > Uint(U256.MAX_VALUE):
+            raise InvalidBlock("account balance overflow")
         account.balance += amount
 
     modify_state(tx_state, address, increase_balance)
