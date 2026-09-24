@@ -12,6 +12,7 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidBlock
 from ethereum.merkle_patricia_trie import root, trie_get
 from ethereum.state import BlockDiff
+from ethereum.trace import discard_evm_trace, set_evm_trace
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8
 from ethereum_types.numeric import U64, U256, Uint
@@ -206,9 +207,15 @@ def _build_stateless_artifacts(
         chain_id=block_env.chain_id,
     )
     stateless_input_bytes = t8n.fork.serialize_stateless_input(stateless_input)
-    stateless_output_bytes = t8n.fork.run_stateless_guest(
-        stateless_input_bytes
-    )
+    # The replay validates the block but must not duplicate its opcode counts
+    # or overwrite the transaction traces collected during execution.
+    previous_tracer = set_evm_trace(discard_evm_trace)
+    try:
+        stateless_output_bytes = t8n.fork.run_stateless_guest(
+            stateless_input_bytes
+        )
+    finally:
+        set_evm_trace(previous_tracer)
     stateless_output = t8n.fork.deserialize_stateless_output(
         stateless_output_bytes
     )
