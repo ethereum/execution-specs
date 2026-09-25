@@ -30,7 +30,7 @@ author-provided set.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Union
 
 from execution_testing.base_types import Number
 from execution_testing.exceptions import EngineAPIError
@@ -314,6 +314,23 @@ class ClientModel:
         )
 
 
+def _reject_unmatched_branches(
+    step: Union[NewPayloadStep, ForkchoiceUpdatedStep], where: str
+) -> None:
+    """
+    Reject a ``branches`` key that names no outcome id, once ``expect`` is
+    final. A typo or partial rename here would otherwise silently drop the
+    authored assertions under that key.
+    """
+    ids = {o.id for o in step.expect}
+    unmatched = sorted(set(step.branches) - ids)
+    if unmatched:
+        raise ValueError(
+            f"{where}: branches key(s) {unmatched} match no outcome id "
+            f"(outcomes: {sorted(ids)})"
+        )
+
+
 def annotate_steps(
     steps: List[Step],
     model: ClientModel,
@@ -334,6 +351,7 @@ def annotate_steps(
         if isinstance(step, NewPayloadStep):
             if not step.expect:
                 step.expect = model.new_payload_outcomes(step.block)
+            _reject_unmatched_branches(step, f"newPayload({step.block!r})")
             first_model: Optional[ClientModel] = None
             for outcome in step.expect:
                 branch_model = model.copy()
@@ -362,6 +380,9 @@ def annotate_steps(
                 step.version = Number(fcu_version[step.head])
             if not step.expect:
                 step.expect = model.forkchoice_outcomes(step)
+            _reject_unmatched_branches(
+                step, f"forkchoiceUpdated(head={step.head!r})"
+            )
             ids = {o.id for o in step.expect}
             if {"applied", "noop"} <= ids:
                 for outcome in step.expect:

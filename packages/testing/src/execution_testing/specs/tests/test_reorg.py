@@ -174,6 +174,30 @@ def test_step_validation_rejects_unknown_label() -> None:  # noqa: D103
         ).validate_dag()
 
 
+def test_step_validation_rejects_negative_tx_index() -> None:  # noqa: D103
+    with pytest.raises(ValueError, match="negative transaction index"):
+        ReorgTest(
+            fork=Cancun,
+            pre=pre_alloc(),
+            blocks=[ReorgBlock(label="a1", txs=[tx(0, 1)])],
+            steps=[
+                AssertReceiptStep(tx=TxRef(block="a1", index=-1), block="a1")
+            ],
+        ).validate_dag()
+
+
+def test_step_validation_rejects_out_of_range_tx_index() -> None:  # noqa: D103
+    with pytest.raises(ValueError, match="has only 1 transaction"):
+        ReorgTest(
+            fork=Cancun,
+            pre=pre_alloc(),
+            blocks=[ReorgBlock(label="a1", txs=[tx(0, 1)])],
+            steps=[
+                AssertReceiptStep(tx=TxRef(block="a1", index=1), block="a1")
+            ],
+        ).validate_dag()
+
+
 def test_fill_serializes_versions_and_tx_index_as_decimal_strings(
     default_t8n: TransitionTool,
 ) -> None:

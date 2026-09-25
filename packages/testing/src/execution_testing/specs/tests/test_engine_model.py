@@ -333,3 +333,26 @@ def test_outcome_error_code_serializes_as_decimal_string() -> None:
     outcome = Outcome(id="x", error_code=EngineAPIError.TooDeepReorg)
     dumped = outcome.model_dump(by_alias=True, exclude_none=True)
     assert dumped["errorCode"] == "-38006"
+
+
+def test_annotate_rejects_unmatched_new_payload_branch_key() -> None:
+    """A branch key that names no newPayload outcome id is rejected."""
+    model = ClientModel(dag=dag_linear_with_fork())
+    steps: List[Step] = [
+        NewPayloadStep(block="a1", branches={"applide": []}),
+    ]
+    with pytest.raises(ValueError, match="applide"):
+        annotate_steps(steps, model)
+
+
+def test_annotate_rejects_unmatched_forkchoice_branch_key() -> None:
+    """A branch key that names no forkchoiceUpdated outcome id is rejected."""
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.known["a1"] = True
+    steps: List[Step] = [
+        ForkchoiceUpdatedStep(
+            head="a1", version=3, branches={"aplied": []}
+        ),
+    ]
+    with pytest.raises(ValueError, match="aplied"):
+        annotate_steps(steps, model)

@@ -135,6 +135,7 @@ class ReorgTest(BlockchainTest):
         Check labels are unique, reserved names unused, parents resolvable.
         """
         seen = {GENESIS_LABEL}
+        tx_counts: Dict[str, int] = {}
         for block in self.blocks:
             if block.label in (GENESIS_LABEL, ZERO_LABEL, "null", "any"):
                 raise ValueError(f"reserved block label: {block.label}")
@@ -146,9 +147,15 @@ class ReorgTest(BlockchainTest):
                     f"{block.parent!r} (parents must be defined earlier)"
                 )
             seen.add(block.label)
-        self._validate_step_labels(self.steps, seen)
+            tx_counts[block.label] = len(block.txs)
+        self._validate_step_labels(self.steps, seen, tx_counts)
 
-    def _validate_step_labels(self, steps: List[Step], labels: set) -> None:
+    def _validate_step_labels(
+        self,
+        steps: List[Step],
+        labels: set,
+        tx_counts: Dict[str, int],
+    ) -> None:
         for step in steps:
             refs: List[str] = []
             tx_refs: List[TxRef] = []
@@ -196,10 +203,22 @@ class ReorgTest(BlockchainTest):
                         f"step references transaction of unknown block "
                         f"{tx_ref.block!r}"
                     )
+                if int(tx_ref.index) < 0:
+                    raise ValueError(
+                        f"step references negative transaction index "
+                        f"{tx_ref.index} of block {tx_ref.block!r}"
+                    )
+                count = tx_counts.get(tx_ref.block)
+                if count is not None and int(tx_ref.index) >= count:
+                    raise ValueError(
+                        f"step references transaction index {tx_ref.index} "
+                        f"of block {tx_ref.block!r}, which has only "
+                        f"{count} transaction(s)"
+                    )
             if isinstance(step, GetPayloadStep):
                 labels.add(step.bind)
             for branch in getattr(step, "branches", {}).values():
-                self._validate_step_labels(branch, set(labels))
+                self._validate_step_labels(branch, set(labels), tx_counts)
 
     def _resolve_payload_attributes(
         self,

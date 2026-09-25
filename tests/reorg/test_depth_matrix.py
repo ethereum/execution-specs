@@ -115,9 +115,17 @@ def matrix_steps(depth: int, applied_only: bool) -> List[Step]:
                         }
                     )
                 ],
-                "refused": [
-                    AssertCanonicalStep(blocks={2: "a2", depth + 1: canon_tip})
-                ],
+                **(
+                    {}
+                    if applied_only
+                    else {
+                        "refused": [
+                            AssertCanonicalStep(
+                                blocks={2: "a2", depth + 1: canon_tip}
+                            )
+                        ],
+                    }
+                ),
             },
         ),
         ForkchoiceUpdatedStep(

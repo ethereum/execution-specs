@@ -119,6 +119,8 @@ api
 apis
 appauthor
 appname
+aplied
+applide
 arcname
 argcount
 argname
