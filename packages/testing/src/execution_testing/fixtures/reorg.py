@@ -20,7 +20,7 @@ clients.
 
 from typing import Annotated, Any, ClassVar, Dict, List, Literal, Self, Union
 
-from pydantic import AfterValidator, Field, PlainSerializer, model_validator
+from pydantic import AfterValidator, Field, model_validator
 
 from execution_testing.base_types import (
     Address,
@@ -31,9 +31,9 @@ from execution_testing.base_types import (
     HexNumber,
     Number,
 )
-from execution_testing.exceptions import EngineAPIError
 
 from .blockchain import (
+    EngineAPIErrorCode,
     EngineFixtureCommon,
     FixtureHeader,
     FixtureNewPayloadRequest,
@@ -81,31 +81,23 @@ class Outcome(CamelModel):
     disputed: str | None = None
     """
     If set, the spec is ambiguous about this outcome; the value is a
-    reference (issue URL). A disputed outcome still passes.
+    reference or rationale. A disputed outcome still passes.
     """
     status: PayloadStatusEnum | None = None
-    """
-    Expected ``payloadStatus.status`` (VALID, INVALID, SYNCING, ACCEPTED).
-    """
+    """Expected ``payloadStatus.status``."""
     latest_valid_hash: HashRef | Literal["any", "null"] | None = None
     """
     Expected ``latestValidHash`` as a block label, ``"null"``, or ``"any"``.
     Unset means not checked.
     """
-    error_code: (
-        Annotated[
-            EngineAPIError,
-            PlainSerializer(lambda x: str(x.value), return_type=str),
-        ]
-        | None
-    ) = None
-    """Expected JSON-RPC error code (e.g. -38002, -38006)."""
+    error_code: EngineAPIErrorCode | None = None
+    """Expected JSON-RPC error code."""
     any_error: bool | None = None
     """If true, any JSON-RPC error matches (for uncoded errors)."""
     head_moved: bool | None = None
     """
     ``forkchoiceUpdated`` only: whether ``latest`` equals the requested head
-    right after the call. Distinguishes ``applied`` from ``noop`` when both
+    right after the call. Tells an applied update from a no-op when both
     answer VALID with the same ``latestValidHash``.
     """
     validation_error: Literal["required", "none"] | None = None
@@ -179,8 +171,10 @@ class ForkchoiceUpdatedStep(StepBase):
     request, else of the head block's fork.
     """
     payload_attributes: PayloadAttributes | None = None
-    """If set, a payload build is requested; ``payloadId`` is kept for the
-    next ``getPayload`` step."""
+    """
+    If set, a payload build is requested; ``payloadId`` is kept for the
+    next ``getPayload`` step.
+    """
     expect: List[Outcome] = Field(default_factory=list)
     """Legal outcomes; filled by the reference model when left empty."""
     branches: Dict[str, List["Step"]] = Field(default_factory=dict)

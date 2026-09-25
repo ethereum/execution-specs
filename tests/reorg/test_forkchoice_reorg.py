@@ -17,11 +17,11 @@ from execution_testing import (
     Account,
     Alloc,
     BlockException,
+    EngineAPIError,
     Hash,
     Header,
     Transaction,
 )
-from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures.reorg import (
     AccountExpectation,
     AssertCanonicalStep,

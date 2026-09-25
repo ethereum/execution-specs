@@ -50,8 +50,14 @@ Ports of:
 from typing import List, Tuple
 
 import pytest
-from execution_testing import Alloc, BlockException, Hash, Header, Transaction
-from execution_testing.exceptions import EngineAPIError
+from execution_testing import (
+    Alloc,
+    BlockException,
+    EngineAPIError,
+    Hash,
+    Header,
+    Transaction,
+)
 from execution_testing.fixtures.reorg import (
     AssertCanonicalStep,
     AssertHeadStep,

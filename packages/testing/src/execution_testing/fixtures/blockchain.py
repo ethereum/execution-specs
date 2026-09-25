@@ -607,6 +607,13 @@ class PayloadStatusEnum(str, Enum):
     INVALID_BLOCK_HASH = "INVALID_BLOCK_HASH"
 
 
+EngineAPIErrorCode = Annotated[
+    EngineAPIError,
+    PlainSerializer(lambda x: str(x.value), return_type=str),
+]
+"""An ``EngineAPIError`` serialized as its decimal code."""
+
+
 class PayloadAttributes(CamelModel):
     """Represents the attributes of a payload."""
 
@@ -699,16 +706,7 @@ class FixtureEngineNewPayload(FixtureNewPayloadRequest):
 
     forkchoice_updated_version: Number
     validation_error: ExceptionInstanceOrList | None = None
-    error_code: (
-        Annotated[
-            EngineAPIError,
-            PlainSerializer(
-                lambda x: str(x.value),
-                return_type=str,
-            ),
-        ]
-        | None
-    ) = None
+    error_code: EngineAPIErrorCode | None = None
     phase: TestPhase | None = Field(
         None,
         description=(

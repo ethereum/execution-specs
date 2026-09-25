@@ -173,7 +173,7 @@ If set, the specification is ambiguous about this outcome; the value is a refere
 
 #### - `status`: [`Optional`](./common_types.md#optional)`[String]`
 
-Expected `payloadStatus.status` (`VALID`,`INVALID`,`SYNCING`,`ACCEPTED`).
+Expected `payloadStatus.status` (`VALID`,`INVALID`,`SYNCING`,`ACCEPTED`,`INVALID_BLOCK_HASH`).
 
 #### - `latestValidHash`: [`Optional`](./common_types.md#optional)`[String]`
 

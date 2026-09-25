@@ -26,8 +26,7 @@ log is what the capability table for EIP-8252 is derived from.
 from typing import List
 
 import pytest
-from execution_testing import Address, Alloc, Transaction
-from execution_testing.exceptions import EngineAPIError
+from execution_testing import Address, Alloc, EngineAPIError, Transaction
 from execution_testing.fixtures.reorg import (
     AssertCanonicalStep,
     ForkchoiceUpdatedStep,

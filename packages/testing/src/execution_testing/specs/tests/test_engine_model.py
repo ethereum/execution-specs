@@ -3,7 +3,6 @@
 from typing import List
 
 import pytest
-from pydantic import ValidationError
 
 from execution_testing.base_types import Address, Hash
 from execution_testing.exceptions import EngineAPIError
@@ -367,25 +366,6 @@ def test_np_hash_invalid_precedes_parent_lookup() -> None:
         "invalid",
         "invalid_block_hash",
     ]
-
-
-def test_outcome_rejects_unknown_status() -> None:
-    """A misspelled status can never match an observed response."""
-    with pytest.raises(ValidationError):
-        Outcome(id="typo", status="Valid")
-
-
-def test_outcome_rejects_unknown_error_code() -> None:
-    """An error code outside the shared Engine API enum is rejected."""
-    with pytest.raises(ValidationError):
-        Outcome(id="typo", error_code=-1)
-
-
-def test_outcome_error_code_serializes_as_decimal_string() -> None:
-    """``errorCode`` round-trips through the shared int-enum serializer."""
-    outcome = Outcome(id="x", error_code=EngineAPIError.TooDeepReorg)
-    dumped = outcome.model_dump(by_alias=True, exclude_none=True)
-    assert dumped["errorCode"] == "-38006"
 
 
 def test_annotate_rejects_unmatched_new_payload_branch_key() -> None:

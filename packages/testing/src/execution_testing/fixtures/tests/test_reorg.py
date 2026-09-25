@@ -27,3 +27,24 @@ def test_outcome_allows_bare_error_expectation() -> None:
     """A plain error expectation, optionally disputed, is unrestricted."""
     Outcome(id="x", error_code=EngineAPIError.InvalidForkchoiceState)
     Outcome(id="x", any_error=True, disputed="issue#1")
+
+
+def test_outcome_rejects_unknown_status() -> None:
+    """A misspelled status can never match an observed response."""
+    with pytest.raises(ValidationError):
+        Outcome(id="typo", status="Valid")
+
+
+def test_outcome_rejects_unknown_error_code() -> None:
+    """An error code outside the shared Engine API enum is rejected."""
+    with pytest.raises(ValidationError):
+        Outcome(id="typo", error_code=-1)
+
+
+def test_outcome_error_code_round_trips_as_decimal_string() -> None:
+    """``errorCode`` serializes as a decimal string and loads back."""
+    outcome = Outcome(id="x", error_code=EngineAPIError.TooDeepReorg)
+    dumped = outcome.model_dump(by_alias=True, exclude_none=True)
+    assert dumped["errorCode"] == "-38006"
+    reloaded = Outcome.model_validate(dumped)
+    assert reloaded.error_code is EngineAPIError.TooDeepReorg
