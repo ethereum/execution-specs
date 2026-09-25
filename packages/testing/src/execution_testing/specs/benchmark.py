@@ -106,15 +106,6 @@ class BenchmarkCodeGenerator(ABC):
         """Deploy any contracts needed for the benchmark."""
         ...
 
-    def deploy_contracts_once(self, *, pre: Alloc, fork: Fork) -> Address:
-        """
-        Deploy the gas-driven benchmark contracts on the first call and
-        return the same address on later calls.
-        """
-        if self._contract_address is None:
-            return self.deploy_contracts(pre=pre, fork=fork)
-        return self._contract_address
-
     def uses_state_changing_opcode(self) -> bool:
         """
         Return whether the setup or attack block contains an opcode that
@@ -508,7 +499,7 @@ class BenchmarkTest(BaseTest):
         """Generate blocks using the code generator."""
         if self.code_generator is None:
             raise Exception("Code generator is not set")
-        self.code_generator.deploy_contracts_once(
+        self.code_generator.deploy_contracts(
             pre=self.pre, fork=self.fork.fork_at(block_number=0, timestamp=0)
         )
         gas_limit = (

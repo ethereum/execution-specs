@@ -9,8 +9,8 @@ from execution_testing import (
     BenchmarkTestFiller,
     Bytecode,
     Fork,
-    JumpLoopGenerator,
     Op,
+    Transaction,
     compute_create_address,
 )
 
@@ -75,7 +75,6 @@ def test_jumpdest_analysis(
     pattern: Bytecode | RandomInitcode,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    fixed_opcode_count: float | None,
 ) -> None:
     """
     Benchmark jumpdest analysis of CREATE initcode.
@@ -136,23 +135,32 @@ def test_jumpdest_analysis(
     setup = code_prepare_initcode + Op.CREATE(
         value=Op.PUSH0, offset=Op.PUSH0, size=Op.MSIZE
     )
-    code_generator = JumpLoopGenerator(
-        setup=setup, attack_block=attack_block, tx_kwargs={"data": tx_data}
+    overhead = len(setup) + len(Op.JUMPDEST) + len(Op.JUMP(len(setup)))
+    iterations = (fork.max_code_size() - overhead) // len(attack_block)
+    loop_contract = pre.deploy_contract(
+        code=setup
+        + Op.JUMPDEST
+        + attack_block * iterations
+        + Op.JUMP(len(setup))
     )
 
     create = Op.CREATE.with_metadata(init_code_size=initcode_size)
-    if fixed_opcode_count is None and create.state_cost(fork) > 0:
+    if create.state_cost(fork) > 0:
         # Pre-fund the CREATE targets so creation skips NEW_ACCOUNT. Each
         # transaction runs out of gas and reverts, so every transaction reuses
         # the same targets and one transaction's gas bounds how many there are.
         create_cost = create.execution_cost(fork)
         tx_budget = min(gas_benchmark_value, tx_gas_limit)
-        loop_contract = code_generator.deploy_contracts_once(
-            pre=pre, fork=fork
-        )
         for nonce in range(1, tx_budget // create_cost + 2):
             pre.fund_address(
                 compute_create_address(address=loop_contract, nonce=nonce), 1
             )
 
-    benchmark_test(code_generator=code_generator)
+    benchmark_test(
+        tx=Transaction(
+            to=loop_contract,
+            data=tx_data,
+            gas_limit=gas_benchmark_value,
+            sender=pre.fund_eoa(),
+        )
+    )
