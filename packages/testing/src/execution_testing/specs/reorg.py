@@ -397,17 +397,9 @@ class ReorgTest(BlockchainTest):
             },
         }
         slots: Dict[str, int] = {
-            GENESIS_LABEL: (
-                int(genesis.header.slot_number)
-                if genesis.header.slot_number is not None
-                else 0
-            ),
+            GENESIS_LABEL: int(genesis.header.slot_number or 0),
             **{
-                label: (
-                    int(b.payload.params[0].slot_number)
-                    if b.payload.params[0].slot_number is not None
-                    else 0
-                )
+                label: int(b.payload.params[0].slot_number or 0)
                 for label, b in fixture_blocks.items()
             },
         }

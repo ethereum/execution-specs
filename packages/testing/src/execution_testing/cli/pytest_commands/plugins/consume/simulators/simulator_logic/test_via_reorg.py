@@ -145,14 +145,6 @@ class StepRunner:
             return int(self.bound[label].payload.number)
         return int(self.fixture.blocks[label].payload.params[0].number)
 
-    def block_timestamp(self, label: str) -> int:
-        """Timestamp of a labeled block."""
-        if label == "genesis":
-            return int(self.fixture.genesis.timestamp)
-        if label in self.bound:
-            return int(self.bound[label].payload.timestamp)
-        return int(self.fixture.blocks[label].payload.params[0].timestamp)
-
     def tx_hash(self, ref: TxRef) -> Hash:
         """Hash of a referenced transaction (fixture or bound block)."""
         if ref.block in self.bound:
