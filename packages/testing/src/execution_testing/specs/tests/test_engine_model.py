@@ -397,3 +397,31 @@ def test_forkchoice_effect_applies_reth_disputed_fork_behind_finalized() -> (
     )
     model.apply_forkchoice(step, outcome)
     assert model.head == "b2"
+
+
+def test_invalid_payload_attributes_still_applies_forkchoice() -> None:
+    """
+    -38003 (invalid payload attributes) is the one error whose forkchoice
+    update still applies; the outcome's id is irrelevant here too.
+    """
+    for outcome_id in ("bad_attributes", "invalid_timestamp"):
+        model = ClientModel(dag=dag_linear_with_fork())
+        model.known["a1"] = True
+        step = ForkchoiceUpdatedStep(head="a1", version=3)
+        outcome = Outcome(
+            id=outcome_id,
+            error_code=EngineAPIError.InvalidPayloadAttributes,
+        )
+        model.apply_forkchoice(step, outcome)
+        assert model.head == "a1"
+
+
+def test_fcu_error_leaves_forkchoice_state_untouched_still_passes() -> None:
+    """The existing -38002 unchanged-state behavior is not affected."""
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.known.update({"a1": True, "a2": True, "a3": True, "b2": True})
+    model.head, model.safe, model.finalized = "a3", "a2", "a1"
+    step = ForkchoiceUpdatedStep(head="b2", safe="a3", finalized="a1")
+    outcomes = model.forkchoice_outcomes(step)
+    model.apply_forkchoice(step, outcomes[0])
+    assert model.head == "a3"
