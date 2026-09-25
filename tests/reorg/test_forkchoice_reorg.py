@@ -115,6 +115,14 @@ def test_sibling_reorg(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
                 recipient_b: AccountExpectation(balance=0),
             }
         ),
+        # a2 is canonical here: state "at" its own label must match "latest".
+        AssertStateStep(
+            at="a2",
+            accounts={
+                recipient_a: AccountExpectation(balance=3),
+                recipient_b: AccountExpectation(balance=0),
+            },
+        ),
     ]
     on_b2 = [
         AssertCanonicalStep(blocks={2: "b2"}),
@@ -123,6 +131,14 @@ def test_sibling_reorg(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
                 recipient_a: AccountExpectation(balance=1),
                 recipient_b: AccountExpectation(balance=3),
             }
+        ),
+        # b2 is canonical here: state "at" its own label must match "latest".
+        AssertStateStep(
+            at="b2",
+            accounts={
+                recipient_a: AccountExpectation(balance=1),
+                recipient_b: AccountExpectation(balance=3),
+            },
         ),
     ]
 

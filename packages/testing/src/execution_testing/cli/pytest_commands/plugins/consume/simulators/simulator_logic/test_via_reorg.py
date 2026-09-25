@@ -450,9 +450,21 @@ class StepRunner:
 
     def assert_state(self, name: str, step: AssertStateStep) -> None:
         """Check account fields via ``eth_getBalance`` and friends."""
-        at: Any = (
-            "latest" if step.at == "latest" else self.block_number(step.at)
-        )
+        at: Any
+        if step.at == "latest":
+            at = "latest"
+        else:
+            number = self.block_number(step.at)
+            want_hash = self.resolve(step.at)
+            block = self.eth.get_block_by_number(number)
+            got_hash = Hash(block["hash"]) if block else None
+            if got_hash != want_hash:
+                raise LoggedError(
+                    f"{name}: block {number} is {self.label_of(got_hash)} "
+                    f"({got_hash}), not canonical {step.at} ({want_hash}); "
+                    "state of a superseded block cannot be checked"
+                )
+            at = number
         for address, expected in step.accounts.items():
             if expected.balance is not None:
                 got_balance = self.eth.get_balance(address, at)

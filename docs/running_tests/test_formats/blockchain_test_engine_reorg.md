@@ -8,7 +8,7 @@ These are produced by the `ReorgTest` test spec.
 
 Unlike [`BlockchainEngineFixture`](./blockchain_test_engine.md) (a linear payload list where the consumer always sends `forkchoiceUpdated(head=payload)` after each payload), this format lets a test describe side chains, explicit forkchoice states (head, safe, finalized), multiple legal outcomes per step, outcome-specific follow-up steps (branches), client-built payloads (`getPayload` binds the built payload to a new label), and transaction-pool observations.
 
-Every block in the DAG names its parent by label instead of relying on list order, so sibling blocks and blocks built on top of an invalid block are first-class. Every hash-valued step field is a label (`"genesis"` is reserved for the genesis block, `"zero"` for the zero hash; labels introduced by `getPayload.bind` are resolved at run time); the consumer resolves labels to hashes itself, so fixtures are byte-identical across clients.
+Every block in the DAG names its parent by label instead of relying on list order, so sibling blocks and blocks built on top of an invalid block are first-class. Every hash-valued step field is a label (`"genesis"` is reserved for the genesis block, `"zero"` for the zero hash, and `"latest"`/`"null"`/`"any"` are reserved RPC tags/special values valid only where a field's description says so; labels introduced by `getPayload.bind` are resolved at run time); the consumer resolves labels to hashes itself, so fixtures are byte-identical across clients.
 
 Each step's `expect` field is a list of legal outcomes (the [Engine API reference model](../../library/execution_testing_specs.md) fills it in at fill time for any step an author left unannotated, deriving the outcomes the [execution-apis](https://github.com/ethereum/execution-apis) specification allows a conformant client to return); the consumer selects the first outcome matching the observed response and runs that outcome's `branches` steps.
 
@@ -124,7 +124,7 @@ The wait between the build request and `engine_getPayloadVX` is a consumer optio
 
 #### `assertState`
 
-- `at`: `String` — block label, or `"latest"`.
+- `at`: `String` — block label (that block's own state; it must be canonical when the step runs, or the consumer fails with a clear error), `"genesis"`, or `"latest"`. Default `"latest"`.
 - `accounts`: [`Mapping`](./common_types.md#mapping)`[`[`Address`](./common_types.md#address)`,`[`AccountExpectation`](#accountexpectation)`]`.
 
 #### `assertReceipt`

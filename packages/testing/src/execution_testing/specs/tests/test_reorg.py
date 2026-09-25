@@ -1,6 +1,9 @@
 """Tests for the ``ReorgTest`` spec: DAG filling and fixture emission."""
 
+from typing import Any, Callable, Tuple
+
 import pytest
+from pydantic import ValidationError
 
 from execution_testing.base_types import Account, Address, Hash
 from execution_testing.client_clis import TransitionTool
@@ -9,6 +12,7 @@ from execution_testing.fixtures import BlockchainEngineReorgFixture
 from execution_testing.fixtures.reorg import (
     AssertHeadStep,
     AssertReceiptStep,
+    AssertStateStep,
     ForkchoiceUpdatedStep,
     NewPayloadStep,
     TxRef,
@@ -224,3 +228,35 @@ def test_fill_serializes_versions_and_tx_index_as_decimal_strings(
     )
     receipt_step = dumped["steps"][2]
     assert receipt_step["tx"]["index"] == "1"
+
+
+@pytest.mark.parametrize(
+    "make,rejected",
+    [
+        (
+            lambda label: ReorgBlock(label=label),
+            ("genesis", "zero", "latest", "null", "any"),
+        ),
+        (
+            lambda label: NewPayloadStep(block=label),
+            ("genesis", "zero", "latest", "null", "any"),
+        ),
+        # "genesis"/"zero" are legitimate FCU head values, not reserved here.
+        (
+            lambda label: ForkchoiceUpdatedStep(head=label),
+            ("latest", "null", "any"),
+        ),
+        # "genesis"/"latest" are legitimate assertState.at values.
+        (
+            lambda label: AssertStateStep(at=label, accounts={}),
+            ("zero", "null", "any"),
+        ),
+    ],
+)
+def test_block_label_rejects_reserved_names(
+    make: Callable[[str], Any], rejected: Tuple[str, ...]
+) -> None:
+    """A ``BlockLabel`` field rejects every reserved name at construction."""
+    for label in rejected:
+        with pytest.raises(ValidationError, match="reserved"):
+            make(label)

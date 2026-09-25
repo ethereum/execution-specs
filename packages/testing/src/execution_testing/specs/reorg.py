@@ -48,6 +48,7 @@ from execution_testing.fixtures.reorg import (
     AssertReceiptStep,
     AssertStateStep,
     AssertTxStatusStep,
+    BlockLabel,
     FixtureReorgBlock,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
@@ -76,7 +77,7 @@ class ReorgBlock(Block):
     the previous block in the list (or genesis for the first block).
     """
 
-    label: str
+    label: BlockLabel
     parent: str | None = None
     payload_block_hash: Hash | None = None
     """Override ``blockHash`` in the engine payload only (hash mismatch)."""
@@ -137,8 +138,6 @@ class ReorgTest(BlockchainTest):
         seen = {GENESIS_LABEL}
         tx_counts: Dict[str, int] = {}
         for block in self.blocks:
-            if block.label in (GENESIS_LABEL, ZERO_LABEL, "null", "any"):
-                raise ValueError(f"reserved block label: {block.label}")
             if block.label in seen:
                 raise ValueError(f"duplicate block label: {block.label}")
             if block.parent is not None and block.parent not in seen:
@@ -165,11 +164,7 @@ class ReorgTest(BlockchainTest):
                 refs = [step.head, step.safe, step.finalized]
             elif isinstance(step, GetPayloadStep):
                 refs = [step.parent]
-                if step.bind in labels or step.bind in (
-                    ZERO_LABEL,
-                    "null",
-                    "any",
-                ):
+                if step.bind in labels:
                     raise ValueError(
                         f"getPayload bind label {step.bind!r} already used"
                     )

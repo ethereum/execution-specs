@@ -20,7 +20,7 @@ clients.
 
 from typing import Annotated, Any, ClassVar, Dict, List, Literal, Self, Union
 
-from pydantic import Field, PlainSerializer, model_validator
+from pydantic import AfterValidator, Field, PlainSerializer, model_validator
 
 from execution_testing.base_types import (
     Address,
@@ -49,6 +49,24 @@ LATEST_VALID_HASH_ANY = "any"
 LATEST_VALID_HASH_NULL = "null"
 """Special values for ``Outcome.latest_valid_hash``."""
 
+RESERVED_LABELS = frozenset(
+    {GENESIS_LABEL, ZERO_LABEL, "latest", "null", "any"}
+)
+
+
+def _reject_reserved_label(label: str) -> str:
+    """Reject a label colliding with a reserved name or RPC tag."""
+    if label in RESERVED_LABELS:
+        raise ValueError(f"reserved block label: {label!r}")
+    return label
+
+
+BlockLabel = Annotated[str, AfterValidator(_reject_reserved_label)]
+"""An authored block label: any string except a reserved name."""
+
+HashRef = Union[BlockLabel, Literal["genesis", "zero"]]
+"""A block-hash reference: an authored label, ``"genesis"``, or ``"zero"``."""
+
 
 class Outcome(CamelModel):
     """
@@ -69,7 +87,7 @@ class Outcome(CamelModel):
     """
     Expected ``payloadStatus.status`` (VALID, INVALID, SYNCING, ACCEPTED).
     """
-    latest_valid_hash: str | None = None
+    latest_valid_hash: HashRef | Literal["any", "null"] | None = None
     """
     Expected ``latestValidHash`` as a block label, ``"null"``, or ``"any"``.
     Unset means not checked.
@@ -128,7 +146,7 @@ class Outcome(CamelModel):
 class TxRef(CamelModel):
     """Reference to a transaction of a fixture block."""
 
-    block: str
+    block: BlockLabel
     index: Number = Number(0)
 
 
@@ -142,7 +160,7 @@ class NewPayloadStep(StepBase):
     """Send ``engine_newPayloadVX`` for a labeled (or bound) block."""
 
     type: Literal["newPayload"] = "newPayload"
-    block: str
+    block: BlockLabel
     expect: List[Outcome] = Field(default_factory=list)
     """Legal outcomes; filled by the reference model when left empty."""
     branches: Dict[str, List["Step"]] = Field(default_factory=dict)
@@ -152,9 +170,9 @@ class ForkchoiceUpdatedStep(StepBase):
     """Send ``engine_forkchoiceUpdatedVX`` with labeled hashes."""
 
     type: Literal["forkchoiceUpdated"] = "forkchoiceUpdated"
-    head: str
-    safe: str = ZERO_LABEL
-    finalized: str = ZERO_LABEL
+    head: HashRef
+    safe: HashRef = ZERO_LABEL
+    finalized: HashRef = ZERO_LABEL
     version: Number | None = None
     """Engine API version; derived from the head block's fork when unset."""
     payload_attributes: PayloadAttributes | None = None
@@ -172,10 +190,10 @@ class GetPayloadStep(StepBase):
     """
 
     type: Literal["getPayload"] = "getPayload"
-    bind: str
+    bind: BlockLabel
     """New label for the built payload (usable in later steps)."""
     version: Number | None = None
-    parent: str
+    parent: BlockLabel | Literal["genesis"]
     """Expected parent of the built payload."""
     transactions_include: List[TxRef] = Field(default_factory=list)
     """Transactions that must be in the built payload."""
@@ -215,8 +233,11 @@ class AssertStateStep(StepBase):
     """Assert account state via ``eth_getBalance`` etc. at a block."""
 
     type: Literal["assertState"] = "assertState"
-    at: str = "latest"
-    """Block label, or ``"latest"``."""
+    at: BlockLabel | Literal["genesis", "latest"] = "latest"
+    """
+    Block label (that block's own state; it must be canonical when the
+    step runs, or the consumer fails the check) or ``"latest"``.
+    """
     accounts: Dict[Address, AccountExpectation]
 
 
