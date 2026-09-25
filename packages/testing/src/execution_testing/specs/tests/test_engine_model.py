@@ -5,7 +5,9 @@ from typing import List
 import pytest
 from pydantic import ValidationError
 
+from execution_testing.base_types import Address, Hash
 from execution_testing.exceptions import EngineAPIError
+from execution_testing.fixtures.blockchain import PayloadAttributes
 from execution_testing.fixtures.reorg import (
     AssertHeadStep,
     ForkchoiceUpdatedStep,
@@ -322,14 +324,27 @@ def test_annotate_marks_head_moved_for_applied_vs_noop() -> None:  # noqa: D103
         {"a1": Validity.VALID, "a2": Validity.VALID, "a3": Validity.VALID}
     )
     model.head, model.finalized = "a3", "a1"
+    attributes = PayloadAttributes(
+        timestamp=0, prev_randao=Hash(0), suggested_fee_recipient=Address(0)
+    )
     steps = annotate_steps(
-        [ForkchoiceUpdatedStep(head="a1", finalized="a1", version=3)], model
+        [
+            ForkchoiceUpdatedStep(
+                head="a1",
+                finalized="a1",
+                version=3,
+                payload_attributes=attributes,
+            )
+        ],
+        model,
     )
     fcu = steps[0]
     assert isinstance(fcu, ForkchoiceUpdatedStep)
     by_id = {o.id: o for o in fcu.expect}
     assert by_id["applied"].head_moved is True
+    assert by_id["applied"].payload_id == "nonNull"
     assert by_id["noop"].head_moved is False
+    assert by_id["noop"].payload_id == "null"
 
 
 def test_np_hash_invalid_precedes_parent_lookup() -> None:

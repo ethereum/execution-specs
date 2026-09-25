@@ -251,10 +251,9 @@ class ClientModel:
         outcomes = self._forkchoice_outcomes(step)
         if step.payload_attributes is not None:
             for outcome in outcomes:
-                if outcome.id == "applied":
-                    outcome.payload_id = "nonNull"
-                elif outcome.id == "noop":
-                    outcome.payload_id = "null"
+                if outcome.status == "VALID":
+                    applied = self._forkchoice_effect(step, outcome)
+                    outcome.payload_id = "nonNull" if applied else "null"
         return outcomes
 
     def _forkchoice_outcomes(
@@ -294,12 +293,16 @@ class ClientModel:
             if head == self.finalized and head != self.head:
                 return [
                     Outcome(
-                        id="applied", status="VALID", latest_valid_hash=head
+                        id="applied",
+                        status="VALID",
+                        latest_valid_hash=head,
+                        head_moved=True,
                     ),
                     Outcome(
                         id="noop",
                         status="VALID",
                         latest_valid_hash=head,
+                        head_moved=False,
                         disputed=DISPUTED_HEAD_EQUALS_FINALIZED,
                     ),
                 ]
@@ -524,13 +527,6 @@ def annotate_steps(
             _reject_unmatched_branches(
                 step, f"forkchoiceUpdated(head={step.head!r})"
             )
-            ids = {o.id for o in step.expect}
-            if {"applied", "noop"} <= ids:
-                for outcome in step.expect:
-                    if outcome.id == "applied":
-                        outcome.head_moved = True
-                    elif outcome.id == "noop":
-                        outcome.head_moved = False
             branches = []
             for outcome in step.expect:
                 branch_model = model.copy()
