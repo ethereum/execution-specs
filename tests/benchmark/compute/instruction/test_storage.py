@@ -686,22 +686,20 @@ def _besu_colliding_slots(n: int) -> list[int]:
     """
     Return ``n`` distinct slots that share one Java ``Arrays.hashCode``.
 
-    besu keys transient storage by a hash of ``(address, slot)`` in which the
-    address is constant for a contract's own writes, so slots with an equal
-    ``Arrays.hashCode`` all fall in one bucket. Each of 16 byte pairs is
-    ``(0x00, 0x1F)`` or ``(0x01, 0x00)``, contributing the same amount to the
-    polynomial hash (``31*0 + 31 == 31*1 + 0``); the 16-bit index selects.
+    Each of 16 byte pairs is ``(0x00, 0x1F)`` or ``(0x01, 0x00)``; both add
+    the same amount to the polynomial hash (``31*0 + 31 == 31*1 + 0``), so
+    the 16 bits of the index pick a distinct slot with an unchanged hash.
     """
     assert n <= 1 << 16, "only 65536 distinct colliding slots (16 byte pairs)"
     slots = []
-    for idx in range(n):
-        b = bytearray(32)
-        for p in range(16):
-            if (idx >> p) & 1:
-                b[2 * p], b[2 * p + 1] = 0x01, 0x00
+    for index in range(n):
+        slot = bytearray(32)
+        for pair in range(16):
+            if (index >> pair) & 1:
+                slot[2 * pair : 2 * pair + 2] = b"\x01\x00"
             else:
-                b[2 * p], b[2 * p + 1] = 0x00, 0x1F
-        slots.append(int.from_bytes(b, "big"))
+                slot[2 * pair : 2 * pair + 2] = b"\x00\x1f"
+        slots.append(int.from_bytes(slot, "big"))
     return slots
 
 
@@ -720,10 +718,11 @@ def test_tstore_key_distribution(
     writes sequential slots. The value is a fixed nonzero so the write is not
     elided. besu keys this way; other clients are unaffected.
     """
-    # Worst-case bytes per write (PUSH32 slot); bounds the block so it fits
-    # under max_code_size and JumpLoopGenerator packs at least one copy.
-    max_write_bytes = 36  # PUSH1 value + PUSH32 slot + TSTORE
-    n = (fork.max_code_size() - 2048) // max_write_bytes
+    value = 0x2A
+    max_write_bytes = len(Op.TSTORE(Op.PUSH32(0), value))
+    loop_overhead = len(Op.JUMPDEST) + len(Op.JUMP(0))
+    n = (fork.max_code_size() - loop_overhead) // max_write_bytes
+
     if distribution == "spread":
         slots = list(range(1, n + 1))
     elif distribution == "besu_collision":
@@ -731,7 +730,6 @@ def test_tstore_key_distribution(
     else:
         raise ValueError(f"unknown distribution: {distribution}")
 
-    value = 0x2A  # nonzero so the write is not elided
     attack_block = sum((Op.TSTORE(slot, value) for slot in slots), Bytecode())
     benchmark_test(
         target_opcode=Op.TSTORE,
