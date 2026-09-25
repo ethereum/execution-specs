@@ -20,7 +20,10 @@ from execution_testing.base_types import (
     to_json,
 )
 from execution_testing.client_clis.cli_types import EnginePayloadMetadata
-from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.fixtures.blockchain import (
+    FixtureHeader,
+    PayloadAttributes,
+)
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc import (
     DEFAULT_REQUEST_TIMEOUT,
@@ -32,7 +35,6 @@ from execution_testing.rpc import EthRPC as BaseEthRPC
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     GetPayloadResponse,
-    PayloadAttributes,
     PayloadStatusEnum,
     TransactionProtocol,
 )

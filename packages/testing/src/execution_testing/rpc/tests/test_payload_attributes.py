@@ -20,6 +20,7 @@ from execution_testing.fixtures import BlockchainEngineReorgFixture
 from execution_testing.fixtures.blockchain import (
     FixtureEngineNewPayload,
     FixtureHeader,
+    PayloadAttributes,
 )
 from execution_testing.fixtures.reorg import (
     ForkchoiceUpdatedStep,
@@ -32,7 +33,6 @@ from execution_testing.forks import (
     get_deployed_forks,
     get_development_forks,
 )
-from execution_testing.rpc.rpc_types import PayloadAttributes
 from execution_testing.specs import ReorgBlock, ReorgTest
 from execution_testing.specs.blockchain import GENESIS_ENVIRONMENT_DEFAULTS
 from execution_testing.test_types import Alloc, BlockAccessList, Environment

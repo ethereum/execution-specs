@@ -26,7 +26,6 @@ from execution_testing.exceptions import (
 )
 from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayload,
-    PayloadAttributes,  # noqa: F401 - re-exported for existing callers
     PayloadStatusEnum,
 )
 from execution_testing.test_types import EOA, Transaction

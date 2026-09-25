@@ -21,6 +21,7 @@ from execution_testing.fixtures import BlockchainEngineReorgFixture
 from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayload,
     FixtureHeader,
+    PayloadAttributes,
 )
 from execution_testing.fixtures.reorg import (
     LATEST_VALID_HASH_ANY,
@@ -41,11 +42,7 @@ from execution_testing.fixtures.reorg import (
 )
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
-from execution_testing.rpc.rpc_types import (
-    ForkchoiceState,
-    JSONRPCError,
-    PayloadAttributes,
-)
+from execution_testing.rpc.rpc_types import ForkchoiceState, JSONRPCError
 
 from ..helpers.exceptions import LoggedError
 from ..helpers.genesis import (

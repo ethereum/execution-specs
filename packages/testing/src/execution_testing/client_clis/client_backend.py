@@ -17,6 +17,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.exceptions import ExceptionBase, ExceptionMapper
+from execution_testing.fixtures.blockchain import PayloadAttributes
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import (
@@ -31,7 +32,6 @@ from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     GetPayloadResponse,
     JSONRPCError,
-    PayloadAttributes,
     PayloadStatusEnum,
 )
 from execution_testing.test_types import (
