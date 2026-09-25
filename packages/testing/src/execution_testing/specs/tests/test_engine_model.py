@@ -372,9 +372,9 @@ def test_annotate_rejects_unmatched_new_payload_branch_key() -> None:
     """A branch key that names no newPayload outcome id is rejected."""
     model = ClientModel(dag=dag_linear_with_fork())
     steps: List[Step] = [
-        NewPayloadStep(block="a1", branches={"applide": []}),
+        NewPayloadStep(block="a1", branches={"valid_typo": []}),
     ]
-    with pytest.raises(ValueError, match="applide"):
+    with pytest.raises(ValueError, match="valid_typo"):
         annotate_steps(steps, model)
 
 
@@ -383,9 +383,11 @@ def test_annotate_rejects_unmatched_forkchoice_branch_key() -> None:
     model = ClientModel(dag=dag_linear_with_fork())
     model.known["a1"] = Validity.VALID
     steps: List[Step] = [
-        ForkchoiceUpdatedStep(head="a1", version=3, branches={"aplied": []}),
+        ForkchoiceUpdatedStep(
+            head="a1", version=3, branches={"applied_typo": []}
+        ),
     ]
-    with pytest.raises(ValueError, match="aplied"):
+    with pytest.raises(ValueError, match="applied_typo"):
         annotate_steps(steps, model)
 
 

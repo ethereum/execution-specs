@@ -39,7 +39,6 @@ from execution_testing.fixtures.blockchain import (
     FixtureNewPayloadRequest,
     PayloadAttributes,
 )
-from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
     ZERO_LABEL,
@@ -103,10 +102,7 @@ class ReorgTest(BlockchainTest):
     blocks: List[ReorgBlock]  # type: ignore[assignment]
     steps: List[Step]
     post: Alloc = Field(default_factory=Alloc)
-    """
-    Unused: a DAG has no single final canonical block. Must stay empty;
-    verify state per block via ``expected_post_state`` or ``assertState``.
-    """
+    """Must stay empty: a DAG has no single final block."""
     min_reorg_depth: Number | None = None
     """
     Minimum side-chain reorg depth (in blocks) the client must apply
@@ -123,21 +119,9 @@ class ReorgTest(BlockchainTest):
 
     def model_post_init(self, __context: Any, /) -> None:
         """
-        Run static checks.
-
-        ``BlockchainTest``'s inclusion-test check assumes ``self.blocks`` is
-        a linear chain (only the last block may carry the trailing invalid
-        transaction); a labeled DAG has no single "last" block, so the
-        marker that requests it is rejected here instead of silently
-        checking it against list order. Verify inclusion with
-        ``assertTxStatus``/``assertReceipt`` steps instead.
-
-        A DAG has no single final canonical block either, so a fixture-wide
-        ``post`` allocation is rejected; verify per block via
-        ``ReorgBlock.expected_post_state`` or via ``assertState`` steps.
-        ``engine_api_error_code`` is rejected per block: an Engine API
-        response is a property of the step that delivers the block (its
-        ``newPayload`` outcome), not of the block itself.
+        Reject inherited inputs a DAG cannot honor: inclusion tests and a
+        fixture-wide ``post`` assume one final block, and a block's Engine
+        API error belongs on the ``newPayload`` step that delivers it.
         """
         if self.is_inclusion_test:
             raise ValueError("ReorgTest does not support inclusion tests")
@@ -157,9 +141,7 @@ class ReorgTest(BlockchainTest):
         super().model_post_init(__context)
 
     def validate_dag(self) -> None:
-        """
-        Check labels are unique, reserved names unused, parents resolvable.
-        """
+        """Check labels are unique and every reference resolves."""
         seen = {GENESIS_LABEL}
         tx_counts: Dict[str, int] = {}
         for block in self.blocks:
@@ -177,7 +159,7 @@ class ReorgTest(BlockchainTest):
     def _validate_step_labels(
         self,
         steps: List[Step],
-        labels: set,
+        labels: Set[str],
         tx_counts: Dict[str, int],
     ) -> None:
         for step in steps:
@@ -194,7 +176,7 @@ class ReorgTest(BlockchainTest):
                         f"getPayload bind label {step.bind!r} already used"
                     )
                 tx_refs = step.transactions_include + step.transactions_exclude
-            elif isinstance(step, (AssertHeadStep,)):
+            elif isinstance(step, AssertHeadStep):
                 refs = [
                     x
                     for x in (step.latest, step.safe, step.finalized)
@@ -458,7 +440,6 @@ class ReorgTest(BlockchainTest):
         return FillResult(
             fixture=fixture,
             gas_optimization=None,
-            post_verifications=PostVerifications.from_alloc(self.post),
         )
 
     def generate(
