@@ -5,8 +5,8 @@ transaction splitting functionality.
 
 import pytest
 
-from execution_testing.base_types import HexNumber
-from execution_testing.forks import Osaka
+from execution_testing.base_types import Bytes, HexNumber
+from execution_testing.forks import Amsterdam, Osaka
 from execution_testing.specs.benchmark import BenchmarkTest
 from execution_testing.test_types import Alloc, Environment, Transaction
 
@@ -65,28 +65,84 @@ def test_split_transaction(
             f"Transaction {i} gas limit {tx_gas_limit} "
             f"exceeds cap {gas_limit_cap}"
         )
-        # Verify gas distribution
-        if i < len(split_txs) - 1:  # All but last should be at cap
-            assert tx_gas_limit == gas_limit_cap, (
-                f"Transaction {i} should have gas limit {gas_limit_cap}, "
-                f"got {tx_gas_limit}"
-            )
-        else:
-            # Last transaction should have the remainder
-            if expected_splits > 1:
-                expected_last_gas = gas_benchmark_value - (
-                    gas_limit_cap * (expected_splits - 1)
-                )
-                assert tx_gas_limit == expected_last_gas, (
-                    f"Last transaction should have {expected_last_gas} gas, "
-                    f"got {tx_gas_limit}"
-                )
         # Verify nonces increment correctly
         assert tx.nonce == i, f"Transaction {i} has incorrect nonce {tx.nonce}"
+
+    # Gas is spread evenly rather than cap-cap-...-remainder, so the shares
+    # differ by at most one wei of gas. The old scheme's tail could be
+    # arbitrarily small, which made it unable to pay the floor data cost of the
+    # calldata every split carries -- see
+    # test_split_transaction_tail_covers_data_floor.
+    gas_limits = [int(tx.gas_limit or 0) for tx in split_txs]
+    assert max(gas_limits) - min(gas_limits) <= 1, (
+        f"Gas should be spread evenly, got {gas_limits}"
+    )
     # Verify total gas equals the benchmark value
     assert total_gas == gas_benchmark_value, (
         f"Total gas {total_gas} doesn't match benchmark "
         f"value {gas_benchmark_value}"
+    )
+
+
+@pytest.mark.parametrize(
+    "gas_benchmark_value_millions",
+    [100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300],
+)
+def test_split_transaction_tail_covers_data_floor(
+    gas_benchmark_value_millions: int,
+) -> None:
+    """
+    Every split must be able to pay the floor data cost of its calldata.
+
+    Each split is a copy of the same transaction, so each carries identical
+    calldata and owes identical floor data gas. Splitting gas as
+    cap-cap-...-remainder left the final transaction with
+    ``gas_benchmark_value % cap``, which is unrelated to that floor and could
+    fall below it -- a 220M benchmark on Amsterdam gave its last transaction
+    1,896,192 gas against a 2,374,296 floor, and clients reject it with
+    "insufficient gas for floor data gas cost".
+
+    36,864 bytes is the worst-case BLS12_G2MSM k=128 calldata that surfaced
+    this.
+    """
+    gas_benchmark_value = gas_benchmark_value_millions * 1_000_000
+    calldata = Bytes(b"\xab" * 36_864)
+    fork = Amsterdam
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+
+    minimum_gas = max(
+        fork.transaction_intrinsic_cost_calculator()(calldata=calldata),
+        fork.transaction_data_floor_cost_calculator()(data=calldata),
+    )
+
+    benchmark_test = BenchmarkTest(
+        fork=fork,
+        pre=Alloc(),
+        post=Alloc(),
+        tx=Transaction(
+            sender=HexNumber(0), to=HexNumber(0), nonce=0, data=calldata
+        ),
+        env=Environment(),
+        gas_benchmark_value=gas_benchmark_value,
+    )
+    assert benchmark_test.tx is not None
+    split_txs = benchmark_test.split_transaction(
+        benchmark_test.tx, gas_limit_cap
+    )
+
+    for i, tx in enumerate(split_txs):
+        assert tx.gas_limit is not None
+        assert int(tx.gas_limit) >= minimum_gas, (
+            f"Transaction {i} of {len(split_txs)} has gas limit "
+            f"{int(tx.gas_limit)}, below the {minimum_gas} minimum its "
+            f"{len(calldata)}-byte calldata requires"
+        )
+
+    # The total must stay exact: benchmark gas validation asserts the block
+    # consumes precisely gas_benchmark_value.
+    assert sum(int(tx.gas_limit or 0) for tx in split_txs) == (
+        gas_benchmark_value
     )
 
 
