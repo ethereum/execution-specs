@@ -29,6 +29,7 @@ from execution_testing.base_types import (
     CamelModel,
     Hash,
     HexNumber,
+    Number,
 )
 from execution_testing.exceptions import EngineAPIError
 from execution_testing.forks import Fork, Paris, TransitionFork
@@ -101,7 +102,7 @@ class TxRef(CamelModel):
     """Reference to a transaction of a fixture block."""
 
     block: str
-    index: int = 0
+    index: Number = Number(0)
 
 
 class FixturePayloadAttributes(CamelModel):
@@ -137,7 +138,7 @@ class ForkchoiceUpdatedStep(StepBase):
     head: str
     safe: str = ZERO_LABEL
     finalized: str = ZERO_LABEL
-    version: int | None = None
+    version: Number | None = None
     """Engine API version; derived from the head block's fork when unset."""
     payload_attributes: FixturePayloadAttributes | None = None
     """If set, a payload build is requested; ``payloadId`` is kept for the
@@ -156,7 +157,7 @@ class GetPayloadStep(StepBase):
     type: Literal["getPayload"] = "getPayload"
     bind: str
     """New label for the built payload (usable in later steps)."""
-    version: int | None = None
+    version: Number | None = None
     delay: float = 1.0
     """Seconds to wait after the build request before retrieving (clients
     return the best payload built so far; give them time to include pool

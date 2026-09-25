@@ -8,8 +8,10 @@ from execution_testing.exceptions import BlockException
 from execution_testing.fixtures import BlockchainEngineReorgFixture
 from execution_testing.fixtures.reorg import (
     AssertHeadStep,
+    AssertReceiptStep,
     ForkchoiceUpdatedStep,
     NewPayloadStep,
+    TxRef,
 )
 from execution_testing.forks import Cancun, Fork, Prague
 from execution_testing.test_types import Alloc, Environment, Transaction
@@ -168,3 +170,31 @@ def test_step_validation_rejects_unknown_label() -> None:  # noqa: D103
             blocks=[ReorgBlock(label="a1")],
             steps=[ForkchoiceUpdatedStep(head="a9")],
         ).validate_dag()
+
+
+def test_fill_serializes_versions_and_tx_index_as_decimal_strings(
+    default_t8n: TransitionTool,
+) -> None:
+    """FCU/getPayload versions and TxRef.index serialize as Number strings."""
+    test = ReorgTest(
+        fork=Cancun,
+        genesis_environment=Environment(),
+        pre=pre_alloc(),
+        blocks=[ReorgBlock(label="a1", txs=[tx(0, 1), tx(1, 2)])],
+        steps=[
+            NewPayloadStep(block="a1"),
+            ForkchoiceUpdatedStep(head="a1"),
+            AssertReceiptStep(tx=TxRef(block="a1", index=1), block="a1"),
+        ],
+    )
+    fixture = test.generate(
+        t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture
+    ).fixture
+    assert isinstance(fixture, BlockchainEngineReorgFixture)
+    dumped = fixture.json_dict_with_info()
+    fcu_step = dumped["steps"][1]
+    assert fcu_step["version"] == str(
+        Cancun.engine_forkchoice_updated_version()
+    )
+    receipt_step = dumped["steps"][2]
+    assert receipt_step["tx"]["index"] == "1"

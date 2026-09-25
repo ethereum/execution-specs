@@ -32,6 +32,7 @@ author-provided set.
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
+from execution_testing.base_types import Number
 from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
@@ -358,7 +359,7 @@ def annotate_steps(
                         "forkchoiceUpdated step without version and no "
                         "version map provided"
                     )
-                step.version = fcu_version[step.head]
+                step.version = Number(fcu_version[step.head])
             if not step.expect:
                 step.expect = model.forkchoice_outcomes(step)
             ids = {o.id for o in step.expect}

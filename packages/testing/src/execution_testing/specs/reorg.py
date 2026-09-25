@@ -26,7 +26,7 @@ from typing import (
 
 from pydantic import Field
 
-from execution_testing.base_types import Hash, HexNumber
+from execution_testing.base_types import Hash, HexNumber, Number
 from execution_testing.client_clis import FillerBackend, LazyAlloc
 from execution_testing.fixtures import (
     BlockchainEngineReorgFixture,
@@ -224,9 +224,11 @@ class ReorgTest(BlockchainTest):
                     # getPayload is versioned by the fork of the payload being
                     # built (V3 Cancun, V4 Prague, V5 Osaka); it does not track
                     # forkchoiceUpdated, which stays at V3 from Cancun on.
-                    step.version = self.fork.fork_at(
+                    payload_version = self.fork.fork_at(
                         block_number=0, timestamp=built_ts
                     ).engine_get_payload_version()
+                    assert payload_version is not None
+                    step.version = Number(payload_version)
             if isinstance(step, ForkchoiceUpdatedStep):
                 attrs = step.payload_attributes
                 if attrs is not None:
