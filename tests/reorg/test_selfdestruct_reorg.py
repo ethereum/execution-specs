@@ -46,7 +46,8 @@ SLOT = 0
 STORED = 0x2A
 ENDOWMENT = 10**15
 BENEFICIARY = 0x0BE0
-GAS = 500_000
+#: Covers Amsterdam's state gas for CREATE2 and the new beneficiary.
+GAS = 1_000_000
 
 #: Deployed code: self-destruct, sending the balance to a fixed beneficiary.
 RUNTIME = Op.SELFDESTRUCT(BENEFICIARY)
