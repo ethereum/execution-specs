@@ -2,7 +2,8 @@
 Pytest fixtures for the `consume reorg` simulator.
 
 One fresh client per fixture; the client environment is the standard engine
-environment plus the fixture's ``requires`` (``HIVE_*``) variables, if any.
+environment plus ``HIVE_ENGINE_MAX_REORG_DEPTH`` derived from the fixture's
+``minReorgDepth``, if set.
 """
 
 import io
@@ -56,14 +57,15 @@ def environment(
     check_live_port: Literal[8545, 8551],
 ) -> dict:
     """
-    Client environment: standard engine ruleset plus the fixture's
-    ``requires`` variables (client tuning such as reorg-depth caps).
+    Client environment: standard engine ruleset plus
+    ``HIVE_ENGINE_MAX_REORG_DEPTH`` derived from the fixture's
+    ``minReorgDepth`` (client tuning such as reorg-depth caps).
     """
     env = client_environment(
         fixture.fork, fixture.config.chain_id, check_live_port
     )
-    if fixture.requires:
-        env.update(fixture.requires)
+    if fixture.min_reorg_depth is not None:
+        env["HIVE_ENGINE_MAX_REORG_DEPTH"] = str(int(fixture.min_reorg_depth))
     return env
 
 

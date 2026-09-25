@@ -23,7 +23,7 @@ For each [`HiveFixture`](#hivefixture) test object in the JSON fixture file, per
     - [`network`](#-network-fork) to configure the execution fork schedule according to the [`Fork`](./common_types.md#fork) type definition.
     - [`pre`](#-pre-alloc) as the starting state allocation of the execution environment for the test.
     - [`genesisBlockHeader`](#-genesisblockheader-fixtureheader) as the genesis block header.
-    - The client environment's `HIVE_*` variables from [`requires`](#-requires-optionalmappingstringstring), if present.
+    - `HIVE_ENGINE_MAX_REORG_DEPTH`, derived from [`minReorgDepth`](#-minreorgdepth-optionalnumber), if present.
 
 2. Send an initial `engine_forkchoiceUpdatedVX` to the genesis block and verify it returns `VALID`; verify the client's genesis block hash via `eth_getBlockByNumber(0)`.
 
@@ -62,9 +62,9 @@ The block DAG, keyed by label.
 
 Ordered, branching script of Engine API / JSON-RPC steps.
 
-#### - `requires`: [`Optional`](./common_types.md#optional)`[`[`Mapping`](./common_types.md#mapping)`[String,``String``]]`
+#### - `minReorgDepth`: [`Optional`](./common_types.md#optional)`[`[`Number`](./common_types.md#number)`]`
 
-Client environment (`HIVE_*`) variables the consumer applies at client start, e.g. a client-specific reorg-depth cap. `None` means client defaults.
+Minimum side-chain reorg depth (in blocks) the client must apply without refusing for capacity reasons; the consumer derives `HIVE_ENGINE_MAX_REORG_DEPTH` from it. `None` means client defaults.
 
 #### - `meta`: [`Mapping`](./common_types.md#mapping)`[String,``Any``]`
 

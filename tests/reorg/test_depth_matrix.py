@@ -217,7 +217,7 @@ def test_side_chain_reorg_depth_tuned(
         pre=pre,
         blocks=blocks,
         steps=steps,
-        requires={"HIVE_ENGINE_MAX_REORG_DEPTH": str(depth + 8)},
+        min_reorg_depth=depth + 8,
         meta={
             "class": "deep",
             "reorgDepth": depth,

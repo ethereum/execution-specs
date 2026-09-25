@@ -101,8 +101,11 @@ class ReorgTest(BlockchainTest):
     steps: List[Step]
     post: Alloc = Field(default_factory=Alloc)
     """Optional; ``assertState`` steps are the primary state verification."""
-    requires: Dict[str, str] | None = None
-    """Client environment variables (``HIVE_*``) required by this test."""
+    min_reorg_depth: Number | None = None
+    """
+    Minimum side-chain reorg depth (in blocks) the client must apply
+    without refusing for capacity reasons.
+    """
 
     meta: Dict[str, str | int] = Field(default_factory=dict)
 
@@ -388,7 +391,7 @@ class ReorgTest(BlockchainTest):
             pre=pre,
             blocks=fixture_blocks,
             steps=steps,
-            requires=self.requires,
+            min_reorg_depth=self.min_reorg_depth,
             meta=dict(self.meta),
             config=FixtureConfig(
                 fork=self.fork,

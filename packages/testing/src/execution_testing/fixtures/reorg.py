@@ -299,10 +299,10 @@ class BlockchainEngineReorgFixture(EngineFixtureCommon):
     pre: Alloc
     blocks: Dict[str, FixtureReorgBlock]
     steps: List[Step]
-    requires: Dict[str, str] | None = None
+    min_reorg_depth: Number | None = None
     """
-    Client environment (``HIVE_*`` variables) the consumer applies at client
-    start. Absent means client defaults.
+    Minimum side-chain reorg depth (in blocks) the client must apply
+    without refusing for capacity reasons. ``None`` means client defaults.
     """
     meta: Dict[str, Any] = Field(default_factory=dict)
 
