@@ -27,7 +27,7 @@ A single JSON fixture file is composed of a JSON object where each key-value pai
 
 For each [`HiveFixture`](#hivefixture) test object in the JSON fixture file, perform the following steps:
 
-1. Start the main client using:
+1. Start the client under test using:
 
     - [`network`](#-network-fork) to configure the execution fork schedule according to the [`Fork`](./common_types.md#fork) type definition.
     - [`pre`](#-pre-alloc) as the starting state allocation of the execution environment for the test.
@@ -73,7 +73,7 @@ Ordered, branching script of Engine API / JSON-RPC steps.
 
 #### - `minReorgDepth`: [`Optional`](./common_types.md#optional)`[`[`Number`](./common_types.md#number)`]`
 
-Minimum side-chain reorg depth (in blocks) the client must apply without refusing for capacity reasons; the consumer derives `HIVE_ENGINE_MAX_REORG_DEPTH` from it. `None` means client defaults.
+Minimum side-chain reorg depth (in blocks) the client must apply without refusing for capacity reasons; the consumer sets the client's cap (`HIVE_ENGINE_MAX_REORG_DEPTH`) to it. `None` keeps client defaults.
 
 #### - `meta`: [`Mapping`](./common_types.md#mapping)`[String,``Any``]`
 
@@ -121,7 +121,7 @@ Human-readable description of the step, for logging.
 - `parent`: `String` — expected parent of the built payload.
 - `transactionsInclude` / `transactionsExclude`: [`List`](./common_types.md#list)`[`[`TxRef`](#txref)`]` — transactions that must (or must not) be in the built payload.
 
-The wait between the build request and `engine_getPayloadVX` is a consumer option (`--get-payload-wait-time`, default `1.0` seconds for `consume reorg`), not a fixture field, since the appropriate wait depends on the client and machine running it.
+The wait before `engine_getPayloadVX` is the consumer's `--get-payload-wait-time` option, not a fixture field.
 
 #### `assertHead`
 

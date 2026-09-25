@@ -37,6 +37,5 @@ def test_head_synced_from_peer(
 ) -> None:
     """
     A head that was never delivered to the client must be reached by
-    syncing. Withheld until the multi-client fixture interface is designed;
-    see the module docstring for the intended scenario.
+    syncing.
     """

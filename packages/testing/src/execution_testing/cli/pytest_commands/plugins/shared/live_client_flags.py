@@ -32,7 +32,7 @@ FEE_BUMP_MULTIPLIER = 1.5
 
 
 def add_get_payload_wait_time_option(
-    group: pytest.OptionGroup, default: float = 0.3
+    group: pytest.OptionGroup, default: float
 ) -> None:
     """Register ``--get-payload-wait-time`` on the given option group."""
     group.addoption(

@@ -59,7 +59,7 @@ def verify_genesis_block_hash(
             expected = genesis_header.block_hash
             got = genesis_block["hash"]
             logger.fail(
-                f"Genesis block hash mismatch. "
+                "Genesis block hash mismatch. "
                 f"Expected: {expected}, Got: {got}"
             )
             raise GenesisBlockMismatchExceptionError(

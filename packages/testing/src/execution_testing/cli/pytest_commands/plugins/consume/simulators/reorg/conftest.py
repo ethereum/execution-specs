@@ -71,11 +71,7 @@ def environment(
     fixture: BlockchainEngineReorgFixture,
     check_live_port: Literal[8545, 8551],
 ) -> dict:
-    """
-    Client environment: standard engine ruleset plus
-    ``HIVE_ENGINE_MAX_REORG_DEPTH`` derived from the fixture's
-    ``minReorgDepth`` (client tuning such as reorg-depth caps).
-    """
+    """Standard engine environment plus the fixture's reorg-depth cap."""
     env = client_environment(
         fixture.fork, fixture.config.chain_id, check_live_port
     )

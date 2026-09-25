@@ -106,7 +106,8 @@ class ReorgTest(BlockchainTest):
     min_reorg_depth: Number | None = None
     """
     Minimum side-chain reorg depth (in blocks) the client must apply
-    without refusing for capacity reasons.
+    without refusing for capacity reasons; the consumer sets the client's
+    cap to it.
     """
 
     meta: Dict[str, str | int] = Field(default_factory=dict)

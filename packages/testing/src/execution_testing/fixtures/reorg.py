@@ -345,7 +345,8 @@ class BlockchainEngineReorgFixture(EngineFixtureCommon):
     min_reorg_depth: Number | None = None
     """
     Minimum side-chain reorg depth (in blocks) the client must apply
-    without refusing for capacity reasons. ``None`` means client defaults.
+    without refusing for capacity reasons; the consumer sets the client's
+    cap to it. ``None`` keeps client defaults.
     """
     meta: Dict[str, Any] = Field(default_factory=dict)
 
