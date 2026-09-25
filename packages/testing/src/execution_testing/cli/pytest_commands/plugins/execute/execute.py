@@ -280,7 +280,7 @@ def env_gas_limit(eth_rpc: EthRPC) -> HexNumber:
     """
     head_block = eth_rpc.get_block_by_number()
     assert head_block is not None, "Unable to obtain head block from RPC"
-    return HexNumber(head_block["gasLimit"])
+    return head_block.gas_limit
 
 
 def base_test_parametrizer(cls: Type[BaseTest]) -> Any:

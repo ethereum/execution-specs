@@ -6,7 +6,7 @@ submitted.
 import time
 from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Any, List, Mapping, Sequence, Tuple
+from typing import Any, List, Sequence, Tuple
 from urllib.parse import urlparse
 
 from filelock import FileLock
@@ -25,6 +25,7 @@ from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc import (
     DEFAULT_REQUEST_TIMEOUT,
     EngineRPC,
+    LiveBlock,
     TestingRPC,
     TimeoutType,
 )
@@ -41,7 +42,7 @@ from execution_testing.test_types import Withdrawal
 
 def _genesis_header_differences(
     expected: FixtureHeader,
-    actual_block: Mapping[str, Any],
+    actual_block: LiveBlock,
 ) -> List[str]:
     """
     Return the per-field differences between the expected genesis header and
@@ -51,8 +52,11 @@ def _genesis_header_differences(
     Return an empty list when the client's block cannot be parsed as a
     header, in which case the caller only reports the block hashes.
     """
+    actual_block_dict = actual_block.model_dump(
+        by_alias=True, mode="json", exclude_none=True
+    )
     try:
-        actual_header = FixtureHeader.model_validate(actual_block)
+        actual_header = FixtureHeader.model_validate(actual_block_dict)
     except ValidationError:
         return []
     expected_json = to_json(expected)
@@ -70,7 +74,7 @@ def _genesis_header_differences(
         if field != "hash"
         and expected_json.get(field) != actual_json.get(field)
     ]
-    if actual_header.block_hash != Hash(actual_block["hash"]):
+    if actual_header.block_hash != actual_block.hash:
         differences.append(
             "note: the client's header does not hash to the block hash it "
             "reports when re-encoded locally, so the fields listed above may "
@@ -87,7 +91,7 @@ class GenesisMismatchError(Exception):
     def __init__(
         self,
         expected: FixtureHeader,
-        actual_block: Mapping[str, Any],
+        actual_block: LiveBlock,
     ) -> None:
         """Initialize the exception with both genesis headers."""
         self.expected = expected
@@ -96,7 +100,7 @@ class GenesisMismatchError(Exception):
             "the client's genesis block does not match the one built "
             "locally:"
             f"\n  expected block hash: {expected.block_hash}"
-            f"\n  client block hash:   {Hash(actual_block['hash'])}"
+            f"\n  client block hash:   {actual_block.hash}"
         )
         differences = _genesis_header_differences(expected, actual_block)
         if differences:
@@ -167,14 +171,13 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 # Get the head block hash
                 head_block = self.get_block_by_number("latest")
                 assert head_block is not None
-                block_number = HexNumber(head_block["number"])
-                timestamp = HexNumber(head_block["timestamp"])
                 head_fork = self.fork.fork_at(
-                    block_number=block_number, timestamp=timestamp
+                    block_number=head_block.number,
+                    timestamp=head_block.timestamp,
                 )
                 # Send initial forkchoice updated
                 forkchoice_state = ForkchoiceState(
-                    head_block_hash=head_block["hash"],
+                    head_block_hash=head_block.hash,
                 )
                 forkchoice_version = (
                     head_fork.engine_forkchoice_updated_version()
@@ -207,7 +210,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         assert genesis_block is not None, (
             "client did not return its genesis block"
         )
-        if Hash(genesis_block["hash"]) != expected.block_hash:
+        if genesis_block.hash != expected.block_hash:
             raise GenesisMismatchError(expected, genesis_block)
 
     @property
@@ -221,26 +224,26 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         """
         return self.block_building_lock
 
-    def _next_timestamp(self, head_block: Mapping[str, Any]) -> int:
+    def _next_timestamp(self, head_block: LiveBlock) -> int:
         """Return the timestamp of the block following ``head_block``."""
-        return int(HexNumber(head_block["timestamp"]) + 1)
+        return int(head_block.timestamp) + 1
 
-    def _next_fork(self, head_block: Mapping[str, Any]) -> Fork:
+    def _next_fork(self, head_block: LiveBlock) -> Fork:
         """Return the fork of the block following ``head_block``."""
         return self.fork.fork_at(
             block_number=0, timestamp=self._next_timestamp(head_block)
         )
 
-    def _head_fork(self, head_block: Mapping[str, Any]) -> Fork:
+    def _head_fork(self, head_block: LiveBlock) -> Fork:
         """Return the fork of ``head_block`` itself."""
         return self.fork.fork_at(
-            block_number=int(HexNumber(head_block["number"])),
-            timestamp=int(HexNumber(head_block["timestamp"])),
+            block_number=int(head_block.number),
+            timestamp=int(head_block.timestamp),
         )
 
     def _payload_attributes(
         self,
-        head_block: Mapping[str, Any],
+        head_block: LiveBlock,
         *,
         withdrawals: List[Withdrawal] | None = None,
     ) -> PayloadAttributes:
@@ -254,15 +257,15 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             if not self._head_fork(head_block).header_slot_number_required():
                 next_slot_number = 1
             else:
-                assert "slotNumber" in head_block, (
+                assert head_block.slot_number is not None, (
                     "fork requires a slot number in the block header but the "
                     "client does not report one for its head block"
                 )
-                next_slot_number = int(HexNumber(head_block["slotNumber"]) + 1)
+                next_slot_number = int(head_block.slot_number) + 1
         return PayloadAttributes.for_fork(
             next_fork,
             timestamp=next_timestamp,
-            target_gas_limit=int(HexNumber(head_block["gasLimit"])),
+            target_gas_limit=int(head_block.gas_limit),
             slot_number=next_slot_number,
             withdrawals=withdrawals,
         )
@@ -330,7 +333,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         assert head_block is not None
 
         forkchoice_state = ForkchoiceState(
-            head_block_hash=head_block["hash"],
+            head_block_hash=head_block.hash,
         )
         next_fork = self._next_fork(head_block)
         payload_attributes = self._payload_attributes(head_block)
@@ -407,7 +410,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             assert head_block is not None
             payload_attributes = self._payload_attributes(head_block)
             new_payload = self.testing_rpc.build_block(
-                parent_block_hash=Hash(head_block["hash"]),
+                parent_block_hash=head_block.hash,
                 payload_attributes=payload_attributes,
                 transactions=transactions,
                 extra_data=Bytes(b""),  # TODO: This is marked as optional
@@ -453,7 +456,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             # the client pull from its mempool, but we want a
             # deterministic tx-free block.
             new_payload = self.testing_rpc.build_block(
-                parent_block_hash=Hash(head_block["hash"]),
+                parent_block_hash=head_block.hash,
                 payload_attributes=payload_attributes,
                 transactions=[],
                 extra_data=Bytes(b""),

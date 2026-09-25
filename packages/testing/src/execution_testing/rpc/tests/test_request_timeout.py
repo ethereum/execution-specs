@@ -15,6 +15,7 @@ from execution_testing.forks import Cancun
 from execution_testing.rpc import (
     DEFAULT_REQUEST_TIMEOUT,
     EthRPC,
+    LiveBlock,
     RPCCall,
     SendTransactionExceptionError,
 )
@@ -129,11 +130,16 @@ def test_chain_builder_accepts_request_timeout(tmp_path: Path) -> None:
     engine_rpc.forkchoice_updated.return_value.payload_status.status = (
         PayloadStatusEnum.VALID
     )
-    head_block = {
-        "number": "0x0",
-        "timestamp": "0x0",
-        "hash": f"0x{'00' * 32}",
-    }
+    head_block = LiveBlock.model_validate(
+        {
+            "number": "0x0",
+            "timestamp": "0x0",
+            "hash": f"0x{'00' * 32}",
+            "stateRoot": f"0x{'00' * 32}",
+            "gasLimit": "0x1c9c380",
+            "miner": f"0x{'00' * 20}",
+        }
+    )
     with patch.object(
         ChainBuilderEthRPC, "get_block_by_number", return_value=head_block
     ):
