@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from execution_testing.base_types import Account, Address, Hash
 from execution_testing.client_clis import TransitionTool
-from execution_testing.exceptions import BlockException
+from execution_testing.exceptions import BlockException, EngineAPIError
 from execution_testing.fixtures import BlockchainEngineReorgFixture
 from execution_testing.fixtures.reorg import (
     AssertHeadStep,
@@ -260,3 +260,55 @@ def test_block_label_rejects_reserved_names(
     for label in rejected:
         with pytest.raises(ValidationError, match="reserved"):
             make(label)
+
+
+def test_post_field_rejects_nonempty_alloc() -> None:
+    """A DAG has no single final block; fixture-wide `post` is rejected."""
+    with pytest.raises(ValueError, match="fixture-wide `post`"):
+        ReorgTest(
+            fork=Cancun,
+            pre=pre_alloc(),
+            post=Alloc({RECIPIENT: Account(balance=1)}),
+            blocks=[ReorgBlock(label="a1")],
+            steps=[],
+        )
+
+
+def test_engine_api_error_code_rejected_on_block() -> None:
+    """A block's Engine API error belongs on the delivering step, not it."""
+    with pytest.raises(ValueError, match="engine_api_error_code"):
+        ReorgTest(
+            fork=Cancun,
+            pre=pre_alloc(),
+            blocks=[
+                ReorgBlock(
+                    label="a1",
+                    engine_api_error_code=EngineAPIError.InvalidParams,
+                )
+            ],
+            steps=[],
+        )
+
+
+def test_expected_post_state_mismatch_fails_fill(
+    default_t8n: TransitionTool,
+) -> None:
+    """A block's own `expected_post_state` is verified against its result."""
+    test = ReorgTest(
+        fork=Cancun,
+        pre=pre_alloc(),
+        blocks=[
+            ReorgBlock(
+                label="a1",
+                txs=[tx(0, 1)],
+                expected_post_state=Alloc(
+                    {RECIPIENT: Account(balance=999)}
+                ),
+            )
+        ],
+        steps=[NewPayloadStep(block="a1"), ForkchoiceUpdatedStep(head="a1")],
+    )
+    with pytest.raises(Account.BalanceMismatchError):
+        test.generate(
+            t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture
+        )

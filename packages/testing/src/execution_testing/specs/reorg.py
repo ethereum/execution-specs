@@ -101,7 +101,10 @@ class ReorgTest(BlockchainTest):
     blocks: List[ReorgBlock]  # type: ignore[assignment]
     steps: List[Step]
     post: Alloc = Field(default_factory=Alloc)
-    """Optional; ``assertState`` steps are the primary state verification."""
+    """
+    Unused: a DAG has no single final canonical block. Must stay empty;
+    verify state per block via ``expected_post_state`` or ``assertState``.
+    """
     min_reorg_depth: Number | None = None
     """
     Minimum side-chain reorg depth (in blocks) the client must apply
@@ -126,9 +129,29 @@ class ReorgTest(BlockchainTest):
         marker that requests it is rejected here instead of silently
         checking it against list order. Verify inclusion with
         ``assertTxStatus``/``assertReceipt`` steps instead.
+
+        A DAG has no single final canonical block either, so a fixture-wide
+        ``post`` allocation is rejected; verify per block via
+        ``ReorgBlock.expected_post_state`` or via ``assertState`` steps.
+        ``engine_api_error_code`` is rejected per block: an Engine API
+        response is a property of the step that delivers the block (its
+        ``newPayload`` outcome), not of the block itself.
         """
         if self.is_inclusion_test:
             raise ValueError("ReorgTest does not support inclusion tests")
+        if self.post.root:
+            raise ValueError(
+                "ReorgTest does not support a fixture-wide `post` "
+                "allocation; verify state per block via "
+                "`ReorgBlock.expected_post_state` or `assertState` steps"
+            )
+        for block in self.blocks:
+            if block.engine_api_error_code is not None:
+                raise ValueError(
+                    f"block {block.label!r}: engine_api_error_code is not "
+                    "supported; expect the error on the newPayload step "
+                    "that delivers this block instead"
+                )
         super().model_post_init(__context)
 
     def validate_dag(self) -> None:
@@ -357,6 +380,14 @@ class ReorgTest(BlockchainTest):
             # post-state of its execution and on its (modified) header.
             child_env[block.label] = apply_new_parent(built.env, built.header)
             child_alloc[block.label] = built.alloc
+            if block.expected_post_state:
+                self.verify_post_state(
+                    t8n,
+                    t8n_state=built.alloc.materialize()
+                    if isinstance(built.alloc, LazyAlloc)
+                    else built.alloc,
+                    expected_state=block.expected_post_state,
+                )
             previous_label = block.label
 
         timestamps: Dict[str, int] = {
