@@ -35,7 +35,7 @@ author-provided set.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from execution_testing.base_types import Number
 from execution_testing.exceptions import EngineAPIError
@@ -417,10 +417,35 @@ def _reject_unmatched_branches(
         )
 
 
+def _reject_diverging_continuation(
+    where: str, branches: List[Tuple[str, ClientModel]]
+) -> None:
+    """
+    Reject outcome branches that leave different forkchoice states when a
+    later step (in this list or an enclosing one) depends on which one
+    actually occurred.
+
+    Restricted to ``head``/``safe``/``finalized``: two branches differing
+    only in a block's tracked ``Validity`` (e.g. ``RECEIVED`` vs ``VALID``)
+    can never generate different legal outcomes or observable behavior
+    downstream, since a ``RECEIVED`` block's widened outcome set is always
+    identical to a confirmed-``VALID`` block's whenever it is truly valid.
+    """
+    states = {(m.head, m.safe, m.finalized) for _, m in branches}
+    if len(states) > 1:
+        raise ValueError(
+            f"{where}: outcomes {[oid for oid, _ in branches]} leave "
+            f"different forkchoice states {sorted(states)}, but a later "
+            "step depends on which one occurred; restructure so each "
+            "branch's own continuation is self-contained"
+        )
+
+
 def annotate_steps(
     steps: List[Step],
     model: ClientModel,
     fcu_version: Optional[Dict[str, int]] = None,
+    more_follow: bool = False,
 ) -> List[Step]:
     """
     Fill empty ``expect`` lists and ``version`` fields in ``steps`` using the
@@ -429,42 +454,43 @@ def annotate_steps(
     this step itself just applied.
 
     Branch step lists are annotated recursively with a copy of the model in
-    which that outcome happened. Sibling steps after a multi-outcome step are
-    annotated with the model of the first (canonical) outcome.
+    which that outcome happened, never merged back together. Whenever a
+    step (in this list, or — via ``more_follow`` — an enclosing one) has a
+    step that follows it, every one of its outcome branches must leave the
+    model in the exact same forkchoice state (``head``/``safe``/
+    ``finalized``); otherwise the following step could not be given a
+    single legal continuation, and the DAG must be restructured so each
+    branch supplies its own copy of whatever follows. With that guaranteed
+    (or with nothing following), sibling/enclosing steps continue from the
+    first outcome's own branch.
 
-    ``getPayload`` binds a new label: it is added to the DAG as a valid child
-    of its declared parent (the client builds it, so it is execution-valid).
+    ``getPayload`` binds a new label: it is added to the DAG as a valid
+    child of its declared parent (the client builds it, so it is
+    execution-valid).
     """
-    for step in steps:
+    for i, step in enumerate(steps):
+        has_continuation = i + 1 < len(steps) or more_follow
         if isinstance(step, NewPayloadStep):
             if not step.expect:
                 step.expect = model.new_payload_outcomes(step.block)
             _reject_unmatched_branches(step, f"newPayload({step.block!r})")
-            first_model: Optional[ClientModel] = None
+            branches: List[Tuple[str, ClientModel]] = []
             for outcome in step.expect:
                 branch_model = model.copy()
                 branch_model.apply_new_payload(step.block, [outcome])
                 if outcome.id in step.branches:
                     annotate_steps(
-                        step.branches[outcome.id], branch_model, fcu_version
+                        step.branches[outcome.id],
+                        branch_model,
+                        fcu_version,
+                        has_continuation,
                     )
-                if first_model is None:
-                    first_model = branch_model
-            # Continuation: with one legal outcome there is no ambiguity —
-            # trust the branch's own (possibly further-evolved) state, same
-            # as forkchoiceUpdated always does. With several, a later step
-            # cannot assume which one occurred, so known-ness must follow
-            # the conservative union of the whole outcome set (a block that
-            # may be INVALID is treated as known-invalid) while head/safe/
-            # finalized still follow the first outcome's branch.
-            model.apply_new_payload(step.block, step.expect)
-            if first_model is not None and step.branches:
-                if len(step.expect) > 1:
-                    known = dict(model.known)
-                    model.assign(first_model)
-                    model.known = known
-                else:
-                    model.assign(first_model)
+                branches.append((outcome.id, branch_model))
+            if has_continuation and len(branches) > 1:
+                _reject_diverging_continuation(
+                    f"newPayload({step.block!r})", branches
+                )
+            model.assign(branches[0][1])
         elif isinstance(step, ForkchoiceUpdatedStep):
             if step.version is None:
                 if fcu_version is None:
@@ -485,20 +511,22 @@ def annotate_steps(
                         outcome.head_moved = True
                     elif outcome.id == "noop":
                         outcome.head_moved = False
-            first_model = None
+            branches = []
             for outcome in step.expect:
                 branch_model = model.copy()
                 branch_model.apply_forkchoice(step, outcome)
                 branch = step.branches.setdefault(outcome.id, [])
                 if outcome.status != "SYNCING":
                     branch.insert(0, branch_model.head_assertion())
-                annotate_steps(branch, branch_model, fcu_version)
-                if first_model is None:
-                    first_model = branch_model
-            # Sibling steps continue from the state after the first
-            # (canonical) outcome's branch has executed.
-            assert first_model is not None
-            model.assign(first_model)
+                annotate_steps(
+                    branch, branch_model, fcu_version, has_continuation
+                )
+                branches.append((outcome.id, branch_model))
+            if has_continuation and len(branches) > 1:
+                _reject_diverging_continuation(
+                    f"forkchoiceUpdated(head={step.head!r})", branches
+                )
+            model.assign(branches[0][1])
         elif isinstance(step, GetPayloadStep):
             model.dag.parent[step.bind] = step.parent
             model.dag.valid[step.bind] = True

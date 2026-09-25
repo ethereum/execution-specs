@@ -270,13 +270,17 @@ def test_reorg_to_older_canonical_ancestor_and_forward(
             head="a5", safe="a5", finalized="a1", expect=applied("a5")
         )
     )
+
+    def forward_fcu(tip: str) -> ForkchoiceUpdatedStep:
+        return ForkchoiceUpdatedStep(
+            head=tip, safe="a5", finalized="a1", expect=applied(tip)
+        )
+
     for i in range(6, 11):
         tip = f"a{i}"
         steps += [
             NewPayloadStep(block=tip),
-            ForkchoiceUpdatedStep(
-                head=tip, safe="a5", finalized="a1", expect=applied(tip)
-            ),
+            forward_fcu(tip),
             ForkchoiceUpdatedStep(
                 head="a5",
                 safe="a5",
@@ -284,13 +288,14 @@ def test_reorg_to_older_canonical_ancestor_and_forward(
                 expect=rewind_outcomes("a5"),
                 branches={
                     "applied": [
-                        AssertCanonicalStep(blocks={5: "a5", 6: None})
+                        AssertCanonicalStep(blocks={5: "a5", 6: None}),
+                        forward_fcu(tip),
                     ],
-                    "refused": [AssertCanonicalStep(blocks={5: "a5", i: tip})],
+                    "refused": [
+                        AssertCanonicalStep(blocks={5: "a5", i: tip}),
+                        forward_fcu(tip),
+                    ],
                 },
-            ),
-            ForkchoiceUpdatedStep(
-                head=tip, safe="a5", finalized="a1", expect=applied(tip)
             ),
         ]
     steps.append(
@@ -421,6 +426,17 @@ def test_safe_finalized_labels_follow_fcu(
     blocks, steps = chain(pre, "a", 3)
     side, _ = chain(pre, "b", 2, parent="a1", start=2, value=2)
     blocks += side
+
+    def tail_fcus() -> List[Step]:
+        return [
+            ForkchoiceUpdatedStep(
+                head="b3", safe="b3", finalized="b3", expect=applied("b3")
+            ),
+            ForkchoiceUpdatedStep(
+                head="a3", safe="a3", finalized="a3", expect=applied("a3")
+            ),
+        ]
+
     steps = steps[:-1] + [
         ForkchoiceUpdatedStep(
             head="a3", safe="a2", finalized="a1", expect=applied("a3")
@@ -442,12 +458,10 @@ def test_safe_finalized_labels_follow_fcu(
                     disputed=DISPUTED_ZERO_SAFE,
                 ),
             ],
-        ),
-        ForkchoiceUpdatedStep(
-            head="b3", safe="b3", finalized="b3", expect=applied("b3")
-        ),
-        ForkchoiceUpdatedStep(
-            head="a3", safe="a3", finalized="a3", expect=applied("a3")
+            branches={
+                "applied": tail_fcus(),
+                "rejected": tail_fcus(),
+            },
         ),
     ]
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
@@ -667,9 +681,7 @@ def test_valid_and_invalid_forks_with_older_canonical_head(
         ],
     )
     blocks += fa + fb + [bad]
-    steps.append(
-        ForkchoiceUpdatedStep(head="a1", expect=rewind_outcomes("a1"))
-    )
+    steps.append(ForkchoiceUpdatedStep(head="a1", expect=applied("a1")))
     steps += [NewPayloadStep(block=b.label) for b in fa + fb]
     steps += [
         ForkchoiceUpdatedStep(

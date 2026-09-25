@@ -89,7 +89,7 @@ def two_branches(
 
 
 def matrix_steps(depth: int, applied_only: bool) -> List[Step]:
-    """FCU to the side tip, then back to the canonical tip."""
+    """FCU to the side tip, then (if applied) back to the canonical tip."""
     side_tip = f"s{depth + 2}"
     canon_tip = f"a{depth + 1}"
     expect = [
@@ -99,6 +99,36 @@ def matrix_steps(depth: int, applied_only: bool) -> List[Step]:
         expect.append(
             Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg)
         )
+    # A rewind from the side tip back to the canonical tip only happens if
+    # the side reorg itself was applied; if it was refused, head is already
+    # canon_tip and there is nothing left to check. Nested here (rather
+    # than a flat sibling step) since its own "refused" outcome is only
+    # possible following "applied" above, not following a "refused" above.
+    canonical_tip_fcu = ForkchoiceUpdatedStep(
+        head=canon_tip,
+        safe="a1",
+        finalized="a1",
+        expect=[
+            Outcome(id="applied", status="VALID", latest_valid_hash=canon_tip),
+            *(
+                []
+                if applied_only
+                else [
+                    Outcome(
+                        id="refused",
+                        error_code=EngineAPIError.TooDeepReorg,
+                    )
+                ]
+            ),
+        ],
+        branches={
+            "applied": [
+                AssertCanonicalStep(
+                    blocks={2: "a2", depth + 1: canon_tip, depth + 2: None}
+                )
+            ],
+        },
+    )
     return [
         ForkchoiceUpdatedStep(
             head=side_tip,
@@ -113,7 +143,8 @@ def matrix_steps(depth: int, applied_only: bool) -> List[Step]:
                             depth + 1: f"s{depth + 1}",
                             depth + 2: side_tip,
                         }
-                    )
+                    ),
+                    canonical_tip_fcu,
                 ],
                 **(
                     {}
@@ -126,33 +157,6 @@ def matrix_steps(depth: int, applied_only: bool) -> List[Step]:
                         ],
                     }
                 ),
-            },
-        ),
-        ForkchoiceUpdatedStep(
-            head=canon_tip,
-            safe="a1",
-            finalized="a1",
-            expect=[
-                Outcome(
-                    id="applied", status="VALID", latest_valid_hash=canon_tip
-                ),
-                *(
-                    []
-                    if applied_only
-                    else [
-                        Outcome(
-                            id="refused",
-                            error_code=EngineAPIError.TooDeepReorg,
-                        )
-                    ]
-                ),
-            ],
-            branches={
-                "applied": [
-                    AssertCanonicalStep(
-                        blocks={2: "a2", depth + 1: canon_tip, depth + 2: None}
-                    )
-                ],
             },
         ),
     ]

@@ -515,9 +515,7 @@ def test_accepted_does_not_establish_validity() -> None:
     )
     model = ClientModel(dag=dag)
     model.known["a1"] = Validity.VALID
-    model.apply_new_payload(
-        "bad", [Outcome(id="accepted", status="ACCEPTED")]
-    )
+    model.apply_new_payload("bad", [Outcome(id="accepted", status="ACCEPTED")])
     assert model.known["bad"] == Validity.RECEIVED
     outcomes = model.forkchoice_outcomes(ForkchoiceUpdatedStep(head="bad"))
     assert ids(outcomes) == ["invalid", "syncing"]
@@ -536,11 +534,99 @@ def test_received_ground_truth_valid_acts_like_valid() -> None:
     )
     model = ClientModel(dag=dag)
     model.known["a1"] = Validity.VALID
-    model.apply_new_payload(
-        "b1", [Outcome(id="accepted", status="ACCEPTED")]
-    )
+    model.apply_new_payload("b1", [Outcome(id="accepted", status="ACCEPTED")])
     assert model.known["b1"] == Validity.RECEIVED
     fcu_outcomes = model.forkchoice_outcomes(ForkchoiceUpdatedStep(head="b1"))
     assert ids(fcu_outcomes) == ["applied"]
     np_outcomes = model.new_payload_outcomes("b2")
     assert ids(np_outcomes) == ["valid", "accepted"]
+
+
+def test_annotate_rejects_diverging_multi_outcome_continuation() -> None:
+    """
+    A multi-outcome forkchoiceUpdated whose branches leave different
+    forkchoice states is rejected when a later step depends on which one
+    occurred: there is no single legal continuation to give it.
+    """
+    dag = ModelDag(
+        parent={"a1": "genesis", "p": "a1"}, valid={"a1": True, "p": True}
+    )
+    model = ClientModel(dag=dag)
+    model.known["a1"] = Validity.VALID
+    steps: List[Step] = [
+        ForkchoiceUpdatedStep(
+            head="p",
+            version=3,
+            expect=[
+                Outcome(id="applied", status="VALID", latest_valid_hash="p"),
+                Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg),
+            ],
+        ),
+        AssertHeadStep(latest="p"),
+    ]
+    with pytest.raises(ValueError, match="different forkchoice states"):
+        annotate_steps(steps, model)
+
+
+def test_annotate_allows_agreeing_multi_outcome_continuation() -> None:
+    """
+    Branches that agree on head/safe/finalized pass, including when they
+    differ only in a block's tracked ``Validity`` (never compared) --
+    newPayload never moves head/safe/finalized, so its "valid"/"accepted"
+    branches always trivially agree regardless of what follows.
+    """
+    dag = ModelDag(
+        parent={"a1": "genesis", "b2": "a1"}, valid={"a1": True, "b2": True}
+    )
+    model = ClientModel(dag=dag)
+    model.known["a1"] = Validity.VALID
+    steps: List[Step] = [
+        NewPayloadStep(block="b2"),
+        AssertHeadStep(latest="genesis"),
+    ]
+    annotate_steps(steps, model)
+    np_step = steps[0]
+    assert isinstance(np_step, NewPayloadStep)
+    assert ids(np_step.expect) == ["valid", "accepted"]
+    assert model.head == "genesis"
+
+
+def test_annotate_rejects_divergence_used_by_enclosing_continuation() -> None:
+    """
+    A diverging multi-outcome step that is last in its own (branch) list is
+    still rejected when the enclosing list has a step after the branch that
+    contains it -- the branch's own trailing position does not exempt it.
+    """
+    dag = ModelDag(
+        parent={"a1": "genesis", "p": "a1"}, valid={"a1": True, "p": True}
+    )
+    model = ClientModel(dag=dag)
+    model.known["a1"] = Validity.VALID
+    steps: List[Step] = [
+        ForkchoiceUpdatedStep(
+            head="a1",
+            version=3,
+            branches={
+                "applied": [
+                    ForkchoiceUpdatedStep(
+                        head="p",
+                        version=3,
+                        expect=[
+                            Outcome(
+                                id="applied",
+                                status="VALID",
+                                latest_valid_hash="p",
+                            ),
+                            Outcome(
+                                id="refused",
+                                error_code=EngineAPIError.TooDeepReorg,
+                            ),
+                        ],
+                    ),
+                ]
+            },
+        ),
+        AssertHeadStep(latest="p"),
+    ]
+    with pytest.raises(ValueError, match="different forkchoice states"):
+        annotate_steps(steps, model)

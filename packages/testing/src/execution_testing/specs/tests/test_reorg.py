@@ -83,9 +83,12 @@ def test_fill_sibling_and_invalid_child(
             NewPayloadStep(block="a2"),
             ForkchoiceUpdatedStep(head="a2"),
             NewPayloadStep(block="b2"),
-            ForkchoiceUpdatedStep(head="b2"),
             NewPayloadStep(block="i2"),
             NewPayloadStep(block="i3"),
+            # b2's multi-outcome switch is last: i2/i3 above never
+            # reference b2 or model.head, so nothing downstream depends on
+            # which of applied/refused actually occurs here.
+            ForkchoiceUpdatedStep(head="b2"),
         ],
     )
     fixture = test.generate(
@@ -119,18 +122,18 @@ def test_fill_sibling_and_invalid_child(
     np_b2 = steps[4]
     assert isinstance(np_b2, NewPayloadStep)
     assert [o.id for o in np_b2.expect] == ["valid", "accepted"]
-    fcu_b2 = steps[5]
+    np_i2 = steps[5]
+    assert isinstance(np_i2, NewPayloadStep)
+    assert [o.id for o in np_i2.expect] == ["invalid"]
+    assert np_i2.expect[0].latest_valid_hash == "a1"
+    np_i3 = steps[6]
+    assert isinstance(np_i3, NewPayloadStep)
+    assert [o.id for o in np_i3.expect] == ["invalid", "syncing"]
+    fcu_b2 = steps[7]
     assert isinstance(fcu_b2, ForkchoiceUpdatedStep)
     assert [o.id for o in fcu_b2.expect] == ["applied", "refused"]
     assert fcu_b2.version == fork.engine_forkchoice_updated_version()
     assert isinstance(fcu_b2.branches["applied"][-1], AssertHeadStep)
-    np_i2 = steps[6]
-    assert isinstance(np_i2, NewPayloadStep)
-    assert [o.id for o in np_i2.expect] == ["invalid"]
-    assert np_i2.expect[0].latest_valid_hash == "a1"
-    np_i3 = steps[7]
-    assert isinstance(np_i3, NewPayloadStep)
-    assert [o.id for o in np_i3.expect] == ["invalid", "syncing"]
 
     # Round-trip through JSON keeps the discriminated step union intact.
     reloaded = BlockchainEngineReorgFixture.model_validate(
@@ -138,7 +141,7 @@ def test_fill_sibling_and_invalid_child(
     )
     assert reloaded.resolve("b2") == p["b2"].block_hash
     assert reloaded.resolve("genesis") == fixture.genesis.block_hash
-    assert isinstance(reloaded.steps[5], ForkchoiceUpdatedStep)
+    assert isinstance(reloaded.steps[7], ForkchoiceUpdatedStep)
 
 
 def test_dag_validation_rejects_unknown_parent() -> None:  # noqa: D103
@@ -301,9 +304,7 @@ def test_expected_post_state_mismatch_fails_fill(
             ReorgBlock(
                 label="a1",
                 txs=[tx(0, 1)],
-                expected_post_state=Alloc(
-                    {RECIPIENT: Account(balance=999)}
-                ),
+                expected_post_state=Alloc({RECIPIENT: Account(balance=999)}),
             )
         ],
         steps=[NewPayloadStep(block="a1"), ForkchoiceUpdatedStep(head="a1")],

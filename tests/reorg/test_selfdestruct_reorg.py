@@ -36,6 +36,7 @@ from execution_testing.fixtures.reorg import (
     AssertStateStep,
     ForkchoiceUpdatedStep,
     NewPayloadStep,
+    Outcome,
     Step,
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
@@ -74,6 +75,11 @@ DESTROYED = AccountExpectation(balance=0, storage={Hash(SLOT): Hash(0)})
 ALIVE = AccountExpectation(
     balance=ENDOWMENT, storage={Hash(SLOT): Hash(STORED)}
 )
+
+
+def applied(head: str) -> List[Outcome]:
+    """Single legal outcome: applied."""
+    return [Outcome(id="applied", status="VALID", latest_valid_hash=head)]
 
 
 def _factory(pre: Alloc) -> Tuple[Address, Address]:
@@ -120,10 +126,10 @@ def test_reorg_over_same_tx_selfdestruct(
         ForkchoiceUpdatedStep(head="x1"),
         AssertStateStep(accounts={contract: DESTROYED}),
         NewPayloadStep(block="y1"),
-        ForkchoiceUpdatedStep(head="y1"),
+        ForkchoiceUpdatedStep(head="y1", expect=applied("y1")),
         AssertStateStep(accounts={contract: ALIVE}),
         # Sibling switch, back to the branch where it was destroyed.
-        ForkchoiceUpdatedStep(head="x1"),
+        ForkchoiceUpdatedStep(head="x1", expect=applied("x1")),
         AssertHeadStep(latest="x1"),
         AssertStateStep(accounts={contract: DESTROYED}),
         # Forward extension of that same branch, recreating it.
@@ -182,9 +188,9 @@ def test_reorg_over_same_block_destroy_and_recreate(
         ForkchoiceUpdatedStep(head="z1"),
         AssertStateStep(accounts={contract: ALIVE}),
         NewPayloadStep(block="w1"),
-        ForkchoiceUpdatedStep(head="w1"),
+        ForkchoiceUpdatedStep(head="w1", expect=applied("w1")),
         AssertStateStep(accounts={contract: DESTROYED}),
-        ForkchoiceUpdatedStep(head="z1"),
+        ForkchoiceUpdatedStep(head="z1", expect=applied("z1")),
         AssertStateStep(accounts={contract: ALIVE}),
         AssertHeadStep(latest="z1"),
     ]
