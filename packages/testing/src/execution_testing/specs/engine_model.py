@@ -36,7 +36,6 @@ from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
     LATEST_VALID_HASH_ANY,
     LATEST_VALID_HASH_NULL,
-    MAIN_CLIENT,
     ZERO_LABEL,
     AssertHeadStep,
     ForkchoiceUpdatedStep,
@@ -44,7 +43,6 @@ from execution_testing.fixtures.reorg import (
     NewPayloadStep,
     Outcome,
     Step,
-    WaitForHeadStep,
 )
 
 INVALID_FORKCHOICE_STATE = -38002
@@ -318,67 +316,40 @@ def annotate_steps(
     steps: List[Step],
     model: ClientModel,
     fcu_version: Optional[Dict[str, int]] = None,
-    models: Optional[Dict[str, ClientModel]] = None,
 ) -> List[Step]:
     """
     Fill empty ``expect`` lists and ``version`` fields in ``steps`` using the
     model, appending an ``assertHead`` step to every forkchoice outcome branch.
 
-    ``model`` is the state of the ``main`` client; steps executed ``on`` other
-    clients use (and lazily create) per-client models sharing the same DAG.
-    Branch step lists are annotated recursively with copies of the models in
+    Branch step lists are annotated recursively with a copy of the model in
     which that outcome happened. Sibling steps after a multi-outcome step are
-    annotated with the models of the first (canonical) outcome.
+    annotated with the model of the first (canonical) outcome.
 
     ``getPayload`` binds a new label: it is added to the DAG as a valid child
     of its declared parent (the client builds it, so it is execution-valid).
-    ``waitForHead`` marks the awaited label (and its ancestors) known and
-    canonical on that client.
     """
-    if models is None:
-        models = {MAIN_CLIENT: model}
-    else:
-        models.setdefault(MAIN_CLIENT, model)
-
-    def client(name: str) -> ClientModel:
-        if name not in models:
-            models[name] = ClientModel(dag=model.dag)
-        return models[name]
-
-    def fork(sub_models: Dict[str, ClientModel]) -> Dict[str, ClientModel]:
-        return {k: v.copy() for k, v in sub_models.items()}
-
-    def continue_from(branch_models: Dict[str, ClientModel]) -> None:
-        """Sibling steps continue from the state after the first branch."""
-        for name, bm in branch_models.items():
-            client(name).assign(bm)
-
     for step in steps:
-        m = client(step.on)
         if isinstance(step, NewPayloadStep):
             if not step.expect:
-                step.expect = m.new_payload_outcomes(step.block)
-            first_models: Optional[Dict[str, ClientModel]] = None
+                step.expect = model.new_payload_outcomes(step.block)
+            first_model: Optional[ClientModel] = None
             for outcome in step.expect:
-                branch_models = fork(models)
-                branch_models[step.on].apply_new_payload(step.block, [outcome])
+                branch_model = model.copy()
+                branch_model.apply_new_payload(step.block, [outcome])
                 if outcome.id in step.branches:
                     annotate_steps(
-                        step.branches[outcome.id],
-                        branch_models[MAIN_CLIENT],
-                        fcu_version,
-                        branch_models,
+                        step.branches[outcome.id], branch_model, fcu_version
                     )
-                if first_models is None:
-                    first_models = branch_models
+                if first_model is None:
+                    first_model = branch_model
             # Continuation: known-ness follows the whole outcome set (a block
             # that may be INVALID is treated as known-invalid), head follows
             # the first outcome's branch.
-            m.apply_new_payload(step.block, step.expect)
-            if first_models is not None and step.branches:
-                known = dict(m.known)
-                continue_from(first_models)
-                m.known = known
+            model.apply_new_payload(step.block, step.expect)
+            if first_model is not None and step.branches:
+                known = dict(model.known)
+                model.assign(first_model)
+                model.known = known
         elif isinstance(step, ForkchoiceUpdatedStep):
             if step.version is None:
                 if fcu_version is None:
@@ -388,7 +359,7 @@ def annotate_steps(
                     )
                 step.version = fcu_version[step.head]
             if not step.expect:
-                step.expect = m.forkchoice_outcomes(step)
+                step.expect = model.forkchoice_outcomes(step)
             ids = {o.id for o in step.expect}
             if {"applied", "noop"} <= ids:
                 for outcome in step.expect:
@@ -396,27 +367,20 @@ def annotate_steps(
                         outcome.head_moved = True
                     elif outcome.id == "noop":
                         outcome.head_moved = False
-            first_models = None
+            first_model = None
             for outcome in step.expect:
-                branch_models = fork(models)
-                branch_models[step.on].apply_forkchoice(step, outcome)
+                branch_model = model.copy()
+                branch_model.apply_forkchoice(step, outcome)
                 branch = step.branches.setdefault(outcome.id, [])
-                annotate_steps(
-                    branch,
-                    branch_models[MAIN_CLIENT],
-                    fcu_version,
-                    branch_models,
-                )
+                annotate_steps(branch, branch_model, fcu_version)
                 if outcome.status != "SYNCING":
-                    head_step = branch_models[step.on].head_assertion()
-                    head_step.on = step.on
-                    branch.append(head_step)
-                if first_models is None:
-                    first_models = branch_models
+                    branch.append(branch_model.head_assertion())
+                if first_model is None:
+                    first_model = branch_model
             # Sibling steps continue from the state after the first
             # (canonical) outcome's branch has executed.
-            assert first_models is not None
-            continue_from(first_models)
+            assert first_model is not None
+            model.assign(first_model)
         elif isinstance(step, GetPayloadStep):
             model.dag.parent[step.bind] = step.parent
             model.dag.valid[step.bind] = True
@@ -426,10 +390,6 @@ def annotate_steps(
                 # Set by ReorgTest from the fork of the payload being built;
                 # forkchoiceUpdated's version is not a valid substitute.
                 raise ValueError("getPayload step without version")
-        elif isinstance(step, WaitForHeadStep):
-            for ancestor in model.dag.ancestors(step.latest):
-                m.known.setdefault(ancestor, True)
-            m.head = step.latest
     return steps
 
 

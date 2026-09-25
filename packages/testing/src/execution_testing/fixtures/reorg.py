@@ -8,8 +8,7 @@ format lets a test describe side chains, explicit forkchoice states (head,
 safe, finalized), multiple legal outcomes per step (``expect`` is a list of
 outcomes; the first one that matches wins), outcome-specific follow-up steps
 (``branches``), client-built payloads (``getPayload`` binds the built payload
-to a new label), transaction-pool observations, and a second client
-(``clients``/``on``) for sync-delivered reorgs.
+to a new label), and transaction-pool observations.
 
 Block labels are the identifiers used throughout: ``blocks`` maps a label to a
 payload and its parent label; every hash-valued step field is a label
@@ -43,8 +42,7 @@ from .blockchain import (
 
 GENESIS_LABEL = "genesis"
 ZERO_LABEL = "zero"
-MAIN_CLIENT = "main"
-"""Reserved labels / client names."""
+"""Reserved labels."""
 
 LATEST_VALID_HASH_ANY = "any"
 LATEST_VALID_HASH_NULL = "null"
@@ -112,8 +110,6 @@ class StepBase(CamelModel):
     """Common fields of every step."""
 
     description: str | None = None
-    on: str = MAIN_CLIENT
-    """Client the step is executed on (``main`` or a key of ``clients``)."""
 
 
 class NewPayloadStep(StepBase):
@@ -172,15 +168,6 @@ class AssertHeadStep(StepBase):
     latest: str | None = None
     safe: str | None = None
     finalized: str | None = None
-
-
-class WaitForHeadStep(StepBase):
-    """Poll ``eth_getBlockByNumber("latest")`` until it equals a label."""
-
-    type: Literal["waitForHead"] = "waitForHead"
-    latest: str
-    timeout: int = 60
-    """Seconds."""
 
 
 class AssertCanonicalStep(StepBase):
@@ -269,7 +256,6 @@ Step = Annotated[
         ForkchoiceUpdatedStep,
         GetPayloadStep,
         AssertHeadStep,
-        WaitForHeadStep,
         AssertCanonicalStep,
         AssertStateStep,
         AssertReceiptStep,
@@ -301,12 +287,6 @@ class FixtureReorgBlock(CamelModel):
         return self.payload.params[0].transactions
 
 
-class FixtureClient(CamelModel):
-    """An additional client started for the test (peered with ``main``)."""
-
-    description: str | None = None
-
-
 class BlockchainEngineReorgFixture(BaseFixture):
     """Engine API reorg test fixture."""
 
@@ -324,8 +304,6 @@ class BlockchainEngineReorgFixture(BaseFixture):
     pre: Alloc
     blocks: Dict[str, FixtureReorgBlock]
     steps: List[Step]
-    clients: Dict[str, FixtureClient] = Field(default_factory=dict)
-    """Additional clients besides ``main``."""
     requires: Dict[str, str] | None = None
     """
     Client environment (``HIVE_*`` variables) the consumer applies at client

@@ -7,10 +7,6 @@ selects the first listed outcome that matches the observed response, logs it,
 runs that outcome's branch steps, and fails on the first step whose observed
 result matches none of its listed outcomes. There is no runtime policy: every
 decision is in the fixture.
-
-Steps may target additional clients (``on``) declared in ``fixture.clients``;
-those are started peered with the main client so reorgs can also be delivered
-by sync.
 """
 
 import hashlib
@@ -29,7 +25,6 @@ from execution_testing.fixtures.blockchain import (
 from execution_testing.fixtures.reorg import (
     LATEST_VALID_HASH_ANY,
     LATEST_VALID_HASH_NULL,
-    MAIN_CLIENT,
     AssertCanonicalStep,
     AssertHeadStep,
     AssertLogsStep,
@@ -43,7 +38,6 @@ from execution_testing.fixtures.reorg import (
     SendRawTransactionStep,
     Step,
     TxRef,
-    WaitForHeadStep,
 )
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
@@ -97,15 +91,6 @@ class Observed:
 
 
 @dataclass
-class ClientRPC:
-    """RPC endpoints of one client."""
-
-    name: str
-    eth: EthRPC
-    engine: EngineRPC
-
-
-@dataclass
 class BoundPayload:
     """A client-built payload bound to a label by ``getPayload``."""
 
@@ -117,32 +102,28 @@ class BoundPayload:
 
 
 class StepRunner:
-    """Executes fixture steps against one or more clients."""
+    """Executes fixture steps against one client."""
 
     def __init__(
         self,
         fixture: BlockchainEngineReorgFixture,
-        clients: Dict[str, ClientRPC],
+        eth_rpc: EthRPC,
+        engine_rpc: EngineRPC,
         timing_data: TimingData,
     ) -> None:
-        """Initialize with the fixture and per-client RPC endpoints."""
+        """Initialize with the fixture and RPC endpoints."""
         self.fixture = fixture
-        self.clients = clients
+        self.eth = eth_rpc
+        self.engine = engine_rpc
         self.timing_data = timing_data
         self.labels_by_hash = fixture.labels_by_hash()
         self.bound: Dict[str, BoundPayload] = {}
-        self.last_payload_id: Dict[str, Bytes | None] = {}
-        self.last_payload_attributes: Dict[str, PayloadAttributes | None] = {}
+        self.last_payload_id: Bytes | None = None
+        self.last_payload_attributes: PayloadAttributes | None = None
         self.matched: List[str] = []
         """Log of ``<step>:<outcome id>`` selections, for offline analysis."""
 
     # -- helpers ---------------------------------------------------------
-
-    def rpc(self, on: str) -> ClientRPC:
-        """RPC endpoints of a named client."""
-        if on not in self.clients:
-            raise LoggedError(f"step targets unknown client {on!r}")
-        return self.clients[on]
 
     def resolve(self, label: str) -> Hash | None:
         """Resolve a static or bound label to a hash."""
@@ -261,8 +242,7 @@ class StepRunner:
     def run(self, steps: List[Step], depth: int = 0) -> None:
         """Run a step list, recursing into selected branches."""
         for i, step in enumerate(steps):
-            on = "" if step.on == MAIN_CLIENT else f"@{step.on} "
-            name = f"{'  ' * depth}step {i + 1}/{len(steps)} {on}{step.type}"
+            name = f"{'  ' * depth}step {i + 1}/{len(steps)} {step.type}"
             if isinstance(step, NewPayloadStep):
                 self.new_payload(name, step, depth)
             elif isinstance(step, ForkchoiceUpdatedStep):
@@ -271,8 +251,6 @@ class StepRunner:
                 self.get_payload(name, step)
             elif isinstance(step, AssertHeadStep):
                 self.assert_head(name, step)
-            elif isinstance(step, WaitForHeadStep):
-                self.wait_for_head(name, step)
             elif isinstance(step, AssertCanonicalStep):
                 self.assert_canonical(name, step)
             elif isinstance(step, AssertStateStep):
@@ -311,14 +289,13 @@ class StepRunner:
 
     def new_payload(self, name: str, step: NewPayloadStep, depth: int) -> None:
         """Send ``engine_newPayloadVX`` and check the outcome."""
-        rpc = self.rpc(step.on)
         params, version = self._new_payload_params(step.block)
         name = f"{name}({step.block})"
         with self.timing_data.time(
             f"engine_newPayloadV{version} {step.block}"
         ):
             try:
-                response = rpc.engine.new_payload(*params, version=version)
+                response = self.engine.new_payload(*params, version=version)
                 observed = Observed(
                     status=response.status.value,
                     latest_valid_hash=response.latest_valid_hash,
@@ -333,7 +310,6 @@ class StepRunner:
         self, name: str, step: ForkchoiceUpdatedStep, depth: int
     ) -> None:
         """Send ``engine_forkchoiceUpdatedVX`` and check the outcome."""
-        rpc = self.rpc(step.on)
         name = (
             f"{name}(head={step.head}, safe={step.safe}, fin={step.finalized})"
         )
@@ -351,7 +327,7 @@ class StepRunner:
             )
         with self.timing_data.time(f"engine_forkchoiceUpdatedV{step.version}"):
             try:
-                response = rpc.engine.forkchoice_updated(
+                response = self.engine.forkchoice_updated(
                     forkchoice_state=state,
                     payload_attributes=attributes,
                     version=step.version,
@@ -363,24 +339,23 @@ class StepRunner:
                     validation_error=ps.validation_error,
                     payload_id=response.payload_id,
                 )
-                self.last_payload_id[step.on] = response.payload_id
-                self.last_payload_attributes[step.on] = attributes
+                self.last_payload_id = response.payload_id
+                self.last_payload_attributes = attributes
             except JSONRPCError as e:
                 observed = Observed(error_code=e.code, error_message=e.message)
         if observed.error_code is None and any(
             o.head_moved is not None for o in step.expect
         ):
-            observed.head_moved = self._head_hash(
-                rpc, "latest"
-            ) == self.resolve(step.head)
+            observed.head_moved = self._head_hash("latest") == self.resolve(
+                step.head
+            )
         outcome = self.select(name, step.expect, observed)
         self.run(step.branches.get(outcome.id, []), depth + 1)
 
     def get_payload(self, name: str, step: GetPayloadStep) -> None:
         """Retrieve the payload built after the last FCU and bind it."""
-        rpc = self.rpc(step.on)
         name = f"{name}(bind={step.bind})"
-        payload_id = self.last_payload_id.get(step.on)
+        payload_id = self.last_payload_id
         if payload_id is None:
             raise LoggedError(
                 f"{name}: no payloadId from previous forkchoiceUpdated"
@@ -390,7 +365,9 @@ class StepRunner:
         if step.delay > 0:
             time.sleep(step.delay)
         with self.timing_data.time(f"engine_getPayloadV{step.version}"):
-            response = rpc.engine.get_payload(payload_id, version=step.version)
+            response = self.engine.get_payload(
+                payload_id, version=step.version
+            )
         payload = response.execution_payload
         want_parent = self.resolve(step.parent)
         if payload.parent_hash != want_parent:
@@ -416,7 +393,7 @@ class StepRunner:
                 Hash(bytes([1]) + hashlib.sha256(bytes(c)).digest()[1:])
                 for c in response.blobs_bundle.commitments
             ]
-        attributes = self.last_payload_attributes.get(step.on)
+        attributes = self.last_payload_attributes
         self.bound[step.bind] = BoundPayload(
             payload=payload,
             versioned_hashes=versioned_hashes,
@@ -432,9 +409,9 @@ class StepRunner:
             f"({len(payload.transactions)} txs) on {step.parent}"
         )
 
-    def _head_hash(self, rpc: ClientRPC, tag: str) -> Hash | None:
+    def _head_hash(self, tag: str) -> Hash | None:
         try:
-            block = rpc.eth.get_block_by_number(tag)  # type: ignore[arg-type]
+            block = self.eth.get_block_by_number(tag)  # type: ignore[arg-type]
         except JSONRPCError as e:
             logger.info(
                 f"eth_getBlockByNumber({tag!r}) error {e.code}: {e.message}"
@@ -444,7 +421,6 @@ class StepRunner:
 
     def assert_head(self, name: str, step: AssertHeadStep) -> None:
         """Check latest/safe/finalized via ``eth_getBlockByNumber``."""
-        rpc = self.rpc(step.on)
         for tag, label in (
             ("latest", step.latest),
             ("safe", step.safe),
@@ -452,7 +428,7 @@ class StepRunner:
         ):
             if label is None:
                 continue
-            got = self._head_hash(rpc, tag)
+            got = self._head_hash(tag)
             want = self.resolve(label)
             if got != want:
                 raise LoggedError(
@@ -461,28 +437,10 @@ class StepRunner:
                 )
             logger.info(f"{name}: {tag} == {label}")
 
-    def wait_for_head(self, name: str, step: WaitForHeadStep) -> None:
-        """Poll ``latest`` until it equals the label or time runs out."""
-        rpc = self.rpc(step.on)
-        want = self.resolve(step.latest)
-        deadline = time.monotonic() + step.timeout
-        got: Hash | None = None
-        while time.monotonic() < deadline:
-            got = self._head_hash(rpc, "latest")
-            if got == want:
-                logger.info(f"{name}: latest == {step.latest}")
-                return
-            time.sleep(1.0)
-        raise LoggedError(
-            f"{name}: timed out after {step.timeout}s; latest is "
-            f"{self.label_of(got)}, expected {step.latest}"
-        )
-
     def assert_canonical(self, name: str, step: AssertCanonicalStep) -> None:
         """Check the block at each height via ``eth_getBlockByNumber``."""
-        rpc = self.rpc(step.on)
         for number, label in step.blocks.items():
-            block = rpc.eth.get_block_by_number(int(number))
+            block = self.eth.get_block_by_number(int(number))
             got = Hash(block["hash"]) if block else None
             want = None if label is None else self.resolve(label)
             if got != want:
@@ -494,20 +452,19 @@ class StepRunner:
 
     def assert_state(self, name: str, step: AssertStateStep) -> None:
         """Check account fields via ``eth_getBalance`` and friends."""
-        rpc = self.rpc(step.on)
         at: Any = (
             "latest" if step.at == "latest" else self.block_number(step.at)
         )
         for address, expected in step.accounts.items():
             if expected.balance is not None:
-                got_balance = rpc.eth.get_balance(address, at)
+                got_balance = self.eth.get_balance(address, at)
                 if got_balance != int(expected.balance):
                     raise LoggedError(
                         f"{name}: balance of {address} at {step.at} is "
                         f"{got_balance}, expected {int(expected.balance)}"
                     )
             if expected.nonce is not None:
-                got_nonce = rpc.eth.get_transaction_count(address, at)
+                got_nonce = self.eth.get_transaction_count(address, at)
                 if got_nonce != int(expected.nonce):
                     raise LoggedError(
                         f"{name}: nonce of {address} at {step.at} is "
@@ -515,7 +472,7 @@ class StepRunner:
                     )
             if expected.storage:
                 for key, value in expected.storage.items():
-                    got = rpc.eth.get_storage_at(address, key, at)
+                    got = self.eth.get_storage_at(address, key, at)
                     if got != value:
                         raise LoggedError(
                             f"{name}: storage {key} of {address} at {step.at} "
@@ -525,9 +482,8 @@ class StepRunner:
 
     def assert_receipt(self, name: str, step: AssertReceiptStep) -> None:
         """Check ``eth_getTransactionReceipt`` block hash (or absence)."""
-        rpc = self.rpc(step.on)
         tx_hash = self.tx_hash(step.tx)
-        receipt = rpc.eth.get_transaction_receipt(tx_hash)
+        receipt = self.eth.get_transaction_receipt(tx_hash)
         ref = f"{step.tx.block}:{step.tx.index}"
         if step.block is None:
             if receipt is not None:
@@ -558,7 +514,6 @@ class StepRunner:
 
     def assert_logs(self, name: str, step: AssertLogsStep) -> None:
         """Check ``eth_getLogs`` returns exactly the expected blocks' logs."""
-        rpc = self.rpc(step.on)
         params: Dict[str, Any] = {
             "fromBlock": step.from_block
             if isinstance(step.from_block, str)
@@ -571,7 +526,7 @@ class StepRunner:
             params["address"] = f"{step.address}"
         from execution_testing.rpc.rpc_types import RPCCall
 
-        logs = rpc.eth.post_request(
+        logs = self.eth.post_request(
             request=RPCCall(method="getLogs", params=[params])
         ).result_or_raise()
         got = sorted(self.label_of(log["blockHash"]) for log in logs)
@@ -587,10 +542,9 @@ class StepRunner:
         self, name: str, step: SendRawTransactionStep
     ) -> None:
         """Send a fixture transaction and check acceptance."""
-        rpc = self.rpc(step.on)
         ref = f"{step.tx.block}:{step.tx.index}"
         try:
-            rpc.eth.send_raw_transaction(self.tx_rlp(step.tx))
+            self.eth.send_raw_transaction(self.tx_rlp(step.tx))
             result = "accepted"
             detail = ""
         except JSONRPCError as e:
@@ -612,12 +566,11 @@ class StepRunner:
         one of the expected values or the deadline passes. A status that is
         already correct costs a single call.
         """
-        rpc = self.rpc(step.on)
         ref = f"{step.tx.block}:{step.tx.index}"
         tx_hash = self.tx_hash(step.tx)
         deadline = time.monotonic() + TX_STATUS_TIMEOUT
         while True:
-            tx = rpc.eth.get_transaction_by_hash(tx_hash)
+            tx = self.eth.get_transaction_by_hash(tx_hash)
             if tx is None:
                 status = "dropped"
             elif tx.block_hash is None:
@@ -648,12 +601,11 @@ def test_reorg_via_engine(
     eth_rpc: EthRPC,
     engine_rpc: EngineRPC,
     client: Client,
-    peer_rpcs: Dict[str, ClientRPC],
     fixture: BlockchainEngineReorgFixture,
     genesis_header: FixtureHeader,
 ) -> None:
     """
-    Execute a reorg fixture against a fresh client (plus declared peers).
+    Execute a reorg fixture against a fresh client.
 
     1. Send an initial forkchoiceUpdated to genesis (readiness + head reset).
     2. Verify the client's genesis hash.
@@ -665,22 +617,15 @@ def test_reorg_via_engine(
     ).engine_forkchoice_updated_version()
     assert fcu_version is not None, "reorg fixtures require the Engine API"
 
-    clients = {MAIN_CLIENT: ClientRPC(MAIN_CLIENT, eth_rpc, engine_rpc)}
-    clients.update(peer_rpcs)
+    send_forkchoice_update_to_genesis(
+        engine_rpc,
+        genesis_header=genesis_header,
+        forkchoice_version=fcu_version,
+        timing_data=timing_data,
+    )
+    verify_genesis_block_hash(eth_rpc, genesis_header, timing_data)
 
-    for rpc in clients.values():
-        send_forkchoice_update_to_genesis(
-            rpc.engine,
-            genesis_header=genesis_header,
-            forkchoice_version=fcu_version,
-            timing_data=timing_data,
-            label=rpc.name,
-        )
-        verify_genesis_block_hash(
-            rpc.eth, genesis_header, timing_data, label=rpc.name
-        )
-
-    runner = StepRunner(fixture, clients, timing_data)
+    runner = StepRunner(fixture, eth_rpc, engine_rpc, timing_data)
     with timing_data.time("Steps"):
         runner.run(fixture.steps)
     logger.info(f"All steps passed. Outcomes: {runner.matched}")

@@ -21,19 +21,10 @@ def send_forkchoice_update_to_genesis(
     genesis_header: FixtureHeader,
     forkchoice_version: int,
     timing_data: TimingData,
-    label: str = "",
 ) -> None:
-    """
-    Send `engine_forkchoiceUpdatedVX` to genesis and require VALID.
-
-    ``label``, if given, is appended to the timing section name and log
-    lines to distinguish multiple clients in one test.
-    """
-    suffix = f" ({label})" if label else ""
-    with timing_data.time(f"Initial forkchoice update{suffix}"):
-        logger.info(
-            f"Sending initial forkchoice update to genesis block{suffix}..."
-        )
+    """Send `engine_forkchoiceUpdatedVX` to genesis and require VALID."""
+    with timing_data.time("Initial forkchoice update"):
+        logger.info("Sending initial forkchoice update to genesis block...")
         try:
             response = engine_rpc.forkchoice_updated_with_retry(
                 forkchoice_state=ForkchoiceState(
@@ -45,13 +36,12 @@ def send_forkchoice_update_to_genesis(
             )
             if response.payload_status.status != PayloadStatusEnum.VALID:
                 raise LoggedError(
-                    f"Unexpected status on forkchoice updated to genesis"
-                    f"{suffix}: {response.payload_status.status}"
+                    "Unexpected status on forkchoice updated to genesis: "
+                    f"{response.payload_status.status}"
                 )
         except ForkchoiceUpdateTimeoutError as e:
             raise LoggedError(
-                f"Timed out waiting for forkchoice update to genesis"
-                f"{suffix}: {e}"
+                f"Timed out waiting for forkchoice update to genesis: {e}"
             ) from None
 
 
@@ -59,11 +49,9 @@ def verify_genesis_block_hash(
     eth_rpc: EthRPC,
     genesis_header: FixtureHeader,
     timing_data: TimingData,
-    label: str = "",
 ) -> None:
     """Verify the client's genesis block hash matches the fixture's."""
-    suffix = f" ({label})" if label else ""
-    with timing_data.time(f"Get genesis block{suffix}"):
+    with timing_data.time("Get genesis block"):
         logger.info("Calling getBlockByNumber to get genesis block...")
         genesis_block = eth_rpc.get_block_by_number(0)
         assert genesis_block is not None, "genesis_block is None"
@@ -71,7 +59,7 @@ def verify_genesis_block_hash(
             expected = genesis_header.block_hash
             got = genesis_block["hash"]
             logger.fail(
-                f"Genesis block hash mismatch{suffix}. "
+                f"Genesis block hash mismatch. "
                 f"Expected: {expected}, Got: {got}"
             )
             raise GenesisBlockMismatchExceptionError(

@@ -6,7 +6,7 @@ These are produced by the `ReorgTest` test spec.
 
 ## Description
 
-Unlike [`BlockchainEngineFixture`](./blockchain_test_engine.md) (a linear payload list where the consumer always sends `forkchoiceUpdated(head=payload)` after each payload), this format lets a test describe side chains, explicit forkchoice states (head, safe, finalized), multiple legal outcomes per step, outcome-specific follow-up steps (branches), client-built payloads (`getPayload` binds the built payload to a new label), transaction-pool observations, and a second client for sync-delivered reorgs.
+Unlike [`BlockchainEngineFixture`](./blockchain_test_engine.md) (a linear payload list where the consumer always sends `forkchoiceUpdated(head=payload)` after each payload), this format lets a test describe side chains, explicit forkchoice states (head, safe, finalized), multiple legal outcomes per step, outcome-specific follow-up steps (branches), client-built payloads (`getPayload` binds the built payload to a new label), and transaction-pool observations.
 
 Every block in the DAG names its parent by label instead of relying on list order, so sibling blocks and blocks built on top of an invalid block are first-class. Every hash-valued step field is a label (`"genesis"` is reserved for the genesis block, `"zero"` for the zero hash; labels introduced by `getPayload.bind` are resolved at run time); the consumer resolves labels to hashes itself, so fixtures are byte-identical across clients.
 
@@ -25,14 +25,12 @@ For each [`HiveFixture`](#hivefixture) test object in the JSON fixture file, per
     - [`genesisBlockHeader`](#-genesisblockheader-fixtureheader) as the genesis block header.
     - The client environment's `HIVE_*` variables from [`requires`](#-requires-optionalmappingstringstring), if present.
 
-2. If [`clients`](#-clients-mappingstringfixtureclient) is non-empty, start one additional client per entry, of the same client type as the main client, peered with it via `admin_addPeer`.
+2. Send an initial `engine_forkchoiceUpdatedVX` to the genesis block and verify it returns `VALID`; verify the client's genesis block hash via `eth_getBlockByNumber(0)`.
 
-3. Send an initial `engine_forkchoiceUpdatedVX` to the genesis block on every client and verify each returns `VALID`; verify each client's genesis block hash via `eth_getBlockByNumber(0)`.
-
-4. Run [`steps`](#-steps-liststep) in order. For each step:
+3. Run [`steps`](#-steps-liststep) in order. For each step:
 
     1. Resolve every label referenced by the step to a hash (or to the label itself, for a client-built payload not yet bound).
-    2. Send the request (or perform the RPC observation) against the client named by the step's `on` field (`"main"` by default).
+    2. Send the request (or perform the RPC observation).
     3. Select the first entry of the step's `expect` list whose constraints match the observed response; fail the test if none match.
     4. Run the steps listed in `branches` under the matched outcome's `id`, if any (recursively).
 
@@ -64,12 +62,6 @@ The block DAG, keyed by label.
 
 Ordered, branching script of Engine API / JSON-RPC steps.
 
-#### - `clients`: [`Mapping`](./common_types.md#mapping)`[String,`[`FixtureClient`](#fixtureclient)`]`
-
-Additional clients besides `main`, keyed by the name used in a step's `on` field. Empty when the test only exercises a single client.
-
-Most fixtures in `tests/reorg` are single-client, leaving `clients` empty and every step's `on` at `"main"`. A block that one client has and another does not is the only way to drive a client into a genuine syncing state or to deliver a chain over the wire, which is what `tests/reorg/test_sync_delivery.py` does: the peer is sent the chain through the Engine API, the main client is given the resulting head without ever receiving a payload, and has to converge on it by syncing from the peer.
-
 #### - `requires`: [`Optional`](./common_types.md#optional)`[`[`Mapping`](./common_types.md#mapping)`[String,``String``]]`
 
 Client environment (`HIVE_*`) variables the consumer applies at client start, e.g. a client-specific reorg-depth cap. `None` means client defaults.
@@ -88,23 +80,13 @@ Label of the parent block (`"genesis"` for a block extending the genesis block).
 
 The block's `engine_newPayloadVX` directive.
 
-### `FixtureClient`
-
-#### - `description`: [`Optional`](./common_types.md#optional)`[String]`
-
-Human-readable description of the client's role in the test.
-
 ### `Step`
 
 A step is one of the variants below, distinguished by its `type` field. Every variant shares:
 
 #### - `type`: `String`
 
-One of `newPayload`,`forkchoiceUpdated`,`getPayload`,`assertHead`,`waitForHead`,`assertCanonical`,`assertState`,`assertReceipt`,`assertLogs`,`sendRawTransaction`,`assertTxStatus`.
-
-#### - `on`: `String`
-
-Name of the client the step is executed on; `"main"` unless the step targets one of `clients`.
+One of `newPayload`,`forkchoiceUpdated`,`getPayload`,`assertHead`,`assertCanonical`,`assertState`,`assertReceipt`,`assertLogs`,`sendRawTransaction`,`assertTxStatus`.
 
 #### - `description`: [`Optional`](./common_types.md#optional)`[String]`
 
@@ -134,11 +116,6 @@ Human-readable description of the step, for logging.
 #### `assertHead`
 
 - `latest` / `safe` / `finalized`: [`Optional`](./common_types.md#optional)`[String]` — expected labels, checked via `eth_getBlockByNumber`.
-
-#### `waitForHead`
-
-- `latest`: `String` — label to poll `eth_getBlockByNumber("latest")` for.
-- `timeout`: [`Number`](./common_types.md#number) — seconds; default `60`.
 
 #### `assertCanonical`
 
@@ -238,8 +215,7 @@ Default `0`.
 2. **Branching step script**: `steps` is not a flat payload list; a step's `expect` can list several spec-legal outcomes and `branches` continues down the outcome that was actually observed.
 3. **Explicit forkchoice state**: `forkchoiceUpdated` steps set `head`/`safe`/`finalized` independently instead of always following the last payload.
 4. **Client-built payloads**: `getPayload` retrieves and binds a payload the client built itself, which can then be delivered back via `newPayload`.
-5. **Multiple clients**: `clients` lets a test start additional, peered clients and target steps at them via `on`, to cover reorgs delivered by sync rather than direct submission.
-6. **State observations**: `assertState`/`assertReceipt`/`assertLogs`/`assertTxStatus` steps check observable RPC state after a forkchoice update, instead of a single fixture-wide `post` allocation.
+5. **State observations**: `assertState`/`assertReceipt`/`assertLogs`/`assertTxStatus` steps check observable RPC state after a forkchoice update, instead of a single fixture-wide `post` allocation.
 
 ## Fork Support
 

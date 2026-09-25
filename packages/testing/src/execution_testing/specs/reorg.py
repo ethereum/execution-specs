@@ -21,7 +21,6 @@ from typing import (
     List,
     Sequence,
     Set,
-    Tuple,
     Type,
 )
 
@@ -41,7 +40,6 @@ from execution_testing.fixtures.blockchain import (
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
-    MAIN_CLIENT,
     ZERO_LABEL,
     AssertCanonicalStep,
     AssertHeadStep,
@@ -49,7 +47,6 @@ from execution_testing.fixtures.reorg import (
     AssertReceiptStep,
     AssertStateStep,
     AssertTxStatusStep,
-    FixtureClient,
     FixtureReorgBlock,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
@@ -57,7 +54,6 @@ from execution_testing.fixtures.reorg import (
     SendRawTransactionStep,
     Step,
     TxRef,
-    WaitForHeadStep,
 )
 from execution_testing.test_types import Alloc, Environment
 
@@ -106,10 +102,7 @@ class ReorgTest(BlockchainTest):
     """Optional; ``assertState`` steps are the primary state verification."""
     requires: Dict[str, str] | None = None
     """Client environment variables (``HIVE_*``) required by this test."""
-    clients: Dict[str, FixtureClient] = Field(default_factory=dict)
-    """
-    Additional clients (peers of ``main``) used by ``on``/``waitForHead``.
-    """
+
     meta: Dict[str, str | int] = Field(default_factory=dict)
 
     supported_fixture_formats: ClassVar[
@@ -152,10 +145,7 @@ class ReorgTest(BlockchainTest):
         self._validate_step_labels(self.steps, seen)
 
     def _validate_step_labels(self, steps: List[Step], labels: set) -> None:
-        clients = {MAIN_CLIENT, *self.clients}
         for step in steps:
-            if step.on not in clients:
-                raise ValueError(f"step targets unknown client {step.on!r}")
             refs: List[str] = []
             tx_refs: List[TxRef] = []
             if isinstance(step, NewPayloadStep):
@@ -179,8 +169,6 @@ class ReorgTest(BlockchainTest):
                     for x in (step.latest, step.safe, step.finalized)
                     if x is not None
                 ]
-            elif isinstance(step, WaitForHeadStep):
-                refs = [step.latest]
             elif isinstance(step, AssertCanonicalStep):
                 refs = [x for x in step.blocks.values() if x is not None]
             elif isinstance(step, AssertStateStep):
@@ -213,7 +201,7 @@ class ReorgTest(BlockchainTest):
         self,
         steps: List[Step],
         timestamps: Dict[str, int],
-        build_timestamps: Dict[Tuple[str, str], int] | None = None,
+        build_timestamps: Dict[str, int] | None = None,
     ) -> None:
         """
         Fill defaults of ``forkchoiceUpdated.payload_attributes``: a zero
@@ -229,7 +217,7 @@ class ReorgTest(BlockchainTest):
                 # The built payload's timestamp is the one requested by the
                 # preceding build request; fall back to parent slot + 12.
                 built_ts = build_timestamps.get(
-                    (step.on, step.parent), timestamps.get(step.parent, 0) + 12
+                    step.parent, timestamps.get(step.parent, 0) + 12
                 )
                 timestamps[step.bind] = built_ts
                 if step.version is None:
@@ -244,9 +232,7 @@ class ReorgTest(BlockchainTest):
                 if attrs is not None:
                     if int(attrs.timestamp) == 0:
                         attrs.timestamp = HexNumber(timestamps[step.head] + 12)
-                    build_timestamps[(step.on, step.head)] = int(
-                        attrs.timestamp
-                    )
+                    build_timestamps[step.head] = int(attrs.timestamp)
                     fork = self.fork.fork_at(
                         block_number=0, timestamp=int(attrs.timestamp)
                     )
@@ -354,7 +340,6 @@ class ReorgTest(BlockchainTest):
             blocks=fixture_blocks,
             steps=steps,
             requires=self.requires,
-            clients=dict(self.clients),
             meta=dict(self.meta),
             config=FixtureConfig(
                 fork=self.fork,
