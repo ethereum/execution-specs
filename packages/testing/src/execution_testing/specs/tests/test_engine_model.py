@@ -44,11 +44,8 @@ def ids(outcomes: List[Outcome]) -> List[str]:
     return [o.id for o in outcomes]
 
 
-def test_number_and_ancestry() -> None:  # noqa: D103
+def test_ancestry() -> None:  # noqa: D103
     dag = dag_linear_with_fork()
-    assert dag.number("genesis") == 0
-    assert dag.number("a3") == 3
-    assert dag.number("b3") == 3
     assert dag.is_ancestor("a1", "b3")
     assert not dag.is_ancestor("a2", "b3")
     assert not dag.is_ancestor("a3", "a3")

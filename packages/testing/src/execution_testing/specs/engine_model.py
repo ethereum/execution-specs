@@ -39,7 +39,6 @@ from execution_testing.base_types import Number
 from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
-    LATEST_VALID_HASH_ANY,
     LATEST_VALID_HASH_NULL,
     ZERO_LABEL,
     AssertHeadStep,
@@ -72,14 +71,6 @@ class ModelDag:
     to run in all cases, before and independently of any parent lookup or
     execution.
     """
-
-    def number(self, label: str) -> int:
-        """Block height of a label."""
-        n = 0
-        while label != GENESIS_LABEL:
-            label = self.parent[label]
-            n += 1
-        return n
 
     def ancestors(self, label: str) -> List[str]:
         """Labels from ``label`` (inclusive) back to genesis."""
@@ -551,5 +542,4 @@ __all__ = [
     "ClientModel",
     "ModelDag",
     "annotate_steps",
-    "LATEST_VALID_HASH_ANY",
 ]

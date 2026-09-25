@@ -466,5 +466,4 @@ __all__ = [
     "ReorgTest",
     "ReorgTestFiller",
     "ReorgTestSpec",
-    "Hash",
 ]
