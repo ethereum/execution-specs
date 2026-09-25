@@ -109,9 +109,10 @@ Human-readable description of the step, for logging.
 
 - `bind`: `String` — new label for the built payload.
 - `version`: [`Number`](./common_types.md#number) — `engine_getPayloadVX` version.
-- `delay`: [`Number`](./common_types.md#number) — seconds to wait after the build request before retrieving; default `1.0`.
 - `parent`: `String` — expected parent of the built payload.
 - `transactionsInclude` / `transactionsExclude`: [`List`](./common_types.md#list)`[`[`TxRef`](#txref)`]` — transactions that must (or must not) be in the built payload.
+
+The wait between the build request and `engine_getPayloadVX` is a consumer option (`--get-payload-wait-time`, default `1.0` seconds for `consume reorg`), not a fixture field, since the appropriate wait depends on the client and machine running it.
 
 #### `assertHead`
 

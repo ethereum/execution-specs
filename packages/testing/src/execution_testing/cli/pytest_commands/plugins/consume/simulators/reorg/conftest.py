@@ -15,6 +15,7 @@ import pytest
 from execution_testing.fixtures import BlockchainEngineReorgFixture
 from execution_testing.fixtures.blockchain import FixtureHeader
 
+from ....shared.live_client_flags import add_get_payload_wait_time_option
 from ..single_test_client import client_environment
 
 pytest_plugins = (
@@ -30,9 +31,23 @@ pytest_plugins = (
 logger = logging.getLogger(__name__)
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Reorg-specific consume command line options."""
+    consume_group = parser.getgroup(
+        "consume", "Arguments related to consuming fixtures via a client"
+    )
+    add_get_payload_wait_time_option(consume_group, default=1.0)
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """Set the supported fixture formats for the reorg simulator."""
     config.supported_fixture_formats = [BlockchainEngineReorgFixture]  # type: ignore[attr-defined]
+
+
+@pytest.fixture(scope="session")
+def get_payload_wait_time(request: pytest.FixtureRequest) -> float:
+    """Seconds to wait after a build request before calling getPayload."""
+    return request.config.getoption("get_payload_wait_time")
 
 
 @pytest.fixture(scope="module")

@@ -110,12 +110,14 @@ class StepRunner:
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC,
         timing_data: TimingData,
+        get_payload_wait_time: float,
     ) -> None:
-        """Initialize with the fixture and RPC endpoints."""
+        """Initialize with the fixture, RPC endpoints and consumer options."""
         self.fixture = fixture
         self.eth = eth_rpc
         self.engine = engine_rpc
         self.timing_data = timing_data
+        self.get_payload_wait_time = get_payload_wait_time
         self.labels_by_hash = fixture.labels_by_hash()
         self.bound: Dict[str, BoundPayload] = {}
         self.last_payload_id: Bytes | None = None
@@ -358,8 +360,8 @@ class StepRunner:
             )
         if step.version is None:
             raise LoggedError(f"{name}: fixture step has no version")
-        if step.delay > 0:
-            time.sleep(step.delay)
+        if self.get_payload_wait_time > 0:
+            time.sleep(self.get_payload_wait_time)
         with self.timing_data.time(f"engine_getPayloadV{step.version}"):
             response = self.engine.get_payload(
                 payload_id, version=step.version
@@ -599,6 +601,7 @@ def test_reorg_via_engine(
     client: Client,
     fixture: BlockchainEngineReorgFixture,
     genesis_header: FixtureHeader,
+    get_payload_wait_time: float,
 ) -> None:
     """
     Execute a reorg fixture against a fresh client.
@@ -621,7 +624,9 @@ def test_reorg_via_engine(
     )
     verify_genesis_block_hash(eth_rpc, genesis_header, timing_data)
 
-    runner = StepRunner(fixture, eth_rpc, engine_rpc, timing_data)
+    runner = StepRunner(
+        fixture, eth_rpc, engine_rpc, timing_data, get_payload_wait_time
+    )
     with timing_data.time("Steps"):
         runner.run(fixture.steps)
     logger.info(f"All steps passed. Outcomes: {runner.matched}")

@@ -146,10 +146,6 @@ class GetPayloadStep(StepBase):
     bind: str
     """New label for the built payload (usable in later steps)."""
     version: Number | None = None
-    delay: float = 1.0
-    """Seconds to wait after the build request before retrieving (clients
-    return the best payload built so far; give them time to include pool
-    transactions)."""
     parent: str
     """Expected parent of the built payload."""
     transactions_include: List[TxRef] = Field(default_factory=list)
