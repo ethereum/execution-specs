@@ -147,11 +147,11 @@ class BaseFixture(CamelModel):
     @cached_property
     def hash(self) -> str:
         """Returns the hash of the fixture."""
-        json_str = json.dumps(
-            self.json_dict, sort_keys=True, separators=(",", ":")
-        )
-        h = hashlib.sha256(json_str.encode("utf-8")).hexdigest()
-        return f"0x{h}"
+        encoder = json.JSONEncoder(sort_keys=True, separators=(",", ":"))
+        h = hashlib.sha256()
+        for chunk in encoder.iterencode(self.json_dict):
+            h.update(chunk.encode("utf-8"))
+        return f"0x{h.hexdigest()}"
 
     def json_dict_with_info(self, hash_only: bool = False) -> Dict[str, Any]:
         """Return JSON representation of the fixture with the info field."""
