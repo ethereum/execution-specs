@@ -14,6 +14,7 @@ from execution_testing import (
     RecipientType,
     Transaction,
 )
+from execution_testing.forks import Amsterdam, Osaka
 
 from tests.benchmark.helper.account_creator import (
     AccountCreator,
@@ -47,11 +48,15 @@ from tests.benchmark.helper.account_sender_receiver import (
     ],
 )
 @pytest.mark.parametrize("transfer_amount", [0, 1])
+@pytest.mark.parametrize(
+    "code_size", [Osaka.max_code_size(), Amsterdam.max_code_size()]
+)
 def test_ether_transfers_onchain_receivers(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     case_id: str,
     transfer_amount: int,
+    code_size: int,
     fork: Fork,
     gas_benchmark_value: int,
     verified_accounts: dict,
@@ -107,7 +112,9 @@ def test_ether_transfers_onchain_receivers(
                 verified_accounts=verified_accounts,
             )
         case "diff_to_unique_code_jumpdest_contract":
-            creator = AccountCreator(AccountMode.EXISTING_CONTRACT_JUMPDEST)
+            creator = AccountCreator(
+                AccountMode.EXISTING_CONTRACT_JUMPDEST, code_size=code_size
+            )
             receivers = yield_distinct_create2_receiver(creator.initcode)
             receiver_execution_gas = creator.execution_code.gas_cost(fork)
             register_targets = partial(
@@ -126,7 +133,9 @@ def test_ether_transfers_onchain_receivers(
                 label=case_id,
             )
         case "diff_to_contract_same_max":
-            creator = AccountCreator(AccountMode.EXISTING_CONTRACT_SAME_MAX)
+            creator = AccountCreator(
+                AccountMode.EXISTING_CONTRACT_SAME_MAX, code_size=code_size
+            )
             receivers = yield_distinct_create2_receiver(creator.initcode)
             register_targets = partial(
                 creator.register_targets,
@@ -135,7 +144,9 @@ def test_ether_transfers_onchain_receivers(
                 label=case_id,
             )
         case "diff_to_contract_diff_max":
-            creator = AccountCreator(AccountMode.EXISTING_CONTRACT_DIFF_MAX)
+            creator = AccountCreator(
+                AccountMode.EXISTING_CONTRACT_DIFF_MAX, code_size=code_size
+            )
             receivers = yield_distinct_create2_receiver(creator.initcode)
             register_targets = partial(
                 creator.register_targets,
@@ -144,11 +155,12 @@ def test_ether_transfers_onchain_receivers(
                 label=case_id,
             )
         case "diff_to_delegated_contract_diff":
-            receivers = yield_distinct_delegate_receiver()
+            receivers = yield_distinct_delegate_receiver(code_size)
             recipient_type = RecipientType.DELEGATION_7702
             register_targets = partial(
                 register_delegate_targets,
                 pre,
+                code_size=code_size,
                 verified_accounts=verified_accounts,
             )
         case _:
