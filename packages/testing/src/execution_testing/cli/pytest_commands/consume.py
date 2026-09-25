@@ -135,7 +135,7 @@ def engine_witness() -> None:
 
     Default transport: JSON-RPC engine_newPayloadWithWitnessVX with RLP
     witness.
-    Pass --ssz to use the REST POST /new-payload-with-witness endpoint.
+    Pass --ssz to use the REST POST /engine/v1/payloads/witness endpoint.
     """
     pass
 

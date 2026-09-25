@@ -3,29 +3,27 @@
 import ethereum_rlp as eth_rlp
 import pytest
 from ethereum_rlp.rlp import Extended
-from remerkleable.basic import uint8
-from remerkleable.byte_arrays import ByteList, ByteVector
 
 from execution_testing.rpc.rpc_types import (
-    MAX_WITNESS_BYTES,
-    MAX_WITNESS_ITEM_BYTES,
-    VALIDATION_ERROR_MAX,
     NewPayloadWithWitnessResponse,
     PayloadStatusEnum,
-    _SSZExecutionWitness,
-    _SSZNewPayloadWithWitnessResponse,
 )
+
+
+def _offsets(parts: list[bytes]) -> bytes:
+    """Build variable-field SSZ bytes independently of production schemas."""
+    offset = 4 * len(parts)
+    fixed = b""
+    for part in parts:
+        fixed += offset.to_bytes(4, "little")
+        offset += len(part)
+    return fixed + b"".join(parts)
 
 
 def _build_inner_witness(
     state: list[bytes], codes: list[bytes], headers: list[bytes]
 ) -> bytes:
-    inner = _SSZExecutionWitness(
-        state=[ByteList[MAX_WITNESS_ITEM_BYTES](b) for b in state],
-        codes=[ByteList[MAX_WITNESS_ITEM_BYTES](b) for b in codes],
-        headers=[ByteList[MAX_WITNESS_ITEM_BYTES](b) for b in headers],
-    )
-    return inner.encode_bytes()
+    return _offsets([_offsets(state), _offsets(codes), _offsets(headers)])
 
 
 def _build_response(
@@ -33,33 +31,23 @@ def _build_response(
     latest_valid_hash: bytes | None,
     validation_error: str | None,
     witness_bytes: bytes,
+    public_keys: bytes = b"",
 ) -> bytes:
-    fields = _SSZNewPayloadWithWitnessResponse.fields()
-    lvh_type = fields["latest_valid_hash"]
-    ve_type = fields["validation_error"]
-
-    if latest_valid_hash is None:
-        lvh = lvh_type(selector=0, value=None)
-    else:
-        lvh = lvh_type(selector=1, value=ByteVector[32](latest_valid_hash))
-
-    if validation_error is None:
-        ve = ve_type(selector=0, value=None)
-    else:
-        ve = ve_type(
-            selector=1,
-            value=ByteList[VALIDATION_ERROR_MAX](
-                validation_error.encode("utf-8")
-            ),
-        )
-
-    resp = _SSZNewPayloadWithWitnessResponse(
-        status=uint8(status),
-        latest_valid_hash=lvh,
-        validation_error=ve,
-        witness=ByteList[MAX_WITNESS_BYTES](witness_bytes),
+    latest = latest_valid_hash or b""
+    error = (
+        _offsets([validation_error.encode()])
+        if validation_error is not None
+        else b""
     )
-    return resp.encode_bytes()
+    payload_status = (
+        bytes([status])
+        + (9).to_bytes(4, "little")
+        + (9 + len(latest)).to_bytes(4, "little")
+        + latest
+        + error
+    )
+    witness = _offsets([witness_bytes]) if witness_bytes else b""
+    return _offsets([payload_status, witness, public_keys])
 
 
 def test_decode_valid_with_witness() -> None:
@@ -89,6 +77,31 @@ def test_decode_valid_with_witness() -> None:
     ]
     assert [bytes(x) for x in decoded.witness.codes] == [b"\x60\x01"]
     assert [bytes(x) for x in decoded.witness.headers] == [b"\xf9\x02"]
+
+
+@pytest.mark.parametrize("status", [0, 1, 2, 3])
+def test_reject_noncanonical_offsets_and_trailing_bytes(status: int) -> None:
+    """Reject offset gaps even when the library can decode the contents."""
+    raw = _build_response(
+        status,
+        bytes(32) if status == 0 else None,
+        None,
+        _build_inner_witness([], [], [b"header"]) if status == 0 else b"",
+    )
+    # Move every outer offset by one without moving the actual contents.
+    # The library previously ignored both the gap and the trailing byte.
+    malformed = (
+        b"".join(
+            (int.from_bytes(raw[i : i + 4], "little") + 1).to_bytes(
+                4, "little"
+            )
+            for i in (0, 4, 8)
+        )
+        + raw[12:]
+        + b"\xff"
+    )
+    with pytest.raises(ValueError, match="Non-canonical SSZ"):
+        NewPayloadWithWitnessResponse.from_ssz_bytes(malformed)
 
 
 def test_decode_invalid_with_validation_error() -> None:
@@ -155,6 +168,86 @@ def test_decode_invalid_with_witness_raises() -> None:
         ValueError, match="INVALID SSZ response must not contain a witness"
     ):
         NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
+
+
+@pytest.mark.parametrize("status", [4, 255])
+def test_removed_status_is_rejected(status: int) -> None:
+    """Reject INVALID_BLOCK_HASH and unknown REST statuses."""
+    with pytest.raises(ValueError, match="Unknown SSZ status"):
+        NewPayloadWithWitnessResponse.from_ssz_bytes(
+            _build_response(status, None, None, b"")
+        )
+
+
+def test_valid_requires_witness() -> None:
+    """Reject missing witnesses even for already-known valid payloads."""
+    with pytest.raises(ValueError, match="must contain a witness"):
+        NewPayloadWithWitnessResponse.from_ssz_bytes(
+            _build_response(0, bytes(32), None, b"")
+        )
+
+
+@pytest.mark.parametrize("error", [None, ""])
+def test_optional_empty_error_is_distinct(error: str | None) -> None:
+    """Distinguish no validation error from a present empty string."""
+    result = NewPayloadWithWitnessResponse.from_ssz_bytes(
+        _build_response(1, None, error, b"")
+    )
+    assert result.validation_error == error
+
+
+@pytest.mark.parametrize("field,limit", [(0, 1024), (1, 65536), (2, 1024)])
+@pytest.mark.parametrize("excess", [0, 1])
+def test_witness_item_bounds(field: int, limit: int, excess: int) -> None:
+    """Accept maximum-sized witness items and reject the next byte."""
+    parts: list[list[bytes]] = [[], [], [b"header"]]
+    parts[field] = [bytes(limit + excess)]
+    raw = _build_response(0, bytes(32), None, _build_inner_witness(*parts))
+    if excess:
+        with pytest.raises(Exception, match="size bounds"):
+            NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
+    else:
+        assert NewPayloadWithWitnessResponse.from_ssz_bytes(raw).witness
+
+
+@pytest.mark.parametrize("count", [0, 256, 257])
+def test_header_count_bounds(count: int) -> None:
+    """Require a parent header and at most 256 ancestor headers."""
+    raw = _build_response(
+        0,
+        bytes(32),
+        None,
+        _build_inner_witness([], [], [b"header"] * count),
+    )
+    if count == 256:
+        assert NewPayloadWithWitnessResponse.from_ssz_bytes(raw).witness
+    else:
+        with pytest.raises(Exception, match="parent header|count 257"):
+            NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
+
+
+@pytest.mark.parametrize("status", [1, 2, 3])
+def test_nonvalid_public_keys_rejected(status: int) -> None:
+    """Non-VALID responses must omit public keys as well as witnesses."""
+    raw = _build_response(status, None, None, b"", b"\x04" + bytes(64))
+    with pytest.raises(ValueError, match="public keys"):
+        NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
+
+
+def test_public_keys_decode_in_order_with_duplicates() -> None:
+    """Preserve the fixed-size key list without per-key SSZ offsets."""
+    keys = [b"\x04" + bytes([i]) * 64 for i in (1, 2, 1)]
+    raw = _build_response(
+        0,
+        bytes(32),
+        None,
+        _build_inner_witness([], [], [b"header"]),
+        b"".join(keys),
+    )
+    assert (
+        list(NewPayloadWithWitnessResponse.from_ssz_bytes(raw).public_keys)
+        == keys
+    )
 
 
 # --- JSON-RPC (RLP witness) decode ---

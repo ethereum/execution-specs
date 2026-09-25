@@ -36,8 +36,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         default=False,
         help=(
-            "Use the REST POST /new-payload-with-witness endpoint with "
-            "SSZ-encoded response instead of the default JSON-RPC "
+            "Use the REST POST /engine/v1/payloads/witness endpoint with "
+            "SSZ-encoded request and response instead of the default JSON-RPC "
             "engine_newPayloadWithWitnessVX with RLP-encoded witness "
         ),
     )
@@ -67,7 +67,7 @@ def test_suite_description() -> str:
         "Execute blockchain-engine fixtures via the witness-emitting Engine "
         "API path, using JSON-RPC engine_newPayloadWithWitnessVX with "
         "RLP-encoded witness by default or REST POST "
-        "/new-payload-with-witness with SSZ response when --ssz is enabled, "
+        "/engine/v1/payloads/witness with SSZ response when --ssz is enabled, "
         "verifying the client-generated execution witness against the fixture "
         "witness."
     )
