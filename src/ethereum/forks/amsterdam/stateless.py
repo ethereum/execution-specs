@@ -17,7 +17,6 @@ from ethereum.state import Root
 from ethereum.utils.ssz import (
     SszContainer,
     byte_list,
-    byte_vector,
     progressive_list,
     ssz_list,
 )
@@ -34,7 +33,6 @@ MAX_WITNESS_HEADERS = 256
 MAX_BYTES_PER_CODE = 2**16
 MAX_BYTES_PER_HEADER = 2**10
 MAX_BYTES_PER_WITNESS_NODE = 2**10
-PUBLIC_KEY_BYTES = 65
 
 
 @final
@@ -166,14 +164,6 @@ class StatelessInput(SszContainer):
     Chain identifier used during payload validation and execution.
     """
 
-    public_keys: Annotated[
-        Tuple[Annotated[Bytes, byte_vector(PUBLIC_KEY_BYTES)], ...],
-        progressive_list(),
-    ]
-    """
-    65-byte uncompressed transaction public keys, in payload order.
-    """
-
 
 @final
 @slotted_freezable
@@ -297,7 +287,6 @@ def verify_stateless_new_payload(
             stateless_input.new_payload_request,
             pre_state,
             chain_context,
-            transaction_public_keys=stateless_input.public_keys,
         )
         successful_validation = True
     except Exception:

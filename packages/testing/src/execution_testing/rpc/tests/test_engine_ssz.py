@@ -1,11 +1,10 @@
-"""Test REST witness requests, discovery, errors and sender verification."""
+"""Test REST witness requests, discovery, and errors."""
 
 import json
 from unittest.mock import Mock
 
 import pytest
 import requests
-from spec256k1 import PrivateKey
 
 from execution_testing.base_types import Address, Bloom, Bytes, Hash
 from execution_testing.fixtures.blockchain import FixtureExecutionPayload
@@ -16,10 +15,8 @@ from execution_testing.rpc import (
 )
 from execution_testing.rpc.engine_ssz import (
     encode_witness_request,
-    validate_public_keys,
 )
 from execution_testing.rpc.rpc_types import JSONRPCError
-from execution_testing.test_types import Transaction
 
 
 @pytest.fixture
@@ -92,8 +89,8 @@ def test_rest_request_and_repeated_submission(
 ) -> None:
     """Send binary requests with fork/JWT headers, including known payloads."""
     rpc = EngineSSZRPC("http://client:8551")
-    # SYNCING response: 3 outer offsets followed by a 9-byte PayloadStatus.
-    raw = bytes.fromhex("0c0000001500000015000000020900000009000000")
+    # SYNCING response: 2 outer offsets followed by a 9-byte PayloadStatus.
+    raw = bytes.fromhex("0800000011000000020900000009000000")
     rpc.session = Mock()
     rpc.session.post.return_value = response(
         200, raw, "application/octet-stream"
@@ -239,51 +236,3 @@ def test_new_rest_error_remains_http_failure(
         return
     with pytest.raises(requests.HTTPError):
         rpc.new_payload_with_witness(payload, [], Hash(0), [])
-
-
-@pytest.mark.parametrize("tx_type", [0, 1, 2, 3, 4])
-def test_public_key_matches_signature(tx_type: int) -> None:
-    """Check signature recovery across every supported transaction type."""
-    tx = Transaction(
-        ty=tx_type,
-        secret_key=Hash(1),
-        to=Address(2),
-        gas_limit=100_000,
-        blob_versioned_hashes=[] if tx_type == 3 else None,
-    ).with_signature_and_sender()
-    key = Bytes(PrivateKey(bytes(Hash(1))).public_key.format(compressed=False))
-    validate_public_keys([tx.rlp(), tx.rlp()], [key, key])
-    with pytest.raises(ValueError, match="one public key"):
-        validate_public_keys([tx.rlp()], [])
-    wrong = Bytes(
-        PrivateKey(bytes(Hash(2))).public_key.format(compressed=False)
-    )
-    with pytest.raises(ValueError, match="transaction 0"):
-        validate_public_keys([tx.rlp()], [wrong])
-
-
-def test_public_key_order_and_recovery_parity() -> None:
-    """Reject reordered keys and another valid signature recovery candidate."""
-    transactions = [
-        Transaction(
-            secret_key=Hash(i), to=Address(3), gas_limit=21_000
-        ).with_signature_and_sender()
-        for i in (1, 2)
-    ]
-    keys = [
-        Bytes(PrivateKey(bytes(Hash(i))).public_key.format(compressed=False))
-        for i in (1, 2)
-    ]
-    validate_public_keys([tx.rlp() for tx in transactions], keys)
-    with pytest.raises(ValueError, match="transaction 0"):
-        validate_public_keys([tx.rlp() for tx in transactions], keys[::-1])
-    tx = transactions[0]
-    flipped = (
-        tx.model_copy(update={"v": int(tx.v) ^ 1})
-        if tx.ty
-        else tx.model_copy(
-            update={"v": int(tx.v) + (1 if int(tx.v) % 2 else -1)}
-        )
-    )
-    with pytest.raises(ValueError, match="transaction 0"):
-        validate_public_keys([flipped.rlp()], [keys[0]])

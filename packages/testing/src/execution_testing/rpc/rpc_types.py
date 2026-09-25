@@ -434,7 +434,6 @@ MAX_BYTES_PER_WITNESS_NODE = 2**10
 MAX_BYTES_PER_CODE = 2**16
 MAX_BYTES_PER_HEADER = 2**10
 MAX_WITNESS_HEADERS = 256
-MAX_TXS_PER_PAYLOAD = 2**20
 
 
 class _SSZExecutionWitness(Container):
@@ -452,7 +451,6 @@ class _SSZPayloadStatus(Container):
 class _SSZNewPayloadWithWitnessResponse(Container):
     payload_status: _SSZPayloadStatus
     witness: SSZList[_SSZExecutionWitness, 1]
-    public_keys: SSZList[ByteVector[65], MAX_TXS_PER_PAYLOAD]
 
 
 class _NewPayloadWithWitnessJSONRPCResult(CamelModel):
@@ -570,7 +568,6 @@ class NewPayloadWithWitnessResponse:
     latest_valid_hash: Hash | None
     validation_error: str | None
     witness: ExecutionWitness | None = None
-    public_keys: tuple[Bytes, ...] = ()
 
     @classmethod
     def from_ssz_bytes(cls, data: bytes) -> Self:
@@ -599,15 +596,11 @@ class NewPayloadWithWitnessResponse:
                 codes=[Bytes(bytes(x)) for x in inner.codes],
                 headers=[Bytes(bytes(x)) for x in inner.headers],
             )
-        elif resp.witness or resp.public_keys:
+        elif resp.witness:
             raise ValueError(
-                f"{status.value} SSZ response must not contain a witness "
-                "or public keys"
+                f"{status.value} SSZ response must not contain a witness"
             )
 
-        public_keys = tuple(Bytes(bytes(key)) for key in resp.public_keys)
-        if any(key[0] != 4 for key in public_keys):
-            raise ValueError("Public keys must use uncompressed SEC1 encoding")
         return cls(
             status=status,
             latest_valid_hash=(
@@ -621,7 +614,6 @@ class NewPayloadWithWitnessResponse:
                 else None
             ),
             witness=witness,
-            public_keys=public_keys,
         )
 
     @classmethod

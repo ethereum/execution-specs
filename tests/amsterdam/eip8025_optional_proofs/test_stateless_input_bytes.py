@@ -77,7 +77,7 @@ def invalid_first_ssz_offset(input_bytes: Bytes) -> Bytes:
 def shifted_ssz_offsets(input_bytes: Bytes) -> Bytes:
     """Shift every top-level offset and leave an extra byte at the end."""
     encoded = bytearray(input_bytes)
-    for offset in (2, 6, 18):
+    for offset in (2, 6):
         value = int.from_bytes(encoded[offset : offset + 4], "little")
         encoded[offset : offset + 4] = (value + 1).to_bytes(4, "little")
     encoded.append(0xFF)

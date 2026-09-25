@@ -5,13 +5,11 @@ This module provides modifier functions that can be used to modify
 execution witnesses for testing invalid block scenarios.
 """
 
-from typing import Callable, Tuple
+from typing import Callable
 
 from execution_testing.base_types import Bytes
 
 from .types import ExecutionWitness
-
-PublicKeyModifier = Callable[[Tuple[Bytes, ...]], Tuple[Bytes, ...]]
 
 
 def add_code(
@@ -208,32 +206,10 @@ def replace_header_at(
     return transform
 
 
-def replace_public_key_at(
-    index: int,
-    public_key: Bytes,
-) -> PublicKeyModifier:
-    """Replace the transaction public key at `index`."""
-
-    def transform(
-        public_keys: Tuple[Bytes, ...],
-    ) -> Tuple[Bytes, ...]:
-        new_public_keys = list(public_keys)
-        try:
-            new_public_keys[index] = public_key
-        except IndexError as exc:
-            raise IndexError(
-                f"Public key index {index} out of range for stateless input"
-            ) from exc
-        return tuple(new_public_keys)
-
-    return transform
-
-
 __all__ = [
     "add_state_node",
     "add_code",
     "clear_headers",
-    "PublicKeyModifier",
     "remove_state_node",
     "remove_code",
     "remove_code_at",
@@ -243,5 +219,4 @@ __all__ = [
     "remove_header_at",
     "reverse_headers",
     "replace_header_at",
-    "replace_public_key_at",
 ]
