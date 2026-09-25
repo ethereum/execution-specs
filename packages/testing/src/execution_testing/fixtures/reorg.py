@@ -174,7 +174,10 @@ class ForkchoiceUpdatedStep(StepBase):
     safe: HashRef = ZERO_LABEL
     finalized: HashRef = ZERO_LABEL
     version: Number | None = None
-    """Engine API version; derived from the head block's fork when unset."""
+    """
+    Engine API version; when unset, that of the attributes' fork for a build
+    request, else of the head block's fork.
+    """
     payload_attributes: PayloadAttributes | None = None
     """If set, a payload build is requested; ``payloadId`` is kept for the
     next ``getPayload`` step."""

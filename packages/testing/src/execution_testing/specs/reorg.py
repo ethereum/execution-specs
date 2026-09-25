@@ -37,6 +37,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureBlobSchedule,
     FixtureConfig,
     FixtureNewPayloadRequest,
+    PayloadAttributes,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.fixtures.reorg import (
@@ -244,33 +245,36 @@ class ReorgTest(BlockchainTest):
         timestamps: Dict[str, int],
         gas_limits: Dict[str, int],
         slots: Dict[str, int],
-        build_timestamps: Dict[str, int] | None = None,
+        builds: Dict[str, PayloadAttributes] | None = None,
     ) -> None:
         """
-        Fill defaults of ``forkchoiceUpdated.payload_attributes``: a zero
-        timestamp becomes ``parent + 12``; Shanghai+ gets empty withdrawals;
-        Cancun+ gets a deterministic parent beacon block root; Amsterdam+
-        gets the requested head's slot + 1 and its own gas limit as the
-        target. Bound labels (client-built payloads) take the timestamp of
-        their build request and the ``getPayload`` version of the fork
-        active at that timestamp.
+        Fill unset ``forkchoiceUpdated.payload_attributes`` fields and the
+        versions of build requests and ``getPayload`` steps from the fork
+        of the requested timestamp. A bound label takes the timestamp,
+        slot and target gas limit of its build request.
         """
-        if build_timestamps is None:
-            build_timestamps = {}
+        if builds is None:
+            builds = {}
         for step in steps:
             if isinstance(step, GetPayloadStep):
-                # The built payload's timestamp is the one requested by the
-                # preceding build request; fall back to parent slot + 12.
-                built_ts = build_timestamps.get(
-                    step.parent, timestamps.get(step.parent, 0) + 12
+                build = builds.get(step.parent)
+                if build is None:
+                    raise ValueError(
+                        f"getPayload({step.bind!r}): no build request on "
+                        f"{step.parent!r}"
+                    )
+                timestamps[step.bind] = int(build.timestamp)
+                slots[step.bind] = (
+                    0 if build.slot_number is None else int(build.slot_number)
                 )
-                timestamps[step.bind] = built_ts
+                gas_limits[step.bind] = (
+                    gas_limits[step.parent]
+                    if build.target_gas_limit is None
+                    else int(build.target_gas_limit)
+                )
                 if step.version is None:
-                    # getPayload is versioned by the fork of the payload being
-                    # built (V3 Cancun, V4 Prague, V5 Osaka); it does not track
-                    # forkchoiceUpdated, which stays at V3 from Cancun on.
                     payload_version = self.fork.fork_at(
-                        block_number=0, timestamp=built_ts
+                        block_number=0, timestamp=int(build.timestamp)
                     ).engine_get_payload_version()
                     assert payload_version is not None
                     step.version = Number(payload_version)
@@ -279,7 +283,6 @@ class ReorgTest(BlockchainTest):
                 if attrs is not None:
                     if int(attrs.timestamp) == 0:
                         attrs.timestamp = HexNumber(timestamps[step.head] + 12)
-                    build_timestamps[step.head] = int(attrs.timestamp)
                     fork = self.fork.fork_at(
                         block_number=0, timestamp=int(attrs.timestamp)
                     )
@@ -305,13 +308,18 @@ class ReorgTest(BlockchainTest):
                         attrs.target_gas_limit = HexNumber(
                             gas_limits[step.head]
                         )
+                    if step.version is None:
+                        fcu_version = fork.engine_forkchoice_updated_version()
+                        assert fcu_version is not None
+                        step.version = Number(fcu_version)
+                    builds[step.head] = attrs
             for branch in getattr(step, "branches", {}).values():
                 self._resolve_payload_attributes(
                     branch,
                     timestamps,
                     gas_limits,
                     slots,
-                    dict(build_timestamps),
+                    dict(builds),
                 )
 
     def make_reorg_fixture(self, t8n: FillerBackend) -> FillResult:

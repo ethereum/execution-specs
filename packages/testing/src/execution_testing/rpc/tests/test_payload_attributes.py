@@ -2,18 +2,19 @@
 Test fork-aware construction of engine API payload attributes.
 
 Every ``engine_payload_attribute_*`` fork predicate must be honored by
-both ``PayloadAttributes`` producers: ``PayloadAttributes.for_fork``
-(used by ``execute`` and ``fill-stateful`` to build blocks live) and
+every ``PayloadAttributes`` producer: ``PayloadAttributes.for_fork``
+(used by ``execute`` and ``fill-stateful`` to build blocks live),
 ``FixtureEngineNewPayload.get_payload_attributes`` (used by ``consume``
-to have a client build fixture blocks). A fork that adds a payload
-attribute fails these tests until both producers populate it.
+to have a client build fixture blocks) and the reorg filler's build
+requests. A fork that adds a payload attribute fails these tests until
+every producer populates it.
 """
 
 from typing import List
 
 import pytest
 
-from execution_testing.base_types import Account, Address, Hash
+from execution_testing.base_types import Address, Hash
 from execution_testing.client_clis import TransitionTool
 from execution_testing.fixtures import BlockchainEngineReorgFixture
 from execution_testing.fixtures.blockchain import (
@@ -22,6 +23,7 @@ from execution_testing.fixtures.blockchain import (
 )
 from execution_testing.fixtures.reorg import (
     ForkchoiceUpdatedStep,
+    GetPayloadStep,
     NewPayloadStep,
 )
 from execution_testing.forks import (
@@ -33,12 +35,7 @@ from execution_testing.forks import (
 from execution_testing.rpc.rpc_types import PayloadAttributes
 from execution_testing.specs import ReorgBlock, ReorgTest
 from execution_testing.specs.blockchain import GENESIS_ENVIRONMENT_DEFAULTS
-from execution_testing.test_types import (
-    Alloc,
-    BlockAccessList,
-    Environment,
-    Transaction,
-)
+from execution_testing.test_types import Alloc, BlockAccessList, Environment
 
 ENGINE_PAYLOAD_ATTRIBUTE_PREFIX = "engine_payload_attribute_"
 
@@ -131,50 +128,31 @@ def test_fixture_payload_covers_every_engine_payload_attribute(
 def test_reorg_fill_covers_every_amsterdam_payload_attribute(
     default_t8n: TransitionTool,
 ) -> None:
-    """
-    A reorg fixture's FCU-with-attributes request must populate every
-    payload attribute Amsterdam requires, the same as the two producers
-    above (PR3556-R0001).
-    """
-    sender = Address(0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
+    """Chained reorg build requests carry every Amsterdam attribute."""
+    attributes = PayloadAttributes(
+        timestamp=0, prev_randao=Hash(0), suggested_fee_recipient=Address(0)
+    )
     test = ReorgTest(
         fork=Amsterdam,
-        genesis_environment=Environment(),
-        pre=Alloc({sender: Account(balance=10**21, nonce=0)}),
-        blocks=[
-            ReorgBlock(
-                label="a1",
-                txs=[
-                    Transaction(
-                        nonce=0,
-                        to=Address(0xC0DE),
-                        value=1,
-                        gas_limit=21_000,
-                        gas_price=10,
-                        secret_key=Hash(
-                            0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-                        ),
-                    )
-                ],
-            )
-        ],
+        pre=Alloc(),
+        blocks=[ReorgBlock(label="a1")],
         steps=[
             NewPayloadStep(block="a1"),
-            ForkchoiceUpdatedStep(
-                head="a1",
-                payload_attributes=PayloadAttributes(
-                    timestamp=0,
-                    prev_randao=Hash(0),
-                    suggested_fee_recipient=Address(0),
-                ),
-            ),
+            ForkchoiceUpdatedStep(head="a1", payload_attributes=attributes),
+            GetPayloadStep(bind="p1", parent="a1"),
+            NewPayloadStep(block="p1"),
+            ForkchoiceUpdatedStep(head="p1", payload_attributes=attributes),
         ],
     )
     fixture = test.generate(
         t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture
     ).fixture
     assert isinstance(fixture, BlockchainEngineReorgFixture)
-    fcu = fixture.steps[1]
-    assert isinstance(fcu, ForkchoiceUpdatedStep)
-    assert fcu.payload_attributes is not None
-    assert_attributes_cover_fork(fcu.payload_attributes, Amsterdam)
+    requests = [
+        step.payload_attributes
+        for step in fixture.steps
+        if isinstance(step, ForkchoiceUpdatedStep) and step.payload_attributes
+    ]
+    assert [request.slot_number for request in requests] == [1, 2]
+    for request in requests:
+        assert_attributes_cover_fork(request, Amsterdam)

@@ -110,7 +110,7 @@ Human-readable description of the step, for logging.
 #### `forkchoiceUpdated`
 
 - `head` / `safe` / `finalized`: `String` — labels; `safe`/`finalized` default to `"zero"`.
-- `version`: [`Number`](./common_types.md#number) — `engine_forkchoiceUpdatedVX` version; derived from the head block's fork when unset.
+- `version`: [`Number`](./common_types.md#number) — `engine_forkchoiceUpdatedVX` version; when unset, that of the payload attributes' fork for a build request, else of the head block's fork.
 - `payloadAttributes`: [`Optional`](./common_types.md#optional)`[`[`PayloadAttributes`](#payloadattributes)`]` — if set, a payload build is requested.
 - `expect` / `branches`: as above.
 

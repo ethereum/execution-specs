@@ -9,6 +9,7 @@ from execution_testing.base_types import Account, Address, Hash
 from execution_testing.client_clis import TransitionTool
 from execution_testing.exceptions import BlockException, EngineAPIError
 from execution_testing.fixtures import BlockchainEngineReorgFixture
+from execution_testing.fixtures.blockchain import PayloadAttributes
 from execution_testing.fixtures.reorg import (
     AssertHeadStep,
     AssertReceiptStep,
@@ -17,7 +18,13 @@ from execution_testing.fixtures.reorg import (
     NewPayloadStep,
     TxRef,
 )
-from execution_testing.forks import Cancun, Fork, Prague
+from execution_testing.forks import (
+    Amsterdam,
+    BPO2ToAmsterdamAtTime15k,
+    Cancun,
+    Fork,
+    Prague,
+)
 from execution_testing.test_types import Alloc, Environment, Transaction
 
 from ..blockchain import Header
@@ -231,6 +238,35 @@ def test_fill_serializes_versions_and_tx_index_as_decimal_strings(
     )
     receipt_step = dumped["steps"][2]
     assert receipt_step["tx"]["index"] == "1"
+
+
+def test_build_request_version_follows_attributes_fork(
+    default_t8n: TransitionTool,
+) -> None:
+    """A build request across a fork boundary uses the new fork's FCU."""
+    test = ReorgTest(
+        fork=BPO2ToAmsterdamAtTime15k,
+        pre=Alloc(),
+        blocks=[ReorgBlock(label="a1")],
+        steps=[
+            NewPayloadStep(block="a1"),
+            ForkchoiceUpdatedStep(
+                head="a1",
+                payload_attributes=PayloadAttributes(
+                    timestamp=15_000,
+                    prev_randao=Hash(0),
+                    suggested_fee_recipient=Address(0),
+                ),
+            ),
+        ],
+    )
+    fixture = test.generate(
+        t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture
+    ).fixture
+    assert isinstance(fixture, BlockchainEngineReorgFixture)
+    fcu = fixture.steps[1]
+    assert isinstance(fcu, ForkchoiceUpdatedStep)
+    assert fcu.version == Amsterdam.engine_forkchoice_updated_version()
 
 
 @pytest.mark.parametrize(
