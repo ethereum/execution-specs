@@ -30,6 +30,8 @@ from execution_testing.base_types import (
     SignableRLPSerializable,
     TestAddress,
     TestPrivateKey,
+    encoded_prefixed_size,
+    encoded_size,
 )
 from execution_testing.exceptions import TransactionException
 from execution_testing.forks import Fork
@@ -540,13 +542,16 @@ class Transaction(
 
     def sign(self: "Transaction") -> None:
         """Signs the authorization tuple with a private key."""
-        signature_bytes: bytes | None = None
-        rlp_signing_bytes = self.rlp_signing_bytes()
-        if (
+        needs_signature = (
             "v" not in self.model_fields_set
             and "r" not in self.model_fields_set
             and "s" not in self.model_fields_set
-        ):
+        )
+        if not needs_signature and self.sender is not None:
+            return
+        signature_bytes: bytes | None = None
+        rlp_signing_bytes = self.rlp_signing_bytes()
+        if needs_signature:
             signing_key: Hash | None = None
             if self.secret_key is not None:
                 signing_key = self.secret_key
@@ -942,6 +947,18 @@ class Transaction(
         object.
         """
         return self.rlp() if self.ty > 0 else self.to_list(signing=False)
+
+    @cached_property
+    def serializable_size(self) -> int:
+        """
+        Return the encoded size of `serializable_list`, without building the
+        encoding.
+        """
+        if self.ty == 0:
+            return encoded_size(self.serializable_list)
+        # A typed transaction is embedded as an opaque byte string, never
+        # short enough to encode as a single byte.
+        return encoded_prefixed_size(self.rlp_size())
 
     @staticmethod
     def list_blob_versioned_hashes(
