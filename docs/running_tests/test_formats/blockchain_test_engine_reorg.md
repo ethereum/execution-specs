@@ -12,7 +12,7 @@ Every block in the DAG names its parent by label instead of relying on list orde
 
 Each step's `expect` field is a list of legal outcomes (the [Engine API reference model](../../library/execution_testing_specs.md) fills it in at fill time for any step an author left unannotated, deriving the outcomes the [execution-apis](https://github.com/ethereum/execution-apis) specification allows a conformant client to return); the consumer selects the first outcome matching the observed response and runs that outcome's `branches` steps.
 
-Every outcome in a step's `expect`, model-filled or hand-authored, must be spec-permitted at that point, so a passing fixture establishes conformance. Where the specification is ambiguous, an outcome is marked `disputed` with a reference; a client's spec violation is never added as an alternative.
+Every outcome in a step's `expect`, model-filled or hand-authored, must be spec-permitted at that point, so a passing fixture establishes conformance. Where the specification is ambiguous, an outcome is marked `disputed` with a reference or rationale; a client's spec violation is never added as an alternative.
 
 A single JSON fixture file is composed of a JSON object where each key-value pair is a different [`HiveFixture`](#hivefixture) test object, with the key string representing the test name.
 

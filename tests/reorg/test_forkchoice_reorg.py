@@ -37,15 +37,12 @@ REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
 
 DISPUTED_SHORTCUT_VS_38002 = (
-    "execution-apis#786: no-reorg shortcut (step 2) vs. inconsistent "
-    "forkchoice state (step 5) when head is below finalized but the supplied "
-    "safe/finalized are not on head's chain"
+    "execution-apis#891: order of the no-reorg shortcut (step 2) and -38002 "
+    "(step 5) when head is below finalized"
 )
 DISPUTED_SHORTCUT_VS_38006 = (
-    "execution-apis#786: step 2 says a client MAY skip the update when head "
-    "is an ancestor of finalized; a client that does not skip reaches step 6 "
-    "and may refuse the (backwards) reorg with -38006 before step 5 is "
-    "evaluated (observed on reth)"
+    "execution-apis#891: order of the no-reorg shortcut (step 2) and -38006 "
+    "(step 6) when head is below finalized"
 )
 DISPUTED_FINALIZED_REGRESSION = (
     "execution-apis: forkchoiceUpdated with finalizedBlockHash older than "
@@ -276,9 +273,8 @@ def test_fcu_below_finalized_with_inconsistent_state(
     and yields VALID; but a5 is not on a2's chain so step 5 would yield
     ``-38002``, and a client that does not take the optional shortcut may
     treat the request as a backwards reorg and refuse with ``-38006`` (step
-    6). The spec orders step 2 first; clients differ (geth: VALID no-op;
-    reth 2.5.2: -38006) — recorded as disputed. Either way the head must not
-    move.
+    6). Which applies is unspecified (execution-apis#891), so the errors
+    are disputed. Either way the head must not move.
     """
     blocks, _, steps = linear_chain(pre, 10)
     steps.append(

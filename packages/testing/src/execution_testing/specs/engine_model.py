@@ -50,8 +50,8 @@ from execution_testing.fixtures.reorg import (
 )
 
 DISPUTED_HEAD_EQUALS_FINALIZED = (
-    "execution-apis#786: no-reorg shortcut applies to an *ancestor* of "
-    "finalized; head == finalized is unspecified"
+    "execution-apis#891: whether head == finalized is covered by the "
+    "no-reorg shortcut"
 )
 
 

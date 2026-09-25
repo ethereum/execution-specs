@@ -72,9 +72,8 @@ REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
 
 DISPUTED_ZERO_SAFE = (
-    "paris.md allows a zero finalizedBlockHash before finality but does "
-    "not say whether a zero safeBlockHash with a non-zero finalized is "
-    "legal; besu rejects it with -38002, nethermind/geth/reth accept it"
+    "execution-apis#892: whether a zero safeBlockHash is legal once a block "
+    "is finalized"
 )
 
 
