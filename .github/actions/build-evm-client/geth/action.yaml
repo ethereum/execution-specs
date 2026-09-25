@@ -6,7 +6,7 @@ inputs:
     required: true
     default: 'ethereum/go-ethereum'
   ref:
-    description: 'Reference to branch, commit, or tag to use to build the EVM binary'
+    description: 'Branch or full commit SHA to use to build the EVM binary'
     required: true
     default: 'master'
   golang:
@@ -16,13 +16,16 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Get latest geth commit
+    - name: Resolve geth commit
       id: geth-sha
       shell: bash
+      env:
+        GETH_REPOSITORY: ${{ inputs.repo }}
+        GETH_REF: ${{ inputs.ref }}
       run: |
-        SHA=$(git ls-remote https://github.com/${{ inputs.repo }}.git refs/heads/${{ inputs.ref }} | cut -f1)
-        echo "sha=$SHA" >> $GITHUB_OUTPUT
-        echo "Latest geth commit: $SHA"
+        SHA=$(python3 .github/scripts/resolve_git_ref.py "$GETH_REPOSITORY" "$GETH_REF")
+        echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+        echo "Resolved geth commit: $SHA"
     - name: Prepare cache target dir
       shell: bash
       run: mkdir -p "$GITHUB_WORKSPACE/go-ethereum/cmd/evm"

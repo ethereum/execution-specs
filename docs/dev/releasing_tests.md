@@ -12,9 +12,9 @@ gh workflow run release_fixtures.yaml -f feature=<feature> -f version=vX.Y.Z [-f
 
 | Input      | Required          | Description                                                                                          |
 | ---------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
-| `feature`  | yes               | Feature name, e.g. `tests`, `benchmark`, or a `<feat>-devnet` name.                                   |
+| `feature`  | yes               | Feature name, for example `tests`, `benchmark`, `zkevm-benchmark`, or a `<feat>-devnet` name.          |
 | `version`  | yes               | Release version `vX.Y.Z` (validated against `^v[0-9]+\.[0-9]+\.[0-9]+$`). Tagged as `tests-<feature>@<version>` (the `tests` feature tags as `tests@<version>`). |
-| `branch`   | for `*-devnet`    | Branch to build and release from (any branch). Defaults to the dispatch ref for other fresh fills; must be empty for [cached releases](#cached-releases). |
+| `branch`   | feature-dependent | Branch or source tag to release from. Required for devnet and zkEVM benchmark releases. Defaults to the dispatch ref for other fresh fills; must be empty for [cached releases](#cached-releases). |
 | `evm`      | no                | Override the evm impl (e.g. `geth`, `evmone`). Defaults to the feature's `evm-type` in `feature.yaml`. |
 | `evm_repo` | no                | Override the t8n tool repo (e.g. `ethereum/go-ethereum`).                                              |
 | `evm_ref`  | no                | Override the t8n tool branch / tag / commit.                                                          |
@@ -45,6 +45,24 @@ gh workflow run release_fixtures.yaml -f feature=frames-devnet -f version=v0.1.0
 !!! warning "The selected branch supplies the release scripts"
     The `setup` job checks out `branch` first and runs the input validation and build-matrix script from that tree, so `gh workflow run --ref` only selects the workflow file. The selected branch must itself contain the current release scripts: rebase it onto its `forks/<fork>` base (or cherry-pick the scripts onto it) before releasing. A stale branch also fills without whatever landed on the base since.
 
+## zkEVM benchmark releases
+
+Publish the source `tests-zkevm@vX.Y.Z` release before you make its benchmark release. The benchmark version must match the source version.
+
+```bash
+gh workflow run release_fixtures.yaml \
+  --ref 'tests-zkevm@vX.Y.Z' \
+  -f feature=zkevm-benchmark \
+  -f version=vX.Y.Z \
+  -f branch='tests-zkevm@vX.Y.Z'
+```
+
+The workflow uses the Geth repository and commit in `evm.yaml` by default. A releaser can use the existing `evm`, `evm_repo`, and `evm_ref` inputs to override that configuration.
+
+The workflow fills Amsterdam compute benchmarks at 10M, 30M, and 60M gas. It produces only `blockchain_test` fixtures.
+
+Before upload, the workflow checks the stateless data in each fixture. It also checks the source version and the destination release.
+
 ## What the workflow produces
 
 On success the workflow:
@@ -57,6 +75,7 @@ On success the workflow:
 | ---------------- | ------- | ------------- | -------- |
 | `feature=tests version=v24.0.0` | `tests@v24.0.0` | `tests@v24.0.0` | `fixtures.tar.gz` |
 | `feature=bal-devnet version=v7.0.0 branch=devnets/bal/7` | `tests-bal-devnet@v7.0.0` | `tests-bal-devnet@v7.0.0` | `fixtures_bal-devnet.tar.gz` |
+| `feature=zkevm-benchmark version=v0.9.0 branch=tests-zkevm@v0.9.0` | `tests-zkevm-benchmark@v0.9.0` | `tests-zkevm-benchmark@v0.9.0` | `fixtures_zkevm-benchmark.tar.gz` |
 | `feature=frames-devnet version=v0.1.0 branch=eips/amsterdam/eip-8141` | `tests-frames-devnet@v0.1.0` | `tests-frames-devnet@v0.1.0` | `fixtures_frames-devnet.tar.gz` |
 
 The release is created as a draft; review and publish it from the GitHub releases page.

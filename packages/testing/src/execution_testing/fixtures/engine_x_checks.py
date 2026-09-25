@@ -200,15 +200,17 @@ def _comparable_payload(payload: FixtureEngineNewPayload) -> Dict[str, Any]:
     Return the payload as a dict without state-root-derived values.
 
     The block access list is replaced by its decoded, parent-hash-masked
-    form, see `_comparable_bal`.
+    form, see `_comparable_bal`. Exclude the execution witness because its
+    trie nodes and ancestor headers depend on the genesis state.
     """
     entry = payload.model_dump(
         mode="json",
         by_alias=True,
         exclude={
+            "execution_witness": True,
             "params": {
                 0: set(STATE_ROOT_DERIVED_FIELDS) | {"block_access_list"}
-            }
+            },
         },
     )
     execution_payload = payload.params[0]

@@ -41,11 +41,13 @@ from execution_testing.base_types import (
     Hash,
     to_json,
 )
+from execution_testing.forks import Amsterdam, Fork
 from execution_testing.logging import (
     get_logger,
 )
 from execution_testing.test_types import Alloc
 
+from .engine_ssz import encode_witness_request
 from .rpc_types import (
     EthConfigResponse,
     ForkchoiceState,
@@ -56,6 +58,7 @@ from .rpc_types import (
     JSONRPCError,
     JSONRPCRequest,
     JSONRPCResponse,
+    NewPayloadWithWitnessResponse,
     PayloadAttributes,
     PayloadStatus,
     PayloadStatusEnum,
@@ -157,6 +160,21 @@ class ForkchoiceUpdateTimeoutError(Exception):
             f"final status: {final_status}"
         )
         super().__init__(msg)
+
+
+class EngineWitnessEndpointNotImplementedError(Exception):
+    """
+    Raised when the client does not implement the REST
+    ``/engine/v1/payloads/witness`` endpoint (HTTP 404 or 405).
+    """
+
+    def __init__(self, url: str, http_status: int):
+        """Initialize with endpoint URL and HTTP status."""
+        self.url = url
+        self.http_status = http_status
+        super().__init__(
+            f"REST endpoint not implemented at {url} (HTTP {http_status})"
+        )
 
 
 class NewPayloadTimeoutError(Exception):
@@ -1440,6 +1458,24 @@ class EngineRPC(BaseJwtRPC):
             context=self.response_validation_context,
         )
 
+    def new_payload_with_witness(
+        self,
+        *params: Any,
+        version: int,
+    ) -> NewPayloadWithWitnessResponse:
+        """
+        `engine_newPayloadWithWitnessVX`: execute the payload and decode the
+        payload status plus hex-encoded RLP execution witness.
+        """
+        method = f"newPayloadWithWitnessV{version}"
+        params_list = [to_json(param) for param in params]
+
+        result = self.post_request(
+            request=RPCCall(method=method, params=params_list)
+        ).result_or_raise()
+
+        return NewPayloadWithWitnessResponse.from_json_rpc_result(result)
+
     def new_payload_with_retry(
         self,
         *params: Any,
@@ -1650,6 +1686,122 @@ class EngineRPC(BaseJwtRPC):
             return response
 
         return _do_forkchoice_update()
+
+
+class EngineSSZRPC(BaseJwtRPC):
+    """Submit SSZ payload envelopes to the REST witness endpoint."""
+
+    path: ClassVar[str] = "/engine/v1/payloads/witness"
+    default_timeout: ClassVar[int] = 8
+
+    def check_witness_capability(self, fork: Fork) -> None:
+        """Require the endpoint and fork to be advertised before testing."""
+        url = self.url.rstrip("/") + "/engine/v1/capabilities"
+        response = self.session.get(
+            url,
+            headers={"Accept": "application/json"}
+            | self.namespace_extra_headers(),
+            timeout=self.default_timeout,
+        )
+        if response.status_code in (404, 405):
+            raise EngineWitnessEndpointNotImplementedError(
+                url, response.status_code
+            )
+        response.raise_for_status()
+        capabilities = response.json()
+        if "payloads/witness" not in capabilities.get(
+            "fork_scoped_endpoints", []
+        ) or fork.name().lower() not in capabilities.get(
+            "supported_forks", []
+        ):
+            raise EngineWitnessEndpointNotImplementedError(url, 200)
+
+    def post_witness_request(
+        self,
+        body: bytes,
+        *,
+        fork: Fork = Amsterdam,
+        timeout: int | None = None,
+    ) -> requests.Response:
+        """Send raw SSZ bytes, including malformed conformance-test inputs."""
+        return self.session.post(
+            self.url.rstrip("/") + self.path,
+            data=body,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "Accept": "application/octet-stream",
+                "Eth-Execution-Version": fork.name().lower(),
+            }
+            | self.namespace_extra_headers(),
+            timeout=self.default_timeout if timeout is None else timeout,
+            allow_redirects=False,
+        )
+
+    def new_payload_with_witness(
+        self,
+        *params: Any,
+        fork: Fork = Amsterdam,
+        timeout: int | None = None,
+    ) -> NewPayloadWithWitnessResponse:
+        """Submit a payload and validate its witness response and keys."""
+        if len(params) != 4:
+            raise ValueError("REST witness requires Amsterdam payload params")
+        payload, _blob_hashes, beacon_root, execution_requests = params
+        body = encode_witness_request(
+            payload, beacon_root, execution_requests, fork
+        )
+        url = self.url.rstrip("/") + self.path
+        response = self.post_witness_request(body, fork=fork, timeout=timeout)
+        if response.status_code != 200:
+            if response.status_code < 400:
+                raise ValueError(
+                    f"Unexpected HTTP status from {url}: "
+                    f"{response.status_code} (expected 200)"
+                )
+            # Map only errors with a specified legacy equivalent. New REST
+            # errors remain HTTP failures rather than invented JSON-RPC codes.
+            error_codes = {
+                "parse-error": (400, -32700),
+                "invalid-request": (400, -32600),
+                "ssz-decode-error": (400, None),
+                "unsupported-fork": (400, -38005),
+                "method-not-found": (404, -32601),
+                "unknown-payload": (404, -38001),
+                "invalid-forkchoice": (409, -38002),
+                "reorg-too-deep": (409, -38006),
+                "request-too-large": (413, -38004),
+                "unsupported-media-type": (415, None),
+                "invalid-body": (422, -32602),
+                "invalid-attributes": (422, -38003),
+                "internal": (500, -32603),
+            }
+            content_type = response.headers.get("Content-Type", "")
+            if content_type.split(";", 1)[0] == "application/problem+json":
+                problem = response.json()
+                error_type = problem.get("type", "")
+                prefix = "/engine-api/errors/"
+                entry = error_codes.get(error_type.removeprefix(prefix))
+                if error_type.startswith(prefix) and entry is not None:
+                    expected_status, code = entry
+                    if response.status_code != expected_status:
+                        raise ValueError(
+                            f"Unexpected HTTP status for {error_type}: "
+                            f"{response.status_code} "
+                            f"(expected {expected_status})"
+                        )
+                    if code is not None:
+                        raise JSONRPCError(
+                            code=code,
+                            message=problem.get("detail", error_type),
+                        )
+            response.raise_for_status()
+
+        content_type = response.headers.get("Content-Type", "")
+        if content_type.split(";", 1)[0] != "application/octet-stream":
+            raise ValueError(
+                f"Unexpected Content-Type from {url}: {content_type!r}"
+            )
+        return NewPayloadWithWitnessResponse.from_ssz_bytes(response.content)
 
 
 class NetRPC(BaseRPC):

@@ -10,6 +10,15 @@ from ethereum.cancun.blocks import Withdrawal
 
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
+from ethereum.forks.amsterdam.execution_engine.types import (
+    BlobsBundle,
+    GetPayloadResponse,
+    PayloadAttributes,
+)
+from ethereum.forks.amsterdam.stateless import (
+    NewPayloadRequestHeader,
+    ProtocolFork,
+)
 from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
@@ -166,6 +175,38 @@ RemoveDocstringCommand
 _configure_client_manager  # autouse fixture
 test_suite_name  # hive test suite name fixture
 genesis_header  # genesis header fixture
+
+# src/ethereum/forks/amsterdam/execution_engine/types.py - Engine API fields
+PayloadAttributes.suggested_fee_recipient
+BlobsBundle.commitments
+BlobsBundle.proofs
+BlobsBundle.blobs
+GetPayloadResponse.block_value
+GetPayloadResponse.blobs_bundle
+
+# src/ethereum/forks/amsterdam/stateless.py - stateless public API scaffolding
+NewPayloadRequestHeader
+NewPayloadRequestHeader.execution_payload_header
+ProtocolFork.Frontier
+ProtocolFork.Homestead
+ProtocolFork.DAOFork
+ProtocolFork.TangerineWhistle
+ProtocolFork.SpuriousDragon
+ProtocolFork.Byzantium
+ProtocolFork.StPetersburg
+ProtocolFork.Istanbul
+ProtocolFork.MuirGlacier
+ProtocolFork.Berlin
+ProtocolFork.London
+ProtocolFork.ArrowGlacier
+ProtocolFork.GrayGlacier
+ProtocolFork.Paris
+ProtocolFork.Shanghai
+ProtocolFork.Cancun
+ProtocolFork.Prague
+ProtocolFork.Osaka
+ProtocolFork.BPO1
+ProtocolFork.BPO2
 
 # packages/testing/src/execution_testing/evm_tools/t8n/evm_trace/
 # eip3155.py - EIP-3155 trace output field names, serialized to JSON

@@ -26,9 +26,14 @@ from ethereum.exceptions import (
     InvalidBlock,
     InvalidSenderError,
 )
-from ethereum.forks.bpo5.blocks import Header as PreviousHeader
+from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
 from ethereum.merkle_patricia_trie import root, trie_set
-from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff
+from ethereum.state import (
+    EMPTY_CODE_HASH,
+    Address,
+    BlockDiff,
+    PreState,
+)
 from ethereum.state_mpt import State, apply_changes_to_state
 
 from . import vm
@@ -67,6 +72,7 @@ from .state_tracker import (
     incorporate_tx_into_block,
     increment_nonce,
     set_account_balance,
+    track_ancestor_access,
 )
 from .transactions import (
     BlobTransaction,
@@ -153,7 +159,7 @@ class ChainContext:
     block_hashes: List[Hash32]
     """Recent ancestor hashes (up to 256) for the ``BLOCKHASH`` opcode."""
 
-    parent_header: Header | PreviousHeader
+    parent_header: Header | PreviousForkHeader
     """Parent header used for header validation and system contracts."""
 
 
@@ -273,7 +279,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
 
 def execute_block(
     block: Block,
-    pre_state: State,
+    pre_state: PreState,
     chain_context: ChainContext,
 ) -> BlockDiff:
     """
@@ -429,7 +435,7 @@ def calculate_base_fee_per_gas(
 
 
 def validate_header(
-    parent_header: Header | PreviousHeader, header: Header
+    parent_header: Header | PreviousForkHeader, header: Header
 ) -> None:
     """
     Verify a block header against its parent.
@@ -575,7 +581,11 @@ def check_transaction(
 
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
-    sender_code = get_code(tx_state, sender_account.code_hash)
+    sender_code = get_code(
+        tx_state,
+        sender_account.code_hash,
+        sender,
+    )
     if sender_account.code_hash != EMPTY_CODE_HASH and not is_valid_delegation(
         sender_code
     ):
@@ -705,6 +715,7 @@ def process_checked_system_transaction(
     system_contract_code = get_code(
         untracked_state,
         get_account(untracked_state, target_address).code_hash,
+        target_address,
     )
 
     if len(system_contract_code) == 0:
@@ -829,6 +840,10 @@ def apply_body(
         block_env=block_env,
         target_address=HISTORY_STORAGE_ADDRESS,
         data=block_env.block_hashes[-1],  # The parent hash
+    )
+    track_ancestor_access(
+        block_env.state,
+        Uint(1),
     )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):

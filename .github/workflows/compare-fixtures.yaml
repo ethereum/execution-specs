@@ -1,0 +1,93 @@
+name: Compare Fixtures
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "LICENSE*"
+      - ".gitignore"
+      - ".vscode/**"
+      - "whitelist.txt"
+      - "docs/**"
+      - "mkdocs.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fill-base:
+    name: Fill Fixtures (base)
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          submodules: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: false
+          version: ${{ vars.UV_VERSION }}
+      - name: Install dependencies
+        run: uv sync --no-progress
+      - name: Fill fixtures
+        run: uv run fill --clean -m "blockchain_test" --fork Amsterdam ./tests -n auto --output=fixtures_base --no-html
+      - name: Upload fixtures
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fixtures-base
+          path: fixtures_base/
+
+  fill-head:
+    name: Fill Fixtures (head)
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: false
+          version: ${{ vars.UV_VERSION }}
+      - name: Install dependencies
+        run: uv sync --no-progress
+      - name: Fill fixtures
+        run: uv run fill --clean -m "blockchain_test" --fork Amsterdam ./tests -n auto --output=fixtures_head --no-html
+      - name: Upload fixtures
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fixtures-head
+          path: fixtures_head/
+
+  compare:
+    name: Compare Fixture Hashes
+    runs-on: ubuntu-latest
+    needs: [fill-base, fill-head]
+    if: always() && needs.fill-base.result == 'success' && needs.fill-head.result == 'success'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+      - name: Install dependencies
+        run: uv sync --no-progress
+      - name: Download base fixtures
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+        with:
+          name: fixtures-base
+          path: fixtures_base/
+      - name: Download head fixtures
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+        with:
+          name: fixtures-head
+          path: fixtures_head/
+      - name: Compare fixture hashes
+        run: uv run hasher compare fixtures_base fixtures_head
