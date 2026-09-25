@@ -22,6 +22,7 @@ from execution_testing import (
     TransactionException,
     TransitionFork,
     compute_create_address,
+    create_op,
 )
 from execution_testing import Macros as Om
 
@@ -138,11 +139,7 @@ def test_max_code_size_via_create_fork_transition(
     size = code_size(fork)
     initcode_bytes = bytes(Op.RETURN(offset=0, size=size))
 
-    create_call = (
-        create_opcode(value=0, offset=0, size=len(initcode_bytes), salt=0)
-        if create_opcode == Op.CREATE2
-        else create_opcode(value=0, offset=0, size=len(initcode_bytes))
-    )
+    create_call = create_op(create_opcode, size=len(initcode_bytes))
     factory_code = (
         Om.MSTORE(initcode_bytes, 0) + Op.SSTORE(0, create_call) + Op.STOP
     )
@@ -295,11 +292,7 @@ def test_max_initcode_size_via_create_fork_transition(
     initcode_prologue = bytes(Op.RETURN(offset=0, size=0))
     initcode_bytes = initcode_prologue.ljust(size, b"\x00")
 
-    create_call = (
-        create_opcode(value=0, offset=0, size=size, salt=0)
-        if create_opcode == Op.CREATE2
-        else create_opcode(value=0, offset=0, size=size)
-    )
+    create_call = create_op(create_opcode, size=size)
     factory_code = (
         Om.MSTORE(initcode_prologue, 0) + Op.SSTORE(0, create_call) + Op.STOP
     )

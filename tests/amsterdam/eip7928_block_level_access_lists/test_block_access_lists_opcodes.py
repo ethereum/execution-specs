@@ -41,6 +41,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     compute_create_address,
+    create_op,
 )
 from execution_testing import Macros as Om
 
@@ -3847,13 +3848,7 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
     initcode_bytes = bytes(initcode)
 
     salt = 0
-    is_create2 = create_opcode == Op.CREATE2
-    if is_create2:
-        deploy_op = Op.CREATE2(
-            value=0, offset=0, size=Op.CALLDATASIZE, salt=salt
-        )
-    else:
-        deploy_op = Op.CREATE(value=0, offset=0, size=Op.CALLDATASIZE)
+    deploy_op = create_op(create_opcode, size=Op.CALLDATASIZE, salt=salt)
 
     factory_code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)

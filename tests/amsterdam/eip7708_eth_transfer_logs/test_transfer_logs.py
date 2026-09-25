@@ -30,8 +30,8 @@ from execution_testing import (
     Transaction,
     TransactionLog,
     TransactionReceipt,
-    compute_create2_address,
     compute_create_address,
+    create_op,
 )
 from execution_testing.base_types import ZeroPaddedHexNumber
 
@@ -421,38 +421,26 @@ def test_initcode_calls_with_value(
     initcode = Op.CALL(address=recipient, value=1) + Op.RETURN(0, 0)
     initcode_bytes = bytes(initcode)
 
-    # Use Initcode helper or direct memory setup for longer initcode
-    if create_opcode == Op.CREATE:
-        # Store initcode in memory using code copy approach
-        factory_code = (
-            Op.CODECOPY(
-                0,
-                Op.SUB(Op.CODESIZE, len(initcode_bytes)),
-                len(initcode_bytes),
-            )
-            + Op.CREATE(value=1, offset=0, size=len(initcode_bytes))
-            + Op.STOP
-        ) + initcode
-    else:
-        factory_code = (
-            Op.CODECOPY(
-                0,
-                Op.SUB(Op.CODESIZE, len(initcode_bytes)),
-                len(initcode_bytes),
-            )
-            + Op.CREATE2(value=1, offset=0, size=len(initcode_bytes), salt=0)
-            + Op.STOP
-        ) + initcode
+    # Store initcode in memory using code copy approach
+    factory_code = (
+        Op.CODECOPY(
+            0,
+            Op.SUB(Op.CODESIZE, len(initcode_bytes)),
+            len(initcode_bytes),
+        )
+        + create_op(create_opcode, value=1, size=len(initcode_bytes))
+        + Op.STOP
+    ) + initcode
 
     factory = pre.deploy_contract(factory_code, balance=2)
 
-    # Compute created address
-    if create_opcode == Op.CREATE:
-        created_address = compute_create_address(address=factory, nonce=1)
-    else:
-        created_address = compute_create2_address(
-            address=factory, salt=0, initcode=initcode_bytes
-        )
+    created_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode_bytes,
+        opcode=create_opcode,
+    )
 
     tx = Transaction(
         sender=sender,
@@ -696,26 +684,22 @@ def test_create_collision_no_log(
     initcode_len = len(initcode_bytes)
 
     # Deploy factory first to compute created address
-    if create_opcode == Op.CREATE:
-        factory_code = Op.MSTORE(
-            0, Op.PUSH32(initcode_bytes.rjust(32, b"\x00"))
-        ) + Op.CREATE(value=1, offset=32 - initcode_len, size=initcode_len)
-    else:
-        factory_code = Op.MSTORE(
-            0, Op.PUSH32(initcode_bytes.rjust(32, b"\x00"))
-        ) + Op.CREATE2(
-            value=1, offset=32 - initcode_len, size=initcode_len, salt=0
-        )
+    factory_code = Op.MSTORE(
+        0, Op.PUSH32(initcode_bytes.rjust(32, b"\x00"))
+    ) + create_op(
+        create_opcode, value=1, offset=32 - initcode_len, size=initcode_len
+    )
 
     factory = pre.deploy_contract(factory_code, balance=1)
 
     # Compute and pre-populate the collision address
-    if create_opcode == Op.CREATE:
-        collision_address = compute_create_address(address=factory, nonce=1)
-    else:
-        collision_address = compute_create2_address(
-            address=factory, salt=0, initcode=initcode_bytes
-        )
+    collision_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode_bytes,
+        opcode=create_opcode,
+    )
 
     # Pre-deploy contract at collision address to cause collision
     pre.deploy_contract(Op.STOP, address=collision_address)

@@ -36,6 +36,7 @@ from execution_testing import (
     Transaction,
     TransactionException,
     compute_create_address,
+    create_op,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -100,13 +101,9 @@ def test_create_execution_gas(
     # opcode's per-init-word charge.
     padded_init = b"\x00" * init_code_size
 
-    create_call = (
-        Op.CREATE2(value=0, offset=0, size=init_code_size, salt=0)
-        if create_opcode == Op.CREATE2
-        else Op.CREATE(value=0, offset=0, size=init_code_size)
-    )
+    create_call = create_op(create_opcode, size=init_code_size)
     push_cost = Op.PUSH1(0).execution_cost(fork)
-    arg_pushes = (4 if create_opcode == Op.CREATE2 else 3) * push_cost
+    arg_pushes = create_opcode.popped_stack_items * push_cost
 
     memory_setup = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE, new_memory_size=init_code_size)
