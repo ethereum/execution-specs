@@ -45,6 +45,7 @@ from .conversions import to_bytes, to_hex
 from .pydantic import CamelModel, EthereumTestBaseModel, EthereumTestRootModel
 from .reference_spec import ReferenceSpec
 from .serialization import (
+    KnownEncodedSize,
     RLPSerializable,
     SignableRLPSerializable,
     encoded_prefixed_size,
@@ -81,6 +82,7 @@ __all__ = (
     "Number",
     "NumberBoundTypeVar",
     "ReferenceSpec",
+    "KnownEncodedSize",
     "RLPSerializable",
     "SignableRLPSerializable",
     "encoded_prefixed_size",

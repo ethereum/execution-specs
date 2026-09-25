@@ -28,6 +28,16 @@ def to_serializable_element(v: Any) -> Any:
     raise Exception(f"Unable to serialize element {v} of type {type(v)}.")
 
 
+class KnownEncodedSize:
+    """Stand in for an item whose encoded size is already known."""
+
+    __slots__ = ("size",)
+
+    def __init__(self, size: int) -> None:
+        """Record the encoded size of the item this stands in for."""
+        self.size = size
+
+
 def encoded_prefixed_size(payload_size: int) -> int:
     """
     Return the encoded size of an item with a payload of `payload_size`
@@ -63,9 +73,10 @@ def encoded_size(raw_data: Any) -> int:
     """
     Return `len(eth_rlp.encode(raw_data))` without building the encoding.
 
-    This covers the same cases as `ethereum_rlp.encode`, so measuring the
-    size of a large structure costs a walk over it instead of megabytes of
-    intermediate byte strings. The concrete types come first: the abstract
+    This covers the same cases as `ethereum_rlp.encode`, plus
+    `KnownEncodedSize` placeholders, so measuring the size of a large
+    structure costs a walk over it instead of megabytes of intermediate byte
+    strings. The concrete types come first: the abstract
     `Sequence` check is slow enough to dominate the walk.
     """
     if isinstance(raw_data, (bytearray, bytes)):
@@ -74,6 +85,8 @@ def encoded_size(raw_data: Any) -> int:
         return _encoded_sequence_size(raw_data)
     elif isinstance(raw_data, (Uint, FixedUnsigned)):
         return _encoded_unsigned_size(int(raw_data))
+    elif isinstance(raw_data, KnownEncodedSize):
+        return raw_data.size
     elif isinstance(raw_data, bool):
         return 1
     elif isinstance(raw_data, str):
