@@ -432,36 +432,31 @@ class StepRunner:
                 )
             logger.info(f"{name}: {tag} == {label}")
 
+    def _check_canonical(
+        self, name: str, number: int, label: str | None
+    ) -> None:
+        """Fail unless ``label`` (``None``: no block) is at ``number``."""
+        block = self.eth.get_block_by_number(number)
+        got = Hash(block["hash"]) if block else None
+        want = None if label is None else self.resolve(label)
+        if got != want:
+            raise LoggedError(
+                f"{name}: block {number} is {self.label_of(got)} "
+                f"({got}), expected {label} ({want})"
+            )
+
     def assert_canonical(self, name: str, step: AssertCanonicalStep) -> None:
         """Check the block at each height via ``eth_getBlockByNumber``."""
         for number, label in step.blocks.items():
-            block = self.eth.get_block_by_number(int(number))
-            got = Hash(block["hash"]) if block else None
-            want = None if label is None else self.resolve(label)
-            if got != want:
-                raise LoggedError(
-                    f"{name}: block {int(number)} is {self.label_of(got)} "
-                    f"({got}), expected {label} ({want})"
-                )
+            self._check_canonical(name, int(number), label)
             logger.info(f"{name}: block {int(number)} == {label}")
 
     def assert_state(self, name: str, step: AssertStateStep) -> None:
         """Check account fields via ``eth_getBalance`` and friends."""
-        at: Any
-        if step.at == "latest":
-            at = "latest"
-        else:
-            number = self.block_number(step.at)
-            want_hash = self.resolve(step.at)
-            block = self.eth.get_block_by_number(number)
-            got_hash = Hash(block["hash"]) if block else None
-            if got_hash != want_hash:
-                raise LoggedError(
-                    f"{name}: block {number} is {self.label_of(got_hash)} "
-                    f"({got_hash}), not canonical {step.at} ({want_hash}); "
-                    "state of a superseded block cannot be checked"
-                )
-            at = number
+        at: Any = step.at
+        if step.at != "latest":
+            at = self.block_number(step.at)
+            self._check_canonical(name, at, step.at)
         for address, expected in step.accounts.items():
             if expected.balance is not None:
                 got_balance = self.eth.get_balance(address, at)

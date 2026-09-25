@@ -133,7 +133,7 @@ The wait between the build request and `engine_getPayloadVX` is a consumer optio
 
 #### `assertState`
 
-- `at`: `String` — block label (that block's own state; it must be canonical when the step runs, or the consumer fails with a clear error), `"genesis"`, or `"latest"`. Default `"latest"`.
+- `at`: `String` — block label or `"genesis"` (that block's own state; it must be canonical when the step runs), or `"latest"`. Default `"latest"`.
 - `accounts`: [`Mapping`](./common_types.md#mapping)`[`[`Address`](./common_types.md#address)`,`[`AccountExpectation`](#accountexpectation)`]`.
 
 #### `assertReceipt`

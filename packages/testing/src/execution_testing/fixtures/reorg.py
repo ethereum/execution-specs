@@ -64,8 +64,11 @@ def _reject_reserved_label(label: str) -> str:
 BlockLabel = Annotated[str, AfterValidator(_reject_reserved_label)]
 """An authored block label: any string except a reserved name."""
 
-HashRef = Union[BlockLabel, Literal["genesis", "zero"]]
-"""A block-hash reference: an authored label, ``"genesis"``, or ``"zero"``."""
+BlockRef = Union[BlockLabel, Literal["genesis"]]
+"""A block: an authored label or ``"genesis"``."""
+
+HashRef = Union[BlockRef, Literal["zero"]]
+"""A block-hash reference: a block or ``"zero"``."""
 
 
 class Outcome(CamelModel):
@@ -190,7 +193,7 @@ class GetPayloadStep(StepBase):
     bind: BlockLabel
     """New label for the built payload (usable in later steps)."""
     version: Number | None = None
-    parent: BlockLabel | Literal["genesis"]
+    parent: BlockRef
     """Expected parent of the built payload."""
     transactions_include: List[TxRef] = Field(default_factory=list)
     """Transactions that must be in the built payload."""
@@ -202,9 +205,9 @@ class AssertHeadStep(StepBase):
     """Assert ``eth_getBlockByNumber`` for latest / safe / finalized."""
 
     type: Literal["assertHead"] = "assertHead"
-    latest: str | None = None
-    safe: str | None = None
-    finalized: str | None = None
+    latest: BlockRef | None = None
+    safe: BlockRef | None = None
+    finalized: BlockRef | None = None
 
 
 class AssertCanonicalStep(StepBase):
@@ -215,7 +218,7 @@ class AssertCanonicalStep(StepBase):
     """
 
     type: Literal["assertCanonical"] = "assertCanonical"
-    blocks: Dict[HexNumber, str | None]
+    blocks: Dict[HexNumber, BlockRef | None]
 
 
 class AccountExpectation(CamelModel):
@@ -230,11 +233,8 @@ class AssertStateStep(StepBase):
     """Assert account state via ``eth_getBalance`` etc. at a block."""
 
     type: Literal["assertState"] = "assertState"
-    at: BlockLabel | Literal["genesis", "latest"] = "latest"
-    """
-    Block label (that block's own state; it must be canonical when the
-    step runs, or the consumer fails the check) or ``"latest"``.
-    """
+    at: BlockRef | Literal["latest"] = "latest"
+    """Block whose own state is read; it must be canonical at that point."""
     accounts: Dict[Address, AccountExpectation]
 
 
@@ -248,7 +248,7 @@ class AssertReceiptStep(StepBase):
 
     type: Literal["assertReceipt"] = "assertReceipt"
     tx: TxRef
-    block: str | None = None
+    block: BlockLabel | None = None
     status: HexNumber | None = None
 
 
@@ -264,7 +264,7 @@ class AssertLogsStep(StepBase):
     address: Address | None = None
     from_block: HexNumber | Literal["earliest"] = "earliest"
     to_block: HexNumber | Literal["latest"] = "latest"
-    blocks: List[str]
+    blocks: List[BlockLabel]
 
 
 class SendRawTransactionStep(StepBase):
@@ -286,7 +286,7 @@ class AssertTxStatusStep(StepBase):
     type: Literal["assertTxStatus"] = "assertTxStatus"
     tx: TxRef
     expect: List[Literal["included", "pending", "dropped"]]
-    included_in: str | None = None
+    included_in: BlockLabel | None = None
     """If ``included`` matches, the block label it must be included in."""
 
 
@@ -313,7 +313,7 @@ ForkchoiceUpdatedStep.model_rebuild()
 class FixtureReorgBlock(CamelModel):
     """A block of the DAG: its parent label and engine payload."""
 
-    parent: str
+    parent: BlockRef
     payload: FixtureNewPayloadRequest
 
     @property

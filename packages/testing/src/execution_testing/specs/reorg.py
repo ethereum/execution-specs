@@ -50,6 +50,7 @@ from execution_testing.fixtures.reorg import (
     AssertStateStep,
     AssertTxStatusStep,
     BlockLabel,
+    BlockRef,
     FixtureReorgBlock,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
@@ -79,7 +80,7 @@ class ReorgBlock(Block):
     """
 
     label: BlockLabel
-    parent: str | None = None
+    parent: BlockRef | None = None
     payload_block_hash: Hash | None = None
     """Override ``blockHash`` in the engine payload only (hash mismatch)."""
     payload_parent_hash: Hash | None = None
@@ -217,7 +218,7 @@ class ReorgTest(BlockchainTest):
                 if ref not in labels and ref != ZERO_LABEL:
                     raise ValueError(f"step references unknown label {ref!r}")
             for tx_ref in tx_refs:
-                if tx_ref.block not in labels or tx_ref.block == GENESIS_LABEL:
+                if tx_ref.block not in labels:
                     raise ValueError(
                         f"step references transaction of unknown block "
                         f"{tx_ref.block!r}"
