@@ -14,16 +14,18 @@ Rules follow `execution-apis` ``paris.md`` as amended by PR #786:
   INVALID with a null ``latestValidHash`` (or ``INVALID_BLOCK_HASH``), checked
   before the parent is looked up; unknown parent → SYNCING; execution-invalid
   → INVALID with ``latestValidHash`` = last valid ancestor; child of a
-  known-invalid block →
-  INVALID (lvh = last valid ancestor) or SYNCING; extends head → VALID;
-  known parent on a side chain → VALID or ACCEPTED.
-- ``forkchoiceUpdated``: unknown head → SYNCING; invalid head → INVALID; safe
-  or finalized not on head's chain → ``-38002``; head is a VALID ancestor of
-  the latest known finalized block → VALID no-op; head extends current head →
-  VALID; otherwise (rewind or side-chain reorg) → VALID (applied) or
-  ``-38006`` (refused, implementation-specific depth cap). A call that ends in
-  an error leaves the forkchoice state untouched, since every update
-  resulting from the call has to be applied atomically -- except
+  known-invalid (confirmed, or received-but-unconfirmed and ground-truth
+  invalid) block → INVALID (lvh = last valid ancestor) or SYNCING; extends
+  head → VALID; known parent on a side chain → VALID or ACCEPTED.
+- ``forkchoiceUpdated``: unknown head → SYNCING; received-but-unconfirmed
+  ground-truth-invalid head → INVALID or SYNCING; confirmed-invalid head →
+  INVALID; safe or finalized not on head's chain → ``-38002``; head is a
+  VALID ancestor of the latest known finalized block → VALID no-op; head
+  extends current head → VALID; otherwise (rewind or side-chain reorg) →
+  VALID (applied) or ``-38006`` (refused, implementation-specific depth
+  cap). A call that ends in an error leaves the forkchoice state
+  untouched, since every update resulting from the call has to be
+  applied atomically -- except
   ``-38003`` (invalid payload attributes), which fails only the requested
   build; the forkchoice state itself is still updated first.
 
@@ -32,6 +34,7 @@ author-provided set.
 """
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Dict, List, Optional, Set, Union
 
 from execution_testing.base_types import Number
@@ -106,20 +109,36 @@ class ModelDag:
         return all(self.valid.get(a, True) for a in self.ancestors(label))
 
 
+class Validity(Enum):
+    """
+    What the model has learned about a block via ``newPayload`` responses.
+
+    ``ACCEPTED`` never establishes execution validity by itself — it only
+    means the client has *received* the payload, not validated it (e.g. an
+    unlinked side-chain block). ``RECEIVED`` tracks that distinction so a
+    later step targeting that block still gets the right legal outcomes;
+    ``VALID``/``INVALID`` are the confirmed states.
+    """
+
+    RECEIVED = "received"
+    VALID = "valid"
+    INVALID = "invalid"
+
+
 @dataclass
 class ClientModel:
     """Simulated client forkchoice state."""
 
     dag: ModelDag
-    known: Dict[str, bool] = field(default_factory=dict)
-    """label -> known validity (True valid, False invalid)."""
+    known: Dict[str, Validity] = field(default_factory=dict)
+    """label -> what the model has learned about it (see ``Validity``)."""
     head: str = GENESIS_LABEL
     safe: str = ZERO_LABEL
     finalized: str = ZERO_LABEL
 
     def __post_init__(self) -> None:
         """Genesis is always known and valid."""
-        self.known.setdefault(GENESIS_LABEL, True)
+        self.known.setdefault(GENESIS_LABEL, Validity.VALID)
 
     # -- newPayload -----------------------------------------------------
 
@@ -142,7 +161,12 @@ class ClientModel:
             ]
         if parent not in self.known:
             return [Outcome(id="syncing", status="SYNCING")]
-        if not self.known[parent]:
+        parent_state = self.known[parent]
+        if parent_state == Validity.RECEIVED and not self.dag.fully_valid(
+            parent
+        ):
+            parent_state = Validity.INVALID
+        if parent_state == Validity.INVALID:
             lva = self.dag.last_valid_ancestor(parent)
             return [
                 Outcome(id="invalid", status="INVALID", latest_valid_hash=lva),
@@ -179,16 +203,20 @@ class ClientModel:
         """
         Update model state after ``newPayload``.
 
-        A block that may be INVALID (itself or via a known-invalid ancestor)
-        is recorded as known-invalid: clients that cache bad blocks answer
-        INVALID for its descendants, others SYNCING — both remain legal for
-        every descendant, so the chain must never become canonical.
+        A block whose response confirms VALID or INVALID is recorded as
+        such; ACCEPTED-only never confirms validity, only that the client
+        has received the payload (``Validity.RECEIVED``); descendants of a
+        confirmed-INVALID (or ground-truth-invalid RECEIVED) block remain
+        legal as INVALID or SYNCING, so the chain must never become
+        canonical.
         """
         statuses = {o.status for o in outcomes}
-        if statuses & {"VALID", "ACCEPTED"}:
-            self.known[block] = True
+        if "VALID" in statuses:
+            self.known[block] = Validity.VALID
         elif "INVALID" in statuses:
-            self.known[block] = False
+            self.known[block] = Validity.INVALID
+        elif "ACCEPTED" in statuses:
+            self.known[block] = Validity.RECEIVED
         # SYNCING-only: block remains unknown.
 
     # -- forkchoiceUpdated ----------------------------------------------
@@ -225,7 +253,20 @@ class ClientModel:
         head = step.head
         if head not in self.known:
             return [Outcome(id="syncing", status="SYNCING")]
-        if not self.known[head]:
+        head_state = self.known[head]
+        if head_state == Validity.RECEIVED:
+            if not self.dag.fully_valid(head):
+                lva = self.dag.last_valid_ancestor(head)
+                return [
+                    Outcome(
+                        id="invalid", status="INVALID", latest_valid_hash=lva
+                    ),
+                    Outcome(id="syncing", status="SYNCING"),
+                ]
+            # Ground-truth valid: SYNCING is never legal once received, so
+            # this falls through to the same outcomes as a confirmed VALID.
+            head_state = Validity.VALID
+        if head_state == Validity.INVALID:
             return [
                 Outcome(
                     id="invalid",

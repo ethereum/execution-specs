@@ -14,7 +14,7 @@ from execution_testing.fixtures.reorg import (
     Step,
 )
 
-from ..engine_model import ClientModel, ModelDag, annotate_steps
+from ..engine_model import ClientModel, ModelDag, Validity, annotate_steps
 
 
 def dag_linear_with_fork() -> ModelDag:
@@ -64,14 +64,14 @@ def test_new_payload_extends_head_is_valid_only() -> None:  # noqa: D103
 
 def test_new_payload_side_chain_valid_or_accepted() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "a2": True})
+    model.known.update({"a1": Validity.VALID, "a2": Validity.VALID})
     model.head = "a2"
     assert ids(model.new_payload_outcomes("b2")) == ["valid", "accepted"]
 
 
 def test_new_payload_invalid_block() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "b2": True})
+    model.known.update({"a1": Validity.VALID, "b2": Validity.VALID})
     model.head = "b2"
     outcomes = model.new_payload_outcomes("b3")
     assert ids(outcomes) == ["invalid"]
@@ -84,7 +84,9 @@ def test_new_payload_child_of_known_invalid() -> None:  # noqa: D103
     dag.parent["b4"] = "b3"
     dag.valid["b4"] = True
     model = ClientModel(dag=dag)
-    model.known.update({"a1": True, "b2": True, "b3": False})
+    model.known.update(
+        {"a1": Validity.VALID, "b2": Validity.VALID, "b3": Validity.INVALID}
+    )
     outcomes = model.new_payload_outcomes("b4")
     assert ids(outcomes) == ["invalid", "syncing"]
     assert outcomes[0].latest_valid_hash == "b2"
@@ -106,7 +108,7 @@ def test_fcu_unknown_head_is_syncing() -> None:  # noqa: D103
 
 def test_fcu_extend_head_is_applied_only() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known["a1"] = True
+    model.known["a1"] = Validity.VALID
     step = ForkchoiceUpdatedStep(head="a1")
     outcomes = model.forkchoice_outcomes(step)
     assert ids(outcomes) == ["applied"]
@@ -116,7 +118,9 @@ def test_fcu_extend_head_is_applied_only() -> None:  # noqa: D103
 
 def test_fcu_side_chain_reorg_applied_or_refused() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "a2": True, "b2": True})
+    model.known.update(
+        {"a1": Validity.VALID, "a2": Validity.VALID, "b2": Validity.VALID}
+    )
     model.head = "a2"
     outcomes = model.forkchoice_outcomes(ForkchoiceUpdatedStep(head="b2"))
     assert ids(outcomes) == ["applied", "refused"]
@@ -125,7 +129,9 @@ def test_fcu_side_chain_reorg_applied_or_refused() -> None:  # noqa: D103
 
 def test_fcu_rewind_to_canonical_ancestor_above_finalized() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "a2": True, "a3": True})
+    model.known.update(
+        {"a1": Validity.VALID, "a2": Validity.VALID, "a3": Validity.VALID}
+    )
     model.head = "a3"
     model.finalized = "a1"
     # a2 is above finalized: the update has to be applied, or refused with
@@ -138,7 +144,14 @@ def test_fcu_rewind_to_canonical_ancestor_above_finalized() -> None:  # noqa: D1
 
 def test_fcu_error_leaves_forkchoice_state_untouched() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "a2": True, "a3": True, "b2": True})
+    model.known.update(
+        {
+            "a1": Validity.VALID,
+            "a2": Validity.VALID,
+            "a3": Validity.VALID,
+            "b2": Validity.VALID,
+        }
+    )
     model.head, model.safe, model.finalized = "a3", "a2", "a1"
     step = ForkchoiceUpdatedStep(head="b2", safe="a3", finalized="a1")
     outcomes = model.forkchoice_outcomes(step)
@@ -154,7 +167,9 @@ def test_fcu_error_leaves_forkchoice_state_untouched() -> None:  # noqa: D103
 
 def test_fcu_ancestor_of_finalized_is_noop() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "a2": True, "a3": True})
+    model.known.update(
+        {"a1": Validity.VALID, "a2": Validity.VALID, "a3": Validity.VALID}
+    )
     model.head = "a3"
     model.finalized = "a2"
     outcomes = model.forkchoice_outcomes(
@@ -166,7 +181,9 @@ def test_fcu_ancestor_of_finalized_is_noop() -> None:  # noqa: D103
 
 def test_fcu_head_equals_finalized_is_disputed() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "a2": True, "a3": True})
+    model.known.update(
+        {"a1": Validity.VALID, "a2": Validity.VALID, "a3": Validity.VALID}
+    )
     model.head = "a3"
     model.finalized = "a2"
     outcomes = model.forkchoice_outcomes(
@@ -178,7 +195,9 @@ def test_fcu_head_equals_finalized_is_disputed() -> None:  # noqa: D103
 
 def test_fcu_inconsistent_finalized_is_error() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "a2": True, "b2": True})
+    model.known.update(
+        {"a1": Validity.VALID, "a2": Validity.VALID, "b2": Validity.VALID}
+    )
     model.head = "a2"
     outcomes = model.forkchoice_outcomes(
         ForkchoiceUpdatedStep(head="a2", finalized="b2")
@@ -189,7 +208,9 @@ def test_fcu_inconsistent_finalized_is_error() -> None:  # noqa: D103
 
 def test_fcu_invalid_head() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "b2": True, "b3": False})
+    model.known.update(
+        {"a1": Validity.VALID, "b2": Validity.VALID, "b3": Validity.INVALID}
+    )
     outcomes = model.forkchoice_outcomes(ForkchoiceUpdatedStep(head="b3"))
     assert ids(outcomes) == ["invalid"]
     assert outcomes[0].latest_valid_hash == "b2"
@@ -228,7 +249,9 @@ def test_annotate_fills_expect_and_head_assertions() -> None:  # noqa: D103
 
 def test_annotate_does_not_widen_author_expectations() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "a2": True, "b2": True})
+    model.known.update(
+        {"a1": Validity.VALID, "a2": Validity.VALID, "b2": Validity.VALID}
+    )
     model.head = "a2"
     step = ForkchoiceUpdatedStep(
         head="b2",
@@ -242,7 +265,7 @@ def test_annotate_does_not_widen_author_expectations() -> None:  # noqa: D103
 
 def test_annotate_requires_version_map_when_unset() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known["a1"] = True
+    model.known["a1"] = Validity.VALID
     with pytest.raises(ValueError):
         annotate_steps([ForkchoiceUpdatedStep(head="a1")], model)
 
@@ -283,7 +306,9 @@ def test_annotate_marks_head_moved_for_applied_vs_noop() -> None:  # noqa: D103
     # head == finalized is the one position where both applying the update
     # and skipping it are legal, so they must be told apart by the head.
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "a2": True, "a3": True})
+    model.known.update(
+        {"a1": Validity.VALID, "a2": Validity.VALID, "a3": Validity.VALID}
+    )
     model.head, model.finalized = "a3", "a1"
     steps = annotate_steps(
         [ForkchoiceUpdatedStep(head="a1", finalized="a1", version=3)], model
@@ -309,7 +334,7 @@ def test_np_hash_invalid_precedes_parent_lookup() -> None:
     assert ids(outcomes) == ["invalid", "invalid_block_hash"]
     assert outcomes[0].latest_valid_hash == "null"
     # Same answer once the parent is known and valid.
-    model.known.update({"a1": True, "b2": True})
+    model.known.update({"a1": Validity.VALID, "b2": Validity.VALID})
     assert ids(model.new_payload_outcomes("b3")) == [
         "invalid",
         "invalid_block_hash",
@@ -348,11 +373,9 @@ def test_annotate_rejects_unmatched_new_payload_branch_key() -> None:
 def test_annotate_rejects_unmatched_forkchoice_branch_key() -> None:
     """A branch key that names no forkchoiceUpdated outcome id is rejected."""
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known["a1"] = True
+    model.known["a1"] = Validity.VALID
     steps: List[Step] = [
-        ForkchoiceUpdatedStep(
-            head="a1", version=3, branches={"aplied": []}
-        ),
+        ForkchoiceUpdatedStep(head="a1", version=3, branches={"aplied": []}),
     ]
     with pytest.raises(ValueError, match="aplied"):
         annotate_steps(steps, model)
@@ -365,7 +388,7 @@ def test_forkchoice_effect_follows_head_moved_not_id() -> None:
     headMoved says so.
     """
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "b2": True})
+    model.known.update({"a1": Validity.VALID, "b2": Validity.VALID})
     model.head = "a1"
     step = ForkchoiceUpdatedStep(head="b2", version=3)
     outcome = Outcome(
@@ -385,7 +408,14 @@ def test_forkchoice_effect_applies_reth_disputed_fork_behind_finalized() -> (
     (narrower) classification of the request.
     """
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "a2": True, "a3": True, "b2": True})
+    model.known.update(
+        {
+            "a1": Validity.VALID,
+            "a2": Validity.VALID,
+            "a3": Validity.VALID,
+            "b2": Validity.VALID,
+        }
+    )
     model.head = "a3"
     model.finalized = "a3"
     step = ForkchoiceUpdatedStep(head="b2", safe="b2", finalized="a3")
@@ -406,7 +436,7 @@ def test_invalid_payload_attributes_still_applies_forkchoice() -> None:
     """
     for outcome_id in ("bad_attributes", "invalid_timestamp"):
         model = ClientModel(dag=dag_linear_with_fork())
-        model.known["a1"] = True
+        model.known["a1"] = Validity.VALID
         step = ForkchoiceUpdatedStep(head="a1", version=3)
         outcome = Outcome(
             id=outcome_id,
@@ -419,7 +449,14 @@ def test_invalid_payload_attributes_still_applies_forkchoice() -> None:
 def test_fcu_error_leaves_forkchoice_state_untouched_still_passes() -> None:
     """The existing -38002 unchanged-state behavior is not affected."""
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update({"a1": True, "a2": True, "a3": True, "b2": True})
+    model.known.update(
+        {
+            "a1": Validity.VALID,
+            "a2": Validity.VALID,
+            "a3": Validity.VALID,
+            "b2": Validity.VALID,
+        }
+    )
     model.head, model.safe, model.finalized = "a3", "a2", "a1"
     step = ForkchoiceUpdatedStep(head="b2", safe="a3", finalized="a1")
     outcomes = model.forkchoice_outcomes(step)
@@ -450,3 +487,48 @@ def test_annotate_single_outcome_branch_updates_known_map() -> None:
     fcu = steps[1]
     assert isinstance(fcu, ForkchoiceUpdatedStep)
     assert ids(fcu.expect) == ["applied"]
+
+
+def test_accepted_does_not_establish_validity() -> None:
+    """
+    ACCEPTED alone never confirms execution validity: a client may answer
+    ACCEPTED for a side-chain block it has received but not fully executed,
+    even one that is ground-truth invalid. A later forkchoiceUpdated
+    targeting it must still offer INVALID, never silently accept it as
+    VALID (``applied``).
+    """
+    dag = ModelDag(
+        parent={"a1": "genesis", "bad": "a1"},
+        valid={"a1": True, "bad": False},
+    )
+    model = ClientModel(dag=dag)
+    model.known["a1"] = Validity.VALID
+    model.apply_new_payload(
+        "bad", [Outcome(id="accepted", status="ACCEPTED")]
+    )
+    assert model.known["bad"] == Validity.RECEIVED
+    outcomes = model.forkchoice_outcomes(ForkchoiceUpdatedStep(head="bad"))
+    assert ids(outcomes) == ["invalid", "syncing"]
+    assert outcomes[0].latest_valid_hash == "a1"
+
+
+def test_received_ground_truth_valid_acts_like_valid() -> None:
+    """
+    RECEIVED (ACCEPTED-only) is treated exactly like VALID once ground
+    truth confirms the block really is valid: SYNCING is not offered for
+    a forkchoiceUpdated to that head, nor for a newPayload of its child.
+    """
+    dag = ModelDag(
+        parent={"a1": "genesis", "b1": "a1", "b2": "b1"},
+        valid={"a1": True, "b1": True, "b2": True},
+    )
+    model = ClientModel(dag=dag)
+    model.known["a1"] = Validity.VALID
+    model.apply_new_payload(
+        "b1", [Outcome(id="accepted", status="ACCEPTED")]
+    )
+    assert model.known["b1"] == Validity.RECEIVED
+    fcu_outcomes = model.forkchoice_outcomes(ForkchoiceUpdatedStep(head="b1"))
+    assert ids(fcu_outcomes) == ["applied"]
+    np_outcomes = model.new_payload_outcomes("b2")
+    assert ids(np_outcomes) == ["valid", "accepted"]
