@@ -105,8 +105,10 @@ def test_fill_sibling_and_invalid_child(
     # the correct post-state so its own header is internally consistent.
     assert p["i2"].state_root == Hash(1)
     assert p["i3"].state_root != Hash(1)
-    assert blocks["i2"].payload.validation_error is not None
-    assert blocks["i3"].payload.validation_error is None
+    # Stored block payloads carry only the newPayload request (params and
+    # version); response/fill-time-internal fields are not serialized.
+    dumped_payload = fixture.json_dict_with_info()["blocks"]["i2"]["payload"]
+    assert set(dumped_payload) == {"params", "newPayloadVersion"}
 
     # Model annotations.
     steps = fixture.steps

@@ -36,6 +36,7 @@ from execution_testing.fixtures import (
 from execution_testing.fixtures.blockchain import (
     FixtureBlobSchedule,
     FixtureConfig,
+    FixtureNewPayloadRequest,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.fixtures.reorg import (
@@ -322,7 +323,11 @@ class ReorgTest(BlockchainTest):
                 params[0] = params[0].model_copy(update=overrides)
                 payload = payload.model_copy(update={"params": tuple(params)})
             fixture_blocks[block.label] = FixtureReorgBlock(
-                parent=parent, payload=payload
+                parent=parent,
+                payload=FixtureNewPayloadRequest(
+                    params=payload.params,
+                    new_payload_version=payload.new_payload_version,
+                ),
             )
             dag_parent[block.label] = parent
             dag_valid[block.label] = (

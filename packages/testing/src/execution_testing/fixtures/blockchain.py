@@ -681,14 +681,22 @@ class PayloadAttributes(CamelModel):
         )
 
 
-class FixtureEngineNewPayload(CamelModel):
+class FixtureNewPayloadRequest(CamelModel):
+    """
+    Request-only `engine_newPayloadVX` data: the version-dependent
+    parameter tuple and the method version used to send it.
+    """
+
+    params: EngineNewPayloadParameters
+    new_payload_version: Number
+
+
+class FixtureEngineNewPayload(FixtureNewPayloadRequest):
     """
     Representation of the `engine_newPayloadVX` information to be sent using
     the block information.
     """
 
-    params: EngineNewPayloadParameters
-    new_payload_version: Number
     forkchoice_updated_version: Number
     validation_error: ExceptionInstanceOrList | None = None
     error_code: (

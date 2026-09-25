@@ -37,8 +37,8 @@ from execution_testing.forks import Fork, Paris, TransitionFork
 from .base import BaseFixture
 from .blockchain import (
     FixtureConfig,
-    FixtureEngineNewPayload,
     FixtureHeader,
+    FixtureNewPayloadRequest,
     PayloadAttributes,
     PayloadStatusEnum,
 )
@@ -273,7 +273,7 @@ class FixtureReorgBlock(CamelModel):
     """A block of the DAG: its parent label and engine payload."""
 
     parent: str
-    payload: FixtureEngineNewPayload
+    payload: FixtureNewPayloadRequest
 
     @property
     def block_hash(self) -> Hash:

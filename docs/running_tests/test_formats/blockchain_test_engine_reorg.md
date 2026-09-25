@@ -76,9 +76,9 @@ Free-form metadata about the test (e.g. `class`,`reorgDepth`) for offline analys
 
 Label of the parent block (`"genesis"` for a block extending the genesis block).
 
-#### - `payload`: [`FixtureEngineNewPayload`](./blockchain_test_engine.md#fixtureenginenewpayload)
+#### - `payload`: `FixtureNewPayloadRequest`
 
-The block's `engine_newPayloadVX` directive.
+The block's `engine_newPayloadVX` request: `params` (version-dependent parameter tuple, see [`FixtureEngineNewPayload`](./blockchain_test_engine.md#fixtureenginenewpayload)) and `newPayloadVersion`. Response expectations live on the steps that send this block, not on the stored block itself.
 
 ### `Step`
 
