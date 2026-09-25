@@ -12,14 +12,7 @@ Every block in the DAG names its parent by label instead of relying on list orde
 
 Each step's `expect` field is a list of legal outcomes (the [Engine API reference model](../../library/execution_testing_specs.md) fills it in at fill time for any step an author left unannotated, deriving the outcomes the [execution-apis](https://github.com/ethereum/execution-apis) specification allows a conformant client to return); the consumer selects the first outcome matching the observed response and runs that outcome's `branches` steps.
 
-A passing fixture establishes conformance, not merely one client's observed
-behavior: every outcome listed in a step's `expect` — model-filled or
-hand-authored — must be spec-permitted at that point in the DAG. Where the
-specification is genuinely ambiguous, an outcome may be marked `disputed`
-with a citation; a real spec violation by a client under test must not be
-added to `expect` as a second legal alternative just because that client
-currently exhibits it, since doing so would stop the fixture from ever
-failing against that behavior.
+Every outcome in a step's `expect`, model-filled or hand-authored, must be spec-permitted at that point, so a passing fixture establishes conformance. Where the specification is ambiguous, an outcome is marked `disputed` with a reference; a client's spec violation is never added as an alternative.
 
 A single JSON fixture file is composed of a JSON object where each key-value pair is a different [`HiveFixture`](#hivefixture) test object, with the key string representing the test name.
 
@@ -77,7 +70,7 @@ Minimum side-chain reorg depth (in blocks) the client must apply without refusin
 
 #### - `meta`: [`Mapping`](./common_types.md#mapping)`[String,``Any``]`
 
-Free-form metadata about the test (e.g. `class`,`reorgDepth`) for offline analysis; not consumed by the runner. A `reorgDepth` of `1` (e.g. `test_sibling_reorg`) states a suite requirement — every client must handle a same-height sibling reorg — not a floor inferred from `minReorgDepth` or any client's observed capability.
+Free-form metadata about the test (e.g. `class`,`reorgDepth`) for offline analysis; not consumed by the runner. A `reorgDepth` of `1` states a suite requirement: every client must apply a same-height sibling reorg.
 
 ### `FixtureReorgBlock`
 
@@ -87,7 +80,7 @@ Label of the parent block (`"genesis"` for a block extending the genesis block).
 
 #### - `payload`: `FixtureNewPayloadRequest`
 
-The block's `engine_newPayloadVX` request: `params` (version-dependent parameter tuple, see [`FixtureEngineNewPayload`](./blockchain_test_engine.md#fixtureenginenewpayload)) and `newPayloadVersion`. Response expectations live on the steps that send this block, not on the stored block itself.
+The block's `engine_newPayloadVX` request: `params` (version-dependent parameter tuple, see [`FixtureEngineNewPayload`](./blockchain_test_engine.md#fixtureenginenewpayload)) and `newPayloadVersion`.
 
 ### `Step`
 
@@ -201,7 +194,7 @@ If `true`, any JSON-RPC error matches (for uncoded errors).
 
 ### `PayloadAttributes`
 
-Payload attributes sent with `forkchoiceUpdated` to start a build; fields match the Engine API's `PayloadAttributesVX`, including Amsterdam's `slotNumber` and `targetGasLimit`.
+Payload attributes sent with `forkchoiceUpdated` to start a build; fields match the Engine API's `PayloadAttributesVX`.
 
 ### `AccountExpectation`
 

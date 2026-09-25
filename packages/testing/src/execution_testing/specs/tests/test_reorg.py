@@ -15,6 +15,7 @@ from execution_testing.fixtures.reorg import (
     AssertReceiptStep,
     AssertStateStep,
     ForkchoiceUpdatedStep,
+    GetPayloadStep,
     NewPayloadStep,
     TxRef,
 )
@@ -92,9 +93,7 @@ def test_fill_sibling_and_invalid_child(
             NewPayloadStep(block="b2"),
             NewPayloadStep(block="i2"),
             NewPayloadStep(block="i3"),
-            # b2's multi-outcome switch is last: i2/i3 above never
-            # reference b2 or model.head, so nothing downstream depends on
-            # which of applied/refused actually occurs here.
+            # Last: nothing may follow its applied/refused divergence.
             ForkchoiceUpdatedStep(head="b2"),
         ],
     )
@@ -119,8 +118,7 @@ def test_fill_sibling_and_invalid_child(
     # the correct post-state so its own header is internally consistent.
     assert p["i2"].state_root == Hash(1)
     assert p["i3"].state_root != Hash(1)
-    # Stored block payloads carry only the newPayload request (params and
-    # version); response/fill-time-internal fields are not serialized.
+    # Stored payloads carry only the newPayload request.
     dumped_payload = fixture.json_dict_with_info()["blocks"]["i2"]["payload"]
     assert set(dumped_payload) == {"params", "newPayloadVersion"}
 
@@ -225,6 +223,15 @@ def test_fill_serializes_versions_and_tx_index_as_decimal_strings(
             NewPayloadStep(block="a1"),
             ForkchoiceUpdatedStep(head="a1"),
             AssertReceiptStep(tx=TxRef(block="a1", index=1), block="a1"),
+            ForkchoiceUpdatedStep(
+                head="a1",
+                payload_attributes=PayloadAttributes(
+                    timestamp=0,
+                    prev_randao=Hash(0),
+                    suggested_fee_recipient=Address(0),
+                ),
+            ),
+            GetPayloadStep(bind="p1", parent="a1"),
         ],
     )
     fixture = test.generate(
@@ -238,6 +245,10 @@ def test_fill_serializes_versions_and_tx_index_as_decimal_strings(
     )
     receipt_step = dumped["steps"][2]
     assert receipt_step["tx"]["index"] == "1"
+    get_payload_step = dumped["steps"][4]
+    assert get_payload_step["version"] == str(
+        Cancun.engine_get_payload_version()
+    )
 
 
 def test_build_request_version_follows_attributes_fork(

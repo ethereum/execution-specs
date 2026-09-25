@@ -276,12 +276,7 @@ def test_annotate_requires_version_map_when_unset() -> None:  # noqa: D103
 
 
 def test_annotate_checks_each_forkchoice_before_its_own_branch() -> None:
-    """
-    Each forkchoiceUpdated's own head assertion is checked immediately after
-    it is applied, before its branch's own (possibly nested) steps run --
-    not appended after them, where a nested update's own assertion would be
-    checked instead.
-    """
+    """Each FCU's head check precedes its branch's own steps."""
     dag = ModelDag(
         parent={"a1": "genesis", "p": "a1", "q": "a1"},
         valid={"a1": True, "p": True, "q": True},
@@ -304,18 +299,14 @@ def test_annotate_checks_each_forkchoice_before_its_own_branch() -> None:
     outer = steps[1]
     assert isinstance(outer, ForkchoiceUpdatedStep)
     outer_branch = outer.branches["applied"]
-    # The outer FCU's own assertion comes first, before its authored steps.
     head_check = outer_branch[0]
     assert isinstance(head_check, AssertHeadStep)
     assert head_check.latest == "a1"
     nested_fcu = outer_branch[-1]
     assert isinstance(nested_fcu, ForkchoiceUpdatedStep)
-    # The nested FCU's own assertion lives inside its own branch, not
-    # appended to the outer branch's tail.
     nested_check = nested_fcu.branches["applied"][0]
     assert isinstance(nested_check, AssertHeadStep)
     assert nested_check.latest == "p"
-    # The continuation still carries the nested reorg's effect forward.
     assert model.head == "p"
 
 
@@ -464,12 +455,7 @@ def test_any_error_on_a_build_request_is_rejected() -> None:
 
 
 def test_annotate_single_outcome_branch_updates_known_map() -> None:
-    """
-    A single-outcome newPayload step has no ambiguous continuation: the
-    model must carry its branch's own known-map update (here, a nested
-    newPayload learning about a further block) into later sibling steps,
-    not just the state computed right after the outer newPayload itself.
-    """
+    """Later steps see blocks learned inside a single-outcome branch."""
     dag = ModelDag(
         parent={"a1": "genesis", "p": "a1"},
         valid={"a1": True, "p": True},
@@ -489,13 +475,7 @@ def test_annotate_single_outcome_branch_updates_known_map() -> None:
 
 
 def test_accepted_does_not_establish_validity() -> None:
-    """
-    ACCEPTED alone never confirms execution validity: a client may answer
-    ACCEPTED for a side-chain block it has received but not fully executed,
-    even one that is ground-truth invalid. A later forkchoiceUpdated
-    targeting it must still offer INVALID, never silently accept it as
-    VALID (``applied``).
-    """
+    """ACCEPTED leaves a later FCU to an invalid block able to fail."""
     dag = ModelDag(
         parent={"a1": "genesis", "bad": "a1"},
         valid={"a1": True, "bad": False},
@@ -510,11 +490,7 @@ def test_accepted_does_not_establish_validity() -> None:
 
 
 def test_received_ground_truth_valid_acts_like_valid() -> None:
-    """
-    RECEIVED (ACCEPTED-only) is treated exactly like VALID once ground
-    truth confirms the block really is valid: SYNCING is not offered for
-    a forkchoiceUpdated to that head, nor for a newPayload of its child.
-    """
+    """A truly valid ACCEPTED block has a VALID block's outcomes."""
     dag = ModelDag(
         parent={"a1": "genesis", "b1": "a1", "b2": "b1"},
         valid={"a1": True, "b1": True, "b2": True},
@@ -530,11 +506,7 @@ def test_received_ground_truth_valid_acts_like_valid() -> None:
 
 
 def test_annotate_rejects_diverging_multi_outcome_continuation() -> None:
-    """
-    A multi-outcome forkchoiceUpdated whose branches leave different
-    forkchoice states is rejected when a later step depends on which one
-    occurred: there is no single legal continuation to give it.
-    """
+    """A later step cannot follow outcomes that leave different heads."""
     dag = ModelDag(
         parent={"a1": "genesis", "p": "a1"}, valid={"a1": True, "p": True}
     )
@@ -619,11 +591,7 @@ def test_annotate_redelivery_resolves_a_diverged_block() -> None:
 
 
 def test_annotate_rejects_divergence_used_by_enclosing_continuation() -> None:
-    """
-    A diverging multi-outcome step that is last in its own (branch) list is
-    still rejected when the enclosing list has a step after the branch that
-    contains it -- the branch's own trailing position does not exempt it.
-    """
+    """A step after the enclosing branch counts as a later step."""
     dag = ModelDag(
         parent={"a1": "genesis", "p": "a1"}, valid={"a1": True, "p": True}
     )

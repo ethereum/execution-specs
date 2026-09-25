@@ -722,13 +722,8 @@ def test_reorg_to_fork_behind_finalized(
     """
     Reth ``test_reorg_to_fork_behind_finalized``: with finalized = a7 and
     head = a10, FCU to a fork tip branching at a5 (so a7 is not on its
-    chain) with finalized still a7. execution-apis paris.md step 5 is
-    unambiguous here: this is a conformance check, not an outcome survey
-    (see the module docstring) -- ``-38002`` is the only spec-permitted
-    response. reth currently applies the update instead (trusts the CL)
-    and fails this fixture; that is the intended, correct result of
-    stating the requirement plainly rather than recording the violation
-    as a second legal outcome.
+    chain) with finalized still a7. paris.md step 5 leaves ``-38002`` as the
+    only legal response.
     """
     blocks, steps = chain(pre, "a", 10)
     fork, _ = chain(pre, "f", 5, parent="a5", start=6, value=2)
