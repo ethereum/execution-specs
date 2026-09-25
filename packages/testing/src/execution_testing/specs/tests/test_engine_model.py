@@ -18,6 +18,10 @@ from execution_testing.fixtures.reorg import (
 
 from ..engine_model import ClientModel, ModelDag, Validity, annotate_steps
 
+ATTRIBUTES = PayloadAttributes(
+    timestamp=0, prev_randao=Hash(0), suggested_fee_recipient=Address(0)
+)
+
 
 def dag_linear_with_fork() -> ModelDag:
     r"""
@@ -324,16 +328,13 @@ def test_annotate_marks_head_moved_for_applied_vs_noop() -> None:  # noqa: D103
         {"a1": Validity.VALID, "a2": Validity.VALID, "a3": Validity.VALID}
     )
     model.head, model.finalized = "a3", "a1"
-    attributes = PayloadAttributes(
-        timestamp=0, prev_randao=Hash(0), suggested_fee_recipient=Address(0)
-    )
     steps = annotate_steps(
         [
             ForkchoiceUpdatedStep(
                 head="a1",
                 finalized="a1",
                 version=3,
-                payload_attributes=attributes,
+                payload_attributes=ATTRIBUTES,
             )
         ],
         model,
@@ -409,11 +410,7 @@ def test_annotate_rejects_unmatched_forkchoice_branch_key() -> None:
 
 
 def test_forkchoice_effect_follows_head_moved_not_id() -> None:
-    """
-    The effect follows the outcome's own constraints, never its id: an
-    author-chosen id of "ok" (not "applied") still moves the head when
-    headMoved says so.
-    """
+    """An outcome moves the head when headMoved says so, whatever its id."""
     model = ClientModel(dag=dag_linear_with_fork())
     model.known.update({"a1": Validity.VALID, "b2": Validity.VALID})
     model.head = "a1"
@@ -425,15 +422,8 @@ def test_forkchoice_effect_follows_head_moved_not_id() -> None:
     assert model.head == "b2"
 
 
-def test_forkchoice_effect_applies_reth_disputed_fork_behind_finalized() -> (
-    None
-):
-    """
-    A disputed VALID/applied outcome for a request the model would only
-    classify as inconsistent (-38002) still applies, because the effect is
-    derived from FCU spec step 2 directly, not from the model's own
-    (narrower) classification of the request.
-    """
+def test_forkchoice_effect_applies_authored_valid_outcome() -> None:
+    """An authored VALID outcome applies even where the model says -38002."""
     model = ClientModel(dag=dag_linear_with_fork())
     model.known.update(
         {
@@ -446,9 +436,6 @@ def test_forkchoice_effect_applies_reth_disputed_fork_behind_finalized() -> (
     model.head = "a3"
     model.finalized = "a3"
     step = ForkchoiceUpdatedStep(head="b2", safe="b2", finalized="a3")
-    # The model's own set at this request would be `[inconsistent]` only
-    # (b2 does not share a3 as an ancestor); this simulates an author (or a
-    # trusting client, per reth) overriding with a disputed VALID/applied.
     outcome = Outcome(
         id="applied", status="VALID", latest_valid_hash="b2", disputed="x"
     )
@@ -456,39 +443,42 @@ def test_forkchoice_effect_applies_reth_disputed_fork_behind_finalized() -> (
     assert model.head == "b2"
 
 
-def test_invalid_payload_attributes_still_applies_forkchoice() -> None:
-    """
-    -38003 (invalid payload attributes) is the one error whose forkchoice
-    update still applies; the outcome's id is irrelevant here too.
-    """
-    for outcome_id in ("bad_attributes", "invalid_timestamp"):
-        model = ClientModel(dag=dag_linear_with_fork())
-        model.known["a1"] = Validity.VALID
-        step = ForkchoiceUpdatedStep(head="a1", version=3)
-        outcome = Outcome(
-            id=outcome_id,
-            error_code=EngineAPIError.InvalidPayloadAttributes,
-        )
-        model.apply_forkchoice(step, outcome)
-        assert model.head == "a1"
-
-
-def test_fcu_error_leaves_forkchoice_state_untouched_still_passes() -> None:
-    """The existing -38002 unchanged-state behavior is not affected."""
+@pytest.mark.parametrize("outcome_id", ["bad_attributes", "invalid_timestamp"])
+def test_invalid_payload_attributes_still_applies_forkchoice(
+    outcome_id: str,
+) -> None:
+    """A -38003 branch asserts the updated head, whatever the outcome id."""
     model = ClientModel(dag=dag_linear_with_fork())
-    model.known.update(
-        {
-            "a1": Validity.VALID,
-            "a2": Validity.VALID,
-            "a3": Validity.VALID,
-            "b2": Validity.VALID,
-        }
+    model.known["a1"] = Validity.VALID
+    step = ForkchoiceUpdatedStep(
+        head="a1",
+        version=3,
+        payload_attributes=ATTRIBUTES,
+        expect=[
+            Outcome(
+                id=outcome_id,
+                error_code=EngineAPIError.InvalidPayloadAttributes,
+            )
+        ],
     )
-    model.head, model.safe, model.finalized = "a3", "a2", "a1"
-    step = ForkchoiceUpdatedStep(head="b2", safe="a3", finalized="a1")
-    outcomes = model.forkchoice_outcomes(step)
-    model.apply_forkchoice(step, outcomes[0])
-    assert model.head == "a3"
+    annotate_steps([step], model)
+    head_check = step.branches[outcome_id][0]
+    assert isinstance(head_check, AssertHeadStep)
+    assert head_check.latest == "a1"
+
+
+def test_any_error_on_a_build_request_is_rejected() -> None:
+    """AnyError cannot tell -38003, which still applies, from other errors."""
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.known["a1"] = Validity.VALID
+    step = ForkchoiceUpdatedStep(
+        head="a1",
+        version=3,
+        payload_attributes=ATTRIBUTES,
+        expect=[Outcome(id="error", any_error=True)],
+    )
+    with pytest.raises(ValueError, match="set errorCode"):
+        annotate_steps([step], model)
 
 
 def test_annotate_single_outcome_branch_updates_known_map() -> None:

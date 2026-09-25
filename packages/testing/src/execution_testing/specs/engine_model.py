@@ -23,11 +23,9 @@ Rules follow `execution-apis` ``paris.md`` as amended by PR #786:
   VALID ancestor of the latest known finalized block → VALID no-op; head
   extends current head → VALID; otherwise (rewind or side-chain reorg) →
   VALID (applied) or ``-38006`` (refused, implementation-specific depth
-  cap). A call that ends in an error leaves the forkchoice state
-  untouched, since every update resulting from the call has to be
-  applied atomically -- except
-  ``-38003`` (invalid payload attributes), which fails only the requested
-  build; the forkchoice state itself is still updated first.
+  cap). An error leaves the forkchoice state untouched (updates are
+  atomic), except ``-38003`` (invalid payload attributes): the state is
+  updated before the attributes are validated.
 
 Authors may always provide ``expect`` explicitly; the model never widens an
 author-provided set.
@@ -335,18 +333,19 @@ class ClientModel:
         """
         Whether ``outcome`` means the requested update was applied.
 
-        Derived from the outcome's own constraints and, for an
-        unconstrained VALID response, from the FCU spec's own no-reorg
-        shortcut (step 2) -- never from ``outcome.id``, which is only the
-        branch lookup key an author chooses freely.
-
-        ``InvalidPayloadAttributes`` (-38003) is the one error that still
-        applies: the spec requires the forkchoice state to be updated
-        before payload attributes are validated (paris.md steps 8/8.1/8.3),
-        so invalid attributes reject only the build, not the update.
+        Derived from the outcome's constraints and the no-reorg shortcut
+        (step 2), never from ``outcome.id``. ``-38003`` still applies: the
+        state is updated before the attributes are validated (steps 8.1,
+        8.3).
         """
         if outcome.error_code == EngineAPIError.InvalidPayloadAttributes:
             return True
+        if outcome.any_error and step.payload_attributes is not None:
+            raise ValueError(
+                f"forkchoiceUpdated(head={step.head!r}): outcome "
+                f"{outcome.id!r} accepts any error, but -38003 applies the "
+                "update and other errors do not; set errorCode instead"
+            )
         if outcome.error_code is not None or outcome.any_error:
             return False
         if outcome.status in ("SYNCING", "INVALID"):
@@ -373,15 +372,7 @@ class ClientModel:
     def apply_forkchoice(
         self, step: ForkchoiceUpdatedStep, outcome: Outcome
     ) -> None:
-        """
-        Update model state assuming ``outcome`` happened.
-
-        Whether the update applies is decided by ``_forkchoice_effect``: a
-        call that ends in most errors leaves head, safe and finalized where
-        they were, except ``InvalidPayloadAttributes`` (-38003), which
-        still applies the update -- only the build it also requested
-        fails.
-        """
+        """Update model state assuming ``outcome`` happened."""
         if self._forkchoice_effect(step, outcome):
             self.head = step.head
             self.safe = step.safe
