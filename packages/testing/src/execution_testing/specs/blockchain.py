@@ -1,5 +1,6 @@
 """Ethereum blockchain test spec definition and filler."""
 
+from dataclasses import replace
 from pprint import pprint
 from typing import (
     Any,
@@ -107,10 +108,11 @@ from execution_testing.test_types.execution_witness import (
 
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .blockchain_stateless import (
-    apply_execution_witness_expectations,
+    StatelessValidationArtifacts,
+    build_amsterdam_stateless_artifacts_from_t8n,
     finalize_stateless_artifacts,
-    stateless_artifacts_from_t8n,
     stateless_options_for_block,
+    verify_execution_witness_expectations,
 )
 from .debugging import print_traces
 from .helpers import verify_block, verify_transactions
@@ -1234,25 +1236,24 @@ class BlockchainTest(BaseTest):
                 )
 
         t8n_witness = transition_tool_output.result.execution_witness
-        stateless_artifacts = apply_execution_witness_expectations(
-            block=block,
-            fork=fork,
-            previous_alloc=previous_alloc,
-            block_number=int(env.number),
-            timestamp=int(env.timestamp),
-            parent_hash=header.parent_hash,
+        original_stateless_artifacts = StatelessValidationArtifacts(
             execution_witness=t8n_witness,
+            stateless_input_bytes=(
+                transition_tool_output.result.stateless_input_bytes
+            ),
+            stateless_output_bytes=(
+                transition_tool_output.result.stateless_output_bytes
+            ),
         )
-        missing_stateless_artifacts = (
+        if (
             not stateless_options.skip_validation
             and t8n_witness is not None
             and bal is not None
             and (
-                transition_tool_output.result.stateless_input_bytes is None
-                or transition_tool_output.result.stateless_output_bytes is None
+                original_stateless_artifacts.stateless_input_bytes is None
+                or original_stateless_artifacts.stateless_output_bytes is None
             )
-        )
-        if missing_stateless_artifacts:
+        ):
             # Temporary trust path for external benchmark filling until Geth
             # emits both stateless byte fields.
             assert not isinstance(t8n, ExecutionSpecsTransitionTool), (
@@ -1265,25 +1266,40 @@ class BlockchainTest(BaseTest):
             assert block.exception is None, (
                 "Missing stateless artifacts require a valid benchmark block"
             )
-        stateless_artifacts = stateless_artifacts_from_t8n(
-            options=stateless_options,
-            artifacts=stateless_artifacts,
+            built_artifacts = build_amsterdam_stateless_artifacts_from_t8n(
+                fork=fork,
+                block_number=int(env.number),
+                timestamp=int(env.timestamp),
+                header=header,
+                previous_env=previous_env,
+                txs=txs,
+                result=transition_tool_output.result,
+                withdrawals=env.withdrawals,
+                requests_list=requests_list,
+                execution_witness=t8n_witness,
+                block_access_list=bal,
+                chain_id=self.chain_id,
+            )
+            if built_artifacts is not None:
+                input_bytes, output_bytes = built_artifacts
+                original_stateless_artifacts = replace(
+                    original_stateless_artifacts,
+                    stateless_input_bytes=input_bytes,
+                    stateless_output_bytes=output_bytes,
+                )
+
+        verify_execution_witness_expectations(
+            block=block,
             fork=fork,
+            previous_alloc=previous_alloc,
             block_number=int(env.number),
             timestamp=int(env.timestamp),
-            header=header,
-            previous_env=previous_env,
-            txs=txs,
-            result=transition_tool_output.result,
-            withdrawals=env.withdrawals,
-            requests_list=requests_list,
-            execution_witness=t8n_witness,
-            block_access_list=bal,
-            chain_id=self.chain_id,
+            parent_hash=header.parent_hash,
+            execution_witness=original_stateless_artifacts.execution_witness,
         )
         stateless_artifacts = finalize_stateless_artifacts(
             options=stateless_options,
-            artifacts=stateless_artifacts,
+            original=original_stateless_artifacts,
             fork=fork,
             block_number=int(env.number),
             timestamp=int(env.timestamp),
@@ -1306,9 +1322,7 @@ class BlockchainTest(BaseTest):
             fork=fork,
             block_access_list=bal,
             execution_witness=stateless_artifacts.execution_witness,
-            execution_witness_mutated=(
-                stateless_artifacts.execution_witness_mutated
-            ),
+            execution_witness_mutated=stateless_options.has_witness_modifier,
             stateless_input_bytes=stateless_artifacts.stateless_input_bytes,
             stateless_output_bytes=stateless_artifacts.stateless_output_bytes,
             engine_new_payload_block_access_list=(
@@ -1344,7 +1358,7 @@ class BlockchainTest(BaseTest):
                     block.expected_block_access_list is not None
                     and block.expected_block_access_list.has_modifier
                 )
-                and not stateless_artifacts.execution_witness_mutated
+                and not stateless_options.has_witness_modifier
             ):
                 # Only verify block level exception if: - No transaction
                 # exception was raised, because these are not reported as block
