@@ -18,9 +18,9 @@ consumer resolves labels to hashes, so fixtures are byte-identical across
 clients.
 """
 
-from typing import Annotated, Any, ClassVar, Dict, List, Literal, Union
+from typing import Annotated, Any, ClassVar, Dict, List, Literal, Self, Union
 
-from pydantic import Field, PlainSerializer
+from pydantic import Field, PlainSerializer, model_validator
 
 from execution_testing.base_types import (
     Address,
@@ -94,6 +94,35 @@ class Outcome(CamelModel):
     """Whether ``validationError`` must be present or absent."""
     payload_id: Literal["nonNull", "null"] | None = None
     """For ``forkchoiceUpdated`` with payload attributes."""
+
+    @model_validator(mode="after")
+    def _check_error_combination(self) -> Self:
+        """
+        Reject payload-status constraints alongside an error expectation.
+
+        The matcher returns as soon as it matches ``error_code``/
+        ``any_error``; a JSON-RPC error carries no payload status, so any
+        other constraint on this outcome could never be enforced. Use a
+        follow-up ``AssertHeadStep`` for post-error chain-state checks.
+        """
+        if self.error_code is not None or self.any_error:
+            unenforceable = [
+                field
+                for field in (
+                    "status",
+                    "latest_valid_hash",
+                    "validation_error",
+                    "payload_id",
+                    "head_moved",
+                )
+                if getattr(self, field) is not None
+            ]
+            if unenforceable:
+                raise ValueError(
+                    f"outcome {self.id!r}: error_code/any_error cannot be "
+                    f"combined with {unenforceable}"
+                )
+        return self
 
 
 class TxRef(CamelModel):
