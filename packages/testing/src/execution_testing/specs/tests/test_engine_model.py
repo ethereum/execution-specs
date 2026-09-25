@@ -270,10 +270,12 @@ def test_annotate_requires_version_map_when_unset() -> None:  # noqa: D103
         annotate_steps([ForkchoiceUpdatedStep(head="a1")], model)
 
 
-def test_annotate_continues_from_first_branch_state() -> None:
+def test_annotate_checks_each_forkchoice_before_its_own_branch() -> None:
     """
-    Steps after a branching step run after that branch; the model must carry
-    the branch's effects (a nested reorg) into the continuation.
+    Each forkchoiceUpdated's own head assertion is checked immediately after
+    it is applied, before its branch's own (possibly nested) steps run --
+    not appended after them, where a nested update's own assertion would be
+    checked instead.
     """
     dag = ModelDag(
         parent={"a1": "genesis", "p": "a1", "q": "a1"},
@@ -296,9 +298,19 @@ def test_annotate_continues_from_first_branch_state() -> None:
     annotate_steps(steps, model, versions)
     outer = steps[1]
     assert isinstance(outer, ForkchoiceUpdatedStep)
-    tail = outer.branches["applied"][-1]
-    # The outer branch's trailing head assertion reflects the nested reorg.
-    assert isinstance(tail, AssertHeadStep) and tail.latest == "p"
+    outer_branch = outer.branches["applied"]
+    # The outer FCU's own assertion comes first, before its authored steps.
+    head_check = outer_branch[0]
+    assert isinstance(head_check, AssertHeadStep)
+    assert head_check.latest == "a1"
+    nested_fcu = outer_branch[-1]
+    assert isinstance(nested_fcu, ForkchoiceUpdatedStep)
+    # The nested FCU's own assertion lives inside its own branch, not
+    # appended to the outer branch's tail.
+    nested_check = nested_fcu.branches["applied"][0]
+    assert isinstance(nested_check, AssertHeadStep)
+    assert nested_check.latest == "p"
+    # The continuation still carries the nested reorg's effect forward.
     assert model.head == "p"
 
 

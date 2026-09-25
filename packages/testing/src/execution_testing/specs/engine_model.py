@@ -424,7 +424,9 @@ def annotate_steps(
 ) -> List[Step]:
     """
     Fill empty ``expect`` lists and ``version`` fields in ``steps`` using the
-    model, appending an ``assertHead`` step to every forkchoice outcome branch.
+    model, prepending an ``assertHead`` step to every forkchoice outcome
+    branch (before that branch's own nested steps) checking the update
+    this step itself just applied.
 
     Branch step lists are annotated recursively with a copy of the model in
     which that outcome happened. Sibling steps after a multi-outcome step are
@@ -488,9 +490,9 @@ def annotate_steps(
                 branch_model = model.copy()
                 branch_model.apply_forkchoice(step, outcome)
                 branch = step.branches.setdefault(outcome.id, [])
-                annotate_steps(branch, branch_model, fcu_version)
                 if outcome.status != "SYNCING":
-                    branch.append(branch_model.head_assertion())
+                    branch.insert(0, branch_model.head_assertion())
+                annotate_steps(branch, branch_model, fcu_version)
                 if first_model is None:
                     first_model = branch_model
             # Sibling steps continue from the state after the first
