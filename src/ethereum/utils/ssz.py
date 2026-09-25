@@ -95,11 +95,6 @@ def uint(bits: int) -> _Uint:
     return _Uint(bits)
 
 
-def byte_vector(length: int) -> _ByteVector:
-    """Mark a byte field as a fixed-length SSZ byte vector."""
-    return _ByteVector(length)
-
-
 def byte_list(limit: int) -> _ByteList:
     """Mark a byte field as a bounded SSZ byte list."""
     return _ByteList(limit)

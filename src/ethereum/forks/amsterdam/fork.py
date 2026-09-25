@@ -88,7 +88,6 @@ from .transactions import (
     get_transaction_hash,
     has_access_list,
     recover_sender,
-    recover_sender_from_public_key,
     validate_transaction,
 )
 from .utils.address import compute_contract_address
@@ -282,7 +281,6 @@ def execute_block(
     block: Block,
     pre_state: PreState,
     chain_context: ChainContext,
-    transaction_public_keys: Optional[Tuple[Bytes, ...]] = None,
 ) -> BlockDiff:
     """
     Execute a block and validate the resulting roots against the header.
@@ -297,8 +295,6 @@ def execute_block(
         Pre-execution state provider.
     chain_context :
         Chain context that the block may need during execution.
-    transaction_public_keys :
-        Optional transaction public keys in block order.
 
     Returns
     -------
@@ -308,13 +304,6 @@ def execute_block(
     """
     if len(rlp.encode(block)) > MAX_RLP_BLOCK_SIZE:
         raise InvalidBlock("Block rlp size exceeds MAX_RLP_BLOCK_SIZE")
-
-    if transaction_public_keys is not None and len(
-        transaction_public_keys
-    ) != len(block.transactions):
-        raise InvalidBlock(
-            "Transaction public key count does not match block transactions"
-        )
 
     parent_header = chain_context.parent_header
     validate_header(parent_header, block.header)
@@ -338,7 +327,6 @@ def execute_block(
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
         slot_number=block.header.slot_number,
-        transaction_public_keys=transaction_public_keys,
     )
 
     block_output = apply_body(
@@ -560,19 +548,7 @@ def check_transaction(
         limit.
 
     """
-    sender_public_key = None
-    if block_env.transaction_public_keys is not None:
-        sender_public_key = block_env.transaction_public_keys[int(index)]
-
-    if sender_public_key is None:
-        sender = recover_sender(tx)
-    else:
-        sender = recover_sender_from_public_key(
-            block_env.chain_id,
-            tx,
-            sender_public_key,
-        )
-
+    sender = recover_sender(tx)
     intrinsic = validate_transaction(tx, sender)
     tx_state = TransactionState(parent=block_env.state)
 

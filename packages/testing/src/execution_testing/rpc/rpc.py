@@ -47,7 +47,7 @@ from execution_testing.logging import (
 )
 from execution_testing.test_types import Alloc
 
-from .engine_ssz import encode_witness_request, validate_public_keys
+from .engine_ssz import encode_witness_request
 from .rpc_types import (
     EthConfigResponse,
     ForkchoiceState,
@@ -1801,10 +1801,7 @@ class EngineSSZRPC(BaseJwtRPC):
             raise ValueError(
                 f"Unexpected Content-Type from {url}: {content_type!r}"
             )
-        result = NewPayloadWithWitnessResponse.from_ssz_bytes(response.content)
-        if result.status == PayloadStatusEnum.VALID:
-            validate_public_keys(payload.transactions, result.public_keys)
-        return result
+        return NewPayloadWithWitnessResponse.from_ssz_bytes(response.content)
 
 
 class NetRPC(BaseRPC):

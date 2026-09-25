@@ -31,7 +31,6 @@ def _build_response(
     latest_valid_hash: bytes | None,
     validation_error: str | None,
     witness_bytes: bytes,
-    public_keys: bytes = b"",
 ) -> bytes:
     latest = latest_valid_hash or b""
     error = (
@@ -47,7 +46,7 @@ def _build_response(
         + error
     )
     witness = _offsets([witness_bytes]) if witness_bytes else b""
-    return _offsets([payload_status, witness, public_keys])
+    return _offsets([payload_status, witness])
 
 
 def test_decode_valid_with_witness() -> None:
@@ -95,9 +94,9 @@ def test_reject_noncanonical_offsets_and_trailing_bytes(status: int) -> None:
             (int.from_bytes(raw[i : i + 4], "little") + 1).to_bytes(
                 4, "little"
             )
-            for i in (0, 4, 8)
+            for i in (0, 4)
         )
-        + raw[12:]
+        + raw[8:]
         + b"\xff"
     )
     with pytest.raises(ValueError, match="Non-canonical SSZ"):
@@ -224,30 +223,6 @@ def test_header_count_bounds(count: int) -> None:
     else:
         with pytest.raises(Exception, match="parent header|count 257"):
             NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
-
-
-@pytest.mark.parametrize("status", [1, 2, 3])
-def test_nonvalid_public_keys_rejected(status: int) -> None:
-    """Non-VALID responses must omit public keys as well as witnesses."""
-    raw = _build_response(status, None, None, b"", b"\x04" + bytes(64))
-    with pytest.raises(ValueError, match="public keys"):
-        NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
-
-
-def test_public_keys_decode_in_order_with_duplicates() -> None:
-    """Preserve the fixed-size key list without per-key SSZ offsets."""
-    keys = [b"\x04" + bytes([i]) * 64 for i in (1, 2, 1)]
-    raw = _build_response(
-        0,
-        bytes(32),
-        None,
-        _build_inner_witness([], [], [b"header"]),
-        b"".join(keys),
-    )
-    assert (
-        list(NewPayloadWithWitnessResponse.from_ssz_bytes(raw).public_keys)
-        == keys
-    )
 
 
 # --- JSON-RPC (RLP witness) decode ---

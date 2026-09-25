@@ -104,9 +104,6 @@ from execution_testing.test_types.execution_witness import (
     ExecutionWitnessHeadersExpectation,
     ExecutionWitnessStateExpectation,
 )
-from execution_testing.test_types.execution_witness.modifiers import (
-    PublicKeyModifier,
-)
 
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .blockchain_stateless import (
@@ -356,14 +353,6 @@ class Block(Header):
     """
     If set, the execution witness headers will be verified and potentially
     modified for invalid tests.
-    """
-    stateless_input_public_keys_modifier: PublicKeyModifier | None = Field(
-        default=None,
-        exclude=True,
-    )
-    """
-    If set, mutate the stateless input transaction public keys before rerunning
-    the guest for invalid tests.
     """
     stateless_input_bytes_modifier: Callable[[Bytes], Bytes] | None = Field(
         default=None,
@@ -1295,7 +1284,6 @@ class BlockchainTest(BaseTest):
         stateless_artifacts = finalize_stateless_artifacts(
             options=stateless_options,
             artifacts=stateless_artifacts,
-            block=block,
             fork=fork,
             block_number=int(env.number),
             timestamp=int(env.timestamp),

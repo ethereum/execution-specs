@@ -40,7 +40,6 @@ from ethereum.forks.amsterdam.stateless import (
     StatelessInput,
     StatelessValidationResult,
     compute_new_payload_request_root,
-    verify_stateless_new_payload,
 )
 from ethereum.forks.amsterdam.stateless_guest import (
     deserialize_stateless_input,
@@ -183,7 +182,6 @@ def _make_stateless_input() -> StatelessInput:
             headers=(Bytes(_rb(512)), Bytes(_rb(512))),
         ),
         chain_id=U64(1),
-        public_keys=(Bytes(_rb(65)), Bytes(_rb(65))),
     )
 
 
@@ -196,14 +194,12 @@ def _make_stateless_output() -> StatelessValidationResult:
     )
 
 
-def _make_known_stateless_values() -> tuple[
-    StatelessInput, StatelessValidationResult
-]:
-    """Return order-independent values used by SSZ known-answer tests."""
+def _make_known_stateless_input() -> StatelessInput:
+    """Return an order-independent input for the SSZ known-answer test."""
     state = _RNG.getstate()
     try:
         _RNG.seed(0xDEADBEEF)
-        return _make_stateless_input(), _make_stateless_output()
+        return _make_stateless_input()
     finally:
         _RNG.setstate(state)
 
@@ -240,10 +236,10 @@ class TestBuildStatelessInput:
             pytest.param(39, 1, 1, id="wrong-chain-id"),
         ],
     )
-    def test_rejected_transaction_omits_public_key(
+    def test_rejected_transaction_is_preserved(
         self, v: int, r: int, s: int
     ) -> None:
-        """Keep rejected transactions without requiring a public key."""
+        """Keep rejected transactions in the payload for guest validation."""
         tx = LegacyTransaction(
             nonce=U256(0),
             gas_price=Uint(1),
@@ -281,7 +277,6 @@ class TestBuildStatelessInput:
 
         payload = stateless_input.new_payload_request.execution_payload
         assert payload.transactions == (Bytes(rlp.encode(tx)),)
-        assert stateless_input.public_keys == ()
 
     def test_payload_round_trip_preserves_legacy_transaction_rlp(self) -> None:
         """Preserve canonical legacy transaction RLP through the payload."""
@@ -346,12 +341,12 @@ class TestSerializeStatelessInput:
 
     def test_known_encoding_and_request_root(self) -> None:
         """Retain the schema bytes and payload request hash-tree root."""
-        original, _ = _make_known_stateless_values()
+        original = _make_known_stateless_input()
         encoded = serialize_stateless_input(original)
 
-        assert len(encoded) == 3072
+        assert len(encoded) == 2938
         assert sha256(encoded).hexdigest() == (
-            "b7d516d24d8bde7426cae58f22b04fd7e824353eccc30bba9592487bcf4e55ec"
+            "6fda0f5d749cc2794ed04dd48fbff55439061c964bfc2c7672191e6c1b928710"
         )
         assert compute_new_payload_request_root(original) == Hash32(
             bytes.fromhex(
@@ -377,25 +372,11 @@ class TestSerializeStatelessInput:
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
             chain_id=U64(1),
-            public_keys=(),
         )
         encoded = serialize_stateless_input(original)
         assert encoded[:2] == STATELESS_INPUT_SCHEMA_ID_BYTES
         recovered = deserialize_stateless_input(encoded)
         assert recovered == original
-
-    def test_rejects_non_65_byte_public_key(self) -> None:
-        """Public keys must be 65-byte uncompressed SEC1 points."""
-        original = _make_stateless_input()
-        invalid = StatelessInput(
-            new_payload_request=original.new_payload_request,
-            witness=original.witness,
-            chain_id=original.chain_id,
-            public_keys=(Bytes(_rb(64)), Bytes(_rb(65))),
-        )
-
-        with pytest.raises(ValueError):
-            serialize_stateless_input(invalid)
 
     @pytest.mark.parametrize(
         "witness",
@@ -436,7 +417,6 @@ class TestSerializeStatelessInput:
             new_payload_request=original.new_payload_request,
             witness=witness,
             chain_id=original.chain_id,
-            public_keys=original.public_keys,
         )
 
         with pytest.raises(Exception, match="cannot be more than limit"):
@@ -453,7 +433,6 @@ class TestSerializeStatelessInput:
                 headers=tuple(Bytes() for _ in range(MAX_WITNESS_HEADERS + 1)),
             ),
             chain_id=original.chain_id,
-            public_keys=original.public_keys,
         )
 
         with pytest.raises(Exception, match="too many list inputs: 257"):
@@ -474,7 +453,6 @@ class TestDeserializeStatelessInput:
         assert type(payload.timestamp) is U256
         assert type(payload.transactions) is tuple
         assert type(recovered.witness.state) is tuple
-        assert type(recovered.public_keys) is tuple
 
     def test_empty_witness(self) -> None:
         """Works with an empty witness."""
@@ -493,7 +471,6 @@ class TestDeserializeStatelessInput:
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
             chain_id=U64(1),
-            public_keys=(),
         )
         encoded = serialize_stateless_input(original)
         recovered = deserialize_stateless_input(encoded)
@@ -545,7 +522,17 @@ class TestSerializeStatelessOutput:
 
     def test_known_encoding(self) -> None:
         """Retain the fixed SSZ output encoding."""
-        _, original = _make_known_stateless_values()
+        original = StatelessValidationResult(
+            new_payload_request_root=Hash32(
+                bytes.fromhex(
+                    "0d663a7de3d811fbc797f605a65d2745d"
+                    "f3a97d9f1994dfb685ff66d2917009f"
+                )
+            ),
+            successful_validation=True,
+            chain_id=U64(1),
+            schema_id=U16(STATELESS_INPUT_SCHEMA_ID),
+        )
         assert serialize_stateless_output(original).hex() == (
             "0d663a7de3d811fbc797f605a65d2745df3a97d9f1994dfb685ff66d2917009f"
             "0101000000000000000115"
@@ -594,9 +581,9 @@ class TestRunStatelessGuest:
         """Reject shifted container offsets that leave trailing data unread."""
         stateless_input = _make_stateless_input()
         encoded = bytearray(serialize_stateless_input(stateless_input))
-        # After the schema prefix: request offset, witness offset, chain ID,
-        # and public-key offset. Shift all three offsets by one byte.
-        for offset in (2, 6, 18):
+        # After the schema prefix: request offset, witness offset, chain ID.
+        # Shift both offsets by one byte.
+        for offset in (2, 6):
             value = int.from_bytes(encoded[offset : offset + 4], "little")
             encoded[offset : offset + 4] = (value + 1).to_bytes(4, "little")
         encoded.append(0xFF)
@@ -652,39 +639,3 @@ class TestComputeNewPayloadRequestRoot:
         si = _make_stateless_input()
         root = compute_new_payload_request_root(si)
         assert len(root) == 32
-
-
-class TestTransactionPublicKeys:
-    """Test stateless transaction public-key validation."""
-
-    def test_too_few_public_keys_fail_validation(self) -> None:
-        """Stateless validation should fail with too few public keys."""
-        original = _make_stateless_input()
-        invalid = StatelessInput(
-            new_payload_request=original.new_payload_request,
-            witness=original.witness,
-            chain_id=original.chain_id,
-            public_keys=(original.public_keys[0],),
-        )
-
-        result = verify_stateless_new_payload(invalid)
-        assert not result.successful_validation
-        assert result.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
-
-    def test_too_many_public_keys_fail_validation(self) -> None:
-        """Stateless validation should fail with too many public keys."""
-        original = _make_stateless_input()
-        invalid = StatelessInput(
-            new_payload_request=original.new_payload_request,
-            witness=original.witness,
-            chain_id=original.chain_id,
-            public_keys=(
-                original.public_keys[0],
-                original.public_keys[1],
-                Bytes(_rb(65)),
-            ),
-        )
-
-        result = verify_stateless_new_payload(invalid)
-        assert not result.successful_validation
-        assert result.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)

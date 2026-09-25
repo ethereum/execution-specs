@@ -1,14 +1,6 @@
-"""Encode REST Engine envelopes and verify witness sender public keys."""
+"""Encode REST Engine envelopes."""
 
 from typing import Annotated, Sequence
-
-from ethereum.forks.amsterdam.transactions import (
-    chain_id,
-    decode_transaction,
-    recover_transaction_public_key,
-)
-from ethereum_types.bytes import Bytes as SpecBytes
-from ethereum_types.numeric import U64
 
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.base_types.ssz import SSZForkSchema, byte_list, ssz_list
@@ -62,21 +54,3 @@ def encode_witness_request(
         execution_requests=list(execution_requests),
     )
     return envelope.ssz_encode(fork)
-
-
-def validate_public_keys(
-    transactions: Sequence[Bytes], public_keys: Sequence[Bytes]
-) -> None:
-    """Verify key count, transaction order, signature and recovery parity."""
-    if len(transactions) != len(public_keys):
-        raise ValueError("Expected one public key per transaction")
-    for index, (raw, supplied) in enumerate(
-        zip(transactions, public_keys, strict=True)
-    ):
-        tx = decode_transaction(SpecBytes(raw))
-        tx_chain_id = chain_id(tx)
-        expected = recover_transaction_public_key(
-            U64(0) if tx_chain_id is None else tx_chain_id, tx
-        )
-        if supplied != expected:
-            raise ValueError(f"Incorrect public key for transaction {index}")
