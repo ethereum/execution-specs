@@ -217,23 +217,20 @@ def test_invalid_side_chain(
         )
 
     last_valid = "genesis" if invalid_index == 1 else f"s{invalid_index - 1}"
+    invalid_or_syncing = [
+        Outcome(id="invalid", status="INVALID", latest_valid_hash=last_valid),
+        Outcome(id="syncing", status="SYNCING"),
+    ]
     for i in range(1, 6):
-        # `expect` derived by the model: VALID/ACCEPTED before the invalid
-        # block, INVALID at it, INVALID-or-SYNCING after it.
-        steps.append(NewPayloadStep(block=f"s{i}"))
-    steps.append(
-        ForkchoiceUpdatedStep(
-            head="s5",
-            expect=[
-                Outcome(
-                    id="invalid",
-                    status="INVALID",
-                    latest_valid_hash=last_valid,
-                ),
-                Outcome(id="syncing", status="SYNCING"),
-            ],
+        # Model-derived up to the invalid block; after it, whether the parent
+        # was seen as INVALID or SYNCING, INVALID-or-SYNCING.
+        steps.append(
+            NewPayloadStep(
+                block=f"s{i}",
+                expect=invalid_or_syncing if i > invalid_index else [],
+            )
         )
-    )
+    steps.append(ForkchoiceUpdatedStep(head="s5", expect=invalid_or_syncing))
     # Canonical chain is unaffected and still progresses.
     steps.append(
         ForkchoiceUpdatedStep(

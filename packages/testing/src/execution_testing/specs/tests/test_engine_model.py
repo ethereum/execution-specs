@@ -92,7 +92,7 @@ def test_new_payload_child_of_known_invalid() -> None:  # noqa: D103
     assert outcomes[0].latest_valid_hash == "b2"
     # A grandchild of the invalid block is also INVALID-or-SYNCING, never
     # SYNCING-only: clients with a bad-block cache answer INVALID.
-    model.apply_new_payload("b4", outcomes)
+    model.apply_new_payload("b4", outcomes[0])
     dag.parent["b5"] = "b4"
     dag.valid["b5"] = True
     outcomes = model.new_payload_outcomes("b5")
@@ -515,7 +515,7 @@ def test_accepted_does_not_establish_validity() -> None:
     )
     model = ClientModel(dag=dag)
     model.known["a1"] = Validity.VALID
-    model.apply_new_payload("bad", [Outcome(id="accepted", status="ACCEPTED")])
+    model.apply_new_payload("bad", Outcome(id="accepted", status="ACCEPTED"))
     assert model.known["bad"] == Validity.RECEIVED
     outcomes = model.forkchoice_outcomes(ForkchoiceUpdatedStep(head="bad"))
     assert ids(outcomes) == ["invalid", "syncing"]
@@ -534,7 +534,7 @@ def test_received_ground_truth_valid_acts_like_valid() -> None:
     )
     model = ClientModel(dag=dag)
     model.known["a1"] = Validity.VALID
-    model.apply_new_payload("b1", [Outcome(id="accepted", status="ACCEPTED")])
+    model.apply_new_payload("b1", Outcome(id="accepted", status="ACCEPTED"))
     assert model.known["b1"] == Validity.RECEIVED
     fcu_outcomes = model.forkchoice_outcomes(ForkchoiceUpdatedStep(head="b1"))
     assert ids(fcu_outcomes) == ["applied"]
@@ -569,12 +569,7 @@ def test_annotate_rejects_diverging_multi_outcome_continuation() -> None:
 
 
 def test_annotate_allows_agreeing_multi_outcome_continuation() -> None:
-    """
-    Branches that agree on head/safe/finalized pass, including when they
-    differ only in a block's tracked ``Validity`` (never compared) --
-    newPayload never moves head/safe/finalized, so its "valid"/"accepted"
-    branches always trivially agree regardless of what follows.
-    """
+    """VALID and ACCEPTED leave a truly valid block in one effective state."""
     dag = ModelDag(
         parent={"a1": "genesis", "b2": "a1"}, valid={"a1": True, "b2": True}
     )
@@ -582,13 +577,58 @@ def test_annotate_allows_agreeing_multi_outcome_continuation() -> None:
     model.known["a1"] = Validity.VALID
     steps: List[Step] = [
         NewPayloadStep(block="b2"),
-        AssertHeadStep(latest="genesis"),
+        ForkchoiceUpdatedStep(head="b2", version=3),
     ]
     annotate_steps(steps, model)
-    np_step = steps[0]
+    np_step, fcu = steps
     assert isinstance(np_step, NewPayloadStep)
+    assert isinstance(fcu, ForkchoiceUpdatedStep)
     assert ids(np_step.expect) == ["valid", "accepted"]
-    assert model.head == "genesis"
+    assert ids(fcu.expect) == ["applied"]
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        pytest.param(["syncing", "valid"], id="syncing_first"),
+        pytest.param(["valid", "syncing"], id="valid_first"),
+    ],
+)
+def test_annotate_rejects_outcomes_of_a_diverged_block(
+    order: List[str],
+) -> None:
+    """Generated outcomes may not depend on a block left ambiguous."""
+    outcomes = {
+        "syncing": Outcome(id="syncing", status="SYNCING"),
+        "valid": Outcome(id="valid", status="VALID", latest_valid_hash="a1"),
+    }
+    model = ClientModel(dag=ModelDag(parent={"a1": "genesis"}, valid={}))
+    steps: List[Step] = [
+        NewPayloadStep(block="a1", expect=[outcomes[o] for o in order]),
+        ForkchoiceUpdatedStep(head="a1", version=3),
+    ]
+    with pytest.raises(ValueError, match="'a1' in different states"):
+        annotate_steps(steps, model)
+
+
+def test_annotate_redelivery_resolves_a_diverged_block() -> None:
+    """A definite outcome for a diverged block settles its state."""
+    model = ClientModel(dag=ModelDag(parent={"a1": "genesis"}, valid={}))
+    steps: List[Step] = [
+        NewPayloadStep(
+            block="a1",
+            expect=[
+                Outcome(id="syncing", status="SYNCING"),
+                Outcome(id="valid", status="VALID", latest_valid_hash="a1"),
+            ],
+        ),
+        NewPayloadStep(block="a1"),
+        ForkchoiceUpdatedStep(head="a1", version=3),
+    ]
+    annotate_steps(steps, model)
+    fcu = steps[2]
+    assert isinstance(fcu, ForkchoiceUpdatedStep)
+    assert ids(fcu.expect) == ["applied"]
 
 
 def test_annotate_rejects_divergence_used_by_enclosing_continuation() -> None:

@@ -99,11 +99,8 @@ def matrix_steps(depth: int, applied_only: bool) -> List[Step]:
         expect.append(
             Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg)
         )
-    # A rewind from the side tip back to the canonical tip only happens if
-    # the side reorg itself was applied; if it was refused, head is already
-    # canon_tip and there is nothing left to check. Nested here (rather
-    # than a flat sibling step) since its own "refused" outcome is only
-    # possible following "applied" above, not following a "refused" above.
+    # Only reachable once the side reorg was applied; if refused, the head
+    # is already the canonical tip.
     canonical_tip_fcu = ForkchoiceUpdatedStep(
         head=canon_tip,
         safe="a1",

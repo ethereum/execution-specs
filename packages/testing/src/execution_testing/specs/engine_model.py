@@ -5,8 +5,8 @@ The model simulates the forkchoice-relevant state of an execution client
 (known blocks and their validity, head/safe/finalized) over the block DAG of a
 reorg test, and derives the set of spec-legal outcomes for every
 ``newPayload`` / ``forkchoiceUpdated`` step whose ``expect`` was left empty.
-It also appends ``assertHead`` steps to each outcome's ``branches`` so the
-observable head is verified after every forkchoice update.
+It also prepends an ``assertHead`` step to each forkchoice outcome's
+branch, so the head is verified after every forkchoice update.
 
 Rules follow `execution-apis` ``paris.md`` as amended by PR #786:
 
@@ -132,6 +132,11 @@ class ClientModel:
     dag: ModelDag
     known: Dict[str, Validity] = field(default_factory=dict)
     """label -> what the model has learned about it (see ``Validity``)."""
+    diverged: Dict[str, str] = field(default_factory=dict)
+    """
+    label -> the step whose outcomes leave that block in different states;
+    generating an outcome that depends on it is rejected.
+    """
     head: str = GENESIS_LABEL
     safe: str = ZERO_LABEL
     finalized: str = ZERO_LABEL
@@ -141,6 +146,16 @@ class ClientModel:
         self.known.setdefault(GENESIS_LABEL, Validity.VALID)
 
     # -- newPayload -----------------------------------------------------
+
+    def _known(self, label: str) -> Optional[Validity]:
+        """What the model has learned about ``label``, if unambiguous."""
+        if label in self.diverged:
+            raise ValueError(
+                f"{self.diverged[label]}; a later step's generated outcomes "
+                "depend on it: author that step's expect or move it into "
+                "each branch"
+            )
+        return self.known.get(label)
 
     def new_payload_outcomes(self, block: str) -> List[Outcome]:
         """Legal outcomes of ``newPayload(block)``."""
@@ -159,9 +174,9 @@ class ClientModel:
                 ),
                 Outcome(id="invalid_block_hash", status="INVALID_BLOCK_HASH"),
             ]
-        if parent not in self.known:
+        parent_state = self._known(parent)
+        if parent_state is None:
             return [Outcome(id="syncing", status="SYNCING")]
-        parent_state = self.known[parent]
         if parent_state == Validity.RECEIVED and not self.dag.fully_valid(
             parent
         ):
@@ -199,25 +214,20 @@ class ClientModel:
             ),
         ]
 
-    def apply_new_payload(self, block: str, outcomes: List[Outcome]) -> None:
+    def apply_new_payload(self, block: str, outcome: Outcome) -> None:
         """
-        Update model state after ``newPayload``.
-
-        A block whose response confirms VALID or INVALID is recorded as
-        such; ACCEPTED-only never confirms validity, only that the client
-        has received the payload (``Validity.RECEIVED``); descendants of a
-        confirmed-INVALID (or ground-truth-invalid RECEIVED) block remain
-        legal as INVALID or SYNCING, so the chain must never become
-        canonical.
+        Record what ``outcome`` reveals about ``block``: VALID and INVALID
+        confirm it, ACCEPTED only that it was received, SYNCING nothing.
         """
-        statuses = {o.status for o in outcomes}
-        if "VALID" in statuses:
+        if outcome.status == "VALID":
             self.known[block] = Validity.VALID
-        elif "INVALID" in statuses:
+        elif outcome.status == "INVALID":
             self.known[block] = Validity.INVALID
-        elif "ACCEPTED" in statuses:
+        elif outcome.status == "ACCEPTED":
             self.known[block] = Validity.RECEIVED
-        # SYNCING-only: block remains unknown.
+        else:
+            return
+        self.diverged.pop(block, None)
 
     # -- forkchoiceUpdated ----------------------------------------------
 
@@ -251,9 +261,9 @@ class ClientModel:
         self, step: ForkchoiceUpdatedStep
     ) -> List[Outcome]:
         head = step.head
-        if head not in self.known:
+        head_state = self._known(head)
+        if head_state is None:
             return [Outcome(id="syncing", status="SYNCING")]
-        head_state = self.known[head]
         if head_state == Validity.RECEIVED:
             if not self.dag.fully_valid(head):
                 lva = self.dag.last_valid_ancestor(head)
@@ -385,6 +395,7 @@ class ClientModel:
     def assign(self, other: "ClientModel") -> None:
         """Take over another model's state (same DAG)."""
         self.known = dict(other.known)
+        self.diverged = dict(other.diverged)
         self.head = other.head
         self.safe = other.safe
         self.finalized = other.finalized
@@ -394,6 +405,7 @@ class ClientModel:
         return ClientModel(
             dag=self.dag,
             known=dict(self.known),
+            diverged=dict(self.diverged),
             head=self.head,
             safe=self.safe,
             finalized=self.finalized,
@@ -417,28 +429,46 @@ def _reject_unmatched_branches(
         )
 
 
-def _reject_diverging_continuation(
-    where: str, branches: List[Tuple[str, ClientModel]]
+def _state_class(model: ClientModel, label: str) -> Optional[Validity]:
+    """``model.known[label]``, counting a truly valid RECEIVED as VALID."""
+    state = model.known.get(label)
+    if state == Validity.RECEIVED and model.dag.fully_valid(label):
+        return Validity.VALID
+    return state
+
+
+def _continue(
+    model: ClientModel,
+    where: str,
+    branches: List[Tuple[str, ClientModel]],
+    has_continuation: bool,
 ) -> None:
     """
-    Reject outcome branches that leave different forkchoice states when a
-    later step (in this list or an enclosing one) depends on which one
-    actually occurred.
+    Continue from the first outcome's branch.
 
-    Restricted to ``head``/``safe``/``finalized``: two branches differing
-    only in a block's tracked ``Validity`` (e.g. ``RECEIVED`` vs ``VALID``)
-    can never generate different legal outcomes or observable behavior
-    downstream, since a ``RECEIVED`` block's widened outcome set is always
-    identical to a confirmed-``VALID`` block's whenever it is truly valid.
+    When a later step follows, every branch must leave the same
+    head/safe/finalized; a block they leave in different states is marked
+    diverged.
     """
+    ids = [oid for oid, _ in branches]
     states = {(m.head, m.safe, m.finalized) for _, m in branches}
-    if len(states) > 1:
+    if has_continuation and len(states) > 1:
         raise ValueError(
-            f"{where}: outcomes {[oid for oid, _ in branches]} leave "
-            f"different forkchoice states {sorted(states)}, but a later "
-            "step depends on which one occurred; restructure so each "
-            "branch's own continuation is self-contained"
+            f"{where}: outcomes {ids} leave different forkchoice states "
+            f"{sorted(states)}, but a later step depends on which one "
+            "occurred; restructure so each branch's own continuation is "
+            "self-contained"
         )
+    model.assign(branches[0][1])
+    for _, other in branches[1:]:
+        model.diverged = {**other.diverged, **model.diverged}
+    labels = set().union(*(m.known.keys() for _, m in branches))
+    for label in labels - model.diverged.keys():
+        if len({_state_class(m, label) for _, m in branches}) > 1:
+            model.diverged[label] = (
+                f"{where}: outcomes {ids} leave block {label!r} in "
+                "different states"
+            )
 
 
 def annotate_steps(
@@ -449,24 +479,13 @@ def annotate_steps(
 ) -> List[Step]:
     """
     Fill empty ``expect`` lists and ``version`` fields in ``steps`` using the
-    model, prepending an ``assertHead`` step to every forkchoice outcome
-    branch (before that branch's own nested steps) checking the update
-    this step itself just applied.
+    model, and prepend to every forkchoice outcome branch an ``assertHead``
+    for the state that outcome leaves.
 
-    Branch step lists are annotated recursively with a copy of the model in
-    which that outcome happened, never merged back together. Whenever a
-    step (in this list, or — via ``more_follow`` — an enclosing one) has a
-    step that follows it, every one of its outcome branches must leave the
-    model in the exact same forkchoice state (``head``/``safe``/
-    ``finalized``); otherwise the following step could not be given a
-    single legal continuation, and the DAG must be restructured so each
-    branch supplies its own copy of whatever follows. With that guaranteed
-    (or with nothing following), sibling/enclosing steps continue from the
-    first outcome's own branch.
-
-    ``getPayload`` binds a new label: it is added to the DAG as a valid
-    child of its declared parent (the client builds it, so it is
-    execution-valid).
+    Each outcome's branch is annotated with its own copy of the model;
+    ``more_follow`` says a step follows in an enclosing list (see
+    ``_continue``). ``getPayload`` adds its bound label to the DAG as a
+    valid child of its parent: the client built it.
     """
     for i, step in enumerate(steps):
         has_continuation = i + 1 < len(steps) or more_follow
@@ -477,7 +496,7 @@ def annotate_steps(
             branches: List[Tuple[str, ClientModel]] = []
             for outcome in step.expect:
                 branch_model = model.copy()
-                branch_model.apply_new_payload(step.block, [outcome])
+                branch_model.apply_new_payload(step.block, outcome)
                 if outcome.id in step.branches:
                     annotate_steps(
                         step.branches[outcome.id],
@@ -486,11 +505,12 @@ def annotate_steps(
                         has_continuation,
                     )
                 branches.append((outcome.id, branch_model))
-            if has_continuation and len(branches) > 1:
-                _reject_diverging_continuation(
-                    f"newPayload({step.block!r})", branches
-                )
-            model.assign(branches[0][1])
+            _continue(
+                model,
+                f"newPayload({step.block!r})",
+                branches,
+                has_continuation,
+            )
         elif isinstance(step, ForkchoiceUpdatedStep):
             if step.version is None:
                 if fcu_version is None:
@@ -522,11 +542,12 @@ def annotate_steps(
                     branch, branch_model, fcu_version, has_continuation
                 )
                 branches.append((outcome.id, branch_model))
-            if has_continuation and len(branches) > 1:
-                _reject_diverging_continuation(
-                    f"forkchoiceUpdated(head={step.head!r})", branches
-                )
-            model.assign(branches[0][1])
+            _continue(
+                model,
+                f"forkchoiceUpdated(head={step.head!r})",
+                branches,
+                has_continuation,
+            )
         elif isinstance(step, GetPayloadStep):
             model.dag.parent[step.bind] = step.parent
             model.dag.valid[step.bind] = True
