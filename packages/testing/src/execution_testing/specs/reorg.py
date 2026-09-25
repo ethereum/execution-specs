@@ -201,14 +201,18 @@ class ReorgTest(BlockchainTest):
         self,
         steps: List[Step],
         timestamps: Dict[str, int],
+        gas_limits: Dict[str, int],
+        slots: Dict[str, int],
         build_timestamps: Dict[str, int] | None = None,
     ) -> None:
         """
         Fill defaults of ``forkchoiceUpdated.payload_attributes``: a zero
         timestamp becomes ``parent + 12``; Shanghai+ gets empty withdrawals;
-        Cancun+ gets a deterministic parent beacon block root. Bound labels
-        (client-built payloads) take the timestamp of their build request and
-        the ``getPayload`` version of the fork active at that timestamp.
+        Cancun+ gets a deterministic parent beacon block root; Amsterdam+
+        gets the requested head's slot + 1 and its own gas limit as the
+        target. Bound labels (client-built payloads) take the timestamp of
+        their build request and the ``getPayload`` version of the fork
+        active at that timestamp.
         """
         if build_timestamps is None:
             build_timestamps = {}
@@ -248,9 +252,25 @@ class ReorgTest(BlockchainTest):
                         and fork.header_beacon_root_required()
                     ):
                         attrs.parent_beacon_block_root = Hash(0xBEAC0)
+                    if (
+                        attrs.slot_number is None
+                        and fork.engine_payload_attribute_slot_number()
+                    ):
+                        attrs.slot_number = HexNumber(slots[step.head] + 1)
+                    if (
+                        attrs.target_gas_limit is None
+                        and fork.engine_payload_attribute_target_gas_limit()
+                    ):
+                        attrs.target_gas_limit = HexNumber(
+                            gas_limits[step.head]
+                        )
             for branch in getattr(step, "branches", {}).values():
                 self._resolve_payload_attributes(
-                    branch, timestamps, dict(build_timestamps)
+                    branch,
+                    timestamps,
+                    gas_limits,
+                    slots,
+                    dict(build_timestamps),
                 )
 
     def make_reorg_fixture(self, t8n: FillerBackend) -> FillResult:
@@ -324,8 +344,30 @@ class ReorgTest(BlockchainTest):
                 for label, b in fixture_blocks.items()
             },
         }
+        gas_limits: Dict[str, int] = {
+            GENESIS_LABEL: int(genesis.header.gas_limit),
+            **{
+                label: int(b.payload.params[0].gas_limit)
+                for label, b in fixture_blocks.items()
+            },
+        }
+        slots: Dict[str, int] = {
+            GENESIS_LABEL: (
+                int(genesis.header.slot_number)
+                if genesis.header.slot_number is not None
+                else 0
+            ),
+            **{
+                label: (
+                    int(b.payload.params[0].slot_number)
+                    if b.payload.params[0].slot_number is not None
+                    else 0
+                )
+                for label, b in fixture_blocks.items()
+            },
+        }
         steps = [s.model_copy(deep=True) for s in self.steps]
-        self._resolve_payload_attributes(steps, timestamps)
+        self._resolve_payload_attributes(steps, timestamps, gas_limits, slots)
         model = ClientModel(
             dag=ModelDag(
                 parent=dag_parent,

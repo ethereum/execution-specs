@@ -19,11 +19,11 @@ from execution_testing import Alloc, Hash, Transaction
 from execution_testing.fixtures.reorg import (
     AssertCanonicalStep,
     AssertReceiptStep,
-    FixturePayloadAttributes,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
     NewPayloadStep,
     Outcome,
+    PayloadAttributes,
     SendRawTransactionStep,
     Step,
     TxRef,
@@ -36,9 +36,9 @@ REFERENCE_SPEC_VERSION = "execution-apis#786"
 FEE_RECIPIENT = 0x1234
 
 
-def build_attrs(prev_randao: int) -> FixturePayloadAttributes:
+def build_attrs(prev_randao: int) -> PayloadAttributes:
     """Payload attributes; timestamp/withdrawals/beacon root filled at fill."""
-    return FixturePayloadAttributes(
+    return PayloadAttributes(
         timestamp=0,
         prev_randao=Hash(prev_randao),
         suggested_fee_recipient=FEE_RECIPIENT,

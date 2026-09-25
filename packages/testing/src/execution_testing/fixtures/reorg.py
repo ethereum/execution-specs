@@ -33,13 +33,13 @@ from execution_testing.base_types import (
 )
 from execution_testing.exceptions import EngineAPIError
 from execution_testing.forks import Fork, Paris, TransitionFork
-from execution_testing.test_types import Withdrawal
 
 from .base import BaseFixture
 from .blockchain import (
     FixtureConfig,
     FixtureEngineNewPayload,
     FixtureHeader,
+    PayloadAttributes,
     PayloadStatusEnum,
 )
 
@@ -105,16 +105,6 @@ class TxRef(CamelModel):
     index: Number = Number(0)
 
 
-class FixturePayloadAttributes(CamelModel):
-    """Payload attributes sent with ``forkchoiceUpdated`` to start a build."""
-
-    timestamp: HexNumber
-    prev_randao: Hash
-    suggested_fee_recipient: Address
-    withdrawals: List[Withdrawal] | None = None
-    parent_beacon_block_root: Hash | None = None
-
-
 class StepBase(CamelModel):
     """Common fields of every step."""
 
@@ -140,7 +130,7 @@ class ForkchoiceUpdatedStep(StepBase):
     finalized: str = ZERO_LABEL
     version: Number | None = None
     """Engine API version; derived from the head block's fork when unset."""
-    payload_attributes: FixturePayloadAttributes | None = None
+    payload_attributes: PayloadAttributes | None = None
     """If set, a payload build is requested; ``payloadId`` is kept for the
     next ``getPayload`` step."""
     expect: List[Outcome] = Field(default_factory=list)

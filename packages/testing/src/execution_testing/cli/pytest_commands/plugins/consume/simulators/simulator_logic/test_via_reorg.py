@@ -320,11 +320,7 @@ class StepRunner:
             safe_block_hash=self.resolve(step.safe),
             finalized_block_hash=self.resolve(step.finalized),
         )
-        attributes: PayloadAttributes | None = None
-        if step.payload_attributes is not None:
-            attributes = PayloadAttributes(
-                **step.payload_attributes.model_dump(exclude_none=True)
-            )
+        attributes = step.payload_attributes
         with self.timing_data.time(f"engine_forkchoiceUpdatedV{step.version}"):
             try:
                 response = self.engine.forkchoice_updated(

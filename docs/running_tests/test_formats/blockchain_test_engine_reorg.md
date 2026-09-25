@@ -102,7 +102,7 @@ Human-readable description of the step, for logging.
 
 - `head` / `safe` / `finalized`: `String` — labels; `safe`/`finalized` default to `"zero"`.
 - `version`: [`Number`](./common_types.md#number) — `engine_forkchoiceUpdatedVX` version; derived from the head block's fork when unset.
-- `payloadAttributes`: [`Optional`](./common_types.md#optional)`[`[`FixturePayloadAttributes`](#fixturepayloadattributes)`]` — if set, a payload build is requested.
+- `payloadAttributes`: [`Optional`](./common_types.md#optional)`[`[`PayloadAttributes`](#payloadattributes)`]` — if set, a payload build is requested.
 - `expect` / `branches`: as above.
 
 #### `getPayload`
@@ -189,9 +189,9 @@ If `true`, any JSON-RPC error matches (for uncoded errors).
 
 `"nonNull"` or `"null"`, for a `forkchoiceUpdated` with payload attributes.
 
-### `FixturePayloadAttributes`
+### `PayloadAttributes`
 
-Payload attributes sent with `forkchoiceUpdated` to start a build; fields match the Engine API's `PayloadAttributesVX`.
+Payload attributes sent with `forkchoiceUpdated` to start a build; fields match the Engine API's `PayloadAttributesVX`, including Amsterdam's `slotNumber` and `targetGasLimit`.
 
 ### `AccountExpectation`
 
