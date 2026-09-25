@@ -51,6 +51,7 @@ from typing import List, Tuple
 
 import pytest
 from execution_testing import Alloc, BlockException, Hash, Header, Transaction
+from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures.reorg import (
     AssertCanonicalStep,
     AssertHeadStep,
@@ -63,9 +64,6 @@ from execution_testing.specs import ReorgBlock, ReorgTestFiller
 
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
-
-INVALID_FORKCHOICE_STATE = -38002
-TOO_DEEP_REORG = -38006
 
 DISPUTED_FORK_BEHIND_FINALIZED = (
     "execution-apis paris.md step 5 requires -38002 when finalized is not on "
@@ -87,7 +85,7 @@ def rewind_outcomes(head: str) -> List[Outcome]:
     """
     return [
         Outcome(id="applied", status="VALID", latest_valid_hash=head),
-        Outcome(id="refused", error_code=TOO_DEEP_REORG),
+        Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg),
     ]
 
 
@@ -352,7 +350,8 @@ def test_fcu_to_unknown_block_is_syncing(
             safe="s15",
             expect=[
                 Outcome(
-                    id="inconsistent", error_code=INVALID_FORKCHOICE_STATE
+                    id="inconsistent",
+                    error_code=EngineAPIError.InvalidForkchoiceState,
                 ),
                 Outcome(id="error", any_error=True),
             ],
@@ -362,7 +361,8 @@ def test_fcu_to_unknown_block_is_syncing(
             finalized="s15",
             expect=[
                 Outcome(
-                    id="inconsistent", error_code=INVALID_FORKCHOICE_STATE
+                    id="inconsistent",
+                    error_code=EngineAPIError.InvalidForkchoiceState,
                 ),
                 Outcome(id="error", any_error=True),
             ],
@@ -397,7 +397,10 @@ def test_inconsistent_forkchoice_state(
             safe=state["safe"],
             finalized=state["finalized"],
             expect=[
-                Outcome(id="inconsistent", error_code=INVALID_FORKCHOICE_STATE)
+                Outcome(
+                    id="inconsistent",
+                    error_code=EngineAPIError.InvalidForkchoiceState,
+                )
             ],
         ),
         ForkchoiceUpdatedStep(
@@ -439,7 +442,7 @@ def test_safe_finalized_labels_follow_fcu(
                 *applied("b3"),
                 Outcome(
                     id="rejected",
-                    error_code=INVALID_FORKCHOICE_STATE,
+                    error_code=EngineAPIError.InvalidForkchoiceState,
                     disputed=DISPUTED_ZERO_SAFE,
                 ),
             ],
@@ -726,7 +729,8 @@ def test_reorg_to_fork_behind_finalized(
             finalized="a7",
             expect=[
                 Outcome(
-                    id="inconsistent", error_code=INVALID_FORKCHOICE_STATE
+                    id="inconsistent",
+                    error_code=EngineAPIError.InvalidForkchoiceState,
                 ),
                 Outcome(
                     id="applied",
@@ -766,7 +770,10 @@ def test_forkchoice_state_unchanged_on_invalid_state(
             safe="a2",
             finalized="a1",
             expect=[
-                Outcome(id="inconsistent", error_code=INVALID_FORKCHOICE_STATE)
+                Outcome(
+                    id="inconsistent",
+                    error_code=EngineAPIError.InvalidForkchoiceState,
+                )
             ],
             branches={
                 "inconsistent": [
@@ -803,7 +810,7 @@ def test_fcu_rewind_with_no_finalized(
                     latest_valid_hash="a5",
                     head_moved=True,
                 ),
-                Outcome(id="refused", error_code=TOO_DEEP_REORG),
+                Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg),
             ],
             branches={
                 "applied": [AssertCanonicalStep(blocks={5: "a5", 6: None})],

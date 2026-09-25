@@ -3,7 +3,9 @@
 from typing import List
 
 import pytest
+from pydantic import ValidationError
 
+from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures.reorg import (
     AssertHeadStep,
     ForkchoiceUpdatedStep,
@@ -12,13 +14,7 @@ from execution_testing.fixtures.reorg import (
     Step,
 )
 
-from ..engine_model import (
-    INVALID_FORKCHOICE_STATE,
-    TOO_DEEP_REORG,
-    ClientModel,
-    ModelDag,
-    annotate_steps,
-)
+from ..engine_model import ClientModel, ModelDag, annotate_steps
 
 
 def dag_linear_with_fork() -> ModelDag:
@@ -124,7 +120,7 @@ def test_fcu_side_chain_reorg_applied_or_refused() -> None:  # noqa: D103
     model.head = "a2"
     outcomes = model.forkchoice_outcomes(ForkchoiceUpdatedStep(head="b2"))
     assert ids(outcomes) == ["applied", "refused"]
-    assert outcomes[1].error_code == TOO_DEEP_REORG
+    assert outcomes[1].error_code == EngineAPIError.TooDeepReorg
 
 
 def test_fcu_rewind_to_canonical_ancestor_above_finalized() -> None:  # noqa: D103
@@ -188,7 +184,7 @@ def test_fcu_inconsistent_finalized_is_error() -> None:  # noqa: D103
         ForkchoiceUpdatedStep(head="a2", finalized="b2")
     )
     assert ids(outcomes) == ["inconsistent"]
-    assert outcomes[0].error_code == INVALID_FORKCHOICE_STATE
+    assert outcomes[0].error_code == EngineAPIError.InvalidForkchoiceState
 
 
 def test_fcu_invalid_head() -> None:  # noqa: D103
@@ -318,3 +314,22 @@ def test_np_hash_invalid_precedes_parent_lookup() -> None:
         "invalid",
         "invalid_block_hash",
     ]
+
+
+def test_outcome_rejects_unknown_status() -> None:
+    """A misspelled status can never match an observed response."""
+    with pytest.raises(ValidationError):
+        Outcome(id="typo", status="Valid")
+
+
+def test_outcome_rejects_unknown_error_code() -> None:
+    """An error code outside the shared Engine API enum is rejected."""
+    with pytest.raises(ValidationError):
+        Outcome(id="typo", error_code=-1)
+
+
+def test_outcome_error_code_serializes_as_decimal_string() -> None:
+    """``errorCode`` round-trips through the shared int-enum serializer."""
+    outcome = Outcome(id="x", error_code=EngineAPIError.TooDeepReorg)
+    dumped = outcome.model_dump(by_alias=True, exclude_none=True)
+    assert dumped["errorCode"] == "-38006"

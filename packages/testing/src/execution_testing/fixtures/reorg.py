@@ -20,7 +20,7 @@ clients.
 
 from typing import Annotated, Any, ClassVar, Dict, List, Literal, Union
 
-from pydantic import Field
+from pydantic import Field, PlainSerializer
 
 from execution_testing.base_types import (
     Address,
@@ -30,6 +30,7 @@ from execution_testing.base_types import (
     Hash,
     HexNumber,
 )
+from execution_testing.exceptions import EngineAPIError
 from execution_testing.forks import Fork, Paris, TransitionFork
 from execution_testing.test_types import Withdrawal
 
@@ -38,6 +39,7 @@ from .blockchain import (
     FixtureConfig,
     FixtureEngineNewPayload,
     FixtureHeader,
+    PayloadStatusEnum,
 )
 
 GENESIS_LABEL = "genesis"
@@ -64,7 +66,7 @@ class Outcome(CamelModel):
     If set, the spec is ambiguous about this outcome; the value is a
     reference (issue URL). A disputed outcome still passes.
     """
-    status: str | None = None
+    status: PayloadStatusEnum | None = None
     """
     Expected ``payloadStatus.status`` (VALID, INVALID, SYNCING, ACCEPTED).
     """
@@ -73,7 +75,13 @@ class Outcome(CamelModel):
     Expected ``latestValidHash`` as a block label, ``"null"``, or ``"any"``.
     Unset means not checked.
     """
-    error_code: int | None = None
+    error_code: (
+        Annotated[
+            EngineAPIError,
+            PlainSerializer(lambda x: str(x.value), return_type=str),
+        ]
+        | None
+    ) = None
     """Expected JSON-RPC error code (e.g. -38002, -38006)."""
     any_error: bool | None = None
     """If true, any JSON-RPC error matches (for uncoded errors)."""

@@ -1,5 +1,6 @@
 """BlockchainTest types."""
 
+from enum import Enum
 from functools import cached_property
 from typing import (
     TYPE_CHECKING,
@@ -598,6 +599,16 @@ EngineNewPayloadParameters = Union[
     EngineNewPayloadV3Parameters,
     EngineNewPayloadV1Parameters,
 ]
+
+
+class PayloadStatusEnum(str, Enum):
+    """Represents the status of a payload after execution."""
+
+    VALID = "VALID"
+    INVALID = "INVALID"
+    SYNCING = "SYNCING"
+    ACCEPTED = "ACCEPTED"
+    INVALID_BLOCK_HASH = "INVALID_BLOCK_HASH"
 
 
 class FixtureEngineNewPayload(CamelModel):

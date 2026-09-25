@@ -27,6 +27,7 @@ from typing import List
 
 import pytest
 from execution_testing import Address, Alloc, Transaction
+from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures.reorg import (
     AssertCanonicalStep,
     ForkchoiceUpdatedStep,
@@ -38,8 +39,6 @@ from execution_testing.specs import ReorgBlock, ReorgTestFiller
 
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
-
-TOO_DEEP_REORG = -38006
 
 
 def two_branches(
@@ -97,7 +96,9 @@ def matrix_steps(depth: int, applied_only: bool) -> List[Step]:
         Outcome(id="applied", status="VALID", latest_valid_hash=side_tip)
     ]
     if not applied_only:
-        expect.append(Outcome(id="refused", error_code=TOO_DEEP_REORG))
+        expect.append(
+            Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg)
+        )
     return [
         ForkchoiceUpdatedStep(
             head=side_tip,
@@ -130,7 +131,12 @@ def matrix_steps(depth: int, applied_only: bool) -> List[Step]:
                 *(
                     []
                     if applied_only
-                    else [Outcome(id="refused", error_code=TOO_DEEP_REORG)]
+                    else [
+                        Outcome(
+                            id="refused",
+                            error_code=EngineAPIError.TooDeepReorg,
+                        )
+                    ]
                 ),
             ],
             branches={

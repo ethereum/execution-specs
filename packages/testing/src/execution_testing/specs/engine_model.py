@@ -32,6 +32,7 @@ author-provided set.
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
+from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
     LATEST_VALID_HASH_ANY,
@@ -44,9 +45,6 @@ from execution_testing.fixtures.reorg import (
     Outcome,
     Step,
 )
-
-INVALID_FORKCHOICE_STATE = -38002
-TOO_DEEP_REORG = -38006
 
 DISPUTED_HEAD_EQUALS_FINALIZED = (
     "execution-apis#786: no-reorg shortcut applies to an *ancestor* of "
@@ -256,7 +254,10 @@ class ClientModel:
             step.finalized, head
         ):
             return [
-                Outcome(id="inconsistent", error_code=INVALID_FORKCHOICE_STATE)
+                Outcome(
+                    id="inconsistent",
+                    error_code=EngineAPIError.InvalidForkchoiceState,
+                )
             ]
         # Extending the current head (or re-sending it): always applied.
         if head == self.head or self.dag.is_ancestor(self.head, head):
@@ -268,7 +269,7 @@ class ClientModel:
         # only legal for an ancestor of finalized, handled above.
         return [
             Outcome(id="applied", status="VALID", latest_valid_hash=head),
-            Outcome(id="refused", error_code=TOO_DEEP_REORG),
+            Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg),
         ]
 
     def apply_forkchoice(
@@ -397,7 +398,5 @@ __all__ = [
     "ClientModel",
     "ModelDag",
     "annotate_steps",
-    "INVALID_FORKCHOICE_STATE",
-    "TOO_DEEP_REORG",
     "LATEST_VALID_HASH_ANY",
 ]

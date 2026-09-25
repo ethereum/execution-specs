@@ -21,6 +21,7 @@ from execution_testing import (
     Header,
     Transaction,
 )
+from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures.reorg import (
     AccountExpectation,
     AssertCanonicalStep,
@@ -34,9 +35,6 @@ from execution_testing.specs import ReorgBlock, ReorgTestFiller
 
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
-
-INVALID_FORKCHOICE_STATE = -38002
-TOO_DEEP_REORG = -38006
 
 DISPUTED_SHORTCUT_VS_38002 = (
     "execution-apis#786: no-reorg shortcut (step 2) vs. inconsistent "
@@ -289,12 +287,12 @@ def test_fcu_below_finalized_with_inconsistent_state(
                 Outcome(id="noop", status="VALID", latest_valid_hash="a2"),
                 Outcome(
                     id="inconsistent",
-                    error_code=INVALID_FORKCHOICE_STATE,
+                    error_code=EngineAPIError.InvalidForkchoiceState,
                     disputed=DISPUTED_SHORTCUT_VS_38002,
                 ),
                 Outcome(
                     id="refused",
-                    error_code=TOO_DEEP_REORG,
+                    error_code=EngineAPIError.TooDeepReorg,
                     disputed=DISPUTED_SHORTCUT_VS_38006,
                 ),
             ],
@@ -338,7 +336,7 @@ def test_fcu_finalized_regression(
                 Outcome(id="applied", status="VALID", latest_valid_hash="a10"),
                 Outcome(
                     id="rejected",
-                    error_code=INVALID_FORKCHOICE_STATE,
+                    error_code=EngineAPIError.InvalidForkchoiceState,
                     disputed=DISPUTED_FINALIZED_REGRESSION,
                 ),
             ],
@@ -393,7 +391,7 @@ def test_fcu_rewind_to_canonical_ancestor_above_finalized(
             finalized="a5",
             expect=[
                 Outcome(id="applied", status="VALID", latest_valid_hash="a7"),
-                Outcome(id="refused", error_code=TOO_DEEP_REORG),
+                Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg),
             ],
             branches={
                 "applied": [

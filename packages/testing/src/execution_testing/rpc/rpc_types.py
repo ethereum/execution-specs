@@ -2,7 +2,6 @@
 
 import json
 from binascii import crc32
-from enum import Enum
 from hashlib import sha256
 from typing import Annotated, Any, Dict, List, Protocol, Self
 
@@ -27,6 +26,7 @@ from execution_testing.exceptions import (
 )
 from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayload,
+    PayloadStatusEnum,
 )
 from execution_testing.forks import Fork
 from execution_testing.test_types import EOA, Transaction, Withdrawal
@@ -162,16 +162,6 @@ class ForkchoiceState(CamelModel):
     head_block_hash: Hash = Field(Hash(0))
     safe_block_hash: Hash = Field(Hash(0))
     finalized_block_hash: Hash = Field(Hash(0))
-
-
-class PayloadStatusEnum(str, Enum):
-    """Represents the status of a payload after execution."""
-
-    VALID = "VALID"
-    INVALID = "INVALID"
-    SYNCING = "SYNCING"
-    ACCEPTED = "ACCEPTED"
-    INVALID_BLOCK_HASH = "INVALID_BLOCK_HASH"
 
 
 class BlockTransactionExceptionWithMessage(
