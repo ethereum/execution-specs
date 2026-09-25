@@ -1036,19 +1036,13 @@ class BlockchainFixture(BlockchainFixtureCommon):
     transition_tool_cache_key: ClassVar[str] = "blockchain_test"
 
 
-@post_state_validator()
-class BlockchainEngineFixtureCommon(BaseFixture):
+class EngineFixtureCommon(BaseFixture):
     """
-    Base blockchain test fixture model for Engine API based execution.
-
-    Similar to BlockchainFixtureCommon but excludes the 'pre' field to avoid
-    duplicating large pre-allocations.
+    Common contract of every Engine API fixture format: the fork under
+    test and its chain configuration.
     """
 
     fork: Fork | TransitionFork = Field(..., alias="network")
-    post_state_hash: Hash | None = Field(None)
-    # FIXME: lastBlockHash
-    last_block_hash: Hash = Field(..., alias="lastblockhash")
     config: FixtureConfig
 
     def get_fork(self) -> Fork | TransitionFork | None:
@@ -1063,6 +1057,20 @@ class BlockchainEngineFixtureCommon(BaseFixture):
         The Engine API is available only on Paris and afterwards.
         """
         return fork.fork_at(block_number=0, timestamp=0) >= Paris
+
+
+@post_state_validator()
+class BlockchainEngineFixtureCommon(EngineFixtureCommon):
+    """
+    Base blockchain test fixture model for Engine API based execution.
+
+    Similar to BlockchainFixtureCommon but excludes the 'pre' field to avoid
+    duplicating large pre-allocations.
+    """
+
+    post_state_hash: Hash | None = Field(None)
+    # FIXME: lastBlockHash
+    last_block_hash: Hash = Field(..., alias="lastblockhash")
 
 
 class BlockchainEngineFixture(BlockchainEngineFixtureCommon):

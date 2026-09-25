@@ -32,11 +32,9 @@ from execution_testing.base_types import (
     Number,
 )
 from execution_testing.exceptions import EngineAPIError
-from execution_testing.forks import Fork, Paris, TransitionFork
 
-from .base import BaseFixture
 from .blockchain import (
-    FixtureConfig,
+    EngineFixtureCommon,
     FixtureHeader,
     FixtureNewPayloadRequest,
     PayloadAttributes,
@@ -286,7 +284,7 @@ class FixtureReorgBlock(CamelModel):
         return self.payload.params[0].transactions
 
 
-class BlockchainEngineReorgFixture(BaseFixture):
+class BlockchainEngineReorgFixture(EngineFixtureCommon):
     """Engine API reorg test fixture."""
 
     format_name: ClassVar[str] = "blockchain_test_engine_reorg"
@@ -297,8 +295,6 @@ class BlockchainEngineReorgFixture(BaseFixture):
     )
     transition_tool_cache_key: ClassVar[str] = "blockchain_test"
 
-    fork: Fork | TransitionFork = Field(..., alias="network")
-    config: FixtureConfig
     genesis: FixtureHeader = Field(..., alias="genesisBlockHeader")
     pre: Alloc
     blocks: Dict[str, FixtureReorgBlock]
@@ -309,15 +305,6 @@ class BlockchainEngineReorgFixture(BaseFixture):
     start. Absent means client defaults.
     """
     meta: Dict[str, Any] = Field(default_factory=dict)
-
-    def get_fork(self) -> Fork | TransitionFork | None:
-        """Return fixture's `Fork`."""
-        return self.fork
-
-    @classmethod
-    def supports_fork(cls, fork: Fork | TransitionFork) -> bool:
-        """The Engine API is available only on Paris and afterwards."""
-        return fork.fork_at(block_number=0, timestamp=0) >= Paris
 
     def resolve(self, label: str) -> Hash | None:
         """
