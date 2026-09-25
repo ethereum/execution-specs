@@ -425,3 +425,28 @@ def test_fcu_error_leaves_forkchoice_state_untouched_still_passes() -> None:
     outcomes = model.forkchoice_outcomes(step)
     model.apply_forkchoice(step, outcomes[0])
     assert model.head == "a3"
+
+
+def test_annotate_single_outcome_branch_updates_known_map() -> None:
+    """
+    A single-outcome newPayload step has no ambiguous continuation: the
+    model must carry its branch's own known-map update (here, a nested
+    newPayload learning about a further block) into later sibling steps,
+    not just the state computed right after the outer newPayload itself.
+    """
+    dag = ModelDag(
+        parent={"a1": "genesis", "p": "a1"},
+        valid={"a1": True, "p": True},
+    )
+    model = ClientModel(dag=dag)
+    versions = {"genesis": 3, "a1": 3, "p": 3}
+    steps: List[Step] = [
+        NewPayloadStep(
+            block="a1", branches={"valid": [NewPayloadStep(block="p")]}
+        ),
+        ForkchoiceUpdatedStep(head="p"),
+    ]
+    annotate_steps(steps, model, versions)
+    fcu = steps[1]
+    assert isinstance(fcu, ForkchoiceUpdatedStep)
+    assert ids(fcu.expect) == ["applied"]

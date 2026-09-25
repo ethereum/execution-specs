@@ -407,14 +407,21 @@ def annotate_steps(
                     )
                 if first_model is None:
                     first_model = branch_model
-            # Continuation: known-ness follows the whole outcome set (a block
-            # that may be INVALID is treated as known-invalid), head follows
-            # the first outcome's branch.
+            # Continuation: with one legal outcome there is no ambiguity —
+            # trust the branch's own (possibly further-evolved) state, same
+            # as forkchoiceUpdated always does. With several, a later step
+            # cannot assume which one occurred, so known-ness must follow
+            # the conservative union of the whole outcome set (a block that
+            # may be INVALID is treated as known-invalid) while head/safe/
+            # finalized still follow the first outcome's branch.
             model.apply_new_payload(step.block, step.expect)
             if first_model is not None and step.branches:
-                known = dict(model.known)
-                model.assign(first_model)
-                model.known = known
+                if len(step.expect) > 1:
+                    known = dict(model.known)
+                    model.assign(first_model)
+                    model.known = known
+                else:
+                    model.assign(first_model)
         elif isinstance(step, ForkchoiceUpdatedStep):
             if step.version is None:
                 if fcu_version is None:
