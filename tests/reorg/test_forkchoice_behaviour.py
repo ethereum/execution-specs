@@ -65,10 +65,6 @@ from execution_testing.specs import ReorgBlock, ReorgTestFiller
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
 
-DISPUTED_FORK_BEHIND_FINALIZED = (
-    "execution-apis paris.md step 5 requires -38002 when finalized is not on "
-    "head's chain; reth trusts the CL and applies the update (VALID)"
-)
 DISPUTED_ZERO_SAFE = (
     "paris.md allows a zero finalizedBlockHash before finality but does "
     "not say whether a zero safeBlockHash with a non-zero finalized is "
@@ -707,11 +703,14 @@ def test_reorg_to_fork_behind_finalized(
 ) -> None:
     """
     Reth ``test_reorg_to_fork_behind_finalized``: with finalized = a7 and
-    head = a10, FCU to a fork tip branching at a5 (so a7 is not on its chain)
-    with finalized still a7. Spec: ``-38002``. reth applies it (trusts the
-    CL) — recorded as disputed. After a ``-38002`` the head is unspecified
-    (geth and reth move it to f10 before failing the finalized check), so
-    the canonical mapping is only asserted on the applied branch.
+    head = a10, FCU to a fork tip branching at a5 (so a7 is not on its
+    chain) with finalized still a7. execution-apis paris.md step 5 is
+    unambiguous here: this is a conformance check, not an outcome survey
+    (see the module docstring) -- ``-38002`` is the only spec-permitted
+    response. reth currently applies the update instead (trusts the CL)
+    and fails this fixture; that is the intended, correct result of
+    stating the requirement plainly rather than recording the violation
+    as a second legal outcome.
     """
     blocks, steps = chain(pre, "a", 10)
     fork, _ = chain(pre, "f", 5, parent="a5", start=6, value=2)
@@ -732,16 +731,7 @@ def test_reorg_to_fork_behind_finalized(
                     id="inconsistent",
                     error_code=EngineAPIError.InvalidForkchoiceState,
                 ),
-                Outcome(
-                    id="applied",
-                    status="VALID",
-                    latest_valid_hash="f10",
-                    disputed=DISPUTED_FORK_BEHIND_FINALIZED,
-                ),
             ],
-            branches={
-                "applied": [AssertCanonicalStep(blocks={10: "f10"})],
-            },
         )
     )
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
