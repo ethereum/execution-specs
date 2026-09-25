@@ -273,17 +273,52 @@ class ClientModel:
             Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg),
         ]
 
+    def _forkchoice_effect(
+        self, step: ForkchoiceUpdatedStep, outcome: Outcome
+    ) -> bool:
+        """
+        Whether ``outcome`` means the requested update was applied.
+
+        Derived from the outcome's own constraints and, for an
+        unconstrained VALID response, from the FCU spec's own no-reorg
+        shortcut (step 2) -- never from ``outcome.id``, which is only the
+        branch lookup key an author chooses freely.
+        """
+        if outcome.error_code is not None or outcome.any_error:
+            return False
+        if outcome.status in ("SYNCING", "INVALID"):
+            return False
+        if outcome.head_moved is not None:
+            return outcome.head_moved
+        # VALID with no explicit headMoved: apply step 2's no-reorg
+        # shortcut for a validated ancestor of finalized; head == finalized
+        # is genuinely ambiguous (see DISPUTED_HEAD_EQUALS_FINALIZED) and
+        # needs headMoved to disambiguate.
+        if self.finalized != ZERO_LABEL and self.dag.is_ancestor(
+            step.head, self.finalized
+        ):
+            return False
+        if step.head == self.finalized and step.head != self.head:
+            raise ValueError(
+                f"forkchoiceUpdated(head={step.head!r}): outcome "
+                f"{outcome.id!r} is VALID with no headMoved, but applying "
+                "and skipping the update are both legal when head == "
+                "finalized; set headMoved to disambiguate"
+            )
+        return True
+
     def apply_forkchoice(
         self, step: ForkchoiceUpdatedStep, outcome: Outcome
     ) -> None:
         """
         Update model state assuming ``outcome`` happened.
 
-        Only an applied update changes the state: every update resulting from
-        a ``forkchoiceUpdated`` call has to be made atomically, so a call that
-        ends in an error leaves head, safe and finalized where they were.
+        Only an applied update changes the state: every update resulting
+        from a ``forkchoiceUpdated`` call has to be made atomically, so a
+        call that ends in an error leaves head, safe and finalized where
+        they were.
         """
-        if outcome.id == "applied":
+        if self._forkchoice_effect(step, outcome):
             self.head = step.head
             self.safe = step.safe
             self.finalized = step.finalized

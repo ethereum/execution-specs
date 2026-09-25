@@ -356,3 +356,44 @@ def test_annotate_rejects_unmatched_forkchoice_branch_key() -> None:
     ]
     with pytest.raises(ValueError, match="aplied"):
         annotate_steps(steps, model)
+
+
+def test_forkchoice_effect_follows_head_moved_not_id() -> None:
+    """
+    The effect follows the outcome's own constraints, never its id: an
+    author-chosen id of "ok" (not "applied") still moves the head when
+    headMoved says so.
+    """
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.known.update({"a1": True, "b2": True})
+    model.head = "a1"
+    step = ForkchoiceUpdatedStep(head="b2", version=3)
+    outcome = Outcome(
+        id="ok", status="VALID", latest_valid_hash="b2", head_moved=True
+    )
+    model.apply_forkchoice(step, outcome)
+    assert model.head == "b2"
+
+
+def test_forkchoice_effect_applies_reth_disputed_fork_behind_finalized() -> (
+    None
+):
+    """
+    A disputed VALID/applied outcome for a request the model would only
+    classify as inconsistent (-38002) still applies, because the effect is
+    derived from FCU spec step 2 directly, not from the model's own
+    (narrower) classification of the request.
+    """
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.known.update({"a1": True, "a2": True, "a3": True, "b2": True})
+    model.head = "a3"
+    model.finalized = "a3"
+    step = ForkchoiceUpdatedStep(head="b2", safe="b2", finalized="a3")
+    # The model's own set at this request would be `[inconsistent]` only
+    # (b2 does not share a3 as an ancestor); this simulates an author (or a
+    # trusting client, per reth) overriding with a disputed VALID/applied.
+    outcome = Outcome(
+        id="applied", status="VALID", latest_valid_hash="b2", disputed="x"
+    )
+    model.apply_forkchoice(step, outcome)
+    assert model.head == "b2"
