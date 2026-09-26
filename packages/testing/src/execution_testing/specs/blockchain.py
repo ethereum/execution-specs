@@ -84,6 +84,7 @@ from execution_testing.fixtures.common import (
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
+from execution_testing.fixtures.spill import PayloadBuffer
 from execution_testing.forks import Fork, Requests
 from execution_testing.test_types import (
     Alloc,
@@ -1671,8 +1672,10 @@ class BlockchainTest(BaseTest):
             },
         )
 
-        setup_payloads: List[FixtureEngineNewPayload] = []
-        execution_payloads: List[FixtureEngineNewPayload] = []
+        # Past the spill threshold these move to disk; holding every
+        # payload plus the fixture's copy of them has exhausted 61 GB hosts.
+        setup_payloads = PayloadBuffer(prefix="fixture-setup-payloads-")
+        execution_payloads = PayloadBuffer(prefix="fixture-payloads-")
         # Aligned 1:1 with execution_payloads; None when no trace.
         execution_opcode_counts: List[Dict[str, int] | None] = []
         head_hash = start_block_hash
@@ -1749,14 +1752,16 @@ class BlockchainTest(BaseTest):
             snapshot_block_hash=Hash(snapshot_block["hash"]),
             start_block_number=HexNumber(start_block_number),
             start_block_hash=start_block_hash,
-            setup_payloads=setup_payloads,
-            payloads=execution_payloads,
+            setup_payloads=setup_payloads.buffered,
+            payloads=execution_payloads.buffered,
             benchmark_gas_used=(
                 HexNumber(benchmark_gas_used)
                 if benchmark_gas_used is not None
                 else None
             ),
         )
+        fixture.spill_field("setupEngineNewPayloads", setup_payloads)
+        fixture.spill_field("engineNewPayloads", execution_payloads)
         metadata: Dict[str, Any] = {}
         if t8n.extract_opcode_count:
             metadata["opcode_counts"] = execution_opcode_counts
