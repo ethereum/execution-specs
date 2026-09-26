@@ -158,6 +158,7 @@ class FillingSession:
 
     fixture_output: FixtureOutput
     filling_phase: FixtureFillingPhase
+    formats: List[str] | None = None
     pre_alloc_groups: PreAllocGroups | None = None
     pre_alloc_group_builders: PreAllocGroupBuilders | None = None
     # Phase 2 reverse index: test id -> packed pre-alloc group. Packing
@@ -181,9 +182,21 @@ class FillingSession:
             config: The pytest configuration object.
 
         """
+        formats_str = config.getoption("formats", None)
+        formats = formats_str.split(",") if formats_str else None
+        
+        if formats:
+            invalid_formats = set(formats) - set(BaseFixture.formats.keys())
+            if invalid_formats:
+                raise pytest.UsageError(
+                    f"Invalid fixture format(s) specified: {', '.join(invalid_formats)}. "
+                    f"Valid formats are: {', '.join(BaseFixture.formats.keys())}"
+                )
+
         return cls(
             fixture_output=FixtureOutput.from_config(config),
             filling_phase=cls.filling_phase_from_config(config),
+            formats=formats,
             pre_alloc_groups=None,
         )
 
@@ -265,6 +278,9 @@ class FillingSession:
             True if the format should be generated.
 
         """
+        if self.formats is not None:
+            if fixture_format.format_name not in self.formats:
+                return False
         return self.filling_phase in fixture_format.format_phases
 
     def get_pre_alloc_group(
@@ -579,6 +595,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Generate all fixture formats including BlockchainEngineX. "
             "Enables two-phase execution: Phase 1 generates pre-allocation "
             "groups, phase 2 generates all supported fixture formats."
+        ),
+    )
+    test_group.addoption(
+        "--formats",
+        action="store",
+        dest="formats",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated list of fixture formats to generate. "
+            "Example: --formats=blockchain_test,blockchain_test_engine"
         ),
     )
     test_group.addoption(

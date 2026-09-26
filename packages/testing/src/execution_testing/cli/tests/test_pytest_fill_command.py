@@ -229,6 +229,19 @@ class TestFillPytester:
         assert result.ret == pytest.ExitCode.OK
         assert not list(log_dir.glob("*.log"))
 
+    @pytest.mark.parametrize(
+        "expected_exit_code", [pytest.ExitCode.USAGE_ERROR]
+    )
+    def test_fill_invalid_formats_flag(
+        self, run_fill: Callable[..., RunResult], fill_args: list[str]
+    ) -> None:
+        """Test invoking `fill` with an invalid format name."""
+        fill_args += ["--formats=stat_test"]
+        result = run_fill(*fill_args)
+        assert result.ret == pytest.ExitCode.USAGE_ERROR
+        output = "\n".join(result.errlines + result.outlines)
+        assert "Invalid fixture format(s) specified: stat_test" in output
+
     def test_generate_pre_alloc_groups_preserves_chain_id_for_valid_from(
         self,
         pytester: Pytester,
