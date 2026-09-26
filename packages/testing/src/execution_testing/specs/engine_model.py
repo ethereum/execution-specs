@@ -17,15 +17,17 @@ Rules follow `execution-apis` ``paris.md`` as amended by PR #786:
   known-invalid (confirmed, or received-but-unconfirmed and ground-truth
   invalid) block → INVALID (lvh = last valid ancestor) or SYNCING; extends
   head → VALID; known parent on a side chain → VALID or ACCEPTED.
-- ``forkchoiceUpdated``: unknown head → SYNCING; received-but-unconfirmed
+- ``forkchoiceUpdated``: head whose payload failed the block-hash check →
+  INVALID or SYNCING; unknown head → SYNCING; received-but-unconfirmed
   ground-truth-invalid head → INVALID or SYNCING; confirmed-invalid head →
-  INVALID; safe or finalized not on head's chain → ``-38002``; head is a
-  VALID ancestor of the latest known finalized block → VALID no-op; head
-  extends current head → VALID; otherwise (rewind or side-chain reorg) →
-  VALID (applied) or ``-38006`` (refused, implementation-specific depth
-  cap). An error leaves the forkchoice state untouched (updates are
-  atomic), except ``-38003`` (invalid payload attributes): the state is
-  updated before the attributes are validated.
+  INVALID; head is a VALID ancestor of the latest known finalized block →
+  VALID no-op only (the spec's MAY skip is read as the answer, ahead of
+  ``-38002``/``-38006``: execution-apis#891); safe or finalized not on
+  head's chain → ``-38002``; head extends current head → VALID; otherwise
+  (rewind or side-chain reorg) → VALID (applied) or ``-38006`` (refused,
+  implementation-specific depth cap). An error leaves the forkchoice state
+  untouched (updates are atomic), except ``-38003`` (invalid payload
+  attributes): the state is updated before the attributes are validated.
 
 Authors may always provide ``expect`` explicitly; the model never widens an
 author-provided set.
