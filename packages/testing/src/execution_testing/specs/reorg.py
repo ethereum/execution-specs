@@ -9,7 +9,8 @@ observable results.
 Every block is executed by the transition tool against the post-state of its
 labeled parent, so sibling blocks and blocks built on top of an invalid block
 have correct headers and payloads. Steps whose ``expect`` is left empty are
-annotated by the Engine API reference model (``engine_model``).
+annotated by the Engine API reference model (``engine_model``), and every
+``assertState`` on a fixture block is checked against that block's state.
 """
 
 from typing import (
@@ -405,11 +406,19 @@ class ReorgTest(BlockchainTest):
         }
         steps = [s.model_copy(deep=True) for s in self.steps]
         self._resolve_payload_attributes(steps, timestamps, gas_limits, slots)
+
+        def post_state(label: str) -> Alloc | None:
+            alloc = child_alloc.get(label)
+            if isinstance(alloc, LazyAlloc):
+                return alloc.materialize()
+            return alloc
+
         model = ClientModel(
             dag=ModelDag(
                 parent=dag_parent,
                 valid=dag_valid,
                 hash_invalid=dag_hash_invalid,
+                post_state=post_state,
             )
         )
         steps = annotate_steps(steps, model, fcu_version)

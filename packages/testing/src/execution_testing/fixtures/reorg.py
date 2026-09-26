@@ -18,11 +18,22 @@ consumer resolves labels to hashes, so fixtures are byte-identical across
 clients.
 """
 
-from typing import Annotated, Any, ClassVar, Dict, List, Literal, Self, Union
+from typing import (
+    Annotated,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Self,
+    Tuple,
+    Union,
+)
 
 from pydantic import AfterValidator, Field, model_validator
 
 from execution_testing.base_types import (
+    Account,
     Address,
     Alloc,
     Bytes,
@@ -236,6 +247,28 @@ class AssertStateStep(StepBase):
     at: BlockRef | Literal["latest"] = "latest"
     """Block whose own state is read; it must be canonical at that point."""
     accounts: Dict[Address, AccountExpectation]
+
+    def verify(self, label: str, state: Alloc) -> None:
+        """
+        Fail unless ``state``, the post-state of ``label``, holds the
+        expected fields, reading an absent account or slot as zero like
+        the RPC calls do.
+        """
+        for address, want in self.accounts.items():
+            got = state.root.get(address) or Account()
+            checks: List[Tuple[str, Any, Any]] = [
+                ("balance", want.balance, got.balance),
+                ("nonce", want.nonce, got.nonce),
+            ]
+            for key, value in (want.storage or {}).items():
+                stored = got.storage[key] if key in got.storage else 0
+                checks.append((f"storage {key}", value, Hash(stored)))
+            for field, expected, actual in checks:
+                if expected is not None and expected != actual:
+                    raise ValueError(
+                        f"assertState at {label!r}: {field} of {address} "
+                        f"is {actual}, expected {expected}"
+                    )
 
 
 class AssertReceiptStep(StepBase):

@@ -33,15 +33,16 @@ author-provided set.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 
-from execution_testing.base_types import Number
+from execution_testing.base_types import Alloc, Number
 from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
     LATEST_VALID_HASH_NULL,
     ZERO_LABEL,
     AssertHeadStep,
+    AssertStateStep,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
     NewPayloadStep,
@@ -71,6 +72,8 @@ class ModelDag:
     to run in all cases, before and independently of any parent lookup or
     execution.
     """
+    post_state: Optional[Callable[[str], Optional[Alloc]]] = None
+    """label -> that block's post-state (``None`` if unknown), if checked."""
 
     def ancestors(self, label: str) -> List[str]:
         """Labels from ``label`` (inclusive) back to genesis."""
@@ -470,7 +473,8 @@ def annotate_steps(
     Each outcome's branch is annotated with its own copy of the model;
     ``more_follow`` says a step follows in an enclosing list (see
     ``_continue``). ``getPayload`` adds its bound label to the DAG as a
-    valid child of its parent: the client built it.
+    valid child of its parent: the client built it. ``assertState`` is
+    checked against the DAG's post-states where they are known.
     """
     for i, step in enumerate(steps):
         has_continuation = i + 1 < len(steps) or more_follow
@@ -526,6 +530,11 @@ def annotate_steps(
                 branches,
                 has_continuation,
             )
+        elif isinstance(step, AssertStateStep) and model.dag.post_state:
+            label = model.head if step.at == "latest" else step.at
+            state = model.dag.post_state(label)
+            if state is not None:
+                step.verify(label, state)
         elif isinstance(step, GetPayloadStep):
             model.dag.parent[step.bind] = step.parent
             model.dag.valid[step.bind] = True

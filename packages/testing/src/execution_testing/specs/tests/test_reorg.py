@@ -11,6 +11,7 @@ from execution_testing.exceptions import BlockException, EngineAPIError
 from execution_testing.fixtures import BlockchainEngineReorgFixture
 from execution_testing.fixtures.blockchain import PayloadAttributes
 from execution_testing.fixtures.reorg import (
+    AccountExpectation,
     AssertHeadStep,
     AssertReceiptStep,
     AssertStateStep,
@@ -377,6 +378,28 @@ def test_expected_post_state_mismatch_fails_fill(
         steps=[NewPayloadStep(block="a1"), ForkchoiceUpdatedStep(head="a1")],
     )
     with pytest.raises(Account.BalanceMismatchError):
+        test.generate(
+            t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture
+        )
+
+
+def test_assert_state_mismatch_fails_fill(
+    default_t8n: TransitionTool,
+) -> None:
+    """An authored assertState must match the filler's own state."""
+    test = ReorgTest(
+        fork=Cancun,
+        pre=pre_alloc(),
+        blocks=[ReorgBlock(label="a1", txs=[tx(0, 1)])],
+        steps=[
+            NewPayloadStep(block="a1"),
+            ForkchoiceUpdatedStep(head="a1"),
+            AssertStateStep(
+                accounts={RECIPIENT: AccountExpectation(balance=2)}
+            ),
+        ],
+    )
+    with pytest.raises(ValueError, match="assertState at 'a1': balance"):
         test.generate(
             t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture
         )
