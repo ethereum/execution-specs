@@ -304,8 +304,7 @@ class StepRunner:
         name = (
             f"{name}(head={step.head}, safe={step.safe}, fin={step.finalized})"
         )
-        if step.version is None:
-            raise LoggedError(f"{name}: fixture step has no version")
+        assert step.version is not None  # checked when the fixture loads
         state = ForkchoiceState(
             head_block_hash=self.resolve(step.head),
             safe_block_hash=self.resolve(step.safe),
@@ -347,8 +346,7 @@ class StepRunner:
             raise LoggedError(
                 f"{name}: no payloadId from previous forkchoiceUpdated"
             )
-        if step.version is None:
-            raise LoggedError(f"{name}: fixture step has no version")
+        assert step.version is not None  # checked when the fixture loads
         if self.get_payload_wait_time > 0:
             time.sleep(self.get_payload_wait_time)
         with self.timing_data.time(f"engine_getPayloadV{step.version}"):

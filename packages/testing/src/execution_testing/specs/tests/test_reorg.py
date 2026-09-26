@@ -280,6 +280,26 @@ def test_build_request_version_follows_attributes_fork(
     assert fcu.version == Amsterdam.engine_forkchoice_updated_version()
 
 
+@pytest.mark.parametrize("field", ["version", "expect"])
+def test_fixture_load_rejects_unfilled_step(
+    default_t8n: TransitionTool, field: str
+) -> None:
+    """A fixture whose FCU lacks what filling supplies fails to load."""
+    test = ReorgTest(
+        fork=Cancun,
+        pre=Alloc(),
+        blocks=[ReorgBlock(label="a1")],
+        steps=[NewPayloadStep(block="a1"), ForkchoiceUpdatedStep(head="a1")],
+    )
+    fixture = test.generate(
+        t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture
+    ).fixture
+    dumped = fixture.json_dict_with_info()
+    del dumped["steps"][1][field]
+    with pytest.raises(ValidationError, match=f"without {field}"):
+        BlockchainEngineReorgFixture.model_validate(dumped)
+
+
 @pytest.mark.parametrize(
     "make,rejected",
     [

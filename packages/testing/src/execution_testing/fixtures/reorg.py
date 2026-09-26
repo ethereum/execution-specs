@@ -350,6 +350,28 @@ class BlockchainEngineReorgFixture(EngineFixtureCommon):
     """
     meta: Dict[str, Any] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def _check_filled(self) -> Self:
+        """
+        Reject steps filling leaves incomplete: every ``forkchoiceUpdated``
+        and ``getPayload`` has a version, every ``newPayload`` and
+        ``forkchoiceUpdated`` a non-empty ``expect``.
+        """
+
+        def check(steps: List[Step]) -> None:
+            for step in steps:
+                if isinstance(step, (ForkchoiceUpdatedStep, GetPayloadStep)):
+                    if step.version is None:
+                        raise ValueError(f"{step.type} step without version")
+                if isinstance(step, (NewPayloadStep, ForkchoiceUpdatedStep)):
+                    if not step.expect:
+                        raise ValueError(f"{step.type} step without expect")
+                    for branch in step.branches.values():
+                        check(branch)
+
+        check(self.steps)
+        return self
+
     def resolve(self, label: str) -> Hash | None:
         """
         Resolve a static label to a block hash.
