@@ -356,6 +356,17 @@ def test_np_hash_invalid_precedes_parent_lookup() -> None:
     ]
 
 
+def test_fcu_to_hash_mismatched_payload_allows_syncing() -> None:
+    """No block is stored under a rejected payload's hash: SYNCING is legal."""
+    dag = dag_linear_with_fork()
+    dag.hash_invalid.add("b3")
+    model = ClientModel(dag=dag)
+    model.known.update({"a1": Validity.VALID, "b2": Validity.VALID})
+    model.apply_new_payload("b3", Outcome(id="invalid", status="INVALID"))
+    outcomes = model.forkchoice_outcomes(ForkchoiceUpdatedStep(head="b3"))
+    assert ids(outcomes) == ["invalid", "syncing"]
+
+
 def test_annotate_rejects_unmatched_new_payload_branch_key() -> None:
     """A branch key that names no newPayload outcome id is rejected."""
     model = ClientModel(dag=dag_linear_with_fork())

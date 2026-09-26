@@ -252,6 +252,13 @@ class ClientModel:
         self, step: ForkchoiceUpdatedStep
     ) -> List[Outcome]:
         head = step.head
+        if head in self.dag.hash_invalid:
+            # No block is stored under the payload's claimed hash; the client
+            # answers INVALID only if it remembers rejecting that hash.
+            return [
+                Outcome(id="invalid", status="INVALID"),
+                Outcome(id="syncing", status="SYNCING"),
+            ]
         head_state = self._known(head)
         if head_state is None:
             return [Outcome(id="syncing", status="SYNCING")]
