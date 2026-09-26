@@ -237,7 +237,9 @@ def validate_headers(
     header. Return the decoded headers and block hashes. Headers may
     come from different forks during fork transitions.
     """
-    assert len(encoded_headers) <= 256, "Too many headers in witness"
+    assert len(encoded_headers) <= MAX_WITNESS_HEADERS, (
+        "Too many headers in witness"
+    )
     headers = [
         _decode_header(header_bytes) for header_bytes in encoded_headers
     ]
