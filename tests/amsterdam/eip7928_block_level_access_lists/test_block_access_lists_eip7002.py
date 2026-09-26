@@ -15,6 +15,7 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Op,
+    Storage,
     SystemContractInteractionBase,
     SystemContractInteractionContract,
     SystemContractInteractionTransaction,
@@ -789,7 +790,9 @@ def test_bal_7002_request_invalid(
 
     post: dict = {
         alice: Account(nonce=1),
-        WithdrawalRequest.system_contract_address: Account(storage={}),
+        WithdrawalRequest.system_contract_address: Account(
+            storage=Storage.EMPTY
+        ),
     }
 
     # Add relay contract to post-state for contract scenarios

@@ -16,6 +16,7 @@ from execution_testing import (
     Hash,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
     add_kzg_version,
     compute_create_address,
@@ -246,7 +247,7 @@ def test_blobhash_opcode_contexts(
             )
             tx_to = blobhash_sstore_address
             post = {
-                blobhash_sstore_address: Account(storage={}),
+                blobhash_sstore_address: Account(storage=Storage.EMPTY),
             }
         case "on_CALL" | "on_DELEGATECALL" | "on_STATICCALL" | "on_CALLCODE":
             call_context: BlobhashContext
