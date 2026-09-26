@@ -17,6 +17,7 @@ from execution_testing import (
     BalAccountAbsentValues,
     BalAccountExpectation,
     BalBalanceChange,
+    BalCodeChange,
     BalNonceChange,
     BalStorageChange,
     BalStorageSlot,
@@ -24,8 +25,10 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
+    Conditional,
     ConsolidationRequest,
     Fork,
+    Initcode,
     Op,
     SystemCallPhase,
     Transaction,
@@ -644,6 +647,155 @@ def test_bal_post_execution_calls_net_storage_at_last_index(
                 },
             ),
             **{address: Account(nonce=1, code=b"") for address in created},
+        },
+    )
+
+
+@pytest.mark.pre_alloc_mutable()
+def test_bal_same_index_nonce_resubmit_and_code_replace(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+) -> None:
+    """
+    Same-index incorporate that rewrites an account without changing its
+    nonce (or code) must hit the builder's keep/replace branches.
+
+    First post-execution call CREATEs a STOP contract (nonce and code
+    change). The second call at the same index only funds that contract,
+    so ``update_builder_from_tx`` resubmits the same nonce and code
+    against the index-start snapshot. Covers the previously unhit paths
+    in ``add_nonce_change`` and ``add_code_change``.
+    """
+    post_execution = _system_contracts_called(
+        fork, SystemCallPhase.AFTER_TRANSACTIONS
+    )
+    assert {
+        WITHDRAWAL_REQUEST_ADDRESS,
+        CONSOLIDATION_REQUEST_ADDRESS,
+    }.issubset(post_execution), (
+        "the request predeploys are no longer called after transactions"
+    )
+
+    counter_slot = 1
+    last_caller_slot = 2
+    endowment = 1
+    deploy_code = Op.STOP
+    init_code_bytes = bytes(Initcode(deploy_code=deploy_code))
+    assert len(init_code_bytes) <= 32
+
+    created = compute_create_address(
+        address=CONSOLIDATION_REQUEST_ADDRESS, nonce=1
+    )
+
+    create_once = (
+        Op.MSTORE(0, Op.PUSH32(init_code_bytes))
+        + Op.POP(
+            Op.CREATE(
+                value=0,
+                offset=32 - len(init_code_bytes),
+                size=len(init_code_bytes),
+            )
+        )
+    )
+    fund_created = Op.POP(Op.CALL(address=created, value=endowment))
+
+    pre[CONSOLIDATION_REQUEST_ADDRESS] = Account(
+        nonce=1,
+        balance=endowment,
+        code=(
+            Op.SSTORE(counter_slot, Op.ADD(Op.SLOAD(counter_slot), 1))
+            + Op.SSTORE(last_caller_slot, Op.CALLER)
+            + Conditional(
+                condition=Op.EQ(Op.SLOAD(counter_slot), 1),
+                if_true=create_once,
+                if_false=fund_created,
+            )
+        ),
+    )
+    pre[WITHDRAWAL_REQUEST_ADDRESS] = Account(
+        code=Op.POP(Op.CALL(address=CONSOLIDATION_REQUEST_ADDRESS)),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        CONSOLIDATION_REQUEST_ADDRESS: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=counter_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=2,
+                                        )
+                                    ],
+                                ),
+                                BalStorageSlot(
+                                    slot=last_caller_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=SYSTEM_ADDRESS,
+                                        )
+                                    ],
+                                ),
+                            ],
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=2
+                                )
+                            ],
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1,
+                                    post_balance=0,
+                                )
+                            ],
+                        ),
+                        created: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                            code_changes=[
+                                BalCodeChange(
+                                    block_access_index=1,
+                                    new_code=bytes(deploy_code),
+                                )
+                            ],
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1,
+                                    post_balance=endowment,
+                                )
+                            ],
+                        ),
+                        WITHDRAWAL_REQUEST_ADDRESS: (
+                            BalAccountExpectation.empty()
+                        ),
+                        SYSTEM_ADDRESS: None,
+                    }
+                ),
+            )
+        ],
+        post={
+            CONSOLIDATION_REQUEST_ADDRESS: Account(
+                nonce=2,
+                balance=0,
+                storage={
+                    counter_slot: 2,
+                    last_caller_slot: SYSTEM_ADDRESS,
+                },
+            ),
+            created: Account(
+                nonce=1, code=deploy_code, balance=endowment
+            ),
         },
     )
 
