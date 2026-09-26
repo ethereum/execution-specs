@@ -15,6 +15,7 @@ from hive.testing import HiveTest
 from execution_testing.base_types import Number, to_json
 from execution_testing.fixtures import BlockchainFixtureCommon
 from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.forks import Fork, TransitionFork
 
 from .helpers.ruleset import (
     ruleset,  # TODO: generate dynamically
@@ -37,25 +38,34 @@ def client_genesis(fixture: BlockchainFixtureCommon) -> dict:
     return genesis
 
 
+def client_environment(
+    fork: Fork | TransitionFork,
+    chain_id: int,
+    check_live_port: Literal[8545, 8551],
+) -> dict:
+    """Build the base HIVE_* environment shared by every simulator."""
+    assert fork in ruleset, f"fork '{fork}' missing in hive ruleset"
+    chain_id_str = str(Number(chain_id))
+    return {
+        "HIVE_CHAIN_ID": chain_id_str,
+        # Use same value for P2P network compatibility
+        "HIVE_NETWORK_ID": chain_id_str,
+        "HIVE_FORK_DAO_VOTE": "1",
+        "HIVE_NODETYPE": "full",
+        "HIVE_CHECK_LIVE_PORT": str(check_live_port),
+        **{k: f"{v:d}" for k, v in ruleset[fork].items()},
+    }
+
+
 @pytest.fixture(scope="function")
 def environment(
     fixture: BlockchainFixtureCommon,
     check_live_port: Literal[8545, 8551],
 ) -> dict:
     """Define the environment that hive will start the client with."""
-    assert fixture.fork in ruleset, (
-        f"fork '{fixture.fork}' missing in hive ruleset"
+    return client_environment(
+        fixture.fork, fixture.config.chain_id, check_live_port
     )
-    chain_id = str(Number(fixture.config.chain_id))
-    return {
-        "HIVE_CHAIN_ID": chain_id,
-        # Use same value for P2P network compatibility
-        "HIVE_NETWORK_ID": chain_id,
-        "HIVE_FORK_DAO_VOTE": "1",
-        "HIVE_NODETYPE": "full",
-        "HIVE_CHECK_LIVE_PORT": str(check_live_port),
-        **{k: f"{v:d}" for k, v in ruleset[fixture.fork].items()},
-    }
 
 
 @pytest.fixture(scope="function")

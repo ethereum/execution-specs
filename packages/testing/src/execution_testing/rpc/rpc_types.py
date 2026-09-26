@@ -2,7 +2,6 @@
 
 import json
 from binascii import crc32
-from enum import Enum
 from hashlib import sha256
 from typing import Annotated, Any, Dict, List, Protocol, Self
 
@@ -27,9 +26,9 @@ from execution_testing.exceptions import (
 )
 from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayload,
+    PayloadStatusEnum,
 )
-from execution_testing.forks import Fork
-from execution_testing.test_types import EOA, Transaction, Withdrawal
+from execution_testing.test_types import EOA, Transaction
 
 
 class JSONRPCError(Exception):
@@ -164,16 +163,6 @@ class ForkchoiceState(CamelModel):
     finalized_block_hash: Hash = Field(Hash(0))
 
 
-class PayloadStatusEnum(str, Enum):
-    """Represents the status of a payload after execution."""
-
-    VALID = "VALID"
-    INVALID = "INVALID"
-    SYNCING = "SYNCING"
-    ACCEPTED = "ACCEPTED"
-    INVALID_BLOCK_HASH = "INVALID_BLOCK_HASH"
-
-
 class BlockTransactionExceptionWithMessage(
     ExceptionWithMessage[BlockException | TransactionException]  # type: ignore
 ):
@@ -211,80 +200,6 @@ class ForkchoiceUpdateResponse(CamelModel):
 
     payload_status: PayloadStatus
     payload_id: Bytes | None
-
-
-class PayloadAttributes(CamelModel):
-    """Represents the attributes of a payload."""
-
-    timestamp: HexNumber
-    prev_randao: Hash
-    suggested_fee_recipient: Address
-    withdrawals: List[Withdrawal] | None = None
-    parent_beacon_block_root: Hash | None = None
-    target_blobs_per_block: HexNumber | None = None
-    max_blobs_per_block: HexNumber | None = None
-    slot_number: HexNumber | None = None
-    target_gas_limit: HexNumber | None = None
-
-    @classmethod
-    def for_fork(
-        cls,
-        fork: Fork,
-        *,
-        timestamp: int,
-        target_gas_limit: int,
-        slot_number: int | None,
-        prev_randao: Hash | None = None,
-        suggested_fee_recipient: Address | None = None,
-        withdrawals: List[Withdrawal] | None = None,
-        parent_beacon_block_root: Hash | None = None,
-    ) -> "PayloadAttributes":
-        """
-        Build PayloadAttributes with fork-aware optional fields filled in.
-
-        ``withdrawals`` and ``parent_beacon_block_root`` default to
-        fork-appropriate empty values; blob and slot fields are populated
-        when the fork's engine API requires them.
-        """
-        if withdrawals is None and fork.header_withdrawals_required():
-            withdrawals = []
-        if (
-            parent_beacon_block_root is None
-            and fork.header_beacon_root_required()
-        ):
-            parent_beacon_block_root = Hash(0)
-        attributes_slot_number: HexNumber | None = None
-        if fork.engine_payload_attribute_slot_number():
-            attributes_slot_number = HexNumber(
-                1 if slot_number is None else slot_number
-            )
-        return cls(
-            timestamp=HexNumber(timestamp),
-            prev_randao=prev_randao if prev_randao is not None else Hash(0),
-            suggested_fee_recipient=(
-                suggested_fee_recipient
-                if suggested_fee_recipient is not None
-                else Address(0)
-            ),
-            withdrawals=withdrawals,
-            parent_beacon_block_root=parent_beacon_block_root,
-            target_blobs_per_block=(
-                HexNumber(fork.target_blobs_per_block())
-                if fork.engine_payload_attribute_target_blobs_per_block()
-                else None
-            ),
-            max_blobs_per_block=(
-                HexNumber(fork.max_blobs_per_block())
-                if fork.engine_payload_attribute_max_blobs_per_block()
-                else None
-            ),
-            slot_number=attributes_slot_number,
-            target_gas_limit=(
-                HexNumber(target_gas_limit)
-                if fork.engine_payload_attribute_target_gas_limit()
-                else None
-            ),
-        )
 
 
 class BlobsBundle(CamelModel):

@@ -1,8 +1,8 @@
 """BlockchainTest types."""
 
+from enum import Enum
 from functools import cached_property
 from typing import (
-    TYPE_CHECKING,
     Annotated,
     Any,
     ClassVar,
@@ -95,9 +95,6 @@ from .common import (
     FixtureBlobSchedule,
     FixtureTransactionReceipt,
 )
-
-if TYPE_CHECKING:
-    from execution_testing.rpc.rpc_types import PayloadAttributes
 
 
 def post_state_validator(
@@ -602,26 +599,116 @@ EngineNewPayloadParameters = Union[
 ]
 
 
-class FixtureEngineNewPayload(CamelModel):
+class PayloadStatusEnum(str, Enum):
+    """Represents the status of a payload after execution."""
+
+    VALID = "VALID"
+    INVALID = "INVALID"
+    SYNCING = "SYNCING"
+    ACCEPTED = "ACCEPTED"
+    INVALID_BLOCK_HASH = "INVALID_BLOCK_HASH"
+
+
+EngineAPIErrorCode = Annotated[
+    EngineAPIError,
+    PlainSerializer(lambda x: str(x.value), return_type=str),
+]
+"""An ``EngineAPIError`` serialized as its decimal code."""
+
+
+class PayloadAttributes(CamelModel):
+    """Represents the attributes of a payload."""
+
+    timestamp: HexNumber
+    prev_randao: Hash
+    suggested_fee_recipient: Address
+    withdrawals: List[Withdrawal] | None = None
+    parent_beacon_block_root: Hash | None = None
+    target_blobs_per_block: HexNumber | None = None
+    max_blobs_per_block: HexNumber | None = None
+    slot_number: HexNumber | None = None
+    target_gas_limit: HexNumber | None = None
+
+    @classmethod
+    def for_fork(
+        cls,
+        fork: Fork,
+        *,
+        timestamp: int,
+        target_gas_limit: int,
+        slot_number: int | None,
+        prev_randao: Hash | None = None,
+        suggested_fee_recipient: Address | None = None,
+        withdrawals: List[Withdrawal] | None = None,
+        parent_beacon_block_root: Hash | None = None,
+    ) -> "PayloadAttributes":
+        """
+        Build PayloadAttributes with fork-aware optional fields filled in.
+
+        ``withdrawals`` and ``parent_beacon_block_root`` default to
+        fork-appropriate empty values; blob and slot fields are populated
+        when the fork's engine API requires them.
+        """
+        if withdrawals is None and fork.header_withdrawals_required():
+            withdrawals = []
+        if (
+            parent_beacon_block_root is None
+            and fork.header_beacon_root_required()
+        ):
+            parent_beacon_block_root = Hash(0)
+        attributes_slot_number: HexNumber | None = None
+        if fork.engine_payload_attribute_slot_number():
+            attributes_slot_number = HexNumber(
+                1 if slot_number is None else slot_number
+            )
+        return cls(
+            timestamp=HexNumber(timestamp),
+            prev_randao=prev_randao if prev_randao is not None else Hash(0),
+            suggested_fee_recipient=(
+                suggested_fee_recipient
+                if suggested_fee_recipient is not None
+                else Address(0)
+            ),
+            withdrawals=withdrawals,
+            parent_beacon_block_root=parent_beacon_block_root,
+            target_blobs_per_block=(
+                HexNumber(fork.target_blobs_per_block())
+                if fork.engine_payload_attribute_target_blobs_per_block()
+                else None
+            ),
+            max_blobs_per_block=(
+                HexNumber(fork.max_blobs_per_block())
+                if fork.engine_payload_attribute_max_blobs_per_block()
+                else None
+            ),
+            slot_number=attributes_slot_number,
+            target_gas_limit=(
+                HexNumber(target_gas_limit)
+                if fork.engine_payload_attribute_target_gas_limit()
+                else None
+            ),
+        )
+
+
+class FixtureNewPayloadRequest(CamelModel):
+    """
+    Request-only `engine_newPayloadVX` data: the version-dependent
+    parameter tuple and the method version used to send it.
+    """
+
+    params: EngineNewPayloadParameters
+    new_payload_version: Number
+
+
+class FixtureEngineNewPayload(FixtureNewPayloadRequest):
     """
     Representation of the `engine_newPayloadVX` information to be sent using
     the block information.
     """
 
-    params: EngineNewPayloadParameters
-    new_payload_version: Number
     forkchoice_updated_version: Number
     validation_error: ExceptionInstanceOrList | None = None
-    error_code: (
-        Annotated[
-            EngineAPIError,
-            PlainSerializer(
-                lambda x: str(x.value),
-                return_type=str,
-            ),
-        ]
-        | None
-    ) = None
+    error_code: EngineAPIErrorCode | None = None
     phase: TestPhase | None = Field(
         None,
         description=(
@@ -638,10 +725,8 @@ class FixtureEngineNewPayload(CamelModel):
         """Return whether the payload is valid."""
         return self.validation_error is None
 
-    def get_payload_attributes(self) -> "PayloadAttributes":
+    def get_payload_attributes(self) -> PayloadAttributes:
         """Return the ``PayloadAttributes`` corresponding to this payload."""
-        from execution_testing.rpc.rpc_types import PayloadAttributes
-
         execution_payload = self.params[0]
         # parent_beacon_block_root exists from V3 onwards. The length check
         # is for mypy narrowing; the version check captures the actual rule.
@@ -989,19 +1074,13 @@ class BlockchainFixture(BlockchainFixtureCommon):
     transition_tool_cache_key: ClassVar[str] = "blockchain_test"
 
 
-@post_state_validator()
-class BlockchainEngineFixtureCommon(BaseFixture):
+class EngineFixtureCommon(BaseFixture):
     """
-    Base blockchain test fixture model for Engine API based execution.
-
-    Similar to BlockchainFixtureCommon but excludes the 'pre' field to avoid
-    duplicating large pre-allocations.
+    Common contract of every Engine API fixture format: the fork under
+    test and its chain configuration.
     """
 
     fork: Fork | TransitionFork = Field(..., alias="network")
-    post_state_hash: Hash | None = Field(None)
-    # FIXME: lastBlockHash
-    last_block_hash: Hash = Field(..., alias="lastblockhash")
     config: FixtureConfig
 
     def get_fork(self) -> Fork | TransitionFork | None:
@@ -1016,6 +1095,20 @@ class BlockchainEngineFixtureCommon(BaseFixture):
         The Engine API is available only on Paris and afterwards.
         """
         return fork.fork_at(block_number=0, timestamp=0) >= Paris
+
+
+@post_state_validator()
+class BlockchainEngineFixtureCommon(EngineFixtureCommon):
+    """
+    Base blockchain test fixture model for Engine API based execution.
+
+    Similar to BlockchainFixtureCommon but excludes the 'pre' field to avoid
+    duplicating large pre-allocations.
+    """
+
+    post_state_hash: Hash | None = Field(None)
+    # FIXME: lastBlockHash
+    last_block_hash: Hash = Field(..., alias="lastblockhash")
 
 
 class BlockchainEngineFixture(BlockchainEngineFixtureCommon):
