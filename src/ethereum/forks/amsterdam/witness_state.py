@@ -5,14 +5,14 @@ Implement the ``PreState`` protocol using execution witness data
 """
 
 from dataclasses import dataclass, field
-from typing import AbstractSet, Dict, List, Optional, Tuple, final
+from typing import Dict, Optional, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT, InternalNode
+from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT
 from ethereum.state import (
     EMPTY_CODE_HASH,
     Account,
@@ -216,28 +216,12 @@ class WitnessState:
         """
         Compute the state root after applying ``block_diff``.
 
-        Conform to the implementation-agnostic ``PreState`` protocol while
-        reusing the witness-backed incremental MPT calculation.
-        """
-        state_root, _ = self.compute_state_root_and_trie_changes(
-            block_diff.account_changes,
-            block_diff.storage_changes,
-            block_diff.storage_clears,
-        )
-        return state_root
-
-    def compute_state_root_and_trie_changes(
-        self,
-        account_changes: Dict[Address, Optional[Account]],
-        storage_changes: Dict[Address, Dict[Bytes32, U256]],
-        storage_clears: AbstractSet[Address] = frozenset(),
-    ) -> Tuple[Root, List[InternalNode]]:
-        """
-        Compute the state root after applying changes.
-
         Build partial ``IncrementalMPT`` tries from the witness,
         apply diffs, and compute the new root.
         """
+        account_changes = block_diff.account_changes
+        storage_changes = block_diff.storage_changes
+        storage_clears = block_diff.storage_clears
         new_storage_roots: Dict[Address, Root] = {}
 
         for address, slots in storage_changes.items():
@@ -308,4 +292,4 @@ class WitnessState:
                 get_storage_root=get_storage_root,
             )
 
-        return mpt_root(state_mpt), []
+        return mpt_root(state_mpt)

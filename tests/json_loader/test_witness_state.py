@@ -25,7 +25,13 @@ from ethereum.merkle_patricia_trie import (
     bytes_to_nibble_list,
     nibble_list_to_compact,
 )
-from ethereum.state import EMPTY_CODE_HASH, Account, Address, Root
+from ethereum.state import (
+    EMPTY_CODE_HASH,
+    Account,
+    Address,
+    BlockDiff,
+    Root,
+)
 
 _ADDR1 = Address(b"\x01" * 20)
 _ADDR2 = Address(b"\x02" * 20)
@@ -222,14 +228,14 @@ class TestGetCode:
 
 
 class TestComputeStateRoot:
-    """Test WitnessState.compute_state_root_and_trie_changes."""
+    """Test WitnessState.compute_state_root."""
 
     def test_account_balance_change(self) -> None:
         """Changing an account balance produces the correct new state root."""
         witness_state = _make_ws({_ADDR1: _acct(balance=100)})
         new_acct = _acct(balance=200)
-        new_root, _ = witness_state.compute_state_root_and_trie_changes(
-            {_ADDR1: new_acct}, {}
+        new_root = witness_state.compute_state_root(
+            BlockDiff(account_changes={_ADDR1: new_acct})
         )
         expected_root, _ = _build_witness({_ADDR1: new_acct}, {})
         assert new_root == expected_root
@@ -238,8 +244,8 @@ class TestComputeStateRoot:
         """Changing a storage slot produces the correct new state root."""
         acct = _acct()
         witness_state = _make_ws({_ADDR1: acct}, {_ADDR1: {_SLOT1: U256(10)}})
-        new_root, _ = witness_state.compute_state_root_and_trie_changes(
-            {}, {_ADDR1: {_SLOT1: U256(99)}}
+        new_root = witness_state.compute_state_root(
+            BlockDiff(storage_changes={_ADDR1: {_SLOT1: U256(99)}})
         )
         expected_root, _ = _build_witness(
             {_ADDR1: acct}, {_ADDR1: {_SLOT1: U256(99)}}
@@ -252,7 +258,7 @@ class TestComputeStateRoot:
         witness_state = WitnessState(
             _node_db=node_db, _state_root=state_root, _code_db={}
         )
-        new_root, _ = witness_state.compute_state_root_and_trie_changes({}, {})
+        new_root = witness_state.compute_state_root(BlockDiff())
         assert new_root == state_root
 
 
