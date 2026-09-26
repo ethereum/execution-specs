@@ -1,5 +1,7 @@
 """Test cases for the execution_testing.fixtures.base module."""
 
+import hashlib
+import json
 from typing import List
 
 import pytest
@@ -37,6 +39,22 @@ def test_json_dict() -> None:
     assert "_info" not in fixture.json_dict, (
         "json_dict should exclude the 'info' field"
     )
+
+
+def test_hash_matches_compact_sorted_json() -> None:
+    """Test that the streamed hash equals the hash of the compact JSON."""
+    fixture = TransactionFixture(
+        transaction="0x1234",
+        result={
+            "Paris": FixtureResult(intrinsic_gas=0),
+            "Cancun": FixtureResult(intrinsic_gas=21000),
+        },
+    )
+    json_str = json.dumps(
+        fixture.json_dict, sort_keys=True, separators=(",", ":")
+    )
+    expected = hashlib.sha256(json_str.encode("utf-8")).hexdigest()
+    assert fixture.hash == f"0x{expected}"
 
 
 @pytest.mark.parametrize(
