@@ -688,14 +688,11 @@ def test_bal_same_index_nonce_resubmit_and_code_replace(
         address=CONSOLIDATION_REQUEST_ADDRESS, nonce=1
     )
 
-    create_once = (
-        Op.MSTORE(0, Op.PUSH32(init_code_bytes))
-        + Op.POP(
-            Op.CREATE(
-                value=0,
-                offset=32 - len(init_code_bytes),
-                size=len(init_code_bytes),
-            )
+    create_once = Op.MSTORE(0, Op.PUSH32(init_code_bytes)) + Op.POP(
+        Op.CREATE(
+            value=0,
+            offset=32 - len(init_code_bytes),
+            size=len(init_code_bytes),
         )
     )
     fund_created = Op.POP(Op.CALL(address=created, value=endowment))
@@ -793,9 +790,7 @@ def test_bal_same_index_nonce_resubmit_and_code_replace(
                     last_caller_slot: SYSTEM_ADDRESS,
                 },
             ),
-            created: Account(
-                nonce=1, code=deploy_code, balance=endowment
-            ),
+            created: Account(nonce=1, code=deploy_code, balance=endowment),
         },
     )
 
