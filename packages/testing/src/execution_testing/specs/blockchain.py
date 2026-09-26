@@ -595,15 +595,9 @@ class BuiltBlock(CamelModel):
             block_access_list=self.block_access_list
             if self.block_access_list
             else None,
-            execution_witness=self.execution_witness
-            if self.execution_witness
-            else None,
-            stateless_input_bytes=self.stateless_input_bytes
-            if self.stateless_input_bytes is not None
-            else None,
-            stateless_output_bytes=self.stateless_output_bytes
-            if self.stateless_output_bytes is not None
-            else None,
+            execution_witness=self.execution_witness,
+            stateless_input_bytes=self.stateless_input_bytes,
+            stateless_output_bytes=self.stateless_output_bytes,
             fork=self.fork,
         ).with_rlp(txs=self.txs)
 
@@ -676,9 +670,7 @@ class BuiltBlock(CamelModel):
             if self.block_access_list
             else None,
             execution_witness=self.execution_witness,
-            execution_witness_mutated=(
-                True if self.execution_witness_mutated else None
-            ),
+            execution_witness_mutated=self.execution_witness_mutated or None,
             execution_payload_modifier=self.engine_payload_modifier(),
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,

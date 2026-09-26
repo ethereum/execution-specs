@@ -140,13 +140,13 @@ def stateless_options_for_block(
         )
 
     witness_modifiers = tuple(
-        expectation._modifier
+        expectation.modifier
         for expectation in (
             block.expected_execution_witness_state,
             block.expected_execution_witness_codes,
             block.expected_execution_witness_headers,
         )
-        if expectation is not None and expectation._modifier is not None
+        if expectation is not None and expectation.modifier is not None
     )
     if witness_modifiers and expected_success is None:
         raise AssertionError(
