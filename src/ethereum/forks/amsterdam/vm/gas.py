@@ -33,7 +33,6 @@ from ..fork_types import (
     VersionedHash,
 )
 from ..transactions import (
-    TX_MAX_GAS_LIMIT,
     BlobTransaction,
     IntrinsicGasCost,
     Transaction,
@@ -96,7 +95,6 @@ class GasCosts:
     CALL_VALUE: Final[ExecutionGas] = ACCOUNT_WRITE + CALL_STIPEND
 
     # Contract Creation
-    CODE_DEPOSIT_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(200))
     CODE_INIT_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(2))
     CREATE_ACCESS: Final[ExecutionGas] = ACCOUNT_WRITE + COLD_ACCOUNT_ACCESS
 
@@ -152,7 +150,6 @@ class GasCosts:
 
     # Transactions
     TX_BASE: Final[ExecutionGas] = ExecutionGas(Uint(12000))
-    TX_CREATE: Final[ExecutionGas] = ExecutionGas(Uint(32000))
     TX_VALUE_COST: Final[ExecutionGas] = ExecutionGas(Uint(6000))
     TX_DATA_TOKEN_STANDARD: Final[ExecutionGas] = ExecutionGas(Uint(4))
     TX_DATA_TOKEN_FLOOR: Final[ExecutionGas] = ExecutionGas(Uint(16))
@@ -162,6 +159,8 @@ class GasCosts:
     TX_ACCESS_LIST_STORAGE_KEY: Final[ExecutionGas] = (
         COLD_STORAGE_ACCESS - WARM_ACCESS
     )
+    TX_MAX_GAS_LIMIT: Final[Uint] = Uint(16_777_216)
+    TX_MAX_TOTAL_GAS_LIMIT: Final[Uint] = Uint(4_294_967_295)
 
     # Authorization
     AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
@@ -834,8 +833,10 @@ def calculate_message_call_gas(
     memory_cost :
         The amount needed to extend the memory in the current frame.
     extra_gas :
-        The amount of gas needed for transferring value + creating a new
-        account inside a message call.
+        The call's own execution charge (access, value transfer and
+        delegation resolution) that the forwarding budget must cover.
+        Account creation is charged in state gas separately; `CALL`
+        charges this itself and passes zero here.
     call_stipend :
         The amount of stipend provided to a message call to execute code while
         transferring value (ETH).
@@ -1078,7 +1079,7 @@ def check_block_gas_capacity(
     BlobGasLimitExceededError :
         If the transaction exceeds the block's remaining blob gas.
 
-    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.transactions.TX_MAX_GAS_LIMIT
+    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.vm.gas.GasCosts.TX_MAX_GAS_LIMIT
 
     """  # noqa: E501
     execution_gas_available = (
@@ -1089,7 +1090,7 @@ def check_block_gas_capacity(
     )
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
-    if min(TX_MAX_GAS_LIMIT, tx_gas) > execution_gas_available:
+    if min(GasCosts.TX_MAX_GAS_LIMIT, tx_gas) > execution_gas_available:
         raise GasUsedExceedsLimitError("execution gas used exceeds limit")
 
     if tx_gas > state_gas_available:
@@ -1142,7 +1143,7 @@ def allocate_evm_gas(
 
     """
     evm_gas = tx_gas - Uint(intrinsic.execution)
-    execution_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.execution
+    execution_gas_budget = GasCosts.TX_MAX_GAS_LIMIT - intrinsic.execution
     execution_gas = ExecutionGas(min(execution_gas_budget, evm_gas))
     state_gas_reservoir = StateGas(evm_gas - execution_gas)
     return EvmGasAllocation(execution_gas, state_gas_reservoir)

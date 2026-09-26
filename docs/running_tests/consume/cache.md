@@ -52,7 +52,7 @@ A release specification has the format `<release_name>@<version>`.
 
 **Supported release names:**
 
-- `tests`: The mainnet release, all tests for all forks up to and including the latest mainnet fork. A bare `latest` or `vX.Y.Z` input is shorthand for `tests@latest`, respectively `tests@vX.Y.Z`.
+- `tests`: The stable release for client CI, all tests for all forks up to and including the fork clients' master branches implement (see [Test Release Types](../releases.md#test-release-types)). A bare `latest` or `vX.Y.Z` input is shorthand for `tests@latest`, respectively `tests@vX.Y.Z`.
 - `<feat>-devnet`: Devnet releases, e.g. `bal-devnet`, `glamsterdam-devnet`.
 - Other features: e.g. `benchmark`, `zkevm`.
 

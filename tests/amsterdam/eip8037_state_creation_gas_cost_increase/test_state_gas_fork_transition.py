@@ -32,9 +32,11 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionException,
+    TransactionReceipt,
+    compute_create_address,
 )
 
-from .spec import ref_spec_8037
+from .spec import init_code_at_high_bytes, ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -460,6 +462,105 @@ def test_tx_gas_above_cap_at_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
+@pytest.mark.parametrize(
+    "gas_delta",
+    [
+        pytest.param(
+            0,
+            id="at_total_cap",
+            marks=[
+                pytest.mark.exception_test,
+                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork(),
+                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork(),
+            ],
+        ),
+        pytest.param(
+            1,
+            id="above_total_cap",
+            marks=[
+                pytest.mark.exception_test,
+                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork(),
+                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork(),
+            ],
+        ),
+    ],
+)
+def test_tx_total_gas_limit_cap_at_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    gas_delta: int,
+    fork: Fork,
+) -> None:
+    """
+    Test the ``TX_MAX_TOTAL_GAS_LIMIT`` cap on tx.gas at the EIP-8037
+    transition.
+
+    Before EIP-8037, EIP-7825 caps tx.gas at TX_MAX_GAS_LIMIT, so a
+    transaction at the total cap is rejected. After EIP-8037 the total cap
+    takes over: tx.gas at the cap is accepted and one above it is rejected.
+    The block gas limit sits above both, so only the transaction rules
+    decide.
+    """
+    after_fork = fork.fork_at(timestamp=15_000)
+    total_cap = after_fork.transaction_total_gas_limit_cap()
+    assert total_cap is not None
+    gas_limit = total_cap + gas_delta
+
+    storage_after = Storage()
+    contract_before = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    contract_after = pre.deploy_contract(
+        code=Op.SSTORE(storage_after.store_next(1), 1),
+    )
+
+    before_error = TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM
+    after_error = (
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM
+        if gas_delta > 0
+        else None
+    )
+
+    blocks = [
+        Block(
+            timestamp=14_999,
+            txs=[
+                Transaction(
+                    to=contract_before,
+                    gas_limit=gas_limit,
+                    sender=pre.fund_eoa(),
+                    error=before_error,
+                ),
+            ],
+            exception=before_error,
+        ),
+        Block(
+            timestamp=15_000,
+            txs=[
+                Transaction(
+                    to=contract_after,
+                    gas_limit=gas_limit,
+                    sender=pre.fund_eoa(),
+                    error=after_error,
+                ),
+            ],
+            exception=after_error,
+        ),
+    ]
+
+    post = {
+        contract_before: Account(storage={0: 0}),
+        contract_after: Account(
+            storage=storage_after if after_error is None else {0: 0},
+        ),
+    }
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=2 * total_cap),
+        pre=pre,
+        blocks=blocks,
+        post=post,
+    )
+
+
 @EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_reservoir_available_after_transition(
     blockchain_test: BlockchainTestFiller,
@@ -597,3 +698,104 @@ def test_block_state_inclusion_at_transition(
         blocks=blocks,
         post=post,
     )
+
+
+@pytest.mark.parametrize("creation", ["transaction", "create", "create2"])
+@pytest.mark.parametrize("code_size", [31, 32, 33])
+@pytest.mark.parametrize("gas_delta", [0, -1], ids=["exact", "one_short"])
+@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
+@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
+def test_nonempty_code_deposit_at_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    creation: str,
+    code_size: int,
+    gas_delta: int,
+) -> None:
+    """Pin nonempty code deposit and its failure billing across activation."""
+    init_code = Op.RETURN(
+        0, code_size, new_memory_size=code_size, code_deposit_size=code_size
+    )
+    blocks = []
+    post: dict[Address, Account | None] = {}
+    for timestamp in (14_999, 15_000):
+        pricing = fork.fork_at(timestamp=timestamp)
+        sender = pre.fund_eoa()
+        init_execution = init_code.execution_cost(pricing)
+        init_state = init_code.state_cost(pricing)
+        if creation == "transaction":
+            intrinsic = pricing.transaction_intrinsic_cost_calculator()(
+                calldata=bytes(init_code),
+                contract_creation=True,
+                return_cost_deducted_prior_execution=True,
+            )
+            state = pricing.transaction_top_frame_state_gas(
+                contract_creation=True
+            )
+            execution = intrinsic + init_execution
+            state += init_state
+            gas_limit = execution + state + gas_delta
+            created = compute_create_address(address=sender, nonce=0)
+            tx = Transaction(
+                to=None, data=init_code, sender=sender, gas_limit=gas_limit
+            )
+            failed_gas = gas_limit
+        else:
+            opcode = Op.CREATE if creation == "create" else Op.CREATE2
+            value, size = init_code_at_high_bytes(init_code)
+            factory_code = Op.MSTORE(0, value, new_memory_size=32) + opcode(
+                value=0, offset=0, size=size, init_code_size=size
+            )
+            factory = pre.deploy_contract(code=factory_code)
+            created = compute_create_address(
+                address=factory,
+                nonce=1,
+                salt=0,
+                initcode=init_code,
+                opcode=opcode,
+            )
+            intrinsic = pricing.transaction_intrinsic_cost_calculator()()
+            child_gas = init_execution + init_state
+            # Smallest grant forwarding exactly child_gas under EIP-150.
+            retained = (child_gas - 1) // 63
+            gas_limit = (
+                intrinsic
+                + factory_code.gas_cost(pricing)
+                + child_gas
+                + retained
+                + gas_delta
+            )
+            execution = (
+                intrinsic
+                + factory_code.execution_cost(pricing)
+                + init_execution
+            )
+            state = factory_code.state_cost(pricing) + init_state
+            failed_gas = (
+                intrinsic
+                + factory_code.execution_cost(pricing)
+                + child_gas
+                + gas_delta
+            )
+            tx = Transaction(to=factory, sender=sender, gas_limit=gas_limit)
+            post[factory] = Account(nonce=2)
+        if gas_delta == 0:
+            receipt_gas = execution + state
+            header_gas = max(execution, state)
+            post[created] = Account(nonce=1, code=bytes(code_size))
+        else:
+            receipt_gas = header_gas = failed_gas
+            post[created] = Account.NONEXISTENT
+        tx.expected_receipt = TransactionReceipt(
+            status=int(gas_delta == 0 or creation != "transaction"),
+            cumulative_gas_used=receipt_gas,
+        )
+        blocks.append(
+            Block(
+                timestamp=timestamp,
+                txs=[tx],
+                header_verify=Header(gas_used=header_gas),
+            )
+        )
+    blockchain_test(pre=pre, blocks=blocks, post=post)

@@ -24,6 +24,7 @@ from .tools_code import (
 from .utility.gas import max_count_with_gas_limit
 from .utility.generators import (
     DeploymentTestType,
+    FactoryDeployment,
     gas_test,
     generate_system_contract_deploy_test,
     generate_system_contract_error_test,
@@ -39,6 +40,7 @@ __all__ = (
     "Create2PreimageLayout",
     "CreatePreimageLayout",
     "DeploymentTestType",
+    "FactoryDeployment",
     "FixedIterationsBytecode",
     "GasConsumer",
     "Initcode",

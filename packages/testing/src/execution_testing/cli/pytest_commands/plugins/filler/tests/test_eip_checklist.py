@@ -4,6 +4,10 @@ import re
 import textwrap
 from typing import Any
 
+import pytest
+
+from ..eip_checklist import EIP, TEMPLATE_CONTENT
+
 
 def test_eip_checklist_collection(testdir: Any) -> None:
     """Test that checklist markers are collected correctly."""
@@ -121,3 +125,107 @@ def test_eip_checklist_collection(testdir: Any) -> None:
         re.search(r"N/A.*DEBUG NOT APPLICABLE REASON", line)
         for line in content
     )
+
+
+def test_generator_built_test_is_credited_to_its_directory(
+    testdir: Any,
+) -> None:
+    """
+    A test built by a decorator that lives outside the EIP directory is
+    credited to the EIP of the module that collected it, not to the module
+    that defines the wrapper.
+    """
+    tests_dir = testdir.mkdir("tests")
+    # An empty conftest puts `tests/` on the import path for the builder.
+    tests_dir.join("conftest.py").write("")
+    tests_dir.join("generated.py").write(
+        textwrap.dedent(
+            """
+            def build(func):
+                def wrapper(state_test):
+                    pass
+
+                wrapper.__name__ = func.__name__
+                return wrapper
+            """
+        )
+    )
+    eip_dir = tests_dir.mkdir("prague").mkdir("eip7702_set_code_tx")
+    eip_dir.join("test_eip7702.py").write(
+        textwrap.dedent(
+            """
+            import pytest
+            from execution_testing import StateTestFiller
+            from execution_testing.checklists import EIPChecklist
+            from generated import build
+
+            REFERENCE_SPEC_GIT_PATH = "N/A"
+            REFERENCE_SPEC_VERSION = "N/A"
+
+            @pytest.mark.valid_at("Prague")
+            @EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Exact()
+            @build
+            def test_generated(state_test: StateTestFiller) -> None:
+                pass
+            """
+        )
+    )
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    result = testdir.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "-p",
+        "execution_testing.cli.pytest_commands.plugins.filler.eip_checklist",
+        "--collect-only",
+        "--checklist-output",
+        str(testdir.tmpdir / "checklists"),
+        str(tests_dir),
+    )
+    result.assert_outcomes(passed=0, failed=0, skipped=0, errors=0)
+
+    checklist_file = testdir.tmpdir / "checklists" / "eip7702_checklist.md"
+    assert checklist_file.exists()
+    content = checklist_file.readlines()
+    assert any(re.search(r"✅.*test_generated", line) for line in content)
+
+
+@pytest.mark.parametrize(
+    "coverage_kind", ["tests", "external", "not_applicable"]
+)
+def test_repeated_checklist_rows(coverage_kind: str) -> None:
+    """Render coverage on every repeated row while counting its ID once."""
+    item_id = (
+        "transaction_type/test/intrinsic_validity/"
+        "data_floor_above_intrinsic_gas_cost"
+    )
+    eip = EIP(number=7981)
+    total = eip.total_items
+    item = eip.items[item_id]
+    evidence = "Evidence for both floor outcomes"
+    if coverage_kind == "tests":
+        item.tests.add(evidence)
+    elif coverage_kind == "external":
+        item.external_coverage_reason = evidence
+    else:
+        item.not_applicable_reason = evidence
+
+    prefix = f"| `{item_id}` |"
+    original_rows = [
+        line
+        for line in TEMPLATE_CONTENT.splitlines()
+        if line.startswith(prefix)
+    ]
+    rows = [
+        line
+        for line in eip.generate_filled_checklist_lines()
+        if line.startswith(prefix)
+    ]
+    assert len(rows) == len(original_rows) == 2
+    status = "N/A" if coverage_kind == "not_applicable" else "✅"
+    for original, rendered in zip(original_rows, rows, strict=True):
+        assert original.split("|")[2].strip() == rendered.split("|")[2].strip()
+        assert f"| {status} | {evidence} |" in rendered
+    assert eip.covered_items == (0 if coverage_kind == "not_applicable" else 1)
+    assert eip.total_items == total - (coverage_kind == "not_applicable")

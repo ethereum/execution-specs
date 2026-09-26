@@ -355,6 +355,9 @@ class StateTest(BaseTest):
             max_gas_limit=env.gas_limit,
             transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
             state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+            transaction_total_gas_limit_cap=(
+                fork.transaction_total_gas_limit_cap()
+            ),
         ).with_signature_and_sender(keep_secret_key=True)
         pre_alloc = Alloc.merge(
             Alloc.model_validate(fork.pre_allocation()),

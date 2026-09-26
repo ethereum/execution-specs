@@ -103,6 +103,12 @@ class FactoryDeployment(CamelModel):
     salt: Hash
     initcode: Bytes
 
+    def deploy_transaction(self, sender: Address) -> Transaction:
+        """Return the factory call that deploys the contract."""
+        return Transaction(
+            to=self.factory, data=self.salt + self.initcode, sender=sender
+        )
+
 
 def generate_system_contract_deploy_test(
     *,
@@ -238,11 +244,7 @@ def generate_system_contract_deploy_test(
                 assert deploy_tx.created_contract == expected_deploy_address
             elif factory_json is not None:
                 deployer_address = pre.fund_eoa()
-                deploy_tx = Transaction(
-                    to=factory_json.factory,
-                    data=factory_json.salt + factory_json.initcode,
-                    sender=deployer_address,
-                )
+                deploy_tx = factory_json.deploy_transaction(deployer_address)
             else:
                 raise Exception(
                     "Either `tx_json_path` or `factory_json_path` have to "
@@ -361,10 +363,9 @@ def generate_system_contract_deploy_test(
     return decorator
 
 
-def generate_system_contract_error_test(
-    *,
-    max_gas_limit: int,
-) -> Callable[[SystemContractDeployTestFunction], Callable]:
+def generate_system_contract_error_test() -> Callable[
+    [SystemContractDeployTestFunction], Callable
+]:
     """
     Generate a test that verifies the correct behavior when a system contract
     fails execution.
@@ -372,10 +373,6 @@ def generate_system_contract_error_test(
     Parametrizations required:
     - system_contract (Address): The address of the system contract to deploy.
     - valid_from (Fork): The fork from which the test is valid.
-
-    Arguments:
-      max_gas_limit (int): The maximum gas limit for the system transaction.
-
     """
 
     def decorator(func: SystemContractDeployTestFunction) -> Callable:
@@ -409,9 +406,7 @@ def generate_system_contract_error_test(
                     + gas_costs.COLD_STORAGE_ACCESS
                     + (gas_costs.VERY_LOW * 2)
                 )
-                effective_max_gas = max(
-                    max_gas_limit, fork.system_call_gas_limit()
-                )
+                effective_max_gas = fork.system_call_gas_limit()
                 modified_system_contract_code += sum(
                     Op.SSTORE(i, 1)
                     for i in range(effective_max_gas // gas_used_per_storage)

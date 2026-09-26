@@ -34,21 +34,12 @@ from .helpers import (
 )
 from .phase_manager import TestPhase, TestPhaseManager
 from .receipt_types import TransactionLog, TransactionReceipt
-from .request_types import (
-    BuilderDepositRequest,
-    BuilderExitRequest,
-    ConsolidationRequest,
-    DepositRequest,
-    Requests,
-    WithdrawalRequest,
-)
-from .system_contract_request_types import (
-    FeeSystemContractRequest,
+from .system_contract_interactions import (
     SystemContractInteractionBase,
     SystemContractInteractionContract,
     SystemContractInteractionMeasuredOutOfGasContract,
     SystemContractInteractionTransaction,
-    SystemContractRequest,
+    fee_increment_blocks,
     relay_contract_code,
 )
 from .transaction_types import (
@@ -78,24 +69,18 @@ __all__ = (
     "Blob",
     "BlockAccessList",
     "BlockAccessListExpectation",
-    "BuilderDepositRequest",
-    "BuilderExitRequest",
     "ChainConfig",
     "ChainConfigDefaults",
-    "ConsolidationRequest",
-    "DepositRequest",
     "Environment",
     "EnvironmentDefaults",
     "EOA",
-    "FeeSystemContractRequest",
+    "fee_increment_blocks",
     "NetworkWrappedTransaction",
     "Removable",
-    "Requests",
     "SystemContractInteractionBase",
     "SystemContractInteractionContract",
     "SystemContractInteractionMeasuredOutOfGasContract",
     "SystemContractInteractionTransaction",
-    "SystemContractRequest",
     "TestParameterGroup",
     "TestPhase",
     "TestPhaseManager",
@@ -106,7 +91,6 @@ __all__ = (
     "TransactionTestMetadata",
     "TransactionType",
     "Withdrawal",
-    "WithdrawalRequest",
     "add_kzg_version",
     "ceiling_division",
     "compute_create_address",

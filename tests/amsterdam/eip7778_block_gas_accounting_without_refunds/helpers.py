@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Self, Set
 import pytest
 from execution_testing import (
     EOA,
+    AccessList,
     Account,
     Address,
     Alloc,
@@ -77,6 +78,7 @@ class RefundTransaction(Transaction):
         refund_tx_has_gas_limit_slack: bool = False,
         ty: int = 0,
         authorization_list: List[AuthorizationTuple] | None = None,
+        access_list: List[AccessList] | None = None,
         emit_log: bool = False,
     ) -> Self:
         """Build a transaction that has different refund types from a fork."""
@@ -192,6 +194,7 @@ class RefundTransaction(Transaction):
         gas_used_pre_refund = (
             intrinsic_cost_calc(
                 calldata=call_data,
+                access_list=access_list,
                 return_cost_deducted_prior_execution=True,
                 authorization_list_or_count=authorization_list,
             )
@@ -217,7 +220,9 @@ class RefundTransaction(Transaction):
             refund_counter, combined_before_refund // max_refund_quotient
         )
         receipt_gas_used = combined_before_refund - effective_refund
-        call_data_floor_cost = data_floor_calc(data=call_data)
+        call_data_floor_cost = data_floor_calc(
+            data=call_data, access_list=access_list
+        )
 
         # gas_used_post_refund is the "combined after refund" value used for
         # calldata floor comparisons and balance computation
@@ -253,6 +258,7 @@ class RefundTransaction(Transaction):
             gas_limit=refund_tx_gas_limit,
             sender=sender,
             authorization_list=authorization_list,
+            access_list=access_list,
             blob_versioned_hashes=blob_versioned_hashes,
             expected_receipt=expected_receipt,
             receipt_gas_used=receipt_gas_used,

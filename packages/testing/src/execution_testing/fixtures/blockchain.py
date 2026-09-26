@@ -45,8 +45,10 @@ from execution_testing.base_types import (
     Hash,
     HeaderNonce,
     HexNumber,
+    KnownEncodedSize,
     Number,
     ZeroPaddedHexNumber,
+    encoded_size,
     ssz,
     unwrap_annotation,
 )
@@ -67,6 +69,7 @@ from execution_testing.forks import (
     Cancun,
     Fork,
     Paris,
+    Requests,
     Shanghai,
     TransitionFork,
     ssz_schema_fork_key,
@@ -76,7 +79,6 @@ from execution_testing.test_types import (
     BlockAccessList,
     Environment,
     Removable,
-    Requests,
     TestPhase,
     Transaction,
     Withdrawal,
@@ -897,6 +899,48 @@ class FixtureWithdrawal(WithdrawalGeneric[ZeroPaddedHexNumber]):
         return cls(**w.model_dump())
 
 
+def block_rlp_encode_list(
+    header: FixtureHeader,
+    serialized_txs: List[Any],
+    ommers: List[FixtureHeader],
+    withdrawals: List[FixtureWithdrawal] | None,
+) -> List[Any]:
+    """Return the RLP-serializable list that makes up a block."""
+    block: List[Any] = [
+        header.rlp_encode_list,
+        serialized_txs,
+        ommers,
+    ]
+
+    if withdrawals is not None:
+        block.append([w.to_serializable_list() for w in withdrawals])
+
+    return block
+
+
+def block_rlp_size(
+    header: FixtureHeader,
+    txs: List[Transaction],
+    ommers: List[FixtureHeader],
+    withdrawals: List[FixtureWithdrawal] | None,
+) -> int:
+    """
+    Return the encoded size of the block, without encoding it.
+
+    Each transaction enters `block_rlp_encode_list` as a placeholder carrying
+    its `Transaction.serializable_size`, so the transaction bytes are never
+    built.
+    """
+    return encoded_size(
+        block_rlp_encode_list(
+            header,
+            [KnownEncodedSize(tx.serializable_size) for tx in txs],
+            ommers,
+            withdrawals,
+        )
+    )
+
+
 class FixtureBlockBase(CamelModel):
     """
     Representation of an Ethereum block within a test Fixture without RLP
@@ -938,20 +982,16 @@ class FixtureBlockBase(CamelModel):
 
     def with_rlp(self, txs: List[Transaction]) -> "FixtureBlock":
         """Return FixtureBlock with the RLP bytes set."""
-        block = [
-            self.header.rlp_encode_list,
-            [tx.serializable_list for tx in txs],
-            # TODO: This is incorrect, and we probably
-            # need to serialize the ommers
-            self.ommers,
-        ]
-
-        if self.withdrawals is not None:
-            block.append([w.to_serializable_list() for w in self.withdrawals])
-
         return FixtureBlock(
             **self.model_dump(),
-            rlp=eth_rlp.encode(block),
+            rlp=eth_rlp.encode(
+                block_rlp_encode_list(
+                    self.header,
+                    [tx.serializable_list for tx in txs],
+                    self.ommers,
+                    self.withdrawals,
+                )
+            ),
         )
 
 

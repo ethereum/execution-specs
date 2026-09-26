@@ -8,6 +8,7 @@ from typing import Any, Type
 
 import ijson  # type: ignore[import-untyped]
 import pytest
+from tenacity import retry, retry_if_exception_type, stop_after_attempt
 
 from execution_testing.base_types import StateCommitment
 from execution_testing.client_clis import (
@@ -303,27 +304,38 @@ def test_lazy_alloc_file_keepalive_pins_temp_dir() -> None:
     import gc
     import tempfile
 
-    keep = tempfile.TemporaryDirectory()
-    keep_path = Path(keep.name)
-    alloc_path = keep_path / "alloc.json"
-    alloc_path.write_text(TEST_ALLOC.model_dump_json())
+    def materialize_alloc() -> Path:
+        keep = tempfile.TemporaryDirectory()
+        keep_path = Path(keep.name)
+        alloc_path = keep_path / "alloc.json"
+        alloc_path.write_text(TEST_ALLOC.model_dump_json())
 
-    lazy = LazyAllocFile(
-        raw=alloc_path,
-        _state_root=TEST_ALLOC_STATE_ROOT,
-        _keepalive=keep,
+        lazy = LazyAllocFile(
+            raw=alloc_path,
+            _state_root=TEST_ALLOC_STATE_ROOT,
+            _keepalive=keep,
+        )
+        # The keepalive must preserve the file across garbage collection.
+        del keep
+        gc.collect()
+        assert alloc_path.exists()
+        assert lazy.materialize() == TEST_ALLOC
+        return keep_path
+
+    # Exit the producing frame before checking finalizer-driven cleanup.
+    keep_path = materialize_alloc()
+
+    @retry(
+        retry=retry_if_exception_type(AssertionError),
+        stop=stop_after_attempt(5),
+        reraise=True,
     )
-    # Releasing our handle leaves the file alive via the keepalive on lazy.
-    del keep
-    assert alloc_path.exists()
-    assert lazy.materialize() == TEST_ALLOC
+    def assert_cleaned_up() -> None:
+        # PyPy may need multiple collections to run the temp dir finalizer.
+        gc.collect()
+        assert not keep_path.exists()
 
-    # Dropping the LazyAllocFile drops the keepalive; TemporaryDirectory's
-    # finalizer wipes the directory. PyPy doesn't refcount, so trigger GC
-    # explicitly to run the finalizer deterministically.
-    del lazy
-    gc.collect()
-    assert not keep_path.exists()
+    assert_cleaned_up()
 
 
 def test_dump_files_to_directory_copies_lazy_alloc_file(
@@ -486,3 +498,19 @@ def test_opcode_count_accumulation() -> None:
     tool.reset_opcode_count()
     assert tool.opcode_count == OpcodeCount({})
     assert tool.opcode_count_per_block == []
+
+
+def test_an_opcode_count_accepts_every_name_geth_reports() -> None:
+    """
+    Geth's t8n reports an undefined byte as ``"opcode 0xb8 not defined"``
+    and still names EOF opcodes the fork does not define. The count keeps
+    the byte and drops the names with no opcode here, rather than failing
+    the whole result.
+    """
+    count = OpcodeCount.model_validate(
+        {"ADD": 3, "opcode 0xb8 not defined": 2, "EOFCREATE": 1}
+    )
+    assert {str(k): v for k, v in count.root.items()} == {
+        "ADD": 3,
+        "0xb8": 2,
+    }

@@ -1686,6 +1686,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     self.pre = group.pre
                 fill_result: FillResult | None = None
                 try:
+                    t8n.reset_opcode_count()
                     fill_result = self.generate(
                         t8n=t8n,
                         fixture_format=fixture_format,

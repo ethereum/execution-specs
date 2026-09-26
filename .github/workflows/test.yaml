@@ -113,10 +113,14 @@ jobs:
           -m "not slow and primary_format"
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+      - name: Validate blockchain fixtures with EELS (${{ matrix.label }})
+        run: just validate-blocks .just/fill/fixtures/blockchain_tests
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
-          files: .just/fill/coverage.xml
+          files: .just/fill/coverage.xml,.just/validate-blocks/coverage.xml
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
 

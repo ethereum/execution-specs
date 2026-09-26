@@ -27,12 +27,14 @@ from execution_testing import (
     AuthorizationTuple,
     Bytecode,
     Fork,
+    GasConsumer,
     Op,
     Opcode,
     StateTestFiller,
     Storage,
     Transaction,
     TransactionReceipt,
+    create_op,
 )
 
 from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
@@ -552,24 +554,17 @@ def test_repaid_credit_funds_execution(
             Op.DELEGATECALL(gas=Op.GAS, address=clearer, address_warm=False)
         )
     )
-    # TODO: The tail spends a set amount of execution gas; a JUMPDEST
-    # run is the most future-proof inline way until a fork util exists.
-    tail_ops = min(
-        sstore_state_gas // Op.JUMPDEST.gas_cost(fork),
-        fork.max_code_size() - len(head),
-    )
-    tail = Op.JUMPDEST * tail_ops
-    code = head + tail
-    contract = pre.deploy_contract(code=code)
-
     # A sliver covering the child's SSTORE stipend sentry through the
     # one-in-64 withholding. It survives the merge unspent.
     sliver = budget_above_sstore_stipend(fork, clearer_code) * 64 // 63 + 1
-    tail_cost = tail.gas_cost(fork)
-    # The tail must overrun the sliver yet fit inside the repaid
-    # credit, or the completion stops demonstrating the repayment buys
-    # execution.
-    assert sliver < tail_cost <= sstore_state_gas
+    # Burn exactly the repaid state-gas credit as execution gas. The
+    # tail must overrun the sliver yet fit inside that credit, or the
+    # completion stops demonstrating the repayment buys execution.
+    tail_cost = sstore_state_gas
+    assert sliver < tail_cost
+    tail = GasConsumer(gas=tail_cost, fork=fork)
+    code = head + tail
+    contract = pre.deploy_contract(code=code)
 
     gas_limit = (
         intrinsic_cost
@@ -1287,9 +1282,9 @@ def test_cross_frame_refund_repays_spill_at_a_create(
     def window(salt: int) -> Bytecode:
         # A repeated CREATE2 salt would collide with the account the
         # previous window created.
-        if create_opcode == Op.CREATE2:
-            return Op.POP(Op.CREATE2(0, code_offset, size, salt))
-        return Op.POP(Op.CREATE(0, code_offset, size))
+        return Op.POP(
+            create_op(create_opcode, offset=code_offset, size=size, salt=salt)
+        )
 
     contract = pre.deploy_contract(
         code=Op.MSTORE(code_offset, mstore_value)

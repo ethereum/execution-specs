@@ -1,17 +1,24 @@
 """
-Test_refund_call_a.
+Verify a storage-clear refund earned inside a sub-call is credited to
+the transaction: the sender's final balance reflects the executed gas
+minus the refund.
 
 Ported from:
 state_tests/stRefundTest/refund_CallAFiller.json
+
+@manually-enhanced: Do not overwrite. The sub-call forwards all gas
+instead of a schedule-sized constant, and the sender's balance, refund cap
+and budget derive from the fork (`code.gas_cost` / `code.refund`
+composites), so EIP-8037's repriced stores are tracked instead of pinned.
+The legacy transaction value and the caller balance it pinned are dropped
+as incidental to the refund.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -20,72 +27,68 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+INITIAL_BALANCE = 10**18
+GAS_PRICE = 10
+
 
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refund_CallAFiller.json"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Berlin")
 def test_refund_call_a(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Test_refund_call_a."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0x1312D00)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
+    """A callee's storage clear is credited to the transaction refund."""
+    callee_code = Op.SSTORE(
+        key=0x1, value=0x0, key_warm=False, original_value=1, new_value=0
     )
-
-    pre[coinbase] = Account(balance=0, nonce=1)
-    # Source: lll
-    # { [[ 1 ]] 0 }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
+    callee = pre.deploy_contract(
+        code=callee_code + Op.STOP,
         storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-    )
-    # Source: lll
-    # { [[ 0 ]] (CALL 5500 <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 )}  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.CALL(
-                gas=0x157C,
-                address=addr,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
-        storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
+    # The caller's own slot 1 stays set: the callee clears its own storage.
+    caller_code = Op.SSTORE(
+        key=0x0,
+        value=Op.CALL(address=callee, address_warm=False),
+        key_warm=False,
+        original_value=0,
+        new_value=1,
+    )
+    caller = pre.deploy_contract(
+        code=caller_code + Op.STOP,
+        storage={1: 1},
+    )
+
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    executed = (
+        intrinsic + caller_code.gas_cost(fork) + callee_code.gas_cost(fork)
+    )
+    gas_limit = executed + 5_000
+
+    sender = pre.fund_eoa(amount=INITIAL_BALANCE)
     tx = Transaction(
         sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=200000,
-        value=10,
+        to=caller,
+        gas_limit=gas_limit,
+        gas_price=GAS_PRICE,
     )
 
+    # The refund is capped at a fork-defined fraction of the executed
+    # gas. A single clear stays well under it, so the earned refund is
+    # what the balance pins.
+    refund = min(
+        caller_code.refund(fork) + callee_code.refund(fork),
+        executed // fork.max_refund_quotient(),
+    )
+    gas_used = executed - refund
+
     post = {
-        target: Account(storage={0: 1, 1: 1}, balance=0xDE0B6B3A764000A),
-        coinbase: Account(balance=0),
-        sender: Account(balance=0x12A2AD2, nonce=1),
-        addr: Account(storage={}),
+        caller: Account(storage={0: 1, 1: 1}),
+        callee: Account(storage={}),
+        sender: Account(balance=INITIAL_BALANCE - gas_used * GAS_PRICE),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

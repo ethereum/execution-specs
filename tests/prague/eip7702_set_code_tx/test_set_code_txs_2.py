@@ -36,21 +36,11 @@ REFERENCE_SPEC_VERSION = ref_spec_7702.version
 
 
 @pytest.mark.valid_from("Prague")
-# TODO[EIP-8037]: Amsterdam expected_loop_count needs
-# recalculating due to state gas.
-@pytest.mark.valid_before("EIP8037")
-# TODO[EIP-8037]: Fix Storage.KeyValueMismatchError for
-# contract_loop expected values.
-@pytest.mark.skip(
-    reason="EIP-8037: pointer loop storage values need "
-    "fixing for state gas model"
-)
 @pytest.mark.parametrize("sender_delegated", [True, False])
 @pytest.mark.parametrize("sender_is_auth_signer", [True, False])
 def test_pointer_contract_pointer_loop(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     sender_delegated: bool,
     sender_is_auth_signer: bool,
 ) -> None:
@@ -59,7 +49,9 @@ def test_pointer_contract_pointer_loop(
 
     Call pointer that goes more level of depth to call a contract loop.
 
-    Loop is created only if pointers are set with auth tuples.
+    Loop is created only if pointers are set with auth tuples. The loop
+    stops after a fixed number of iterations rather than running out of
+    gas, so the expected storage does not depend on the gas schedule.
     """
     env = Environment()
 
@@ -84,13 +76,16 @@ def test_pointer_contract_pointer_loop(
     )
 
     storage_loop: Storage = Storage()
-    expected_loop_count = 117 if fork.is_eip_enabled(8037) else 112
+    loop_iterations = 50
     contract_worked = storage_loop.store_next(
-        expected_loop_count, "contract_loop_worked"
+        loop_iterations, "contract_loop_worked"
     )
     contract_loop = pre.deploy_contract(
         code=Op.SSTORE(contract_worked, Op.ADD(1, Op.SLOAD(0)))
-        + Op.CALL(gas=1_000_000, address=pointer_a)
+        + Conditional(
+            condition=Op.LT(Op.SLOAD(0), loop_iterations),
+            if_true=Op.CALL(gas=1_000_000, address=pointer_a),
+        )
         + Op.STOP,
     )
     nonce = (
@@ -103,7 +98,6 @@ def test_pointer_contract_pointer_loop(
 
     tx = Transaction(
         to=pointer_a,
-        gas_limit=(3_000_000 if fork.is_eip_enabled(8037) else 1_000_000),
         data=b"",
         value=0,
         sender=sender,
@@ -740,7 +734,6 @@ class AccessListTo(Enum):
     [AccessListTo.POINTER_ADDRESS, AccessListTo.CONTRACT_ADDRESS],
 )
 @pytest.mark.valid_from("Prague")
-@pytest.mark.valid_before("EIP8037")
 def test_gas_diff_pointer_vs_direct_call(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -755,19 +748,11 @@ def test_gas_diff_pointer_vs_direct_call(
 
     Combine with AccessList and AuthTuple gas reductions scenarios.
 
-    Redundant from Amsterdam: EIP-8037 replaces the one-dimensional
-    SSTORE gas cost (G_STORAGE_SET) with a two-dimensional split:
-    regular gas (GAS_COLD_STORAGE_WRITE - GAS_COLD_SLOAD) and state gas
-    (STATE_BYTES_PER_STORAGE_SET * cost_per_state_byte). In sub-calls
-    state_gas_left=0, so state gas falls to gas_left -- changing what
-    the GAS opcode reports. Auth refund
-    (STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte) goes to
-    state_gas_reservoir, further altering gas visibility between
-    frames.
-
-    TODO: Add Amsterdam-specific variant in tests/amsterdam/ that
-    verifies pointer vs direct call gas costs under EIP-8037's 2D
-    gas model with reservoir semantics.
+    Under EIP-8037 the implicit gas limit exceeds the transaction gas
+    cap and the excess is a state-gas reservoir. The inner SSTORE's
+    state part is paid from it, so `GAS` sees execution cost only. The
+    expectations use `execution_cost`, which equals `gas_cost` before
+    EIP-8037.
     """
     env = Environment()
 
@@ -785,7 +770,7 @@ def test_gas_diff_pointer_vs_direct_call(
     ]
     direct_storage_warm = direct_account_warm
     direct_call_gas: int = (
-        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        Op.SSTORE(key_warm=True).execution_cost(fork)  # key warm
         + Op.CALL(address_warm=direct_account_warm).gas_cost(fork)
         + Op.SLOAD(key_warm=direct_storage_warm).gas_cost(fork)
         + opcodes_price
@@ -821,7 +806,7 @@ def test_gas_diff_pointer_vs_direct_call(
         and access_list_to == AccessListTo.CONTRACT_ADDRESS
     )
     pointer_call_gas: int = (
-        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        Op.SSTORE(key_warm=True).execution_cost(fork)  # key warm
         # pointer address access
         + Op.CALL(address_warm=pointer_account_warm).gas_cost(fork)
         # storage access
@@ -946,7 +931,6 @@ def test_gas_diff_pointer_vs_direct_call(
 
 
 @pytest.mark.valid_from("Prague")
-@pytest.mark.valid_before("EIP8037")
 def test_pointer_call_followed_by_direct_call(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -960,13 +944,9 @@ def test_pointer_call_followed_by_direct_call(
     But the sload is still cold because storage marked hot from
     pointer's account in a pointer call.
 
-    Redundant from Amsterdam: EIP-8037 replaces one-dimensional
-    SSTORE gas costs with a 2D split (regular + state gas), changing
-    what the GAS opcode reports. See
-    test_gas_diff_pointer_vs_direct_call for details.
-
-    TODO: Add Amsterdam-specific variant in tests/amsterdam/ that
-    verifies pointer warming behavior with 2D gas cost measurements.
+    Under EIP-8037 the inner SSTORE's state part is paid from the
+    implicit reservoir, so `GAS` sees execution cost only; see
+    test_gas_diff_pointer_vs_direct_call.
     """
     env = Environment()
 
@@ -975,14 +955,14 @@ def test_pointer_call_followed_by_direct_call(
     call_worked = 1
     opcodes_price: int = 37
     pointer_call_gas = (
-        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        Op.SSTORE(key_warm=True).execution_cost(fork)  # key warm
         + Op.CALL(address_warm=True).gas_cost(fork)  # pointer is warm
         + Op.CALL(address_warm=False).gas_cost(fork)  # contract is cold
         + Op.SLOAD(key_warm=False).gas_cost(fork)  # storage is cold
         + opcodes_price
     )
     direct_call_gas = (
-        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        Op.SSTORE(key_warm=True).execution_cost(fork)  # key warm
         + Op.CALL(address_warm=True).gas_cost(fork)  # contract is now warm
         + Op.SLOAD(key_warm=False).gas_cost(fork)  # storage is cold
         + opcodes_price
@@ -1395,21 +1375,35 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
     """
     Check operations when reenter the pointer again.
 
-    TODO: feel free to extend the code checks under given scenarios in
-          switch case.
+    Under the pointer reentry frame, ``ADDRESS`` / ``SELFBALANCE`` keep the
+    EOA identity and ``CALLER`` is the proxy, while ``CODESIZE`` follows the
+    delegated body and ``EXTCODESIZE`` / ``EXTCODEHASH`` of ``ADDRESS`` see
+    the delegation designation. Calling the delegation target directly after
+    reentry restores normal contract context, where ``EXTCODESIZE(ADDRESS)``
+    is the body length and ``EXTCODEHASH(ADDRESS)`` its hash.
     """
     env = Environment()
     arg_contract = 0
     arg_action = 32
+    calldata_words = 2
+    calldata_size = 32 * calldata_words
 
     storage_b = Storage()
     storage_b.store_next(1, "contract_calls")
     storage_b.store_next(1, "tstore_slot")
     slot_reentry_address = storage_b.store_next(1, "address")
+    # Absolute CODESIZE / EXTCODESIZE / EXTCODEHASH filled after the
+    # bytecode is built.
+    slot_contract_codesize = storage_b.store_next(0, "codesize")
+    slot_contract_extcodesize = storage_b.store_next(0, "extcodesize")
+    slot_contract_extcodehash = storage_b.store_next(0, "extcodehash")
 
     storage_pointer_b = Storage()
     slot_calls = storage_pointer_b.store_next(2, "pointer_calls")
     slot_tstore = storage_pointer_b.store_next(2, "tstore_slot")
+    slot_pointer_codesize = storage_pointer_b.store_next(0, "codesize")
+    slot_pointer_extcodesize = storage_pointer_b.store_next(0, "extcodesize")
+    slot_pointer_extcodehash = storage_pointer_b.store_next(0, "extcodehash")
 
     sender = pre.fund_eoa()
     pointer_b = pre.fund_eoa(amount=1000)
@@ -1417,12 +1411,14 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
         code=Op.MSTORE(arg_contract, Op.CALLDATALOAD(arg_contract))
         + Op.MSTORE(arg_action, Op.CALLDATALOAD(arg_action))
         + Op.CALL(
-            gas=400_000, address=pointer_b, args_offset=0, args_size=32 * 2
+            gas=Op.GAS,
+            address=pointer_b,
+            args_offset=0,
+            args_size=calldata_size,
         )
     )
-    contract_b = pre.deploy_contract(
-        balance=100,
-        code=Op.MSTORE(arg_contract, Op.CALLDATALOAD(arg_contract))
+    contract_code = (
+        Op.MSTORE(arg_contract, Op.CALLDATALOAD(arg_contract))
         + Op.MSTORE(arg_action, Op.CALLDATALOAD(arg_action))
         + Op.SSTORE(slot_calls, Op.ADD(Op.SLOAD(slot_calls), 1))
         + Op.TSTORE(slot_tstore, Op.ADD(Op.TLOAD(slot_tstore), 1))
@@ -1435,10 +1431,10 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
                     ),
                     action=Op.MSTORE(arg_action, ReentryAction.MEASURE_VALUES)
                     + Op.CALL(
-                        gas=500_000,
+                        gas=Op.GAS,
                         address=proxy,
                         args_offset=0,
-                        args_size=32 * 2,
+                        args_size=calldata_size,
                     )
                     + Op.STOP(),
                 ),
@@ -1464,15 +1460,32 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
                         storage_pointer_b.store_next(proxy, "caller"),
                         Op.CALLER(),
                     )
+                    + Op.SSTORE(
+                        storage_pointer_b.store_next(0, "callvalue"),
+                        Op.CALLVALUE(),
+                    )
+                    + Op.SSTORE(
+                        storage_pointer_b.store_next(
+                            calldata_size, "calldatasize"
+                        ),
+                        Op.CALLDATASIZE(),
+                    )
+                    + Op.SSTORE(slot_pointer_codesize, Op.CODESIZE())
+                    + Op.SSTORE(
+                        slot_pointer_extcodesize, Op.EXTCODESIZE(Op.ADDRESS())
+                    )
+                    + Op.SSTORE(
+                        slot_pointer_extcodehash, Op.EXTCODEHASH(Op.ADDRESS())
+                    )
                     # now call contract which is pointer dest directly
                     + Op.MSTORE(
                         arg_action, ReentryAction.MEASURE_VALUES_CONTRACT
                     )
                     + Op.CALL(
-                        gas=500_000,
+                        gas=Op.GAS,
                         address=Op.MLOAD(arg_contract),
                         args_offset=0,
-                        args_size=32 * 2,
+                        args_size=calldata_size,
                     ),
                 ),
                 Case(
@@ -1494,14 +1507,37 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
                     )
                     + Op.SSTORE(
                         storage_b.store_next(pointer_b, "caller"), Op.CALLER()
+                    )
+                    + Op.SSTORE(
+                        storage_b.store_next(0, "callvalue"),
+                        Op.CALLVALUE(),
+                    )
+                    + Op.SSTORE(
+                        storage_b.store_next(calldata_size, "calldatasize"),
+                        Op.CALLDATASIZE(),
+                    )
+                    + Op.SSTORE(slot_contract_codesize, Op.CODESIZE())
+                    + Op.SSTORE(
+                        slot_contract_extcodesize, Op.EXTCODESIZE(Op.ADDRESS())
+                    )
+                    + Op.SSTORE(
+                        slot_contract_extcodehash, Op.EXTCODEHASH(Op.ADDRESS())
                     ),
                 ),
             ],
             default_action=None,
-        ),
+        )
     )
-
+    contract_b = pre.deploy_contract(balance=100, code=contract_code)
+    codesize = len(contract_code)
+    designation = Spec.delegation_designation(contract_b)
     storage_b[slot_reentry_address] = contract_b
+    storage_b[slot_contract_codesize] = codesize
+    storage_b[slot_contract_extcodesize] = codesize
+    storage_b[slot_contract_extcodehash] = contract_code.keccak256()
+    storage_pointer_b[slot_pointer_codesize] = codesize
+    storage_pointer_b[slot_pointer_extcodesize] = len(designation)
+    storage_pointer_b[slot_pointer_extcodehash] = designation.keccak256()
 
     tx = Transaction(
         to=pointer_b,

@@ -77,18 +77,18 @@ from execution_testing.fixtures.blockchain import (
     FixtureTransaction,
     FixtureWithdrawal,
     InvalidFixtureBlock,
+    block_rlp_size,
 )
 from execution_testing.fixtures.common import (
     FixtureBlobSchedule,
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, Requests
 from execution_testing.test_types import (
     Alloc,
     Environment,
     Removable,
-    Requests,
     TestPhase,
     Transaction,
     Withdrawal,
@@ -561,12 +561,13 @@ class BuiltBlock(CamelModel):
         self,
     ) -> "FixtureExecutionPayloadModifier | None":
         """
-        Propagate ``rlp_modifier``'s header changes to the engine payload.
+        Propagate header changes and explicit overrides to the engine payload.
 
         The engine ``ExecutionPayload`` schema does not carry
-        ``block_access_list_hash`` directly; the equivalent payload field is
-        the ``block_access_list`` body. So a header modifier that touches the
-        BAL hash needs to drive a matching change on the payload body.
+        ``block_access_list_hash`` directly; the corresponding payload
+        field is the ``block_access_list`` body. Removing the header hash
+        therefore removes the payload field. Adding or changing the hash
+        is reflected in ``blockHash`` without synthesizing a BAL body.
         """
         if self.engine_new_payload_slot_number is not None:
             return FixtureExecutionPayloadModifier(
@@ -587,14 +588,9 @@ class BuiltBlock(CamelModel):
                     FixtureExecutionPayloadModifier.REMOVE_FIELD
                 ),
             )
-        # The user injected a header BAL hash; mirror that on the engine
-        # payload by forcing a body to be present. Its exact value is
-        # irrelevant for negative tests — a non-``None`` value is enough to
-        # make a payload-version mismatch detectable.
-        if self.block_access_list is None:
-            return FixtureExecutionPayloadModifier(
-                block_access_list=Bytes(b""),
-            )
+        # Do not introduce an unsupported pre-fork payload field when the
+        # intended defect is the header hash. API field-presence tests use
+        # an explicit engine_new_payload_block_access_list override.
         return None
 
     def get_fixture_engine_new_payload(self) -> FixtureEngineNewPayload:
@@ -623,6 +619,30 @@ class BuiltBlock(CamelModel):
             transition_tool_exceptions_reliable=transition_tool_exceptions_reliable,
         )
 
+    def rlp_size(self) -> int:
+        """
+        Return the RLP size of the block.
+
+        ``get_block_rlp`` reaches it through ``get_fixture_block``, which
+        first converts every transaction and receipt into its fixture model
+        and dumps the whole block; on a benchmark block carrying tens of
+        thousands of transactions that costs more than executing the block.
+        Measuring the size needs neither those models nor the encoded bytes.
+        """
+        return block_rlp_size(
+            header=self.header,
+            txs=self.txs,
+            ommers=[],
+            withdrawals=(
+                [
+                    FixtureWithdrawal.from_withdrawal(w)
+                    for w in self.withdrawals
+                ]
+                if self.withdrawals is not None
+                else None
+            ),
+        )
+
     def verify_block_exception(
         self, transition_tool_exceptions_reliable: bool
     ) -> None:
@@ -633,7 +653,7 @@ class BuiltBlock(CamelModel):
         # Verify exceptions that are not caught by the transition tool.
         fork_block_rlp_size_limit = self.fork.block_rlp_size_limit()
         if fork_block_rlp_size_limit is not None:
-            rlp_size = len(self.get_block_rlp())
+            rlp_size = self.rlp_size()
             if rlp_size > fork_block_rlp_size_limit:
                 got_exception = BlockExceptionWithMessage(
                     exceptions=[BlockException.RLP_BLOCK_LIMIT_EXCEEDED],
@@ -941,6 +961,9 @@ class BlockchainTest(BaseTest):
                 env_gas_limit=int(env.gas_limit),
                 transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
                 state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+                transaction_total_gas_limit_cap=(
+                    fork.transaction_total_gas_limit_cap()
+                ),
             )
             if max_tx_gas_limit == 0:
                 raise Exception(
@@ -952,6 +975,9 @@ class BlockchainTest(BaseTest):
                     max_gas_limit=max_tx_gas_limit,
                     transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
                     state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+                    transaction_total_gas_limit_cap=(
+                        fork.transaction_total_gas_limit_cap()
+                    ),
                 )
                 for tx in txs
             ]

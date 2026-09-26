@@ -1,5 +1,6 @@
 """Test types from execution_testing.specs."""
 
+from typing import List
 from unittest.mock import sentinel
 
 import pytest
@@ -18,8 +19,13 @@ from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayloadModifier,
     FixtureHeader,
 )
-from execution_testing.forks import Amsterdam
-from execution_testing.test_types import Alloc, Environment
+from execution_testing.forks import Amsterdam, Fork, Osaka
+from execution_testing.test_types import (
+    Alloc,
+    Environment,
+    Transaction,
+    Withdrawal,
+)
 from execution_testing.test_types.block_access_list import (
     BlockAccessList,
     BlockAccessListExpectation,
@@ -166,9 +172,12 @@ def test_fixture_header_join(
 
 def built_block(
     *,
+    fork: Fork = Amsterdam,
     rlp_modifier: Header | None = None,
     block_access_list: BlockAccessList | None = None,
     engine_new_payload_block_access_list: Bytes | None = None,
+    txs: List[Transaction] | None = None,
+    withdrawals: List[Withdrawal] | None = None,
 ) -> BuiltBlock:
     """Generate a dummy built block with all default values."""
     return BuiltBlock(
@@ -176,16 +185,56 @@ def built_block(
         env=Environment(),
         alloc=LazyAllocStr(raw="", _state_root=Hash(0)),
         state_root=Hash(0),
-        txs=[],
+        txs=txs if txs is not None else [],
         ommers=[],
-        withdrawals=None,
+        withdrawals=withdrawals,
         requests=None,
         result=result_empty,
-        fork=Amsterdam,
+        fork=fork,
         rlp_modifier=rlp_modifier,
         block_access_list=block_access_list,
         engine_new_payload_block_access_list=engine_new_payload_block_access_list,
     )
+
+
+@pytest.mark.parametrize(
+    "withdrawals",
+    [
+        pytest.param(None, id="no_withdrawals"),
+        pytest.param([], id="empty_withdrawals"),
+        pytest.param(
+            [
+                Withdrawal(
+                    index=i, validator_index=i, address=Address(i), amount=i
+                )
+                for i in range(3)
+            ],
+            id="withdrawals",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "txs",
+    [
+        pytest.param([], id="no_txs"),
+        pytest.param([Transaction(ty=0)], id="legacy_tx"),
+        pytest.param([Transaction(ty=2)], id="typed_tx"),
+        pytest.param(
+            [
+                Transaction(ty=0, data=b"\x01" * 300),
+                Transaction(ty=1, nonce=1),
+                Transaction(ty=2, nonce=2, data=b"\x02" * 60),
+            ],
+            id="mixed_txs",
+        ),
+    ],
+)
+def test_built_block_rlp_size(
+    txs: List[Transaction], withdrawals: List[Withdrawal] | None
+) -> None:
+    """Test that `BuiltBlock.rlp_size` equals the length of the block RLP."""
+    block = built_block(txs=txs, withdrawals=withdrawals)
+    assert block.rlp_size() == len(block.get_block_rlp())
 
 
 class TestDeriveEnginePayloadModifier:
@@ -228,18 +277,19 @@ class TestDeriveEnginePayloadModifier:
             FixtureExecutionPayloadModifier.REMOVE_FIELD
         )
 
-    def test_inject_bal_hash_on_pre_fork_adds_body(self) -> None:
+    def test_inject_bal_hash_on_pre_fork_keeps_body_absent(self) -> None:
         """
-        Injecting a header BAL hash on a block that has no body (pre-fork)
-        triggers a body to be added to the engine payload, so a payload-
-        version mismatch is detectable.
+        Keep pre-fork payload parameters valid when only the header hash
+        is corrupted, so rejection tests the block hash alone.
         """
-        modifier = built_block(
-            rlp_modifier=Header(block_access_list_hash=Hash(0)),
-            block_access_list=None,
-        ).engine_payload_modifier()
-        assert isinstance(modifier, FixtureExecutionPayloadModifier)
-        assert modifier.block_access_list == Bytes(b"")
+        assert (
+            built_block(
+                fork=Osaka,
+                rlp_modifier=Header(block_access_list_hash=Hash(0)),
+                block_access_list=None,
+            ).engine_payload_modifier()
+            is None
+        )
 
     def test_inject_bal_hash_on_post_fork_leaves_body_alone(self) -> None:
         """
@@ -255,10 +305,12 @@ class TestDeriveEnginePayloadModifier:
             is None
         )
 
-    def test_empty_bytes_override_sends_raw_body(self) -> None:
+    @pytest.mark.parametrize("fork", [Osaka, Amsterdam])
+    def test_empty_bytes_override_sends_raw_body(self, fork: Fork) -> None:
         """Raw `Bytes` (e.g. the invalid `0x`) are sent verbatim."""
         modifier = built_block(
-            engine_new_payload_block_access_list=Bytes(b"")
+            fork=fork,
+            engine_new_payload_block_access_list=Bytes(b""),
         ).engine_payload_modifier()
         assert isinstance(modifier, FixtureExecutionPayloadModifier)
         assert modifier.block_access_list == Bytes(b"")

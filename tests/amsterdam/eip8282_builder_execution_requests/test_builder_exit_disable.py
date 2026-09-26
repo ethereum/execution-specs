@@ -15,13 +15,13 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    BuilderExitRequest,
     Fork,
     Header,
     Requests,
     SystemContractInteractionTransaction,
 )
 
-from .helpers import BuilderExitRequest
 from .spec import Spec, ref_spec_8282
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8282.git_path
@@ -36,13 +36,14 @@ pytestmark = [
 @pytest.fixture
 def inhibited_pre(pre: Alloc, fork: Fork) -> Alloc:
     """Seed the builder exit predeploy with the disable inhibitor set."""
-    predeploy = fork.pre_allocation_blockchain()[
-        Spec.BUILDER_EXIT_CONTRACT_ADDRESS
+    predeploy = Alloc.model_validate(fork.pre_allocation_blockchain())[
+        BuilderExitRequest.system_contract_address
     ]
-    pre[Spec.BUILDER_EXIT_CONTRACT_ADDRESS] = Account(
-        nonce=predeploy["nonce"],
-        code=predeploy["code"],
-        storage={Spec.EXCESS_STORAGE_SLOT: Spec.EXCESS_INHIBITOR},
+    assert predeploy is not None
+    pre[BuilderExitRequest.system_contract_address] = Account(
+        nonce=predeploy.nonce,
+        code=predeploy.code,
+        storage={BuilderExitRequest.excess_slot: Spec.EXCESS_INHIBITOR},
     )
     return pre
 
@@ -78,9 +79,11 @@ def test_builder_exit_inhibited(
     # exit record is stored as caller ++ pubkey[0:32] ++ pubkey[32:48].
     calldata = exit_request().calldata
     residual_record_slots = {
-        Spec.QUEUE_STORAGE_OFFSET: source_address,
-        Spec.QUEUE_STORAGE_OFFSET + 1: calldata[0:32],
-        Spec.QUEUE_STORAGE_OFFSET + 2: calldata[32:48].ljust(32, b"\x00"),
+        BuilderExitRequest.queue_offset: source_address,
+        BuilderExitRequest.queue_offset + 1: calldata[0:32],
+        BuilderExitRequest.queue_offset + 2: calldata[32:48].ljust(
+            32, b"\x00"
+        ),
     }
 
     blockchain_test(
@@ -103,9 +106,9 @@ def test_builder_exit_inhibited(
             ),
         ],
         post={
-            Spec.BUILDER_EXIT_CONTRACT_ADDRESS: Account(
+            BuilderExitRequest.system_contract_address: Account(
                 storage={
-                    Spec.EXCESS_STORAGE_SLOT: 0,
+                    BuilderExitRequest.excess_slot: 0,
                     **residual_record_slots,
                 },
             ),

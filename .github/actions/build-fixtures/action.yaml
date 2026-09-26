@@ -76,6 +76,18 @@ runs:
         if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
           exit "$EXIT_CODE"
         fi
+    - name: Validate blockchain fixtures with EELS
+      if: inputs.split_label != '' && steps.evm-builder.outputs.impl == 'eels'
+      shell: bash
+      env:
+        PYTEST_XDIST_AUTO_NUM_WORKERS: ${{ steps.evm-builder.outputs.xdist }}
+      run: |
+        FIXTURES="fixtures_${{ inputs.release_name }}/blockchain_tests"
+        if [ ! -d "$FIXTURES" ]; then
+          echo "No blockchain_tests fixtures to validate."
+          exit 0
+        fi
+        just validate-blocks "$FIXTURES" --no-cov
     - name: Generate Benchmark Genesis Files
       if: inputs.split_label == '' && contains(inputs.release_name, 'benchmark')
       uses: ./.github/actions/build-benchmark-genesis

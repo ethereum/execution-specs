@@ -6,11 +6,11 @@ state_tests/stEIP2930/coinbaseT01Filler.yml
 
 @manually-enhanced: Do not overwrite. The target contract measures, via
 `Op.GAS`, the regular gas of a `CALL` that transfers value to the warm,
-already-existing coinbase. EIP-8038 reprices the value-transfer
-component (`CALL_VALUE` 9 000 -> 10 300), so the measurement grows by
-`gas_costs.CALL_VALUE - 9000`. That delta is derived from the fork's
-own gas model, so it is exactly 0 before EIP-8038 and tracks future
-parameter changes; do not hardcode the Amsterdam number.
+already-existing coinbase. EIP-8038 raises the value-transfer
+component `CALL_VALUE`, so the measurement grows by the `CALL_VALUE`
+delta versus Cancun. That delta is derived from the fork's own gas
+model, so it is exactly 0 before EIP-8038 and tracks future parameter
+changes; do not hardcode the Amsterdam number.
 """
 
 import pytest
@@ -25,7 +25,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 from tests.ported_static.post_state_resolution import (
@@ -124,7 +124,9 @@ def test_coinbase_t01(
     # coinbase warm and already in state, the measured gas grows by the
     # `CALL_VALUE` reprice alone. Derived from the fork gas model so it
     # is 0 before EIP-8038.
-    call_value_delta = fork.gas_costs().CALL_VALUE - 9000
+    call_value_delta = (
+        fork.gas_costs().CALL_VALUE - Cancun.gas_costs().CALL_VALUE
+    )
 
     expect_entries_: list[dict] = [
         {

@@ -128,6 +128,8 @@ fork.tx_types()  # Returns list of supported transaction types
 fork.contract_creating_tx_types()  # Returns list of tx types that can create contracts 
 fork.precompiles()  # Returns list of precompile addresses
 fork.system_contracts()  # Returns list of system contract addresses
+fork.system_contract_request_types()  # Request classes triggered through a system contract (Prague+)
+fork.system_contract_call_phases()  # When the block calls each system contract: before/after transactions, or never
 ```
 
 ### EVM Features

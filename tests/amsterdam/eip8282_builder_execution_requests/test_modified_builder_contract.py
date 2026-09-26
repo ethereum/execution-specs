@@ -2,7 +2,7 @@
 Tests [EIP-8282: Builder Execution Requests](https://eips.ethereum.org/EIPS/eip-8282).
 """
 
-from typing import List, Sequence
+from typing import List, Sequence, Type
 
 import pytest
 from execution_testing import (
@@ -11,17 +11,24 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    BuilderDepositRequest,
+    BuilderExitRequest,
     Bytecode,
+    Bytes,
+    FeeSystemContractRequest,
     Header,
     Op,
     Requests,
     SystemContractRequest,
+    Transaction,
+    TransactionReceipt,
     generate_system_contract_error_test,
 )
 from execution_testing import Macros as Om
+from execution_testing.base_types import Bloom
+from execution_testing.checklists import EIPChecklist
 
-from .helpers import BuilderDepositRequest, BuilderExitRequest
-from .spec import Spec, ref_spec_8282
+from .spec import ref_spec_8282
 
 REFERENCE_SPEC_GIT_PATH: str = ref_spec_8282.git_path
 REFERENCE_SPEC_VERSION: str = ref_spec_8282.version
@@ -31,7 +38,7 @@ pytestmark: List[pytest.MarkDecorator] = [
     pytest.mark.pre_alloc_mutable(),
 ]
 
-MIN_DEPOSIT_GWEI = Spec.BUILDER_MIN_DEPOSIT // 10**9
+MIN_DEPOSIT_GWEI = BuilderDepositRequest.min_deposit_wei // 10**9
 
 
 def builder_deposit_list_with_custom_fee(  # noqa: D103
@@ -63,7 +70,7 @@ def run_modified_requests_test(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     *,
-    predeploy_address: int,
+    predeploy_address: Address,
     requests_list: Sequence[SystemContractRequest],
 ) -> None:
     """
@@ -89,7 +96,12 @@ def run_modified_requests_test(
         pre=pre,
         blocks=[
             Block(
-                header_verify=Header(requests_hash=Requests(*requests_list))
+                # No transaction runs and the system call has no receipt, so
+                # nothing the predeploy logs reaches the bloom.
+                header_verify=Header(
+                    requests_hash=Requests(*requests_list),
+                    logs_bloom=Bloom(0),
+                ),
             ),
         ],
         post={},
@@ -106,30 +118,31 @@ def run_modified_requests_test(
         ),
         pytest.param(
             builder_deposit_list_with_custom_fee(
-                Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK - 1
+                BuilderDepositRequest.max_per_block - 1
             ),
             id="max_minus_1_builder_deposit_requests",
         ),
         pytest.param(
             builder_deposit_list_with_custom_fee(
-                Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK
+                BuilderDepositRequest.max_per_block
             ),
             id="max_builder_deposit_requests",
         ),
         pytest.param(
             builder_deposit_list_with_custom_fee(
-                Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK + 1
+                BuilderDepositRequest.max_per_block + 1
             ),
             id="max_plus_1_builder_deposit_requests",
         ),
         pytest.param(
             builder_deposit_list_with_custom_fee(
-                Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK + 2
+                BuilderDepositRequest.max_per_block + 2
             ),
             id="max_plus_2_builder_deposit_requests",
         ),
     ],
 )
+@EIPChecklist.SystemContract.Test.ContractSubstitution.ReturnLengths()
 def test_extra_builder_deposits(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -142,7 +155,7 @@ def test_extra_builder_deposits(
     run_modified_requests_test(
         blockchain_test,
         pre,
-        predeploy_address=Spec.BUILDER_DEPOSIT_CONTRACT_ADDRESS,
+        predeploy_address=BuilderDepositRequest.system_contract_address,
         requests_list=requests_list,
     )
 
@@ -157,30 +170,31 @@ def test_extra_builder_deposits(
         ),
         pytest.param(
             builder_exit_list_with_custom_fee(
-                Spec.MAX_EXIT_REQUESTS_PER_BLOCK - 1
+                BuilderExitRequest.max_per_block - 1
             ),
             id="max_minus_1_builder_exit_requests",
         ),
         pytest.param(
             builder_exit_list_with_custom_fee(
-                Spec.MAX_EXIT_REQUESTS_PER_BLOCK
+                BuilderExitRequest.max_per_block
             ),
             id="max_builder_exit_requests",
         ),
         pytest.param(
             builder_exit_list_with_custom_fee(
-                Spec.MAX_EXIT_REQUESTS_PER_BLOCK + 1
+                BuilderExitRequest.max_per_block + 1
             ),
             id="max_plus_1_builder_exit_requests",
         ),
         pytest.param(
             builder_exit_list_with_custom_fee(
-                Spec.MAX_EXIT_REQUESTS_PER_BLOCK + 2
+                BuilderExitRequest.max_per_block + 2
             ),
             id="max_plus_2_builder_exit_requests",
         ),
     ],
 )
+@EIPChecklist.SystemContract.Test.ContractSubstitution.ReturnLengths()
 def test_extra_builder_exits(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -193,7 +207,7 @@ def test_extra_builder_exits(
     run_modified_requests_test(
         blockchain_test,
         pre,
-        predeploy_address=Spec.BUILDER_EXIT_CONTRACT_ADDRESS,
+        predeploy_address=BuilderExitRequest.system_contract_address,
         requests_list=requests_list,
     )
 
@@ -202,18 +216,20 @@ def test_extra_builder_exits(
     "system_contract",
     [
         pytest.param(
-            Address(Spec.BUILDER_DEPOSIT_CONTRACT_ADDRESS),
+            BuilderDepositRequest.system_contract_address,
             id="builder_deposit_contract",
         ),
         pytest.param(
-            Address(Spec.BUILDER_EXIT_CONTRACT_ADDRESS),
+            BuilderExitRequest.system_contract_address,
             id="builder_exit_contract",
         ),
     ],
 )
-@generate_system_contract_error_test(  # type: ignore[arg-type]
-    max_gas_limit=Spec.SYSTEM_CALL_GAS_LIMIT,
-)
+@EIPChecklist.SystemContract.Test.ContractSubstitution.RaisesException()
+@EIPChecklist.SystemContract.Test.ContractSubstitution.GasLimitSuccess()
+@EIPChecklist.SystemContract.Test.ContractSubstitution.GasLimitFailure()
+@EIPChecklist.SystemContract.Test.ExcessiveGas.SystemCall()
+@generate_system_contract_error_test()  # type: ignore[arg-type]
 @pytest.mark.eels_base_coverage
 def test_system_contract_errors() -> None:
     """
@@ -224,3 +240,85 @@ def test_system_contract_errors() -> None:
     `generate_system_contract_error_test` decorator definition.
     """
     pass
+
+
+@pytest.mark.with_all_system_contract_request_types(
+    selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
+)
+@EIPChecklist.SystemContract.Test.ContractSubstitution.Logs()
+def test_system_contract_logs(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    request_class: Type[FeeSystemContractRequest],
+) -> None:
+    """
+    Replace a request predeploy with code that logs before returning a
+    record: the block stays valid, the record is dequeued, and the log
+    reaches neither a receipt nor the block's logs bloom.
+    """
+    queued_request = request_class.from_index(0).copy(
+        fee=request_class.get_fee(0)
+    )
+    record = bytes(queued_request)
+    pre[queued_request.system_contract_address] = Account(
+        code=Om.MSTORE(record, 0)
+        + Op.LOG0(0, len(record))
+        + Op.RETURN(0, len(record)),
+        nonce=1,
+    )
+    # A transaction that logs nothing, so the last receipt is where a leaked
+    # system-call log would show up.
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=pre.deploy_contract(Op.STOP),
+        expected_receipt=TransactionReceipt(logs=[]),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(
+                    requests_hash=Requests(queued_request),
+                    logs_bloom=Bloom(0),
+                ),
+            ),
+        ],
+        post={},
+    )
+
+
+@pytest.mark.with_all_system_contract_request_types(
+    selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
+)
+@pytest.mark.parametrize(
+    "length_delta",
+    [None, -1, 1],
+    ids=["one_byte", "record_minus_one", "record_plus_one"],
+)
+@EIPChecklist.SystemContract.Test.ContractSubstitution.ReturnLengths()
+def test_partial_request_records(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    request_class: Type[FeeSystemContractRequest],
+    length_delta: int | None,
+) -> None:
+    """Commit raw system-call output without parsing or truncating records."""
+    if length_delta is None:
+        size = 1
+    else:
+        size = len(bytes(request_class.from_index(0))) + length_delta
+    returned = bytes((i % 255) + 1 for i in range(size))
+    pre[request_class.system_contract_address] = Account(
+        code=Om.MSTORE(returned, 0) + Op.RETURN(0, size),
+        nonce=1,
+    )
+    expected = Requests(
+        requests_lists=[Bytes(bytes([request_class.type]) + returned)]
+    )
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(header_verify=Header(requests_hash=expected))],
+        post={},
+    )
