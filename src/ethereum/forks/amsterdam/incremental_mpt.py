@@ -28,8 +28,8 @@ from typing import (
 )
 
 from ethereum_rlp import Extended, rlp
-from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import Uint, ulen
+from ethereum_types.bytes import Bytes, Bytes32
+from ethereum_types.numeric import U256, Uint, ulen
 
 from ethereum.crypto.hash import keccak256
 from ethereum.merkle_patricia_trie import (
@@ -120,7 +120,6 @@ class IncrementalMPT(Generic[K, V]):
     default: V
     root_node: MutableNode = None
     witness: Witness = field(default_factory=Witness)
-    _data: Dict[K, V] = field(default_factory=dict)
 
 
 def _build_mutable_tree(
@@ -224,7 +223,6 @@ def build_mpt(
         secured=secured,
         default=default,
         root_node=root_node,
-        _data=dict(data),
     )
 
 
@@ -346,104 +344,74 @@ def _compute_node_hash_and_rlp(
         return None, encoded
 
 
-def mpt_get(mpt: IncrementalMPT[K, V], key: K) -> V:
+def mpt_get(mpt: IncrementalMPT[K, V], key: K) -> Optional[Bytes]:
     """
-    Get a value from the incremental MPT.
+    Look up the encoded value stored at `key`, or `None` if it is absent.
 
-    Traverse the tree and record accessed nodes in the witness
-    for execution witness generation.
+    Every node on the path towards `key` is recorded in the witness, since
+    those nodes prove either the value or its absence. The host uses this
+    walk to build the witness, and the guest uses it to read the pre-state
+    from a decoded witness.
 
-    Parameters
-    ----------
-    mpt :
-        The incremental MPT to get from.
-    key :
-        Key to lookup.
+    The lookup fails on a [`HashedNode`], because the witness is missing a
+    node on the path.
 
-    Returns
-    -------
-    value : `V`
-        Value at the key, or the default value if not found.
-
+    [`HashedNode`]: ref:ethereum.forks.amsterdam.incremental_mpt.HashedNode
     """
-    value = mpt._data.get(key, mpt.default)
-
     if mpt.secured:
         nibble_key = bytes_to_nibble_list(keccak256(key))
     else:
         nibble_key = bytes_to_nibble_list(key)
 
-    _mpt_traverse_for_witness(mpt, mpt.root_node, nibble_key, Uint(0))
+    node = mpt.root_node
+    pos = 0
 
-    return value
+    while node is not None:
+        assert not isinstance(node, HashedNode), (
+            "Encountered unresolved HashedNode during witness lookup"
+        )
+        _record_witness(mpt.witness, node)
 
+        if isinstance(node, MutableLeafNode):
+            if nibble_key[pos:] == node.rest_of_key:
+                return node.value
+            return None
 
-def _mpt_traverse_for_witness(
-    mpt: IncrementalMPT,
-    node: MutableNode,
-    key: Bytes,
-    level: Uint,
-) -> None:
-    """Traverse the tree recording nodes in the witness."""
-    if node is None:
-        return
+        if isinstance(node, MutableExtensionNode):
+            segment = node.key_segment
+            if nibble_key[pos : pos + len(segment)] != segment:
+                return None
+            pos += len(segment)
+            node = node.child
+            continue
 
-    _record_witness(mpt.witness, node)
+        assert isinstance(node, MutableBranchNode), (
+            f"Unexpected node type {type(node)}"
+        )
 
-    if isinstance(node, MutableLeafNode):
-        pass
-    elif isinstance(node, MutableExtensionNode):
-        segment_len = len(node.key_segment)
-        lvl = int(level)
-        if key[lvl : lvl + segment_len] == node.key_segment:
-            _mpt_traverse_for_witness(
-                mpt,
-                node.child,
-                key,
-                Uint(lvl + segment_len),
-            )
-    elif isinstance(node, MutableBranchNode):
-        lvl = int(level)
-        if lvl < len(key):
-            child_idx = key[lvl]
-            _mpt_traverse_for_witness(
-                mpt,
-                node.children[child_idx],
-                key,
-                Uint(lvl + 1),
-            )
+        if pos == len(nibble_key):
+            return node.value or None
+        node = node.children[nibble_key[pos]]
+        pos += 1
+
+    return None
 
 
 def mpt_set(
     mpt: IncrementalMPT[K, V],
     key: K,
     value: V,
-    get_storage_root: Optional[Callable[[Address], Root]] = None,
+    storage_root: Optional[Root] = None,
 ) -> None:
     """
-    Set a value in the incremental MPT.
+    Set `key` to `value`, updating the tree in place.
 
-    Update the tree in-place and invalidate cached hashes along
-    the path.
+    Cached hashes along the path are invalidated, and setting `value` to the
+    trie's default deletes `key`. An [`Account`] leaf also commits to the
+    account's `storage_root`, so it must be given for account values.
 
-    Parameters
-    ----------
-    mpt :
-        The incremental MPT to update.
-    key :
-        Key to set.
-    value :
-        Value to set at the key.
-    get_storage_root :
-        Function to get storage root (for Account values).
-
+    [`Account`]: ref:ethereum.state.Account
     """
-    if value == mpt.default:
-        if key in mpt._data:
-            del mpt._data[key]
-    else:
-        mpt._data[key] = value
-
     if mpt.secured:
         nibble_key = bytes_to_nibble_list(keccak256(key))
     else:
@@ -452,9 +420,8 @@ def mpt_set(
     if value == mpt.default:
         encoded_value = b""
     elif isinstance(value, Account):
-        assert get_storage_root is not None
-        address = Address(key)
-        encoded_value = encode_node(value, get_storage_root(address))
+        assert storage_root is not None
+        encoded_value = encode_node(value, storage_root)
     elif value is None:
         raise AssertionError("cannot encode `None`")
     else:
@@ -468,6 +435,27 @@ def mpt_set(
         mpt.root_node = _mpt_insert_node(
             mpt, mpt.root_node, nibble_key, encoded_value, Uint(0)
         )
+
+
+def mpt_set_storage_slots(
+    storage_mpt: IncrementalMPT[Bytes32, U256],
+    slots: Mapping[Bytes32, U256],
+) -> None:
+    """
+    Write `slots` to a storage trie, with insertions and updates first.
+
+    Deleting a slot can collapse a branch, and a collapse needs the node of
+    the remaining sibling. Deleting last keeps more branches populated, so
+    fewer collapses happen. The host building the witness and the guest
+    replaying it must write in the same order, or the guest may need a
+    sibling node that the host never recorded.
+    """
+    for key, value in slots.items():
+        if value != U256(0):
+            mpt_set(storage_mpt, key, value)
+    for key, value in slots.items():
+        if value == U256(0):
+            mpt_set(storage_mpt, key, value)
 
 
 def _mpt_insert_node(
@@ -1026,7 +1014,6 @@ def decode_witness_to_mpt(
             secured=secured,
             default=default,
             root_node=None,
-            _data={},
         )
 
     root_rlp = node_db[root_hash]
@@ -1036,5 +1023,4 @@ def decode_witness_to_mpt(
         secured=secured,
         default=default,
         root_node=root_node,
-        _data={},
     )

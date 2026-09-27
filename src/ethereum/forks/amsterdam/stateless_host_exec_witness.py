@@ -17,6 +17,7 @@ from .incremental_mpt import (
     mpt_get,
     mpt_root,
     mpt_set,
+    mpt_set_storage_slots,
 )
 from .state_tracker import BlockState
 from .stateless import ExecutionWitness
@@ -94,13 +95,7 @@ def _apply_storage_writes(
                 {}, secured=True, default=U256(0)
             )
 
-        # Two passes: insert/update first, deletions second.
-        for key, value in dirty_keys.items():
-            if value != 0:
-                mpt_set(incr_storage_mpts[address], key, value)
-        for key, value in dirty_keys.items():
-            if value == 0:
-                mpt_set(incr_storage_mpts[address], key, value)
+        mpt_set_storage_slots(incr_storage_mpts[address], dirty_keys)
 
 
 def _get_all_dirty_accounts(block_state: BlockState) -> Set[Address]:
@@ -138,17 +133,7 @@ def _apply_account_writes(
         else:
             addr_storage_root = EMPTY_TRIE_ROOT
 
-        def get_storage_root_fn(
-            _: Address, sr: Root = addr_storage_root
-        ) -> Root:
-            return sr
-
-        mpt_set(
-            incr_account_mpt,
-            address,
-            account,
-            get_storage_root=get_storage_root_fn,
-        )
+        mpt_set(incr_account_mpt, address, account, addr_storage_root)
 
 
 def _collect_accessed_nodes(
