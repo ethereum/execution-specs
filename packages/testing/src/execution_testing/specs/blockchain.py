@@ -1,6 +1,5 @@
 """Ethereum blockchain test spec definition and filler."""
 
-from dataclasses import replace
 from pprint import pprint
 from typing import (
     Any,
@@ -108,8 +107,7 @@ from execution_testing.test_types.execution_witness import (
 
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .blockchain_stateless import (
-    StatelessValidationArtifacts,
-    build_amsterdam_stateless_artifacts_from_t8n,
+    build_stateless_artifacts,
     finalize_stateless_artifacts,
     stateless_options_for_block,
     verify_execution_witness_expectations,
@@ -467,9 +465,6 @@ class Block(Header):
         )
         new_env_values["gas_limit"] = (
             self.gas_limit or env.parent_gas_limit or Environment().gas_limit
-        )
-        new_env_values["extra_data"] = (
-            self.extra_data if self.extra_data is not None else Bytes(b"")
         )
         if not isinstance(self.base_fee_per_gas, Removable):
             new_env_values["base_fee_per_gas"] = self.base_fee_per_gas
@@ -1096,7 +1091,9 @@ class BlockchainTest(BaseTest):
             ),
             blob_gas_used=blob_gas_used,
             transactions_trie=Transaction.list_root(txs),
-            extra_data=env.extra_data,
+            extra_data=(
+                block.extra_data if block.extra_data is not None else b""
+            ),
             slot_number=slot_number_value,
             fork=fork,
         )
@@ -1227,77 +1224,6 @@ class BlockchainTest(BaseTest):
                     "arbitrary bytes."
                 )
 
-        t8n_witness = transition_tool_output.result.execution_witness
-        original_stateless_artifacts = StatelessValidationArtifacts(
-            execution_witness=t8n_witness,
-            stateless_input_bytes=(
-                transition_tool_output.result.stateless_input_bytes
-            ),
-            stateless_output_bytes=(
-                transition_tool_output.result.stateless_output_bytes
-            ),
-        )
-        if (
-            not stateless_options.skip_validation
-            and t8n_witness is not None
-            and bal is not None
-            and (
-                original_stateless_artifacts.stateless_input_bytes is None
-                or original_stateless_artifacts.stateless_output_bytes is None
-            )
-        ):
-            # Temporary trust path for external benchmark filling until Geth
-            # emits both stateless byte fields.
-            assert not isinstance(t8n, ExecutionSpecsTransitionTool), (
-                "EELS must provide stateless input and output bytes"
-            )
-            assert self.operation_mode == OpMode.BENCHMARKING, (
-                "Missing stateless artifacts are only supported for external "
-                "benchmark fills"
-            )
-            assert block.exception is None, (
-                "Missing stateless artifacts require a valid benchmark block"
-            )
-            built_artifacts = build_amsterdam_stateless_artifacts_from_t8n(
-                fork=fork,
-                block_number=int(env.number),
-                timestamp=int(env.timestamp),
-                header=header,
-                previous_env=previous_env,
-                txs=txs,
-                result=transition_tool_output.result,
-                withdrawals=env.withdrawals,
-                requests_list=requests_list,
-                execution_witness=t8n_witness,
-                block_access_list=bal,
-                chain_id=self.chain_id,
-            )
-            if built_artifacts is not None:
-                input_bytes, output_bytes = built_artifacts
-                original_stateless_artifacts = replace(
-                    original_stateless_artifacts,
-                    stateless_input_bytes=input_bytes,
-                    stateless_output_bytes=output_bytes,
-                )
-
-        verify_execution_witness_expectations(
-            block=block,
-            fork=fork,
-            previous_alloc=previous_alloc,
-            block_number=int(env.number),
-            timestamp=int(env.timestamp),
-            parent_hash=header.parent_hash,
-            execution_witness=original_stateless_artifacts.execution_witness,
-        )
-        stateless_artifacts = finalize_stateless_artifacts(
-            options=stateless_options,
-            original=original_stateless_artifacts,
-            fork=fork,
-            block_number=int(env.number),
-            timestamp=int(env.timestamp),
-            chain_id=self.chain_id,
-        )
-
         built_block_kwargs: Dict[str, Any] = dict(
             header=header,
             alloc=transition_tool_output.alloc,
@@ -1313,10 +1239,7 @@ class BlockchainTest(BaseTest):
             rlp_modifier=block.rlp_modifier,
             fork=fork,
             block_access_list=bal,
-            execution_witness=stateless_artifacts.execution_witness,
             execution_witness_mutated=stateless_options.has_witness_modifier,
-            stateless_input_bytes=stateless_artifacts.stateless_input_bytes,
-            stateless_output_bytes=stateless_artifacts.stateless_output_bytes,
             engine_new_payload_block_access_list=(
                 block.engine_new_payload_block_access_list
                 if block.engine_new_payload_block_access_list is not None
@@ -1386,6 +1309,46 @@ class BlockchainTest(BaseTest):
                 + "`block.exception`"
             )
 
+        execution_witness = transition_tool_output.result.execution_witness
+        verify_execution_witness_expectations(
+            block=block,
+            fork=fork,
+            previous_alloc=previous_alloc,
+            block_number=int(env.number),
+            timestamp=int(env.timestamp),
+            parent_hash=header.parent_hash,
+            execution_witness=execution_witness,
+        )
+        stateless_artifacts = finalize_stateless_artifacts(
+            options=stateless_options,
+            original=build_stateless_artifacts(
+                options=stateless_options,
+                fork=fork,
+                execution_witness=execution_witness,
+                block_rlp=built_block.get_block_rlp(),
+                block_access_list=bal,
+                requests_list=requests_list,
+                chain_id=self.chain_id,
+                # Engine payload overrides leave the RLP block valid.
+                block_valid=(
+                    block.exception is None
+                    or bool(block.engine_payload_only_overrides())
+                ),
+                run_guest=(
+                    isinstance(t8n, ExecutionSpecsTransitionTool)
+                    or self.operation_mode != OpMode.BENCHMARKING
+                ),
+            ),
+            block_number=int(env.number),
+            chain_id=self.chain_id,
+        )
+        built_block.execution_witness = stateless_artifacts.execution_witness
+        built_block.stateless_input_bytes = (
+            stateless_artifacts.stateless_input_bytes
+        )
+        built_block.stateless_output_bytes = (
+            stateless_artifacts.stateless_output_bytes
+        )
         return built_block
 
     def verify_post_state(

@@ -978,6 +978,58 @@ test_module_execution_witness_expected_true = textwrap.dedent(
     """
 )
 
+test_module_execution_witness_bal_modifier = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import (
+        Account,
+        Alloc,
+        BalAccountExpectation,
+        BalNonceChange,
+        Block,
+        BlockAccessListExpectation,
+        BlockchainTestFiller,
+        BlockException,
+        Transaction,
+    )
+    from execution_testing.test_types.block_access_list.modifiers import (
+        remove_nonces,
+    )
+
+    @pytest.mark.valid_at("Amsterdam")
+    @pytest.mark.exception_test
+    def test_execution_witness_bal_modifier(
+        pre: Alloc,
+        blockchain_test: BlockchainTestFiller,
+    ) -> None:
+        sender = pre.fund_eoa()
+        tx = Transaction(sender=sender, to=pre.fund_eoa(amount=0), value=1)
+
+        blockchain_test(
+            pre=pre,
+            post={sender: Account(nonce=0)},
+            blocks=[
+                Block(
+                    txs=[tx],
+                    exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                    expected_block_access_list=BlockAccessListExpectation(
+                        account_expectations={
+                            sender: BalAccountExpectation(
+                                nonce_changes=[
+                                    BalNonceChange(
+                                        block_access_index=1, post_nonce=1
+                                    )
+                                ],
+                            ),
+                        }
+                    ).modify(remove_nonces(sender)),
+                )
+            ],
+        )
+    """
+)
+
 test_module_execution_witness_missing_expected = textwrap.dedent(
     """\
     import pytest
@@ -1330,7 +1382,10 @@ def test_execution_witness_rlp_modifier_rejects_stateless_intent(
 def test_execution_witness_expected_true_reuses_canonical_stateless_result(
     testdir: pytest.Testdir,
 ) -> None:
-    """Explicit True expectation should preserve the canonical success path."""
+    """
+    An explicit True expectation should keep the stateless result built
+    from the fixture block.
+    """
     tests_dir = testdir.mkdir("tests")
     amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
     test_module = amsterdam_tests_dir.join(
@@ -1387,6 +1442,81 @@ def test_execution_witness_expected_true_reuses_canonical_stateless_result(
     assert (
         stateless_output.new_payload_request_root
         == compute_new_payload_request_root(stateless_input)
+    )
+    payload = stateless_input.new_payload_request.execution_payload
+    assert "0x" + bytes(payload.block_hash).hex() == (
+        block["blockHeader"]["hash"]
+    )
+
+
+def test_execution_witness_bal_modifier_rebuilds_stateless_input(
+    testdir: pytest.Testdir,
+) -> None:
+    """
+    A block access list modified after the transition tool runs should
+    reach the stateless input, and the guest should reject the block.
+    """
+    tests_dir = testdir.mkdir("tests")
+    amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
+    test_module = amsterdam_tests_dir.join(
+        "test_module_execution_witness_bal_modifier.py"
+    )
+    test_module.write(test_module_execution_witness_bal_modifier)
+
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    args = [
+        "-c",
+        "pytest-fill.ini",
+        "-v",
+        "--until=Amsterdam",
+        "-m",
+        "blockchain_test",
+        "--no-html",
+    ]
+    result = testdir.runpytest(*args)
+    result.assert_outcomes(
+        passed=1,
+        failed=0,
+        skipped=0,
+        errors=0,
+    )
+
+    fixture_path = Path(
+        "fixtures/blockchain_tests/for_amsterdam/amsterdam/"
+        "module_execution_witness_bal_modifier/"
+        "execution_witness_bal_modifier.json"
+    )
+    assert fixture_path.exists(), f"{fixture_path} does not exist"
+
+    with open(fixture_path, "r") as f:
+        fixture_data = json.load(f)
+
+    fixture = next(iter(fixture_data.values()))
+    block = fixture["blocks"][0]
+    header = block["rlp_decoded"]["blockHeader"]
+
+    from ethereum.crypto.hash import keccak256
+    from ethereum.forks.amsterdam.stateless_guest import (
+        deserialize_stateless_input,
+    )
+    from ethereum.forks.amsterdam.stateless_host import (
+        deserialize_stateless_output,
+    )
+
+    stateless_input = deserialize_stateless_input(
+        bytes.fromhex(block["statelessInputBytes"][2:])
+    )
+    stateless_output = deserialize_stateless_output(
+        bytes.fromhex(block["statelessOutputBytes"][2:])
+    )
+
+    assert stateless_output.successful_validation is False
+    payload = stateless_input.new_payload_request.execution_payload
+    assert "0x" + bytes(payload.block_hash).hex() == header["hash"]
+    assert "0x" + keccak256(payload.block_access_list).hex() == (
+        header["blockAccessListHash"]
     )
 
 

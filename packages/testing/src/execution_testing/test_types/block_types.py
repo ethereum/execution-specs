@@ -237,7 +237,7 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
                 else 0
             )
 
-        return self.copy(extra_data=self.extra_data, **updated_values)
+        return self.copy(**updated_values)
 
     @classmethod
     def for_fork(cls, fork: Fork, **kwargs: Any) -> "Environment":

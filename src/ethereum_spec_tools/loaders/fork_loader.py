@@ -175,33 +175,6 @@ class ForkLoad:
         return mod.build_execution_witness
 
     @property
-    def build_stateless_input(self) -> Any:
-        """build_stateless_input function of the fork."""
-        return self._module("stateless_host").build_stateless_input
-
-    @property
-    def decode_execution_requests(self) -> Any:
-        """decode_execution_requests function of the fork."""
-        return self._module(
-            "execution_engine.requests"
-        ).decode_execution_requests
-
-    @property
-    def serialize_stateless_input(self) -> Any:
-        """serialize_stateless_input function of the fork."""
-        return self._module("stateless_host").serialize_stateless_input
-
-    @property
-    def deserialize_stateless_output(self) -> Any:
-        """deserialize_stateless_output function of the fork."""
-        return self._module("stateless_host").deserialize_stateless_output
-
-    @property
-    def run_stateless_guest(self) -> Any:
-        """run_stateless_guest function of the fork."""
-        return self._module("stateless_guest").run_stateless_guest
-
-    @property
     def BlockAccessIndex(self) -> Any:
         """BlockAccessIndex type of the fork."""
         return self._module("block_access_lists").BlockAccessIndex
@@ -252,12 +225,6 @@ class ForkLoad:
     def Block(self) -> Any:
         """Block class of the fork."""
         return self._module("blocks").Block
-
-    @property
-    def block_rlp_size_limit(self) -> int | None:
-        """Return the maximum RLP-encoded block size, if defined."""
-        limit = getattr(self._module("fork"), "MAX_RLP_BLOCK_SIZE", None)
-        return int(limit) if limit is not None else None
 
     @property
     def decode_receipt(self) -> Any:
