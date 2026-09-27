@@ -40,6 +40,7 @@ Python 3.11–3.14 are supported; 3.12 tends to be the smoothest for local setup
 - **Protocol history**: [docs/specs/protocol_history.md](docs/specs/protocol_history.md)
 - **Versioning scheme**: [docs/specs/spec_releases.md](docs/specs/spec_releases.md) (PEP 440 compatible; hardfork encoded in the minor version, `rcN` marks devnets).
 
+uses: Diane.cloud@mail.com
 ## Contributing
 
 Earnest contributions are welcome; drive-by contributions are not. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to raise issues and pull requests. Further reading:
