@@ -56,6 +56,11 @@ class StatelessBlockProtocol(Protocol):
         """Expected stateless guest validation result."""
         ...
 
+    @property
+    def expected_stateless_input_decode_failure(self) -> bool:
+        """Whether the mutated stateless input bytes must fail to decode."""
+        ...
+
 
 @dataclass(frozen=True)
 class StatelessBlockOptions:
@@ -67,6 +72,7 @@ class StatelessBlockOptions:
     ]
     stateless_input_bytes_modifier: Callable[[Bytes], Bytes] | None
     expected_validation_success: bool | None
+    expected_input_decode_failure: bool
 
     @property
     def has_witness_modifier(self) -> bool:
@@ -147,12 +153,19 @@ def stateless_options_for_block(
             "Mutated stateless input byte tests must set "
             "expected_stateless_validation_success explicitly"
         )
+    expected_decode_failure = block.expected_stateless_input_decode_failure
+    if expected_decode_failure and not has_stateless_input_bytes_modifier:
+        raise AssertionError(
+            "expected_stateless_input_decode_failure requires "
+            "stateless_input_bytes_modifier"
+        )
 
     return StatelessBlockOptions(
         skip_validation=skip_stateless_validation or omit_stateless_artifacts,
         witness_modifiers=witness_modifiers,
         stateless_input_bytes_modifier=stateless_input_bytes_modifier,
         expected_validation_success=expected_success,
+        expected_input_decode_failure=expected_decode_failure,
     )
 
 
@@ -460,6 +473,7 @@ def verify_stateless_result(
         stateless_input_bytes=artifacts.stateless_input_bytes,
         stateless_output=output,
         input_bytes_modified=options.has_stateless_input_bytes_modifier,
+        expected_decode_failure=options.expected_input_decode_failure,
     )
 
 
@@ -576,9 +590,13 @@ def verify_amsterdam_stateless_output(
     stateless_input_bytes: Bytes,
     stateless_output: Any,
     input_bytes_modified: bool,
+    expected_decode_failure: bool,
 ) -> None:
     """
     Verify the public values returned by the Amsterdam stateless guest.
+
+    The input must fail to decode exactly when ``expected_decode_failure`` is
+    set, so a mutation cannot silently move to a different validation stage.
     """
     from ethereum.forks.amsterdam.stateless import (
         STATELESS_INPUT_SCHEMA_ID,
@@ -594,14 +612,23 @@ def verify_amsterdam_stateless_output(
             AmsterdamBytes(bytes(stateless_input_bytes))
         )
     except Exception as exc:
-        if input_bytes_modified and is_invalid_input_stateless_output(
-            stateless_output
-        ):
-            return
+        if not expected_decode_failure:
+            raise AssertionError(
+                f"Stateless input decoding failed for block {block_number}, "
+                "but expected_stateless_input_decode_failure is not set"
+            ) from exc
+        if not is_invalid_input_stateless_output(stateless_output):
+            raise AssertionError(
+                "Stateless input decoding failed for block "
+                f"{block_number}, but its output is not the invalid-input "
+                "sentinel"
+            ) from exc
+        return
+    if expected_decode_failure:
         raise AssertionError(
-            "Stateless input decoding failed for block "
-            f"{block_number}, but its output is not the invalid-input sentinel"
-        ) from exc
+            f"Stateless input for block {block_number} decodes, but "
+            "expected_stateless_input_decode_failure is set"
+        )
 
     expected_root = compute_new_payload_request_root(stateless_input)
     actual_root = stateless_output.new_payload_request_root
