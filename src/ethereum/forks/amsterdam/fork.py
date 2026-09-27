@@ -581,11 +581,7 @@ def check_transaction(
 
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
-    sender_code = get_code(
-        tx_state,
-        sender_account.code_hash,
-        sender,
-    )
+    sender_code = get_code(tx_state, sender_account.code_hash)
     if sender_account.code_hash != EMPTY_CODE_HASH and not is_valid_delegation(
         sender_code
     ):
@@ -715,7 +711,6 @@ def process_checked_system_transaction(
     system_contract_code = get_code(
         untracked_state,
         get_account(untracked_state, target_address).code_hash,
-        target_address,
     )
 
     if len(system_contract_code) == 0:
