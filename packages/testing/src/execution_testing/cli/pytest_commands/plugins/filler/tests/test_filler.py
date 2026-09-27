@@ -1444,8 +1444,8 @@ def test_execution_witness_expected_true_reuses_canonical_stateless_result(
         == compute_new_payload_request_root(stateless_input)
     )
     payload = stateless_input.new_payload_request.execution_payload
-    assert "0x" + bytes(payload.block_hash).hex() == (
-        block["blockHeader"]["hash"]
+    assert (
+        "0x" + bytes(payload.block_hash).hex() == block["blockHeader"]["hash"]
     )
 
 
@@ -1515,8 +1515,9 @@ def test_execution_witness_bal_modifier_rebuilds_stateless_input(
     assert stateless_output.successful_validation is False
     payload = stateless_input.new_payload_request.execution_payload
     assert "0x" + bytes(payload.block_hash).hex() == header["hash"]
-    assert "0x" + keccak256(payload.block_access_list).hex() == (
-        header["blockAccessListHash"]
+    assert (
+        "0x" + keccak256(payload.block_access_list).hex()
+        == header["blockAccessListHash"]
     )
 
 

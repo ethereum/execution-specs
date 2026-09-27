@@ -14,6 +14,7 @@ from ethereum.forks.amsterdam.execution_engine.requests import (
     BuilderExitRequest,
     ConsolidationRequest,
     WithdrawalRequest,
+    decode_execution_requests,
 )
 from ethereum.forks.amsterdam.execution_engine.types import (
     BlobsBundle,
@@ -23,6 +24,12 @@ from ethereum.forks.amsterdam.execution_engine.types import (
 from ethereum.forks.amsterdam.stateless import (
     NewPayloadRequestHeader,
     ProtocolFork,
+)
+from ethereum.forks.amsterdam.stateless_guest import run_stateless_guest
+from ethereum.forks.amsterdam.stateless_host import (
+    build_stateless_input,
+    deserialize_stateless_output,
+    serialize_stateless_input,
 )
 from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
@@ -189,6 +196,15 @@ ConsolidationRequest.source_address
 ConsolidationRequest.source_pubkey
 ConsolidationRequest.target_pubkey
 BuilderExitRequest.source_address
+
+# src/ethereum/forks/amsterdam/execution_engine/requests.py,
+# stateless_host.py and stateless_guest.py - stateless public API, called
+# from the testing framework outside vulture's scanned paths
+decode_execution_requests
+build_stateless_input
+serialize_stateless_input
+deserialize_stateless_output
+run_stateless_guest
 
 # src/ethereum/forks/amsterdam/execution_engine/types.py - Engine API fields
 PayloadAttributes.suggested_fee_recipient
