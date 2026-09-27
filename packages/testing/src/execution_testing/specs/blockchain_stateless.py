@@ -1,23 +1,12 @@
 """Stateless helpers for blockchain test generation."""
 
 from dataclasses import dataclass, replace
-from typing import Any, Callable, List, Protocol
+from typing import Any, Callable, Dict, List, Protocol
 
-from execution_testing.base_types import (
-    Bytes,
-    Hash,
-    ZeroPaddedHexNumber,
-)
-from execution_testing.client_clis import LazyAlloc, Result
-from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.base_types import Bytes, Hash
+from execution_testing.client_clis import LazyAlloc
 from execution_testing.forks import Fork
-from execution_testing.test_types import (
-    Alloc,
-    Environment,
-    ExecutionWitness,
-    Transaction,
-    Withdrawal,
-)
+from execution_testing.test_types import Alloc, ExecutionWitness
 from execution_testing.test_types.block_access_list import BlockAccessList
 from execution_testing.test_types.execution_witness import (
     ExecutionWitnessCodesExpectation,
@@ -205,27 +194,129 @@ def verify_execution_witness_expectations(
         )
 
 
+def build_stateless_artifacts(
+    *,
+    options: StatelessBlockOptions,
+    fork: Fork,
+    execution_witness: ExecutionWitness | None,
+    block_rlp: Bytes,
+    block_access_list: BlockAccessList | None,
+    requests_list: List[Bytes] | None,
+    chain_id: int,
+    block_valid: bool,
+    run_guest: bool,
+) -> StatelessValidationArtifacts:
+    """
+    Build the stateless guest input and output for the final fixture block.
+
+    The input comes from the fixture block RLP, block access list and
+    requests, so it includes any change the filler makes after the
+    transition tool runs. Without ``run_guest`` the output trusts the
+    transition tool instead of re-executing the block.
+
+    Omit the input and output when the block access list or requests
+    cannot be expressed as Amsterdam types.
+    """
+    artifacts = StatelessValidationArtifacts(
+        execution_witness=execution_witness
+    )
+    if (
+        options.skip_validation
+        or execution_witness is None
+        or fork.name() != "Amsterdam"
+    ):
+        return artifacts
+    assert block_access_list is not None
+
+    from ethereum.forks.amsterdam.block_access_lists import (
+        BlockAccessList as AmsterdamBlockAccessList,
+    )
+    from ethereum.forks.amsterdam.blocks import Block as AmsterdamBlock
+    from ethereum.forks.amsterdam.execution_engine.requests import (
+        decode_execution_requests,
+    )
+    from ethereum.forks.amsterdam.stateless import (
+        STATELESS_INPUT_SCHEMA_ID,
+        StatelessValidationResult,
+        compute_new_payload_request_root,
+    )
+    from ethereum.forks.amsterdam.stateless_guest import (
+        serialize_stateless_output,
+    )
+    from ethereum.forks.amsterdam.stateless_host import (
+        build_stateless_input,
+        deserialize_stateless_output,
+        serialize_stateless_input,
+    )
+    from ethereum_rlp import rlp
+    from ethereum_types.numeric import U16, U64
+
+    try:
+        amsterdam_block_access_list = rlp.decode_to(
+            AmsterdamBlockAccessList, block_access_list.rlp
+        )
+        execution_requests = decode_execution_requests(
+            tuple(requests_list or ())
+        )
+    except Exception:
+        # Re-encoded block access lists and mocked system contracts can
+        # produce data that the typed stateless input cannot hold.
+        return artifacts
+
+    stateless_input = build_stateless_input(
+        rlp.decode_to(AmsterdamBlock, block_rlp),
+        execution_witness=_convert_amsterdam_execution_witness(
+            execution_witness
+        ),
+        execution_requests=execution_requests,
+        block_access_list=amsterdam_block_access_list,
+        chain_id=U64(chain_id),
+    )
+    input_bytes = Bytes(serialize_stateless_input(stateless_input))
+    if run_guest:
+        output_bytes = _run_stateless_guest(input_bytes)
+    else:
+        # Benchmark blocks are too slow to re-execute in the guest, so trust
+        # the external transition tool and report the block as valid.
+        output_bytes = Bytes(
+            serialize_stateless_output(
+                StatelessValidationResult(
+                    new_payload_request_root=compute_new_payload_request_root(
+                        stateless_input
+                    ),
+                    successful_validation=True,
+                    chain_id=U64(chain_id),
+                    schema_id=U16(STATELESS_INPUT_SCHEMA_ID),
+                )
+            )
+        )
+
+    output = deserialize_stateless_output(output_bytes)
+    if output.successful_validation != block_valid:
+        raise AssertionError(
+            "Stateless validation of the unmodified block input returned "
+            f"{output.successful_validation}, but the block is expected to "
+            f"be {'valid' if block_valid else 'invalid'}"
+        )
+    return replace(
+        artifacts,
+        stateless_input_bytes=input_bytes,
+        stateless_output_bytes=output_bytes,
+    )
+
+
 def finalize_stateless_artifacts(
     *,
     options: StatelessBlockOptions,
     original: StatelessValidationArtifacts,
-    fork: Fork,
     block_number: int,
-    timestamp: int,
     chain_id: int,
 ) -> StatelessValidationArtifacts:
     """Reuse original artifacts or execute modified input, then verify."""
-    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
     if original.stateless_output_bytes is None:
         if options.expected_validation_success is not None:
             raise Exception(
                 "Stateless guest verification requires stateless output bytes"
-            )
-        return original
-    if active_fork.name() != "Amsterdam":
-        if options.expected_validation_success is not None:
-            raise Exception(
-                "Stateless output decoding is only supported for Amsterdam"
             )
         return original
 
@@ -298,16 +389,39 @@ def execute_stateless_guest(
     stateless_input_bytes: Bytes,
 ) -> StatelessValidationArtifacts:
     """Execute the final input bytes and pair them with the guest output."""
-    from ethereum.forks.amsterdam.stateless_guest import run_stateless_guest
-    from ethereum_types.bytes import Bytes as AmsterdamBytes
-
     return StatelessValidationArtifacts(
         execution_witness=execution_witness,
         stateless_input_bytes=stateless_input_bytes,
-        stateless_output_bytes=Bytes(
-            run_stateless_guest(AmsterdamBytes(stateless_input_bytes))
-        ),
+        stateless_output_bytes=_run_stateless_guest(stateless_input_bytes),
     )
+
+
+_stateless_guest_outputs: Dict[Hash, Bytes] = {}
+"""Stateless guest output bytes, keyed by the hash of their input bytes."""
+
+
+def _run_stateless_guest(stateless_input_bytes: Bytes) -> Bytes:
+    """
+    Run the stateless guest on serialized input bytes.
+
+    Every fixture format of a test builds the same blocks, so reuse the
+    output for an input that already ran.
+    """
+    from ethereum.forks.amsterdam.stateless_guest import run_stateless_guest
+    from ethereum.trace import discard_evm_trace, set_evm_trace
+
+    key = Hash(stateless_input_bytes.keccak256())
+    if key not in _stateless_guest_outputs:
+        # The transition tool leaves its tracers installed. The replay must
+        # not add to their opcode counts or overwrite their traces.
+        previous_tracer = set_evm_trace(discard_evm_trace)
+        try:
+            _stateless_guest_outputs[key] = Bytes(
+                run_stateless_guest(stateless_input_bytes)
+            )
+        finally:
+            set_evm_trace(previous_tracer)
+    return _stateless_guest_outputs[key]
 
 
 def verify_stateless_result(
@@ -416,19 +530,6 @@ def with_execution_witness_implicit_codes(
     return expectation.model_copy(update={"codes_present": codes_present})
 
 
-def _decode_amsterdam_header_bytes(header_rlp: Bytes) -> Any | None:
-    """
-    Decode an Amsterdam or immediate pre-Amsterdam RLP header.
-    """
-    from ethereum.forks.amsterdam.stateless import _decode_header
-    from ethereum_types.bytes import Bytes as AmsterdamBytes
-
-    try:
-        return _decode_header(AmsterdamBytes(bytes(header_rlp)))
-    except Exception:
-        return None
-
-
 def _convert_amsterdam_execution_witness(
     execution_witness: ExecutionWitness,
 ) -> Any:
@@ -451,220 +552,6 @@ def _convert_amsterdam_execution_witness(
             AmsterdamBytes(bytes(header))
             for header in execution_witness.headers
         ),
-    )
-
-
-def _convert_amsterdam_withdrawals(
-    withdrawals: List[Withdrawal] | None,
-) -> Any:
-    """
-    Convert fixture withdrawals to Amsterdam fork withdrawals.
-    """
-    from ethereum.forks.amsterdam.blocks import (
-        Withdrawal as AmsterdamWithdrawal,
-    )
-    from ethereum.state import Address as AmsterdamAddress
-    from ethereum_types.numeric import U64
-
-    if withdrawals is None:
-        return ()
-    return tuple(
-        AmsterdamWithdrawal(
-            index=U64(int(withdrawal.index)),
-            validator_index=U64(int(withdrawal.validator_index)),
-            address=AmsterdamAddress(bytes(withdrawal.address)),
-            amount=U64(int(withdrawal.amount)),
-        )
-        for withdrawal in withdrawals
-    )
-
-
-def _convert_amsterdam_block_access_list(
-    block_access_list: BlockAccessList,
-) -> Any:
-    """
-    Convert fixture BAL data to Amsterdam fork BAL data.
-    """
-    import importlib
-
-    block_access_lists = importlib.import_module(
-        "ethereum.forks.amsterdam.block_access_lists"
-    )
-
-    def bal_type(name: str) -> Any:
-        return getattr(block_access_lists, name)
-
-    account_changes = bal_type("AccountChanges")
-    balance_change = bal_type("BalanceChange")
-    code_change = bal_type("CodeChange")
-    nonce_change = bal_type("NonceChange")
-    slot_changes = bal_type("SlotChanges")
-    storage_change = bal_type("StorageChange")
-
-    from ethereum.state import Address as AmsterdamAddress
-    from ethereum_types.bytes import Bytes as AmsterdamBytes
-    from ethereum_types.numeric import U32, U64, U256
-
-    return [
-        account_changes(
-            address=AmsterdamAddress(bytes(account.address)),
-            storage_changes=tuple(
-                slot_changes(
-                    slot=U256(int(slot.slot)),
-                    changes=tuple(
-                        storage_change(
-                            block_access_index=U32(
-                                int(change.block_access_index)
-                            ),
-                            new_value=U256(int(change.post_value)),
-                        )
-                        for change in slot.slot_changes
-                    ),
-                )
-                for slot in account.storage_changes
-            ),
-            storage_reads=tuple(
-                U256(int(slot)) for slot in account.storage_reads
-            ),
-            balance_changes=tuple(
-                balance_change(
-                    block_access_index=U32(int(change.block_access_index)),
-                    post_balance=U256(int(change.post_balance)),
-                )
-                for change in account.balance_changes
-            ),
-            nonce_changes=tuple(
-                nonce_change(
-                    block_access_index=U32(int(change.block_access_index)),
-                    new_nonce=U64(int(change.post_nonce)),
-                )
-                for change in account.nonce_changes
-            ),
-            code_changes=tuple(
-                code_change(
-                    block_access_index=U32(int(change.block_access_index)),
-                    new_code=AmsterdamBytes(bytes(change.new_code)),
-                )
-                for change in account.code_changes
-            ),
-        )
-        for account in block_access_list.root
-    ]
-
-
-def build_amsterdam_stateless_artifacts_from_t8n(
-    *,
-    fork: Fork,
-    block_number: int,
-    timestamp: int,
-    header: FixtureHeader,
-    previous_env: Environment,
-    txs: List[Transaction],
-    result: Result,
-    withdrawals: List[Withdrawal] | None,
-    requests_list: List[Bytes] | None,
-    execution_witness: ExecutionWitness,
-    block_access_list: BlockAccessList,
-    chain_id: int,
-) -> tuple[Bytes, Bytes] | None:
-    """
-    Build Amsterdam stateless input/output bytes from t8n witness artifacts.
-
-    Returns ``None`` when the finalized request list cannot be decoded into
-    the Amsterdam request container, matching the existing EELS t8n behavior.
-    """
-    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
-    if active_fork.name() != "Amsterdam" or block_number == 0:
-        return None
-
-    from ethereum.forks.amsterdam.blocks import (
-        Block as AmsterdamBlock,
-    )
-    from ethereum.forks.amsterdam.blocks import (
-        Header as AmsterdamHeader,
-    )
-    from ethereum.forks.amsterdam.execution_engine.requests import (
-        decode_execution_requests,
-    )
-    from ethereum.forks.amsterdam.stateless import (
-        STATELESS_INPUT_SCHEMA_ID,
-        StatelessValidationResult,
-        compute_new_payload_request_root,
-    )
-    from ethereum.forks.amsterdam.stateless_guest import (
-        serialize_stateless_output,
-    )
-    from ethereum.forks.amsterdam.stateless_host import (
-        build_stateless_input,
-        serialize_stateless_input,
-    )
-    from ethereum_types.bytes import Bytes as AmsterdamBytes
-    from ethereum_types.numeric import U16, U64
-
-    parent_number = ZeroPaddedHexNumber(block_number - 1)
-    parent_header_rlp = previous_env.block_headers.get(parent_number)
-    if parent_header_rlp is None:
-        return None
-    parent_header = _decode_amsterdam_header_bytes(parent_header_rlp)
-    if parent_header is None:
-        return None
-    if Hash(parent_header_rlp.keccak256()) != header.parent_hash:
-        return None
-
-    current_header = _decode_amsterdam_header_bytes(header.rlp)
-    if not isinstance(current_header, AmsterdamHeader):
-        return None
-
-    try:
-        execution_requests = decode_execution_requests(
-            tuple(
-                AmsterdamBytes(bytes(request))
-                for request in requests_list or []
-            )
-        )
-    except Exception:
-        return None
-
-    rejected_indices = {
-        int(rejected.index) for rejected in result.rejected_transactions
-    }
-    accepted_txs = tuple(
-        AmsterdamBytes(bytes(tx.rlp()))
-        for index, tx in enumerate(txs)
-        if index not in rejected_indices
-    )
-    block = AmsterdamBlock(
-        header=current_header,
-        transactions=accepted_txs,
-        ommers=(),
-        withdrawals=_convert_amsterdam_withdrawals(withdrawals),
-    )
-    stateless_input = build_stateless_input(
-        block,
-        execution_witness=_convert_amsterdam_execution_witness(
-            execution_witness
-        ),
-        execution_requests=execution_requests,
-        block_access_list=_convert_amsterdam_block_access_list(
-            block_access_list
-        ),
-        chain_id=U64(chain_id),
-    )
-    stateless_input_bytes = serialize_stateless_input(stateless_input)
-    # Temporary trust path for external benchmark filling until Geth emits
-    # both stateless byte fields.
-    stateless_output = StatelessValidationResult(
-        new_payload_request_root=compute_new_payload_request_root(
-            stateless_input
-        ),
-        successful_validation=True,
-        chain_id=U64(chain_id),
-        schema_id=U16(STATELESS_INPUT_SCHEMA_ID),
-    )
-    stateless_output_bytes = serialize_stateless_output(stateless_output)
-    return (
-        Bytes(bytes(stateless_input_bytes)),
-        Bytes(bytes(stateless_output_bytes)),
     )
 
 
