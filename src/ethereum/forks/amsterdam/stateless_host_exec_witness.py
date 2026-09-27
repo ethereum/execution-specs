@@ -2,7 +2,7 @@
 Host-side construction of the execution witness from block execution data.
 """
 
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256, Uint
@@ -234,38 +234,24 @@ def build_execution_witness(
 
 
 def get_witness_codes(
-    code_reads: Set[Tuple[Address, Hash32]],
+    code_reads: Set[Hash32],
     pre_state: PreState,
 ) -> List[Bytes]:
     """
     Collect bytecodes from the pre-state for all code reads during execution.
 
-    Include a code hash only when the same address already had that code in the
-    pre-state. This avoids accidentally including bytecode created during the
-    current block when the same hash already exists elsewhere.
+    ``code_reads`` only holds hashes fetched from the pre-state, since reads
+    of code deployed earlier in the block are served from ``code_writes``.
 
     Parameters
     ----------
     code_reads :
-        Code reads as ``(address, code_hash)`` during block execution.
+        Hashes of the code read from the pre-state during block execution.
     pre_state :
         The pre-execution state.
 
     """
-    witness_code_hashes: Set[Hash32] = set()
-    for address, code_hash in code_reads:
-        pre_account = pre_state.get_account_optional(address)
-        if pre_account is None or pre_account.code_hash != code_hash:
-            continue
-        witness_code_hashes.add(code_hash)
-
-    codes: List[Bytes] = []
-    for code_hash in witness_code_hashes:
-        try:
-            codes.append(pre_state.get_code(code_hash))
-        except KeyError:
-            pass
-    return sorted(codes)
+    return sorted(pre_state.get_code(code_hash) for code_hash in code_reads)
 
 
 def get_witness_ancestors(
