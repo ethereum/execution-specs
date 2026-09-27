@@ -72,7 +72,6 @@ from .state_tracker import (
     incorporate_tx_into_block,
     increment_nonce,
     set_account_balance,
-    track_ancestor_access,
 )
 from .transactions import (
     BlobTransaction,
@@ -835,10 +834,6 @@ def apply_body(
         block_env=block_env,
         target_address=HISTORY_STORAGE_ADDRESS,
         data=block_env.block_hashes[-1],  # The parent hash
-    )
-    track_ancestor_access(
-        block_env.state,
-        Uint(1),
     )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):

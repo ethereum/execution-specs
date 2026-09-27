@@ -886,8 +886,8 @@ def track_ancestor_access(block_state: BlockState, offset: Uint) -> None:
     Record that an ancestor block was accessed.
 
     Update ``oldest_ancestor_offset`` if ``offset`` is further back (larger)
-    than the current value.  Called by the BLOCKHASH opcode (when
-    returning a valid hash) and the EIP-2935 system contract call.
+    than the current value.  Called by the BLOCKHASH opcode when it
+    returns a valid hash.
 
     Parameters
     ----------
