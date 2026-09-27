@@ -10,6 +10,11 @@ from ethereum.cancun.blocks import Withdrawal
 
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
+from ethereum.forks.amsterdam.execution_engine.requests import (
+    BuilderExitRequest,
+    ConsolidationRequest,
+    WithdrawalRequest,
+)
 from ethereum.forks.amsterdam.execution_engine.types import (
     BlobsBundle,
     GetPayloadResponse,
@@ -175,6 +180,15 @@ RemoveDocstringCommand
 _configure_client_manager  # autouse fixture
 test_suite_name  # hive test suite name fixture
 genesis_header  # genesis header fixture
+
+# src/ethereum/forks/amsterdam/execution_engine/requests.py - SSZ fields,
+# read by reflection when encoding and decoding
+WithdrawalRequest.source_address
+WithdrawalRequest.validator_pubkey
+ConsolidationRequest.source_address
+ConsolidationRequest.source_pubkey
+ConsolidationRequest.target_pubkey
+BuilderExitRequest.source_address
 
 # src/ethereum/forks/amsterdam/execution_engine/types.py - Engine API fields
 PayloadAttributes.suggested_fee_recipient
