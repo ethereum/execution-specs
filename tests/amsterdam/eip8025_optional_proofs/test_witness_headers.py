@@ -9,6 +9,7 @@ from execution_testing import (
     Block,
     BlockchainTest,
     BlockchainTestFiller,
+    Bytecode,
     ExecutionWitnessHeadersExpectation,
     Op,
     Transaction,
@@ -21,10 +22,12 @@ from execution_testing.test_types.execution_witness.modifiers import (
     prepend_header,
 )
 
+from .spec import ref_spec_8025
+
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
 def test_witness_headers_empty_block(
@@ -53,20 +56,41 @@ def test_witness_headers_empty_block(
     )
 
 
-@pytest.mark.parametrize("offset", [1, 2, 5, 10])
+@pytest.mark.parametrize(
+    "offset,expected_count,terminator",
+    [
+        pytest.param(1, 1, Op.STOP, id="offset_1"),
+        pytest.param(2, 2, Op.STOP, id="offset_2"),
+        pytest.param(5, 5, Op.STOP, id="offset_5"),
+        pytest.param(10, 10, Op.STOP, id="offset_10"),
+        pytest.param(5, 5, Op.REVERT(0, 0), id="reverted_tx"),
+        pytest.param(
+            256, 256, Op.STOP, id="max_valid", marks=pytest.mark.slow
+        ),
+        pytest.param(
+            257, 1, Op.STOP, id="first_invalid", marks=pytest.mark.slow
+        ),
+    ],
+)
 def test_witness_headers_blockhash_at_offset(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     offset: int,
+    expected_count: int,
+    terminator: Bytecode,
 ) -> None:
     """
     Test witness headers when BLOCKHASH queries a block at a given offset.
 
     offset = 1 matches the always-included parent header.
     offset > 1 verifies BLOCKHASH extends oldest_ancestor_offset beyond
-    the parent header.
+    the parent header, and the headers survive a full transaction revert.
+    At offset = 256, the edge of the 256-block window, the BLOCKHASH range
+    check passes and all 256 headers appear.  At offset = 257 the check
+    fails, BLOCKHASH returns 0, no tracking occurs, and only the parent
+    header remains.
     """
-    code = Op.BLOCKHASH(Op.SUB(Op.NUMBER, offset)) + Op.POP + Op.STOP
+    code = Op.BLOCKHASH(Op.SUB(Op.NUMBER, offset)) + Op.POP + terminator
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
     tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
@@ -77,7 +101,7 @@ def test_witness_headers_blockhash_at_offset(
             txs=[tx],
             expected_execution_witness_headers=(
                 ExecutionWitnessHeadersExpectation(
-                    expected_count=offset,
+                    expected_count=expected_count,
                 )
             ),
         )
@@ -126,38 +150,6 @@ def test_witness_headers_blockhash_out_of_range(
                 ),
             ),
         ],
-        post={sender: Account(nonce=1)},
-    )
-
-
-def test_witness_headers_blockhash_in_reverted_tx(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """
-    Test witness headers survive a full transaction revert.
-    """
-    offset = 5
-    code = Op.BLOCKHASH(Op.SUB(Op.NUMBER, offset)) + Op.POP + Op.REVERT(0, 0)
-    contract = pre.deploy_contract(code=code)
-    sender = pre.fund_eoa()
-    tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
-
-    blocks = [Block(txs=[]) for _ in range(offset)]
-    blocks.append(
-        Block(
-            txs=[tx],
-            expected_execution_witness_headers=(
-                ExecutionWitnessHeadersExpectation(
-                    expected_count=offset,
-                )
-            ),
-        )
-    )
-
-    blockchain_test(
-        pre=pre,
-        blocks=blocks,
         post={sender: Account(nonce=1)},
     )
 
@@ -346,50 +338,4 @@ def test_witness_headers_extra_unused_older_ancestor(
         pre=pre,
         blocks=blocks,
         post=post,
-    )
-
-
-@pytest.mark.slow
-@pytest.mark.parametrize(
-    "offset,expected_count",
-    [
-        pytest.param(256, 256, id="max_valid"),
-        pytest.param(257, 1, id="first_invalid"),
-    ],
-)
-def test_witness_headers_blockhash_boundary(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-    offset: int,
-    expected_count: int,
-) -> None:
-    """
-    Test witness headers at the exact boundary of the 256-block window.
-
-    At offset = 256 the BLOCKHASH range check passes and all 256
-    headers appear.  At offset = 257 the check fails, BLOCKHASH
-    returns 0, no tracking occurs, and only the parent header
-    remains.
-    """
-    code = Op.BLOCKHASH(Op.SUB(Op.NUMBER, offset)) + Op.POP + Op.STOP
-    contract = pre.deploy_contract(code=code)
-    sender = pre.fund_eoa()
-    tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
-
-    blocks = [Block(txs=[]) for _ in range(offset)]
-    blocks.append(
-        Block(
-            txs=[tx],
-            expected_execution_witness_headers=(
-                ExecutionWitnessHeadersExpectation(
-                    expected_count=expected_count,
-                )
-            ),
-        )
-    )
-
-    blockchain_test(
-        pre=pre,
-        blocks=blocks,
-        post={sender: Account(nonce=1)},
     )

@@ -12,11 +12,12 @@ from execution_testing import (
 )
 
 from .gas_helpers import empty_account_value_transfer_gas_limit
+from .spec import ref_spec_8025
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
 def test_witness_state_structural_invariants(

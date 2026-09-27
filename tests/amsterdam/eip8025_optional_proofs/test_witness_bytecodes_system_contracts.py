@@ -8,10 +8,12 @@ from execution_testing import (
     ExecutionWitnessCodesExpectation,
 )
 
+from .spec import ref_spec_8025
+
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
 def test_witness_codes_empty_block_has_system_contracts(

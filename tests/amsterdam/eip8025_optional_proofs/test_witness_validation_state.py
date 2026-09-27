@@ -1,5 +1,7 @@
 """Execution witness state validation tests."""
 
+from typing import Callable
+
 import pytest
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes as TrieBytes
@@ -15,6 +17,7 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Amsterdam
+from execution_testing.test_types.execution_witness import ExecutionWitness
 from execution_testing.test_types.execution_witness.modifiers import (
     add_state_node,
     remove_state_node,
@@ -24,6 +27,7 @@ from execution_testing.test_types.execution_witness.modifiers import (
 from ethereum.forks.amsterdam.incremental_mpt import compact_to_nibbles
 
 from .gas_helpers import empty_account_value_transfer_gas_limit
+from .spec import ref_spec_8025
 from .state_helpers import (
     as_storage,
     build_large_storage,
@@ -38,8 +42,8 @@ from .state_helpers import (
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
 def _required_node(nodes: list[Bytes]) -> Bytes:
@@ -359,11 +363,25 @@ def test_validation_state_missing_failed_call_target_account_proof_node(
     )
 
 
-def test_validation_state_extra_unused_trie_node(
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        pytest.param(
+            add_state_node(Bytes(b"\x81\x99")),
+            id="extra_unused_trie_node",
+        ),
+        pytest.param(reverse_state_nodes(), id="unsorted_but_complete"),
+    ],
+)
+def test_validation_state_complete_witness_still_validates(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    modifier: Callable[[ExecutionWitness], ExecutionWitness],
 ) -> None:
-    """Adding an unused state node should still validate."""
+    """
+    Adding an unused state node or reordering a complete state witness
+    should still validate.
+    """
     storage = build_large_storage([1])
     proof_nodes = collect_storage_proof_nodes(storage, [1])
 
@@ -382,42 +400,7 @@ def test_validation_state_extra_unused_trie_node(
                 expected_execution_witness_state=(
                     ExecutionWitnessStateExpectation(
                         nodes_present=proof_nodes,
-                    ).modify(add_state_node(Bytes(b"\x81\x99")))
-                ),
-                expected_stateless_validation_success=True,
-            )
-        ],
-        post={
-            sender: Account(nonce=1),
-            contract: Account(storage=storage),
-        },
-    )
-
-
-def test_validation_state_unsorted_but_complete(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """Reordering a complete state witness should still validate."""
-    storage = build_large_storage([1])
-    proof_nodes = collect_storage_proof_nodes(storage, [1])
-
-    contract = pre.deploy_contract(
-        code=Op.SLOAD(1) + Op.POP + Op.STOP,
-        storage=as_storage(storage),
-    )
-    sender = pre.fund_eoa()
-    tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_execution_witness_state=(
-                    ExecutionWitnessStateExpectation(
-                        nodes_present=proof_nodes,
-                    ).modify(reverse_state_nodes())
+                    ).modify(modifier)
                 ),
                 expected_stateless_validation_success=True,
             )

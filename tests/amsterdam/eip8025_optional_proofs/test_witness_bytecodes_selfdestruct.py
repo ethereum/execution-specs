@@ -16,11 +16,12 @@ from execution_testing import (
 )
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
+from .spec import ref_spec_8025
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
 def test_witness_codes_selfdestruct(
@@ -56,10 +57,10 @@ def test_witness_codes_selfdestruct(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
-                            Bytes(bytes(caller_code)),
-                            Bytes(bytes(target_code)),
+                            Bytes(caller_code),
+                            Bytes(target_code),
                         ],
-                        codes_absent=[Bytes(bytes(beneficiary_code))],
+                        codes_absent=[Bytes(beneficiary_code)],
                     )
                 ),
             )
@@ -102,9 +103,9 @@ def test_witness_codes_selfdestruct_top_level_tx(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
-                            Bytes(bytes(target_code)),
+                            Bytes(target_code),
                         ],
-                        codes_absent=[Bytes(bytes(beneficiary_code))],
+                        codes_absent=[Bytes(beneficiary_code)],
                     )
                 ),
             )
@@ -161,7 +162,7 @@ def test_witness_codes_create_then_selfdestruct_same_tx(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
-                            Bytes(bytes(factory_code)),
+                            Bytes(factory_code),
                         ],
                         codes_absent=[
                             Bytes(runtime_code),
@@ -215,7 +216,7 @@ def test_witness_codes_selfdestruct_in_initcode(
                     ExecutionWitnessCodesExpectation(
                         codes_absent=[
                             Bytes(initcode),
-                            Bytes(bytes(beneficiary_code)),
+                            Bytes(beneficiary_code),
                         ],
                     )
                 ),
@@ -269,12 +270,12 @@ def test_witness_codes_selfdestruct_beneficiary_delegated_eoa(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
-                            Bytes(bytes(caller_code)),
-                            Bytes(bytes(target_code)),
+                            Bytes(caller_code),
+                            Bytes(target_code),
                         ],
                         codes_absent=[
                             Bytes(marker),
-                            Bytes(bytes(delegate_code)),
+                            Bytes(delegate_code),
                         ],
                     )
                 ),
@@ -336,8 +337,8 @@ def test_witness_codes_selfdestruct_beneficiary_no_code(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
-                            Bytes(bytes(caller_code)),
-                            Bytes(bytes(target_code)),
+                            Bytes(caller_code),
+                            Bytes(target_code),
                         ],
                     )
                 ),

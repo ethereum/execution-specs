@@ -15,30 +15,68 @@ from execution_testing import (
     Transaction,
 )
 
+from .spec import ref_spec_8025
+
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
-def test_witness_codes_extcodesize(
+@pytest.mark.parametrize(
+    "extcode_access,target_read",
+    [
+        pytest.param("extcodesize", True, id="extcodesize"),
+        pytest.param("extcodecopy", True, id="extcodecopy"),
+        # TODO(zkevm): we will probably change this behavior since copying
+        # zero bytes clearly doesn't need to read the code.
+        pytest.param(
+            "extcodecopy_zero_size", True, id="extcodecopy_zero_size"
+        ),
+        pytest.param("extcodehash", False, id="extcodehash"),
+    ],
+)
+def test_witness_codes_extcode_contract(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    extcode_access: str,
+    target_read: bool,
 ) -> None:
     """
-    EXTCODESIZE on an existing contract without calling it.
+    EXTCODE* on an existing contract without calling it.
 
-    The target bytecode should appear in executionWitness.codes because
-    extcodesize calls get_code(), which records the code read.
+    EXTCODESIZE and EXTCODECOPY call get_code(), which records the code
+    read, so the target bytecode appears in executionWitness.codes. This
+    holds even when copying zero bytes, because extcodecopy calls
+    get_code() before using size for the memory copy. EXTCODEHASH reads
+    the value from the account leaf without a code access, so the target
+    bytecode does not appear.
     """
     target_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
     target = pre.deploy_contract(code=target_code)
 
-    caller_code = Op.EXTCODESIZE(target) + Op.POP + Op.STOP
+    if extcode_access == "extcodesize":
+        access = Op.EXTCODESIZE(target) + Op.POP
+    elif extcode_access == "extcodecopy":
+        access = Op.EXTCODECOPY(target, 0, 0, 32)
+    elif extcode_access == "extcodecopy_zero_size":
+        access = Op.EXTCODECOPY(target, 0, 0, 0)
+    elif extcode_access == "extcodehash":
+        access = Op.EXTCODEHASH(target) + Op.POP
+    else:
+        raise ValueError(f"unknown EXTCODE* access: {extcode_access}")
+    caller_code = access + Op.STOP
     caller = pre.deploy_contract(code=caller_code)
 
     sender = pre.fund_eoa()
     tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
+
+    codes_present = [Bytes(caller_code)]
+    codes_absent = []
+    if target_read:
+        codes_present.append(Bytes(target_code))
+    else:
+        codes_absent.append(Bytes(target_code))
 
     blockchain_test(
         pre=pre,
@@ -47,10 +85,8 @@ def test_witness_codes_extcodesize(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=[
-                            Bytes(bytes(caller_code)),
-                            Bytes(bytes(target_code)),
-                        ],
+                        codes_present=codes_present,
+                        codes_absent=codes_absent,
                     )
                 ),
             )
@@ -61,12 +97,20 @@ def test_witness_codes_extcodesize(
     )
 
 
-def test_witness_codes_extcodesize_empty_code(
+@pytest.mark.parametrize(
+    "extcode_opcode",
+    [
+        pytest.param("extcodesize", id="extcodesize"),
+        pytest.param("extcodecopy", id="extcodecopy"),
+    ],
+)
+def test_witness_codes_extcode_empty_code(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    extcode_opcode: str,
 ) -> None:
     """
-    EXTCODESIZE on an account with empty code (an EOA).
+    EXTCODESIZE or EXTCODECOPY on an account with empty code (an EOA).
 
     The target has EMPTY_CODE_HASH, so get_code() returns early without
     recording a code read.  Nothing should be added to
@@ -74,7 +118,13 @@ def test_witness_codes_extcodesize_empty_code(
     """
     eoa_target = pre.fund_eoa()
 
-    caller_code = Op.EXTCODESIZE(eoa_target) + Op.POP + Op.STOP
+    if extcode_opcode == "extcodesize":
+        access = Op.EXTCODESIZE(eoa_target) + Op.POP
+    elif extcode_opcode == "extcodecopy":
+        access = Op.EXTCODECOPY(eoa_target, 0, 0, 32)
+    else:
+        raise ValueError(f"unknown EXTCODE* opcode: {extcode_opcode}")
+    caller_code = access + Op.STOP
     caller = pre.deploy_contract(code=caller_code)
 
     sender = pre.fund_eoa()
@@ -87,172 +137,7 @@ def test_witness_codes_extcodesize_empty_code(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=[Bytes(bytes(caller_code))],
-                    )
-                ),
-            )
-        ],
-        post={
-            sender: Account(nonce=1),
-        },
-    )
-
-
-def test_witness_codes_extcodecopy_empty_code(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """
-    EXTCODECOPY on an account with empty code (an EOA).
-
-    The target has EMPTY_CODE_HASH, so get_code() returns early without
-    recording a code read.  Nothing should be added to
-    executionWitness.codes for the target.
-    """
-    eoa_target = pre.fund_eoa()
-
-    caller_code = Op.EXTCODECOPY(eoa_target, 0, 0, 32) + Op.STOP
-    caller = pre.deploy_contract(code=caller_code)
-
-    sender = pre.fund_eoa()
-    tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_execution_witness_codes=(
-                    ExecutionWitnessCodesExpectation(
-                        codes_present=[Bytes(bytes(caller_code))],
-                    )
-                ),
-            )
-        ],
-        post={
-            sender: Account(nonce=1),
-        },
-    )
-
-
-def test_witness_codes_extcodecopy(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """
-    EXTCODECOPY on an existing contract without calling it.
-
-    The target bytecode should appear in executionWitness.codes because
-    extcodecopy calls get_code(), which records the code read.
-    """
-    target_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
-    target = pre.deploy_contract(code=target_code)
-
-    caller_code = Op.EXTCODECOPY(target, 0, 0, 32) + Op.STOP
-    caller = pre.deploy_contract(code=caller_code)
-
-    sender = pre.fund_eoa()
-    tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_execution_witness_codes=(
-                    ExecutionWitnessCodesExpectation(
-                        codes_present=[
-                            Bytes(bytes(caller_code)),
-                            Bytes(bytes(target_code)),
-                        ],
-                    )
-                ),
-            )
-        ],
-        post={
-            sender: Account(nonce=1),
-        },
-    )
-
-
-def test_witness_codes_extcodecopy_zero_size(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """
-    EXTCODECOPY with size=0 on an existing contract.
-
-    The target bytecode should appear in executionWitness.codes because
-    extcodecopy calls get_code() unconditionally before using size for
-    the memory copy.  Even copying zero bytes still records the code read.
-
-    TODO(zkevm): we will probably change this behavior since copying zero
-    bytes clearly doesn't need to read the code.
-    """
-    target_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
-    target = pre.deploy_contract(code=target_code)
-
-    caller_code = Op.EXTCODECOPY(target, 0, 0, 0) + Op.STOP
-    caller = pre.deploy_contract(code=caller_code)
-
-    sender = pre.fund_eoa()
-    tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_execution_witness_codes=(
-                    ExecutionWitnessCodesExpectation(
-                        codes_present=[
-                            Bytes(bytes(caller_code)),
-                            Bytes(bytes(target_code)),
-                        ],
-                    )
-                ),
-            )
-        ],
-        post={
-            sender: Account(nonce=1),
-        },
-    )
-
-
-def test_witness_codes_extcodehash_only(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """
-    EXTCODEHASH on an existing contract without any CALL, EXTCODESIZE,
-    or EXTCODECOPY.
-
-    The target bytecode should NOT appear in executionWitness.codes
-    because EXTCODEHASH can read the value from the account leaf not
-    requiring doing a code access.
-    """
-    target_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
-    target = pre.deploy_contract(code=target_code)
-
-    caller_code = Op.EXTCODEHASH(target) + Op.POP + Op.STOP
-    caller = pre.deploy_contract(code=caller_code)
-
-    sender = pre.fund_eoa()
-    tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_execution_witness_codes=(
-                    ExecutionWitnessCodesExpectation(
-                        codes_present=[
-                            Bytes(bytes(caller_code)),
-                        ],
-                        codes_absent=[
-                            Bytes(bytes(target_code)),
-                        ],
+                        codes_present=[Bytes(caller_code)],
                     )
                 ),
             )
@@ -315,12 +200,12 @@ def test_witness_codes_extcodesize_cold_gas_boundary(
         gas_limit=gas_limit,
     )
 
-    codes_present = [Bytes(bytes(caller_code))]
+    codes_present = [Bytes(caller_code)]
     codes_absent = []
     if expect_in_witness:
-        codes_present.append(Bytes(bytes(target_code)))
+        codes_present.append(Bytes(target_code))
     else:
-        codes_absent.append(Bytes(bytes(target_code)))
+        codes_absent.append(Bytes(target_code))
 
     blockchain_test(
         pre=pre,
@@ -381,7 +266,7 @@ def test_witness_codes_extcode_precompile(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=[Bytes(bytes(caller_code))],
+                        codes_present=[Bytes(caller_code)],
                     )
                 ),
             )

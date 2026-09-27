@@ -1,6 +1,6 @@
 """Stateless input byte validation tests."""
 
-from typing import Callable
+from dataclasses import replace
 
 import pytest
 from execution_testing import (
@@ -13,14 +13,22 @@ from execution_testing import (
     Transaction,
 )
 
+from ethereum.forks.amsterdam.stateless import (
+    MAX_BYTES_PER_HEADER,
+    StatelessInput,
+)
+
 from .gas_helpers import empty_account_value_transfer_gas_limit
+from .spec import ref_spec_8025
+from .stateless_input_helpers import (
+    StatelessInputBytesModifier,
+    modify_stateless_input,
+)
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
-
-StatelessInputBytesModifier = Callable[[Bytes], Bytes]
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
 def empty_input_bytes(input_bytes: Bytes) -> Bytes:
@@ -50,13 +58,16 @@ def missing_ssz_body(input_bytes: Bytes) -> Bytes:
 
 
 def truncated_ssz_body(input_bytes: Bytes) -> Bytes:
-    """Drop the final SSZ body byte."""
-    return Bytes(input_bytes[:-1])
+    """
+    End the SSZ body where the witness field should begin.
 
-
-def trailing_garbage(input_bytes: Bytes) -> Bytes:
-    """Append extra bytes after the SSZ body."""
-    return Bytes(input_bytes + b"\x00")
+    Dropping only the final byte would shorten the last witness header,
+    which is still valid SSZ, so cut off the whole witness instead.
+    """
+    # The second top-level offset, after the schema id and the payload
+    # request offset, points at the witness.
+    witness_offset = int.from_bytes(input_bytes[6:10], "little")
+    return Bytes(input_bytes[: 2 + witness_offset])
 
 
 def invalid_first_ssz_offset(input_bytes: Bytes) -> Bytes:
@@ -96,7 +107,6 @@ def shifted_ssz_offsets(input_bytes: Bytes) -> Bytes:
         pytest.param(unsupported_schema_fork, id="unsupported_schema_fork"),
         pytest.param(missing_ssz_body, id="missing_ssz_body"),
         pytest.param(truncated_ssz_body, id="truncated_ssz_body"),
-        pytest.param(trailing_garbage, id="trailing_garbage"),
         pytest.param(invalid_first_ssz_offset, id="invalid_first_ssz_offset"),
         pytest.param(shifted_ssz_offsets, id="shifted_ssz_offsets"),
     ],
@@ -107,7 +117,7 @@ def test_invalid_stateless_input_bytes_are_rejected(
     blockchain_test: BlockchainTestFiller,
     modifier: StatelessInputBytesModifier,
 ) -> None:
-    """Invalid stateless input bytes fail guest validation."""
+    """Stateless input bytes that fail to decode are rejected."""
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=0)
     tx = Transaction(
@@ -124,6 +134,82 @@ def test_invalid_stateless_input_bytes_are_rejected(
                 txs=[tx],
                 stateless_input_bytes_modifier=modifier,
                 expected_stateless_validation_success=False,
+                expected_stateless_input_decode_failure=True,
+            )
+        ],
+        post={
+            sender: Account(nonce=1),
+            recipient: Account(balance=1),
+        },
+    )
+
+
+def pad_last_witness_header(
+    bytes_over_limit: int,
+) -> StatelessInputBytesModifier:
+    """Pad the last witness header to its SSZ size limit, plus extra bytes."""
+
+    def pad_to_limit(stateless_input: StatelessInput) -> StatelessInput:
+        witness = stateless_input.witness
+        *headers, last_header = witness.headers
+        padding = b"\x00" * (MAX_BYTES_PER_HEADER - len(last_header))
+        return replace(
+            stateless_input,
+            witness=replace(
+                witness,
+                headers=(*headers, last_header + padding),
+            ),
+        )
+
+    padded_to_limit = modify_stateless_input(pad_to_limit)
+
+    def modifier(input_bytes: Bytes) -> Bytes:
+        # Serialization refuses an oversized header, but the headers are the
+        # last SSZ field, so appended bytes extend the last header.
+        return Bytes(padded_to_limit(input_bytes) + b"\x00" * bytes_over_limit)
+
+    return modifier
+
+
+@pytest.mark.parametrize(
+    "bytes_over_limit,decoding_fails",
+    [
+        pytest.param(0, False, id="at_size_limit"),
+        pytest.param(1, True, id="over_size_limit"),
+    ],
+)
+def test_witness_header_ssz_size_limit(
+    fork: Fork,
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    bytes_over_limit: int,
+    decoding_fails: bool,
+) -> None:
+    """
+    A witness header over its SSZ size limit fails to decode.
+
+    At the limit the input decodes, and validation fails only because the
+    padded header has trailing RLP bytes.
+    """
+    sender = pre.fund_eoa()
+    recipient = pre.fund_eoa(amount=0)
+    tx = Transaction(
+        sender=sender,
+        to=recipient,
+        value=1,
+        gas_limit=empty_account_value_transfer_gas_limit(fork),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                stateless_input_bytes_modifier=pad_last_witness_header(
+                    bytes_over_limit
+                ),
+                expected_stateless_validation_success=False,
+                expected_stateless_input_decode_failure=decoding_fails,
             )
         ],
         post={

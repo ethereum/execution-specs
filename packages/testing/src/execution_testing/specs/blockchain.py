@@ -367,6 +367,12 @@ class Block(Header):
     If set, assert the stateless guest result matches this expectation. This
     must be set explicitly for tests that mutate stateless validation input.
     """
+    expected_stateless_input_decode_failure: bool = False
+    """
+    If set, assert the mutated stateless input bytes fail to decode and the
+    guest returns the invalid-input sentinel. Otherwise, the input must decode.
+    Requires ``stateless_input_bytes_modifier``.
+    """
     exception: BLOCK_EXCEPTION_TYPE = None
     # If set, the block is expected to be rejected by the client.
     skip_exception_verification: bool = False
