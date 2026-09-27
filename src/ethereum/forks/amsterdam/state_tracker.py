@@ -19,15 +19,7 @@ within a single transaction and supports copy-on-write rollback.
 """
 
 from dataclasses import dataclass, field
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Dict,
-    Optional,
-    Set,
-    Tuple,
-    final,
-)
+from typing import TYPE_CHECKING, Callable, Dict, Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
@@ -59,9 +51,9 @@ class BlockState:
 
     Read chain: block writes -> pre_state.
 
-    ``account_reads`` and ``storage_reads`` accumulate across all transactions
-    for BAL generation. ``code_reads`` accumulates code accesses used for
-    execution witness generation.
+    ``account_reads`` and ``storage_reads`` accumulate across all
+    transactions for BAL generation. ``code_reads`` accumulates code
+    accesses used for execution witness generation.
 
     ``storage_clears`` records addresses whose pre-existing storage
     was wiped earlier in the block, so later reads must not fall back

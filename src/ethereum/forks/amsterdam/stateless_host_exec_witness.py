@@ -1,5 +1,5 @@
 """
-Stateless validation types.
+Host-side construction of the execution witness from block execution data.
 """
 
 from typing import Dict, List, Optional, Set, Tuple

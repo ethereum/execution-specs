@@ -12,7 +12,7 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U16, U64
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
+from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.state import Root
 from ethereum.utils.ssz import (
     SszContainer,
@@ -216,7 +216,7 @@ def compute_new_payload_request_root(
     return Hash32(stateless_input.new_payload_request.hash_tree_root())
 
 
-def _decode_header(header_bytes: Bytes) -> Header | PreviousForkHeader:
+def _decode_header(header_bytes: Bytes) -> Header | PreviousHeader:
     """
     Decode an RLP-encoded header, trying the current fork first and
     falling back to the previous fork for transition-period headers.
@@ -224,12 +224,12 @@ def _decode_header(header_bytes: Bytes) -> Header | PreviousForkHeader:
     try:
         return rlp.decode_to(Header, header_bytes)
     except rlp.DecodingError:
-        return rlp.decode_to(PreviousForkHeader, header_bytes)
+        return rlp.decode_to(PreviousHeader, header_bytes)
 
 
 def validate_headers(
     encoded_headers: Tuple[Bytes, ...],
-) -> Tuple[List[Header | PreviousForkHeader], List[Hash32]]:
+) -> Tuple[List[Header | PreviousHeader], List[Hash32]]:
     """
     Validate that a sequence of encoded headers forms a contiguous chain.
 
@@ -237,7 +237,9 @@ def validate_headers(
     header. Return the decoded headers and block hashes. Headers may
     come from different forks during fork transitions.
     """
-    assert len(encoded_headers) <= 256, "Too many headers in witness"
+    assert len(encoded_headers) <= MAX_WITNESS_HEADERS, (
+        "Too many headers in witness"
+    )
     headers = [
         _decode_header(header_bytes) for header_bytes in encoded_headers
     ]

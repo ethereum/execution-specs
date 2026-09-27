@@ -26,7 +26,7 @@ from ethereum.exceptions import (
     InvalidBlock,
     InvalidSenderError,
 )
-from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
+from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.merkle_patricia_trie import root, trie_set
 from ethereum.state import (
     EMPTY_CODE_HASH,
@@ -159,7 +159,7 @@ class ChainContext:
     block_hashes: List[Hash32]
     """Recent ancestor hashes (up to 256) for the ``BLOCKHASH`` opcode."""
 
-    parent_header: Header | PreviousForkHeader
+    parent_header: Header | PreviousHeader
     """Parent header used for header validation and system contracts."""
 
 
@@ -435,7 +435,7 @@ def calculate_base_fee_per_gas(
 
 
 def validate_header(
-    parent_header: Header | PreviousForkHeader, header: Header
+    parent_header: Header | PreviousHeader, header: Header
 ) -> None:
     """
     Verify a block header against its parent.
