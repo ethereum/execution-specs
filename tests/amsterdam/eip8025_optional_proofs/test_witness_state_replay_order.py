@@ -15,6 +15,7 @@ from execution_testing import (
 
 from ethereum.crypto.hash import keccak256
 
+from .spec import ref_spec_8025
 from .state_helpers import (
     as_storage,
     build_large_storage,
@@ -25,8 +26,8 @@ from .state_helpers import (
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
 def _secured_storage_key(slot: int) -> bytes:

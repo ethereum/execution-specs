@@ -14,10 +14,12 @@ from execution_testing import (
     compute_create_address,
 )
 
+from .spec import ref_spec_8025
+
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
 def test_witness_excludes_bytecode_created_in_same_block(
@@ -276,7 +278,7 @@ def test_witness_codes_create_then_call_same_block(
                 txs=[tx1_create, tx2_call],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=[Bytes(bytes(caller_code))],
+                        codes_present=[Bytes(caller_code)],
                         codes_absent=[Bytes(runtime_code)],
                     )
                 ),
@@ -384,7 +386,7 @@ def test_witness_codes_create_then_call_same_tx(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=[Bytes(bytes(factory_code))],
+                        codes_present=[Bytes(factory_code)],
                         codes_absent=[Bytes(runtime_code)],
                     )
                 ),
@@ -551,7 +553,7 @@ def test_witness_codes_reverted_create_same_hash_then_read(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
-                            Bytes(bytes(factory_code)),
+                            Bytes(factory_code),
                             Bytes(runtime_code),
                         ],
                     )

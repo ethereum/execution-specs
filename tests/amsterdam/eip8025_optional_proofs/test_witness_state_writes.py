@@ -12,6 +12,7 @@ from execution_testing import (
     Transaction,
 )
 
+from .spec import ref_spec_8025
 from .state_helpers import (
     as_storage,
     build_large_storage,
@@ -22,22 +23,35 @@ from .state_helpers import (
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
+@pytest.mark.parametrize(
+    "revert",
+    [
+        pytest.param(False, id="stop"),
+        pytest.param(True, id="revert"),
+    ],
+)
 def test_witness_state_sstore_without_explicit_read_contains_storage_proof(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    revert: bool,
 ) -> None:
-    """Dirty storage writes should still include the pre-state proof."""
+    """
+    Dirty storage writes should still include the pre-state proof.
+
+    A reverted SSTORE should still leave its proof nodes in witness state.
+    """
     storage = build_large_storage([1])
     proof_nodes = collect_storage_proof_nodes(storage, [1])
     assert proof_nodes
 
     new_value = large_storage_value(9)
+    terminator = Op.REVERT(0, 0) if revert else Op.STOP
     contract = pre.deploy_contract(
-        code=Op.SSTORE(1, new_value) + Op.STOP,
+        code=Op.SSTORE(1, new_value) + terminator,
         storage=as_storage(storage),
     )
     sender = pre.fund_eoa()
@@ -57,45 +71,7 @@ def test_witness_state_sstore_without_explicit_read_contains_storage_proof(
         ],
         post={
             sender: Account(nonce=1),
-            contract: Account(storage={1: new_value}),
-        },
-    )
-
-
-def test_witness_state_reverted_sstore_still_contains_storage_proof(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """
-    A reverted SSTORE should still leave its proof nodes in witness.
-    """
-    storage = build_large_storage([1])
-    proof_nodes = collect_storage_proof_nodes(storage, [1])
-    assert proof_nodes
-
-    new_value = large_storage_value(9)
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(1, new_value) + Op.REVERT(0, 0),
-        storage=as_storage(storage),
-    )
-    sender = pre.fund_eoa()
-    tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_execution_witness_state=(
-                    ExecutionWitnessStateExpectation(
-                        nodes_present=proof_nodes,
-                    )
-                ),
-            )
-        ],
-        post={
-            sender: Account(nonce=1),
-            contract: Account(storage=storage),
+            contract: Account(storage=storage if revert else {1: new_value}),
         },
     )
 

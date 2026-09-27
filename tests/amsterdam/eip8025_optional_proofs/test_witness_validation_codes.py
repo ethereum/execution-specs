@@ -1,5 +1,7 @@
 """Execution witness code validation tests."""
 
+from typing import Callable
+
 import pytest
 from execution_testing import (
     Account,
@@ -12,6 +14,7 @@ from execution_testing import (
     Op,
     Transaction,
 )
+from execution_testing.test_types.execution_witness import ExecutionWitness
 from execution_testing.test_types.execution_witness.modifiers import (
     add_code,
     remove_code,
@@ -20,27 +23,46 @@ from execution_testing.test_types.execution_witness.modifiers import (
 )
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
+from .spec import ref_spec_8025
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
-def test_validation_codes_missing_current_frame_code(
+@pytest.mark.parametrize(
+    "extcode_opcode,removed_code",
+    [
+        pytest.param("extcodesize", "caller", id="current_frame_code"),
+        pytest.param("extcodecopy", "target", id="external_code_read_target"),
+    ],
+)
+def test_validation_codes_missing_read_code(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    extcode_opcode: str,
+    removed_code: str,
 ) -> None:
-    """Removing the currently executing contract's code should fail."""
+    """
+    Removing the executing contract's code, or code it reads externally,
+    should fail guest execution.
+    """
     target_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
     target = pre.deploy_contract(code=target_code)
 
-    caller_code = Op.EXTCODESIZE(target) + Op.POP + Op.STOP
+    if extcode_opcode == "extcodesize":
+        access = Op.EXTCODESIZE(target) + Op.POP
+    elif extcode_opcode == "extcodecopy":
+        access = Op.EXTCODECOPY(target, 0, 0, 32)
+    else:
+        raise ValueError(f"unknown EXTCODE* opcode: {extcode_opcode}")
+    caller_code = access + Op.STOP
     caller = pre.deploy_contract(code=caller_code)
 
     sender = pre.fund_eoa()
     tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
-    caller_code_bytes = Bytes(bytes(caller_code))
+    codes = {"caller": Bytes(caller_code), "target": Bytes(target_code)}
 
     blockchain_test(
         pre=pre,
@@ -49,46 +71,8 @@ def test_validation_codes_missing_current_frame_code(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=[
-                            caller_code_bytes,
-                            Bytes(bytes(target_code)),
-                        ],
-                    ).modify(remove_code(caller_code_bytes))
-                ),
-                expected_stateless_validation_success=False,
-            )
-        ],
-        post={sender: Account(nonce=1)},
-    )
-
-
-def test_validation_codes_missing_external_code_read_target(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """Removing externally read code should fail guest execution."""
-    target_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
-    target = pre.deploy_contract(code=target_code)
-
-    caller_code = Op.EXTCODECOPY(target, 0, 0, 32) + Op.STOP
-    caller = pre.deploy_contract(code=caller_code)
-
-    sender = pre.fund_eoa()
-    tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
-    target_code_bytes = Bytes(bytes(target_code))
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_execution_witness_codes=(
-                    ExecutionWitnessCodesExpectation(
-                        codes_present=[
-                            Bytes(bytes(caller_code)),
-                            target_code_bytes,
-                        ],
-                    ).modify(remove_code(target_code_bytes))
+                        codes_present=list(codes.values()),
+                    ).modify(remove_code(codes[removed_code]))
                 ),
                 expected_stateless_validation_success=False,
             )
@@ -121,11 +105,22 @@ def test_validation_codes_missing_implicit_system_contract_code(
     )
 
 
-def test_validation_codes_missing_7702_delegation_marker(
+@pytest.mark.parametrize(
+    "removed_code",
+    [
+        pytest.param("marker", id="delegation_marker"),
+        pytest.param("delegate", id="delegated_target_code"),
+    ],
+)
+def test_validation_codes_missing_7702_delegation_code(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    removed_code: str,
 ) -> None:
-    """Removing a pre-state 7702 delegation marker should fail."""
+    """
+    Removing a pre-state 7702 delegation marker, or the delegated target
+    code, should fail.
+    """
     delegate_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
     delegate = pre.deploy_contract(code=delegate_code)
 
@@ -137,7 +132,10 @@ def test_validation_codes_missing_7702_delegation_marker(
         gas_limit=500_000,
     )
 
-    marker = Bytes(Spec7702.delegation_designation(delegate))
+    codes = {
+        "marker": Bytes(Spec7702.delegation_designation(delegate)),
+        "delegate": Bytes(delegate_code),
+    }
 
     blockchain_test(
         pre=pre,
@@ -146,50 +144,8 @@ def test_validation_codes_missing_7702_delegation_marker(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=[
-                            marker,
-                            Bytes(bytes(delegate_code)),
-                        ],
-                    ).modify(remove_code(marker))
-                ),
-                expected_stateless_validation_success=False,
-            )
-        ],
-        post={sender: Account(nonce=1)},
-    )
-
-
-def test_validation_codes_missing_7702_delegated_target_code(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """Removing delegated target code from a 7702 flow should fail."""
-    delegate_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
-    delegate = pre.deploy_contract(code=delegate_code)
-
-    delegated_eoa = pre.fund_eoa(delegation=delegate)
-    sender = pre.fund_eoa()
-    tx = Transaction(
-        sender=sender,
-        to=delegated_eoa,
-        gas_limit=500_000,
-    )
-
-    delegate_code_bytes = Bytes(bytes(delegate_code))
-    marker = Bytes(Spec7702.delegation_designation(delegate))
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_execution_witness_codes=(
-                    ExecutionWitnessCodesExpectation(
-                        codes_present=[
-                            marker,
-                            delegate_code_bytes,
-                        ],
-                    ).modify(remove_code(delegate_code_bytes))
+                        codes_present=list(codes.values()),
+                    ).modify(remove_code(codes[removed_code]))
                 ),
                 expected_stateless_validation_success=False,
             )
@@ -318,7 +274,7 @@ def test_validation_codes_missing_delegated_code_on_insufficient_balance_call(
     sender = pre.fund_eoa()
     tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
 
-    delegate_code_bytes = Bytes(bytes(delegate_code))
+    delegate_code_bytes = Bytes(delegate_code)
     marker = Bytes(Spec7702.delegation_designation(delegate))
 
     blockchain_test(
@@ -329,7 +285,7 @@ def test_validation_codes_missing_delegated_code_on_insufficient_balance_call(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
-                            Bytes(bytes(caller_code)),
+                            Bytes(caller_code),
                             marker,
                             delegate_code_bytes,
                         ],
@@ -373,12 +329,12 @@ def test_validation_codes_missing_second_marker_in_delegation_chain(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
-                            Bytes(bytes(caller_code)),
+                            Bytes(caller_code),
                             marker_alice,
                             marker_bob,
                         ],
                         codes_absent=[
-                            Bytes(bytes(charlie_code)),
+                            Bytes(charlie_code),
                         ],
                     ).modify(remove_code(marker_bob))
                 ),
@@ -389,47 +345,25 @@ def test_validation_codes_missing_second_marker_in_delegation_chain(
     )
 
 
-def test_validation_codes_extra_unused_bytecode(
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        pytest.param(
+            add_code(Bytes(Op.PUSH1(0x99) + Op.PUSH1(0x01) + Op.STOP)),
+            id="extra_unused_bytecode",
+        ),
+        pytest.param(reverse_codes(), id="unsorted_but_complete"),
+    ],
+)
+def test_validation_codes_complete_witness_still_validates(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    modifier: Callable[[ExecutionWitness], ExecutionWitness],
 ) -> None:
-    """Adding an unused bytecode preimage should still validate."""
-    target_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
-    target = pre.deploy_contract(code=target_code)
-
-    caller_code = Op.EXTCODECOPY(target, 0, 0, 32) + Op.STOP
-    caller = pre.deploy_contract(code=caller_code)
-
-    sender = pre.fund_eoa()
-    tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
-
-    unused_code = Bytes(bytes(Op.PUSH1(0x99) + Op.PUSH1(0x01) + Op.STOP))
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_execution_witness_codes=(
-                    ExecutionWitnessCodesExpectation(
-                        codes_present=[
-                            Bytes(bytes(caller_code)),
-                            Bytes(bytes(target_code)),
-                        ],
-                    ).modify(add_code(unused_code))
-                ),
-                expected_stateless_validation_success=True,
-            )
-        ],
-        post={sender: Account(nonce=1)},
-    )
-
-
-def test_validation_codes_unsorted_but_complete(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """Reordering complete witness codes should still validate."""
+    """
+    Adding an unused bytecode preimage or reordering complete witness codes
+    should still validate.
+    """
     target_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
     target = pre.deploy_contract(code=target_code)
 
@@ -447,10 +381,10 @@ def test_validation_codes_unsorted_but_complete(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
-                            Bytes(bytes(caller_code)),
-                            Bytes(bytes(target_code)),
+                            Bytes(caller_code),
+                            Bytes(target_code),
                         ],
-                    ).modify(reverse_codes())
+                    ).modify(modifier)
                 ),
                 expected_stateless_validation_success=True,
             )

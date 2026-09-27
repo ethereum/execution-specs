@@ -1,7 +1,6 @@
 """Stateless input byte validation tests."""
 
 from dataclasses import replace
-from typing import Callable
 
 import pytest
 from execution_testing import (
@@ -14,14 +13,22 @@ from execution_testing import (
     Transaction,
 )
 
+from ethereum.forks.amsterdam.stateless import (
+    MAX_BYTES_PER_HEADER,
+    StatelessInput,
+)
+
 from .gas_helpers import empty_account_value_transfer_gas_limit
+from .spec import ref_spec_8025
+from .stateless_input_helpers import (
+    StatelessInputBytesModifier,
+    modify_stateless_input,
+)
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
-
-StatelessInputBytesModifier = Callable[[Bytes], Bytes]
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
 def empty_input_bytes(input_bytes: Bytes) -> Bytes:
@@ -142,36 +149,24 @@ def pad_last_witness_header(
 ) -> StatelessInputBytesModifier:
     """Pad the last witness header to its SSZ size limit, plus extra bytes."""
 
-    def modifier(input_bytes: Bytes) -> Bytes:
-        from ethereum_types.bytes import Bytes as AmsterdamBytes
-
-        from ethereum.forks.amsterdam.stateless import MAX_BYTES_PER_HEADER
-        from ethereum.forks.amsterdam.stateless_guest import (
-            deserialize_stateless_input,
-        )
-        from ethereum.forks.amsterdam.stateless_host import (
-            serialize_stateless_input,
-        )
-
-        stateless_input = deserialize_stateless_input(
-            AmsterdamBytes(bytes(input_bytes))
-        )
+    def pad_to_limit(stateless_input: StatelessInput) -> StatelessInput:
         witness = stateless_input.witness
         *headers, last_header = witness.headers
         padding = b"\x00" * (MAX_BYTES_PER_HEADER - len(last_header))
-        padded_input = replace(
+        return replace(
             stateless_input,
             witness=replace(
                 witness,
-                headers=(*headers, AmsterdamBytes(last_header + padding)),
+                headers=(*headers, last_header + padding),
             ),
         )
+
+    padded_to_limit = modify_stateless_input(pad_to_limit)
+
+    def modifier(input_bytes: Bytes) -> Bytes:
         # Serialization refuses an oversized header, but the headers are the
         # last SSZ field, so appended bytes extend the last header.
-        return Bytes(
-            bytes(serialize_stateless_input(padded_input))
-            + b"\x00" * bytes_over_limit
-        )
+        return Bytes(padded_to_limit(input_bytes) + b"\x00" * bytes_over_limit)
 
     return modifier
 

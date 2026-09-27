@@ -1,28 +1,34 @@
 """Stateless chain-ID validation tests."""
 
 from dataclasses import replace
-from typing import Any, Callable
+from typing import Callable
 
 import pytest
+from ethereum_types.numeric import U64
 from execution_testing import (
     Account,
     Alloc,
     Block,
     BlockchainTestFiller,
-    Bytes,
     Fork,
     Transaction,
 )
 
+from ethereum.forks.amsterdam.stateless import StatelessInput
+
 from .gas_helpers import empty_account_value_transfer_gas_limit
+from .spec import ref_spec_8025
+from .stateless_input_helpers import (
+    StatelessInputBytesModifier,
+    modify_stateless_input,
+)
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
-StatelessInputBytesModifier = Callable[[Bytes], Bytes]
-ChainIdBuilder = Callable[[Any], Any]
+ChainIdBuilder = Callable[[StatelessInput], U64]
 
 
 def replace_chain_id(
@@ -30,32 +36,17 @@ def replace_chain_id(
 ) -> StatelessInputBytesModifier:
     """Replace only the decoded stateless input chain ID."""
 
-    def modifier(input_bytes: Bytes) -> Bytes:
-        from ethereum_types.bytes import Bytes as AmsterdamBytes
-
-        from ethereum.forks.amsterdam.stateless_guest import (
-            deserialize_stateless_input,
-        )
-        from ethereum.forks.amsterdam.stateless_host import (
-            serialize_stateless_input,
-        )
-
-        stateless_input = deserialize_stateless_input(
-            AmsterdamBytes(bytes(input_bytes))
-        )
-        modified_input = replace(
+    def update(stateless_input: StatelessInput) -> StatelessInput:
+        return replace(
             stateless_input,
             chain_id=build_chain_id(stateless_input),
         )
-        return Bytes(bytes(serialize_stateless_input(modified_input)))
 
-    return modifier
+    return modify_stateless_input(update)
 
 
-def wrong_chain_id(stateless_input: Any) -> Any:
+def wrong_chain_id(stateless_input: StatelessInput) -> U64:
     """Change chain_id from 1 to 2."""
-    from ethereum_types.numeric import U64
-
     if int(stateless_input.chain_id) != 1:
         raise AssertionError(
             f"expected canonical chain_id 1, got {stateless_input.chain_id}"

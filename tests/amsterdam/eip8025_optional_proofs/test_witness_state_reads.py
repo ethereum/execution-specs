@@ -11,6 +11,7 @@ from execution_testing import (
     Transaction,
 )
 
+from .spec import ref_spec_8025
 from .state_helpers import (
     as_storage,
     build_large_storage,
@@ -22,56 +23,34 @@ from .state_helpers import (
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
+@pytest.mark.parametrize(
+    "revert",
+    [
+        pytest.param(False, id="stop"),
+        pytest.param(True, id="revert"),
+    ],
+)
 def test_witness_state_sload_contains_storage_proof(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    revert: bool,
 ) -> None:
-    """SLOAD should include the pre-state proof for the loaded slot."""
+    """
+    SLOAD should include the pre-state proof for the loaded slot.
+
+    A reverted SLOAD should still leave its proof nodes in witness state.
+    """
     storage = build_large_storage([1])
     proof_nodes = collect_storage_proof_nodes(storage, [1])
     assert proof_nodes
 
+    terminator = Op.REVERT(0, 0) if revert else Op.STOP
     contract = pre.deploy_contract(
-        code=Op.SLOAD(1) + Op.POP + Op.STOP,
-        storage=as_storage(storage),
-    )
-    sender = pre.fund_eoa()
-    tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_execution_witness_state=(
-                    ExecutionWitnessStateExpectation(
-                        nodes_present=proof_nodes,
-                    )
-                ),
-            )
-        ],
-        post={
-            sender: Account(nonce=1),
-            contract: Account(storage=storage),
-        },
-    )
-
-
-def test_witness_state_reverted_sload_still_contains_storage_proof(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """A reverted SLOAD should still leave its proof nodes in witness state."""
-    storage = build_large_storage([1])
-    proof_nodes = collect_storage_proof_nodes(storage, [1])
-    assert proof_nodes
-
-    contract = pre.deploy_contract(
-        code=Op.SLOAD(1) + Op.POP + Op.REVERT(0, 0),
+        code=Op.SLOAD(1) + Op.POP + terminator,
         storage=as_storage(storage),
     )
     sender = pre.fund_eoa()
