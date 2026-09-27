@@ -34,8 +34,8 @@ def test_witness_headers_empty_block(
     """
     Test witness headers for an empty block (no user transactions).
 
-    The only ancestor tracking comes from the EIP-2935 system contract
-    which unconditionally records offset = 1 (parent header).
+    No ancestor is accessed, so the witness carries only the parent
+    header, which stateless validation always needs.
     """
     blockchain_test(
         pre=pre,
@@ -62,9 +62,9 @@ def test_witness_headers_blockhash_at_offset(
     """
     Test witness headers when BLOCKHASH queries a block at a given offset.
 
-    offset = 1 matches the EIP-2935 baseline.
+    offset = 1 matches the always-included parent header.
     offset > 1 verifies BLOCKHASH extends oldest_ancestor_offset beyond
-    the system-contract baseline.
+    the parent header.
     """
     code = Op.BLOCKHASH(Op.SUB(Op.NUMBER, offset)) + Op.POP + Op.STOP
     contract = pre.deploy_contract(code=code)
@@ -107,7 +107,7 @@ def test_witness_headers_blockhash_out_of_range(
 
     BLOCKHASH returns 0 for the current or future block numbers, so
     track_ancestor_access is never called by the opcode.  Only the
-    EIP-2935 system-contract offset = 1 remains.
+    parent header remains.
     """
     code = Op.BLOCKHASH(queried_block_code) + Op.POP + Op.STOP
     contract = pre.deploy_contract(code=code)
@@ -368,8 +368,8 @@ def test_witness_headers_blockhash_boundary(
 
     At offset = 256 the BLOCKHASH range check passes and all 256
     headers appear.  At offset = 257 the check fails, BLOCKHASH
-    returns 0, no tracking occurs, and only the EIP-2935 parent
-    header remains.
+    returns 0, no tracking occurs, and only the parent header
+    remains.
     """
     code = Op.BLOCKHASH(Op.SUB(Op.NUMBER, offset)) + Op.POP + Op.STOP
     contract = pre.deploy_contract(code=code)

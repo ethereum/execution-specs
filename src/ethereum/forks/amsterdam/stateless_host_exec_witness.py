@@ -262,6 +262,10 @@ def get_witness_ancestors(
     Collect RLP-encoded ancestor headers from ``oldest_ancestor_offset``
     blocks back onward.
 
+    The parent header is always included, even if no ancestor was accessed,
+    because stateless validation checks the block header against it and
+    takes the pre-state root from it.
+
     Parameters
     ----------
     block_headers :
@@ -271,6 +275,7 @@ def get_witness_ancestors(
         during execution, or ``None`` if no ancestor was accessed.
 
     """
-    if oldest_ancestor_offset is None:
-        return []
-    return list(block_headers[-int(oldest_ancestor_offset) :])
+    offset = Uint(1)
+    if oldest_ancestor_offset is not None:
+        offset = max(offset, oldest_ancestor_offset)
+    return list(block_headers[-int(offset) :])

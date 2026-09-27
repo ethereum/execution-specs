@@ -387,11 +387,6 @@ class T8N(Load):
                 target_address=self.fork.HISTORY_STORAGE_ADDRESS,
                 data=block_env.block_hashes[-1],  # The parent hash
             )
-            if self.fork.has_track_ancestor_access:
-                self.fork.track_ancestor_access(
-                    block_env.state,
-                    Uint(1),
-                )
 
         self._process_txs(block_env, block_output)
 

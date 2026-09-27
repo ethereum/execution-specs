@@ -59,8 +59,7 @@ def block_hash(evm: Evm) -> None:
             -(current_block_number - block_number)
         ]
         track_ancestor_access(
-            evm.block_env.state,
-            current_block_number - block_number,
+            evm.block_env.state, current_block_number - block_number
         )
 
     push(evm.stack, U256.from_be_bytes(current_block_hash))
