@@ -698,7 +698,8 @@ def test_tx_gas_limit_block_boundary(
         ),
     ],
 )
-@pytest.mark.with_all_tx_types
+# Frame transactions have per-frame budgets, not a transaction gas limit.
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type != 6)
 @pytest.mark.valid_from("EIP8037")
 def test_tx_total_gas_limit_cap(
     state_test: StateTestFiller,
@@ -710,7 +711,7 @@ def test_tx_total_gas_limit_cap(
 ) -> None:
     """
     Accept a transaction at ``TX_MAX_TOTAL_GAS_LIMIT`` and reject one a
-    single unit of gas above it, for every transaction type.
+    single unit of gas above it, for transaction types with a gas limit.
 
     EIP-8037 applies the EIP-7825 cap to execution gas only and caps
     ``tx.gas`` as a whole at ``TX_MAX_TOTAL_GAS_LIMIT``. The cap is a
