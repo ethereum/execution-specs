@@ -2,6 +2,9 @@
 
 from typing import Callable, ClassVar, Generator, List, Sequence, Type
 
+from pydantic import model_validator
+from typing_extensions import Self
+
 from execution_testing.base_types import Alloc
 from execution_testing.base_types.base_types import Hash
 from execution_testing.client_clis import TransitionTool
@@ -27,7 +30,25 @@ class BlobsTest(BaseTest):
     interleave_nonexisting_blob_hashes: bool = False
     get_blobs_version: int | None = None
     cell_mask: int | None = None
-    custody_columns: bytes | None = None
+    custody_columns_updates: List[bytes | None] | None = None
+    """
+    `custodyColumns` values to send in order, one
+    `engine_forkchoiceUpdatedV4` each, before `engine_getBlobsV*`: a bitmap
+    sends that value and `None` sends an explicit `null`. Leave unset to
+    send no update.
+    """
+
+    @model_validator(mode="after")
+    def _check_custody_columns_updates(self) -> Self:
+        """Reject an empty update list, which would send nothing."""
+        if self.custody_columns_updates is not None and not (
+            self.custody_columns_updates
+        ):
+            raise ValueError(
+                "custody_columns_updates must hold at least one update; "
+                "leave it unset to send no custodyColumns update."
+            )
+        return self
 
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
@@ -62,7 +83,7 @@ class BlobsTest(BaseTest):
                 ),
                 get_blobs_version=self.get_blobs_version,
                 cell_mask=self.cell_mask,
-                custody_columns=self.custody_columns,
+                custody_columns_updates=self.custody_columns_updates,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
 
