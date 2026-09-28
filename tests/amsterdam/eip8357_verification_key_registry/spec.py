@@ -15,7 +15,7 @@ class ReferenceSpec:
 
 ref_spec_8357 = ReferenceSpec(
     git_path="EIPS/eip-8357.md",
-    version="0596cdeb543f37ca4512c7b0e97d50b5ce6edae8",
+    version="00f92ccf3b3bef7d85bd787b0d740621bd2d2b36",
 )
 
 
@@ -29,7 +29,7 @@ class Spec:
         0x2B93CA1F7FA5102AC4E1A6D161CFF2AE1701CF709BFA1A7A6CB213EC61125F0A
     )
 
-    CURRENT_VERIFICATION_KEY_SLOT = 0
+    CURRENT_VERIFICATION_KEY_HASH_SLOT = 0
     ACTIVATION_MAPPING_SLOT = 1
     MAX_ACTIVATION_TIMESTAMP = 2**64 - 1
 
