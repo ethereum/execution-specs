@@ -445,6 +445,60 @@ class BesuExceptionMapper(ExceptionMapper):
             r"transaction invalid Sender 0x[0-9a-f]+ has deployed code "
             r"and so is not authorized to send transactions"
         ),
+        # EIP-8141 static frame transaction constraints, including the
+        # shape of a signature entry and its declared signer. Besu raises
+        # a distinct message per constraint, so they are collected here as
+        # one alternation. Signature entries whose cryptography fails are
+        # TYPE_6_INVALID_SIGNATURE below; the two sets are disjoint.
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
+            r"frame count must be between \d+ and \d+|"
+            r"unknown frame mode \d+|"
+            r"reserved frame flag bits set: \d+|"
+            r"frame \d+ carries value outside SENDER mode|"
+            r"frame \d+ is a batched VERIFY frame|"
+            r"frame \d+ allows execution approval with a target "
+            r"other than the sender|"
+            r"batched frame \d+ must not carry an approval scope|"
+            r"last frame cannot carry the atomic batch flag|"
+            r"frame gas limits exceed 2\^63-1|"
+            r"total frame gas exceeds 2\^64-1|"
+            r"at most one expiry verifier frame is allowed|"
+            r"malformed expiry verifier frame \d+|"
+            r"max fee per blob gas must be zero without blob "
+            r"versioned hashes|"
+            r"unknown (?:frame )?signature scheme|"
+            r"ARBITRARY (?:frame )?signature entries must not declare "
+            r"a signer|"
+            r"explicit zero (?:frame )?signature digest is invalid|"
+            r"frame signature digest must be empty or 32 bytes|"
+            r"frame signature signer must be empty or a 20-byte address|"
+            r"frame signature signer does not match the recovered signer|"
+            # Rejected while decoding the transaction rather than while
+            # validating it, so these arrive wrapped in Besu's generic
+            # "Failed to decode transactions from block parameter (...)".
+            r"Frame signature msg must be empty or a 32-byte digest|"
+            r"Frame signature signer must be empty or a 20-byte address|"
+            r"Frame transaction must have at least one frame"
+        ),
+        # EIP-8141 signature entries that are well formed but whose
+        # cryptography does not hold. The length of the signature blob
+        # belongs here rather than with the format errors: it is a
+        # property of the scheme's encoding, not of the entry's structure.
+        TransactionException.TYPE_6_INVALID_SIGNATURE: (
+            r"secp256k1 frame signature must be 65 bytes|"
+            r"secp256k1 frame signature values out of range|"
+            r"secp256k1 frame signature recovery failed|"
+            r"P256 frame signature must be 128 bytes|"
+            r"P256 frame signature values out of range|"
+            r"P256 frame signature public key is not on the curve|"
+            r"P256 frame signature verification failed"
+        ),
+        # EIP-8141 invalidation raised during frame execution.
+        TransactionException.TYPE_6_INVALID_FRAME_EXECUTION: (
+            r"SENDER frame \d+ executed before execution approval|"
+            r"VERIFY frame \d+ failed|"
+            r"no frame approved payment for the transaction"
+        ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: (
             r"transaction invalid transaction nonce \d+ "
             r"below sender account nonce \d+"
