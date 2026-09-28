@@ -22,11 +22,6 @@ class StatelessBlockProtocol(Protocol):
     """Block fields needed by stateless validation orchestration."""
 
     @property
-    def rlp_modifier(self) -> object | None:
-        """RLP modifier configured for the block."""
-        ...
-
-    @property
     def expected_execution_witness_codes(
         self,
     ) -> ExecutionWitnessCodesExpectation | None:
@@ -113,18 +108,7 @@ def stateless_options_for_block(
         stateless_input_bytes_modifier is not None
     )
     expected_success = block.expected_stateless_validation_success
-    omit_stateless_artifacts = block.rlp_modifier is not None
 
-    if omit_stateless_artifacts and (
-        has_witness_expectation
-        or has_stateless_input_bytes_modifier
-        or expected_success is not None
-    ):
-        raise AssertionError(
-            "Blocks with rlp_modifier omit stateless artifacts because "
-            "they are generated before the RLP mutation. SSZ/stateless "
-            "mutation tests require a separate explicit mechanism."
-        )
     if skip_stateless_validation and (
         has_witness_expectation
         or has_stateless_input_bytes_modifier
@@ -164,7 +148,7 @@ def stateless_options_for_block(
         )
 
     return StatelessBlockOptions(
-        skip_validation=skip_stateless_validation or omit_stateless_artifacts,
+        skip_validation=skip_stateless_validation,
         witness_modifiers=witness_modifiers,
         stateless_input_bytes_modifier=stateless_input_bytes_modifier,
         expected_validation_success=expected_success,
@@ -233,9 +217,9 @@ def build_stateless_artifacts(
     Without ``run_guest`` the output trusts the transition tool instead of
     re-executing the block.
 
-    Omit the input and output when the requests cannot be expressed as
-    Amsterdam types, or when the engine payload leaves out a field, which
-    the SSZ payload cannot express.
+    Omit the input and output when the block header or the requests
+    cannot be expressed as Amsterdam types, or when the engine payload
+    leaves out a field, which the SSZ payload cannot express.
     """
     artifacts = StatelessValidationArtifacts(
         execution_witness=execution_witness
@@ -277,12 +261,14 @@ def build_stateless_artifacts(
     from ethereum_types.numeric import U16, U64
 
     try:
+        amsterdam_block = rlp.decode_to(AmsterdamBlock, block_rlp)
         execution_requests = decode_execution_requests(
             tuple(requests_list or ())
         )
     except Exception:
-        # Mocked system contracts can produce requests that the typed
-        # stateless input cannot hold.
+        # An RLP modifier can remove a header field that the Amsterdam
+        # block needs, and mocked system contracts or request overrides
+        # can produce requests that the typed stateless input cannot hold.
         return artifacts
     try:
         amsterdam_block_access_list = rlp.decode_to(
@@ -294,7 +280,7 @@ def build_stateless_artifacts(
         amsterdam_block_access_list = []
 
     stateless_input = build_stateless_input(
-        rlp.decode_to(AmsterdamBlock, block_rlp),
+        amsterdam_block,
         execution_witness=_convert_amsterdam_execution_witness(
             execution_witness
         ),
