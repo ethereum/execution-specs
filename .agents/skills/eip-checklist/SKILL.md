@@ -51,6 +51,15 @@ precompile/ = EIP-7702 does not introduce a precompile
 
 (trailing `/` marks entire category as N/A)
 
+## Code Coverage Items
+
+`general/code_coverage/missed_lines` claims that every remaining miss is acceptable; it is not a place to park gaps.
+
+- Measure branches: `uv run fill --cov=ethereum --cov-branch --cov-report=term-missing <eip test dir> --until <Fork>`. A line report counts an `if` whose false path never ran as covered, and without `--until` a fork under development fills nothing. Before calling a miss uncovered, rerun it against every suite that can reach that code.
+- A missed branch is a test to write. Only two kinds of miss are acceptable: code that runs only outside `fill` (such as block validation in `fork.py`, run by `just json-loader`), and code the spec makes unreachable.
+- An unreachable claim cites the guard that rules the branch out and a construction that was tried and failed, ideally by a second person or agent. "Nothing on mainnet does this" is not a reason while custom predeploy code (`pre_alloc_mutable`) or a crafted transaction reaches the branch at fill time.
+- The entry lists only what is still missed, why, and a re-verify command that has been run as written; never covered branches or test names, which go stale. Re-derive the entry whenever the code it reasons about changes.
+
 ## Completed Examples
 
 Reference these for patterns:
