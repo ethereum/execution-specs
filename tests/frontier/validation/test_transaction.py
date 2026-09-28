@@ -500,10 +500,9 @@ def test_tx_invalid_first_in_block(
 @pytest.mark.parametrize(
     "funding",
     [
-        pytest.param("exact", id="exact"),
+        "exact",
         pytest.param(
             "one_wei_short",
-            id="one_wei_short",
             marks=[
                 pytest.mark.invalid_tx_not_last,
                 pytest.mark.exception_test,
@@ -592,10 +591,9 @@ def test_tx_sender_funds_spent_by_earlier_tx(
 @pytest.mark.parametrize(
     "rejected_block",
     [
-        pytest.param("invalid_tx_alone", id="invalid_tx_alone"),
+        "invalid_tx_alone",
         pytest.param(
             "invalid_tx_then_valid",
-            id="invalid_tx_then_valid",
             marks=pytest.mark.invalid_tx_not_last,
         ),
     ],

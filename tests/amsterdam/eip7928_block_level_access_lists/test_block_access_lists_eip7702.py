@@ -641,8 +641,8 @@ def test_bal_7702_recipient_excluded_on_authorization_oog(
 @pytest.mark.parametrize(
     "cause",
     [
-        pytest.param("wrong_in_pre_state", id="wrong_in_pre_state"),
-        pytest.param("bumped_by_prior_tx", id="bumped_by_prior_tx"),
+        "wrong_in_pre_state",
+        "bumped_by_prior_tx",
     ],
 )
 def test_bal_7702_invalid_nonce_authorization(

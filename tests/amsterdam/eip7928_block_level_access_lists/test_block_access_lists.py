@@ -1459,7 +1459,7 @@ def test_bal_parent_revert_state_access(
 
 @pytest.mark.parametrize(
     "inner_op",
-    [pytest.param("call", id="call"), pytest.param("create", id="create")],
+    ["call", "create"],
 )
 def test_bal_outer_revert_with_inner_insufficient_funds(
     pre: Alloc,
@@ -3792,8 +3792,8 @@ def test_bal_cross_tx_read_before_later_write(
 @pytest.mark.parametrize(
     "later_credit",
     [
-        pytest.param("transfer_tx", id="transfer_tx"),
-        pytest.param("withdrawal", id="withdrawal"),
+        "transfer_tx",
+        "withdrawal",
     ],
 )
 def test_bal_cross_tx_balance_read_before_later_credit(
@@ -4089,10 +4089,9 @@ def test_bal_cross_tx_coinbase_balance_observed(
 @pytest.mark.parametrize(
     "funding",
     [
-        pytest.param("exact", id="exact"),
+        "exact",
         pytest.param(
             "one_wei_short",
-            id="one_wei_short",
             marks=pytest.mark.exception_test,
         ),
     ],
@@ -4216,8 +4215,8 @@ def test_bal_cross_tx_coinbase_funds_sender(
 @pytest.mark.parametrize(
     "code_change",
     [
-        pytest.param("create2_deploy", id="create2_deploy"),
-        pytest.param("set_code_delegation", id="set_code_delegation"),
+        "create2_deploy",
+        "set_code_delegation",
     ],
 )
 def test_bal_cross_tx_code_reads_across_deploy(
