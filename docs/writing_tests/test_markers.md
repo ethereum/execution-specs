@@ -498,6 +498,8 @@ def test_something(blockchain_test: BlockchainTestFiller, pre: Alloc):
 
 The block still holds exactly one invalid transaction and the test still needs `@pytest.mark.exception_test`. The trailing transactions must be valid in the transition tool's continued execution, since their receipts are checked like any other.
 
+If the rejection depends on the sender's account (a nonce or balance check), have one of the valid transactions send value to that sender. The transition tool skips the rejected transaction, so that account only enters the block access list through another transaction, and a client that loads accounts from the list would otherwise reject the block for the missing account rather than for the reason under test.
+
 Filling fails with a `test correctness` error if the marker is set but no block has an invalid transaction before its last one, so put the marker on the parametrized cases that earn it.
 
 ### `@pytest.mark.skip()`
