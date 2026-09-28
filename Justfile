@@ -214,12 +214,15 @@ fill-pypy *args: (_tmp-logs "fill-pypy")
         tests
 
 # Fill the base coverage consensus tests and run EELS against the fixtures
+# Eight fill workers: collecting through Bogota with sixteen exhausts the
+# CI runner's memory (workers die during collection, then xdist's
+# scheduler fails on the replacements).
 [group('integration tests')]
 json-loader *args: (_tmp "json-loader")
     uv run fill \
         -m "eels_base_coverage and primary_format" \
         --until "{{ latest_fork }}" \
-        -n {{ xdist_workers }} --dist=loadgroup \
+        -n auto --maxprocesses 8 --dist=loadgroup \
         --skip-index \
         --clean \
         --ignore=tests/ported_static \
