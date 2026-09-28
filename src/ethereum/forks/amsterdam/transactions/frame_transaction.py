@@ -635,9 +635,9 @@ def validate_frame_transaction(
 
     [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
     """
+    from ..vm.gas import GasCosts
     from . import (
         BLOB_COUNT_LIMIT,
-        TX_MAX_GAS_LIMIT,
         VERSIONED_HASH_VERSION_KZG,
     )
 
@@ -757,7 +757,7 @@ def validate_frame_transaction(
         Uint(intrinsic.execution) + total_frame_execution_gas,
         Uint(intrinsic.calldata_floor),
     )
-    if execution_gas_cap_usage > TX_MAX_GAS_LIMIT:
+    if execution_gas_cap_usage > GasCosts.TX_MAX_GAS_LIMIT:
         raise TransactionGasLimitExceededError(
             "Derived execution gas limit exceeds TX_MAX_GAS_LIMIT"
         )
