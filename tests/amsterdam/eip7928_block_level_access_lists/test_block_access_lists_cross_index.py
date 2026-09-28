@@ -17,6 +17,7 @@ from execution_testing import (
     BalAccountAbsentValues,
     BalAccountExpectation,
     BalBalanceChange,
+    BalCodeChange,
     BalNonceChange,
     BalStorageChange,
     BalStorageSlot,
@@ -26,6 +27,7 @@ from execution_testing import (
     Bytecode,
     ConsolidationRequest,
     Fork,
+    Initcode,
     Op,
     SystemCallPhase,
     Transaction,
@@ -644,6 +646,116 @@ def test_bal_post_execution_calls_net_storage_at_last_index(
                 },
             ),
             **{address: Account(nonce=1, code=b"") for address in created},
+        },
+    )
+
+
+@pytest.mark.pre_alloc_mutable()
+def test_bal_same_index_call_keeps_one_nonce_and_code_change(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+) -> None:
+    """
+    Ensure funding a contract created earlier at the same block access index
+    leaves one nonce change and one code change for it.
+
+    The withdrawal predeploy's system call creates the contract and the
+    consolidation predeploy's call, which runs after it, sends it value.
+    """
+    post_execution = _system_contracts_called(
+        fork, SystemCallPhase.AFTER_TRANSACTIONS
+    )
+    assert {
+        WITHDRAWAL_REQUEST_ADDRESS,
+        CONSOLIDATION_REQUEST_ADDRESS,
+    }.issubset(post_execution), (
+        "the request predeploys are no longer called after transactions"
+    )
+
+    endowment = 1
+    deploy_code = Op.STOP
+    initcode = Initcode(deploy_code=deploy_code)
+    pre[WITHDRAWAL_REQUEST_ADDRESS] = Account(
+        nonce=1,
+        code=Om.MSTORE(initcode, 0)
+        + Op.POP(Op.CREATE(offset=0, size=len(initcode))),
+    )
+    created = compute_create_address(
+        address=WITHDRAWAL_REQUEST_ADDRESS, nonce=1
+    )
+    # Recording the contract's code size proves this call runs after the
+    # create; in the other order the test would pass without reaching the
+    # branches. A zero-value call would not write the contract at all.
+    code_size_slot = 0
+    pre[CONSOLIDATION_REQUEST_ADDRESS] = Account(
+        balance=endowment,
+        code=Op.SSTORE(code_size_slot, Op.EXTCODESIZE(created))
+        + Op.POP(Op.CALL(address=created, value=endowment)),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        WITHDRAWAL_REQUEST_ADDRESS: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=2
+                                )
+                            ],
+                        ),
+                        CONSOLIDATION_REQUEST_ADDRESS: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=code_size_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=len(deploy_code),
+                                        )
+                                    ],
+                                ),
+                            ],
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1, post_balance=0
+                                )
+                            ],
+                        ),
+                        created: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                            code_changes=[
+                                BalCodeChange(
+                                    block_access_index=1,
+                                    new_code=bytes(deploy_code),
+                                )
+                            ],
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1,
+                                    post_balance=endowment,
+                                )
+                            ],
+                        ),
+                        SYSTEM_ADDRESS: None,
+                    }
+                ),
+            )
+        ],
+        post={
+            WITHDRAWAL_REQUEST_ADDRESS: Account(nonce=2),
+            CONSOLIDATION_REQUEST_ADDRESS: Account(
+                balance=0, storage={code_size_slot: len(deploy_code)}
+            ),
+            created: Account(nonce=1, code=deploy_code, balance=endowment),
         },
     )
 
