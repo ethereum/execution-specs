@@ -1128,6 +1128,76 @@ def test_bal_7702_cross_tx_delegation_then_call(
     )
 
 
+def test_bal_7702_authorization_nonce_from_prior_tx(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    An authorization is valid only because a plain transaction from the
+    authority earlier in the block bumped its nonce to the one signed.
+
+    A client that validates authorizations against the pre-block nonce
+    skips a delegation the sequential rules apply.
+    """
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa(amount=0)
+    relayer = pre.fund_eoa()
+    oracle = pre.deploy_contract(code=Op.STOP)
+
+    bump_tx = Transaction(sender=alice, to=oracle)
+    auth_tx = Transaction(
+        sender=relayer,
+        to=bob,
+        value=10,
+        authorization_list=[
+            # Alice's nonce is 0 in the pre-state and 1 after `bump_tx`.
+            AuthorizationTuple(address=oracle, nonce=1, signer=alice)
+        ],
+    )
+
+    block = Block(
+        txs=[bump_tx, auth_tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1),
+                        BalNonceChange(block_access_index=2, post_nonce=2),
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=2,
+                            new_code=Spec7702.delegation_designation(oracle),
+                        ),
+                    ],
+                ),
+                bob: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(block_access_index=2, post_balance=10)
+                    ]
+                ),
+                relayer: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=2, post_nonce=1)
+                    ],
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(
+                nonce=2, code=Spec7702.delegation_designation(oracle)
+            ),
+            relayer: Account(nonce=1),
+            bob: Account(balance=10),
+        },
+    )
+
+
 def test_bal_7702_null_address_delegation_no_code_change(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
