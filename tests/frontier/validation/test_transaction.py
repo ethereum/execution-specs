@@ -5,6 +5,7 @@ from execution_testing import (
     Account,
     Alloc,
     Op,
+    RecipientType,
     StateTestFiller,
     Storage,
     Transaction,
@@ -388,4 +389,189 @@ def test_unrecoverable_signature(
         # Transaction rejected: the recipient keeps exactly its funded balance.
         post={to: Account(balance=0xDEADBEEE)},
         tx=tx,
+    )
+
+
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.invalid_tx_not_last
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "nonces,invalid_index",
+    [
+        pytest.param((1, 0), 0, id="reversed_pair"),
+        pytest.param((0, 2, 1), 1, id="gap_then_fill"),
+    ],
+)
+def test_tx_nonce_order_in_block(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    nonces: tuple[int, ...],
+    invalid_index: int,
+) -> None:
+    """
+    Transactions from one sender arrive with a nonce out of order, so the
+    block is invalid at the first misplaced nonce even though the
+    transactions after it would make the sequence whole.
+
+    A client that executes transactions in parallel and resolves the nonce
+    dependency out of block order accepts the block.
+    """
+    sender = pre.fund_eoa()
+    bob_balance = 10**18
+    bob = pre.fund_eoa(amount=bob_balance)
+
+    txs = [
+        Transaction(
+            sender=sender,
+            nonce=nonce,
+            to=bob,
+            value=1,
+            protected=False,
+            error=(
+                TransactionException.NONCE_MISMATCH_TOO_HIGH
+                if i == invalid_index
+                else None
+            ),
+        )
+        for i, nonce in enumerate(nonces)
+    ]
+
+    blockchain_test(
+        pre=pre,
+        post={bob: Account(balance=bob_balance)},
+        blocks=[
+            Block(
+                txs=txs, exception=TransactionException.NONCE_MISMATCH_TOO_HIGH
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.invalid_tx_not_last
+@pytest.mark.exception_test
+def test_tx_invalid_first_in_block(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    The first transaction of a block is invalid on its own and the ones
+    after it are valid and independent of it; the block is rejected.
+    """
+    unfunded = pre.fund_eoa(amount=0)
+    carol = pre.fund_eoa()
+    bob_balance = 10**18
+    bob = pre.fund_eoa(amount=bob_balance)
+
+    txs = [
+        Transaction(
+            sender=unfunded,
+            to=bob,
+            value=1,
+            protected=False,
+            error=TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+        ),
+        Transaction(sender=carol, to=bob, value=1, protected=False),
+    ]
+
+    blockchain_test(
+        pre=pre,
+        post={bob: Account(balance=bob_balance)},
+        blocks=[
+            Block(
+                txs=txs,
+                exception=TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.parametrize(
+    "funding",
+    [
+        pytest.param("exact", id="exact"),
+        pytest.param(
+            "one_wei_short",
+            id="one_wei_short",
+            marks=[
+                pytest.mark.invalid_tx_not_last,
+                pytest.mark.exception_test,
+            ],
+        ),
+    ],
+)
+def test_tx_sender_funds_spent_by_earlier_tx(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: BaseFork,
+    funding: str,
+) -> None:
+    """
+    A sender's second transaction is affordable only against the balance
+    its first one left behind, and a third sender's transaction follows.
+
+    Against the pre-block balance both of the sender's transactions pass
+    the upfront check; one wei short and the block is invalid at the
+    second one, which a client checking against the pre-block state
+    accepts.
+    """
+    gas_limit = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True, recipient_type=RecipientType.EOA
+    )
+    gas_price = TransactionDefaults.gas_price
+    value = 1
+    tx_cost = gas_limit * gas_price + value
+    if funding == "exact":
+        sender_balance = 2 * tx_cost
+        error = None
+    elif funding == "one_wei_short":
+        sender_balance = 2 * tx_cost - 1
+        error = TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
+    else:
+        raise ValueError(f"unknown funding: {funding}")
+
+    sender = pre.fund_eoa(amount=sender_balance)
+    carol = pre.fund_eoa()
+    bob_balance = 10**18
+    bob = pre.fund_eoa(amount=bob_balance)
+
+    txs = [
+        Transaction(
+            sender=sender,
+            to=bob,
+            value=value,
+            gas_limit=gas_limit,
+            gas_price=gas_price,
+            protected=False,
+        ),
+        Transaction(
+            sender=sender,
+            to=bob,
+            value=value,
+            gas_limit=gas_limit,
+            gas_price=gas_price,
+            protected=False,
+            error=error,
+        ),
+        Transaction(sender=carol, to=bob, value=value, protected=False),
+    ]
+
+    if funding == "exact":
+        post = {
+            sender: Account(nonce=2, balance=0),
+            bob: Account(balance=bob_balance + 3 * value),
+        }
+    elif funding == "one_wei_short":
+        post = {
+            sender: Account(nonce=0, balance=sender_balance),
+            bob: Account(balance=bob_balance),
+        }
+    else:
+        raise ValueError(f"unknown funding: {funding}")
+
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=[Block(txs=txs, exception=error)],
     )
