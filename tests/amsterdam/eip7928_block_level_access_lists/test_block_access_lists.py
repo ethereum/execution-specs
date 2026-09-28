@@ -41,9 +41,11 @@ from execution_testing import (
     compute_create2_address,
     compute_create_address,
     create_op,
+    keccak256,
 )
 from execution_testing import Macros as Om
 
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_7928
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -3652,44 +3654,90 @@ def test_bal_cross_tx_funding_chain(
     )
 
 
+@pytest.mark.parametrize(
+    "last_write",
+    [
+        pytest.param("commits", id="last_write_commits"),
+        pytest.param("reverts", id="last_write_reverts"),
+    ],
+)
 def test_bal_cross_tx_read_before_later_write(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    last_write: str,
 ) -> None:
     """
-    A slot read by tx 1 is overwritten by tx 2 and read again by tx 3, with
-    both reads recorded in witness slots.
+    One slot is read, written, read, written again and read again by five
+    transactions from distinct senders, every read recorded in a witness.
 
-    Tx 1 writes nothing to the slot, and reads carry no index in the BAL,
-    so nothing in the list ties tx 1 to tx 2: a client that builds tx 1's
-    view from the block's final values, or runs tx 2 first against shared
-    state, records the later value.
+    A read carries no index in the BAL, so nothing in the list ties a
+    reader to the writer after it: a client that serves a read from the
+    block's final values, or from a later index than the reader's own,
+    records the wrong value. The `reverts` arm makes the last write roll
+    back, so a client that merges a transaction's writes before its
+    revert is applied leaks the value into the last read.
     """
     slot = 1
     pre_value = 0xAA
-    new_value = 0xBB
-    first_witness = 0x10
-    second_witness = 0x20
-    alice = pre.fund_eoa()
-    bob = pre.fund_eoa()
-    carol = pre.fund_eoa()
+    first_value = 0xBB
+    last_value = 0xCC
+    witness_slots = [0x10, 0x20, 0x30]
+    readers = [pre.fund_eoa() for _ in witness_slots]
+    first_writer = pre.fund_eoa()
+    last_writer = pre.fund_eoa()
 
-    # Empty calldata writes the slot; otherwise the calldata word names the
-    # witness slot that receives the value read.
+    # One calldata word names the witness slot that receives the value
+    # read; two words carry the value to write in the second word.
     contract = pre.deploy_contract(
         code=Conditional(
-            condition=Op.ISZERO(Op.CALLDATASIZE),
-            if_true=Op.SSTORE(slot, new_value),
-            if_false=Op.SSTORE(Op.CALLDATALOAD(0), Op.SLOAD(slot)),
+            condition=Op.EQ(Op.CALLDATASIZE, 32),
+            if_true=Op.SSTORE(Op.CALLDATALOAD(0), Op.SLOAD(slot)),
+            if_false=Op.SSTORE(slot, Op.CALLDATALOAD(32)),
         ),
         storage={slot: pre_value},
     )
+    # Forwards its calldata to the contract, then reverts the whole call.
+    reverter = pre.deploy_contract(
+        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.CALL(Op.GAS, contract, 0, 0, Op.CALLDATASIZE, 0, 0)
+        + Op.REVERT(0, 0),
+    )
+
+    def read_tx(sender: Address, witness_slot: int) -> Transaction:
+        return Transaction(sender=sender, to=contract, data=Hash(witness_slot))
+
+    def write_data(value: int) -> bytes:
+        return bytes(Hash(0)) + bytes(Hash(value))
+
+    if last_write == "commits":
+        last_write_tx = Transaction(
+            sender=last_writer, to=contract, data=write_data(last_value)
+        )
+        final_value = last_value
+        last_slot_changes = [
+            BalStorageChange(block_access_index=4, post_value=last_value),
+        ]
+    elif last_write == "reverts":
+        last_write_tx = Transaction(
+            sender=last_writer, to=reverter, data=write_data(last_value)
+        )
+        final_value = first_value
+        last_slot_changes = []
+    else:
+        raise ValueError(f"unknown last_write: {last_write}")
 
     txs = [
-        Transaction(sender=alice, to=contract, data=Hash(first_witness)),
-        Transaction(sender=bob, to=contract),
-        Transaction(sender=carol, to=contract, data=Hash(second_witness)),
+        read_tx(readers[0], witness_slots[0]),
+        Transaction(
+            sender=first_writer, to=contract, data=write_data(first_value)
+        ),
+        read_tx(readers[1], witness_slots[1]),
+        last_write_tx,
+        read_tx(readers[2], witness_slots[2]),
     ]
+    witnessed = dict(
+        zip(witness_slots, [pre_value, first_value, final_value], strict=True)
+    )
 
     blockchain_test(
         pre=pre,
@@ -3705,31 +3753,30 @@ def test_bal_cross_tx_read_before_later_write(
                                     slot_changes=[
                                         BalStorageChange(
                                             block_access_index=2,
-                                            post_value=new_value,
+                                            post_value=first_value,
                                         ),
+                                        *last_slot_changes,
                                     ],
                                 ),
-                                BalStorageSlot(
-                                    slot=first_witness,
-                                    slot_changes=[
-                                        BalStorageChange(
-                                            block_access_index=1,
-                                            post_value=pre_value,
-                                        ),
-                                    ],
-                                ),
-                                BalStorageSlot(
-                                    slot=second_witness,
-                                    slot_changes=[
-                                        BalStorageChange(
-                                            block_access_index=3,
-                                            post_value=new_value,
-                                        ),
-                                    ],
-                                ),
+                                *[
+                                    BalStorageSlot(
+                                        slot=witness_slot,
+                                        slot_changes=[
+                                            BalStorageChange(
+                                                block_access_index=index,
+                                                post_value=value,
+                                            ),
+                                        ],
+                                    )
+                                    for index, (witness_slot, value) in zip(
+                                        (1, 3, 5),
+                                        witnessed.items(),
+                                        strict=True,
+                                    )
+                                ],
                             ],
-                            # The slot's reads at indices 1 and 3 fold into
-                            # its `storage_changes` entry.
+                            # The slot's reads fold into its
+                            # `storage_changes` entry.
                             storage_reads=[],
                         ),
                     }
@@ -3737,14 +3784,189 @@ def test_bal_cross_tx_read_before_later_write(
             )
         ],
         post={
-            contract: Account(
-                storage={
-                    slot: new_value,
-                    first_witness: pre_value,
-                    second_witness: new_value,
-                }
-            ),
+            contract: Account(storage={slot: final_value, **witnessed}),
         },
+    )
+
+
+@pytest.mark.parametrize(
+    "later_credit",
+    [
+        pytest.param("transfer_tx", id="transfer_tx"),
+        pytest.param("withdrawal", id="withdrawal"),
+    ],
+)
+def test_bal_cross_tx_balance_read_before_later_credit(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    later_credit: str,
+) -> None:
+    """
+    An account's balance is read by a transaction before something later
+    in the block credits it, and read again afterwards where there is an
+    afterwards.
+
+    `balance_changes` carry post-values, the most tempting thing to
+    prefetch into a view; a client that serves a `BALANCE` from them
+    without honouring the index records the credited amount too early.
+    The `withdrawal` arm credits at the last index, after every
+    transaction, so both reads must see the starting balance.
+    """
+    bob_start = 1_000
+    credit = 5
+    witness_slots = [0x10, 0x20]
+    bob = pre.fund_eoa(amount=bob_start)
+    readers = [pre.fund_eoa() for _ in witness_slots]
+
+    reader = pre.deploy_contract(
+        code=Op.SSTORE(Op.CALLDATALOAD(0), Op.BALANCE(bob)),
+    )
+
+    def read_tx(sender: Address, witness_slot: int) -> Transaction:
+        return Transaction(sender=sender, to=reader, data=Hash(witness_slot))
+
+    if later_credit == "transfer_tx":
+        alice = pre.fund_eoa()
+        txs = [
+            read_tx(readers[0], witness_slots[0]),
+            Transaction(sender=alice, to=bob, value=credit),
+            read_tx(readers[1], witness_slots[1]),
+        ]
+        withdrawals = None
+        witnessed = {
+            witness_slots[0]: bob_start,
+            witness_slots[1]: bob_start + credit,
+        }
+        credit_index = 2
+    elif later_credit == "withdrawal":
+        txs = [
+            read_tx(readers[0], witness_slots[0]),
+            read_tx(readers[1], witness_slots[1]),
+        ]
+        withdrawals = [
+            Withdrawal(
+                index=0,
+                validator_index=0,
+                address=bob,
+                amount=credit,
+            )
+        ]
+        # Withdrawal amounts are in gwei.
+        credit *= 10**9
+        witnessed = {
+            witness_slots[0]: bob_start,
+            witness_slots[1]: bob_start,
+        }
+        credit_index = len(txs) + 1
+    else:
+        raise ValueError(f"unknown later_credit: {later_credit}")
+
+    reader_indices = (1, 3) if later_credit == "transfer_tx" else (1, 2)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                withdrawals=withdrawals,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        bob: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=credit_index,
+                                    post_balance=bob_start + credit,
+                                ),
+                            ],
+                        ),
+                        reader: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=witness_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=index,
+                                            post_value=value,
+                                        ),
+                                    ],
+                                )
+                                for index, (witness_slot, value) in zip(
+                                    reader_indices,
+                                    witnessed.items(),
+                                    strict=True,
+                                )
+                            ],
+                            storage_reads=[],
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={
+            bob: Account(balance=bob_start + credit),
+            reader: Account(storage=witnessed),
+        },
+    )
+
+
+def test_bal_cross_tx_access_stays_cold(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Two transactions touch the same slot and the same account, and each
+    pays the cold price.
+
+    Warmth is per transaction. A client that prefetches the block's access
+    list and marks it warm, or shares one access set between transactions
+    it executes together, charges the second transaction the warm price
+    and computes a different receipt.
+    """
+    slot = 1
+    probed = pre.fund_eoa()
+    senders = [pre.fund_eoa(), pre.fund_eoa()]
+
+    probe_code = Op.SLOAD(slot, key_warm=False) + Op.BALANCE(
+        probed, address_warm=False
+    )
+    probe = pre.deploy_contract(code=probe_code, storage={slot: 1})
+
+    # The same cold cost both times; a warm second transaction fails the
+    # receipt check.
+    gas_used = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + probe_code.gas_cost(fork)
+    )
+    txs = [
+        Transaction(
+            sender=sender,
+            to=probe,
+            gas_limit=gas_used + 10_000,
+            expected_receipt=TransactionReceipt(
+                cumulative_gas_used=gas_used * i
+            ),
+        )
+        for i, sender in enumerate(senders, start=1)
+    ]
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        probe: BalAccountExpectation(
+                            storage_reads=[slot],
+                            storage_changes=[],
+                        ),
+                        probed: BalAccountExpectation.empty(),
+                    }
+                ),
+            )
+        ],
+        post={probe: Account(storage={slot: 1})},
     )
 
 
@@ -3921,10 +4143,20 @@ def test_bal_cross_tx_coinbase_funds_sender(
     second_burn = tips - first_burn
     txs = [
         Transaction(
-            sender=alice, to=burner, gas_limit=first_burn, gas_price=gas_price
+            sender=alice,
+            to=burner,
+            gas_limit=first_burn,
+            gas_price=gas_price,
+            expected_receipt=TransactionReceipt(
+                cumulative_gas_used=first_burn
+            ),
         ),
         Transaction(
-            sender=alice, to=burner, gas_limit=second_burn, gas_price=gas_price
+            sender=alice,
+            to=burner,
+            gas_limit=second_burn,
+            gas_price=gas_price,
+            expected_receipt=TransactionReceipt(cumulative_gas_used=tips),
         ),
         Transaction(
             sender=coinbase,
@@ -3981,57 +4213,91 @@ def test_bal_cross_tx_coinbase_funds_sender(
     )
 
 
+@pytest.mark.parametrize(
+    "code_change",
+    [
+        pytest.param("create2_deploy", id="create2_deploy"),
+        pytest.param("set_code_delegation", id="set_code_delegation"),
+    ],
+)
 def test_bal_cross_tx_code_reads_across_deploy(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    code_change: str,
 ) -> None:
     """
     `EXTCODESIZE`, `EXTCODEHASH` and `EXTCODECOPY` of one address are
-    recorded before and after a transaction in the same block deploys code
-    there.
+    recorded before and after a transaction in the same block gives it
+    code, by `CREATE2` or by an EIP-7702 delegation.
 
     Code lookups go through a client's code cache, a different path from
-    the `CALL` the other cross-tx tests take.
+    the `CALL` the other cross-tx tests take, and a delegated EOA takes a
+    third path again.
     """
-    deployed_code = Op.SSTORE(0, 1)
-    initcode = Initcode(deploy_code=deployed_code)
-    salt = 1
     sentinel = 0xDEAD
     before_base = 0x10
     after_base = 0x20
     alice = pre.fund_eoa()
-    bob = pre.fund_eoa()
     carol = pre.fund_eoa()
 
-    factory = pre.deploy_contract(
-        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.CREATE2(0, 0, Op.CALLDATASIZE, salt)
-    )
-    target = compute_create2_address(factory, salt, initcode)
+    hash_before: int | Hash
+    if code_change == "create2_deploy":
+        deployed_code = Op.SSTORE(0, 1)
+        initcode = Initcode(deploy_code=deployed_code)
+        salt = 1
+        factory = pre.deploy_contract(
+            code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            + Op.CREATE2(0, 0, Op.CALLDATASIZE, salt)
+        )
+        target = compute_create2_address(factory, salt, initcode)
+        code_tx = Transaction(sender=pre.fund_eoa(), to=factory, data=initcode)
+        code_bytes = bytes(deployed_code)
+        # A nonexistent account hashes to zero.
+        hash_before = 0
+        target_post = Account(nonce=1, code=code_bytes)
+    elif code_change == "set_code_delegation":
+        oracle = pre.deploy_contract(code=Op.STOP)
+        target = pre.fund_eoa()
+        code_tx = Transaction(
+            sender=pre.fund_eoa(),
+            to=target,
+            authorization_list=[
+                AuthorizationTuple(address=oracle, nonce=0, signer=target)
+            ],
+        )
+        code_bytes = bytes(Spec7702.delegation_designation(oracle))
+        # An existing account with no code hashes the empty string.
+        hash_before = keccak256(b"")
+        target_post = Account(nonce=1, code=code_bytes)
+    else:
+        raise ValueError(f"unknown code_change: {code_change}")
 
     # The calldata word is the base of three witness slots: size, hash and
-    # the first code word. Before the deploy all three read as zero.
-    before_values = {before_base + i: 0 for i in range(3)}
+    # the first code word.
+    before_values = {
+        before_base: 0,
+        before_base + 1: hash_before,
+        before_base + 2: 0,
+    }
     reader = pre.deploy_contract(
         code=Op.SSTORE(Op.CALLDATALOAD(0), Op.EXTCODESIZE(target))
         + Op.SSTORE(Op.ADD(Op.CALLDATALOAD(0), 1), Op.EXTCODEHASH(target))
         + Op.EXTCODECOPY(target, 0, 0, 32)
         + Op.SSTORE(Op.ADD(Op.CALLDATALOAD(0), 2), Op.MLOAD(0)),
-        # Sentinels make the pre-deploy zeros real writes.
+        # Sentinels make the pre-change zeros real writes.
         storage=dict.fromkeys(before_values, sentinel),
     )
 
     txs = [
         Transaction(sender=alice, to=reader, data=Hash(before_base)),
-        Transaction(sender=bob, to=factory, data=initcode),
+        code_tx,
         Transaction(sender=carol, to=reader, data=Hash(after_base)),
     ]
 
-    deployed_bytes = bytes(deployed_code)
     after_values = {
-        after_base: len(deployed_bytes),
-        after_base + 1: deployed_code.keccak256(),
-        after_base + 2: Hash(deployed_bytes.ljust(32, b"\x00")),
+        after_base: len(code_bytes),
+        after_base + 1: keccak256(code_bytes),
+        after_base + 2: Hash(code_bytes.ljust(32, b"\x00")),
     }
 
     blockchain_test(
@@ -4050,7 +4316,7 @@ def test_bal_cross_tx_code_reads_across_deploy(
                             code_changes=[
                                 BalCodeChange(
                                     block_access_index=2,
-                                    new_code=deployed_bytes,
+                                    new_code=code_bytes,
                                 ),
                             ],
                         ),
@@ -4078,7 +4344,7 @@ def test_bal_cross_tx_code_reads_across_deploy(
             )
         ],
         post={
-            target: Account(nonce=1, code=deployed_bytes),
+            target: target_post,
             reader: Account(storage={**before_values, **after_values}),
         },
     )
