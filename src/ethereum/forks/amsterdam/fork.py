@@ -81,7 +81,6 @@ from .state_tracker import (
     set_account_balance,
 )
 from .transactions import (
-    TX_MAX_GAS_LIMIT,
     BlobTransaction,
     LegacyTransaction,
     SetCodeTransaction,
@@ -583,7 +582,7 @@ def check_transaction(
     check_block_gas_capacity(
         block_env,
         block_output,
-        min(TX_MAX_GAS_LIMIT, tx.gas),
+        min(GasCosts.TX_MAX_GAS_LIMIT, tx.gas),
         tx.gas,
         calculate_total_blob_gas(tx),
     )
