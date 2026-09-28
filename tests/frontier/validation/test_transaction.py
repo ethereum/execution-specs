@@ -455,8 +455,14 @@ def test_tx_invalid_first_in_block(
     pre: Alloc,
 ) -> None:
     """
-    The first transaction of a block is invalid on its own and the ones
-    after it are valid and independent of it; the block is rejected.
+    The first transaction of a block has an unfunded sender and the one
+    after it, valid on its own, would have funded that sender; the block
+    is rejected at the first transaction.
+
+    A client that applies the later credit before checking the first
+    transaction accepts the block. The later transaction also puts the
+    sender in the block access list, which a client reading state through
+    the list needs before it can reach the funds check at all.
     """
     unfunded = pre.fund_eoa(amount=0)
     carol = pre.fund_eoa()
@@ -471,12 +477,15 @@ def test_tx_invalid_first_in_block(
             protected=False,
             error=TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
         ),
-        Transaction(sender=carol, to=bob, value=1, protected=False),
+        Transaction(sender=carol, to=unfunded, value=10**18, protected=False),
     ]
 
     blockchain_test(
         pre=pre,
-        post={bob: Account(balance=bob_balance)},
+        post={
+            unfunded: Account.NONEXISTENT,
+            bob: Account(balance=bob_balance),
+        },
         blocks=[
             Block(
                 txs=txs,
