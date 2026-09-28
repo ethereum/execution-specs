@@ -2,6 +2,7 @@
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Alloc,
     Op,
@@ -583,4 +584,90 @@ def test_tx_sender_funds_spent_by_earlier_tx(
         pre=pre,
         post=post,
         blocks=[Block(txs=txs, exception=error)],
+    )
+
+
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "rejected_block",
+    [
+        pytest.param("invalid_tx_alone", id="invalid_tx_alone"),
+        pytest.param(
+            "invalid_tx_then_valid",
+            id="invalid_tx_then_valid",
+            marks=pytest.mark.invalid_tx_not_last,
+        ),
+    ],
+)
+def test_rejected_block_leaves_no_trace(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: BaseFork,
+    rejected_block: str,
+) -> None:
+    """
+    A block rejected for an unaffordable transaction leaves the sender's
+    nonce and balance untouched, so the next block spends the same nonce
+    and the exact balance the rejected transaction claimed to need.
+
+    In the `invalid_tx_then_valid` arm a valid transaction from a second
+    sender follows the rejected one and is replayed at the same nonce in
+    the next block, so the trailing transaction leaves no trace either.
+    """
+    gas_limit = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True, recipient_type=RecipientType.EOA
+    )
+    gas_price = TransactionDefaults.gas_price
+    value = 1
+    sender = pre.fund_eoa(amount=gas_limit * gas_price + value)
+    carol = pre.fund_eoa()
+    bob_balance = 10**18
+    bob = pre.fund_eoa(amount=bob_balance)
+
+    def transfer(
+        origin: EOA, amount: int, error: TransactionException | None = None
+    ) -> Transaction:
+        return Transaction(
+            sender=origin,
+            nonce=0,
+            to=bob,
+            value=amount,
+            gas_limit=gas_limit,
+            gas_price=gas_price,
+            protected=False,
+            error=error,
+        )
+
+    # One wei more than the sender holds after gas.
+    unaffordable = transfer(
+        sender, value + 1, TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
+    )
+    if rejected_block == "invalid_tx_alone":
+        rejected_txs = [unaffordable]
+        valid_txs = [transfer(sender, value)]
+        carol_post = Account(nonce=0)
+        bob_post = Account(balance=bob_balance + value)
+    elif rejected_block == "invalid_tx_then_valid":
+        rejected_txs = [unaffordable, transfer(carol, value)]
+        valid_txs = [transfer(sender, value), transfer(carol, value)]
+        carol_post = Account(nonce=1)
+        bob_post = Account(balance=bob_balance + 2 * value)
+    else:
+        raise ValueError(f"unknown rejected_block: {rejected_block}")
+
+    blockchain_test(
+        pre=pre,
+        post={
+            sender: Account(nonce=1, balance=0),
+            carol: carol_post,
+            bob: bob_post,
+        },
+        blocks=[
+            Block(
+                txs=rejected_txs,
+                exception=TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+            ),
+            Block(txs=valid_txs),
+        ],
     )
