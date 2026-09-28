@@ -672,6 +672,8 @@ class BuiltBlock(CamelModel):
             else None,
             execution_witness=self.execution_witness,
             execution_witness_mutated=self.execution_witness_mutated or None,
+            stateless_input_bytes=self.stateless_input_bytes,
+            stateless_output_bytes=self.stateless_output_bytes,
             execution_payload_modifier=self.engine_payload_modifier(),
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
@@ -1334,12 +1336,9 @@ class BlockchainTest(BaseTest):
                 block_rlp=built_block.get_block_rlp(),
                 block_access_list=bal,
                 requests_list=requests_list,
+                engine_payload_modifier=built_block.engine_payload_modifier(),
                 chain_id=self.chain_id,
-                # Engine payload overrides leave the RLP block valid.
-                block_valid=(
-                    block.exception is None
-                    or bool(block.engine_payload_only_overrides())
-                ),
+                block_valid=block.exception is None,
                 run_guest=(
                     isinstance(t8n, ExecutionSpecsTransitionTool)
                     or self.operation_mode != OpMode.BENCHMARKING

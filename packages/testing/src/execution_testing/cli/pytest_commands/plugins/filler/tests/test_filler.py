@@ -1150,6 +1150,48 @@ test_module_execution_witness_rlp_modifier_stateless_intent = textwrap.dedent(
 )
 
 
+test_module_execution_witness_engine_only = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import (
+        Account,
+        Alloc,
+        Block,
+        BlockchainTestFiller,
+        BlockException,
+        Bytes,
+        Transaction,
+    )
+
+    @pytest.mark.valid_at("Amsterdam")
+    @pytest.mark.blockchain_test_engine_only
+    @pytest.mark.exception_test
+    def test_execution_witness_engine_only(
+        pre: Alloc,
+        blockchain_test: BlockchainTestFiller,
+    ) -> None:
+        sender = pre.fund_eoa()
+        tx = Transaction(sender=sender, to=pre.fund_eoa(amount=0), value=1)
+
+        blockchain_test(
+            pre=pre,
+            post={sender: Account(nonce=0)},
+            blocks=[
+                Block(
+                    txs=[tx],
+                    engine_new_payload_block_access_list=Bytes(b"\\xc0"),
+                    exception=[
+                        BlockException.INVALID_BLOCK_ACCESS_LIST,
+                        BlockException.INVALID_BLOCK_HASH,
+                    ],
+                )
+            ],
+        )
+    """
+)
+
+
 def test_execution_witness_in_blockchain_fixture(
     testdir: pytest.Testdir,
 ) -> None:
@@ -1251,6 +1293,8 @@ def test_execution_witness_in_blockchain_fixture(
         "engine executionWitness.headers is empty"
     )
     assert engine_witness == witness
+    assert engine_payload.stateless_input_bytes == sib
+    assert engine_payload.stateless_output_bytes == sob
 
 
 def test_execution_witness_skip_stateless_validation(
@@ -1377,6 +1421,78 @@ def test_execution_witness_rlp_modifier_rejects_stateless_intent(
             "they are generated before the RLP mutation*"
         ]
     )
+
+
+def test_execution_witness_engine_only_block_carries_stateless_artifacts(
+    testdir: pytest.Testdir,
+) -> None:
+    """
+    A block whose override only reaches the engine payload carries its
+    witness and stateless bytes in that payload. The input describes the
+    overridden payload, so the guest rejects the block.
+    """
+    tests_dir = testdir.mkdir("tests")
+    amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
+    test_module = amsterdam_tests_dir.join(
+        "test_module_execution_witness_engine_only.py"
+    )
+    test_module.write(test_module_execution_witness_engine_only)
+
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    args = [
+        "-c",
+        "pytest-fill.ini",
+        "-v",
+        "--until=Amsterdam",
+        "-m",
+        "blockchain_test_engine",
+        "--no-html",
+    ]
+    result = testdir.runpytest(*args)
+    result.assert_outcomes(
+        passed=1,
+        failed=0,
+        skipped=0,
+        errors=0,
+    )
+
+    fixture_path = Path(
+        "fixtures/blockchain_tests_engine/for_amsterdam/amsterdam/"
+        "module_execution_witness_engine_only/"
+        "execution_witness_engine_only.json"
+    )
+    assert fixture_path.exists(), f"{fixture_path} does not exist"
+
+    with open(fixture_path, "r") as f:
+        fixture_data = json.load(f)
+
+    assert len(fixture_data) == 1, "Expected exactly one fixture"
+    fixture = next(iter(fixture_data.values()))
+    engine_payload = fixture["engineNewPayloads"][0]
+
+    assert len(engine_payload["executionWitness"]["headers"]) > 0
+    assert "executionWitnessMutated" not in engine_payload
+
+    from ethereum.forks.amsterdam.stateless_guest import (
+        deserialize_stateless_input,
+    )
+    from ethereum.forks.amsterdam.stateless_host import (
+        deserialize_stateless_output,
+    )
+
+    stateless_input = deserialize_stateless_input(
+        bytes.fromhex(engine_payload["statelessInputBytes"][2:])
+    )
+    stateless_output = deserialize_stateless_output(
+        bytes.fromhex(engine_payload["statelessOutputBytes"][2:])
+    )
+
+    assert stateless_output.successful_validation is False
+    payload = stateless_input.new_payload_request.execution_payload
+    assert engine_payload["params"][0]["blockAccessList"] == "0xc0"
+    assert payload.block_access_list == b"\xc0"
 
 
 def test_execution_witness_expected_true_reuses_canonical_stateless_result(

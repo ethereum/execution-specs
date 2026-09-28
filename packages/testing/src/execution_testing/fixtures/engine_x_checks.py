@@ -201,13 +201,17 @@ def _comparable_payload(payload: FixtureEngineNewPayload) -> Dict[str, Any]:
 
     The block access list is replaced by its decoded, parent-hash-masked
     form, see `_comparable_bal`. Exclude the execution witness because its
-    trie nodes and ancestor headers depend on the genesis state.
+    trie nodes and ancestor headers depend on the genesis state, and the
+    stateless input and output bytes because they embed the witness and
+    state-root-derived values.
     """
     entry = payload.model_dump(
         mode="json",
         by_alias=True,
         exclude={
             "execution_witness": True,
+            "stateless_input_bytes": True,
+            "stateless_output_bytes": True,
             "params": {
                 0: set(STATE_ROOT_DERIVED_FIELDS) | {"block_access_list"}
             },
