@@ -612,7 +612,7 @@ def test_bal_invalid_missing_account(
     source behind a delegated EOA, the authority of a failed
     authorization, and a read inside a frame that reverts. The presences
     themselves are pinned by the positive tests (for the authority,
-    `test_bal_7702_invalid_nonce_authorization`); this test is the
+    `test_bal_7702_nonce_authorization`); this test is the
     rejection when one is left out.
     """
     sender = pre.fund_eoa(amount=10**18)

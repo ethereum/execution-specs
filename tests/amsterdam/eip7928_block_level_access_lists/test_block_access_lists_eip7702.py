@@ -639,38 +639,41 @@ def test_bal_7702_recipient_excluded_on_authorization_oog(
 
 
 @pytest.mark.parametrize(
-    "cause",
+    "nonce",
     [
         "wrong_in_pre_state",
-        "bumped_by_prior_tx",
+        "stale_after_prior_tx",
+        "current_after_prior_tx",
     ],
 )
-def test_bal_7702_invalid_nonce_authorization(
+def test_bal_7702_nonce_authorization(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    cause: str,
+    nonce: str,
 ) -> None:
     """
-    Ensure BAL handles a failed authorization whose nonce is wrong, either
-    against the pre-state or because an earlier transaction in the block
-    bumped the authority's nonce.
+    Ensure an authorization applies only if signed for the authority's
+    nonce when it is checked, counting the authority's own earlier
+    transactions in the block.
 
-    In the second case a client that validates authorizations against the
-    pre-block nonce applies the delegation the sequential rules skip.
+    A client that checks it against the pre-block nonce gets both
+    `after_prior_tx` cases backwards.
     """
     alice = pre.fund_eoa()
     bob = pre.fund_eoa(amount=0)
     relayer = pre.fund_eoa()
     oracle = pre.deploy_contract(code=Op.STOP)
+    delegation = Spec7702.delegation_designation(oracle)
 
-    if cause == "wrong_in_pre_state":
+    if nonce == "wrong_in_pre_state":
         auth_nonce = 5  # Alice's nonce is 0.
         prior_txs: list[Transaction] = []
+        # Read to reject the authorization, changed nothing.
         alice_expectation = BalAccountExpectation.empty()
         alice_post = Account(nonce=0, code=b"")
         # The failed authorization never loads the oracle.
         oracle_expectation = None
-    elif cause == "bumped_by_prior_tx":
+    elif nonce == "stale_after_prior_tx":
         auth_nonce = 0  # Right in the pre-state, stale after the bump.
         prior_txs = [Transaction(sender=alice, to=oracle)]
         alice_expectation = BalAccountExpectation(
@@ -679,8 +682,22 @@ def test_bal_7702_invalid_nonce_authorization(
         alice_post = Account(nonce=1, code=b"")
         # Present only because the prior tx called it.
         oracle_expectation = BalAccountExpectation.empty()
+    elif nonce == "current_after_prior_tx":
+        auth_nonce = 1  # Alice's nonce after the bump.
+        prior_txs = [Transaction(sender=alice, to=oracle)]
+        alice_expectation = BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(block_access_index=1, post_nonce=1),
+                BalNonceChange(block_access_index=2, post_nonce=2),
+            ],
+            code_changes=[
+                BalCodeChange(block_access_index=2, new_code=delegation),
+            ],
+        )
+        alice_post = Account(nonce=2, code=delegation)
+        oracle_expectation = BalAccountExpectation.empty()
     else:
-        raise ValueError(f"unknown cause: {cause}")
+        raise ValueError(f"unknown nonce: {nonce}")
     auth_index = len(prior_txs) + 1
 
     tx = Transaction(
@@ -700,7 +717,6 @@ def test_bal_7702_invalid_nonce_authorization(
         txs=[*prior_txs, tx],
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
-                # Ensuring silent fail
                 bob: BalAccountExpectation(
                     balance_changes=[
                         BalBalanceChange(
@@ -715,8 +731,6 @@ def test_bal_7702_invalid_nonce_authorization(
                         )
                     ],
                 ),
-                # The failed authorization reads Alice's nonce and changes
-                # nothing at its own index.
                 alice: alice_expectation,
                 oracle: oracle_expectation,
             }
@@ -1124,76 +1138,6 @@ def test_bal_7702_cross_tx_delegation_then_call(
                 code=Spec7702.delegation_designation(counter),
                 storage={0: 2},
             ),
-        },
-    )
-
-
-def test_bal_7702_authorization_nonce_from_prior_tx(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """
-    An authorization is valid only because a plain transaction from the
-    authority earlier in the block bumped its nonce to the one signed.
-
-    A client that validates authorizations against the pre-block nonce
-    skips a delegation the sequential rules apply.
-    """
-    alice = pre.fund_eoa()
-    bob = pre.fund_eoa(amount=0)
-    relayer = pre.fund_eoa()
-    oracle = pre.deploy_contract(code=Op.STOP)
-
-    bump_tx = Transaction(sender=alice, to=oracle)
-    auth_tx = Transaction(
-        sender=relayer,
-        to=bob,
-        value=10,
-        authorization_list=[
-            # Alice's nonce is 0 in the pre-state and 1 after `bump_tx`.
-            AuthorizationTuple(address=oracle, nonce=1, signer=alice)
-        ],
-    )
-
-    block = Block(
-        txs=[bump_tx, auth_tx],
-        expected_block_access_list=BlockAccessListExpectation(
-            account_expectations={
-                alice: BalAccountExpectation(
-                    nonce_changes=[
-                        BalNonceChange(block_access_index=1, post_nonce=1),
-                        BalNonceChange(block_access_index=2, post_nonce=2),
-                    ],
-                    code_changes=[
-                        BalCodeChange(
-                            block_access_index=2,
-                            new_code=Spec7702.delegation_designation(oracle),
-                        ),
-                    ],
-                ),
-                bob: BalAccountExpectation(
-                    balance_changes=[
-                        BalBalanceChange(block_access_index=2, post_balance=10)
-                    ]
-                ),
-                relayer: BalAccountExpectation(
-                    nonce_changes=[
-                        BalNonceChange(block_access_index=2, post_nonce=1)
-                    ],
-                ),
-            }
-        ),
-    )
-
-    blockchain_test(
-        pre=pre,
-        blocks=[block],
-        post={
-            alice: Account(
-                nonce=2, code=Spec7702.delegation_designation(oracle)
-            ),
-            relayer: Account(nonce=1),
-            bob: Account(balance=10),
         },
     )
 
