@@ -93,16 +93,18 @@ def create2_preimage(salt: int) -> bytes:
     )
 
 
-def _ensure_factory(pre: Alloc) -> None:
+def _ensure_factory(pre: Alloc, fork: Fork) -> None:
     """
-    Bring the deterministic factory into the pre-alloc.
+    Bring the deterministic factory into the genesis state.
 
-    The filler only injects it on first use of
+    From EIP-7997 the fork allocates it in genesis at the same address.
+    Before that the filler only injects it on first use of
     `deterministic_deploy_contract`, so deploy a trivial contract through
     it.
     """
-    pre.deterministic_deploy_contract(deploy_code=Op.STOP)
-    assert DETERMINISTIC_FACTORY_ADDRESS in pre
+    if fork.deterministic_factory_contract_address() is None:
+        pre.deterministic_deploy_contract(deploy_code=Op.STOP)
+    assert DETERMINISTIC_FACTORY_ADDRESS in _genesis(pre, fork)
 
 
 def _delete_tx(sender: EOA, salt: int) -> Transaction:
@@ -256,7 +258,7 @@ def test_delete_collapses_branch_into_leaf(
     doomed = Address(create2_preimage(COLLAPSE_SALT))
     pre.fund_address(survivor, amount=1)
     pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre)
+    _ensure_factory(pre, fork)
     sender = pre.fund_eoa()
     genesis = _genesis(pre, fork)
     before = _shape(genesis, survivor)
@@ -290,7 +292,7 @@ def test_delete_merges_adjacent_extensions(
     pre.fund_address(l1, amount=1)
     pre.fund_address(l2, amount=2)
     pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre)
+    _ensure_factory(pre, fork)
     sender = pre.fund_eoa()
     genesis = _genesis(pre, fork)
     before = _shape(genesis, l1)
@@ -331,7 +333,7 @@ def test_account_deleted_and_recreated_same_block(
     doomed = Address(create2_preimage(COLLAPSE_SALT))
     pre.fund_address(survivor, amount=1)
     pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre)
+    _ensure_factory(pre, fork)
     sender = pre.fund_eoa()
     genesis = _genesis(pre, fork)
     assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
@@ -428,7 +430,7 @@ def test_delete_and_update_survivor_same_block(
     doomed = Address(create2_preimage(COLLAPSE_SALT))
     pre.fund_address(survivor, amount=1)
     pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre)
+    _ensure_factory(pre, fork)
     sender = pre.fund_eoa()
     genesis = _genesis(pre, fork)
     assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
@@ -465,7 +467,7 @@ def test_delete_resurrect_delete_across_blocks(
     doomed = Address(create2_preimage(COLLAPSE_SALT))
     pre.fund_address(survivor, amount=1)
     pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre)
+    _ensure_factory(pre, fork)
     sender = pre.fund_eoa()
     genesis = _genesis(pre, fork)
     assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
@@ -507,7 +509,7 @@ def test_resurrection_via_withdrawal(
     doomed = Address(create2_preimage(COLLAPSE_SALT))
     pre.fund_address(survivor, amount=1)
     pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre)
+    _ensure_factory(pre, fork)
     sender = pre.fund_eoa()
     genesis = _genesis(pre, fork)
     assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
@@ -558,7 +560,7 @@ def _cell(
     for address in funded:
         pre.fund_address(address, amount=1)
     pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre)
+    _ensure_factory(pre, fork)
     genesis = _genesis(pre, fork)
     before = _shape(genesis, target)
     assert node_at(before, depth) == ("branch", 2)
@@ -667,7 +669,7 @@ def test_delete_from_three_child_branch(
     pre.fund_address(p, amount=1)
     pre.fund_address(q, amount=2)
     pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre)
+    _ensure_factory(pre, fork)
     genesis = _genesis(pre, fork)
     assert node_at(_shape(genesis, p), 4) == ("branch", 3)
     assert node_at(_shape(_after_block(genesis, doomed), p), 4) == (
@@ -702,7 +704,7 @@ def test_mass_delete_sixteen_to_one(
     pre.fund_address(survivor, amount=1)
     for address in doomed:
         pre.fund_address(address, amount=FUNDING)
-    _ensure_factory(pre)
+    _ensure_factory(pre, fork)
     sender = pre.fund_eoa()
     genesis = _genesis(pre, fork)
     before = _shape(genesis, survivor)
