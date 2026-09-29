@@ -6,10 +6,12 @@ Cross testing for withdrawal and deposit request for
 """
 
 from itertools import permutations
+from pathlib import Path
 from typing import Callable, Dict, Generator, List, Tuple
 
 import pytest
 from execution_testing import (
+    Account,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -23,12 +25,14 @@ from execution_testing import (
     Environment,
     FeeSystemContractRequest,
     Fork,
+    Header,
     ParameterSet,
     Requests,
     SystemContractInteractionContract,
     SystemContractInteractionTransaction,
     SystemContractRequest,
     TestAddress,
+    Transaction,
     WithdrawalRequest,
 )
 
@@ -38,6 +42,23 @@ REFERENCE_SPEC_GIT_PATH: str = ref_spec_7685.git_path
 REFERENCE_SPEC_VERSION: str = ref_spec_7685.version
 
 pytestmark: pytest.MarkDecorator = pytest.mark.valid_from("Prague")
+
+SAME_BLOCK_DEPLOYMENT_CASES = [
+    pytest.param(
+        WithdrawalRequest,
+        Path(__file__).parents[1]
+        / "eip7002_el_triggerable_withdrawals"
+        / "contract_deploy_tx.json",
+        id="withdrawal",
+    ),
+    pytest.param(
+        ConsolidationRequest,
+        Path(__file__).parents[1]
+        / "eip7251_consolidations"
+        / "contract_deploy_tx.json",
+        id="consolidation",
+    ),
+]
 
 
 # All request types under test, in ascending request-type order. Adding a new
@@ -428,4 +449,93 @@ def test_invalid_multi_type_requests_engine(
         pre=pre,
         post={},
         blocks=override_blocks,
+    )
+
+
+@pytest.mark.parametrize(
+    "request_type,deployment_path", SAME_BLOCK_DEPLOYMENT_CASES
+)
+@pytest.mark.pre_alloc_mutable
+# The pre-signed deployment transactions carry a fixed gas limit that no
+# longer covers contract creation under Amsterdam's state gas pricing.
+@pytest.mark.valid_until("Osaka")
+def test_system_contract_deployed_and_called_in_same_block(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    request_type: type[FeeSystemContractRequest],
+    deployment_path: Path,
+) -> None:
+    """
+    Deploy a request system contract and call it in the same block.
+
+    The post-execution system call must run against the block's accumulated
+    state: it finds the code deployed earlier in the block (empty code would
+    invalidate the block) and clears the inhibitor the deployment stores, so
+    a request sent in the deployment block is rejected and one sent in the
+    next block is accepted.
+    """
+    deployment_tx = Transaction.model_validate_json(
+        deployment_path.read_text()
+    ).with_signature_and_sender()
+    deployer = deployment_tx.sender
+    assert deployer is not None
+    gas_price = deployment_tx.gas_price
+    assert gas_price is not None
+    pre.fund_address(deployer, deployment_tx.gas_limit * gas_price)
+
+    # Drop the pre-allocated contract so the deployment transaction creates
+    # it.
+    pre[request_type.system_contract_address] = Account(
+        balance=0,
+        code=b"",
+        nonce=0,
+        storage={},
+    )
+
+    request_sender = pre.fund_eoa()
+    # The fee once the inhibitor is cleared; the same-block request pays it
+    # too, so only the inhibitor rejects it.
+    fee = request_type.get_fee(0)
+    rejected_request = request_type.from_index(0).copy(fee=fee)
+    accepted_request = (
+        request_type.from_index(1)
+        .copy(fee=fee)
+        .with_source_address(request_sender)
+    )
+
+    def request_tx(request: FeeSystemContractRequest) -> Transaction:
+        return Transaction(
+            to=request_type.system_contract_address,
+            data=request.calldata,
+            value=request.value,
+            sender=request_sender,
+        )
+
+    expected_code = fork.pre_allocation_blockchain()[
+        int.from_bytes(request_type.system_contract_address, "big")
+    ]["code"]
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[deployment_tx, request_tx(rejected_request)],
+                header_verify=Header(requests_hash=Requests()),
+            ),
+            Block(
+                txs=[request_tx(accepted_request)],
+                header_verify=Header(requests_hash=Requests(accepted_request)),
+            ),
+        ],
+        post={
+            request_type.system_contract_address: Account(
+                code=expected_code,
+                nonce=1,
+                # The rejected request's fee was refunded.
+                balance=fee,
+            ),
+            deployer: Account(nonce=1),
+            request_sender: Account(nonce=2),
+        },
     )

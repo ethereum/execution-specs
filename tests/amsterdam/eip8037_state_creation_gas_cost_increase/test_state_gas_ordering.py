@@ -22,6 +22,7 @@ from execution_testing import (
     Header,
     Op,
     Transaction,
+    create_op,
 )
 
 from .spec import ref_spec_8037
@@ -57,23 +58,14 @@ def test_create_oog_full_burn_no_state_credit(
     else:
         initcode_size = WORD_SIZE
 
-    if create_opcode == Op.CREATE:
-        create_op = create_opcode(
-            value=0, offset=0, size=initcode_size, init_code_size=initcode_size
-        )
-    else:
-        create_op = create_opcode(
-            value=0,
-            offset=0,
-            size=initcode_size,
-            salt=0,
-            init_code_size=initcode_size,
-        )
+    create_call = create_op(
+        create_opcode, size=initcode_size, init_code_size=initcode_size
+    )
 
     if oog_step == "create_base":
-        factory_code = create_op
+        factory_code = create_call
     else:
-        factory_code = Op.MSTORE(0, 0, new_memory_size=WORD_SIZE) + create_op
+        factory_code = Op.MSTORE(0, 0, new_memory_size=WORD_SIZE) + create_call
     factory = pre.deploy_contract(factory_code)
 
     # One gas short of the CREATE's full cost (execution plus the NEW_ACCOUNT

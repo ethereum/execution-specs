@@ -6,15 +6,20 @@ from pathlib import Path
 import pytest
 
 from ..base import BaseFixture
-from ..collector import FixtureCollector, TestInfo, merge_partial_fixture_files
+from ..collector import (
+    COPY_CHUNK_SIZE,
+    FixtureCollector,
+    TestInfo,
+    merge_partial_fixture_files,
+)
 from ..file import Fixtures
 from ..transaction import FixtureResult, TransactionFixture
 
 
-def _make_fixture(nonce: int = 0) -> TransactionFixture:
-    """Create a minimal TransactionFixture for testing."""
+def _make_fixture(nonce: int = 0, size: int = 1) -> TransactionFixture:
+    """Create a minimal fixture whose data repeats the nonce `size` times."""
     fixture = TransactionFixture(
-        transaction=f"0x{nonce:04x}",
+        transaction="0x" + f"{nonce:04x}" * size,
         result={"Paris": FixtureResult(intrinsic_gas=nonce)},
     )
     fixture.fill_info(
@@ -253,6 +258,81 @@ class TestPartialFixtureFiles:
         # Verify partial file is deleted after merge
         partial_files = list(output_dir.rglob("*.partial.*.jsonl"))
         assert len(partial_files) == 0
+        assert not list(output_dir.rglob("*.part"))
+
+    def test_merge_does_not_hold_fixture_in_memory(
+        self, output_dir: Path, filler_path: Path, module_path: Path
+    ) -> None:
+        """Merging must allocate far less than the fixture being merged."""
+        tracemalloc = pytest.importorskip("tracemalloc")  # CPython only
+        collector = FixtureCollector(
+            output_dir=output_dir,
+            single_fixture_per_file=False,
+            filler_path=filler_path,
+            generate_index=False,
+        )
+        fixture = _make_fixture(0, size=32 * COPY_CHUNK_SIZE)
+        collector.add_fixture(_make_info("big", module_path), fixture)
+        collector.close_streaming_files()
+        document_size = sum(
+            p.stat().st_size for p in output_dir.rglob("*.part")
+        )
+        assert document_size > 64 * COPY_CHUNK_SIZE
+
+        tracemalloc.start()
+        tracemalloc.reset_peak()
+        baseline, _ = tracemalloc.get_traced_memory()
+        merge_partial_fixture_files(output_dir)
+        _, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+
+        assert peak - baseline < document_size // 2
+
+    def test_large_fixture_matches_json_dumps(
+        self, output_dir: Path, filler_path: Path, module_path: Path
+    ) -> None:
+        """A fixture larger than one copy chunk round-trips byte for byte."""
+        collector = FixtureCollector(
+            output_dir=output_dir,
+            single_fixture_per_file=False,
+            filler_path=filler_path,
+            generate_index=False,
+        )
+        fixture = _make_fixture(1, size=4 * COPY_CHUNK_SIZE)
+        info = _make_info("big", module_path)
+        collector.add_fixture(info, fixture)
+        collector.close_streaming_files()
+        merge_partial_fixture_files(output_dir)
+
+        json_files = list(output_dir.rglob("*.json"))
+        assert len(json_files) == 1
+        expected = json.dumps(
+            {info.get_id(): fixture.json_dict_with_info()}, indent=4
+        )
+        assert json_files[0].read_text() == expected
+
+    def test_interrupted_merge_is_redone(
+        self, output_dir: Path, filler_path: Path, module_path: Path
+    ) -> None:
+        """A target truncated by an interrupted merge is written again."""
+        collector = FixtureCollector(
+            output_dir=output_dir,
+            single_fixture_per_file=False,
+            filler_path=filler_path,
+            generate_index=False,
+        )
+        fixture = _make_fixture(1)
+        info = _make_info("tx_test", module_path)
+        target = collector.add_fixture(info, fixture)
+        collector.close_streaming_files()
+        target.write_text('{\n    "half": ')
+
+        merge_partial_fixture_files(output_dir)
+
+        expected = json.dumps(
+            {info.get_id(): fixture.json_dict_with_info()}, indent=4
+        )
+        assert target.read_text() == expected
 
 
 class TestLegacyCompatibility:

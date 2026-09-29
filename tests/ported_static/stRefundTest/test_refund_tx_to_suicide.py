@@ -1,18 +1,21 @@
 """
-Test_refund_tx_to_suicide.
+Verify a transaction into a self-destructing contract: the balance
+(including the transaction value) moves to the beneficiary and the
+self-destruct refund the fork grants (none from EIP-3529 on) is applied.
 
 Ported from:
 state_tests/stRefundTest/refund_TxToSuicideFiller.json
+
+@manually-enhanced: Do not overwrite. Beneficiary and budget are derived
+(nonexistent account, `code.gas_cost` composite) and the post branches on
+EIP-6780 (pre-Cancun the contract is deleted, after it persists).
 """
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -21,59 +24,66 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+CONTRACT_BALANCE = 0xDE0B6B3A7640000
+INITIAL_BALANCE = 10**18
+GAS_PRICE = 10
+TX_VALUE = 10
+
 
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refund_TxToSuicideFiller.json"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Berlin")
 def test_refund_tx_to_suicide(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Test_refund_tx_to_suicide."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = EOA(
-        key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
+    """Self-destruct moves the balance and refunds what the fork says."""
+    beneficiary = pre.nonexistent_account()
+    # From EIP-6780 on, a pre-existing contract only moves its balance.
+    code = Op.SELFDESTRUCT(
+        address=beneficiary,
+        address_warm=False,
+        account_new=True,
+        self_destructed_account=not fork.is_eip_enabled(6780),
     )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
-
-    pre[coinbase] = Account(balance=0, nonce=1)
-    pre[sender] = Account(balance=0x5F5E100)
-    # Source: lll
-    # { (SELFDESTRUCT 0x095e7baea6a6c7c4c2dfeb977efac326af552d87) }
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(address=0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-        + Op.STOP,
+    target = pre.deploy_contract(
+        code=code,
         storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x2BC33A472F0FBA1E30BF2317D07910367908C7F6),  # noqa: E501
+        balance=CONTRACT_BALANCE,
     )
 
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(sends_value=True)
+    executed = intrinsic + code.gas_cost(fork)
+    gas_limit = executed + 5_000
+
+    sender = pre.fund_eoa(amount=INITIAL_BALANCE)
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
-        gas_limit=61003,
-        value=10,
+        gas_limit=gas_limit,
+        gas_price=GAS_PRICE,
+        value=TX_VALUE,
     )
 
+    # The self-destruct refund (zero from EIP-3529 on) and the cap both
+    # come from the fork.
+    refund = min(code.refund(fork), executed // fork.max_refund_quotient())
+    gas_used = executed - refund
+
     post = {
-        Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87): Account(
-            storage={}, balance=0xDE0B6B3A764000A
+        beneficiary: Account(balance=CONTRACT_BALANCE + TX_VALUE),
+        # EIP-6780: a pre-existing contract is no longer deleted, only
+        # its balance is transferred.
+        target: (
+            Account(storage={1: 1}, balance=0)
+            if fork.is_eip_enabled(6780)
+            else Account.NONEXISTENT
         ),
-        coinbase: Account(balance=0),
-        sender: Account(balance=0x5EDB318, nonce=1),
-        target: Account(storage={1: 1}, balance=0, nonce=0),
+        sender: Account(
+            balance=INITIAL_BALANCE - TX_VALUE - gas_used * GAS_PRICE
+        ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

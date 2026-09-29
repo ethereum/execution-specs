@@ -8,6 +8,7 @@ from execution_testing import (
     BalAccountExpectation,
     BalBalanceChange,
     BalNonceChange,
+    BalStorageChange,
     BalStorageSlot,
     Block,
     BlockAccessListExpectation,
@@ -481,4 +482,69 @@ def test_bal_2935_absent_contract(
             )
         ],
         post={HISTORY_STORAGE_ADDRESS: Account.NONEXISTENT},
+    )
+
+
+def test_bal_2935_blockhash_does_not_read_history(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure `BLOCKHASH` leaves no read on the history contract.
+
+    EIP-2935 lets a client answer `BLOCKHASH` out of this contract's
+    storage, but the block access list commits to the reads a block
+    makes, so taking that route would add an entry the spec does not
+    produce. The ancestor queried here is not the parent, whose slot the
+    pre-execution system call writes anyway.
+    """
+    alice = pre.fund_eoa()
+
+    witness_slot = 0
+    # Offset by one so an untouched slot cannot pass for a hash that
+    # came back zero.
+    querier = pre.deploy_contract(
+        code=Op.SSTORE(witness_slot, Op.ADD(Op.ISZERO(Op.BLOCKHASH(0)), 1))
+    )
+
+    parent_number = 1
+    blockchain_test(
+        pre=pre,
+        # The first block seeds the genesis hash the second one asks for.
+        blocks=[
+            Block(txs=[]),
+            Block(
+                txs=[Transaction(sender=alice, to=querier)],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        HISTORY_STORAGE_ADDRESS: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=parent_number
+                                    % Spec.HISTORY_SERVE_WINDOW,
+                                    validate_any_change=True,
+                                )
+                            ],
+                            # The queried ancestor's slot would land here.
+                            storage_reads=[],
+                        ),
+                        querier: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=witness_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=1,
+                                        )
+                                    ],
+                                )
+                            ],
+                        ),
+                        SYSTEM_ADDRESS: None,
+                    }
+                ),
+            ),
+        ],
+        post={querier: Account(storage={witness_slot: 1})},
     )

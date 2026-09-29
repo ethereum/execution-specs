@@ -1,3 +1,4 @@
 general/code_coverage/eels = Run produced tests against EELS and verify line coverage of new BAL code (block_access_list/, modifiers, builder) is at the expected level
 general/code_coverage/test_coverage = Run tests with `uv run fill --cov tests/amsterdam/eip7928_block_level_access_lists` to verify test code coverage
 general/code_coverage/second_client = Cross-client coverage tracked separately via the multi-client BAL conformance effort
+general/code_coverage/missed_lines = The BAL lines of `fork.py` in `execute_block` and `apply_body` are off the fill path, which drives the t8n directly, and run when fixtures are consumed by EELS (`just json-loader`). Re-verify with `uv run fill --cov=ethereum --cov-branch --cov-report=term-missing tests/amsterdam/eip7928_block_level_access_lists --until Amsterdam`.

@@ -1039,6 +1039,11 @@ class Frontier(BaseFork):
         return None
 
     @classmethod
+    def transaction_total_gas_limit_cap(cls) -> int | None:
+        """At Genesis, no transaction total gas limit cap is imposed."""
+        return None
+
+    @classmethod
     def state_gas_reservoir_enabled(cls) -> bool:
         """
         At Genesis, state gas reservoir is not enabled.
@@ -1093,8 +1098,8 @@ class Frontier(BaseFork):
         return {}
 
     @classmethod
-    def deterministic_factory_predeploy_address(cls) -> Address | None:
-        """At Genesis, no deterministic factory predeploy is present."""
+    def deterministic_factory_contract_address(cls) -> Address | None:
+        """Return None because Genesis defines no factory contract."""
         return None
 
     @classmethod

@@ -1,6 +1,7 @@
 """
-Fork-transition tests for
-[EIP-7997: Deterministic Factory Predeploy](https://eips.ethereum.org/EIPS/eip-7997).
+Verify fork transitions for the Deterministic Factory Contract.
+
+<https://eips.ethereum.org/EIPS/eip-7997>
 """
 
 import pytest
@@ -8,20 +9,17 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BalNonceChange,
     Block,
+    BlockAccessListExpectation,
     BlockchainTestFiller,
+    EIPChecklist,
     Hash,
     Initcode,
     Op,
     Transaction,
     compute_create2_address,
-)
-from execution_testing.test_types.block_access_list.account_changes import (
-    BalNonceChange,
-)
-from execution_testing.test_types.block_access_list.expectations import (
-    BalAccountExpectation,
-    BlockAccessListExpectation,
 )
 
 from .spec import Spec, ref_spec_7997
@@ -35,14 +33,14 @@ FORK_TIMESTAMP = 15_000
 @pytest.mark.valid_at_transition_to("Amsterdam")
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.parametrize("pre_fork_nonce", [1, 2, 32])
+@EIPChecklist.SystemContract.Test.ForkTransition.CallBeforeFork()
 def test_factory_deploys_across_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     pre_fork_nonce: int,
 ) -> None:
     """
-    A pre-existing factory keeps deploying contracts across the Amsterdam
-    transition, with its nonce accruing normally.
+    Preserve normal deployment and nonce increments across the transition.
 
     Asserting that final nonce is what catches the glamsterdam-devnet-6 bug: a
     client that re-injects EIP-7997 at the transition resets the already-used
@@ -54,6 +52,8 @@ def test_factory_deploys_across_transition(
         code=Spec.FACTORY_BYTECODE,
         address=Address(Spec.FACTORY_ADDRESS),
         nonce=pre_fork_nonce,
+        balance=1,
+        storage={0: 1},
     )
     sender = pre.fund_eoa()
 
@@ -100,6 +100,8 @@ def test_factory_deploys_across_transition(
             **deployed,
             factory: Account(
                 nonce=pre_fork_nonce + len(timestamps),
+                balance=1,
+                storage={0: 1},
                 code=Spec.FACTORY_BYTECODE,
             ),
         },
@@ -108,25 +110,48 @@ def test_factory_deploys_across_transition(
 
 @pytest.mark.valid_at_transition_to("Amsterdam")
 @pytest.mark.pre_alloc_mutable
-def test_factory_absent_across_transition(
+@pytest.mark.parametrize(
+    "factory_pre_state",
+    [
+        pytest.param("absent", id="factory_absent"),
+        pytest.param("foreign_code", id="factory_foreign_code"),
+    ],
+)
+@EIPChecklist.SystemContract.Test.Deployment.Missing()
+def test_factory_untouched_across_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    factory_pre_state: str,
 ) -> None:
     """
-    A chain that never deployed the factory transitions to Amsterdam
-    through valid blocks, and the factory address stays nonexistent.
+    Leave an absent or foreign factory account untouched at the transition.
 
-    The client MUST NOT check for the existence of the contract at
-    the fork boundary. Therefore, we verify that the BAL does
-    not contain the factory account read.
-    The block itself is valid. It is the responsibility of the
-    chain activating EIP-7997 to ensure the factory is valid
-    at the start of the fork block.
+    The client MUST NOT check for the contract at the fork boundary, so the
+    block access list of the fork block and the one after it must not even
+    contain a read of the factory account. Installing the canonical code
+    over a missing or foreign account is a consensus split. Ensuring the
+    account is valid is the job of the chain activating EIP-7997.
     """
     factory = Address(Spec.FACTORY_ADDRESS)
-    # Merging an all-zero account into the fork's pre-allocation removes
-    # the factory predeploy from the genesis allocation entirely.
-    pre[factory] = Account(nonce=0, balance=0, code=b"")
+    if factory_pre_state == "absent":
+        # Merging an all-zero account into the fork's pre-allocation removes
+        # the factory contract from the genesis allocation entirely.
+        pre[factory] = Account(nonce=0, balance=0, code=b"")
+        factory_post = Account.NONEXISTENT
+    elif factory_pre_state == "foreign_code":
+        foreign_code = Op.SSTORE(0, 1) + Op.STOP
+        pre.deploy_contract(
+            code=foreign_code,
+            address=factory,
+            nonce=7,
+            balance=1,
+            storage={0: 1},
+        )
+        factory_post = Account(
+            nonce=7, balance=1, code=foreign_code, storage={0: 1}
+        )
+    else:
+        raise ValueError(factory_pre_state)
 
     sender = pre.fund_eoa()
     receiver = pre.fund_eoa(amount=0)
@@ -168,7 +193,7 @@ def test_factory_absent_across_transition(
         pre=pre,
         blocks=blocks,
         post={
-            factory: Account.NONEXISTENT,
+            factory: factory_post,
             receiver: Account(balance=len(timestamps) * transfer_value),
         },
     )

@@ -12,12 +12,14 @@ import math
 
 import pytest
 from execution_testing import (
+    Address,
     Alloc,
     AuthorizationTuple,
     BenchmarkTestFiller,
     Block,
     Bytecode,
     Conditional,
+    Environment,
     ExtCallGenerator,
     Fork,
     Hash,
@@ -68,25 +70,46 @@ def test_tload(
     )
 
 
-@pytest.mark.repricing(fixed_key=False, fixed_value=False)
+@pytest.mark.repricing(fixed_key=False, tload="none")
 @pytest.mark.parametrize("fixed_key", [True, False])
-@pytest.mark.parametrize("fixed_value", [True, False])
+@pytest.mark.parametrize("tload", ["none", "hit", "miss"])
 def test_tstore(
     benchmark_test: BenchmarkTestFiller,
     fixed_key: bool,
-    fixed_value: bool,
+    tload: str,
 ) -> None:
-    """Benchmark TSTORE instruction."""
-    init_key = 42
-    setup = Op.PUSH1(init_key)
+    """
+    Benchmark TSTORE against a growing transient store.
 
-    attack_block = Op.TSTORE(Op.DUP2, Op.GAS if not fixed_value else Op.DUP1)
-    cleanup = Op.POP + Op.GAS if not fixed_key else Bytecode()
+    GAS gives a unique key per write with no memory counter, and COINBASE a
+    nonzero value, so every write inserts an entry instead of being elided.
+    """
+    assert Environment().fee_recipient != Address(0), (
+        "coinbase must be nonzero so the TSTORE value is nonzero"
+    )
+
+    key = Op.PUSH0 if fixed_key else Op.GAS
+    setup = Bytecode()
+    value = Op.COINBASE
+    match tload:
+        case "hit":
+            # Seed the value and feed each read into the next TSTORE so
+            # the TLOAD is not discarded. Stack carries [value].
+            setup = Op.COINBASE
+            attack_block = key + Op.SWAP1 + Op.DUP2 + Op.TSTORE + Op.TLOAD
+        case "miss":
+            # Read a fresh, never-written key: a miss on a growing store.
+            attack_block = Op.TSTORE(key, value) + Op.POP(Op.TLOAD(Op.GAS))
+        case "none":
+            attack_block = Op.TSTORE(key, value)
+        case _:
+            raise ValueError(f"Unknown tload mode: {tload}")
 
     benchmark_test(
         target_opcode=Op.TSTORE,
         code_generator=JumpLoopGenerator(
-            setup=setup, attack_block=attack_block, cleanup=cleanup
+            setup=setup,
+            attack_block=attack_block,
         ),
     )
 
@@ -656,4 +679,59 @@ def test_nested_frame_state_access(
         skip_gas_used_validation=True,
         expected_receipt_status=1,
         blocks=[Block(txs=txs)],
+    )
+
+
+def _besu_colliding_slots(n: int) -> list[int]:
+    """
+    Return ``n`` distinct slots that share one Java ``Arrays.hashCode``.
+
+    Each of 16 byte pairs is ``(0x00, 0x1F)`` or ``(0x01, 0x00)``; both add
+    the same amount to the polynomial hash (``31*0 + 31 == 31*1 + 0``), so
+    the 16 bits of the index pick a distinct slot with an unchanged hash.
+    """
+    assert n <= 1 << 16, "only 65536 distinct colliding slots (16 byte pairs)"
+    slots = []
+    for index in range(n):
+        slot = bytearray(32)
+        for pair in range(16):
+            if (index >> pair) & 1:
+                slot[2 * pair : 2 * pair + 2] = b"\x01\x00"
+            else:
+                slot[2 * pair : 2 * pair + 2] = b"\x00\x1f"
+        slots.append(int.from_bytes(slot, "big"))
+    return slots
+
+
+@pytest.mark.parametrize("distribution", ["spread", "besu_collision"])
+def test_tstore_key_distribution(
+    benchmark_test: BenchmarkTestFiller,
+    fork: Fork,
+    distribution: str,
+) -> None:
+    """
+    Benchmark TSTORE with colliding versus spread transient-storage keys.
+
+    The ``besu_collision`` arm writes distinct slots that share one
+    ``Arrays.hashCode``, so a client keying transient storage by a plain hash
+    of the slot funnels every write into a single bucket; the ``spread`` arm
+    writes sequential slots. The value is a fixed nonzero so the write is not
+    elided. besu keys this way; other clients are unaffected.
+    """
+    value = 0x2A
+    max_write_bytes = len(Op.TSTORE(Op.PUSH32(0), value))
+    loop_overhead = len(Op.JUMPDEST) + len(Op.JUMP(0))
+    n = (fork.max_code_size() - loop_overhead) // max_write_bytes
+
+    if distribution == "spread":
+        slots = list(range(1, n + 1))
+    elif distribution == "besu_collision":
+        slots = _besu_colliding_slots(n)
+    else:
+        raise ValueError(f"unknown distribution: {distribution}")
+
+    attack_block = sum((Op.TSTORE(slot, value) for slot in slots), Bytecode())
+    benchmark_test(
+        target_opcode=Op.TSTORE,
+        code_generator=JumpLoopGenerator(attack_block=attack_block),
     )

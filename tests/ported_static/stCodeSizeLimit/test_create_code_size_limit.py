@@ -31,6 +31,10 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stCodeSizeLimit/createCodeSizeLimitFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
+# Kept before EIP-7954: the fixed 15M gas transaction cannot fund the
+# EIP-8037 code-deposit state gas of a max-size contract (about 100M at
+# 64KiB). tests/amsterdam/eip7954_increase_max_contract_size covers the
+# raised limit with fork-sized gas.
 @pytest.mark.valid_before("EIP7954")
 @pytest.mark.parametrize(
     "d, g, v",
@@ -122,14 +126,14 @@ def test_create_code_size_limit(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
-    # Initcode: PUSH2 <size> PUSH1 0 RETURN. Sizes scale with
-    # fork.max_code_size() so pre-7954 forks get 0x6000 / 0x6001 and
-    # Amsterdam+ gets 0x8000 / 0x8001. CREATE address is
-    # nonce-derived and unaffected by the initcode bytes.
+    # Initcode: PUSH <size> PUSH1 0 RETURN, sized from
+    # fork.max_code_size(), so the vectors keep their original 0x6000 /
+    # 0x6001 bytes on every fork this test runs. The CREATE
+    # address is nonce-derived and unaffected by the initcode bytes.
     max_code_size = fork.max_code_size()
     tx_data = [
-        Bytes(b"\x61" + max_code_size.to_bytes(2) + b"\x60\x00\xf3"),
-        Bytes(b"\x61" + (max_code_size + 1).to_bytes(2) + b"\x60\x00\xf3"),
+        Bytes(Op.RETURN(offset=0, size=max_code_size)),
+        Bytes(Op.RETURN(offset=0, size=max_code_size + 1)),
     ]
     tx_gas = [15000000]
 

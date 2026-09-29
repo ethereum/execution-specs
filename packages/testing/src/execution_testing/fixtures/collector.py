@@ -3,6 +3,7 @@ Fixture collector class used to collect, sort and combine the different types
 of generated fixtures.
 """
 
+import itertools
 import json
 import os
 import re
@@ -28,16 +29,45 @@ from .base import BaseFixture
 from .consume import FixtureConsumer, TestCaseIndexFile
 from .file import Fixtures
 
+COPY_CHUNK_SIZE = 1 << 16
+
+# Not ".json": a part file left behind by a killed worker must never be
+# picked up as a fixture file by `consume` or `gen_index`.
+PART_SUFFIX = ".part"
+
+# Process-wide, not per collector: a worker builds one collector per test
+# module under the same worker id, and two collectors reusing a sequence
+# number would name the same part file.
+_part_counter = itertools.count()
+
+
+def _copy_indented(src: Path, out: IO[str]) -> None:
+    """
+    Append `src` to `out`, indenting every line after the first by four
+    spaces.
+
+    Copies fixed-size chunks rather than lines: a single fixture line (a
+    transaction's calldata, a block access list) can be gigabytes. A newline
+    is one character, so it can never straddle a chunk boundary.
+    """
+    with open(src) as f:
+        while chunk := f.read(COPY_CHUNK_SIZE):
+            out.write(chunk.replace("\n", "\n    "))
+
 
 def merge_partial_fixture_files(output_dir: Path) -> None:
     """
-    Merge all partial fixture JSONL files into final JSON fixture files.
+    Merge all partial fixture files into final JSON fixture files.
 
     Called at session end after all workers have written their partials.
-    Each partial file contains JSONL lines: {"k": fixture_id, "v": json_str}
+    Each partial JSONL file contains one line per fixture,
+    {"k": fixture_id, "p": part_file_name}, pointing at a part file that
+    holds that fixture's indented JSON.
 
-    Processes one target file at a time, reading its partials sequentially
-    into a dict. Memory = O(entries per target), freed before next target.
+    Fixture contents are streamed from the part files into the target, so
+    memory is bounded by the number of fixtures, not by their size. An
+    existing target is overwritten: the output directory is empty when a
+    session starts, so one can only be left over from an interrupted merge.
     """
     # Find all partial files
     partial_files = list(output_dir.rglob("*.partial.*.jsonl"))
@@ -62,17 +92,9 @@ def merge_partial_fixture_files(output_dir: Path) -> None:
 
     # Merge each group into its target file
     for target_path, partials in partials_by_target.items():
-        # Seed from existing target file (if any) so that
-        # repeated single-test sessions accumulate into one file.
-        entries: Dict[str, str] = {}
-        if target_path.exists():
-            with open(target_path) as existing:
-                try:
-                    existing_data = json.load(existing)
-                    for k, v in existing_data.items():
-                        entries[k] = json.dumps(v, indent=4)
-                except json.JSONDecodeError:
-                    pass
+        part_by_id: Dict[str, Path] = {}
+        # Every part file, including any superseded by a later entry.
+        part_files: List[Path] = []
 
         for partial in partials:
             with open(partial) as f:
@@ -80,30 +102,31 @@ def merge_partial_fixture_files(output_dir: Path) -> None:
                     line = line.strip()
                     if line:
                         entry = json.loads(line)
-                        entries[entry["k"]] = entry["v"]
+                        part_path = partial.parent / entry["p"]
+                        part_by_id[entry["k"]] = part_path
+                        part_files.append(part_path)
 
-        # Write sorted entries to output file
+        # Write sorted entries to output file, streaming each part
         with open(target_path, "w") as out_f:
             out_f.write("{\n")
-            sorted_keys = sorted(entries.keys())
+            sorted_keys = sorted(part_by_id.keys())
             last_idx = len(sorted_keys) - 1
             for i, key in enumerate(sorted_keys):
-                key_json = json.dumps(key)
-                value_indented = entries[key].replace("\n", "\n    ")
-                out_f.write(f"    {key_json}: {value_indented}")
+                out_f.write(f"    {json.dumps(key)}: ")
+                _copy_indented(part_by_id[key], out_f)
                 out_f.write(",\n" if i < last_idx else "\n")
             out_f.write("}")
 
-        # Free memory before processing next target
-        entries.clear()
-
-        # Clean up partial files
+        # Partials go first: an interrupted cleanup must never leave an index
+        # line pointing at a deleted part, only orphan parts.
         for partial in partials:
             partial.unlink()
             # Also remove lock files
             lock_file = partial.with_suffix(".lock")
             if lock_file.exists():
                 lock_file.unlink()
+        for part_path in part_files:
+            part_path.unlink()
 
 
 @dataclass(kw_only=True, slots=True)
@@ -257,13 +280,18 @@ class FixtureCollector:
             self._worker_id_cached = True
         return self.worker_id
 
+    def _worker_suffix(self) -> str:
+        """Return the worker tag used in partial file names, e.g. ".gw0"."""
+        worker_id = self._get_worker_id()
+        return f".{worker_id}" if worker_id else ".main"
+
     def add_fixture(
         self,
         info: TestInfo,
         fixture: BaseFixture,
         output_subdir: Path | None = None,
     ) -> Path:
-        """Add fixture and immediately stream to partial JSONL file."""
+        """Add fixture and immediately write it to a part file."""
         fixture_basename = self.get_fixture_basename(info)
         if (
             output_subdir is not None
@@ -283,7 +311,7 @@ class FixtureCollector:
             fixture.output_file_extension
         )
 
-        # Stream fixture directly to partial JSONL (no memory accumulation)
+        # File mode: write the fixture to disk now.
         if self.output_dir.name != "stdout":
             self._stream_fixture_to_partial(
                 fixture_path, info.get_id(), fixture
@@ -316,10 +344,10 @@ class FixtureCollector:
         return fixture_path
 
     def _get_partial_fixture_file(self, fixture_path: Path) -> "IO[str]":
-        """Get or create a file handle for streaming fixtures."""
-        worker_id = self._get_worker_id()
-        suffix = f".{worker_id}" if worker_id else ".main"
-        partial_path = fixture_path.with_suffix(f".partial{suffix}.jsonl")
+        """Get or create this worker's partial JSONL file for a target."""
+        partial_path = fixture_path.with_suffix(
+            f".partial{self._worker_suffix()}.jsonl"
+        )
 
         if partial_path not in self._partial_fixture_files:
             partial_path.parent.mkdir(parents=True, exist_ok=True)
@@ -333,21 +361,40 @@ class FixtureCollector:
         fixture_id: str,
         fixture: BaseFixture,
     ) -> None:
-        """Stream a single fixture to its partial JSONL file."""
-        value = json.dumps(fixture.json_dict_with_info(), indent=4)
-        line = json.dumps({"k": fixture_id, "v": value}) + "\n"
+        """
+        Write a fixture to its own part file and index it in the partial
+        JSONL file.
 
-        f = self._get_partial_fixture_file(fixture_path)
-        f.write(line)
-        f.flush()  # Ensure data is written immediately
+        `json.dump` serialises straight into the file, so the fixture is
+        never held as a single string. The part is created exclusively: a
+        name clash with a part left over from an earlier session, whose
+        index would still point at it, fails here rather than merging the
+        wrong fixture.
+        """
+        partial_f = self._get_partial_fixture_file(fixture_path)
+        part_path = self._next_part_path(fixture_path)
+        with open(part_path, "x") as part_f:
+            json.dump(fixture.json_dict_with_info(), part_f, indent=4)
+
+        partial_f.write(
+            json.dumps({"k": fixture_id, "p": part_path.name}) + "\n"
+        )
+        partial_f.flush()  # Ensure data is written immediately
+
+    def _next_part_path(self, fixture_path: Path) -> Path:
+        """Return the next part file path next to the target fixture file."""
+        return fixture_path.with_suffix(
+            f".partial{self._worker_suffix()}.{next(_part_counter)}"
+            f"{PART_SUFFIX}"
+        )
 
     def _get_partial_index_file(self) -> "IO[str]":
         """Get or create the file handle for streaming index entries."""
         if self._partial_index_file is None:
-            worker_id = self._get_worker_id()
-            suffix = f".{worker_id}" if worker_id else ".main"
             partial_index_path = (
-                self.output_dir / ".meta" / f"partial_index{suffix}.jsonl"
+                self.output_dir
+                / ".meta"
+                / f"partial_index{self._worker_suffix()}.jsonl"
             )
             partial_index_path.parent.mkdir(parents=True, exist_ok=True)
             self._partial_index_file = open(partial_index_path, "a")

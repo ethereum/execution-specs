@@ -149,6 +149,7 @@ def build_sequential_storage_init(
     pre: Alloc,
     fork: Fork,
     tx_gas_limit: int,
+    block_gas_budget: int,
     authority: EOA,
     storage_init_ranges: list[StorageInitRange],
 ) -> list[Block]:
@@ -201,7 +202,7 @@ def build_sequential_storage_init(
         )
 
     blocks: list[Block] = [Block(txs=[auth_tx])]
-    blocks.extend(pack_transactions_into_blocks(init_txs, tx_gas_limit))
+    blocks.extend(pack_transactions_into_blocks(init_txs, block_gas_budget))
     return blocks
 
 

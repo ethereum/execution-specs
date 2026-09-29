@@ -15,6 +15,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
+    TransactionReceipt,
     compute_create_address,
     keccak256,
 )
@@ -27,29 +28,71 @@ REFERENCE_SPEC_VERSION = ref_spec_7954.version
 pytestmark = [pytest.mark.valid_at("EIP7954"), pytest.mark.mainnet]
 
 
-def test_over_max_code_size_mainnet(
+@pytest.mark.parametrize(
+    "oversized",
+    [
+        pytest.param(False, id="at_limit"),
+        pytest.param(True, id="above_limit"),
+    ],
+)
+def test_code_size_limit_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    oversized: bool,
 ) -> None:
-    """Verify deployment above the new limit is rejected on mainnet."""
-    deploy_code = Op.JUMPDEST * (fork.max_code_size() + 1)
+    """Verify both sides of the code size limit with a funded deposit."""
+    deploy_code = Op.JUMPDEST * (fork.max_code_size() + oversized)
     initcode = Initcode(deploy_code=deploy_code)
 
     alice = pre.fund_eoa()
     create_address = compute_create_address(address=alice, nonce=0)
 
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=initcode,
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        contract_creation=True,
+    )
+    required_gas = (
+        intrinsic_gas
+        + top_frame_state_gas
+        + initcode.evm_gas(fork)
+        + initcode.deployment_gas(fork)
+    )
+    floor_gas = fork.transaction_data_floor_cost_calculator()(
+        data=initcode, contract_creation=True
+    )
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    # Fail the fill if repricing makes execution itself exceed the cap.
+    assert (
+        max(floor_gas, intrinsic_gas + initcode.execution_cost(fork))
+        <= gas_limit_cap
+    )
     tx = Transaction(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        gas_limit=max(required_gas, floor_gas) + 1,
     )
-
+    # An exceptional halt burns the execution allowance and returns state
+    # gas. The allowance need not reach the cap after a future repricing.
+    gas_used = (
+        max(floor_gas, min(tx.gas_limit, gas_limit_cap))
+        if oversized
+        else max(required_gas, floor_gas)
+    )
+    tx.expected_receipt = TransactionReceipt(cumulative_gas_used=gas_used)
     post: dict[Any, Account | None] = {
-        create_address: Account.NONEXISTENT,
+        create_address: (
+            Account.NONEXISTENT
+            if oversized
+            else Account(nonce=1, code=deploy_code)
+        ),
     }
-
     state_test(pre=pre, tx=tx, post=post)
 
 

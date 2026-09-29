@@ -7,9 +7,14 @@ from enum import Enum
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
+    Address,
     Alloc,
+    BalAccountExpectation,
+    BalBalanceChange,
     Block,
+    BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
     EIPChecklist,
@@ -60,6 +65,26 @@ def test_simple_gas_accounting(
     )
 
     refund_tx.set_pre(pre)
+    post = refund_tx.post(pre)
+
+    expected_block_access_list = None
+    if fork.is_eip_enabled(7928):
+        # The refund reaches the sender's balance even though it stays
+        # out of the block's gas accounting.
+        sender_post = post[refund_tx.sender]
+        assert sender_post is not None, "RefundTransaction.post sets it"
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                refund_tx.sender: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=sender_post.balance,
+                        )
+                    ],
+                ),
+            }
+        )
 
     blockchain_test(
         pre=pre,
@@ -67,9 +92,10 @@ def test_simple_gas_accounting(
             Block(
                 txs=[refund_tx],
                 expected_gas_used=refund_tx.block_gas_used(),
+                expected_block_access_list=expected_block_access_list,
             )
         ],
-        post=refund_tx.post(pre),
+        post=post,
     )
 
 
@@ -223,6 +249,16 @@ class CallDataTestType(Enum):
 
 @EIPChecklist.GasRefundsChanges.Test.CrossFunctional.CalldataCost()
 @pytest.mark.parametrize(
+    "access_list",
+    [
+        pytest.param(None, id=""),
+        pytest.param(
+            [AccessList(address=Address(0xA11CE), storage_keys=[0, 1])],
+            id="with_access_list",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
     "refund_tx_failure",
     [
         pytest.param(TransactionFailure.REVERT, id="refund_tx_reverts"),
@@ -257,6 +293,7 @@ def test_varying_calldata_costs(
     refund_type: RefundTypes,
     refund_tx_failure: TransactionFailure | None,
     calldata_test_type: CallDataTestType,
+    access_list: list[AccessList] | None,
 ) -> None:
     """
     Test by varying the calldata_floor_cost.
@@ -266,6 +303,10 @@ def test_varying_calldata_costs(
     1. calldata_floor < tx_gas_after_refund
     2. tx_gas_after_refund < calldata_floor < tx_gas_before_refund
     3. calldata_floor > tx_gas_before_refund
+
+    With an access list, the floor also carries the EIP-7981 access-list
+    tokens and the intrinsic cost the per-entry charges; the list names an
+    address the transaction never touches, so execution is unchanged.
     """
     match refund_type:
         case RefundTypes.STORAGE_CLEAR:
@@ -292,6 +333,8 @@ def test_varying_calldata_costs(
             refund_types={refund_type},
             tx_failure=refund_tx_failure,
             call_data=data,
+            ty=0 if access_list is None else 1,
+            access_list=access_list,
         )
 
         if (

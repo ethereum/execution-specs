@@ -5,6 +5,7 @@ import pytest
 from execution_testing.base_types import Address
 from execution_testing.forks.forks.forks import Prague
 
+from ..helpers import create_op
 from ..opcodes import Bytecode
 from ..opcodes import Macros as Om
 from ..opcodes import Opcodes as Op
@@ -684,3 +685,32 @@ def test_placeholder_in_complex_bytecode() -> None:
 
     # Verify the value 1000 (0x03E8) appears in the bytecode
     assert b"\x03\xe8" in bytes(code)
+
+
+def test_create_op_create2_passes_salt() -> None:
+    """Test that `create_op` forwards `salt` on the CREATE2 path."""
+    assert create_op(
+        Op.CREATE2, value=1, offset=2, size=3, salt=4
+    ) == Op.CREATE2(value=1, offset=2, size=3, salt=4)
+    assert create_op(Op.CREATE2, salt=4) != create_op(Op.CREATE2, salt=5)
+
+
+def test_create_op_create_drops_salt() -> None:
+    """Test that `create_op` drops `salt` on the CREATE path."""
+    assert create_op(
+        Op.CREATE, value=1, offset=2, size=3, salt=4
+    ) == Op.CREATE(value=1, offset=2, size=3)
+    assert create_op(Op.CREATE, salt=4) == create_op(Op.CREATE, salt=5)
+
+
+def test_create_op_forwards_metadata() -> None:
+    """Test that `create_op` forwards metadata to the create opcode."""
+    for opcode in (Op.CREATE, Op.CREATE2):
+        code = create_op(opcode, size=3, salt=4, init_code_size=32)
+        assert code.opcode_list[-1].metadata["init_code_size"] == 32
+
+
+def test_create_op_rejects_non_create_opcode() -> None:
+    """Test that `create_op` raises for a non-create opcode."""
+    with pytest.raises(ValueError, match="Not a create opcode: CALL"):
+        create_op(Op.CALL)

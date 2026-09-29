@@ -1,7 +1,7 @@
 benchmark:
   impl: geth
   repo: ethereum/go-ethereum
-  ref: glamsterdam-devnet-7
+  ref: glamsterdam-devnet-8
   evm-bin: evm
   xdist: auto
 eels:

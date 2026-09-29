@@ -26,6 +26,7 @@ from execution_testing import (
     Hash,
     Header,
     Op,
+    StateTestFiller,
     Storage,
     Transaction,
     TransactionException,
@@ -676,6 +677,90 @@ def test_tx_gas_limit_block_boundary(
             )
         ],
         post={},
+    )
+
+
+@pytest.mark.inclusion_test
+@pytest.mark.execute(
+    pytest.mark.skip(
+        reason="Requires block gas limit above TX_MAX_TOTAL_GAS_LIMIT"
+    )
+)
+@pytest.mark.parametrize(
+    "gas_delta, error",
+    [
+        pytest.param(0, None, id="at_cap"),
+        pytest.param(
+            1,
+            TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM,
+            id="above_cap",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+@pytest.mark.with_all_tx_types
+@pytest.mark.valid_from("EIP8037")
+def test_tx_total_gas_limit_cap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_type: int,
+    gas_delta: int,
+    error: TransactionException | None,
+) -> None:
+    """
+    Accept a transaction at ``TX_MAX_TOTAL_GAS_LIMIT`` and reject one a
+    single unit of gas above it, for every transaction type.
+
+    EIP-8037 applies the EIP-7825 cap to execution gas only and caps
+    ``tx.gas`` as a whole at ``TX_MAX_TOTAL_GAS_LIMIT``. The cap is a
+    transaction validity rule, so the block gas limit sits above it: the
+    per-dimension block capacity rule then cannot be the reason for a
+    rejection, and the only rule the above-cap transaction breaks is the
+    cap itself.
+    """
+    total_cap = fork.transaction_total_gas_limit_cap()
+    assert total_cap is not None, "fork does not cap tx.gas as a whole"
+    gas_limit = total_cap + gas_delta
+
+    storage = Storage()
+    contract = pre.deploy_contract(code=Op.SSTORE(storage.store_next(1), 1))
+
+    tx_kwargs: dict = {}
+    if tx_type == 1:
+        tx_kwargs["access_list"] = [
+            AccessList(address=contract, storage_keys=[Hash(0)])
+        ]
+    elif tx_type == 2:
+        tx_kwargs["access_list"] = []
+    elif tx_type == 3:
+        tx_kwargs["blob_versioned_hashes"] = add_kzg_version(
+            [Hash(1)], EIP4844_Spec.BLOB_COMMITMENT_VERSION_KZG
+        )
+        tx_kwargs["max_fee_per_blob_gas"] = fork.min_base_fee_per_blob_gas()
+    elif tx_type == 4:
+        tx_kwargs["authorization_list"] = [
+            AuthorizationTuple(
+                signer=pre.fund_eoa(amount=0), address=Address(1)
+            )
+        ]
+
+    tx = Transaction(
+        ty=tx_type,
+        to=contract,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+        error=error,
+        **tx_kwargs,
+    )
+
+    state_test(
+        # Keep the block capacity rule out of the picture: the block has
+        # room for the above-cap transaction, so only the cap rejects it.
+        env=Environment(gas_limit=2 * total_cap),
+        pre=pre,
+        post={contract: Account(storage=storage if error is None else {})},
+        tx=tx,
     )
 
 

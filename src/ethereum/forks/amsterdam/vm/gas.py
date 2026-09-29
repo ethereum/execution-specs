@@ -95,7 +95,6 @@ class GasCosts:
     CALL_VALUE: Final[ExecutionGas] = ACCOUNT_WRITE + CALL_STIPEND
 
     # Contract Creation
-    CODE_DEPOSIT_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(200))
     CODE_INIT_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(2))
     CREATE_ACCESS: Final[ExecutionGas] = ACCOUNT_WRITE + COLD_ACCOUNT_ACCESS
 
@@ -151,7 +150,6 @@ class GasCosts:
 
     # Transactions
     TX_BASE: Final[ExecutionGas] = ExecutionGas(Uint(12000))
-    TX_CREATE: Final[ExecutionGas] = ExecutionGas(Uint(32000))
     TX_VALUE_COST: Final[ExecutionGas] = ExecutionGas(Uint(6000))
     TX_DATA_TOKEN_STANDARD: Final[ExecutionGas] = ExecutionGas(Uint(4))
     TX_DATA_TOKEN_FLOOR: Final[ExecutionGas] = ExecutionGas(Uint(16))
@@ -162,6 +160,7 @@ class GasCosts:
         COLD_STORAGE_ACCESS - WARM_ACCESS
     )
     TX_MAX_GAS_LIMIT: Final[Uint] = Uint(16_777_216)
+    TX_MAX_TOTAL_GAS_LIMIT: Final[Uint] = Uint(4_294_967_295)
 
     # Authorization
     AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
@@ -765,10 +764,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> ExecutionGas:
     linear_cost = size_in_words * GasCosts.MEMORY_PER_WORD
     quadratic_cost = size_in_words ** Uint(2) // Uint(512)
     total_gas_cost = linear_cost + quadratic_cost
-    try:
-        return ExecutionGas(total_gas_cost)
-    except ValueError as e:
-        raise OutOfGasError from e
+    return ExecutionGas(total_gas_cost)
 
 
 def calculate_gas_extend_memory(
@@ -834,8 +830,10 @@ def calculate_message_call_gas(
     memory_cost :
         The amount needed to extend the memory in the current frame.
     extra_gas :
-        The amount of gas needed for transferring value + creating a new
-        account inside a message call.
+        The call's own execution charge (access, value transfer and
+        delegation resolution) that the forwarding budget must cover.
+        Account creation is charged in state gas separately; `CALL`
+        charges this itself and passes zero here.
     call_stipend :
         The amount of stipend provided to a message call to execute code while
         transferring value (ETH).

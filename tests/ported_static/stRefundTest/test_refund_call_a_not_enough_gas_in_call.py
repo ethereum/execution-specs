@@ -8,9 +8,9 @@ state_tests/stRefundTest/refund_CallA_notEnoughGasInCallFiller.json
 balance, which equals its start minus `gas_used * gas_price`. The inner
 CALL is starved of gas so its SSTORE clear always reverts (no refund
 survives); the only surviving repricing is in the outer frame, where
-EIP-8038 raises the cold account-access charged by the CALL (2600 ->
-3000) and the cold no-op SSTORE of slot 0 (2200 -> 3000). Derive both
-deltas from the fork gas model (0 pre-EIP-8037) and subtract
+EIP-8038 raises the `COLD_ACCOUNT_ACCESS` charged by the CALL and
+the cold no-op SSTORE of slot 0. Derive both deltas from the fork gas
+model (0 pre-EIP-8037) and subtract
 `gas_price * (call_access_delta + outer_sstore_delta)` from the Cancun
 balance; do not hardcode the Amsterdam value.
 """
@@ -25,7 +25,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -98,13 +98,14 @@ def test_refund_call_a_not_enough_gas_in_call(
     # cold account access charged by the CALL and the cold no-op SSTORE
     # of slot 0 (original == current == new == 0).
     gas_costs = fork.gas_costs()
-    call_access_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
-    outer_sstore_delta = (
-        Op.SSTORE.with_metadata(
-            key_warm=False, original_value=0, current_value=0, new_value=0
-        ).gas_cost(fork)
-        - 2200
+    call_access_delta = (
+        gas_costs.COLD_ACCOUNT_ACCESS - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
     )
+    outer_sstore = Op.SSTORE.with_metadata(
+        key_warm=False, original_value=0, current_value=0, new_value=0
+    )
+    cancun_outer_sstore = outer_sstore.gas_cost(Cancun)
+    outer_sstore_delta = outer_sstore.gas_cost(fork) - cancun_outer_sstore
     gas_used_delta = call_access_delta + outer_sstore_delta
 
     post = {

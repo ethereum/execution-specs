@@ -1,6 +1,7 @@
 """
-Crafted tests for mainnet of
-[EIP-7997: Deterministic Factory Predeploy](https://eips.ethereum.org/EIPS/eip-7997).
+Verify the Deterministic Factory Contract on mainnet.
+
+<https://eips.ethereum.org/EIPS/eip-7997>
 """
 
 import pytest
@@ -27,11 +28,7 @@ def test_eip_7997(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """
-    The factory bytecode is present at the canonical Arachnid factory
-    address with nonce 1. Verifies EVM-observable views of
-    the predeploy via `EXTCODESIZE`, `EXTCODEHASH` and `EXTCODECOPY`.
-    """
+    """Verify canonical factory code without assuming a nonce or balance."""
     storage = Storage()
     extcodesize_slot = storage.store_next(
         len(Spec.FACTORY_BYTECODE), "extcodesize"

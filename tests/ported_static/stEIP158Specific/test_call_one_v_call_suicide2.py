@@ -9,9 +9,9 @@ regular gas of a value-1 CALL to a cold contract that then
 SELFDESTRUCTs (with a zero balance) to a cold, alive beneficiary.
 EIP-8038 reprices the CALL's cold account access and value transfer,
 plus the SELFDESTRUCT beneficiary's cold access; the beneficiary is
-alive so there is no new-account write. The delta is therefore
-`2 * (COLD_ACCOUNT_ACCESS - 2600) + (CALL_VALUE - 9000)`, exactly 0
-before EIP-8038.
+alive so there is no new-account write. The delta is therefore twice
+the `COLD_ACCOUNT_ACCESS` rise plus the `CALL_VALUE` rise, each the
+fork's constant less Cancun's, exactly 0 before EIP-8038.
 """
 
 import pytest
@@ -25,7 +25,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -47,8 +47,10 @@ def test_call_one_v_call_suicide2(
     # account reprice and the value-transfer reprice; the cold
     # SELFDESTRUCT beneficiary pays a second cold account reprice.
     gas_costs = fork.gas_costs()
-    cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
-    call_value_delta = gas_costs.CALL_VALUE - 9000
+    cold_account_delta = (
+        gas_costs.COLD_ACCOUNT_ACCESS - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
+    )
+    call_value_delta = gas_costs.CALL_VALUE - Cancun.gas_costs().CALL_VALUE
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     addr_2 = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = EOA(

@@ -12,11 +12,10 @@ state_tests/stCreateTest/CreateAddressWarmAfterFailFiller.yml
 
 @manually-enhanced: Do not overwrite. The post-state records the
 measured cost of accessing the create address after a failed CREATE,
-which is a cold account access. EIP-8038 reprices a cold account
-access from 2 600 to 3 000, so each such measurement gains 400 at
-Amsterdam. Derive that delta from the fork's gas model so it is
-exactly 0 pre-EIP-8037 and tracks parameter changes; do not hardcode
-the Amsterdam value.
+which is a cold account access. EIP-8038 raises `COLD_ACCOUNT_ACCESS`,
+so each such measurement gains that delta at Amsterdam. Derive that
+delta from the fork's gas model so it is exactly 0 pre-EIP-8037 and
+tracks parameter changes; do not hardcode the Amsterdam value.
 """
 
 from typing import NamedTuple

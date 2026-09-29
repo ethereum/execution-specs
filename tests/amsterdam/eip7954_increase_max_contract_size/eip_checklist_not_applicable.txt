@@ -1,0 +1,14 @@
+opcode = EIP does not introduce or modify an opcode
+precompile = EIP does not introduce a precompile
+removed_precompile = EIP does not remove a precompile
+system_contract = EIP does not introduce a system contract
+transaction_type = EIP does not introduce a new transaction type
+block_header_field = EIP does not add any new block header fields
+block_body_field = EIP does not add any new block body fields
+gas_cost_changes = EIP only raises the code and initcode size limits; the initcode word cost and the per-byte code deposit charge keep their existing prices
+gas_refunds_changes = EIP does not change any refund rules
+blob_count_changes = EIP does not introduce any blob count changes
+execution_layer_request = EIP does not introduce an execution layer request
+new_transaction_validity_constraint = The creation-transaction initcode size limit exists since EIP-3860; this EIP only raises its threshold (see modified_transaction_validity_constraint)
+block_level_constraint = The code and initcode size limits apply per account and per transaction, not to a block
+general/code_coverage/second_client = Optional

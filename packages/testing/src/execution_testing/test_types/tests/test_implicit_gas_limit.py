@@ -4,8 +4,9 @@ Test suite for implicit transaction gas-limit resolution.
 Covers `Transaction.set_gas_limit` and
 `Transaction.calculate_max_gas_limit`: the even split of remaining
 environment gas, gas limit cap clamping, the state gas reservoir
-(EIP-8037) semantics, and the test correctness errors raised on
-contradictory test definitions.
+(EIP-8037) semantics, the transaction total gas limit cap (EIP-8037's
+bound on `tx.gas` as a whole), and the test correctness errors raised
+on contradictory test definitions.
 """
 
 from typing import List
@@ -22,8 +23,13 @@ OSAKA_CAP: int = _osaka_cap
 _amsterdam_cap = Amsterdam.transaction_gas_limit_cap()
 assert _amsterdam_cap is not None
 AMSTERDAM_CAP: int = _amsterdam_cap
+_amsterdam_total_cap = Amsterdam.transaction_total_gas_limit_cap()
+assert _amsterdam_total_cap is not None
+AMSTERDAM_TOTAL_CAP: int = _amsterdam_total_cap
 
 assert Prague.transaction_gas_limit_cap() is None
+assert Prague.transaction_total_gas_limit_cap() is None
+assert Osaka.transaction_total_gas_limit_cap() is None
 assert not Prague.state_gas_reservoir_enabled()
 assert not Osaka.state_gas_reservoir_enabled()
 assert Amsterdam.state_gas_reservoir_enabled()
@@ -41,6 +47,7 @@ def calculate_max_transaction_gas_limit(
         env_gas_limit=env_gas_limit,
         transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
         state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+        transaction_total_gas_limit_cap=fork.transaction_total_gas_limit_cap(),
     )
 
 
@@ -127,6 +134,16 @@ class TestSetGasLimit:
         """Signing a transaction with an unset gas limit raises."""
         with pytest.raises(ValueError, match="gas_limit must be set"):
             Transaction().with_signature_and_sender()
+
+    def test_unset_clamped_to_total_cap(self) -> None:
+        """An unset gas limit is clamped to the total gas limit cap."""
+        tx = Transaction()
+        tx.set_gas_limit(
+            max_gas_limit=200,
+            transaction_gas_limit_cap=None,
+            transaction_total_gas_limit_cap=100,
+        )
+        assert tx.gas_limit == 100
 
 
 class TestSetGasLimitStateGasReservoir:
@@ -225,6 +242,41 @@ class TestSetGasLimitStateGasReservoir:
                 state_gas_reservoir_enabled=True,
             )
 
+    def test_reservoir_unset_clamped_to_total_cap(self) -> None:
+        """The implicit reservoir never lifts the limit above the total cap."""
+        tx = Transaction()
+        tx.set_gas_limit(
+            max_gas_limit=200,
+            transaction_gas_limit_cap=60,
+            state_gas_reservoir_enabled=True,
+            transaction_total_gas_limit_cap=100,
+        )
+        assert tx.gas_limit == 100
+
+    def test_reservoir_fitting_total_cap(self) -> None:
+        """A reservoir that ends exactly at the total cap is accepted."""
+        tx = Transaction(state_gas_reservoir=40)
+        tx.set_gas_limit(
+            max_gas_limit=200,
+            transaction_gas_limit_cap=60,
+            state_gas_reservoir_enabled=True,
+            transaction_total_gas_limit_cap=100,
+        )
+        assert tx.gas_limit == 100
+
+    def test_reservoir_exceeding_total_cap_raises(self) -> None:
+        """A reservoir that pushes the limit above the total cap raises."""
+        tx = Transaction(state_gas_reservoir=41)
+        with pytest.raises(
+            Exception, match="above the transaction total gas limit cap"
+        ):
+            tx.set_gas_limit(
+                max_gas_limit=200,
+                transaction_gas_limit_cap=60,
+                state_gas_reservoir_enabled=True,
+                transaction_total_gas_limit_cap=100,
+            )
+
 
 class TestCalculateMaxTransactionGasLimit:
     """Test the even split of environment gas across transactions."""
@@ -294,12 +346,24 @@ class TestCalculateMaxTransactionGasLimit:
         """A fork with the state gas reservoir does not clamp the share."""
         env_gas_limit = 100_000_000
         assert env_gas_limit > AMSTERDAM_CAP
+        assert env_gas_limit < AMSTERDAM_TOTAL_CAP
         txs = [Transaction()]
         assert (
             calculate_max_transaction_gas_limit(
                 txs, env_gas_limit=env_gas_limit, fork=Amsterdam
             )
             == env_gas_limit
+        )
+
+    def test_state_gas_reservoir_fork_clamps_to_total_cap(self) -> None:
+        """The share on a reservoir fork is clamped to the total cap."""
+        env_gas_limit = 2 * AMSTERDAM_TOTAL_CAP
+        txs = [Transaction()]
+        assert (
+            calculate_max_transaction_gas_limit(
+                txs, env_gas_limit=env_gas_limit, fork=Amsterdam
+            )
+            == AMSTERDAM_TOTAL_CAP
         )
 
     @pytest.mark.parametrize(

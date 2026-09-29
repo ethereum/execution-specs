@@ -10,6 +10,7 @@ from execution_testing import (
     Alloc,
     Block,
     ConsolidationRequest,
+    Header,
     Requests,
     Transaction,
     TransitionFork,
@@ -41,6 +42,7 @@ def test_system_contract_deployment(
         source_pubkey=0x01,
         target_pubkey=0x02,
         source_address=sender,
+        fee=ConsolidationRequest.get_fee(0),
     )
     intrinsic_gas_calculator = (
         fork.transitions_to().transaction_intrinsic_cost_calculator()
@@ -59,5 +61,5 @@ def test_system_contract_deployment(
 
     yield Block(
         txs=[test_transaction],
-        requests_hash=Requests(consolidation_request),
+        header_verify=Header(requests_hash=Requests(consolidation_request)),
     )

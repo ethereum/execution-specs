@@ -1,5 +1,5 @@
 """
-Tests for [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+Tests for [EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 Covers the EIP-8038 access-list repricing:
 
@@ -30,6 +30,7 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Transaction,
+    TransactionReceipt,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -74,21 +75,33 @@ def test_access_list_intrinsic_surcharge(
     duplicate: bool,
 ) -> None:
     """
-    Assert the per-entry intrinsic access-list surcharge.
+    Pin the exact intrinsic cost of each access-list shape.
 
-    The intrinsic-cost delta from adding the access list, minus the
-    EIP-7981 floor-token contribution, must equal
-    ``n_addr * TX_ACCESS_LIST_ADDRESS + n_keys * TX_ACCESS_LIST_STORAGE_KEY``.
-    A simple value-less transaction then exercises the access list end to
-    end.
+    The transaction is handed a ``gas_limit`` equal to its intrinsic and
+    sent to a codeless recipient, so it runs nothing and the receipt
+    accounts for the intrinsic alone — including the per-entry surcharge
+    and the EIP-7981 floor tokens the Amsterdam calculator charges on
+    access-list bytes. Pinning every shape pins the per-entry increments
+    as the differences between them, duplicate entries included: the
+    ``duplicate_addr`` shape lists one address twice and is billed twice.
     """
     access_list = _make_access_list(n_addr, n_keys_each, duplicate=duplicate)
+    entries = access_list if access_list else None
 
-    contract = pre.deploy_contract(code=Op.STOP)
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        access_list=entries
+    )
+
+    # A codeless recipient executes nothing, so the whole limit is the
+    # intrinsic and the receipt pins it exactly.
+    recipient = pre.fund_eoa(amount=0)
+
     tx = Transaction(
-        to=contract,
+        to=recipient,
         sender=pre.fund_eoa(),
-        access_list=access_list if access_list else None,
+        access_list=entries,
+        gas_limit=intrinsic,
+        expected_receipt=TransactionReceipt(cumulative_gas_used=intrinsic),
     )
 
     state_test(pre=pre, post={}, tx=tx)
@@ -102,15 +115,16 @@ def test_access_list_duplicate_address_key_intrinsic_and_warmth(
     fork: Fork,
 ) -> None:
     """
-    A duplicated ``(address, storage_key)`` access-list entry is billed
-    twice intrinsically but warms the slot only once.
+    A duplicated ``(address, storage_key)`` access-list entry warms the
+    slot only once.
 
-    The same ``(contract, slot)`` pair is listed twice. The intrinsic
-    surcharge (floor tokens isolated as in
-    ``test_access_list_intrinsic_surcharge``) bills both listings:
-    ``2 * TX_ACCESS_LIST_ADDRESS + 2 * TX_ACCESS_LIST_STORAGE_KEY``. At
-    runtime the slot is nonetheless warm on its first ``SLOAD``
-    (``WARM_SLOAD``), since warmth is set-membership, not a counter.
+    The same ``(contract, slot)`` pair is listed twice, yet the slot is
+    warm on its first ``SLOAD`` and pays ``WARM_SLOAD``, since warmth is
+    set-membership rather than a counter. That the duplicate is
+    nonetheless *billed* twice in the intrinsic is pinned by
+    ``test_access_list_intrinsic_surcharge``'s ``duplicate_addr`` shape;
+    this test asserts only the warmth, which is all its measurement can
+    see.
     """
     slot = 0x42
 

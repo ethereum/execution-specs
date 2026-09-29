@@ -12,9 +12,11 @@ from execution_testing import (
     EIPChecklist,
     Fork,
     Hash,
+    RecipientType,
     StateTestFiller,
     Transaction,
     TransactionException,
+    TransactionReceipt,
     compute_create_address,
 )
 
@@ -29,7 +31,7 @@ pytestmark = [
 ]
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Insufficient()
 @pytest.mark.exception_test
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
@@ -85,7 +87,7 @@ def test_insufficient_gas_for_access_list(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@EIPChecklist.TransactionType.Test.IntrinsicValidity.DataFloorAboveIntrinsicGasCost()
 @pytest.mark.exception_test
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
@@ -125,6 +127,7 @@ def test_floor_cost_validation_with_access_list(
     )
 
 
+@EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Exact()
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
@@ -152,6 +155,10 @@ def test_floor_cost_validation_with_access_list(
     [pytest.param("eoa", id="")],
     indirect=True,
 )
+@pytest.mark.parametrize(
+    "tx_gas_surplus",
+    [pytest.param(0, id="")],
+)
 def test_valid_gas_limits_with_access_list(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -164,6 +171,10 @@ def test_valid_gas_limits_with_access_list(
     - Exact intrinsic gas
     - Slightly more than intrinsic gas
     - Much more than intrinsic gas
+
+    The exact case leaves no surplus. For type 4 it also funds the top-frame
+    authorization gas, which is charged after intrinsic validation but is
+    needed for the transaction to succeed.
     """
     state_test(
         pre=pre,
@@ -173,13 +184,15 @@ def test_valid_gas_limits_with_access_list(
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
-@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
+# A type 4 authorization's top-frame state gas outgrows any moderate
+# floor, and the floor does not depend on the transaction type.
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2, 3))
 @pytest.mark.parametrize(
     "access_list,tx_data",
     [
         pytest.param(
-            [AccessList(address=Address(0), storage_keys=[Hash(0)] * 100)],
-            Bytes(b"\x00" * 1000),
+            [AccessList(address=Address(0), storage_keys=[Hash(0)] * 10)],
+            Bytes(b"\x00" * 3000),
             id="zero_heavy_data_and_access_list",
         ),
         pytest.param(
@@ -193,10 +206,10 @@ def test_valid_gas_limits_with_access_list(
                             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
                         )
                     ]
-                    * 50,
+                    * 5,
                 )
             ],
-            Bytes(b"\xff" * 500),
+            Bytes(b"\xff" * 2000),
             id="nonzero_heavy_data_and_access_list",
         ),
     ],
@@ -213,14 +226,20 @@ def test_valid_gas_limits_with_access_list(
 def test_mixed_zero_nonzero_bytes_floor_cost(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     tx: Transaction,
+    access_list: list,
+    tx_data: Bytes,
+    tx_intrinsic_gas_cost_before_execution: int,
 ) -> None:
     """
-    Test floor cost calculation with mixed zero and non-zero bytes.
-
-    This ensures floor gas uses floor token counting:
-    - Each data byte contributes 4 floor tokens
+    Bill the floor with every calldata and access list byte at the floor
+    rate, whether zero or non-zero.
     """
+    floor = fork.transaction_data_floor_cost_calculator()(
+        data=tx_data, access_list=access_list
+    )
+    assert floor > tx_intrinsic_gas_cost_before_execution
     state_test(
         pre=pre,
         post={},
@@ -285,8 +304,9 @@ def test_transactions_without_access_list(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@EIPChecklist.TransactionType.Test.ContractCreation()
+@EIPChecklist.TransactionType.Test.IntrinsicValidity.To()
+@EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Insufficient()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
 @pytest.mark.parametrize(
     "valid",
@@ -356,3 +376,95 @@ def test_contract_creation_with_access_list(
         post=post,
         tx=tx,
     )
+
+
+@pytest.mark.parametrize(
+    "value,balance_delta",
+    [
+        pytest.param(
+            0,
+            -1,
+            id="value_zero_insufficient_balance",
+            marks=[
+                pytest.mark.exception_test,
+                EIPChecklist.TransactionType.Test.IntrinsicValidity.ValueZeroInsufficientBalance(),
+            ],
+        ),
+        pytest.param(
+            0,
+            0,
+            id="value_zero_sufficient_balance",
+            marks=EIPChecklist.TransactionType.Test.IntrinsicValidity.ValueZeroSufficientBalance(),
+        ),
+        pytest.param(
+            1,
+            -1,
+            id="value_non_zero_insufficient_balance",
+            marks=[
+                pytest.mark.exception_test,
+                EIPChecklist.TransactionType.Test.IntrinsicValidity.ValueNonZeroInsufficientBalance(),
+            ],
+        ),
+        pytest.param(
+            1,
+            0,
+            id="value_non_zero_sufficient_balance",
+            marks=EIPChecklist.TransactionType.Test.IntrinsicValidity.ValueNonZeroSufficientBalance(),
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "tx_type",
+    [pytest.param(1, id="type_1"), pytest.param(2, id="type_2")],
+)
+def test_access_list_sender_balance_boundary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_type: int,
+    value: int,
+    balance_delta: int,
+) -> None:
+    """Fund the surcharged gas limit plus value exactly, or one wei short."""
+    recipient = pre.fund_eoa(amount=1)
+    access_list = [AccessList(address=Address(1), storage_keys=[Hash(0)])]
+    # With no calldata the intrinsic side binds, and an existing recipient
+    # keeps the value transfer free of state gas, so the exact intrinsic
+    # cost is also the gas used.
+    gas_limit = fork.transaction_intrinsic_cost_calculator()(
+        access_list=access_list,
+        sends_value=value > 0,
+        recipient_type=RecipientType.EOA,
+    )
+    gas_price = 10
+    sender = pre.fund_eoa(amount=gas_limit * gas_price + value + balance_delta)
+    if tx_type == 1:
+        fee_args: dict = {"gas_price": gas_price}
+    else:
+        fee_args = {
+            "max_fee_per_gas": gas_price,
+            "max_priority_fee_per_gas": gas_price,
+        }
+    if balance_delta >= 0:
+        error = None
+        expected_receipt = TransactionReceipt(status=1, gas_used=gas_limit)
+        post = {
+            sender: Account(nonce=1, balance=0),
+            recipient: Account(balance=1 + value),
+        }
+    else:
+        error = TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
+        expected_receipt = None
+        post = {}
+    tx = Transaction(
+        ty=tx_type,
+        sender=sender,
+        to=recipient,
+        value=value,
+        gas_limit=gas_limit,
+        access_list=access_list,
+        error=error,
+        expected_receipt=expected_receipt,
+        **fee_args,
+    )
+    state_test(pre=pre, post=post, tx=tx)

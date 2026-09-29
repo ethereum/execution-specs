@@ -1,2 +1,3 @@
-general/code_coverage/eels = Please check https://app.codecov.io/gh/ethereum/execution-specs/pull/2840 for relevant test coverage
-general/code_coverage/test_coverage = Please run the test with `--cov` flag for final coverage
+general/code_coverage/eels = Measured with --cov=ethereum.forks.amsterdam while filling this suite with --until=Amsterdam: settle_transaction_gas in vm/gas.py and the block_gas_used and block_state_gas_used accumulation in fork.py have no missed statements. The header gas_used check in fork.py is not reached because fill builds the header from t8n output; it runs under consume
+general/code_coverage/test_coverage = Measured with --cov=tests.amsterdam.eip7778_block_gas_accounting_without_refunds: 404/412 statements covered
+general/code_coverage/missed_lines = The eight unexecuted test statements are guards parametrization never reaches: the type-4 authorization-list checks and the unknown-refund-type fallback in helpers.py, and the unknown-refund-type and calldata-search failure raises in test_gas_accounting.py

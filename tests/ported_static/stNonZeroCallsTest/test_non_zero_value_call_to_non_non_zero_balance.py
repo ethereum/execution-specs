@@ -8,10 +8,9 @@ state_tests/stNonZeroCallsTest/NonZeroValue_CALL_ToNonNonZeroBalanceFiller.json
 regular gas of a value-1 CALL to a cold, alive EOA plus the SSTORE
 storing the (success) result. EIP-8038 reprices the CALL's cold
 account access and value transfer, and reprices the cold
-value-unchanged SSTORE. The delta is therefore
-`(COLD_ACCOUNT_ACCESS - 2600) + (CALL_VALUE - 9000)` plus the cold
-SSTORE reprice, each derived from the fork and exactly 0 before
-EIP-8038.
+value-unchanged SSTORE. The delta is therefore the `COLD_ACCOUNT_ACCESS`
+and `CALL_VALUE` deltas plus the cold SSTORE reprice, each derived from
+the fork and exactly 0 before EIP-8038.
 """
 
 import pytest
@@ -24,7 +23,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -48,13 +47,16 @@ def test_non_zero_value_call_to_non_non_zero_balance(
     # account reprice and the value-transfer reprice; the cold
     # value-unchanged SSTORE gains its own reprice.
     gas_costs = fork.gas_costs()
-    cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
-    call_value_delta = gas_costs.CALL_VALUE - 9000
+    cold_account_delta = (
+        gas_costs.COLD_ACCOUNT_ACCESS - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
+    )
+    call_value_delta = gas_costs.CALL_VALUE - Cancun.gas_costs().CALL_VALUE
+    cold_noop_sstore = Op.SSTORE.with_metadata(
+        key_warm=False, original_value=0, current_value=0, new_value=0
+    )
+    cancun_cold_noop_sstore = cold_noop_sstore.gas_cost(Cancun)
     cold_noop_sstore_delta = (
-        Op.SSTORE.with_metadata(
-            key_warm=False, original_value=0, current_value=0, new_value=0
-        ).gas_cost(fork)
-        - 2200
+        cold_noop_sstore.gas_cost(fork) - cancun_cold_noop_sstore
     )
     call_measure_delta = (
         cold_account_delta + call_value_delta + cold_noop_sstore_delta

@@ -201,7 +201,7 @@ def get_factory_address(fork: Fork) -> Address:
     Return the deterministic deployment factory for the fork.
     """
     return (
-        fork.deterministic_factory_predeploy_address()
+        fork.deterministic_factory_contract_address()
         or DETERMINISTIC_FACTORY_ADDRESS
     )
 

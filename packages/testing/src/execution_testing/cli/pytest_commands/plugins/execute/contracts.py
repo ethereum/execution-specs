@@ -33,11 +33,11 @@ def check_deterministic_factory_deployment(
     fork: Fork | TransitionFork,
 ) -> Address | None:
     """Check if the deterministic deployment contract is deployed."""
-    fork_deterministic_factory_predeploy_address = (
-        fork.transitions_from().deterministic_factory_predeploy_address()
+    fork_deterministic_factory_contract_address = (
+        fork.transitions_from().deterministic_factory_contract_address()
     )
-    if fork_deterministic_factory_predeploy_address is not None:
-        return fork_deterministic_factory_predeploy_address
+    if fork_deterministic_factory_contract_address is not None:
+        return fork_deterministic_factory_contract_address
     # Check the manually deployed contract.
     deployment_contract_code = eth_rpc.get_code(DETERMINISTIC_FACTORY_ADDRESS)
     if deployment_contract_code == DETERMINISTIC_FACTORY_BYTECODE:

@@ -7,9 +7,9 @@ state_tests/stTransactionTest/ContractStoreClearsSuccessFiller.json
 @manually-enhanced: Do not overwrite. The contract clears 10 cold
 storage slots (each 12 -> 0) and the transaction sends value alongside,
 so the asserted post is the cleared storage plus the received value.
-EIP-8038 raises the cold SSTORE-clear charge from 5000 to 13000, so the
-10 clears no longer fit in the original gas limit and the contract runs
-out of gas before clearing the storage or keeping the transfer. Bump the
+EIP-8038 raises the cold SSTORE-clear charge, so the 10 clears no
+longer fit in the original gas limit and the contract runs out of gas
+before clearing the storage or keeping the transfer. Bump the
 gas limit by the per-clear charge delta times the 10 clears so every
 clear still lands at Amsterdam. The delta is derived from the fork gas
 model and is exactly 0 pre-EIP-8037; do not hardcode the Amsterdam
@@ -27,7 +27,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -89,12 +89,10 @@ def test_contract_store_clears_success(
     # EIP-8038 raises the cold SSTORE-clear charge; bump the gas limit by
     # the per-clear charge delta times the 10 clears so all of them still
     # land instead of running out of gas before clearing the storage.
-    cold_clear_delta = (
-        Op.SSTORE.with_metadata(
-            key_warm=False, original_value=1, current_value=1, new_value=0
-        ).gas_cost(fork)
-        - 5000
+    cold_clear = Op.SSTORE.with_metadata(
+        key_warm=False, original_value=1, current_value=1, new_value=0
     )
+    cold_clear_delta = cold_clear.gas_cost(fork) - cold_clear.gas_cost(Cancun)
 
     tx = Transaction(
         sender=sender,

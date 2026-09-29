@@ -1,0 +1,5 @@
+general/code_coverage/eels = No new EELS execution lines.
+general/code_coverage/test_coverage = pytest-cov measured 354/356 statements.
+general/code_coverage/missed_lines = Two unreachable parameter guards.
+system_contract/test/gas_usage/dynamic = EIP-8037 exact-fit creation gas tests.
+system_contract/test/excessive_gas/block_gas = EIP-8037 block gas tests.

@@ -199,7 +199,7 @@ class Alloc(SharedAlloc):
             )
 
         fork_deterministic_factory_address = (
-            fork.deterministic_factory_predeploy_address()
+            fork.deterministic_factory_contract_address()
         )
         if (
             fork_deterministic_factory_address is None

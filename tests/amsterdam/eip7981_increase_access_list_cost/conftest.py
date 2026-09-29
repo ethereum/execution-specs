@@ -16,6 +16,7 @@ from execution_testing import (
     Op,
     Transaction,
     TransactionException,
+    TransactionReceipt,
     add_kzg_version,
 )
 
@@ -59,52 +60,29 @@ def access_list() -> List[AccessList] | None:
 
 
 @pytest.fixture
-def authorization_refund() -> bool:
-    """
-    Return whether the transaction has an existing authority in the
-    authorization list.
-    """
-    return False
-
-
-@pytest.fixture
 def authorization_list(
     request: pytest.FixtureRequest,
     pre: Alloc,
-    authorization_refund: bool,
     tx_type: int,
 ) -> List[AuthorizationTuple] | None:
     """
     Authorization-list for the transaction.
 
-    This fixture needs to be parametrized indirectly in order to generate the
-    authorizations with valid signers using `pre` in this function, and the
-    parametrized value should be a list of addresses.
+    Parametrize indirectly with a list of delegation addresses. Each
+    authority is a fresh account, so applying its authorization creates it.
     """
-    if not hasattr(request, "param"):
-        if tx_type == 4:
-            return [
-                AuthorizationTuple(
-                    signer=pre.fund_eoa(1 if authorization_refund else 0),
-                    address=Address(1),
-                )
-            ]
-        return None
-    if request.param is None:
-        if tx_type == 4:
-            return [
-                AuthorizationTuple(
-                    signer=pre.fund_eoa(1 if authorization_refund else 0),
-                    address=Address(1),
-                )
-            ]
-        return None
+    addresses = getattr(request, "param", None)
+    if addresses is None:
+        if tx_type != 4:
+            return None
+        addresses = [Address(1)]
     return [
         AuthorizationTuple(
-            signer=pre.fund_eoa(1 if authorization_refund else 0),
+            signer=pre.fund_eoa(0),
             address=address,
+            creates_account=True,
         )
-        for address in request.param
+        for address in addresses
     ]
 
 
@@ -209,27 +187,101 @@ def tx_intrinsic_gas_cost_including_floor_data_cost(
 
 
 @pytest.fixture
+def tx_gas_surplus() -> int:
+    """
+    Return the gas added to the limit of a valid transaction.
+
+    With the exact expected gas as the limit, a receipt equal to the limit
+    cannot tell exact billing from consuming everything available, so the
+    surplus shows that unused gas is returned. Parametrize with zero in
+    tests that pin the exact gas limit boundary.
+    """
+    return 1000
+
+
+@pytest.fixture
+def tx_expected_gas_used(
+    fork: Fork,
+    tx_data: Bytes,
+    access_list: List[AccessList] | None,
+    authorization_list: List[AuthorizationTuple] | None,
+    contract_creating_tx: bool,
+    tx_intrinsic_gas_cost_before_execution: int,
+) -> int:
+    """
+    Return the gas a valid fixture-built transaction is billed.
+
+    The recipients built by the `to` fixture execute no gas-consuming code
+    and the transaction sends no value, so it uses its intrinsic gas plus
+    the top-frame gas of its authorizations, or the calldata floor if that
+    is higher. A test that targets other bytecode or sends value must set
+    its own receipt.
+    """
+    # The sender pays for authorization state gas regardless of whether
+    # a state gas reservoir is available.
+    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+        contract_creation=contract_creating_tx,
+        authorizations=authorization_list or [],
+    )
+    floor_gas = fork.transaction_data_floor_cost_calculator()(
+        data=tx_data,
+        access_list=access_list,
+        contract_creation=contract_creating_tx,
+    )
+    return max(
+        tx_intrinsic_gas_cost_before_execution + top_frame_gas, floor_gas
+    )
+
+
+@pytest.fixture
 def tx_gas_limit(
     tx_intrinsic_gas_cost_including_floor_data_cost: int,
+    tx_expected_gas_used: int,
     tx_gas_delta: int,
+    tx_gas_surplus: int,
 ) -> int:
     """
     Gas limit for the transaction.
 
-    The gas delta is added to the intrinsic gas cost to generate different test
-    scenarios.
+    A negative gas delta is subtracted from the gas the transaction needs to
+    be valid, so it is rejected. Otherwise the limit is the gas the
+    transaction is expected to use plus the delta and the surplus, which
+    also covers the top-frame gas a type 4 transaction needs to succeed.
     """
-    return tx_intrinsic_gas_cost_including_floor_data_cost + tx_gas_delta
+    if tx_gas_delta < 0:
+        return tx_intrinsic_gas_cost_including_floor_data_cost + tx_gas_delta
+    return tx_expected_gas_used + tx_gas_delta + tx_gas_surplus
 
 
 @pytest.fixture
 def tx_error(
     tx_gas_delta: int,
+    tx_gas_limit: int,
+    tx_intrinsic_gas_cost_before_execution: int,
 ) -> TransactionException | None:
-    """Transaction error, only expected if the gas delta is negative."""
-    if tx_gas_delta < 0:
+    """
+    Transaction error, only expected if the gas delta is negative.
+
+    The intrinsic gas check runs first, so a gas limit below the intrinsic
+    cost is rejected for that reason. A gas limit at or above it but below
+    the calldata floor is rejected by the floor check.
+    """
+    if tx_gas_delta >= 0:
+        return None
+    if tx_gas_limit < tx_intrinsic_gas_cost_before_execution:
         return TransactionException.INTRINSIC_GAS_TOO_LOW
-    return None
+    return TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
+
+
+@pytest.fixture
+def tx_expected_receipt(
+    tx_error: TransactionException | None,
+    tx_expected_gas_used: int,
+) -> TransactionReceipt | None:
+    """Expect success and the exact gas used from a valid transaction."""
+    if tx_error is not None:
+        return None
+    return TransactionReceipt(status=1, gas_used=tx_expected_gas_used)
 
 
 @pytest.fixture
@@ -244,6 +296,7 @@ def tx(
     blob_versioned_hashes: Sequence[Hash] | None,
     tx_gas_limit: int,
     tx_error: TransactionException | None,
+    tx_expected_receipt: TransactionReceipt | None,
 ) -> Transaction:
     """Create the transaction used in each test."""
     return Transaction(
@@ -257,4 +310,5 @@ def tx(
         gas_limit=tx_gas_limit,
         blob_versioned_hashes=blob_versioned_hashes,
         error=tx_error,
+        expected_receipt=tx_expected_receipt,
     )

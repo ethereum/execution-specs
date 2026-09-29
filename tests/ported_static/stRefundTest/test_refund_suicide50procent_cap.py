@@ -1,158 +1,186 @@
 """
-Test_refund_suicide50procent_cap.
+Verify the refund cap when eight storage clears surround a gas-limited
+call to a self-destructing contract: the stored gas delta and the
+sender's final balance track the executed gas minus the capped refund,
+for both a starved and a fully funded sub-call.
 
 Ported from:
 state_tests/stRefundTest/refundSuicide50procentCapFiller.json
+
+@manually-enhanced: Do not overwrite. The sub-call grant, the stored gas
+delta, the refund cap and the budget all derive from fork composites. The
+destructor self-destructs to CALLER so every address is dynamic, and the
+post branches on EIP-6780 for the destructor's survival.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
+    Fork,
     Hash,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TARGET_BALANCE = 0xDE0B6B3A7640000
+DESTRUCTOR_BALANCE = 0xDE0B6B3A7640000
+INITIAL_BALANCE = 10**18
+GAS_PRICE = 10
+FLAG_SLOT = 0xA
+RESULT_SLOT = 0xB
+GAS_SLOT = 0x17
+SNAPSHOT_OFFSET = 0x16
+MEMORY_SIZE = SNAPSHOT_OFFSET + 32
+GRANT_MARGIN = 1_000
 
 
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refundSuicide50procentCapFiller.json"],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize(
-    "d, g, v",
-    [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="d0",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="d1",
-        ),
-    ],
+    "call_succeeds",
+    [False, True],
+    ids=["starved_grant", "full_grant"],
 )
-@pytest.mark.pre_alloc_mutable
 def test_refund_suicide50procent_cap(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    call_succeeds: bool,
 ) -> None:
-    """Test_refund_suicide50procent_cap."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0x3B9ACA00)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
+    """Storage clears around a self-destruct call refund up to the cap."""
+    # From EIP-6780 on, a pre-existing contract only moves its balance.
+    destructor_code = Op.SELFDESTRUCT(
+        address=Op.CALLER,
+        address_warm=True,
+        account_new=False,
+        self_destructed_account=not fork.is_eip_enabled(6780),
+    )
+    destructor = pre.deploy_contract(
+        code=destructor_code,
+        balance=DESTRUCTOR_BALANCE,
     )
 
-    pre[coinbase] = Account(balance=0, nonce=1)
-    # Source: lll
-    # { [22] (GAS) [[ 10 ]] 1 [[ 11 ]] (CALL (CALLDATALOAD 0) <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 ) [[ 1 ]] 0 [[ 2 ]] 0 [[ 3 ]] 0 [[ 4 ]] 0 [[ 5 ]] 0 [[ 6 ]] 0 [[ 7 ]] 0 [[ 8 ]] 0 [[ 23 ]] (SUB @22 (GAS)) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x16, value=Op.GAS)
-        + Op.SSTORE(key=0xA, value=0x1)
-        + Op.SSTORE(
-            key=0xB,
-            value=Op.CALL(
-                gas=Op.CALLDATALOAD(offset=0x0),
-                address=0x4FF65047CE9C85F968689E4369C10003026A41A9,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
+    # The grant either covers the destructor completely or falls one gas
+    # short, so the sub-call forfeits its whole grant.
+    destructor_cost = destructor_code.gas_cost(fork)
+    if call_succeeds:
+        grant = destructor_cost + GRANT_MARGIN
+        inner_consumed = destructor_cost
+    else:
+        grant = destructor_cost - 1
+        inner_consumed = grant
+    call_result = 1 if call_succeeds else 0
+
+    # First GAS read: the delta window opens after the GAS opcode itself.
+    head = Op.MSTORE(
+        offset=SNAPSHOT_OFFSET, value=Op.GAS, new_memory_size=MEMORY_SIZE
+    )
+    body = Op.SSTORE(
+        key=FLAG_SLOT,
+        value=0x1,
+        key_warm=False,
+        original_value=0,
+        new_value=1,
+    ) + Op.SSTORE(
+        key=RESULT_SLOT,
+        value=Op.CALL(
+            gas=Op.CALLDATALOAD(offset=0x0),
+            address=destructor,
+            address_warm=False,
+        ),
+        key_warm=False,
+        original_value=0,
+        new_value=call_result,
+    )
+    for slot in range(1, 9):
+        body += Op.SSTORE(
+            key=slot,
+            value=0x0,
+            key_warm=False,
+            original_value=1,
+            new_value=0,
+        )
+    # Second GAS read closes the window. The head's own GAS cost stands
+    # in for it in the derived delta (both GAS reads cost the same).
+    # new_value is a placeholder: an SSTORE's cost depends only on the
+    # zero/non-zero transition, not the stored magnitude.
+    tail = Op.SSTORE(
+        key=GAS_SLOT,
+        value=Op.SUB(
+            Op.MLOAD(
+                offset=SNAPSHOT_OFFSET,
+                new_memory_size=MEMORY_SIZE,
+                old_memory_size=MEMORY_SIZE,
             ),
-        )
-        + Op.SSTORE(key=0x1, value=0x0)
-        + Op.SSTORE(key=0x2, value=0x0)
-        + Op.SSTORE(key=0x3, value=0x0)
-        + Op.SSTORE(key=0x4, value=0x0)
-        + Op.SSTORE(key=0x5, value=0x0)
-        + Op.SSTORE(key=0x6, value=0x0)
-        + Op.SSTORE(key=0x7, value=0x0)
-        + Op.SSTORE(key=0x8, value=0x0)
-        + Op.SSTORE(key=0x17, value=Op.SUB(Op.MLOAD(offset=0x16), Op.GAS))
-        + Op.STOP,
-        storage={1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xA6CC2CA5611255D50118601AA8ECE6F124FC4C45),  # noqa: E501
+            Op.GAS,
+        ),
+        key_warm=False,
+        original_value=0,
+        new_value=1,
     )
-    # Source: lll
-    # { (SELFDESTRUCT <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(
-            address=0xA6CC2CA5611255D50118601AA8ECE6F124FC4C45
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x4FF65047CE9C85F968689E4369C10003026A41A9),  # noqa: E501
+    target = pre.deploy_contract(
+        code=head + body + tail + Op.STOP,
+        storage=dict.fromkeys(range(1, 9), 1),
+        balance=TARGET_BALANCE,
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={10: 1, 11: 0, 23: 0x107A7},
-                    balance=0xDE0B6B3A7640000,
-                ),
-                sender: Account(nonce=1),
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={10: 1, 11: 1, 23: 0x166FA},
-                    balance=0x1BC16D674EC80000,
-                ),
-                sender: Account(nonce=1),
-            },
-        },
-    ]
+    gas_delta = head.gas_cost(fork) + body.gas_cost(fork) + inner_consumed
 
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    data = Hash(grant)
+    # The refund cap is a fraction of the gas actually deducted before
+    # execution, which excludes the EIP-7623 calldata floor.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=data, return_cost_deducted_prior_execution=True
+    )
+    executed = intrinsic + gas_delta + tail.gas_cost(fork)
+    gas_limit = executed + 5_000
 
-    tx_data = [
-        Hash(0x1F4),
-        Hash(0x10000),
-    ]
-    tx_gas = [10000000]
-
+    sender = pre.fund_eoa(amount=INITIAL_BALANCE)
     tx = Transaction(
         sender=sender,
         to=target,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        error=_exc,
+        data=data,
+        gas_limit=gas_limit,
+        gas_price=GAS_PRICE,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    # The refund is capped at a fork-defined fraction of the executed
+    # gas.
+    total_refund = body.refund(fork) + (
+        destructor_code.refund(fork) if call_succeeds else 0
+    )
+    refund = min(total_refund, executed // fork.max_refund_quotient())
+    gas_used = executed - refund
+
+    post = {
+        target: Account(
+            storage={
+                FLAG_SLOT: 1,
+                RESULT_SLOT: call_result,
+                GAS_SLOT: gas_delta,
+            },
+            balance=TARGET_BALANCE
+            + (DESTRUCTOR_BALANCE if call_succeeds else 0),
+        ),
+        # EIP-6780: a pre-existing contract is no longer deleted, only
+        # its balance is transferred.
+        destructor: (
+            (
+                Account(balance=0)
+                if fork.is_eip_enabled(6780)
+                else Account.NONEXISTENT
+            )
+            if call_succeeds
+            else Account(balance=DESTRUCTOR_BALANCE, storage={})
+        ),
+        sender: Account(balance=INITIAL_BALANCE - gas_used * GAS_PRICE),
+    }
+
+    state_test(pre=pre, post=post, tx=tx)

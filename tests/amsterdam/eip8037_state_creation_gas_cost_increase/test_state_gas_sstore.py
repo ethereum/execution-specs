@@ -17,7 +17,12 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
     Block,
+    BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
     CodeGasMeasure,
@@ -29,6 +34,7 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionReceipt,
+    create_op,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -1022,10 +1028,11 @@ def test_sstore_restoration_then_reset(
     expected = max(tx_execution, sstore_state_gas)
 
     contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
         state_gas_reservoir=sstore_state_gas,
-        sender=pre.fund_eoa(),
+        sender=sender,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=sender_gas_used(
                 fork, tx_execution + sstore_state_gas, code
@@ -1035,7 +1042,39 @@ def test_sstore_restoration_then_reset(
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], header_verify=Header(gas_used=expected))],
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected),
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        sender: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        # The restore leaves no read behind once the slot
+                        # is set again: one change, nothing in reads.
+                        contract: BalAccountExpectation(
+                            storage_reads=[],
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=0,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=1,
+                                        )
+                                    ],
+                                )
+                            ],
+                        ),
+                    }
+                ),
+            )
+        ],
         post={contract: Account(storage={0: 1})},
     )
 
@@ -1645,10 +1684,7 @@ def test_sstore_restoration_create_init_revert(
     probe = pre.deploy_contract(code=Op.SSTORE(0, 1))
 
     mstore_value, init_code_size = init_code_at_high_bytes(init_code)
-    if create_opcode == Op.CREATE:
-        create_call = Op.CREATE(0, 0, init_code_size)
-    else:
-        create_call = Op.CREATE2(0, 0, init_code_size, 0)
+    create_call = create_op(create_opcode, size=init_code_size)
 
     # Inner contract performs the CREATE then REVERTs.
     inner = pre.deploy_contract(
@@ -1710,10 +1746,7 @@ def test_sstore_restoration_create_init_success(
     )
 
     mstore_value, init_code_size = init_code_at_high_bytes(init_code)
-    if create_opcode == Op.CREATE:
-        create_call = Op.CREATE(0, 0, init_code_size)
-    else:
-        create_call = Op.CREATE2(0, 0, init_code_size, 0)
+    create_call = create_op(create_opcode, size=init_code_size)
 
     probe_code = Op.SSTORE(0, 1)
     probe = pre.deploy_contract(code=probe_code)

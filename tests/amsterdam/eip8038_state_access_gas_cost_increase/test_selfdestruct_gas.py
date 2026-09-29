@@ -1,5 +1,5 @@
 """
-Tests for the EIP-8038 [State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038)
+Tests for the EIP-8038 [State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038)
 ``SELFDESTRUCT`` execution-gas dimension.
 
 Under EIP-8038 ``SELFDESTRUCT`` is charged, in its *execution* gas
@@ -127,6 +127,135 @@ def test_selfdestruct_new_beneficiary_execution_gas(
             caller: Account(storage=storage),
             # New beneficiary created and credited the destructor balance.
             beneficiary: Account(balance=1),
+        },
+        tx=tx,
+    )
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
+def test_selfdestruct_account_write_receipt_pin(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    warm: bool,
+) -> None:
+    """
+    Pin the whole charge of a value-bearing sweep to an empty
+    beneficiary.
+
+    The destructor is the transaction's top frame, so the receipt — which
+    sums both gas dimensions, unlike the block header, where the
+    dominating creation state gas masks the execution side — pins the
+    execution charge (``OPCODE_SELFDESTRUCT_BASE``, the cold surcharge
+    when cold, and ``ACCOUNT_WRITE``) together with the beneficiary's
+    ``GAS_NEW_ACCOUNT``.
+    """
+    beneficiary = pre.fund_eoa(amount=0)  # empty: takes the net-new branch
+
+    destructor_code = _destructor_code(
+        beneficiary, warm=warm, account_new=True
+    )
+    destructor = pre.deploy_contract(code=destructor_code, balance=1)
+
+    access_list = (
+        [AccessList(address=beneficiary, storage_keys=[])] if warm else None
+    )
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        access_list=access_list
+    )
+    # EIP-6780 keeps the pre-deployed destructor alive, so no state-gas
+    # refund muddies the receipt: it is the plain sum of both dimensions.
+    assert destructor_code.refund(fork) == 0
+    state_gas = destructor_code.state_cost(fork)
+    expected_gas_used = (
+        intrinsic + destructor_code.execution_cost(fork) + state_gas
+    )
+
+    tx = Transaction(
+        to=destructor,
+        sender=pre.fund_eoa(),
+        access_list=access_list,
+        state_gas_reservoir=state_gas,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            destructor: Account(balance=0, code=destructor_code),
+            beneficiary: Account(balance=1),
+        },
+        tx=tx,
+    )
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+def test_two_selfdestructs_to_same_beneficiary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Two sweeps into one beneficiary in a single transaction charge
+    ``ACCOUNT_WRITE`` once.
+
+    The first sweep creates the beneficiary; by the second it is alive and
+    warm, so only ``OPCODE_SELFDESTRUCT_BASE`` is charged and no second
+    ``GAS_NEW_ACCOUNT`` arises. Nothing tracks writes per account — the
+    second sweep is cheap purely because the leaf now exists.
+    """
+    beneficiary = pre.fund_eoa(amount=0)
+
+    first_code = _destructor_code(beneficiary, warm=False, account_new=True)
+    first = pre.deploy_contract(code=first_code, balance=1)
+    # By the second sweep the beneficiary holds the first sweep's balance
+    # (alive) and has already been accessed (warm).
+    second_code = _destructor_code(beneficiary, warm=True, account_new=False)
+    second = pre.deploy_contract(code=second_code, balance=1)
+    assert second_code.state_cost(fork) == 0
+
+    # Both destructors are cold at the caller's CALLs and neither call
+    # carries value, so the default call metadata prices them correctly.
+    caller_code = (
+        Op.POP(Op.CALL(gas=Op.GAS, address=first))
+        + Op.POP(Op.CALL(gas=Op.GAS, address=second))
+        + Op.STOP
+    )
+    caller = pre.deploy_contract(code=caller_code)
+
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+
+    # SELFDESTRUCT halts its frame successfully, so each child returns its
+    # unused grant and consumes exactly its own execution cost.
+    state_gas = first_code.state_cost(fork)
+    expected_gas_used = (
+        intrinsic
+        + caller_code.execution_cost(fork)
+        + first_code.execution_cost(fork)
+        + second_code.execution_cost(fork)
+        + state_gas
+    )
+
+    tx = Transaction(
+        to=caller,
+        sender=pre.fund_eoa(),
+        state_gas_reservoir=state_gas,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        # EIP-6780: neither pre-deployed destructor is deleted, but both
+        # balances transfer into the single beneficiary.
+        post={
+            first: Account(balance=0, code=first_code),
+            second: Account(balance=0, code=second_code),
+            beneficiary: Account(balance=2),
         },
         tx=tx,
     )
@@ -400,6 +529,61 @@ def test_selfdestruct_self_or_precompile_beneficiary(
     state_test(
         pre=pre,
         post=post,
+        tx=tx,
+    )
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+def test_selfdestruct_value_to_precompile_beneficiary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A value-bearing sweep to a precompile pays ``ACCOUNT_WRITE`` and
+    materialises the leaf.
+
+    A precompile is in the accessed set from the start of the
+    transaction, so the access is free — but it holds no state entry and
+    is therefore dead under EIP-161. A positive balance sent to one takes
+    the net-new branch: ``ACCOUNT_WRITE`` on the execution axis and
+    ``GAS_NEW_ACCOUNT`` on the state axis, leaving a real account at the
+    precompile address carrying the swept balance. The zero-value arm of
+    ``test_selfdestruct_self_or_precompile_beneficiary`` documents
+    avoiding exactly this path.
+    """
+    identity_precompile = Address(4)
+
+    # Warm (pre-warmed precompile) yet account-creating, the one
+    # combination no other case in this module reaches.
+    destructor_code = _destructor_code(
+        identity_precompile, warm=True, account_new=True
+    )
+    destructor = pre.deploy_contract(code=destructor_code, balance=1)
+
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    assert destructor_code.refund(fork) == 0
+    state_gas = destructor_code.state_cost(fork)
+    expected_gas_used = (
+        intrinsic + destructor_code.execution_cost(fork) + state_gas
+    )
+
+    tx = Transaction(
+        to=destructor,
+        sender=pre.fund_eoa(),
+        state_gas_reservoir=state_gas,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            destructor: Account(balance=0, code=destructor_code),
+            # The sweep creates a real account at the precompile address.
+            identity_precompile: Account(balance=1),
+        },
         tx=tx,
     )
 

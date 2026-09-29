@@ -1,6 +1,7 @@
 """Types used in the transition tool interactions."""
 
 import json
+import re
 import shutil
 import tempfile
 from dataclasses import dataclass, field
@@ -18,7 +19,7 @@ from typing import (
 )
 
 import ijson  # type: ignore[import-untyped]
-from pydantic import Field, PlainSerializer, PlainValidator
+from pydantic import Field, PlainSerializer, PlainValidator, model_validator
 
 from execution_testing.base_types import (
     Account,
@@ -355,8 +356,54 @@ def validate_opcode(obj: Any) -> Opcodes | Opcode | UndefinedOpcode:
     raise Exception(f"Unable to validate {obj} (type={type(obj)})")
 
 
+def normalize_opcode_name(name: str) -> str | None:
+    """
+    Map a tool's opcode name to one ``OpcodeCount`` accepts.
+
+    Handles non-canonical casing (nethermind) and geth's
+    ``"opcode 0xNN not defined"``; names this framework has no opcode for
+    (geth still names EOF opcodes the fork does not define) are dropped.
+    """
+    for candidate in (name, name.upper()):
+        try:
+            validate_opcode(candidate)
+            return candidate
+        except Exception:
+            continue
+    match = re.search(r"0x[0-9a-fA-F]+", name)
+    if match is not None:
+        return match.group(0)
+    logger.warning(f"opcode count: dropping unrecognized {name!r}")
+    return None
+
+
 class OpcodeCount(EthereumTestRootModel):
     """Opcode count returned from the evm tool."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_names(cls, data: Any) -> Any:
+        """
+        Accept every name a tool reports, dropping the ones with no opcode.
+
+        geth's t8n reports its opcode counts in every result, keyed by
+        its own names. An undefined byte comes back as ``"opcode 0xb8 not
+        defined"``, and before this the whole result failed to parse: the
+        fuzzer's diff lane read that as geth refusing the input and lost
+        one case in five.
+        """
+        if not isinstance(data, dict):
+            return data
+        normalized: Dict[str, int] = {}
+        for name, count in data.items():
+            key = (
+                name
+                if not isinstance(name, str)
+                else (normalize_opcode_name(name))
+            )
+            if key is not None:
+                normalized[key] = normalized.get(key, 0) + count
+        return normalized
 
     root: Dict[
         Annotated[

@@ -101,6 +101,7 @@ def pytest_configure(config: pytest.Config) -> None:
                 "spec_version_checker",
                 "EIP spec version",
             ],
+            show_test_paths=True,
         )
     elif config.getoption("show_fill_help"):
         show_specific_help(
@@ -187,7 +188,10 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 def show_specific_help(
-    config: pytest.Config, expected_ini: str, substrings: list[str]
+    config: pytest.Config,
+    expected_ini: str,
+    substrings: list[str],
+    show_test_paths: bool = False,
 ) -> None:
     """
     Print help options filtered by specific substrings from the given
@@ -220,6 +224,18 @@ def show_specific_help(
                 if action.nargs:
                     kwargs["nargs"] = action.nargs
                 new_group.add_argument(*action.option_strings, **kwargs)
+
+    if show_test_paths:
+        test_parser.add_argument(
+            "test_path",
+            nargs="*",
+            metavar="<test-path>",
+            help=(
+                "Limit collection to the given test paths, e.g. "
+                "`tests/amsterdam` or a single test module. The whole test "
+                "tree is collected if no path is given."
+            ),
+        )
 
     print(test_parser.format_help())
     pytest.exit("After displaying help.", returncode=pytest.ExitCode.OK)

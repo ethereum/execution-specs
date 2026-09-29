@@ -16,3 +16,4 @@ blob_count_changes = EIP does not introduce any blob count changes
 execution_layer_request = EIP does not introduce an execution layer request
 new_transaction_validity_constraint = EIP does not introduce a new transaction validity constraint
 modified_transaction_validity_constraint = EIP does not introduce a modified transaction validity constraint
+general/code_coverage/second_client = Optional

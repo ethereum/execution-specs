@@ -58,12 +58,18 @@ class TransactionPost(BaseExecute):
                 env_gas_limit=int(env.gas_limit),
                 transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
                 state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+                transaction_total_gas_limit_cap=(
+                    fork.transaction_total_gas_limit_cap()
+                ),
             )
             for tx in block:
                 tx.set_gas_limit(
                     max_gas_limit=max_tx_gas_limit,
                     transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
                     state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+                    transaction_total_gas_limit_cap=(
+                        fork.transaction_total_gas_limit_cap()
+                    ),
                 )
                 tx.set_gas_price(
                     gas_price=gas_price,

@@ -31,7 +31,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 from tests.ported_static.post_state_resolution import (
@@ -669,28 +669,31 @@ def test_storage_costs(
     # cost. Every measured access therefore shifts by its
     # (Amsterdam - Cancun) delta; derive each delta from the fork's own
     # opcode gas model so it is exactly 0 pre-EIP-8037 and tracks future
-    # parameter changes. The subtracted Cancun-era pure costs are frozen
-    # historical values.
-    def _sstore_delta(cancun_cost: int, **metadata: int) -> int:
+    # parameter changes. The subtracted baseline is the same access
+    # priced at Cancun.
+    def _sstore_delta(**metadata: int) -> int:
         op = Op.SSTORE.with_metadata(**metadata)
-        return op.gas_cost(fork) - cancun_cost
+        return op.gas_cost(fork) - op.gas_cost(Cancun)
 
     d_warm_set = _sstore_delta(
-        20000, key_warm=True, original_value=0, current_value=0, new_value=2
+        key_warm=True, original_value=0, current_value=0, new_value=2
     )
     d_cold_set = _sstore_delta(
-        22100, key_warm=False, original_value=0, current_value=0, new_value=2
+        key_warm=False, original_value=0, current_value=0, new_value=2
     )
     d_warm_write = _sstore_delta(
-        2900, key_warm=True, original_value=1, current_value=1, new_value=2
+        key_warm=True, original_value=1, current_value=1, new_value=2
     )
     d_cold_write = _sstore_delta(
-        5000, key_warm=False, original_value=1, current_value=1, new_value=2
+        key_warm=False, original_value=1, current_value=1, new_value=2
     )
     d_cold_noop = _sstore_delta(
-        2200, key_warm=False, original_value=1, current_value=1, new_value=1
+        key_warm=False, original_value=1, current_value=1, new_value=1
     )
-    d_cold_read = fork.gas_costs().COLD_STORAGE_ACCESS - 2100
+    d_cold_read = (
+        fork.gas_costs().COLD_STORAGE_ACCESS
+        - Cancun.gas_costs().COLD_STORAGE_ACCESS
+    )
 
     expect_entries_: list[dict] = [
         # declaredKeyWrite: warm fresh SSTORE-set.
