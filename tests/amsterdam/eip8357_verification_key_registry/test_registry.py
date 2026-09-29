@@ -28,25 +28,25 @@ pytestmark = [
 
 VK_HASH_1 = 1
 VK_HASH_2 = 2
-VK_HASH_1_ACTIVATION_TIMESTAMP = 1
-VK_HASH_2_ACTIVATION_TIMESTAMP = Spec.MAX_ACTIVATION_TIMESTAMP
-VK_HASH_1_ACTIVATION_SLOT = int(
+VK_HASH_1_SCHEMA_ID = 0x1501
+VK_HASH_2_SCHEMA_ID = Spec.MAX_SCHEMA_ID
+VK_HASH_1_SCHEMA_ID_SLOT = int(
     "cc69885fda6bcc1a4ace058b4a62bf5e179ea78fd58a1ccd71c22cc9b688792f",
     16,
 )
-VK_HASH_2_ACTIVATION_SLOT = int(
+VK_HASH_2_SCHEMA_ID_SLOT = int(
     "d9d16d34ffb15ba3a3d852f0d403e2ce1d691fb54de27ac87cd2f993f3ec330f",
     16,
 )
 
 K1_STORAGE = {
     Spec.CURRENT_VERIFICATION_KEY_HASH_SLOT: VK_HASH_1,
-    VK_HASH_1_ACTIVATION_SLOT: VK_HASH_1_ACTIVATION_TIMESTAMP,
+    VK_HASH_1_SCHEMA_ID_SLOT: VK_HASH_1_SCHEMA_ID,
 }
 K1_K2_STORAGE = {
     Spec.CURRENT_VERIFICATION_KEY_HASH_SLOT: VK_HASH_2,
-    VK_HASH_1_ACTIVATION_SLOT: VK_HASH_1_ACTIVATION_TIMESTAMP,
-    VK_HASH_2_ACTIVATION_SLOT: VK_HASH_2_ACTIVATION_TIMESTAMP,
+    VK_HASH_1_SCHEMA_ID_SLOT: VK_HASH_1_SCHEMA_ID,
+    VK_HASH_2_SCHEMA_ID_SLOT: VK_HASH_2_SCHEMA_ID,
 }
 
 CALL_SUCCESS_SLOT = 0
@@ -173,14 +173,14 @@ def _run_registry_call(
             Hash(0),
             K1_STORAGE,
             True,
-            Hash(VK_HASH_1) + Hash(VK_HASH_1_ACTIVATION_TIMESTAMP),
+            Hash(VK_HASH_1) + Hash(VK_HASH_1_SCHEMA_ID),
             id="current",
         ),
         pytest.param(
             Hash(VK_HASH_1),
             K1_STORAGE,
             True,
-            Hash(VK_HASH_1) + Hash(VK_HASH_1_ACTIVATION_TIMESTAMP),
+            Hash(VK_HASH_1) + Hash(VK_HASH_1_SCHEMA_ID),
             id="exact_current_vk_hash",
         ),
         pytest.param(
@@ -197,7 +197,7 @@ def _run_registry_call(
                 Spec.CURRENT_VERIFICATION_KEY_HASH_SLOT: VK_HASH_1,
             },
             True,
-            Hash(VK_HASH_2) + Hash(VK_HASH_2_ACTIVATION_TIMESTAMP),
+            Hash(VK_HASH_2) + Hash(VK_HASH_2_SCHEMA_ID),
             id="exact_historical_vk_hash",
         ),
     ],
@@ -232,13 +232,13 @@ def test_registry_reads(
     "calldata,initial_storage,expected_storage",
     [
         pytest.param(
-            Hash(VK_HASH_1) + Hash(VK_HASH_1_ACTIVATION_TIMESTAMP),
+            Hash(VK_HASH_1) + Hash(VK_HASH_1_SCHEMA_ID),
             {},
             K1_STORAGE,
             id="register_initial_vk_hash",
         ),
         pytest.param(
-            Hash(VK_HASH_2) + Hash(VK_HASH_2_ACTIVATION_TIMESTAMP),
+            Hash(VK_HASH_2) + Hash(VK_HASH_2_SCHEMA_ID),
             K1_STORAGE,
             K1_K2_STORAGE,
             id="register_second_vk_hash",
@@ -279,24 +279,24 @@ def test_registry_updates(
     "calldata,initial_storage",
     [
         pytest.param(
-            Hash(VK_HASH_1) + Hash(VK_HASH_2_ACTIVATION_TIMESTAMP),
+            Hash(VK_HASH_1) + Hash(VK_HASH_2_SCHEMA_ID),
             K1_STORAGE,
             id="duplicate_registration",
         ),
         pytest.param(
-            Hash(0) + Hash(VK_HASH_1_ACTIVATION_TIMESTAMP),
+            Hash(0) + Hash(VK_HASH_1_SCHEMA_ID),
             {},
             id="zero_vk_hash_registration",
         ),
         pytest.param(
             Hash(VK_HASH_1) + Hash(0),
             {},
-            id="zero_activation_timestamp",
+            id="zero_schema_id",
         ),
         pytest.param(
-            Hash(VK_HASH_1) + Hash(Spec.MAX_ACTIVATION_TIMESTAMP + 1),
+            Hash(VK_HASH_1) + Hash(Spec.MAX_SCHEMA_ID + 1),
             {},
-            id="activation_timestamp_too_large",
+            id="schema_id_too_large",
         ),
         pytest.param(Hash(0), K1_STORAGE, id="reactivate_zero_vk_hash"),
         pytest.param(
@@ -368,7 +368,7 @@ def test_registry_rejects_invalid_calldata_lengths(
         pytest.param(False, Hash(0), K1_STORAGE, id="read"),
         pytest.param(
             True,
-            Hash(VK_HASH_1) + Hash(VK_HASH_1_ACTIVATION_TIMESTAMP),
+            Hash(VK_HASH_1) + Hash(VK_HASH_1_SCHEMA_ID),
             {},
             id="update",
         ),
