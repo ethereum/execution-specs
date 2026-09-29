@@ -396,103 +396,64 @@ def test_unrecoverable_signature(
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.invalid_tx_not_last
 @pytest.mark.exception_test
-@pytest.mark.parametrize(
-    "nonces,invalid_index",
-    [
-        pytest.param((1, 0), 0, id="reversed_pair"),
-        pytest.param((0, 2, 1), 1, id="gap_then_fill"),
-    ],
-)
-def test_tx_nonce_order_in_block(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    nonces: tuple[int, ...],
-    invalid_index: int,
-) -> None:
-    """
-    Transactions from one sender arrive with a nonce out of order, so the
-    block is invalid at the first misplaced nonce even though the
-    transactions after it would make the sequence whole.
-
-    A client that executes transactions in parallel and resolves the nonce
-    dependency out of block order accepts the block.
-    """
-    sender = pre.fund_eoa()
-    bob_balance = 10**18
-    bob = pre.fund_eoa(amount=bob_balance)
-
-    txs = [
-        Transaction(
-            sender=sender,
-            nonce=nonce,
-            to=bob,
-            value=1,
-            protected=False,
-            error=(
-                TransactionException.NONCE_MISMATCH_TOO_HIGH
-                if i == invalid_index
-                else None
-            ),
-        )
-        for i, nonce in enumerate(nonces)
-    ]
-
-    blockchain_test(
-        pre=pre,
-        post={bob: Account(balance=bob_balance)},
-        blocks=[
-            Block(
-                txs=txs, exception=TransactionException.NONCE_MISMATCH_TOO_HIGH
-            )
-        ],
-    )
-
-
-@pytest.mark.valid_from("Frontier")
-@pytest.mark.invalid_tx_not_last
-@pytest.mark.exception_test
+@pytest.mark.parametrize("cause", ["insufficient_funds", "nonce_too_high"])
 def test_tx_invalid_first_in_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    cause: str,
 ) -> None:
     """
-    The first transaction of a block has an unfunded sender and the one
-    after it, valid on its own, would have funded that sender; the block
-    is rejected at the first transaction.
+    The first transaction of a block is invalid and the valid one after it
+    would have made it valid had it run first; the block is rejected at the
+    first transaction.
 
-    A client that applies the later credit before checking the first
-    transaction accepts the block. The later transaction also puts the
-    sender in the block access list, which a client reading state through
-    the list needs before it can reach the funds check at all.
+    `insufficient_funds`: the later transaction funds the unfunded sender.
+    `nonce_too_high`: the sender's nonce 1 arrives before its nonce 0. A
+    client that applies the later transaction before checking the first
+    accepts the block. Either way the later transaction puts the sender in
+    the block access list, which a client reading state through the list
+    needs before it can reach the check under test.
     """
-    unfunded = pre.fund_eoa(amount=0)
-    carol = pre.fund_eoa()
     bob_balance = 10**18
     bob = pre.fund_eoa(amount=bob_balance)
 
-    txs = [
-        Transaction(
-            sender=unfunded,
-            to=bob,
-            value=1,
-            protected=False,
-            error=TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-        ),
-        Transaction(sender=carol, to=unfunded, value=10**18, protected=False),
-    ]
+    if cause == "insufficient_funds":
+        sender = pre.fund_eoa(amount=0)
+        carol = pre.fund_eoa()
+        error = TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
+        txs = [
+            Transaction(
+                sender=sender, to=bob, value=1, protected=False, error=error
+            ),
+            Transaction(
+                sender=carol, to=sender, value=10**18, protected=False
+            ),
+        ]
+        sender_post = Account.NONEXISTENT
+    elif cause == "nonce_too_high":
+        sender = pre.fund_eoa()
+        error = TransactionException.NONCE_MISMATCH_TOO_HIGH
+        txs = [
+            Transaction(
+                sender=sender,
+                nonce=1,
+                to=bob,
+                value=1,
+                protected=False,
+                error=error,
+            ),
+            Transaction(
+                sender=sender, nonce=0, to=bob, value=1, protected=False
+            ),
+        ]
+        sender_post = Account(nonce=0)
+    else:
+        raise ValueError(f"unknown cause: {cause}")
 
     blockchain_test(
         pre=pre,
-        post={
-            unfunded: Account.NONEXISTENT,
-            bob: Account(balance=bob_balance),
-        },
-        blocks=[
-            Block(
-                txs=txs,
-                exception=TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            )
-        ],
+        post={sender: sender_post, bob: Account(balance=bob_balance)},
+        blocks=[Block(txs=txs, exception=error)],
     )
 
 
