@@ -4,6 +4,10 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    BalAccountExpectation,
+    BalBalanceChange,
+    BalNonceChange,
+    BlockAccessListExpectation,
     Op,
     StateTestFiller,
     Storage,
@@ -398,6 +402,7 @@ def test_unrecoverable_signature(
 def test_tx_invalid_first_in_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: BaseFork,
     cause: str,
 ) -> None:
     """
@@ -405,13 +410,15 @@ def test_tx_invalid_first_in_block(
     would have made it valid had it run first; the block is rejected at the
     first transaction.
 
-    `insufficient_funds`: the later transaction funds the unfunded sender.
-    `nonce_too_high`: the sender's nonce 1 arrives before its nonce 0. A
-    client that applies the later transaction before checking the first
-    accepts the block. Either way the later transaction puts the sender in
-    the block access list, which a client reading state through the list
-    needs before it can reach the check under test. The next block replays
-    the later transaction at the same nonce, so it must have left no trace.
+    This guards clients that execute a block's transactions in parallel, as
+    block access lists (EIP-7928) allow: they must reject the block without
+    help from the transactions after the invalid one, which a sequential
+    client never looks at. `insufficient_funds`: the later transaction funds
+    the unfunded sender. `nonce_too_high`: the sender's nonce 1 arrives
+    before its nonce 0. The later transaction also puts the sender in the
+    block access list, which a client reading state through the list needs
+    before it reaches the check under test. The next block replays it at the
+    same nonce, so it must have left no trace.
     """
     bob_balance = 10**18
     bob = pre.fund_eoa(amount=bob_balance)
@@ -430,6 +437,16 @@ def test_tx_invalid_first_in_block(
             sender: Account(nonce=0, balance=10**18),
             bob: Account(balance=bob_balance),
         }
+        rejected_entry = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=2, post_balance=10**18)
+            ]
+        )
+        replay_entry = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=10**18)
+            ]
+        )
     elif cause == "nonce_too_high":
         sender = pre.fund_eoa()
         error = TransactionException.NONCE_MISMATCH_TOO_HIGH
@@ -448,14 +465,36 @@ def test_tx_invalid_first_in_block(
             sender: Account(nonce=1),
             bob: Account(balance=bob_balance + 1),
         }
+        rejected_entry = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=2, post_nonce=1)]
+        )
+        replay_entry = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)]
+        )
     else:
         raise ValueError(f"unknown cause: {cause}")
+
+    # The trailing transaction lists the sender at its own position: index
+    # 2 in the rejected block, index 1 in the replay.
+    rejected_list: BlockAccessListExpectation | None = None
+    replay_list: BlockAccessListExpectation | None = None
+    if fork.is_eip_enabled(7928):
+        rejected_list = BlockAccessListExpectation(
+            account_expectations={sender: rejected_entry}
+        )
+        replay_list = BlockAccessListExpectation(
+            account_expectations={sender: replay_entry}
+        )
 
     blockchain_test(
         pre=pre,
         post=post,
         blocks=[
-            Block(txs=[invalid_tx, trailing_tx], exception=error),
-            Block(txs=[trailing_tx]),
+            Block(
+                txs=[invalid_tx, trailing_tx],
+                exception=error,
+                expected_block_access_list=rejected_list,
+            ),
+            Block(txs=[trailing_tx], expected_block_access_list=replay_list),
         ],
     )
