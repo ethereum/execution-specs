@@ -445,11 +445,6 @@ class BesuExceptionMapper(ExceptionMapper):
             r"transaction invalid Sender 0x[0-9a-f]+ has deployed code "
             r"and so is not authorized to send transactions"
         ),
-        # EIP-8141 static frame transaction constraints, including the
-        # shape of a signature entry and its declared signer. Besu raises
-        # a distinct message per constraint, so they are collected here as
-        # one alternation. Signature entries whose cryptography fails are
-        # TYPE_6_INVALID_SIGNATURE below; the two sets are disjoint.
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
             r"frame count must be between \d+ and \d+|"
             r"unknown frame mode \d+|"
@@ -473,17 +468,10 @@ class BesuExceptionMapper(ExceptionMapper):
             r"frame signature digest must be empty or 32 bytes|"
             r"frame signature signer must be empty or a 20-byte address|"
             r"frame signature signer does not match the recovered signer|"
-            # Rejected while decoding the transaction rather than while
-            # validating it, so these arrive wrapped in Besu's generic
-            # "Failed to decode transactions from block parameter (...)".
             r"Frame signature msg must be empty or a 32-byte digest|"
             r"Frame signature signer must be empty or a 20-byte address|"
             r"Frame transaction must have at least one frame"
         ),
-        # EIP-8141 signature entries that are well formed but whose
-        # cryptography does not hold. The length of the signature blob
-        # belongs here rather than with the format errors: it is a
-        # property of the scheme's encoding, not of the entry's structure.
         TransactionException.TYPE_6_INVALID_SIGNATURE: (
             r"secp256k1 frame signature must be 65 bytes|"
             r"secp256k1 frame signature values out of range|"
@@ -493,7 +481,6 @@ class BesuExceptionMapper(ExceptionMapper):
             r"P256 frame signature public key is not on the curve|"
             r"P256 frame signature verification failed"
         ),
-        # EIP-8141 invalidation raised during frame execution.
         TransactionException.TYPE_6_INVALID_FRAME_EXECUTION: (
             r"SENDER frame \d+ executed before execution approval|"
             r"VERIFY frame \d+ failed|"
