@@ -45,6 +45,7 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
+    Bytes,
     Environment,
     Fork,
     Header,
@@ -60,9 +61,13 @@ from execution_testing.checklists import EIPChecklist
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .helpers import (
     EOA_INITIAL_BALANCE,
+    NULL_ADDRESS,
     AuthorizationAction,
     AuthorizationScenario,
+    authorization_transaction_cost,
     build_authorization,
+    build_repeated_authority,
+    setup_target,
 )
 from .spec import ref_spec_2780
 
@@ -562,6 +567,215 @@ def test_recipient_charge_oog_rolls_back_delegations(
         tx=tx,
         post=post,
         expected_block_access_list=expected_block_access_list,
+    )
+
+
+def _starved_recipient_value(recipient_type: RecipientType) -> int:
+    """Return the value that makes the recipient's charge ``NEW_ACCOUNT``."""
+    return int(recipient_type == RecipientType.EMPTY_ACCOUNT)
+
+
+def _starved_recipient_post(
+    recipient: Address, recipient_type: RecipientType, succeeds: bool
+) -> dict[Address, Account | None]:
+    """
+    Return the recipient's post-state: the value lands only when the
+    charge is covered. A delegated recipient is untouched either way.
+    """
+    if recipient_type != RecipientType.EMPTY_ACCOUNT:
+        return {}
+    value = _starved_recipient_value(recipient_type)
+    return {recipient: Account(balance=value) if succeeds else None}
+
+
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@pytest.mark.parametrize(
+    "succeeds",
+    [
+        pytest.param(False, id="fails"),
+        pytest.param(True, id="succeeds"),
+    ],
+)
+@pytest.mark.parametrize(
+    "recipient_type",
+    [
+        pytest.param(RecipientType.EMPTY_ACCOUNT, id="new_account"),
+        pytest.param(RecipientType.DELEGATION_7702, id="delegation_access"),
+    ],
+)
+@pytest.mark.parametrize(
+    "first_action",
+    [
+        AuthorizationAction.SETS_NEW_DELEGATION,
+        AuthorizationAction.CREATES_ACCOUNT,
+        AuthorizationAction.CLEARS_DELEGATION,
+    ],
+    ids=lambda a: a.name.lower(),
+)
+def test_repeated_authority_rolled_back(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+    first_action: AuthorizationAction,
+    recipient_type: RecipientType,
+    succeeds: bool,
+) -> None:
+    """
+    A recipient top-frame charge running out of gas rolls back an
+    authority that was authorized twice, to its state before the first
+    authorization.
+
+    Both authorizations apply, then the recipient's charge is starved by
+    one gas. The rollback must undo the nonce bump of each applied
+    authorization and restore the code from before the first one, so the
+    authority ends exactly as it started: absent when the first
+    authorization created it.
+
+    The ``succeeds`` control restores the one starved gas, and both
+    authorizations stick.
+    """
+    sender = pre.fund_eoa()
+    repeated = build_repeated_authority(pre, first_action)
+    recipient = setup_target(pre, recipient_type, sender)
+    value = _starved_recipient_value(recipient_type)
+
+    # Both authorizations apply, then the recipient's top-frame charge is
+    # starved by one gas (or, with ``succeeds``, covered exactly).
+    gas_limit = authorization_transaction_cost(
+        fork,
+        repeated.authorizations,
+        recipient_type=recipient_type,
+        sends_value=bool(value),
+    )
+    if not succeeds:
+        gas_limit -= 1
+
+    tx = Transaction(
+        sender=sender,
+        to=recipient,
+        value=value,
+        authorization_list=repeated.authorizations,
+        gas_limit=gas_limit,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_limit,
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            repeated.authority: (
+                repeated.applied_account
+                if succeeds
+                else repeated.original_account
+            ),
+            **_starved_recipient_post(recipient, recipient_type, succeeds),
+        },
+    )
+
+
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@pytest.mark.parametrize(
+    "succeeds",
+    [
+        pytest.param(False, id="fails"),
+        pytest.param(True, id="succeeds"),
+    ],
+)
+@pytest.mark.parametrize(
+    "recipient_type",
+    [
+        pytest.param(RecipientType.EMPTY_ACCOUNT, id="new_account"),
+        pytest.param(RecipientType.DELEGATION_7702, id="delegation_access"),
+    ],
+)
+@pytest.mark.parametrize("sender_action", ["sets", "clears"])
+def test_self_sponsored_authorization_rolled_back(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+    sender_action: str,
+    recipient_type: RecipientType,
+    succeeds: bool,
+) -> None:
+    """
+    A recipient top-frame charge running out of gas rolls back a
+    self-sponsored authorization, but not the sender's own transaction
+    nonce bump.
+
+    The sender sets or clears its own delegation, then the recipient's
+    charge is starved by one gas. The authorization's nonce bump and
+    code change are undone; the nonce bump applied at inclusion, before
+    the preparation snapshot, stays.
+
+    The ``succeeds`` control restores the one starved gas, and the
+    authorization sticks.
+    """
+    original_code = Bytes()
+    original_target = None
+    if sender_action == "clears":
+        original_target = pre.deploy_contract(code=Op.STOP)
+        original_code = Spec7702.delegation_designation(original_target)
+    sender = pre.fund_eoa(delegation=original_target)
+    recipient = setup_target(pre, recipient_type, sender)
+    value = _starved_recipient_value(recipient_type)
+
+    tx_nonce = int(sender.nonce)
+    if sender_action == "sets":
+        delegation_target = pre.deploy_contract(code=Op.STOP)
+        applied_code = Spec7702.delegation_designation(delegation_target)
+        authorization = AuthorizationTuple(
+            address=delegation_target,
+            # The sender's nonce is bumped at inclusion, before the
+            # authorizations are processed.
+            nonce=tx_nonce + 1,
+            signer=sender,
+            first_write=False,
+        )
+    else:
+        applied_code = Bytes()
+        authorization = AuthorizationTuple(
+            address=NULL_ADDRESS,
+            nonce=tx_nonce + 1,
+            signer=sender,
+            writes_delegation=False,
+            first_write=False,
+        )
+    authorization_list = [authorization]
+
+    gas_limit = authorization_transaction_cost(
+        fork,
+        authorization_list,
+        recipient_type=recipient_type,
+        sends_value=bool(value),
+    )
+    if not succeeds:
+        gas_limit -= 1
+
+    tx = Transaction(
+        sender=sender,
+        nonce=tx_nonce,
+        to=recipient,
+        value=value,
+        authorization_list=authorization_list,
+        gas_limit=gas_limit,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_limit,
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: (
+                Account(nonce=tx_nonce + 2, code=applied_code)
+                if succeeds
+                else Account(nonce=tx_nonce + 1, code=original_code)
+            ),
+            **_starved_recipient_post(recipient, recipient_type, succeeds),
+        },
     )
 
 

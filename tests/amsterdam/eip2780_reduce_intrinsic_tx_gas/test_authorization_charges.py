@@ -20,6 +20,7 @@ from .helpers import (
     AuthorizationAction,
     authorization_transaction_cost,
     build_authorization,
+    build_repeated_authority,
 )
 from .spec import ref_spec_2780
 
@@ -150,32 +151,9 @@ def test_multi_authorization_intra_tx_state(
             "create_then_modify": AuthorizationAction.CREATES_ACCOUNT,
             "clear_then_set": AuthorizationAction.CLEARS_DELEGATION,
         }[scenario]
-        leg = build_authorization(pre, first_action)
-        new_target = pre.deploy_contract(code=Op.STOP)
-
-        # The second authorization runs on the same authority right
-        # after the first, using the next nonce. The first already
-        # wrote the authority's leaf (no second ``ACCOUNT_WRITE``) and
-        # either set a delegation in this transaction or found one from
-        # before it, so the re-point writes no net-new indicator and
-        # pays no ``AUTH_BASE``.
-        applied_nonce = int(leg.applied_account.nonce)
-        second_auth = AuthorizationTuple(
-            address=new_target,
-            nonce=applied_nonce,
-            signer=leg.authority,
-            creates_account=False,
-            writes_delegation=False,
-            first_write=False,
-        )
-        authorization_list = [leg.authorization, second_auth]
-        expected_authorities = {
-            leg.authority: Account(
-                nonce=applied_nonce + 1,
-                balance=int(leg.applied_account.balance),
-                code=Spec7702.delegation_designation(new_target),
-            ),
-        }
+        repeated = build_repeated_authority(pre, first_action)
+        authorization_list = repeated.authorizations
+        expected_authorities = {repeated.authority: repeated.applied_account}
 
     total_gas_cost = authorization_transaction_cost(fork, authorization_list)
 
