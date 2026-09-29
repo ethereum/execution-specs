@@ -41,8 +41,12 @@ def test_json_dict() -> None:
     )
 
 
-def test_hash_matches_compact_sorted_json() -> None:
-    """Test that the streamed hash equals the hash of the compact JSON."""
+@pytest.mark.parametrize("stream_hash", [False, True])
+def test_hash_matches_compact_sorted_json(
+    monkeypatch: pytest.MonkeyPatch, stream_hash: bool
+) -> None:
+    """Test that both hash paths equal the hash of the compact JSON."""
+    monkeypatch.setattr(TransactionFixture, "stream_hash", stream_hash)
     fixture = TransactionFixture(
         transaction="0x1234",
         result={
@@ -53,7 +57,7 @@ def test_hash_matches_compact_sorted_json() -> None:
     json_str = json.dumps(
         fixture.json_dict, sort_keys=True, separators=(",", ":")
     )
-    expected = hashlib.sha256(json_str.encode("utf-8")).hexdigest()
+    expected = hashlib.sha256(json_str.encode()).hexdigest()
     assert fixture.hash == f"0x{expected}"
 
 
