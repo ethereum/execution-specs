@@ -5620,6 +5620,10 @@ def test_bal_created_account_noop_write(
     )
 
 
+# The oracle is the sender's exact debit: value, gas at the base fee and
+# the burned blob fee. A frame variant spends different gas, so it cannot
+# reproduce that balance.
+@pytest.mark.frame_tx_incompatible
 def test_bal_blob_fee_leaves_sender_only(
     pre: Alloc,
     state_test: StateTestFiller,
