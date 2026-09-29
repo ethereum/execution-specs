@@ -13,10 +13,12 @@ import configparser
 import datetime
 import gc
 import hashlib
+import importlib
 import json
 import logging
 import os
 import signal
+import sys
 import time
 import warnings
 from dataclasses import dataclass, field
@@ -823,6 +825,87 @@ def pytest_configure(config: pytest.Config) -> None:
 
     if chain_id is not None:
         ChainConfigDefaults.chain_id = int(chain_id)
+
+
+XDIST_WORKER_MEMORY = {"cpython": int(1.8 * 1024**3), "pypy": 4 * 1024**3}
+"""
+Bytes of memory to budget per xdist worker when `-n auto` picks the count.
+
+Each value is the largest peak RSS of a worker in a CI-equivalent fill run,
+rounded up: 1.7 GiB on CPython 3.14 (Prague) and 3.8 GiB on PyPy 3.11
+(`just fill-pypy`, which sets `PYPY_GC_MAX=2G`).
+"""
+
+
+def auto_worker_count(
+    cores: int, total_memory: int | None, implementation: str
+) -> int:
+    """
+    Return the number of xdist workers to start for `-n auto`.
+
+    Start one worker per core, but no more than fit in `total_memory` at the
+    budget from `XDIST_WORKER_MEMORY`. Use the core count when the memory is
+    unknown, and never return fewer than one worker.
+    """
+    workers = max(cores, 1)
+    if total_memory is not None:
+        budget = XDIST_WORKER_MEMORY.get(
+            implementation, XDIST_WORKER_MEMORY["cpython"]
+        )
+        workers = min(workers, total_memory // budget)
+    return max(workers, 1)
+
+
+def _core_count(logical: bool) -> int:
+    """
+    Count cores the way pytest-xdist does.
+
+    psutil gives physical cores, but only the `dev` dependency group installs
+    it. The PyPy recipes run with `--no-dev` and get the logical CPU count,
+    which is twice the physical count on hyperthreaded machines. The memory
+    budget keeps that from starting too many workers.
+    """
+    try:
+        psutil = importlib.import_module("psutil")
+    except ImportError:
+        pass
+    else:
+        count = psutil.cpu_count(logical=logical) or psutil.cpu_count()
+        if count:
+            return int(count)
+    if hasattr(os, "sched_getaffinity"):
+        return len(os.sched_getaffinity(0))
+    return os.cpu_count() or 1
+
+
+def _total_memory() -> int | None:
+    """Return the machine's total physical memory in bytes, if known."""
+    try:
+        psutil = importlib.import_module("psutil")
+    except ImportError:
+        pass
+    else:
+        return int(psutil.virtual_memory().total)
+    try:
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    except (AttributeError, OSError, ValueError):
+        return None
+
+
+@pytest.hookimpl(optionalhook=True, tryfirst=True)
+def pytest_xdist_auto_num_workers(config: pytest.Config) -> int | None:
+    """
+    Pick the worker count for `-n auto` from the cores and the memory.
+
+    Leave a numeric `PYTEST_XDIST_AUTO_NUM_WORKERS` to pytest-xdist, which
+    treats it as an explicit worker count.
+    """
+    if os.environ.get("PYTEST_XDIST_AUTO_NUM_WORKERS", "").strip().isdigit():
+        return None
+    logical = config.option.numprocesses == "logical"
+    return auto_worker_count(
+        _core_count(logical), _total_memory(), sys.implementation.name
+    )
 
 
 @pytest.hookimpl(trylast=True)
