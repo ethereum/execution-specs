@@ -5,8 +5,11 @@ from typing import Any, Callable, Dict, List, Protocol
 
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.client_clis import LazyAlloc
+from execution_testing.fixtures.blockchain import (
+    FixtureExecutionPayloadModifier,
+)
 from execution_testing.forks import Fork
-from execution_testing.test_types import Alloc, ExecutionWitness
+from execution_testing.test_types import Alloc, ExecutionWitness, Removable
 from execution_testing.test_types.block_access_list import BlockAccessList
 from execution_testing.test_types.execution_witness import (
     ExecutionWitnessCodesExpectation,
@@ -17,11 +20,6 @@ from execution_testing.test_types.execution_witness import (
 
 class StatelessBlockProtocol(Protocol):
     """Block fields needed by stateless validation orchestration."""
-
-    @property
-    def rlp_modifier(self) -> object | None:
-        """RLP modifier configured for the block."""
-        ...
 
     @property
     def expected_execution_witness_codes(
@@ -110,18 +108,7 @@ def stateless_options_for_block(
         stateless_input_bytes_modifier is not None
     )
     expected_success = block.expected_stateless_validation_success
-    omit_stateless_artifacts = block.rlp_modifier is not None
 
-    if omit_stateless_artifacts and (
-        has_witness_expectation
-        or has_stateless_input_bytes_modifier
-        or expected_success is not None
-    ):
-        raise AssertionError(
-            "Blocks with rlp_modifier omit stateless artifacts because "
-            "they are generated before the RLP mutation. SSZ/stateless "
-            "mutation tests require a separate explicit mechanism."
-        )
     if skip_stateless_validation and (
         has_witness_expectation
         or has_stateless_input_bytes_modifier
@@ -161,7 +148,7 @@ def stateless_options_for_block(
         )
 
     return StatelessBlockOptions(
-        skip_validation=skip_stateless_validation or omit_stateless_artifacts,
+        skip_validation=skip_stateless_validation,
         witness_modifiers=witness_modifiers,
         stateless_input_bytes_modifier=stateless_input_bytes_modifier,
         expected_validation_success=expected_success,
@@ -215,6 +202,7 @@ def build_stateless_artifacts(
     block_rlp: Bytes,
     block_access_list: BlockAccessList | None,
     requests_list: List[Bytes] | None,
+    engine_payload_modifier: FixtureExecutionPayloadModifier | None,
     chain_id: int,
     block_valid: bool,
     run_guest: bool,
@@ -222,21 +210,29 @@ def build_stateless_artifacts(
     """
     Build the stateless guest input and output for the final fixture block.
 
-    The input comes from the fixture block RLP, block access list and
-    requests, so it includes any change the filler makes after the
-    transition tool runs. Without ``run_guest`` the output trusts the
-    transition tool instead of re-executing the block.
+    The input describes the engine payload that the block sends. The
+    fixture block RLP, block access list and requests supply every field
+    that ``engine_payload_modifier`` doesn't override, so the input
+    includes any change the filler makes after the transition tool runs.
+    Without ``run_guest`` the output trusts the transition tool instead of
+    re-executing the block.
 
-    Omit the input and output when the block access list or requests
-    cannot be expressed as Amsterdam types.
+    Omit the input and output when the block header or the requests
+    cannot be expressed as Amsterdam types, or when the engine payload
+    leaves out a field, which the SSZ payload cannot express.
     """
     artifacts = StatelessValidationArtifacts(
         execution_witness=execution_witness
+    )
+    payload_modifier = (
+        engine_payload_modifier or FixtureExecutionPayloadModifier()
     )
     if (
         options.skip_validation
         or execution_witness is None
         or fork.name() != "Amsterdam"
+        or isinstance(payload_modifier.block_access_list, Removable)
+        or isinstance(payload_modifier.slot_number, Removable)
     ):
         return artifacts
     assert block_access_list is not None
@@ -265,25 +261,51 @@ def build_stateless_artifacts(
     from ethereum_types.numeric import U16, U64
 
     try:
-        amsterdam_block_access_list = rlp.decode_to(
-            AmsterdamBlockAccessList, block_access_list.rlp
-        )
+        amsterdam_block = rlp.decode_to(AmsterdamBlock, block_rlp)
         execution_requests = decode_execution_requests(
             tuple(requests_list or ())
         )
     except Exception:
-        # Re-encoded block access lists and mocked system contracts can
-        # produce data that the typed stateless input cannot hold.
+        # An RLP modifier can remove a header field that the Amsterdam
+        # block needs, and mocked system contracts or request overrides
+        # can produce requests that the typed stateless input cannot hold.
         return artifacts
+    try:
+        amsterdam_block_access_list = rlp.decode_to(
+            AmsterdamBlockAccessList, block_access_list.rlp
+        )
+    except Exception:
+        # A re-encoded list need not decode. The payload bytes replace its
+        # encoding below, so an empty list stands in for it.
+        amsterdam_block_access_list = []
 
     stateless_input = build_stateless_input(
-        rlp.decode_to(AmsterdamBlock, block_rlp),
+        amsterdam_block,
         execution_witness=_convert_amsterdam_execution_witness(
             execution_witness
         ),
         execution_requests=execution_requests,
         block_access_list=amsterdam_block_access_list,
         chain_id=U64(chain_id),
+    )
+    execution_payload = replace(
+        stateless_input.new_payload_request.execution_payload,
+        block_access_list=(
+            block_access_list.rlp
+            if payload_modifier.block_access_list is None
+            else payload_modifier.block_access_list
+        ),
+    )
+    if payload_modifier.slot_number is not None:
+        execution_payload = replace(
+            execution_payload, slot_number=U64(payload_modifier.slot_number)
+        )
+    stateless_input = replace(
+        stateless_input,
+        new_payload_request=replace(
+            stateless_input.new_payload_request,
+            execution_payload=execution_payload,
+        ),
     )
     input_bytes = Bytes(serialize_stateless_input(stateless_input))
     if run_guest:

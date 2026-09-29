@@ -6,6 +6,7 @@ from ethereum_types.numeric import U64
 
 from ethereum.exceptions import InvalidBlock
 from ethereum.forks.amsterdam.execution_engine.requests import (
+    REQUEST_ITEM_TYPES,
     BuilderDepositRequest,
     BuilderExitRequest,
     ConsolidationRequest,
@@ -135,6 +136,22 @@ def test_decode_rejects_invalid_builder_request_payload_length(
 
     with pytest.raises(InvalidBlock, match=message):
         decode_execution_requests(wire)
+
+
+@pytest.mark.parametrize(
+    ("type_byte", "name"),
+    [
+        pytest.param(type_byte, name, id=name.replace(" ", "-"))
+        for type_byte, (_, _, name) in REQUEST_ITEM_TYPES.items()
+    ],
+)
+def test_decode_rejects_empty_request_payload(
+    type_byte: Bytes,
+    name: str,
+) -> None:
+    """A type byte without data has no typed equivalent."""
+    with pytest.raises(InvalidBlock, match=f"Empty {name} request payload"):
+        decode_execution_requests((type_byte,))
 
 
 def test_decode_rejects_non_ascending_builder_request_types() -> None:

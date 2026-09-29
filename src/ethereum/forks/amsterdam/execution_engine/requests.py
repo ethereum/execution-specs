@@ -177,8 +177,9 @@ def decode_execution_requests(
     Parse the engine-API wire form into a typed ``ExecutionRequests``.
 
     Validates strict ascending type order, no duplicate type bytes, no
-    unknown type bytes, and that each payload's length is a multiple of
-    the per-type item size.
+    unknown type bytes, and that each payload is non-empty with a length
+    that is a multiple of the per-type item size. The wire form omits
+    empty lists, so an empty payload has no typed equivalent.
     """
     decoded: Dict[Bytes, Tuple[Any, ...]] = {}
 
@@ -199,6 +200,8 @@ def decode_execution_requests(
                 f"Unknown execution request type byte {request_type!r}"
             )
         item_type, item_size, name = REQUEST_ITEM_TYPES[request_type]
+        if len(body) == 0:
+            raise InvalidBlock(f"Empty {name} request payload")
         if len(body) % item_size != 0:
             raise InvalidBlock(f"Invalid {name} request payload length")
         decoded[request_type] = tuple(
