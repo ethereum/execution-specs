@@ -1821,10 +1821,6 @@ def pytest_collection_modifyitems(
     """
     # Track specs with no fixture formats for warning message
     specs_without_fixture_formats: Dict[str, Set[str]] = {}
-    # Track test items that request no spec type at all (e.g. plain pytest
-    # tests collected from a fixture directory) for warning message
-    tests_without_spec_type: List[str] = []
-
     items_for_removal = []
     for i, item in enumerate(items):
         item.name = item.name.strip().replace(" ", "-")
@@ -1839,12 +1835,10 @@ def pytest_collection_modifyitems(
         fork: Fork | TransitionFork = params["fork"]
         spec_type_and_format = get_spec_format_for_item(params)
         if spec_type_and_format is None:
-            # Plain pytest test: it requests none of the spec type fixtures, so
-            # it cannot be filled. `tests` must exclusively contain spec tests,
-            # so collect it for the error report below instead of silently
-            # deselecting it.
+            # Unreachable in practice: `pytest_generate_tests` fails the
+            # collection of a test that requests no spec type before it gets
+            # here. Drop it defensively so it is never filled.
             items_for_removal.append(i)
-            tests_without_spec_type.append(item.nodeid)
             continue
         spec_type, fixture_format = spec_type_and_format
         if isinstance(fixture_format, NotSetType):
@@ -1932,45 +1926,6 @@ def pytest_collection_modifyitems(
             )
             reporter.write_sep("=", yellow=True, bold=True)
             reporter.write_line("")
-
-    # Fail loudly if a collected test requests no spec type: `tests` must
-    # exclusively contain spec tests, so silently deselecting them would hide
-    # the mistake instead of surfacing it.
-    if tests_without_spec_type:
-        spec_type_names = ", ".join(
-            sorted(
-                spec_type.pytest_parameter_name()
-                for spec_type in BaseTest.spec_types.values()
-            )
-        )
-        reporter = config.pluginmanager.get_plugin("terminalreporter")
-        if reporter and isinstance(reporter, TerminalReporter):
-            reporter.write_line("")
-            reporter.write_sep(
-                "=",
-                "ERROR: Tests without a spec type",
-                red=True,
-                bold=True,
-            )
-            for nodeid in sorted(tests_without_spec_type):
-                reporter.write_line(f"  - {nodeid}", red=True)
-            reporter.write_line("")
-            reporter.write_line(
-                f"  Fillable tests must request one of: {spec_type_names}.",
-                red=True,
-            )
-            reporter.write_line(
-                "  Move helper self-checks out of the fill path (e.g. into a "
-                "non-'test_' module) if they are not meant to be filled.",
-                red=True,
-            )
-            reporter.write_sep("=", red=True, bold=True)
-            reporter.write_line("")
-        pytest.exit(
-            f"{len(tests_without_spec_type)} test(s) collected from `tests/` "
-            "request no spec type; see the error report above.",
-            returncode=pytest.ExitCode.USAGE_ERROR,
-        )
 
     # Build base_nodeid cache and identify slow groups.
     # If ANY fixture format variant is marked slow, treat ALL variants as slow

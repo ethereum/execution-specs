@@ -1,7 +1,7 @@
 """Helpers for pytest plugins."""
 
 import os
-from typing import Any, Dict, Tuple, Type
+from typing import Any, Dict, List, Tuple, Type
 
 import pytest
 
@@ -75,3 +75,28 @@ def get_spec_format_for_item(
         if spec_type.pytest_parameter_name() in params:
             return spec_type, params[spec_type.pytest_parameter_name()]
     return None
+
+
+def format_missing_spec_type_message(nodeids: List[str]) -> str:
+    """
+    Build the error message for tests that request no spec type.
+
+    `tests` must exclusively contain spec tests, so such a test is reported by
+    name instead of being silently dropped.
+    """
+    spec_type_names = ", ".join(
+        sorted(
+            spec_type.pytest_parameter_name()
+            for spec_type in BaseTest.spec_types.values()
+        )
+    )
+    return "\n".join(
+        [
+            f"{len(nodeids)} test(s) collected from `tests/` request no spec "
+            "type:",
+            *(f"  - {nodeid}" for nodeid in sorted(nodeids)),
+            f"  Fillable tests must request one of: {spec_type_names}.",
+            "  Move helper self-checks out of the fill path (e.g. into a "
+            "non-'test_' module) if they are not meant to be filled.",
+        ]
+    )

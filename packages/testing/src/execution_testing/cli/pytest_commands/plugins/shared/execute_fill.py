@@ -18,7 +18,10 @@ from execution_testing.specs.base import OpMode
 from execution_testing.test_types import EOA, Alloc, ChainConfig
 
 from ..shared.address_stubs import AddressStubs, StubEOA
-from ..shared.helpers import get_rpc_endpoint
+from ..shared.helpers import (
+    format_missing_spec_type_message,
+    get_rpc_endpoint,
+)
 from ..shared.pre_alloc import AllocFlags
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 
@@ -316,6 +319,23 @@ def pytest_make_parametrize_id(
 SPEC_TYPES_PARAMETERS: List[str] = list(BaseTest.spec_types.keys())
 
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    """
+    Fail the collection of a test that requests no spec type fixture.
+
+    `tests` must exclusively contain spec tests. The check runs here rather
+    than in a later collection hook so that the offending test is named in
+    every process: raising from `pytest_collection_modifyitems` is reported as
+    an internal error under xdist, where that hook runs inside a worker.
+    """
+    if not any(p in metafunc.fixturenames for p in SPEC_TYPES_PARAMETERS):
+        pytest.fail(
+            format_missing_spec_type_message([metafunc.definition.nodeid]),
+            pytrace=False,
+        )
+
+
 def pytest_runtest_call(item: pytest.Item) -> None:
     """Pytest hook called in the context of test execution."""
     if isinstance(item, EIPSpecTestItem):
@@ -337,13 +357,8 @@ def pytest_runtest_call(item: pytest.Item) -> None:
             "blockchain test; not both."
         )
 
-    # Check that the test defines either test type as parameter.
-    if not any(i for i in item.funcargs if i in SPEC_TYPES_PARAMETERS):
-        pytest.fail(
-            "Test must define either one of the following parameters to "
-            + "properly generate a test: "
-            + ", ".join(SPEC_TYPES_PARAMETERS)
-        )
+    # No need to check for a spec type here: `pytest_generate_tests` fails the
+    # collection of a test that requests none.
 
 
 # Global `sender` fixture that can be overridden by tests.
