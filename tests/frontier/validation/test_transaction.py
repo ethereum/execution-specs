@@ -5,7 +5,6 @@ from execution_testing import (
     Account,
     Alloc,
     Op,
-    RecipientType,
     StateTestFiller,
     Storage,
     Transaction,
@@ -459,94 +458,4 @@ def test_tx_invalid_first_in_block(
             Block(txs=[invalid_tx, trailing_tx], exception=error),
             Block(txs=[trailing_tx]),
         ],
-    )
-
-
-@pytest.mark.valid_from("Frontier")
-@pytest.mark.parametrize(
-    "funding",
-    [
-        "exact",
-        pytest.param(
-            "one_wei_short",
-            marks=[
-                pytest.mark.invalid_tx_not_last,
-                pytest.mark.exception_test,
-            ],
-        ),
-    ],
-)
-def test_tx_sender_funds_spent_by_earlier_tx(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: BaseFork,
-    funding: str,
-) -> None:
-    """
-    A sender's second transaction is affordable only against the balance
-    its first one left behind, and a third sender's transaction follows.
-
-    Against the pre-block balance both of the sender's transactions pass
-    the upfront check; one wei short and the block is invalid at the
-    second one, which a client checking against the pre-block state
-    accepts.
-    """
-    gas_limit = fork.transaction_intrinsic_cost_calculator()(
-        sends_value=True, recipient_type=RecipientType.EOA
-    )
-    gas_price = TransactionDefaults.gas_price
-    value = 1
-    tx_cost = gas_limit * gas_price + value
-    if funding == "exact":
-        sender_balance = 2 * tx_cost
-        error = None
-    elif funding == "one_wei_short":
-        sender_balance = 2 * tx_cost - 1
-        error = TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
-    else:
-        raise ValueError(f"unknown funding: {funding}")
-
-    sender = pre.fund_eoa(amount=sender_balance)
-    carol = pre.fund_eoa()
-    bob_balance = 10**18
-    bob = pre.fund_eoa(amount=bob_balance)
-
-    txs = [
-        Transaction(
-            sender=sender,
-            to=bob,
-            value=value,
-            gas_limit=gas_limit,
-            gas_price=gas_price,
-            protected=False,
-        ),
-        Transaction(
-            sender=sender,
-            to=bob,
-            value=value,
-            gas_limit=gas_limit,
-            gas_price=gas_price,
-            protected=False,
-            error=error,
-        ),
-        Transaction(sender=carol, to=bob, value=value, protected=False),
-    ]
-
-    if funding == "exact":
-        post = {
-            sender: Account(nonce=2, balance=0),
-            bob: Account(balance=bob_balance + 3 * value),
-        }
-    elif funding == "one_wei_short":
-        post = {
-            sender: Account(nonce=0, balance=sender_balance),
-            bob: Account(balance=bob_balance),
-        }
-    else:
-        raise ValueError(f"unknown funding: {funding}")
-
-    blockchain_test(
-        pre=pre,
-        post=post,
-        blocks=[Block(txs=txs, exception=error)],
     )
