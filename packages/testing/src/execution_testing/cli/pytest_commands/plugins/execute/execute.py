@@ -518,6 +518,7 @@ def pytest_collection_modifyitems(
     plugins inspect item params, as in the filler plugin.
     """
     items_for_removal = []
+    tests_without_spec_type: List[str] = []
     for i, item in enumerate(items):
         if isinstance(item, EIPSpecTestItem):
             continue
@@ -526,7 +527,14 @@ def pytest_collection_modifyitems(
             items_for_removal.append(i)
             continue
         fork: Fork | TransitionFork = params["fork"]
-        spec_type, execute_format = get_spec_format_for_item(params)
+        spec_type_and_format = get_spec_format_for_item(params)
+        if spec_type_and_format is None:
+            # Not a spec test: fail loudly below, because `tests` must
+            # exclusively contain spec tests.
+            items_for_removal.append(i)
+            tests_without_spec_type.append(item.nodeid)
+            continue
+        spec_type, execute_format = spec_type_and_format
         markers = list(item.iter_markers())
         if spec_type.discard_execute_format_by_marks(
             execute_format, fork, markers
@@ -549,3 +557,11 @@ def pytest_collection_modifyitems(
 
     for i in reversed(items_for_removal):
         items.pop(i)
+
+    if tests_without_spec_type:
+        pytest.exit(
+            f"{len(tests_without_spec_type)} test(s) collected from `tests/` "
+            f"request no spec type: "
+            f"{', '.join(sorted(tests_without_spec_type))}",
+            returncode=pytest.ExitCode.USAGE_ERROR,
+        )

@@ -61,19 +61,17 @@ def get_rpc_endpoint(config: pytest.Config) -> str | None:
     )
 
 
-def get_spec_type_for_item(params: Dict[str, Any]) -> Type[BaseTest] | None:
-    """Return the spec type requested by the test item, if any."""
-    for spec_type in BaseTest.spec_types.values():
-        if spec_type.pytest_parameter_name() in params:
-            return spec_type
-    return None
-
-
 def get_spec_format_for_item(
     params: Dict[str, Any],
-) -> Tuple[Type[BaseTest], Any]:
-    """Return the spec type and execute format for the given test item."""
+) -> Tuple[Type[BaseTest], Any] | None:
+    """
+    Return the spec type and execute format for the given test item.
+
+    Returns `None` if the item requests none of the spec types, i.e. it is not
+    a spec test. Callers must fail loudly in that case, because `tests` must
+    exclusively contain spec tests.
+    """
     for spec_type in BaseTest.spec_types.values():
         if spec_type.pytest_parameter_name() in params:
             return spec_type, params[spec_type.pytest_parameter_name()]
-    raise ValueError("No spec type format found in the test item.")
+    return None
