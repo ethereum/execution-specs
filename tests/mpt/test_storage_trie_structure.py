@@ -738,6 +738,70 @@ def test_delete_collapses_into_nested_extension(
     )
 
 
+@pytest.mark.parametrize(
+    "doomed,pre_shape",
+    [
+        pytest.param(
+            TWO_SLOTS_EXT4_SIBLING_DEPTH2,
+            [
+                (0, "branch", 2),
+                (1, "ext", 1),
+                (2, "branch", 2),
+                (3, "ext", 1),
+                (4, "branch", 2),
+                (5, "leaf", 59),
+            ],
+            id="extension_survivor",
+        ),
+        pytest.param(
+            TWO_SLOTS_EXT4_SIBLING_DEPTH3,
+            [
+                (0, "branch", 2),
+                (1, "ext", 2),
+                (3, "branch", 2),
+                (4, "branch", 2),
+                (5, "leaf", 59),
+            ],
+            id="branch_survivor",
+        ),
+    ],
+)
+def test_delete_under_nested_extension(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    doomed: int,
+    pre_shape: Shape,
+) -> None:
+    """
+    Collapse a branch whose parent is an extension below the root branch.
+
+    pre:  branch@0 -> {ext(1) -> branch@2 -> {d, ext(1) -> ..}, ..}  ext
+          branch@0 -> {ext(2) -> branch@3 -> {d, branch@4}, ..}      branch
+    post: branch@0 -> {ext(3) -> branch@4 -> {p, q}, leaf(63)}
+    Unlike the root-extension cells, the merged extension is written into
+    the root branch's slot instead of becoming the root.
+    """
+    p, q = TWO_SLOTS_EXT4
+    storage = _storage((p, q, doomed, SINGLE_SLOT))
+    remaining = {s: v for s, v in storage.items() if s != doomed}
+    assert storage_shape(list(storage), p) == pre_shape
+    assert storage_shape(list(remaining), p) == [
+        (0, "branch", 2),
+        (1, "ext", 3),
+        (4, "branch", 2),
+        (5, "leaf", 59),
+    ]
+    contract = pre.deploy_contract(
+        code=_writer_code([(doomed, 0)]), storage=_alloc(storage)
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage=remaining)},
+    )
+
+
 def test_delete_collapses_branch_onto_branch(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
@@ -1115,6 +1179,16 @@ def test_delete_all_slots_empties_trie(
             id="root_onto_ext",
         ),
         pytest.param(EXT_MERGE_TRIO, EXT_MERGE_TRIO[0], id="nested_ext_leaf"),
+        pytest.param(
+            (*TWO_SLOTS_EXT4, TWO_SLOTS_EXT4_SIBLING_DEPTH2, SINGLE_SLOT),
+            TWO_SLOTS_EXT4_SIBLING_DEPTH2,
+            id="nested_ext_ext",
+        ),
+        pytest.param(
+            (*TWO_SLOTS_EXT4, TWO_SLOTS_EXT4_SIBLING_DEPTH3, SINGLE_SLOT),
+            TWO_SLOTS_EXT4_SIBLING_DEPTH3,
+            id="nested_ext_branch",
+        ),
     ],
 )
 def test_delete_against_committed_trie(
