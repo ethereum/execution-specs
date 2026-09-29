@@ -495,13 +495,17 @@ def test_set_code_to_tstore_available_at_correct_address(
     "balance",
     [0, 1],
 )
+@pytest.mark.parametrize("tx_value", [0, 1])
 def test_set_code_to_self_destruct(
     state_test: StateTestFiller,
     pre: Alloc,
     external_sendall_recipient: bool,
     balance: int,
+    tx_value: int,
 ) -> None:
     """Test the executing self-destruct opcode in a set-code transaction."""
+    # With balance 0 the authority does not exist until the authorization
+    # creates it.
     auth_signer = pre.fund_eoa(balance)
     if external_sendall_recipient:
         recipient = pre.fund_eoa(0)
@@ -514,7 +518,7 @@ def test_set_code_to_self_destruct(
 
     tx = Transaction(
         to=auth_signer,
-        value=0,
+        value=tx_value,
         authorization_list=[
             AuthorizationTuple(
                 address=set_code_to_address,
@@ -525,17 +529,20 @@ def test_set_code_to_self_destruct(
         sender=pre.fund_eoa(),
     )
 
+    # The authorization does not make the authority a contract created in
+    # this transaction, so SELFDESTRUCT only moves its balance.
+    total_balance = balance + tx_value
     post = {
         auth_signer: Account(
             nonce=1,
             code=Spec.delegation_designation(set_code_to_address),
             storage={1: 1},
-            balance=balance if not external_sendall_recipient else 0,
+            balance=total_balance if not external_sendall_recipient else 0,
         ),
     }
 
-    if external_sendall_recipient and balance > 0:
-        post[recipient] = Account(balance=balance)
+    if external_sendall_recipient and total_balance > 0:
+        post[recipient] = Account(balance=total_balance)
 
     state_test(
         env=Environment(),
