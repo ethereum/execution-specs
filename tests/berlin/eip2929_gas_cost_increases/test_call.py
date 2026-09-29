@@ -74,27 +74,21 @@ def test_call_insufficient_balance(
 
 def precompile_range_boundaries(fork: Fork) -> List[Tuple[Address, bool]]:
     """
-    Return the first and last address of each precompile range, which are
-    warm, and the addresses just outside each range, which are cold.
+    Return the precompiles at the ends of each range, which are warm, and
+    the addresses right outside them, which are cold.
     """
-    precompiles = sorted(int.from_bytes(a, "big") for a in fork.precompiles())
-    ranges: List[List[int]] = []
-    for address in precompiles:
-        if ranges and address == ranges[-1][1] + 1:
-            ranges[-1][1] = address
-        else:
-            ranges.append([address, address])
-
-    # The top address byte set catches clients that compare only low bytes.
-    high_byte = 1 << 152
-    warmth = {}
-    for first, last in ranges:
-        for address in (first, last):
-            warmth[address] = True
-            warmth[address | high_byte] = False
-        warmth.setdefault(first - 1, False)
-        warmth.setdefault(last + 1, False)
-    return [(Address(a), warm) for a, warm in sorted(warmth.items())]
+    precompiles = {int.from_bytes(a, "big") for a in fork.precompiles()}
+    range_ends = {
+        p
+        for p in precompiles
+        if p - 1 not in precompiles or p + 1 not in precompiles
+    }
+    outside = {n for p in range_ends for n in (p - 1, p + 1)} - precompiles
+    # Same low bytes as a precompile, for clients that compare only those.
+    high_byte_set = {p | 1 << 152 for p in range_ends}
+    return [(Address(a), True) for a in sorted(range_ends)] + [
+        (Address(a), False) for a in sorted(outside | high_byte_set)
+    ]
 
 
 @pytest.mark.valid_from("Berlin")

@@ -537,7 +537,7 @@ def test_set_code_to_self_destruct(
     # this transaction, so SELFDESTRUCT only moves its balance.
     total_balance = balance + tx_value
     final_balance = 0 if external_sendall_recipient else total_balance
-    post = {
+    post: dict[Address, Account | None] = {
         auth_signer: Account(
             nonce=1,
             code=Spec.delegation_designation(set_code_to_address),
@@ -546,8 +546,11 @@ def test_set_code_to_self_destruct(
         ),
     }
 
-    if external_sendall_recipient and total_balance > 0:
-        post[recipient] = Account(balance=total_balance)
+    if external_sendall_recipient:
+        if total_balance > 0:
+            post[recipient] = Account(balance=total_balance)
+        else:
+            post[recipient] = Account.NONEXISTENT
 
     if fork.is_eip_enabled(7708):
         # SELFDESTRUCT logs nothing when it sends to itself or moves zero.
