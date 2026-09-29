@@ -9,10 +9,12 @@ contracts). The tests here target that bookkeeping on mined addresses
 (`*_ADDRS_*` in `constants.py`).
 
 The account trie also holds accounts the test does not control, so shape
-assertions are computed over the full genesis set (pre-alloc plus the
-fork's system contracts, plus the coinbase after the block) and pin the
-node kind around the mined group rather than the whole path; an
-uncontrolled account sharing the group's prefix would fail the fill.
+assertions are computed over the genesis set of every fixture the test
+fills (pre-alloc plus the fork's predeploys, fewer in a state test than
+in the blockchain fixtures derived from it, plus the coinbase after the
+block) and pin the node kind around the mined group rather than the
+whole path; an uncontrolled account sharing the group's prefix would
+fail the fill.
 
 Deleting a committed account leaf on these forks is only possible for a
 contract created in the same transaction (EIP-6780). The deletion tests
@@ -117,8 +119,27 @@ def _delete_tx(sender: EOA, salt: int) -> Transaction:
 
 
 def _genesis(pre: Alloc, fork: Fork) -> List[Address]:
-    """Every address in the genesis trie: pre-alloc and system contracts."""
+    """
+    Addresses in a blockchain fixture's genesis trie.
+
+    The filler adds the fork's `pre_allocation_blockchain()` to the
+    pre-alloc; call this once every account is in `pre`.
+    """
     return [*pre, *(Address(a) for a in fork.pre_allocation_blockchain())]
+
+
+def _state_test_genesis_sets(pre: Alloc, fork: Fork) -> List[List[Address]]:
+    """
+    Addresses in the genesis trie of each fixture a state test fills.
+
+    The state fixture adds only `pre_allocation()` to the pre-alloc, the
+    blockchain fixtures derived from it the set of `_genesis`; a shape
+    pinned in one does not carry over to the other.
+    """
+    return [
+        [*pre, *(Address(a) for a in fork.pre_allocation())],
+        _genesis(pre, fork),
+    ]
 
 
 def _after_block(
@@ -150,7 +171,8 @@ def test_genesis_extension_and_branch(
     pre.fund_address(a, amount=1)
     pre.fund_address(b, amount=2)
     sender, recipient = pre.fund_eoa(), pre.fund_eoa(amount=1)
-    assert node_at(_shape(_genesis(pre, fork), a), 4) == ("branch", 2)
+    for genesis in _state_test_genesis_sets(pre, fork):
+        assert node_at(_shape(genesis, a), 4) == ("branch", 2)
 
     state_test(
         pre=pre,
@@ -172,10 +194,8 @@ def test_genesis_full_branch_arity_sixteen(
     for i, address in enumerate(addresses):
         pre.fund_address(address, amount=i + 1)
     sender, recipient = pre.fund_eoa(), pre.fund_eoa(amount=1)
-    assert node_at(_shape(_genesis(pre, fork), addresses[0]), 4) == (
-        "branch",
-        16,
-    )
+    for genesis in _state_test_genesis_sets(pre, fork):
+        assert node_at(_shape(genesis, addresses[0]), 4) == ("branch", 16)
 
     state_test(
         pre=pre,
@@ -206,10 +226,10 @@ def test_insert_full_branch_during_execution(
     addresses = [Address(x) for x in SIXTEEN_ADDRS_BRANCH4]
     payer = pre.deploy_contract(code=_pay_each(addresses), balance=16)
     sender = pre.fund_eoa()
-    genesis = _genesis(pre, fork)
-    assert covering(_shape(genesis, addresses[0]), 4)[1] != "branch"
-    after = _after_block(genesis) + addresses
-    assert node_at(_shape(after, addresses[0]), 4) == ("branch", 16)
+    for genesis in _state_test_genesis_sets(pre, fork):
+        assert covering(_shape(genesis, addresses[0]), 4)[1] != "branch"
+        after = _after_block(genesis) + addresses
+        assert node_at(_shape(after, addresses[0]), 4) == ("branch", 16)
 
     state_test(
         pre=pre,
@@ -260,13 +280,12 @@ def test_delete_collapses_branch_into_leaf(
     pre.fund_address(doomed, amount=FUNDING)
     _ensure_factory(pre, fork)
     sender = pre.fund_eoa()
-    genesis = _genesis(pre, fork)
-    before = _shape(genesis, survivor)
-    assert node_at(before, 4) == ("branch", 2)
-    assert before[before.index((4, "branch", 2)) - 1][1] == "ext"
-    assert covering(_shape(_after_block(genesis, doomed), survivor), 4)[1] == (
-        "leaf"
-    )
+    for genesis in _state_test_genesis_sets(pre, fork):
+        before = _shape(genesis, survivor)
+        assert node_at(before, 4) == ("branch", 2)
+        assert before[before.index((4, "branch", 2)) - 1][1] == "ext"
+        after = _shape(_after_block(genesis, doomed), survivor)
+        assert covering(after, 4)[1] == "leaf"
 
     state_test(
         pre=pre,
@@ -294,16 +313,16 @@ def test_delete_merges_adjacent_extensions(
     pre.fund_address(doomed, amount=FUNDING)
     _ensure_factory(pre, fork)
     sender = pre.fund_eoa()
-    genesis = _genesis(pre, fork)
-    before = _shape(genesis, l1)
-    assert node_at(before, 2) == ("branch", 2)
-    assert before[before.index((2, "branch", 2)) - 1][1] == "ext"
-    assert node_at(before, 3) == ("ext", 2)
-    assert node_at(before, 5) == ("branch", 2)
-    after = _shape(_after_block(genesis, doomed), l1)
-    depth, kind, size = covering(after, 2)
-    assert kind == "ext" and depth + size == 5
-    assert node_at(after, 5) == ("branch", 2)
+    for genesis in _state_test_genesis_sets(pre, fork):
+        before = _shape(genesis, l1)
+        assert node_at(before, 2) == ("branch", 2)
+        assert before[before.index((2, "branch", 2)) - 1][1] == "ext"
+        assert node_at(before, 3) == ("ext", 2)
+        assert node_at(before, 5) == ("branch", 2)
+        after = _shape(_after_block(genesis, doomed), l1)
+        depth, kind, size = covering(after, 2)
+        assert kind == "ext" and depth + size == 5
+        assert node_at(after, 5) == ("branch", 2)
 
     state_test(
         pre=pre,
@@ -552,21 +571,22 @@ def _cell(
     """
     Fund `funded` and the address created by `salt`; pin the collapse cell.
 
-    Asserts that `target`'s path holds a 2-child branch at `depth` whose
-    parent is `parent_kind`, and that after the block the node covering
-    `depth` is `survivor_kind`.
+    Asserts, in every genesis the state test fills, that `target`'s path
+    holds a 2-child branch at `depth` whose parent is `parent_kind`, and
+    that after the block the node covering `depth` is `survivor_kind`.
+    Every other account must already be in `pre`.
     """
     doomed = Address(create2_preimage(salt))
     for address in funded:
         pre.fund_address(address, amount=1)
     pre.fund_address(doomed, amount=FUNDING)
     _ensure_factory(pre, fork)
-    genesis = _genesis(pre, fork)
-    before = _shape(genesis, target)
-    assert node_at(before, depth) == ("branch", 2)
-    assert before[before.index((depth, "branch", 2)) - 1][1] == parent_kind
-    after = _shape(_after_block(genesis, doomed), target)
-    assert covering(after, depth)[1] == survivor_kind
+    for genesis in _state_test_genesis_sets(pre, fork):
+        before = _shape(genesis, target)
+        assert node_at(before, depth) == ("branch", 2)
+        assert before[before.index((depth, "branch", 2)) - 1][1] == parent_kind
+        after = _shape(_after_block(genesis, doomed), target)
+        assert covering(after, depth)[1] == survivor_kind
     return doomed
 
 
@@ -634,6 +654,7 @@ def test_delete_collapse_cells(
     the uncontrolled accounts, up to a 16^-2 collision the assert reports.
     """
     addresses = [Address(x) for x in funded]
+    sender = pre.fund_eoa()
     doomed = _cell(
         pre,
         fork,
@@ -647,7 +668,7 @@ def test_delete_collapse_cells(
 
     state_test(
         pre=pre,
-        tx=_delete_tx(pre.fund_eoa(), salt),
+        tx=_delete_tx(sender, salt),
         post={
             **{a: Account(balance=1) for a in addresses},
             doomed: Account.NONEXISTENT,
@@ -670,16 +691,15 @@ def test_delete_from_three_child_branch(
     pre.fund_address(q, amount=2)
     pre.fund_address(doomed, amount=FUNDING)
     _ensure_factory(pre, fork)
-    genesis = _genesis(pre, fork)
-    assert node_at(_shape(genesis, p), 4) == ("branch", 3)
-    assert node_at(_shape(_after_block(genesis, doomed), p), 4) == (
-        "branch",
-        2,
-    )
+    sender = pre.fund_eoa()
+    for genesis in _state_test_genesis_sets(pre, fork):
+        assert node_at(_shape(genesis, p), 4) == ("branch", 3)
+        after = _shape(_after_block(genesis, doomed), p)
+        assert node_at(after, 4) == ("branch", 2)
 
     state_test(
         pre=pre,
-        tx=_delete_tx(pre.fund_eoa(), COLLAPSE_SALT),
+        tx=_delete_tx(sender, COLLAPSE_SALT),
         post={
             p: Account(balance=1),
             q: Account(balance=2),
