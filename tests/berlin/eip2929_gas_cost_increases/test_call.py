@@ -103,7 +103,8 @@ def test_call_precompile_range_boundaries(
     warm: bool,
 ) -> None:
     """
-    Verify precompiles are warm and the addresses around them are cold.
+    Verify precompiles are warm and the addresses around them are cold, and
+    that only the precompiles run as one.
 
     Clients encode the precompile set as a list, a numeric range or a
     predicate, so each range edge is checked from both sides.
