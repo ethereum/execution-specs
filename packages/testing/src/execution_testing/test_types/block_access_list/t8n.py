@@ -156,6 +156,30 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
 
         return cls(root=accounts)
 
+    def with_pre_execution_changes(
+        self, changes: Sequence[BalAccountChange]
+    ) -> "BlockAccessList":
+        """
+        Return a copy with `changes` added at block access index 0, merged
+        into the entry the list already holds for the same address.
+        """
+        accounts = {Address(account.address): account for account in self.root}
+        for change in changes:
+            address = Address(change.address)
+            existing = accounts.get(address)
+            if existing is None:
+                accounts[address] = change
+                continue
+            accounts[address] = existing.model_copy(
+                update={
+                    "nonce_changes": change.nonce_changes
+                    + existing.nonce_changes,
+                    "code_changes": change.code_changes
+                    + existing.code_changes,
+                }
+            )
+        return type(self)(root=[accounts[a] for a in sorted(accounts)])
+
     def to_list(self) -> List[Any]:
         """Return the list for RLP encoding per EIP-7928."""
         return to_serializable_element(self.root)
