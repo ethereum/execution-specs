@@ -42,6 +42,8 @@ REFERENCE_SPEC_VERSION = ref_spec_7708.version
 
 pytestmark = pytest.mark.valid_from("EIP7708")
 
+ENDOWMENT = 1
+
 
 def test_simple_transfer_emits_log(
     state_test: StateTestFiller,
@@ -1220,6 +1222,81 @@ def test_transfer_to_special_address(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "case",
+    [
+        pytest.param("identity_success", id="identity_success"),
+        pytest.param("sha256_out_of_gas", id="sha256_out_of_gas"),
+        pytest.param("ecadd_invalid_point", id="ecadd_invalid_point"),
+    ],
+)
+def test_call_with_value_to_precompile(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    case: str,
+) -> None:
+    """
+    Test that CALL with value into a precompile logs the transfer only if
+    the precompile succeeds.
+    """
+    storage = Storage()
+    if case == "identity_success":
+        precompile = Address(0x04)
+        call = Op.CALL(
+            gas=Op.GAS, address=precompile, value=ENDOWMENT, args_size=32
+        )
+        succeeds = True
+    elif case == "sha256_out_of_gas":
+        precompile = Address(0x02)
+        # Only the value stipend is forwarded, which cannot pay for hashing
+        # this many words.
+        call = Op.CALL(
+            gas=0, address=precompile, value=ENDOWMENT, args_size=32 * 400
+        )
+        succeeds = False
+    elif case == "ecadd_invalid_point":
+        precompile = Address(0x06)
+        # (1, 3) is not on alt_bn128 (y^2 = x^3 + 3), so ECADD fails.
+        call = (
+            Op.MSTORE(0, 1)
+            + Op.MSTORE(32, 3)
+            + Op.CALL(
+                gas=Op.GAS,
+                address=precompile,
+                value=ENDOWMENT,
+                args_size=128,
+            )
+        )
+        succeeds = False
+    else:
+        raise ValueError(f"unhandled case {case}")
+
+    caller_code = Op.SSTORE(storage.store_next(succeeds, "call_result"), call)
+    caller = pre.deploy_contract(
+        caller_code, balance=ENDOWMENT, storage=storage.canary()
+    )
+
+    logs = []
+    if succeeds:
+        logs = [transfer_log(caller, precompile, ENDOWMENT)]
+        post: dict[Address, Account | None] = {
+            caller: Account(balance=0, storage=storage),
+            precompile: Account(balance=ENDOWMENT),
+        }
+    else:
+        post = {
+            caller: Account(balance=ENDOWMENT, storage=storage),
+            precompile: Account.NONEXISTENT,
+        }
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=caller,
+        expected_receipt=TransactionReceipt(logs=logs),
+    )
+    state_test(pre=pre, post=post, tx=tx)
+
+
 @pytest.mark.with_all_typed_transactions
 def test_transfer_with_all_tx_types(
     state_test: StateTestFiller,
@@ -1444,6 +1521,35 @@ def test_call_to_delegated_account_with_value(
 
     post = {delegated_eoa: Account(balance=100)}
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+def test_delegated_eoa_sends_value(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that CALL with value from an EIP-7702 delegated EOA's code logs
+    the EOA, not its delegation target, as sender.
+    """
+    recipient = pre.fund_eoa(amount=0)
+    delegate = pre.deploy_contract(
+        Op.CALL(gas=Op.GAS, address=recipient, value=ENDOWMENT)
+    )
+    delegated_eoa = pre.fund_eoa(amount=ENDOWMENT, delegation=delegate)
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=delegated_eoa,
+        expected_receipt=TransactionReceipt(
+            logs=[transfer_log(delegated_eoa, recipient, ENDOWMENT)]
+        ),
+    )
+    post = {
+        delegated_eoa: Account(balance=0),
+        recipient: Account(balance=ENDOWMENT),
+        delegate: Account(balance=0),
+    }
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.execute(pytest.mark.skip("Requires specific base fee"))
