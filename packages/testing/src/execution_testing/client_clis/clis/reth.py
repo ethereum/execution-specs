@@ -58,11 +58,6 @@ class RethExceptionMapper(ExceptionMapper):
             r"Failed to recover the signer|"
             r"Unexpected type flag"
         ),
-        # alloy decodes the gas price as a u128, so a price that does not
-        # fit fails the same untagged decode.
-        TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
-            r"Unexpected type flag"
-        ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: (
             r"nonce \d+ too low, expected \d+"
         ),
