@@ -895,7 +895,13 @@ def calculate_max_gas_fee(tx: Transaction, gas_limit: Uint) -> Uint:
 def check_nonce(tx: Transaction, sender_nonce: Uint) -> None:
     """
     Check that the transaction's nonce equals the sender's next nonce.
+
+    Frame transactions select nonce keys instead and are checked by
+    [`check_nonce_set`][cns].
+
+    [cns]: ref:ethereum.forks.amsterdam.keyed_nonces.check_nonce_set
     """
+    assert not isinstance(tx, FrameTransaction)
     if sender_nonce > Uint(tx.nonce):
         raise NonceMismatchError("nonce too low")
     elif sender_nonce < Uint(tx.nonce):
