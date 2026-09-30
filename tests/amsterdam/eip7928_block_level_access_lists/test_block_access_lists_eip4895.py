@@ -27,6 +27,7 @@ from execution_testing import (
     compute_create_address,
 )
 
+from ...cancun.eip4788_beacon_root.spec import Spec as Spec4788
 from .spec import ref_spec_7928
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -35,7 +36,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 GWEI = 10**9
-SYSTEM_ADDRESS = Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE)
+SYSTEM_ADDRESS = Address(Spec4788.SYSTEM_ADDRESS)
 
 
 def test_bal_withdrawal_empty_block(
@@ -880,25 +881,21 @@ def test_bal_withdrawal_to_system_address(
     blockchain_test: BlockchainTestFiller,
     amount: int,
 ) -> None:
-    """
-    BAL must include SYSTEM_ADDRESS when it is a withdrawal recipient.
-
-    Withdrawal recipients are recorded regardless of amount, and
-    SYSTEM_ADDRESS is excluded only as the synthetic caller of system
-    calls, so a withdrawal to it must appear in the BAL.
-    """
+    """Ensure BAL includes SYSTEM_ADDRESS as a withdrawal recipient."""
     if amount == 0:
         expectation = BalAccountExpectation.empty()
-        post_balance = 0
-    else:
-        post_balance = amount * GWEI
+        post_account = Account.NONEXISTENT
+    elif amount == 1:
         expectation = BalAccountExpectation(
             balance_changes=[
                 BalBalanceChange(
-                    block_access_index=1, post_balance=post_balance
+                    block_access_index=1, post_balance=amount * GWEI
                 )
             ]
         )
+        post_account = Account(balance=amount * GWEI)
+    else:
+        raise ValueError(f"unknown amount: {amount}")
 
     block = Block(
         txs=[],
@@ -918,7 +915,5 @@ def test_bal_withdrawal_to_system_address(
     blockchain_test(
         pre=pre,
         blocks=[block],
-        post={SYSTEM_ADDRESS: Account(balance=post_balance)}
-        if amount > 0
-        else {SYSTEM_ADDRESS: Account.NONEXISTENT},
+        post={SYSTEM_ADDRESS: post_account},
     )

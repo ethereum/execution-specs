@@ -31,6 +31,7 @@ from execution_testing import (
     Macros as Om,
 )
 
+from ...cancun.eip4788_beacon_root.spec import Spec as Spec4788
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from ..eip2780_reduce_intrinsic_tx_gas.helpers import (
     AuthorizationAction,
@@ -42,8 +43,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7928.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
-
-SYSTEM_ADDRESS = Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE)
+SYSTEM_ADDRESS = Address(Spec4788.SYSTEM_ADDRESS)
 
 
 @pytest.mark.parametrize(
@@ -1749,12 +1749,7 @@ def test_bal_7702_delegation_to_system_address(
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
-    BAL must include SYSTEM_ADDRESS when it is the target of a 7702 delegation.
-
-    SYSTEM_ADDRESS is excluded from the BAL only as the synthetic caller of the
-    block's system calls. When it is genuinely accessed - here loaded as the
-    delegation target while executing a call to the delegating EOA - it must be
-    recorded like any other address.
+    Ensure BAL includes SYSTEM_ADDRESS when a called EOA delegates to it.
     """
     sender = pre.fund_eoa()
     authority = pre.fund_eoa(amount=0)
@@ -1786,7 +1781,6 @@ def test_bal_7702_delegation_to_system_address(
                         )
                     ],
                 ),
-                # Loaded as the delegation target, so it must be present.
                 SYSTEM_ADDRESS: BalAccountExpectation.empty(),
             }
         ),
@@ -1795,5 +1789,8 @@ def test_bal_7702_delegation_to_system_address(
     blockchain_test(
         pre=pre,
         blocks=[block],
-        post={authority: Account(nonce=1, code=delegation)},
+        post={
+            authority: Account(nonce=1, code=delegation),
+            SYSTEM_ADDRESS: Account.NONEXISTENT,
+        },
     )
