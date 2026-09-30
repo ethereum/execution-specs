@@ -110,8 +110,14 @@ def test_call_precompile_range_boundaries(
     """
     call = call_opcode(gas=0, address=address, address_warm=warm)
     contract = pre.deploy_contract(
-        CodeGasMeasure(code=call, extra_stack_items=1),
+        CodeGasMeasure(code=call, extra_stack_items=1)
+        # A precompile given no gas fails; an empty account succeeds.
+        + Op.SSTORE(1, call_opcode(gas=0, address=address)),
     )
     tx = Transaction(to=contract, sender=pre.fund_eoa())
-    post = {contract: Account(storage={0: call.gas_cost(fork)})}
+    post = {
+        contract: Account(
+            storage={0: call.gas_cost(fork), 1: 0 if warm else 1}
+        )
+    }
     state_test(pre=pre, post=post, tx=tx)
