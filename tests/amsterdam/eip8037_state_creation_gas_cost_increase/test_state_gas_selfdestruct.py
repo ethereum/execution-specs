@@ -17,6 +17,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Environment,
     Fork,
     Header,
     Initcode,
@@ -85,6 +86,7 @@ def test_selfdestruct_new_beneficiary_state_gas(
     "gas_delta",
     [pytest.param(0, id="exact_fit"), pytest.param(-1, id="one_short")],
 )
+@pytest.mark.parametrize("recipient_is_coinbase", [False, True])
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_new_beneficiary_state_gas_boundary(
@@ -92,6 +94,7 @@ def test_selfdestruct_new_beneficiary_state_gas_boundary(
     pre: Alloc,
     fork: Fork,
     gas_delta: int,
+    recipient_is_coinbase: bool,
 ) -> None:
     """
     Pin the SELFDESTRUCT beneficiary charge at its exact-fit boundary.
@@ -100,9 +103,14 @@ def test_selfdestruct_new_beneficiary_state_gas_boundary(
     the charge spills from `gas_left` and the limit is the whole budget.
     At `exact_fit` the beneficiary is created and the balance moves; one
     gas short the frame runs out and both are rolled back.
+
+    An absent coinbase is still charged: it is warm, but receives its
+    priority fee only after execution.
     """
     beneficiary = pre.nonexistent_account()
-    code = Op.SELFDESTRUCT(beneficiary, account_new=True)
+    code = Op.SELFDESTRUCT(
+        beneficiary, address_warm=recipient_is_coinbase, account_new=True
+    )
     state_gas = code.state_cost(fork)
     execution_only = (
         fork.transaction_intrinsic_cost_calculator()()
@@ -111,10 +119,12 @@ def test_selfdestruct_new_beneficiary_state_gas_boundary(
 
     contract = pre.deploy_contract(code=code, balance=1)
 
+    gas_price = 10
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
         gas_limit=execution_only + state_gas + gas_delta,
+        gas_price=gas_price,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=execution_only + state_gas + gas_delta
         ),
@@ -131,7 +141,19 @@ def test_selfdestruct_new_beneficiary_state_gas_boundary(
             contract: Account(balance=1),
         }
 
-    state_test(pre=pre, post=post, tx=tx)
+    env = Environment()
+    if recipient_is_coinbase:
+        base_fee = 7
+        env = Environment(fee_recipient=beneficiary, base_fee_per_gas=base_fee)
+        # The coinbase also receives the priority fee on the gas used.
+        transferred = 1 if gas_delta == 0 else 0
+        gas_used = execution_only + state_gas + gas_delta
+        priority_fee = gas_price - base_fee
+        post[beneficiary] = Account(
+            balance=transferred + gas_used * priority_fee
+        )
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(

@@ -17,6 +17,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Conditional,
+    Environment,
     Fork,
     Hash,
     Initcode,
@@ -285,6 +286,63 @@ def test_create_transaction_initcode_selfdestruct(
         )
     }
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("value", [0, 1])
+def test_created_coinbase_selfdestruct_keeps_priority_fee(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    value: int,
+) -> None:
+    """
+    Test a creation tx whose created address is the coinbase and whose
+    initcode self-destructs.
+
+    The priority fee is credited before the account is cleared, so the
+    coinbase keeps endowment plus fee as a balance-only account.
+    """
+    sender = pre.fund_eoa()
+    created = compute_create_address(address=sender, nonce=sender.nonce)
+    initcode = Op.SELFDESTRUCT(Op.ADDRESS, address_warm=True)
+
+    standard = fork.transaction_intrinsic_cost_calculator()(
+        calldata=initcode,
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor = fork.transaction_data_floor_cost_calculator()(
+        data=initcode, contract_creation=True
+    )
+    executed = (
+        standard
+        + fork.transaction_top_frame_state_gas(contract_creation=True)
+        + initcode.gas_cost(fork)
+    )
+    # No refund accrues; the sender pays the larger of use and floor.
+    gas_used = max(executed, floor)
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        value=value,
+        data=initcode,
+        max_fee_per_gas=1_000,
+        max_priority_fee_per_gas=1,
+    )
+    state_test(
+        env=Environment(fee_recipient=created),
+        pre=pre,
+        post={
+            created: Account(
+                balance=value + gas_used * 1,
+                nonce=0,
+                code=b"",
+                storage={},
+            ),
+        },
+        tx=tx,
+    )
 
 
 @pytest.mark.parametrize(
