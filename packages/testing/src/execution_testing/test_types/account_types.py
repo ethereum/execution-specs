@@ -44,6 +44,7 @@ from execution_testing.base_types.conversions import (
     FixedSizeBytesConvertible,
     NumberConvertible,
 )
+from execution_testing.forks import ActivationInstall
 
 from .utils import keccak256
 
@@ -293,16 +294,25 @@ class Alloc(BaseAlloc):
         nonce, balance and storage, and one that does not is created with
         all three zero. This is how a fork installs code when it activates
         (EIP-8141's expiry verifier), as opposed to a predeploy that is part
-        of the genesis allocation.
+        of the genesis allocation. An `ActivationInstall` value also raises
+        the account's nonce to at least its `min_nonce` (EIP-8250's nonce
+        manager).
         """
         if not installs:
             return self
         root: Dict[Address, Account | None] = dict(self.root)
-        for address, code in installs.items():
+        for address, install in installs.items():
             address = Address(address)
-            root[address] = Account.merge(
-                root.get(address), Account(code=code)
-            )
+            existing = root.get(address)
+            if isinstance(install, ActivationInstall):
+                existing_nonce = 0 if existing is None else int(existing.nonce)
+                update = Account(
+                    code=install.code,
+                    nonce=max(existing_nonce, install.min_nonce),
+                )
+            else:
+                update = Account(code=install)
+            root[address] = Account.merge(existing, update)
         installed = Alloc(root)
         installed.migrate_state_commitment(self.state_commitment())
         return installed
