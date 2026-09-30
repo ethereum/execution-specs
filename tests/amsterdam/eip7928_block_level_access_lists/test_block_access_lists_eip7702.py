@@ -31,6 +31,7 @@ from execution_testing import (
     Macros as Om,
 )
 
+from ...cancun.eip4788_beacon_root.spec import Spec as Spec4788
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from ..eip2780_reduce_intrinsic_tx_gas.helpers import (
     AuthorizationAction,
@@ -42,6 +43,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7928.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
+SYSTEM_ADDRESS = Address(Spec4788.SYSTEM_ADDRESS)
 
 
 @pytest.mark.parametrize(
@@ -1738,5 +1740,57 @@ def test_bal_7702_delegated_create(
                 storage={0x00: create_contract_address},
             ),
             create_contract_address: Account(nonce=1, code=Op.STOP),
+        },
+    )
+
+
+def test_bal_7702_delegation_to_system_address(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL includes SYSTEM_ADDRESS when a called EOA delegates to it.
+    """
+    sender = pre.fund_eoa()
+    authority = pre.fund_eoa(amount=0)
+
+    delegation = Spec7702.delegation_designation(SYSTEM_ADDRESS)
+    tx = Transaction(
+        sender=sender,
+        to=authority,
+        authorization_list=[
+            AuthorizationTuple(
+                address=SYSTEM_ADDRESS,
+                nonce=0,
+                signer=authority,
+            )
+        ],
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                authority: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1, new_code=delegation
+                        )
+                    ],
+                ),
+                SYSTEM_ADDRESS: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            authority: Account(nonce=1, code=delegation),
+            SYSTEM_ADDRESS: Account.NONEXISTENT,
         },
     )
