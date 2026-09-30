@@ -42,7 +42,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7708.version
 
 pytestmark = pytest.mark.valid_from("EIP7708")
 
-ENDOWMENT = 1234
+ENDOWMENT = 1
 
 
 def test_simple_transfer_emits_log(

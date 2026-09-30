@@ -389,12 +389,12 @@ def test_endofcode_behavior(
 @pytest.mark.parametrize(
     "jump",
     [
-        pytest.param(Op.JUMP(4), id="jump"),
-        pytest.param(Op.JUMPI(6, 1), id="jumpi_taken"),
+        pytest.param(Op.JUMP, id="jump"),
+        pytest.param(Op.JUMPI, id="jumpi_taken"),
     ],
 )
 def test_swapn_jump_to_immediate_byte_0x5b_succeeds(
-    jump: Bytecode,
+    jump: Op,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
@@ -410,9 +410,13 @@ def test_swapn_jump_to_immediate_byte_0x5b_succeeds(
 
     # Build code that jumps to 0x5b after SWAPN opcode
     code = Bytecode()
-    code += jump  # Jump to the immediate byte
+    pc = Op.PUSH1(data_placeholder="jump_pc")
+    code += (
+        Op.JUMPI(pc=pc, condition=1) if jump == Op.JUMPI else Op.JUMP(pc=pc)
+    )  # Jump to the immediate byte
     # Pass as bytes (raw immediate byte for testing)
     code += Op.SWAPN[b"\x5b"]  # SWAPN + 0x5b (invalid)
+    code.substitute(jump_pc=len(code) - 1)
 
     # This SHOULD execute because 0x5b is a valid JUMPDEST
     code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
@@ -432,12 +436,12 @@ def test_swapn_jump_to_immediate_byte_0x5b_succeeds(
 @pytest.mark.parametrize(
     "jump",
     [
-        pytest.param(Op.JUMP(4), id="jump"),
-        pytest.param(Op.JUMPI(6, 1), id="jumpi_taken"),
+        pytest.param(Op.JUMP, id="jump"),
+        pytest.param(Op.JUMPI, id="jumpi_taken"),
     ],
 )
 def test_swapn_jump_to_valid_immediate_fails(
-    jump: Bytecode,
+    jump: Op,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
@@ -453,9 +457,13 @@ def test_swapn_jump_to_valid_immediate_fails(
 
     # Build code that tries to jump to a valid immediate
     code = Bytecode()
-    code += jump  # Jump to the immediate byte
+    pc = Op.PUSH1(data_placeholder="jump_pc")
+    code += (
+        Op.JUMPI(pc=pc, condition=1) if jump == Op.JUMPI else Op.JUMP(pc=pc)
+    )  # Jump to the immediate byte
     # Pass as bytes (raw immediate byte for testing)
     code += Op.SWAPN[b"\x00"]  # SWAPN + 0x00 (valid)
+    code.substitute(jump_pc=len(code) - 1)
 
     # This should never execute
     code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE

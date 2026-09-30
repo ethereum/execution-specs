@@ -1993,7 +1993,18 @@ def test_call_new_account_no_execution_account_creation_cost(
     "gas_delta",
     [pytest.param(0, id="exact_fit"), pytest.param(-1, id="one_short")],
 )
-@pytest.mark.parametrize("recipient_is_coinbase", [False, True])
+@pytest.mark.parametrize(
+    "recipient_is_coinbase",
+    [
+        False,
+        pytest.param(
+            True,
+            marks=pytest.mark.execute(
+                pytest.mark.skip(reason="requires exact base fee")
+            ),
+        ),
+    ],
+)
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_call_new_account_state_gas_boundary(
