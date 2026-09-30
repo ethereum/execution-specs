@@ -131,6 +131,15 @@ class AddressCollision(ExceptionalHalt):
     pass
 
 
+class NonceOverflow(ExceptionalHalt):
+    """
+    Raised when a payment approval would increment the sender's account
+    nonce past the largest nonce sequence.
+    """
+
+    pass
+
+
 class KZGProofError(ExceptionalHalt):
     """
     Raised when the point evaluation precompile can't verify a proof.

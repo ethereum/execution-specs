@@ -99,6 +99,8 @@ from .transactions import (
 from .transactions.frame_transaction import (
     EXPIRY_VERIFIER,
     EXPIRY_VERIFIER_CODE,
+    NONCE_MANAGER,
+    NONCE_MANAGER_CODE,
     FrameTransaction,
 )
 from .utils.address import compute_contract_address
@@ -198,9 +200,13 @@ def apply_fork(old: BlockChain) -> BlockChain:
     previously nonexistent account keeps a zero nonce and any balance
     the account held before the fork is preserved.
 
+    The nonce manager is installed as well (see
+    [`install_nonce_manager`][inm]).
+
     [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
     [ev]: ref:ethereum.forks.bogota.transactions.frame_transaction.EXPIRY_VERIFIER
     [evc]: ref:ethereum.forks.bogota.transactions.frame_transaction.EXPIRY_VERIFIER_CODE
+    [inm]: ref:ethereum.forks.bogota.fork.install_nonce_manager
     """  # noqa: E501
     state = old.state
     existing_account = state.get_account_optional(EXPIRY_VERIFIER)
@@ -217,7 +223,36 @@ def apply_fork(old: BlockChain) -> BlockChain:
             code_hash=code_hash,
         ),
     )
+    install_nonce_manager(state)
     return old
+
+
+def install_nonce_manager(state: State) -> None:
+    """
+    Install the nonce manager system contract, as required by
+    [EIP-8250] when the fork activates.
+
+    The account gets [`NONCE_MANAGER_CODE`][nmc] and a nonce of at
+    least one, keeping any higher nonce and any balance it already
+    held. The address is chosen to hold no code and no storage before
+    activation, so the account's storage stays empty.
+
+    [EIP-8250]: https://eips.ethereum.org/EIPS/eip-8250
+    [nmc]: ref:ethereum.forks.bogota.transactions.frame_transaction.NONCE_MANAGER_CODE
+    """  # noqa: E501
+    existing_account = state.get_account_optional(NONCE_MANAGER)
+    if existing_account is None:
+        existing_account = EMPTY_ACCOUNT
+
+    set_account(
+        state,
+        NONCE_MANAGER,
+        Account(
+            nonce=max(existing_account.nonce, Uint(1)),
+            balance=existing_account.balance,
+            code_hash=store_code(state, NONCE_MANAGER_CODE),
+        ),
+    )
 
 
 def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
