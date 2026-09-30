@@ -25,6 +25,7 @@ class RethExceptionMapper(ExceptionMapper):
             "priority fee is greater than max fee"
         ),
         TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: "overflow",
+        TransactionException.NONCE_IS_MAX: "nonce overflow in transaction",
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: "unexpected length",
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: "unexpected list",
         TransactionException.INVALID_CHAINID: "invalid chain ID",
@@ -55,6 +56,11 @@ class RethExceptionMapper(ExceptionMapper):
         TransactionException.INVALID_SIGNATURE_VRS: (
             r"invalid bool value, must be 0 or 1|"
             r"Failed to recover the signer|"
+            r"Unexpected type flag"
+        ),
+        # alloy decodes the gas price as a u128, so a price that does not
+        # fit fails the same untagged decode.
+        TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
             r"Unexpected type flag"
         ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: (
