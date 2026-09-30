@@ -395,8 +395,16 @@ def test_endofcode_behavior(
     ],
     ids=lambda x: f"imm_0x{x:02x}",
 )
+@pytest.mark.parametrize(
+    "jump",
+    [
+        pytest.param(Op.JUMP(4), id="jump"),
+        pytest.param(Op.JUMPI(6, 1), id="jumpi_taken"),
+    ],
+)
 def test_exchange_jump_to_immediate_byte(
     immediate: int,
+    jump: Bytecode,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
@@ -409,10 +417,9 @@ def test_exchange_jump_to_immediate_byte(
     """
     sender = pre.fund_eoa()
 
-    # Bytecode: PUSH1(4) JUMP EXCHANGE[imm] - position 4 is the immediate byte
+    # Bytecode: <JUMP or taken JUMPI> EXCHANGE[imm], targeting the immediate
     code = Bytecode()
-    code += Op.PUSH1(4)
-    code += Op.JUMP
+    code += jump
     code += Op.EXCHANGE[immediate.to_bytes(1, "big")]
 
     code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE

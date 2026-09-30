@@ -386,16 +386,23 @@ def test_endofcode_behavior(
 
 
 @EIPChecklist.Opcode.Test.DataPortion.Jump()
+@pytest.mark.parametrize(
+    "jump",
+    [
+        pytest.param(Op.JUMP(4), id="jump"),
+        pytest.param(Op.JUMPI(6, 1), id="jumpi_taken"),
+    ],
+)
 def test_swapn_jump_to_immediate_byte_0x5b_succeeds(
+    jump: Bytecode,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
     """
     Test that jumping to 0x5b after SWAPN succeeds (backward compat).
 
-    Bytecode: PUSH1(4) JUMP SWAPN[0x5b]
-    Hex: 6004 56 e7 5b
-    Position 4 contains 0x5b which is an INVALID immediate for SWAPN.
+    Bytecode: <JUMP or taken JUMPI> SWAPN[0x5b]
+    The jump target contains 0x5b which is an INVALID immediate for SWAPN.
     Per EIP-8024, 0x5b is preserved as valid JUMPDEST for compatibility.
     The SWAPN instruction is never executed due to the jump.
     """
@@ -403,10 +410,9 @@ def test_swapn_jump_to_immediate_byte_0x5b_succeeds(
 
     # Build code that jumps to 0x5b after SWAPN opcode
     code = Bytecode()
-    code += Op.PUSH1(4)  # Push jump target (position 4)
-    code += Op.JUMP  # Jump to position 4
+    code += jump  # Jump to the immediate byte
     # Pass as bytes (raw immediate byte for testing)
-    code += Op.SWAPN[b"\x5b"]  # Position 3-4: SWAPN + 0x5b (invalid)
+    code += Op.SWAPN[b"\x5b"]  # SWAPN + 0x5b (invalid)
 
     # This SHOULD execute because 0x5b is a valid JUMPDEST
     code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
@@ -423,27 +429,33 @@ def test_swapn_jump_to_immediate_byte_0x5b_succeeds(
 
 
 @EIPChecklist.Opcode.Test.DataPortion.Jump()
+@pytest.mark.parametrize(
+    "jump",
+    [
+        pytest.param(Op.JUMP(4), id="jump"),
+        pytest.param(Op.JUMPI(6, 1), id="jumpi_taken"),
+    ],
+)
 def test_swapn_jump_to_valid_immediate_fails(
+    jump: Bytecode,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
     """
     Test jumping to a valid immediate byte fails.
 
-    Bytecode: PUSH1(4) JUMP SWAPN[0x00]
-    Hex: 6004 56 e7 00
-    Position 4 contains 0x00 which is a VALID immediate for SWAPN.
-    JUMPDEST analysis is unchanged by EIP-8024: position 4 holds 0x00,
+    Bytecode: <JUMP or taken JUMPI> SWAPN[0x00]
+    The jump target contains 0x00 which is a VALID immediate for SWAPN.
+    JUMPDEST analysis is unchanged by EIP-8024: the target holds 0x00,
     not 0x5b, so it is not a valid jump target and the jump fails.
     """
     sender = pre.fund_eoa()
 
     # Build code that tries to jump to a valid immediate
     code = Bytecode()
-    code += Op.PUSH1(4)  # Push jump target (position 4)
-    code += Op.JUMP  # Try to jump to position 4
+    code += jump  # Jump to the immediate byte
     # Pass as bytes (raw immediate byte for testing)
-    code += Op.SWAPN[b"\x00"]  # Position 3-4: SWAPN + 0x00 (valid)
+    code += Op.SWAPN[b"\x00"]  # SWAPN + 0x00 (valid)
 
     # This should never execute
     code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
@@ -453,7 +465,7 @@ def test_swapn_jump_to_valid_immediate_fails(
 
     tx = Transaction(to=contract_address, sender=sender)
 
-    # Transaction fails - position 4 is a valid immediate, not JUMPDEST
+    # Transaction fails - the target is a valid immediate, not JUMPDEST
     post = {contract_address: Account(storage={})}
 
     state_test(pre=pre, post=post, tx=tx)
