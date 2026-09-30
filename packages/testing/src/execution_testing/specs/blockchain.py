@@ -94,6 +94,9 @@ from execution_testing.test_types import (
     Withdrawal,
 )
 from execution_testing.test_types.block_access_list import (
+    BalAccountChange,
+    BalCodeChange,
+    BalNonceChange,
     BlockAccessList,
     BlockAccessListExpectation,
 )
@@ -137,6 +140,44 @@ def apply_new_parent(
     block_hashes[new_parent.number] = new_parent.block_hash
     updated["block_hashes"] = block_hashes
     return env.copy(**updated)
+
+
+def activation_account_changes(
+    *, before: Alloc, after: Alloc, addresses: Sequence[Address]
+) -> List[BalAccountChange]:
+    """
+    Return the block access list entries of a fork's activation installs.
+
+    Each field an install changed is recorded at block access index 0,
+    the pre-execution index of EIP-7928. An install that changes nothing
+    is left out.
+    """
+    changes: List[BalAccountChange] = []
+    for address in addresses:
+        old = before.root.get(address)
+        new = after.root[address]
+        assert new is not None
+        old_nonce = 0 if old is None else int(old.nonce or 0)
+        old_code = b"" if old is None else bytes(old.code or b"")
+        nonce_changes = []
+        if int(new.nonce or 0) != old_nonce:
+            nonce_changes.append(
+                BalNonceChange(block_access_index=0, post_nonce=new.nonce)
+            )
+        code_changes = []
+        if bytes(new.code or b"") != old_code:
+            code_changes.append(
+                BalCodeChange(block_access_index=0, new_code=new.code)
+            )
+        if nonce_changes or code_changes:
+            changes.append(
+                BalAccountChange(
+                    address=address,
+                    nonce_changes=nonce_changes,
+                    code_changes=code_changes,
+                )
+            )
+    return changes
 
 
 def count_blobs(txs: List[Transaction]) -> int:
@@ -1023,6 +1064,7 @@ class BlockchainTest(BaseTest):
         parent_fork = self.fork.fork_at(
             block_number=env.number - 1, timestamp=env.parent_timestamp
         )
+        activation_changes: List[BalAccountChange] = []
         if fork != parent_fork:
             parent_installs = parent_fork.activation_code_installs()
             inherited = {
@@ -1037,9 +1079,15 @@ class BlockchainTest(BaseTest):
             if new_installs:
                 if isinstance(previous_alloc, LazyAlloc):
                     previous_alloc = previous_alloc.materialize()
-                previous_alloc = previous_alloc.with_installed_code(
+                installed_alloc = previous_alloc.with_installed_code(
                     new_installs
                 )
+                activation_changes = activation_account_changes(
+                    before=previous_alloc,
+                    after=installed_alloc,
+                    addresses=[Address(address) for address in new_installs],
+                )
+                previous_alloc = installed_alloc
 
         transition_tool_output = t8n.evaluate(
             transition_tool_data=TransitionTool.TransitionToolData(
@@ -1154,6 +1202,10 @@ class BlockchainTest(BaseTest):
                     f"computed hash from BAL: {header.block_access_list_hash} "
                     f"!= {computed_block_access_list_hash}"
                 )
+
+        if t8n_bal is not None and activation_changes:
+            t8n_bal = t8n_bal.with_pre_execution_changes(activation_changes)
+            header.block_access_list_hash = Hash(t8n_bal.rlp.keccak256())
 
         if block.rlp_modifier is not None:
             # Modify any parameter specified in the `rlp_modifier` after
