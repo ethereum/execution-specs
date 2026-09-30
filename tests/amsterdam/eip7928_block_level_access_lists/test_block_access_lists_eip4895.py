@@ -35,6 +35,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 GWEI = 10**9
+SYSTEM_ADDRESS = Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE)
 
 
 def test_bal_withdrawal_empty_block(
@@ -867,4 +868,57 @@ def test_bal_withdrawal_to_coinbase_empty_block(
         post={
             coinbase: Account(balance=10 * GWEI),
         },
+    )
+
+
+@pytest.mark.parametrize(
+    "amount",
+    [pytest.param(0, id="zero"), pytest.param(1, id="nonzero")],
+)
+def test_bal_withdrawal_to_system_address(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    amount: int,
+) -> None:
+    """
+    BAL must include SYSTEM_ADDRESS when it is a withdrawal recipient.
+
+    Withdrawal recipients are recorded regardless of amount, and
+    SYSTEM_ADDRESS is excluded only as the synthetic caller of system
+    calls, so a withdrawal to it must appear in the BAL.
+    """
+    if amount == 0:
+        expectation = BalAccountExpectation.empty()
+        post_balance = 0
+    else:
+        post_balance = amount * GWEI
+        expectation = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(
+                    block_access_index=1, post_balance=post_balance
+                )
+            ]
+        )
+
+    block = Block(
+        txs=[],
+        withdrawals=[
+            Withdrawal(
+                index=0,
+                validator_index=0,
+                address=SYSTEM_ADDRESS,
+                amount=amount,
+            )
+        ],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={SYSTEM_ADDRESS: expectation}
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={SYSTEM_ADDRESS: Account(balance=post_balance)}
+        if amount > 0
+        else {SYSTEM_ADDRESS: Account.NONEXISTENT},
     )

@@ -43,6 +43,8 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
+SYSTEM_ADDRESS = Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE)
+
 
 @pytest.mark.parametrize(
     "self_funded",
@@ -1739,4 +1741,59 @@ def test_bal_7702_delegated_create(
             ),
             create_contract_address: Account(nonce=1, code=Op.STOP),
         },
+    )
+
+
+def test_bal_7702_delegation_to_system_address(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    BAL must include SYSTEM_ADDRESS when it is the target of a 7702 delegation.
+
+    SYSTEM_ADDRESS is excluded from the BAL only as the synthetic caller of the
+    block's system calls. When it is genuinely accessed - here loaded as the
+    delegation target while executing a call to the delegating EOA - it must be
+    recorded like any other address.
+    """
+    sender = pre.fund_eoa()
+    authority = pre.fund_eoa(amount=0)
+
+    delegation = Spec7702.delegation_designation(SYSTEM_ADDRESS)
+    tx = Transaction(
+        sender=sender,
+        to=authority,
+        authorization_list=[
+            AuthorizationTuple(
+                address=SYSTEM_ADDRESS,
+                nonce=0,
+                signer=authority,
+            )
+        ],
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                authority: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1, new_code=delegation
+                        )
+                    ],
+                ),
+                # Loaded as the delegation target, so it must be present.
+                SYSTEM_ADDRESS: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={authority: Account(nonce=1, code=delegation)},
     )
