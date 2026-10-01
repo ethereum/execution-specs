@@ -25,12 +25,10 @@ class RethExceptionMapper(ExceptionMapper):
             "priority fee is greater than max fee"
         ),
         TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: "overflow",
+        TransactionException.NONCE_IS_MAX: "nonce overflow in transaction",
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: "unexpected length",
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: "unexpected list",
         TransactionException.INVALID_CHAINID: "invalid chain ID",
-        TransactionException.INVALID_SIGNATURE_VRS: (
-            "invalid bool value, must be 0 or 1"
-        ),
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
             "blob version not supported"
         ),
@@ -53,6 +51,13 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_LOG_BLOOM: "header bloom filter mismatch",
     }
     mapping_regex = {
+        # alloy drops the parity error for an out-of-range legacy `v` and
+        # reports the failed untagged decode ("Unexpected type flag") instead.
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            r"invalid bool value, must be 0 or 1|"
+            r"Failed to recover the signer|"
+            r"Unexpected type flag"
+        ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: (
             r"nonce \d+ too low, expected \d+"
         ),
@@ -118,8 +123,17 @@ class RethExceptionMapper(ExceptionMapper):
         # BAL Exceptions
         BlockException.INVALID_BAL_HASH: (r"block access list hash mismatch"),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
+            r"failed to decode block access list|"
             r"block access list hash mismatch|"
-            r"BAL rejection: FinalHashMismatch"
+            r"BAL rejection: FinalHashMismatch|"
+            r"Bal error: Account .* not found in BAL|"
+            r"Bal error: Slot .* not found in BAL for account .*"
+        ),
+        BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
+            r"block access list item cost exceeds gas limit"
+        ),
+        BlockException.SYSTEM_CONTRACT_EMPTY: (
+            r"system contract .* has no code"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"block access list hash mismatch|"
