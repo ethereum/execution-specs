@@ -393,3 +393,78 @@ def test_bal_single_account_valid() -> None:
         ]
     )
     bal.validate_structure()  # Should not raise
+
+
+def test_bal_pre_execution_changes_insert_new_address_in_order() -> None:
+    """Test that a pre-execution change for a new address keeps the order."""
+    alice = Address(0xAA)
+    bob = Address(0xBB)
+    carol = Address(0xCC)
+    bal = BlockAccessList(
+        [
+            BalAccountChange(address=alice),
+            BalAccountChange(address=carol),
+        ]
+    )
+    installed = bal.with_pre_execution_changes(
+        [
+            BalAccountChange(
+                address=bob,
+                code_changes=[
+                    BalCodeChange(block_access_index=0, new_code=b"\x00")
+                ],
+            )
+        ]
+    )
+    installed.validate_structure()
+    assert [account.address for account in installed.root] == [
+        alice,
+        bob,
+        carol,
+    ]
+    assert installed.root[1].code_changes == [
+        BalCodeChange(block_access_index=0, new_code=b"\x00")
+    ]
+
+
+def test_bal_pre_execution_changes_merge_before_transaction_changes() -> None:
+    """Test that pre-execution changes precede an address's own changes."""
+    alice = Address(0xAA)
+    bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=alice,
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=8)
+                ],
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=5)
+                ],
+            )
+        ]
+    )
+    installed = bal.with_pre_execution_changes(
+        [
+            BalAccountChange(
+                address=alice,
+                nonce_changes=[
+                    BalNonceChange(block_access_index=0, post_nonce=7)
+                ],
+                code_changes=[
+                    BalCodeChange(block_access_index=0, new_code=b"\x00")
+                ],
+            )
+        ]
+    )
+    installed.validate_structure()
+    (account,) = installed.root
+    assert account.nonce_changes == [
+        BalNonceChange(block_access_index=0, post_nonce=7),
+        BalNonceChange(block_access_index=1, post_nonce=8),
+    ]
+    assert account.code_changes == [
+        BalCodeChange(block_access_index=0, new_code=b"\x00")
+    ]
+    assert account.balance_changes == [
+        BalBalanceChange(block_access_index=1, post_balance=5)
+    ]
