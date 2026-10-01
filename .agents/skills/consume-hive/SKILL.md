@@ -2,7 +2,9 @@
 name: consume-hive
 description: >-
   Run locally filled fixtures against execution clients with a selected Hive
-  simulator and a network client configuration from hive-tests.
+  simulator and a network client configuration from hive-tests. Use when
+  testing clients against a devnet or client releases in Hive, or when
+  building a Hive client YAML.
 ---
 
 # Consume Hive
