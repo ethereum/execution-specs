@@ -133,7 +133,9 @@ tests. RLP import does not verify Engine API rejection messages.
 client pairs. Account for the extra containers when choosing workers and
 report results per pair.
 
-Put the selected options above in a Bash array `SIMULATOR_ARGS`, then run:
+Put the selected options above in a Bash array `SIMULATOR_ARGS`, then run
+the commands below with Bash. If the shell is not Bash (for example fish),
+wrap them in `bash -c`:
 
 ```bash
 export HIVE_SIMULATOR="http://127.0.0.1:$HIVE_PORT"
