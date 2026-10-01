@@ -186,7 +186,7 @@ class EthereumCLI:
                             )
                             return subclass_check_result
                     except Exception as e:
-                        print(e)
+                        logger.debug(f"{subclass} cannot detect: {e}")
                         continue
 
                     logger.debug(

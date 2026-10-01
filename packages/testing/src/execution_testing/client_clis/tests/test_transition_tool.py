@@ -12,6 +12,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt
 
 from execution_testing.base_types import StateCommitment
 from execution_testing.client_clis import (
+    BesuTransitionTool,
     CLINotFoundInPathError,
     EvmOneTransitionTool,
     ExecutionSpecsTransitionTool,
@@ -102,6 +103,37 @@ def test_from_binary(
         TransitionTool.from_binary_path(binary_path=binary_path),
         expected_class,
     )
+
+
+def test_a_subclass_failing_to_detect_prints_nothing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    A subclass whose detection raises is skipped without writing to
+    stdout, which callers may be reading a tool's JSON from, and the next
+    subclass still detects the binary.
+    """
+
+    class MockCompletedProcess:
+        stdout = b"evmone 0.22.0"
+        stderr = None
+        returncode = 0
+
+    def failing_detect(*args: Any) -> bool:
+        del args
+        raise RuntimeError("cannot read this version")
+
+    monkeypatch.setattr(shutil, "which", lambda _: "evmone")
+    monkeypatch.setattr(
+        subprocess, "run", lambda *_a, **_k: MockCompletedProcess()
+    )
+    # Besu is the first tool detection asks.
+    monkeypatch.setattr(
+        BesuTransitionTool, "detect_binary", classmethod(failing_detect)
+    )
+    tool = TransitionTool.from_binary_path(binary_path=Path("evmone"))
+    assert isinstance(tool, EvmOneTransitionTool)
+    assert capsys.readouterr().out == ""
 
 
 def test_unknown_binary_path() -> None:
