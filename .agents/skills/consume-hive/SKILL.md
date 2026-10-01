@@ -106,7 +106,9 @@ From the Hive root, start a dedicated server on an unused localhost port:
 ```
 
 Always enable `--docker.pull` to refresh base images; `--docker.nocache` also
-rebuilds client wrappers. A failed pull is not permission to use stale images.
+rebuilds client wrappers. The rebuild runs for every client on each start, so
+expect a slow start with a large YAML. A failed pull is not permission to use
+stale images.
 Do not add a client filter unless requested. Record the server PID, wait for
 its API, and verify `/clients` contains the YAML's clients. Capture build logs
 and image IDs/digests: mutable tags alone do not identify what was tested.
