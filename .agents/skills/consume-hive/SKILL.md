@@ -9,7 +9,7 @@ description: >-
 
 Usage:
 
-`/consume-hive <fixtures> <network-or-client.yaml> <engine|enginex|rlp|sync>`
+`/consume-hive <fixtures> <network|client.yaml|releases> <engine|enginex|rlp|sync>`
 
 Require all three inputs; ask for missing ones. Run only the selected
 simulator, with no simulator default. `execute hive` is intentionally left
@@ -45,6 +45,48 @@ for a separate skill.
   choices and ask; do not silently substitute another devnet. Record `$REV`
   with the saved YAML. Preserve its client list, image tags, and build
   arguments.
+- **Client releases:** hive-tests has no file for client release images. When
+  the user asks for releases or a public network (for example Sepolia or
+  mainnet releases), [create a client YAML](#create-a-client-yaml) instead.
+
+## Create a client YAML
+
+For the file format, see
+[Client configuration](../../../docs/running_tests/hive/client_config.md).
+Unless the user names other clients, use the clients in hive-tests'
+`master.yaml`. Write the file to `$RUN_DIR/client.yaml` with one entry per
+client, `nametag: release`, and `build_args` set to the release image:
+
+```yaml
+- client: go-ethereum
+  nametag: release
+  build_args:
+    baseimage: ethereum/client-go
+    tag: <release-tag>
+```
+
+| Client | Release repository | Image | Tag format |
+| --- | --- | --- | --- |
+| `besu` | `besu-eth/besu` | `hyperledger/besu` | release tag |
+| `erigon` | `erigontech/erigon` | `erigontech/erigon` | release tag |
+| `ethrex` | `lambdaclass/ethrex` | `ghcr.io/lambdaclass/ethrex` | no `v` prefix |
+| `go-ethereum` | `ethereum/go-ethereum` | `ethereum/client-go` | release tag |
+| `nethermind` | `NethermindEth/nethermind` | `nethermind/nethermind` | release tag |
+| `nimbus-el` | `status-im/nimbus-eth1` | `statusim/nimbus-eth1` | release tag |
+| `reth` | `paradigmxyz/reth` | `ghcr.io/paradigmxyz/reth` | release tag |
+
+Resolve each tag with
+`gh api repos/<release-repository>/releases/latest --jq .tag_name`, then
+check the image exists with
+`docker buildx imagetools inspect <image>:<tag>` before starting Hive. If a
+check fails, stop and report it; do not fall back to another tag.
+
+- Always set `build_args`. Hive's default Dockerfiles mostly build
+  development branches (for example Besu `develop`, Nethermind `master`), so
+  an entry without them does not test a release.
+- Never use `latest` or another moving tag.
+- Report the file as generated locally, not from hive-tests, list each
+  client's release tag, and offer to upstream it to hive-tests.
 
 ## Start Hive
 
