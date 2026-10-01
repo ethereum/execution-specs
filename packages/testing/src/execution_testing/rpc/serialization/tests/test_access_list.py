@@ -241,6 +241,25 @@ def test_a_declared_message_completes_what_it_stores() -> None:
     assert result.outcome.access_list
 
 
+def test_a_declared_message_on_osaka_defaults_to_the_tx_gas_cap() -> None:
+    """
+    Osaka rejects gas above ``TX_MAX_GAS_LIMIT``, so an omitted
+    ``gas`` is the cap rather than ``CALL_GAS_LIMIT``.
+    """
+    from dataclasses import replace
+
+    from execution_testing.forks import Osaka
+
+    cap = Osaka.transaction_gas_limit_cap()
+    assert cap is not None
+    result = compute_declared_access_list(
+        [{"from": SENDER, "to": READS_A_SLOT}, "0x0"],
+        [replace(make_site(), fork=Osaka)],
+    )
+    assert result.params[0]["gas"] == hex(cap)
+    assert result.outcome.access_list
+
+
 def test_a_declared_message_needs_a_sender() -> None:
     """The same requirement a declared call has, and the same message."""
     with pytest.raises(UnrunnableCallError, match="names no sender"):

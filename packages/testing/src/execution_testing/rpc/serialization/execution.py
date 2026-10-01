@@ -116,11 +116,30 @@ exceeds `TX_MAX_GAS_LIMIT` by, so a capped limit yields a smaller
 reservoir and a message that creates an account can run out of state gas
 on one side and not the other.
 
-Thirty million sits below every ceiling in circulation and well above
-`TX_MAX_GAS_LIMIT` (2^24), so the reservoir is comfortably non-empty. A
-transaction asking for less keeps its own limit, since the point of that
-is usually the limit itself.
+Thirty million sits below typical RPC gas caps and well above
+`TX_MAX_GAS_LIMIT` (2^24), so on Amsterdam the reservoir is
+comfortably non-empty. On Osaka, where exceeding the cap is
+rejected, `default_call_gas` lowers the omitted-gas default to
+the cap instead. A transaction asking for less keeps its own
+limit, since the point of that is usually the limit itself.
 """
+
+
+def default_call_gas(fork: Fork) -> int:
+    """
+    Return the gas a declared message is given when it names none.
+
+    Amsterdam treats gas above the protocol cap as the state reservoir,
+    so the full ``CALL_GAS_LIMIT`` is kept. Osaka rejects that excess,
+    so the default is clamped to the cap.
+    """
+    if fork.state_gas_reservoir_enabled():
+        return CALL_GAS_LIMIT
+    cap = fork.transaction_gas_limit_cap()
+    if cap is None:
+        return CALL_GAS_LIMIT
+    return min(CALL_GAS_LIMIT, cap)
+
 
 REVERT_ERROR_CODE = 3
 """
@@ -1193,7 +1212,7 @@ def _declared_message(
     to = None if declared_to is None else Address(declared_to)
     data = Bytes(message.get("input", message.get("data", b"")))
     value = _quantity(message.get("value", 0))
-    gas = _quantity(message.get("gas", CALL_GAS_LIMIT))
+    gas = _quantity(message.get("gas", default_call_gas(site.fork)))
     return DeclaredMessage(
         params=[
             call_message(
@@ -1310,6 +1329,7 @@ __all__ = [
     "FORKCHOICE_TAGS",
     "BLOCK_TAGS_NO_CHAIN_DETERMINES",
     "CALL_GAS_LIMIT",
+    "default_call_gas",
     "REVERT_ERROR_CODE",
     "SENDER_MUST_BE_SOLVENT",
     "AccessListOutcome",
