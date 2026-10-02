@@ -26,7 +26,7 @@ benchmark_fast:
 
 zkevm-benchmark:
   evm-type: zkevm-benchmark
-  fill-params: --fork=Amsterdam --gas-benchmark-values=10,30,60 -m blockchain_test ./tests/benchmark/compute --maxprocesses=30 --dist=worksteal
+  fill-params: --fork=Amsterdam --gas-benchmark-values=30,60,100,150,200 -m blockchain_test ./tests/benchmark/compute --maxprocesses=30 --dist=worksteal
   feature_only: true
 
 # Shared entry for all `<feat>-devnet` releases; matched by `-devnet` suffix.
