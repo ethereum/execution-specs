@@ -88,6 +88,7 @@ from execution_testing.forks import Fork, Requests
 from execution_testing.test_types import (
     Alloc,
     Environment,
+    PostStateContext,
     Removable,
     TestPhase,
     Transaction,
@@ -101,7 +102,11 @@ from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
-from .helpers import verify_block, verify_transactions
+from .helpers import (
+    record_transaction_landings,
+    verify_block,
+    verify_transactions,
+)
 
 
 def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
@@ -487,6 +492,17 @@ class BuiltBlock(CamelModel):
     block_access_list: BlockAccessList | None
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
+
+    def record_landings(self, context: PostStateContext) -> None:
+        """Record in `context` that this block's transactions landed."""
+        record_transaction_landings(
+            context,
+            txs=self.txs,
+            fork=self.fork,
+            base_fee_per_gas=self.header.base_fee_per_gas,
+            excess_blob_gas=self.header.excess_blob_gas,
+            fee_recipient=self.header.fee_recipient,
+        )
 
     def cumulative_gas_used(self) -> int:
         """Return the last receipt's cumulative gas used."""
@@ -1281,19 +1297,36 @@ class BlockchainTest(BaseTest):
 
         return built_block
 
+    def new_post_state_context(self) -> PostStateContext | None:
+        """
+        Return an empty context to record landings into, or `None` when
+        neither the final nor any intermediate post-state needs one.
+        """
+        expected_states = [self.post] + [
+            block.expected_post_state
+            for block in self.blocks
+            if block.expected_post_state is not None
+        ]
+        if any(
+            state.requires_post_state_context() for state in expected_states
+        ):
+            return PostStateContext()
+        return None
+
     def verify_post_state(
         self,
         *,
         t8n: FillerBackend,
         pre_alloc: Alloc,
         got_alloc: Alloc,
+        context: PostStateContext | None,
         expected_state: Alloc | None = None,
     ) -> None:
         """Verify post alloc after all block/s or payload/s are generated."""
         try:
             expected_state = expected_state if expected_state else self.post
             expected_state.verify_post_alloc(
-                pre_alloc=pre_alloc, got_alloc=got_alloc
+                pre_alloc=pre_alloc, got_alloc=got_alloc, context=context
             )
         except Exception as e:
             print_traces(t8n.get_traces())
@@ -1323,6 +1356,7 @@ class BlockchainTest(BaseTest):
         env = environment_from_parent_header(genesis.header)
         head = genesis.header.block_hash
         invalid_blocks = 0
+        context = self.new_post_state_context()
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
@@ -1373,6 +1407,8 @@ class BlockchainTest(BaseTest):
             # expected_block_access_list set
 
             if block.exception is None:
+                if context is not None:
+                    built_block.record_landings(context)
                 # Update env, alloc and last block hash for the next block.
                 alloc = built_block.alloc
                 state_root = built_block.state_root
@@ -1384,14 +1420,18 @@ class BlockchainTest(BaseTest):
             if block.expected_post_state:
                 self.verify_post_state(
                     t8n=t8n,
+                    pre_alloc=pre,
                     got_alloc=alloc.materialize()
                     if isinstance(alloc, LazyAlloc)
                     else alloc,
+                    context=context,
                     expected_state=block.expected_post_state,
                 )
         self.check_exception_test(exception=invalid_blocks > 0)
         alloc = alloc.materialize() if isinstance(alloc, LazyAlloc) else alloc
-        self.verify_post_state(t8n=t8n, got_alloc=alloc)
+        self.verify_post_state(
+            t8n=t8n, pre_alloc=pre, got_alloc=alloc, context=context
+        )
         fixture = BlockchainFixture(
             fork=self.fork,
             genesis=genesis.header,
@@ -1440,6 +1480,7 @@ class BlockchainTest(BaseTest):
         env = environment_from_parent_header(genesis.header)
         head_hash = genesis.header.block_hash
         invalid_blocks = 0
+        context = self.new_post_state_context()
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
@@ -1465,6 +1506,8 @@ class BlockchainTest(BaseTest):
                 built_block.get_fixture_engine_new_payload()
             )
             if block.exception is None:
+                if context is not None:
+                    built_block.record_landings(context)
                 alloc = built_block.alloc
                 state_root = built_block.state_root
                 env = apply_new_parent(built_block.env, built_block.header)
@@ -1475,9 +1518,11 @@ class BlockchainTest(BaseTest):
             if block.expected_post_state:
                 self.verify_post_state(
                     t8n=t8n,
+                    pre_alloc=pre,
                     got_alloc=alloc.materialize()
                     if isinstance(alloc, LazyAlloc)
                     else alloc,
+                    context=context,
                     expected_state=block.expected_post_state,
                 )
         self.check_exception_test(exception=invalid_blocks > 0)
@@ -1490,7 +1535,9 @@ class BlockchainTest(BaseTest):
         )
 
         alloc = alloc.materialize() if isinstance(alloc, LazyAlloc) else alloc
-        self.verify_post_state(t8n=t8n, got_alloc=alloc)
+        self.verify_post_state(
+            t8n=t8n, pre_alloc=pre, got_alloc=alloc, context=context
+        )
 
         # Create base fixture data, common to all fixture formats
         fixture_data: Dict[str, Any] = {
@@ -1711,6 +1758,7 @@ class BlockchainTest(BaseTest):
         # Alloc is not authoritative in stateful mode; pass self.pre as a
         # placeholder — ClientBackend ignores it.
         alloc: Alloc | LazyAlloc = self.pre
+        context = self.new_post_state_context()
         for block in blocks_to_process:
             built_block = self.generate_block_data(
                 t8n=t8n,
@@ -1722,6 +1770,8 @@ class BlockchainTest(BaseTest):
                 "ClientBackend must return TestingBuildBlock; got "
                 f"{type(built_block).__name__}"
             )
+            if context is not None:
+                built_block.record_landings(context)
             payload = payload_metadata_to_fixture(
                 built_block.engine_payload, phase=block.phase
             )
@@ -1769,7 +1819,7 @@ class BlockchainTest(BaseTest):
         if self.post.root:
             got_alloc = t8n.get_post_state_alloc(self.post)
             self.post.verify_post_alloc(
-                pre_alloc=self.pre, got_alloc=got_alloc
+                pre_alloc=self.pre, got_alloc=got_alloc, context=context
             )
 
         fixture = BlockchainEngineStatefulFixture(

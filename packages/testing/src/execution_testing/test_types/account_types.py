@@ -25,7 +25,7 @@ from ethereum.crypto.hash import Hash32
 from ethereum.crypto.hash import keccak256 as spec_keccak256
 from ethereum_types.bytes import Bytes, Bytes20
 from ethereum_types.numeric import U256, Bytes32, Uint
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, model_validator
 from spec256k1 import PrivateKey
 
 from execution_testing.base_types import (
@@ -50,6 +50,7 @@ from execution_testing.base_types.conversions import (
     NumberConvertible,
 )
 
+from .balance_expectations import BalanceExpression, PostStateContext
 from .utils import keccak256
 
 
@@ -149,10 +150,16 @@ class Account(BaseAccount):
     Used to specify a expectation of increment or decrement in the nonce by the
     post-state assertions.
     """
-    balance_change: int = Field(0, exclude=True)
+    balance_change: BalanceExpression = Field(
+        default_factory=BalanceExpression, exclude=True
+    )
     """
     Used to specify a expectation of increment or decrement in balance by the
     post-state assertions.
+
+    Accepts an integer, or an expression combining integers with fee terms
+    (`GasCost`, `Tip`, `BlobCost`) that are resolved against the block in
+    which each transaction landed.
     """
 
     NONEXISTENT: ClassVar[None] = None
@@ -165,6 +172,22 @@ class Account(BaseAccount):
         **CamelModel.model_config,
         "frozen": True,
     }
+
+    @model_validator(mode="after")
+    def _absolute_or_relative(self) -> Self:
+        """Reject expecting both an absolute value and a change."""
+        for absolute, relative in (
+            ("nonce", "nonce_change"),
+            ("balance", "balance_change"),
+        ):
+            if (
+                absolute in self.model_fields_set
+                and relative in self.model_fields_set
+            ):
+                raise ValueError(
+                    f"`{absolute}` and `{relative}` are mutually exclusive"
+                )
+        return self
 
     @dataclass(kw_only=True)
     class NonceMismatchError(Exception):
@@ -212,6 +235,7 @@ class Account(BaseAccount):
         address: Address
         want: int | None
         got: int | None
+        expectation: str | None
 
         def __init__(
             self,
@@ -219,6 +243,7 @@ class Account(BaseAccount):
             want: int | None,
             got: int | None,
             *args: Any,
+            expectation: str | None = None,
         ) -> None:
             """
             Initialize the exception with the address, wanted and got values.
@@ -227,15 +252,19 @@ class Account(BaseAccount):
             self.address = address
             self.want = want
             self.got = got
+            self.expectation = expectation
 
         def __str__(self) -> str:
             """Print exception string."""
             label_str = ""
             if self.address.label is not None:
                 label_str = f" ({self.address.label})"
+            expectation_str = ""
+            if self.expectation is not None:
+                expectation_str = f" ({self.expectation})"
             return (
                 f"unexpected balance for account {self.address}{label_str}: "
-                + f"want {self.want}, got {self.got}"
+                + f"want {self.want}{expectation_str}, got {self.got}"
             )
 
     @dataclass(kw_only=True)
@@ -279,13 +308,22 @@ class Account(BaseAccount):
         self,
         *,
         address: Address,
-        pre_account: Self | BaseAccount,
+        pre_account: Self | BaseAccount | None,
         account: Self | BaseAccount,
+        context: PostStateContext | None = None,
     ) -> None:
         """
         Check the returned alloc against an expected account in post state.
-        Raises exception on failure.
+
+        Balance and nonce changes are relative to `pre_account`, which is
+        treated as empty when `None`. Fee terms in `balance_change` are
+        resolved against `context`, which may be `None` only when
+        `requires_post_state_context()` is false. Raises exception on
+        failure.
         """
+        if pre_account is None:
+            pre_account = Account()
+
         if "nonce" in self.model_fields_set:
             want_nonce = self.nonce
             if want_nonce != account.nonce:
@@ -317,13 +355,16 @@ class Account(BaseAccount):
 
         if "balance_change" in self.model_fields_set:
             want_balance = ZeroPaddedHexNumber(
-                pre_account.balance + self.balance_change
+                pre_account.balance + self.balance_change.resolve(context)
             )
             if want_balance != account.balance:
                 raise Account.BalanceMismatchError(
                     address=address,
                     want=want_balance,
                     got=account.balance,
+                    expectation=(
+                        f"pre {pre_account.balance} + ({self.balance_change})"
+                    ),
                 )
 
         if "code" in self.model_fields_set:
@@ -336,6 +377,13 @@ class Account(BaseAccount):
 
         if "storage" in self.model_fields_set:
             self.storage.must_be_equal(address=address, other=account.storage)
+
+    def requires_post_state_context(self) -> bool:
+        """Return whether checking this account needs a context."""
+        return (
+            "balance_change" in self.model_fields_set
+            and self.balance_change.requires_context
+        )
 
     def __bool__(self) -> bool:
         """Return True on a non-empty account."""
@@ -482,11 +530,11 @@ class Alloc(BaseAlloc):
     @classmethod
     def merge(
         cls,
-        alloc_1: Self | BaseAlloc,
-        alloc_2: Self | BaseAlloc,
+        alloc_1: "Alloc",
+        alloc_2: "Alloc",
         key_collision_mode: KeyCollisionMode = KeyCollisionMode.OVERWRITE,
         state_commitment: StateCommitment | None = None,
-    ) -> Self:
+    ) -> "Alloc":
         """Return merged allocation of two sources."""
         overlapping_keys = alloc_1.root.keys() & alloc_2.root.keys()
         if overlapping_keys:
@@ -575,7 +623,7 @@ class Alloc(BaseAlloc):
             address = Address(address)
         return address in self.root
 
-    def get(self, address: Address) -> Account | BaseAccount | None:
+    def get(self, address: Address) -> Account | None:
         """Get an account if it's present in the allocation, otherwise None."""
         account = self.root.get(address)
         if not account:
@@ -597,10 +645,16 @@ class Alloc(BaseAlloc):
         *,
         pre_alloc: Self | BaseAlloc,
         got_alloc: Self | BaseAlloc,
+        context: PostStateContext | None = None,
     ) -> None:
         """
         Verify that the allocation matches the expected post in the test.
-        Raises exception on unexpected values.
+
+        `pre_alloc` is the state before any transaction executed, and
+        `context` records where each transaction landed; both are used to
+        resolve balance and nonce changes. `context` may be `None` only when
+        `requires_post_state_context()` is false. Raises exception on
+        unexpected values.
         """
         assert isinstance(got_alloc, Alloc), (
             f"got_alloc is not an Alloc: {got_alloc}"
@@ -623,9 +677,23 @@ class Alloc(BaseAlloc):
                         address=address,
                         pre_account=pre_account,
                         account=got_account,
+                        context=context,
                     )
                 else:
                     raise Alloc.MissingAccountError(address=address)
+
+    def requires_post_state_context(self) -> bool:
+        """
+        Return whether verifying this post-state needs a `PostStateContext`.
+
+        Callers use this to skip gathering transaction landings, which can be
+        costly, when no expectation contains a fee term.
+        """
+        return any(
+            isinstance(account, Account)
+            and account.requires_post_state_context()
+            for account in self.root.values()
+        )
 
     def get_alloc_grouping_hash(self) -> AllocGroupHash | None:
         """
@@ -637,7 +705,7 @@ class Alloc(BaseAlloc):
         """
         return None
 
-    def calculate_diff(self, base_alloc: Self | BaseAlloc) -> Self:
+    def calculate_diff(self, base_alloc: "Alloc") -> "Alloc":
         """
         Calculate the state difference between self and a base.
 
