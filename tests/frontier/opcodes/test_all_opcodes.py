@@ -46,6 +46,13 @@ def prepare_stack(opcode: Opcode) -> Bytecode:
         return Op.PUSH1(1) + Op.PUSH1(5)
     if opcode == Op.JUMP:
         return Op.PUSH1(3)
+    if opcode == Op.CALLSUB:
+        # EIP-7979: call the CALLDEST placed right after the CALLSUB.
+        return Op.PUSH1(3)
+    if opcode == Op.RETURNSUB:
+        # EIP-7979: jump over the RETURNSUB to the suffix, which calls the
+        # CALLDEST just before it; the RETURNSUB then returns to the STOP.
+        return Op.PUSH1(5) + Op.JUMP + Op.CALLDEST
     if opcode == Op.RETURNDATACOPY:
         return Op.PUSH1(0) * 3
     return Op.PUSH1(0x01) * 32
@@ -55,6 +62,10 @@ def prepare_suffix(opcode: Opcode) -> Bytecode:
     """Prepare after opcode instructions."""
     if opcode == Op.JUMPI or opcode == Op.JUMP:
         return Op.JUMPDEST
+    if opcode == Op.CALLSUB:
+        return Op.CALLDEST
+    if opcode == Op.RETURNSUB:
+        return Op.JUMPDEST + Op.PUSH1(3) + Op.CALLSUB + Op.STOP
     return Op.STOP
 
 
@@ -217,6 +228,8 @@ def fork_opcodes_with_non_increasing_stack(
                 # Incompatible with this test:
                 Op.REVERT,  # Reverts the storage required
                 Op.JUMP,  # Tries to jump to non-jumpdest
+                Op.CALLSUB,  # Tries to call a non-calldest (EIP-7979)
+                Op.RETURNSUB,  # Empty return stack (EIP-7979)
                 Op.BLOCKHASH,  # Incompatible with state_test
                 Op.SELFDESTRUCT,  # selfdestructs the contract in old forks
             ]:
@@ -270,7 +283,7 @@ def prepare_stack_constant_gas_oog(opcode: Opcode) -> Bytecode:
     """Prepare valid stack for opcode."""
     if opcode == Op.JUMPI:
         return Op.PUSH1(1) + Op.PUSH1(3) + Op.PC + Op.ADD
-    if opcode == Op.JUMP:
+    if opcode == Op.JUMP or opcode == Op.CALLSUB:
         return Op.PUSH1(3) + Op.PC + Op.ADD
     if opcode == Op.BLOCKHASH:
         return Op.PUSH1(0x01)
@@ -291,6 +304,11 @@ def constant_gas_opcodes(fork: Fork) -> Generator[ParameterSet, None, None]:
         # the state reservoir that cannot be measured via the GAS opcode
         # delta used by gas_test. Excluded to keep the test meaningful.
         if fork.is_eip_enabled(8037) and opcode in (Op.CREATE, Op.CREATE2):
+            continue
+        # EIP-7979: RETURNSUB needs a CALLSUB in the same frame, which this
+        # harness cannot arrange; its cost is measured in
+        # tests/amsterdam/eip7979_callsub/test_gas.py.
+        if opcode == Op.RETURNSUB:
             continue
         yield pytest.param(
             opcode,
