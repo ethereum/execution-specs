@@ -1660,3 +1660,14 @@ class Amsterdam(
         limit.
         """
         return True
+
+
+class Bogota(
+    eips.EIP8163,
+    Amsterdam,
+    deployed=False,
+    transition_tool_name="Amsterdam",
+):
+    """Bogota fork."""
+
+    pass
