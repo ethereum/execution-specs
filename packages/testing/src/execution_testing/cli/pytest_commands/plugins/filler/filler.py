@@ -183,19 +183,27 @@ class FillingSession:
 
         """
         formats_str = config.getoption("formats", None)
-        formats = formats_str.split(",") if formats_str else None
-        
-        if formats:
+
+        formats = None
+        if formats_str:
+            formats = [f.strip() for f in formats_str.split(",") if f.strip()]
+            if not formats:
+                raise pytest.UsageError(
+                    "No valid fixture formats specified in --formats."
+                )
+
             invalid_formats = set(formats) - set(BaseFixture.formats.keys())
             if invalid_formats:
                 raise pytest.UsageError(
-                    f"Invalid fixture format(s) specified: {', '.join(invalid_formats)}. "
-                    f"Valid formats are: {', '.join(BaseFixture.formats.keys())}"
+                    "Invalid fixture format(s) specified: "
+                    f"{', '.join(invalid_formats)}. "
+                    "Valid formats are: "
+                    f"{', '.join(BaseFixture.formats.keys())}"
                 )
 
         return cls(
             fixture_output=FixtureOutput.from_config(config),
-            filling_phase=cls.filling_phase_from_config(config),
+            filling_phase=cls.filling_phase_from_config(config, formats),
             formats=formats,
             pre_alloc_groups=None,
         )
@@ -203,6 +211,7 @@ class FillingSession:
     @staticmethod
     def filling_phase_from_config(
         config: pytest.Config,
+        formats: List[str] | None = None,
     ) -> FixtureFillingPhase:
         """
         Infer current phase from the pytest configuration.
@@ -229,6 +238,17 @@ class FillingSession:
         )
         use_pre_alloc = config.getoption("use_pre_alloc_groups", False)
         generate_all = config.getoption("generate_all_formats", False)
+
+        if not generate_all and formats:
+            for fmt_name in formats:
+                fmt = BaseFixture.formats.get(fmt_name)
+                if (
+                    fmt
+                    and FixtureFillingPhase.PRE_ALLOC_GENERATION
+                    in fmt.format_phases
+                ):
+                    generate_all = True
+                    break
 
         if use_pre_alloc:
             # Phase 2: Using pre-generated groups
@@ -278,9 +298,11 @@ class FillingSession:
             True if the format should be generated.
 
         """
-        if self.formats is not None:
-            if fixture_format.format_name not in self.formats:
-                return False
+        if (
+            self.formats is not None
+            and fixture_format.format_name not in self.formats
+        ):
+            return False
         return self.filling_phase in fixture_format.format_phases
 
     def get_pre_alloc_group(
