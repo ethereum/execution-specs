@@ -10,7 +10,7 @@ from pytest import FixtureRequest
 from execution_testing.base_types import Address, CamelModel
 from execution_testing.forks import Fork
 from execution_testing.rpc import EngineRPC, EthRPC
-from execution_testing.test_types import Environment
+from execution_testing.test_types import Alloc, Environment
 
 
 class ExecuteResult(CamelModel):
@@ -101,6 +101,7 @@ class BaseExecute(CamelModel):
     @abstractmethod
     def execute(
         self,
+        pre: Alloc,
         fork: Fork,
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC | None,

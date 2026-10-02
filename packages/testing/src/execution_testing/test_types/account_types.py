@@ -41,6 +41,7 @@ from execution_testing.base_types import (
     StateCommitment,
     Storage,
     StorageRootType,
+    ZeroPaddedHexNumber,
 )
 from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.base_types.conversions import (
@@ -275,25 +276,53 @@ class Account(BaseAccount):
             )
 
     def check_alloc(
-        self, address: Address, account: Self | BaseAccount
+        self,
+        *,
+        address: Address,
+        pre_account: Self | BaseAccount,
+        account: Self | BaseAccount,
     ) -> None:
         """
         Check the returned alloc against an expected account in post state.
         Raises exception on failure.
         """
         if "nonce" in self.model_fields_set:
-            if self.nonce != account.nonce:
+            want_nonce = self.nonce
+            if want_nonce != account.nonce:
                 raise Account.NonceMismatchError(
                     address=address,
-                    want=self.nonce,
+                    want=want_nonce,
+                    got=account.nonce,
+                )
+
+        if "nonce_change" in self.model_fields_set:
+            want_nonce = ZeroPaddedHexNumber(
+                pre_account.nonce + self.nonce_change
+            )
+            if want_nonce != account.nonce:
+                raise Account.NonceMismatchError(
+                    address=address,
+                    want=want_nonce,
                     got=account.nonce,
                 )
 
         if "balance" in self.model_fields_set:
-            if self.balance != account.balance:
+            want_balance = self.balance
+            if want_balance != account.balance:
                 raise Account.BalanceMismatchError(
                     address=address,
-                    want=self.balance,
+                    want=want_balance,
+                    got=account.balance,
+                )
+
+        if "balance_change" in self.model_fields_set:
+            want_balance = ZeroPaddedHexNumber(
+                pre_account.balance + self.balance_change
+            )
+            if want_balance != account.balance:
+                raise Account.BalanceMismatchError(
+                    address=address,
+                    want=want_balance,
                     got=account.balance,
                 )
 
@@ -453,11 +482,11 @@ class Alloc(BaseAlloc):
     @classmethod
     def merge(
         cls,
-        alloc_1: "Alloc",
-        alloc_2: "Alloc",
+        alloc_1: Self | BaseAlloc,
+        alloc_2: Self | BaseAlloc,
         key_collision_mode: KeyCollisionMode = KeyCollisionMode.OVERWRITE,
         state_commitment: StateCommitment | None = None,
-    ) -> "Alloc":
+    ) -> Self:
         """Return merged allocation of two sources."""
         overlapping_keys = alloc_1.root.keys() & alloc_2.root.keys()
         if overlapping_keys:
@@ -546,7 +575,7 @@ class Alloc(BaseAlloc):
             address = Address(address)
         return address in self.root
 
-    def get(self, address: Address) -> Account | None:
+    def get(self, address: Address) -> Account | BaseAccount | None:
         """Get an account if it's present in the allocation, otherwise None."""
         account = self.root.get(address)
         if not account:
@@ -563,7 +592,12 @@ class Alloc(BaseAlloc):
         """Return state root of the allocation."""
         return Hash(self._state_module().state_root(self._materialize_state()))
 
-    def verify_post_alloc(self, got_alloc: "Alloc") -> None:
+    def verify_post_alloc(
+        self,
+        *,
+        pre_alloc: Self | BaseAlloc,
+        got_alloc: Self | BaseAlloc,
+    ) -> None:
         """
         Verify that the allocation matches the expected post in the test.
         Raises exception on unexpected values.
@@ -584,7 +618,12 @@ class Alloc(BaseAlloc):
                     got_account = got_alloc.root[address]
                     assert isinstance(got_account, Account)
                     assert isinstance(account, Account)
-                    account.check_alloc(address, got_account)
+                    pre_account = pre_alloc.get(address=address)
+                    account.check_alloc(
+                        address=address,
+                        pre_account=pre_account,
+                        account=got_account,
+                    )
                 else:
                     raise Alloc.MissingAccountError(address=address)
 
@@ -598,7 +637,7 @@ class Alloc(BaseAlloc):
         """
         return None
 
-    def calculate_diff(self, base_alloc: "Alloc") -> "Alloc":
+    def calculate_diff(self, base_alloc: Self | BaseAlloc) -> Self:
         """
         Calculate the state difference between self and a base.
 

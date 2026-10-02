@@ -26,6 +26,7 @@ from execution_testing.rpc.rpc_types import (
     PayloadStatusEnum,
 )
 from execution_testing.test_types import (
+    Alloc,
     Blob,
     Environment,
     NetworkWrappedTransaction,
@@ -384,6 +385,7 @@ class BlobTransaction(BaseExecute):
 
     def execute(
         self,
+        pre: Alloc,
         fork: Fork,
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC | None,

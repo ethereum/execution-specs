@@ -450,6 +450,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 )
 
                 execute_result = execute.execute(
+                    pre=pre,
                     fork=fork,
                     eth_rpc=eth_rpc,
                     engine_rpc=engine_rpc,
