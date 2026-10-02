@@ -4,6 +4,7 @@ from typing import Callable
 
 import pytest
 from execution_testing import (
+    EOA,
     AccessList,
     Account,
     Address,
@@ -3682,17 +3683,22 @@ def test_bal_cross_tx_read_before_later_write(
     first_value = 0xBB
     last_value = 0xCC
     witness_slots = [0x10, 0x20, 0x30]
+    assert slot not in witness_slots
     readers = [pre.fund_eoa() for _ in witness_slots]
     first_writer = pre.fund_eoa()
     last_writer = pre.fund_eoa()
 
     # One calldata word names the witness slot that receives the value
     # read; two words carry the value to write in the second word.
+    witness_slot_offset = 0
+    write_value_offset = 32
     contract = pre.deploy_contract(
         code=Conditional(
             condition=Op.EQ(Op.CALLDATASIZE, 32),
-            if_true=Op.SSTORE(Op.CALLDATALOAD(0), Op.SLOAD(slot)),
-            if_false=Op.SSTORE(slot, Op.CALLDATALOAD(32)),
+            if_true=Op.SSTORE(
+                Op.CALLDATALOAD(witness_slot_offset), Op.SLOAD(slot)
+            ),
+            if_false=Op.SSTORE(slot, Op.CALLDATALOAD(write_value_offset)),
         ),
         storage={slot: pre_value},
     )
@@ -3703,38 +3709,40 @@ def test_bal_cross_tx_read_before_later_write(
         + Op.REVERT(0, 0),
     )
 
-    def read_tx(sender: Address, witness_slot: int) -> Transaction:
+    def read_tx(sender: EOA, witness_slot: int) -> Transaction:
         return Transaction(sender=sender, to=contract, data=Hash(witness_slot))
 
-    def write_data(value: int) -> bytes:
-        return bytes(Hash(0)) + bytes(Hash(value))
-
-    if last_write == "commits":
-        last_write_tx = Transaction(
-            sender=last_writer, to=contract, data=write_data(last_value)
+    def write_tx(
+        sender: EOA, value: int, reverts: bool = False
+    ) -> Transaction:
+        return Transaction(
+            sender=sender,
+            to=reverter if reverts else contract,
+            data=bytes(Hash(0)) + bytes(Hash(value)),
         )
+
+    txs = [
+        read_tx(readers[0], witness_slots[0]),  # First read
+        write_tx(first_writer, first_value),  # First write
+        read_tx(readers[1], witness_slots[1]),  # Second read
+        write_tx(  # Second write
+            last_writer, last_value, reverts=last_write == "reverts"
+        ),
+        read_tx(readers[2], witness_slots[2]),  # Third read
+    ]
+
+    # Second/Last Write
+    if last_write == "commits":
         final_value = last_value
         last_slot_changes = [
             BalStorageChange(block_access_index=4, post_value=last_value),
         ]
     elif last_write == "reverts":
-        last_write_tx = Transaction(
-            sender=last_writer, to=reverter, data=write_data(last_value)
-        )
         final_value = first_value
         last_slot_changes = []
     else:
         raise ValueError(f"unknown last_write: {last_write}")
 
-    txs = [
-        read_tx(readers[0], witness_slots[0]),
-        Transaction(
-            sender=first_writer, to=contract, data=write_data(first_value)
-        ),
-        read_tx(readers[1], witness_slots[1]),
-        last_write_tx,
-        read_tx(readers[2], witness_slots[2]),
-    ]
     witnessed = dict(
         zip(witness_slots, [pre_value, first_value, final_value], strict=True)
     )
@@ -3942,12 +3950,9 @@ def test_bal_cross_tx_access_stays_cold(
         Transaction(
             sender=sender,
             to=probe,
-            gas_limit=gas_used + 10_000,
-            expected_receipt=TransactionReceipt(
-                cumulative_gas_used=gas_used * i
-            ),
+            expected_receipt=TransactionReceipt(gas_used=gas_used),
         )
-        for i, sender in enumerate(senders, start=1)
+        for sender in senders
     ]
 
     blockchain_test(
@@ -4013,7 +4018,6 @@ def test_bal_cross_tx_coinbase_balance_observed(
     coinbase_balance_changes = []
     witnessed = {}
     coinbase_balance = coinbase_start
-    cumulative_gas_used = 0
     for i, sender in enumerate(senders, start=1):
         witness_slot = witness_slot_base + i
         data = Hash(witness_slot)
@@ -4024,17 +4028,13 @@ def test_bal_cross_tx_coinbase_balance_observed(
         assert gas_used >= fork.transaction_data_floor_cost_calculator()(
             data=data
         )
-        cumulative_gas_used += gas_used
         txs.append(
             Transaction(
                 sender=sender,
                 to=reader,
                 data=data,
-                gas_limit=gas_used + 10_000,
                 gas_price=gas_price,
-                expected_receipt=TransactionReceipt(
-                    cumulative_gas_used=cumulative_gas_used
-                ),
+                expected_receipt=TransactionReceipt(gas_used=gas_used),
             )
         )
         # The witness sees the balance before this tx's own tip lands.
