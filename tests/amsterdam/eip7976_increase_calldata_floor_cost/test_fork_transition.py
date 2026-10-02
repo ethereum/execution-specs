@@ -23,6 +23,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     EIPChecklist,
+    GasCost,
     RecipientType,
     Transaction,
     TransactionException,
@@ -109,7 +110,6 @@ def test_floor_cost_across_amsterdam_transition(
     so a calculator regression fails here with a clear message rather
     than only as a downstream balance mismatch.
     """
-    gas_price = 1_000_000_000
     target = pre.fund_eoa(amount=1)
 
     expected_pre, expected_post = expected_floors(fork, data)
@@ -143,8 +143,7 @@ def test_floor_cost_across_amsterdam_transition(
             f"timestamp {timestamp} ({sub_fork})"
         )
 
-        sender_initial_balance = 10**18
-        sender = pre.fund_eoa(sender_initial_balance)
+        sender = pre.fund_eoa()
 
         # The recipient is an EOA, so no EVM bytecode runs and the
         # billed gas is exactly the floor; the gas limit is pinned to
@@ -154,15 +153,11 @@ def test_floor_cost_across_amsterdam_transition(
             to=target,
             data=data,
             gas_limit=floor,
-            gas_price=gas_price,
             expected_receipt=TransactionReceipt(cumulative_gas_used=floor),
         )
         blocks.append(Block(timestamp=timestamp, txs=[tx]))
 
-        post[sender] = Account(
-            nonce=1,
-            balance=sender_initial_balance - floor * gas_price,
-        )
+        post[sender] = Account(nonce=1, balance_change=-GasCost(tx, gas=floor))
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
@@ -221,7 +216,6 @@ def test_floor_validity_across_amsterdam_transition(
     The zero-byte arm pins the uniform token counting on the validity
     threshold itself, independently of the billed-gas path.
     """
-    gas_price = 1_000_000_000
     target = pre.fund_eoa(amount=1)
 
     old_floor, new_floor = expected_floors(fork, data)
@@ -230,9 +224,8 @@ def test_floor_validity_across_amsterdam_transition(
     assert new_floor > old_floor
 
     below_floor_error = TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
-    sender_initial_balance = 10**18
-    pre_fork_sender = pre.fund_eoa(sender_initial_balance)
-    post_fork_sender = pre.fund_eoa(sender_initial_balance)
+    pre_fork_sender = pre.fund_eoa()
+    post_fork_sender = pre.fund_eoa()
 
     def transfer_tx(
         sender: Address, gas_limit: int, valid: bool
@@ -242,32 +235,26 @@ def test_floor_validity_across_amsterdam_transition(
             to=target,
             data=data,
             gas_limit=gas_limit,
-            gas_price=gas_price,
             error=None if valid else below_floor_error,
         )
 
-    untouched = Account(nonce=0, balance=sender_initial_balance)
+    untouched = Account(nonce=0, balance_change=0)
     blocks: list[Block]
 
     if scenario == "exact_floors_accepted":
+        pre_fork_tx = transfer_tx(pre_fork_sender, old_floor, valid=True)
+        post_fork_tx = transfer_tx(post_fork_sender, new_floor, valid=True)
         blocks = [
-            Block(
-                timestamp=PRE_FORK_TIMESTAMP,
-                txs=[transfer_tx(pre_fork_sender, old_floor, valid=True)],
-            ),
-            Block(
-                timestamp=POST_FORK_TIMESTAMP,
-                txs=[transfer_tx(post_fork_sender, new_floor, valid=True)],
-            ),
+            Block(timestamp=PRE_FORK_TIMESTAMP, txs=[pre_fork_tx]),
+            Block(timestamp=POST_FORK_TIMESTAMP, txs=[post_fork_tx]),
         ]
         post = {
             pre_fork_sender: Account(
-                nonce=1,
-                balance=sender_initial_balance - old_floor * gas_price,
+                nonce=1, balance_change=-GasCost(pre_fork_tx, gas=old_floor)
             ),
             post_fork_sender: Account(
                 nonce=1,
-                balance=sender_initial_balance - new_floor * gas_price,
+                balance_change=-GasCost(post_fork_tx, gas=new_floor),
             ),
         }
     elif scenario == "below_old_floor_rejected_before_fork":
@@ -280,11 +267,9 @@ def test_floor_validity_across_amsterdam_transition(
         ]
         post = {pre_fork_sender: untouched, post_fork_sender: untouched}
     elif scenario == "old_floor_rejected_after_fork":
+        pre_fork_tx = transfer_tx(pre_fork_sender, old_floor, valid=True)
         blocks = [
-            Block(
-                timestamp=PRE_FORK_TIMESTAMP,
-                txs=[transfer_tx(pre_fork_sender, old_floor, valid=True)],
-            ),
+            Block(timestamp=PRE_FORK_TIMESTAMP, txs=[pre_fork_tx]),
             # The identical gas limit that was accepted pre-fork no
             # longer reserves the raised floor.
             Block(
@@ -295,8 +280,7 @@ def test_floor_validity_across_amsterdam_transition(
         ]
         post = {
             pre_fork_sender: Account(
-                nonce=1,
-                balance=sender_initial_balance - old_floor * gas_price,
+                nonce=1, balance_change=-GasCost(pre_fork_tx, gas=old_floor)
             ),
             post_fork_sender: untouched,
         }

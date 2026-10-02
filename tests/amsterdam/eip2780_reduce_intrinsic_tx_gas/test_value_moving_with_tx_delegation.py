@@ -37,6 +37,7 @@ from execution_testing import (
     Alloc,
     AuthorizationTuple,
     Fork,
+    GasCost,
     Op,
     RecipientType,
     StateTestFiller,
@@ -83,11 +84,9 @@ def test_tx_installs_delegation_on_funded_recipient(
     ``COLD_ACCOUNT_ACCESS`` charge for the now-delegated recipient (its
     fresh delegation target is cold) still fires.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
-    target_initial_balance = 100
-    target = pre.fund_eoa(amount=target_initial_balance)
+    target = pre.fund_eoa()
     delegated_to = pre.deploy_contract(code=Op.STOP)
 
     auth = AuthorizationTuple(
@@ -123,28 +122,22 @@ def test_tx_installs_delegation_on_funded_recipient(
     # Costs are charged exactly (no refund); under the default zero
     # state-gas reservoir the state gas spills into execution gas.
     total_gas_cost = intrinsic_gas + top_frame_execution + top_frame_state
-    tx_gas_limit = total_gas_cost + 1000
-    gas_price = 1_000_000_000
 
     tx = Transaction(
         sender=sender,
         to=target,
         value=value,
         authorization_list=authorization_list,
-        gas_limit=tx_gas_limit,
-        max_fee_per_gas=gas_price,
-        max_priority_fee_per_gas=gas_price,
-    )
-
-    sender_final_balance = (
-        sender_initial_balance - value - (total_gas_cost * gas_price)
     )
 
     post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
+        sender: Account(
+            nonce=1,
+            balance_change=-value - GasCost(tx, gas=total_gas_cost),
+        ),
         target: Account(
             nonce=1,
-            balance=target_initial_balance + value,
+            balance_change=value,
             code=Spec7702.delegation_designation(delegated_to),
         ),
     }
@@ -184,8 +177,7 @@ def test_tx_installs_delegation_on_empty_recipient(
     accounts for the leaf). The ``COLD_ACCOUNT_ACCESS`` charge for the
     now-delegated recipient still fires.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     target = pre.fund_eoa(amount=0)
     delegated_to = pre.deploy_contract(code=Op.STOP)
@@ -219,25 +211,19 @@ def test_tx_installs_delegation_on_empty_recipient(
     )
 
     total_gas_cost = intrinsic_gas + top_frame_execution + top_frame_state
-    tx_gas_limit = total_gas_cost + 1000
-    gas_price = 1_000_000_000
 
     tx = Transaction(
         sender=sender,
         to=target,
         value=value,
         authorization_list=authorization_list,
-        gas_limit=tx_gas_limit,
-        max_fee_per_gas=gas_price,
-        max_priority_fee_per_gas=gas_price,
-    )
-
-    sender_final_balance = (
-        sender_initial_balance - value - (total_gas_cost * gas_price)
     )
 
     post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
+        sender: Account(
+            nonce=1,
+            balance_change=-value - GasCost(tx, gas=total_gas_cost),
+        ),
         target: Account(
             nonce=1,
             balance=value,
@@ -299,8 +285,7 @@ def test_tx_installs_delegation_on_sender(
       sender's delegation is installed and persists past the transaction
       without ever being invoked.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     delegated_to = pre.deploy_contract(code=Op.STOP)
 
@@ -315,7 +300,6 @@ def test_tx_installs_delegation_on_sender(
     )
     authorization_list = [auth]
 
-    target_initial_balance = 0
     if call_target == "self":
         target = sender
         # Intrinsic carve-out fires (SELF); top-frame fires the
@@ -324,8 +308,7 @@ def test_tx_installs_delegation_on_sender(
         intrinsic_recipient_type = RecipientType.SELF
         top_frame_recipient_type = RecipientType.DELEGATION_7702
     else:
-        target_initial_balance = 100
-        target = pre.fund_eoa(amount=target_initial_balance)
+        target = pre.fund_eoa()
         # Recipient is a plain EOA, so no carve-out and no top-frame
         # recipient charge.
         intrinsic_recipient_type = RecipientType.EOA
@@ -350,42 +333,31 @@ def test_tx_installs_delegation_on_sender(
     )
 
     total_gas_cost = intrinsic_gas + top_frame_execution + top_frame_state
-    tx_gas_limit = total_gas_cost + 1000
-    gas_price = 1_000_000_000
 
     tx = Transaction(
         sender=sender,
         to=target,
         value=value,
         authorization_list=authorization_list,
-        gas_limit=tx_gas_limit,
-        max_fee_per_gas=gas_price,
-        max_priority_fee_per_gas=gas_price,
     )
 
     if call_target == "self":
         # Value moves sender -> sender, net zero on balance.
-        sender_final_balance = (
-            sender_initial_balance - total_gas_cost * gas_price
-        )
         post = {
             sender: Account(
                 nonce=2,
-                balance=sender_final_balance,
+                balance_change=-GasCost(tx, gas=total_gas_cost),
                 code=Spec7702.delegation_designation(delegated_to),
             ),
         }
     else:
-        sender_final_balance = (
-            sender_initial_balance - value - total_gas_cost * gas_price
-        )
         post = {
             sender: Account(
                 nonce=2,
-                balance=sender_final_balance,
+                balance_change=-value - GasCost(tx, gas=total_gas_cost),
                 code=Spec7702.delegation_designation(delegated_to),
             ),
-            target: Account(balance=target_initial_balance + value),
+            target: Account(balance_change=value),
         }
 
     state_test(pre=pre, tx=tx, post=post)

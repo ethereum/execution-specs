@@ -27,16 +27,19 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalanceExpression,
     Block,
     BlockchainTestFiller,
     Bytecode,
     Environment,
     Fork,
     GasConsumer,
+    GasCost,
     Header,
     Op,
     RecipientType,
     StateTestFiller,
+    Tip,
     Transaction,
     TransactionReceipt,
     compute_create_address,
@@ -60,6 +63,7 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 def test_top_frame_state_charge(
     fork: Fork,
     pre: Alloc,
+    env: Environment,
     state_test: StateTestFiller,
     outcome: str,
     recipient_is_coinbase: bool,
@@ -81,9 +85,11 @@ def test_top_frame_state_charge(
     An absent coinbase is still charged: it is warm, but receives its
     priority fee only after execution.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
-    target = pre.fund_eoa(amount=0)
+    sender = pre.fund_eoa()
+    if recipient_is_coinbase:
+        target = env.fee_recipient
+    else:
+        target = pre.fund_eoa(amount=0)
 
     value = 1
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
@@ -99,52 +105,48 @@ def test_top_frame_state_charge(
         "top-frame state gas must be non-zero for this scenario"
     )
 
-    gas_price = 1_000_000_000
+    total_gas_used = intrinsic_gas + top_frame_state_gas
+    gas_limit = total_gas_used
     if outcome == "oog":
-        gas_limit = intrinsic_gas + top_frame_state_gas - 1
-        sender_final_balance = sender_initial_balance - gas_limit * gas_price
-        expected_target: Account | None = None
-    else:
-        total_gas_cost = intrinsic_gas + top_frame_state_gas
-        gas_limit = total_gas_cost + 1000
-        sender_final_balance = (
-            sender_initial_balance - value - total_gas_cost * gas_price
-        )
-        expected_target = Account(balance=value)
+        gas_limit -= 1
 
     tx = Transaction(
         sender=sender,
         to=target,
         value=value,
         gas_limit=gas_limit,
-        gas_price=gas_price,
     )
 
-    post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
-        target: expected_target,
-    }
+    sender_balance_change = -GasCost(tx, gas=gas_limit)
+    target_balance_change: BalanceExpression | Tip | int = (
+        Tip(tx, gas=gas_limit) if recipient_is_coinbase else 0
+    )
+    if outcome == "success":
+        sender_balance_change -= value
+        target_balance_change += value
 
-    env = Environment()
-    if recipient_is_coinbase:
-        base_fee = 7
-        env = Environment(fee_recipient=target, base_fee_per_gas=base_fee)
-        # The coinbase also receives the priority fee on the gas used.
-        if outcome == "oog":
-            transferred, gas_used = 0, gas_limit
-        else:
-            transferred, gas_used = value, total_gas_cost
-        priority_fee = gas_price - base_fee
-        post[target] = Account(balance=transferred + gas_used * priority_fee)
+    post = {
+        sender: Account(nonce=1, balance_change=sender_balance_change),
+        target: Account(balance_change=target_balance_change),
+    }
 
     state_test(env=env, pre=pre, tx=tx, post=post)
 
 
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "insufficient_execution_gas",
+        "insufficient_top_frame_state_gas",
+        "success",
+    ],
+)
 def test_top_frame_state_charge_empty_precompile(
     fork: Fork,
     pre: Alloc,
     state_test: StateTestFiller,
+    scenario: str,
 ) -> None:
     """
     An empty precompile recipient is still empty per EIP-161, so a
@@ -156,8 +158,7 @@ def test_top_frame_state_charge_empty_precompile(
     transfer value, which makes this a direct regression test for a
     precompile carve-out.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     identity_precompile = Address(0x04)
 
     value = 1
@@ -173,23 +174,32 @@ def test_top_frame_state_charge_empty_precompile(
     assert top_frame_state_gas > 0, (
         "top-frame state gas must be non-zero for empty recipients"
     )
+    gas_costs = fork.gas_costs()
+    gas_limit = (
+        intrinsic_gas
+        + top_frame_state_gas
+        + gas_costs.PRECOMPILE_IDENTITY_BASE
+    )
+    if scenario == "insufficient_execution_gas":
+        gas_limit -= 1
+    elif scenario == "insufficient_top_frame_state_gas":
+        gas_limit -= gas_costs.PRECOMPILE_IDENTITY_BASE + 1
 
-    gas_price = 1_000_000_000
-    gas_limit = intrinsic_gas + top_frame_state_gas - 1
     tx = Transaction(
         sender=sender,
         to=identity_precompile,
         value=value,
         gas_limit=gas_limit,
-        gas_price=gas_price,
     )
 
+    sender_balance_change = -GasCost(tx, gas=gas_limit)
+    precompile_balance_change = 0
+    if scenario == "success":
+        sender_balance_change -= value
+        precompile_balance_change += value
     post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - gas_limit * gas_price,
-        ),
-        identity_precompile: None,
+        sender: Account(nonce=1, balance_change=sender_balance_change),
+        identity_precompile: Account(balance_change=precompile_balance_change),
     }
 
     state_test(pre=pre, tx=tx, post=post)
@@ -217,7 +227,7 @@ def test_top_frame_new_account_charged_as_state_gas(
     dimensions, so they cannot distinguish this; a block-level
     ``gas_used`` assertion is required.
     """
-    sender = pre.fund_eoa(10**18)
+    sender = pre.fund_eoa()
     target = pre.fund_eoa(amount=0)
     value = 1
 
@@ -244,13 +254,11 @@ def test_top_frame_new_account_charged_as_state_gas(
     # ``NEW_ACCOUNT`` charge.
     expected_gas_used = max(intrinsic_execution, new_account_state_gas)
 
-    gas_price = 1_000_000_000
     tx = Transaction(
         sender=sender,
         to=target,
         value=value,
-        gas_limit=intrinsic_execution + new_account_state_gas + 1000,
-        gas_price=gas_price,
+        gas_limit=intrinsic_execution + new_account_state_gas,
     )
 
     blockchain_test(
@@ -291,8 +299,7 @@ def test_top_frame_new_account_skipped_for_nonce_only_recipient(
     rather than succeed. The recipient has no code, so no EVM runs and
     the intrinsic is fully consumed with nothing to refund.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     # Alive via nonce only: not empty per EIP-161 because nonce != 0.
     target = pre.fund_eoa(amount=0, nonce=1)
     value = 1
@@ -310,21 +317,17 @@ def test_top_frame_new_account_skipped_for_nonce_only_recipient(
         "a nonce-only-alive recipient must not incur the NEW_ACCOUNT charge"
     )
 
-    gas_price = 1_000_000_000
     gas_limit = intrinsic_gas
     tx = Transaction(
         sender=sender,
         to=target,
         value=value,
         gas_limit=gas_limit,
-        gas_price=gas_price,
     )
 
-    sender_final_balance = (
-        sender_initial_balance - value - intrinsic_gas * gas_price
-    )
+    sender_balance_change = -value - GasCost(tx, gas=intrinsic_gas)
     post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
+        sender: Account(nonce=1, balance_change=sender_balance_change),
         target: Account(nonce=1, balance=value),
     }
 
@@ -589,8 +592,7 @@ def test_top_frame_execution_charge(
       budget is returned, and the intrinsic and top-frame gas remain
       paid.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     revert_code = Op.REVERT(0, 0)
     if outcome == "evm_reverts":
@@ -613,39 +615,33 @@ def test_top_frame_execution_charge(
         "top-frame execution gas must be non-zero for this scenario"
     )
 
-    gas_price = 1_000_000_000
     if outcome == "oog":
         gas_limit = intrinsic_gas + top_frame_gas - 1
-        sender_final_balance = sender_initial_balance - gas_limit * gas_price
-        target_balance = 0
+        total_gas_cost = gas_limit
     elif outcome == "success":
         total_gas_cost = intrinsic_gas + top_frame_gas
-        gas_limit = total_gas_cost + 1000
-        sender_final_balance = (
-            sender_initial_balance - value - total_gas_cost * gas_price
-        )
-        target_balance = value
+        gas_limit = total_gas_cost
     else:
         # Two ``PUSH`` opcodes feed ``REVERT`` before it halts.
         revert_exec_gas = revert_code.gas_cost(fork)
-        gas_used = intrinsic_gas + top_frame_gas + revert_exec_gas
-        gas_limit = gas_used + 1000
-        # Value transfer is rolled back, so the sender keeps the
-        # would-be transferred value. The intrinsic, top-frame, and
-        # pre-revert EVM gas stay paid.
-        sender_final_balance = sender_initial_balance - gas_used * gas_price
-        target_balance = 0
+        total_gas_cost = intrinsic_gas + top_frame_gas + revert_exec_gas
+        gas_limit = total_gas_cost
 
     tx = Transaction(
         sender=sender,
         to=target,
         value=value,
         gas_limit=gas_limit,
-        gas_price=gas_price,
     )
 
+    sender_balance_change = -GasCost(tx=tx, gas=total_gas_cost)
+    target_balance = 0
+    if outcome == "success":
+        sender_balance_change -= value
+        target_balance = value
+
     post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
+        sender: Account(nonce=1, balance_change=sender_balance_change),
         target: Account(balance=target_balance, code=target_code),
     }
 
@@ -910,13 +906,10 @@ def test_receipt_status_top_frame_oog_between_successful_txs(
     nonce, and must produce a ``succeeded=False`` receipt between two
     ``succeeded=True`` receipts.
     """
-    gas_price = 1_000_000_000
     value = 1
-
-    sender_initial_balance = 10**18
-    ok_sender_1 = pre.fund_eoa(sender_initial_balance)
-    ok_sender_2 = pre.fund_eoa(sender_initial_balance)
-    fail_sender = pre.fund_eoa(sender_initial_balance)
+    ok_sender_1 = pre.fund_eoa()
+    ok_sender_2 = pre.fund_eoa()
+    fail_sender = pre.fund_eoa()
     # Alive via balance, so the successful transfers to it incur no
     # top-frame charge and consume exactly their intrinsic gas.
     ok_recipient = pre.fund_eoa(amount=1)
@@ -999,7 +992,6 @@ def test_receipt_status_top_frame_oog_between_successful_txs(
         to=ok_recipient,
         value=value,
         gas_limit=ok_intrinsic_gas,
-        gas_price=gas_price,
         expected_receipt=TransactionReceipt(
             status=1,
             cumulative_gas_used=ok_intrinsic_gas,
@@ -1014,7 +1006,6 @@ def test_receipt_status_top_frame_oog_between_successful_txs(
             else 0
         ),
         gas_limit=fail_gas_limit,
-        gas_price=gas_price,
         expected_receipt=TransactionReceipt(
             status=0,
             gas_used=fail_gas_limit,
@@ -1026,25 +1017,27 @@ def test_receipt_status_top_frame_oog_between_successful_txs(
         to=ok_recipient,
         value=value,
         gas_limit=ok_intrinsic_gas,
-        gas_price=gas_price,
         expected_receipt=TransactionReceipt(
             status=1,
             cumulative_gas_used=2 * ok_intrinsic_gas + fail_gas_limit,
         ),
     )
 
-    ok_sender_final_balance = (
-        sender_initial_balance - value - ok_intrinsic_gas * gas_price
-    )
     post: dict[Address, Account | None] = {
-        ok_sender_1: Account(nonce=1, balance=ok_sender_final_balance),
-        ok_sender_2: Account(nonce=1, balance=ok_sender_final_balance),
+        ok_sender_1: Account(
+            nonce=1,
+            balance_change=-value - GasCost(ok_tx_1, gas=ok_intrinsic_gas),
+        ),
+        ok_sender_2: Account(
+            nonce=1,
+            balance_change=-value - GasCost(ok_tx_2, gas=ok_intrinsic_gas),
+        ),
         ok_recipient: Account(balance=1 + 2 * value),
         # The failing transaction is included: the nonce bumps and the
         # full gas limit is paid, but nothing else happens.
         fail_sender: Account(
             nonce=1,
-            balance=sender_initial_balance - fail_gas_limit * gas_price,
+            balance_change=-GasCost(fail_tx, gas=fail_gas_limit),
         ),
     }
     if failure_mode is TopFrameFailureMode.CREATE_STATE_OOG:
