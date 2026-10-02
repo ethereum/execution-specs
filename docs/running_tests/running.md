@@ -16,6 +16,7 @@ Both `consume` and `execute` provide sub-commands which correspond to different 
 | [`consume engine`](#engine)             | Client imports blocks via Engine API `EngineNewPayload` in Hive                         | EVM, block processing, Engine API                            | Staging, Hive | System test                       |
 | [`consume enginex`](#enginex)           | Client imports blocks via Engine API in Hive, optimized by client reuse            | EVM, block processing, Engine API, chain reorgs (implicit\*\*) | Staging, Hive | System test                       |
 | [`consume sync`](#sync)                 | Client syncs from another client using Engine API in Hive                               | EVM, block processing, Engine API, P2P sync                  | Staging, Hive | System test                       |
+| [`consume wirex`](#wirex)               | Client full syncs fixture blocks from a mock devp2p peer in Hive, with client reuse     | EVM, block processing, Engine API (sync trigger), devp2p     | Staging, Hive | System test                       |
 | [`consume rlp`](#rlp)                   | Client imports RLP-encoded blocks upon start-up in Hive                                 | EVM, block processing, RLP import (sync\*)                   | Staging, Hive | System test                       |
 | [`build-block`](#block-building)        | Client builds blocks via `testing_buildBlockV1` in Hive, validated against fixture       | EVM, block production, Engine API (testing namespace)        | Staging, Hive | System test                       |
 | [`execute hive`](./execute/hive.md)     | Tests executed against a client via JSON RPC `eth_sendRawTransaction` in Hive           | EVM, JSON RPC, mempool                                       | Staging, Hive | System test                       |
@@ -172,6 +173,32 @@ The `consume sync` command:
 4. **Triggers synchronization** by sending the target block to the sync client via `engine_newPayload` followed by `engine_forkchoiceUpdated` requests.
 5. **Monitors sync progress** and validates that the sync client reaches the same state.
 6. **Verifies final state** matches between both clients.
+
+## WireX
+
+| Nomenclature   |                            |
+| -------------- | -------------------------- |
+| Command        | `consume wirex`            |
+| Simulator      | `eels/consume-wirex`       |
+| Fixture format | `blockchain_test_engine_x` |
+
+The WireX method makes the client under test full sync each test's chain from a deterministic mock devp2p peer implemented inside the testing framework. The intent is to verify that clients can receive and propagate blocks over devp2p using the consensus test corpus; it is not intended to be a complete test of historical sync. WireX intends to replace `consume rlp` for post-Merge forks: the same workload moves from a client-specific offline import onto the client's production peer-to-peer block ingestion path, and EngineX-style client reuse amortizes the client startup cost that dominates `consume rlp` runs.
+
+The `consume wirex` command, for each pre-allocation group:
+
+1. **Initializes the execution client** with the group's shared genesis state.
+2. **Connects a mock devp2p peer** to the client (RLPx and eth handshakes).
+3. **Executes each fixture's resolved sync paths.** For each path, WireX:
+
+    - Reconstructs the root-to-leaf chain selected by an emitted `syncPayloads` target, or falls back to the authored chain when the fixture has no targets.
+    - Uses the group's reused client for a single-target fixture and an isolated client and peer for every target of a multi-target fixture.
+    - Installs the selected chain on the peer and names its target over the Engine API with `engine_newPayload` and `engine_forkchoiceUpdated`.
+    - Waits while the client downloads the missing ancestry from the peer and processes it through its full-sync path.
+    - Verifies the valid or rejected outcome and, where the target topology guarantees transport, asserts per block hash that the required headers and bodies were served over devp2p.
+
+4. **Stops the client** when all tests in the group complete.
+
+See [Consume WireX](./consume/wirex.md) for the full flow, including a process diagram, the peer's behavior, rejection tests, and command options.
 
 ## Block Building
 
