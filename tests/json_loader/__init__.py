@@ -7,3 +7,4 @@ from .hardfork import TestHardfork
 FORKS: Dict[str, TestHardfork] = {
     fork.json_test_name: fork for fork in TestHardfork.discover()
 }
+FORKS["Bogota"] = FORKS["Amsterdam"]
