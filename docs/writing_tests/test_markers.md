@@ -453,6 +453,55 @@ Filling fails with a `test correctness` error if any other transaction in the ch
 
 For that reason a fork transition test that rejects a transaction before the fork and accepts it after cannot use this marker: its rejected transaction is not in the last block.
 
+### `@pytest.mark.invalid_tx_not_last`
+
+By default a block's one invalid transaction must be its last: the transition tool keeps executing past a rejected transaction, so anything placed after it runs against a state no client reaches.
+
+This marker lifts that rule for tests about the ordering itself: a block that is invalid at an early transaction while the ones after it are valid on their own, the shape a client executing transactions in parallel must still reject.
+
+```python
+import pytest
+
+from execution_testing import (
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Transaction,
+    TransactionException,
+)
+
+@pytest.mark.invalid_tx_not_last
+@pytest.mark.exception_test
+def test_something(blockchain_test: BlockchainTestFiller, pre: Alloc):
+    sender = pre.fund_eoa()
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[
+                    # Nonce 1 before nonce 0: the block is invalid here.
+                    Transaction(
+                        sender=sender,
+                        nonce=1,
+                        to=0,
+                        error=TransactionException.NONCE_MISMATCH_TOO_HIGH,
+                    ),
+                    # Valid on its own; a client must still reject the block.
+                    Transaction(sender=sender, nonce=0, to=0),
+                ],
+                exception=TransactionException.NONCE_MISMATCH_TOO_HIGH,
+            ),
+        ],
+    )
+```
+
+The block still holds exactly one invalid transaction and the test still needs `@pytest.mark.exception_test`. The trailing transactions must be valid in the transition tool's continued execution, since their receipts are checked like any other.
+
+If the rejection depends on the sender's account (a nonce or balance check), have one of the valid transactions send value to that sender. The transition tool skips the rejected transaction, so that account only enters the block access list through another transaction, and a client that loads accounts from the list would otherwise reject the block for the missing account rather than for the reason under test.
+
+Filling fails with a `test correctness` error if the marker is set but no block has an invalid transaction before its last one, so put the marker on the parametrized cases that earn it.
+
 ### `@pytest.mark.skip()`
 
 This marker can be used to skip a test.

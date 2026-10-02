@@ -204,6 +204,12 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
+        "invalid_tx_not_last: Allow a block's one invalid transaction to be "
+        "followed by valid transactions. The block is still rejected at the "
+        "invalid transaction.",
+    )
+    config.addinivalue_line(
+        "markers",
         "tagged: Marks a static test as tagged. Tags are used to generate "
         "dynamic addresses for static tests at fill time. All tagged tests "
         "are compatible with dynamic address generation.",
@@ -422,3 +428,12 @@ def is_inclusion_test(request: pytest.FixtureRequest) -> bool:
     test.
     """
     return request.node.get_closest_marker("inclusion_test") is not None
+
+
+@pytest.fixture(scope="function")
+def invalid_tx_not_last(request: pytest.FixtureRequest) -> bool:
+    """
+    Check, given the test node properties, whether the test allows its
+    invalid transaction to be followed by valid ones.
+    """
+    return request.node.get_closest_marker("invalid_tx_not_last") is not None
