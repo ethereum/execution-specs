@@ -229,6 +229,62 @@ class TestFillPytester:
         assert result.ret == pytest.ExitCode.OK
         assert not list(log_dir.glob("*.log"))
 
+    @pytest.mark.parametrize(
+        "expected_exit_code", [pytest.ExitCode.USAGE_ERROR]
+    )
+    def test_fill_invalid_formats_flag(
+        self, run_fill: Callable[..., RunResult], fill_args: list[str]
+    ) -> None:
+        """Test invoking `fill` with an invalid format name."""
+        fill_args += ["--formats=stat_test"]
+        result = run_fill(*fill_args)
+        assert result.ret == pytest.ExitCode.USAGE_ERROR
+        output = "\n".join(result.errlines + result.outlines)
+        assert "Invalid fixture format(s) specified: stat_test" in output
+
+    def test_fill_formats_strips_whitespace(
+        self, run_fill: Callable[..., RunResult], fill_args: list[str]
+    ) -> None:
+        """Test that `--formats` strips whitespace from entries."""
+        fill_args += ["--formats=blockchain_test, blockchain_test_engine"]
+        result = run_fill(*fill_args)
+        assert result.ret == pytest.ExitCode.OK
+
+    @pytest.mark.parametrize(
+        "expected_exit_code", [pytest.ExitCode.USAGE_ERROR]
+    )
+    def test_fill_formats_empty_strings(
+        self, run_fill: Callable[..., RunResult], fill_args: list[str]
+    ) -> None:
+        """Test invoking `fill` with empty formats raises an error."""
+        fill_args += ["--formats= , "]
+        result = run_fill(*fill_args)
+        assert result.ret == pytest.ExitCode.USAGE_ERROR
+        output = "\n".join(result.errlines + result.outlines)
+        assert "No valid fixture formats specified in --formats" in output
+
+    def test_fill_formats_engine_x_appends_generate_all(
+        self,
+        run_fill: Callable[..., RunResult],
+        fill_args: list[str],
+        default_fixtures_output: Path,
+    ) -> None:
+        """
+        Test that passing an EngineX format automatically enables pre-alloc
+        generation.
+        """
+        fill_args += [
+            f"--output={default_fixtures_output}",
+            "--formats=blockchain_test_engine_x",
+        ]
+        result = run_fill(*fill_args)
+        assert result.ret == pytest.ExitCode.OK
+
+        pre_alloc_dir = (
+            default_fixtures_output / "blockchain_tests_engine_x" / "pre_alloc"
+        )
+        assert pre_alloc_dir.exists(), "Pre-allocation phase did not run."
+
     def test_generate_pre_alloc_groups_preserves_chain_id_for_valid_from(
         self,
         pytester: Pytester,
