@@ -25,8 +25,8 @@ term; plain integer changes resolve without it.
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Tuple
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Tuple
 
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
@@ -51,7 +51,7 @@ def transaction_key(tx: "Transaction") -> TransactionKey:
     if sender is None:
         sender = tx.with_signature_and_sender().sender
     assert sender is not None, "unable to determine transaction sender"
-    return (Address(sender), int(tx.nonce))
+    return Address(sender), int(tx.nonce)
 
 
 def effective_gas_price(tx: "Transaction", base_fee_per_gas: int) -> int:
@@ -66,64 +66,58 @@ def effective_gas_price(tx: "Transaction", base_fee_per_gas: int) -> int:
     )
 
 
-@dataclass(frozen=True, kw_only=True)
-class TransactionLanding:
-    """Pricing of the block in which a transaction was included."""
+class TransactionLanding(ABC):
+    """
+    Pricing of the block in which a transaction was included.
 
-    effective_gas_price: int
-    base_fee_per_gas: int
-    blob_gas_price: int | None
-    fee_recipient: Address
+    Each value is a method so that implementations can obtain it lazily:
+    execute fetches only what the expectations being resolved require.
+    """
+
+    @abstractmethod
+    def effective_gas_price(self) -> int:
+        """Return the price per gas the transaction paid."""
+
+    @abstractmethod
+    def base_fee_per_gas(self) -> int:
+        """Return the block base fee, or zero before the London fork."""
+
+    @abstractmethod
+    def blob_gas_price(self) -> int | None:
+        """Return the block blob gas price, if blobs are supported."""
+
+    @abstractmethod
+    def fee_recipient(self) -> Address:
+        """Return the block fee recipient."""
 
 
-@dataclass(kw_only=True)
-class PostStateContext:
-    """Landings of the transactions executed before a post-state check."""
+class PostStateContext(ABC):
+    """
+    Source of transaction landings for resolving post-state expectations.
 
-    landings: Dict[TransactionKey, TransactionLanding] = field(
-        default_factory=dict
-    )
+    Each test format provides its own implementation: filled tests record
+    landings while building blocks, while execute fetches them from the
+    network on demand.
+    """
 
     class TransactionNotLandedError(Exception):
         """An expectation referenced a transaction that was not included."""
 
-    def add_landing(
-        self,
-        tx: "Transaction",
-        *,
-        base_fee_per_gas: int | None,
-        blob_gas_price: int | None,
-        fee_recipient: Address,
-        effective_gas_price_override: int | None = None,
-    ) -> None:
-        """
-        Record that `tx` was included in a block with the given pricing.
-
-        Before the London fork there is no base fee, which is equivalent to a
-        base fee of zero: the fee recipient receives the whole gas price.
-        """
-        base_fee = int(base_fee_per_gas) if base_fee_per_gas else 0
-        price = (
-            effective_gas_price_override
-            if effective_gas_price_override is not None
-            else effective_gas_price(tx, base_fee)
-        )
-        self.landings[transaction_key(tx)] = TransactionLanding(
-            effective_gas_price=price,
-            base_fee_per_gas=base_fee,
-            blob_gas_price=blob_gas_price,
-            fee_recipient=fee_recipient,
-        )
-
-    def landing(self, key: TransactionKey) -> TransactionLanding:
-        """Return the landing of the transaction identified by `key`."""
-        if key not in self.landings:
+        def __init__(self, key: TransactionKey) -> None:
+            """Initialize the exception for the transaction `key`."""
             sender, nonce = key
-            raise PostStateContext.TransactionNotLandedError(
+            super().__init__(
                 f"transaction from {sender} with nonce {nonce} was not "
                 "included in any block, so its fees cannot be resolved"
             )
-        return self.landings[key]
+
+    @abstractmethod
+    def landing(self, key: TransactionKey) -> TransactionLanding:
+        """
+        Return the landing of the transaction identified by `key`.
+
+        Raise `TransactionNotLandedError` if it was not included.
+        """
 
 
 class BalanceTerm(ABC):
@@ -190,7 +184,7 @@ class GasCost(BalanceTerm):
 
     def resolve(self, context: PostStateContext) -> int:
         """Return the fee in wei."""
-        return self.gas * context.landing(self.key).effective_gas_price
+        return self.gas * context.landing(self.key).effective_gas_price()
 
     def __str__(self) -> str:
         """Describe the term."""
@@ -216,7 +210,7 @@ class Tip(BalanceTerm):
         """Return the priority fee in wei."""
         landing = context.landing(self.key)
         return self.gas * (
-            landing.effective_gas_price - landing.base_fee_per_gas
+            landing.effective_gas_price() - landing.base_fee_per_gas()
         )
 
     def __str__(self) -> str:
@@ -236,7 +230,7 @@ class BlobCost(BalanceTerm):
 
     def resolve(self, context: PostStateContext) -> int:
         """Return the blob fee in wei."""
-        blob_gas_price = context.landing(self.key).blob_gas_price
+        blob_gas_price = context.landing(self.key).blob_gas_price()
         assert blob_gas_price is not None, (
             f"{self._transaction_label()} landed in a block without blob "
             "gas pricing"

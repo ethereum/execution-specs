@@ -378,6 +378,16 @@ class Account(BaseAccount):
         if "storage" in self.model_fields_set:
             self.storage.must_be_equal(address=address, other=account.storage)
 
+    def expects_only_changes(self) -> bool:
+        """
+        Return whether this account only expects changes relative to the
+        pre-state (`balance_change` and/or `nonce_change`).
+        """
+        return bool(self.model_fields_set) and self.model_fields_set <= {
+            "balance_change",
+            "nonce_change",
+        }
+
     def requires_post_state_context(self) -> bool:
         """Return whether checking this account needs a context."""
         return (
@@ -668,19 +678,23 @@ class Alloc(BaseAlloc):
                         address=address, account=got_account
                     )
             else:
+                assert isinstance(account, Account)
+                pre_account = pre_alloc.get(address=address)
                 if address in got_alloc.root:
                     got_account = got_alloc.root[address]
                     assert isinstance(got_account, Account)
-                    assert isinstance(account, Account)
-                    pre_account = pre_alloc.get(address=address)
-                    account.check_alloc(
-                        address=address,
-                        pre_account=pre_account,
-                        account=got_account,
-                        context=context,
-                    )
+                elif account.expects_only_changes() and pre_account is None:
+                    # An account that was empty before and is absent after
+                    # is still empty, which is what a zero change expects.
+                    got_account = Account()
                 else:
                     raise Alloc.MissingAccountError(address=address)
+                account.check_alloc(
+                    address=address,
+                    pre_account=pre_account,
+                    account=got_account,
+                    context=context,
+                )
 
     def requires_post_state_context(self) -> bool:
         """
