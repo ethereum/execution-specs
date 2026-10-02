@@ -50,6 +50,17 @@ class TransactionLoad:
         """Get the nonce for the transaction."""
         return hex_to_u256(self.raw.get("nonce"))
 
+    def json_to_nonce_keys(self) -> Any:
+        """Get the nonce keys of a frame transaction."""
+        return tuple(
+            hex_to_u256(nonce_key)
+            for nonce_key in self.raw.get("nonceKeys", ["0x00"])
+        )
+
+    def json_to_nonce_seq(self) -> U64:
+        """Get the nonce sequence of a frame transaction."""
+        return parse_hex_or_int(self.raw.get("nonce"), U64)
+
     def json_to_gas_price(self) -> Uint:
         """Get the gas price for the transaction."""
         return hex_to_uint(self.raw.get("gasPrice"))

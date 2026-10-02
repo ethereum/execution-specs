@@ -2,6 +2,7 @@
 
 import re
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
 from enum import Enum, auto
 from functools import lru_cache
 from typing import (
@@ -41,6 +42,18 @@ from execution_testing.vm import (
 from ..recipient_type import RecipientType
 from .gas_costs import GasCosts
 from .requests import SystemContractRequest
+
+
+@dataclass(frozen=True)
+class ActivationInstall:
+    """
+    An `activation_code_installs` entry that, besides writing the code,
+    raises the account's nonce to at least `min_nonce`, keeping any
+    higher nonce, the balance and the storage.
+    """
+
+    code: bytes
+    min_nonce: int = 0
 
 
 class MemoryExpansionGasCalculator(Protocol):
@@ -250,6 +263,8 @@ class FrameTransactionIntrinsicCostCalculator(Protocol):
         frames: Sequence[FrameGasInfo] | int,
         signatures: Sequence[FrameSignatureGasInfo] = (),
         sender: BytesConvertible | None = None,
+        nonce_keys: Sequence[int] = (0,),
+        nonce_seq: int = 0,
         return_cost_deducted_prior_execution: bool = False,
     ) -> int:
         """
@@ -273,6 +288,10 @@ class FrameTransactionIntrinsicCostCalculator(Protocol):
                   explicit target differs from the sender. May be
                   omitted when no frame carries value to an explicit
                   target.
+          nonce_keys: The transaction's nonce key set, whose encoding
+                      is priced as calldata from EIP-8250 on.
+          nonce_seq: The transaction's nonce sequence, whose encoding
+                     is priced as calldata from EIP-8250 on.
           return_cost_deducted_prior_execution: If set to False, the
                                                 returned value is equal
                                                 to the transaction's
@@ -310,6 +329,8 @@ class FrameTransactionDataFloorCostCalculator(Protocol):
         frames: Sequence[FrameGasInfo] | int,
         signatures: Sequence[FrameSignatureGasInfo] = (),
         sender: BytesConvertible | None = None,
+        nonce_keys: Sequence[int] = (0,),
+        nonce_seq: int = 0,
     ) -> int:
         """
         Return the calldata floor anchor of a frame transaction given
