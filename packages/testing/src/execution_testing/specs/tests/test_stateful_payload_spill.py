@@ -200,6 +200,7 @@ def test_spilled_fill_writes_every_payload(
     monkeypatch: pytest.MonkeyPatch, client_backend: ClientBackend
 ) -> None:
     """Spilled payloads splice back under the declared aliases."""
+    buffered, _ = _fill_stateful(monkeypatch, client_backend)
     fixture, _ = _fill_stateful(monkeypatch, client_backend, threshold=1)
     assert len(fixture.setup_payloads) == 0
     assert len(fixture.payloads) == 0
@@ -209,6 +210,10 @@ def test_spilled_fill_writes_every_payload(
     document = json.loads(out.getvalue())
     assert len(document["setupEngineNewPayloads"]) == SETUP_BLOCKS
     assert len(document["engineNewPayloads"]) == EXECUTION_BLOCKS
+
+    buffered_out = StringIO()
+    buffered.write_json(buffered_out)
+    assert document == json.loads(buffered_out.getvalue())
 
 
 def test_spilled_fill_hashes_like_a_buffered_one(
