@@ -2,6 +2,7 @@
 A pytest plugin providing common functionality for consuming test fixtures.
 """
 
+import os
 import re
 import sys
 import tarfile
@@ -578,6 +579,9 @@ def pytest_report_header(config: pytest.Config) -> List[str]:
     if not source.is_local and not source.is_stdin:
         lines.append(f"fixtures url: {source.url}")
         lines.append(f"fixtures release: {source.release_page}")
+    elif release := os.environ.get("EEST_FIXTURES_RELEASE"):
+        # Fixtures baked into a docker image built from this repository.
+        lines.append(f"fixtures release: {release}")
     return lines
 
 
