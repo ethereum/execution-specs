@@ -164,7 +164,7 @@ def test_individual_opcodes(opcode: Op) -> None:
     else:
         expected_output = f"Op.{opcode._name_}"
 
-    bytecode = opcode.int().to_bytes(1, byteorder="big") + data_portion
+    bytecode = bytes(opcode) + data_portion
     assert process_evm_bytes_string("0x" + bytecode.hex()) == expected_output
 
 
