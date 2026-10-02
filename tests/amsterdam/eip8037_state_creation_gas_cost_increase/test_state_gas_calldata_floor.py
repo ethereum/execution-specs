@@ -18,6 +18,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Fork,
+    GasCost,
     Header,
     Op,
     StateTestFiller,
@@ -331,7 +332,7 @@ def test_calldata_floor_charged_to_sender(
 
     With a STOP callee and large all-nonzero calldata, execution gas
     falls below the calldata floor. The sender must be charged
-    `calldata_floor * gas_price`, so the final balance reflects the
+    the fee on `calldata_floor`, so the final balance reflects the
     floor-applied value, not the pre-floor execution cost.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
@@ -345,24 +346,23 @@ def test_calldata_floor_charged_to_sender(
         return_cost_deducted_prior_execution=True,
     )
     assert execution < calldata_floor, "calldata floor must bind"
-    gas_price = 10**9
-    initial = gas_limit_cap * gas_price
 
     contract = pre.deploy_contract(code=Op.STOP)
-    sender = pre.fund_eoa(amount=initial)
+    sender = pre.fund_eoa()
 
     tx = Transaction(
         to=contract,
         data=calldata,
         gas_limit=gas_limit_cap,
-        gas_price=gas_price,
         sender=sender,
     )
 
     blockchain_test(
         pre=pre,
         blocks=[Block(txs=[tx])],
-        post={sender: Account(balance=initial - calldata_floor * gas_price)},
+        post={
+            sender: Account(balance_change=-GasCost(tx, gas=calldata_floor))
+        },
     )
 
 

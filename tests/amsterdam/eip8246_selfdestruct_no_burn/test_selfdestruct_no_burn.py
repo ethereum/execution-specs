@@ -24,6 +24,7 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Storage,
+    Tip,
     Transaction,
     TransactionReceipt,
     compute_create2_address,
@@ -321,21 +322,18 @@ def test_created_coinbase_initcode_selfdestruct_keeps_priority_fee(
     )
     # No refund accrues; the sender pays the larger of use and floor.
     gas_used = max(executed, floor)
-    priority_fee = 1
     tx = Transaction(
         sender=sender,
         to=None,
         value=value,
         data=initcode,
-        max_fee_per_gas=1_000,
-        max_priority_fee_per_gas=priority_fee,
     )
     state_test(
         env=Environment(fee_recipient=created),
         pre=pre,
         post={
             created: Account(
-                balance=value + gas_used * priority_fee,
+                balance_change=value + Tip(tx, gas=gas_used),
                 nonce=0,
                 code=b"",
                 storage={},
@@ -402,20 +400,17 @@ def test_created_coinbase_selfdestruct_keeps_priority_fee(
         + initcode.gas_cost(fork)
         + deploy_code.gas_cost(fork)
     )
-    priority_fee = 1
     tx = Transaction(
         sender=sender,
         to=factory,
         value=value,
-        max_fee_per_gas=1_000,
-        max_priority_fee_per_gas=priority_fee,
     )
     state_test(
         env=Environment(fee_recipient=created),
         pre=pre,
         post={
             created: Account(
-                balance=value + gas_used * priority_fee,
+                balance_change=value + Tip(tx, gas=gas_used),
                 nonce=0,
                 code=b"",
                 storage={},
