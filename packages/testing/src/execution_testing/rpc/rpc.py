@@ -41,6 +41,7 @@ from execution_testing.base_types import (
     Hash,
     to_json,
 )
+from execution_testing.fixtures.blockchain import PayloadAttributes
 from execution_testing.logging import (
     get_logger,
 )
@@ -56,7 +57,6 @@ from .rpc_types import (
     JSONRPCError,
     JSONRPCRequest,
     JSONRPCResponse,
-    PayloadAttributes,
     PayloadStatus,
     PayloadStatusEnum,
     RPCCall,
