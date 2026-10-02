@@ -850,6 +850,15 @@ class BlockchainTest(BaseTest):
                         "last transaction of the last block, but block "
                         f"{i} contains an invalid transaction elsewhere"
                     )
+        if self.invalid_tx_not_last and not any(
+            tx.error is not None
+            for block in self.blocks
+            for tx in block.txs[:-1]
+        ):
+            raise Exception(
+                "test correctness: the test is marked `invalid_tx_not_last` "
+                "but no block has an invalid transaction before its last one"
+            )
         for i, block in enumerate(self.blocks):
             expectation = block.expected_block_access_list
             if (
@@ -989,10 +998,12 @@ class BlockchainTest(BaseTest):
                     "test correctness: only one transaction can produce "
                     "an exception in a block"
                 )
-            if not txs[-1].error:
+            if not txs[-1].error and not self.invalid_tx_not_last:
                 raise Exception(
                     "test correctness: the transaction that produces an "
-                    "exception must be the last transaction in the block"
+                    "exception must be the last transaction in the block; "
+                    "mark the test `invalid_tx_not_last` when the trailing "
+                    "transactions are the point"
                 )
 
         transition_tool_output = t8n.evaluate(

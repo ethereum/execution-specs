@@ -640,15 +640,67 @@ def test_bal_7702_recipient_excluded_on_authorization_oog(
     )
 
 
-def test_bal_7702_invalid_nonce_authorization(
+@pytest.mark.parametrize(
+    "nonce",
+    [
+        "wrong_in_pre_state",
+        "stale_after_prior_tx",
+        "current_after_prior_tx",
+    ],
+)
+def test_bal_7702_nonce_authorization(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    nonce: str,
 ) -> None:
-    """Ensure BAL handles failed authorization due to wrong nonce."""
+    """
+    Ensure an authorization applies only if signed for the authority's
+    nonce when it is checked, counting the authority's own earlier
+    transactions in the block.
+
+    A client that checks it against the pre-block nonce gets both
+    `after_prior_tx` cases backwards.
+    """
     alice = pre.fund_eoa()
     bob = pre.fund_eoa(amount=0)
     relayer = pre.fund_eoa()
     oracle = pre.deploy_contract(code=Op.STOP)
+    delegation = Spec7702.delegation_designation(oracle)
+
+    if nonce == "wrong_in_pre_state":
+        auth_nonce = 5  # Alice's nonce is 0.
+        prior_txs: list[Transaction] = []
+        # Read to reject the authorization, changed nothing.
+        alice_expectation = BalAccountExpectation.empty()
+        alice_post = Account(nonce=0, code=b"")
+        # The failed authorization never loads the oracle.
+        oracle_expectation = None
+    elif nonce == "stale_after_prior_tx":
+        auth_nonce = 0  # Right in the pre-state, stale after the bump.
+        prior_txs = [Transaction(sender=alice, to=oracle)]
+        alice_expectation = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)]
+        )
+        alice_post = Account(nonce=1, code=b"")
+        # Present only because the prior tx called it.
+        oracle_expectation = BalAccountExpectation.empty()
+    elif nonce == "current_after_prior_tx":
+        auth_nonce = 1  # Alice's nonce after the bump.
+        prior_txs = [Transaction(sender=alice, to=oracle)]
+        alice_expectation = BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(block_access_index=1, post_nonce=1),
+                BalNonceChange(block_access_index=2, post_nonce=2),
+            ],
+            code_changes=[
+                BalCodeChange(block_access_index=2, new_code=delegation),
+            ],
+        )
+        alice_post = Account(nonce=2, code=delegation)
+        oracle_expectation = BalAccountExpectation.empty()
+    else:
+        raise ValueError(f"unknown nonce: {nonce}")
+    auth_index = len(prior_txs) + 1
 
     tx = Transaction(
         sender=relayer,  # Sponsored transaction
@@ -657,32 +709,32 @@ def test_bal_7702_invalid_nonce_authorization(
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
-                nonce=5,  # Wrong nonce - Alice's actual nonce is 0
+                nonce=auth_nonce,
                 signer=alice,
             )
         ],
     )
 
     block = Block(
-        txs=[tx],
+        txs=[*prior_txs, tx],
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
-                # Ensuring silent fail
                 bob: BalAccountExpectation(
                     balance_changes=[
-                        BalBalanceChange(block_access_index=1, post_balance=10)
+                        BalBalanceChange(
+                            block_access_index=auth_index, post_balance=10
+                        )
                     ]
                 ),
                 relayer: BalAccountExpectation(
                     nonce_changes=[
-                        BalNonceChange(block_access_index=1, post_nonce=1)
+                        BalNonceChange(
+                            block_access_index=auth_index, post_nonce=1
+                        )
                     ],
                 ),
-                # Alice's account was marked warm but no changes were made
-                alice: BalAccountExpectation.empty(),
-                # Oracle must NOT be present - authorization failed so
-                # account is never accessed
-                oracle: None,
+                alice: alice_expectation,
+                oracle: oracle_expectation,
             }
         ),
     )
@@ -690,6 +742,7 @@ def test_bal_7702_invalid_nonce_authorization(
     post = {
         relayer: Account(nonce=1),
         bob: Account(balance=10),
+        alice: alice_post,
     }
 
     blockchain_test(
