@@ -61,7 +61,7 @@ from execution_testing.test_types import (
 from .base import BaseTest, FillResult, OpMode
 from .blockchain import Block, BlockchainTest, Header
 from .debugging import print_traces
-from .helpers import record_transaction_landings, verify_transactions
+from .helpers import RecordedPostStateContext, verify_transactions
 
 logger = get_logger(__name__)
 
@@ -127,9 +127,8 @@ class StateTest(BaseTest):
         """
         if not self.post.requires_post_state_context():
             return None
-        context = PostStateContext()
-        record_transaction_landings(
-            context,
+        context = RecordedPostStateContext()
+        context.record_block(
             txs=[tx],
             fork=fork,
             base_fee_per_gas=(

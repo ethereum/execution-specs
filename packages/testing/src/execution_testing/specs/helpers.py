@@ -1,6 +1,6 @@
 """Helper functions."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Dict, List, Sequence
 
@@ -19,6 +19,12 @@ from execution_testing.test_types import (
     Transaction,
     TransactionLog,
     TransactionReceipt,
+)
+from execution_testing.test_types.balance_expectations import (
+    TransactionKey,
+    TransactionLanding,
+    effective_gas_price,
+    transaction_key,
 )
 
 
@@ -475,31 +481,93 @@ def verify_block(
     info.verify(strict_match=transition_tool_exceptions_reliable)
 
 
-def record_transaction_landings(
-    context: PostStateContext,
-    *,
-    txs: Sequence[Transaction],
-    fork: Fork,
-    base_fee_per_gas: int | None,
-    excess_blob_gas: int | None,
-    fee_recipient: Address,
-) -> None:
-    """
-    Record in `context` that `txs` landed in a block with the given pricing.
+class RecordedTransactionLanding(TransactionLanding):
+    """Landing whose pricing was known when the block was built."""
 
-    Transactions expected to be rejected are skipped, since they never land.
+    _effective_gas_price: int
+    _base_fee_per_gas: int
+    _blob_gas_price: int | None
+    _fee_recipient: Address
+
+    def __init__(
+        self,
+        *,
+        effective_gas_price: int,
+        base_fee_per_gas: int,
+        blob_gas_price: int | None,
+        fee_recipient: Address,
+    ) -> None:
+        """Store the block pricing."""
+        self._effective_gas_price = effective_gas_price
+        self._base_fee_per_gas = base_fee_per_gas
+        self._blob_gas_price = blob_gas_price
+        self._fee_recipient = fee_recipient
+
+    def effective_gas_price(self) -> int:
+        """Return the price per gas the transaction paid."""
+        return self._effective_gas_price
+
+    def base_fee_per_gas(self) -> int:
+        """Return the block base fee, or zero before the London fork."""
+        return self._base_fee_per_gas
+
+    def blob_gas_price(self) -> int | None:
+        """Return the block blob gas price, if blobs are supported."""
+        return self._blob_gas_price
+
+    def fee_recipient(self) -> Address:
+        """Return the block fee recipient."""
+        return self._fee_recipient
+
+
+@dataclass(kw_only=True)
+class RecordedPostStateContext(PostStateContext):
     """
-    blob_gas_price: int | None = None
-    if fork.supports_blobs() and excess_blob_gas is not None:
-        blob_gas_price = fork.blob_gas_price_calculator()(
-            excess_blob_gas=int(excess_blob_gas)
-        )
-    for tx in txs:
-        if tx.error is not None:
-            continue
-        context.add_landing(
-            tx,
-            base_fee_per_gas=base_fee_per_gas,
-            blob_gas_price=blob_gas_price,
-            fee_recipient=fee_recipient,
-        )
+    Context for filled tests, where every block is built locally.
+
+    Landings are recorded as each block is generated, so resolving one is a
+    dictionary lookup.
+    """
+
+    landings: Dict[TransactionKey, TransactionLanding] = field(
+        default_factory=dict
+    )
+
+    def record_block(
+        self,
+        *,
+        txs: Sequence[Transaction],
+        fork: Fork,
+        base_fee_per_gas: int | None,
+        excess_blob_gas: int | None,
+        fee_recipient: Address,
+    ) -> None:
+        """
+        Record that `txs` landed in a block with the given pricing.
+
+        Transactions expected to be rejected are skipped, since they never
+        land. Before the London fork there is no base fee, which is
+        equivalent to a base fee of zero: the fee recipient receives the
+        whole gas price.
+        """
+        base_fee = int(base_fee_per_gas) if base_fee_per_gas else 0
+        blob_gas_price: int | None = None
+        if fork.supports_blobs() and excess_blob_gas is not None:
+            blob_gas_price = fork.blob_gas_price_calculator()(
+                excess_blob_gas=int(excess_blob_gas)
+            )
+        for tx in txs:
+            if tx.error is not None:
+                continue
+            self.landings[transaction_key(tx)] = RecordedTransactionLanding(
+                effective_gas_price=effective_gas_price(tx, base_fee),
+                base_fee_per_gas=base_fee,
+                blob_gas_price=blob_gas_price,
+                fee_recipient=fee_recipient,
+            )
+
+    def landing(self, key: TransactionKey) -> TransactionLanding:
+        """Return the recorded landing of the transaction `key`."""
+        if key not in self.landings:
+            raise PostStateContext.TransactionNotLandedError(key)
+        return self.landings[key]

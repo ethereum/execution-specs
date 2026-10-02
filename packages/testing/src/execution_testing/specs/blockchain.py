@@ -103,7 +103,7 @@ from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
 from .helpers import (
-    record_transaction_landings,
+    RecordedPostStateContext,
     verify_block,
     verify_transactions,
 )
@@ -493,10 +493,9 @@ class BuiltBlock(CamelModel):
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
 
-    def record_landings(self, context: PostStateContext) -> None:
+    def record_landings(self, context: RecordedPostStateContext) -> None:
         """Record in `context` that this block's transactions landed."""
-        record_transaction_landings(
-            context,
+        context.record_block(
             txs=self.txs,
             fork=self.fork,
             base_fee_per_gas=self.header.base_fee_per_gas,
@@ -1297,7 +1296,7 @@ class BlockchainTest(BaseTest):
 
         return built_block
 
-    def new_post_state_context(self) -> PostStateContext | None:
+    def new_post_state_context(self) -> RecordedPostStateContext | None:
         """
         Return an empty context to record landings into, or `None` when
         neither the final nor any intermediate post-state needs one.
@@ -1310,7 +1309,7 @@ class BlockchainTest(BaseTest):
         if any(
             state.requires_post_state_context() for state in expected_states
         ):
-            return PostStateContext()
+            return RecordedPostStateContext()
         return None
 
     def verify_post_state(

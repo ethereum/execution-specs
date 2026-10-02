@@ -1,5 +1,7 @@
 """Test balance expectations resolved against transaction landings."""
 
+from typing import Dict
+
 import pytest
 
 from execution_testing.base_types import Address
@@ -11,6 +13,10 @@ from ..balance_expectations import (
     GasCost,
     PostStateContext,
     Tip,
+    TransactionKey,
+    TransactionLanding,
+    effective_gas_price,
+    transaction_key,
 )
 from ..transaction_types import Transaction
 
@@ -36,21 +42,67 @@ def dynamic_fee_tx(
     )
 
 
+class FixedTransactionLanding(TransactionLanding):
+    """Landing with fixed pricing."""
+
+    def __init__(
+        self,
+        *,
+        effective_gas_price: int,
+        base_fee_per_gas: int,
+        blob_gas_price: int | None,
+    ) -> None:
+        """Store the pricing."""
+        self.values = (effective_gas_price, base_fee_per_gas, blob_gas_price)
+
+    def effective_gas_price(self) -> int:
+        """Return the effective gas price."""
+        return self.values[0]
+
+    def base_fee_per_gas(self) -> int:
+        """Return the base fee."""
+        return self.values[1]
+
+    def blob_gas_price(self) -> int | None:
+        """Return the blob gas price."""
+        return self.values[2]
+
+    def fee_recipient(self) -> Address:
+        """Return the fee recipient."""
+        return FEE_RECIPIENT
+
+
+class DictPostStateContext(PostStateContext):
+    """Minimal context backed by a dictionary of landings."""
+
+    def __init__(self, landings: Dict[TransactionKey, TransactionLanding]):
+        """Store the landings."""
+        self.landings = landings
+
+    def landing(self, key: TransactionKey) -> TransactionLanding:
+        """Return the landing of `key`."""
+        if key not in self.landings:
+            raise PostStateContext.TransactionNotLandedError(key)
+        return self.landings[key]
+
+
 def context_for(
     *txs: Transaction,
     base_fee_per_gas: int | None = BASE_FEE,
     blob_gas_price: int | None = None,
 ) -> PostStateContext:
     """Return a context where all `txs` landed in the same block."""
-    context = PostStateContext()
-    for tx in txs:
-        context.add_landing(
-            tx,
-            base_fee_per_gas=base_fee_per_gas,
-            blob_gas_price=blob_gas_price,
-            fee_recipient=FEE_RECIPIENT,
-        )
-    return context
+    base_fee = base_fee_per_gas or 0
+    return DictPostStateContext(
+        {
+            transaction_key(tx): FixedTransactionLanding(
+                effective_gas_price=effective_gas_price(tx, base_fee),
+                base_fee_per_gas=base_fee,
+                blob_gas_price=blob_gas_price,
+            )
+            for tx in txs
+        }
+    )
 
 
 @pytest.mark.parametrize(
@@ -132,7 +184,7 @@ def test_transaction_identity_survives_copies() -> None:
 def test_transaction_not_landed() -> None:
     """Test that a term for a transaction that never landed fails."""
     with pytest.raises(PostStateContext.TransactionNotLandedError):
-        GasCost(legacy_tx(), gas=1).resolve(PostStateContext())
+        GasCost(legacy_tx(), gas=1).resolve(DictPostStateContext({}))
 
 
 def test_account_balance_change_resolves() -> None:
@@ -222,3 +274,49 @@ def test_missing_required_context() -> None:
             pre_account=Account(balance=10),
             account=Account(balance=0),
         )
+
+
+@pytest.mark.parametrize(
+    ["expected", "pre_account", "error"],
+    [
+        pytest.param(Account(balance_change=0), None, None, id="zero_change"),
+        pytest.param(
+            Account(balance_change=0, nonce_change=0),
+            None,
+            None,
+            id="zero_balance_and_nonce_change",
+        ),
+        pytest.param(
+            Account(balance_change=1),
+            None,
+            Account.BalanceMismatchError,
+            id="nonzero_change",
+        ),
+        pytest.param(
+            Account(balance_change=0),
+            Account(balance=1),
+            Alloc.MissingAccountError,
+            id="non_empty_pre",
+        ),
+        pytest.param(
+            Account(balance=0),
+            None,
+            Alloc.MissingAccountError,
+            id="absolute_expectation",
+        ),
+    ],
+)
+def test_missing_account_with_relative_expectation(
+    expected: Account,
+    pre_account: Account | None,
+    error: type[Exception] | None,
+) -> None:
+    """Test a post account that is absent from the resulting allocation."""
+    address = Address(0x1234)
+    pre = Alloc({address: pre_account} if pre_account is not None else {})
+    post = Alloc({address: expected})
+    if error is None:
+        post.verify_post_alloc(pre_alloc=pre, got_alloc=Alloc())
+    else:
+        with pytest.raises(error):
+            post.verify_post_alloc(pre_alloc=pre, got_alloc=Alloc())
