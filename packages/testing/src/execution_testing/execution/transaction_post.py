@@ -314,11 +314,7 @@ class TransactionPost(BaseExecute):
                 benchmark_gas_used += gas_used
 
         actual_alloc = eth_rpc.get_alloc(self.post)
-        context = (
-            RPCPostStateContext(eth_rpc=eth_rpc, txs=landed_txs)
-            if self.post.requires_post_state_context()
-            else None
-        )
+        context = RPCPostStateContext(eth_rpc=eth_rpc, txs=landed_txs)
         for address, expected_account in self.post.root.items():
             actual_account = actual_alloc.root[address]
             assert actual_account is not None

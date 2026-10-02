@@ -19,9 +19,8 @@ The expression is resolved when the post-state is verified, using a
 read back from execution results, so the expectation remains an independent
 check of the specification.
 
-Gathering landings can be costly (in execute mode it takes several RPC
-calls), so the context is only built when some expectation contains a fee
-term; plain integer changes resolve without it.
+Gathering landings never costs more than the expectations need: each
+context implementation obtains landing data only when a term asks for it.
 """
 
 from abc import ABC, abstractmethod
@@ -118,6 +117,19 @@ class PostStateContext(ABC):
 
         Raise `TransactionNotLandedError` if it was not included.
         """
+
+
+class EmptyPostStateContext(PostStateContext):
+    """
+    Context in which no transaction landed.
+
+    Used where an allocation is verified without executing transactions;
+    any fee term resolved against it fails as not landed.
+    """
+
+    def landing(self, key: TransactionKey) -> TransactionLanding:
+        """Raise, since no transaction landed."""
+        raise PostStateContext.TransactionNotLandedError(key)
 
 
 class BalanceTerm(ABC):
@@ -267,24 +279,8 @@ class BalanceExpression:
             return cls(constant=int(value, 0))
         return cls(constant=int(value))
 
-    @property
-    def requires_context(self) -> bool:
-        """Return whether resolving needs a `PostStateContext`."""
-        return len(self.terms) > 0
-
-    def resolve(self, context: PostStateContext | None) -> int:
-        """
-        Return the value of the expression in `context`.
-
-        `context` may be `None` only when the expression has no fee terms.
-        """
-        if not self.terms:
-            return self.constant
-        assert context is not None, (
-            f"balance expectation `{self}` requires a post-state context, "
-            "but none was built; the framework should have detected this "
-            "with `Alloc.requires_post_state_context()`"
-        )
+    def resolve(self, context: PostStateContext) -> int:
+        """Return the value of the expression in `context`."""
         return self.constant + sum(
             factor * term.resolve(context) for factor, term in self.terms
         )
