@@ -12,6 +12,7 @@ OPCODES_WITH_EMPTY_LINES_AFTER = {
     Op.STOP,
     Op.REVERT,
     Op.INVALID,
+    Op.EXTENSION,
     Op.JUMP,
     Op.JUMPI,
 }
