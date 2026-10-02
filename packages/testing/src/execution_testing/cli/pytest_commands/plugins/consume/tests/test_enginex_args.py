@@ -1,10 +1,31 @@
 """Tests for EngineX consume argument processing."""
 
+from types import SimpleNamespace
+
 import pytest
 
+from execution_testing.cli.pytest_commands.plugins.consume.simulators.enginex.conftest import (  # noqa: E501
+    pytest_configure as configure_enginex,
+)
+from execution_testing.cli.pytest_commands.plugins.consume.simulators.enginex.conftest import (  # noqa: E501
+    test_suite_description,
+    test_suite_name,
+)
 from execution_testing.cli.pytest_commands.processors import (
     HiveEnvironmentProcessor,
 )
+
+
+def test_enginex_uses_session_scoped_hive_suite() -> None:
+    """The session-wide result check must outlive every test module."""
+    config = SimpleNamespace()
+
+    configure_enginex(config)  # type: ignore[arg-type]
+
+    assert config.assert_reported_test_count is True
+    assert config.test_suite_scope == "session"
+    assert test_suite_name._fixture_function_marker.scope == "session"
+    assert test_suite_description._fixture_function_marker.scope == "session"
 
 
 @pytest.mark.parametrize(
