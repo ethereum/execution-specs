@@ -10,6 +10,7 @@ from ..account_types import EOA, Account, Alloc
 from ..balance_expectations import (
     BalanceExpression,
     BlobCost,
+    EmptyPostStateContext,
     GasCost,
     PostStateContext,
     Tip,
@@ -184,7 +185,7 @@ def test_transaction_identity_survives_copies() -> None:
 def test_transaction_not_landed() -> None:
     """Test that a term for a transaction that never landed fails."""
     with pytest.raises(PostStateContext.TransactionNotLandedError):
-        GasCost(legacy_tx(), gas=1).resolve(DictPostStateContext({}))
+        GasCost(legacy_tx(), gas=1).resolve(EmptyPostStateContext())
 
 
 def test_account_balance_change_resolves() -> None:
@@ -213,6 +214,7 @@ def test_account_integer_balance_change() -> None:
         address=Address(1),
         pre_account=None,
         account=Account(balance=5, nonce=1),
+        context=EmptyPostStateContext(),
     )
 
 
@@ -247,32 +249,15 @@ def test_verify_post_alloc_with_context() -> None:
     post.verify_post_alloc(pre_alloc=pre, got_alloc=got, context=context)
 
 
-def test_requires_post_state_context() -> None:
-    """Test detecting whether a post-state needs a context."""
-    tx = legacy_tx()
-    assert not Alloc(
-        {
-            Address(1): Account(balance_change=5, nonce_change=1),
-            Address(2): Account(balance=1),
-            Address(3): None,
-        }
-    ).requires_post_state_context()
-    assert Alloc(
-        {
-            Address(1): Account(balance_change=5),
-            Address(2): Account(balance_change=-GasCost(tx, gas=1)),
-        }
-    ).requires_post_state_context()
-
-
-def test_missing_required_context() -> None:
-    """Test that a fee term without a context fails loudly."""
+def test_empty_context() -> None:
+    """Test that a fee term cannot resolve in an empty context."""
     expected = Account(balance_change=-GasCost(legacy_tx(), gas=1))
-    with pytest.raises(AssertionError, match="requires a post-state context"):
+    with pytest.raises(PostStateContext.TransactionNotLandedError):
         expected.check_alloc(
             address=Address(1),
             pre_account=Account(balance=10),
             account=Account(balance=0),
+            context=EmptyPostStateContext(),
         )
 
 
@@ -316,7 +301,13 @@ def test_missing_account_with_relative_expectation(
     pre = Alloc({address: pre_account} if pre_account is not None else {})
     post = Alloc({address: expected})
     if error is None:
-        post.verify_post_alloc(pre_alloc=pre, got_alloc=Alloc())
+        post.verify_post_alloc(
+            pre_alloc=pre, got_alloc=Alloc(), context=EmptyPostStateContext()
+        )
     else:
         with pytest.raises(error):
-            post.verify_post_alloc(pre_alloc=pre, got_alloc=Alloc())
+            post.verify_post_alloc(
+                pre_alloc=pre,
+                got_alloc=Alloc(),
+                context=EmptyPostStateContext(),
+            )

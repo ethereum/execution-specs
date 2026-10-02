@@ -120,13 +120,8 @@ class StateTest(BaseTest):
         env: Environment,
         fork: Fork,
         result: Result,
-    ) -> PostStateContext | None:
-        """
-        Return the context in which the post-state is resolved, or `None`
-        when no expectation needs it.
-        """
-        if not self.post.requires_post_state_context():
-            return None
+    ) -> PostStateContext:
+        """Return the context in which the post-state is resolved."""
         context = RecordedPostStateContext()
         context.record_block(
             txs=[tx],

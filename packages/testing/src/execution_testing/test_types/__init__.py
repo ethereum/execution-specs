@@ -4,6 +4,7 @@ from .account_types import EOA, Account, Alloc, AllocGroupHash
 from .balance_expectations import (
     BalanceExpression,
     BlobCost,
+    EmptyPostStateContext,
     GasCost,
     PostStateContext,
     Tip,
@@ -83,6 +84,7 @@ __all__ = (
     "ChainConfigDefaults",
     "Environment",
     "EnvironmentDefaults",
+    "EmptyPostStateContext",
     "EOA",
     "fee_increment_blocks",
     "GasCost",

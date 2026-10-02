@@ -16,6 +16,7 @@ from execution_testing.base_types import (
 from execution_testing.base_types.pydantic import CopyValidateModel
 
 from ..account_types import EOA, Account, Alloc
+from ..balance_expectations import EmptyPostStateContext
 from ..block_types import (
     Environment,
     Withdrawal,
@@ -349,7 +350,10 @@ def test_account_check_alloc(
     alloc_account = Account(**alloc_dict)
     if should_pass:
         account.check_alloc(
-            address=Address(1), pre_account=Account(), account=alloc_account
+            address=Address(1),
+            pre_account=Account(),
+            account=alloc_account,
+            context=EmptyPostStateContext(),
         )
     else:
         with pytest.raises(Exception) as _:
@@ -357,6 +361,7 @@ def test_account_check_alloc(
                 address=Address(1),
                 pre_account=Account(),
                 account=alloc_account,
+                context=EmptyPostStateContext(),
             )
 
 

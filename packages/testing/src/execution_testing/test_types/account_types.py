@@ -310,16 +310,14 @@ class Account(BaseAccount):
         address: Address,
         pre_account: Self | BaseAccount | None,
         account: Self | BaseAccount,
-        context: PostStateContext | None = None,
+        context: PostStateContext,
     ) -> None:
         """
         Check the returned alloc against an expected account in post state.
 
         Balance and nonce changes are relative to `pre_account`, which is
         treated as empty when `None`. Fee terms in `balance_change` are
-        resolved against `context`, which may be `None` only when
-        `requires_post_state_context()` is false. Raises exception on
-        failure.
+        resolved against `context`. Raises exception on failure.
         """
         if pre_account is None:
             pre_account = Account()
@@ -387,13 +385,6 @@ class Account(BaseAccount):
             "balance_change",
             "nonce_change",
         }
-
-    def requires_post_state_context(self) -> bool:
-        """Return whether checking this account needs a context."""
-        return (
-            "balance_change" in self.model_fields_set
-            and self.balance_change.requires_context
-        )
 
     def __bool__(self) -> bool:
         """Return True on a non-empty account."""
@@ -655,16 +646,15 @@ class Alloc(BaseAlloc):
         *,
         pre_alloc: Self | BaseAlloc,
         got_alloc: Self | BaseAlloc,
-        context: PostStateContext | None = None,
+        context: PostStateContext,
     ) -> None:
         """
         Verify that the allocation matches the expected post in the test.
 
         `pre_alloc` is the state before any transaction executed, and
         `context` records where each transaction landed; both are used to
-        resolve balance and nonce changes. `context` may be `None` only when
-        `requires_post_state_context()` is false. Raises exception on
-        unexpected values.
+        resolve balance and nonce changes. Raises exception on unexpected
+        values.
         """
         assert isinstance(got_alloc, Alloc), (
             f"got_alloc is not an Alloc: {got_alloc}"
@@ -695,19 +685,6 @@ class Alloc(BaseAlloc):
                     account=got_account,
                     context=context,
                 )
-
-    def requires_post_state_context(self) -> bool:
-        """
-        Return whether verifying this post-state needs a `PostStateContext`.
-
-        Callers use this to skip gathering transaction landings, which can be
-        costly, when no expectation contains a fee term.
-        """
-        return any(
-            isinstance(account, Account)
-            and account.requires_post_state_context()
-            for account in self.root.values()
-        )
 
     def get_alloc_grouping_hash(self) -> AllocGroupHash | None:
         """
