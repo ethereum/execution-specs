@@ -1267,16 +1267,18 @@ class BlockchainTest(BaseTest):
 
     def verify_post_state(
         self,
+        *,
         t8n: FillerBackend,
-        t8n_state: Alloc,
+        pre_alloc: Alloc,
+        got_alloc: Alloc,
         expected_state: Alloc | None = None,
     ) -> None:
         """Verify post alloc after all block/s or payload/s are generated."""
         try:
-            if expected_state:
-                expected_state.verify_post_alloc(t8n_state)
-            else:
-                self.post.verify_post_alloc(t8n_state)
+            expected_state = expected_state if expected_state else self.post
+            expected_state.verify_post_alloc(
+                pre_alloc=pre_alloc, got_alloc=got_alloc
+            )
         except Exception as e:
             print_traces(t8n.get_traces())
             raise e
@@ -1365,15 +1367,15 @@ class BlockchainTest(BaseTest):
 
             if block.expected_post_state:
                 self.verify_post_state(
-                    t8n,
-                    t8n_state=alloc.materialize()
+                    t8n=t8n,
+                    got_alloc=alloc.materialize()
                     if isinstance(alloc, LazyAlloc)
                     else alloc,
                     expected_state=block.expected_post_state,
                 )
         self.check_exception_test(exception=invalid_blocks > 0)
         alloc = alloc.materialize() if isinstance(alloc, LazyAlloc) else alloc
-        self.verify_post_state(t8n, t8n_state=alloc)
+        self.verify_post_state(t8n=t8n, got_alloc=alloc)
         fixture = BlockchainFixture(
             fork=self.fork,
             genesis=genesis.header,
@@ -1456,8 +1458,8 @@ class BlockchainTest(BaseTest):
 
             if block.expected_post_state:
                 self.verify_post_state(
-                    t8n,
-                    t8n_state=alloc.materialize()
+                    t8n=t8n,
+                    got_alloc=alloc.materialize()
                     if isinstance(alloc, LazyAlloc)
                     else alloc,
                     expected_state=block.expected_post_state,
@@ -1472,7 +1474,7 @@ class BlockchainTest(BaseTest):
         )
 
         alloc = alloc.materialize() if isinstance(alloc, LazyAlloc) else alloc
-        self.verify_post_state(t8n, t8n_state=alloc)
+        self.verify_post_state(t8n=t8n, got_alloc=alloc)
 
         # Create base fixture data, common to all fixture formats
         fixture_data: Dict[str, Any] = {
@@ -1750,7 +1752,9 @@ class BlockchainTest(BaseTest):
 
         if self.post.root:
             got_alloc = t8n.get_post_state_alloc(self.post)
-            self.post.verify_post_alloc(got_alloc)
+            self.post.verify_post_alloc(
+                pre_alloc=self.pre, got_alloc=got_alloc
+            )
 
         fixture = BlockchainEngineStatefulFixture(
             fork=self.fork,

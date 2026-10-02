@@ -348,10 +348,16 @@ def test_account_check_alloc(
     """Test `Account.check_alloc` method."""
     alloc_account = Account(**alloc_dict)
     if should_pass:
-        account.check_alloc(Address(1), alloc_account)
+        account.check_alloc(
+            address=Address(1), pre_account=Account(), account=alloc_account
+        )
     else:
         with pytest.raises(Exception) as _:
-            account.check_alloc(Address(1), alloc_account)
+            account.check_alloc(
+                address=Address(1),
+                pre_account=Account(),
+                account=alloc_account,
+            )
 
 
 @pytest.mark.parametrize(

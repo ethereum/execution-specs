@@ -94,6 +94,7 @@ class TransactionPost(BaseExecute):
 
     def execute(
         self,
+        pre: Alloc,
         fork: Fork,
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC | None,
@@ -202,7 +203,12 @@ class TransactionPost(BaseExecute):
                     f"{actual_account.nonce}, expected 0."
                 )
             else:
-                expected_account.check_alloc(address, actual_account)
+                pre_account = pre.get(address)
+                expected_account.check_alloc(
+                    address=address,
+                    pre_account=pre_account,
+                    account=actual_account,
+                )
 
         return ExecuteResult(
             benchmark_gas_used=benchmark_gas_used,

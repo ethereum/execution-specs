@@ -374,6 +374,13 @@ class Alloc(EthereumTestRootModel[Dict[Address, Account | None]]):
         default_factory=dict, validate_default=True
     )
 
+    def get(self, address: Address) -> Account | None:
+        """Get an account if it's present in the allocation, otherwise None."""
+        account = self.root.get(address)
+        if not account:
+            return None
+        return account
+
 
 class StateCommitment(Enum):
     """

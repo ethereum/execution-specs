@@ -121,7 +121,7 @@ def test_verify_post_alloc(
 ) -> None:
     """Test `verify_post_alloc` method of `Alloc`."""
     if expected_exception_type is None:
-        post.verify_post_alloc(alloc)
+        post.verify_post_alloc(pre_alloc=Alloc(), got_alloc=alloc)
     else:
         with pytest.raises(expected_exception_type) as _:
-            post.verify_post_alloc(alloc)
+            post.verify_post_alloc(pre_alloc=Alloc(), got_alloc=alloc)

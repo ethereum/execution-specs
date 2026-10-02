@@ -159,7 +159,9 @@ class StateTest(BaseTest):
             return False
         modified_tool_alloc = modified_tool_output.alloc.materialize()
         try:
-            self.post.verify_post_alloc(modified_tool_alloc)
+            self.post.verify_post_alloc(
+                pre_alloc=pre_alloc, got_alloc=modified_tool_alloc
+            )
         except Exception as e:
             logger.debug(
                 f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
@@ -382,7 +384,9 @@ class StateTest(BaseTest):
         output_alloc = transition_tool_output.alloc.materialize()
 
         try:
-            self.post.verify_post_alloc(output_alloc)
+            self.post.verify_post_alloc(
+                pre_alloc=pre_alloc, got_alloc=output_alloc
+            )
         except Exception as e:
             print_traces(t8n.get_traces())
             raise e
