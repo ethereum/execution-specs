@@ -481,15 +481,50 @@ class BenchmarkTest(BaseTest):
             return [tx]
 
         num_splits = math.ceil(self.gas_benchmark_value / gas_limit_cap)
-        remaining_gas = self.gas_benchmark_value
+
+        # Spread the gas evenly rather than giving every split the cap and the
+        # last one whatever remains.
+        #
+        # Every split is a copy carrying the *same* calldata, so each one has
+        # an irreducible minimum: it must cover that calldata's floor data
+        # cost. A remainder tail is unrelated to that minimum and can land
+        # below it, producing a transaction no client will accept. With the
+        # EIP-7825 cap of 2**24, a 220M benchmark left its final transaction
+        # 1,896,192 gas while its 36,864-byte calldata cost 2,374,296 at the
+        # floor, and geth rejected the block build outright:
+        #
+        #   insufficient gas for floor data gas cost: have 1896192,
+        #   want 2374296
+        #
+        # That was reachable only after EIP-7976 raised the floor from 40 to
+        # 64 gas per calldata byte; under the previous floor the same tail
+        # cost 1,245,840 and fit. An even split's smallest share is
+        # gas_benchmark_value // num_splits, i.e. at least half the cap.
+        #
+        # The total is deliberately unchanged, because benchmark gas
+        # validation asserts the block consumes exactly gas_benchmark_value
+        # (`BaseTest.validate_gas_used`). Dropping the short tail instead
+        # would trade a rejected transaction for a failed assertion.
+        base_gas, extra = divmod(self.gas_benchmark_value, num_splits)
+
+        fork = self.fork.fork_at(block_number=0, timestamp=0)
+        minimum_gas = max(
+            fork.transaction_intrinsic_cost_calculator()(calldata=tx.data),
+            fork.transaction_data_floor_cost_calculator()(data=tx.data),
+        )
+        if base_gas < minimum_gas:
+            raise ValueError(
+                f"cannot split {self.gas_benchmark_value} gas across "
+                f"{num_splits} transactions: each would receive {base_gas} "
+                f"gas, but the {len(tx.data)}-byte calldata costs "
+                f"{minimum_gas} at minimum. The test's own gas guard should "
+                f"have skipped this configuration."
+            )
 
         split_transactions = []
         for i in range(num_splits):
             split_tx = tx.model_copy()
-            split_tx.gas_limit = HexNumber(
-                remaining_gas if i == num_splits - 1 else gas_limit_cap
-            )
-            remaining_gas -= gas_limit_cap
+            split_tx.gas_limit = HexNumber(base_gas + (1 if i < extra else 0))
             split_tx.nonce = HexNumber(tx.nonce + i)
             split_transactions.append(split_tx)
 
