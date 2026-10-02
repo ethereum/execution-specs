@@ -16,7 +16,7 @@ xdist_workers := env("PYTEST_XDIST_AUTO_NUM_WORKERS", "6")
 # `-n auto` mode, does not warn on non-numeric values such as "auto".
 export PYTEST_XDIST_AUTO_NUM_WORKERS := ""
 evm_bin := env("EVM_BIN", "evm")
-latest_fork := "Amsterdam"
+latest_fork := "Bogota"
 
 # Use the faster sys.monitoring coverage core (default on 3.14, opt-in below).
 export COVERAGE_CORE := "sysmon"
@@ -191,6 +191,7 @@ fill-release *args:
 # --- Integration Tests ---
 
 # Fill the base coverage consensus tests using EELS with PyPy
+# Four workers leave room for the CI job's 3G heap per worker.
 [group('integration tests')]
 fill-pypy *args: (_tmp-logs "fill-pypy")
     uv run --python pypy3.11 --no-dev --group test fill \
@@ -202,7 +203,7 @@ fill-pypy *args: (_tmp-logs "fill-pypy")
         --show-capture=no \
         --disable-warnings \
         -m "eels_base_coverage and primary_format" \
-        -n auto --maxprocesses 7 \
+        -n auto --maxprocesses 4 \
         --dist=loadgroup \
         --basetemp="{{ output_dir }}/fill-pypy/tmp" \
         --log-to "{{ output_dir }}/fill-pypy/logs" \
@@ -213,12 +214,15 @@ fill-pypy *args: (_tmp-logs "fill-pypy")
         tests
 
 # Fill the base coverage consensus tests and run EELS against the fixtures
+# Eight fill workers: collecting through Bogota with sixteen exhausts the
+# CI runner's memory (workers die during collection, then xdist's
+# scheduler fails on the replacements).
 [group('integration tests')]
 json-loader *args: (_tmp "json-loader")
     uv run fill \
         -m "eels_base_coverage and primary_format" \
         --until "{{ latest_fork }}" \
-        -n {{ xdist_workers }} --dist=loadgroup \
+        -n auto --maxprocesses 8 --dist=loadgroup \
         --skip-index \
         --clean \
         --ignore=tests/ported_static \
