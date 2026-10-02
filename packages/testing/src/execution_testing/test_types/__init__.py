@@ -1,6 +1,13 @@
 """Common definitions and types."""
 
 from .account_types import EOA, Account, Alloc, AllocGroupHash
+from .balance_expectations import (
+    BalanceExpression,
+    BlobCost,
+    GasCost,
+    PostStateContext,
+    Tip,
+)
 from .blob_types import Blob
 from .block_access_list import (
     BalAccountAbsentValues,
@@ -59,6 +66,7 @@ __all__ = (
     "Alloc",
     "AllocGroupHash",
     "AuthorizationTuple",
+    "BalanceExpression",
     "BalAccountAbsentValues",
     "BalAccountChange",
     "BalAccountExpectation",
@@ -68,6 +76,7 @@ __all__ = (
     "BalStorageChange",
     "BalStorageSlot",
     "Blob",
+    "BlobCost",
     "BlockAccessList",
     "BlockAccessListExpectation",
     "ChainConfig",
@@ -76,7 +85,9 @@ __all__ = (
     "EnvironmentDefaults",
     "EOA",
     "fee_increment_blocks",
+    "GasCost",
     "NetworkWrappedTransaction",
+    "PostStateContext",
     "Removable",
     "SystemContractInteractionBase",
     "SystemContractInteractionContract",
@@ -85,6 +96,7 @@ __all__ = (
     "TestParameterGroup",
     "TestPhase",
     "TestPhaseManager",
+    "Tip",
     "Transaction",
     "TransactionDefaults",
     "TransactionLog",

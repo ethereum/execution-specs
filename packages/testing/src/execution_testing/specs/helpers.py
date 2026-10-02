@@ -2,9 +2,9 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Sequence
 
-from execution_testing.base_types import HexNumber
+from execution_testing.base_types import Address, HexNumber
 from execution_testing.client_clis import Result
 from execution_testing.exceptions import (
     BlockException,
@@ -13,7 +13,9 @@ from execution_testing.exceptions import (
     TransactionException,
     UndefinedException,
 )
+from execution_testing.forks import Fork
 from execution_testing.test_types import (
+    PostStateContext,
     Transaction,
     TransactionLog,
     TransactionReceipt,
@@ -471,3 +473,33 @@ def verify_block(
         got_exception=got_exception,
     )
     info.verify(strict_match=transition_tool_exceptions_reliable)
+
+
+def record_transaction_landings(
+    context: PostStateContext,
+    *,
+    txs: Sequence[Transaction],
+    fork: Fork,
+    base_fee_per_gas: int | None,
+    excess_blob_gas: int | None,
+    fee_recipient: Address,
+) -> None:
+    """
+    Record in `context` that `txs` landed in a block with the given pricing.
+
+    Transactions expected to be rejected are skipped, since they never land.
+    """
+    blob_gas_price: int | None = None
+    if fork.supports_blobs() and excess_blob_gas is not None:
+        blob_gas_price = fork.blob_gas_price_calculator()(
+            excess_blob_gas=int(excess_blob_gas)
+        )
+    for tx in txs:
+        if tx.error is not None:
+            continue
+        context.add_landing(
+            tx,
+            base_fee_per_gas=base_fee_per_gas,
+            blob_gas_price=blob_gas_price,
+            fee_recipient=fee_recipient,
+        )

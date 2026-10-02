@@ -1,6 +1,6 @@
 """Simple transaction-send then post-check execution format."""
 
-from typing import ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List
 
 import pytest
 from pytest import FixtureRequest
@@ -14,9 +14,11 @@ from execution_testing.rpc import (
     SendTransactionExceptionError,
 )
 from execution_testing.test_types import (
+    Account,
     Alloc,
     Environment,
     NetworkWrappedTransaction,
+    PostStateContext,
     TestPhase,
     Transaction,
     TransactionTestMetadata,
@@ -92,9 +94,61 @@ class TransactionPost(BaseExecute):
                 balances[sender] += tx.signer_minimum_balance(fork=fork)
         return balances
 
+    def snapshot_pre_state(self, eth_rpc: EthRPC) -> Alloc:
+        """
+        Fetch the live state of the post accounts that expect changes.
+
+        The test's `pre` is not authoritative on a live network: senders are
+        topped up to cover their transactions, and accounts the test did not
+        create (fee recipients, precompiles, system contracts) may already
+        hold a balance.
+        """
+        relative_fields = {"balance_change", "nonce_change"}
+        relative = Alloc(
+            {
+                address: Account()
+                for address, account in self.post.root.items()
+                if account is not None
+                and relative_fields & account.model_fields_set
+            }
+        )
+        return eth_rpc.get_alloc(relative, skip_code=True)
+
+    @staticmethod
+    def post_state_context(
+        eth_rpc: EthRPC, landed_txs: List[Transaction]
+    ) -> PostStateContext:
+        """Record where each sent transaction landed, from its receipt."""
+        context = PostStateContext()
+        receipts = eth_rpc.get_transaction_receipts(
+            [tx.hash for tx in landed_txs]
+        )
+        blocks: Dict[str, Any] = {}
+        for tx, receipt in zip(landed_txs, receipts, strict=True):
+            assert receipt is not None, f"missing receipt for {tx.hash}"
+            block_hash = receipt["blockHash"]
+            if block_hash not in blocks:
+                blocks[block_hash] = eth_rpc.get_block_by_hash(
+                    Hash(block_hash), full_txs=False
+                )
+            block = blocks[block_hash]
+            base_fee = block.get("baseFeePerGas")
+            blob_gas_price = receipt.get("blobGasPrice")
+            context.add_landing(
+                tx,
+                base_fee_per_gas=int(base_fee, 16) if base_fee else None,
+                blob_gas_price=(
+                    int(blob_gas_price, 16) if blob_gas_price else None
+                ),
+                fee_recipient=Address(block["miner"]),
+                effective_gas_price_override=int(
+                    receipt["effectiveGasPrice"], 16
+                ),
+            )
+        return context
+
     def execute(
         self,
-        pre: Alloc,
         fork: Fork,
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC | None,
@@ -112,8 +166,11 @@ class TransactionPost(BaseExecute):
                         "execute mode."
                     )
 
+        pre_state = self.snapshot_pre_state(eth_rpc)
+
         # Track transaction hashes for gas validation (benchmarking)
         all_tx_hashes: List[Hash] = []
+        landed_txs: List[Transaction] = []
         last_block_tx_hashes: List[Hash] = []
 
         for block in self.blocks:
@@ -173,6 +230,11 @@ class TransactionPost(BaseExecute):
                 current_block_tx_hashes = [tx.hash for tx in signed_txs]
             all_tx_hashes.extend(current_block_tx_hashes)
             last_block_tx_hashes = current_block_tx_hashes
+            landed_txs.extend(
+                tx.tx if isinstance(tx, NetworkWrappedTransaction) else tx
+                for tx in signed_txs
+                if tx.error is None
+            )
 
         # Fetch transaction receipts to get actual gas used
         benchmark_gas_used: int | None = None
@@ -187,6 +249,11 @@ class TransactionPost(BaseExecute):
                 benchmark_gas_used += gas_used
 
         actual_alloc = eth_rpc.get_alloc(self.post)
+        context = (
+            self.post_state_context(eth_rpc, landed_txs)
+            if self.post.requires_post_state_context()
+            else None
+        )
         for address, expected_account in self.post.root.items():
             actual_account = actual_alloc.root[address]
             assert actual_account is not None
@@ -203,11 +270,11 @@ class TransactionPost(BaseExecute):
                     f"{actual_account.nonce}, expected 0."
                 )
             else:
-                pre_account = pre.get(address)
                 expected_account.check_alloc(
                     address=address,
-                    pre_account=pre_account,
+                    pre_account=pre_state.root.get(address),
                     account=actual_account,
+                    context=context,
                 )
 
         return ExecuteResult(
