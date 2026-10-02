@@ -462,11 +462,11 @@ class TestValidateZkevmBenchmarkFixtures:
         """Verify an archive with all configured gas limits passes."""
         files = {
             self.fixture_path.replace("0060M", gas_limit): self.valid_fixture()
-            for gas_limit in ("0010M", "0030M", "0060M")
+            for gas_limit in ("0030M", "0060M", "0100M", "0150M", "0200M")
         }
         result = self.run_validator(tmp_path, files)
         assert result.returncode == 0
-        assert "Validated 3 fixture cases in 3 fixture files" in result.stdout
+        assert "Validated 5 fixture cases in 5 fixture files" in result.stdout
 
     def test_empty_archive_fails(self, tmp_path):
         """Verify an empty archive fails."""
@@ -476,7 +476,7 @@ class TestValidateZkevmBenchmarkFixtures:
 
     def test_wrong_target_directory_fails(self, tmp_path):
         """Verify fixtures must use a configured gas limit."""
-        path = self.fixture_path.replace("0060M", "0050M")
+        path = self.fixture_path.replace("0060M", "0010M")
         result = self.run_validator(tmp_path, {path: self.valid_fixture()})
         assert result.returncode == 1
         assert "target must be one of" in result.stderr

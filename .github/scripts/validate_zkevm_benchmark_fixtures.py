@@ -9,10 +9,14 @@ from pathlib import Path, PurePosixPath
 from typing import Any, NoReturn
 
 EXPECTED_FORMAT = "blockchain_tests"
+# Keep in sync with the zkevm-benchmark `--gas-benchmark-values` in
+# .github/configs/feature.yaml.
 EXPECTED_TARGETS = {
-    "for_amsterdam_at_0010M",
     "for_amsterdam_at_0030M",
     "for_amsterdam_at_0060M",
+    "for_amsterdam_at_0100M",
+    "for_amsterdam_at_0150M",
+    "for_amsterdam_at_0200M",
 }
 FIXTURE_FORMATS = {
     "state_tests",
