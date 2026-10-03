@@ -10,6 +10,27 @@ from ethereum.cancun.blocks import Withdrawal
 
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
+from ethereum.forks.amsterdam.execution_engine.requests import (
+    BuilderExitRequest,
+    ConsolidationRequest,
+    WithdrawalRequest,
+    decode_execution_requests,
+)
+from ethereum.forks.amsterdam.execution_engine.types import (
+    BlobsBundle,
+    GetPayloadResponse,
+    PayloadAttributes,
+)
+from ethereum.forks.amsterdam.stateless import (
+    NewPayloadRequestHeader,
+    ProtocolFork,
+)
+from ethereum.forks.amsterdam.stateless_guest import run_stateless_guest
+from ethereum.forks.amsterdam.stateless_host import (
+    build_stateless_input,
+    deserialize_stateless_output,
+    serialize_stateless_input,
+)
 from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
@@ -166,6 +187,56 @@ RemoveDocstringCommand
 _configure_client_manager  # autouse fixture
 test_suite_name  # hive test suite name fixture
 genesis_header  # genesis header fixture
+
+# src/ethereum/forks/amsterdam/execution_engine/requests.py - SSZ fields,
+# read by reflection when encoding and decoding
+WithdrawalRequest.source_address
+WithdrawalRequest.validator_pubkey
+ConsolidationRequest.source_address
+ConsolidationRequest.source_pubkey
+ConsolidationRequest.target_pubkey
+BuilderExitRequest.source_address
+
+# src/ethereum/forks/amsterdam/execution_engine/requests.py,
+# stateless_host.py and stateless_guest.py - stateless public API, called
+# from the testing framework outside vulture's scanned paths
+decode_execution_requests
+build_stateless_input
+serialize_stateless_input
+deserialize_stateless_output
+run_stateless_guest
+
+# src/ethereum/forks/amsterdam/execution_engine/types.py - Engine API fields
+PayloadAttributes.suggested_fee_recipient
+BlobsBundle.commitments
+BlobsBundle.proofs
+BlobsBundle.blobs
+GetPayloadResponse.block_value
+GetPayloadResponse.blobs_bundle
+
+# src/ethereum/forks/amsterdam/stateless.py - stateless public API scaffolding
+NewPayloadRequestHeader
+NewPayloadRequestHeader.execution_payload_header
+ProtocolFork.Frontier
+ProtocolFork.Homestead
+ProtocolFork.DAOFork
+ProtocolFork.TangerineWhistle
+ProtocolFork.SpuriousDragon
+ProtocolFork.Byzantium
+ProtocolFork.StPetersburg
+ProtocolFork.Istanbul
+ProtocolFork.MuirGlacier
+ProtocolFork.Berlin
+ProtocolFork.London
+ProtocolFork.ArrowGlacier
+ProtocolFork.GrayGlacier
+ProtocolFork.Paris
+ProtocolFork.Shanghai
+ProtocolFork.Cancun
+ProtocolFork.Prague
+ProtocolFork.Osaka
+ProtocolFork.BPO1
+ProtocolFork.BPO2
 
 # packages/testing/src/execution_testing/evm_tools/t8n/evm_trace/
 # eip3155.py - EIP-3155 trace output field names, serialized to JSON

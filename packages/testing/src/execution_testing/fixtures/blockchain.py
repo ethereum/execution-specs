@@ -78,6 +78,7 @@ from execution_testing.test_types import (
     AllocGroupHash,
     BlockAccessList,
     Environment,
+    ExecutionWitness,
     Removable,
     TestPhase,
     Transaction,
@@ -611,6 +612,10 @@ class FixtureEngineNewPayload(CamelModel):
     params: EngineNewPayloadParameters
     new_payload_version: Number
     forkchoice_updated_version: Number
+    execution_witness: ExecutionWitness | None = None
+    execution_witness_mutated: bool | None = None
+    stateless_input_bytes: Bytes | None = None
+    stateless_output_bytes: Bytes | None = None
     validation_error: ExceptionInstanceOrList | None = None
     error_code: (
         Annotated[
@@ -707,6 +712,10 @@ class FixtureEngineNewPayload(CamelModel):
         withdrawals: List[Withdrawal] | None,
         requests: List[Bytes] | None,
         block_access_list: Bytes | None = None,
+        execution_witness: ExecutionWitness | None = None,
+        execution_witness_mutated: bool | None = None,
+        stateless_input_bytes: Bytes | None = None,
+        stateless_output_bytes: Bytes | None = None,
         execution_payload_modifier: (
             "FixtureExecutionPayloadModifier | None"
         ) = None,
@@ -778,6 +787,10 @@ class FixtureEngineNewPayload(CamelModel):
             params=payload_params,
             new_payload_version=new_payload_version,
             forkchoice_updated_version=forkchoice_updated_version,
+            execution_witness=execution_witness,
+            execution_witness_mutated=execution_witness_mutated,
+            stateless_input_bytes=stateless_input_bytes,
+            stateless_output_bytes=stateless_output_bytes,
             **kwargs,
         )
 
@@ -884,6 +897,9 @@ class FixtureBlockBase(CamelModel):
     )
     withdrawals: List[FixtureWithdrawal] | None = None
     receipts: List[FixtureTransactionReceipt] | None = None
+    execution_witness: ExecutionWitness | None = None
+    stateless_input_bytes: Bytes | None = None
+    stateless_output_bytes: Bytes | None = None
     block_access_list: BlockAccessList | None = Field(
         None, description="EIP-7928 Block Access List"
     )
@@ -918,7 +934,14 @@ class FixtureBlock(FixtureBlockBase):
     def without_rlp(self) -> FixtureBlockBase:
         """Return FixtureBlockBase without the RLP bytes set."""
         return FixtureBlockBase(
-            **self.model_dump(exclude={"rlp"}),
+            **self.model_dump(
+                exclude={
+                    "rlp",
+                    "execution_witness",
+                    "stateless_input_bytes",
+                    "stateless_output_bytes",
+                },
+            ),
         )
 
 
@@ -938,6 +961,9 @@ class InvalidFixtureBlock(CamelModel):
     rlp: Bytes
     expect_exception: ExceptionInstanceOrList
     rlp_decoded: FixtureBlockBase | None = Field(None, alias="rlp_decoded")
+    execution_witness: ExecutionWitness | None = None
+    stateless_input_bytes: Bytes | None = None
+    stateless_output_bytes: Bytes | None = None
 
 
 @post_state_validator()

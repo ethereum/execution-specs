@@ -123,8 +123,9 @@ class T8N(Load):
 
     ``T8N`` is JSON-free: callers hand in a testing
     ``TransitionTool.TransitionToolData`` (alloc / env / txs /
-    blob_schedule / fork / chain_id / reward / state_test) plus any
-    pre-PoS ommer data, and ``run()`` returns a
+    blob_schedule / fork / chain_id / reward / state_test /
+    skip_stateless_validation) plus any pre-PoS ommer data, and ``run()``
+    returns a
     :class:`~execution_testing.client_clis.cli_types.TransitionToolOutput`.
     See :mod:`.cli` for the JSON wrapper used by the
     ``ethereum-spec-evm t8n`` entry point.
@@ -139,6 +140,7 @@ class T8N(Load):
     body: Bytes
     state_test: bool
     state_reward: int
+    skip_stateless_validation: bool
     exception_mapper: Optional["ExceptionMapper"]
     _block_exception: Optional[str]
 
@@ -212,6 +214,7 @@ class T8N(Load):
         self.chain_id = U64(t8n_data.chain_id)
         self.state_test = t8n_data.state_test
         self.state_reward = t8n_data.reward
+        self.skip_stateless_validation = t8n_data.skip_stateless_validation
         self.exception_mapper = exception_mapper
 
         from execution_testing.client_clis.cli_types import LazyAlloc

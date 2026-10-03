@@ -452,6 +452,39 @@ def test_malformed_bal_drift_raises(tmp_path: Path) -> None:
     assert "undecodable" in str(exc_info.value)
 
 
+def test_stateless_bytes_are_not_compared(tmp_path: Path) -> None:
+    """
+    Stateless input and output bytes embed the witness and
+    state-root-derived values, so differing bytes do not trip the check.
+    """
+    _write_sibling(
+        tmp_path,
+        [
+            _sibling_payload().model_copy(
+                update={
+                    "stateless_input_bytes": Bytes(b"\x01"),
+                    "stateless_output_bytes": Bytes(b"\x02"),
+                }
+            )
+        ],
+    )
+    _write_engine_x(
+        tmp_path,
+        [
+            _engine_x_payload().model_copy(
+                update={
+                    "stateless_input_bytes": Bytes(b"\x03"),
+                    "stateless_output_bytes": Bytes(b"\x04"),
+                }
+            )
+        ],
+    )
+
+    result = verify_engine_x_execution(tmp_path)
+
+    assert result.compared == 1
+
+
 def test_execution_drift_raises(tmp_path: Path) -> None:
     """A gas difference fails loudly and shows both values."""
     _write_sibling(tmp_path, [_sibling_payload()])

@@ -840,6 +840,7 @@ name = "ethereum-execution"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
+    { name = "eth-remerkleable" },
     { name = "ethereum-rlp" },
     { name = "ethereum-types" },
     { name = "libcst" },
@@ -952,6 +953,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "cryptography", specifier = ">=45.0.1,<46" },
+    { name = "eth-remerkleable", specifier = ">=0.1.29,<0.2" },
     { name = "ethash", marker = "extra == 'optimized'", specifier = ">=1.1.0,<2" },
     { name = "ethereum-rlp", specifier = ">=0.1.6,<0.2" },
     { name = "ethereum-types", specifier = ">=0.4.1,<0.5" },

@@ -54,6 +54,9 @@ from execution_testing.test_types import (
     Alloc,
     BlockAccessListExpectation,
     Environment,
+    ExecutionWitnessCodesExpectation,
+    ExecutionWitnessHeadersExpectation,
+    ExecutionWitnessStateExpectation,
     Transaction,
 )
 
@@ -84,6 +87,15 @@ class StateTest(BaseTest):
     blockchain_test_header_verify: Optional[Header] = None
     blockchain_test_rlp_modifier: Optional[Header] = None
     expected_block_access_list: Optional[BlockAccessListExpectation] = None
+    expected_execution_witness_codes: Optional[
+        ExecutionWitnessCodesExpectation
+    ] = None
+    expected_execution_witness_state: Optional[
+        ExecutionWitnessStateExpectation
+    ] = None
+    expected_execution_witness_headers: Optional[
+        ExecutionWitnessHeadersExpectation
+    ] = None
     chain_id: int = 1
 
     supported_fixture_formats: ClassVar[
@@ -311,6 +323,15 @@ class StateTest(BaseTest):
             "header_verify": self.blockchain_test_header_verify,
             "rlp_modifier": self.blockchain_test_rlp_modifier,
             "expected_block_access_list": self.expected_block_access_list,
+            "expected_execution_witness_codes": (
+                self.expected_execution_witness_codes
+            ),
+            "expected_execution_witness_state": (
+                self.expected_execution_witness_state
+            ),
+            "expected_execution_witness_headers": (
+                self.expected_execution_witness_headers
+            ),
         }
         if not fork.header_prev_randao_required():
             kwargs["difficulty"] = self.env.difficulty

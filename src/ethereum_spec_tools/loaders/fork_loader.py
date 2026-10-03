@@ -160,6 +160,21 @@ class ForkLoad:
         return hasattr(module, "hash_block_access_list")
 
     @property
+    def has_execution_witness(self) -> bool:
+        """Check if the fork has an `ExecutionWitness` type."""
+        try:
+            module = self._module("stateless")
+        except ModuleNotFoundError:
+            return False
+        return hasattr(module, "ExecutionWitness")
+
+    @property
+    def build_execution_witness(self) -> Any:
+        """Build function of the fork."""
+        mod = self._module("stateless_host_exec_witness")
+        return mod.build_execution_witness
+
+    @property
     def BlockAccessIndex(self) -> Any:
         """BlockAccessIndex type of the fork."""
         return self._module("block_access_lists").BlockAccessIndex

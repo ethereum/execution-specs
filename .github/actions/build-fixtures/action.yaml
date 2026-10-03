@@ -56,26 +56,42 @@ runs:
         PYTEST_XDIST_AUTO_NUM_WORKERS: ${{ steps.evm-builder.outputs.xdist }}
       run: |
         IS_SPLIT="${{ inputs.split_label }}"
-
-        if [ -n "$IS_SPLIT" ]; then
-          OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}"
-          FORK_ARGS="--from=${{ inputs.from_fork }} --until=${{ inputs.until_fork }}"
-        else
-          OUTPUT_ARG="--output=fixtures_${{ inputs.release_name }}.tar.gz"
-          FORK_ARGS=""
-        fi
+        GAS_VALUES="${{ steps.properties.outputs.gas-benchmark-values }}"
+        OUTPUT="fixtures_${{ inputs.release_name }}"
 
         EVM_ARGS=""
         if [ "${{ steps.evm-builder.outputs.impl }}" != "eels" ]; then
           EVM_ARGS="--evm-bin=${{ steps.evm-builder.outputs.evm-bin }}"
         fi
 
-        # Allow exit code 5 (NO_TESTS_COLLECTED) for fork ranges with no tests.
-        EXIT_CODE=0
-        just fill-release $EVM_ARGS ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} || EXIT_CODE=$?
-        if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
-          exit "$EXIT_CODE"
+        run_fill() {
+          # Allow exit code 5 (NO_TESTS_COLLECTED) for fork ranges with no tests.
+          EXIT_CODE=0
+          just fill-release $EVM_ARGS ${{ steps.properties.outputs.fill-params }} "$@" --build-name ${{ inputs.release_name }} || EXIT_CODE=$?
+          if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
+            exit "$EXIT_CODE"
+          fi
+        }
+
+        if [ -n "$IS_SPLIT" ]; then
+          run_fill --from=${{ inputs.from_fork }} --until=${{ inputs.until_fork }} --output="$OUTPUT"
+        elif [ -n "$GAS_VALUES" ]; then
+          # One fill and tarball per gas value, named after the gas value
+          # directory inside it (e.g. `for_amsterdam_at_0030M`).
+          for GAS in ${GAS_VALUES//,/ }; do
+            run_fill --gas-benchmark-values="$GAS" --output="$(printf '%s_%04dM.tar.gz' "$OUTPUT" "$GAS")"
+          done
+        else
+          run_fill --output="$OUTPUT.tar.gz"
         fi
+    - name: Validate zkEVM Benchmark Fixtures
+      if: inputs.split_label == '' && inputs.release_name == 'zkevm-benchmark'
+      shell: bash
+      run: |
+        for TARBALL in fixtures_${{ inputs.release_name }}_*.tar.gz; do
+          uv run -q .github/scripts/validate_zkevm_benchmark_fixtures.py \
+            "$TARBALL"
+        done
     - name: Validate blockchain fixtures with EELS
       if: inputs.split_label != '' && steps.evm-builder.outputs.impl == 'eels'
       shell: bash
@@ -89,22 +105,29 @@ runs:
         fi
         just validate-blocks "$FIXTURES" --no-cov
     - name: Generate Benchmark Genesis Files
-      if: inputs.split_label == '' && contains(inputs.release_name, 'benchmark')
+      if: inputs.split_label == '' && inputs.release_name != 'zkevm-benchmark' && contains(inputs.release_name, 'benchmark')
       uses: ./.github/actions/build-benchmark-genesis
       with:
         fixtures_path: fixtures_${{ inputs.release_name }}.tar.gz
     - name: Upload Benchmark Genesis Artifact
-      if: inputs.split_label == '' && contains(inputs.release_name, 'benchmark')
+      if: inputs.split_label == '' && inputs.release_name != 'zkevm-benchmark' && contains(inputs.release_name, 'benchmark')
       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
       with:
         name: benchmark_genesis_${{ inputs.release_name }}
         path: benchmark_genesis.tar.gz
     - name: Upload fixture tarball (unsplit)
-      if: inputs.split_label == ''
+      if: inputs.split_label == '' && steps.properties.outputs.gas-benchmark-values == ''
       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
       with:
         name: fixtures_${{ inputs.release_name }}
         path: fixtures_${{ inputs.release_name }}.tar.gz
+    - name: Upload fixture tarballs (one per gas value)
+      if: inputs.split_label == '' && steps.properties.outputs.gas-benchmark-values != ''
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+      with:
+        name: fixtures_${{ inputs.release_name }}
+        path: fixtures_${{ inputs.release_name }}_*.tar.gz
+        if-no-files-found: error
     - name: Upload fixture directory (split)
       if: inputs.split_label != ''
       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

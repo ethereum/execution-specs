@@ -1598,6 +1598,14 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 kwargs["is_inclusion_test"] = is_inclusion_test
                 kwargs["invalid_tx_not_last"] = invalid_tx_not_last
                 if (
+                    "skip_stateless_validation" in cls.model_fields
+                    and "skip_stateless_validation" not in kwargs
+                    and request.node.get_closest_marker(
+                        "skip_stateless_validation"
+                    )
+                ):
+                    kwargs["skip_stateless_validation"] = True
+                if (
                     op_mode == OpMode.OPTIMIZE_GAS
                     or op_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
                 ):
