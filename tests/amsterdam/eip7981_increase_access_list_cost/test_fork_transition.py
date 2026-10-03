@@ -28,6 +28,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     EIPChecklist,
+    GasCost,
     Hash,
     Transaction,
     TransactionException,
@@ -93,7 +94,6 @@ def test_access_list_intrinsic_across_amsterdam_transition(
     regression fails here with a clear message rather than only as a
     downstream balance mismatch.
     """
-    gas_price = 1_000_000_000
     access_list = access_list_shape(addresses, keys_per_address)
     total_keys = addresses * keys_per_address
 
@@ -143,22 +143,19 @@ def test_access_list_intrinsic_across_amsterdam_transition(
         )
         assert floor_gas <= intrinsic_gas
 
-        sender_initial_balance = 10**18
-        sender = pre.fund_eoa(sender_initial_balance)
+        sender = pre.fund_eoa()
         target = pre.fund_eoa(amount=0)
 
         tx = Transaction(
             sender=sender,
             to=target,
             gas_limit=intrinsic_gas,
-            gas_price=gas_price,
             access_list=access_list,
         )
         blocks.append(Block(timestamp=timestamp, txs=[tx]))
 
         post[sender] = Account(
-            nonce=1,
-            balance=sender_initial_balance - intrinsic_gas * gas_price,
+            nonce=1, balance_change=-GasCost(tx, gas=intrinsic_gas)
         )
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
@@ -293,7 +290,6 @@ def test_access_list_floor_across_amsterdam_transition(
     implementation that mistimes the floor change fails the receipt and
     balance pins.
     """
-    gas_price = 1_000_000_000
     # Sized so the floor dominates the intrinsic on both sides
     # (asserted below): each non-zero byte adds 40 - 16 = 24 gas of
     # floor headroom pre-fork and 64 - 16 = 48 post-fork, outgrowing
@@ -353,23 +349,20 @@ def test_access_list_floor_across_amsterdam_transition(
             f"{intrinsic_gas} at timestamp {timestamp} ({sub_fork})"
         )
 
-        sender_initial_balance = 10**18
-        sender = pre.fund_eoa(sender_initial_balance)
+        sender = pre.fund_eoa()
 
         tx = Transaction(
             sender=sender,
             to=pre.fund_eoa(amount=0),
             data=data,
             gas_limit=floor_gas,
-            gas_price=gas_price,
             access_list=access_list,
             expected_receipt=TransactionReceipt(cumulative_gas_used=floor_gas),
         )
         blocks.append(Block(timestamp=timestamp, txs=[tx]))
 
         post[sender] = Account(
-            nonce=1,
-            balance=sender_initial_balance - floor_gas * gas_price,
+            nonce=1, balance_change=-GasCost(tx, gas=floor_gas)
         )
 
     blockchain_test(pre=pre, blocks=blocks, post=post)

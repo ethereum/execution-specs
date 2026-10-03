@@ -6,7 +6,6 @@ import pytest
 
 from execution_testing.base_types import (
     AccessList,
-    Account,
     Address,
     Storage,
     TestAddress,
@@ -34,6 +33,7 @@ from execution_testing.forks import (
 )
 from execution_testing.specs import Block, BlockchainTest
 from execution_testing.test_types import (
+    Account,
     Alloc,
     AuthorizationTuple,
     Environment,

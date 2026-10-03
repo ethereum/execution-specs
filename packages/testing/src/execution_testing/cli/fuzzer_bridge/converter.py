@@ -15,16 +15,17 @@ Key Responsibilities:
 
 from typing import Dict
 
-from execution_testing.base_types import Account, Address, Hash, HexNumber
+from execution_testing.base_types import Address, Hash, HexNumber
 from execution_testing.forks import Fork
 from execution_testing.specs import Block, BlockchainTest
 from execution_testing.test_types import (
+    EOA,
+    Account,
     Alloc,
     AuthorizationTuple,
     Environment,
     Transaction,
 )
-from execution_testing.test_types.account_types import EOA
 
 from .models import (
     FuzzerAccountInput,

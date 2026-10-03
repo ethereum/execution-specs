@@ -1,5 +1,6 @@
 """Account-related types for Ethereum tests."""
 
+import hashlib
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -8,6 +9,7 @@ from hashlib import sha256
 from types import ModuleType
 from typing import (
     Any,
+    ClassVar,
     Dict,
     ItemsView,
     Iterator,
@@ -23,12 +25,15 @@ from ethereum.crypto.hash import Hash32
 from ethereum.crypto.hash import keccak256 as spec_keccak256
 from ethereum_types.bytes import Bytes, Bytes20
 from ethereum_types.numeric import U256, Bytes32, Uint
-from pydantic import PrivateAttr
+from pydantic import Field, PrivateAttr, model_validator
 from spec256k1 import PrivateKey
 
 from execution_testing.base_types import (
-    Account,
+    Account as BaseAccount,
+)
+from execution_testing.base_types import (
     Address,
+    CamelModel,
     FixedSizeBytes,
     Hash,
     HashInt,
@@ -36,6 +41,7 @@ from execution_testing.base_types import (
     StateCommitment,
     Storage,
     StorageRootType,
+    ZeroPaddedHexNumber,
 )
 from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.base_types.conversions import (
@@ -44,6 +50,7 @@ from execution_testing.base_types.conversions import (
     NumberConvertible,
 )
 
+from .balance_expectations import BalanceExpression, PostStateContext
 from .utils import keccak256
 
 
@@ -135,6 +142,294 @@ class AllocGroupHash(FixedSizeBytes[8]):  # type: ignore
         )
 
 
+class Account(BaseAccount):
+    """State associated with an address."""
+
+    nonce_change: int = Field(0, exclude=True)
+    """
+    Used to specify a expectation of increment or decrement in the nonce by the
+    post-state assertions.
+    """
+    balance_change: BalanceExpression = Field(
+        default_factory=BalanceExpression, exclude=True
+    )
+    """
+    Used to specify a expectation of increment or decrement in balance by the
+    post-state assertions.
+
+    Accepts an integer, or an expression combining integers with fee terms
+    (`GasCost`, `Tip`, `BlobCost`) that are resolved against the block in
+    which each transaction landed.
+    """
+
+    NONEXISTENT: ClassVar[None] = None
+    """
+    Sentinel object used to specify when an account should not exist in the
+    state.
+    """
+
+    model_config = {
+        **CamelModel.model_config,
+        "frozen": True,
+    }
+
+    @model_validator(mode="after")
+    def _absolute_or_relative(self) -> Self:
+        """Reject expecting both an absolute value and a change."""
+        for absolute, relative in (
+            ("nonce", "nonce_change"),
+            ("balance", "balance_change"),
+        ):
+            if (
+                absolute in self.model_fields_set
+                and relative in self.model_fields_set
+            ):
+                raise ValueError(
+                    f"`{absolute}` and `{relative}` are mutually exclusive"
+                )
+        return self
+
+    @dataclass(kw_only=True)
+    class NonceMismatchError(Exception):
+        """
+        Test expected a certain nonce value for an account but a different
+        value was found.
+        """
+
+        address: Address
+        want: int | None
+        got: int | None
+
+        def __init__(
+            self,
+            address: Address,
+            want: int | None,
+            got: int | None,
+            *args: Any,
+        ) -> None:
+            """
+            Initialize the exception with the address, wanted and got values.
+            """
+            super().__init__(args)
+            self.address = address
+            self.want = want
+            self.got = got
+
+        def __str__(self) -> str:
+            """Print exception string."""
+            label_str = ""
+            if self.address.label is not None:
+                label_str = f" ({self.address.label})"
+            return (
+                f"unexpected nonce for account {self.address}{label_str}: "
+                + f"want {self.want}, got {self.got}"
+            )
+
+    @dataclass(kw_only=True)
+    class BalanceMismatchError(Exception):
+        """
+        Test expected a certain balance for an account but a different value
+        was found.
+        """
+
+        address: Address
+        want: int | None
+        got: int | None
+        expectation: str | None
+
+        def __init__(
+            self,
+            address: Address,
+            want: int | None,
+            got: int | None,
+            *args: Any,
+            expectation: str | None = None,
+        ) -> None:
+            """
+            Initialize the exception with the address, wanted and got values.
+            """
+            super().__init__(args)
+            self.address = address
+            self.want = want
+            self.got = got
+            self.expectation = expectation
+
+        def __str__(self) -> str:
+            """Print exception string."""
+            label_str = ""
+            if self.address.label is not None:
+                label_str = f" ({self.address.label})"
+            expectation_str = ""
+            if self.expectation is not None:
+                expectation_str = f" ({self.expectation})"
+            return (
+                f"unexpected balance for account {self.address}{label_str}: "
+                + f"want {self.want}{expectation_str}, got {self.got}"
+            )
+
+    @dataclass(kw_only=True)
+    class CodeMismatchError(Exception):
+        """
+        Test expected a certain bytecode for an account but a different one was
+        found.
+        """
+
+        address: Address
+        want: bytes | None
+        got: bytes | None
+
+        def __init__(
+            self,
+            address: Address,
+            want: bytes | None,
+            got: bytes | None,
+            *args: Any,
+        ) -> None:
+            """
+            Initialize the exception with the address, wanted and got values.
+            """
+            super().__init__(args)
+            self.address = address
+            self.want = want
+            self.got = got
+
+        def __str__(self) -> str:
+            """Print exception string."""
+            label_str = ""
+            if self.address.label is not None:
+                label_str = f" ({self.address.label})"
+            return (
+                f"unexpected code for account {self.address}{label_str}: "
+                f"want {self.want.hex() if self.want else self.want}, "
+                f"got {self.got.hex() if self.got else self.got}"
+            )
+
+    def check_alloc(
+        self,
+        *,
+        address: Address,
+        pre_account: Self | BaseAccount | None,
+        account: Self | BaseAccount,
+        context: PostStateContext,
+    ) -> None:
+        """
+        Check the returned alloc against an expected account in post state.
+
+        Balance and nonce changes are relative to `pre_account`, which is
+        treated as empty when `None`. Fee terms in `balance_change` are
+        resolved against `context`. Raises exception on failure.
+        """
+        if pre_account is None:
+            pre_account = Account()
+
+        if "nonce" in self.model_fields_set:
+            want_nonce = self.nonce
+            if want_nonce != account.nonce:
+                raise Account.NonceMismatchError(
+                    address=address,
+                    want=want_nonce,
+                    got=account.nonce,
+                )
+
+        if "nonce_change" in self.model_fields_set:
+            want_nonce = ZeroPaddedHexNumber(
+                pre_account.nonce + self.nonce_change
+            )
+            if want_nonce != account.nonce:
+                raise Account.NonceMismatchError(
+                    address=address,
+                    want=want_nonce,
+                    got=account.nonce,
+                )
+
+        if "balance" in self.model_fields_set:
+            want_balance = self.balance
+            if want_balance != account.balance:
+                raise Account.BalanceMismatchError(
+                    address=address,
+                    want=want_balance,
+                    got=account.balance,
+                )
+
+        if "balance_change" in self.model_fields_set:
+            want_balance = ZeroPaddedHexNumber(
+                pre_account.balance + self.balance_change.resolve(context)
+            )
+            if want_balance != account.balance:
+                raise Account.BalanceMismatchError(
+                    address=address,
+                    want=want_balance,
+                    got=account.balance,
+                    expectation=(
+                        f"pre {pre_account.balance} + ({self.balance_change})"
+                    ),
+                )
+
+        if "code" in self.model_fields_set:
+            if self.code != account.code:
+                raise Account.CodeMismatchError(
+                    address=address,
+                    want=self.code,
+                    got=account.code,
+                )
+
+        if "storage" in self.model_fields_set:
+            self.storage.must_be_equal(address=address, other=account.storage)
+
+    def expects_only_changes(self) -> bool:
+        """
+        Return whether this account only expects changes relative to the
+        pre-state (`balance_change` and/or `nonce_change`).
+        """
+        return bool(self.model_fields_set) and self.model_fields_set <= {
+            "balance_change",
+            "nonce_change",
+        }
+
+    def __bool__(self) -> bool:
+        """Return True on a non-empty account."""
+        return any((self.nonce, self.balance, self.code, self.storage))
+
+    def hash(self) -> Hash:
+        """Return the hash of the account given its properties."""
+        data = self.model_dump(mode="json")
+        blob = json.dumps(
+            data,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return Hash(hashlib.sha256(blob).digest())
+
+    @classmethod
+    def with_code(cls, code: BytesConvertible) -> Self:
+        """Create account with provided `code` and nonce of `1`."""
+        return cls(nonce=1, code=code)
+
+    @classmethod
+    def merge(
+        cls,
+        account_1: Dict | Self | None,
+        account_2: Dict | Self | None,
+    ) -> Self:
+        """Create a merged account from two sources."""
+
+        def to_kwargs_dict(account: Dict | Self | None) -> Dict:
+            if account is None:
+                return {}
+            if isinstance(account, dict):
+                return account
+            elif isinstance(account, cls):
+                return account.model_dump(exclude_unset=True)
+            raise TypeError(
+                f"Unexpected type for account merge: {type(account)}"
+            )
+
+        kwargs = to_kwargs_dict(account_1)
+        kwargs.update(to_kwargs_dict(account_2))
+
+        return cls(**kwargs)
+
+
 class Alloc(BaseAlloc):
     """
     Allocation of accounts in the state, pre and post test execution.
@@ -147,6 +442,10 @@ class Alloc(BaseAlloc):
     `self.root` and updates the cache in lockstep. `freeze` locks the
     allocation for read-only assertion use.
     """
+
+    root: Dict[Address, Account | None] = Field(  # type: ignore[assignment]
+        default_factory=dict, validate_default=True
+    )
 
     _phase: _Phase = PrivateAttr(default=_Phase.CONSTRUCTION)
     _code_store: Dict[Hash32, Bytes] = PrivateAttr(default_factory=dict)
@@ -342,10 +641,20 @@ class Alloc(BaseAlloc):
         """Return state root of the allocation."""
         return Hash(self._state_module().state_root(self._materialize_state()))
 
-    def verify_post_alloc(self, got_alloc: "Alloc") -> None:
+    def verify_post_alloc(
+        self,
+        *,
+        pre_alloc: Self | BaseAlloc,
+        got_alloc: Self | BaseAlloc,
+        context: PostStateContext,
+    ) -> None:
         """
         Verify that the allocation matches the expected post in the test.
-        Raises exception on unexpected values.
+
+        `pre_alloc` is the state before any transaction executed, and
+        `context` records where each transaction landed; both are used to
+        resolve balance and nonce changes. Raises exception on unexpected
+        values.
         """
         assert isinstance(got_alloc, Alloc), (
             f"got_alloc is not an Alloc: {got_alloc}"
@@ -359,13 +668,23 @@ class Alloc(BaseAlloc):
                         address=address, account=got_account
                     )
             else:
+                assert isinstance(account, Account)
+                pre_account = pre_alloc.get(address=address)
                 if address in got_alloc.root:
                     got_account = got_alloc.root[address]
                     assert isinstance(got_account, Account)
-                    assert isinstance(account, Account)
-                    account.check_alloc(address, got_account)
+                elif account.expects_only_changes() and pre_account is None:
+                    # An account that was empty before and is absent after
+                    # is still empty, which is what a zero change expects.
+                    got_account = Account()
                 else:
                     raise Alloc.MissingAccountError(address=address)
+                account.check_alloc(
+                    address=address,
+                    pre_account=pre_account,
+                    account=got_account,
+                    context=context,
+                )
 
     def get_alloc_grouping_hash(self) -> AllocGroupHash | None:
         """

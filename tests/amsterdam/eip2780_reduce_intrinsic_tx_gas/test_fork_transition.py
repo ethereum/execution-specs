@@ -30,6 +30,7 @@ from execution_testing import (
     AuthorizationTuple,
     Block,
     BlockchainTestFiller,
+    GasCost,
     Op,
     RecipientType,
     Transaction,
@@ -41,7 +42,6 @@ from execution_testing import (
 from execution_testing.checklists import EIPChecklist
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
-from .helpers import EOA_INITIAL_BALANCE
 from .spec import ref_spec_2780
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_2780.git_path
@@ -93,7 +93,6 @@ def test_intrinsic_reduction_across_amsterdam_transition(
     constants, so a calculator regression fails here with a clear
     message rather than only as a downstream balance mismatch.
     """
-    gas_price = 1_000_000_000
     recipient_type = RecipientType.SELF if self_transfer else RecipientType.EOA
 
     pre_fork = fork.fork_at(timestamp=PRE_FORK_TIMESTAMP)
@@ -130,36 +129,28 @@ def test_intrinsic_reduction_across_amsterdam_transition(
             f"{intrinsic_gas}, expected {expected_intrinsic}"
         )
 
-        sender_initial_balance = 10**18
-        sender = pre.fund_eoa(sender_initial_balance)
+        sender = pre.fund_eoa()
         if self_transfer:
             target = sender
         else:
-            target = pre.fund_eoa(amount=EOA_INITIAL_BALANCE)
+            target = pre.fund_eoa()
 
-        # No EVM bytecode runs (recipient is an EOA or the sender), so
-        # gas_used == intrinsic_gas; the gas limit is pinned to exactly
-        # the intrinsic, leaving no buffer.
-        tx = Transaction(
-            sender=sender,
-            to=target,
-            value=value,
-            gas_limit=intrinsic_gas,
-            gas_price=gas_price,
-        )
+        tx = Transaction(sender=sender, to=target, value=value)
         blocks.append(Block(timestamp=timestamp, txs=[tx]))
 
         # A self-transfer returns the value to the sender (net zero);
         # a plain call moves ``value`` to the distinct recipient.
-        sender_value_delta = 0 if self_transfer else value
-        sender_final_balance = (
-            sender_initial_balance
-            - sender_value_delta
-            - intrinsic_gas * gas_price
+        sender_value_delta = 0 if self_transfer else -value
+        post[sender] = Account(
+            nonce=1,
+            # No EVM bytecode runs (recipient is an EOA or the sender), so
+            # gas_used == intrinsic_gas.
+            balance_change=(
+                sender_value_delta - GasCost(tx=tx, gas=intrinsic_gas)
+            ),
         )
-        post[sender] = Account(nonce=1, balance=sender_final_balance)
         if not self_transfer:
-            post[target] = Account(balance=EOA_INITIAL_BALANCE + value)
+            post[target] = Account(balance_change=value)
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
@@ -197,7 +188,6 @@ def test_creation_tx_intrinsic_across_amsterdam_transition(
     fails with a clear message rather than only as a downstream balance
     mismatch.
     """
-    gas_price = 1_000_000_000
     init_code = Op.STOP
 
     pre_fork = fork.fork_at(timestamp=PRE_FORK_TIMESTAMP)
@@ -253,27 +243,19 @@ def test_creation_tx_intrinsic_across_amsterdam_transition(
             f"{top_frame_state_gas}, expected {expected_state}"
         )
 
-        sender_initial_balance = 10**18
-        sender = pre.fund_eoa(sender_initial_balance)
+        sender = pre.fund_eoa()
         created = compute_create_address(address=sender, nonce=sender.nonce)
 
-        # The STOP init code costs no execution gas and deploys empty
-        # code (no deposit charges), so the gas limit is pinned to
-        # exactly the intrinsic plus the fork's top-frame state charge.
-        total_gas = intrinsic_gas + top_frame_state_gas
-        tx = Transaction(
-            sender=sender,
-            to=None,
-            data=init_code,
-            value=value,
-            gas_limit=total_gas,
-            gas_price=gas_price,
-        )
+        tx = Transaction(sender=sender, to=None, data=init_code, value=value)
         blocks.append(Block(timestamp=timestamp, txs=[tx]))
 
         post[sender] = Account(
             nonce=1,
-            balance=sender_initial_balance - value - total_gas * gas_price,
+            # The STOP init code costs no execution gas and deploys empty
+            # code (no deposit charges), so the gas used is pinned to
+            # exactly the intrinsic plus the fork's top-frame state charge.
+            balance_change=-value
+            - GasCost(tx=tx, gas=intrinsic_gas + top_frame_state_gas),
         )
         post[created] = Account(nonce=1, balance=value, code=b"")
 
@@ -291,8 +273,6 @@ def test_setcode_tx_across_amsterdam_transition(
     Pin the EIP-2780 authorization repricing across the Amsterdam
     boundary.
     """
-    gas_price = 1_000_000_000
-
     pre_costs = fork.fork_at(timestamp=PRE_FORK_TIMESTAMP).gas_costs()
     post_costs = fork.fork_at(timestamp=POST_FORK_TIMESTAMP).gas_costs()
 
@@ -347,8 +327,7 @@ def test_setcode_tx_across_amsterdam_transition(
             f"{total_gas}, expected {expected_total}"
         )
 
-        sender_initial_balance = 10**18
-        sender = pre.fund_eoa(sender_initial_balance)
+        sender = pre.fund_eoa()
 
         # Both recipient and delegate run ``STOP`` (no execution gas),
         # so the receipt pins the intrinsic and top-frame layers alone.
@@ -356,9 +335,6 @@ def test_setcode_tx_across_amsterdam_transition(
             sender=sender,
             to=recipient,
             authorization_list=[authorization],
-            gas_limit=total_gas,
-            max_fee_per_gas=gas_price,
-            max_priority_fee_per_gas=gas_price,
             expected_receipt=TransactionReceipt(
                 cumulative_gas_used=total_gas,
             ),
@@ -367,7 +343,7 @@ def test_setcode_tx_across_amsterdam_transition(
 
         post[sender] = Account(
             nonce=1,
-            balance=sender_initial_balance - total_gas * gas_price,
+            balance_change=-GasCost(tx=tx, gas=total_gas),
         )
         post[authority] = Account(
             nonce=1,
@@ -417,9 +393,6 @@ def test_intrinsic_validity_across_amsterdam_transition(
     No EVM bytecode runs, so each accepted transaction consumes exactly
     its intrinsic, pinned through the sender balance.
     """
-    gas_price = 1_000_000_000
-    sender_initial_balance = 10**18
-
     pre_fork = fork.fork_at(timestamp=PRE_FORK_TIMESTAMP)
     post_fork = fork.fork_at(timestamp=POST_FORK_TIMESTAMP)
     intrinsic_pre = pre_fork.transaction_intrinsic_cost_calculator()(
@@ -440,24 +413,22 @@ def test_intrinsic_validity_across_amsterdam_transition(
     def make_tx(
         gas_limit: int, error: TransactionException | None = None
     ) -> Transaction:
-        sender = pre.fund_eoa(sender_initial_balance)
+        sender = pre.fund_eoa()
         target = (
-            sender
-            if recipient_type == RecipientType.SELF
-            else pre.fund_eoa(amount=EOA_INITIAL_BALANCE)
+            sender if recipient_type == RecipientType.SELF else pre.fund_eoa()
+        )
+        tx = Transaction(
+            sender=sender,
+            to=target,
+            gas_limit=gas_limit,
+            error=error,
         )
         if error is None:
             post[sender] = Account(
                 nonce=1,
-                balance=sender_initial_balance - gas_limit * gas_price,
+                balance_change=-GasCost(tx=tx, gas=gas_limit),
             )
-        return Transaction(
-            sender=sender,
-            to=target,
-            gas_limit=gas_limit,
-            gas_price=gas_price,
-            error=error,
-        )
+        return tx
 
     too_low = TransactionException.INTRINSIC_GAS_TOO_LOW
     blocks = [

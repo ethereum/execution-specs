@@ -34,9 +34,11 @@ from execution_testing import (
     ChainConfig,
     Environment,
     Fork,
+    GasCost,
     Op,
     RecipientType,
     StateTestFiller,
+    Tip,
     Transaction,
     TransactionReceipt,
 )
@@ -75,11 +77,8 @@ def test_intrinsic_charges_recipient_in_access_list(
     includes ``COLD_ACCOUNT_ACCESS`` for the recipient on top of the
     access-list cost itself.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
-
-    target_initial_balance = 100
-    target = pre.fund_eoa(amount=target_initial_balance)
+    sender = pre.fund_eoa()
+    target = pre.fund_eoa()
     access_list = [AccessList(address=target, storage_keys=[])]
 
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
@@ -89,26 +88,20 @@ def test_intrinsic_charges_recipient_in_access_list(
         return_cost_deducted_prior_execution=True,
     )
 
-    gas_price = 1_000_000_000
-    gas_limit = intrinsic_gas + 1000
-
     tx = Transaction(
         ty=1,
         sender=sender,
         to=target,
         value=value,
         access_list=access_list,
-        gas_limit=gas_limit,
-        gas_price=gas_price,
-    )
-
-    sender_final_balance = (
-        sender_initial_balance - value - intrinsic_gas * gas_price
     )
 
     post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
-        target: Account(balance=target_initial_balance + value),
+        sender: Account(
+            nonce=1,
+            balance_change=-value - GasCost(tx, gas=intrinsic_gas),
+        ),
+        target: Account(balance_change=value),
     }
 
     state_test(pre=pre, tx=tx, post=post)
@@ -134,8 +127,7 @@ def test_intrinsic_charges_recipient_is_coinbase(
     transaction execution. The intrinsic charge still includes
     ``COLD_ACCOUNT_ACCESS`` for the recipient.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     target = Address(env.fee_recipient)
     # Pre-fund coinbase so it is alive at top-frame check time; this
     # isolates the test to the intrinsic charge invariant and avoids
@@ -149,26 +141,17 @@ def test_intrinsic_charges_recipient_is_coinbase(
         return_cost_deducted_prior_execution=True,
     )
 
-    gas_price = 1_000_000_000
-    gas_limit = intrinsic_gas + 1000
-
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        value=value,
-        gas_limit=gas_limit,
-        gas_price=gas_price,
-    )
-
-    # Coinbase also receives miner fees, so its post-tx balance is not
-    # asserted exactly; verifying the sender balance is sufficient to
-    # pin the intrinsic charge.
-    sender_final_balance = (
-        sender_initial_balance - value - intrinsic_gas * gas_price
-    )
+    tx = Transaction(sender=sender, to=target, value=value)
 
     post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
+        sender: Account(
+            nonce=1,
+            balance_change=-value - GasCost(tx, gas=intrinsic_gas),
+        ),
+        # The coinbase receives the value and the priority fee.
+        target: Account(
+            balance_change=value + Tip(tx, gas=intrinsic_gas),
+        ),
     }
 
     state_test(pre=pre, tx=tx, post=post)
@@ -254,8 +237,7 @@ def test_top_frame_charges_delegation_in_access_list(
       sender pays the full ``gas_limit``, no value moves, and the
       recipient keeps its delegation unchanged.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     delegated_to = pre.deploy_contract(code=Op.STOP)
     target_code = Spec7702.delegation_designation(delegated_to)
@@ -275,15 +257,14 @@ def test_top_frame_charges_delegation_in_access_list(
     )
 
     total_gas_cost = intrinsic_gas + top_frame_gas
-    gas_price = 1_000_000_000
 
     delegated_to_bal: BalAccountExpectation | None
     if outcome == "oog":
         # Runs out one gas short of the warm charge, before dispatch:
         # no value moves and the sender pays the full gas_limit.
         gas_limit = total_gas_cost - 1
-        sender_final_balance = sender_initial_balance - gas_limit * gas_price
-        target_balance = 0
+        gas_used = gas_limit
+        value_moved = 0
         # The access-list entry warmed the delegation target but never
         # read it, and the starved charge is the one access that would
         # have: the target must be absent from the block access list.
@@ -293,10 +274,8 @@ def test_top_frame_charges_delegation_in_access_list(
         # Exact gas: the delegated STOP costs nothing, so the warm
         # charge is the last gas spent and the value transfer lands.
         gas_limit = total_gas_cost
-        sender_final_balance = (
-            sender_initial_balance - value - total_gas_cost * gas_price
-        )
-        target_balance = value
+        gas_used = total_gas_cost
+        value_moved = value
         # The paid warm access loads the target's code for dispatch, so
         # it enters the block access list, unchanged.
         delegated_to_bal = BalAccountExpectation.empty()
@@ -317,12 +296,14 @@ def test_top_frame_charges_delegation_in_access_list(
         value=value,
         access_list=access_list,
         gas_limit=gas_limit,
-        gas_price=gas_price,
     )
 
     post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
-        target: Account(balance=target_balance, code=target_code),
+        sender: Account(
+            nonce=1,
+            balance_change=-value_moved - GasCost(tx, gas=gas_used),
+        ),
+        target: Account(balance=value_moved, code=target_code),
     }
 
     state_test(
@@ -358,8 +339,7 @@ def test_top_frame_charges_delegation_is_coinbase(
     the block coinbase. Coinbase is implicitly warm before execution,
     so the top-frame charges ``WARM_ACCESS`` for the delegation target.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     delegated_to = Address(env.fee_recipient)
     target_code = Spec7702.delegation_designation(delegated_to)
@@ -377,26 +357,17 @@ def test_top_frame_charges_delegation_is_coinbase(
     )
 
     total_gas_cost = intrinsic_gas + top_frame_gas
-    gas_price = 1_000_000_000
-    gas_limit = total_gas_cost + 1000
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        value=value,
-        gas_limit=gas_limit,
-        gas_price=gas_price,
-    )
-
-    # Coinbase also receives miner fees, so its post-tx balance is not
-    # asserted exactly.
-    sender_final_balance = (
-        sender_initial_balance - value - total_gas_cost * gas_price
-    )
+    tx = Transaction(sender=sender, to=target, value=value)
 
     post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
+        sender: Account(
+            nonce=1,
+            balance_change=-value - GasCost(tx, gas=total_gas_cost),
+        ),
         target: Account(balance=value, code=target_code),
+        # The delegated coinbase receives only the priority fee.
+        delegated_to: Account(balance_change=Tip(tx, gas=total_gas_cost)),
     }
 
     state_test(pre=pre, tx=tx, post=post)
@@ -518,8 +489,7 @@ def test_top_frame_charges_delegation_is_sender(
     ``WARM_ACCESS`` for the delegation target; the dispatched EVM frame
     finds the sender's empty EOA code and exits immediately.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     delegated_to = sender
     target_code = Spec7702.delegation_designation(delegated_to)
@@ -537,23 +507,14 @@ def test_top_frame_charges_delegation_is_sender(
     )
 
     total_gas_cost = intrinsic_gas + top_frame_gas
-    gas_price = 1_000_000_000
-    gas_limit = total_gas_cost + 1000
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        value=value,
-        gas_limit=gas_limit,
-        gas_price=gas_price,
-    )
-
-    sender_final_balance = (
-        sender_initial_balance - value - total_gas_cost * gas_price
-    )
+    tx = Transaction(sender=sender, to=target, value=value)
 
     post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
+        sender: Account(
+            nonce=1,
+            balance_change=-value - GasCost(tx, gas=total_gas_cost),
+        ),
         target: Account(balance=value, code=target_code),
     }
 
@@ -584,8 +545,7 @@ def test_top_frame_charges_delegation_is_recipient(
     intrinsic and top-frame gas remain paid; the value transfer is
     rolled back.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     # Pre-allocate an EOA that delegates to itself. The 1-wei balance
     # keeps the account alive at top-frame check time so the
@@ -607,7 +567,6 @@ def test_top_frame_charges_delegation_is_recipient(
     # The dispatched frame burns the entire EVM budget on the
     # ``INVALID`` opcode and the value transfer is rolled back, so the
     # sender pays the full ``gas_limit``.
-    gas_price = 1_000_000_000
     gas_limit = intrinsic_gas + top_frame_gas + 50_000
 
     tx = Transaction(
@@ -615,13 +574,10 @@ def test_top_frame_charges_delegation_is_recipient(
         to=target,
         value=value,
         gas_limit=gas_limit,
-        gas_price=gas_price,
     )
 
-    sender_final_balance = sender_initial_balance - gas_limit * gas_price
-
     post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
+        sender: Account(nonce=1, balance_change=-GasCost(tx, gas=gas_limit)),
         # Value transfer rolled back by the ``INVALID``; the pre-tx
         # 1-wei balance is preserved.
         target: Account(balance=1, code=target_code),
@@ -736,8 +692,7 @@ def test_top_frame_charges_delegation_is_precompile(
     address returns the empty byte string and the frame exits
     immediately.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     delegated_to = Address(0x04)
     target_code = Spec7702.delegation_designation(delegated_to)
@@ -755,23 +710,14 @@ def test_top_frame_charges_delegation_is_precompile(
     )
 
     total_gas_cost = intrinsic_gas + top_frame_gas
-    gas_price = 1_000_000_000
-    gas_limit = total_gas_cost + 1000
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        value=value,
-        gas_limit=gas_limit,
-        gas_price=gas_price,
-    )
-
-    sender_final_balance = (
-        sender_initial_balance - value - total_gas_cost * gas_price
-    )
+    tx = Transaction(sender=sender, to=target, value=value)
 
     post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
+        sender: Account(
+            nonce=1,
+            balance_change=-value - GasCost(tx, gas=total_gas_cost),
+        ),
         target: Account(balance=value, code=target_code),
     }
 

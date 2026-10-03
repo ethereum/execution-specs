@@ -9,7 +9,6 @@ import pytest
 from pydantic import PrivateAttr
 
 from execution_testing.base_types import (
-    Account,
     Address,
     Bytes,
     Hash,
@@ -29,6 +28,7 @@ from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
     DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
+    Account,
     AllocGroupHash,
     Environment,
     compute_deterministic_create2_address,
