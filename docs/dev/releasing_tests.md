@@ -59,7 +59,9 @@ gh workflow run release_fixtures.yaml \
 
 The workflow uses the Geth repository and commit in `evm.yaml` by default. A releaser can use the existing `evm`, `evm_repo`, and `evm_ref` inputs to override that configuration.
 
-The workflow fills Amsterdam compute benchmarks at 10M, 30M, and 60M gas. It produces only `blockchain_test` fixtures.
+The workflow fills Amsterdam compute benchmarks at 30M, 60M, 100M, 150M, and 200M gas. It produces only `blockchain_test` fixtures.
+
+One tarball of every gas value exceeds GitHub's 2 GiB release asset limit, so the workflow fills each gas value separately and attaches one tarball per gas value, such as `fixtures_zkevm-benchmark_0060M.tar.gz`. The `gas-benchmark-values` key in `feature.yaml` lists the gas values.
 
 Before upload, the workflow checks the stateless data in each fixture. It also checks the source version and the destination release.
 
@@ -75,7 +77,7 @@ On success the workflow:
 | ---------------- | ------- | ------------- | -------- |
 | `feature=tests version=v24.0.0` | `tests@v24.0.0` | `tests@v24.0.0` | `fixtures.tar.gz` |
 | `feature=bal-devnet version=v7.0.0 branch=devnets/bal/7` | `tests-bal-devnet@v7.0.0` | `tests-bal-devnet@v7.0.0` | `fixtures_bal-devnet.tar.gz` |
-| `feature=zkevm-benchmark version=v0.9.0 branch=tests-zkevm@v0.9.0` | `tests-zkevm-benchmark@v0.9.0` | `tests-zkevm-benchmark@v0.9.0` | `fixtures_zkevm-benchmark.tar.gz` |
+| `feature=zkevm-benchmark version=v0.9.0 branch=tests-zkevm@v0.9.0` | `tests-zkevm-benchmark@v0.9.0` | `tests-zkevm-benchmark@v0.9.0` | `fixtures_zkevm-benchmark_<gas>.tar.gz` (one per gas value) |
 | `feature=frames-devnet version=v0.1.0 branch=eips/amsterdam/eip-8141` | `tests-frames-devnet@v0.1.0` | `tests-frames-devnet@v0.1.0` | `fixtures_frames-devnet.tar.gz` |
 
 The release is created as a draft; review and publish it from the GitHub releases page.
