@@ -8,6 +8,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Initcode,
     Op,
+    Storage,
     Transaction,
 )
 
@@ -56,7 +57,7 @@ def test_double_kill(
             nonce=0,
             balance=0,
             code=b"",
-            storage={},
+            storage=Storage.EMPTY,
         ),
     }
 

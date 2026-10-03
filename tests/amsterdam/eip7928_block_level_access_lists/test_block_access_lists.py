@@ -34,6 +34,7 @@ from execution_testing import (
     Op,
     RecipientType,
     StateTestFiller,
+    Storage,
     Transaction,
     TransactionException,
     TransactionReceipt,
@@ -285,7 +286,7 @@ def test_bal_code_changes(
             factory_contract: Account(nonce=2, balance=0),
             created_contract: Account(
                 code=runtime_code_bytes,
-                storage={},
+                storage=Storage.EMPTY,
                 balance=endowment,
             ),
         },

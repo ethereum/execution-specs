@@ -23,6 +23,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Fork,
     Op,
+    Storage,
     Transaction,
     compute_create2_address,
     compute_create_address,
@@ -298,7 +299,7 @@ def test_create_oog_from_eoa_refunds(
             post[nested_created] = Account(
                 nonce=1,
                 code=b"\x00",
-                storage={},
+                storage=Storage.EMPTY,
             )
         elif refund_type == RefundType.NESTED_CREATE2:
             # nested create2 increments the created contract's nonce to 2
@@ -316,7 +317,7 @@ def test_create_oog_from_eoa_refunds(
             post[nested_created] = Account(
                 nonce=1,
                 code=b"\x00",
-                storage={},
+                storage=Storage.EMPTY,
             )
         else:
             post[created_address] = Account(
