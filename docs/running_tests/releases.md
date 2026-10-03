@@ -29,7 +29,7 @@ and cadence.
 | Tests     | `tests@vX.Y.Z`         | `fixtures.tar.gz`               | All forks, all tests (eventually including `ethereum/tests` state tests)        | latest `forks/*` branch |
 | Devnet    | `<feat>-devnet@vX.Y.Z` | `fixtures_<feat>-devnet.tar.gz` | All forks, all tests, for an upcoming-fork feature under active devnet testing   | the devnet or EIP branch |
 | Benchmark | `benchmark@vX.Y.Z`     | `fixtures_benchmark.tar.gz`     | EVM benchmarking tests                                                          | latest `forks/*` branch |
-| zkEVM benchmark | `zkevm-benchmark@vX.Y.Z` | `fixtures_zkevm-benchmark.tar.gz` | Amsterdam compute benchmarks with [stateless input and output bytes](./test_formats/blockchain_test.md#fixtureblock) | matching `tests-zkevm@vX.Y.Z` tag |
+| zkEVM benchmark | `zkevm-benchmark@vX.Y.Z` | `fixtures_zkevm-benchmark_<gas>.tar.gz`, one per gas value | Amsterdam compute benchmarks with [stateless input and output bytes](./test_formats/blockchain_test.md#fixtureblock) | matching `tests-zkevm@vX.Y.Z` tag |
 
 - "Tests" releases aim to match clients' master branches. Once clients have merged the
   upcoming fork into those branches ahead of a pending client release, the `tests` release
@@ -177,13 +177,13 @@ to release URLs and downloads them. For example:
 uv run consume cache --input=latest  # shorthand for tests@latest
 uv run consume cache --input=tests@latest
 uv run consume cache --input=bal-devnet@v7.0.0
-uv run consume cache --input=zkevm-benchmark@v0.9.0
 ```
 
 Raw tarballs can also be fetched directly with the GitHub CLI:
 
 ```bash
 gh release download tests-bal-devnet@v7.0.0 --repo ethereum/execution-specs --pattern '*.tar.gz'
+gh release download tests-zkevm-benchmark@v0.9.0 --repo ethereum/execution-specs --pattern '*_0060M.tar.gz'
 ```
 
 To create a release, see [Releasing Test Fixtures](../dev/releasing_tests.md).

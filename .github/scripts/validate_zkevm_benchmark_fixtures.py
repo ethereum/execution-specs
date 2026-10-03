@@ -9,7 +9,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, NoReturn
 
 EXPECTED_FORMAT = "blockchain_tests"
-# Keep in sync with the zkevm-benchmark `--gas-benchmark-values` in
+# Keep in sync with the zkevm-benchmark `gas-benchmark-values` in
 # .github/configs/feature.yaml.
 EXPECTED_TARGETS = {
     "for_amsterdam_at_0030M",
