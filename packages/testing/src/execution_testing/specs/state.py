@@ -268,9 +268,17 @@ class StateTest(BaseTest):
             kwargs["gas_limit"] = self.env.gas_limit
 
         if self.env.base_fee_per_gas:
-            # Calculate genesis base fee per gas from state test's block#1 env
+            # Calculate genesis base fee per gas from state test's block#1
+            # env: the empty genesis block lowers the base fee by the fork's
+            # maximum change.
+            numerator, denominator = 1, 8
+            if genesis_fork.header_base_fee_required():
+                numerator = genesis_fork.base_fee_max_change_numerator()
+                denominator = genesis_fork.base_fee_max_change_denominator()
             kwargs["base_fee_per_gas"] = HexNumber(
-                int(str(self.env.base_fee_per_gas), 0) * 8 // 7
+                int(str(self.env.base_fee_per_gas), 0)
+                * denominator
+                // (denominator - numerator)
             )
 
         if self.env.excess_blob_gas:
