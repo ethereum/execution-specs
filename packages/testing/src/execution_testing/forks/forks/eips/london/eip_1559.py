@@ -36,6 +36,11 @@ class EIP1559(BaseFork):
         return [2] + super(EIP1559, cls).contract_creating_tx_types()
 
     @classmethod
+    def base_fee_max_change_numerator(cls) -> int:
+        """Return the base fee max change numerator."""
+        return 1
+
+    @classmethod
     def base_fee_max_change_denominator(cls) -> int:
         """Return the base fee max change denominator."""
         return 8
@@ -73,6 +78,7 @@ class EIP1559(BaseFork):
             expected_base_fee_per_gas = parent_base_fee_per_gas -
                                         base_fee_per_gas_delta
         """
+        base_fee_max_change_numerator = cls.base_fee_max_change_numerator()
         base_fee_max_change_denominator = cls.base_fee_max_change_denominator()
         elasticity_multiplier = cls.base_fee_elasticity_multiplier()
 
@@ -91,6 +97,7 @@ class EIP1559(BaseFork):
                     parent_base_fee_per_gas
                     * gas_used_delta
                     // parent_gas_target
+                    * base_fee_max_change_numerator
                     // base_fee_max_change_denominator,
                     1,
                 )
@@ -101,6 +108,7 @@ class EIP1559(BaseFork):
                     parent_base_fee_per_gas
                     * gas_used_delta
                     // parent_gas_target
+                    * base_fee_max_change_numerator
                     // base_fee_max_change_denominator
                 )
                 return parent_base_fee_per_gas - base_fee_per_gas_delta
@@ -113,6 +121,7 @@ class EIP1559(BaseFork):
         Return a callable that calculates the gas that needs to be used
         to change the base fee.
         """
+        base_fee_max_change_numerator = cls.base_fee_max_change_numerator()
         base_fee_max_change_denominator = cls.base_fee_max_change_denominator()
         elasticity_multiplier = cls.base_fee_elasticity_multiplier()
         base_fee_per_gas_calculator = cls.base_fee_per_gas_calculator()
@@ -137,8 +146,21 @@ class EIP1559(BaseFork):
                         * base_fee_max_change_denominator
                         * parent_gas_target
                     )
-                    // parent_base_fee_per_gas
+                    // (
+                        parent_base_fee_per_gas * base_fee_max_change_numerator
+                    )
                 ) + parent_gas_target
+                # Flooring twice in the forward calculation can leave the
+                # estimate a little short when the numerator is not one.
+                while (
+                    base_fee_per_gas_calculator(
+                        parent_base_fee_per_gas=parent_base_fee_per_gas,
+                        parent_gas_used=parent_gas_used,
+                        parent_gas_limit=parent_gas_limit,
+                    )
+                    < required_base_fee_per_gas
+                ):
+                    parent_gas_used += 1
             elif required_base_fee_per_gas < parent_base_fee_per_gas:
                 base_fee_per_gas_delta = (
                     parent_base_fee_per_gas - required_base_fee_per_gas
@@ -152,10 +174,24 @@ class EIP1559(BaseFork):
                             * base_fee_max_change_denominator
                             * parent_gas_target
                         )
-                        // parent_base_fee_per_gas
+                        // (
+                            parent_base_fee_per_gas
+                            * base_fee_max_change_numerator
+                        )
                     )
                     - 1
                 )
+                # Flooring twice in the forward calculation can leave the
+                # estimate a little short when the numerator is not one.
+                while (
+                    base_fee_per_gas_calculator(
+                        parent_base_fee_per_gas=parent_base_fee_per_gas,
+                        parent_gas_used=parent_gas_used,
+                        parent_gas_limit=parent_gas_limit,
+                    )
+                    > required_base_fee_per_gas
+                ):
+                    parent_gas_used -= 1
 
             assert (
                 base_fee_per_gas_calculator(
