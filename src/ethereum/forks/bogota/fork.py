@@ -104,7 +104,25 @@ from .vm.gas import (
 )
 from .vm.interpreter import TransactionOutput, process_top_level
 
-BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
+BASE_FEE_MAX_CHANGE_NUMERATOR = Uint(5)
+"""
+Numerator of the largest fraction by which the base fee can change from one
+block to the next, used with [`BASE_FEE_MAX_CHANGE_DENOMINATOR`].
+
+Blocks arrive more often from this fork onward, so the maximum change per
+block is lowered to keep the base fee's reaction to congestion, per unit of
+wall-clock time, close to what it was. The fraction is a hard-coded constant:
+the execution layer does not consume the slot duration.
+
+[`BASE_FEE_MAX_CHANGE_DENOMINATOR`]: ref:ethereum.forks.bogota.fork.BASE_FEE_MAX_CHANGE_DENOMINATOR
+"""  # noqa: E501
+BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(48)
+"""
+Denominator of the largest fraction by which the base fee can change from one
+block to the next. See [`BASE_FEE_MAX_CHANGE_NUMERATOR`].
+
+[`BASE_FEE_MAX_CHANGE_NUMERATOR`]: ref:ethereum.forks.bogota.fork.BASE_FEE_MAX_CHANGE_NUMERATOR
+"""  # noqa: E501
 ELASTICITY_MULTIPLIER = Uint(2)
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 SYSTEM_ADDRESS = hex_to_address("0xfffffffffffffffffffffffffffffffffffffffe")
@@ -404,7 +422,9 @@ def calculate_base_fee_per_gas(
         target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
 
         base_fee_per_gas_delta = max(
-            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR,
+            target_fee_gas_delta
+            * BASE_FEE_MAX_CHANGE_NUMERATOR
+            // BASE_FEE_MAX_CHANGE_DENOMINATOR,
             Uint(1),
         )
 
@@ -418,7 +438,9 @@ def calculate_base_fee_per_gas(
         target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
 
         base_fee_per_gas_delta = (
-            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR
+            target_fee_gas_delta
+            * BASE_FEE_MAX_CHANGE_NUMERATOR
+            // BASE_FEE_MAX_CHANGE_DENOMINATOR
         )
 
         expected_base_fee_per_gas = (
