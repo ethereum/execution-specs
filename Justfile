@@ -253,9 +253,6 @@ execute-collect:
     uv run execute remote \
         --collect-only -q \
         --fork "{{ latest_fork }}" \
-        --rpc-endpoint http://127.0.0.1:1 \
-        --rpc-seed-key 0x0000000000000000000000000000000000000000000000000000000000000001 \
-        --rpc-chain-id 1 \
         | tee /dev/stderr | tail -n 3 | grep -qE "$summary_floor"
     uv run execute hive \
         --collect-only -q \
