@@ -6004,7 +6004,7 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    Amsterdam
+    Bogota
 
     Gas: 0 (plus memory expansion)
     """
@@ -6035,7 +6035,7 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    Amsterdam
+    Bogota
 
     Gas: 2
     """
@@ -6066,7 +6066,7 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    Amsterdam
+    Bogota
 
     Gas: 3
     """
@@ -6099,7 +6099,7 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    Amsterdam
+    Bogota
 
     Gas: 3 + 3 * ceil(size / 32) (plus memory expansion)
     """
@@ -6132,7 +6132,7 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    Amsterdam
+    Bogota
 
     Gas: 2
     """
@@ -6164,7 +6164,7 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    Amsterdam
+    Bogota
 
     Gas: 2
     """
@@ -6198,7 +6198,7 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    Amsterdam
+    Bogota
 
     Gas: 3 + 3 * ceil(size / 32) (plus memory expansion)
     """
