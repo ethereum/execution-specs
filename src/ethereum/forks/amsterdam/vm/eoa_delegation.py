@@ -278,8 +278,7 @@ def set_delegation(
         transaction.
 
     """
-    top_level_context = tx_env.top_level_context
-    assert top_level_context is not None and not top_level_context.is_create
+    assert not tx_env.is_create
     tx_state = tx_env.state
     # Authorities a delegation was set for earlier in this transaction.
     accessed_authorities: Set[Address] = set()

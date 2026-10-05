@@ -25,9 +25,6 @@ from ethereum_spec_tools.forks import Hardfork
 W = TypeVar("W", Uint, U64, U256)
 
 EXCEPTION_MAPS = {
-    "Bogota": {
-        "fork_blocks": [("amsterdam", 0)],
-    },
     "FrontierToHomesteadAt5": {
         "fork_blocks": [("frontier", 0), ("homestead", 5)],
     },
@@ -137,16 +134,10 @@ def find_fork(
 # * ``DAOFork`` would snake-case to ``d_a_o_fork``.
 # * ``ConstantinopleFix`` is a testing-side distinction that the spec
 #   folds into the ``constantinople`` module.
-# * ``Bogota`` is a testing-side pseudo-fork that executes with the
-#   ``amsterdam`` spec module until the spec repository grows a
-#   dedicated Bogota fork module.
-# TODO: Remove the ``Bogota`` alias (and its ``EXCEPTION_MAPS`` entry)
-#  once a dedicated ``bogota`` fork module exists in the spec.
 _SPEC_SHORT_NAME_OVERRIDES: Dict[str, str] = {
     "Merge": "paris",
     "DAOFork": "dao_fork",
     "ConstantinopleFix": "constantinople",
-    "Bogota": "amsterdam",
 }
 
 

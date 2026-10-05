@@ -43,10 +43,6 @@ from .spec import Spec, ref_spec_8141
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
-# EIP-8141 is slated for the fork after Amsterdam, so fixtures are
-# labeled with the pseudo `Bogota` fork (Amsterdam + EIP-8141), even
-# though the spec prototypes the EIP inside the Amsterdam fork module.
-# Fill these tests with `--fork Bogota`.
 pytestmark = pytest.mark.valid_from("Bogota")
 
 SLOT_MEASURED_GAS = 0x00

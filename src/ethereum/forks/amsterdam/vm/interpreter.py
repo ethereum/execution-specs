@@ -52,7 +52,6 @@ from ..vm.gas import (
     GasCosts,
     GasMeter,
     StateGasCosts,
-    StateGasReservoir,
     charge_gas,
     charge_state_gas,
     charge_state_gas_from_meter,
@@ -63,15 +62,7 @@ from ..vm.gas import (
     tx_state_gas_used,
 )
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import (
-    BlockEnvironment,
-    Evm,
-    TopLevelContext,
-    TransactionEnvironment,
-    copy_frame_context,
-    emit_transfer_log,
-    restore_frame_context,
-)
+from . import BlockEnvironment, Evm, TransactionEnvironment, emit_transfer_log
 from .eoa_delegation import resolve_delegated_code_address, set_delegation
 from .exceptions import (
     AddressCollision,
@@ -94,16 +85,10 @@ MAX_INIT_CODE_SIZE = 2 * MAX_CODE_SIZE
 @dataclass
 class TransactionOutput:
     """
-    Settled output of a transaction's execution.
+    Settled output of a transaction's top-level call.
 
-    Carry the figures fee settlement and the receipt need, so the EVM
-    frames themselves never leave the interpreter. Produced by
-    [`process_top_level`][ptl] for a transaction's single top-level
-    call, and by [`process_frames`][pf] for a frame transaction's
-    frame sequence.
-
-    [ptl]: ref:ethereum.forks.amsterdam.vm.interpreter.process_top_level
-    [pf]: ref:ethereum.forks.amsterdam.vm.frame_interpreter.process_frames
+    Carry the figures fee settlement and the receipt need, so the
+    frame itself never leaves the interpreter.
     """
 
     gas_left: ExecutionGas
@@ -125,12 +110,7 @@ class TransactionOutput:
     """The output of the execution."""
 
     state_gas_left: StateGas
-    """
-    State gas not charged at settlement: the reservoir remainder for a
-    regular transaction, or the frames' unused state budgets — skipped
-    frames and refill-reduced receipts included — for a frame
-    transaction.
-    """
+    """State gas remaining in the reservoir after execution."""
 
     state_gas_used: int
     """Net state gas consumed; negative when refunds exceed charges."""
@@ -153,7 +133,6 @@ def charge_value_transfer_to_non_alive_account(
 def create_evm(
     block_env: BlockEnvironment,
     tx_env: TransactionEnvironment,
-    top_level_context: TopLevelContext,
     gas_meter: GasMeter,
 ) -> Evm:
     """
@@ -166,11 +145,11 @@ def create_evm(
     the caller to roll back the state and gas the preparation charged
     and settle the transaction without dispatching.
     """
-    current_target = top_level_context.recipient
-    if top_level_context.is_create:
+    current_target = tx_env.recipient
+    if tx_env.is_create:
         call_data = Bytes(b"")
     else:
-        call_data = top_level_context.data
+        call_data = tx_env.data
 
     code_address: Optional[Address] = None
     disable_precompiles = False
@@ -191,7 +170,7 @@ def create_evm(
     accessed_addresses.add(current_target)
 
     ## Resolve dispatch and charge its state-dependent costs
-    if top_level_context.is_create:
+    if tx_env.is_create:
         if not account_deployable(tx_env.state, current_target):
             raise AddressCollision()
 
@@ -201,17 +180,14 @@ def create_evm(
         ):
             charge_state_gas_from_meter(gas_meter, StateGasCosts.NEW_ACCOUNT)
 
-        code = top_level_context.data
+        code = tx_env.data
     else:
         charge_value_transfer_to_non_alive_account(
-            tx_env.state, gas_meter, current_target, top_level_context.value
+            tx_env.state, gas_meter, current_target, tx_env.value
         )
 
         code_address, disable_precompiles = resolve_delegated_code_address(
-            tx_env.state,
-            gas_meter,
-            accessed_addresses,
-            top_level_context.recipient,
+            tx_env.state, gas_meter, accessed_addresses, tx_env.recipient
         )
 
         code = get_code(
@@ -229,7 +205,7 @@ def create_evm(
         # Call Parameters
         caller=tx_env.origin,
         current_target=current_target,
-        value=top_level_context.value,
+        value=tx_env.value,
         call_data=call_data,
         should_transfer_value=True,
         is_static=False,
@@ -282,22 +258,15 @@ def process_top_level(
         The settled output of the top-level execution.
 
     """
-    top_level_context = tx_env.top_level_context
-    assert top_level_context is not None
-    assert tx_env.frame_context is None
-
-    reservoir = StateGasReservoir(
-        state_gas_left=tx_env.state_gas_reservoir,
-        state_gas_baseline=tx_env.state_gas_reservoir,
-    )
     gas_meter = GasMeter(
         gas_left=tx_env.execution_gas_grant,
-        reservoir=reservoir,
+        state_gas_left=tx_env.state_gas_reservoir,
+        state_gas_baseline=tx_env.state_gas_reservoir,
     )
 
     prep_snapshot = copy_tx_state(tx_env.state)
     try:
-        evm = create_evm(block_env, tx_env, top_level_context, gas_meter)
+        evm = create_evm(block_env, tx_env, gas_meter)
     except ExceptionalHalt as halt:
         # The rollback also reverts any applied delegations, so their
         # state gas commit is undone with it: roll state gas back to
@@ -312,13 +281,13 @@ def process_top_level(
             accounts_to_delete=set(),
             error=halt,
             return_data=Bytes(b""),
-            state_gas_left=reservoir.state_gas_left,
+            state_gas_left=gas_meter.state_gas_left,
             state_gas_used=tx_state_gas_used(
                 gas_meter, tx_env.state_gas_reservoir
             ),
         )
 
-    if top_level_context.is_create:
+    if tx_env.is_create:
         process_create(evm)
     else:
         process_call(evm)
@@ -345,7 +314,7 @@ def process_top_level(
         accounts_to_delete=accounts_to_delete,
         error=evm.error,
         return_data=evm.output,
-        state_gas_left=reservoir.state_gas_left,
+        state_gas_left=gas_meter.state_gas_left,
         state_gas_used=tx_state_gas_used(
             gas_meter, tx_env.state_gas_reservoir
         ),
@@ -370,7 +339,6 @@ def process_create(evm: Evm) -> Evm:
     tx_state = evm.tx_env.state
     # take snapshot of state before processing the message
     snapshot = copy_tx_state(tx_state)
-    frame_context_snapshot = copy_frame_context(evm.tx_env)
 
     # If the address where the account is being created has storage, it is
     # destroyed. This can only happen in the following highly unlikely
@@ -411,7 +379,6 @@ def process_create(evm: Evm) -> Evm:
             charge_state_gas(evm, code_deposit_state_gas)
         except ExceptionalHalt as error:
             restore_tx_state(tx_state, snapshot)
-            restore_frame_context(evm.tx_env, frame_context_snapshot)
             # A create frame never applies authorizations, so its
             # baseline is still the frame's entry reservoir.
             restore_state_gas(evm.gas_meter)
@@ -422,7 +389,6 @@ def process_create(evm: Evm) -> Evm:
             set_code(tx_state, evm.current_target, contract_code)
     else:
         restore_tx_state(tx_state, snapshot)
-        restore_frame_context(evm.tx_env, frame_context_snapshot)
     return evm
 
 
@@ -446,7 +412,6 @@ def process_call(evm: Evm) -> Evm:
         raise StackDepthLimitError("Stack depth limit reached")
 
     snapshot = copy_tx_state(tx_state)
-    frame_context_snapshot = copy_frame_context(evm.tx_env)
 
     # Execute message code and handle errors
     try:
@@ -501,5 +466,4 @@ def process_call(evm: Evm) -> Evm:
 
     if evm.error:
         restore_tx_state(tx_state, snapshot)
-        restore_frame_context(evm.tx_env, frame_context_snapshot)
     return evm
