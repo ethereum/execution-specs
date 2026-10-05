@@ -68,6 +68,7 @@ FORK_ORDER = [
     "BPO4",
     "BPO5",
     "Amsterdam",
+    "Bogota",
 ]
 
 FORK_INDEX = {name: i for i, name in enumerate(FORK_ORDER)}
