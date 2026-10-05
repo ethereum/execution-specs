@@ -128,7 +128,6 @@ __all__ = [
     "ArrowGlacier",
     "Berlin",
     "BerlinToLondonAt5",
-    "Bogota",
     "Byzantium",
     "Constantinople",
     "ConstantinopleFix",
