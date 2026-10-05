@@ -1263,6 +1263,22 @@ class BlockchainTest(BaseTest):
                 + "`block.exception`"
             )
 
+        block_exception = transition_tool_output.result.block_exception
+        if (
+            rejected_txs
+            and block_exception is not None
+            and not block.skip_exception_verification
+        ):
+            # The block exception is not verified when a transaction is
+            # rejected, so without this check it would go unnoticed.
+            raise Exception(
+                f"test correctness: block number {int(env.number)} rejects "
+                f"transaction(s) {rejected_txs}, and the transition tool "
+                f"also rejects the block itself ({block_exception}). The "
+                "fixture would carry two defects and name one. Change the "
+                "block so that only the transaction is invalid."
+            )
+
         return built_block
 
     def verify_post_state(
