@@ -516,8 +516,8 @@ Transaction types that include an [EIP-2930]-style access list.
 See [`has_access_list`][hal] and [`Access`][a] for more details.
 
 [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
-[hal]: ref:ethereum.forks.amsterdam.transactions.has_access_list
-[a]: ref:ethereum.forks.amsterdam.transactions.Access
+[hal]: ref:ethereum.forks.bogota.transactions.has_access_list
+[a]: ref:ethereum.forks.bogota.transactions.Access
 """
 
 
@@ -536,8 +536,8 @@ Frame transactions carry the fee parameters nested in their
 See [`FeeMarketTransaction`][fmt] for more details.
 
 [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
-[fmt]: ref:ethereum.forks.amsterdam.transactions.FeeMarketTransaction
-[f]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.FrameTransaction.fees
+[fmt]: ref:ethereum.forks.bogota.transactions.FeeMarketTransaction
+[f]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction.fees
 """  # noqa: E501
 
 
@@ -549,8 +549,8 @@ See [`BlobTransaction`][bt] and [`FrameTransaction`][ftx] for more
 details.
 
 [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
-[bt]: ref:ethereum.forks.amsterdam.transactions.BlobTransaction
-[ftx]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.FrameTransaction
+[bt]: ref:ethereum.forks.bogota.transactions.BlobTransaction
+[ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
 """  # noqa: E501
 
 
@@ -645,8 +645,8 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     the maximum priority fee per gas of a fee market transaction exceeds
     its maximum fee per gas.
 
-    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.vm.gas.GasCosts.TX_MAX_GAS_LIMIT
-    [`TX_MAX_TOTAL_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.vm.gas.GasCosts.TX_MAX_TOTAL_GAS_LIMIT
+    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.bogota.vm.gas.GasCosts.TX_MAX_GAS_LIMIT
+    [`TX_MAX_TOTAL_GAS_LIMIT`]: ref:ethereum.forks.bogota.vm.gas.GasCosts.TX_MAX_TOTAL_GAS_LIMIT
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
