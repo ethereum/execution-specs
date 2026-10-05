@@ -345,6 +345,9 @@ def test_created_coinbase_initcode_selfdestruct_keeps_priority_fee(
     )
 
 
+# The oracle is the coinbase's exact priority fee for the transaction's gas.
+# A frame variant spends different gas, so it cannot reproduce that balance.
+@pytest.mark.frame_tx_incompatible
 @pytest.mark.with_all_create_opcodes
 @pytest.mark.parametrize("value", [0, 1])
 def test_created_coinbase_selfdestruct_keeps_priority_fee(
