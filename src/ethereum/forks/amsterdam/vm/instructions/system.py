@@ -41,13 +41,11 @@ from ..gas import (
     GasCosts,
     GasMeter,
     StateGasCosts,
-    StateGasReservoir,
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
     charge_state_gas,
     check_gas,
-    credit_frame_state_gas_refund,
     credit_state_gas_refund,
     drain_state_gas_reservoir,
     init_code_cost,
@@ -122,21 +120,11 @@ def generic_create(
         push(evm.stack, U256(0))
         return
 
-    # In the reservoir model the whole reservoir rides along (no 63/64
-    # rule for state gas) and is restored when the child returns. A
-    # frame transaction's state gas pool is frame-scoped on the frame
-    # context, so there is nothing to hand down: the child's meter
-    # carries no reservoir either.
-    if evm.gas_meter.reservoir is None:
-        child_reservoir = None
-    else:
-        create_message_state_gas_reservoir = drain_state_gas_reservoir(
-            evm.gas_meter
-        )
-        child_reservoir = StateGasReservoir(
-            state_gas_left=create_message_state_gas_reservoir,
-            state_gas_baseline=create_message_state_gas_reservoir,
-        )
+    # The whole state gas reservoir rides along (no 63/64 rule for
+    # state gas) and is restored when the child returns.
+    create_message_state_gas_reservoir = drain_state_gas_reservoir(
+        evm.gas_meter
+    )
 
     increment_nonce(tx_state, sender_address)
 
@@ -163,7 +151,8 @@ def generic_create(
         # Machine State
         gas_meter=GasMeter(
             gas_left=create_message_gas,
-            reservoir=child_reservoir,
+            state_gas_left=create_message_state_gas_reservoir,
+            state_gas_baseline=create_message_state_gas_reservoir,
         ),
         pc=Uint(0),
         stack=[],
@@ -184,23 +173,11 @@ def generic_create(
     # OUTCOME
     # The child settled its own gas; absorb it and resolve the
     # account-creation charge by the state's fate: it refills when a
-    # charged creation died with the failed child — to the meter's
-    # reservoir, or to the executing frame that paid it.
+    # charged creation failed.
     incorporate_child(evm, child_evm)
     if child_evm.error:
         if new_account_charged:
-            if evm.gas_meter.reservoir is not None:
-                credit_state_gas_refund(
-                    evm.gas_meter, StateGasCosts.NEW_ACCOUNT
-                )
-            else:
-                frame_context = evm.tx_env.frame_context
-                assert frame_context is not None
-                credit_frame_state_gas_refund(
-                    frame_context,
-                    frame_context.current_frame_index,
-                    StateGasCosts.NEW_ACCOUNT,
-                )
+            credit_state_gas_refund(evm.gas_meter, StateGasCosts.NEW_ACCOUNT)
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
@@ -369,6 +346,7 @@ class GenericCall:
     """
 
     gas: ExecutionGas
+    state_gas_reservoir: StateGas
     value: U256
     caller: Address
     to: Address
@@ -394,10 +372,9 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
     Run the child-frame lifecycle for the `CALL*` family of opcodes.
 
     The opcode has already priced the call and withheld the child's
-    execution gas grant; this function only runs the lifecycle:
-    preflight checks that abort without spawning, the state dimension's
-    hand-down, the child frame itself, and the resolution of its
-    outcome back into the calling frame.
+    grant; this function only runs the lifecycle: preflight checks
+    that abort without spawning, the child frame itself, and the
+    resolution of its outcome back into the calling frame.
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_call
     from ...vm.runtime import get_valid_jump_destinations
@@ -405,41 +382,16 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
     evm.return_data = b""
 
     # PREFLIGHT
-    # Abort without spawning the child: the execution gas grant returns
-    # untouched and any account-creation charge refills — to the
-    # meter's reservoir, or to the executing frame that just paid it.
+    # Abort without spawning the child: both grants return untouched
+    # and any account-creation charge refills.
     if evm.depth + Uint(1) > STACK_DEPTH_LIMIT or params.insufficient_balance:
-        restore_child_gas(evm.gas_meter, params.gas)
+        restore_child_gas(
+            evm.gas_meter, params.gas, params.state_gas_reservoir
+        )
         if params.new_account_charged:
-            if evm.gas_meter.reservoir is not None:
-                credit_state_gas_refund(
-                    evm.gas_meter, StateGasCosts.NEW_ACCOUNT
-                )
-            else:
-                frame_context = evm.tx_env.frame_context
-                assert frame_context is not None
-                credit_frame_state_gas_refund(
-                    frame_context,
-                    frame_context.current_frame_index,
-                    StateGasCosts.NEW_ACCOUNT,
-                )
+            credit_state_gas_refund(evm.gas_meter, StateGasCosts.NEW_ACCOUNT)
         push(evm.stack, U256(0))
         return
-
-    # CHILD GRANT (STATE DIMENSION)
-    # In the reservoir model the whole reservoir rides along (no 63/64
-    # rule for state gas) and is restored when the child returns. A
-    # frame transaction's state gas pool is frame-scoped on the frame
-    # context, so there is nothing to hand down: the child's meter
-    # carries no reservoir either.
-    if evm.gas_meter.reservoir is None:
-        child_reservoir = None
-    else:
-        call_state_gas_reservoir = drain_state_gas_reservoir(evm.gas_meter)
-        child_reservoir = StateGasReservoir(
-            state_gas_left=call_state_gas_reservoir,
-            state_gas_baseline=call_state_gas_reservoir,
-        )
 
     # DISPATCH
     call_data = memory_read_bytes(
@@ -469,7 +421,8 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
         # Machine State
         gas_meter=GasMeter(
             gas_left=params.gas,
-            reservoir=child_reservoir,
+            state_gas_left=params.state_gas_reservoir,
+            state_gas_baseline=params.state_gas_reservoir,
         ),
         pc=Uint(0),
         stack=[],
@@ -490,24 +443,12 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
 
     # OUTCOME
     # The child settled its own gas; absorb it and resolve the
-    # account-creation charge by the state's fate: it refills when a
-    # charged creation died with the failed child.
+    # account-creation charge by the state's fate.
     incorporate_child(evm, child_evm)
     evm.return_data = child_evm.output
     if child_evm.error:
         if params.new_account_charged:
-            if evm.gas_meter.reservoir is not None:
-                credit_state_gas_refund(
-                    evm.gas_meter, StateGasCosts.NEW_ACCOUNT
-                )
-            else:
-                frame_context = evm.tx_env.frame_context
-                assert frame_context is not None
-                credit_frame_state_gas_refund(
-                    frame_context,
-                    frame_context.current_frame_index,
-                    StateGasCosts.NEW_ACCOUNT,
-                )
+            credit_state_gas_refund(evm.gas_meter, StateGasCosts.NEW_ACCOUNT)
         push(evm.stack, U256(0))
     else:
         push(evm.stack, CALL_SUCCESS)
@@ -606,8 +547,8 @@ def call(evm: Evm) -> None:
 
     # CHILD GRANT
     # Computed after every charge above, so any state-gas spill has
-    # already thinned `gas_left`. The state dimension is handed down
-    # in `generic_call`.
+    # already thinned `gas_left`. The whole reservoir rides along (no
+    # 63/64 rule for state gas).
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
@@ -616,6 +557,7 @@ def call(evm: Evm) -> None:
         extra_gas=GasCosts.ZERO,
     )
     charge_gas(evm, message_call_gas.cost)
+    call_state_gas_reservoir = drain_state_gas_reservoir(evm.gas_meter)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -625,6 +567,7 @@ def call(evm: Evm) -> None:
         evm,
         GenericCall(
             gas=message_call_gas.sub_call,
+            state_gas_reservoir=call_state_gas_reservoir,
             value=value,
             caller=evm.current_target,
             to=to,
@@ -718,8 +661,8 @@ def callcode(evm: Evm) -> None:
 
     # CHILD GRANT
     # Charge the call's cost and withhold the child's execution gas
-    # share in one step. The state dimension is handed down in
-    # `generic_call`.
+    # share in one step. The whole reservoir rides along (no 63/64
+    # rule for state gas).
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
@@ -728,6 +671,7 @@ def callcode(evm: Evm) -> None:
         extra_gas,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+    call_state_gas_reservoir = drain_state_gas_reservoir(evm.gas_meter)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -737,6 +681,7 @@ def callcode(evm: Evm) -> None:
         evm,
         GenericCall(
             gas=message_call_gas.sub_call,
+            state_gas_reservoir=call_state_gas_reservoir,
             value=value,
             caller=evm.current_target,
             to=to,
@@ -896,8 +841,8 @@ def delegatecall(evm: Evm) -> None:
 
     # CHILD GRANT
     # Charge the call's cost and withhold the child's execution gas
-    # share in one step. The state dimension is handed down in
-    # `generic_call`.
+    # share in one step. The whole reservoir rides along (no 63/64
+    # rule for state gas).
     message_call_gas = calculate_message_call_gas(
         U256(0),
         gas,
@@ -906,6 +851,7 @@ def delegatecall(evm: Evm) -> None:
         extra_gas,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+    call_state_gas_reservoir = drain_state_gas_reservoir(evm.gas_meter)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -913,6 +859,7 @@ def delegatecall(evm: Evm) -> None:
         evm,
         GenericCall(
             gas=message_call_gas.sub_call,
+            state_gas_reservoir=call_state_gas_reservoir,
             value=evm.value,
             caller=evm.caller,
             to=evm.current_target,
@@ -996,8 +943,8 @@ def staticcall(evm: Evm) -> None:
 
     # CHILD GRANT
     # Charge the call's cost and withhold the child's execution gas
-    # share in one step. The state dimension is handed down in
-    # `generic_call`.
+    # share in one step. The whole reservoir rides along (no 63/64
+    # rule for state gas).
     message_call_gas = calculate_message_call_gas(
         U256(0),
         gas,
@@ -1006,6 +953,7 @@ def staticcall(evm: Evm) -> None:
         extra_gas,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+    call_state_gas_reservoir = drain_state_gas_reservoir(evm.gas_meter)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -1013,6 +961,7 @@ def staticcall(evm: Evm) -> None:
         evm,
         GenericCall(
             gas=message_call_gas.sub_call,
+            state_gas_reservoir=call_state_gas_reservoir,
             value=U256(0),
             caller=evm.current_target,
             to=to,
