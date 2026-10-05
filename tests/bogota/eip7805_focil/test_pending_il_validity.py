@@ -20,7 +20,7 @@ from execution_testing.test_types.transaction_types import (
 )
 
 from ethereum.crypto.elliptic_curve import SECP256K1N
-from ethereum.forks.amsterdam.transactions import VERSIONED_HASH_VERSION_KZG
+from ethereum.forks.bogota.transactions import VERSIONED_HASH_VERSION_KZG
 
 from .spec import ref_spec_7805
 
