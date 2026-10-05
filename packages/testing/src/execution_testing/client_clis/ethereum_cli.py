@@ -143,6 +143,7 @@ class EthereumCLI:
             )
             # adding more logging reveals we check for `-v` twice..
 
+            matched = None
             try:
                 result = subprocess.run(
                     [binary, version_flag],
@@ -180,14 +181,15 @@ class EthereumCLI:
                 for subclass in subclasses:
                     logger.debug(f"Trying subclass {subclass}")
                     try:
-                        if subclass.detect_binary(binary_output, binary):
-                            subclass_check_result = subclass(
-                                binary=binary, **kwargs
-                            )
-                            return subclass_check_result
+                        detected = subclass.detect_binary(
+                            binary_output, binary
+                        )
                     except Exception as e:
                         logger.debug(f"{subclass} cannot detect: {e}")
                         continue
+                    if detected:
+                        matched = subclass
+                        break
 
                     logger.debug(
                         f"T8n with version {binary_output} does not "
@@ -200,6 +202,11 @@ class EthereumCLI:
                     f"`{version_flag}` failed: {e}"
                 )
                 continue
+
+            # Built outside the try blocks, so a matched tool that can't be
+            # constructed raises its own error instead of Unknown CLI.
+            if matched is not None:
+                return matched(binary=binary, **kwargs)
 
         raise UnknownCLIError(f"Unknown CLI: {binary}")
 
