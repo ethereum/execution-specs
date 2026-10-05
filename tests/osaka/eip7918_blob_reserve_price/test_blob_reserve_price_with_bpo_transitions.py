@@ -257,7 +257,7 @@ def parent_block_txs(
         block_base_fee_per_gas=parent_base_fee_per_gas * 10,
         tx_max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
     )
-    required_gas_used = fork.transitions_from().base_fee_change_calculator()(
+    required_gas_used = fork.transitions_to().base_fee_change_calculator()(
         parent_gas_limit=env.gas_limit,
         parent_base_fee_per_gas=parent_base_fee_per_gas,
         required_base_fee_per_gas=transition_block_base_fee_per_gas,

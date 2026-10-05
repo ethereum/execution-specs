@@ -20,6 +20,7 @@ from execution_testing import (
     Hash,
     Header,
     Op,
+    RecipientType,
     Transaction,
     TransitionFork,
     add_kzg_version,
@@ -88,6 +89,12 @@ def pre_fork_blocks(
 ) -> List[Block]:
     """Generate blocks to reach the fork."""
     blocks = []
+    # The first blob transaction creates the destination account.
+    account_creation_gas = (
+        fork.transitions_from().transaction_top_frame_state_gas(
+            sends_value=True, recipient_type=RecipientType.EMPTY_ACCOUNT
+        )
+    )
 
     for t in range(999, FORK_TIMESTAMP, 1_000):
         remaining_gas = block_gas_limit // 2
@@ -117,7 +124,8 @@ def pre_fork_blocks(
 
         while remaining_blobs > 0:
             tx_blobs = min(remaining_blobs, max_blobs_per_tx)
-            blob_tx_gas_limit = 21_000
+            blob_tx_gas_limit = 21_000 + account_creation_gas
+            account_creation_gas = 0
             txs.append(
                 Transaction(
                     ty=Spec.BLOB_TX_TYPE,
@@ -237,6 +245,7 @@ def fork_block_excess_blob_gas(
 def post_fork_blocks(
     destination_account: Address,
     post_fork_block_count: int,
+    pre_fork_blobs_per_block: int,
     post_fork_blobs_per_block: int,
     fork_block_excess_blob_gas: int,
     sender: EOA,
@@ -245,6 +254,15 @@ def post_fork_blocks(
 ) -> list[Block]:
     """Generate blocks after the fork."""
     blocks = []
+    # Without pre-fork blob transactions, the first post-fork one creates the
+    # destination account.
+    account_creation_gas = 0
+    if pre_fork_blobs_per_block == 0:
+        account_creation_gas = (
+            fork.transitions_to().transaction_top_frame_state_gas(
+                sends_value=True, recipient_type=RecipientType.EMPTY_ACCOUNT
+            )
+        )
 
     for i in range(post_fork_block_count):
         if post_fork_blobs_per_block == 0:
@@ -273,7 +291,7 @@ def post_fork_blocks(
                     ty=Spec.BLOB_TX_TYPE,
                     to=destination_account,
                     value=1,
-                    gas_limit=100_000,
+                    gas_limit=100_000 + account_creation_gas,
                     max_fee_per_gas=1_000_000,
                     max_priority_fee_per_gas=10,
                     max_fee_per_blob_gas=100,
@@ -284,6 +302,7 @@ def post_fork_blocks(
                     sender=sender,
                 )
             )
+            account_creation_gas = 0
             blob_index += tx_blobs
             remaining_blobs -= tx_blobs
 
