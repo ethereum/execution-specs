@@ -83,6 +83,7 @@ class StateTestProvider(Provider):
             if address == self.transaction_response.sender:
                 account_data["nonce"] = self.transaction_response.nonce
 
+            account_data.pop("codeHash", None)
             pre_state[address] = Account(**account_data)
         return pre_state
 
@@ -90,8 +91,9 @@ class StateTestProvider(Provider):
         assert self.transaction_response is not None
         # Validate the RPC TransactionHashResponse and convert it to a
         # Transaction instance.
+        dumped = self.transaction_response.model_dump()
         return Transaction.model_validate(
-            self.transaction_response.model_dump()
+            {k: v for k, v in dumped.items() if k in Transaction.model_fields}
         )
 
     def get_context(self) -> Dict[str, Any]:

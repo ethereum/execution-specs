@@ -34,8 +34,10 @@ class RPCRequest:
         node_config = EnvConfig().remote_nodes[0]
         self.node_url = str(node_config.node_url)
         headers = node_config.rpc_headers
-        self.rpc = EthRPC(node_config.node_url, extra_headers=headers)
-        self.debug_rpc = DebugRPC(node_config.node_url, extra_headers=headers)
+        self.rpc = EthRPC(node_config.node_url)
+        self.debug_rpc = DebugRPC(node_config.node_url)
+        self.rpc.session.headers.update(headers)
+        self.debug_rpc.session.headers.update(headers)
 
     def eth_get_transaction_by_hash(
         self, transaction_hash: Hash
