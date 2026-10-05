@@ -14,6 +14,7 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, final
 
+from ethereum_rlp import exceptions as rlp_exceptions
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.frozen import slotted_freezable
@@ -225,7 +226,11 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     return recent_block_hashes
 
 
-def state_transition(chain: BlockChain, block: Block) -> None:
+def state_transition(
+    chain: BlockChain,
+    block: Block,
+    inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...] = (),
+) -> None:
     """
     Attempts to apply a block to an existing block chain.
 
@@ -246,6 +251,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         History and current state.
     block :
         Block to apply to `chain`.
+    inclusion_list_transactions :
+        Inclusion list transactions against which the block will be checked.
 
     """
     chain_context = ChainContext(
@@ -254,7 +261,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         parent_header=chain.blocks[-1].header,
     )
 
-    block_diff = execute_block(block, chain.state, chain_context)
+    block_diff = execute_block(
+        block, chain.state, chain_context, inclusion_list_transactions
+    )
 
     apply_changes_to_state(chain.state, block_diff)
     chain.blocks.append(block)
@@ -268,6 +277,7 @@ def execute_block(
     block: Block,
     pre_state: State,
     chain_context: ChainContext,
+    inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...] = (),
 ) -> BlockDiff:
     """
     Execute a block and validate the resulting roots against the header.
@@ -282,6 +292,8 @@ def execute_block(
         Pre-execution state provider.
     chain_context :
         Chain context that the block may need during execution.
+    inclusion_list_transactions :
+        Inclusion list transactions against which the block will be checked.
 
     Returns
     -------
@@ -320,6 +332,7 @@ def execute_block(
         block_env=block_env,
         transactions=block.transactions,
         withdrawals=block.withdrawals,
+        inclusion_list_transactions=inclusion_list_transactions,
     )
     block_diff = extract_block_diff(block_state)
     block_state_root = pre_state.compute_state_root(block_diff)
@@ -784,6 +797,7 @@ def apply_body(
     block_env: vm.BlockEnvironment,
     transactions: Tuple[LegacyTransaction | Bytes, ...],
     withdrawals: Tuple[Withdrawal, ...],
+    inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...],
 ) -> vm.BlockOutput:
     """
     Executes a block.
@@ -803,6 +817,8 @@ def apply_body(
         Transactions included in the block.
     withdrawals :
         Withdrawals to be processed in the current block.
+    inclusion_list_transactions :
+        Inclusion list transactions against which the block will be checked.
 
     Returns
     -------
@@ -826,6 +842,14 @@ def apply_body(
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
         process_transaction(block_env, block_output, tx, Uint(i))
+
+    # Check if the block satisfies the inclusion list constraints (EIP-7805)
+    block_output.inclusion_list_satisfied = check_inclusion_list_transactions(
+        block_env=block_env,
+        block_output=block_output,
+        transactions=transactions,
+        inclusion_list_transactions=inclusion_list_transactions,
+    )
 
     # EIP-7928: Post-execution operations use index N+1
     block_env.block_access_list_builder.block_access_index = BlockAccessIndex(
@@ -1151,5 +1175,72 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
         return False
     if gas_limit < GasCosts.LIMIT_MINIMUM:
         return False
+
+    return True
+
+
+def check_inclusion_list_transactions(
+    block_env: vm.BlockEnvironment,
+    block_output: vm.BlockOutput,
+    transactions: Tuple[LegacyTransaction | Bytes, ...],
+    inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...],
+) -> bool:
+    """
+    Check whether the block satisfies the inclusion list constraints.
+
+    For each inclusion list transaction not present in the block,
+    check whether it could have been validly appended to the end of the block.
+    Blob transactions are excluded from this check. If any such transaction
+    could have been appended, the block fails the inclusion list check.
+
+    The inclusion list compliance does not affect any other block outputs.
+
+    Parameters
+    ----------
+    block_env :
+        The block scoped environment.
+    block_output :
+        The block output for the current block.
+    transactions :
+        Transactions included in the block.
+    inclusion_list_transactions :
+        Inclusion list transactions against which the block will be checked.
+
+    Returns
+    -------
+    inclusion_list_satisfied : `bool`
+        True if the block passes the inclusion list check, False otherwise.
+
+    """
+    tx_hashes = {get_transaction_hash(raw_tx) for raw_tx in transactions}
+
+    for raw_tx in inclusion_list_transactions:
+        if get_transaction_hash(raw_tx) in tx_hashes:
+            continue
+
+        try:
+            tx = decode_transaction(raw_tx)
+        except EthereumException:
+            continue
+        except rlp_exceptions.DecodingError:
+            continue
+
+        try:
+            tx_chain_id = chain_id(tx)
+            if tx_chain_id is not None and tx_chain_id != block_env.chain_id:
+                continue
+            sender = recover_sender(tx)
+            validate_transaction(tx, sender)
+            check_transaction(
+                block_env=block_env,
+                block_output=block_output,
+                tx=tx,
+                index=ulen(transactions),
+            )
+        except EthereumException:
+            continue
+        else:
+            # This inclusion list transaction could have been included.
+            return False
 
     return True
