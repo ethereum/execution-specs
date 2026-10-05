@@ -93,11 +93,8 @@ jobs:
           - label: shanghai-cancun
             from_fork: Shanghai
             until_fork: Cancun
-          - label: prague
+          - label: prague-osaka
             from_fork: Prague
-            until_fork: Prague
-          - label: osaka
-            from_fork: Osaka
             until_fork: Osaka
           - label: amsterdam
             from_fork: Amsterdam
