@@ -12,15 +12,11 @@ passing fixture says the code appeared at the fork block, that nothing
 else about the account changed, and that the install left no trace in the
 block access list. It says nothing about the rest of the transition.
 
-A transition test that exercises pre-fork Amsterdam behaviour is not
-possible yet. EIP-8141 is implemented inside the `amsterdam` spec package,
-and `Bogota` is a test-side label for it rather than a separate fork
-module, so the transition tool runs every block of a transition fixture
-with EIP-8141 enabled, the pre-fork blocks included. These tests work
-because their pre-fork blocks contain nothing Amsterdam and Bogota
-disagree on: a plain transfer and an `EXTCODESIZE` probe. Anything that
-needs the pre-fork rules, such as a frame transaction being rejected
-before the fork, has to wait for a dedicated `bogota` spec package.
+The pre-fork blocks run under the `amsterdam` spec module, which has no
+frame transactions, and the post-fork blocks under `bogota`, so the
+transition tool applies each side's own rules. These tests keep their
+pre-fork blocks to a plain transfer and an `EXTCODESIZE` probe. A frame
+transaction being rejected before the fork is not covered here yet.
 """
 
 import pytest
