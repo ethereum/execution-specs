@@ -10,7 +10,7 @@ from ethereum.cancun.blocks import Withdrawal
 
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
-from ethereum.forks.amsterdam.transactions.frame_transaction import (
+from ethereum.forks.bogota.transactions.frame_transaction import (
     FrameMode,
 )
 from ethereum.trace import EvmTracer
@@ -43,7 +43,7 @@ Withdrawal.validator_index
 # src/ethereum/fork_criteria.py
 Unscheduled
 
-# src/ethereum/forks/amsterdam/transactions/frame_transaction.py -
+# src/ethereum/forks/bogota/transactions/frame_transaction.py -
 # constructed while decoding transactions, never compared explicitly
 FrameMode.DEFAULT
 

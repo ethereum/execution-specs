@@ -169,13 +169,13 @@ packages = [
     "ethereum.forks.bpo5.vm.precompiled_contracts",
     "ethereum.forks.bpo5.vm.precompiled_contracts.bls12_381",
     "ethereum.forks.amsterdam",
-    "ethereum.forks.amsterdam.transactions",
     "ethereum.forks.amsterdam.utils",
     "ethereum.forks.amsterdam.vm",
     "ethereum.forks.amsterdam.vm.instructions",
     "ethereum.forks.amsterdam.vm.precompiled_contracts",
     "ethereum.forks.amsterdam.vm.precompiled_contracts.bls12_381",
     "ethereum.forks.bogota",
+    "ethereum.forks.bogota.transactions",
     "ethereum.forks.bogota.utils",
     "ethereum.forks.bogota.vm",
     "ethereum.forks.bogota.vm.instructions",
@@ -307,11 +307,6 @@ omit = [
     "*/ethereum/forks/*_glacier/*",
     "*/ethereum/forks/dao_fork/*",
     "*/ethereum/forks/bpo*/*",
-    # TODO: Only the EIP-8141 frame transaction tests fill for Amsterdam
-    #  (under the ``Bogota`` pseudo-fork), so the coverage-gated jobs stop
-    #  short of it (``FILL_UNTIL: Osaka``). Remove this entry as the test
-    #  run is expanded to Amsterdam in subsequent PRs.
-    "*/ethereum/forks/amsterdam/*",
 ]
 
 [tool.coverage.report]

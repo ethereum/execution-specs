@@ -1673,15 +1673,10 @@ class Amsterdam(
 
 
 class Bogota(
-    eips.EIP8141,
+    BogotaEIPs,
     Amsterdam,
     deployed=False,
 ):
-    """
-    Pseudo Bogota fork.
-    For testing purposes only. Labels fixtures for features slated for the
-    fork after Amsterdam while the specs repository has no dedicated Bogota
-    fork module yet; execution uses the Amsterdam spec module.
-    """
+    """Bogota fork."""
 
     pass
