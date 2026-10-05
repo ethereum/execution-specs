@@ -7,6 +7,8 @@ From the fork onward, the maximum per-block base fee change is
 multiplication performed before the division.
 """
 
+from typing import List
+
 import pytest
 from execution_testing import (
     Alloc,
@@ -16,25 +18,33 @@ from execution_testing import (
     Environment,
     Fork,
     Header,
+    ParameterSet,
 )
 
 from .helpers import BLOCK_GAS_LIMIT, gas_spending_transactions
-from .spec import Spec, ref_spec_8198
+from .spec import ref_spec_8198
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8198.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8198.version
 
 pytestmark = pytest.mark.valid_from("EIP8198")
 
-GAS_TARGET = BLOCK_GAS_LIMIT // Spec.ELASTICITY_MULTIPLIER
 
-GAS_USED_CASES = [
-    pytest.param(0, id="empty"),
-    pytest.param(GAS_TARGET - 1, id="target_minus_one"),
-    pytest.param(GAS_TARGET, id="at_target"),
-    pytest.param(GAS_TARGET + 1, id="target_plus_one"),
-    pytest.param(BLOCK_GAS_LIMIT, id="full"),
-]
+def gas_used_cases(fork: Fork) -> List[ParameterSet]:
+    """Return the parent gas used values around the fork's gas target."""
+    gas_target = BLOCK_GAS_LIMIT // fork.base_fee_elasticity_multiplier()
+    return [
+        pytest.param(0, id="empty"),
+        pytest.param(gas_target - 1, id="target_minus_one"),
+        pytest.param(gas_target, id="at_target"),
+        pytest.param(gas_target + 1, id="target_plus_one"),
+        pytest.param(BLOCK_GAS_LIMIT, id="full"),
+        # At 20 wei these differ from a single division by the combined
+        # denominator, which flooring once more would round up.
+        pytest.param(100_000, id="near_empty"),
+        pytest.param(BLOCK_GAS_LIMIT - 100_000, id="near_full"),
+    ]
+
 
 BASE_FEE_CASES = [
     # At or below 9 wei an empty block no longer lowers the base fee.
@@ -49,41 +59,29 @@ BASE_FEE_CASES = [
 ]
 
 
-def next_base_fee(
-    parent_base_fee_per_gas: int,
-    parent_gas_used: int,
-    parent_gas_limit: int = BLOCK_GAS_LIMIT,
-) -> int:
-    """Return the base fee of a block under the fork's update rule."""
-    return Spec.next_base_fee(
-        parent_base_fee_per_gas=parent_base_fee_per_gas,
-        parent_gas_used=parent_gas_used,
-        parent_gas_limit=parent_gas_limit,
-        numerator=Spec.BASE_FEE_MAX_CHANGE_NUMERATOR,
-        denominator=Spec.BASE_FEE_MAX_CHANGE_DENOMINATOR,
-    )
-
-
-def genesis_base_fee_for(base_fee_per_gas: int) -> int:
+def genesis_base_fee_for(fork: Fork, base_fee_per_gas: int) -> int:
     """
     Return a genesis base fee from which the first block, built on the empty
     genesis block, has exactly `base_fee_per_gas`.
     """
-    lowest = (
-        base_fee_per_gas
-        * Spec.BASE_FEE_MAX_CHANGE_DENOMINATOR
-        // (
-            Spec.BASE_FEE_MAX_CHANGE_DENOMINATOR
-            - Spec.BASE_FEE_MAX_CHANGE_NUMERATOR
-        )
-    )
+    base_fee_per_gas_calculator = fork.base_fee_per_gas_calculator()
+    numerator = fork.base_fee_max_change_numerator()
+    denominator = fork.base_fee_max_change_denominator()
+    lowest = base_fee_per_gas * denominator // (denominator - numerator)
     for candidate in range(max(lowest - 2, base_fee_per_gas), lowest + 50):
-        if next_base_fee(candidate, 0) == base_fee_per_gas:
+        if (
+            base_fee_per_gas_calculator(
+                parent_base_fee_per_gas=candidate,
+                parent_gas_used=0,
+                parent_gas_limit=BLOCK_GAS_LIMIT,
+            )
+            == base_fee_per_gas
+        ):
             return candidate
     raise AssertionError(f"no genesis base fee yields {base_fee_per_gas}")
 
 
-@pytest.mark.parametrize("parent_gas_used", GAS_USED_CASES)
+@pytest.mark.parametrize_by_fork("parent_gas_used", gas_used_cases)
 @pytest.mark.parametrize("parent_base_fee_per_gas", BASE_FEE_CASES)
 def test_base_fee_update(
     blockchain_test: BlockchainTestFiller,
@@ -95,18 +93,17 @@ def test_base_fee_update(
     """
     Check the base fee of a block after a parent that used `parent_gas_used`
     gas at `parent_base_fee_per_gas`.
-
-    The cases cover the largest increase (full parent), the largest decrease
-    (empty parent), no change (parent at target), the smallest changes either
-    side of the target, and small base fees where the one-wei floor on
-    increases and the truncation of decreases apply.
     """
     sender = pre.fund_eoa()
     genesis_environment = Environment(
         gas_limit=BLOCK_GAS_LIMIT,
-        base_fee_per_gas=genesis_base_fee_for(parent_base_fee_per_gas),
+        base_fee_per_gas=genesis_base_fee_for(fork, parent_base_fee_per_gas),
     )
-    expected_base_fee = next_base_fee(parent_base_fee_per_gas, parent_gas_used)
+    expected_base_fee = fork.base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=parent_base_fee_per_gas,
+        parent_gas_used=parent_gas_used,
+        parent_gas_limit=BLOCK_GAS_LIMIT,
+    )
     blocks = [
         Block(
             txs=gas_spending_transactions(
@@ -161,9 +158,13 @@ def test_invalid_base_fee(
     sender = pre.fund_eoa()
     genesis_environment = Environment(
         gas_limit=BLOCK_GAS_LIMIT,
-        base_fee_per_gas=genesis_base_fee_for(parent_base_fee_per_gas),
+        base_fee_per_gas=genesis_base_fee_for(fork, parent_base_fee_per_gas),
     )
-    expected_base_fee = next_base_fee(parent_base_fee_per_gas, parent_gas_used)
+    expected_base_fee = fork.base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=parent_base_fee_per_gas,
+        parent_gas_used=parent_gas_used,
+        parent_gas_limit=BLOCK_GAS_LIMIT,
+    )
     blocks = [
         Block(
             txs=gas_spending_transactions(

@@ -26,6 +26,12 @@ transaction can bring a block to its target, and two can fill it.
 MAX_FEE_PER_GAS = 10**12
 """Maximum fee per gas that covers every base fee the tests reach."""
 
+BLOB_COUNT_ERRORS = [
+    TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED,
+    TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED,
+]
+"""Errors a block or transaction over the blob limit may be rejected with."""
+
 
 def gas_spending_transactions(
     *,

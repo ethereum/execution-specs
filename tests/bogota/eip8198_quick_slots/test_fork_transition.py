@@ -2,13 +2,9 @@
 Fork transition tests for
 [EIP-8198: Quick Slots](https://eips.ethereum.org/EIPS/eip-8198).
 
-The fork changes the base fee update rule and the blob schedule, and leaves
-the gas limit adjustment rule untouched. The first block of the fork already
-follows the new rules, computed from its pre-fork parent.
-
-Blocks before the fork are spaced twelve seconds apart and blocks from the
-fork onward ten seconds apart, as on a network that shortens its slots. The
-execution layer does not depend on the spacing.
+Blocks are spaced twelve seconds apart before the fork and ten seconds after
+it, as on a network that shortens its slots. The execution layer does not
+depend on the spacing.
 """
 
 from typing import List
@@ -28,6 +24,7 @@ from execution_testing import (
 )
 
 from .helpers import (
+    BLOB_COUNT_ERRORS,
     BLOCK_GAS_LIMIT,
     blob_transactions,
     gas_spending_transactions,
@@ -39,7 +36,7 @@ REFERENCE_SPEC_VERSION = ref_spec_8198.version
 
 pytestmark = pytest.mark.valid_at_transition_to("EIP8198")
 
-FORK_TIMESTAMP = Spec.FORK_TIMESTAMP
+FORK_TIMESTAMP = 15_000
 BLOCK_TIMESTAMPS = [
     FORK_TIMESTAMP - 24,
     FORK_TIMESTAMP - 12,
@@ -50,8 +47,6 @@ BLOCK_TIMESTAMPS = [
 
 FORK_BLOCK_INDEX = BLOCK_TIMESTAMPS.index(FORK_TIMESTAMP)
 
-GAS_TARGET = BLOCK_GAS_LIMIT // Spec.ELASTICITY_MULTIPLIER
-
 GENESIS_BASE_FEE_PER_GAS = 10**9
 
 BLOB_BASE_FEE_PER_GAS = 7
@@ -61,16 +56,11 @@ reserve price inactive and does not move, since blocks stay well below
 their gas target.
 """
 
-GENESIS_EXCESS_BLOB_GAS = 300 * Spec.GAS_PER_BLOB
+GENESIS_EXCESS_BLOBS = 300
 """
-Excess blob gas at genesis, high enough that the blob base fee depends on
-the update fraction, and lower under the new fraction than under the old.
+Excess blobs at genesis, high enough that the blob base fee depends on the
+update fraction, and lower under the new fraction than under the old.
 """
-
-BLOB_COUNT_ERRORS = [
-    TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED,
-    TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED,
-]
 
 
 def expected_base_fees(
@@ -83,34 +73,30 @@ def expected_base_fees(
     Blocks before the fork follow the parent fork's update rule, and blocks
     from the fork onward the new rule.
     """
-    parent_fork = fork.transitions_from()
     base_fees = []
     parent_base_fee = GENESIS_BASE_FEE_PER_GAS
     parent_gas_used = 0
     for timestamp in BLOCK_TIMESTAMPS[:block_count]:
-        if timestamp >= FORK_TIMESTAMP:
-            numerator = Spec.BASE_FEE_MAX_CHANGE_NUMERATOR
-            denominator = Spec.BASE_FEE_MAX_CHANGE_DENOMINATOR
-        else:
-            numerator = parent_fork.base_fee_max_change_numerator()
-            denominator = parent_fork.base_fee_max_change_denominator()
-        parent_base_fee = Spec.next_base_fee(
+        block_fork = fork.fork_at(timestamp=timestamp)
+        parent_base_fee = block_fork.base_fee_per_gas_calculator()(
             parent_base_fee_per_gas=parent_base_fee,
             parent_gas_used=parent_gas_used,
             parent_gas_limit=BLOCK_GAS_LIMIT,
-            numerator=numerator,
-            denominator=denominator,
         )
         base_fees.append(parent_base_fee)
         parent_gas_used = gas_used
     return base_fees
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "gas_used",
-    [
+    lambda fork: [
         pytest.param(0, id="empty"),
-        pytest.param(GAS_TARGET, id="at_target"),
+        pytest.param(
+            BLOCK_GAS_LIMIT
+            // fork.transitions_to().base_fee_elasticity_multiplier(),
+            id="at_target",
+        ),
         pytest.param(BLOCK_GAS_LIMIT, id="full"),
     ],
 )
@@ -183,21 +169,16 @@ def test_base_fee_wrong_rule_across_fork(
     rule, and the fork block when its base fee follows the parent fork's
     rule.
     """
-    parent_fork = fork.transitions_from()
     sender = pre.fund_eoa()
     base_fees = expected_base_fees(fork, gas_used, invalid_block_index + 1)
     if invalid_block_index >= FORK_BLOCK_INDEX:
-        numerator = parent_fork.base_fee_max_change_numerator()
-        denominator = parent_fork.base_fee_max_change_denominator()
+        wrong_fork = fork.transitions_from()
     else:
-        numerator = Spec.BASE_FEE_MAX_CHANGE_NUMERATOR
-        denominator = Spec.BASE_FEE_MAX_CHANGE_DENOMINATOR
-    wrong_base_fee = Spec.next_base_fee(
+        wrong_fork = fork.transitions_to()
+    wrong_base_fee = wrong_fork.base_fee_per_gas_calculator()(
         parent_base_fee_per_gas=base_fees[invalid_block_index - 1],
         parent_gas_used=gas_used,
         parent_gas_limit=BLOCK_GAS_LIMIT,
-        numerator=numerator,
-        denominator=denominator,
     )
     assert wrong_base_fee != base_fees[invalid_block_index]
 
@@ -257,11 +238,8 @@ def test_gas_limit_adjustment_unchanged(
     beyond_bound: bool,
 ) -> None:
     """
-    Check that the gas limit adjustment rule is unchanged across the fork.
-
-    Each block's gas limit must stay strictly within `parent_gas_limit //
-    GAS_LIMIT_ADJUSTMENT_FACTOR` of its parent's, before the fork, at the
-    fork block, and after it. The fork applies no one-time gas limit change.
+    Check that the gas limit adjustment rule is unchanged across the fork,
+    with no one-time gas limit change at the fork block.
     """
     max_change = BLOCK_GAS_LIMIT // Spec.GAS_LIMIT_ADJUSTMENT_FACTOR
     change = max_change if beyond_bound else max_change - 1
@@ -307,20 +285,24 @@ def test_gas_limit_adjustment_unchanged(
     )
 
 
-def blob_parameters(fork: TransitionFork, timestamp: int) -> dict[str, int]:
-    """Return the blob schedule in effect at `timestamp`."""
-    if timestamp >= FORK_TIMESTAMP:
-        return {
-            "target_blobs_per_block": Spec.TARGET_BLOBS_PER_BLOCK,
-            "max_blobs_per_block": Spec.MAX_BLOBS_PER_BLOCK,
-            "update_fraction": Spec.BLOB_BASE_FEE_UPDATE_FRACTION,
-        }
-    parent_fork = fork.transitions_from()
-    return {
-        "target_blobs_per_block": parent_fork.target_blobs_per_block(),
-        "max_blobs_per_block": parent_fork.max_blobs_per_block(),
-        "update_fraction": parent_fork.blob_base_fee_update_fraction(),
-    }
+def next_excess_blob_gas(
+    fork: TransitionFork,
+    timestamp: int,
+    parent_excess_blob_gas: int,
+    parent_blob_count: int,
+) -> int:
+    """
+    Return the excess blob gas of the block at `timestamp`, under the blob
+    schedule in effect at that block.
+    """
+    calc_excess_blob_gas = fork.fork_at(
+        timestamp=timestamp
+    ).excess_blob_gas_calculator()
+    return calc_excess_blob_gas(
+        parent_excess_blob_gas=parent_excess_blob_gas,
+        parent_blob_count=parent_blob_count,
+        parent_base_fee_per_gas=BLOB_BASE_FEE_PER_GAS,
+    )
 
 
 @pytest.mark.parametrize_by_fork(
@@ -328,17 +310,17 @@ def blob_parameters(fork: TransitionFork, timestamp: int) -> dict[str, int]:
     lambda fork: [
         pytest.param(
             fork.transitions_from().max_blobs_per_block(),
-            Spec.MAX_BLOBS_PER_BLOCK,
+            fork.transitions_to().max_blobs_per_block(),
             id="max_blobs_before_and_after",
         ),
         pytest.param(
             fork.transitions_from().target_blobs_per_block(),
-            Spec.TARGET_BLOBS_PER_BLOCK,
+            fork.transitions_to().target_blobs_per_block(),
             id="target_blobs_before_and_after",
         ),
         pytest.param(
             0,
-            Spec.MAX_BLOBS_PER_BLOCK,
+            fork.transitions_to().max_blobs_per_block(),
             id="no_blobs_before_and_max_blobs_after",
         ),
         pytest.param(
@@ -358,24 +340,18 @@ def test_blob_schedule_across_fork(
     fork_block_blobs: int,
 ) -> None:
     """
-    Check the excess blob gas and blob base fee across the fork.
-
-    The last block before the fork carries `pre_fork_blobs` blobs under the
-    parent fork's schedule. The fork block computes its excess blob gas from
-    that parent with the new target, and its blob transactions, offering
-    exactly the blob base fee under the new update fraction, are accepted. A
-    final block checks the excess blob gas left by the fork block.
+    Check that the fork block computes its excess blob gas with the new target
+    and prices blobs with the new update fraction.
     """
     sender = pre.fund_eoa()
     destination = pre.fund_eoa(amount=0)
     timestamps = BLOCK_TIMESTAMPS[FORK_BLOCK_INDEX - 1 :]
     blob_counts = [pre_fork_blobs, fork_block_blobs, 1]
+    blob_gas_per_blob = fork.transitions_to().blob_gas_per_blob()
+    genesis_excess_blob_gas = GENESIS_EXCESS_BLOBS * blob_gas_per_blob
 
-    excess_blob_gas = Spec.next_excess_blob_gas(
-        parent_excess_blob_gas=GENESIS_EXCESS_BLOB_GAS,
-        parent_blob_gas_used=0,
-        parent_base_fee_per_gas=BLOB_BASE_FEE_PER_GAS,
-        **blob_parameters(fork, timestamps[0]),
+    excess_blob_gas = next_excess_blob_gas(
+        fork, timestamps[0], genesis_excess_blob_gas, 0
     )
     blocks = []
     tx_count = 0
@@ -383,16 +359,15 @@ def test_blob_schedule_across_fork(
     for i, (timestamp, blob_count) in enumerate(
         zip(timestamps, blob_counts, strict=True)
     ):
-        parameters = blob_parameters(fork, timestamp)
         block_fork = fork.fork_at(block_number=i + 1, timestamp=timestamp)
+        get_blob_gas_price = block_fork.blob_gas_price_calculator()
         txs = blob_transactions(
             sender=sender,
             destination=destination,
             fork=block_fork,
             blob_count=blob_count,
-            max_fee_per_blob_gas=Spec.blob_base_fee(
-                excess_blob_gas=excess_blob_gas,
-                update_fraction=parameters["update_fraction"],
+            max_fee_per_blob_gas=get_blob_gas_price(
+                excess_blob_gas=excess_blob_gas
             ),
             first_blob_index=blob_index,
         )
@@ -402,18 +377,15 @@ def test_blob_schedule_across_fork(
                 timestamp=timestamp,
                 header_verify=Header(
                     excess_blob_gas=excess_blob_gas,
-                    blob_gas_used=blob_count * Spec.GAS_PER_BLOB,
+                    blob_gas_used=blob_count * blob_gas_per_blob,
                 ),
             )
         )
         tx_count += len(txs)
         blob_index += blob_count
         if i + 1 < len(timestamps):
-            excess_blob_gas = Spec.next_excess_blob_gas(
-                parent_excess_blob_gas=excess_blob_gas,
-                parent_blob_gas_used=blob_count * Spec.GAS_PER_BLOB,
-                parent_base_fee_per_gas=BLOB_BASE_FEE_PER_GAS,
-                **blob_parameters(fork, timestamps[i + 1]),
+            excess_blob_gas = next_excess_blob_gas(
+                fork, timestamps[i + 1], excess_blob_gas, blob_count
             )
     blockchain_test(
         pre=pre,
@@ -421,7 +393,7 @@ def test_blob_schedule_across_fork(
         blocks=blocks,
         genesis_environment=Environment(
             base_fee_per_gas=BLOB_BASE_FEE_PER_GAS,
-            excess_blob_gas=GENESIS_EXCESS_BLOB_GAS,
+            excess_blob_gas=genesis_excess_blob_gas,
             blob_gas_used=0,
         ),
     )
@@ -430,7 +402,10 @@ def test_blob_schedule_across_fork(
 @pytest.mark.parametrize_by_fork(
     "fork_block_blobs",
     lambda fork: [
-        pytest.param(Spec.MAX_BLOBS_PER_BLOCK + 1, id="max_plus_one"),
+        pytest.param(
+            fork.transitions_to().max_blobs_per_block() + 1,
+            id="max_plus_one",
+        ),
         pytest.param(
             fork.transitions_from().max_blobs_per_block(),
             id="parent_fork_max",
@@ -448,13 +423,20 @@ def test_blob_count_limit_at_fork(
 ) -> None:
     """
     Accept the parent fork's maximum blob count in the last block before the
-    fork, and reject a fork block carrying more than `MAX_BLOBS_PER_BLOCK`
-    blobs.
+    fork, and reject a fork block carrying more than the new maximum blob
+    count.
     """
     sender = pre.fund_eoa()
     destination = pre.fund_eoa(amount=0)
     pre_fork_timestamp = BLOCK_TIMESTAMPS[FORK_BLOCK_INDEX - 1]
-    pre_fork_blobs = fork.transitions_from().max_blobs_per_block()
+    parent_fork = fork.transitions_from()
+    pre_fork_blobs = parent_fork.max_blobs_per_block()
+    fork_block_excess_blob_gas = next_excess_blob_gas(
+        fork, FORK_TIMESTAMP, 0, pre_fork_blobs
+    )
+    fork_block_blob_gas_price = fork.fork_at(
+        timestamp=FORK_TIMESTAMP
+    ).blob_gas_price_calculator()(excess_blob_gas=fork_block_excess_blob_gas)
     blocks = [
         Block(
             txs=blob_transactions(
@@ -464,11 +446,11 @@ def test_blob_count_limit_at_fork(
                     block_number=1, timestamp=pre_fork_timestamp
                 ),
                 blob_count=pre_fork_blobs,
-                max_fee_per_blob_gas=Spec.MIN_BLOB_BASE_FEE,
+                max_fee_per_blob_gas=parent_fork.min_base_fee_per_blob_gas(),
             ),
             timestamp=pre_fork_timestamp,
             header_verify=Header(
-                blob_gas_used=pre_fork_blobs * Spec.GAS_PER_BLOB
+                blob_gas_used=pre_fork_blobs * parent_fork.blob_gas_per_blob()
             ),
         ),
         Block(
@@ -477,7 +459,7 @@ def test_blob_count_limit_at_fork(
                 destination=destination,
                 fork=fork.fork_at(block_number=2, timestamp=FORK_TIMESTAMP),
                 blob_count=fork_block_blobs,
-                max_fee_per_blob_gas=10**6,
+                max_fee_per_blob_gas=fork_block_blob_gas_price,
                 first_blob_index=pre_fork_blobs,
                 error=BLOB_COUNT_ERRORS,
             ),
@@ -508,18 +490,17 @@ def test_insufficient_max_fee_per_blob_gas_at_fork(
     sender = pre.fund_eoa()
     destination = pre.fund_eoa(amount=0)
     pre_fork_timestamp = BLOCK_TIMESTAMPS[FORK_BLOCK_INDEX - 1]
-    excess_blob_gas = GENESIS_EXCESS_BLOB_GAS
-    for timestamp in (pre_fork_timestamp, FORK_TIMESTAMP):
-        excess_blob_gas = Spec.next_excess_blob_gas(
-            parent_excess_blob_gas=excess_blob_gas,
-            parent_blob_gas_used=0,
-            parent_base_fee_per_gas=BLOB_BASE_FEE_PER_GAS,
-            **blob_parameters(fork, timestamp),
-        )
-    blob_base_fee = Spec.blob_base_fee(
-        excess_blob_gas=excess_blob_gas,
-        update_fraction=Spec.BLOB_BASE_FEE_UPDATE_FRACTION,
+    genesis_excess_blob_gas = (
+        GENESIS_EXCESS_BLOBS * fork.transitions_to().blob_gas_per_blob()
     )
+    excess_blob_gas = genesis_excess_blob_gas
+    for timestamp in (pre_fork_timestamp, FORK_TIMESTAMP):
+        excess_blob_gas = next_excess_blob_gas(
+            fork, timestamp, excess_blob_gas, 0
+        )
+    blob_gas_price = fork.fork_at(
+        timestamp=FORK_TIMESTAMP
+    ).blob_gas_price_calculator()(excess_blob_gas=excess_blob_gas)
     error = TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS
     blocks = [
         Block(timestamp=pre_fork_timestamp),
@@ -529,7 +510,7 @@ def test_insufficient_max_fee_per_blob_gas_at_fork(
                 destination=destination,
                 fork=fork.fork_at(block_number=2, timestamp=FORK_TIMESTAMP),
                 blob_count=1,
-                max_fee_per_blob_gas=blob_base_fee - 1,
+                max_fee_per_blob_gas=blob_gas_price - 1,
                 error=error,
             ),
             timestamp=FORK_TIMESTAMP,
@@ -542,7 +523,7 @@ def test_insufficient_max_fee_per_blob_gas_at_fork(
         blocks=blocks,
         genesis_environment=Environment(
             base_fee_per_gas=BLOB_BASE_FEE_PER_GAS,
-            excess_blob_gas=GENESIS_EXCESS_BLOB_GAS,
+            excess_blob_gas=genesis_excess_blob_gas,
             blob_gas_used=0,
         ),
     )
