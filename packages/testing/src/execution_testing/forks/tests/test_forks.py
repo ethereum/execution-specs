@@ -628,6 +628,86 @@ def test_blob_schedules(
         )
 
 
+@pytest.mark.parametrize(
+    "fork,expected_max_change",
+    [
+        pytest.param(London, (1, 8), id="London"),
+        pytest.param(Amsterdam, (1, 8), id="Amsterdam"),
+        pytest.param(Bogota, (5, 48), id="Bogota"),
+    ],
+)
+def test_base_fee_max_change(
+    fork: Fork, expected_max_change: Tuple[int, int]
+) -> None:
+    """Test the maximum base fee change per block of each fork."""
+    assert (
+        fork.base_fee_max_change_numerator(),
+        fork.base_fee_max_change_denominator(),
+    ) == expected_max_change
+
+
+@pytest.mark.parametrize(
+    "parent_base_fee_per_gas,parent_gas_used,expected_base_fee_per_gas",
+    [
+        pytest.param(10**9, 30_000_000, 1_104_166_666, id="full"),
+        pytest.param(10**9, 0, 895_833_334, id="empty"),
+        pytest.param(9, 30_000_000, 10, id="one_wei_increase_floor"),
+        pytest.param(9, 0, 9, id="decrease_truncated_to_zero"),
+        pytest.param(20, 29_900_000, 21, id="near_full"),
+        pytest.param(20, 100_000, 19, id="near_empty"),
+    ],
+)
+def test_base_fee_per_gas_calculator_bogota(
+    parent_base_fee_per_gas: int,
+    parent_gas_used: int,
+    expected_base_fee_per_gas: int,
+) -> None:
+    """
+    Test the base fee update with a numerator other than one, which
+    multiplies before dividing.
+    """
+    assert (
+        Bogota.base_fee_per_gas_calculator()(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_used=parent_gas_used,
+            parent_gas_limit=30_000_000,
+        )
+        == expected_base_fee_per_gas
+    )
+
+
+@pytest.mark.parametrize("parent_base_fee_per_gas", [20, 10**9, 10**9 + 7])
+def test_base_fee_change_calculator_round_trip_bogota(
+    parent_base_fee_per_gas: int,
+) -> None:
+    """
+    Test that the gas returned for a required base fee yields that base
+    fee, where flooring twice can leave the first estimate short.
+    """
+    gas_limit = 30_000_000
+    base_fee_per_gas = Bogota.base_fee_per_gas_calculator()
+    gas_for_base_fee = Bogota.base_fee_change_calculator()
+    for parent_gas_used in range(0, gas_limit + 1, 1_000_000):
+        required = base_fee_per_gas(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_used=parent_gas_used,
+            parent_gas_limit=gas_limit,
+        )
+        gas_used = gas_for_base_fee(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_limit=gas_limit,
+            required_base_fee_per_gas=required,
+        )
+        assert (
+            base_fee_per_gas(
+                parent_base_fee_per_gas=parent_base_fee_per_gas,
+                parent_gas_used=gas_used,
+                parent_gas_limit=gas_limit,
+            )
+            == required
+        )
+
+
 def test_bpo_fork() -> None:  # noqa: D103
     assert Osaka.bpo_fork() is False
     assert BPO1.bpo_fork() is True

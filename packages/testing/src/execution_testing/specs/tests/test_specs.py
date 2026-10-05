@@ -11,7 +11,7 @@ from execution_testing.fixtures import (
     LabeledFixtureFormat,
     StateFixture,
 )
-from execution_testing.forks import Amsterdam, Istanbul
+from execution_testing.forks import Amsterdam, Bogota, Fork, Istanbul
 from execution_testing.test_types import Alloc, Environment, Transaction
 
 from ..base import BaseTest
@@ -200,6 +200,32 @@ def test_state_test_conversion_checks_the_env_first() -> None:
     )
     with pytest.raises(ValueError, match="excess_blob_gas"):
         state_test.generate_blockchain_test()
+
+
+@pytest.mark.parametrize("fork", [Amsterdam, Bogota])
+@pytest.mark.parametrize("base_fee_per_gas", [7, 10, 20, 10**9])
+def test_state_test_conversion_genesis_base_fee(
+    fork: Fork, base_fee_per_gas: int
+) -> None:
+    """
+    Verify converting a state test derives a genesis base fee from which
+    the first block, on the fork's base fee rule, gets the state test's.
+    """
+    state_test = StateTest(
+        env=Environment(base_fee_per_gas=base_fee_per_gas),
+        pre=Alloc(),
+        post=Alloc(),
+        tx=Transaction(),
+        fork=fork,
+    )
+    genesis = state_test.generate_blockchain_test().genesis_environment
+    assert genesis.base_fee_per_gas is not None
+    first_block_base_fee = fork.base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=int(genesis.base_fee_per_gas),
+        parent_gas_used=0,
+        parent_gas_limit=int(genesis.gas_limit),
+    )
+    assert first_block_base_fee == base_fee_per_gas
 
 
 def test_blobs_test_rejects_empty_custody_columns_updates() -> None:

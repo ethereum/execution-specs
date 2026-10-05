@@ -166,10 +166,11 @@ class EIP1559(BaseFork):
                     parent_base_fee_per_gas - required_base_fee_per_gas
                 )
 
-                parent_gas_used = (
-                    parent_gas_target
-                    - (
-                        (
+                # Round the gas below target up, so that an exact division
+                # does not overshoot the required decrease.
+                parent_gas_used = parent_gas_target - (
+                    -(
+                        -(
                             base_fee_per_gas_delta
                             * base_fee_max_change_denominator
                             * parent_gas_target
@@ -179,7 +180,6 @@ class EIP1559(BaseFork):
                             * base_fee_max_change_numerator
                         )
                     )
-                    - 1
                 )
                 # Flooring twice in the forward calculation can leave the
                 # estimate a little short when the numerator is not one.
