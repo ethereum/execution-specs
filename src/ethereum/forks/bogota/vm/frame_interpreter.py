@@ -58,10 +58,7 @@ from .gas import (
     charge_frame_state_gas,
     charge_gas_from_meter,
 )
-from .interpreter import (
-    TransactionOutput,
-    process_call,
-)
+from .interpreter import TransactionOutput, process_call
 from .precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .runtime import get_valid_jump_destinations
 
