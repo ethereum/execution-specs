@@ -1,15 +1,15 @@
 """
 The Bogota fork ([EIP-8081]) is the development fork after Amsterdam. It
-carries no protocol changes yet: EIPs targeting it are prototyped on their
-own branches and land here once accepted.
+introduces frame transactions.
 
 ### Changes
 
-None yet.
+- [EIP-8141: Frame Transaction][EIP-8141]
 
 ### Releases
 
 [EIP-8081]: https://eips.ethereum.org/EIPS/eip-8081
+[EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
 """
 
 from ethereum.fork_criteria import ForkCriteria, Unscheduled
