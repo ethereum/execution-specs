@@ -442,6 +442,16 @@ class T8N(Load):
             self._run_blockchain_test(self._block_env, self._block_output)
         except InvalidBlock as e:
             self._block_exception = f"{e}"
+            if self.fork.has_hash_block_access_list:
+                # Build the access list from what ran before the failure.
+                # Left empty, the header would commit to a wrong list, a
+                # second defect next to the one the test expects.
+                self._block_output.block_access_list = (
+                    self.fork.build_block_access_list(
+                        self._block_env.block_access_list_builder,
+                        self._block_env.state,
+                    )
+                )
 
         self.result = build_result(
             self,
