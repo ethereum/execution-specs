@@ -1343,6 +1343,7 @@ class Frontier(BaseFork):
             "number": ZeroPaddedHexNumber(block_number),
             "timestamp": ZeroPaddedHexNumber(timestamp),
             "fork": cls,
+            "logs_bloom": cls.empty_logs_bloom(),
         }
 
         # Iterate through FixtureHeader fields to populate defaults
