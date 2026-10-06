@@ -519,7 +519,7 @@ def test_frameparam_halts(
     "halting_read",
     [
         pytest.param(
-            Op.POP(Op.TXPARAM(0x0D)),
+            Op.POP(Op.TXPARAM(0x11)),
             id="txparam_undefined_param",
         ),
         pytest.param(

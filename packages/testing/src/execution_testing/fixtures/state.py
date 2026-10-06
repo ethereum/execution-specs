@@ -62,6 +62,7 @@ class FixtureTransaction(TransactionFixtureConverter):
     initcodes: List[Bytes] | None = None
     frames: List[FixtureFrame] | None = None
     signatures: List[FixtureFrameSignature] | None = None
+    nonce_keys: List[ZeroPaddedHexNumber] | None = None
     max_fee_per_blob_gas: ZeroPaddedHexNumber | None = None
     blob_versioned_hashes: Sequence[Hash] | None = None
     sender: Address | None = None
