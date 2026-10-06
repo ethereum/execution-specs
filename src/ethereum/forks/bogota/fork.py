@@ -284,13 +284,23 @@ def install_nonce_manager(tx_state: TransactionState) -> None:
     in the fork block.
 
     The account gets [`NONCE_MANAGER_CODE`][nmc] and a nonce of at least
-    one, keeping any higher nonce and any balance it already held. The
-    address is chosen to hold no code and no storage before activation,
-    so the account's storage stays empty.
+    one, keeping any higher nonce and any balance it already held. Code
+    or storage at the address in the parent state makes the fork block
+    invalid, checked before anything is written. The install runs before
+    the block's first transaction, so the parent state is the block's
+    pre-state.
+
+    A chain active at genesis has no fork block, so its genesis state
+    must already hold the nonce manager.
 
     [EIP-8250]: https://eips.ethereum.org/EIPS/eip-8250
     [nmc]: ref:ethereum.forks.bogota.transactions.frame_transaction.NONCE_MANAGER_CODE
     """  # noqa: E501
+    if get_account(tx_state, NONCE_MANAGER).code_hash != EMPTY_CODE_HASH:
+        raise InvalidBlock("nonce manager address already holds code")
+    if tx_state.parent.pre_state.account_has_storage(NONCE_MANAGER):
+        raise InvalidBlock("nonce manager address already holds storage")
+
     set_code(tx_state, NONCE_MANAGER, NONCE_MANAGER_CODE)
 
     def raise_nonce(account: Account) -> None:

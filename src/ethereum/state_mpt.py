@@ -79,6 +79,14 @@ class State:
         assert isinstance(value, U256)
         return value
 
+    def account_has_storage(self, address: Address) -> bool:
+        """
+        Return whether the account at an address has any non-zero storage
+        slot.
+        """
+        trie = self._storage_tries.get(address)
+        return trie is not None and trie._data != {}
+
     def compute_state_root(self, block_diff: BlockDiff) -> Root:
         """
         Compute the state root after applying `block_diff` to the
