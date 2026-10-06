@@ -188,6 +188,10 @@ Excess blob gas of the block used to calculate the blob fee per gas for this blo
 
 Root hash of the parent beacon block.
 
+#### - `blockAccessListHash`: [`Hash`](./common_types.md#hash) `(fork: Amsterdam)`
+
+Keccak hash of the RLP encoding of the block's access list ([EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)).
+
 ### `FixtureBlock`
 
 #### - `rlp`: [`Bytes`](./common_types.md#bytes)
@@ -214,6 +218,10 @@ List of uncle headers included in the block RLP. An empty list post merge.
 
 Optional list of withdrawals included in the block RLP.
 
+#### - `blockAccessList`: [`List`](./common_types.md#list)`[`[`FixtureAccountChanges`](#fixtureaccountchanges)`]` `(fork: Amsterdam)`
+
+The block's access list ([EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)). It travels beside the block, not in its RLP, so a client that executes from or validates a delivered list reads it from here; its RLP encoding hashes to the header's [`blockAccessListHash`](#-blockaccesslisthash-hash-fork-amsterdam). Its quantities are written as [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber), like the header's, so `"0x02"` and `"0x03e8"` appear where the JSON-RPC quantity rule would write `"0x2"` and `"0x3e8"`: a decoder applying that rule must accept the padding.
+
 ### `InvalidFixtureBlock`
 
 #### - `expectException`: [`TransactionException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.TransactionException)` | `[`BlockException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.BlockException)
@@ -227,6 +235,82 @@ RLP serialized version of the block.
 #### - `rlp_decoded`: [`Optional`](./common_types.md#optional)`[`[`FixtureBlock`](#fixtureblock)`]`
 
 Decoded block attributes included in the block RLP.
+
+### `FixtureAccountChanges`
+
+#### - `address`: [`Address`](./common_types.md#address)
+
+Account the entry describes.
+
+#### - `nonceChanges`: [`List`](./common_types.md#list)`[`[`FixtureNonceChange`](#fixturenoncechange)`]`
+
+Nonces the account ends each block access index with, where it changed.
+
+#### - `balanceChanges`: [`List`](./common_types.md#list)`[`[`FixtureBalanceChange`](#fixturebalancechange)`]`
+
+Balances the account ends each block access index with, where it changed.
+
+#### - `codeChanges`: [`List`](./common_types.md#list)`[`[`FixtureCodeChange`](#fixturecodechange)`]`
+
+Code the account ends each block access index with, where it changed.
+
+#### - `storageChanges`: [`List`](./common_types.md#list)`[`[`FixtureSlotChanges`](#fixtureslotchanges)`]`
+
+Storage slots the block wrote, each with its values by block access index.
+
+#### - `storageReads`: [`List`](./common_types.md#list)`[`[`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)`]`
+
+Storage slots the block read and did not write.
+
+### `FixtureNonceChange`
+
+#### - `blockAccessIndex`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Position in the block: 0 before the first transaction, `n` for the `n`th transaction, and one past the last for the work after them.
+
+#### - `postNonce`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Nonce after that position.
+
+### `FixtureBalanceChange`
+
+#### - `blockAccessIndex`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Position in the block, as for [`FixtureNonceChange`](#fixturenoncechange).
+
+#### - `postBalance`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Balance after that position.
+
+### `FixtureCodeChange`
+
+#### - `blockAccessIndex`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Position in the block, as for [`FixtureNonceChange`](#fixturenoncechange).
+
+#### - `newCode`: [`Bytes`](./common_types.md#bytes)
+
+Code after that position.
+
+### `FixtureSlotChanges`
+
+#### - `slot`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Storage slot.
+
+#### - `slotChanges`: [`List`](./common_types.md#list)`[`[`FixtureStorageChange`](#fixturestoragechange)`]`
+
+Values the slot holds after each block access index that wrote it.
+
+### `FixtureStorageChange`
+
+#### - `blockAccessIndex`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Position in the block, as for [`FixtureNonceChange`](#fixturenoncechange).
+
+#### - `postValue`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Slot value after that position.
 
 ### `FixtureTransaction`
 
