@@ -94,6 +94,7 @@ from .vm.gas import (
     check_block_gas_capacity,
     check_max_fee_per_blob_gas,
     settle_transaction_gas,
+    transaction_floor_gas,
 )
 from .vm.interpreter import TransactionOutput, process_top_level
 
@@ -613,7 +614,11 @@ def check_transaction(
         effective_gas_price=effective_gas_price,
         execution_gas_grant=allocation.execution_gas,
         state_gas_reservoir=allocation.state_gas_reservoir,
-        content_floor=intrinsic.content_floor,
+        static_floor=intrinsic.static_floor,
+        bal_data_bytes=Uint(0),
+        metered_addresses=set(),
+        metered_storage_keys=set(),
+        floor_limit=min(tx.gas, GasCosts.TX_MAX_GAS_LIMIT),
         access_list_addresses=access_list_addresses,
         access_list_storage_keys=access_list_storage_keys,
         accounts_with_paid_writes=accounts_with_paid_writes,
@@ -759,7 +764,13 @@ def process_unchecked_system_transaction(
         state_gas_reservoir=StateGas(
             StateGasCosts.STORAGE_SET * SYSTEM_MAX_SSTORES_PER_CALL
         ),
-        content_floor=Uint(0),
+        # A system transaction has no floor: nothing is settled against
+        # one, and the meter never halts it.
+        static_floor=Uint(0),
+        bal_data_bytes=Uint(0),
+        metered_addresses=set(),
+        metered_storage_keys=set(),
+        floor_limit=None,
         access_list_addresses=set(),
         access_list_storage_keys=set(),
         # A system transaction charges no gas, so no write is paid for.
@@ -1056,7 +1067,7 @@ def process_transaction(
 
     settlement = settle_transaction_gas(
         tx_env.gas_limit,
-        tx_env.content_floor,
+        transaction_floor_gas(tx_env),
         tx_output.gas_left,
         tx_output.state_gas_left,
         tx_output.refund_counter,

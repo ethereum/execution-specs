@@ -28,6 +28,7 @@ from ..gas import (
     calculate_blob_gas_price,
     calculate_gas_extend_memory,
     charge_gas,
+    meter_bal_address,
 )
 from ..stack import pop, push
 
@@ -75,6 +76,8 @@ def balance(evm: Evm) -> None:
         evm.accessed_addresses.add(address)
         charge_gas(evm, GasCosts.COLD_ACCOUNT_ACCESS)
 
+    # BLOCK ACCESS LIST DATA
+    meter_bal_address(evm.tx_env, address)
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
     tx_state = evm.tx_env.state
@@ -349,6 +352,8 @@ def extcodesize(evm: Evm) -> None:
     access_gas_cost += GasCosts.WARM_ACCESS  # Code reading cost (EIP-8038)
     charge_gas(evm, access_gas_cost)
 
+    # BLOCK ACCESS LIST DATA
+    meter_bal_address(evm.tx_env, address)
     # OPERATION
     tx_state = evm.tx_env.state
     code_hash = get_account(tx_state, address).code_hash
@@ -395,6 +400,8 @@ def extcodecopy(evm: Evm) -> None:
 
     charge_gas(evm, total_gas_cost)
 
+    # BLOCK ACCESS LIST DATA
+    meter_bal_address(evm.tx_env, address)
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     tx_state = evm.tx_env.state
@@ -495,6 +502,8 @@ def extcodehash(evm: Evm) -> None:
 
     charge_gas(evm, access_gas_cost)
 
+    # BLOCK ACCESS LIST DATA
+    meter_bal_address(evm.tx_env, address)
     # OPERATION
     tx_state = evm.tx_env.state
     account = get_account(tx_state, address)

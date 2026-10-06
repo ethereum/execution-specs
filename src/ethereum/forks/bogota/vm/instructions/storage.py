@@ -13,6 +13,7 @@ Implementations of the EVM storage related instructions.
 
 from ethereum_types.numeric import Uint
 
+from ...block_access_lists import BAL_BYTES_PER_STORAGE_VALUE
 from ...fork_types import ExecutionGas, StateGas
 from ...state_tracker import (
     get_storage,
@@ -30,6 +31,8 @@ from ..gas import (
     charge_state_gas,
     check_gas,
     credit_state_gas_refund,
+    meter_bal_data,
+    meter_bal_storage_key,
 )
 from ..stack import pop, push
 
@@ -54,6 +57,9 @@ def sload(evm: Evm) -> None:
     else:
         evm.accessed_storage_keys.add((evm.current_target, key))
         charge_gas(evm, GasCosts.COLD_STORAGE_ACCESS)
+
+    # BLOCK ACCESS LIST DATA
+    meter_bal_storage_key(evm.tx_env, evm.current_target, key)
 
     # OPERATION
     tx_state = evm.tx_env.state
@@ -111,6 +117,9 @@ def sstore(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_storage_keys.add((evm.current_target, key))
 
+    # BLOCK ACCESS LIST DATA
+    meter_bal_storage_key(evm.tx_env, evm.current_target, key)
+
     tx_state = evm.tx_env.state
     original_value = get_storage_original(tx_state, evm.current_target, key)
     current_value = get_storage(tx_state, evm.current_target, key)
@@ -155,6 +164,16 @@ def sstore(evm: Evm) -> None:
     # reservoir on frame failure.
     charge_gas(evm, gas_cost)
     charge_state_gas(evm, state_gas)
+
+    # BLOCK ACCESS LIST DATA
+    # The block access list holds one post value per changed slot, so
+    # the value bytes are counted when the slot first leaves its
+    # transaction-start value. A write that restores it gives nothing
+    # back: that write may sit in a frame that later reverts, leaving
+    # the change in the block access list, so the count stays an upper
+    # bound.
+    if original_value == current_value and current_value != new_value:
+        meter_bal_data(evm.tx_env, BAL_BYTES_PER_STORAGE_VALUE)
     set_storage(tx_state, evm.current_target, key, new_value)
 
     # PROGRAM COUNTER

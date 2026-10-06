@@ -14,13 +14,19 @@ EVM gas constants and calculators.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final, List, Tuple, final
 
+from ethereum_types.bytes import Bytes32
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.exceptions import GasUsedExceedsLimitError
 from ethereum.forks.amsterdam.blocks import Header as PreviousHeader
+from ethereum.state import Address
 from ethereum.trace import GasAndRefund, StateGasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
+from ..block_access_lists import (
+    BAL_BYTES_PER_ADDRESS,
+    BAL_BYTES_PER_STORAGE_KEY,
+)
 from ..blocks import Header
 from ..exceptions import (
     BlobGasLimitExceededError,
@@ -31,7 +37,7 @@ from ..transactions import BlobTransaction, IntrinsicGasCost, Transaction
 from .exceptions import OutOfGasError
 
 if TYPE_CHECKING:
-    from . import BlockEnvironment, BlockOutput, Evm
+    from . import BlockEnvironment, BlockOutput, Evm, TransactionEnvironment
 
 
 # These may be patched at runtime by a future gas repricing utility to
@@ -1138,6 +1144,126 @@ def allocate_evm_gas(
     return EvmGasAllocation(execution_gas, state_gas_reservoir)
 
 
+def transaction_floor_gas(tx_env: "TransactionEnvironment") -> Uint:
+    """
+    Return the transaction's floor gas: the static floor its content
+    fixes before execution, extended by the block access list bytes
+    metered so far.
+
+    Parameters
+    ----------
+    tx_env :
+        The transaction's execution environment.
+
+    Returns
+    -------
+    floor_gas : `ethereum.base_types.Uint`
+        The floor the transaction's gas used cannot fall below.
+
+    """
+    return (
+        tx_env.static_floor + tx_env.bal_data_bytes * GasCosts.FLOOR_PER_BYTE
+    )
+
+
+def meter_bal_data(tx_env: "TransactionEnvironment", num_bytes: Uint) -> None:
+    """
+    Count `num_bytes` of block access list data toward the
+    transaction's floor.
+
+    Called before the operation adds the matching entry, so an
+    operation that cannot pay the floor its bytes extend aborts while
+    the block access list is still unchanged and nothing is counted.
+    The count is an upper bound on what the transaction contributes:
+    bytes metered inside a frame that later reverts stay counted, and
+    nothing is ever refunded, since over-counting only raises a floor
+    that rarely binds.
+
+    The floor binds the execution dimension, so [`floor_limit`][limit]
+    is the execution gas the transaction can consume: `min(tx.gas,
+    TX_MAX_GAS_LIMIT)` for a user transaction, the two bounds
+    `validate_transaction` holds the static floor to as well. A system
+    transaction has no floor and is only counted, never halted.
+
+    Parameters
+    ----------
+    tx_env :
+        The transaction's execution environment.
+    num_bytes :
+        The bytes the operation is about to contribute.
+
+    Raises
+    ------
+    OutOfGasError :
+        If the extended floor exceeds the limit.
+
+    [limit]: ref:ethereum.forks.bogota.vm.TransactionEnvironment.floor_limit
+
+    """
+    floor_gas = (
+        tx_env.static_floor
+        + (tx_env.bal_data_bytes + num_bytes) * GasCosts.FLOOR_PER_BYTE
+    )
+    if tx_env.floor_limit is not None and floor_gas > tx_env.floor_limit:
+        raise OutOfGasError
+    tx_env.bal_data_bytes += num_bytes
+
+
+def meter_bal_address(
+    tx_env: "TransactionEnvironment", address: Address
+) -> None:
+    """
+    Meter the bytes an account's address adds to the block access list
+    on the transaction's first access to it.
+
+    First access is tracked per transaction, not by the frame's warm
+    set: the block access list keeps an account touched by a frame that
+    later reverts, and an account the access list pre-warmed still
+    enters it when first touched. Call this before the access that
+    records the account.
+
+    Parameters
+    ----------
+    tx_env :
+        The transaction's execution environment.
+    address :
+        The account about to be accessed.
+
+    """
+    if address in tx_env.metered_addresses:
+        return
+    meter_bal_data(tx_env, BAL_BYTES_PER_ADDRESS)
+    tx_env.metered_addresses.add(address)
+
+
+def meter_bal_storage_key(
+    tx_env: "TransactionEnvironment", address: Address, key: Bytes32
+) -> None:
+    """
+    Meter the bytes a storage slot's key adds to the block access list
+    on the transaction's first access to it.
+
+    Tracked per transaction like [`meter_bal_address`][addr]. Call this
+    before the access that records the slot.
+
+    Parameters
+    ----------
+    tx_env :
+        The transaction's execution environment.
+    address :
+        The account whose storage is about to be accessed.
+    key :
+        The storage key about to be accessed.
+
+    [addr]: ref:ethereum.forks.bogota.vm.gas.meter_bal_address
+
+    """
+    if (address, key) in tx_env.metered_storage_keys:
+        return
+    meter_bal_data(tx_env, BAL_BYTES_PER_STORAGE_KEY)
+    tx_env.metered_storage_keys.add((address, key))
+
+
 @final
 @dataclass
 class TransactionGasSettlement:
@@ -1163,7 +1289,7 @@ class TransactionGasSettlement:
 
 def settle_transaction_gas(
     tx_gas: Uint,
-    content_floor: Uint,
+    floor_gas: Uint,
     gas_left: ExecutionGas,
     state_gas_left: StateGas,
     refund_counter: U256,
@@ -1178,7 +1304,7 @@ def settle_transaction_gas(
       execution gas and reservoir the top frame returned;
     - the refund, capped at one fifth of that pre-refund usage;
     - the gas used, taken as the larger of the post-refund usage and the
-      content floor, so a transaction never pays below the floor; and
+      floor, so a transaction never pays below the floor; and
     - the per-dimension block amounts: the state gas used (clamped to
       zero, since refunds can drive it negative) and the execution gas
       used, which carries the floor because the floor binds the
@@ -1190,8 +1316,8 @@ def settle_transaction_gas(
     ----------
     tx_gas :
         The transaction's gas limit.
-    content_floor :
-        The transaction's content floor gas.
+    floor_gas :
+        The transaction's floor gas.
     gas_left :
         Execution gas the top frame returned.
     state_gas_left :
@@ -1212,13 +1338,13 @@ def settle_transaction_gas(
     gas_used_before_refund = tx_gas - gas_left - state_gas_left
     gas_refund = min(gas_used_before_refund // Uint(5), Uint(refund_counter))
     gas_used_after_refund = gas_used_before_refund - gas_refund
-    gas_used = max(gas_used_after_refund, content_floor)
+    gas_used = max(gas_used_after_refund, floor_gas)
 
     settled_state_gas_used = StateGas(Uint(max(0, state_gas_used)))
     execution_gas_used = ExecutionGas(
         max(
             gas_used_before_refund - settled_state_gas_used,
-            content_floor,
+            floor_gas,
         )
     )
     return TransactionGasSettlement(

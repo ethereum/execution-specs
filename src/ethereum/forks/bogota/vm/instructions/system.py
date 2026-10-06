@@ -20,6 +20,7 @@ from ethereum_types.numeric import U256, Uint
 from ethereum.state import Address
 from ethereum.utils.numeric import ceil32
 
+from ...block_access_lists import BAL_BYTES_PER_BALANCE, BAL_BYTES_PER_NONCE
 from ...fork_types import ExecutionGas, StateGas
 from ...state_tracker import (
     account_deployable,
@@ -49,6 +50,8 @@ from ..gas import (
     credit_state_gas_refund,
     drain_state_gas_reservoir,
     init_code_cost,
+    meter_bal_address,
+    meter_bal_data,
     restore_child_gas,
     withhold_create_gas,
 )
@@ -104,6 +107,9 @@ def generic_create(
     # independently of the collision outcome below.
     evm.accessed_addresses.add(contract_address)
 
+    # BLOCK ACCESS LIST DATA
+    meter_bal_address(evm.tx_env, contract_address)
+
     new_account_charged = not is_account_alive(tx_state, contract_address)
     if new_account_charged:
         charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
@@ -112,6 +118,11 @@ def generic_create(
     # Withhold all but one 64th of the execution gas.
     create_message_gas = withhold_create_gas(evm.gas_meter)
 
+    # BLOCK ACCESS LIST DATA
+    # The creating account's nonce advances whether or not the creation
+    # goes ahead.
+    meter_bal_data(evm.tx_env, BAL_BYTES_PER_NONCE)
+
     # On a collision the child's execution-gas grant is consumed and no
     # account is created. A collision target has code or a nonce, so
     # the account-creation charge above was never taken.
@@ -119,6 +130,13 @@ def generic_create(
         increment_nonce(tx_state, sender_address)
         push(evm.stack, U256(0))
         return
+
+    # BLOCK ACCESS LIST DATA
+    # The new contract's nonce, and both balances when it is endowed,
+    # join the block access list.
+    meter_bal_data(evm.tx_env, BAL_BYTES_PER_NONCE)
+    if endowment != 0:
+        meter_bal_data(evm.tx_env, Uint(2) * BAL_BYTES_PER_BALANCE)
 
     # The whole state gas reservoir rides along (no 63/64 rule for
     # state gas) and is restored when the child returns.
@@ -517,6 +535,9 @@ def call(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(to)
 
+    # BLOCK ACCESS LIST DATA
+    meter_bal_address(evm.tx_env, to)
+
     extra_gas = access_gas_cost + transfer_gas_cost
     (
         is_delegated,
@@ -530,6 +551,7 @@ def call(evm: Evm) -> None:
         check_gas(evm, extra_gas + extend_memory.cost)
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
+        meter_bal_address(evm.tx_env, code_address)
 
     code_hash = get_account(tx_state, code_address).code_hash
     code = get_code(tx_state, code_hash)
@@ -544,6 +566,12 @@ def call(evm: Evm) -> None:
     new_account_charged = has_value and not is_account_alive(tx_state, to)
     if new_account_charged:
         charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
+
+    # BLOCK ACCESS LIST DATA
+    # A transfer to another account puts the caller's and the
+    # recipient's post balance in the block access list.
+    if has_value and to != evm.current_target:
+        meter_bal_data(evm.tx_env, Uint(2) * BAL_BYTES_PER_BALANCE)
 
     # CHILD GRANT
     # Computed after every charge above, so any state-gas spill has
@@ -642,6 +670,9 @@ def callcode(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(code_address)
 
+    # BLOCK ACCESS LIST DATA
+    meter_bal_address(evm.tx_env, code_address)
+
     extra_gas = access_gas_cost + transfer_gas_cost
     (
         is_delegated,
@@ -655,6 +686,7 @@ def callcode(evm: Evm) -> None:
         check_gas(evm, extra_gas + extend_memory.cost)
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
+        meter_bal_address(evm.tx_env, code_address)
 
     code_hash = get_account(tx_state, code_address).code_hash
     code = get_code(tx_state, code_hash)
@@ -736,6 +768,9 @@ def selfdestruct(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
 
+    # BLOCK ACCESS LIST DATA
+    meter_bal_address(evm.tx_env, beneficiary)
+
     # STATE GAS
     # A sweep that will create the beneficiary pays the account write
     # and the creation, charged by the frame whose opcode causes it;
@@ -758,6 +793,12 @@ def selfdestruct(evm: Evm) -> None:
     # OPERATION
     originator = evm.current_target
     originator_balance = get_account(tx_state, originator).balance
+
+    # BLOCK ACCESS LIST DATA
+    # A sweep to another account puts both post balances in the block
+    # access list.
+    if beneficiary != originator and originator_balance != 0:
+        meter_bal_data(evm.tx_env, Uint(2) * BAL_BYTES_PER_BALANCE)
 
     # Transfer balance
     move_ether(tx_state, originator, beneficiary, originator_balance)
@@ -821,6 +862,9 @@ def delegatecall(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(code_address)
 
+    # BLOCK ACCESS LIST DATA
+    meter_bal_address(evm.tx_env, code_address)
+
     extra_gas = access_gas_cost
     (
         is_delegated,
@@ -834,6 +878,7 @@ def delegatecall(evm: Evm) -> None:
         check_gas(evm, extra_gas + extend_memory.cost)
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
+        meter_bal_address(evm.tx_env, code_address)
 
     tx_state = evm.tx_env.state
     code_hash = get_account(tx_state, code_address).code_hash
@@ -923,6 +968,9 @@ def staticcall(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(to)
 
+    # BLOCK ACCESS LIST DATA
+    meter_bal_address(evm.tx_env, to)
+
     extra_gas = access_gas_cost
     (
         is_delegated,
@@ -936,6 +984,7 @@ def staticcall(evm: Evm) -> None:
         check_gas(evm, extra_gas + extend_memory.cost)
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
+        meter_bal_address(evm.tx_env, code_address)
 
     tx_state = evm.tx_env.state
     code_hash = get_account(tx_state, code_address).code_hash
