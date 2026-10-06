@@ -3,7 +3,10 @@
 import ast
 from textwrap import dedent
 
+import pytest
+
 from ethereum_spec_tools.lint import Diagnostic
+from ethereum_spec_tools.lint.lints.formatting_hygiene import FormattingHygiene
 from ethereum_spec_tools.lint.lints.patch_hygiene import PatchHygiene
 from ethereum_spec_tools.lint.lints.patch_hygiene import (
     _Visitor as PatchHygieneVisitor,
@@ -195,5 +198,144 @@ def test_patch_hygiene_compare_reorder_between_assign() -> None:
                 "the item `FIRST_CONSTANT` in `reorder_between_assign` has "
                 "changed relative positions"
             )
+        )
+    ]
+
+
+def test_formatting_hygiene_compare_new_module() -> None:
+    """Tests that formatting hygiene allows creating new modules."""
+    lint = FormattingHygiene()
+    assert lint.compare("new_module", "x = 1\n", None, "parent") == []
+
+
+def test_formatting_hygiene_compare_identical() -> None:
+    """Tests that formatting hygiene accepts identical modules."""
+    source = "def f(a, b):\n    return g(a, b)\n"
+
+    lint = FormattingHygiene()
+    assert lint.compare("identical", source, source, "parent") == []
+
+
+@pytest.mark.parametrize(
+    "old,new",
+    [
+        pytest.param(
+            """
+            x = g(
+                aaaa, bbbb
+            )
+            """,
+            """
+            x = g(
+                aaaa,
+                bbbb,
+            )
+            """,
+            id="call_exploded",
+        ),
+        pytest.param(
+            """
+            a = 1
+            b = 2
+            """,
+            """
+            a = 1
+
+            b = 2
+            """,
+            id="blank_line_added",
+        ),
+        pytest.param(
+            '''
+            def f():
+                """
+                Check the gas limit against the
+                parent block.
+                """
+            ''',
+            '''
+            def f():
+                """
+                Check the gas limit against the parent
+                block.
+                """
+            ''',
+            id="docstring_rewrapped",
+        ),
+    ],
+)
+def test_formatting_hygiene_compare_formatting_only(
+    old: str, new: str
+) -> None:
+    """
+    Tests that formatting hygiene reports changes that only reformat code.
+    """
+    lint = FormattingHygiene()
+    diagnostics = lint.compare("module", dedent(new), dedent(old), "parent")
+    assert len(diagnostics) == 1
+    assert diagnostics[0].message.startswith("`module` line ")
+    assert diagnostics[0].message.endswith(
+        "differs from `parent` only in formatting"
+    )
+
+
+@pytest.mark.parametrize(
+    "old,new",
+    [
+        pytest.param(
+            """
+            x = g(
+                aaaa, bbbb
+            )
+            """,
+            """
+            x = g(
+                aaaa,
+                cccc,
+            )
+            """,
+            id="argument_changed_and_exploded",
+        ),
+        pytest.param(
+            """
+            # Charge the base cost.
+            charge_gas(evm, cost)
+            """,
+            """
+            # Charge the base cost first.
+            charge_gas(evm, cost)
+            """,
+            id="comment_reworded",
+        ),
+        pytest.param(
+            """
+            name = "a b"
+            """,
+            """
+            name = "ab"
+            """,
+            id="string_spacing_changed",
+        ),
+    ],
+)
+def test_formatting_hygiene_compare_real_change(old: str, new: str) -> None:
+    """
+    Tests that formatting hygiene allows changes to code or comments.
+    """
+    lint = FormattingHygiene()
+    assert lint.compare("module", dedent(new), dedent(old), "parent") == []
+
+
+def test_formatting_hygiene_compare_line_number() -> None:
+    """
+    Tests that formatting hygiene reports the line in the newer hardfork.
+    """
+    old = "a = 1\nb = g(x, y)\n"
+    new = "a = 1\nb = g(\n    x,\n    y,\n)\n"
+
+    lint = FormattingHygiene()
+    assert lint.compare("module", new, old, "parent") == [
+        Diagnostic(
+            message="`module` line 2 differs from `parent` only in formatting"
         )
     ]
