@@ -23,6 +23,7 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    Bytecode,
     Conditional,
     Fork,
     Initcode,
@@ -67,7 +68,7 @@ def test_reinvoked_selfdestruct_create_nonce(
     )
     a_initcode = Initcode(deploy_code=a_runtime)
 
-    def call_a(flag: int) -> Op:
+    def call_a(flag: int) -> Bytecode:
         # Flag byte at memory[0x1f], passed as 1 calldata byte; A's address is
         # kept at memory[0x40], clear of the flag word.
         return Op.MSTORE(0, flag) + Op.POP(
