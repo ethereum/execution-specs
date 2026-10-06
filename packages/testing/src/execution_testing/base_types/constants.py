@@ -15,7 +15,6 @@ TestPrivateKey2 = (
 AddrAA = Address(0xAA)
 AddrBB = Address(0xBB)
 
-EmptyBloom = bytes([0] * 256)
 EmptyOmmersRoot = bytes.fromhex(
     "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
 )

@@ -11,6 +11,7 @@ from execution_testing.base_types import (
     AccessList,
     Address,
     BlobSchedule,
+    Bloom,
     Bytes,
     ZeroPaddedHexNumber,
 )
@@ -956,6 +957,11 @@ class Frontier(BaseFork):
     def header_slot_number_required(cls) -> bool:
         """At genesis, header must not contain slot number (EIP-7843)."""
         return False
+
+    @classmethod
+    def empty_logs_bloom(cls) -> Bloom:
+        """At genesis, a block without logs has an all-zero bloom filter."""
+        return Bloom(b"\x00" * 256)
 
     @classmethod
     def engine_new_payload_blob_hashes(cls) -> bool:

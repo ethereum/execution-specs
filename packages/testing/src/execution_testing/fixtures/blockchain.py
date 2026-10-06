@@ -47,6 +47,7 @@ from execution_testing.base_types import (
     HexNumber,
     KnownEncodedSize,
     Number,
+    PayloadLogsBloom,
     ZeroPaddedHexNumber,
     encoded_size,
     ssz,
@@ -259,6 +260,13 @@ class FixtureHeader(CamelModel):
             # No validation done when we are importing the fixture from file
             return
 
+        bloom_length = len(self.fork.empty_logs_bloom())
+        if len(self.logs_bloom) != bloom_length:
+            raise ValueError(
+                f"Logs bloom is {len(self.logs_bloom)} bytes, but fork "
+                f"{self.fork} gives it {bloom_length}"
+            )
+
         # For each field, check if any of the annotations are of type
         # HeaderForkRequirement and if so, check if the field is required for
         # the given fork.
@@ -393,6 +401,7 @@ class FixtureHeader(CamelModel):
         extras: Dict[str, Any] = {
             "state_root": state_root,
             "fork": fork,
+            "bloom": fork.empty_logs_bloom(),
         }
         if fork.header_requests_required():
             extras["requests_hash"] = Requests()
@@ -464,7 +473,7 @@ class FixtureExecutionPayload(ForkScopedSSZModel):
     state_root: Hash
 
     receipts_root: Hash
-    logs_bloom: Bloom
+    logs_bloom: PayloadLogsBloom
 
     number: Uint64 = Field(..., alias="blockNumber")
     gas_limit: Uint64
@@ -530,8 +539,12 @@ class FixtureExecutionPayload(ForkScopedSSZModel):
         Return FixtureExecutionPayload from a FixtureHeader, a list of
         transactions, a list of withdrawals, and an optional block access list.
         """
+        header_values = header.model_dump(exclude_none=True)
+        header_values["logs_bloom"] = PayloadLogsBloom(
+            header.logs_bloom, left_padding=True
+        )
         return cls(
-            **header.model_dump(exclude_none=True),
+            **header_values,
             transactions=[tx.rlp() for tx in transactions],
             withdrawals=withdrawals,
             block_access_list=block_access_list,

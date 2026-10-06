@@ -467,8 +467,43 @@ class StorageKey(FixedSizeBytes[32]):  # type: ignore
         return super().__new__(cls, input_bytes, **kwargs)
 
 
-class Bloom(FixedSizeBytes[256]):  # type: ignore
-    """Class that helps represent blooms in tests."""
+class Bloom(Bytes):
+    """
+    Logs bloom of a block header or a transaction receipt.
+
+    The field holds 256 bytes up to EIP-7668, which empties it, so both
+    lengths are valid depending on the fork. An integer input is always
+    taken as the 256-byte form.
+    """
+
+    byte_lengths: ClassVar[tuple[int, ...]] = (0, 256)
+
+    def __new__(cls, input_bytes: FixedSizeBytesConvertible) -> Self:
+        """Create a new Bloom object."""
+        if type(input_bytes) is cls:
+            return input_bytes
+        if isinstance(input_bytes, int):
+            return super(Bloom, cls).__new__(
+                cls, to_fixed_size_bytes(input_bytes, 256)
+            )
+        value = to_bytes(input_bytes)
+        if len(value) not in cls.byte_lengths:
+            lengths = " or ".join(str(n) for n in cls.byte_lengths)
+            raise ValueError(
+                f"bloom must be {lengths} bytes, got {len(value)}: "
+                f"{value.hex()}"
+            )
+        return super(Bloom, cls).__new__(cls, value)
+
+
+class PayloadLogsBloom(FixedSizeBytes[256]):  # type: ignore
+    """
+    The execution payload's logs bloom slot.
+
+    EIP-7668 empties the header and receipt blooms, but the payload keeps
+    the 256-byte field: SSZ has no zero-length vector. The slot is then
+    always zero and the header is rebuilt with an empty bloom.
+    """
 
     pass
 
