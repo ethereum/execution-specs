@@ -67,13 +67,17 @@ class EIP8131(BaseFork):
             authorization_list_or_count: Sized | int | None = None,
             blob_versioned_hashes_or_count: Sized | int | None = None,
         ) -> int:
-            # The inherited floor of a transaction with no content is the
-            # intrinsic base.
+            # The inherited floor of a transaction with no content bytes is
+            # the intrinsic base. The authorizations and blob hashes still
+            # go down, for a later EIP that prices what they add beyond
+            # their bytes.
             intrinsic_base = super_fn(
                 data=b"",
                 contract_creation=contract_creation,
                 sends_value=sends_value,
                 recipient_type=recipient_type,
+                authorization_list_or_count=authorization_list_or_count,
+                blob_versioned_hashes_or_count=blob_versioned_hashes_or_count,
             )
             content_bytes = (
                 len(Bytes(data))

@@ -10,6 +10,7 @@ from execution_testing.base_types import AccessList, BlobSchedule
 from execution_testing.vm import Opcodes
 
 from ..base_fork import BaseFork, BaseForkMeta, GasDimension, SystemCallPhase
+from ..forks.eips.bogota.eip_8279 import AUTH_BAL_BYTES
 from ..forks.eips.paris.eip_3675 import EIP3675
 from ..forks.forks import (
     BPO1,
@@ -528,6 +529,12 @@ def test_content_floor_matches_eip_test_cases(
     has an EIP-2780 intrinsic base of 21,000, a call without value one of
     15,000.
     """
+    # EIP-8279 adds each authorization's block access list bytes.
+    floor += (
+        authorization_count
+        * AUTH_BAL_BYTES
+        * Bogota.gas_costs().FLOOR_PER_BYTE
+    )
     assert (
         Bogota.transaction_data_floor_cost_calculator()(
             data=calldata,
