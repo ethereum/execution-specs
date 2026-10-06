@@ -1,22 +1,16 @@
 """
 Tests for the EIP-8141 fork transition.
 
-The fork installs the expiry verifier's runtime code at
-`Spec.EXPIRY_VERIFIER` when it activates. Every other EIP-8141 test
-starts at a fork where the code is already in the genesis allocation, so
-these tests are the only ones that exercise the install itself: what the
-account looks like before the fork block, and what changes at it.
-
-They cover the verifier install, not the activation block as a whole. A
-passing fixture says the code appeared at the fork block, that nothing
-else about the account changed, and that the install left no trace in the
-block access list. It says nothing about the rest of the transition.
+The expiry verifier is an ordinary contract that is part of the genesis
+allocation in every EIP-8141 test, so the fork activation itself writes
+no state. These tests cover what the first post-fork block accepts: a
+frame transaction carrying an expiry frame executes in the block that
+activates the fork.
 
 The pre-fork blocks run under the `amsterdam` spec module, which has no
 frame transactions, and the post-fork blocks under `bogota`, so the
-transition tool applies each side's own rules. These tests keep their
-pre-fork blocks to a plain transfer and an `EXTCODESIZE` probe. A frame
-transaction being rejected before the fork is not covered here yet.
+transition tool applies each side's own rules. A frame transaction being
+rejected before the fork is not covered here yet.
 """
 
 import pytest
@@ -47,9 +41,6 @@ FORK_TIMESTAMP = 15_000
 SLOT_EXECUTED = 0x01
 """Storage slot used by target contracts to record execution."""
 
-SLOT_PRE_FORK = 0x10
-"""Storage slot the verifier address may already hold before the fork."""
-
 VERIFIER_WITHOUT_CODE_CHANGE = BlockAccessListExpectation(
     account_expectations={
         Spec.EXPIRY_VERIFIER: BalAccountExpectation(code_changes=[]),
@@ -57,129 +48,8 @@ VERIFIER_WITHOUT_CODE_CHANGE = BlockAccessListExpectation(
 )
 """
 The verifier is in the block access list, reached by a transaction, and
-records no code change. The install is not a block-level operation, so
-it never appears there, not even in the block that performs it.
+records no code change.
 """
-
-VERIFIER_UNTOUCHED = BlockAccessListExpectation(
-    account_expectations={
-        Spec.EXPIRY_VERIFIER: BalAccountExpectation.empty(),
-    }
-)
-"""
-The verifier is in the block access list, read by a transaction, and
-records no change of any kind.
-"""
-
-
-@pytest.mark.pre_alloc_mutable
-@pytest.mark.parametrize(
-    "pre_fork_nonce,pre_fork_balance,pre_fork_storage",
-    [
-        pytest.param(None, None, None, id="absent_before_fork"),
-        pytest.param(0, 1, None, id="balance_before_fork"),
-        pytest.param(7, 1, None, id="nonce_and_balance_before_fork"),
-        pytest.param(0, 1, {SLOT_PRE_FORK: 0xA5}, id="storage_before_fork"),
-    ],
-)
-@pytest.mark.parametrize(
-    "transfer_before_fork",
-    [
-        pytest.param(False, id="no_transfer"),
-        pytest.param(True, id="transfer_before_fork"),
-    ],
-)
-def test_expiry_verifier_installed_at_fork_transition(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    pre_fork_nonce: int | None,
-    pre_fork_balance: int | None,
-    pre_fork_storage: dict[int, int] | None,
-    transfer_before_fork: bool,
-) -> None:
-    """
-    Install the expiry verifier's code at the fork block and nothing else.
-
-    A probe contract records `EXTCODESIZE` of the verifier address keyed
-    by block number, so each block's view is visible in the post-state:
-
-    * block 1 (pre-fork): no code yet, and a transaction sent to the
-      address runs nothing.
-    * block 2 (transition): the runtime code is present from the first
-      post-fork block.
-    * block 3 (post-fork): the code stays.
-
-    The account's other fields are left as they were before the fork. An
-    address nobody touched ends with a zero nonce and balance; an account
-    that already existed keeps its nonce, its balance, whether that
-    balance was in the genesis allocation or arrived by a pre-fork
-    transfer, and its storage. The post-state pins all of them, so an
-    install that writes anything other than the code fails here.
-
-    Each block's access list pins the same from the other side: the
-    verifier appears in it only through the transactions that touch it,
-    and never with a code change, in the fork block included.
-    """
-    sender = pre.fund_eoa()
-    probe = pre.deploy_contract(
-        Op.SSTORE(Op.NUMBER, Op.EXTCODESIZE(Spec.EXPIRY_VERIFIER)) + Op.STOP
-    )
-    if pre_fork_nonce is not None and pre_fork_balance is not None:
-        pre[Spec.EXPIRY_VERIFIER] = Account(
-            nonce=pre_fork_nonce,
-            balance=pre_fork_balance,
-            storage=pre_fork_storage or {},
-        )
-
-    pre_fork_txs = [
-        Transaction(sender=sender, to=probe),
-        # Before the fork there is no code at the address: the call is a
-        # plain transfer of whatever value it carries.
-        Transaction(
-            sender=sender,
-            to=Spec.EXPIRY_VERIFIER,
-            value=1 if transfer_before_fork else 0,
-        ),
-    ]
-    blocks = [
-        Block(
-            timestamp=FORK_TIMESTAMP - 1,
-            txs=pre_fork_txs,
-            expected_block_access_list=VERIFIER_WITHOUT_CODE_CHANGE,
-        ),
-        Block(
-            timestamp=FORK_TIMESTAMP,
-            txs=[Transaction(sender=sender, to=probe)],
-            expected_block_access_list=VERIFIER_UNTOUCHED,
-        ),
-        Block(
-            timestamp=FORK_TIMESTAMP + 1,
-            txs=[Transaction(sender=sender, to=probe)],
-            expected_block_access_list=VERIFIER_UNTOUCHED,
-        ),
-    ]
-
-    code_size = len(Spec.EXPIRY_VERIFIER_CODE)
-    expected_balance = (pre_fork_balance or 0) + (
-        1 if transfer_before_fork else 0
-    )
-    post = {
-        probe: Account(
-            storage={
-                1: 0,
-                2: code_size,
-                3: code_size,
-            },
-        ),
-        Spec.EXPIRY_VERIFIER: Account(
-            nonce=pre_fork_nonce or 0,
-            balance=expected_balance,
-            code=Spec.EXPIRY_VERIFIER_CODE,
-            storage=pre_fork_storage or {},
-        ),
-    }
-
-    blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
 def test_expiry_frame_in_first_post_fork_block(
@@ -189,10 +59,10 @@ def test_expiry_frame_in_first_post_fork_block(
     """
     Execute an expiry verifier frame in the block that activates the fork.
 
-    The verifier's code is installed before the block's transactions run,
-    so a frame transaction carrying an expiry frame in that same block
-    finds the predeploy in place and executes. The block's access list
-    shows the verifier as executed code, not as a code change.
+    The verifier is already deployed before the fork, so a frame
+    transaction carrying an expiry frame in the activation block finds
+    the contract in place and executes. The block's access list shows
+    the verifier as executed code, not as a code change.
     """
     sender = pre.fund_eoa()
     target = pre.deploy_contract(code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP)
@@ -219,10 +89,6 @@ def test_expiry_frame_in_first_post_fork_block(
         ),
     ]
     post = {
-        Spec.EXPIRY_VERIFIER: Account(
-            nonce=0,
-            code=Spec.EXPIRY_VERIFIER_CODE,
-        ),
         target: Account(storage={SLOT_EXECUTED: 1}),
     }
 

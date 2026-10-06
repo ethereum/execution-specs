@@ -14,7 +14,7 @@ class ReferenceSpec:
 
 
 ref_spec_8141 = ReferenceSpec(
-    "EIPS/eip-8141.md", "b4eb24e3a791fc735605ea9fecdc3bcd19872e2b"
+    "EIPS/eip-8141.md", "d0d1d86b67e65dc8e8bf504eb3b2f1e9198f8212"
 )
 
 
@@ -29,10 +29,7 @@ class Spec:
     FRAME_TX_INTRINSIC_COST = 12_000
     FRAME_TX_PER_FRAME_COST = 475
     ENTRY_POINT = Address(0xAA)
-    EXPIRY_VERIFIER = Address(0x8141)
-    EXPIRY_VERIFIER_CODE = bytes.fromhex(
-        "60083614600a575f5ffd5b5f3560c01c4211601657005b5f5ffd"
-    )
+    EXPIRY_VERIFIER = Address(0x81413F0CF12E9B6A49B1D0439E081C577D57FFFF)
     EXPIRY_DATA_LENGTH = 8
     MAX_FRAMES = 64
 
