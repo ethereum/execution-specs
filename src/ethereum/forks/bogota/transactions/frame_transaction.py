@@ -133,6 +133,28 @@ The nonce key set selecting the sender's account nonce rather than a
 keyed nonce sequence held by the nonce manager.
 """
 
+NONCETYPE_GENERAL: Final[Uint] = Uint(0x00)
+"""
+Nonce type of a key whose sequence advances by one on each use (see
+[`get_nonce_type`][gnt]).
+
+[gnt]: ref:ethereum.forks.bogota.transactions.frame_transaction.get_nonce_type
+"""  # noqa: E501
+
+NONCETYPE_BINARY: Final[Uint] = Uint(0x01)
+"""
+Nonce type of a single-use key, which only accepts sequence zero and
+is consumed once (see [`get_nonce_type`][gnt]).
+
+[gnt]: ref:ethereum.forks.bogota.transactions.frame_transaction.get_nonce_type
+"""  # noqa: E501
+
+NONCETYPE_MAX: Final[Uint] = NONCETYPE_BINARY
+"""
+Largest defined nonce type. Larger types are reserved, and a key
+carrying one is invalid.
+"""
+
 
 @final
 class FrameMode(UintEnum, boundary=STRICT):
@@ -824,21 +846,33 @@ def validate_frame_transaction(
     )
 
 
+def get_nonce_type(nonce_key: U256) -> Uint:
+    """
+    Return the type of `nonce_key`: its most significant byte.
+    """
+    return Uint(nonce_key.to_be_bytes32()[0])
+
+
 def validate_nonce_keys(nonce_keys: Tuple[U256, ...]) -> None:
     """
     Check that a transaction selects a well-formed set of nonce keys.
 
     The set holds between one and [`MAX_NONCE_KEYS`][mnk] keys in
     strictly increasing order, so each set has one canonical encoding.
-    The zero key aliases the sender's account nonce and may only appear
-    alone, as [`LEGACY_NONCE_KEYS`][lnk].
+    Every key's type is at most [`NONCETYPE_MAX`][ntm]. The zero key
+    aliases the sender's account nonce and may only appear alone, as
+    [`LEGACY_NONCE_KEYS`][lnk].
 
     [mnk]: ref:ethereum.forks.bogota.transactions.frame_transaction.MAX_NONCE_KEYS
+    [ntm]: ref:ethereum.forks.bogota.transactions.frame_transaction.NONCETYPE_MAX
     [lnk]: ref:ethereum.forks.bogota.transactions.frame_transaction.LEGACY_NONCE_KEYS
     """  # noqa: E501
     key_count = ulen(nonce_keys)
     if key_count < Uint(1) or key_count > MAX_NONCE_KEYS:
         raise InvalidFrameError("invalid nonce key count")
+    for key in nonce_keys:
+        if get_nonce_type(key) > NONCETYPE_MAX:
+            raise InvalidFrameError("reserved nonce key type")
     for previous, key in zip(nonce_keys, nonce_keys[1:], strict=False):
         if key <= previous:
             raise InvalidFrameError("nonce keys not strictly increasing")
