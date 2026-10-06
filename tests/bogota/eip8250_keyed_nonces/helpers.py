@@ -5,13 +5,16 @@ from typing import Sequence
 from execution_testing import Account, Alloc, Fork, Op, Transaction
 
 from ..eip8141_frame_transactions.helpers import default_code_frame_gas
-from .spec import Spec, keyed_nonce_slot
+from .spec import Spec, keyed_nonce_slot, typed_nonce_key
 
 NONCE_KEY = 0xBEEF
 """A non-zero nonce key selecting a keyed domain."""
 
 OTHER_KEY = 0xCAFE
 """A second non-zero nonce key, disjoint from `NONCE_KEY`."""
+
+BINARY_KEY = typed_nonce_key(Spec.NONCETYPE_BINARY, NONCE_KEY)
+"""The binary nonce key carrying the same value as `NONCE_KEY`."""
 
 
 def keyed_nonce_first_use(fork: Fork) -> int:

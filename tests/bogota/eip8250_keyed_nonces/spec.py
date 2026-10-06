@@ -32,6 +32,10 @@ class Spec:
     MAX_NONCE_KEYS = 16
     MAX_NONCE_SEQ = 2**64 - 1
 
+    NONCETYPE_GENERAL = 0x00
+    NONCETYPE_BINARY = 0x01
+    NONCETYPE_MAX = NONCETYPE_BINARY
+
     # `0x11` is the first selector after the four this EIP adds.
     TXPARAM_NONCE_SEQ = 0x01
     TXPARAM_LEGACY_NONCE = 0x0D
@@ -39,6 +43,21 @@ class Spec:
     TXPARAM_NONCE_KEYS_HASH = 0x0F
     TXPARAM_NONCE_KEY_0 = 0x10
     TXPARAM_FIRST_UNDEFINED = 0x11
+
+
+NONCE_KEY_VALUE_BYTES = 31
+"""Bytes of a nonce key below its type byte."""
+
+MAX_NONCE_KEY_VALUE = 2 ** (8 * NONCE_KEY_VALUE_BYTES) - 1
+"""The largest value a nonce key carries below its type byte."""
+
+
+def typed_nonce_key(nonce_type: int, value: int) -> int:
+    """Return the nonce key with type byte `nonce_type` above `value`."""
+    return int.from_bytes(
+        bytes([nonce_type]) + value.to_bytes(NONCE_KEY_VALUE_BYTES, "big"),
+        "big",
+    )
 
 
 def keyed_nonce_slot(sender: Address, nonce_key: int) -> int:
