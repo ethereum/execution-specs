@@ -1482,7 +1482,7 @@ def settle_frame_transaction_gas(
       with it the pre-refund usage;
     - the payer-facing execution dimension, as the post-refund usage
       less the final attributed state gas, held to the calldata floor
-      ([EIP-7623]); and
+      ([EIP-7976]); and
     - the block-accounted execution dimension, as the pre-refund usage
       less the final attributed state gas, held to the same floor.
       Storage refunds therefore reduce what the payer pays without
@@ -1518,8 +1518,8 @@ def settle_frame_transaction_gas(
         The settled gas amounts.
 
     [EIP-3529]: https://eips.ethereum.org/EIPS/eip-3529
-    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     [EIP-7778]: https://eips.ethereum.org/EIPS/eip-7778
+    [EIP-7976]: https://eips.ethereum.org/EIPS/eip-7976
 
     """
     gas_used_before_refund = standard_gas_limit - tx_unused_gas

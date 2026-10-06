@@ -805,13 +805,12 @@ def calculate_frame_transaction_intrinsic_cost(
     target access is paid during frame execution from each frame's own
     execution gas budget.
 
-    The calldata floor of [EIP-7623] counts every charged byte uniformly
-    per [EIP-7976] and is anchored on the costs the transaction always
-    pays regardless of execution — the base cost, the per-frame cost,
-    the signature verification cost, and the value transfer cost — so it
-    never undercuts the transaction's own intrinsic base.
+    The calldata floor of [EIP-7976] counts every charged byte uniformly
+    and is anchored on the costs the transaction always pays regardless
+    of execution — the base cost, the per-frame cost, the signature
+    verification cost, and the value transfer cost — so it never
+    undercuts the transaction's own intrinsic base.
 
-    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     [EIP-7976]: https://eips.ethereum.org/EIPS/eip-7976
     """
     from ..vm.gas import GasCosts
