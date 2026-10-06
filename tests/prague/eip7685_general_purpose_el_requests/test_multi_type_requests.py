@@ -18,6 +18,7 @@ from execution_testing import (
     BlockException,
     BuilderDepositRequest,
     BuilderExitRequest,
+    Bytecode,
     Bytes,
     ConsolidationRequest,
     DepositRequest,
@@ -26,6 +27,7 @@ from execution_testing import (
     FeeSystemContractRequest,
     Fork,
     Header,
+    Op,
     ParameterSet,
     Requests,
     SystemContractInteractionContract,
@@ -33,6 +35,7 @@ from execution_testing import (
     SystemContractRequest,
     TestAddress,
     Transaction,
+    Withdrawal,
     WithdrawalRequest,
 )
 
@@ -532,5 +535,69 @@ def test_system_contract_deployed_and_called_in_same_block(
             ),
             deployer: Account(nonce=1),
             request_sender: Account(nonce=2),
+        },
+    )
+
+
+@pytest.mark.with_all_system_contract_request_types(
+    selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
+)
+@pytest.mark.parametrize(
+    "forwarded_share",
+    [
+        pytest.param("all", id="forward_all"),
+        pytest.param("half", id="forward_half"),
+    ],
+)
+@pytest.mark.pre_alloc_mutable
+def test_withdrawals_credited_before_request_system_call(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    request_class: type[FeeSystemContractRequest],
+    forwarded_share: str,
+) -> None:
+    """
+    Withdrawals are credited before the request system calls run.
+
+    The predeploy's code is replaced with code that forwards its balance
+    to a sink, so the sink only receives the withdrawal if the withdrawal
+    was credited first.
+    """
+    predeploy = request_class.system_contract_address
+    withdrawal_amount_wei = 10**9
+    sink = pre.fund_eoa(amount=1)
+
+    forwarded_value: Bytecode
+    if forwarded_share == "all":
+        forwarded_wei = withdrawal_amount_wei
+        forwarded_value = Op.SELFBALANCE
+    elif forwarded_share == "half":
+        forwarded_wei = withdrawal_amount_wei // 2
+        forwarded_value = Op.DIV(Op.SELFBALANCE, 2)
+    else:
+        raise ValueError(f"unhandled share: {forwarded_share}")
+
+    pre[predeploy] = Account(
+        code=Op.CALL(address=sink, value=forwarded_value),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                withdrawals=[
+                    Withdrawal(
+                        index=0,
+                        validator_index=0,
+                        address=predeploy,
+                        amount=1,
+                    )
+                ],
+            )
+        ],
+        post={
+            predeploy: Account(balance=withdrawal_amount_wei - forwarded_wei),
+            sink: Account(balance=1 + forwarded_wei),
         },
     )
