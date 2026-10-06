@@ -42,7 +42,7 @@ from ethereum.state_mpt import (
     store_code,
 )
 
-from . import vm
+from . import FORK_CRITERIA, vm
 from .block_access_lists import (
     BlockAccessListBuilder,
     build_block_access_list,
@@ -78,7 +78,9 @@ from .state_tracker import (
     get_code,
     incorporate_tx_into_block,
     increment_nonce,
+    modify_state,
     set_account_balance,
+    set_code,
 )
 from .transactions import (
     BlobTransaction,
@@ -200,13 +202,13 @@ def apply_fork(old: BlockChain) -> BlockChain:
     previously nonexistent account keeps a zero nonce and any balance
     the account held before the fork is preserved.
 
-    The nonce manager is installed as well (see
-    [`install_nonce_manager`][inm]).
+    The nonce manager is installed in the fork block instead, where the
+    block access list records it (see [`apply_fork_activation`][afa]).
 
     [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
     [ev]: ref:ethereum.forks.bogota.transactions.frame_transaction.EXPIRY_VERIFIER
     [evc]: ref:ethereum.forks.bogota.transactions.frame_transaction.EXPIRY_VERIFIER_CODE
-    [inm]: ref:ethereum.forks.bogota.fork.install_nonce_manager
+    [afa]: ref:ethereum.forks.bogota.fork.apply_fork_activation
     """  # noqa: E501
     state = old.state
     existing_account = state.get_account_optional(EXPIRY_VERIFIER)
@@ -223,36 +225,78 @@ def apply_fork(old: BlockChain) -> BlockChain:
             code_hash=code_hash,
         ),
     )
-    install_nonce_manager(state)
     return old
 
 
-def install_nonce_manager(state: State) -> None:
+def is_fork_block(
+    parent_header: Header | PreviousHeader, header: Header
+) -> bool:
     """
-    Install the nonce manager system contract, as required by
-    [EIP-8250] when the fork activates.
+    Check whether `header` is the first block of this fork.
 
-    The account gets [`NONCE_MANAGER_CODE`][nmc] and a nonce of at
-    least one, keeping any higher nonce and any balance it already
-    held. The address is chosen to hold no code and no storage before
-    activation, so the account's storage stays empty.
+    The fork block is the first block that meets `FORK_CRITERIA` while its
+    parent does not. An unscheduled fork never activates, so no block is its
+    fork block.
+
+    Parameters
+    ----------
+    parent_header :
+        The header of the parent block.
+    header :
+        The header of the block being executed.
+
+    Returns
+    -------
+    is_fork_block : `bool`
+        True if `header` activates this fork.
+
+    """
+    return FORK_CRITERIA.check(
+        header.number, header.timestamp
+    ) and not FORK_CRITERIA.check(
+        parent_header.number, parent_header.timestamp
+    )
+
+
+def apply_fork_activation(block_env: vm.BlockEnvironment) -> None:
+    """
+    Apply the state changes of the fork block that come before any of its
+    transactions, at the pre-execution block access index, so the block
+    access list records them.
+
+    [EIP-8250] installs the nonce manager here (see
+    [`install_nonce_manager`][inm]). A fork copied from this one must
+    drop the install, or it would run again at that fork's own block.
+
+    [EIP-8250]: https://eips.ethereum.org/EIPS/eip-8250
+    [inm]: ref:ethereum.forks.bogota.fork.install_nonce_manager
+    """
+    activation_state = TransactionState(parent=block_env.state)
+    install_nonce_manager(activation_state)
+    incorporate_tx_into_block(
+        activation_state, block_env.block_access_list_builder
+    )
+
+
+def install_nonce_manager(tx_state: TransactionState) -> None:
+    """
+    Install the nonce manager system contract, as required by [EIP-8250]
+    in the fork block.
+
+    The account gets [`NONCE_MANAGER_CODE`][nmc] and a nonce of at least
+    one, keeping any higher nonce and any balance it already held. The
+    address is chosen to hold no code and no storage before activation,
+    so the account's storage stays empty.
 
     [EIP-8250]: https://eips.ethereum.org/EIPS/eip-8250
     [nmc]: ref:ethereum.forks.bogota.transactions.frame_transaction.NONCE_MANAGER_CODE
     """  # noqa: E501
-    existing_account = state.get_account_optional(NONCE_MANAGER)
-    if existing_account is None:
-        existing_account = EMPTY_ACCOUNT
+    set_code(tx_state, NONCE_MANAGER, NONCE_MANAGER_CODE)
 
-    set_account(
-        state,
-        NONCE_MANAGER,
-        Account(
-            nonce=max(existing_account.nonce, Uint(1)),
-            balance=existing_account.balance,
-            code_hash=store_code(state, NONCE_MANAGER_CODE),
-        ),
-    )
+    def raise_nonce(account: Account) -> None:
+        account.nonce = max(account.nonce, Uint(1))
+
+    modify_state(tx_state, NONCE_MANAGER, raise_nonce)
 
 
 def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
@@ -385,6 +429,9 @@ def execute_block(
         block_access_list_builder=BlockAccessListBuilder(),
         slot_number=block.header.slot_number,
     )
+
+    if is_fork_block(parent_header, block.header):
+        apply_fork_activation(block_env)
 
     block_output = apply_body(
         block_env=block_env,

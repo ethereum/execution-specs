@@ -106,13 +106,13 @@ keyed nonce sequences of every sender (see [`nonce_slot`][ns]).
 NONCE_MANAGER_CODE: Final[Bytes] = Bytes(bytes.fromhex("60006000fd"))
 """
 Runtime code of the nonce manager, installed at [`NONCE_MANAGER`][nm]
-when the fork activates (see [`apply_fork`][af]).
+in the fork block (see [`apply_fork_activation`][afa]).
 
 The code is `revert(0, 0)`: only the protocol writes keyed nonces, and
 any ordinary call to the contract reverts with empty return data.
 
 [nm]: ref:ethereum.forks.bogota.transactions.frame_transaction.NONCE_MANAGER
-[af]: ref:ethereum.forks.bogota.fork.apply_fork
+[afa]: ref:ethereum.forks.bogota.fork.apply_fork_activation
 """  # noqa: E501
 
 MAX_NONCE_KEYS: Final[Uint] = Uint(16)
