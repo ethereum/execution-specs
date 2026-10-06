@@ -52,14 +52,28 @@ class TransactionLoad:
 
     def json_to_nonce_keys(self) -> Any:
         """Get the nonce keys of a frame transaction."""
-        return tuple(
-            hex_to_u256(nonce_key)
-            for nonce_key in self.raw.get("nonceKeys", ["0x00"])
-        )
+        try:
+            return tuple(
+                hex_to_u256(nonce_key)
+                for nonce_key in self.raw.get("nonceKeys", ["0x00"])
+            )
+        except (ValueError, OverflowError) as e:
+            # A key wider than 256 bits never decodes, so reject the
+            # transaction instead of crashing.
+            raise UnsupportedTxError(
+                None, "invalid frame field: nonce key out of range"
+            ) from e
 
     def json_to_nonce_seq(self) -> U64:
         """Get the nonce sequence of a frame transaction."""
-        return parse_hex_or_int(self.raw.get("nonce"), U64)
+        try:
+            return parse_hex_or_int(self.raw.get("nonce"), U64)
+        except (ValueError, OverflowError) as e:
+            # A sequence wider than 64 bits never decodes, so reject the
+            # transaction instead of crashing.
+            raise UnsupportedTxError(
+                None, "invalid frame field: nonce sequence out of range"
+            ) from e
 
     def json_to_gas_price(self) -> Uint:
         """Get the gas price for the transaction."""
