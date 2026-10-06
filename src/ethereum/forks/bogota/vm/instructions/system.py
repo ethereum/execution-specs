@@ -34,15 +34,8 @@ from ...utils.address import (
     compute_create2_contract_address,
     to_address_masked,
 )
-from ...vm.eoa_delegation import (
-    calculate_delegation_cost,
-)
-from .. import (
-    CALL_SUCCESS,
-    Evm,
-    emit_transfer_log,
-    incorporate_child,
-)
+from ...vm.eoa_delegation import calculate_delegation_cost
+from .. import CALL_SUCCESS, Evm, emit_transfer_log, incorporate_child
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
     GasCosts,
