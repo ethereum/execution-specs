@@ -136,15 +136,15 @@ def tx_gas_per_tx(
     the recipient is no longer empty, so the EIP-2780 top-frame
     ``NEW_ACCOUNT`` state-gas charge does not fire on subsequent txs.
     """
-    n_txs = len(blob_hashes_per_tx)
-    if n_txs <= 1:
-        return [tx_gas] * n_txs
-
+    post_transition_fork = fork.transitions_to()
+    sends_value = tx_value > 0
+    first_recipient_type = _destination_recipient_type(
+        destination_account_code, destination_account_balance
+    )
     destination_starts_empty = (
         destination_account_code is None and destination_account_balance == 0
     )
-    if destination_starts_empty and tx_value > 0:
-        post_transition_fork = fork.transitions_to()
+    if destination_starts_empty and sends_value:
         intrinsic_calc = (
             post_transition_fork.transaction_intrinsic_cost_calculator()
         )
@@ -159,10 +159,29 @@ def tx_gas_per_tx(
             sends_value=True,
         )
         tx_gas_nonempty = intrinsic + top_frame_state
+        later_recipient_type = RecipientType.EOA
     else:
         tx_gas_nonempty = tx_gas
+        later_recipient_type = first_recipient_type
 
-    return [tx_gas] + [tx_gas_nonempty] * (n_txs - 1)
+    # Forks that price blob hashes into the floor (EIP-8131) can make the
+    # floor bind, and it grows with each transaction's blob count.
+    floor_calc = post_transition_fork.transaction_data_floor_cost_calculator()
+    gas_per_tx = []
+    for tx_i, blob_hashes in enumerate(blob_hashes_per_tx):
+        if tx_i == 0:
+            gas, recipient_type = tx_gas, first_recipient_type
+        else:
+            gas, recipient_type = tx_gas_nonempty, later_recipient_type
+        floor = floor_calc(
+            data=tx_calldata,
+            access_list=tx_access_list,
+            recipient_type=recipient_type,
+            sends_value=sends_value,
+            blob_versioned_hashes_or_count=blob_hashes,
+        )
+        gas_per_tx.append(max(gas, floor))
+    return gas_per_tx
 
 
 @pytest.fixture
