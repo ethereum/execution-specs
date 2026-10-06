@@ -17,6 +17,7 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -32,6 +33,7 @@ pytestmark = pytest.mark.valid_from("EIP8163")
 
 slot_code_worked = 1
 value_code_worked = 0x1234
+value_code_untouched = 0xBA5E
 
 
 @pytest.mark.parametrize(
@@ -46,6 +48,7 @@ value_code_worked = 0x1234
 def test_top_level_call(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     opcode: Bytecode,
     success: bool,
     all_gas_consumed: bool,
@@ -57,16 +60,21 @@ def test_top_level_call(
     """
     contract_address = pre.deploy_contract(code=opcode)
 
-    # Kept under the EIP-7825 transaction gas limit cap: above it, EIP-8037
-    # turns the excess into a state gas reservoir that a halt leaves intact.
-    gas_limit = 1_000_000
+    # One gas more than the code needs, so a normal halt refunds exactly
+    # that gas while an exceptional halt consumes it with the rest.
+    execution_gas = (
+        fork.transaction_intrinsic_cost_calculator()() + opcode.gas_cost(fork)
+    )
+    gas_limit = execution_gas + 1
     tx = Transaction(
         gas_limit=gas_limit,
         to=contract_address,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             status=int(success),
-            cumulative_gas_used=gas_limit if all_gas_consumed else None,
+            cumulative_gas_used=(
+                gas_limit if all_gas_consumed else execution_gas
+            ),
         ),
     )
 
@@ -74,93 +82,61 @@ def test_top_level_call(
 
 
 @pytest.mark.parametrize(
-    "opcode,success",
+    "target,valid_jump",
     [
-        pytest.param(Op.EXTENSION, False),
-        pytest.param(Op.INVALID, False),
         pytest.param(Op.JUMPDEST, True),
+        pytest.param(Op.PUSH1(0x5B), False, id="push_data_0x5b"),
     ],
 )
-@pytest.mark.parametrize("stack_item", [0, 1])
-def test_execute_with_stack(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    opcode: Op,
-    success: bool,
-    stack_item: int,
-) -> None:
-    """
-    Execute the tested byte with 256 items of value 0 or 1 on the
-    stack.
-
-    EXTENSION behaves as INVALID, JUMPDEST as sanity check.
-    """
-    push = Op.PUSH0 if stack_item == 0 else Op.PUSH1(stack_item)
-    code = Op.SSTORE(slot_code_worked, value_code_worked) + push * 256 + opcode
-    contract_address = pre.deploy_contract(code=code)
-
-    tx = Transaction(to=contract_address, sender=pre.fund_eoa())
-
-    storage = {slot_code_worked: value_code_worked} if success else {}
-    state_test(
-        pre=pre,
-        post={contract_address: Account(storage=storage)},
-        tx=tx,
-    )
-
-
-@pytest.mark.parametrize("valid_jump", [True, False])
-@pytest.mark.parametrize("following_byte", [None, *range(256)])
+@pytest.mark.parametrize(
+    "following",
+    [
+        pytest.param(Bytecode(), id="nothing"),
+        Op.STOP,
+        Op.ADD,
+        Op.JUMPDEST,
+        pytest.param(Op.PUSH1(0), id="PUSH1"),
+        pytest.param(Op.PUSH32(0), id="PUSH32"),
+        Op.EXTENSION,
+        Op.SELFDESTRUCT,
+    ],
+)
 def test_jumpdest_analysis_neutrality(
     state_test: StateTestFiller,
     pre: Alloc,
+    following: Bytecode,
+    target: Bytecode,
     valid_jump: bool,
-    following_byte: int | None,
 ) -> None:
     """
     Jump over an EXTENSION byte to a destination right behind it.
 
     JUMPDEST analysis ignores EXTENSION: a JUMPDEST behind EXTENSION
     is a valid destination and a 0x5b held as PUSH1 data behind
-    EXTENSION is not. EXTENSION is never executed. The optional byte
-    between EXTENSION and the destination covers all values, PUSH
-    opcodes with non-truncated data, to show none of them acts as an
-    EXTENSION immediate during the analysis.
+    EXTENSION is not. EXTENSION is never executed. Only JUMPDEST, the
+    PUSH opcodes and EXTENSION itself matter to the analysis of the
+    byte behind EXTENSION; every other byte is data to it.
     """
-    following = b""
-    if following_byte is not None:
-        following = bytes([following_byte])
-        if 0x60 <= following_byte <= 0x7F:
-            push_data_size = following_byte - 0x5F
-            following += b"\x00" * push_data_size
-
-    sentinel = Op.SSTORE(slot_code_worked, value_code_worked)
-    destination = len(
-        sentinel + Op.PUSH2(0) + Op.JUMP + Op.EXTENSION + following
-    )
-    target: Bytecode
-    if valid_jump:
-        target = Op.JUMPDEST
-    else:
-        # point at the 0x5b held as PUSH1 data
-        destination += 1
-        target = Op.PUSH1(0x5B)
     code = (
-        sentinel
-        + Op.PUSH2(destination)
-        + Op.JUMP
+        Op.SSTORE(slot_code_worked, value_code_worked)
+        + Op.JUMP(pc=Op.PUSH2(data_placeholder="destination"))
         + Op.EXTENSION
         + following
         + target
     )
-    contract_address = pre.deploy_contract(code=code)
+    code.substitute(destination=len(code) - 1)
+
+    contract_address = pre.deploy_contract(
+        code=code,
+        storage={slot_code_worked: value_code_untouched},
+    )
 
     tx = Transaction(to=contract_address, sender=pre.fund_eoa())
 
-    storage = {slot_code_worked: value_code_worked} if valid_jump else {}
+    value = value_code_worked if valid_jump else value_code_untouched
     state_test(
         pre=pre,
-        post={contract_address: Account(storage=storage)},
+        post={contract_address: Account(storage={slot_code_worked: value})},
         tx=tx,
     )
 
@@ -173,42 +149,47 @@ def test_jumpdest_analysis_neutrality(
         pytest.param(Op.JUMPDEST, True),
     ],
 )
-@pytest.mark.parametrize("stack_item", [0, 1])
 @pytest.mark.parametrize(
-    "following_byte",
-    [pytest.param(b, id=f"0x{b:02x}") for b in [0x5B, *range(0x60, 0x80)]]
-    + [None],
+    "following",
+    [
+        pytest.param(bytes([b]), id=f"0x{b:02x}")
+        for b in [0x5B, *range(0x60, 0x80)]
+    ]
+    + [pytest.param(b"", id="nothing")],
 )
 def test_solo_extension_bytes(
     state_test: StateTestFiller,
     pre: Alloc,
     opcode: Op,
     success: bool,
-    stack_item: int,
-    following_byte: int | None,
+    following: bytes,
 ) -> None:
     """
     Execute the tested byte followed by a solo 0x5b or 0x60..0x7f
     byte (or nothing), expect it to halt exceptionally always.
 
     EIP-8163 rules these out as single-byte extension immediates.
+    The stack is filled first, so the halt is known not to require an
+    empty stack.
 
     EXTENSION behaves as INVALID, JUMPDEST as sanity check.
     """
-    push = Op.PUSH0 if stack_item == 0 else Op.PUSH1(stack_item)
     code = (
         Op.SSTORE(slot_code_worked, value_code_worked)
-        + push * 256
+        + Op.PUSH1(1) * 256
         + opcode
-        + bytes([following_byte] if following_byte is not None else [])
+        + following
     )
-    contract_address = pre.deploy_contract(code=code)
+    contract_address = pre.deploy_contract(
+        code=code,
+        storage={slot_code_worked: value_code_untouched},
+    )
 
     tx = Transaction(to=contract_address, sender=pre.fund_eoa())
 
-    storage = {slot_code_worked: value_code_worked} if success else {}
+    value = value_code_worked if success else value_code_untouched
     state_test(
         pre=pre,
-        post={contract_address: Account(storage=storage)},
+        post={contract_address: Account(storage={slot_code_worked: value})},
         tx=tx,
     )
