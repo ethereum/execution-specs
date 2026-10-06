@@ -5634,11 +5634,13 @@ def test_bal_blob_fee_leaves_sender_only(
     coinbase = pre.fund_eoa(amount=coinbase_initial_balance)
     bob_initial_balance = 100
     bob = pre.fund_eoa(amount=bob_initial_balance)
+    blob_versioned_hashes = add_kzg_version([Hash(0xBEEF)], 1)
 
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
         calldata=b"",
         contract_creation=False,
         access_list=[],
+        blob_versioned_hashes_or_count=blob_versioned_hashes,
         recipient_type=RecipientType.EOA,
         sends_value=True,
     )
@@ -5665,7 +5667,7 @@ def test_bal_blob_fee_leaves_sender_only(
         max_fee_per_gas=base_fee_per_gas,
         max_priority_fee_per_gas=0,
         max_fee_per_blob_gas=blob_gas_price,
-        blob_versioned_hashes=add_kzg_version([Hash(0xBEEF)], 1),
+        blob_versioned_hashes=blob_versioned_hashes,
         expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
     )
     # With no tip, everything the sender loses beyond gas and value is
