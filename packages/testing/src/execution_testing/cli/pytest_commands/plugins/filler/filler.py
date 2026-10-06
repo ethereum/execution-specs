@@ -1582,10 +1582,23 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
             fixture_format, BaseFixture
         )
 
+        spec_called = False
+
         class BaseTestWrapper(cls):  # type: ignore
             __is_base_test_wrapper__ = True
 
             def __init__(self, *args: Any, **kwargs: Any) -> None:
+                # Every call writes its fixture under the same test ID, so a
+                # second call would silently replace the first.
+                nonlocal spec_called
+                if spec_called:
+                    pytest.fail(
+                        f"`{cls.pytest_parameter_name()}` can only be called "
+                        "once per test; use `pytest.mark.parametrize` for "
+                        "multiple cases."
+                    )
+                spec_called = True
+
                 if "pre" not in kwargs:
                     kwargs["pre"] = pre
                 if "expected_benchmark_gas_used" not in kwargs:
