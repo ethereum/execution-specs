@@ -17,10 +17,7 @@ from ethereum_types.numeric import U256, Uint
 from ethereum.utils.numeric import get_sign
 
 from .. import Evm
-from ..gas import (
-    GasCosts,
-    charge_gas,
-)
+from ..gas import GasCosts, charge_gas
 from ..stack import pop, push
 
 

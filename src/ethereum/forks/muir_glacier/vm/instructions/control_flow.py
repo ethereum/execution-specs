@@ -13,10 +13,7 @@ Implementations of the EVM control flow instructions.
 
 from ethereum_types.numeric import U256, Uint
 
-from ...vm.gas import (
-    GasCosts,
-    charge_gas,
-)
+from ...vm.gas import GasCosts, charge_gas
 from .. import Evm
 from ..exceptions import InvalidJumpDestError
 from ..stack import pop, push

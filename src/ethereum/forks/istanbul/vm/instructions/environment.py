@@ -21,11 +21,7 @@ from ...utils.address import to_address_masked
 from ...vm.memory import buffer_read, memory_write
 from .. import Evm
 from ..exceptions import OutOfBoundsRead
-from ..gas import (
-    GasCosts,
-    calculate_gas_extend_memory,
-    charge_gas,
-)
+from ..gas import GasCosts, calculate_gas_extend_memory, charge_gas
 from ..stack import pop, push
 
 

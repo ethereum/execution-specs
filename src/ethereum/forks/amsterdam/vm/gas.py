@@ -26,17 +26,8 @@ from ..exceptions import (
     BlobGasLimitExceededError,
     InsufficientMaxFeePerBlobGasError,
 )
-from ..fork_types import (
-    ExecutionGas,
-    StateGas,
-    StateGasPerByte,
-    VersionedHash,
-)
-from ..transactions import (
-    BlobTransaction,
-    IntrinsicGasCost,
-    Transaction,
-)
+from ..fork_types import ExecutionGas, StateGas, StateGasPerByte, VersionedHash
+from ..transactions import BlobTransaction, IntrinsicGasCost, Transaction
 from .exceptions import OutOfGasError
 
 if TYPE_CHECKING:

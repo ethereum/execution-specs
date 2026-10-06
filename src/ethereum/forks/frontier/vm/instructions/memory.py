@@ -15,11 +15,7 @@ from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
 
 from .. import Evm
-from ..gas import (
-    GasCosts,
-    calculate_gas_extend_memory,
-    charge_gas,
-)
+from ..gas import GasCosts, calculate_gas_extend_memory, charge_gas
 from ..memory import memory_read_bytes, memory_write
 from ..stack import pop, push
 
