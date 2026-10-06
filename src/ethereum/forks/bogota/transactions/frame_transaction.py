@@ -94,6 +94,46 @@ Address of the recent root contract of [EIP-8272].
 [EIP-8272]: https://eips.ethereum.org/EIPS/eip-8272
 """
 
+NONCE_MANAGER: Final[Address] = Address(
+    bytes.fromhex("0000000000000000000000000000000000008250")
+)
+"""
+Address of the nonce manager system contract, whose storage holds the
+keyed nonce sequences of every sender (see [`nonce_slot`][ns]).
+
+[ns]: ref:ethereum.forks.bogota.keyed_nonces.nonce_slot
+"""
+
+NONCE_MANAGER_CODE: Final[Bytes] = Bytes(bytes.fromhex("60006000fd"))
+"""
+Runtime code of the nonce manager, installed at [`NONCE_MANAGER`][nm]
+when the fork activates (see [`apply_fork`][af]).
+
+The code is `revert(0, 0)`: only the protocol writes keyed nonces, and
+any ordinary call to the contract reverts with empty return data.
+
+[nm]: ref:ethereum.forks.bogota.transactions.frame_transaction.NONCE_MANAGER
+[af]: ref:ethereum.forks.bogota.fork.apply_fork
+"""  # noqa: E501
+
+MAX_NONCE_KEYS: Final[Uint] = Uint(16)
+"""
+Maximum number of nonce keys a [`FrameTransaction`][ftx] may select.
+
+[ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
+"""  # noqa: E501
+
+MAX_NONCE_SEQ: Final[U64] = U64.MAX_VALUE
+"""
+The exhausted nonce sequence: a key at this sequence cannot advance.
+"""
+
+LEGACY_NONCE_KEYS: Final[Tuple[U256, ...]] = (U256(0),)
+"""
+The nonce key set selecting the sender's account nonce rather than a
+keyed nonce sequence held by the nonce manager.
+"""
+
 
 @final
 class FrameMode(UintEnum, boundary=STRICT):
@@ -398,13 +438,25 @@ class FrameTransaction:
     The ID of the chain on which this transaction is executed.
     """
 
-    nonce: U256
+    nonce_keys: Tuple[U256, ...]
     """
-    A scalar value equal to the number of transactions sent by the
-    [`sender`][s].
+    The nonce domains the transaction consumes, sharing one
+    [`nonce_seq`][ns].
 
+    [`LEGACY_NONCE_KEYS`][lnk] selects the [`sender`][s]'s account nonce;
+    any other set selects independent sequences held by the nonce
+    manager (see [`current_nonce_seq`][cns]).
+
+    [ns]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction.nonce_seq
+    [lnk]: ref:ethereum.forks.bogota.transactions.frame_transaction.LEGACY_NONCE_KEYS
     [s]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction.sender
+    [cns]: ref:ethereum.forks.bogota.keyed_nonces.current_nonce_seq
     """  # noqa: E501
+
+    nonce_seq: U64
+    """
+    The sequence number every selected nonce key must currently hold.
+    """
 
     sender: Address
     """
@@ -641,8 +693,9 @@ def validate_frame_transaction(
     from ..vm.gas import GasCosts
     from . import BLOB_COUNT_LIMIT, VERSIONED_HASH_VERSION_KZG
 
-    if tx.nonce >= U256(U64.MAX_VALUE):
+    if tx.nonce_seq >= MAX_NONCE_SEQ:
         raise NonceOverflowError("Nonce too high")
+    validate_nonce_keys(tx.nonce_keys)
 
     if tx.fees.max_fee_per_gas > Uint(U256.MAX_VALUE):
         raise FeeOverflowError("Max fee per gas too high")
@@ -771,6 +824,47 @@ def validate_frame_transaction(
     )
 
 
+def validate_nonce_keys(nonce_keys: Tuple[U256, ...]) -> None:
+    """
+    Check that a transaction selects a well-formed set of nonce keys.
+
+    The set holds between one and [`MAX_NONCE_KEYS`][mnk] keys in
+    strictly increasing order, so each set has one canonical encoding.
+    The zero key aliases the sender's account nonce and may only appear
+    alone, as [`LEGACY_NONCE_KEYS`][lnk].
+
+    [mnk]: ref:ethereum.forks.bogota.transactions.frame_transaction.MAX_NONCE_KEYS
+    [lnk]: ref:ethereum.forks.bogota.transactions.frame_transaction.LEGACY_NONCE_KEYS
+    """  # noqa: E501
+    key_count = ulen(nonce_keys)
+    if key_count < Uint(1) or key_count > MAX_NONCE_KEYS:
+        raise InvalidFrameError("invalid nonce key count")
+    for previous, key in zip(nonce_keys, nonce_keys[1:], strict=False):
+        if key <= previous:
+            raise InvalidFrameError("nonce keys not strictly increasing")
+    if U256(0) in nonce_keys and nonce_keys != LEGACY_NONCE_KEYS:
+        raise InvalidFrameError("zero nonce key alongside other keys")
+
+
+def nonce_keys_hash(tx: FrameTransaction) -> Hash32:
+    """
+    Return the commitment to the transaction's nonce key set exposed to
+    the EVM: the hash of the key count followed by every key, each as a
+    32-byte big-endian word.
+    """
+    words = [U256(len(tx.nonce_keys)).to_be_bytes32()]
+    words.extend(nonce_key.to_be_bytes32() for nonce_key in tx.nonce_keys)
+    return keccak256(b"".join(words))
+
+
+def nonce_calldata(tx: FrameTransaction) -> Bytes:
+    """
+    Return the encoding of the transaction's nonce fields, which is
+    priced as transaction data.
+    """
+    return rlp.encode(tx.nonce_keys) + rlp.encode(tx.nonce_seq)
+
+
 def signature_verification_gas(signature: FrameSignature) -> ExecutionGas:
     """
     Return the gas charged for validating a single signature entry.
@@ -796,9 +890,10 @@ def calculate_frame_transaction_intrinsic_cost(
     before execution is started.
 
     The intrinsic cost is the base cost, the per-frame cost, the calldata
-    cost of the byte fields priced as calldata — the `data` of each frame
-    and the `signer`, `message`, and `signature` bytes of each signature
-    entry — the signature verification cost, and the value transfer cost
+    cost of the byte fields priced as calldata — the `data` of each
+    frame, the `signer`, `message`, and `signature` bytes of each
+    signature entry, and the encoding of the nonce fields (see
+    [`nonce_calldata`][nc]) — the signature verification cost, and the value transfer cost
     of each value-bearing frame with an explicit target other than the
     sender, covering the recipient balance write and transfer log.
     Unlike other transaction types, there is no recipient component:
@@ -812,12 +907,14 @@ def calculate_frame_transaction_intrinsic_cost(
     undercuts the transaction's own intrinsic base.
 
     [EIP-7976]: https://eips.ethereum.org/EIPS/eip-7976
-    """
+    [nc]: ref:ethereum.forks.bogota.transactions.frame_transaction.nonce_calldata
+    """  # noqa: E501
     from ..vm.gas import GasCosts
     from . import IntrinsicGasCost, count_tokens_in_data
 
-    tokens = Uint(0)
-    data_length = Uint(0)
+    nonce_data = nonce_calldata(tx)
+    tokens = count_tokens_in_data(nonce_data)
+    data_length = ulen(nonce_data)
     value_transfer_gas = Uint(0)
     for frame in tx.frames:
         tokens += count_tokens_in_data(frame.data)
