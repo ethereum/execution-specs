@@ -1,0 +1,14 @@
+opcode = EIP does not introduce or modify an opcode
+precompile = EIP does not introduce a precompile
+removed_precompile = EIP does not remove a precompile
+system_contract = EIP does not introduce a system contract; the EIP-4788 and EIP-2935 buffer lengths are deliberately unchanged
+transaction_type = EIP does not introduce a new transaction type
+block_header_field = EIP does not add any new block header fields
+block_body_field = EIP does not add any new block body fields
+gas_refunds_changes = EIP does not change any refund rules
+execution_layer_request = EIP does not introduce an execution layer request
+new_transaction_validity_constraint = EIP adds no transaction validity constraint; the blob fee check is unchanged apart from the blob base fee it compares against, which test_insufficient_max_fee_per_blob_gas covers
+modified_transaction_validity_constraint = EIP changes no transaction validity constraint
+gas_cost_changes/test/gas_updates_measurement = EIP changes no opcode or intrinsic gas cost; the base fee update it changes is measured by test_base_fee_update
+gas_cost_changes/test/out_of_gas = EIP changes no gas cost a transaction can run out of
+block_level_constraint/test/content = The blob limit counts blobs only, so no transaction type, log, receipt, or withdrawal content affects it

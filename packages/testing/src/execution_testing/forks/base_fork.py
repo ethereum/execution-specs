@@ -781,6 +781,12 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     # Fee helpers
     @classmethod
     @abstractmethod
+    def base_fee_max_change_numerator(cls) -> int:
+        """Return the base fee max change numerator at a given fork."""
+        pass
+
+    @classmethod
+    @abstractmethod
     def base_fee_max_change_denominator(cls) -> int:
         """Return the base fee max change denominator at a given fork."""
         pass
