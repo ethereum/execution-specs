@@ -1,74 +1,82 @@
 """Helpers for EIP-8250 keyed nonce tests."""
 
-from typing import Dict, Iterable, Sequence
+from typing import Sequence
 
-from execution_testing import Account, Address, Alloc, keccak256
+from execution_testing import Account, Alloc, Fork, Op, Transaction
 
-from .spec import Spec
+from ..eip8141_frame_transactions.helpers import default_code_frame_gas
+from .spec import Spec, keyed_nonce_slot
 
-KEY_A = 0x0A
-"""A small non-zero nonce key."""
+NONCE_KEY = 0xBEEF
+"""A non-zero nonce key selecting a keyed domain."""
 
-KEY_B = 0x0B
-"""A second small non-zero nonce key, above `KEY_A`."""
-
-NULLIFIER_KEY = int.from_bytes(keccak256(b"nullifier")[1:], "big")
-"""
-A nonce key derived from a hash, as a privacy application would derive
-it from a nullifier, keeping its most significant byte zero.
-"""
-
-FULL_WIDTH_KEY = 2**256 - 1
-"""The largest nonce key, whose encoding is the widest a key can take."""
+OTHER_KEY = 0xCAFE
+"""A second non-zero nonce key, disjoint from `NONCE_KEY`."""
 
 
-def nonce_slot(sender: Address, nonce_key: int) -> int:
+def keyed_nonce_first_use(fork: Fork) -> int:
     """
-    Return the `NONCE_MANAGER` storage slot of `sender`'s sequence for
-    `nonce_key`.
+    Return the state gas of a keyed nonce slot's first use, which the
+    EIP prices as one storage slot creation.
     """
-    preimage = bytes(sender).rjust(32, b"\x00") + nonce_key.to_bytes(32, "big")
-    return int.from_bytes(keccak256(preimage), "big")
+    return Op.SSTORE(original_value=0, new_value=1).state_cost(fork)
 
 
-def nonce_keys_hash(nonce_keys: Sequence[int]) -> int:
-    """Return the `TXPARAM` commitment to a nonce key set."""
-    words = len(nonce_keys).to_bytes(32, "big") + b"".join(
-        key.to_bytes(32, "big") for key in nonce_keys
+def nonce_fields(tx: Transaction) -> tuple[Sequence[int], int]:
+    """Return the transaction's nonce keys and sequence as integers."""
+    assert tx.nonce_keys is not None
+    return [int(key) for key in tx.nonce_keys], int(tx.nonce)
+
+
+def verify_only_tx_gas_used(
+    fork: Fork, tx: Transaction, first_uses: int
+) -> int:
+    """
+    Return the gas used by a transaction of default-code `VERIFY` frames
+    resolving to its sender, with `first_uses` keyed slots created.
+    """
+    tx.sign()
+    assert tx.frames is not None and tx.signatures is not None
+    nonce_keys, nonce_seq = nonce_fields(tx)
+    intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=tx.frames,
+        signatures=tx.signatures,
+        sender=tx.sender,
+        nonce_keys=nonce_keys,
+        nonce_seq=nonce_seq,
+        return_cost_deducted_prior_execution=True,
     )
-    return int.from_bytes(keccak256(words), "big")
+    floor = fork.frame_transaction_data_floor_cost_calculator()(
+        frames=tx.frames,
+        signatures=tx.signatures,
+        sender=tx.sender,
+        nonce_keys=nonce_keys,
+        nonce_seq=nonce_seq,
+    )
+    execution_used = intrinsic + len(tx.frames) * default_code_frame_gas(
+        fork, target_warm=True
+    )
+    state_used = first_uses * keyed_nonce_first_use(fork)
+    return max(execution_used, floor) + state_used
 
 
-def keyed_storage(
-    sender: Address, sequences: Dict[int, int]
-) -> Dict[int, int]:
+def nonce_manager_with_slots(pre: Alloc, slots: dict[int, int]) -> None:
     """
-    Return the `NONCE_MANAGER` storage holding `sender`'s sequence for
-    each key in `sequences`.
+    Seed the nonce manager's storage in the pre-state, keeping its
+    activation code and nonce. The test must be `pre_alloc_mutable`.
     """
-    return {nonce_slot(sender, key): seq for key, seq in sequences.items()}
-
-
-def nonce_manager(storage: Dict[int, int] | None = None) -> Account:
-    """
-    Return the `NONCE_MANAGER` account as installed at activation,
-    holding `storage`.
-    """
-    return Account(
-        nonce=1,
+    pre[Spec.NONCE_MANAGER] = Account(
+        nonce=Spec.NONCE_MANAGER_NONCE,
         code=Spec.NONCE_MANAGER_CODE,
-        storage=storage or {},
+        storage=slots,
     )
 
 
-def set_keyed_nonces(
-    pre: Alloc, entries: Iterable[tuple[Address, Dict[int, int]]]
-) -> None:
-    """
-    Seed the pre-state `NONCE_MANAGER` with the given keyed sequences,
-    as left behind by earlier transactions.
-    """
-    storage: Dict[int, int] = {}
-    for sender, sequences in entries:
-        storage |= keyed_storage(sender, sequences)
-    pre[Spec.NONCE_MANAGER] = nonce_manager(storage)
+def used_key_slots(
+    sender: Account | bytes, keys_to_seq: dict[int, int]
+) -> dict[int, int]:
+    """Return the nonce manager slots holding `sender`'s key sequences."""
+    return {
+        keyed_nonce_slot(sender, key): seq  # type: ignore[arg-type]
+        for key, seq in keys_to_seq.items()
+    }
