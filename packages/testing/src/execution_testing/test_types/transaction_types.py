@@ -443,6 +443,7 @@ class Transaction(
 
     frames: List[Frame] | None = None
     signatures: List[FrameSignature] | None = None
+    nonce_keys: List[HexNumber] | None = None
 
     secret_key: Hash | None = None
     error: List[TransactionException] | TransactionException | None = Field(
@@ -607,6 +608,9 @@ class Transaction(
             self.max_fee_per_blob_gas = HexNumber(1)
             self.model_fields_set.remove("max_fee_per_blob_gas")
         if self.frames is not None:
+            # EIP-8250: https://eips.ethereum.org/EIPS/eip-8250
+            if self.nonce_keys is None:
+                self.nonce_keys = [HexNumber(0)]
             # EIP-8141: Frame transactions always carry blob fields.
             if self.blob_versioned_hashes is None:
                 self.blob_versioned_hashes = []
@@ -630,6 +634,7 @@ class Transaction(
         if self.ty != 6:
             assert self.initcodes is None, "initcodes must be None"
             assert self.frames is None, "frames must be None"
+            assert self.nonce_keys is None, "nonce_keys must be None"
             assert self.signatures is None, "signatures must be None"
 
         if "nonce" not in self.model_fields_set and self.sender is not None:
@@ -1033,8 +1038,10 @@ class Transaction(
         field_list: List[str]
         if self.ty == 6 and self.frames is not None:
             # EIP-8141: https://eips.ethereum.org/EIPS/eip-8141
+            # EIP-8250: https://eips.ethereum.org/EIPS/eip-8250
             field_list = [
                 "chain_id",
+                "nonce_keys",
                 "nonce",
                 "sender",
                 "frames",
