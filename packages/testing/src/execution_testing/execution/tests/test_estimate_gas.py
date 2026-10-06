@@ -290,7 +290,7 @@ def test_default_batching_and_rejections(
 
 
 def test_default_empty_block(rpc: Mock) -> None:
-    """Preserve the empty transaction batch passed to the RPC backend."""
+    """Send nothing for an empty block."""
     execute(prepare([]), rpc)
-    rpc.send_wait_transactions.assert_called_once_with([])
+    rpc.send_wait_transactions.assert_not_called()
     rpc.estimate_gas.assert_not_called()

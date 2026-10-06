@@ -1,5 +1,6 @@
 """Simple transaction-send then post-check execution format."""
 
+from itertools import groupby
 from typing import ClassVar, Dict, List
 
 import pytest
@@ -66,18 +67,8 @@ class TransactionPost(BaseExecute):
                 ),
             )
             for tx_index, tx in enumerate(block):
-                if (
-                    self.estimate_gas
-                    and not self.benchmark_mode
-                    and not tx.model_fields_set.intersection(
-                        {"gas_limit", "state_gas_reservoir", "v", "r", "s"}
-                    )
-                    and tx.error is None
-                    and (
-                        tx.expected_receipt is None
-                        or tx.expected_receipt.status != 0
-                    )
-                ):
+                # Decide before `set_gas_limit` marks `gas_limit` as set.
+                if self._should_estimate(tx):
                     self._estimate_indices.add((block_index, tx_index))
                 tx.set_gas_limit(
                     max_gas_limit=max_tx_gas_limit,
@@ -93,6 +84,21 @@ class TransactionPost(BaseExecute):
                     max_priority_fee_per_gas=max_priority_fee_per_gas,
                     max_fee_per_blob_gas=max_fee_per_blob_gas,
                 )
+
+    def _should_estimate(self, tx: Transaction) -> bool:
+        """Return whether the node decides the gas limit of the transaction."""
+        if not self.estimate_gas or self.benchmark_mode:
+            return False
+        if "gas_limit" in tx.model_fields_set:
+            return False  # the test pinned the gas limit
+        if "state_gas_reservoir" in tx.model_fields_set:
+            return False  # the test pinned the state gas reservoir
+        if tx.error is not None:
+            return False  # expected to be rejected by the mempool
+        receipt = tx.expected_receipt
+        if receipt is not None and receipt.status == 0:
+            return False  # expected to fail during execution
+        return True
 
     def get_required_sender_balances(
         self, *, fork: Fork
@@ -112,81 +118,50 @@ class TransactionPost(BaseExecute):
     def _send_transactions(
         eth_rpc: EthRPC, signed_txs: List[Transaction]
     ) -> List[Hash]:
-        """Send a batch, checking any expected transaction rejections."""
-        current_block_tx_hashes: List[Hash] = []
-        if any(tx.error is not None for tx in signed_txs):
-            tx_queue: List[Transaction] = []
-            for transaction in signed_txs:
-                if transaction.error is None:
-                    tx_queue.append(transaction)
-                else:
-                    if tx_queue:
-                        eth_rpc.send_wait_transactions(tx_queue)
-                        current_block_tx_hashes.extend(
-                            tx.hash for tx in tx_queue
-                        )
-                        tx_queue = []
-                    logger.info(
-                        f"Sending transaction expecting rejection "
-                        f"(expected error: {transaction.error})..."
-                    )
-                    with pytest.raises(
-                        SendTransactionExceptionError
-                    ) as exc_info:
-                        eth_rpc.send_transaction(transaction)
-                    logger.info(
-                        f"Transaction rejected as expected: {exc_info.value}"
-                    )
-            if tx_queue:
-                eth_rpc.send_wait_transactions(tx_queue)
-                current_block_tx_hashes.extend(tx.hash for tx in tx_queue)
-        else:
-            # Send transactions (batching is handled by eth_rpc internally)
-            eth_rpc.send_wait_transactions(signed_txs)
-            current_block_tx_hashes = [tx.hash for tx in signed_txs]
-        return current_block_tx_hashes
+        """Send runs of valid transactions in batches and rejections alone."""
+        sent: List[Hash] = []
+        for expects_rejection, run in groupby(
+            signed_txs, key=lambda tx: tx.error is not None
+        ):
+            txs = list(run)
+            if not expects_rejection:
+                eth_rpc.send_wait_transactions(txs)
+                sent.extend(tx.hash for tx in txs)
+                continue
+            for tx in txs:
+                logger.info(
+                    f"Sending transaction expecting rejection "
+                    f"(expected error: {tx.error})..."
+                )
+                with pytest.raises(SendTransactionExceptionError) as exc_info:
+                    eth_rpc.send_transaction(tx)
+                logger.info(
+                    f"Transaction rejected as expected: {exc_info.value}"
+                )
+        return sent
 
     @staticmethod
     def _estimate_transaction(eth_rpc: EthRPC, tx: Transaction) -> None:
-        """Estimate within the funded budget using only RPC fields."""
-        assert tx.sender is not None, "Sender is None"
-        # Only RPC transaction fields belong in the request. In particular,
-        # never serialize secret_key, sender.key, metadata, or blob sidecars.
-        transaction = tx.model_dump(
+        """Set the transaction gas limit to the node's estimate."""
+        # The node simulates an unsigned call: the secret key must never
+        # leave this process and the signature does not exist yet.
+        call = tx.model_dump(
             mode="json",
             by_alias=True,
             exclude_none=True,
-            include={
-                "ty",
-                "chain_id",
-                "nonce",
-                "to",
-                "value",
-                "data",
-                "gas_limit",
-                "gas_price",
-                "max_fee_per_gas",
-                "max_priority_fee_per_gas",
-                "access_list",
-                "authorization_list",
-                "max_fee_per_blob_gas",
-                "blob_versioned_hashes",
-            },
+            exclude={"secret_key", "v", "r", "s"},
         )
+        call["from"] = call.pop("sender")
         if tx.to is None:
-            transaction.pop("to", None)
-        if tx.authorization_list is not None:
-            transaction["authorizationList"] = [
-                {
-                    key: value
-                    for key, value in authorization.items()
-                    if key
-                    in {"chainId", "address", "nonce", "yParity", "r", "s"}
-                }
-                for authorization in transaction["authorizationList"]
-            ]
-        transaction["from"] = str(tx.sender)
-        estimate = eth_rpc.estimate_gas(transaction, block_number="latest")
+            # The t8n serializer keeps `to: None` for contract creation; the
+            # RPC omits `to` instead.
+            del call["to"]
+        # Authorizations serialize both `v` and `yParity` for fixtures; the
+        # RPC only takes `yParity`.
+        for authorization in call.get("authorizationList", []):
+            for key in ("secretKey", "signer", "v"):
+                authorization.pop(key, None)
+        estimate = eth_rpc.estimate_gas(call, block_number="latest")
         assert 0 < estimate <= tx.gas_limit, (
             f"eth_estimateGas returned {estimate}, outside the funded "
             f"gas budget (1..{tx.gas_limit})"
@@ -214,21 +189,24 @@ class TransactionPost(BaseExecute):
                     )
 
         # Track transaction hashes for gas validation (benchmarking)
-        all_tx_hashes: List[Hash] = []
         last_block_tx_hashes: List[Hash] = []
 
         for block_index, block in enumerate(self.blocks):
-            signed_txs: List[Transaction] = []
-            current_block_tx_hashes: List[Hash] = []
+            estimated = {
+                tx_index
+                for index, tx_index in self._estimate_indices
+                if index == block_index
+            }
+            signed: List[Transaction] = []
+            batch: List[Transaction] = []
+            last_block_tx_hashes = []
             for tx_index, tx in enumerate(block):
-                estimate = (block_index, tx_index) in self._estimate_indices
-                if estimate:
-                    # Settle dependencies before estimating against latest.
-                    if signed_txs:
-                        current_block_tx_hashes.extend(
-                            self._send_transactions(eth_rpc, signed_txs)
-                        )
-                        signed_txs = []
+                if tx_index in estimated:
+                    # Include everything before it, so `latest` has its state.
+                    last_block_tx_hashes += self._send_transactions(
+                        eth_rpc, batch
+                    )
+                    batch = []
                     self._estimate_transaction(eth_rpc, tx)
                 # Add metadata
                 tx = tx.with_signature_and_sender()
@@ -249,24 +227,17 @@ class TransactionPost(BaseExecute):
                     target=label,
                     tx_index=tx_index,
                 )
-                if estimate:
-                    current_block_tx_hashes.extend(
-                        self._send_transactions(eth_rpc, [tx])
-                    )
-                    receipt = eth_rpc.get_transaction_receipt(tx.hash)
-                    assert receipt is not None, f"Missing receipt: {tx.hash}"
-                    assert int(HexNumber(receipt["status"])) == 1, (
-                        f"Transaction {tx.hash} failed with eth_estimateGas "
-                        f"limit {tx.gas_limit}"
-                    )
-                else:
-                    signed_txs.append(tx)
-            if signed_txs or not block:
-                current_block_tx_hashes.extend(
-                    self._send_transactions(eth_rpc, signed_txs)
+                signed.append(tx)
+                batch.append(tx)
+            last_block_tx_hashes += self._send_transactions(eth_rpc, batch)
+            for tx_index in sorted(estimated):
+                tx = signed[tx_index]
+                receipt = eth_rpc.get_transaction_receipt(tx.hash)
+                assert receipt is not None, f"Missing receipt: {tx.hash}"
+                assert int(HexNumber(receipt["status"])) == 1, (
+                    f"Transaction {tx.hash} failed with eth_estimateGas "
+                    f"limit {tx.gas_limit}"
                 )
-            all_tx_hashes.extend(current_block_tx_hashes)
-            last_block_tx_hashes = current_block_tx_hashes
 
         # Fetch transaction receipts to get actual gas used
         benchmark_gas_used: int | None = None
