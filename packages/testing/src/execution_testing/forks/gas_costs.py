@@ -71,6 +71,8 @@ class GasCosts:
     TX_DATA_PER_NON_ZERO: int
     TX_DATA_TOKEN_STANDARD: int
     TX_DATA_TOKEN_FLOOR: int
+    # Floor gas per transaction content byte; 0 before EIP-8131.
+    FLOOR_PER_BYTE: int = 0
     TX_ACCESS_LIST_ADDRESS: int
     TX_ACCESS_LIST_STORAGE_KEY: int
 
