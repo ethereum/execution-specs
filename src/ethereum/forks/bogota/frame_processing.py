@@ -4,9 +4,9 @@ Frame transaction processing.
 The block-level flow for [EIP-8141] frame transactions, separate from
 the regular flow in `fork.py` from admission onwards: a frame
 transaction has no single top-level call to dispatch — it executes a
-list of frames — and no upfront sender payment: the sender's nonce
-increment and the collection of the transaction's maximum cost are
-effects of the `APPROVE` instruction, during execution.
+list of frames — and no upfront sender payment: the consumption of
+the transaction's nonce set and the collection of its maximum cost
+are effects of the `APPROVE` instruction, during execution.
 
 [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
 """
@@ -29,6 +29,7 @@ from .blocks import (
 )
 from .exceptions import InsufficientMaxFeeError
 from .fork_types import ExecutionGas, StateGas
+from .keyed_nonces import check_nonce_set
 from .state_tracker import (
     TransactionState,
     clear_account_preserving_balance,
@@ -36,7 +37,7 @@ from .state_tracker import (
     get_account,
     incorporate_tx_into_block,
 )
-from .transactions import check_nonce, encode_transaction, get_transaction_hash
+from .transactions import encode_transaction, get_transaction_hash
 from .transactions.frame_transaction import (
     FrameTransaction,
     validate_frame_transaction,
@@ -100,7 +101,8 @@ def check_frame_transaction(
     GasUsedExceedsLimitError :
         If the gas used by the transaction exceeds the block's gas limit.
     NonceMismatchError :
-        If the nonce of the transaction is not equal to the sender's nonce.
+        If a nonce key the transaction selects does not hold the
+        transaction's nonce sequence.
     InsufficientMaxFeeError :
         If the maximum fee does not cover the transaction's worst-case
         base fee charge.
@@ -145,7 +147,7 @@ def check_frame_transaction(
         tx, validation.max_gas, block_env
     )
 
-    check_nonce(tx, sender_account.nonce)
+    check_nonce_set(tx_state, tx)
 
     return vm.TransactionEnvironment(
         origin=tx.sender,
@@ -167,6 +169,7 @@ def check_frame_transaction(
             tx=tx,
             signature_hash=validation.signature_hash,
             resolved_signers=validation.resolved_signers,
+            legacy_nonce=sender_account.nonce,
             standard_gas_limit=validation.standard_gas_limit,
             max_cost=max_cost,
             current_frame_index=Uint(0),
