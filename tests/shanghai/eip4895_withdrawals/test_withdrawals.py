@@ -660,37 +660,31 @@ def test_zero_amount(
             amount=2**64 - 1,
         ),
     ]
-    all_post = Alloc(
-        {
-            empty_accounts[0]: Account.NONEXISTENT,
-            zero_balance_contract: Account(code=Op.STOP, balance=0),
-            empty_accounts[1]: Account(balance=ONE_GWEI),
-            empty_accounts[2]: Account(balance=(2**64 - 1) * ONE_GWEI),
-        }
-    )
+    all_post: Dict[Address, Account | None] = {
+        empty_accounts[0]: Account.NONEXISTENT,
+        zero_balance_contract: Account(code=Op.STOP, balance=0),
+        empty_accounts[1]: Account(balance=ONE_GWEI),
+        empty_accounts[2]: Account(balance=(2**64 - 1) * ONE_GWEI),
+    }
 
     withdrawals: List[Withdrawal] = []
-    post: Alloc
+    post: Dict[Address, Account | None]
     if test_case == ZeroAmountTestCases.TWO_ZERO:
         withdrawals = all_withdrawals[0:2]
-        post = Alloc(
-            {
-                account: all_post[account]
-                for account in [empty_accounts[0], zero_balance_contract]
-            }
-        )
+        post = {
+            account: all_post[account]
+            for account in [empty_accounts[0], zero_balance_contract]
+        }
     elif test_case == ZeroAmountTestCases.THREE_ONE_WITH_VALUE:
         withdrawals = all_withdrawals[0:3]
-        post = Alloc(
-            {
-                account: all_post[account]
-                for account in [
-                    empty_accounts[0],
-                    zero_balance_contract,
-                    empty_accounts[1],
-                ]
-            }
-        )
+        post = {
+            account: all_post[account]
+            for account in [
+                empty_accounts[0],
+                zero_balance_contract,
+                empty_accounts[1],
+            ]
+        }
     elif test_case == ZeroAmountTestCases.FOUR_ONE_WITH_MAX:
         withdrawals = all_withdrawals
         post = all_post

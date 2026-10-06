@@ -28,19 +28,12 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
-# Unreachable after REVERT — kept so a client that continues past REVERT fails.
-INITCODE = (
-    Op.SSTORE(key=0x0, value=0x1)
-    + Op.REVERT(offset=0x0, size=0x1)
-    + Op.SSTORE(key=0x1, value=0x11)
-)
-
 
 @pytest.mark.ported_from(
     ["state_tests/stRevertTest/RevertOpcodeInInitFiller.json"],
 )
 @pytest.mark.valid_from("Byzantium")
-@pytest.mark.parametrize("tx_value", [0, 10], ids=["v0", "v1"])
+@pytest.mark.parametrize("tx_value", [0, 1])
 def test_revert_opcode_in_init(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -50,10 +43,14 @@ def test_revert_opcode_in_init(
     """REVERT in initcode leaves no created account; sender nonce advances."""
     sender = pre.fund_eoa()
 
+    # Unreachable after REVERT — kept so a client that continues past
+    # REVERT fails.
+    initcode = Op.SSTORE(0, 1) + Op.REVERT(0, 1) + Op.SSTORE(1, 11)
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=INITCODE,
+        data=initcode,
         value=tx_value,
         protected=fork.supports_protected_txs(),
     )
