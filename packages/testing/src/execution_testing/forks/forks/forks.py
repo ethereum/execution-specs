@@ -952,6 +952,22 @@ class Frontier(BaseFork):
         return 0
 
     @classmethod
+    def block_access_list_floor_cost(
+        cls,
+        *,
+        addresses: int = 0,
+        storage_keys: int = 0,
+        storage_values: int = 0,
+        balances: int = 0,
+        nonces: int = 0,
+        code_bytes: int = 0,
+    ) -> int:
+        """Pre-EIP-8279 forks do not meter block access list bytes."""
+        del addresses, storage_keys, storage_values, balances, nonces
+        del code_bytes
+        return 0
+
+    @classmethod
     def header_beacon_root_required(cls) -> bool:
         """At genesis, header must not contain parent beacon block root."""
         return False

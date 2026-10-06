@@ -577,6 +577,29 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def block_access_list_floor_cost(
+        cls,
+        *,
+        addresses: int = 0,
+        storage_keys: int = 0,
+        storage_values: int = 0,
+        balances: int = 0,
+        nonces: int = 0,
+        code_bytes: int = 0,
+    ) -> int:
+        """
+        Return the floor gas the given block access list entries add to a
+        transaction when its execution meters them (EIP-8279).
+
+        Each argument counts entries of that kind: addresses accessed
+        cold, storage keys accessed cold, slots whose value changed,
+        balances and nonces changed, and bytes of deployed code. Zero on
+        forks that do not meter block access list bytes.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def header_slot_number_required(cls) -> bool:
         """Return true if the header must contain slot number (EIP-7843)."""
         pass
