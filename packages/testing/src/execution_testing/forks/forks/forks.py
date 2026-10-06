@@ -840,8 +840,11 @@ class Frontier(BaseFork):
             contract_creation: bool = False,
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
+            authorization_list_or_count: Sized | int | None = None,
+            blob_versioned_hashes_or_count: Sized | int | None = None,
         ) -> int:
-            del data, access_list
+            del data, access_list, authorization_list_or_count
+            del blob_versioned_hashes_or_count
             del contract_creation, sends_value, recipient_type
             return 0
 
@@ -867,10 +870,11 @@ class Frontier(BaseFork):
             return_cost_deducted_prior_execution: bool = False,
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
+            blob_versioned_hashes_or_count: Sized | int | None = None,
         ) -> int:
             del return_cost_deducted_prior_execution
             del sends_value, recipient_type
-            del contract_creation
+            del contract_creation, blob_versioned_hashes_or_count
 
             assert access_list is None, (
                 f"Access list is not supported in {cls.name()}"

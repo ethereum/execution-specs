@@ -58,12 +58,16 @@ class EIP7981(BaseFork):
             contract_creation: bool = False,
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
+            authorization_list_or_count: Sized | int | None = None,
+            blob_versioned_hashes_or_count: Sized | int | None = None,
         ) -> int:
             return super_fn(
                 data=data,
                 contract_creation=contract_creation,
                 sends_value=sends_value,
                 recipient_type=recipient_type,
+                authorization_list_or_count=authorization_list_or_count,
+                blob_versioned_hashes_or_count=blob_versioned_hashes_or_count,
             ) + cls._access_list_data_cost(access_list)
 
         return fn
@@ -90,6 +94,7 @@ class EIP7981(BaseFork):
             return_cost_deducted_prior_execution: bool = False,
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
+            blob_versioned_hashes_or_count: Sized | int | None = None,
         ) -> int:
             del sends_value, recipient_type
 
@@ -98,6 +103,7 @@ class EIP7981(BaseFork):
                 contract_creation=contract_creation,
                 access_list=access_list,
                 authorization_list_or_count=authorization_list_or_count,
+                blob_versioned_hashes_or_count=blob_versioned_hashes_or_count,
                 return_cost_deducted_prior_execution=True,
             )
             intrinsic_cost += cls._access_list_data_cost(access_list)
@@ -108,7 +114,10 @@ class EIP7981(BaseFork):
             return max(
                 intrinsic_cost,
                 data_floor_cost_calculator(
-                    data=calldata, access_list=access_list
+                    data=calldata,
+                    access_list=access_list,
+                    authorization_list_or_count=authorization_list_or_count,
+                    blob_versioned_hashes_or_count=blob_versioned_hashes_or_count,
                 ),
             )
 

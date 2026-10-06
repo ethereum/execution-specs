@@ -6,7 +6,7 @@ from typing import Any, Dict, Iterator, List, Tuple, Type
 import pytest
 from pydantic import BaseModel
 
-from execution_testing.base_types import BlobSchedule
+from execution_testing.base_types import AccessList, BlobSchedule
 from execution_testing.vm import Opcodes
 
 from ..base_fork import BaseFork, BaseForkMeta, SystemCallPhase
@@ -485,6 +485,63 @@ def test_tx_intrinsic_gas_functions(  # noqa: D103
         )
         == intrinsic_gas
     )
+
+
+@pytest.mark.parametrize(
+    "calldata,access_list,authorization_count,blob_hash_count,floor",
+    [
+        pytest.param(b"", None, 0, 0, 21_000, id="bare_transfer"),
+        pytest.param(b"\1" * 10_000, None, 0, 0, 661_000, id="calldata"),
+        pytest.param(
+            b"",
+            [AccessList(address=1, storage_keys=[0])],
+            0,
+            0,
+            24_328,
+            id="access_list_entry",
+        ),
+        pytest.param(b"", None, 1, 0, 27_912, id="one_authorization"),
+        pytest.param(b"", None, 0, 6, 33_288, id="six_blob_hashes"),
+    ],
+)
+def test_content_floor_matches_eip_test_cases(
+    calldata: bytes,
+    access_list: List[AccessList] | None,
+    authorization_count: int,
+    blob_hash_count: int,
+    floor: int,
+) -> None:
+    """
+    Match the floors listed in the EIP-8131 test cases, which assume a
+    value transfer, where the EIP-2780 intrinsic base equals `TX_BASE`.
+    """
+    assert (
+        Bogota.transaction_data_floor_cost_calculator()(
+            data=calldata,
+            access_list=access_list,
+            sends_value=True,
+            authorization_list_or_count=authorization_count,
+            blob_versioned_hashes_or_count=blob_hash_count,
+        )
+        == floor
+    )
+
+
+def test_content_floor_drops_access_list_surcharge() -> None:
+    """
+    Charge access list bytes only at the floor from EIP-8131 on, so the
+    intrinsic cost loses the EIP-7981 surcharge.
+    """
+    access_list = [AccessList(address=1, storage_keys=[0])]
+    surcharge = 64 * (20 + 32)
+    intrinsic_costs = [
+        fork.transaction_intrinsic_cost_calculator()(
+            access_list=access_list,
+            return_cost_deducted_prior_execution=True,
+        )
+        for fork in (Amsterdam, Bogota)
+    ]
+    assert intrinsic_costs[0] - intrinsic_costs[1] == surcharge
 
 
 class FutureFork(Osaka):

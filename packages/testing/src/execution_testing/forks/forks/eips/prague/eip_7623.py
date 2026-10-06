@@ -70,8 +70,11 @@ class EIP7623(BaseFork):
             contract_creation: bool = False,
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
+            authorization_list_or_count: Sized | int | None = None,
+            blob_versioned_hashes_or_count: Sized | int | None = None,
         ) -> int:
             del access_list, contract_creation, sends_value, recipient_type
+            del authorization_list_or_count, blob_versioned_hashes_or_count
             return (
                 calldata_gas_calculator(data=data, floor=True)
                 + gas_costs.TX_BASE
@@ -88,9 +91,7 @@ class EIP7623(BaseFork):
         cost.
         """
         super_fn = super(EIP7623, cls).transaction_intrinsic_cost_calculator()
-        transaction_data_floor_cost_calculator = (
-            cls.transaction_data_floor_cost_calculator()
-        )
+        floor_cost_calculator = cls.transaction_data_floor_cost_calculator()
 
         def fn(
             *,
@@ -101,6 +102,7 @@ class EIP7623(BaseFork):
             return_cost_deducted_prior_execution: bool = False,
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
+            blob_versioned_hashes_or_count: Sized | int | None = None,
         ) -> int:
             del sends_value, recipient_type
 
@@ -109,14 +111,17 @@ class EIP7623(BaseFork):
                 contract_creation=contract_creation,
                 access_list=access_list,
                 authorization_list_or_count=authorization_list_or_count,
+                blob_versioned_hashes_or_count=blob_versioned_hashes_or_count,
                 return_cost_deducted_prior_execution=False,
             )
 
             if return_cost_deducted_prior_execution:
                 return intrinsic_cost
 
-            transaction_floor_data_cost = (
-                transaction_data_floor_cost_calculator(data=calldata)
+            transaction_floor_data_cost = floor_cost_calculator(
+                data=calldata,
+                authorization_list_or_count=authorization_list_or_count,
+                blob_versioned_hashes_or_count=blob_versioned_hashes_or_count,
             )
             return max(intrinsic_cost, transaction_floor_data_cost)
 
