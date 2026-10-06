@@ -350,7 +350,9 @@ def test_reinvoked_selfdestruct_create_nonce(
     """
     sender = pre.fund_eoa()
 
-    victim_code = Op.POP(Op.CREATE(value=0, offset=0, size=0)) + Conditional(
+    victim_code = Op.POP(
+        Op.CREATE(value=Op.CALLVALUE, offset=0, size=0)
+    ) + Conditional(
         condition=Op.CALLDATASIZE,
         if_true=Op.REVERT(0, 0),
         if_false=Op.SELFDESTRUCT(Op.ADDRESS),
@@ -361,22 +363,29 @@ def test_reinvoked_selfdestruct_create_nonce(
         0, Op.CREATE2(value=0, offset=0, size=len(initcode), salt=0)
     )
     # Calldata makes the victim revert its frame, undoing that frame's
-    # CREATE and its nonce bump; an empty call lets it self-destruct.
-    for revert_frame in (False, True, False):
+    # CREATE and its nonce bump; an empty call lets it self-destruct. Each
+    # call sends a different value, which the victim passes on to its
+    # child, so a child's balance names the call that created it.
+    calls = [(1, False), (2, True), (3, False)]  # (value, revert_frame)
+    for value, revert_frame in calls:
         entry_code += Op.POP(
             Op.CALL(
                 gas=Op.GAS,
                 address=Op.SLOAD(0),
+                value=value,
                 args_size=1 if revert_frame else 0,
             )
         )
-    entry = pre.deploy_contract(code=entry_code)
+    entry = pre.deploy_contract(
+        code=entry_code, balance=sum(value for value, _ in calls)
+    )
     victim = compute_create_address(
         address=entry, salt=0, initcode=initcode, opcode=Op.CREATE2
     )
     child_nonce0 = compute_create_address(address=victim, nonce=0)
     child_nonce1 = compute_create_address(address=victim, nonce=1)
     child_nonce2 = compute_create_address(address=victim, nonce=2)
+    child_nonce3 = compute_create_address(address=victim, nonce=3)
 
     tx = Transaction(sender=sender, to=entry)
 
@@ -389,25 +398,34 @@ def test_reinvoked_selfdestruct_create_nonce(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=1)
                     ],
+                    balance_changes=[
+                        BalBalanceChange(block_access_index=1, post_balance=1)
+                    ],
                 ),
                 child_nonce2: BalAccountExpectation(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=1)
                     ],
+                    balance_changes=[
+                        BalBalanceChange(block_access_index=1, post_balance=3)
+                    ],
                 ),
-                # None asserts the nonce-zero child is absent from the BAL.
+                # None asserts these children are absent from the BAL.
                 child_nonce0: None,
+                child_nonce3: None,
             }
         )
 
     state_test(
         pre=pre,
         post={
-            entry: Account(nonce=2, storage={0: victim}),
+            # The reverted call's value comes back to the entry contract.
+            entry: Account(nonce=2, balance=2, storage={0: victim}),
             victim: finalized(fork, 0),
             child_nonce0: Account.NONEXISTENT,
-            child_nonce1: Account(nonce=1, code=b"", balance=0),
-            child_nonce2: Account(nonce=1, code=b"", balance=0),
+            child_nonce1: Account(nonce=1, code=b"", balance=1),
+            child_nonce2: Account(nonce=1, code=b"", balance=3),
+            child_nonce3: Account.NONEXISTENT,
         },
         tx=tx,
         expected_block_access_list=expected_bal,
