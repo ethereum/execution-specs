@@ -71,7 +71,7 @@ def test_spec_called_twice_fails(pytester: pytest.Pytester) -> None:
 
     result.assert_outcomes(passed=0, failed=1)
     output = "\n".join(result.outlines + result.errlines)
-    assert "`state_test` was called more than once" in output, output
+    assert "`state_test` can only be called once per test" in output, output
 
 
 def test_spec_called_once_fills(pytester: pytest.Pytester) -> None:
