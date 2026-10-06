@@ -21,10 +21,7 @@ from py_ecc.optimized_bls12_381.optimized_curve import (
 
 from ....fork_types import ExecutionGas
 from ....vm import Evm
-from ....vm.gas import (
-    GasCosts,
-    charge_gas,
-)
+from ....vm.gas import GasCosts, charge_gas
 from ....vm.memory import buffer_read
 from ...exceptions import InvalidParameter
 from . import (
