@@ -10,6 +10,7 @@ from execution_testing import (
     Alloc,
     BenchmarkTestFiller,
     Block,
+    Bytecode,
     Bytes,
     Fork,
     JumpLoopGenerator,
@@ -103,88 +104,32 @@ def test_bls12_381(
     )
 
 
-@pytest.mark.repricing
-@pytest.mark.parametrize("k", [1, 16, 64, 128])
-def test_bls12_g1_msm(
-    benchmark_test: BenchmarkTestFiller,
-    fork: Fork,
-    gas_benchmark_value: int,
-    k: int,
-) -> None:
-    """Benchmark BLS12_G1_MSM precompile with varying number of points."""
-    precompile_address = bls12381_spec.Spec.G1MSM
-    if precompile_address not in fork.precompiles():
-        pytest.skip("BLS12_G1_MSM precompile not enabled")
+def _load_input_from_code(pre: Alloc, fork: Fork, data: Bytes) -> Bytecode:
+    """
+    Return setup code that copies `data` into memory at offset zero.
 
-    calldata = _g1msm_worstcase_calldata(k)
-
-    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
-        calldata=calldata
-    )
-    if intrinsic_gas_cost > gas_benchmark_value:
-        pytest.skip("k configuration exceeds the gas limit")
-
-    attack_block = Op.POP(
-        Op.STATICCALL(
-            gas=Op.GAS, address=precompile_address, args_size=Op.CALLDATASIZE
-        ),
-    )
-
-    benchmark_test(
-        target_opcode=Precompile.BLS12_G1MSM,
-        code_generator=JumpLoopGenerator(
-            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
-            attack_block=attack_block,
-            tx_kwargs={"data": calldata},
-        ),
-    )
-
-
-@pytest.mark.repricing
-@pytest.mark.parametrize(
-    "k",
-    [
-        1,
-        16,
-        64,
-        # G2 MSM k=128 costs 1.5M gas
-        pytest.param(128, marks=pytest.mark.slow),
-    ],
-)
-def test_bls12_g2_msm(
-    benchmark_test: BenchmarkTestFiller,
-    fork: Fork,
-    gas_benchmark_value: int,
-    k: int,
-) -> None:
-    """Benchmark BLS12_G2_MSM precompile with varying number of points."""
-    precompile_address = bls12381_spec.Spec.G2MSM
-    if precompile_address not in fork.precompiles():
-        pytest.skip("BLS12_G2_MSM precompile not enabled")
-
-    calldata = _g2msm_worstcase_calldata(k)
-
-    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
-        calldata=calldata
-    )
-
-    if intrinsic_gas_cost > gas_benchmark_value:
-        pytest.skip("k configuration exceeds the gas limit")
-
-    attack_block = Op.POP(
-        Op.STATICCALL(
-            gas=Op.GAS, address=precompile_address, args_size=Op.CALLDATASIZE
-        ),
-    )
-
-    benchmark_test(
-        target_opcode=Precompile.BLS12_G2MSM,
-        code_generator=JumpLoopGenerator(
-            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
-            attack_block=attack_block,
-            tx_kwargs={"data": calldata},
-        ),
-    )
+    The input is stored as the code of one or more max-size contracts and
+    fetched with `EXTCODECOPY`, so the benchmark transaction carries no
+    calldata. A large MSM input sent as calldata owes its data floor cost on
+    every transaction the benchmark is split into, and the short remainder
+    transaction of that split can fall below the floor.
+    """
+    chunk = fork.max_code_size()
+    setup = Bytecode()
+    for offset in range(0, len(data), chunk):
+        piece = data[offset : offset + chunk]
+        source = pre.deploy_contract(code=piece)
+        setup += Op.EXTCODECOPY(
+            address=source,
+            dest_offset=offset,
+            offset=0,
+            size=len(piece),
+            address_warm=False,
+            data_size=len(piece),
+            old_memory_size=offset,
+            new_memory_size=offset + len(piece),
+        )
+    return setup
 
 
 @pytest.mark.repricing
@@ -247,9 +192,11 @@ def _generate_bls12_g2_point(seed: int) -> Bytes:
     )
 
 
-def _g1msm_worstcase_calldata(k: int) -> Bytes:
+def _msm_worstcase_input(
+    k: int, generate_point: Callable[[int], Bytes]
+) -> Bytes:
     """
-    Build a k-pair G1MSM input that resists MSM shortcuts.
+    Build a k-pair MSM input that resists MSM shortcuts.
 
     Identical points would let the precompile factor out (sum sᵢ)·P, and
     identical scalars would let Pippenger bucket every term together. Pairing
@@ -259,7 +206,7 @@ def _g1msm_worstcase_calldata(k: int) -> Bytes:
     """
     rng = random.Random(0)
     parts = [
-        bytes(_generate_bls12_g1_point(i))
+        bytes(generate_point(i))
         + bytes(
             bls12381_spec.Scalar(rng.randint(2**254, bls12381_spec.Spec.Q - 1))
         )
@@ -268,17 +215,73 @@ def _g1msm_worstcase_calldata(k: int) -> Bytes:
     return Bytes(b"".join(parts))
 
 
-def _g2msm_worstcase_calldata(k: int) -> Bytes:
-    """G2MSM counterpart of `_g1msm_worstcase_calldata`."""
-    rng = random.Random(0)
-    parts = [
-        bytes(_generate_bls12_g2_point(i))
-        + bytes(
-            bls12381_spec.Scalar(rng.randint(2**254, bls12381_spec.Spec.Q - 1))
+@pytest.mark.repricing
+@pytest.mark.parametrize(
+    "precompile_address,generate_point,target",
+    [
+        pytest.param(
+            bls12381_spec.Spec.G1MSM,
+            _generate_bls12_g1_point,
+            Precompile.BLS12_G1MSM,
+            id="bls12_g1msm",
+        ),
+        pytest.param(
+            bls12381_spec.Spec.G2MSM,
+            _generate_bls12_g2_point,
+            Precompile.BLS12_G2MSM,
+            id="bls12_g2msm",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "k",
+    [
+        1,
+        16,
+        64,
+        # A G2 MSM at k=128 costs 1.5M gas.
+        pytest.param(128, marks=pytest.mark.slow),
+    ],
+)
+def test_bls12_msm(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    precompile_address: int,
+    generate_point: Callable[[int], Bytes],
+    target: OpcodeTarget,
+    k: int,
+) -> None:
+    """Benchmark a BLS12 MSM precompile with varying number of points."""
+    if precompile_address not in fork.precompiles():
+        pytest.skip(f"{target} precompile not enabled")
+
+    input_data = _msm_worstcase_input(k, generate_point)
+    gas_calc_map = build_gas_calculation_function_map(fork.gas_costs())
+    precompile_cost = gas_calc_map[precompile_address](len(input_data))
+    # Each transaction of the split gets at most this much gas; if one
+    # precompile call does not fit, the loop can never complete an iteration.
+    if precompile_cost > min(tx_gas_limit, gas_benchmark_value):
+        pytest.skip(
+            f"one {len(input_data)}-byte MSM call costs {precompile_cost} "
+            "gas, more than a single transaction can spend"
         )
-        for i in range(k)
-    ]
-    return Bytes(b"".join(parts))
+
+    benchmark_test(
+        target_opcode=target,
+        code_generator=JumpLoopGenerator(
+            setup=_load_input_from_code(pre, fork, input_data),
+            attack_block=Op.POP(
+                Op.STATICCALL(
+                    gas=Op.GAS,
+                    address=precompile_address,
+                    args_size=len(input_data),
+                ),
+            ),
+        ),
+    )
 
 
 def _generate_bls12_pairs(n: int, seed: int = 0) -> Bytes:
