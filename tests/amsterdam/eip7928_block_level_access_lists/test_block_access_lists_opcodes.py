@@ -294,7 +294,17 @@ def test_bal_sload_and_oog(
         access_list=access_list
     )
 
-    tx_gas_limit = intrinsic_gas_cost + storage_contract_code.gas_cost(fork)
+    # The slot's first access meters its block access list bytes
+    # (EIP-8279). For the access-listed slot that floor outgrows the
+    # execution, so the limit is the metered floor and one gas short of
+    # it runs out at the SLOAD's metering, still before the read.
+    metered_floor = fork.transaction_data_floor_cost_calculator()(
+        data=b"", access_list=access_list
+    ) + fork.block_access_list_floor_cost(storage_keys=1)
+    tx_gas_limit = max(
+        intrinsic_gas_cost + storage_contract_code.gas_cost(fork),
+        metered_floor,
+    )
 
     if fails_at_sload:
         # subtract 1 gas to ensure OOG at SLOAD

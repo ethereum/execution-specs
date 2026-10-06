@@ -193,6 +193,7 @@ class RefundTransaction(Transaction):
                 access_list=access_list,
                 return_cost_deducted_prior_execution=True,
                 authorization_list_or_count=authorization_list,
+                blob_versioned_hashes_or_count=blob_versioned_hashes,
             )
             + top_frame_execution
             + code.execution_cost(fork)
@@ -217,8 +218,20 @@ class RefundTransaction(Transaction):
         )
         receipt_gas_used = combined_before_refund - effective_refund
         call_data_floor_cost = data_floor_calc(
-            data=call_data, access_list=access_list
+            data=call_data,
+            access_list=access_list,
+            authorization_list_or_count=authorization_list,
+            blob_versioned_hashes_or_count=blob_versioned_hashes,
         )
+        if RefundTypes.STORAGE_CLEAR in refund_types:
+            # Each cleared slot's key and value enter the block access
+            # list, extending the floor (EIP-8279); so does the cold
+            # callee a reverting wrapper call touches.
+            call_data_floor_cost += fork.block_access_list_floor_cost(
+                addresses=0 if inner_code is None else 1,
+                storage_keys=len(storage_slots),
+                storage_values=len(storage_slots),
+            )
 
         # gas_used_post_refund is the "combined after refund" value used for
         # calldata floor comparisons and balance computation
