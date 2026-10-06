@@ -8,10 +8,9 @@ these tests are the only ones that exercise the install itself: what the
 account looks like before the fork block, and what changes at it.
 
 They cover the verifier install, not the activation block as a whole. A
-A passing fixture says the code appeared at the fork block, that nothing
-else about the account changed, and that the fork block's access list
-records the install at the pre-execution index. It says nothing about the
-rest of the transition.
+passing fixture says the code appeared at the fork block, that nothing
+else about the account changed, and that the install left no trace in the
+block access list. It says nothing about the rest of the transition.
 
 The pre-fork blocks run under the `amsterdam` spec module, which has no
 frame transactions, and the post-fork blocks under `bogota`, so the
@@ -25,7 +24,6 @@ from execution_testing import (
     Account,
     Alloc,
     BalAccountExpectation,
-    BalCodeChange,
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
@@ -59,28 +57,8 @@ VERIFIER_WITHOUT_CODE_CHANGE = BlockAccessListExpectation(
 )
 """
 The verifier is in the block access list, reached by a transaction, and
-records no code change.
-"""
-
-VERIFIER_INSTALLED = BlockAccessListExpectation(
-    account_expectations={
-        Spec.EXPIRY_VERIFIER: BalAccountExpectation(
-            nonce_changes=[],
-            balance_changes=[],
-            storage_changes=[],
-            code_changes=[
-                BalCodeChange(
-                    block_access_index=0,
-                    new_code=Spec.EXPIRY_VERIFIER_CODE,
-                )
-            ],
-        ),
-    }
-)
-"""
-The fork block records the install as a code change at block access
-index 0, the pre-execution index of EIP-7928, and nothing else about the
-account.
+records no code change. The install is not a block-level operation, so
+it never appears there, not even in the block that performs it.
 """
 
 VERIFIER_UNTOUCHED = BlockAccessListExpectation(
@@ -138,9 +116,9 @@ def test_expiry_verifier_installed_at_fork_transition(
     transfer, and its storage. The post-state pins all of them, so an
     install that writes anything other than the code fails here.
 
-    Each block's access list pins the same from the other side: the fork
-    block records the install as a code change at the pre-execution
-    index, and no other block records a code change.
+    Each block's access list pins the same from the other side: the
+    verifier appears in it only through the transactions that touch it,
+    and never with a code change, in the fork block included.
     """
     sender = pre.fund_eoa()
     probe = pre.deploy_contract(
@@ -172,7 +150,7 @@ def test_expiry_verifier_installed_at_fork_transition(
         Block(
             timestamp=FORK_TIMESTAMP,
             txs=[Transaction(sender=sender, to=probe)],
-            expected_block_access_list=VERIFIER_INSTALLED,
+            expected_block_access_list=VERIFIER_UNTOUCHED,
         ),
         Block(
             timestamp=FORK_TIMESTAMP + 1,
@@ -214,8 +192,7 @@ def test_expiry_frame_in_first_post_fork_block(
     The verifier's code is installed before the block's transactions run,
     so a frame transaction carrying an expiry frame in that same block
     finds the predeploy in place and executes. The block's access list
-    records the install at the pre-execution index, before the
-    transaction that executes the code.
+    shows the verifier as executed code, not as a code change.
     """
     sender = pre.fund_eoa()
     target = pre.deploy_contract(code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP)
@@ -238,7 +215,7 @@ def test_expiry_frame_in_first_post_fork_block(
         Block(
             timestamp=FORK_TIMESTAMP,
             txs=[tx],
-            expected_block_access_list=VERIFIER_INSTALLED,
+            expected_block_access_list=VERIFIER_WITHOUT_CODE_CHANGE,
         ),
     ]
     post = {

@@ -6,9 +6,10 @@ first post-fork block's transactions run: its code, a nonce of at least
 one, and any balance it already held. Every other EIP-8250 test starts
 at a fork where the account is already in the genesis allocation.
 
-As for EIP-8141, `Bogota` is a test-side label for rules implemented
-inside the `amsterdam` spec package, so the pre-fork blocks here contain
-only transactions both rule sets agree on.
+The pre-fork blocks run under the `amsterdam` spec module and the fork
+block onwards under `bogota`. As EIP-8250 is specified, the
+initialization happens before the fork block runs and is not part of
+that block's access list.
 """
 
 import pytest
@@ -16,8 +17,6 @@ from execution_testing import (
     Account,
     Alloc,
     BalAccountExpectation,
-    BalCodeChange,
-    BalNonceChange,
     BalStorageChange,
     BalStorageSlot,
     Block,
@@ -49,36 +48,6 @@ The nonce manager is in the block access list, read by a transaction,
 and records no change.
 """
 
-INSTALL_CODE_CHANGE = BalCodeChange(
-    block_access_index=0, new_code=Spec.NONCE_MANAGER_CODE
-)
-"""The install's code change, at the pre-execution block access index."""
-
-
-def nonce_manager_installed(
-    pre_fork_nonce: int | None,
-) -> BlockAccessListExpectation:
-    """
-    Return the fork block's expectation for the nonce manager: the install
-    at block access index 0, with a nonce change only when the install
-    raises the nonce, and nothing else.
-    """
-    nonce_changes = []
-    if (pre_fork_nonce or 0) < 1:
-        nonce_changes.append(
-            BalNonceChange(block_access_index=0, post_nonce=1)
-        )
-    return BlockAccessListExpectation(
-        account_expectations={
-            Spec.NONCE_MANAGER: BalAccountExpectation(
-                nonce_changes=nonce_changes,
-                balance_changes=[],
-                storage_changes=[],
-                code_changes=[INSTALL_CODE_CHANGE],
-            ),
-        }
-    )
-
 
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.parametrize(
@@ -101,8 +70,8 @@ def test_nonce_manager_installed_at_fork_transition(
     A probe records `EXTCODESIZE` of the address keyed by block number:
     no code in the pre-fork block, the runtime code from the fork block
     on. The account ends with a nonce of `max(existing_nonce, 1)`, its
-    balance unchanged and empty storage. The fork block's access list
-    records the install at the pre-execution index.
+    balance unchanged and empty storage. No block's access list records
+    a change to it, the fork block included.
     """
     sender = pre.fund_eoa()
     probe = pre.deploy_contract(
@@ -121,7 +90,7 @@ def test_nonce_manager_installed_at_fork_transition(
         Block(
             timestamp=FORK_TIMESTAMP,
             txs=[Transaction(sender=sender, to=probe)],
-            expected_block_access_list=nonce_manager_installed(pre_fork_nonce),
+            expected_block_access_list=NONCE_MANAGER_UNTOUCHED,
         ),
         Block(
             timestamp=FORK_TIMESTAMP + 1,
@@ -153,8 +122,7 @@ def test_keyed_frame_in_first_post_fork_block(
 
     The nonce manager is installed before the block's transactions run,
     so the keyed write lands in its storage. The block access list records
-    the install at the pre-execution index and the write at the
-    transaction's index.
+    the write at the transaction's index and nothing for the install.
     """
     sender = pre.fund_eoa()
     tx = Transaction(
@@ -171,10 +139,8 @@ def test_keyed_frame_in_first_post_fork_block(
             expected_block_access_list=BlockAccessListExpectation(
                 account_expectations={
                     Spec.NONCE_MANAGER: BalAccountExpectation(
-                        nonce_changes=[
-                            BalNonceChange(block_access_index=0, post_nonce=1)
-                        ],
-                        code_changes=[INSTALL_CODE_CHANGE],
+                        nonce_changes=[],
+                        code_changes=[],
                         storage_changes=[
                             BalStorageSlot(
                                 slot=nonce_slot(sender, KEY_A),
