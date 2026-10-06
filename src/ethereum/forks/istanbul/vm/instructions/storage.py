@@ -16,10 +16,7 @@ from ethereum_types.numeric import Uint
 from ...state_tracker import get_storage, get_storage_original, set_storage
 from .. import Evm
 from ..exceptions import OutOfGasError, WriteInStaticContext
-from ..gas import (
-    GasCosts,
-    charge_gas,
-)
+from ..gas import GasCosts, charge_gas
 from ..stack import pop, push
 
 

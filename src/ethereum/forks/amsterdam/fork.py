@@ -41,12 +41,7 @@ from .block_access_lists import (
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import WrongChainIdError
-from .fork_types import (
-    Authorization,
-    BlockAccessIndex,
-    ExecutionGas,
-    StateGas,
-)
+from .fork_types import Authorization, BlockAccessIndex, ExecutionGas, StateGas
 from .requests import (
     BUILDER_DEPOSIT_REQUEST_TYPE,
     BUILDER_EXIT_REQUEST_TYPE,
@@ -87,9 +82,7 @@ from .transactions import (
 from .utils.address import compute_contract_address
 from .utils.hexadecimal import hex_to_address
 from .vm.eoa_delegation import is_valid_delegation
-from .vm.gas import (
-    MAX_BLOB_GAS_PER_BLOCK as MAX_BLOB_GAS_PER_BLOCK,
-)
+from .vm.gas import MAX_BLOB_GAS_PER_BLOCK as MAX_BLOB_GAS_PER_BLOCK
 from .vm.gas import (
     GasCosts,
     StateGasCosts,

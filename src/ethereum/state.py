@@ -16,13 +16,7 @@ There is a distinction between an account that does not exist and
 """
 
 from dataclasses import dataclass, field
-from typing import (
-    Dict,
-    Optional,
-    Protocol,
-    Set,
-    final,
-)
+from typing import Dict, Optional, Protocol, Set, final
 
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.frozen import slotted_freezable

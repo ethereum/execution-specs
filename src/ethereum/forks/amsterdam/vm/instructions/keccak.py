@@ -18,11 +18,7 @@ from ethereum.utils.numeric import ceil32
 
 from ...fork_types import ExecutionGas
 from .. import Evm
-from ..gas import (
-    GasCosts,
-    calculate_gas_extend_memory,
-    charge_gas,
-)
+from ..gas import GasCosts, calculate_gas_extend_memory, charge_gas
 from ..memory import memory_read_bytes
 from ..stack import pop, push
 

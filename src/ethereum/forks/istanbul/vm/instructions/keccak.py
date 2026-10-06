@@ -17,11 +17,7 @@ from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 
 from .. import Evm
-from ..gas import (
-    GasCosts,
-    calculate_gas_extend_memory,
-    charge_gas,
-)
+from ..gas import GasCosts, calculate_gas_extend_memory, charge_gas
 from ..memory import memory_read_bytes
 from ..stack import pop, push
 
