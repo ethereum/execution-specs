@@ -1,6 +1,11 @@
 """Ethereum test fork definitions."""
 
-from .base_fork import GasDimension, RefundTypes, SystemCallPhase
+from .base_fork import (
+    ActivationInstall,
+    GasDimension,
+    RefundTypes,
+    SystemCallPhase,
+)
 from .forks.eips.amsterdam.eip_8282 import (
     BuilderDepositRequest,
     BuilderExitRequest,
@@ -124,6 +129,7 @@ __all__ = [
     "TransitionForkOrNoneAdapter",
     "GasDimension",
     "RefundTypes",
+    "ActivationInstall",
     "Amsterdam",
     "AmsterdamToBogotaAtTime15k",
     "ArrowGlacier",

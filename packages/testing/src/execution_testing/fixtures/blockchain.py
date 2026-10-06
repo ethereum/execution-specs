@@ -911,6 +911,7 @@ class FixtureTransaction(
     authorization_list: List[FixtureAuthorizationTuple] | None = None
     frames: List[FixtureFrame] | None = None
     signatures: List[FixtureFrameSignature] | None = None
+    nonce_keys: List[ZeroPaddedHexNumber] | None = None
 
     @classmethod
     def from_transaction(cls, tx: Transaction) -> Self:

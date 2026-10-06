@@ -73,6 +73,8 @@ rollback_transaction
 TransactionLoad.json_to_authorizations
 TransactionLoad.json_to_chain_id
 TransactionLoad.json_to_nonce
+TransactionLoad.json_to_nonce_keys
+TransactionLoad.json_to_nonce_seq
 TransactionLoad.json_to_gas
 TransactionLoad.json_to_to
 TransactionLoad.json_to_value
