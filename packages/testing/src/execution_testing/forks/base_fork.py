@@ -30,6 +30,7 @@ from execution_testing.base_types import (
     AccessList,
     Address,
     BlobSchedule,
+    Bytes,
     StateCommitment,
 )
 from execution_testing.base_types.conversions import BytesConvertible
@@ -1432,6 +1433,14 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         changed at transition time.
         """
         pass
+
+    @classmethod
+    def _frame_transaction_nonce_bytes(
+        cls, nonce_keys: Sequence[int], nonce_seq: int
+    ) -> List[Bytes]:
+        """Return a frame transaction's nonce fields priced as calldata."""
+        del nonce_keys, nonce_seq
+        return []
 
     @classmethod
     @abstractmethod

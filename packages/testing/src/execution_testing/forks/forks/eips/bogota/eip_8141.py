@@ -95,17 +95,6 @@ class EIP8141(BaseFork):
         }
 
     @classmethod
-    def _frame_transaction_nonce_bytes(
-        cls, nonce_keys: Sequence[int], nonce_seq: int
-    ) -> List[Bytes]:
-        """
-        Return the encoding of the transaction's nonce fields when a
-        later EIP prices it as calldata; EIP-8141 does not.
-        """
-        del nonce_keys, nonce_seq
-        return []
-
-    @classmethod
     def _frame_transaction_charged_bytes(
         cls,
         frames: Sequence[FrameGasInfo],
