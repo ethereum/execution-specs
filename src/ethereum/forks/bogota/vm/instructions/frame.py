@@ -17,6 +17,7 @@ from ...transactions.frame_transaction import (
     APPROVE_SCOPE_MASK,
     FrameFlag,
     FrameSignatureScheme,
+    nonce_keys_hash,
     resolve_frame_target,
 )
 from ...vm.memory import buffer_read, memory_read_bytes, memory_write
@@ -104,7 +105,7 @@ def txparam(evm: Evm) -> None:
         # The frame transaction's type identifier.
         value = U256(0x06)
     elif param == U256(0x01):
-        value = U256(tx.nonce)
+        value = U256(tx.nonce_seq)
     elif param == U256(0x02):
         value = U256.from_be_bytes(tx.sender)
     elif param == U256(0x03):
@@ -128,6 +129,14 @@ def txparam(evm: Evm) -> None:
     elif param == U256(0x0C):
         # State gas remaining in the executing frame's pool.
         value = U256(frame_context.state_gas_left)
+    elif param == U256(0x0D):
+        value = U256(frame_context.legacy_nonce)
+    elif param == U256(0x0E):
+        value = U256(len(tx.nonce_keys))
+    elif param == U256(0x0F):
+        value = U256.from_be_bytes(nonce_keys_hash(tx))
+    elif param == U256(0x10):
+        value = tx.nonce_keys[0]
     else:
         raise InvalidParameter("undefined TXPARAM parameter")
 
