@@ -4,7 +4,9 @@ Tests for [EIP-8250: Keyed Nonces for Frame Transactions](https://eips.ethereum.
 The key set `[0]` aliases the sender's account nonce, and every other key
 selects a sequence in the `NONCE_MANAGER` storage. The payment-scoped
 `APPROVE` consumes the selected domains and charges one storage slot
-creation of state gas per keyed domain used for the first time.
+creation of state gas per keyed domain used for the first time. A key's
+most significant byte is its type: a binary key only accepts sequence
+zero and is consumed once.
 """  # noqa: E501
 
 from typing import Dict, List, Optional
@@ -40,6 +42,7 @@ from ..eip8141_frame_transactions.helpers import (
 )
 from ..eip8141_frame_transactions.spec import Spec as Spec8141
 from .helpers import (
+    BINARY_KEY,
     NONCE_KEY,
     OTHER_KEY,
     keyed_nonce_first_use,
@@ -47,15 +50,28 @@ from .helpers import (
     used_key_slots,
     verify_only_tx_gas_used,
 )
-from .spec import Spec, keyed_nonce_slot, nonce_keys_hash, ref_spec_8250
+from .spec import (
+    MAX_NONCE_KEY_VALUE,
+    Spec,
+    keyed_nonce_slot,
+    nonce_keys_hash,
+    ref_spec_8250,
+    typed_nonce_key,
+)
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8250.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8250.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
 
-MAX_KEY = 2**256 - 1
-"""The largest encodable nonce key."""
+MAX_KEY = typed_nonce_key(Spec.NONCETYPE_MAX, MAX_NONCE_KEY_VALUE)
+"""The largest valid nonce key, of the largest defined type."""
+
+MAX_GENERAL_KEY = typed_nonce_key(Spec.NONCETYPE_GENERAL, MAX_NONCE_KEY_VALUE)
+"""The largest general nonce key."""
+
+FIRST_RESERVED_KEY = typed_nonce_key(Spec.NONCETYPE_MAX + 1, 0)
+"""The smallest nonce key whose type is reserved."""
 
 SLOT_RESULT = 0x01
 """Storage slot the probe contracts write what they read into."""
@@ -193,6 +209,15 @@ def test_legacy_alias_key(
     "nonce_keys",
     [
         pytest.param([1, NONCE_KEY, MAX_KEY], id="three_keys_spanning_range"),
+        pytest.param(
+            [1, NONCE_KEY, MAX_GENERAL_KEY], id="general_keys_spanning_range"
+        ),
+        pytest.param([BINARY_KEY], id="binary_key"),
+        pytest.param(
+            [typed_nonce_key(Spec.NONCETYPE_BINARY, 0)],
+            id="smallest_binary_key",
+        ),
+        pytest.param([NONCE_KEY, BINARY_KEY], id="general_and_binary_keys"),
         pytest.param(
             list(range(1, Spec.MAX_NONCE_KEYS + 1)), id="max_key_count"
         ),
@@ -333,9 +358,57 @@ def test_used_key_set_needs_no_state_gas(
     )
 
 
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize(
+    "used_key,nonce_key",
+    [
+        pytest.param(NONCE_KEY, BINARY_KEY, id="binary_beside_used_general"),
+        pytest.param(BINARY_KEY, NONCE_KEY, id="general_beside_used_binary"),
+    ],
+)
+def test_type_byte_selects_separate_slot(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    used_key: int,
+    nonce_key: int,
+) -> None:
+    """
+    Consume a fresh key whose value matches a used key of the other
+    type: the type byte selects another slot, so the first use is paid
+    and the used slot is untouched.
+    """
+    sender = pre.fund_eoa()
+    nonce_manager_with_slots(pre, used_key_slots(sender, {used_key: 1}))
+    tx = Transaction(
+        sender=sender,
+        frames=[verify_frame()],
+        nonce_keys=[nonce_key],
+        nonce=0,
+    )
+    tx.expected_receipt = TransactionReceipt(
+        payer=sender,
+        cumulative_gas_used=verify_only_tx_gas_used(fork, tx, first_uses=1),
+        frame_receipts=[
+            default_verify_receipt(fork, keyed_nonce_first_use(fork))
+        ],
+    )
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            Spec.NONCE_MANAGER: Account(
+                storage=used_key_slots(sender, {used_key: 1, nonce_key: 1})
+            ),
+            sender: Account(nonce=0),
+        },
+    )
+
+
 NONCE_FIELD_ENCODINGS = [
     pytest.param([0], 0, id="legacy_key_set"),
     pytest.param([NONCE_KEY], 0, id="small_key"),
+    pytest.param([MAX_GENERAL_KEY], 0, id="widest_general_key"),
     pytest.param([MAX_KEY], 0, id="full_width_key"),
     pytest.param([NONCE_KEY], Spec.MAX_NONCE_SEQ - 1, id="wide_seq"),
     pytest.param(
@@ -431,7 +504,7 @@ def test_nonce_fields_priced_as_calldata(
     state_test(pre=pre, tx=tx, post={})
 
 
-@pytest.mark.parametrize("nonce_keys,nonce_seq", NONCE_FIELD_ENCODINGS[:3])
+@pytest.mark.parametrize("nonce_keys,nonce_seq", NONCE_FIELD_ENCODINGS[:4])
 def test_nonce_fields_in_calldata_floor(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -580,6 +653,42 @@ def test_nonce_fields_in_calldata_floor(
             marks=pytest.mark.exception_test,
         ),
         pytest.param(
+            [BINARY_KEY],
+            0,
+            0,
+            {BINARY_KEY: 1},
+            TransactionException.NONCE_MISMATCH_TOO_LOW,
+            id="binary_key_used",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            [BINARY_KEY],
+            1,
+            0,
+            {BINARY_KEY: 1},
+            TransactionException.NONCE_MISMATCH_TOO_HIGH,
+            id="binary_key_at_its_slot_value",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            [BINARY_KEY],
+            1,
+            0,
+            {},
+            TransactionException.NONCE_MISMATCH_TOO_HIGH,
+            id="binary_key_nonzero_seq",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            [NONCE_KEY, BINARY_KEY],
+            1,
+            0,
+            {NONCE_KEY: 1},
+            TransactionException.NONCE_MISMATCH_TOO_HIGH,
+            id="binary_key_beside_used_general_key",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
             [NONCE_KEY],
             0,
             5,
@@ -600,8 +709,9 @@ def test_stateful_validity(
     error: Optional[TransactionException],
 ) -> None:
     """
-    Reject a sequence that differs from any selected domain's current
-    one, and ignore the account nonce for a keyed domain.
+    Reject a sequence that differs from any selected general domain's
+    current one, or a nonzero sequence or used slot for a binary key,
+    and ignore the account nonce for a keyed domain.
     """
     sender = pre.fund_eoa(nonce=sender_nonce)
     if used_keys:
@@ -673,6 +783,27 @@ KEY_SET_CASES = [
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
+        [FIRST_RESERVED_KEY],
+        0,
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="first_reserved_type",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [2**256 - 1],
+        0,
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="all_bits_set_key",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [NONCE_KEY, FIRST_RESERVED_KEY],
+        0,
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="reserved_type_after_valid_key",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
         [NONCE_KEY],
         Spec.MAX_NONCE_SEQ,
         TransactionException.NONCE_IS_MAX,
@@ -689,7 +820,8 @@ KEY_SET_CASES = [
 ]
 """
 Key sets and sequences rejected regardless of state: malformed sets,
-values beyond their field widths, and the exhausted sequence.
+reserved key types, values beyond their field widths, and the
+exhausted sequence.
 """
 
 
@@ -746,6 +878,7 @@ def test_static_validity_transaction(
     [
         pytest.param([5, 9], 0, id="keyed_set"),
         pytest.param([5, 9], 4, id="used_keyed_set"),
+        pytest.param([BINARY_KEY, MAX_KEY], 0, id="binary_key_set"),
         pytest.param([0], 3, id="legacy_key_set"),
     ],
 )
@@ -1488,7 +1621,7 @@ def test_nonce_manager_stays_cold(
 
 
 @pytest.mark.pre_alloc_mutable
-@pytest.mark.parametrize("changed_field", ["keys", "sequence"])
+@pytest.mark.parametrize("changed_field", ["keys", "key_type", "sequence"])
 @pytest.mark.parametrize(
     "resign",
     [pytest.param(False, marks=pytest.mark.exception_test), True],
@@ -1508,9 +1641,10 @@ def test_signature_binds_nonce_fields(
         nonce=0,
     )
     tx.sign()
-    changed_keys = (
-        [NONCE_KEY, OTHER_KEY] if changed_field == "keys" else [NONCE_KEY]
-    )
+    changed_keys = {
+        "keys": [NONCE_KEY, OTHER_KEY],
+        "key_type": [BINARY_KEY],
+    }.get(changed_field, [NONCE_KEY])
     changed_seq = 1 if changed_field == "sequence" else 0
     slots = used_key_slots(sender, {NONCE_KEY: 1}) if changed_seq else {}
     if slots:

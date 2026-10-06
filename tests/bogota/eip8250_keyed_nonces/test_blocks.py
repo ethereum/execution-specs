@@ -24,6 +24,7 @@ from execution_testing import (
 
 from ..eip8141_frame_transactions.helpers import verify_frame
 from .helpers import (
+    BINARY_KEY,
     NONCE_KEY,
     OTHER_KEY,
     nonce_manager_with_slots,
@@ -304,6 +305,59 @@ def test_overlapping_keys_next_sequence(
                     keyed_nonce_slot(sender, OTHER_KEY): 2,
                 }
             ),
+            sender: Account(nonce=0),
+        },
+    )
+
+
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "second_seq,error",
+    [
+        pytest.param(
+            0,
+            TransactionException.NONCE_MISMATCH_TOO_LOW,
+            id="same_sequence",
+        ),
+        pytest.param(
+            1,
+            TransactionException.NONCE_MISMATCH_TOO_HIGH,
+            id="next_sequence",
+        ),
+    ],
+)
+def test_binary_key_single_use(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    second_seq: int,
+    error: TransactionException,
+) -> None:
+    """
+    Reject a block whose second transaction reuses the binary key the
+    first consumed, at sequence zero or at the next sequence, which a
+    general key would accept.
+    """
+    sender = pre.fund_eoa()
+    txs = [
+        Transaction(
+            sender=sender,
+            frames=[verify_frame()],
+            nonce_keys=[BINARY_KEY],
+            nonce=0,
+        ),
+        Transaction(
+            sender=sender,
+            frames=[verify_frame()],
+            nonce_keys=[BINARY_KEY],
+            nonce=second_seq,
+            error=error,
+        ),
+    ]
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=txs, exception=error)],
+        post={
+            Spec.NONCE_MANAGER: Account(storage={}),
             sender: Account(nonce=0),
         },
     )
