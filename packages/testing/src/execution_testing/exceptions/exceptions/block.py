@@ -163,6 +163,11 @@ class BlockException(ExceptionBase):
     A system contract call at the end of block execution (from the system
     address) fails.
     """
+    SYSTEM_CONTRACT_ADDRESS_OCCUPIED = auto()
+    """
+    A system contract installed when a fork activates finds code or storage
+    at its address in the fork block's parent state.
+    """
     INVALID_BLOCK_HASH = auto()
     """
     Block header's hash does not match the actually computed hash of the block.

@@ -3,8 +3,9 @@ Tests for the EIP-8250 fork transition.
 
 The fork installs the nonce manager before the first post-fork block's
 transactions run, and that block's access list records the install at
-block access index 0. The pre-fork blocks run under the `amsterdam` spec
-module and the fork block onwards under `bogota`.
+block access index 0. Code or storage at the address in the fork block's
+parent state makes that block invalid. The pre-fork blocks run under the
+`amsterdam` spec module and the fork block onwards under `bogota`.
 """
 
 import pytest
@@ -19,6 +20,7 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    BlockException,
     Op,
     Transaction,
 )
@@ -194,3 +196,39 @@ def test_keyed_transaction_in_first_post_fork_block(
     }
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@pytest.mark.exception_test
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize(
+    "code,storage",
+    [
+        pytest.param(Spec.NONCE_MANAGER_CODE, {}, id="nonce_manager_code"),
+        pytest.param(Op.STOP, {}, id="foreign_code"),
+        pytest.param(b"", {1: 1}, id="storage_without_code"),
+        pytest.param(Op.STOP, {1: 1}, id="foreign_code_and_storage"),
+    ],
+)
+def test_occupied_nonce_manager_invalidates_fork_block(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    code: bytes,
+    storage: dict[int, int],
+) -> None:
+    """
+    Reject the fork block when the nonce manager address holds code or
+    storage in its parent state. The account keeps its pre-fork state.
+    """
+    occupant = Account(nonce=1, balance=1, code=code, storage=storage)
+    pre[Spec.NONCE_MANAGER] = occupant
+    blocks = [
+        Block(timestamp=FORK_TIMESTAMP - 1),
+        Block(
+            timestamp=FORK_TIMESTAMP,
+            exception=BlockException.SYSTEM_CONTRACT_ADDRESS_OCCUPIED,
+        ),
+    ]
+
+    blockchain_test(
+        pre=pre, blocks=blocks, post={Spec.NONCE_MANAGER: occupant}
+    )

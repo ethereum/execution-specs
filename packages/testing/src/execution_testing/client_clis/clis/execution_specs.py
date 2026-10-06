@@ -266,6 +266,9 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         ),
         BlockException.SYSTEM_CONTRACT_EMPTY: "System contract address",
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: "call failed:",
+        BlockException.SYSTEM_CONTRACT_ADDRESS_OCCUPIED: (
+            "address already holds"
+        ),
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: "deposit",
         BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
             "Block access list exceeds gas limit"
