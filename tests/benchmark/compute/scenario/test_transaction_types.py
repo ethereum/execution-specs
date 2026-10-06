@@ -572,14 +572,16 @@ def test_auth_transaction(
         """
         Return the full gas consumed by a transaction carrying `count`
         authorizations: intrinsic gas plus the state-conditional
-        top-frame charges, which have no refunds per EIP-2780.
+        top-frame charges, which have no refunds per EIP-2780, or the
+        floor when that is higher.
         """
         auths = [auth_effects] * count
-        return (
+        charges = (
             intrinsic_cost_calc(
                 authorization_list_or_count=count,
                 sends_value=sends_value,
                 recipient_type=receiver_type,
+                return_cost_deducted_prior_execution=True,
             )
             + top_frame_calc(
                 sends_value=sends_value,
@@ -592,6 +594,13 @@ def test_auth_transaction(
                 authorizations=auths,
             )
         )
+        floor = fork.transaction_data_floor_cost_calculator()(
+            data=b"",
+            sends_value=sends_value,
+            recipient_type=receiver_type,
+            authorization_list_or_count=count,
+        )
+        return max(charges, floor)
 
     remaining_gas = gas_benchmark_value
     authorizations_per_tx: List[int] = []
