@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Alloc,
     Bytecode,
@@ -67,6 +68,15 @@ SLOT_NONCE_SEQ = 0x03
 
 SLOT_EXECUTED = 0x04
 """Storage slot a worker writes to record its execution."""
+
+COLD_READS = 40
+"""Number of cold balance reads lifting execution above the floor."""
+
+COLD_READ_BASE = 0x10000
+"""First of the untouched addresses whose balances are read cold."""
+
+FLOOR_PADDING = bytes(30_000)
+"""Frame data lifting the calldata floor above the standard cost."""
 
 
 def delegated_sender_code(sender_work: Bytecode) -> Bytecode:
@@ -278,6 +288,205 @@ def test_used_key_pays_no_creation(
 
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.parametrize(
+    "nonce_keys",
+    [
+        pytest.param([NONCE_KEY, OTHER_KEY], id="two_keys"),
+        pytest.param(
+            list(range(1, Spec.MAX_NONCE_KEYS + 1)), id="max_key_count"
+        ),
+    ],
+)
+def test_used_key_set_needs_no_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    nonce_keys: List[int],
+) -> None:
+    """Advance a set of used keys from a frame with no state gas budget."""
+    current_seq = 3
+    sender = pre.fund_eoa()
+    nonce_manager_with_slots(
+        pre, used_key_slots(sender, dict.fromkeys(nonce_keys, current_seq))
+    )
+    tx = Transaction(
+        sender=sender,
+        frames=[verify_frame(state_gas_limit=0)],
+        nonce_keys=nonce_keys,
+        nonce=current_seq,
+    )
+    tx.expected_receipt = TransactionReceipt(
+        payer=sender,
+        cumulative_gas_used=verify_only_tx_gas_used(fork, tx, first_uses=0),
+        frame_receipts=[default_verify_receipt(fork, 0)],
+    )
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            Spec.NONCE_MANAGER: Account(
+                storage=used_key_slots(
+                    sender, dict.fromkeys(nonce_keys, current_seq + 1)
+                )
+            ),
+            sender: Account(nonce=0),
+        },
+    )
+
+
+NONCE_FIELD_ENCODINGS = [
+    pytest.param([0], 0, id="legacy_key_set"),
+    pytest.param([NONCE_KEY], 0, id="small_key"),
+    pytest.param([MAX_KEY], 0, id="full_width_key"),
+    pytest.param([NONCE_KEY], Spec.MAX_NONCE_SEQ - 1, id="wide_seq"),
+    pytest.param(
+        list(range(MAX_KEY - Spec.MAX_NONCE_KEYS + 1, MAX_KEY + 1)),
+        0,
+        id="max_full_width_keys",
+    ),
+]
+"""Nonce fields from the narrowest to the widest encoding."""
+
+
+def sender_at_sequence(
+    pre: Alloc, nonce_keys: List[int], nonce_seq: int
+) -> EOA:
+    """Return a sender whose selected domains all hold `nonce_seq`."""
+    if not nonce_seq:
+        return pre.fund_eoa()
+    if nonce_keys == [0]:
+        return pre.fund_eoa(nonce=nonce_seq)
+    sender = pre.fund_eoa()
+    nonce_manager_with_slots(
+        pre, used_key_slots(sender, dict.fromkeys(nonce_keys, nonce_seq))
+    )
+    return sender
+
+
+def first_use_count(nonce_keys: List[int], nonce_seq: int) -> int:
+    """Return the slots a set creates, all of them fresh at sequence zero."""
+    if nonce_keys == [0] or nonce_seq:
+        return 0
+    return len(nonce_keys)
+
+
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize("nonce_keys,nonce_seq", NONCE_FIELD_ENCODINGS)
+def test_nonce_fields_priced_as_calldata(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    nonce_keys: List[int],
+    nonce_seq: int,
+) -> None:
+    """
+    Price the nonce field encoding in the standard intrinsic cost of a
+    transaction whose execution exceeds the calldata floor.
+    """
+    sender = sender_at_sequence(pre, nonce_keys, nonce_seq)
+    first_uses = first_use_count(nonce_keys, nonce_seq)
+    state_gas = first_uses * keyed_nonce_first_use(fork)
+    burner_code = Bytecode()
+    for account in range(COLD_READS):
+        burner_code += Op.POP(
+            Op.BALANCE(address=COLD_READ_BASE + account, address_warm=False)
+        )
+    burner_code += Op.STOP
+    burner = pre.deploy_contract(code=burner_code)
+    burner_gas = fork.frame_entry_gas_calculator()(
+        target_warm=False
+    ) + burner_code.gas_cost(fork)
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(state_gas_limit=state_gas),
+            default_frame(
+                target=burner, gas_limit=burner_gas, state_gas_limit=0
+            ),
+        ],
+        nonce_keys=nonce_keys,
+        nonce=nonce_seq,
+    )
+    tx.sign()
+    assert tx.frames is not None and tx.signatures is not None
+    intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=tx.frames,
+        signatures=tx.signatures,
+        nonce_keys=nonce_keys,
+        nonce_seq=nonce_seq,
+        return_cost_deducted_prior_execution=True,
+    )
+    execution_used = (
+        intrinsic + default_code_frame_gas(fork, target_warm=True) + burner_gas
+    )
+    floor = fork.frame_transaction_data_floor_cost_calculator()(
+        frames=tx.frames,
+        signatures=tx.signatures,
+        nonce_keys=nonce_keys,
+        nonce_seq=nonce_seq,
+    )
+    assert floor < execution_used
+    tx.expected_receipt = TransactionReceipt(
+        payer=sender, cumulative_gas_used=execution_used + state_gas
+    )
+    state_test(pre=pre, tx=tx, post={})
+
+
+@pytest.mark.parametrize("nonce_keys,nonce_seq", NONCE_FIELD_ENCODINGS[:3])
+def test_nonce_fields_in_calldata_floor(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    nonce_keys: List[int],
+    nonce_seq: int,
+) -> None:
+    """
+    Count the nonce field encoding in the calldata floor of a
+    transaction whose frame data lifts the floor above its standard cost.
+    """
+    sender = sender_at_sequence(pre, nonce_keys, nonce_seq)
+    first_uses = first_use_count(nonce_keys, nonce_seq)
+    state_gas = first_uses * keyed_nonce_first_use(fork)
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(
+                gas_limit=default_code_frame_gas(fork, target_warm=True),
+                state_gas_limit=state_gas,
+            ),
+            default_frame(
+                target=pre.deploy_contract(code=Op.STOP),
+                gas_limit=fork.frame_entry_gas_calculator()(target_warm=False),
+                state_gas_limit=0,
+                data=FLOOR_PADDING,
+            ),
+        ],
+        nonce_keys=nonce_keys,
+        nonce=nonce_seq,
+    )
+    tx.sign()
+    assert tx.frames is not None and tx.signatures is not None
+    floor = fork.frame_transaction_data_floor_cost_calculator()(
+        frames=tx.frames,
+        signatures=tx.signatures,
+        nonce_keys=nonce_keys,
+        nonce_seq=nonce_seq,
+    )
+    standard_gas_limit = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=tx.frames,
+        signatures=tx.signatures,
+        nonce_keys=nonce_keys,
+        nonce_seq=nonce_seq,
+        return_cost_deducted_prior_execution=True,
+    ) + sum(frame.gas_limit for frame in tx.frames)
+    assert floor > standard_gas_limit
+    tx.expected_receipt = TransactionReceipt(
+        payer=sender, cumulative_gas_used=floor + state_gas
+    )
+    state_test(pre=pre, tx=tx, post={})
+
+
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize(
     "nonce_keys,nonce_seq,sender_nonce,used_keys,error",
     [
         pytest.param(
@@ -350,6 +559,24 @@ def test_used_key_pays_no_creation(
             {NONCE_KEY: 1},
             TransactionException.NONCE_MISMATCH_TOO_HIGH,
             id="mixed_set_seq_of_used_key",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            [NONCE_KEY, OTHER_KEY],
+            3,
+            0,
+            {NONCE_KEY: 3, OTHER_KEY: 4},
+            TransactionException.NONCE_MISMATCH_TOO_LOW,
+            id="mixed_set_used_key_ahead",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            [NONCE_KEY],
+            Spec.MAX_NONCE_SEQ,
+            0,
+            {NONCE_KEY: Spec.MAX_NONCE_SEQ},
+            TransactionException.NONCE_IS_MAX,
+            id="exhausted_key_at_its_sequence",
             marks=pytest.mark.exception_test,
         ),
         pytest.param(
@@ -518,6 +745,7 @@ def test_static_validity_transaction(
     "nonce_keys,nonce_seq",
     [
         pytest.param([5, 9], 0, id="keyed_set"),
+        pytest.param([5, 9], 4, id="used_keyed_set"),
         pytest.param([0], 3, id="legacy_key_set"),
     ],
 )
@@ -558,6 +786,10 @@ def test_txparam_nonce_fields(
     )
     probe = pre.deploy_contract(code=probe_code)
     sender = pre.fund_eoa(nonce=sender_nonce)
+    if nonce_keys != [0] and nonce_seq:
+        nonce_manager_with_slots(
+            pre, used_key_slots(sender, dict.fromkeys(nonce_keys, nonce_seq))
+        )
     tx = Transaction(
         sender=sender,
         frames=[
@@ -969,6 +1201,57 @@ def test_sponsor_pays_first_use(
     )
 
 
+@pytest.mark.parametrize(
+    "scopes",
+    [
+        pytest.param(
+            [Spec8141.APPROVE_EXECUTION, Spec8141.APPROVE_PAYMENT],
+            id="payment_after_execution",
+        ),
+        pytest.param(
+            [Spec8141.APPROVE_EXECUTION_AND_PAYMENT],
+            id="execution_and_payment",
+        ),
+    ],
+)
+def test_payment_scope_consumes(
+    state_test: StateTestFiller, pre: Alloc, fork: Fork, scopes: List[int]
+) -> None:
+    """
+    Consume the key once, on the payment-scoped `APPROVE`, with no state
+    gas charged to an execution-only approval before it.
+    """
+    first_use = keyed_nonce_first_use(fork)
+    approver = pre.deploy_contract(code=delegated_sender_code(Op.STOP))
+    sender = pre.fund_eoa(delegation=approver)
+    receipts = [
+        FrameReceipt(status=Spec8141.STATUS_SUCCESS, state_gas_used=0)
+        for _ in scopes[:-1]
+    ]
+    receipts.append(
+        FrameReceipt(status=Spec8141.STATUS_SUCCESS, state_gas_used=first_use)
+    )
+    tx = Transaction(
+        sender=sender,
+        frames=[verify_frame(flags=scope) for scope in scopes],
+        nonce_keys=[NONCE_KEY],
+        nonce=0,
+        expected_receipt=TransactionReceipt(
+            payer=sender, frame_receipts=receipts
+        ),
+    )
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            Spec.NONCE_MANAGER: Account(
+                storage={keyed_nonce_slot(sender, NONCE_KEY): 1}
+            ),
+            sender: Account(nonce=1),
+        },
+    )
+
+
 @pytest.mark.pre_alloc_mutable
 def test_legacy_nonce_exhaustion_halts_approval(
     state_test: StateTestFiller, pre: Alloc
@@ -1314,15 +1597,30 @@ def test_nested_approval_follows_enclosing_frame(
 
 
 @pytest.mark.pre_alloc_mutable
-@pytest.mark.parametrize("sender_nonce", [3, Spec.MAX_NONCE_SEQ - 2])
+@pytest.mark.parametrize(
+    "sender_nonce",
+    [
+        3,
+        Spec.MAX_NONCE_SEQ - 2,
+        pytest.param(
+            Spec.MAX_NONCE_SEQ - 1,
+            id="overflow_halts_verify",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
 def test_legacy_approval_increments_live_nonce(
     state_test: StateTestFiller, pre: Alloc, sender_nonce: int
 ) -> None:
-    """Keep a successful CREATE nonce increment when payment is approved."""
+    """
+    Keep a successful CREATE nonce increment when payment is approved,
+    and invalidate the transaction when the approval would overflow it.
+    """
     creator = pre.deploy_contract(
         delegated_sender_code(Op.POP(Op.CREATE(0, 0, 0)) + Op.STOP)
     )
     sender = pre.fund_eoa(nonce=sender_nonce, delegation=creator)
+    overflows = sender_nonce + 2 > Spec.MAX_NONCE_SEQ
     tx = Transaction(
         sender=sender,
         nonce_keys=[0],
@@ -1332,21 +1630,28 @@ def test_legacy_approval_increments_live_nonce(
             sender_frame(),
             verify_frame(flags=Spec8141.APPROVE_PAYMENT),
         ],
-        expected_receipt=TransactionReceipt(
+        error=(
+            TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+            if overflows
+            else None
+        ),
+    )
+    if not overflows:
+        tx.expected_receipt = TransactionReceipt(
             payer=sender,
             frame_receipts=[
                 FrameReceipt(status=Spec8141.STATUS_SUCCESS) for _ in range(3)
             ],
-        ),
-    )
+        )
+    created = compute_create_address(address=sender, nonce=sender_nonce)
     state_test(
         pre=pre,
         tx=tx,
         post={
-            sender: Account(nonce=sender_nonce + 2),
-            compute_create_address(
-                address=sender, nonce=sender_nonce
-            ): Account(nonce=1),
+            sender: Account(
+                nonce=sender_nonce if overflows else sender_nonce + 2
+            ),
+            created: Account.NONEXISTENT if overflows else Account(nonce=1),
             Spec.NONCE_MANAGER: Account(storage={}),
         },
     )
