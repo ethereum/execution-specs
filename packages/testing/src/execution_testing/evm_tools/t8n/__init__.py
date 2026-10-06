@@ -421,6 +421,11 @@ class T8N(Load):
         )
 
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
+        # Same order as the fork's `execute_block`: the fork block's
+        # activation runs before `apply_body`.
+        if self.fork.has_apply_fork_activation and self.is_fork_block:
+            self.fork.apply_fork_activation(block_env)
+
         # Same order as the fork's `apply_body`: beacon roots, then history.
         if self.fork.has_beacon_roots_address:
             self.fork.process_unchecked_system_transaction(

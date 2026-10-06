@@ -9,12 +9,12 @@ contract.
 https://eips.ethereum.org/EIPS/eip-8250
 """
 
-from typing import List, Mapping, Sequence
+from typing import FrozenSet, List, Mapping, Sequence
 
 from ethereum_rlp import rlp
 from ethereum_types.numeric import U256
 
-from execution_testing.base_types import Bytes
+from execution_testing.base_types import Address, Bytes
 
 from ....base_fork import ActivationInstall, BaseFork
 
@@ -61,3 +61,13 @@ class EIP8250(BaseFork):
                 code=NONCE_MANAGER_BYTECODE, min_nonce=1
             ),
         } | super(EIP8250, cls).activation_code_installs()  # type: ignore
+
+    @classmethod
+    def recorded_activation_installs(cls) -> FrozenSet[Address]:
+        """
+        Record the nonce manager's install in the fork block's block
+        access list, at block access index 0.
+        """
+        parent = super(EIP8250, cls)
+        inherited = parent.recorded_activation_installs()  # type: ignore
+        return frozenset({Address(NONCE_MANAGER_ADDRESS)}) | inherited

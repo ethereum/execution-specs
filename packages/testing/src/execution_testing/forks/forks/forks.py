@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, Sized, Type
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    FrozenSet,
+    List,
+    Mapping,
+    Sized,
+    Type,
+)
 
 if TYPE_CHECKING:
     from execution_testing.fixtures.blockchain import FixtureHeader
@@ -1315,6 +1324,15 @@ class Frontier(BaseFork):
         Frontier installs no code at activation.
         """
         return {}
+
+    @classmethod
+    def recorded_activation_installs(cls) -> FrozenSet[Address]:
+        """
+        Return the activation installs the block access list records.
+
+        Frontier has no installs and no block access list.
+        """
+        return frozenset()
 
     @classmethod
     def build_default_block_header(

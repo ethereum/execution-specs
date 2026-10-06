@@ -2,9 +2,9 @@
 Tests for the EIP-8250 fork transition.
 
 The fork installs the nonce manager before the first post-fork block's
-transactions run. The pre-fork blocks run under the `amsterdam` spec
-module and the fork block onwards under `bogota`. The installation is
-not part of the fork block's access list.
+transactions run, and that block's access list records the install at
+block access index 0. The pre-fork blocks run under the `amsterdam` spec
+module and the fork block onwards under `bogota`.
 """
 
 import pytest
@@ -12,6 +12,8 @@ from execution_testing import (
     Account,
     Alloc,
     BalAccountExpectation,
+    BalCodeChange,
+    BalNonceChange,
     BalStorageChange,
     BalStorageSlot,
     Block,
@@ -43,6 +45,34 @@ NONCE_MANAGER_UNTOUCHED = BlockAccessListExpectation(
 """The nonce manager is read by a probe and records no change."""
 
 
+def nonce_manager_installed(
+    raises_nonce: bool,
+    storage_changes: list[BalStorageSlot] | None = None,
+) -> BalAccountExpectation:
+    """
+    Return the fork block's entry for the nonce manager: the install's
+    code change at block access index 0, with a nonce change there only
+    when the install raises the nonce.
+    """
+    nonce_changes = []
+    if raises_nonce:
+        nonce_changes.append(
+            BalNonceChange(
+                block_access_index=0, post_nonce=Spec.NONCE_MANAGER_NONCE
+            )
+        )
+    return BalAccountExpectation(
+        nonce_changes=nonce_changes,
+        balance_changes=[],
+        code_changes=[
+            BalCodeChange(
+                block_access_index=0, new_code=Spec.NONCE_MANAGER_CODE
+            )
+        ],
+        storage_changes=storage_changes or [],
+    )
+
+
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.parametrize(
     "pre_fork_nonce,pre_fork_balance",
@@ -60,8 +90,8 @@ def test_nonce_manager_initialized_at_fork_transition(
 ) -> None:
     """
     Install the nonce manager code at the fork block, raise its nonce
-    to at least one and keep its balance, with no block access list
-    entry for the installation.
+    to at least one and keep its balance. Only the fork block's access
+    list records the install.
     """
     sender = pre.fund_eoa()
     probe = pre.deploy_contract(
@@ -85,7 +115,14 @@ def test_nonce_manager_initialized_at_fork_transition(
         Block(
             timestamp=FORK_TIMESTAMP,
             txs=[Transaction(sender=sender, to=probe)],
-            expected_block_access_list=NONCE_MANAGER_UNTOUCHED,
+            expected_block_access_list=BlockAccessListExpectation(
+                account_expectations={
+                    Spec.NONCE_MANAGER: nonce_manager_installed(
+                        raises_nonce=(pre_fork_nonce or 0)
+                        < Spec.NONCE_MANAGER_NONCE
+                    ),
+                }
+            ),
         ),
         Block(
             timestamp=FORK_TIMESTAMP + 1,
@@ -113,8 +150,8 @@ def test_keyed_transaction_in_first_post_fork_block(
     pre: Alloc,
 ) -> None:
     """
-    Consume a key in the fork block, whose access list records the slot
-    write and no installation.
+    Consume a key in the fork block, whose access list records the
+    install at index 0 and the slot write at the transaction's index.
     """
     sender = pre.fund_eoa()
     tx = Transaction(
@@ -130,10 +167,8 @@ def test_keyed_transaction_in_first_post_fork_block(
             txs=[tx],
             expected_block_access_list=BlockAccessListExpectation(
                 account_expectations={
-                    Spec.NONCE_MANAGER: BalAccountExpectation(
-                        nonce_changes=[],
-                        balance_changes=[],
-                        code_changes=[],
+                    Spec.NONCE_MANAGER: nonce_manager_installed(
+                        raises_nonce=True,
                         storage_changes=[
                             BalStorageSlot(
                                 slot=keyed_nonce_slot(sender, NONCE_KEY),

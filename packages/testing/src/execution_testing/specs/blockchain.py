@@ -1017,6 +1017,8 @@ class BlockchainTest(BaseTest):
         # A fork activating at this block installs its code before the block
         # executes. The parent's fork tells whether this is that block, and
         # which installs are new rather than inherited from an earlier fork.
+        # The installs the block access list records are left to the
+        # transition tool, which applies them inside the fork block.
         assert env.parent_timestamp is not None, (
             "parent_timestamp is required to resolve the parent's fork"
         )
@@ -1029,10 +1031,12 @@ class BlockchainTest(BaseTest):
                 Address(address): code
                 for address, code in parent_installs.items()
             }
+            recorded = fork.recorded_activation_installs()
             new_installs = {
                 address: code
                 for address, code in fork.activation_code_installs().items()
                 if inherited.get(Address(address)) != code
+                and Address(address) not in recorded
             }
             if new_installs:
                 if isinstance(previous_alloc, LazyAlloc):

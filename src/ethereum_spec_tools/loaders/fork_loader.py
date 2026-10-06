@@ -140,6 +140,16 @@ class ForkLoad:
         return self._module("fork").apply_fork
 
     @property
+    def has_apply_fork_activation(self) -> bool:
+        """Check if the fork has an `apply_fork_activation` function."""
+        return hasattr(self._module("fork"), "apply_fork_activation")
+
+    @property
+    def apply_fork_activation(self) -> Any:
+        """apply_fork_activation function of the fork."""
+        return self._module("fork").apply_fork_activation
+
+    @property
     def signing_hash(self) -> Any:
         """signing_hash function of the fork."""
         return self._module("transactions").signing_hash

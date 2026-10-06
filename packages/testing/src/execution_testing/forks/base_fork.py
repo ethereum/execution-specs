@@ -11,6 +11,7 @@ from typing import (
     Callable,
     ClassVar,
     Dict,
+    FrozenSet,
     List,
     Mapping,
     Optional,
@@ -1455,6 +1456,20 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         storage the account had before the fork are kept. In a blockchain
         test that starts at a fork already including them, the installs are
         applied to the genesis allocation instead.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def recorded_activation_installs(cls) -> FrozenSet[Address]:
+        """
+        Return the addresses whose activation install the spec applies
+        inside the fork block, where its block access list records it at
+        block access index 0.
+
+        The filler leaves these out of the installs it applies before the
+        fork block, and the transition tool applies them through the fork's
+        activation.
         """
         pass
 
