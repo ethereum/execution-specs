@@ -314,8 +314,8 @@ def set_delegation(
                 charge_state_gas_from_meter(gas_meter, StateGasCosts.AUTH_BASE)
             delegation_set_for.add(authority)
             code_to_set = EOA_DELEGATION_MARKER + auth.address
-
         set_code(tx_state, authority, code_to_set)
+
         increment_nonce(tx_state, authority)
 
     return accessed_authorities

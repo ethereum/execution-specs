@@ -333,6 +333,7 @@ def validate_transaction(tx: Transaction) -> Uint:
             raise PriorityFeeGreaterThanMaxFeeError(
                 "priority fee greater than max fee"
             )
+
     return intrinsic_gas
 
 

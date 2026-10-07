@@ -159,7 +159,11 @@ def create(evm: Evm) -> None:
     )
 
     generic_create(
-        evm, endowment, contract_address, memory_start_position, memory_size
+        evm,
+        endowment,
+        contract_address,
+        memory_start_position,
+        memory_size,
     )
 
     # PROGRAM COUNTER
@@ -206,7 +210,11 @@ def create2(evm: Evm) -> None:
     )
 
     generic_create(
-        evm, endowment, contract_address, memory_start_position, memory_size
+        evm,
+        endowment,
+        contract_address,
+        memory_start_position,
+        memory_size,
     )
 
     # PROGRAM COUNTER
