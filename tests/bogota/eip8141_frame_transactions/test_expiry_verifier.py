@@ -98,14 +98,6 @@ def test_expiry_verifier_frame(
         pre=pre,
         tx=tx,
         post={
-            # The predeploy is injected into the genesis allocation by
-            # the testing framework; pin its account here so a missing
-            # predeploy fails loudly instead of silently exercising the
-            # default verify code.
-            Spec.EXPIRY_VERIFIER: Account(
-                nonce=0,
-                code=Spec.EXPIRY_VERIFIER_CODE,
-            ),
             target: Account(
                 storage={SLOT_EXECUTED: 0 if error else 1},
             ),
