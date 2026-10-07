@@ -156,7 +156,8 @@ def create(evm: Evm) -> None:
     init_code_gas = init_code_cost(Uint(memory_size))
 
     charge_gas(
-        evm, GasCosts.OPCODE_CREATE_BASE + extend_memory.cost + init_code_gas
+        evm,
+        GasCosts.OPCODE_CREATE_BASE + extend_memory.cost + init_code_gas,
     )
 
     # OPERATION
