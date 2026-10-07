@@ -179,7 +179,18 @@ def sync_block_context_unavailable(
     if head.excess_blob_gas is None or head.blob_gas_used is None:
         return None
     excess_blob_gas = int(head.excess_blob_gas)
-    if excess_blob_gas + int(head.blob_gas_used) > 2**64 - 1:
+    # A child's excess blob gas is EIP-4844's calc_excess_blob_gas of
+    # the head: the two blob fields are summed, then the target is
+    # subtracted. The EIP writes this in unbounded integers, but the
+    # fill derives the field through EELS, which adds the two uint64
+    # fields as uint64 and raises when the sum does not fit. So the sum
+    # itself must fit, not just the result. Nothing is lost: a head
+    # whose fields sum past uint64 already fails validate_block in the
+    # EIP (blob_gas_used above the maximum, or an excess that does not
+    # derive from its own parent), and clients disagree on its child
+    # anyway (geth wraps the sum).
+    parent_blob_gas = excess_blob_gas + int(head.blob_gas_used)
+    if parent_blob_gas > 2**64 - 1:
         return "the head's blob gas fields do not sum within uint64"
     # From Osaka on (EIP-7918) a child's excess blob gas needs its
     # parent's blob gas price, whose Taylor series takes one step per
