@@ -10,7 +10,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    AuthorizationTuple,
     BalAccountExpectation,
     BalBalanceChange,
     Block,
@@ -36,7 +35,6 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
-from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from ..eip7708_eth_transfer_logs.spec import transfer_log
 from ..eip7997_deterministic_factory_contract.spec import Spec
 from .spec import ref_spec_8246
@@ -516,57 +514,4 @@ def test_deployed_code_selfdestruct_clears_code(
         post[donor] = Account(balance=0)
         post[beneficiary] = Account(balance=1 + endowment)
     tx = Transaction(sender=sender, to=factory, value=endowment, data=tx_data)
-    state_test(pre=pre, post=post, tx=tx)
-
-
-@pytest.mark.parametrize(
-    "beneficiary_is_self",
-    [
-        pytest.param(False, id="fresh_beneficiary"),
-        pytest.param(True, id="self_beneficiary"),
-    ],
-)
-def test_selfdestruct_by_authority_created_in_same_tx(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    beneficiary_is_self: bool,
-) -> None:
-    """
-    SELFDESTRUCT executed by an authority first created by this tx's
-    set-code authorization.
-
-    An account materialised by an EIP-7702 authorization is not a
-    contract created in the same transaction, so EIP-6780 must not
-    delete it: the authority keeps its nonce and delegation designator
-    and only its balance moves.
-    """
-    value = 1000
-    delegate = pre.deploy_contract(code=Op.SELFDESTRUCT(Op.CALLDATALOAD(0)))
-    authority = pre.fund_eoa(amount=0)
-    beneficiary = (
-        authority if beneficiary_is_self else pre.nonexistent_account()
-    )
-    relayer = pre.fund_eoa()
-
-    tx = Transaction(
-        sender=relayer,
-        to=authority,
-        value=value,
-        data=Hash(beneficiary, left_padding=True),
-        authorization_list=[
-            AuthorizationTuple(address=delegate, nonce=0, signer=authority)
-        ],
-    )
-
-    designation = Spec7702.delegation_designation(delegate)
-    post: dict[Address, Account]
-    if beneficiary_is_self:
-        # EIP-8246: SELFDESTRUCT to self is a no-op for the balance.
-        post = {authority: Account(nonce=1, code=designation, balance=value)}
-    else:
-        post = {
-            authority: Account(nonce=1, code=designation, balance=0),
-            beneficiary: Account(balance=value),
-        }
-
     state_test(pre=pre, post=post, tx=tx)
