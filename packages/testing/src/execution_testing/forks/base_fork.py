@@ -260,6 +260,7 @@ class RefundTypes(Enum):
     """Enum used to describe all refund types a fork can have."""
 
     STORAGE_CLEAR = auto()
+    STORAGE_RESTORE = auto()
     AUTHORIZATION_EXISTING_AUTHORITY = auto()
 
 
