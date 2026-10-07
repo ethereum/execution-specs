@@ -98,17 +98,22 @@ def sstore(evm: Evm) -> None:
     # Refund Counter Calculation
     if current_value != new_value:
         if original_value != 0 and current_value != 0 and new_value == 0:
+            # Storage is cleared for the first time in the transaction
             evm.refund_counter += GasCosts.REFUND_STORAGE_CLEAR
 
         if original_value != 0 and current_value == 0:
+            # Gas refund issued earlier to be reversed
             evm.refund_counter -= GasCosts.REFUND_STORAGE_CLEAR
 
         if original_value == new_value:
+            # Storage slot being restored to its original value
             if original_value == 0:
+                # Slot was originally empty and was SET earlier
                 evm.refund_counter += int(
                     GasCosts.STORAGE_SET - GasCosts.WARM_ACCESS
                 )
             else:
+                # Slot was originally non-empty and was UPDATED earlier
                 evm.refund_counter += int(
                     GasCosts.COLD_STORAGE_WRITE
                     - GasCosts.COLD_STORAGE_ACCESS
