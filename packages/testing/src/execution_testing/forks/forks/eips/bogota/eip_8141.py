@@ -24,7 +24,7 @@ from ....base_fork import (
 )
 from ....gas_costs import GasCosts
 
-EXPIRY_VERIFIER_ADDRESS = 0x0000000000000000000000000000000000008141
+EXPIRY_VERIFIER_ADDRESS = 0x81413F0CF12E9B6A49B1D0439E081C577D57FFFF
 EXPIRY_VERIFIER_BYTECODE = bytes.fromhex(
     "60083614600a575f5ffd5b5f3560c01c4211601657005b5f5ffd"
 )
@@ -298,23 +298,17 @@ class EIP8141(BaseFork):
         """Pre-allocate the expiry verifier contract."""
         return {
             EXPIRY_VERIFIER_ADDRESS: {
-                # EIP-8141 installs only the runtime code at
-                # activation; the nonce stays zero.
-                "nonce": 0,
+                "nonce": 1,
                 "code": EXPIRY_VERIFIER_BYTECODE,
             }
         } | super(EIP8141, cls).pre_allocation()  # type: ignore
 
     @classmethod
-    def activation_code_installs(cls) -> Mapping:
-        """
-        Install the expiry verifier's runtime code when the fork activates.
-
-        Blockchain tests get the code from this hook rather than from
-        `pre_allocation_blockchain`, so a fixture that crosses the fork
-        boundary exercises the install itself: the account appears at the
-        fork block with the code and nothing else changed.
-        """
+    def pre_allocation_blockchain(cls) -> Mapping:
+        """Pre-allocate the expiry verifier contract."""
         return {
-            EXPIRY_VERIFIER_ADDRESS: EXPIRY_VERIFIER_BYTECODE,
-        } | super(EIP8141, cls).activation_code_installs()  # type: ignore
+            EXPIRY_VERIFIER_ADDRESS: {
+                "nonce": 1,
+                "code": EXPIRY_VERIFIER_BYTECODE,
+            }
+        } | super(EIP8141, cls).pre_allocation_blockchain()  # type: ignore
