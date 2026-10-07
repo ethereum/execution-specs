@@ -457,7 +457,9 @@ def test_block_full_access_list_and_data(
             unit_gas(floor_bound_bytes, tx_gas_limit // key_gas)
             - floor_bound_bytes * byte_floor_gas
         )
-        bytes_per_key = (key_gas - key_floor_gas) // byte_step
+        # Once a key alone is floor-bound (EIP-8131 prices its bytes only
+        # at the floor), no calldata byte is cheaper than at the floor.
+        bytes_per_key = max(0, (key_gas - key_floor_gas) // byte_step)
 
     gas_per_unit = key_gas + bytes_per_key * byte_gas
     total_units = gas_benchmark_value // gas_per_unit
