@@ -54,13 +54,14 @@ from execution_testing.test_types import (
     Alloc,
     BlockAccessListExpectation,
     Environment,
+    PostStateContext,
     Transaction,
 )
 
 from .base import BaseTest, FillResult, OpMode
 from .blockchain import Block, BlockchainTest, Header
 from .debugging import print_traces
-from .helpers import verify_transactions
+from .helpers import RecordedPostStateContext, verify_transactions
 
 logger = get_logger(__name__)
 
@@ -112,6 +113,33 @@ class StateTest(BaseTest):
         "state_test_only": "Only generate a state test fixture",
     }
 
+    def post_state_context(
+        self,
+        *,
+        tx: Transaction,
+        env: Environment,
+        fork: Fork,
+        result: Result,
+    ) -> PostStateContext:
+        """Return the context in which the post-state is resolved."""
+        context = RecordedPostStateContext()
+        context.record_block(
+            txs=[tx],
+            fork=fork,
+            base_fee_per_gas=(
+                result.base_fee_per_gas
+                if result.base_fee_per_gas is not None
+                else env.base_fee_per_gas
+            ),
+            excess_blob_gas=(
+                result.excess_blob_gas
+                if result.excess_blob_gas is not None
+                else env.excess_blob_gas
+            ),
+            fee_recipient=env.fee_recipient,
+        )
+        return context
+
     def verify_modified_gas_limit(
         self,
         *,
@@ -159,7 +187,16 @@ class StateTest(BaseTest):
             return False
         modified_tool_alloc = modified_tool_output.alloc.materialize()
         try:
-            self.post.verify_post_alloc(modified_tool_alloc)
+            self.post.verify_post_alloc(
+                pre_alloc=pre_alloc,
+                got_alloc=modified_tool_alloc,
+                context=self.post_state_context(
+                    tx=new_tx,
+                    env=env,
+                    fork=fork,
+                    result=modified_tool_output.result,
+                ),
+            )
         except Exception as e:
             logger.debug(
                 f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
@@ -382,7 +419,16 @@ class StateTest(BaseTest):
         output_alloc = transition_tool_output.alloc.materialize()
 
         try:
-            self.post.verify_post_alloc(output_alloc)
+            self.post.verify_post_alloc(
+                pre_alloc=pre_alloc,
+                got_alloc=output_alloc,
+                context=self.post_state_context(
+                    tx=tx,
+                    env=env,
+                    fork=fork,
+                    result=transition_tool_output.result,
+                ),
+            )
         except Exception as e:
             print_traces(t8n.get_traces())
             raise e

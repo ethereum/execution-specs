@@ -24,6 +24,7 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Storage,
+    Tip,
     Transaction,
     TransactionReceipt,
     compute_create_address,
@@ -93,7 +94,7 @@ def test_selfdestruct_new_beneficiary_state_gas(
         pytest.param(
             True,
             marks=pytest.mark.execute(
-                pytest.mark.skip(reason="requires exact base fee")
+                pytest.mark.skip(reason="requires an empty fee recipient")
             ),
         ),
     ],
@@ -103,6 +104,7 @@ def test_selfdestruct_new_beneficiary_state_gas(
 def test_selfdestruct_new_beneficiary_state_gas_boundary(
     state_test: StateTestFiller,
     pre: Alloc,
+    env: Environment,
     fork: Fork,
     gas_delta: int,
     recipient_is_coinbase: bool,
@@ -118,7 +120,10 @@ def test_selfdestruct_new_beneficiary_state_gas_boundary(
     An absent coinbase is still charged: it is warm, but receives its
     priority fee only after execution.
     """
-    beneficiary = pre.nonexistent_account()
+    if recipient_is_coinbase:
+        beneficiary = env.fee_recipient
+    else:
+        beneficiary = pre.nonexistent_account()
     code = Op.SELFDESTRUCT(
         beneficiary, address_warm=recipient_is_coinbase, account_new=True
     )
@@ -130,12 +135,10 @@ def test_selfdestruct_new_beneficiary_state_gas_boundary(
 
     contract = pre.deploy_contract(code=code, balance=1)
 
-    gas_price = 10
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
         gas_limit=execution_only + state_gas + gas_delta,
-        gas_price=gas_price,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=execution_only + state_gas + gas_delta
         ),
@@ -152,16 +155,12 @@ def test_selfdestruct_new_beneficiary_state_gas_boundary(
             contract: Account(balance=1),
         }
 
-    env = Environment()
     if recipient_is_coinbase:
-        base_fee = 7
-        env = Environment(fee_recipient=beneficiary, base_fee_per_gas=base_fee)
         # The coinbase also receives the priority fee on the gas used.
         transferred = 1 if gas_delta == 0 else 0
         gas_used = execution_only + state_gas + gas_delta
-        priority_fee = gas_price - base_fee
         post[beneficiary] = Account(
-            balance=transferred + gas_used * priority_fee
+            balance_change=transferred + Tip(tx, gas=gas_used)
         )
 
     state_test(env=env, pre=pre, post=post, tx=tx)

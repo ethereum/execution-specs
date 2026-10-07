@@ -16,6 +16,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Fork,
+    GasFee,
     Header,
     Initcode,
     Op,
@@ -2723,7 +2724,6 @@ def test_create_tx_collision_has_no_net_new_account_charge(
 
 
 @pytest.mark.pre_alloc_mutable()
-@pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
 @pytest.mark.valid_from("EIP8037")
 def test_create_tx_collision_refunds_reservoir(
     blockchain_test: BlockchainTestFiller,
@@ -2748,19 +2748,16 @@ def test_create_tx_collision_refunds_reservoir(
     # +1 above intrinsic_state_gas (= create_state_gas(code_size=0)
     # for empty-code CREATE-tx) makes message.state_gas_reservoir > 0.
     reservoir = fork.create_state_gas(code_size=0) + 1
-    initial_fund = 10**18
 
-    sender = pre.fund_eoa(initial_fund)
+    sender = pre.fund_eoa()
     collision_target = compute_create_address(address=sender, nonce=0)
     pre[collision_target] = Account(nonce=1)
 
-    tx_gas_price = 7
     tx = Transaction(
         to=None,
         data=init_code,
         state_gas_reservoir=reservoir,
         sender=sender,
-        gas_price=tx_gas_price,
     )
 
     blockchain_test(
@@ -2773,7 +2770,7 @@ def test_create_tx_collision_refunds_reservoir(
         ],
         post={
             sender: Account(
-                balance=initial_fund - gas_limit_cap * tx_gas_price,
+                balance_change=-GasFee(tx, gas=gas_limit_cap),
                 nonce=1,
             ),
             collision_target: Account(nonce=1, code=b"", storage={}),

@@ -9,18 +9,18 @@ from typing import Any, Dict, Generator, List, Type
 import pytest
 from pytest_metadata.plugin import metadata_key
 
-from execution_testing.base_types import Account
-from execution_testing.base_types.base_types import HexNumber
+from execution_testing.base_types import HexNumber
 from execution_testing.execution import BaseExecute, LabeledExecuteFormat
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.specs import BaseTest
-from execution_testing.test_types import Alloc as BaseAlloc
 from execution_testing.test_types import (
+    Account,
     Environment,
     EnvironmentDefaults,
 )
+from execution_testing.test_types import Alloc as BaseAlloc
 
 from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
 from ..shared.helpers import (

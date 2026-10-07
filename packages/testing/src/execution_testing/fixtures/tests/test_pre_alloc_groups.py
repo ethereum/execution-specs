@@ -6,7 +6,7 @@ from typing import Dict
 
 import pytest
 
-from execution_testing.base_types import Account, Address
+from execution_testing.base_types import Address
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.fixtures.pre_alloc_groups import (
     TEST_GROUP_INDEX_FILE,
@@ -17,7 +17,12 @@ from execution_testing.fixtures.pre_alloc_groups import (
     read_test_group_index,
 )
 from execution_testing.forks import Fork, Osaka, Prague, get_forks
-from execution_testing.test_types import Alloc, AllocGroupHash, Environment
+from execution_testing.test_types import (
+    Account,
+    Alloc,
+    AllocGroupHash,
+    Environment,
+)
 
 
 def _write_group(
