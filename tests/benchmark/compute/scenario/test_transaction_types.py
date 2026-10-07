@@ -296,6 +296,7 @@ def test_ether_transfers_to_precompile(
         recipient_type=RecipientType.PRECOMPILE,
     )
     iteration_count = gas_benchmark_value // iteration_cost
+    sender = pre.fund_eoa()
     txs = []
     for _ in range(iteration_count):
         txs.append(
@@ -303,7 +304,7 @@ def test_ether_transfers_to_precompile(
                 to=Address(precompile),
                 value=transfer_amount,
                 gas_limit=iteration_cost,
-                sender=pre.fund_eoa(),
+                sender=sender,
             )
         )
 
@@ -395,7 +396,7 @@ def test_block_full_data(
 
         txs.append(
             Transaction(
-                to=pre.fund_eoa(),
+                to=pre.fund_eoa(amount=1),
                 data=data,
                 gas_limit=gas_available + intrinsic_cost,
                 sender=pre.fund_eoa(),
