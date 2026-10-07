@@ -114,7 +114,7 @@ List of `engine_newPayloadVX` directives to be processed after the genesis block
 
 Ordered framework-built empty payloads, one above each test-chain head for which another block can be built. Each sync payload's `parentHash` identifies its chain head. A sync-based consumer follows the test payloads' `parentHash` links back to genesis, serves that chain with the sync payload appended, and announces the sync payload. Sync payloads above expected-invalid sibling chains precede the sync payload above the final valid chain.
 
-The list is separate from the test's Engine API sequence. A sync payload above an expected-invalid test payload only triggers syncing: the client must fetch and reject the expected-invalid parent before it could execute the sync payload. Each sync payload's `extraData` contains a value derived from the test ID, giving it a test-specific `blockHash`. The field is absent when the fixture has no sync payloads; see [Sync Payloads](../../filling_tests/sync_payloads.md) for the sibling-chain and omission rules.
+The list is separate from the test's Engine API sequence. A sync payload above an expected-invalid test payload only triggers syncing: the client must fetch and reject the expected-invalid parent before it could execute the sync payload. Each sync payload's `feeRecipient` is a value derived from the test ID, giving it a test-specific `blockHash` without affecting its state root (an empty payload pays no fees). The field is absent when the fixture has no sync payloads; see [Sync Payloads](../../filling_tests/sync_payloads.md) for the sibling-chain and omission rules.
 
 #### - `lastblockhash`: [`Hash`](./common_types.md#hash)
 
