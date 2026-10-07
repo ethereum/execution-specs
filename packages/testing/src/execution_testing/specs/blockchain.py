@@ -1646,9 +1646,15 @@ class BlockchainTest(BaseTest):
             Tuple[BuiltBlock, Alloc | LazyAlloc]
         ] = []
         sync_payload_leaf_hashes: set[Hash] = set()
+        # A format carries sync payloads by declaring the field, so a
+        # future format opts in without a new comparison here or at the
+        # build step below.
+        carries_sync_payloads = (
+            "sync_payloads" in fixture_format.format_class().model_fields
+        )
         sync_payload_leaf_indices = (
             set(self.sync_payload_leaf_indices())
-            if fixture_format == BlockchainEngineXFixture
+            if carries_sync_payloads
             else set()
         )
 
@@ -1753,17 +1759,6 @@ class BlockchainTest(BaseTest):
                 )
             fixture_data["pre_hash"] = pre_alloc_group_hash
             fixture_data["post_state_diff"] = alloc.calculate_diff(self.pre)
-            sync_payloads: List[FixtureEngineNewPayload] = []
-            for head, leaf_alloc in sync_payload_candidates:
-                sync_payload = self.build_sync_payload(
-                    t8n, head=head, alloc=leaf_alloc
-                )
-                if sync_payload is not None:
-                    sync_payloads.append(sync_payload)
-            if sync_payloads:
-                # Stored out-of-chain: payloads, the canonical head and
-                # the post state stay exactly the author's directives.
-                fixture_data["sync_payloads"] = sync_payloads
         elif fixture_format == BlockchainEngineSyncFixture:
             # Sync fixture format
             assert genesis.header.block_hash != head_hash, (
@@ -1800,6 +1795,18 @@ class BlockchainTest(BaseTest):
                     else None,
                 }
             )
+        if carries_sync_payloads:
+            sync_payloads: List[FixtureEngineNewPayload] = []
+            for head, leaf_alloc in sync_payload_candidates:
+                sync_payload = self.build_sync_payload(
+                    t8n, head=head, alloc=leaf_alloc
+                )
+                if sync_payload is not None:
+                    sync_payloads.append(sync_payload)
+            if sync_payloads:
+                # Stored out-of-chain: payloads, the canonical head and
+                # the post state stay exactly the author's directives.
+                fixture_data["sync_payloads"] = sync_payloads
         fixture = fixture_format.format_class()(**fixture_data)
 
         return FillResult(
