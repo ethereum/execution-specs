@@ -28,7 +28,7 @@ The fixture accommodates both behaviors by appending and announcing an additiona
 
 Test cases are intended to be unique, but complex parametrization can sometimes produce cases with byte-identical payload graphs. Avoiding these duplicates is a fill-side or test-author concern. While a test case remains in the fixture set, however, consumers must still be able to run its devp2p full-sync test.
 
-The filler therefore places a deterministic value derived from the test ID in every sync payload's `extraData`. This gives the sync payload a test-specific `blockHash`, even when another test case has an identical chain. A reused client cannot mistake it for a sync payload it has already processed and skip the test. Sync payloads above different chain heads are already distinct because their `parentHash` values differ.
+The filler therefore uses a deterministic value derived from the test ID as every sync payload's `feeRecipient`. This gives the sync payload a test-specific `blockHash`, even when another test case has an identical chain. A reused client cannot mistake it for a sync payload it has already processed and skip the test. Sync payloads above different chain heads are already distinct because their `parentHash` values differ. The fee recipient is a free field for an empty payload: no fees are paid, so the coinbase account is never touched and the `stateRoot`, receipts, requests and block access list are the same as for any other fee recipient.
 
 ## Tests with sibling chains require multiple sync payloads
 

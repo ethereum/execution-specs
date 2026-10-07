@@ -1607,11 +1607,16 @@ class BlockchainTest(BaseTest):
             )
             return None
         env = apply_new_parent(head.env, head.header)
-        extra_data = Bytes(sha256(self.sync_block_salt.encode()).digest()[:16])
+        # The salt goes into the fee recipient: an empty block pays no
+        # fees, so the coinbase is never touched and the state root,
+        # receipts, requests and block access list are unaffected.
+        fee_recipient = Address(
+            sha256(self.sync_block_salt.encode()).digest()[:20]
+        )
         try:
             sync_block = self.generate_block_data(
                 t8n=t8n,
-                block=Block(extra_data=extra_data),
+                block=Block(fee_recipient=fee_recipient),
                 previous_env=env,
                 previous_alloc=alloc,
             )

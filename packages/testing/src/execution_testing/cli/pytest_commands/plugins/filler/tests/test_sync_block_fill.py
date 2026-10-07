@@ -394,8 +394,12 @@ def assert_sync_payloads_above(
             int(head["blockNumber"], 16) + 1
         )
         assert int(appended["timestamp"], 16) > int(head["timestamp"], 16)
-        assert appended["extraData"] != "0x", (
-            "each appended sync payload is salted per test"
+        assert appended["feeRecipient"] != head["feeRecipient"], (
+            "each appended sync payload is salted per test through its "
+            "fee recipient"
+        )
+        assert appended["extraData"] == "0x", (
+            "the salt lives in the fee recipient, not in extraData"
         )
 
 
@@ -446,7 +450,7 @@ def test_valid_chains_carry_the_appended_block(
             == fixture["engineNewPayloads"][0]["params"][0]["blockHash"]
         ), "the fixture's head stays the author's own block"
     salts = {
-        fixture["syncPayloads"][0]["params"][0]["extraData"]
+        fixture["syncPayloads"][0]["params"][0]["feeRecipient"]
         for fixture in engine_x.values()
     }
     assert len(salts) == 3, (
