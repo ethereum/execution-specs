@@ -146,7 +146,7 @@ class BaseTest(BaseModel):
         # instead of each test having to set it
     )
     operation_mode: OpMode | None = None
-    sync_block: bool = False
+    sync_block: bool = True
     """
     Append framework-built empty blocks above a blockchain test's
     authored leaves, stored out-of-chain in the fixture's
@@ -157,9 +157,10 @@ class BaseTest(BaseModel):
     every representable payload the test author wrote an ancestor of at
     least one target the client must fetch and execute through its
     devp2p sync path. The test's own directives are filled exactly as
-    written. Enabled unless ``--no-sync-block`` withholds them or the
-    test itself opts out by passing ``sync_block=False``; see "Sync
-    Payloads" in the filling-tests docs.
+    written. On by default; the filler turns it off when
+    ``--no-sync-block`` withholds the blocks or the test itself opts out
+    by passing ``sync_block=False``. See "Sync Payloads" in the
+    filling-tests docs.
     """
     sync_block_salt: str = ""
     """
