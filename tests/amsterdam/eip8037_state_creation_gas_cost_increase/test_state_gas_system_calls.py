@@ -185,4 +185,8 @@ def test_system_call_execution_boundary(
             )
         ],
         post={address: Account(storage={0: int(extra_execution == 0)})},
+        # The over-budget system contract is in the genesis pre-state and
+        # every block calls it, so no block can be built above the
+        # rejected one.
+        sync_block=not fails_block,
     )
