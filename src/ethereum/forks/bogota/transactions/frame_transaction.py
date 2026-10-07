@@ -56,10 +56,16 @@ Maximum number of [`Frame`]s allowed per [`FrameTransaction`][ftx].
 """  # noqa: E501
 
 EXPIRY_VERIFIER: Final[Address] = Address(
-    bytes.fromhex("0000000000000000000000000000000000008141")
+    bytes.fromhex("81413f0cf12e9b6a49b1d0439e081c577d57ffff")
 )
 """
 Address of the expiry verifier contract.
+
+The verifier is an ordinary contract, deployed by the pre-signed creation
+transaction that [EIP-8141] publishes, from a synthetic sender whose only
+transaction it is. The protocol does not install it. The EIP gives its
+canonical runtime code, which reverts unless called with exactly
+[`EXPIRY_DATA_LENGTH`][edl] bytes of calldata.
 
 A [`VERIFY`][v] frame targeting this address is an _expiry verifier frame_:
 its data holds an unsigned big-endian expiry timestamp, and the frame
@@ -67,24 +73,10 @@ reverts unless the block timestamp is at or before that expiry. Such frames
 are subject to additional validity constraints, checked in
 [`validate_frame_transaction`][vft].
 
+[EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+[edl]: ref:ethereum.forks.bogota.transactions.frame_transaction.EXPIRY_DATA_LENGTH
 [v]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameMode.VERIFY
 [vft]: ref:ethereum.forks.bogota.transactions.frame_transaction.validate_frame_transaction
-"""  # noqa: E501
-
-EXPIRY_VERIFIER_CODE: Final[Bytes] = Bytes(
-    bytes.fromhex("60083614600a575f5ffd5b5f3560c01c4211601657005b5f5ffd")
-)
-"""
-Runtime code of the expiry verifier contract, installed at
-[`EXPIRY_VERIFIER`][ev] when the fork activates (see [`apply_fork`][af]).
-
-The code reverts unless called with exactly [`EXPIRY_DATA_LENGTH`][edl]
-bytes of calldata holding an unsigned big-endian expiry timestamp at or
-after the current block timestamp.
-
-[ev]: ref:ethereum.forks.bogota.transactions.frame_transaction.EXPIRY_VERIFIER
-[af]: ref:ethereum.forks.bogota.fork.apply_fork
-[edl]: ref:ethereum.forks.bogota.transactions.frame_transaction.EXPIRY_DATA_LENGTH
 """  # noqa: E501
 
 EXPIRY_DATA_LENGTH: Final[int] = 8
@@ -805,13 +797,12 @@ def calculate_frame_transaction_intrinsic_cost(
     target access is paid during frame execution from each frame's own
     execution gas budget.
 
-    The calldata floor of [EIP-7623] counts every charged byte uniformly
-    per [EIP-7976] and is anchored on the costs the transaction always
-    pays regardless of execution — the base cost, the per-frame cost,
-    the signature verification cost, and the value transfer cost — so it
-    never undercuts the transaction's own intrinsic base.
+    The calldata floor of [EIP-7976] counts every charged byte uniformly
+    and is anchored on the costs the transaction always pays regardless
+    of execution — the base cost, the per-frame cost, the signature
+    verification cost, and the value transfer cost — so it never
+    undercuts the transaction's own intrinsic base.
 
-    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     [EIP-7976]: https://eips.ethereum.org/EIPS/eip-7976
     """
     from ..vm.gas import GasCosts

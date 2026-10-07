@@ -3,7 +3,7 @@ Transaction-level gas settlement tests for
 [EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141).
 
 A frame transaction's payer-facing `gas_used` is the post-refund execution
-usage held to the EIP-7623 calldata floor plus final attributed state gas.
+usage held to the EIP-7976 calldata floor plus final attributed state gas.
 Block accounting keeps the same state dimension but counts execution before
 storage refunds, as required by EIP-7778.
 

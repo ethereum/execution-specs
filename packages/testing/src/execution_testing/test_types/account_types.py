@@ -291,9 +291,8 @@ class Alloc(BaseAlloc):
 
         Only the code changes: an account that already exists keeps its
         nonce, balance and storage, and one that does not is created with
-        all three zero. This is how a fork installs code when it activates
-        (EIP-8141's expiry verifier), as opposed to a predeploy that is part
-        of the genesis allocation.
+        all three zero. This is how a fork installs code when it activates,
+        as opposed to a predeploy that is part of the genesis allocation.
         """
         if not installs:
             return self
