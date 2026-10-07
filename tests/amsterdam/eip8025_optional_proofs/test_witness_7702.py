@@ -730,3 +730,172 @@ def test_witness_codes_auth_nonce_mismatch(
             ),
         },
     )
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        pytest.param("sender", id="sender"),
+        pytest.param("call", id="call"),
+    ],
+)
+def test_witness_codes_delegation_same_marker_then_read(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    read: str,
+) -> None:
+    """
+    tx1 writes a delegation marker that another account already has.
+
+    Code is keyed by hash, so the marker tx1 writes is readable for the
+    rest of the block, including through bob, whose identical marker is in
+    pre-state. bob's marker is therefore NOT in executionWitness.codes.
+    This is the delegation counterpart of
+    test_witness_codes_create_same_hash_then_read.
+
+    Pre-state:
+        alice (plain EOA, no code)
+        bob (delegated to delegate, marker in pre-state)
+        delegate (contract with code)
+
+    tx1 (type-4, auth list, to alice):
+        set_delegation(alice -> delegate)
+        => writes the marker, the same bytes bob holds
+        => the call to alice runs delegate's code (pre-state => code_reads)
+
+    tx2:
+        sender: bob sends a transaction
+                => validation reads bob's marker (written in tx1)
+        call:   caller --CALL--> bob
+                => reads bob's marker (written in tx1)
+
+    Witness codes:
+        marker         NOT IN codes (written in tx1)
+        delegate_code  IN     codes (pre-state read)
+    """
+    delegate_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
+    delegate = pre.deploy_contract(code=delegate_code)
+
+    alice = pre.fund_eoa(amount=0)
+    bob = pre.fund_eoa(delegation=delegate)
+    relayer = pre.fund_eoa()
+
+    marker = Spec7702.delegation_designation(delegate)
+
+    tx1 = Transaction(
+        sender=relayer,
+        to=alice,
+        gas_limit=500_000,
+        authorization_list=[
+            AuthorizationTuple(
+                address=delegate,
+                nonce=0,
+                signer=alice,
+            )
+        ],
+    )
+
+    codes_present = [Bytes(delegate_code)]
+    post = {alice: Account(nonce=1, code=marker)}
+    if read == "sender":
+        tx2 = Transaction(sender=bob, to=pre.fund_eoa(), gas_limit=500_000)
+        post[bob] = Account(nonce=2, code=marker)
+    else:
+        caller_code = Op.CALL(address=bob) + Op.STOP
+        caller = pre.deploy_contract(code=caller_code)
+        tx2 = Transaction(
+            sender=pre.fund_eoa(),
+            to=caller,
+            gas_limit=500_000,
+        )
+        codes_present.append(Bytes(caller_code))
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx1, tx2],
+                expected_execution_witness_codes=(
+                    ExecutionWitnessCodesExpectation(
+                        codes_present=codes_present,
+                        codes_absent=[
+                            Bytes(marker),
+                        ],
+                    )
+                ),
+            )
+        ],
+        post=post,
+    )
+
+
+def test_witness_codes_marker_read_before_same_delegation_is_set(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Bob's pre-state marker is read before tx2 writes the same marker.
+
+    The read in tx1 cannot be served by a write that comes later, so the
+    marker IS in executionWitness.codes, although tx2 writes the same
+    bytes. This is the delegation counterpart of
+    test_witness_keeps_prestate_code_read_even_if_later_created_with_same_hash.
+
+    Pre-state:
+        alice (plain EOA, no code)
+        bob (delegated to delegate, marker in pre-state)
+        delegate (contract with code)
+
+    tx1:
+        bob sends a transaction => validation reads bob's marker
+    tx2 (type-4, auth list, to alice):
+        set_delegation(alice -> delegate) => writes the same marker
+        => the call to alice runs delegate's code (pre-state => code_reads)
+
+    Witness codes:
+        marker         IN codes (pre-state read in tx1)
+        delegate_code  IN codes (pre-state read)
+    """
+    delegate_code = Op.STOP
+    delegate = pre.deploy_contract(code=delegate_code)
+
+    alice = pre.fund_eoa(amount=0)
+    bob = pre.fund_eoa(delegation=delegate)
+    relayer = pre.fund_eoa()
+
+    marker = Spec7702.delegation_designation(delegate)
+
+    tx1 = Transaction(sender=bob, to=pre.fund_eoa(), gas_limit=500_000)
+    tx2 = Transaction(
+        sender=relayer,
+        to=alice,
+        gas_limit=500_000,
+        authorization_list=[
+            AuthorizationTuple(
+                address=delegate,
+                nonce=0,
+                signer=alice,
+            )
+        ],
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx1, tx2],
+                expected_execution_witness_codes=(
+                    ExecutionWitnessCodesExpectation(
+                        codes_present=[
+                            Bytes(marker),
+                            Bytes(delegate_code),
+                        ],
+                    )
+                ),
+            )
+        ],
+        post={
+            alice: Account(nonce=1, code=marker),
+            bob: Account(nonce=2, code=marker),
+        },
+    )
