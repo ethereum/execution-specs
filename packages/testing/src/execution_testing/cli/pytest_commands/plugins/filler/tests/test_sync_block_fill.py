@@ -18,7 +18,7 @@ from typing import Any, Dict
 
 import pytest
 
-from ..pre_alloc import _strip_any_xdist_group_suffix
+from ...shared.helpers import strip_any_xdist_group_suffix
 
 
 class TestStripAnyXdistGroupSuffix:
@@ -37,23 +37,23 @@ class TestStripAnyXdistGroupSuffix:
     def test_strips_every_group_suffix(self, group: str) -> None:
         """Any group suffix an xdist worker appends is stripped."""
         expected = "test.py::test[params]"
-        assert _strip_any_xdist_group_suffix(f"{expected}@{group}") == expected
+        assert strip_any_xdist_group_suffix(f"{expected}@{group}") == expected
 
     def test_no_suffix_unchanged(self) -> None:
         """Node ids without a group suffix are unchanged."""
         nodeid = "test.py::test[params]"
-        assert _strip_any_xdist_group_suffix(nodeid) == nodeid
+        assert strip_any_xdist_group_suffix(nodeid) == nodeid
 
     def test_at_in_params_preserved(self) -> None:
         """A parameter's own ``@`` is not mistaken for a group."""
         nodeid = "test.py::test[email@example.com]"
-        assert _strip_any_xdist_group_suffix(nodeid) == nodeid
+        assert strip_any_xdist_group_suffix(nodeid) == nodeid
 
     def test_at_in_params_with_group_suffix(self) -> None:
         """A group is stripped from a parameter containing ``@``."""
         nodeid = "test.py::test[email@example.com]@bigmem"
         expected = "test.py::test[email@example.com]"
-        assert _strip_any_xdist_group_suffix(nodeid) == expected
+        assert strip_any_xdist_group_suffix(nodeid) == expected
 
 
 VALID_MODULE = textwrap.dedent(

@@ -92,11 +92,11 @@ from ..shared.helpers import (
     get_spec_format_for_item,
     is_help_or_collectonly_mode,
     option_was_explicitly_set,
+    strip_any_xdist_group_suffix,
 )
 from ..spec_version_checker.spec_version_checker import (
     get_ref_spec_from_module,
 )
-from .pre_alloc import _strip_any_xdist_group_suffix
 
 if TYPE_CHECKING:
     from .pre_alloc import Alloc
@@ -1477,8 +1477,8 @@ def node_to_test_info(node: pytest.Item) -> TestInfo:
     """Return test info of the current node item."""
     # Strip xdist group suffix (@groupname) that may be added during execution.
     return TestInfo(
-        name=_strip_any_xdist_group_suffix(node.name),
-        id=_strip_any_xdist_group_suffix(node.nodeid),
+        name=strip_any_xdist_group_suffix(node.name),
+        id=strip_any_xdist_group_suffix(node.nodeid),
         original_name=node.originalname,  # type: ignore
         module_path=Path(node.path),
     )
@@ -1621,10 +1621,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 kwargs["sync_block"] = request.config.getoption(
                     "sync_block"
                 ) and kwargs.get("sync_block", True)
-                # Salt with the test's own id, so appended target hashes
-                # are unique to the test and independent of how the fill
-                # was distributed.
-                kwargs["sync_block_salt"] = _strip_any_xdist_group_suffix(
+                # The test's own id, independent of how the fill was
+                # distributed; the sync block salts with it.
+                kwargs["test_id"] = strip_any_xdist_group_suffix(
                     request.node.nodeid
                 )
                 if (
@@ -1662,13 +1661,13 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         # "separate" (or a bare marker): salt with the
                         # test's node id so the test gets its own genesis
                         # instead of a group named literally "separate".
-                        group_salt = _strip_any_xdist_group_suffix(
+                        group_salt = strip_any_xdist_group_suffix(
                             request.node.nodeid
                         )
 
                 pre_alloc_hash: AllocGroupHash | None = None
                 # Phase 1: Generate pre-allocation groups
-                test_id = _strip_any_xdist_group_suffix(request.node.nodeid)
+                test_id = strip_any_xdist_group_suffix(request.node.nodeid)
                 if (
                     session.filling_phase
                     == FixtureFillingPhase.PRE_ALLOC_GENERATION

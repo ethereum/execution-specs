@@ -1610,9 +1610,11 @@ class BlockchainTest(BaseTest):
         # The salt goes into the fee recipient: an empty block pays no
         # fees, so the coinbase is never touched and the state root,
         # receipts, requests and block access list are unaffected.
-        fee_recipient = Address(
-            sha256(self.sync_block_salt.encode()).digest()[:20]
+        assert self.test_id, (
+            "the fill plugin sets test_id on every spec; a sync block "
+            "cannot be salted without it"
         )
+        fee_recipient = Address(sha256(self.test_id.encode()).digest()[:20])
         try:
             sync_block = self.generate_block_data(
                 t8n=t8n,

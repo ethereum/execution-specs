@@ -54,7 +54,7 @@ def make_test(
         post=Alloc(),
         blocks=blocks,
         sync_block=sync_block,
-        sync_block_salt=SALT,
+        test_id=SALT,
     )
 
 
@@ -368,7 +368,7 @@ def test_benchmark_chains_take_sync_payloads() -> None:
         gas_benchmark_value=1_000_000,
         blocks=[Block()],
         sync_block=True,
-        sync_block_salt=SALT,
+        test_id=SALT,
     )
     blockchain_test = benchmark_test.generate_blockchain_test()
     assert blockchain_test.sync_block

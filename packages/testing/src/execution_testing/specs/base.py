@@ -162,18 +162,24 @@ class BaseTest(BaseModel):
     by passing ``sync_block=False``. See "Sync Payloads" in the
     filling-tests docs.
     """
-    sync_block_salt: str = ""
+    test_id: str = ""
     """
-    Per-test value digested into each appended block's fee recipient.
+    The test's pytest node id, with any xdist group suffix stripped.
 
-    Two tests of one pre-allocation group may declare byte-identical
+    Set by the ``fill`` and ``execute`` plugins for every test they
+    run, so anything that needs a value unique to the test can rely on
+    it. The default exists only because every ``blockchain_test(...)``
+    call in the test tree is type-checked against this constructor; a
+    consumer of the field asserts that it is set rather than trusting
+    the default. The appended sync block digests it into its fee
+    recipient: two
+    tests of one pre-allocation group may declare byte-identical
     payload graphs, and a client reused across the group only starts a
-    sync for a head it has never seen; the salt keeps every appended
+    sync for a head it has never seen, so the salt keeps every appended
     block's hash unique to its test. Different leaves already have
     different parent hashes. The fee recipient is a free field for an
     empty block: no fees are paid, so the coinbase is never touched and
-    the state root is unaffected. The filler salts with the test's node
-    id.
+    the state root is unaffected.
     """
     gas_optimization_max_gas_limit: int | None = None
     expected_benchmark_gas_used: int | None = None
