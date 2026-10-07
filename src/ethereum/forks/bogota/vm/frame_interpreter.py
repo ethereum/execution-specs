@@ -6,9 +6,13 @@ transaction describes a list of frames that `process_frames` executes
 in order, each as its own top-level call with a fresh gas meter
 holding the frame's gas limit. The frames share the transaction's
 state, a `FrameJournal` of the effects accrued across frames, and
-the approval context that the `APPROVE` instruction advances.
+the approval context that the `APPROVE` instruction advances. The
+[EIP-7906] `POST_TX` frames that may trail the list assert the
+transaction's outcome: one failing reverts the execution body that
+followed the validation prefix.
 
 [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+[EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
 """
 
 from dataclasses import dataclass, replace
@@ -151,6 +155,44 @@ class AtomicBatch:
 
 @final
 @dataclass
+class ExecutionBody:
+    """
+    Rollback point captured when the validation prefix ends.
+
+    The validation prefix is the shortest prefix of frames whose
+    execution sets `payer`, and every frame after it is the execution
+    body. When a `POST_TX` frame fails, `revert_execution_body`
+    restores everything captured here, the same three rollback domains
+    an atomic batch captures, so the transaction keeps the prefix's
+    effects, the gas payment included, and loses the body's
+    ([EIP-7906]).
+
+    [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
+    """
+
+    first_frame_index: Uint
+    """
+    Index of the first frame of the execution body.
+    """
+
+    state_snapshot: TransactionState
+    """
+    Copy of the transaction state taken when the prefix ended.
+    """
+
+    context_snapshot: FrameContext
+    """
+    Copy of the frame context taken when the prefix ended.
+    """
+
+    journal: FrameJournal
+    """
+    Copy of the frame journal taken when the prefix ended.
+    """
+
+
+@final
+@dataclass
 class FrameOutcome:
     """
     Reduced outcome of a single frame.
@@ -241,6 +283,47 @@ def unroll_atomic_batch(
     return batch.journal
 
 
+def revert_execution_body(
+    tx_env: TransactionEnvironment,
+    body: ExecutionBody,
+) -> FrameJournal:
+    """
+    Revert the execution body after a `POST_TX` frame failed.
+
+    The transaction state and the frame context are restored to the
+    condition at the end of the validation prefix, and the receipts of
+    the executed body frames, the failed `POST_TX` frame's included,
+    are re-appended keeping their status and execution gas, with their
+    logs emptied and their state gas zeroed, as an atomic batch unroll
+    does. The payer stays charged for the gas the body consumed up to
+    the failure. Return the checkpoint's journal copy for the frame
+    loop to continue from.
+    """
+    frame_context = tx_env.frame_context
+    assert frame_context is not None
+
+    # The prefix set the payer, and no later frame can withdraw it.
+    assert frame_context.payer == body.context_snapshot.payer
+
+    executed_body_receipts = frame_context.frame_receipts[
+        int(body.first_frame_index) :
+    ]
+
+    restore_tx_state(tx_env.state, body.state_snapshot)
+    restore_frame_context(tx_env, body.context_snapshot)
+
+    for receipt in executed_body_receipts:
+        frame_context.frame_receipts.append(
+            replace(
+                receipt,
+                gas_used=replace(receipt.gas_used, state=Uint(0)),
+                logs=(),
+            )
+        )
+
+    return body.journal
+
+
 def create_evm_from_frame(
     block_env: BlockEnvironment,
     tx_env: TransactionEnvironment,
@@ -293,7 +376,7 @@ def create_evm_from_frame(
         value=frame.value,
         call_data=frame.data,
         should_transfer_value=True,
-        is_static=frame.mode == FrameMode.VERIFY,
+        is_static=frame.mode in (FrameMode.VERIFY, FrameMode.POST_TX),
         disable_precompiles=disable_precompiles,
         # Code
         code_address=code_address,
@@ -583,7 +666,11 @@ def process_frames(
     the caller of the frame about to run.
 
     A failing frame of an atomic batch unrolls the batch, and the
-    remaining batch frames are skipped.
+    remaining batch frames are skipped. A failing `POST_TX` frame
+    reverts the whole execution body instead, whatever batches it
+    held. The remaining frames, all `POST_TX` frames since the mode
+    forms a trailing suffix, are skipped: the transaction's outcome is
+    already reverted, so they have nothing left to assert.
 
     Both gas dimensions settle from the final receipts: each frame's
     unused gas is its budget less its receipt's usage, so gas a
@@ -611,10 +698,24 @@ def process_frames(
 
     open_batch: Optional[AtomicBatch] = None
     skip_batch = False
+    body: Optional[ExecutionBody] = None
+    skip_rest = False
 
     for index, frame in enumerate(tx.frames):
         frame_context.current_frame_index = Uint(index)
         has_batch_flag = FrameFlag.ATOMIC_BATCH in frame.flags
+
+        if skip_rest:
+            # A frame after a failed `POST_TX` frame never executes. Its
+            # zero-usage receipt makes its allotted gas count as unused.
+            frame_context.frame_receipts.append(
+                FrameReceipt(
+                    status=FrameStatus.SKIPPED,
+                    gas_used=GasUsed(execution=Uint(0), state=Uint(0)),
+                    logs=(),
+                )
+            )
+            continue
 
         if has_batch_flag and open_batch is None:
             context_snapshot = copy_frame_context(tx_env)
@@ -675,6 +776,22 @@ def process_frames(
         incorporate_frame_outcome(journal, outcome)
         frame_context.frame_receipts.append(receipt)
 
+        if (
+            frame.mode == FrameMode.POST_TX
+            and receipt.status == FrameStatus.FAILURE
+        ):
+            # The assertion failed: the execution body is reverted
+            # unconditionally, overriding any atomic batch, and the
+            # remaining frames are skipped. Without a validation prefix
+            # there is no body to revert, and the transaction is
+            # invalid at the end of the loop regardless.
+            if body is not None:
+                journal = revert_execution_body(tx_env, body)
+            open_batch = None
+            skip_batch = False
+            skip_rest = True
+            continue
+
         terminates_batch = open_batch is not None and not has_batch_flag
         if receipt.status == FrameStatus.FAILURE and open_batch is not None:
             journal = unroll_atomic_batch(tx_env, open_batch)
@@ -684,6 +801,20 @@ def process_frames(
                 skip_batch = True
         elif terminates_batch:
             open_batch = None
+
+        if body is None and frame_context.payer is not None:
+            # The validation prefix ended with this frame: checkpoint
+            # the state a failing `POST_TX` frame restores to. Approval
+            # scope is banned on batch frames, so no batch is open.
+            assert open_batch is None
+            context_snapshot = copy_frame_context(tx_env)
+            assert context_snapshot is not None
+            body = ExecutionBody(
+                first_frame_index=Uint(index + 1),
+                state_snapshot=copy_tx_state(tx_state),
+                context_snapshot=context_snapshot,
+                journal=copy_frame_journal(journal),
+            )
 
     if frame_context.payer is None:
         raise FrameTransactionExecutionError("no frame approved gas payment")

@@ -165,6 +165,19 @@ class FrameMode(UintEnum, boundary=STRICT):
     [s]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction.sender
     """  # noqa: E501
 
+    POST_TX = Uint(3)
+    """
+    Assert the transaction's outcome, as defined by [EIP-7906].
+
+    `POST_TX` frames execute read-only as a trailing suffix of the
+    transaction's frames, after the execution body, and are the only
+    context in which the transaction-diff instructions are valid. A
+    failing `POST_TX` frame reverts the execution body without
+    invalidating the transaction.
+
+    [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
+    """
+
 
 @final
 class FrameFlag(UintFlag, boundary=STRICT):
@@ -676,7 +689,11 @@ def validate_frame_transaction(
     schemes, and field lengths — are mostly enforced by their types
     while the transaction is decoded. Checked here instead are the
     nonce and fee-cap upper bounds, which are tighter than the decoded
-    types enforce, and the constraints that span several fields.
+    types enforce, and the constraints that span several fields,
+    including [EIP-7906]'s rule that `POST_TX` frames form a trailing
+    suffix of the frame list.
+
+    [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
 
     A frame transaction has no gas limit field; its two gas anchors are
     derived instead. The per-transaction gas cap of [EIP-7825] bounds
@@ -727,6 +744,7 @@ def validate_frame_transaction(
     )
 
     has_expiry_verifier_frame = False
+    has_post_tx_frame = False
     total_frame_gas = Uint(0)
     total_frame_execution_gas = Uint(0)
     total_frame_state_gas = Uint(0)
@@ -742,6 +760,16 @@ def validate_frame_transaction(
         if frame.mode != FrameMode.SENDER and frame.value != U256(0):
             raise InvalidFrameError("only sender frames can transfer value")
 
+        # EIP-7906: `POST_TX` frames form a contiguous trailing suffix
+        # of the frame list, so the diff they observe is the
+        # transaction's final outcome.
+        if frame.mode == FrameMode.POST_TX:
+            has_post_tx_frame = True
+        elif has_post_tx_frame:
+            raise InvalidFrameError(
+                "frame after a POST_TX frame is not POST_TX"
+            )
+
         if FrameFlag.APPROVE_EXECUTION in frame.flags:
             if isinstance(frame.to, Address) and frame.to != tx.sender:
                 raise InvalidFrameError(
@@ -753,11 +781,22 @@ def validate_frame_transaction(
                 raise InvalidFrameError(
                     "atomic batches cannot contain verify frames"
                 )
+            # The flag is valid only on `DEFAULT` and `SENDER` frames, and
+            # no batch may end on a `POST_TX` frame, so unrolling a failed
+            # batch can never skip an assertion.
+            if frame.mode == FrameMode.POST_TX:
+                raise InvalidFrameError(
+                    "POST_TX frames cannot have atomic flag"
+                )
             if index + 1 >= len(tx.frames):
                 raise InvalidFrameError("last frame cannot have atomic flag")
             if tx.frames[index + 1].mode == FrameMode.VERIFY:
                 raise InvalidFrameError(
                     "atomic batches cannot contain verify frames"
+                )
+            if tx.frames[index + 1].mode == FrameMode.POST_TX:
+                raise InvalidFrameError(
+                    "atomic batches cannot contain POST_TX frames"
                 )
 
         # Approval scope is disallowed on every frame of an atomic

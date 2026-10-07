@@ -84,6 +84,9 @@ class GasCosts:
     FRAME_SIGNATURE_SCHEME_SECP256K1: int = 0
     FRAME_SIGNATURE_SCHEME_P256: int = 0
 
+    # EIP-7906 transaction diff instructions, 0 before the EIP.
+    OPCODE_TXTRACE: int = 0
+
     # Refunds
     REFUND_STORAGE_CLEAR: int
     REFUND_SELF_DESTRUCT: int
