@@ -51,12 +51,6 @@ def gas_spender_contract(pre: Alloc) -> Address:
 
 
 @pytest.fixture
-def tx_gas() -> int:
-    """Gas limit for blob transactions sent during test."""
-    return 21_000
-
-
-@pytest.fixture
 def tx_value() -> int:
     """Value for blob transactions sent during test."""
     return 0
@@ -233,7 +227,6 @@ def parent_block_txs(
     destination_account: Address,
     gas_spender_contract: Address,
     env: Environment,
-    tx_gas: int,
     tx_value: int,
     parent_blob_count: int,
     parent_base_fee_per_gas: int,
@@ -247,6 +240,7 @@ def parent_block_txs(
     Includes blob transactions to raise the `parent_blob_gas_used` and normal
     transactions to raise/lower the base fee per gas.
     """
+    tx_gas = fork.transitions_from().transaction_intrinsic_cost_calculator()()
     parent_block_blob_txs = get_blob_transactions(
         blob_count=parent_blob_count,
         blob_cap_per_transaction=blob_cap_per_transaction,
@@ -257,7 +251,7 @@ def parent_block_txs(
         block_base_fee_per_gas=parent_base_fee_per_gas * 10,
         tx_max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
     )
-    required_gas_used = fork.transitions_from().base_fee_change_calculator()(
+    required_gas_used = fork.transitions_to().base_fee_change_calculator()(
         parent_gas_limit=env.gas_limit,
         parent_base_fee_per_gas=parent_base_fee_per_gas,
         required_base_fee_per_gas=transition_block_base_fee_per_gas,
@@ -303,8 +297,8 @@ def parent_block(
 @pytest.fixture
 def transition_block_txs(
     sender: EOA,
+    fork: TransitionFork,
     destination_account: Address,
-    tx_gas: int,
     tx_value: int,
     transition_block_blob_count: int,
     blob_cap_per_transaction: int,
@@ -316,6 +310,7 @@ def transition_block_txs(
 
     Includes blob transactions only.
     """
+    tx_gas = fork.transitions_to().transaction_intrinsic_cost_calculator()()
     return get_blob_transactions(
         blob_count=transition_block_blob_count,
         blob_cap_per_transaction=blob_cap_per_transaction,

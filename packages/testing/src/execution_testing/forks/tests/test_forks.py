@@ -628,6 +628,41 @@ def test_blob_schedules(
         )
 
 
+@pytest.mark.parametrize("fork", [London, Amsterdam])
+@pytest.mark.parametrize(
+    "parent_base_fee_per_gas", [20, 7 * 10**8, 10**9, 10**9 + 7]
+)
+def test_base_fee_change_calculator_round_trip(
+    fork: Fork, parent_base_fee_per_gas: int
+) -> None:
+    """
+    Test that the gas returned for a reachable base fee yields that base
+    fee, for increases and decreases, including exact divisions.
+    """
+    gas_limit = 30_000_000
+    base_fee_per_gas = fork.base_fee_per_gas_calculator()
+    gas_for_base_fee = fork.base_fee_change_calculator()
+    for parent_gas_used in range(0, gas_limit + 1, 250_000):
+        required = base_fee_per_gas(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_used=parent_gas_used,
+            parent_gas_limit=gas_limit,
+        )
+        gas_used = gas_for_base_fee(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_limit=gas_limit,
+            required_base_fee_per_gas=required,
+        )
+        assert (
+            base_fee_per_gas(
+                parent_base_fee_per_gas=parent_base_fee_per_gas,
+                parent_gas_used=gas_used,
+                parent_gas_limit=gas_limit,
+            )
+            == required
+        )
+
+
 def test_bpo_fork() -> None:  # noqa: D103
     assert Osaka.bpo_fork() is False
     assert BPO1.bpo_fork() is True

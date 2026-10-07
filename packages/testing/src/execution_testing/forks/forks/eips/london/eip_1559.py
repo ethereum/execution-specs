@@ -15,6 +15,7 @@ from ....base_fork import (
     BaseFeePerGasCalculator,
     BaseFork,
 )
+from ...helpers import ceiling_division
 
 
 class EIP1559(BaseFork):
@@ -139,22 +140,28 @@ class EIP1559(BaseFork):
                     )
                     // parent_base_fee_per_gas
                 ) + parent_gas_target
+                # Flooring the estimate can leave it a little short.
+                while (
+                    base_fee_per_gas_calculator(
+                        parent_base_fee_per_gas=parent_base_fee_per_gas,
+                        parent_gas_used=parent_gas_used,
+                        parent_gas_limit=parent_gas_limit,
+                    )
+                    < required_base_fee_per_gas
+                ):
+                    parent_gas_used += 1
             elif required_base_fee_per_gas < parent_base_fee_per_gas:
                 base_fee_per_gas_delta = (
                     parent_base_fee_per_gas - required_base_fee_per_gas
                 )
 
-                parent_gas_used = (
-                    parent_gas_target
-                    - (
-                        (
-                            base_fee_per_gas_delta
-                            * base_fee_max_change_denominator
-                            * parent_gas_target
-                        )
-                        // parent_base_fee_per_gas
-                    )
-                    - 1
+                # Round the gas below target up, so that an exact division
+                # does not overshoot the required decrease.
+                parent_gas_used = parent_gas_target - ceiling_division(
+                    base_fee_per_gas_delta
+                    * base_fee_max_change_denominator
+                    * parent_gas_target,
+                    parent_base_fee_per_gas,
                 )
 
             assert (
