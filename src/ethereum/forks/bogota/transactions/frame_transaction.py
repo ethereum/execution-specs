@@ -63,10 +63,9 @@ Address of the expiry verifier contract.
 
 The verifier is an ordinary contract, deployed by the pre-signed creation
 transaction that [EIP-8141] publishes, from a synthetic sender whose only
-transaction it is. The protocol neither installs nor special-cases it; the
-EIP gives its canonical runtime code, which reverts unless called with
-exactly [`EXPIRY_DATA_LENGTH`][edl] bytes of calldata holding an unsigned
-big-endian expiry timestamp at or after the current block timestamp.
+transaction it is. The protocol does not install it. The EIP gives its
+canonical runtime code, which reverts unless called with exactly
+[`EXPIRY_DATA_LENGTH`][edl] bytes of calldata.
 
 A [`VERIFY`][v] frame targeting this address is an _expiry verifier frame_:
 its data holds an unsigned big-endian expiry timestamp, and the frame

@@ -2,8 +2,8 @@
 Tests for the EIP-8141 fork transition.
 
 The expiry verifier is an ordinary contract that is part of the genesis
-allocation in every EIP-8141 test, so the fork activation itself writes
-no state. These tests cover what the first post-fork block accepts: a
+allocation in every EIP-8141 test, so EIP-8141's activation writes no
+state. These tests cover what the first post-fork block accepts: a
 frame transaction carrying an expiry frame executes in the block that
 activates the fork.
 
