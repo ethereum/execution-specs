@@ -27,6 +27,7 @@ from ..shared.helpers import (
     get_spec_format_for_item,
     is_help_or_collectonly_mode,
     option_was_explicitly_set,
+    strip_any_xdist_group_suffix,
 )
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 from .pre_alloc import Alloc
@@ -361,6 +362,11 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 kwargs["is_exception_test"] = is_exception_test
                 kwargs["is_inclusion_test"] = is_inclusion_test
                 kwargs["invalid_tx_not_last"] = invalid_tx_not_last
+                # The test's own id, independent of how the run was
+                # distributed.
+                kwargs["test_id"] = strip_any_xdist_group_suffix(
+                    request.node.nodeid
+                )
                 kwargs |= {
                     p: request.getfixturevalue(p)
                     for p in cls_fixture_parameters
