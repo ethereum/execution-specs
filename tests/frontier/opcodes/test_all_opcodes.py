@@ -307,7 +307,7 @@ def constant_gas_opcodes(fork: Fork) -> Generator[ParameterSet, None, None]:
             continue
         # EIP-7979: RETURNSUB needs a CALLSUB in the same frame, which this
         # harness cannot arrange; its cost is measured in
-        # tests/amsterdam/eip7979_callsub/test_gas.py.
+        # tests/bogota/eip7979_callsub/test_gas.py.
         if opcode == Op.RETURNSUB:
             continue
         yield pytest.param(
