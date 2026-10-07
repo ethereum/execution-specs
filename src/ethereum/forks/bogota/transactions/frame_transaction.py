@@ -86,26 +86,22 @@ big-endian expiry timestamp.
 """
 
 NONCE_MANAGER: Final[Address] = Address(
-    bytes.fromhex("0000000000000000000000000000000000008250")
+    bytes.fromhex("8250968c12e01a19d6f667b9b2f3b3a4d0e51cb7")
 )
 """
 Address of the nonce manager system contract, whose storage holds the
 keyed nonce sequences of every sender (see [`nonce_slot`][ns]).
 
+The nonce manager is an ordinary contract, deployed by the pre-signed
+creation transaction that [EIP-8250] publishes, from a synthetic sender
+whose only transaction it is. The protocol does not install it, and it
+must already be in the state when the fork activates. The EIP gives its
+canonical runtime code, which reverts on every ordinary call: only the
+protocol writes keyed nonces.
+
+[EIP-8250]: https://eips.ethereum.org/EIPS/eip-8250
 [ns]: ref:ethereum.forks.bogota.keyed_nonces.nonce_slot
 """
-
-NONCE_MANAGER_CODE: Final[Bytes] = Bytes(bytes.fromhex("60006000fd"))
-"""
-Runtime code of the nonce manager, installed at [`NONCE_MANAGER`][nm]
-when the fork activates (see [`apply_fork`][af]).
-
-The code is `revert(0, 0)`: only the protocol writes keyed nonces, and
-any ordinary call to the contract reverts with empty return data.
-
-[nm]: ref:ethereum.forks.bogota.transactions.frame_transaction.NONCE_MANAGER
-[af]: ref:ethereum.forks.bogota.fork.apply_fork
-"""  # noqa: E501
 
 MAX_NONCE_KEYS: Final[Uint] = Uint(16)
 """
