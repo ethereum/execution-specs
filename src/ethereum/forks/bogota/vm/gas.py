@@ -287,6 +287,14 @@ class GasCosts:
     OPCODE_TLOAD: Final[ExecutionGas] = ExecutionGas(Uint(100))
     OPCODE_TSTORE: Final[ExecutionGas] = ExecutionGas(Uint(100))
     OPCODE_TXPARAM: Final[ExecutionGas] = BASE
+    OPCODE_TXTRACE: Final[ExecutionGas] = WARM_ACCESS
+    """
+    Cost of `TXTRACE`, and of the `TXDIFF` parameters answered from the
+    transaction-local diff, which [EIP-7906] prices at
+    `WARM_STORAGE_READ_COST`.
+
+    [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
+    """
     OPCODE_FRAMEDATALOAD: Final[ExecutionGas] = VERY_LOW
     OPCODE_FRAMEPARAM: Final[ExecutionGas] = BASE
     OPCODE_SIGPARAM: Final[ExecutionGas] = BASE
@@ -297,6 +305,7 @@ class GasCosts:
     OPCODE_RETURNDATACOPY_BASE: Final[ExecutionGas] = VERY_LOW
     OPCODE_RETURNDATACOPY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))
     OPCODE_CALLDATACOPY_BASE: Final[ExecutionGas] = VERY_LOW
+    OPCODE_EVENTDATACOPY_BASE: Final[ExecutionGas] = VERY_LOW
     OPCODE_CODECOPY_BASE: Final[ExecutionGas] = VERY_LOW
     OPCODE_MCOPY_BASE: Final[ExecutionGas] = VERY_LOW
     OPCODE_MLOAD_BASE: Final[ExecutionGas] = VERY_LOW
