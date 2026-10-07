@@ -5,8 +5,10 @@ Ensures that consecutive hardforks don't differ only in formatting.
 """
 
 import difflib
+import io
 import re
-from typing import List, Optional, Sequence, Set, Tuple
+import tokenize
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from ethereum_spec_tools.forks import Hardfork
 from ethereum_spec_tools.lint import Diagnostic, Lint, walk_sources
@@ -45,16 +47,44 @@ _PUNCTUATION = re.compile(r" ?([()\[\]{},:]) ?")
 _TRAILING_COMMA = re.compile(r",([)\]}])")
 
 
-def squash_formatting(lines: Sequence[str]) -> str:
+def statement_indents(source: str) -> Dict[int, int]:
+    """
+    Map the index of each line that starts a statement to its indentation.
+
+    Indentation is meaningful there, unlike on continuation lines inside
+    brackets or inside multi-line strings.
+    """
+    indents: Dict[int, int] = {}
+    at_start = True
+    readline = io.StringIO(source).readline
+    for token in tokenize.generate_tokens(readline):
+        if token.type in (tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT):
+            at_start = True
+        elif token.type not in (tokenize.NL, tokenize.COMMENT):
+            if at_start:
+                indents[token.start[0] - 1] = token.start[1]
+            at_start = False
+    return indents
+
+
+def squash_formatting(
+    lines: Sequence[str], indents: Sequence[Optional[int]]
+) -> str:
     """
     Reduce `lines` to a form that ignores layout.
 
     Whitespace and line breaks collapse to single spaces, and spaces next
     to brackets, commas and colons are dropped, as are trailing commas.
-    Two pieces of code that squash to the same string differ only in
-    formatting.
+    The indentation of a line that starts a statement, given in `indents`
+    (`None` for other lines), is kept because it decides which block the
+    statement belongs to. Two pieces of code that squash to the same
+    string differ only in formatting.
     """
-    text = re.sub(r"\s+", " ", "\n".join(lines)).strip()
+    marked = [
+        line if indent is None else f"<{indent}>{line}"
+        for line, indent in zip(lines, indents, strict=True)
+    ]
+    text = re.sub(r"\s+", " ", "\n".join(marked)).strip()
     text = _PUNCTUATION.sub(r"\1", text)
     text = _TRAILING_COMMA.sub(r"\1", text)
     return text.rstrip(",")
@@ -118,8 +148,11 @@ class FormattingHygiene(Lint):
             # Entire file is new, so nothing to compare!
             return []
 
-        previous_lines = previous_source.splitlines()
-        current_lines = current_source.splitlines()
+        # Split on newlines only, so that line numbers match `tokenize`.
+        previous_lines = previous_source.split("\n")
+        current_lines = current_source.split("\n")
+        previous_indents = statement_indents(previous_source)
+        current_indents = statement_indents(current_source)
         matcher = difflib.SequenceMatcher(
             a=previous_lines, b=current_lines, autojunk=False
         )
@@ -128,9 +161,15 @@ class FormattingHygiene(Lint):
         for tag, i1, i2, j1, j2 in matcher.get_opcodes():
             if tag == "equal":
                 continue
-            if squash_formatting(previous_lines[i1:i2]) != squash_formatting(
-                current_lines[j1:j2]
-            ):
+            previous_squashed = squash_formatting(
+                previous_lines[i1:i2],
+                [previous_indents.get(i) for i in range(i1, i2)],
+            )
+            current_squashed = squash_formatting(
+                current_lines[j1:j2],
+                [current_indents.get(j) for j in range(j1, j2)],
+            )
+            if previous_squashed != current_squashed:
                 continue
             diagnostics.append(
                 Diagnostic(

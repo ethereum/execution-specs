@@ -316,6 +316,32 @@ def test_formatting_hygiene_compare_formatting_only(
             """,
             id="string_spacing_changed",
         ),
+        pytest.param(
+            """
+            for x in y:
+                a(x)
+                b(x)
+            """,
+            """
+            for x in y:
+                a(x)
+            b(x)
+            """,
+            id="statement_moved_out_of_loop",
+        ),
+        pytest.param(
+            """
+            if flag:
+                a()
+            b()
+            """,
+            """
+            if flag:
+                a()
+                b()
+            """,
+            id="statement_moved_into_block",
+        ),
     ],
 )
 def test_formatting_hygiene_compare_real_change(old: str, new: str) -> None:
