@@ -18,7 +18,7 @@ from execution_testing import (
     Address,
     Alloc,
     Fork,
-    GasCost,
+    GasFee,
     Hash,
     Initcode,
     Op,
@@ -378,7 +378,7 @@ def test_value_contract_creation_tx(
     post = {
         sender: Account(
             nonce=1,
-            balance_change=sender_value_delta - GasCost(tx, gas=gas_used),
+            balance_change=sender_value_delta - GasFee(tx, gas=gas_used),
         ),
         expected_target_address: expected_target,
     }
@@ -546,7 +546,7 @@ def test_value_move_to_precompiles(
         )
         expected_sender = Account(
             nonce=1,
-            balance_change=-value - GasCost(tx, gas=total_gas_cost),
+            balance_change=-value - GasFee(tx, gas=total_gas_cost),
         )
     post = {
         sender: expected_sender,

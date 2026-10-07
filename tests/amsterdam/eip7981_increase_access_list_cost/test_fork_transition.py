@@ -28,7 +28,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     EIPChecklist,
-    GasCost,
+    GasFee,
     Hash,
     Transaction,
     TransactionException,
@@ -155,7 +155,7 @@ def test_access_list_intrinsic_across_amsterdam_transition(
         blocks.append(Block(timestamp=timestamp, txs=[tx]))
 
         post[sender] = Account(
-            nonce=1, balance_change=-GasCost(tx, gas=intrinsic_gas)
+            nonce=1, balance_change=-GasFee(tx, gas=intrinsic_gas)
         )
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
@@ -362,7 +362,7 @@ def test_access_list_floor_across_amsterdam_transition(
         blocks.append(Block(timestamp=timestamp, txs=[tx]))
 
         post[sender] = Account(
-            nonce=1, balance_change=-GasCost(tx, gas=floor_gas)
+            nonce=1, balance_change=-GasFee(tx, gas=floor_gas)
         )
 
     blockchain_test(pre=pre, blocks=blocks, post=post)

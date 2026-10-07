@@ -7,7 +7,7 @@ import pytest
 from execution_testing.base_types import Address, Hash
 from execution_testing.test_types import (
     EOA,
-    GasCost,
+    GasFee,
     PostStateContext,
     Tip,
     Transaction,
@@ -69,7 +69,7 @@ def test_gas_cost_fetches_only_the_receipt() -> None:
     )
     assert rpc.receipt_requests == []
 
-    assert GasCost(txs[0], gas=2).resolve(context) == 2 * 12
+    assert GasFee(txs[0], gas=2).resolve(context) == 2 * 12
     assert rpc.receipt_requests == [txs[0].hash]
     assert rpc.block_requests == []
 
@@ -88,7 +88,7 @@ def test_fetches_on_demand_and_caches() -> None:
     assert rpc.receipt_requests == [txs[0].hash, txs[1].hash]
     assert rpc.block_requests == [BLOCK_HASH]
 
-    assert GasCost(txs[0], gas=1).resolve(context) == 12
+    assert GasFee(txs[0], gas=1).resolve(context) == 12
     assert len(rpc.receipt_requests) == 2, "receipt should be cached"
 
     assert context.landing((Address(SENDER), 2)).fee_recipient() == MINER
@@ -103,4 +103,4 @@ def test_unknown_transaction() -> None:
         txs=[],
     )
     with pytest.raises(PostStateContext.TransactionNotLandedError):
-        GasCost(signed_txs(1)[0], gas=1).resolve(context)
+        GasFee(signed_txs(1)[0], gas=1).resolve(context)

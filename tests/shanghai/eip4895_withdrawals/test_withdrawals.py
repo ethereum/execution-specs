@@ -14,7 +14,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Fork,
-    GasCost,
+    GasFee,
     Hash,
     Op,
     RecipientType,
@@ -146,7 +146,7 @@ class TestUseValueInTx:
                 sender: Account(
                     nonce=1,
                     balance_change=withdrawal.amount * ONE_GWEI
-                    - GasCost(tx, gas=tx.gas_limit),
+                    - GasFee(tx, gas=tx.gas_limit),
                 )
             }
         raise Exception("Invalid test case.")

@@ -30,7 +30,7 @@ from execution_testing import (
     AuthorizationTuple,
     Block,
     BlockchainTestFiller,
-    GasCost,
+    GasFee,
     Op,
     RecipientType,
     Transaction,
@@ -146,7 +146,7 @@ def test_intrinsic_reduction_across_amsterdam_transition(
             # No EVM bytecode runs (recipient is an EOA or the sender), so
             # gas_used == intrinsic_gas.
             balance_change=(
-                sender_value_delta - GasCost(tx=tx, gas=intrinsic_gas)
+                sender_value_delta - GasFee(tx=tx, gas=intrinsic_gas)
             ),
         )
         if not self_transfer:
@@ -255,7 +255,7 @@ def test_creation_tx_intrinsic_across_amsterdam_transition(
             # code (no deposit charges), so the gas used is pinned to
             # exactly the intrinsic plus the fork's top-frame state charge.
             balance_change=-value
-            - GasCost(tx=tx, gas=intrinsic_gas + top_frame_state_gas),
+            - GasFee(tx=tx, gas=intrinsic_gas + top_frame_state_gas),
         )
         post[created] = Account(nonce=1, balance=value, code=b"")
 
@@ -343,7 +343,7 @@ def test_setcode_tx_across_amsterdam_transition(
 
         post[sender] = Account(
             nonce=1,
-            balance_change=-GasCost(tx=tx, gas=total_gas),
+            balance_change=-GasFee(tx=tx, gas=total_gas),
         )
         post[authority] = Account(
             nonce=1,
@@ -426,7 +426,7 @@ def test_intrinsic_validity_across_amsterdam_transition(
         if error is None:
             post[sender] = Account(
                 nonce=1,
-                balance_change=-GasCost(tx=tx, gas=gas_limit),
+                balance_change=-GasFee(tx=tx, gas=gas_limit),
             )
         return tx
 

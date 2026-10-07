@@ -387,7 +387,7 @@ def fork_name() -> str:
     return str(TEST_FORK)
 
 
-IMPORTS = ["Account", "Address", "Storage", "Transaction", "Op", "GasCost"]
+IMPORTS = ["Account", "Address", "Storage", "Transaction", "Op", "GasFee"]
 
 
 @dataclass(kw_only=True)
@@ -932,7 +932,7 @@ def test_balance_change(execute_runner: ExecuteRunner) -> None:
                 pre=pre,
                 post={{
                     sender: Account(
-                        balance_change=-sent_value - GasCost(
+                        balance_change=-sent_value - GasFee(
                             tx,
                             gas=intrinsic_gas_cost,
                         )

@@ -22,7 +22,7 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Fork,
-    GasCost,
+    GasFee,
     Op,
     Transaction,
     compute_create2_address,
@@ -332,7 +332,7 @@ def test_create_oog_from_eoa_refunds(
         # The out-of-gas creation consumes its whole gas limit and
         # earns no refund.
         post[sender] = Account(
-            nonce=1, balance_change=-GasCost(tx, gas=tx.gas_limit)
+            nonce=1, balance_change=-GasFee(tx, gas=tx.gas_limit)
         )
 
     if refund_type == RefundType.SELFDESTRUCT:

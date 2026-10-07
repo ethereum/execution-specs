@@ -16,7 +16,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Fork,
-    GasCost,
+    GasFee,
     Header,
     Initcode,
     Op,
@@ -2770,7 +2770,7 @@ def test_create_tx_collision_refunds_reservoir(
         ],
         post={
             sender: Account(
-                balance_change=-GasCost(tx, gas=gas_limit_cap),
+                balance_change=-GasFee(tx, gas=gas_limit_cap),
                 nonce=1,
             ),
             collision_target: Account(nonce=1, code=b"", storage={}),

@@ -34,7 +34,7 @@ from execution_testing import (
     Environment,
     Fork,
     GasConsumer,
-    GasCost,
+    GasFee,
     Header,
     Op,
     RecipientType,
@@ -58,8 +58,23 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
-@pytest.mark.parametrize("recipient_is_coinbase", [False, True])
-@pytest.mark.parametrize("outcome", ["oog", "success"])
+@pytest.mark.parametrize(
+    "recipient_is_coinbase",
+    [
+        False,
+        pytest.param(
+            True,
+            marks=pytest.mark.execute(
+                pytest.mark.skip(
+                    reason="requires env.fee_recipient as block coinbase"
+                )
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "outcome", ["oog", "success", "success_with_unused_gas"]
+)
 def test_top_frame_state_charge(
     fork: Fork,
     pre: Alloc,
@@ -81,6 +96,8 @@ def test_top_frame_state_charge(
     - ``success``: gas limit covers the state charge. The value
       transfer brings the recipient into existence and the recipient
       ends the transaction holding the transferred balance.
+    - ``success_with_unused_gas``: as ``success``, with gas left over
+      that the sender must not be charged for.
 
     An absent coinbase is still charged: it is warm, but receives its
     priority fee only after execution.
@@ -105,10 +122,17 @@ def test_top_frame_state_charge(
         "top-frame state gas must be non-zero for this scenario"
     )
 
-    total_gas_used = intrinsic_gas + top_frame_state_gas
-    gas_limit = total_gas_used
+    gas_used = intrinsic_gas + top_frame_state_gas
     if outcome == "oog":
-        gas_limit -= 1
+        gas_limit = gas_used - 1
+        # Running out of gas consumes the whole limit.
+        gas_used = gas_limit
+    elif outcome == "success":
+        gas_limit = gas_used
+    elif outcome == "success_with_unused_gas":
+        gas_limit = gas_used + 1
+    else:
+        raise ValueError(f"unknown outcome: {outcome}")
 
     tx = Transaction(
         sender=sender,
@@ -117,11 +141,11 @@ def test_top_frame_state_charge(
         gas_limit=gas_limit,
     )
 
-    sender_balance_change = -GasCost(tx, gas=gas_limit)
+    sender_balance_change = -GasFee(tx, gas=gas_used)
     target_balance_change: BalanceExpression | Tip | int = (
-        Tip(tx, gas=gas_limit) if recipient_is_coinbase else 0
+        Tip(tx, gas=gas_used) if recipient_is_coinbase else 0
     )
-    if outcome == "success":
+    if outcome != "oog":
         sender_balance_change -= value
         target_balance_change += value
 
@@ -192,7 +216,7 @@ def test_top_frame_state_charge_empty_precompile(
         gas_limit=gas_limit,
     )
 
-    sender_balance_change = -GasCost(tx, gas=gas_limit)
+    sender_balance_change = -GasFee(tx, gas=gas_limit)
     precompile_balance_change = 0
     if scenario == "success":
         sender_balance_change -= value
@@ -325,7 +349,7 @@ def test_top_frame_new_account_skipped_for_nonce_only_recipient(
         gas_limit=gas_limit,
     )
 
-    sender_balance_change = -value - GasCost(tx, gas=intrinsic_gas)
+    sender_balance_change = -value - GasFee(tx, gas=intrinsic_gas)
     post = {
         sender: Account(nonce=1, balance_change=sender_balance_change),
         target: Account(nonce=1, balance=value),
@@ -585,7 +609,8 @@ def test_top_frame_execution_charge(
       and the recipient keeps its pre-tx state.
     - ``success``: gas limit covers the execution charge; the delegated
       code is a ``STOP`` and the transaction lands the value transfer.
-    - ``evm_reverts``: the delegated code reverts immediately. The
+    - ``evm_reverts``: the delegated code reverts immediately, with gas
+      left over. The
       top-frame charge is consumed before dispatch and the two
       ``PUSH`` opcodes that feed the ``REVERT`` are paid before the
       revert; the value transfer is rolled back, the unused EVM
@@ -625,7 +650,7 @@ def test_top_frame_execution_charge(
         # Two ``PUSH`` opcodes feed ``REVERT`` before it halts.
         revert_exec_gas = revert_code.gas_cost(fork)
         total_gas_cost = intrinsic_gas + top_frame_gas + revert_exec_gas
-        gas_limit = total_gas_cost
+        gas_limit = total_gas_cost + 1
 
     tx = Transaction(
         sender=sender,
@@ -634,7 +659,7 @@ def test_top_frame_execution_charge(
         gas_limit=gas_limit,
     )
 
-    sender_balance_change = -GasCost(tx=tx, gas=total_gas_cost)
+    sender_balance_change = -GasFee(tx=tx, gas=total_gas_cost)
     target_balance = 0
     if outcome == "success":
         sender_balance_change -= value
@@ -1026,18 +1051,18 @@ def test_receipt_status_top_frame_oog_between_successful_txs(
     post: dict[Address, Account | None] = {
         ok_sender_1: Account(
             nonce=1,
-            balance_change=-value - GasCost(ok_tx_1, gas=ok_intrinsic_gas),
+            balance_change=-value - GasFee(ok_tx_1, gas=ok_intrinsic_gas),
         ),
         ok_sender_2: Account(
             nonce=1,
-            balance_change=-value - GasCost(ok_tx_2, gas=ok_intrinsic_gas),
+            balance_change=-value - GasFee(ok_tx_2, gas=ok_intrinsic_gas),
         ),
         ok_recipient: Account(balance=1 + 2 * value),
         # The failing transaction is included: the nonce bumps and the
         # full gas limit is paid, but nothing else happens.
         fail_sender: Account(
             nonce=1,
-            balance_change=-GasCost(fail_tx, gas=fail_gas_limit),
+            balance_change=-GasFee(fail_tx, gas=fail_gas_limit),
         ),
     }
     if failure_mode is TopFrameFailureMode.CREATE_STATE_OOG:

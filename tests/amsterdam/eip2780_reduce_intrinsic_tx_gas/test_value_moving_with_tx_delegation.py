@@ -37,7 +37,7 @@ from execution_testing import (
     Alloc,
     AuthorizationTuple,
     Fork,
-    GasCost,
+    GasFee,
     Op,
     RecipientType,
     StateTestFiller,
@@ -133,7 +133,7 @@ def test_tx_installs_delegation_on_funded_recipient(
     post = {
         sender: Account(
             nonce=1,
-            balance_change=-value - GasCost(tx, gas=total_gas_cost),
+            balance_change=-value - GasFee(tx, gas=total_gas_cost),
         ),
         target: Account(
             nonce=1,
@@ -222,7 +222,7 @@ def test_tx_installs_delegation_on_empty_recipient(
     post = {
         sender: Account(
             nonce=1,
-            balance_change=-value - GasCost(tx, gas=total_gas_cost),
+            balance_change=-value - GasFee(tx, gas=total_gas_cost),
         ),
         target: Account(
             nonce=1,
@@ -346,7 +346,7 @@ def test_tx_installs_delegation_on_sender(
         post = {
             sender: Account(
                 nonce=2,
-                balance_change=-GasCost(tx, gas=total_gas_cost),
+                balance_change=-GasFee(tx, gas=total_gas_cost),
                 code=Spec7702.delegation_designation(delegated_to),
             ),
         }
@@ -354,7 +354,7 @@ def test_tx_installs_delegation_on_sender(
         post = {
             sender: Account(
                 nonce=2,
-                balance_change=-value - GasCost(tx, gas=total_gas_cost),
+                balance_change=-value - GasFee(tx, gas=total_gas_cost),
                 code=Spec7702.delegation_designation(delegated_to),
             ),
             target: Account(balance_change=value),

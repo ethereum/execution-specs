@@ -12,10 +12,10 @@ from execution_testing import (
     Alloc,
     AuthorizationTuple,
     BalanceExpression,
-    BlobCost,
+    BlobFee,
     Bytecode,
     Fork,
-    GasCost,
+    GasFee,
     RecipientType,
     RefundTypes,
     Transaction,
@@ -314,9 +314,9 @@ class RefundTransaction(Transaction):
         """
         receipt_gas_used = self.expected_receipt.gas_used
         assert receipt_gas_used is not None
-        balance_change = -GasCost(self, gas=receipt_gas_used)
+        balance_change = -GasFee(self, gas=receipt_gas_used)
         if self.blob_gas > 0:
-            balance_change -= BlobCost(self, blob_gas=self.blob_gas)
+            balance_change -= BlobFee(self, blob_gas=self.blob_gas)
         return balance_change
 
     def post(self, pre: Alloc, block_is_invalid: bool = False) -> Alloc:

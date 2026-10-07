@@ -86,6 +86,7 @@ from execution_testing.fixtures.common import (
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork, Requests
 from execution_testing.test_types import (
+    Account,
     Alloc,
     Environment,
     PostStateContext,
@@ -1740,6 +1741,10 @@ class BlockchainTest(BaseTest):
         # placeholder — ClientBackend ignores it.
         alloc: Alloc | LazyAlloc = self.pre
         context = RecordedPostStateContext()
+        # Relative post expectations compare against the live state right
+        # before the first execution block, after the setup blocks funded
+        # and deployed the test's accounts.
+        pre_state_block_number = start_block_number
         for block in blocks_to_process:
             built_block = self.generate_block_data(
                 t8n=t8n,
@@ -1762,6 +1767,8 @@ class BlockchainTest(BaseTest):
             )
             if payload.phase == TestPhase.SETUP:
                 setup_payloads.append(payload)
+                if not execution_payloads:
+                    pre_state_block_number = int(built_block.header.number)
             else:
                 execution_payloads.append(payload)
                 block_opcode_count = t8n.extract_block_opcode_count(
@@ -1798,8 +1805,22 @@ class BlockchainTest(BaseTest):
 
         if self.post.root:
             got_alloc = t8n.get_post_state_alloc(self.post)
+            # Only accounts expecting a change need their pre-state, and
+            # only their balance and nonce.
+            relative = Alloc(
+                {
+                    address: Account()
+                    for address, account in self.post.root.items()
+                    if account is not None
+                    and {"balance_change", "nonce_change"}
+                    & account.model_fields_set
+                }
+            )
+            pre_alloc = t8n.eth_rpc.get_alloc(
+                relative, block_number=pre_state_block_number, skip_code=True
+            )
             self.post.verify_post_alloc(
-                pre_alloc=self.pre, got_alloc=got_alloc, context=context
+                pre_alloc=pre_alloc, got_alloc=got_alloc, context=context
             )
 
         fixture = BlockchainEngineStatefulFixture(

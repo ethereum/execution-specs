@@ -3,9 +3,9 @@
 from .account_types import EOA, Account, Alloc, AllocGroupHash
 from .balance_expectations import (
     BalanceExpression,
-    BlobCost,
+    BlobFee,
     EmptyPostStateContext,
-    GasCost,
+    GasFee,
     PostStateContext,
     Tip,
 )
@@ -77,7 +77,7 @@ __all__ = (
     "BalStorageChange",
     "BalStorageSlot",
     "Blob",
-    "BlobCost",
+    "BlobFee",
     "BlockAccessList",
     "BlockAccessListExpectation",
     "ChainConfig",
@@ -87,7 +87,7 @@ __all__ = (
     "EmptyPostStateContext",
     "EOA",
     "fee_increment_blocks",
-    "GasCost",
+    "GasFee",
     "NetworkWrappedTransaction",
     "PostStateContext",
     "Removable",

@@ -23,7 +23,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     EIPChecklist,
-    GasCost,
+    GasFee,
     RecipientType,
     Transaction,
     TransactionException,
@@ -157,7 +157,7 @@ def test_floor_cost_across_amsterdam_transition(
         )
         blocks.append(Block(timestamp=timestamp, txs=[tx]))
 
-        post[sender] = Account(nonce=1, balance_change=-GasCost(tx, gas=floor))
+        post[sender] = Account(nonce=1, balance_change=-GasFee(tx, gas=floor))
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
@@ -250,11 +250,11 @@ def test_floor_validity_across_amsterdam_transition(
         ]
         post = {
             pre_fork_sender: Account(
-                nonce=1, balance_change=-GasCost(pre_fork_tx, gas=old_floor)
+                nonce=1, balance_change=-GasFee(pre_fork_tx, gas=old_floor)
             ),
             post_fork_sender: Account(
                 nonce=1,
-                balance_change=-GasCost(post_fork_tx, gas=new_floor),
+                balance_change=-GasFee(post_fork_tx, gas=new_floor),
             ),
         }
     elif scenario == "below_old_floor_rejected_before_fork":
@@ -280,7 +280,7 @@ def test_floor_validity_across_amsterdam_transition(
         ]
         post = {
             pre_fork_sender: Account(
-                nonce=1, balance_change=-GasCost(pre_fork_tx, gas=old_floor)
+                nonce=1, balance_change=-GasFee(pre_fork_tx, gas=old_floor)
             ),
             post_fork_sender: untouched,
         }

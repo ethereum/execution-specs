@@ -20,7 +20,7 @@ from execution_testing import (
     EIPChecklist,
     Environment,
     Fork,
-    GasCost,
+    GasFee,
     RefundTypes,
     Transaction,
     TransactionException,
@@ -596,7 +596,7 @@ def test_mixed_gas_regimes(
     )
     post[tx1_target] = Account(storage={0: 1})
     post[tx1_sender] = Account(
-        balance_change=-GasCost(tx1, gas=tx1_contribution)
+        balance_change=-GasFee(tx1, gas=tx1_contribution)
     )
 
     # tx2: SSTORE-clear with normal refund, refund not clipped to floor.
@@ -637,7 +637,7 @@ def test_mixed_gas_regimes(
         data=tx3_data,
         expected_receipt={"gas_used": tx3_fee_gas},
     )
-    post[tx3_sender] = Account(balance_change=-GasCost(tx3, gas=tx3_fee_gas))
+    post[tx3_sender] = Account(balance_change=-GasFee(tx3, gas=tx3_fee_gas))
 
     total_gas_used = (
         tx1_block_contribution + tx2_contribution + tx3_block_contribution

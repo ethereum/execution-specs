@@ -5,11 +5,11 @@ A post-state `Account` can express its balance as a change relative to the
 pre-state (`balance_change`). Most such changes are plain integers (value
 transfers), but fees depend on the block in which a transaction was included:
 its base fee, its blob gas price and its fee recipient. Those quantities are
-expressed as terms (`GasCost`, `Tip`, `BlobCost`) which compose with integers
+expressed as terms (`GasFee`, `Tip`, `BlobFee`) which compose with integers
 into a `BalanceExpression`:
 
 ```python
-Account(balance_change=-value - GasCost(tx, gas=gas_used))
+Account(balance_change=-value - GasFee(tx, gas=gas_used))
 Account(balance_change=Tip(tx_a, gas=gas_a) + Tip(tx_b, gas=gas_b))
 ```
 
@@ -179,7 +179,7 @@ class BalanceTerm(ABC):
         return BalanceExpression.of(self) * factor
 
 
-class GasCost(BalanceTerm):
+class GasFee(BalanceTerm):
     """
     Fee paid by the sender for `gas` units: `gas × effective_gas_price`.
 
@@ -200,7 +200,7 @@ class GasCost(BalanceTerm):
 
     def __str__(self) -> str:
         """Describe the term."""
-        return f"GasCost({self._transaction_label()}, gas={self.gas})"
+        return f"GasFee({self._transaction_label()}, gas={self.gas})"
 
 
 class Tip(BalanceTerm):
@@ -218,6 +218,9 @@ class Tip(BalanceTerm):
         super().__init__(tx)
         self.gas = gas
 
+    class WrongRecipientError(Exception):
+        """A tip was expected on an account that is not the fee recipient."""
+
     def resolve(self, context: PostStateContext) -> int:
         """Return the priority fee in wei."""
         landing = context.landing(self.key)
@@ -225,12 +228,26 @@ class Tip(BalanceTerm):
             landing.effective_gas_price() - landing.base_fee_per_gas()
         )
 
+    def check_recipient(
+        self, recipient: Address, context: PostStateContext
+    ) -> None:
+        """
+        Raise unless `recipient` is the fee recipient of the block in which
+        the transaction landed.
+        """
+        fee_recipient = context.landing(self.key).fee_recipient()
+        if fee_recipient != recipient:
+            raise Tip.WrongRecipientError(
+                f"{self} is expected on {recipient}, but the transaction "
+                f"landed in a block whose fee recipient is {fee_recipient}"
+            )
+
     def __str__(self) -> str:
         """Describe the term."""
         return f"Tip({self._transaction_label()}, gas={self.gas})"
 
 
-class BlobCost(BalanceTerm):
+class BlobFee(BalanceTerm):
     """Blob fee paid by the sender: `blob_gas × blob_gas_price`."""
 
     blob_gas: int
@@ -252,7 +269,7 @@ class BlobCost(BalanceTerm):
     def __str__(self) -> str:
         """Describe the term."""
         return (
-            f"BlobCost({self._transaction_label()}, blob_gas={self.blob_gas})"
+            f"BlobFee({self._transaction_label()}, blob_gas={self.blob_gas})"
         )
 
 
@@ -324,7 +341,7 @@ class BalanceExpression:
         return self.constant != 0 or len(self.terms) > 0
 
     def __str__(self) -> str:
-        """Describe the expression, e.g. `-1000 - GasCost(...)`."""
+        """Describe the expression, e.g. `-1000 - GasFee(...)`."""
         parts: list[str] = []
         if self.constant != 0 or not self.terms:
             parts.append(str(self.constant))

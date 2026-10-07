@@ -40,7 +40,7 @@ class RPCTransactionLanding(TransactionLanding):
 
     The receipt is requested the first time any value is needed; the block
     is requested only for the base fee or the fee recipient, so a sender's
-    `GasCost` costs a single receipt request.
+    `GasFee` costs a single receipt request.
     """
 
     _context: "RPCPostStateContext"

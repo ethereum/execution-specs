@@ -18,7 +18,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Fork,
-    GasCost,
+    GasFee,
     Header,
     Op,
     StateTestFiller,
@@ -360,9 +360,7 @@ def test_calldata_floor_charged_to_sender(
     blockchain_test(
         pre=pre,
         blocks=[Block(txs=[tx])],
-        post={
-            sender: Account(balance_change=-GasCost(tx, gas=calldata_floor))
-        },
+        post={sender: Account(balance_change=-GasFee(tx, gas=calldata_floor))},
     )
 
 

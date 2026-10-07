@@ -34,7 +34,7 @@ from execution_testing import (
     ChainConfig,
     Environment,
     Fork,
-    GasCost,
+    GasFee,
     Op,
     RecipientType,
     StateTestFiller,
@@ -99,7 +99,7 @@ def test_intrinsic_charges_recipient_in_access_list(
     post = {
         sender: Account(
             nonce=1,
-            balance_change=-value - GasCost(tx, gas=intrinsic_gas),
+            balance_change=-value - GasFee(tx, gas=intrinsic_gas),
         ),
         target: Account(balance_change=value),
     }
@@ -108,6 +108,9 @@ def test_intrinsic_charges_recipient_in_access_list(
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.execute(
+    pytest.mark.skip(reason="requires env.fee_recipient as block coinbase")
+)
 @pytest.mark.parametrize(
     "value",
     [
@@ -146,7 +149,7 @@ def test_intrinsic_charges_recipient_is_coinbase(
     post = {
         sender: Account(
             nonce=1,
-            balance_change=-value - GasCost(tx, gas=intrinsic_gas),
+            balance_change=-value - GasFee(tx, gas=intrinsic_gas),
         ),
         # The coinbase receives the value and the priority fee.
         target: Account(
@@ -301,7 +304,7 @@ def test_top_frame_charges_delegation_in_access_list(
     post = {
         sender: Account(
             nonce=1,
-            balance_change=-value_moved - GasCost(tx, gas=gas_used),
+            balance_change=-value_moved - GasFee(tx, gas=gas_used),
         ),
         target: Account(balance=value_moved, code=target_code),
     }
@@ -320,6 +323,9 @@ def test_top_frame_charges_delegation_in_access_list(
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.execute(
+    pytest.mark.skip(reason="requires env.fee_recipient as block coinbase")
+)
 @pytest.mark.parametrize(
     "value",
     [
@@ -363,7 +369,7 @@ def test_top_frame_charges_delegation_is_coinbase(
     post = {
         sender: Account(
             nonce=1,
-            balance_change=-value - GasCost(tx, gas=total_gas_cost),
+            balance_change=-value - GasFee(tx, gas=total_gas_cost),
         ),
         target: Account(balance=value, code=target_code),
         # The delegated coinbase receives only the priority fee.
@@ -513,7 +519,7 @@ def test_top_frame_charges_delegation_is_sender(
     post = {
         sender: Account(
             nonce=1,
-            balance_change=-value - GasCost(tx, gas=total_gas_cost),
+            balance_change=-value - GasFee(tx, gas=total_gas_cost),
         ),
         target: Account(balance=value, code=target_code),
     }
@@ -577,7 +583,7 @@ def test_top_frame_charges_delegation_is_recipient(
     )
 
     post = {
-        sender: Account(nonce=1, balance_change=-GasCost(tx, gas=gas_limit)),
+        sender: Account(nonce=1, balance_change=-GasFee(tx, gas=gas_limit)),
         # Value transfer rolled back by the ``INVALID``; the pre-tx
         # 1-wei balance is preserved.
         target: Account(balance=1, code=target_code),
@@ -716,7 +722,7 @@ def test_top_frame_charges_delegation_is_precompile(
     post = {
         sender: Account(
             nonce=1,
-            balance_change=-value - GasCost(tx, gas=total_gas_cost),
+            balance_change=-value - GasFee(tx, gas=total_gas_cost),
         ),
         target: Account(balance=value, code=target_code),
     }

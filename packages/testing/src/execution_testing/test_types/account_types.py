@@ -50,7 +50,7 @@ from execution_testing.base_types.conversions import (
     NumberConvertible,
 )
 
-from .balance_expectations import BalanceExpression, PostStateContext
+from .balance_expectations import BalanceExpression, PostStateContext, Tip
 from .utils import keccak256
 
 
@@ -158,7 +158,7 @@ class Account(BaseAccount):
     post-state assertions.
 
     Accepts an integer, or an expression combining integers with fee terms
-    (`GasCost`, `Tip`, `BlobCost`) that are resolved against the block in
+    (`GasFee`, `Tip`, `BlobFee`) that are resolved against the block in
     which each transaction landed.
     """
 
@@ -352,6 +352,9 @@ class Account(BaseAccount):
                 )
 
         if "balance_change" in self.model_fields_set:
+            for _, term in self.balance_change.terms:
+                if isinstance(term, Tip):
+                    term.check_recipient(address, context)
             want_balance = ZeroPaddedHexNumber(
                 pre_account.balance + self.balance_change.resolve(context)
             )

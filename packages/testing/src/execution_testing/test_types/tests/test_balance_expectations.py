@@ -9,9 +9,9 @@ from execution_testing.base_types import Address
 from ..account_types import EOA, Account, Alloc
 from ..balance_expectations import (
     BalanceExpression,
-    BlobCost,
+    BlobFee,
     EmptyPostStateContext,
-    GasCost,
+    GasFee,
     PostStateContext,
     Tip,
     TransactionKey,
@@ -126,7 +126,7 @@ def test_fee_terms(
     """Test that fee terms resolve against the landing base fee."""
     gas = 21 if tx.gas_price is not None else 10
     context = context_for(tx, base_fee_per_gas=base_fee_per_gas)
-    assert GasCost(tx, gas=gas).resolve(context) == expected_cost
+    assert GasFee(tx, gas=gas).resolve(context) == expected_cost
     assert Tip(tx, gas=gas).resolve(context) == expected_tip
 
 
@@ -134,14 +134,14 @@ def test_blob_cost() -> None:
     """Test that the blob fee uses the landing blob gas price."""
     tx = legacy_tx()
     context = context_for(tx, blob_gas_price=3)
-    assert BlobCost(tx, blob_gas=131072).resolve(context) == 3 * 131072
+    assert BlobFee(tx, blob_gas=131072).resolve(context) == 3 * 131072
 
 
 def test_blob_cost_without_blob_pricing() -> None:
     """Test that a blob fee cannot resolve without blob gas pricing."""
     tx = legacy_tx()
     with pytest.raises(AssertionError):
-        BlobCost(tx, blob_gas=1).resolve(context_for(tx))
+        BlobFee(tx, blob_gas=1).resolve(context_for(tx))
 
 
 def test_expression_arithmetic() -> None:
@@ -150,7 +150,7 @@ def test_expression_arithmetic() -> None:
     tx_b = legacy_tx(nonce=1, gas_price=20)
     context = context_for(tx_a, tx_b)
 
-    expression = -1000 - GasCost(tx_a, gas=5) - 2 * GasCost(tx_b, gas=3)
+    expression = -1000 - GasFee(tx_a, gas=5) - 2 * GasFee(tx_b, gas=3)
     assert isinstance(expression, BalanceExpression)
     assert expression.resolve(context) == -1000 - 50 - 2 * 60
 
@@ -158,16 +158,16 @@ def test_expression_arithmetic() -> None:
     assert isinstance(tips, BalanceExpression)
     assert tips.resolve(context) == (10 - BASE_FEE) + (20 - BASE_FEE)
 
-    assert (5 + GasCost(tx_a, gas=1) - 5).resolve(context) == 10
-    assert (-(GasCost(tx_a, gas=1) - 1)).resolve(context) == -9
+    assert (5 + GasFee(tx_a, gas=1) - 5).resolve(context) == 10
+    assert (-(GasFee(tx_a, gas=1) - 1)).resolve(context) == -9
 
 
 def test_expression_description() -> None:
     """Test that expressions describe their terms."""
     tx = legacy_tx()
     assert str(BalanceExpression.of(0)) == "0"
-    assert str(-GasCost(tx, gas=5)) == (
-        f"-GasCost(tx {Address(SENDER)} nonce 0, gas=5)"
+    assert str(-GasFee(tx, gas=5)) == (
+        f"-GasFee(tx {Address(SENDER)} nonce 0, gas=5)"
     )
     assert str(100 - 2 * Tip(tx, gas=1)) == (
         f"100 - 2 * Tip(tx {Address(SENDER)} nonce 0, gas=1)"
@@ -179,26 +179,26 @@ def test_transaction_identity_survives_copies() -> None:
     tx = legacy_tx()
     landed = tx.copy(gas_limit=50_000).with_signature_and_sender()
     context = context_for(landed)
-    assert GasCost(tx, gas=1).resolve(context) == 10
+    assert GasFee(tx, gas=1).resolve(context) == 10
 
 
 def test_transaction_not_landed() -> None:
     """Test that a term for a transaction that never landed fails."""
     with pytest.raises(PostStateContext.TransactionNotLandedError):
-        GasCost(legacy_tx(), gas=1).resolve(EmptyPostStateContext())
+        GasFee(legacy_tx(), gas=1).resolve(EmptyPostStateContext())
 
 
 def test_account_balance_change_resolves() -> None:
     """Test `Account.check_alloc` with a fee-dependent balance change."""
     tx = legacy_tx()
     context = context_for(tx)
-    expected = Account(balance_change=-1 - GasCost(tx, gas=21_000))
+    expected = Account(balance_change=-1 - GasFee(tx, gas=21_000))
     pre = Account(balance=10**18)
     post = Account(balance=10**18 - 1 - 21_000 * 10)
     expected.check_alloc(
         address=Address(1), pre_account=pre, account=post, context=context
     )
-    with pytest.raises(Account.BalanceMismatchError, match="GasCost"):
+    with pytest.raises(Account.BalanceMismatchError, match="GasFee"):
         expected.check_alloc(
             address=Address(1),
             pre_account=pre,
@@ -235,7 +235,7 @@ def test_verify_post_alloc_with_context() -> None:
     post = Alloc(
         {
             sender_address: Account(
-                nonce_change=1, balance_change=-GasCost(tx, gas=21_000)
+                nonce_change=1, balance_change=-GasFee(tx, gas=21_000)
             ),
             FEE_RECIPIENT: Account(balance_change=Tip(tx, gas=21_000)),
         }
@@ -249,9 +249,22 @@ def test_verify_post_alloc_with_context() -> None:
     post.verify_post_alloc(pre_alloc=pre, got_alloc=got, context=context)
 
 
+def test_tip_on_account_other_than_fee_recipient() -> None:
+    """Test that a tip is only accepted on the block's fee recipient."""
+    tx = legacy_tx()
+    expected = Account(balance_change=Tip(tx, gas=21_000))
+    with pytest.raises(Tip.WrongRecipientError):
+        expected.check_alloc(
+            address=Address(1),
+            pre_account=None,
+            account=Account(balance=21_000 * (10 - BASE_FEE)),
+            context=context_for(tx),
+        )
+
+
 def test_empty_context() -> None:
     """Test that a fee term cannot resolve in an empty context."""
-    expected = Account(balance_change=-GasCost(legacy_tx(), gas=1))
+    expected = Account(balance_change=-GasFee(legacy_tx(), gas=1))
     with pytest.raises(PostStateContext.TransactionNotLandedError):
         expected.check_alloc(
             address=Address(1),
