@@ -1229,8 +1229,6 @@ def check_inclusion_list_transactions(
             tx_chain_id = chain_id(tx)
             if tx_chain_id is not None and tx_chain_id != block_env.chain_id:
                 continue
-            sender = recover_sender(tx)
-            validate_transaction(tx, sender)
             check_transaction(
                 block_env=block_env,
                 block_output=block_output,
