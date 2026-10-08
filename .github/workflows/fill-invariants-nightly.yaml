@@ -1,0 +1,27 @@
+name: Fill Invariants (nightly)
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  # Every state test filled in its blockchain form at Bogota, which checks
+  # only its block access list; the state form, filled on every pull
+  # request, checks the rest. Pull requests fill this form only for the
+  # access list and state gas suites.
+  fill-state-tests-as-blocks:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
+      - name: Fill with invariant checks
+        run: >
+          just fill --from Bogota --until Bogota
+          -m "not slow and blockchain_test_from_state_test"
+          --invariant-checks
+          -W "error::execution_testing.specs.invariants.InvariantViolationWarning"
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
