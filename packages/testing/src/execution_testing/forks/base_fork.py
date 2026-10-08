@@ -591,10 +591,10 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         Return the floor gas the given block access list entries add to a
         transaction when its execution meters them (EIP-8279).
 
-        Each argument counts entries of that kind: addresses accessed
-        cold, storage keys accessed cold, slots whose value changed,
-        balances and nonces changed, and bytes of deployed code. Zero on
-        forks that do not meter block access list bytes.
+        Each argument counts entries of that kind: addresses and storage
+        keys on their first touch in the transaction, slots whose value
+        changed, balances and nonces changed, and bytes of deployed code.
+        Zero on forks that do not meter block access list bytes.
         """
         pass
 
