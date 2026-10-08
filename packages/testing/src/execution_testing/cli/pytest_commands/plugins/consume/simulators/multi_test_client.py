@@ -23,7 +23,7 @@ from ..consume import FixturesSource
 from .helpers.ruleset import ruleset
 from .helpers.test_tracker import (
     PreAllocGroupTestTracker,
-    make_group_identifier,
+    group_identifier_of,
 )
 
 if TYPE_CHECKING:
@@ -405,7 +405,6 @@ def boot_managed_client(
 def group_client(
     multi_test_hive_test: HiveTest,
     multi_test_client_manager: MultiTestClientManager,
-    fixture: BlockchainEngineXFixture,
     client_type: ClientType,
     environment: dict,
     client_genesis: dict,
@@ -418,9 +417,7 @@ def group_client(
     The body of the `client` fixture, callable so a simulator can wrap
     it in its own `client` fixture, as `consume wirex` does.
     """
-    group_identifier = make_group_identifier(
-        fixture.pre_hash, client_type.name
-    )
+    group_identifier = group_identifier_of(request.node)
     test_id = request.node.nodeid
 
     resolved_client = multi_test_client_manager.get_client(group_identifier)
@@ -448,7 +445,6 @@ def group_client(
 def client(
     multi_test_hive_test: HiveTest,
     multi_test_client_manager: MultiTestClientManager,
-    fixture: BlockchainEngineXFixture,
     client_type: ClientType,
     environment: dict,
     client_genesis: dict,
@@ -464,7 +460,6 @@ def client(
     yield from group_client(
         multi_test_hive_test,
         multi_test_client_manager,
-        fixture,
         client_type,
         environment,
         client_genesis,
