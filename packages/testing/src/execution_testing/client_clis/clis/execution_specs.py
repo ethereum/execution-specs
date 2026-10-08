@@ -104,6 +104,9 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         directly.
         """
         from execution_testing.evm_tools.t8n import T8N
+        from execution_testing.evm_tools.t8n.evm_trace.bal_witness import (
+            BalWitnessTracer,
+        )
         from execution_testing.evm_tools.t8n.evm_trace.count import (
             CountTracer,
         )
@@ -144,6 +147,17 @@ class ExecutionSpecsTransitionTool(TransitionTool):
                 tracers = GroupTracer()
             tracers.add(count_tracer)
 
+        bal_tracer = None
+        if (
+            self.compute_bal_witness
+            and not transition_tool_data.state_test
+            and transition_tool_data.fork.header_bal_hash_required()
+        ):
+            bal_tracer = BalWitnessTracer()
+            if tracers is None:
+                tracers = GroupTracer()
+            tracers.add(bal_tracer)
+
         t8n = T8N(
             transition_tool_data,
             cache=self.fork_cache,
@@ -156,6 +170,9 @@ class ExecutionSpecsTransitionTool(TransitionTool):
             output.result.opcode_count = OpcodeCount.model_validate(
                 count_tracer.results()
             )
+
+        if bal_tracer is not None:
+            output.bal_witness = bal_tracer.witness()
 
         if debug_output_path:
             dump_files_to_directory(

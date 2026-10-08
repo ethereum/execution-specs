@@ -167,6 +167,7 @@ class BaseTest(BaseModel):
     is_exception_test: bool = False
     is_inclusion_test: bool = False
     invalid_tx_not_last: bool = False
+    invariant_checks: bool = False
 
     # Class variables, to be set by subclasses
     spec_types: ClassVar[Dict[str, Type["BaseTest"]]] = {}
