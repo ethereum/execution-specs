@@ -328,6 +328,14 @@ ETH_PROTOCOLS: Dict[int, EthProtocol] = {
             GET_BLOCK_ACCESS_LISTS: "GetBlockAccessLists",
         },
     ),
+    72: EthProtocol(
+        version=72,
+        receipts_request_has_offset=True,
+        unanswered_requests={
+            GET_RECEIPTS: "GetReceipts",
+            GET_BLOCK_ACCESS_LISTS: "GetBlockAccessLists",
+        },
+    ),
 }
 """
 Every eth capability version this peer implements, by version number.
@@ -337,7 +345,9 @@ serves, so implementing it means decoding the new request shape. eth/71
 (EIP-8159) adds the block access list request pair; a block access list
 carries post-state values a client could import instead of executing,
 so the receipts rule generalizes and the requests are counted but never
-answered.
+answered. eth/72 (EIP-8070) changes only blob transaction propagation
+through the mempool, which this peer never takes part in: it announces
+no transactions, so a client has no reason to request cells from it.
 """
 
 

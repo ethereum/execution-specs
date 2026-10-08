@@ -5,8 +5,8 @@ The wire shapes asserted here are taken from the devp2p specification
 (`caps/eth.md`) and cross-checked against geth's
 `eth/protocols/eth/protocol.go`: the Status layout is shared by every
 version since eth/69, eth/70 (EIP-7975) inserts a receipt offset into
-GetReceipts, and eth/71 (EIP-8159) adds the block access list request
-pair.
+GetReceipts, eth/71 (EIP-8159) adds the block access list request
+pair, and eth/72 (EIP-8070) changes only mempool blob propagation.
 """
 
 import ethereum_rlp as eth_rlp
@@ -56,12 +56,12 @@ class TestNegotiation:
     """The RLPx rule: highest shared version of the shared capability."""
 
     def test_auto_picks_highest_implemented(self) -> None:
-        """Advertising every implemented version negotiates eth/71."""
+        """Advertising every implemented version negotiates eth/72."""
         assert (
             highest_common_eth_version(
                 tuple(ETH_PROTOCOLS), GETH_LIKE_CAPABILITIES
             )
-            == 71
+            == 72
         )
 
     def test_pinned_version_wins_when_shared(self) -> None:
@@ -130,7 +130,7 @@ class TestGetReceipts:
         assert request.first_block_receipt_index is None
         assert request.describe() == "receipts for 1 hashes"
 
-    @pytest.mark.parametrize("version", [70, 71])
+    @pytest.mark.parametrize("version", [70, 71, 72])
     def test_eth70_shape(self, version: int) -> None:
         """[request-id, firstBlockReceiptIndex, [hashes]] from eth/70."""
         payload = eth_rlp.encode([Uint(7), Uint(3), [b"\xcc" * 32]])
@@ -160,7 +160,7 @@ class TestBlockAccessLists:
         assert request_id == 9
         assert hashes == [b"\xdd" * 32, b"\xee" * 32]
 
-    def test_only_eth71_defers_the_request(self) -> None:
+    def test_eth71_onward_defers_the_request(self) -> None:
         """The silence is a per-version decision, not a global one."""
         for version, protocol in ETH_PROTOCOLS.items():
             expected = version >= 71
