@@ -6,6 +6,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Bytecode,
     Bytes,
     ExecutionWitnessCodesExpectation,
     Initcode,
@@ -394,6 +395,135 @@ def test_witness_codes_create_then_call_same_tx(
         ],
         post={
             created: Account(nonce=1, code=runtime_code),
+        },
+    )
+
+
+def _create_from_memory(initcode: bytes) -> Bytecode:
+    """Return code that CREATEs `initcode` and leaves the address."""
+    assert len(initcode) <= 32
+    return Op.MSTORE(0, Op.PUSH32(initcode)) + Op.CREATE(
+        offset=32 - len(initcode),
+        size=len(initcode),
+    )
+
+
+@pytest.mark.parametrize("read_op", ["extcodesize", "extcodecopy", "call"])
+def test_witness_codes_create_same_hash_then_read_same_tx(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    read_op: str,
+) -> None:
+    """
+    Factory CREATEs code, then reads a pre-state contract with that code.
+
+    Both happen in the same transaction. The pre-state contract's code
+    must not appear in executionWitness.codes: the CREATE already wrote
+    the same code hash to the transaction's code_writes, which get_code
+    reads before the pre-state.
+    """
+    runtime_code = bytes(Op.PUSH1(0x00) + Op.PUSH1(0x00) + Op.RETURN)
+    existing_contract = pre.deploy_contract(code=runtime_code)
+
+    if read_op == "extcodesize":
+        read = Op.SSTORE(1, Op.EXTCODESIZE(existing_contract))
+        read_result = len(runtime_code)
+    elif read_op == "extcodecopy":
+        read = Op.EXTCODECOPY(
+            existing_contract, 64, 0, len(runtime_code)
+        ) + Op.SSTORE(1, Op.MLOAD(64))
+        read_result = int.from_bytes(runtime_code.ljust(32, b"\0"), "big")
+    else:
+        read = Op.SSTORE(1, Op.CALL(address=existing_contract))
+        read_result = 1
+
+    initcode = bytes(Initcode(deploy_code=runtime_code))
+    factory_code = Op.SSTORE(0, _create_from_memory(initcode)) + read + Op.STOP
+    factory = pre.deploy_contract(code=factory_code)
+    sender = pre.fund_eoa()
+    created = compute_create_address(address=factory, nonce=1)
+
+    tx = Transaction(
+        sender=sender,
+        to=factory,
+        gas_limit=500_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_execution_witness_codes=(
+                    ExecutionWitnessCodesExpectation(
+                        codes_present=[Bytes(factory_code)],
+                        codes_absent=[Bytes(runtime_code)],
+                    )
+                ),
+            )
+        ],
+        post={
+            factory: Account(storage={0: created, 1: read_result}),
+            created: Account(nonce=1, code=runtime_code),
+        },
+    )
+
+
+def test_witness_codes_reverted_create_same_hash_then_read_same_tx(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    A reverted sub-call CREATEs code, then a pre-state copy is read.
+
+    Both happen in the same transaction. The revert rolls the CREATE's
+    code write back, so reading the pre-state contract's code goes to
+    the pre-state and that code must appear in executionWitness.codes.
+    """
+    runtime_code = bytes(Op.PUSH1(0x00) + Op.PUSH1(0x00) + Op.RETURN)
+    existing_contract = pre.deploy_contract(code=runtime_code)
+
+    initcode = bytes(Initcode(deploy_code=runtime_code))
+    reverting_creator_code = Op.POP(_create_from_memory(initcode)) + Op.REVERT(
+        0, 0
+    )
+    reverting_creator = pre.deploy_contract(code=reverting_creator_code)
+    factory_code = (
+        Op.SSTORE(0, Op.CALL(address=reverting_creator))
+        + Op.SSTORE(1, Op.EXTCODESIZE(existing_contract))
+        + Op.STOP
+    )
+    factory = pre.deploy_contract(code=factory_code)
+    sender = pre.fund_eoa()
+    reverted_created = compute_create_address(
+        address=reverting_creator, nonce=1
+    )
+
+    tx = Transaction(
+        sender=sender,
+        to=factory,
+        gas_limit=500_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_execution_witness_codes=(
+                    ExecutionWitnessCodesExpectation(
+                        codes_present=[
+                            Bytes(factory_code),
+                            Bytes(reverting_creator_code),
+                            Bytes(runtime_code),
+                        ],
+                    )
+                ),
+            )
+        ],
+        post={
+            factory: Account(storage={0: 0, 1: len(runtime_code)}),
+            reverted_created: Account.NONEXISTENT,
         },
     )
 
