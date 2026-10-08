@@ -14,7 +14,7 @@ class ReferenceSpec:
 
 
 ref_spec_7906 = ReferenceSpec(
-    "EIPS/eip-7906.md", "95ecc5d5e409287bd1bbcc688cf7e172d01360c4"
+    "EIPS/eip-7906.md", "5ec349d0926c5efe8f72dfebf454e9911dad4250"
 )
 
 
@@ -28,12 +28,9 @@ class Spec:
     MODE_POST_TX = 3
     """The `POST_TX` frame mode value."""
 
-    # The EIP defers the opcode bytes to EIP-8141's frame-family
-    # registry, which is still unmerged. Use the candidate allocation in
-    # ethereum/EIPs#12253 (head 678733edeb35f7fed84f3cc637bfd0d0749e92d6).
-    TXTRACE_OPCODE = 0xB7
-    TXDIFF_OPCODE = 0xB8
-    EVENTDATACOPY_OPCODE = 0xB9
+    TXTRACE_OPCODE = 0xB6
+    TXDIFF_OPCODE = 0xB7
+    EVENTDATACOPY_OPCODE = 0xB8
 
     # `TXTRACE` parameters.
     TXTRACE_BALANCES_CHANGED = 0x00
