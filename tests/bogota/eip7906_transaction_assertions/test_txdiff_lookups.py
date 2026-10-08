@@ -55,6 +55,14 @@ REFERENCE_SPEC_VERSION = ref_spec_7906.version
 
 pytestmark = pytest.mark.valid_from("EIP7906")
 
+# TODO: Contract creation over a zero-nonce account that holds storage
+# stays undefined for clients until EIP-8253 (Hegota) bumps the nonce of
+# the mainnet accounts of that shape. Revisit the storage-only tests once
+# EIP-8253 ships: unskip them or drop them. See PR #3508.
+STORAGE_ONLY_ACCOUNT_SKIP = pytest.mark.skip(
+    reason="Undefined until EIP-8253 (Hegota), see PR #3508"
+)
+
 
 def code_hash(code: bytes | Bytecode) -> int:
     """Return the hash of `code` as the integer the opcodes push."""
@@ -345,6 +353,7 @@ def test_prestate_after_earlier_transaction(
     )
 
 
+@STORAGE_ONLY_ACCOUNT_SKIP
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.parametrize("creation_reverts", [False, True])
 def test_storage_before_creation_collision(
@@ -411,6 +420,7 @@ def test_storage_before_creation_collision(
     )
 
 
+@STORAGE_ONLY_ACCOUNT_SKIP
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.parametrize(
     "initcode_writes",
