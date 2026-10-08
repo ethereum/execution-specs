@@ -9,7 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 import execution_testing.cli.check_fixtures
-from execution_testing.base_types import AccessList, Address, Hash
+from execution_testing.base_types import AccessList, Address, Bytes, Hash
 from execution_testing.client_clis import TransitionTool
 from execution_testing.exceptions import (
     EngineAPIError,
@@ -289,6 +289,66 @@ def test_inclusion_list_entry_size_limit(
     else:
         with pytest.raises(pytest.skip.Exception, match="list limit"):
             test.generate(t8n=default_t8n, fixture_format=fixture_format)
+
+
+@pytest.mark.parametrize(
+    "entry_kind,inclusion_list_satisfied",
+    [
+        pytest.param("transaction", False, id="transaction"),
+        pytest.param("bytes", False, id="bytes"),
+        pytest.param("rlp_override", True, id="rlp_override"),
+        pytest.param("malformed_bytes", True, id="malformed_bytes"),
+    ],
+)
+def test_inclusion_list_verdict_uses_payload_bytes(
+    default_t8n: TransitionTool,
+    entry_kind: str,
+    inclusion_list_satisfied: bool,
+) -> None:
+    """The transition tool judges the entry bytes the payload carries."""
+    tx = Transaction(
+        nonce=0,
+        to=Address(0x1234),
+        gas_limit=21_000,
+        gas_price=10,
+    )
+    sender = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    entry: Transaction | Bytes
+    if entry_kind == "transaction":
+        entry = tx
+        sent_bytes = tx.with_signature_and_sender().rlp()
+    elif entry_kind == "bytes":
+        entry = tx.with_signature_and_sender().rlp()
+        sent_bytes = entry
+    elif entry_kind == "rlp_override":
+        # The fields describe an appendable transaction, but the bytes
+        # sent decode as an unknown transaction type.
+        sent_bytes = Bytes(bytes([max(Bogota.tx_types()) + 1]) + b"\xc0")
+        entry = tx.copy(rlp_override=sent_bytes)
+    elif entry_kind == "malformed_bytes":
+        # A known type byte followed by an empty RLP list.
+        entry = Bytes("0x02c0")
+        sent_bytes = entry
+    else:
+        raise ValueError(f"unknown entry kind: {entry_kind}")
+
+    engine_fixture = (
+        BlockchainTest(
+            fork=Bogota,
+            pre=Alloc({sender: Account(balance=10**18)}),
+            post={},
+            blocks=[Block(txs=[], inclusion_list_txs=[entry])],
+            genesis_environment=Environment(),
+        )
+        .generate(t8n=default_t8n, fixture_format=BlockchainEngineFixture)
+        .fixture
+    )
+    assert isinstance(engine_fixture, BlockchainEngineFixture)
+    assert engine_fixture.payloads[0].params[-1] == [sent_bytes]
+    assert (
+        engine_fixture.payloads[0].inclusion_list_satisfied
+        == inclusion_list_satisfied
+    )
 
 
 @pytest.mark.parametrize(

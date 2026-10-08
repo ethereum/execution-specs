@@ -716,7 +716,7 @@ class FixtureEngineNewPayload(CamelModel):
         withdrawals: List[Withdrawal] | None,
         requests: List[Bytes] | None,
         block_access_list: Bytes | None = None,
-        inclusion_list_transactions: List[Transaction] | None = None,
+        inclusion_list_transactions: List[Bytes] | None = None,
         execution_payload_modifier: (
             "FixtureExecutionPayloadModifier | None"
         ) = None,
@@ -783,7 +783,7 @@ class FixtureEngineNewPayload(CamelModel):
                 raise ValueError(
                     f"Inclusion list transactions are required for ${fork}."
                 )
-            params.append([tx.rlp() for tx in inclusion_list_transactions])
+            params.append(inclusion_list_transactions)
             if "inclusion_list_satisfied" not in kwargs:
                 raise ValueError(
                     f"Inclusion list satisfied is required for ${fork}."

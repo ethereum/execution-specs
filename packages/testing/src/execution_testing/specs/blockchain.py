@@ -359,8 +359,11 @@ class Block(Header):
     """EIP-7843: override only the engine payload slotNumber field."""
     expected_gas_used: int | None = None
     """Expected gas used for the block."""
-    inclusion_list_txs: List[Transaction] | None = None
-    """Transactions supplied as the block's inclusion list."""
+    inclusion_list_txs: List[Transaction | Bytes] | None = None
+    """
+    The block's inclusion list. A `Bytes` entry is sent exactly as given,
+    so an entry can be malformed.
+    """
     expected_inclusion_list_satisfied: bool | None = None
     """Expected outcome of the inclusion list verification for this block."""
 
@@ -495,7 +498,7 @@ class BuiltBlock(CamelModel):
     rlp_modifier: Header | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
-    inclusion_list_txs: List[Transaction] | None
+    inclusion_list_txs: List[Bytes] | None
     inclusion_list_satisfied: bool | None
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
@@ -1068,7 +1071,7 @@ class BlockchainTest(BaseTest):
         env = env.set_fork_requirements(fork)
         env.check_fork_fields(fork)
         txs = block.txs[:]
-        inclusion_list_txs: List[Transaction] | None = None
+        inclusion_list_txs: List[Transaction | Bytes] | None = None
         if block.inclusion_list_txs is not None:
             inclusion_list_txs = block.inclusion_list_txs[:]
         elif fork.engine_new_payload_inclusion_list_transactions():
@@ -1080,7 +1083,9 @@ class BlockchainTest(BaseTest):
         if inclusion_list_txs is not None:
             seen = {id(tx) for tx in txs}
             all_txs += [
-                il_tx for il_tx in inclusion_list_txs if id(il_tx) not in seen
+                il_tx
+                for il_tx in inclusion_list_txs
+                if isinstance(il_tx, Transaction) and id(il_tx) not in seen
             ]
         if any("gas_limit" not in tx.model_fields_set for tx in all_txs):
             max_tx_gas_limit = Transaction.calculate_max_gas_limit(
@@ -1115,26 +1120,35 @@ class BlockchainTest(BaseTest):
                         transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
                         state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
                     )
+                    if isinstance(tx, Transaction)
+                    else tx
                     for tx in inclusion_list_txs
                 ]
                 if inclusion_list_txs is not None
                 else None
             )
         txs = [tx.with_signature_and_sender() for tx in txs]
-        inclusion_list_txs = (
-            [tx.with_signature_and_sender() for tx in inclusion_list_txs]
+        # The transition tool and the fixture read the same bytes, so the
+        # verdict is computed on exactly what clients receive.
+        inclusion_list_bytes: List[Bytes] | None = (
+            [
+                tx.with_signature_and_sender().rlp()
+                if isinstance(tx, Transaction)
+                else tx
+                for tx in inclusion_list_txs
+            ]
             if inclusion_list_txs is not None
             else None
         )
         il_size_limit = fork.inclusion_list_transactions_size_limit()
-        for il_tx in inclusion_list_txs or []:
-            il_tx_size = len(il_tx.rlp())
-            if il_size_limit is None or il_tx_size <= il_size_limit:
+        for il_entry in inclusion_list_bytes or []:
+            il_entry_size = len(il_entry)
+            if il_size_limit is None or il_entry_size <= il_size_limit:
                 continue
             reason = (
-                f"an inclusion list entry of {il_tx_size} bytes exceeds the "
-                f"{il_size_limit}-byte list limit, so no committee member "
-                "could have sent it"
+                f"an inclusion list entry of {il_entry_size} bytes exceeds "
+                f"the {il_size_limit}-byte list limit, so no committee "
+                "member could have sent it"
             )
             # A variant moves the test's own transaction into the list, which
             # some tests make larger than any list can carry.
@@ -1165,7 +1179,7 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
-                inclusion_list_txs=inclusion_list_txs,
+                inclusion_list_txs=inclusion_list_bytes,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -1382,7 +1396,7 @@ class BlockchainTest(BaseTest):
             rlp_modifier=block.rlp_modifier,
             fork=fork,
             block_access_list=bal,
-            inclusion_list_txs=inclusion_list_txs,
+            inclusion_list_txs=inclusion_list_bytes,
             inclusion_list_satisfied=actual_inclusion_list_satisfied,
             engine_new_payload_block_access_list=(
                 block.engine_new_payload_block_access_list
