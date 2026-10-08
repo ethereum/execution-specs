@@ -218,9 +218,9 @@ class Ops(enum.Enum):
     FRAMEPARAM = 0xB3
     SIGPARAM = 0xB4
     SIGDATACOPY = 0xB5
-    TXTRACE = 0xB7
-    TXDIFF = 0xB8
-    EVENTDATACOPY = 0xB9
+    TXTRACE = 0xB6
+    TXDIFF = 0xB7
+    EVENTDATACOPY = 0xB8
 
     # System Operations
     CREATE = 0xF0

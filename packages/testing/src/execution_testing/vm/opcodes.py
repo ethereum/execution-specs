@@ -6204,7 +6204,7 @@ class Opcodes(Opcode, Enum):
     """
 
     TXTRACE = Opcode(
-        0xB7,
+        0xB6,
         popped_stack_items=2,
         pushed_stack_items=1,
         kwargs=["param", "index"],
@@ -6239,7 +6239,7 @@ class Opcodes(Opcode, Enum):
     """
 
     TXDIFF = Opcode(
-        0xB8,
+        0xB7,
         popped_stack_items=3,
         pushed_stack_items=1,
         kwargs=["param", "key", "index"],
@@ -6285,7 +6285,7 @@ class Opcodes(Opcode, Enum):
     """
 
     EVENTDATACOPY = Opcode(
-        0xB9,
+        0xB8,
         popped_stack_items=4,
         pushed_stack_items=0,
         kwargs=["event_index", "dest_offset", "offset", "size"],
