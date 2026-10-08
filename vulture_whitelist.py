@@ -200,3 +200,30 @@ protected
 # packages/testing/src/execution_testing/evm_tools/tests/ - pytest
 # marker magic variable
 pytestmark
+
+# src/ethereum/forks/bogota/recent_roots.py - specification of the recent
+# root contract's calldata layout and storage derivation; the runtime code
+# embeds the constants and performs the derivation
+from ethereum.forks.bogota.recent_roots import (
+    MAX_RECENT_ROOT_REFERENCES,
+    RECENT_ROOT_ADDRESS,
+    RECENT_ROOT_CODE,
+    RECENT_ROOT_NONCE,
+    RECENT_ROOT_TUPLE_BYTES,
+    RECENT_ROOT_USABLE_WINDOW,
+    RECENT_ROOT_WRITE_BYTES,
+    recent_root_entry_hash,
+    recent_root_source_id,
+    recent_root_storage_key,
+)
+
+RECENT_ROOT_ADDRESS
+RECENT_ROOT_CODE
+RECENT_ROOT_NONCE
+RECENT_ROOT_USABLE_WINDOW
+MAX_RECENT_ROOT_REFERENCES
+RECENT_ROOT_TUPLE_BYTES
+RECENT_ROOT_WRITE_BYTES
+recent_root_source_id
+recent_root_entry_hash
+recent_root_storage_key
