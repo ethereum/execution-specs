@@ -67,6 +67,8 @@ pytestmark = pytest.mark.valid_from("EIP7906")
         pytest.param(
             Op.TXTRACE(Spec.TXTRACE_UNDEFINED, 0), id="undefined_param"
         ),
+        pytest.param(Op.TXTRACE(2**64, 0), id="undefined_param_above_64_bits"),
+        pytest.param(Op.TXTRACE(2**255, 0), id="undefined_param_high_bit"),
         pytest.param(
             Op.TXTRACE(Spec.TXTRACE_BALANCE_ADDRESS, 1),
             id="balance_index_out_of_bounds",
@@ -203,6 +205,14 @@ HaltingRead = Callable[[Address], Bytecode]
         pytest.param(
             lambda _: Op.TXDIFF(Spec.TXDIFF_UNDEFINED, 0, 0),
             id="undefined_param",
+        ),
+        pytest.param(
+            lambda _: Op.TXDIFF(2**64, 0, 0),
+            id="undefined_param_above_64_bits",
+        ),
+        pytest.param(
+            lambda _: Op.TXDIFF(2**255, 0, 0),
+            id="undefined_param_high_bit",
         ),
         pytest.param(
             lambda _: Op.TXDIFF(Spec.TXDIFF_ADDRESS_EVENT_INDEX, 0xBEEF, 0),

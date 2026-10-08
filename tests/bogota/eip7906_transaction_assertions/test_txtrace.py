@@ -273,6 +273,48 @@ def test_balances_ascend_regardless_of_transfer_order(
     )
 
 
+def test_txtrace_operand_order(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Take `param` from the top of the stack and the index below it, the
+    reverse of `FRAMEPARAM`, so swapped operands read a different entry
+    instead of halting.
+    """
+    sender = pre.fund_eoa(amount=FUNDS)
+    recipients = [pre.fund_eoa(amount=BOB_FUNDS) for _ in range(4)]
+    entries = sorted([sender, *recipients], key=as_int)
+    # Swapped operands read the address of entry `TXTRACE_BALANCE_BEFORE`.
+    index = Spec.TXTRACE_BALANCE_ADDRESS
+    assert Spec.TXTRACE_BALANCE_BEFORE < len(entries)
+    read = Op.PUSH1(index) + Op.PUSH1(Spec.TXTRACE_BALANCE_BEFORE) + Op.TXTRACE
+    before = FUNDS if entries[index] == sender else BOB_FUNDS
+    assertion = pre.deploy_contract(code=expect_eq(read, before) + Op.STOP)
+
+    state_test(
+        pre=pre,
+        tx=assertion_transaction(
+            fork,
+            sender,
+            body=[
+                body_frame(fork, target=recipient, value=VALUE)
+                for recipient in recipients
+            ],
+            assertion=assertion,
+            frame_receipts=success_receipts(len(recipients) + 2),
+        ),
+        post={
+            sender: Account(nonce=1),
+            **{
+                recipient: Account(balance=BOB_FUNDS + VALUE)
+                for recipient in recipients
+            },
+        },
+    )
+
+
 def test_slots_changed(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -101,6 +101,44 @@ def test_slot_lookup(
     state_test(pre=pre, tx=body.transaction(fork, assertion), post=body.post())
 
 
+def test_txdiff_operand_order(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Take `param` from the top of the stack, the address below it and the
+    slot key below that, so reversed operands read a different slot
+    instead of halting.
+    """
+    sender = pre.fund_eoa()
+    writer = pre.deploy_contract(
+        code=Op.SSTORE(0, VALUE) + Op.STOP, storage={1: BOB_FUNDS}
+    )
+    read = (
+        Op.PUSH1(0)
+        + Op.PUSH20(writer)
+        + Op.PUSH1(Spec.TXDIFF_SLOT_AFTER)
+        + Op.TXDIFF
+    )
+    assertion = pre.deploy_contract(code=expect_eq(read, VALUE) + Op.STOP)
+
+    state_test(
+        pre=pre,
+        tx=assertion_transaction(
+            fork,
+            sender,
+            body=[body_frame(fork, target=writer)],
+            assertion=assertion,
+            frame_receipts=success_receipts(3),
+        ),
+        post={
+            sender: Account(nonce=1),
+            writer: Account(storage={0: VALUE, 1: BOB_FUNDS}),
+        },
+    )
+
+
 AccountLookup = Callable[
     [MixedBody], Tuple[Address, int | Bytecode, int | Bytecode]
 ]
