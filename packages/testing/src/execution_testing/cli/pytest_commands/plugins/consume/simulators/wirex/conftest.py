@@ -344,15 +344,22 @@ def sync_target_cases(
     Paths containing payloads flagged invalid still reconstruct and
     are served as rejection tests (see ``test_blockchain_via_wirex``):
     their blocks are semantically invalid but hash-consistent, so they
-    travel the wire like any other block. Two classes cannot be
-    presented over devp2p at all and drop with an explicit reason: a
-    payload whose declared block hash does not match its own header (a
-    header corrupted at fill via ``rlp_modifier``), because devp2p has
-    no way to present a block whose hash differs from its header's
-    keccak; and a payload whose declared invalidity is in the encoding
-    of a transaction itself (see ``UNDECODABLE_BODY_INVALIDITIES``),
-    because the client discards such a body instead of judging the
-    block it belongs to.
+    travel the wire like any other block. Two classes drop with an
+    explicit reason, for different causes:
+
+    - A payload whose declared invalidity is in the encoding of a
+      transaction itself (see ``UNDECODABLE_BODY_INVALIDITIES``) cannot
+      be represented over devp2p: the client discards such a body
+      instead of judging the block it belongs to.
+    - A payload whose header cannot be rebuilt from the payload is a
+      limit of the fixture, not of devp2p. The header is derived from
+      the payload's fields, and the commitments the payload does not
+      carry (the transactions and withdrawals roots, the requests and
+      block access list hashes) are recomputed from its content. A
+      header whose commitment was modified at fill (via
+      ``rlp_modifier``) still hashes to the declared block hash, but
+      the modified value is nowhere in the payload, so the rebuilt
+      header hashes differently.
     """
     paths = resolve_sync_paths(genesis_header.block_hash, fixture)
     cases: list[SyncTargetCase] = []
@@ -378,8 +385,10 @@ def sync_target_cases(
         except ChainReconstructionError as error:
             if any(not payload.valid() for payload in path.served_payloads):
                 drops.append(
-                    "invalid fixture cannot be represented over "
-                    f"devp2p: {error}"
+                    "invalid fixture's header cannot be rebuilt from its "
+                    "Engine API payload: the declared block hash commits "
+                    "to a header value the payload does not carry, such "
+                    f"as a commitment modified at fill; {error}"
                 )
                 continue
             raise
