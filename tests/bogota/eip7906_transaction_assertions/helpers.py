@@ -318,6 +318,56 @@ def frame_transaction_gas(
     return payer_used, max(execution_used, floor, state_used)
 
 
+def frame_max_gas(fork: Fork, tx: Transaction) -> Tuple[int, int]:
+    """
+    Return a signed frame transaction's derived gas limit and the
+    candidate the calldata floor sets: the floor plus the frames' state
+    gas budgets.
+    """
+    tx.sign()
+    assert tx.frames is not None and tx.signatures is not None
+    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=tx.frames, signatures=tx.signatures
+    )
+    floor = fork.frame_transaction_data_floor_cost_calculator()(
+        frames=tx.frames, signatures=tx.signatures
+    )
+    state_gas = sum(int(frame.state_gas_limit) for frame in tx.frames)
+    return max_gas, floor + state_gas
+
+
+def frame_max_cost(fork: Fork, tx: Transaction) -> int:
+    """
+    Return the escrow a signed frame transaction collects from its payer
+    when payment is approved: its derived gas limit at the maximum fee
+    per gas, plus its blob gas at the blob base fee of an empty excess.
+    """
+    max_gas, _ = frame_max_gas(fork, tx)
+    blob_gas = fork.blob_gas_per_blob() * len(tx.blob_versioned_hashes or [])
+    blob_base_fee = fork.blob_gas_price_calculator()(excess_blob_gas=0)
+    return max_gas * int(tx.max_fee_per_gas or 0) + blob_gas * blob_base_fee
+
+
+def calldata_floor_data(fork: Fork, tx: Transaction) -> Bytes:
+    """
+    Return zero bytes that, as one frame's data, lift the calldata floor
+    of `tx` above the intrinsic cost plus its frame budgets.
+    """
+    max_gas, floor_gas = frame_max_gas(fork, tx)
+    assert tx.signatures is not None
+    intrinsic = fork.frame_transaction_intrinsic_cost_calculator()
+    floor = fork.frame_transaction_data_floor_cost_calculator()
+    empty, zero_byte = [Frame()], [Frame(data=b"\x00")]
+    margin = floor(frames=zero_byte) - floor(frames=empty)
+    margin -= intrinsic(
+        frames=zero_byte, return_cost_deducted_prior_execution=True
+    ) - intrinsic(frames=empty, return_cost_deducted_prior_execution=True)
+    # Re-signing over the new data can turn zero signature bytes
+    # non-zero, so pad by the signature bytes the intrinsic cost prices.
+    padding = sum(len(signature.signature) for signature in tx.signatures)
+    return Bytes(bytes((max_gas - floor_gas) // margin + 1 + padding))
+
+
 @dataclass(frozen=True)
 class BodyEffect:
     """

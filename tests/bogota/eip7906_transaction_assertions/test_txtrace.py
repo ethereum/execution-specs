@@ -13,6 +13,7 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Bytes,
     Fork,
     Initcode,
     Op,
@@ -52,9 +53,12 @@ from .helpers import (
     as_int,
     assertion_transaction,
     body_frame,
+    calldata_floor_data,
     creation_state_gas,
     expect_eq,
     factory_state_gas,
+    frame_max_cost,
+    frame_max_gas,
     initcode_word,
     post_tx_frame,
     reverted_body_receipts,
@@ -604,9 +608,9 @@ def test_sponsored_gas_pre_charge(
     fee_headroom: int,
 ) -> None:
     """
-    Expose a distinct payer and its entire escrow, including blob fees,
-    priced at the maximum fees even when they exceed the prices the
-    transaction pays.
+    Expose a distinct payer and its entire escrow, `TXPARAM`'s maximum
+    cost: execution gas priced at the maximum fee even when it exceeds
+    the price the transaction pays, and blob gas at the blob base fee.
     """
     sender = pre.fund_eoa(amount=FUNDS)
     payer = pre.deploy_contract(
@@ -617,6 +621,10 @@ def test_sponsored_gas_pre_charge(
         + expect_eq(
             Op.TXTRACE(Spec.TXTRACE_GAS_PRE_CHARGE, 0),
             Op.SUB(FUNDS, Op.BALANCE(payer, address_warm=True)),
+        )
+        + expect_eq(
+            Op.TXTRACE(Spec.TXTRACE_GAS_PRE_CHARGE, 0),
+            Op.TXPARAM(Spec8141.TXPARAM_MAX_COST),
         )
         + expect_eq(
             Op.TXDIFF(
@@ -655,6 +663,82 @@ def test_sponsored_gas_pre_charge(
         tx=tx,
         post={sender: Account(nonce=1, balance=FUNDS)},
     )
+
+
+@pytest.mark.parametrize("blob_count", [0, 1])
+@pytest.mark.parametrize(
+    "fee_headroom",
+    [
+        pytest.param(1, id="max_fees_at_price"),
+        pytest.param(3, id="max_fees_above_price"),
+    ],
+)
+@pytest.mark.parametrize(
+    "floor_sets_max_gas",
+    [
+        pytest.param(False, id="frame_budgets"),
+        pytest.param(True, id="calldata_floor"),
+    ],
+)
+def test_gas_pre_charge_amount(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    blob_count: int,
+    fee_headroom: int,
+    floor_sets_max_gas: bool,
+) -> None:
+    """
+    Pin the escrow at the maximum cost, whether the frame budgets or the
+    calldata floor set the derived gas limit, by funding the payer with
+    exactly that amount.
+    """
+    sender = pre.fund_eoa(amount=0)
+    assertion = pre.deploy_contract(
+        code=expect_eq(Op.BALANCE(sender, address_warm=True), 0)
+        + expect_eq(
+            Op.TXTRACE(Spec.TXTRACE_GAS_PRE_CHARGE, 0),
+            Op.TXDIFF(
+                Spec.TXDIFF_BALANCE_BEFORE,
+                sender,
+                0,
+                state_access="account",
+                address_warm=True,
+            ),
+        )
+        + Op.STOP
+    )
+
+    def transaction(data: Bytes) -> Transaction:
+        return Transaction(
+            sender=sender,
+            nonce=0,
+            max_fee_per_gas=FEE_PER_GAS * fee_headroom,
+            max_priority_fee_per_gas=0,
+            max_fee_per_blob_gas=(
+                fork.min_base_fee_per_blob_gas() * fee_headroom
+                if blob_count
+                else 0
+            ),
+            blob_versioned_hashes=[bytes.fromhex("01" + "00" * 31)]
+            * blob_count,
+            frames=[
+                verify_frame(),
+                post_tx_frame(fork, target=assertion, data=data),
+            ],
+            expected_receipt=TransactionReceipt(
+                payer=sender, frame_receipts=success_receipts(2)
+            ),
+        )
+
+    tx = transaction(Bytes(b""))
+    if floor_sets_max_gas:
+        tx = transaction(calldata_floor_data(fork, tx))
+    max_gas, floor_gas = frame_max_gas(fork, tx)
+    assert (max_gas == floor_gas) == floor_sets_max_gas
+    pre.fund_address(sender, frame_max_cost(fork, tx))
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
 
 @pytest.mark.parametrize("assertion_fails", [False, True])
