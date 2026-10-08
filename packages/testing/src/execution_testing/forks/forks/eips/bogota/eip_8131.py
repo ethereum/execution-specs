@@ -24,7 +24,7 @@ from ....base_fork import (
 from ....gas_costs import GasCosts
 from ...helpers import count_or_len
 
-AUTH_TUPLE_BYTES = 108
+AUTHORIZATION_BYTES = 108
 BLOB_VERSIONED_HASH_BYTES = 32
 
 
@@ -78,7 +78,8 @@ class EIP8131(BaseFork):
             content_bytes = (
                 len(Bytes(data))
                 + _access_list_bytes(access_list)
-                + count_or_len(authorization_list_or_count) * AUTH_TUPLE_BYTES
+                + count_or_len(authorization_list_or_count)
+                * AUTHORIZATION_BYTES
                 + count_or_len(blob_versioned_hashes_or_count)
                 * BLOB_VERSIONED_HASH_BYTES
             )
