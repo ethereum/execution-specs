@@ -107,6 +107,10 @@ def test_intrinsic_charges_recipient_in_access_list(
     state_test(pre=pre, tx=tx, post=post)
 
 
+# The oracle is the sender's exact debit and the coinbase's tip for the
+# transaction's gas. A frame variant spends different gas, so it cannot
+# reproduce those balances.
+@pytest.mark.frame_tx_incompatible
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.execute(
     pytest.mark.skip(reason="requires env.fee_recipient as block coinbase")
@@ -322,6 +326,10 @@ def test_top_frame_charges_delegation_in_access_list(
     )
 
 
+# The oracle is the sender's exact debit and the coinbase's tip for the
+# transaction's gas. A frame variant spends different gas, so it cannot
+# reproduce those balances.
+@pytest.mark.frame_tx_incompatible
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.execute(
     pytest.mark.skip(reason="requires env.fee_recipient as block coinbase")
@@ -475,6 +483,9 @@ def test_sender_is_coinbase(
     )
 
 
+# The oracle is the sender's exact debit for the transaction's gas. A
+# frame variant spends different gas, so it cannot reproduce that balance.
+@pytest.mark.frame_tx_incompatible
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
@@ -675,6 +686,9 @@ def test_top_frame_charges_self_delegation_oog(
     )
 
 
+# The oracle is the sender's exact debit for the transaction's gas. A
+# frame variant spends different gas, so it cannot reproduce that balance.
+@pytest.mark.frame_tx_incompatible
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
