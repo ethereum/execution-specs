@@ -48,6 +48,7 @@ class EIP2930(BaseFork):
             return_cost_deducted_prior_execution: bool = False,
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
+            blob_versioned_hashes_or_count: Sized | int | None = None,
         ) -> int:
             del return_cost_deducted_prior_execution
             del sends_value, recipient_type
@@ -56,6 +57,7 @@ class EIP2930(BaseFork):
                 calldata=calldata,
                 contract_creation=contract_creation,
                 authorization_list_or_count=authorization_list_or_count,
+                blob_versioned_hashes_or_count=blob_versioned_hashes_or_count,
             )
             if access_list is not None:
                 for access in access_list:

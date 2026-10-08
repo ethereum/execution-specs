@@ -128,6 +128,7 @@ def tx_data(
     data_test_type: DataTestType,
     access_list: List[AccessList] | None,
     authorization_list: List[AuthorizationTuple] | None,
+    blob_versioned_hashes: Sequence[Hash] | None,
     contract_creating_tx: bool,
     intrinsic_gas_data_floor_minimum_delta: int,
 ) -> Bytes:
@@ -195,6 +196,7 @@ def tx_data(
                 contract_creation=contract_creating_tx,
                 access_list=access_list,
                 authorization_list_or_count=authorization_list,
+                blob_versioned_hashes_or_count=blob_versioned_hashes,
                 return_cost_deducted_prior_execution=True,
             )
             + intrinsic_gas_data_floor_minimum_delta
@@ -205,7 +207,11 @@ def tx_data(
     )
 
     def transaction_data_floor_cost_calculator(tokens: int) -> int:
-        return fork_data_floor_cost_calculator(data=tokens_to_data(tokens))
+        return fork_data_floor_cost_calculator(
+            data=tokens_to_data(tokens),
+            authorization_list_or_count=authorization_list,
+            blob_versioned_hashes_or_count=blob_versioned_hashes,
+        )
 
     # Start with zero data and check the difference in the gas calculator
     # between the intrinsic gas cost and the floor gas cost.
@@ -259,6 +265,7 @@ def tx_intrinsic_gas_cost_before_execution(
     tx_data: Bytes,
     access_list: List[AccessList] | None,
     authorization_list: List[AuthorizationTuple] | None,
+    blob_versioned_hashes: Sequence[Hash] | None,
     contract_creating_tx: bool,
 ) -> int:
     """
@@ -274,6 +281,7 @@ def tx_intrinsic_gas_cost_before_execution(
         contract_creation=contract_creating_tx,
         access_list=access_list,
         authorization_list_or_count=authorization_list,
+        blob_versioned_hashes_or_count=blob_versioned_hashes,
         return_cost_deducted_prior_execution=True,
     )
 
@@ -284,6 +292,7 @@ def tx_intrinsic_gas_cost_including_floor_data_cost(
     tx_data: Bytes,
     access_list: List[AccessList] | None,
     authorization_list: List[AuthorizationTuple] | None,
+    blob_versioned_hashes: Sequence[Hash] | None,
     contract_creating_tx: bool,
 ) -> int:
     """
@@ -303,6 +312,7 @@ def tx_intrinsic_gas_cost_including_floor_data_cost(
         contract_creation=contract_creating_tx,
         access_list=access_list,
         authorization_list_or_count=authorization_list,
+        blob_versioned_hashes_or_count=blob_versioned_hashes,
     )
 
 
@@ -310,12 +320,18 @@ def tx_intrinsic_gas_cost_including_floor_data_cost(
 def tx_floor_data_cost(
     fork: Fork,
     tx_data: Bytes,
+    authorization_list: List[AuthorizationTuple] | None,
+    blob_versioned_hashes: Sequence[Hash] | None,
 ) -> int:
     """Floor data cost for the given transaction data."""
     fork_data_floor_cost_calculator = (
         fork.transaction_data_floor_cost_calculator()
     )
-    return fork_data_floor_cost_calculator(data=tx_data)
+    return fork_data_floor_cost_calculator(
+        data=tx_data,
+        authorization_list_or_count=authorization_list,
+        blob_versioned_hashes_or_count=blob_versioned_hashes,
+    )
 
 
 @pytest.fixture

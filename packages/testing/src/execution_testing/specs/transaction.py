@@ -63,6 +63,7 @@ class TransactionTest(BaseTest):
                 contract_creation=self.tx.to is None,
                 access_list=self.tx.access_list,
                 authorization_list_or_count=self.tx.authorization_list,
+                blob_versioned_hashes_or_count=self.tx.blob_versioned_hashes,
                 sends_value=self.tx.value > 0,
                 recipient_type=(
                     RecipientType.SELF

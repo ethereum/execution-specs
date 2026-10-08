@@ -77,6 +77,8 @@ class TransactionDataFloorCostCalculator(Protocol):
         contract_creation: bool = False,
         sends_value: bool = False,
         recipient_type: RecipientType = RecipientType.CONTRACT,
+        authorization_list_or_count: Sized | int | None = None,
+        blob_versioned_hashes_or_count: Sized | int | None = None,
     ) -> int:
         """
         Return transaction gas cost of calldata given its contents.
@@ -84,7 +86,9 @@ class TransactionDataFloorCostCalculator(Protocol):
         The defaults model a zero-value call to another account. Forks
         that anchor the floor on the transaction's intrinsic base
         (EIP-2780) add gas for these arguments, so create, value-bearing,
-        and self-transfer transactions must pass them explicitly.
+        and self-transfer transactions must pass them explicitly. Forks
+        that price every transaction content byte (EIP-8131) also need the
+        authorization list and the blob versioned hashes, or their counts.
         """
         pass
 
@@ -136,6 +140,7 @@ class TransactionIntrinsicCostCalculator(Protocol):
         return_cost_deducted_prior_execution: bool = False,
         sends_value: bool = False,
         recipient_type: RecipientType = RecipientType.CONTRACT,
+        blob_versioned_hashes_or_count: Sized | int | None = None,
     ) -> int:
         """
         Return the intrinsic gas cost of a transaction given its properties.
@@ -146,6 +151,9 @@ class TransactionIntrinsicCostCalculator(Protocol):
           access_list: The list of access lists for the transaction.
           authorization_list_or_count: The list of authorizations or the count
                                        of authorizations for the transaction.
+          blob_versioned_hashes_or_count: The blob versioned hashes or their
+                                          count; forks that price them into
+                                          the floor (EIP-8131) use this.
           return_cost_deducted_prior_execution: If set to False, the returned
                                                 value is equal to the minimum
                                                 gas required for the

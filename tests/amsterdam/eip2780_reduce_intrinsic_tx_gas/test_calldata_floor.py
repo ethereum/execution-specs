@@ -396,6 +396,7 @@ def test_calldata_floor_with_authorizations(
         return floor_calc(
             data=b"\x00" * byte_count,
             recipient_type=RecipientType.CONTRACT,
+            authorization_list_or_count=authorization_list,
         )
 
     threshold = find_floor_cost_threshold(

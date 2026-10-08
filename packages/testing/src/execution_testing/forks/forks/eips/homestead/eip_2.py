@@ -36,6 +36,7 @@ class EIP2(BaseFork):
             return_cost_deducted_prior_execution: bool = False,
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
+            blob_versioned_hashes_or_count: Sized | int | None = None,
         ) -> int:
             del return_cost_deducted_prior_execution
             del sends_value, recipient_type
@@ -45,6 +46,7 @@ class EIP2(BaseFork):
                 contract_creation=contract_creation,
                 access_list=access_list,
                 authorization_list_or_count=authorization_list_or_count,
+                blob_versioned_hashes_or_count=blob_versioned_hashes_or_count,
             )
             if contract_creation:
                 intrinsic_cost += gas_costs.TX_CREATE
