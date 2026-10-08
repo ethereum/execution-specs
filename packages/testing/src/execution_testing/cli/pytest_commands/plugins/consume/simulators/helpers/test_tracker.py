@@ -42,9 +42,33 @@ def count_tests_per_group(
     return group_counts
 
 
-def make_group_identifier(pre_hash: AllocGroupHash, client_name: str) -> str:
-    """Build xdist group key from pre-alloc hash and client name."""
-    return f"{pre_hash}-{client_name}"
+def make_group_identifier(
+    pre_hash: AllocGroupHash, client_name: str, variant: str = ""
+) -> str:
+    """
+    Build xdist group key from pre-alloc hash, client name and variant.
+
+    A variant names one of several client configurations a simulator
+    runs the same fixture under (see `group_variants`); each gets its
+    own group, and with it its own client, because a client that has
+    imported a fixture's chain cannot import it again.
+    """
+    identifier = f"{pre_hash}-{client_name}"
+    return f"{identifier}-{variant}" if variant else identifier
+
+
+def group_identifier_of(item: pytest.Item) -> str:
+    """Return the client group `item` was assigned at parametrization."""
+    for marker in item.iter_markers("xdist_group"):
+        if "name" in marker.kwargs:
+            return marker.kwargs["name"]
+    raise ValueError(f"{item.nodeid} has no xdist_group marker")
+
+
+def group_variant_of(item: pytest.Item) -> str:
+    """Return the group variant `item` runs under, or "" for none."""
+    marker = item.get_closest_marker("group_variant")
+    return "" if marker is None else str(marker.args[0])
 
 
 class PreAllocGroupTestTracker:

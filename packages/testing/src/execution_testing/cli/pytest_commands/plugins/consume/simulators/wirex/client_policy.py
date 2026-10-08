@@ -36,10 +36,9 @@ from hive.testing import HiveTest
 
 from execution_testing.devp2p.peer import MockPeer
 from execution_testing.exceptions import ExceptionMapper
-from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.rpc import EngineRPC, EthRPC
 
-from ..helpers.test_tracker import make_group_identifier
+from ..helpers.test_tracker import group_identifier_of
 from ..multi_test_client import (
     MultiTestClientManager,
     boot_managed_client,
@@ -102,7 +101,6 @@ class TargetContext:
 def client(
     multi_test_hive_test: HiveTest,
     multi_test_client_manager: MultiTestClientManager,
-    fixture: BlockchainEngineXFixture,
     client_type: ClientType,
     environment: dict,
     client_genesis: dict,
@@ -143,9 +141,7 @@ def client(
     group's tallest valid chain outgrows its shortest invalid one.
     Equal-height targets sync fine and keep the reused client.
     """
-    group_identifier = make_group_identifier(
-        fixture.pre_hash, client_type.name
-    )
+    group_identifier = group_identifier_of(request.node)
 
     if len(sync_target_cases) > 1:
         first_case = sync_target_cases[0]
@@ -192,7 +188,6 @@ def client(
     yield from group_client(
         multi_test_hive_test,
         multi_test_client_manager,
-        fixture,
         client_type,
         environment,
         client_genesis,
@@ -206,13 +201,13 @@ def target_context_factory(
     multi_test_hive_test: HiveTest,
     hive_test: HiveTest,
     multi_test_client_manager: MultiTestClientManager,
-    fixture: BlockchainEngineXFixture,
     client_type: ClientType,
     environment: dict,
     client_genesis: dict,
     total_timing_data: "TimingData",
     wirex_eth_versions: tuple[int, ...],
     client_exception_mapper: ExceptionMapper | None,
+    request: pytest.FixtureRequest,
 ) -> Callable[[SyncTargetCase], ContextManager[TargetContext]]:
     """
     Open an isolated client context for one sync target.
@@ -235,9 +230,7 @@ def target_context_factory(
     and makes the later stop a silent no-op - the container leaks
     with every call reporting success.
     """
-    group_identifier = make_group_identifier(
-        fixture.pre_hash, client_type.name
-    )
+    group_identifier = group_identifier_of(request.node)
 
     @contextmanager
     def open_target_context(case: SyncTargetCase) -> Iterator[TargetContext]:

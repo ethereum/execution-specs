@@ -22,7 +22,7 @@ from ..consume import FixturesSource
 from .helpers.ruleset import ruleset
 from .helpers.test_tracker import (
     PreAllocGroupTestTracker,
-    make_group_identifier,
+    group_identifier_of,
 )
 
 if TYPE_CHECKING:
@@ -401,7 +401,6 @@ def boot_managed_client(
 def group_client(
     multi_test_hive_test: HiveTest,
     multi_test_client_manager: MultiTestClientManager,
-    fixture: BlockchainEngineXFixture,
     client_type: ClientType,
     environment: dict,
     client_genesis: dict,
@@ -416,9 +415,7 @@ def group_client(
     head sits above a rejection target) can wrap it in an overriding
     fixture instead of duplicating the lifecycle logic.
     """
-    group_identifier = make_group_identifier(
-        fixture.pre_hash, client_type.name
-    )
+    group_identifier = group_identifier_of(request.node)
     test_id = request.node.nodeid
 
     resolved_client = multi_test_client_manager.get_client(group_identifier)
@@ -446,7 +443,6 @@ def group_client(
 def client(
     multi_test_hive_test: HiveTest,
     multi_test_client_manager: MultiTestClientManager,
-    fixture: BlockchainEngineXFixture,
     client_type: ClientType,
     environment: dict,
     client_genesis: dict,
@@ -462,7 +458,6 @@ def client(
     yield from group_client(
         multi_test_hive_test,
         multi_test_client_manager,
-        fixture,
         client_type,
         environment,
         client_genesis,
