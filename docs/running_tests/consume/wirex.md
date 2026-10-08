@@ -45,7 +45,7 @@ sequenceDiagram
     note over S,P: once per pre-allocation group
     S->>E: start client (group genesis + pre-alloc)
     S->>P: connect(first chain)
-    P->>D: dial, RLPx auth/ack, Hello (eth/69-71, p2p v5)
+    P->>D: dial, RLPx auth/ack, Hello (eth/69-72, p2p v5)
     D-->>P: Hello (capabilities), highest common eth version wins, Snappy on
     P->>D: eth Status (fork id, earliest/latest, head hash)
     S->>E: eth_getBlockByNumber(0), verify genesis, once per client
@@ -78,7 +78,7 @@ A sync is awaited by polling for the head block itself (`eth_getBlockByHash`), n
 
 ## The Mock Peer
 
-The peer is implemented in `execution_testing.devp2p`: an RLPx transport (ECIES handshake, frame MACs, Snappy compression, p2p v5) and the eth wire protocol in versions 69 through 71. The wire dialect is negotiated per the RLPx rule (highest shared version wins) and recorded in every test's transcript; `--wirex-eth-version` pins the advertised set, so an explicit version makes a client that lacks it fail the handshake loudly.
+The peer is implemented in `execution_testing.devp2p`: an RLPx transport (ECIES handshake, frame MACs, Snappy compression, p2p v5) and the eth wire protocol in versions 69 through 72. The wire dialect is negotiated per the RLPx rule (highest shared version wins) and recorded in every test's transcript; `--wirex-eth-version` pins the advertised set, so an explicit version makes a client that lacks it fail the handshake loudly.
 
 The peer is deliberately honest. It never withholds, reorders or corrupts a response, so a sync failure is a finding about the client or the fixture rather than about the peer. Its behavior in detail:
 
