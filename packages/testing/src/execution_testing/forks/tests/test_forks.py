@@ -742,6 +742,61 @@ def test_bpo_fork() -> None:  # noqa: D103
     assert BPO3ToBPO4AtTime15k.fork_at().bpo_fork() is True
 
 
+def test_selfdestruct_burns_balance() -> None:
+    """SELFDESTRUCT can burn ether until EIP-8246."""
+    assert Frontier.selfdestruct_burns_balance() is True
+    assert BPO2.selfdestruct_burns_balance() is True
+    assert Amsterdam.selfdestruct_burns_balance() is False
+    assert Bogota.selfdestruct_burns_balance() is False
+    transition = BPO2ToAmsterdamAtTime15k
+    assert transition.fork_at(timestamp=14_999).selfdestruct_burns_balance()
+    assert not transition.fork_at(
+        timestamp=15_000
+    ).selfdestruct_burns_balance()
+
+
+def test_selfdestruct_deletes_existing_accounts() -> None:
+    """SELFDESTRUCT deletes any account until EIP-6780."""
+    assert Frontier.selfdestruct_deletes_existing_accounts() is True
+    assert Shanghai.selfdestruct_deletes_existing_accounts() is True
+    assert Cancun.selfdestruct_deletes_existing_accounts() is False
+    assert BPO2.selfdestruct_deletes_existing_accounts() is False
+    assert Amsterdam.selfdestruct_deletes_existing_accounts() is False
+    transition = ShanghaiToCancunAtTime15k
+    assert transition.fork_at(
+        timestamp=14_999
+    ).selfdestruct_deletes_existing_accounts()
+    assert not transition.fork_at(
+        timestamp=15_000
+    ).selfdestruct_deletes_existing_accounts()
+
+
+def test_block_gas_used_includes_refunds() -> None:
+    """The header's gas used counts refunds from EIP-7778."""
+    assert Frontier.block_gas_used_includes_refunds() is False
+    assert BPO2.block_gas_used_includes_refunds() is False
+    assert Amsterdam.block_gas_used_includes_refunds() is True
+    assert Bogota.block_gas_used_includes_refunds() is True
+    transition = BPO2ToAmsterdamAtTime15k
+    assert not transition.fork_at(
+        timestamp=14_999
+    ).block_gas_used_includes_refunds()
+    assert transition.fork_at(
+        timestamp=15_000
+    ).block_gas_used_includes_refunds()
+
+
+def test_block_gas_dimensions() -> None:
+    """EIP-8037 meters state gas apart from execution gas."""
+    assert Frontier.block_gas_dimensions() == 1
+    assert BPO2.block_gas_dimensions() == 1
+    assert Amsterdam.block_gas_dimensions() == 2
+    assert Bogota.block_gas_dimensions() == 2
+    transition = BPO2ToAmsterdamAtTime15k
+    assert transition.fork_at(timestamp=14_999).block_gas_dimensions() == 1
+    assert transition.fork_at(timestamp=15_000).block_gas_dimensions() == 2
+
+
 def test_fork_adapters() -> None:  # noqa: D103
     assert Osaka == ForkAdapter.validate_python("Osaka")
     assert Osaka == ForkOrNoneAdapter.validate_python("Osaka")

@@ -53,6 +53,11 @@ class EIP8037(BaseFork):
         return True
 
     @classmethod
+    def block_gas_dimensions(cls) -> int:
+        """Execution gas and state gas are metered separately."""
+        return 2
+
+    @classmethod
     def transaction_total_gas_limit_cap(cls) -> int | None:
         """
         Cap `tx.gas` as a whole at `TX_MAX_TOTAL_GAS_LIMIT`.

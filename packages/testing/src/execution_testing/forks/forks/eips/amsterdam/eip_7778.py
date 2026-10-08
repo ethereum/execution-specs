@@ -13,4 +13,7 @@ from ....base_fork import BaseFork
 class EIP7778(BaseFork):
     """EIP-7778 class."""
 
-    pass
+    @classmethod
+    def block_gas_used_includes_refunds(cls) -> bool:
+        """The header's gas used counts gas before refunds."""
+        return True

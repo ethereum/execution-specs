@@ -797,6 +797,23 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """Return the max refund quotient at a given fork."""
         pass
 
+    @classmethod
+    @abstractmethod
+    def block_gas_used_includes_refunds(cls) -> bool:
+        """
+        Return whether the header's gas used counts gas before refunds.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def block_gas_dimensions(cls) -> int:
+        """
+        Return the number of gas dimensions metered separately against the
+        block gas limit; the header's gas used is the largest of them.
+        """
+        pass
+
     # Transaction cost calculators
     @classmethod
     @abstractmethod
@@ -1363,6 +1380,21 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         Return the list of refund types that are possible given current
         fork logic.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def selfdestruct_burns_balance(cls) -> bool:
+        """Return whether SELFDESTRUCT can burn ether."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def selfdestruct_deletes_existing_accounts(cls) -> bool:
+        """
+        Return whether SELFDESTRUCT deletes an account created before the
+        current transaction.
         """
         pass
 
