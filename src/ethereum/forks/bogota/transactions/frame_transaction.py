@@ -91,10 +91,12 @@ class FrameMode(UintEnum, boundary=STRICT):
     """
     Indicates the purpose of a [`Frame`].
 
-    The strict boundary rejects values other than the modes defined here as
-    the enum is constructed — notably while decoding a transaction — so a
-    frame with an undefined mode never decodes and no separate validity
-    check is required.
+    The members below are the only valid modes. The strict boundary rejects
+    any other value as the enum is constructed — notably while decoding a
+    transaction — so a frame with an undefined mode never decodes and no
+    separate validity check is required. An EIP that extends frame
+    transactions with a new mode adds a member here; it does not change how
+    the existing members are checked.
 
     [`Frame`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Frame
     """  # noqa: E501
