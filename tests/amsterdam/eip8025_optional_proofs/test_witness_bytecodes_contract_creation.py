@@ -3,6 +3,7 @@
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -408,6 +409,28 @@ def _create_from_memory(initcode: bytes) -> Bytecode:
     )
 
 
+def _read_code(
+    read_op: str, address: Address, code: bytes
+) -> tuple[Bytecode, int]:
+    """
+    Return code that reads the code at `address` and the value it yields.
+
+    The code leaves one value on the stack: the code size, the first
+    word of the code, or the CALL success flag.
+    """
+    if read_op == "extcodesize":
+        return Op.EXTCODESIZE(address), len(code)
+    elif read_op == "extcodecopy":
+        return (
+            Op.EXTCODECOPY(address, 64, 0, len(code)) + Op.MLOAD(64),
+            int.from_bytes(code.ljust(32, b"\0"), "big"),
+        )
+    elif read_op == "call":
+        return Op.CALL(address=address), 1
+    else:
+        raise ValueError(f"unknown read op: {read_op}")
+
+
 @pytest.mark.parametrize("read_op", ["extcodesize", "extcodecopy", "call"])
 def test_witness_codes_create_same_hash_then_read_same_tx(
     pre: Alloc,
@@ -424,21 +447,14 @@ def test_witness_codes_create_same_hash_then_read_same_tx(
     """
     runtime_code = bytes(Op.PUSH1(0x00) + Op.PUSH1(0x00) + Op.RETURN)
     existing_contract = pre.deploy_contract(code=runtime_code)
-
-    if read_op == "extcodesize":
-        read = Op.SSTORE(1, Op.EXTCODESIZE(existing_contract))
-        read_result = len(runtime_code)
-    elif read_op == "extcodecopy":
-        read = Op.EXTCODECOPY(
-            existing_contract, 64, 0, len(runtime_code)
-        ) + Op.SSTORE(1, Op.MLOAD(64))
-        read_result = int.from_bytes(runtime_code.ljust(32, b"\0"), "big")
-    else:
-        read = Op.SSTORE(1, Op.CALL(address=existing_contract))
-        read_result = 1
+    read, read_result = _read_code(read_op, existing_contract, runtime_code)
 
     initcode = bytes(Initcode(deploy_code=runtime_code))
-    factory_code = Op.SSTORE(0, _create_from_memory(initcode)) + read + Op.STOP
+    factory_code = (
+        Op.SSTORE(0, _create_from_memory(initcode))
+        + Op.SSTORE(1, read)
+        + Op.STOP
+    )
     factory = pre.deploy_contract(code=factory_code)
     sender = pre.fund_eoa()
     created = compute_create_address(address=factory, nonce=1)
@@ -469,9 +485,11 @@ def test_witness_codes_create_same_hash_then_read_same_tx(
     )
 
 
+@pytest.mark.parametrize("read_op", ["extcodesize", "extcodecopy", "call"])
 def test_witness_codes_reverted_create_same_hash_then_read_same_tx(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    read_op: str,
 ) -> None:
     """
     A reverted sub-call CREATEs code, then a pre-state copy is read.
@@ -482,6 +500,7 @@ def test_witness_codes_reverted_create_same_hash_then_read_same_tx(
     """
     runtime_code = bytes(Op.PUSH1(0x00) + Op.PUSH1(0x00) + Op.RETURN)
     existing_contract = pre.deploy_contract(code=runtime_code)
+    read, read_result = _read_code(read_op, existing_contract, runtime_code)
 
     initcode = bytes(Initcode(deploy_code=runtime_code))
     reverting_creator_code = Op.POP(_create_from_memory(initcode)) + Op.REVERT(
@@ -490,7 +509,7 @@ def test_witness_codes_reverted_create_same_hash_then_read_same_tx(
     reverting_creator = pre.deploy_contract(code=reverting_creator_code)
     factory_code = (
         Op.SSTORE(0, Op.CALL(address=reverting_creator))
-        + Op.SSTORE(1, Op.EXTCODESIZE(existing_contract))
+        + Op.SSTORE(1, read)
         + Op.STOP
     )
     factory = pre.deploy_contract(code=factory_code)
@@ -522,8 +541,63 @@ def test_witness_codes_reverted_create_same_hash_then_read_same_tx(
             )
         ],
         post={
-            factory: Account(storage={0: 0, 1: len(runtime_code)}),
+            factory: Account(storage={0: 0, 1: read_result}),
             reverted_created: Account.NONEXISTENT,
+        },
+    )
+
+
+@pytest.mark.parametrize("read_op", ["extcodesize", "extcodecopy", "call"])
+def test_witness_codes_read_then_create_same_hash_same_tx(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    read_op: str,
+) -> None:
+    """
+    Factory reads a pre-state contract, then CREATEs the same code.
+
+    Both happen in the same transaction. The read reaches the pre-state
+    before the CREATE writes the code hash, so that code must appear in
+    executionWitness.codes.
+    """
+    runtime_code = bytes(Op.PUSH1(0x00) + Op.PUSH1(0x00) + Op.RETURN)
+    existing_contract = pre.deploy_contract(code=runtime_code)
+    read, read_result = _read_code(read_op, existing_contract, runtime_code)
+
+    initcode = bytes(Initcode(deploy_code=runtime_code))
+    factory_code = (
+        Op.SSTORE(1, read)
+        + Op.SSTORE(0, _create_from_memory(initcode))
+        + Op.STOP
+    )
+    factory = pre.deploy_contract(code=factory_code)
+    sender = pre.fund_eoa()
+    created = compute_create_address(address=factory, nonce=1)
+
+    tx = Transaction(
+        sender=sender,
+        to=factory,
+        gas_limit=500_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_execution_witness_codes=(
+                    ExecutionWitnessCodesExpectation(
+                        codes_present=[
+                            Bytes(factory_code),
+                            Bytes(runtime_code),
+                        ],
+                    )
+                ),
+            )
+        ],
+        post={
+            factory: Account(storage={0: created, 1: read_result}),
+            created: Account(nonce=1, code=runtime_code),
         },
     )
 
