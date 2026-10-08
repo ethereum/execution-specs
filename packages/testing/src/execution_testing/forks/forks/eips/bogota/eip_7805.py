@@ -31,3 +31,8 @@ class EIP7805(
     def inclusion_list_transactions_size_limit(cls) -> int | None:
         """A committee member's list carries at most 8 KiB of transactions."""
         return 8192
+
+    @classmethod
+    def inclusion_list_counts_blob_entries(cls) -> bool:
+        """An appendable blob entry counts like any other transaction."""
+        return True

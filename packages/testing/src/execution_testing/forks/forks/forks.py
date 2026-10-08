@@ -980,6 +980,11 @@ class Frontier(BaseFork):
         return False
 
     @classmethod
+    def inclusion_list_counts_blob_entries(cls) -> bool:
+        """At genesis, there are no inclusion lists."""
+        return False
+
+    @classmethod
     def engine_execution_payload_block_access_list(cls) -> bool:
         """At genesis, payloads do not have block access list."""
         return False
