@@ -37,8 +37,9 @@ from execution_testing.devp2p.peer import MockPeer
 from execution_testing.devp2p.protocol import ETH_PROTOCOLS
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.fixtures.consume import TestCaseBase
 
-from ..helpers.test_tracker import count_tests_per_group
+from ..helpers.test_tracker import count_tests_per_group, group_variant_of
 from .sync_targets import (
     UNDECODABLE_BODY_INVALIDITIES,
     SyncTargetCase,
@@ -69,6 +70,10 @@ pytest_plugins = (
 
 DEFAULT_NETWORK_ID = 1
 """Network identifier the client is started with, and the peer claims."""
+
+ACCESS_LISTS_WITHHELD = "access_lists_withheld"
+ACCESS_LISTS_SERVED = "access_lists_served"
+"""The group variants `--wirex-access-lists both` runs a fixture under."""
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -129,6 +134,25 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--wirex-access-lists",
+        action="store",
+        dest="wirex_access_lists",
+        choices=["withhold", "serve", "both"],
+        default="withhold",
+        help=(
+            "Whether the mock peer answers eth/71 GetBlockAccessLists "
+            "requests. 'withhold' (default) leaves them unanswered, so "
+            "a client must execute each block on its own, and a pass "
+            "proves it did. 'serve' answers them from each block's "
+            "payload, so a client that uses access lists to execute a "
+            "block's transactions in parallel takes that path instead. "
+            "'both' runs every fixture whose blocks carry access lists "
+            "(Amsterdam onward) once in each mode, each on its own "
+            "client, with the mode as a test ID suffix; earlier forks "
+            "run once."
+        ),
+    )
+    group.addoption(
         "--wirex-sync-timeout",
         action="store",
         dest="wirex_sync_timeout",
@@ -166,6 +190,21 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def pytest_configure(config: pytest.Config) -> None:
     """Set the supported fixture formats for the wirex simulator."""
     config.supported_fixture_formats = [BlockchainEngineXFixture]  # type: ignore[attr-defined]
+    if config.getoption("wirex_access_lists", "withhold") == "both":
+        config.group_variants = access_list_variants  # type: ignore[attr-defined]
+
+
+def access_list_variants(test_case: TestCaseBase) -> tuple[str, ...]:
+    """
+    Return the access list modes to run `test_case` under.
+
+    Only blocks from Amsterdam onward carry an access list, so an
+    earlier fixture runs once: serving would change nothing for it.
+    """
+    fork = test_case.fork
+    if fork is None or not fork.transitions_to().header_bal_hash_required():
+        return ("",)
+    return (ACCESS_LISTS_WITHHELD, ACCESS_LISTS_SERVED)
 
 
 def _chain_properties(
@@ -305,6 +344,15 @@ def wirex_eth_versions(request: pytest.FixtureRequest) -> tuple[int, ...]:
     return (int(option),)
 
 
+@pytest.fixture(scope="function")
+def wirex_serve_access_lists(request: pytest.FixtureRequest) -> bool:
+    """Return whether this test's peer serves block access lists."""
+    variant = group_variant_of(request.node)
+    if variant:
+        return variant == ACCESS_LISTS_SERVED
+    return request.config.getoption("wirex_access_lists") == "serve"
+
+
 @pytest.fixture(scope="session")
 def wirex_sync_timeout(request: pytest.FixtureRequest) -> float:
     """Return how long to wait for a client to reach the fixture head."""
@@ -416,6 +464,7 @@ def dial_mock_peer(
     client: Client,
     chain: Chain,
     eth_versions: tuple[int, ...],
+    serve_access_lists: bool,
     total_timing_data: "TimingData",
 ) -> MockPeer:
     """
@@ -433,6 +482,7 @@ def dial_mock_peer(
         private_key=os.urandom(32),
         network_id=DEFAULT_NETWORK_ID,
         eth_versions=eth_versions,
+        serve_access_lists=serve_access_lists,
     )
     with total_timing_data.time("Connect mock peer"):
         # The client readiness gate waits on the Engine API port only;
@@ -459,6 +509,7 @@ def mock_peer(
     sync_target_cases: list[SyncTargetCase],
     mock_peers: Dict[str, MockPeer],
     wirex_eth_versions: tuple[int, ...],
+    wirex_serve_access_lists: bool,
     total_timing_data: "TimingData",
 ) -> MockPeer:
     """
@@ -475,7 +526,11 @@ def mock_peer(
     peer = mock_peers.get(client.id)
     if peer is None:
         peer = dial_mock_peer(
-            client, chain, wirex_eth_versions, total_timing_data
+            client,
+            chain,
+            wirex_eth_versions,
+            wirex_serve_access_lists,
+            total_timing_data,
         )
         mock_peers[client.id] = peer
         return peer

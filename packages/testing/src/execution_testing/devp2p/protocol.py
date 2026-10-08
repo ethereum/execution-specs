@@ -259,11 +259,13 @@ class EthProtocol:
     unanswered_requests: Mapping[int, str]
     """
     Wire code to message name of every request this peer deliberately
-    never answers. Receipts, and from eth/71 block access lists, are
-    data a client could import instead of deriving by execution;
-    serving either would let a failing test pass with no coverage, so
-    the silence is a recorded decision per message type rather than an
-    omission.
+    leaves unanswered by default. Receipts, and from eth/71 block access
+    lists, are data a client could import instead of deriving by
+    execution; serving either could let a failing test pass with no
+    coverage, so the silence is a recorded decision per message type
+    rather than an omission. Access lists can be served on request (see
+    `MockPeer`), since clients that execute anyway use them to run a
+    block's transactions in parallel.
     """
 
     def encode_status(self, status: Status) -> bytes:

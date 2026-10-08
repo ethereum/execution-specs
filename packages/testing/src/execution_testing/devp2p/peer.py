@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Sequence, Set
 from .chain import Chain, ServedChains
 from .keccak import keccak256
 from .protocol import (
+    BLOCK_ACCESS_LISTS,
     BLOCK_BODIES,
     BLOCK_HEADERS,
     BLOCK_RANGE_UPDATE,
@@ -77,6 +78,12 @@ cap: a single body is always served, however large it is alone.
 
 EMPTY_LIST_PAYLOAD = b"\xc0"
 
+UNAVAILABLE_ACCESS_LIST = b"\x80"
+"""
+The entry EIP-8159 prescribes for a block whose access list a peer does
+not hold: the RLP empty string, which no access list encodes to.
+"""
+
 
 @dataclass
 class PeerStatistics:
@@ -104,6 +111,8 @@ class PeerStatistics:
     non-derivable body must have been downloaded from this peer, not
     just some block.
     """
+    access_list_requests: int = 0
+    access_lists_served: int = 0
     unknown_requests: int = 0
     unanswered_requests: Dict[str, int] = field(default_factory=dict)
     """
@@ -140,6 +149,7 @@ class MockPeer:
         private_key: bytes,
         network_id: int,
         eth_versions: Sequence[int] | None = None,
+        serve_access_lists: bool = False,
     ) -> None:
         """
         Record where to dial and under which network identity.
@@ -149,12 +159,20 @@ class MockPeer:
         Passing exactly one version forces the client to speak it or
         fail the handshake loudly, which is what probing a client's
         version matrix wants.
+
+        `serve_access_lists` answers eth/71 GetBlockAccessLists requests
+        instead of leaving them unanswered. A client that receives a
+        block's access list may use it to execute the block's
+        transactions in parallel, a different execution path from the
+        sequential one it falls back to without; serving lets a test
+        reach it over the sync path.
         """
         self.host = host
         self.port = port
         self.remote_public_key = remote_public_key
         self.private_key = private_key
         self.network_id = network_id
+        self.serve_access_lists = serve_access_lists
         if eth_versions is None:
             eth_versions = tuple(ETH_PROTOCOLS)
         unknown = set(eth_versions).difference(ETH_PROTOCOLS)
@@ -384,6 +402,10 @@ class MockPeer:
             self._serve_headers(session, decode_get_block_headers(payload))
         elif code == GET_BLOCK_BODIES:
             self._serve_bodies(session, *decode_get_block_bodies(payload))
+        elif code == GET_BLOCK_ACCESS_LISTS and self.serve_access_lists:
+            self._serve_access_lists(
+                session, *decode_get_block_access_lists(payload)
+            )
         elif code in protocol.unanswered_requests:
             # A full syncing client derives receipts - and, from
             # Amsterdam, block access lists - by executing the block,
@@ -532,6 +554,49 @@ class MockPeer:
             statistics.record(
                 f"bodies for {len(hashes)} hashes -> "
                 f"{len(bodies)} served ({served_bytes} bytes){detail}"
+            )
+
+    def _serve_access_lists(
+        self, session: RLPxSession, request_id: int, hashes: List[bytes]
+    ) -> None:
+        """
+        Answer a GetBlockAccessLists request from the served chains.
+
+        Entries are positional (EIP-8159): one per requested hash, in
+        order, with the RLP empty string for a block whose access list
+        this peer does not hold. The response stops early once it
+        reaches the soft byte limit, as the bodies response does; the
+        client asks again for the rest.
+        """
+        with self._lock:
+            statistics = self.statistics
+            statistics.access_list_requests += 1
+
+        entries: List[bytes] = []
+        served = 0
+        served_bytes = 0
+        for block_hash in hashes[:MAX_BODIES_PER_RESPONSE]:
+            if served_bytes >= SOFT_RESPONSE_LIMIT:
+                break
+            access_list = self._chains.access_list_rlp_by_hash(block_hash)
+            if access_list is None:
+                entries.append(UNAVAILABLE_ACCESS_LIST)
+                continue
+            entries.append(access_list)
+            served += 1
+            served_bytes += len(access_list)
+
+        # Written before recording, for the same reason as in
+        # `_serve_bodies`: a failed send must not read as service.
+        session.write_message(
+            BLOCK_ACCESS_LISTS, encode_response(request_id, entries)
+        )
+
+        with self._lock:
+            statistics.access_lists_served += served
+            statistics.record(
+                f"access lists for {len(hashes)} hashes -> {served} "
+                f"served ({served_bytes} bytes)"
             )
 
     def close(self) -> None:

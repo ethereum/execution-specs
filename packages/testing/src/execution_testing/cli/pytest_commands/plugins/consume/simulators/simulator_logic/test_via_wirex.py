@@ -577,6 +577,12 @@ def _run_sync_target(
         f"{statistics.header_requests} request(s) and "
         f"{statistics.bodies_served} body/bodies in "
         f"{statistics.body_requests} request(s)"
+        + (
+            f", {statistics.access_lists_served} access list(s) in "
+            f"{statistics.access_list_requests} request(s)"
+            if statistics.access_list_requests
+            else ""
+        )
     )
     assert_wire_coverage(chain, mock_peer, "reached the expected head")
 

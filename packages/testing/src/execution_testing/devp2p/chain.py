@@ -73,6 +73,12 @@ class Block:
     header: FixtureHeader
     transactions: List[Bytes]
     withdrawals: List[Withdrawal] | None
+    access_list_rlp: bytes | None = None
+    """
+    The block's RLP-encoded EIP-7928 access list, as its payload
+    carries it; `None` before Amsterdam. It is not part of the body:
+    eth/71 (EIP-8159) serves it through its own request pair.
+    """
 
     @property
     def number(self) -> int:
@@ -175,6 +181,9 @@ def block_from_payload(payload: FixtureEngineNewPayload) -> Block:
         header=header,
         transactions=list(execution_payload.transactions),
         withdrawals=None if withdrawals is None else list(withdrawals),
+        access_list_rlp=(
+            None if block_access_list is None else bytes(block_access_list)
+        ),
     )
 
 
@@ -241,6 +250,11 @@ class Chain:
         block = self._by_hash.get(block_hash)
         return None if block is None else block.body_rlp()
 
+    def access_list_rlp_by_hash(self, block_hash: bytes) -> bytes | None:
+        """Return the access list RLP of the block with `block_hash`."""
+        block = self._by_hash.get(block_hash)
+        return None if block is None else block.access_list_rlp
+
 
 class ServedChains:
     """
@@ -291,6 +305,15 @@ class ServedChains:
         """Return the RLP of the body with `block_hash`, if held."""
         chain = self.chain_for_hash(block_hash)
         return None if chain is None else chain.body_rlp_by_hash(block_hash)
+
+    def access_list_rlp_by_hash(self, block_hash: bytes) -> bytes | None:
+        """Return the access list RLP of the block with `block_hash`."""
+        chain = self.chain_for_hash(block_hash)
+        return (
+            None
+            if chain is None
+            else chain.access_list_rlp_by_hash(block_hash)
+        )
 
 
 def chain_from_payloads(

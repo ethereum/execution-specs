@@ -206,6 +206,7 @@ def target_context_factory(
     client_genesis: dict,
     total_timing_data: "TimingData",
     wirex_eth_versions: tuple[int, ...],
+    wirex_serve_access_lists: bool,
     client_exception_mapper: ExceptionMapper | None,
     request: pytest.FixtureRequest,
 ) -> Callable[[SyncTargetCase], ContextManager[TargetContext]]:
@@ -258,6 +259,7 @@ def target_context_factory(
                     target_client,
                     case.chain,
                     wirex_eth_versions,
+                    wirex_serve_access_lists,
                     total_timing_data,
                 )
                 yield TargetContext(

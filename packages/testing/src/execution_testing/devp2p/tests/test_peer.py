@@ -14,16 +14,25 @@ import socket
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, cast
 
+import ethereum_rlp as eth_rlp
 import pytest
+from ethereum_types.numeric import Uint
 
 from ..keccak import keccak256
 from ..peer import (
     BLOCK_BODIES,
     MAX_BODIES_PER_RESPONSE,
     SOFT_RESPONSE_LIMIT,
+    UNAVAILABLE_ACCESS_LIST,
     MockPeer,
 )
-from ..protocol import BlockHeadersRequest
+from ..protocol import (
+    BLOCK_ACCESS_LISTS,
+    ETH_PROTOCOLS,
+    GET_BLOCK_ACCESS_LISTS,
+    GET_RECEIPTS,
+    BlockHeadersRequest,
+)
 from ..rlpx import MAX_FRAME_SIZE, RLPxError, RLPxSession
 
 LARGE_BODY_SIZE = 8 * 1024 * 1024
@@ -327,3 +336,90 @@ class TestFrameSizeGuard:
         # One byte for the message code brings the frame to the ceiling.
         with pytest.raises(RLPxError, match="frame of"):
             session.write_message(0x10, b"\x00" * (MAX_FRAME_SIZE - 1))
+
+
+class _StubAccessListChains:
+    """The access lists a peer holds, keyed by block hash."""
+
+    def __init__(self, access_lists: Dict[bytes, bytes | None]) -> None:
+        """Hold `access_lists`; a `None` value is a pre-Amsterdam block."""
+        self._access_lists = access_lists
+
+    def access_list_rlp_by_hash(self, block_hash: bytes) -> bytes | None:
+        """Return the access list held under `block_hash`, if any."""
+        return self._access_lists.get(block_hash)
+
+
+def _access_list_peer(
+    access_lists: Dict[bytes, bytes | None], serve: bool
+) -> MockPeer:
+    """Return an eth/71 peer holding `access_lists`."""
+    peer = MockPeer(
+        host="127.0.0.1",
+        port=30303,
+        remote_public_key=b"\x00" * 64,
+        private_key=b"\x01" * 32,
+        network_id=1,
+        serve_access_lists=serve,
+    )
+    peer.protocol = ETH_PROTOCOLS[71]
+    peer._chains = cast(Any, _StubAccessListChains(access_lists))
+    return peer
+
+
+def _request_access_lists(peer: MockPeer, hashes: List[bytes]) -> Any:
+    """Send `peer` a GetBlockAccessLists request and return its answer."""
+    session = _RecordingSession()
+    payload = eth_rlp.encode([Uint(5), hashes])
+    peer._handle(cast(RLPxSession, session), GET_BLOCK_ACCESS_LISTS, payload)
+    return session.messages
+
+
+class TestAccessListService:
+    """Access lists are withheld by default and served on request."""
+
+    ACCESS_LIST = eth_rlp.encode([[b"\x11" * 20, [], [], [], [], []]])
+
+    def test_withheld_by_default(self) -> None:
+        """The default peer leaves the request unanswered and counts it."""
+        peer = _access_list_peer({_hash(1): self.ACCESS_LIST}, serve=False)
+        assert _request_access_lists(peer, [_hash(1)]) == []
+        assert peer.statistics.unanswered_requests == {
+            "GetBlockAccessLists": 1
+        }
+        assert peer.statistics.access_lists_served == 0
+
+    def test_served_entries_are_positional(self) -> None:
+        """
+        One entry per requested hash, in order: the access list itself,
+        not wrapped in a byte string, and the RLP empty string for a
+        block without one (unknown, or from before Amsterdam).
+        """
+        peer = _access_list_peer(
+            {_hash(1): self.ACCESS_LIST, _hash(2): None}, serve=True
+        )
+        messages = _request_access_lists(peer, [_hash(1), _hash(2), _hash(3)])
+        assert len(messages) == 1
+        code, payload = messages[0]
+        assert code == BLOCK_ACCESS_LISTS
+        request_id, entries = cast(
+            Tuple[bytes, List[Any]], eth_rlp.decode(payload)
+        )
+        assert int.from_bytes(request_id, "big") == 5
+        assert [eth_rlp.encode(entry) for entry in entries] == [
+            self.ACCESS_LIST,
+            UNAVAILABLE_ACCESS_LIST,
+            UNAVAILABLE_ACCESS_LIST,
+        ]
+        assert peer.statistics.access_list_requests == 1
+        assert peer.statistics.access_lists_served == 1
+        assert peer.statistics.unanswered_requests == {}
+
+    def test_receipts_stay_unanswered_when_serving(self) -> None:
+        """Serving access lists never extends to receipts."""
+        peer = _access_list_peer({}, serve=True)
+        session = _RecordingSession()
+        payload = eth_rlp.encode([Uint(5), Uint(0), [_hash(1)]])
+        peer._handle(cast(RLPxSession, session), GET_RECEIPTS, payload)
+        assert session.messages == []
+        assert peer.statistics.receipt_requests == 1
