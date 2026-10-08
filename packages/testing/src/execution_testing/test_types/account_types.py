@@ -15,7 +15,6 @@ from typing import (
     Iterator,
     List,
     Literal,
-    Mapping,
     Optional,
     Self,
 )
@@ -585,28 +584,6 @@ class Alloc(BaseAlloc):
     def items(self) -> ItemsView[Address, Account | None]:
         """Return iterator over the allocation items."""
         return self.root.items()
-
-    def with_installed_code(self, installs: Mapping) -> "Alloc":
-        """
-        Return a copy of this allocation with the runtime code in `installs`
-        written at each address.
-
-        Only the code changes: an account that already exists keeps its
-        nonce, balance and storage, and one that does not is created with
-        all three zero. This is how a fork installs code when it activates,
-        as opposed to a predeploy that is part of the genesis allocation.
-        """
-        if not installs:
-            return self
-        root: Dict[Address, Account | None] = dict(self.root)
-        for address, code in installs.items():
-            address = Address(address)
-            root[address] = Account.merge(
-                root.get(address), Account(code=code)
-            )
-        installed = Alloc(root)
-        installed.migrate_state_commitment(self.state_commitment())
-        return installed
 
     def __getitem__(
         self, address: Address | FixedSizeBytesConvertible
