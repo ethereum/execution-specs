@@ -13,12 +13,10 @@ Each `engine_newPayloadVX` is verified against the appropriate VALID/INVALID
 responses.
 """
 
-from typing import List, Union, cast
+from typing import Union
 
-from ethereum_rlp import rlp
 from hive.client import Client
 
-from execution_testing.base_types import Bytes
 from execution_testing.fixtures import (
     BlockchainEngineFixture,
     BlockchainEngineXFixture,
@@ -36,6 +34,7 @@ from execution_testing.rpc.rpc_types import (
     JSONRPCError,
     PayloadStatusEnum,
 )
+from execution_testing.test_types import TransactionType
 
 from ..helpers.exceptions import (
     GenesisBlockMismatchExceptionError,
@@ -48,12 +47,6 @@ from ..helpers.rejected_blocks import (
 from ..helpers.timing import TimingData
 
 logger = get_logger(__name__)
-
-MAX_BYTES_PER_INCLUSION_LIST = 8192
-"""
-Maximum RLP-encoded byte length of an inclusion list, from the
-`engine_getInclusionListV1` specification.
-"""
 
 
 def test_blockchain_via_engine(
@@ -82,6 +75,8 @@ def test_blockchain_via_engine(
        done once per client and skipped for later tests in the group.
     3. Execute test fixture blocks using engine_newPayloadVX.
     4. For valid payloads, send FCU to advance the chain head.
+    5. If the head carries an inclusion list verdict, check the list the
+       client builds with `engine_getInclusionListVX`.
 
     A client's bad-block cache persists across the tests of a pre-alloc
     group in enginex mode: a block that an earlier test already got
@@ -269,9 +264,8 @@ def test_blockchain_via_engine(
                                 f"{PayloadStatusEnum.VALID}, got {status}"
                             )
                         if payload.inclusion_list_satisfied is not None:
-                            fcu_ils = (
-                                forkchoice_response.payload_status.inclusion_list_satisfied  # noqa: E501
-                            )
+                            fcu_status = forkchoice_response.payload_status
+                            fcu_ils = fcu_status.inclusion_list_satisfied
                             # The client must evaluate the retained
                             # inclusion lists when the forkchoice head is
                             # deemed VALID.
@@ -289,53 +283,46 @@ def test_blockchain_via_engine(
                                 )
         logger.info("All payloads processed successfully.")
 
-    if any(
-        payload.inclusion_list_satisfied is not None
-        for payload in fixture.payloads
+    head_payload = next(
+        (p for p in reversed(fixture.payloads) if p.valid()), None
+    )
+    if (
+        head_payload is not None
+        and head_payload.inclusion_list_satisfied is not None
     ):
-        with timing_data.time("engine_getInclusionListV1"):
-            head_payload = next(
-                (p for p in reversed(fixture.payloads) if p.valid()), None
-            )
-            seeded: List[Bytes] = []
-            if (
-                head_payload is not None
-                and head_payload.inclusion_list_satisfied is False
-            ):
-                # An unsatisfied payload's inclusion list holds at least
-                # one transaction that is still appendable on the head
-                # state; seed the mempool with every entry the client
-                # accepts. A payload with a pinned satisfaction was built
-                # with the inclusion list as its last parameter.
-                inclusion_list_param = cast(
-                    List[Bytes], head_payload.params[-1]
-                )
+        head = head_payload.params[0]
+        head_fork = fixture.fork.fork_at(
+            block_number=head.number, timestamp=head.timestamp
+        )
+        il_version = head_fork.engine_get_inclusion_list_version()
+        size_limit = head_fork.inclusion_list_transactions_size_limit()
+        assert il_version is not None and size_limit is not None
+        with timing_data.time(f"engine_getInclusionListV{il_version}"):
+            if head_payload.inclusion_list_satisfied is False:
+                # The unsatisfied list holds a transaction still appendable
+                # on the head state, so the client has a candidate to pick.
+                inclusion_list_param = head_payload.params[-1]
+                assert isinstance(inclusion_list_param, list)
                 for raw_tx in inclusion_list_param:
                     try:
                         eth_rpc.send_raw_transaction(raw_tx)
-                        seeded.append(raw_tx)
                     except SendTransactionExceptionError:
-                        # Entries may be deliberately invalid; only the
-                        # accepted ones must come back.
-                        continue
-            logger.info("Sending engine_getInclusionListV1...")
-            inclusion_list = engine_rpc.get_inclusion_list()
-            encoded_size = len(rlp.encode(inclusion_list))
-            if encoded_size > MAX_BYTES_PER_INCLUSION_LIST:
+                        # Entries may be deliberately invalid.
+                        pass
+            logger.info(f"Sending engine_getInclusionListV{il_version}...")
+            inclusion_list = engine_rpc.get_inclusion_list(version=il_version)
+            # Which transactions to pick is up to the client; only the
+            # list's form is specified.
+            transactions_size = sum(len(entry) for entry in inclusion_list)
+            if transactions_size > size_limit:
                 raise LoggedError(
-                    f"inclusion list RLP size {encoded_size} exceeds "
-                    f"{MAX_BYTES_PER_INCLUSION_LIST} bytes"
+                    f"inclusion list transactions total {transactions_size} "
+                    f"bytes, over the {size_limit}-byte limit"
                 )
             for entry in inclusion_list:
                 if len(entry) == 0:
                     raise LoggedError("empty inclusion list entry")
-                if entry[0] == 3:
+                if entry[0] == TransactionType.BLOB_TRANSACTION:
                     raise LoggedError(
                         f"blob transaction in inclusion list: {entry.hex()}"
-                    )
-            for raw_tx in seeded:
-                if raw_tx not in inclusion_list:
-                    raise LoggedError(
-                        "pending transaction missing from inclusion "
-                        f"list: {raw_tx.hex()}"
                     )
