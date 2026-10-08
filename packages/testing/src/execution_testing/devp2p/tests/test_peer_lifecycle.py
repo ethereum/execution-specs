@@ -11,7 +11,7 @@ import pytest
 from ethereum_types.numeric import Uint
 
 from ..chain import Chain
-from ..peer import MockPeer
+from ..peer import MockPeer, PeerStatistics
 from ..protocol import BLOCK_HEADERS, ETH_PROTOCOLS, GET_BLOCK_HEADERS
 from ..rlpx import RLPxSession
 
@@ -302,16 +302,33 @@ class TestStatisticsAcrossRedials:
         assert "headers before the drop" in peer.statistics.transcript
         peer.close()
 
-    def test_a_reset_starts_the_next_tests_transcript(self) -> None:
+    def test_a_reset_starts_the_next_test_from_empty_statistics(
+        self,
+    ) -> None:
         """
-        A test that begins with a redial starts from empty statistics,
-        naming only the negotiated eth version.
+        A reset leaves no field of the previous test's statistics, only
+        the negotiated eth version, and keeps the lifetime evidence.
         """
         peer = _peer()
-        peer.statistics.record("the previous test's headers")
-        peer.statistics.headers_served = 7
+        previous = peer.statistics
+        previous.record("the previous test's headers")
+        previous.header_requests = 1
+        previous.headers_served = 7
+        previous.header_hashes_served.add(b"\x01" * 32)
+        previous.body_requests = 2
+        previous.bodies_served = 3
+        previous.body_hashes_served.add(b"\x02" * 32)
+        previous.bal_requests = 4
+        previous.bals_served = 5
+        previous.bals_withheld = 6
+        previous.receipt_requests = 7
+        peer.header_hashes_ever_served.add(b"\x01" * 32)
+        peer.body_hashes_ever_served.add(b"\x02" * 32)
+
         peer.reset_statistics()
-        assert peer.statistics.headers_served == 0
-        assert peer.statistics.transcript == [
-            f"eth/{max(ETH_PROTOCOLS)} negotiated"
-        ]
+
+        assert peer.statistics == PeerStatistics(
+            transcript=[f"eth/{max(ETH_PROTOCOLS)} negotiated"]
+        )
+        assert peer.header_hashes_ever_served == {b"\x01" * 32}
+        assert peer.body_hashes_ever_served == {b"\x02" * 32}

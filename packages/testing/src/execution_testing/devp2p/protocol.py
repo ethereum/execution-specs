@@ -9,7 +9,7 @@ chain data. Every other message is ignored.
 
 import zlib
 from dataclasses import dataclass
-from typing import Dict, List, Mapping, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 import ethereum_rlp as eth_rlp
 from ethereum_types.numeric import Uint
@@ -33,39 +33,14 @@ PONG = 0x03
 
 # eth capability message codes, already offset onto the wire.
 STATUS = ETH_OFFSET + 0x00
-TRANSACTIONS = ETH_OFFSET + 0x02
 GET_BLOCK_HEADERS = ETH_OFFSET + 0x03
 BLOCK_HEADERS = ETH_OFFSET + 0x04
 GET_BLOCK_BODIES = ETH_OFFSET + 0x05
 BLOCK_BODIES = ETH_OFFSET + 0x06
-NEW_POOLED_TRANSACTION_HASHES = ETH_OFFSET + 0x08
-GET_POOLED_TRANSACTIONS = ETH_OFFSET + 0x09
 GET_RECEIPTS = ETH_OFFSET + 0x0F
-RECEIPTS = ETH_OFFSET + 0x10
 BLOCK_RANGE_UPDATE = ETH_OFFSET + 0x11
 GET_BLOCK_ACCESS_LISTS = ETH_OFFSET + 0x12
 BLOCK_ACCESS_LISTS = ETH_OFFSET + 0x13
-
-MESSAGE_NAMES = {
-    HELLO: "Hello",
-    DISCONNECT: "Disconnect",
-    PING: "Ping",
-    PONG: "Pong",
-    STATUS: "Status",
-    TRANSACTIONS: "Transactions",
-    GET_BLOCK_HEADERS: "GetBlockHeaders",
-    BLOCK_HEADERS: "BlockHeaders",
-    GET_BLOCK_BODIES: "GetBlockBodies",
-    BLOCK_BODIES: "BlockBodies",
-    NEW_POOLED_TRANSACTION_HASHES: "NewPooledTransactionHashes",
-    GET_POOLED_TRANSACTIONS: "GetPooledTransactions",
-    GET_RECEIPTS: "GetReceipts",
-    RECEIPTS: "Receipts",
-    BLOCK_RANGE_UPDATE: "BlockRangeUpdate",
-    GET_BLOCK_ACCESS_LISTS: "GetBlockAccessLists",
-    BLOCK_ACCESS_LISTS: "BlockAccessLists",
-}
-"""Human readable names used in the peer's request transcript."""
 
 
 class ProtocolError(Exception):
@@ -234,12 +209,8 @@ class EthProtocol:
     """
     One implemented version of the eth capability.
 
-    A protocol object owns exactly the things versions change: the
-    version number, the codecs whose wire shape differs between
-    versions, and the set of requests this peer deliberately leaves
-    unanswered. Everything version independent - RLP helpers, the fork
-    id, the header and body request codecs, which have been stable
-    since eth/66 - stays at module level.
+    It holds only what differs between versions; everything version
+    independent stays at module level.
     """
 
     version: int
@@ -247,15 +218,8 @@ class EthProtocol:
     receipts_request_has_offset: bool
     """Whether GetReceipts carries the eth/70 receipt offset."""
 
-    unanswered_requests: Mapping[int, str]
-    """
-    Wire code to message name of every request this peer deliberately
-    never answers. Receipts, and from eth/71 block access lists, are
-    data a client could import instead of deriving by execution;
-    serving either would let a failing test pass with no coverage, so
-    the silence is a recorded decision per message type rather than an
-    omission.
-    """
+    has_bals: bool
+    """Whether the version has GetBlockAccessLists (eth/71, EIP-8159)."""
 
     def encode_status(self, status: Status) -> bytes:
         """Encode the Status message (one eth/69 layout for every version)."""
@@ -297,41 +261,31 @@ ETH_PROTOCOLS: Dict[int, EthProtocol] = {
     69: EthProtocol(
         version=69,
         receipts_request_has_offset=False,
-        unanswered_requests={GET_RECEIPTS: "GetReceipts"},
+        has_bals=False,
     ),
     70: EthProtocol(
         version=70,
         receipts_request_has_offset=True,
-        unanswered_requests={GET_RECEIPTS: "GetReceipts"},
+        has_bals=False,
     ),
     71: EthProtocol(
         version=71,
         receipts_request_has_offset=True,
-        unanswered_requests={
-            GET_RECEIPTS: "GetReceipts",
-            GET_BLOCK_ACCESS_LISTS: "GetBlockAccessLists",
-        },
+        has_bals=True,
     ),
     72: EthProtocol(
         version=72,
         receipts_request_has_offset=True,
-        unanswered_requests={
-            GET_RECEIPTS: "GetReceipts",
-            GET_BLOCK_ACCESS_LISTS: "GetBlockAccessLists",
-        },
+        has_bals=True,
     ),
 }
 """
 Every eth capability version this peer implements, by version number.
 
-eth/70 (EIP-7975) changes only the receipts pair, which this peer never
-serves, so implementing it means decoding the new request shape. eth/71
-(EIP-8159) adds the block access list request pair; a block access list
-carries post-state values a client could import instead of executing,
-so the receipts rule generalizes and the requests are counted but never
-answered. eth/72 (EIP-8070) changes only blob transaction propagation
-through the mempool, which this peer never takes part in: it announces
-no transactions, so a client has no reason to request cells from it.
+eth/70 (EIP-7975) changes only the receipts request, which this peer
+never answers. eth/71 (EIP-8159) adds the BAL request pair (see
+`MockPeer._answer_bals`). eth/72 (EIP-8070) changes only mempool blob
+propagation, which this peer takes no part in.
 """
 
 

@@ -103,16 +103,21 @@ def test_variants_can_differ_per_client() -> None:
 def test_variant_round_trips_through_the_item(
     pytester: pytest.Pytester, variant: str
 ) -> None:
-    """`group_variant_of` reads back what the generator marked."""
+    """`group_variant_of` reads back the variant the generator marked."""
     pytester.makepyfile(
         f"""
         import pytest
+        from execution_testing.forks import Amsterdam
         from {test_tracker.__name__} import group_variant_of
+        from {generate.__module__} import engine_x_case, generate
 
-        marks = [pytest.mark.group_variant({variant!r})] if {variant!r} else []
+        PARAMS = generate(
+            [engine_x_case("a", Amsterdam)],
+            group_variants=lambda test_case, client_type: ({variant!r},),
+        )
 
-        @pytest.mark.parametrize("x", [pytest.param(1, marks=marks)])
-        def test_variant(request, x):
+        @pytest.mark.parametrize("test_case,client_type", PARAMS)
+        def test_variant(request, test_case, client_type):
             assert group_variant_of(request.node) == {variant!r}
         """
     )

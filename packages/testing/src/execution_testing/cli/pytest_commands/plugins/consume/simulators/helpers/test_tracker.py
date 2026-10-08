@@ -1,16 +1,38 @@
 """Test completion tracking for multi-test client architectures."""
 
 import logging
+from typing import Callable, Sequence
 
 import pytest
+from hive.client import ClientType
 from pytest import StashKey
 
+from execution_testing.fixtures.consume import TestCaseBase
 from execution_testing.test_types import AllocGroupHash
 
 logger = logging.getLogger(__name__)
 
 # Typed stash keys for session-scoped data (replaces dynamic attributes)
 enginex_group_counts_key: StashKey[dict[str, int]] = StashKey()
+
+GroupVariants = Callable[[TestCaseBase, ClientType], Sequence[str]]
+"""
+Return the group variants to run a test case under on a client type.
+
+A variant names one of several client configurations a simulator runs
+the same fixture under (see `make_group_identifier`); `""` means none.
+"""
+
+group_variants_key: StashKey[GroupVariants] = StashKey()
+"""Set by a simulator that runs fixtures under group variants."""
+
+
+def xdist_group_of(item: pytest.Item) -> str | None:
+    """Return the client group `item` was assigned, if any."""
+    for marker in item.iter_markers("xdist_group"):
+        if "name" in marker.kwargs:
+            return str(marker.kwargs["name"])
+    return None
 
 
 def count_tests_per_group(
@@ -24,12 +46,9 @@ def count_tests_per_group(
     """
     group_counts: dict[str, int] = {}
     for item in items:
-        for marker in item.iter_markers("xdist_group"):
-            if "name" in marker.kwargs:
-                group_counts[marker.kwargs["name"]] = (
-                    group_counts.get(marker.kwargs["name"], 0) + 1
-                )
-                break
+        group = xdist_group_of(item)
+        if group is not None:
+            group_counts[group] = group_counts.get(group, 0) + 1
 
     session.stash[enginex_group_counts_key] = group_counts
     logger.info(
@@ -46,7 +65,7 @@ def make_group_identifier(
     Build xdist group key from pre-alloc hash, client name and variant.
 
     A variant names one of several client configurations a simulator
-    runs the same fixture under (see `group_variants`); each gets its
+    runs the same fixture under (see `GroupVariants`); each gets its
     own group, and with it its own client, because a client that has
     imported a fixture's chain cannot import it again.
     """
@@ -56,10 +75,10 @@ def make_group_identifier(
 
 def group_identifier_of(item: pytest.Item) -> str:
     """Return the client group `item` was assigned at parametrization."""
-    for marker in item.iter_markers("xdist_group"):
-        if "name" in marker.kwargs:
-            return marker.kwargs["name"]
-    raise ValueError(f"{item.nodeid} has no xdist_group marker")
+    group = xdist_group_of(item)
+    if group is None:
+        raise ValueError(f"{item.nodeid} has no xdist_group marker")
+    return group
 
 
 def group_variant_of(item: pytest.Item) -> str:

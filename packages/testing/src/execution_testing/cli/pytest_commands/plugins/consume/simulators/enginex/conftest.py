@@ -15,7 +15,7 @@ import pytest
 
 from execution_testing.fixtures import BlockchainEngineXFixture
 
-from ..helpers.test_tracker import count_tests_per_group
+from ..helpers.test_tracker import count_tests_per_group, xdist_group_of
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +58,8 @@ def pytest_collection_modifyitems(
 
     def sort_key(item: pytest.Item) -> tuple[int, str]:
         """Return sort key: largest group first, then by group id."""
-        for marker in item.iter_markers("xdist_group"):
-            if "name" in marker.kwargs:
-                gid = marker.kwargs["name"]
-                return (-group_counts[gid], gid)
-        return (0, "")
+        group = xdist_group_of(item)
+        return (0, "") if group is None else (-group_counts[group], group)
 
     items.sort(key=sort_key)
     logger.info("Sorted tests by pre-alloc group (largest first)")
@@ -84,14 +81,6 @@ class _GroupDispatchTracker:
     last_protocol_end: float | None = None
 
 
-def _xdist_group_name(item: pytest.Item) -> str | None:
-    """Return the xdist_group marker name of an item, if any."""
-    for marker in item.iter_markers("xdist_group"):
-        if "name" in marker.kwargs:
-            return marker.kwargs["name"]
-    return None
-
-
 @pytest.hookimpl(hookwrapper=True, tryfirst=True)
 def pytest_runtest_protocol(
     item: pytest.Item, nextitem: pytest.Item | None
@@ -99,7 +88,7 @@ def pytest_runtest_protocol(
     """Log a group-start marker with dispatch idle time at group boundaries."""
     del nextitem
 
-    group = _xdist_group_name(item)
+    group = xdist_group_of(item)
     if group is not None and group != _GroupDispatchTracker.last_group:
         if _GroupDispatchTracker.last_protocol_end is not None:
             idle_ms = (

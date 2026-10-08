@@ -1,14 +1,14 @@
 """Tests for RLPx framing between two sessions sharing secrets."""
 
 import socket
-from typing import Iterator, Tuple
+from typing import Iterator, Tuple, cast
 
 import ethereum_rlp as eth_rlp
 import pytest
 from ethereum_types.numeric import Uint
 
 from ..keccak import keccak256
-from ..rlpx import RLPxError, RLPxSession, _recv_exactly
+from ..rlpx import MAX_FRAME_SIZE, RLPxError, RLPxSession, _recv_exactly
 
 AES_SECRET = b"\x02" * 32
 MAC_SECRET = b"\x03" * 32
@@ -16,24 +16,26 @@ INITIATOR_SEED = b"\x04" * 32
 RECIPIENT_SEED = b"\x05" * 32
 
 
+def _session(connection: socket.socket, initiator: bool) -> RLPxSession:
+    """Return one end of a session under the shared test secrets."""
+    egress, ingress = INITIATOR_SEED, RECIPIENT_SEED
+    if not initiator:
+        egress, ingress = ingress, egress
+    return RLPxSession(
+        connection,
+        AES_SECRET,
+        MAC_SECRET,
+        egress_seed=egress,
+        ingress_seed=ingress,
+    )
+
+
 @pytest.fixture
 def sessions() -> Iterator[Tuple[RLPxSession, RLPxSession]]:
     """Yield two connected sessions whose seeds mirror each other."""
     left, right = socket.socketpair()
-    initiator = RLPxSession(
-        left,
-        AES_SECRET,
-        MAC_SECRET,
-        egress_seed=INITIATOR_SEED,
-        ingress_seed=RECIPIENT_SEED,
-    )
-    recipient = RLPxSession(
-        right,
-        AES_SECRET,
-        MAC_SECRET,
-        egress_seed=RECIPIENT_SEED,
-        ingress_seed=INITIATOR_SEED,
-    )
+    initiator = _session(left, initiator=True)
+    recipient = _session(right, initiator=False)
     for session in (initiator, recipient):
         session.set_timeout(1.0)
     yield initiator, recipient
@@ -45,13 +47,7 @@ def sessions() -> Iterator[Tuple[RLPxSession, RLPxSession]]:
 def raw_link() -> Iterator[Tuple[socket.socket, RLPxSession]]:
     """Yield a raw socket and the recipient session reading from it."""
     left, right = socket.socketpair()
-    recipient = RLPxSession(
-        right,
-        AES_SECRET,
-        MAC_SECRET,
-        egress_seed=RECIPIENT_SEED,
-        ingress_seed=INITIATOR_SEED,
-    )
+    recipient = _session(right, initiator=False)
     recipient.set_timeout(1.0)
     yield left, recipient
     left.close()
@@ -61,13 +57,7 @@ def raw_link() -> Iterator[Tuple[socket.socket, RLPxSession]]:
 def _initiator_frame(code: int, payload: bytes) -> bytes:
     """Return the bytes the initiator writes for its first message."""
     left, right = socket.socketpair()
-    writer = RLPxSession(
-        left,
-        AES_SECRET,
-        MAC_SECRET,
-        egress_seed=INITIATOR_SEED,
-        ingress_seed=RECIPIENT_SEED,
-    )
+    writer = _session(left, initiator=True)
     writer.write_message(code, payload)
     raw = _recv_exactly(right, 64)
     writer.close()
@@ -107,6 +97,18 @@ class TestFraming:
         initiator.write_message(0x12, b"body" * 10_000)
         assert recipient.read_message() == (0x12, b"body" * 10_000)
 
+    def test_a_snappy_bomb_claim_is_refused_before_decompressing(
+        self, sessions: Tuple[RLPxSession, RLPxSession]
+    ) -> None:
+        """A payload claiming more than a frame may hold is refused."""
+        initiator, recipient = sessions
+        recipient.enable_snappy()
+        # A bare preamble claiming 32 MiB, sent uncompressed so it
+        # arrives as is.
+        initiator.write_message(0x10, bytes([0x80, 0x80, 0x80, 0x10]))
+        with pytest.raises(RLPxError, match="over the frame limit"):
+            recipient.read_message()
+
     def test_a_code_beyond_one_byte_is_refused(
         self, sessions: Tuple[RLPxSession, RLPxSession]
     ) -> None:
@@ -142,8 +144,6 @@ class TestFraming:
 GETH_HEADER_CIPHERTEXT = bytes.fromhex("00828ddae471818bb0bfa6b551d1cb42")
 """The golden frame's header ciphertext."""
 
-# Source: go-ethereum p2p/rlpx/rlpx_test.go, TestFrameReadWrite
-# https://github.com/ethereum/go-ethereum/blob/master/p2p/rlpx/rlpx_test.go
 GETH_FRAME_CIPHERTEXT = bytes.fromhex("ba628a4ba590cb43f7848f41c4382885")
 """The golden frame's body ciphertext."""
 
@@ -171,3 +171,25 @@ class TestFrameLayout:
         right.close()
         assert raw[:16] == GETH_HEADER_CIPHERTEXT
         assert raw[32:48] == GETH_FRAME_CIPHERTEXT
+
+
+class _RefusingSocket:
+    """A socket that fails the test if it is ever written to."""
+
+    def sendall(self, data: bytes) -> None:
+        """Reject a write the size guard should have stopped."""
+        del data
+        raise AssertionError("oversized frame reached the socket")
+
+
+class TestFrameSizeGuard:
+    """A frame too large to describe is refused, not silently mangled."""
+
+    def test_oversized_frame_is_refused(self) -> None:
+        """A frame at the three byte length ceiling raises before a write."""
+        session = _session(
+            cast(socket.socket, _RefusingSocket()), initiator=True
+        )
+        # One byte for the message code brings the frame to the ceiling.
+        with pytest.raises(RLPxError, match="frame of"):
+            session.write_message(0x10, b"\x00" * (MAX_FRAME_SIZE - 1))

@@ -8,7 +8,7 @@ import tarfile
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Sequence, Tuple, cast
+from typing import Any, List, Optional, Sequence, Tuple, cast
 from urllib.parse import urlparse
 
 import platformdirs
@@ -20,6 +20,7 @@ from execution_testing.cli.gen_index import (
     generate_fixtures_index,
 )
 from execution_testing.cli.pytest_commands.plugins.consume.simulators.helpers.test_tracker import (  # noqa: E501
+    group_variants_key,
     make_group_identifier,
 )
 from execution_testing.fixtures import (
@@ -665,11 +666,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         return
 
     clients = metafunc.config.hive_execution_clients  # type: ignore[attr-defined]
-    # A simulator may set `config.group_variants` to run a fixture under
+    # A simulator may stash `group_variants_key` to run a fixture under
     # several client configurations (see `make_group_identifier`).
-    group_variants: Callable[[TestCaseBase, Any], Sequence[str]] | None = (
-        getattr(metafunc.config, "group_variants", None)
-    )
+    group_variants = metafunc.config.stash.get(group_variants_key, None)
     combined = []
     for param in param_list:
         tc = cast(TestCaseBase, param.values[0])
