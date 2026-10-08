@@ -11,6 +11,7 @@ from execution_testing import (
     Alloc,
     AuthorizationTuple,
     Bytecode,
+    Bytes,
     Fork,
     GasConsumer,
     Op,
@@ -171,6 +172,28 @@ def code_storage(refund_type: RefundType) -> Dict:
         # Pre-set the storage to be cleared.
         return {0: 1}
     return {}
+
+
+@pytest.fixture
+def tx_floor_data_cost(
+    fork: Fork,
+    tx_data: Bytes,
+    authorization_list: List[AuthorizationTuple] | None,
+    refund_type: RefundType,
+) -> int:
+    """
+    Floor the transaction pays: the static data floor plus, from
+    EIP-8279, the bytes the storage clear adds to the block access list.
+    """
+    floor = fork.transaction_data_floor_cost_calculator()(
+        data=tx_data,
+        authorization_list_or_count=authorization_list,
+    )
+    if RefundType.STORAGE_CLEAR in refund_type:
+        floor += fork.block_access_list_floor_cost(
+            storage_keys=1, storage_values=1
+        )
+    return floor
 
 
 @pytest.fixture

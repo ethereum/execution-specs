@@ -12,7 +12,9 @@ raises `COLD_ACCOUNT_ACCESS` on that CALL. The SELFDESTRUCT itself is to
 a warm, non-empty beneficiary (the caller), so its charge is unchanged,
 and there is no refund. Derive the account-access delta from the fork
 gas model (0 pre-EIP-8037) and subtract `gas_price * delta` from the
-Cancun balance; do not hardcode the Amsterdam value. The `random` and
+Cancun balance; do not hardcode the Amsterdam value. From EIP-8279 the
+block access list bytes of the CALL target and the sweep lift the floor
+above that gas, so the sender pays the floor instead. The `random` and
 `myself` cases assert only non-gas-dependent balances and need no
 adjustment.
 """
@@ -160,9 +162,22 @@ def test_suicide(
         fork.transaction_intrinsic_cost_calculator()()
         - Cancun.transaction_intrinsic_cost_calculator()()
     )
-    caller_balance = (
-        0x5AF31075D9DE - 10 * cold_account_access_delta - 10 * intrinsic_delta
+    caller_gas_used = (
+        (0x5AF3107A4000 - 0x5AF31075D9DE) // 10
+        + cold_account_access_delta
+        + intrinsic_delta
     )
+    tx_data = [
+        Bytes("693c6139") + Hash(contract_0, left_padding=True),
+        Bytes("693c6139") + Hash(contract_1, left_padding=True),
+        Bytes("693c6139") + Hash(contract_2, left_padding=True),
+    ]
+    # The CALL target's address and the sweep's address and balances
+    # enter the block access list (EIP-8279).
+    caller_floor = fork.transaction_data_floor_cost_calculator()(
+        data=tx_data[0]
+    ) + fork.block_access_list_floor_cost(addresses=2, balances=2)
+    caller_balance = 0x5AF3107A4000 - 10 * max(caller_gas_used, caller_floor)
 
     expect_entries_: list[dict] = [
         {
@@ -191,11 +206,6 @@ def test_suicide(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
-    tx_data = [
-        Bytes("693c6139") + Hash(contract_0, left_padding=True),
-        Bytes("693c6139") + Hash(contract_1, left_padding=True),
-        Bytes("693c6139") + Hash(contract_2, left_padding=True),
-    ]
     tx_gas = [16777216]
 
     tx = Transaction(

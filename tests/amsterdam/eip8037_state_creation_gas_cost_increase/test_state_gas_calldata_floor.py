@@ -35,15 +35,17 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
-def calldata_length_where_floor_overtakes(fork: Fork, state_gas: int) -> int:
+def calldata_length_where_floor_overtakes(
+    fork: Fork, state_gas: int, floor_extension: int = 0
+) -> int:
     """
-    Return the shortest all-nonzero calldata whose floor outgrows
-    `state_gas`.
+    Return the shortest all-nonzero calldata whose floor, raised by
+    `floor_extension`, outgrows `state_gas`.
     """
     floor_calculator = fork.transaction_data_floor_cost_calculator()
 
     def floor_at(length: int) -> int:
-        return floor_calculator(data=b"\x01" * length)
+        return floor_calculator(data=b"\x01" * length) + floor_extension
 
     low, high = 0, 1
     while floor_at(high) <= state_gas:
@@ -87,10 +89,20 @@ def test_calldata_floor_with_sstore(
     state_cost = code.state_cost(fork)
     execution_cost = code.execution_cost(fork)
 
-    flip_length = calldata_length_where_floor_overtakes(fork, state_cost)
+    # The set slot's key and value enter the block access list,
+    # extending the floor (EIP-8279).
+    floor_extension = fork.block_access_list_floor_cost(
+        storage_keys=1, storage_values=1
+    )
+    flip_length = calldata_length_where_floor_overtakes(
+        fork, state_cost, floor_extension
+    )
     calldata = b"\x01" * (flip_length if floor_dominates else flip_length - 1)
 
-    floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
+    floor = (
+        fork.transaction_data_floor_cost_calculator()(data=calldata)
+        + floor_extension
+    )
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         calldata=calldata,
         return_cost_deducted_prior_execution=True,
@@ -255,24 +267,38 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     floor_cost = fork.transaction_data_floor_cost_calculator()
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
 
-    # Binary-search the largest all-nonzero calldata whose floor cost fits
-    # within the gas cap; `exceeds_cap` adds one more byte to tip the floor
-    # over. Driven by the floor calculator directly so it tracks the
-    # per-byte token pricing across forks.
-    def floor_fits(num_bytes: int) -> bool:
-        return floor_cost(data=b"\x01" * num_bytes) <= cap
+    # The set slot's key and value enter the block access list during
+    # execution, extending the floor the accepted transaction pays
+    # (EIP-8279). The cap check at validation sees the static floor only.
+    floor_extension = fork.block_access_list_floor_cost(
+        storage_keys=1, storage_values=1
+    )
 
-    high = 1
-    while floor_fits(high):
-        high *= 2
-    low = high // 2
-    while low < high:
-        mid = (low + high + 1) // 2
-        if floor_fits(mid):
-            low = mid
-        else:
-            high = mid - 1
-    max_bytes = low + 1 if exceeds_cap else low
+    # Binary-search the largest all-nonzero calldata whose floor cost fits
+    # within the gas cap; `exceeds_cap` adds one more byte to tip the
+    # static floor over, while `at_cap` keeps the extended floor within
+    # it. Driven by the floor calculator directly so it tracks the
+    # per-byte token pricing across forks.
+    def largest_calldata_within_cap(extension: int) -> int:
+        def floor_fits(num_bytes: int) -> bool:
+            return floor_cost(data=b"\x01" * num_bytes) + extension <= cap
+
+        high = 1
+        while floor_fits(high):
+            high *= 2
+        low = high // 2
+        while low < high:
+            mid = (low + high + 1) // 2
+            if floor_fits(mid):
+                low = mid
+            else:
+                high = mid - 1
+        return low
+
+    if exceeds_cap:
+        max_bytes = largest_calldata_within_cap(0) + 1
+    else:
+        max_bytes = largest_calldata_within_cap(floor_extension)
     calldata = b"\x01" * max_bytes
 
     storage = Storage()
@@ -292,6 +318,7 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
         # transaction first; only the cap check can.
         gas_limit = floor + 1_000_000
     else:
+        floor += floor_extension
         assert floor <= cap
         assert execution + code.gas_cost(fork) <= cap, (
             "the cap must still fund the callee's execution and state gas"
@@ -387,8 +414,16 @@ def test_calldata_floor_binds_regardless_of_funding(
     code = Op.SSTORE(storage.store_next(1), 1, new_value=1)
     state_cost = code.state_cost(fork)
 
+    # The set slot's key and value enter the block access list,
+    # extending the floor (EIP-8279).
+    floor_extension = fork.block_access_list_floor_cost(
+        storage_keys=1, storage_values=1
+    )
     calldata = b"\x00" * 5000
-    floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
+    floor = (
+        fork.transaction_data_floor_cost_calculator()(data=calldata)
+        + floor_extension
+    )
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         calldata=calldata,
         return_cost_deducted_prior_execution=True,
@@ -444,8 +479,16 @@ def test_calldata_floor_survives_state_refund(
     )
     assert code.refund(fork) > 0, "the cycle must earn a refund"
 
+    # The slot's key and first change are metered into the floor
+    # (EIP-8279); restoring the slot refunds nothing.
+    floor_extension = fork.block_access_list_floor_cost(
+        storage_keys=1, storage_values=1
+    )
     calldata = b"\x00" * 5000
-    floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
+    floor = (
+        fork.transaction_data_floor_cost_calculator()(data=calldata)
+        + floor_extension
+    )
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         calldata=calldata,
         return_cost_deducted_prior_execution=True,
@@ -497,8 +540,16 @@ def test_calldata_floor_binds_with_reservoir(
     execution_cost = code.execution_cost(fork)
 
     # Sized so the floor binds while block-execution stays under storage_set.
+    # The set slot's key and value enter the block access list,
+    # extending the floor (EIP-8279).
+    floor_extension = fork.block_access_list_floor_cost(
+        storage_keys=1, storage_values=1
+    )
     calldata = b"\x00" * 5000
-    floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
+    floor = (
+        fork.transaction_data_floor_cost_calculator()(data=calldata)
+        + floor_extension
+    )
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         calldata=calldata,
         return_cost_deducted_prior_execution=True,
@@ -589,14 +640,19 @@ def test_calldata_floor_not_discounted_by_state_gas(
     state_cost = code.state_cost(fork)
     execution_cost = code.execution_cost(fork)
     floor_cost = fork.transaction_data_floor_cost_calculator()
+    # The set slot's key and value enter the block access list,
+    # extending the floor (EIP-8279).
+    floor_extension = fork.block_access_list_floor_cost(
+        storage_keys=1, storage_values=1
+    )
 
     # Smallest zero-byte calldata whose floor exceeds the state
     # dimension; the floor then also dominates the header.
     size = 0
-    while floor_cost(data=b"\x00" * size) <= state_cost:
+    while floor_cost(data=b"\x00" * size) + floor_extension <= state_cost:
         size += 32
     calldata = b"\x00" * size
-    floor = floor_cost(data=calldata)
+    floor = floor_cost(data=calldata) + floor_extension
 
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         calldata=calldata,

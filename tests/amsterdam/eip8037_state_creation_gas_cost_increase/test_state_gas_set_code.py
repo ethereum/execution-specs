@@ -100,16 +100,17 @@ def _receipt_and_header(
     *,
     evm_execution: int = 0,
     evm_state: int = 0,
+    floor_gas: int = 0,
 ) -> tuple[int, int]:
     """
     Return the (receipt cumulative_gas_used, header gas_used) for a
     successful (non-reverting) transaction under the no-refund top-frame
-    model.
+    model. The floor binds the receipt and the execution dimension.
     """
     block_execution = intrinsic_execution + top_frame_execution + evm_execution
     block_state = top_frame_state + evm_state
-    cumulative_gas_used = block_execution + block_state
-    header_gas_used = max(block_execution, block_state)
+    cumulative_gas_used = max(block_execution + block_state, floor_gas)
+    header_gas_used = max(block_execution, floor_gas, block_state)
     return cumulative_gas_used, header_gas_used
 
 
@@ -791,8 +792,16 @@ def test_invalid_nonce_auth_still_charges_intrinsic(
     )
     assert top_frame_execution == 0
     assert top_frame_state == 0
+    # A skipped authorization pays no top-frame charge, so the floor,
+    # which prices its content and block access list bytes, binds.
+    floor_gas = fork.transaction_data_floor_cost_calculator()(
+        data=b"", authorization_list_or_count=authorization_list
+    )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_execution, top_frame_execution, top_frame_state
+        intrinsic_execution,
+        top_frame_execution,
+        top_frame_state,
+        floor_gas=floor_gas,
     )
 
     tx = Transaction(
@@ -847,8 +856,16 @@ def test_invalid_chain_id_auth_still_charges_intrinsic(
     )
     assert top_frame_execution == 0
     assert top_frame_state == 0
+    # A skipped authorization pays no top-frame charge, so the floor,
+    # which prices its content and block access list bytes, binds.
+    floor_gas = fork.transaction_data_floor_cost_calculator()(
+        data=b"", authorization_list_or_count=authorization_list
+    )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_execution, top_frame_execution, top_frame_state
+        intrinsic_execution,
+        top_frame_execution,
+        top_frame_state,
+        floor_gas=floor_gas,
     )
 
     tx = Transaction(
@@ -2204,8 +2221,16 @@ def test_invalid_auth_no_top_frame_charge(
     )
     assert top_frame_execution == 0
     assert top_frame_state == 0
+    # A skipped authorization pays no top-frame charge, so the floor,
+    # which prices its content and block access list bytes, binds.
+    floor_gas = fork.transaction_data_floor_cost_calculator()(
+        data=b"", authorization_list_or_count=[auth]
+    )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_execution, top_frame_execution, top_frame_state
+        intrinsic_execution,
+        top_frame_execution,
+        top_frame_state,
+        floor_gas=floor_gas,
     )
 
     tx = Transaction(

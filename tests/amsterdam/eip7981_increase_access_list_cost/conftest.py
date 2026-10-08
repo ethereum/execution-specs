@@ -139,6 +139,7 @@ def tx_intrinsic_gas_cost_before_execution(
     tx_data: Bytes,
     access_list: List[AccessList] | None,
     authorization_list: List[AuthorizationTuple] | None,
+    blob_versioned_hashes: Sequence[Hash] | None,
     contract_creating_tx: bool,
 ) -> int:
     """
@@ -154,6 +155,7 @@ def tx_intrinsic_gas_cost_before_execution(
         contract_creation=contract_creating_tx,
         access_list=access_list,
         authorization_list_or_count=authorization_list,
+        blob_versioned_hashes_or_count=blob_versioned_hashes,
         return_cost_deducted_prior_execution=True,
     )
 
@@ -164,6 +166,7 @@ def tx_intrinsic_gas_cost_including_floor_data_cost(
     tx_data: Bytes,
     access_list: List[AccessList] | None,
     authorization_list: List[AuthorizationTuple] | None,
+    blob_versioned_hashes: Sequence[Hash] | None,
     contract_creating_tx: bool,
 ) -> int:
     """
@@ -183,6 +186,7 @@ def tx_intrinsic_gas_cost_including_floor_data_cost(
         contract_creation=contract_creating_tx,
         access_list=access_list,
         authorization_list_or_count=authorization_list,
+        blob_versioned_hashes_or_count=blob_versioned_hashes,
     )
 
 
@@ -205,6 +209,7 @@ def tx_expected_gas_used(
     tx_data: Bytes,
     access_list: List[AccessList] | None,
     authorization_list: List[AuthorizationTuple] | None,
+    blob_versioned_hashes: Sequence[Hash] | None,
     contract_creating_tx: bool,
     tx_intrinsic_gas_cost_before_execution: int,
 ) -> int:
@@ -227,6 +232,8 @@ def tx_expected_gas_used(
         data=tx_data,
         access_list=access_list,
         contract_creation=contract_creating_tx,
+        authorization_list_or_count=authorization_list,
+        blob_versioned_hashes_or_count=blob_versioned_hashes,
     )
     return max(
         tx_intrinsic_gas_cost_before_execution + top_frame_gas, floor_gas
