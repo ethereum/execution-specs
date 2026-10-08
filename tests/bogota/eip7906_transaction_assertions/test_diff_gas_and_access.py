@@ -5,9 +5,12 @@ the live `TXDIFF` lookups, and the block access list entries those
 lookups leave.
 """
 
+from typing import Callable
+
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     BalAccountExpectation,
     BalNonceChange,
@@ -325,6 +328,71 @@ def test_txdiff_gas_and_warmth(
             sender: Account(nonce=1),
             writer: Account(storage=WRITER_POST),
         },
+    )
+
+
+@pytest.mark.parametrize(
+    "account_read",
+    [
+        pytest.param(
+            lambda target: Op.BALANCE(target, address_warm=False),
+            id="balance",
+        ),
+        pytest.param(
+            lambda target: Op.EXTCODEHASH(target, address_warm=False),
+            id="extcodehash",
+        ),
+        pytest.param(
+            lambda target: Op.TXDIFF(
+                Spec.TXDIFF_BALANCE_AFTER,
+                target,
+                0,
+                state_access="account",
+                address_warm=False,
+            ),
+            id="txdiff_balance_after",
+        ),
+    ],
+)
+def test_txdiff_slot_lookup_leaves_address_cold(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    account_read: Callable[[Address], Bytecode],
+) -> None:
+    """
+    Price and warm only the `(address, slot)` pair on a slot lookup, so
+    a later read of the account still pays the cold account access.
+    """
+    sender = pre.fund_eoa()
+    target = pre.deploy_contract(code=Op.STOP, storage={KEY_U: 3})
+    closing = Op.POP + Op.GAS
+    checks = Bytecode()
+    for probe in (
+        Op.TXDIFF(
+            Spec.TXDIFF_SLOT_AFTER,
+            target,
+            KEY_U,
+            state_access="slot",
+            key_warm=False,
+        ),
+        account_read(target),
+    ):
+        checks += expect_eq(
+            measured_gas(probe), probe.gas_cost(fork) + closing.gas_cost(fork)
+        )
+    assertion = pre.deploy_contract(code=checks + Op.STOP)
+
+    state_test(
+        pre=pre,
+        tx=assertion_transaction(
+            fork,
+            sender,
+            body=[],
+            assertion=assertion,
+            frame_receipts=success_receipts(2),
+        ),
+        post={sender: Account(nonce=1), target: Account(storage={KEY_U: 3})},
     )
 
 
