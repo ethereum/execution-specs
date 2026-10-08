@@ -10,11 +10,13 @@ API error code.
 """
 
 from dataclasses import dataclass
-from typing import cast
+from types import SimpleNamespace
+from typing import Any, Callable, cast
 
 import pytest
 
 from execution_testing.base_types import Hash
+from execution_testing.devp2p.chain import ChainReconstructionError
 from execution_testing.exceptions import (
     BlockException,
     TransactionException,
@@ -22,6 +24,7 @@ from execution_testing.exceptions import (
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import FixtureEngineNewPayload
 
+from ..simulators.wirex import conftest as wirex
 from ..simulators.wirex.sync_targets import (
     HEADER_JUDGEABLE_INVALIDITIES,
     UNDECODABLE_BODY_INVALIDITIES,
@@ -30,8 +33,10 @@ from ..simulators.wirex.sync_targets import (
     resolve_sync_paths,
     target_path_lengths,
 )
+from .direct_calls import fixture_body
 
 GENESIS = Hash(0)
+GENESIS_HEADER = SimpleNamespace(block_hash=GENESIS)
 
 
 def test_fixture_schema_retains_plural_sync_payloads() -> None:
@@ -97,6 +102,19 @@ def _fixture(
     return cast(
         BlockchainEngineXFixture, _StubFixture(payloads, sync_payloads)
     )
+
+
+def _raw(payload: FixtureEngineNewPayload) -> dict[str, Any]:
+    """Return `payload` as the raw JSON the collection pass reads."""
+    execution_payload = payload.params[0]
+    return {
+        "params": [
+            {
+                "blockHash": str(execution_payload.block_hash),
+                "parentHash": str(execution_payload.parent_hash),
+            }
+        ]
+    }
 
 
 INVALID = TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED
@@ -360,22 +378,14 @@ class TestPathLengths:
 
     def test_raw_lengths_agree_with_the_model(self) -> None:
         """The collection-time raw read matches the parsed one."""
+        payloads, targets = _mixed_validity()
+        fixture = _fixture(payloads, targets)
         raw = {
-            "engineNewPayloads": [
-                {
-                    "params": [
-                        {"blockHash": "0xa1", "parentHash": "0xg"},
-                    ],
-                    "validationError": "TransactionException.X",
-                },
-                {"params": [{"blockHash": "0xa2", "parentHash": "0xg"}]},
-            ],
-            "syncPayloads": [
-                {"params": [{"blockHash": "0xs1", "parentHash": "0xa1"}]},
-                {"params": [{"blockHash": "0xs2", "parentHash": "0xa2"}]},
-            ],
+            "engineNewPayloads": [_raw(payload) for payload in payloads],
+            "syncPayloads": [_raw(target) for target in targets],
         }
-        assert raw_target_path_lengths(raw) == [2, 2]
+        assert raw_target_path_lengths(raw) == target_path_lengths(fixture)
+        assert target_path_lengths(fixture) == [2, 3, 3]
 
     def test_raw_bare_fixture_counts_authored_payloads(self) -> None:
         """A raw fixture without targets keeps its authored length."""
@@ -398,3 +408,91 @@ class TestPathLengths:
             ],
         }
         assert raw_target_path_lengths(raw) == [3]
+
+
+UNDECODABLE = TransactionException.TYPE_3_TX_CONTRACT_CREATION
+
+
+class TestSyncTargetCases:
+    """Which of a fixture's paths the `sync_target_cases` fixture runs."""
+
+    @staticmethod
+    def _cases(
+        monkeypatch: pytest.MonkeyPatch,
+        fixture: BlockchainEngineXFixture,
+        min_blocks: int = 2,
+        fails: Callable[[list[Any]], bool] | None = None,
+    ) -> tuple[list[Any], list[list[Any]]]:
+        """
+        Return the fixture's runnable cases and every chain rebuilt.
+
+        Chain reconstruction is replaced by a stand-in that returns the
+        payloads it was given, or raises when `fails` says so.
+        """
+        rebuilt: list[list[Any]] = []
+
+        def chain_from_payloads(genesis: Any, payloads: list[Any]) -> Any:
+            assert genesis is GENESIS_HEADER
+            rebuilt.append(payloads)
+            if fails is not None and fails(payloads):
+                raise ChainReconstructionError("commitment modified at fill")
+            return payloads
+
+        monkeypatch.setattr(wirex, "chain_from_payloads", chain_from_payloads)
+        cases = fixture_body(wirex.sync_target_cases)(
+            GENESIS_HEADER, fixture, min_blocks
+        )
+        return cases, rebuilt
+
+    def test_a_chain_below_the_minimum_skips(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A one-block bare chain puts nothing on the wire at minimum 2."""
+        fixture = _fixture([_payload(1, 0)], None)
+        with pytest.raises(pytest.skip.Exception, match="1 block"):
+            self._cases(monkeypatch, fixture, min_blocks=2)
+
+    def test_a_chain_at_the_minimum_runs(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The same chain runs once the minimum allows it."""
+        authored = [_payload(1, 0)]
+        (case,), rebuilt = self._cases(
+            monkeypatch, _fixture(authored, None), min_blocks=1
+        )
+        assert rebuilt == [authored]
+        assert case.chain == authored
+
+    def test_an_undecodable_path_drops_beside_a_decodable_one(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A body no client decodes drops its path, not its sibling's."""
+        undecodable, valid = _payload(1, 0, error=UNDECODABLE), _payload(2, 0)
+        kept = _payload(4, 2)
+        fixture = _fixture([undecodable, valid], [_payload(3, 1), kept])
+        (case,), rebuilt = self._cases(monkeypatch, fixture)
+        assert case.path.target is kept
+        assert rebuilt == [[valid, kept]]
+
+    def test_an_unrebuildable_invalid_path_drops(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An invalid path whose header cannot be rebuilt is omitted."""
+        invalid, valid = _payload(1, 0, error=INVALID), _payload(2, 0)
+        kept = _payload(4, 2)
+        fixture = _fixture([invalid, valid], [_payload(3, 1), kept])
+        (case,), _ = self._cases(
+            monkeypatch, fixture, fails=lambda payloads: invalid in payloads
+        )
+        assert case.path.target is kept
+
+    def test_an_unrebuildable_valid_path_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A valid path that cannot be rebuilt is a defect, not a skip."""
+        invalid, valid = _payload(1, 0, error=INVALID), _payload(2, 0)
+        fixture = _fixture([invalid, valid], [_payload(3, 1), _payload(4, 2)])
+        with pytest.raises(ChainReconstructionError):
+            self._cases(
+                monkeypatch, fixture, fails=lambda payloads: valid in payloads
+            )

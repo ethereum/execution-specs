@@ -17,7 +17,7 @@ from hive.client import Client, ClientType
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.consume import TestCaseIndexFile
 
-from ..helpers.test_tracker import count_tests_per_group
+from ..helpers.test_tracker import count_tests_per_group, xdist_group_of
 
 if TYPE_CHECKING:
     from ..multi_test_client import MultiTestClientManager
@@ -130,11 +130,10 @@ def pytest_collection_modifyitems(
         Keeping the tests of a fixture file contiguous within a group lets
         the worker's fixture file cache load each file once per group.
         """
-        for marker in item.iter_markers("xdist_group"):
-            if "name" in marker.kwargs:
-                gid = marker.kwargs["name"]
-                return (-group_counts[gid], gid, _fixture_file(item))
-        return (0, "", "")
+        group = xdist_group_of(item)
+        if group is None:
+            return (0, "", "")
+        return (-group_counts[group], group, _fixture_file(item))
 
     items.sort(key=sort_key)
     logger.info(
@@ -158,14 +157,6 @@ class _GroupDispatchTracker:
     last_protocol_end: float | None = None
 
 
-def _xdist_group_name(item: pytest.Item) -> str | None:
-    """Return the xdist_group marker name of an item, if any."""
-    for marker in item.iter_markers("xdist_group"):
-        if "name" in marker.kwargs:
-            return marker.kwargs["name"]
-    return None
-
-
 @pytest.hookimpl(hookwrapper=True, tryfirst=True)
 def pytest_runtest_protocol(
     item: pytest.Item, nextitem: pytest.Item | None
@@ -173,7 +164,7 @@ def pytest_runtest_protocol(
     """Log a group-start marker with dispatch idle time at group boundaries."""
     del nextitem
 
-    group = _xdist_group_name(item)
+    group = xdist_group_of(item)
     if group is not None and group != _GroupDispatchTracker.last_group:
         if _GroupDispatchTracker.last_protocol_end is not None:
             idle_ms = (

@@ -54,6 +54,12 @@ class Block:
     header: FixtureHeader
     transactions: List[Bytes]
     withdrawals: List[Withdrawal] | None
+    bal_rlp: bytes | None = None
+    """
+    The block's RLP encoded EIP-7928 BAL, as its payload carries it;
+    `None` before Amsterdam. It is not part of the body: eth/71
+    (EIP-8159) serves it through its own request pair.
+    """
 
     @property
     def number(self) -> int:
@@ -153,6 +159,9 @@ def block_from_payload(payload: FixtureEngineNewPayload) -> Block:
         header=header,
         transactions=list(execution_payload.transactions),
         withdrawals=None if withdrawals is None else list(withdrawals),
+        bal_rlp=(
+            None if block_access_list is None else bytes(block_access_list)
+        ),
     )
 
 
@@ -212,6 +221,11 @@ class Chain:
         block = self._by_hash.get(block_hash)
         return None if block is None else block.body_rlp()
 
+    def bal_rlp_by_hash(self, block_hash: bytes) -> bytes | None:
+        """Return the BAL RLP of the block with `block_hash`."""
+        block = self._by_hash.get(block_hash)
+        return None if block is None else block.bal_rlp
+
 
 class ServedChains:
     """
@@ -246,9 +260,17 @@ class ServedChains:
         return self._current
 
     def chain_for_hash(self, block_hash: bytes) -> Chain | None:
-        """Return the chain holding `block_hash`, if any."""
-        if self._current is not None and block_hash == bytes(
-            self._current.genesis.block_hash
+        """
+        Return the chain holding `block_hash`, if any.
+
+        The current chain is preferred whenever it holds the block. A
+        block shared by several chains has the same ancestors on each,
+        but only the current chain leads from it to the head the client
+        was told to reach, so a forward walk must follow that one.
+        """
+        if (
+            self._current is not None
+            and self._current.number_of(block_hash) is not None
         ):
             return self._current
         return self._chain_by_hash.get(block_hash)
@@ -257,6 +279,11 @@ class ServedChains:
         """Return the RLP of the body with `block_hash`, if held."""
         chain = self.chain_for_hash(block_hash)
         return None if chain is None else chain.body_rlp_by_hash(block_hash)
+
+    def bal_rlp_by_hash(self, block_hash: bytes) -> bytes | None:
+        """Return the BAL RLP of the block with `block_hash`."""
+        chain = self.chain_for_hash(block_hash)
+        return None if chain is None else chain.bal_rlp_by_hash(block_hash)
 
 
 def chain_from_payloads(

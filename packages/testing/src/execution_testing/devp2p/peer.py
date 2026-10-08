@@ -13,11 +13,12 @@ stalled sync diagnosable after the fact.
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Set
+from typing import List, Optional, Sequence, Set
 
 from .chain import Chain, ServedChains
 from .keccak import keccak256
 from .protocol import (
+    BLOCK_ACCESS_LISTS,
     BLOCK_BODIES,
     BLOCK_HEADERS,
     BLOCK_RANGE_UPDATE,
@@ -28,7 +29,6 @@ from .protocol import (
     GET_BLOCK_HEADERS,
     GET_RECEIPTS,
     HELLO,
-    MESSAGE_NAMES,
     P2P_VERSION,
     PING,
     PONG,
@@ -72,46 +72,35 @@ is no bound. A target, not a cap: a single body is always served.
 
 EMPTY_LIST_PAYLOAD = b"\xc0"
 
+UNAVAILABLE_BAL = b"\x80"
+"""The EIP-8159 entry for a BAL a peer does not hold: the RLP empty string."""
+
 
 @dataclass
 class PeerStatistics:
-    """Counts of what a client asked for during one test."""
+    """
+    What a client asked for during one test, and what it was served.
+
+    The `*_hashes_served` sets are the evidence behind the consumer's
+    per-block wire coverage check, so a hash is recorded only after its
+    response was written: a write that raises is not service.
+    """
 
     header_requests: int = 0
     headers_served: int = 0
     header_hashes_served: Set[bytes] = field(default_factory=set)
-    """
-    The block hashes whose headers were served, not only their count.
-
-    A count cannot tell the consumer *which* headers traveled the
-    wire, and the rejection path's wire-coverage claim is per block:
-    every block below the announced head must have had its header
-    downloaded from this peer, derivable body or not.
-    """
+    """Block hashes whose headers were served."""
     body_requests: int = 0
     bodies_served: int = 0
     body_hashes_served: Set[bytes] = field(default_factory=set)
-    """
-    The block hashes whose bodies were served, not only their count.
-
-    A count cannot tell the consumer *which* bodies traveled the wire,
-    and its wire-coverage claim is per block: every block with a
-    non-derivable body must have been downloaded from this peer, not
-    just some block.
-    """
-    unknown_requests: int = 0
-    unanswered_requests: Dict[str, int] = field(default_factory=dict)
-    """
-    Requests the peer deliberately left unanswered, counted by message
-    name. A nonzero count is a finding, never noise: it means the
-    client asked for data it should derive by executing blocks.
-    """
+    """Block hashes whose bodies were served."""
+    bal_requests: int = 0
+    bals_served: int = 0
+    bals_withheld: int = 0
+    """BALs held but answered as unavailable."""
+    receipt_requests: int = 0
+    """GetReceipts requests left unanswered; nonzero is a finding."""
     transcript: List[str] = field(default_factory=list)
-
-    @property
-    def receipt_requests(self) -> int:
-        """Return how many GetReceipts requests went unanswered."""
-        return self.unanswered_requests.get("GetReceipts", 0)
 
     def record(self, line: str) -> None:
         """Append `line` to the request transcript."""
@@ -135,21 +124,24 @@ class MockPeer:
         private_key: bytes,
         network_id: int,
         eth_versions: Sequence[int] | None = None,
+        serve_bals: bool = False,
     ) -> None:
         """
         Record where to dial and under which network identity.
 
-        `eth_versions` is the set of eth capability versions to
-        advertise; the default advertises every implemented version.
-        Passing exactly one version forces the client to speak it or
-        fail the handshake loudly, which is what probing a client's
-        version matrix wants.
+        `eth_versions` defaults to every implemented version; a single
+        version makes a client that lacks it fail the handshake.
+
+        `serve_bals` answers GetBlockAccessLists with the BALs, which a
+        client may use to execute a block's transactions in parallel; by
+        default every entry is answered as unavailable.
         """
         self.host = host
         self.port = port
         self.remote_public_key = remote_public_key
         self.private_key = private_key
         self.network_id = network_id
+        self.serve_bals = serve_bals
         if eth_versions is None:
             eth_versions = tuple(ETH_PROTOCOLS)
         unknown = set(eth_versions).difference(ETH_PROTOCOLS)
@@ -170,30 +162,15 @@ class MockPeer:
         self.statistics = PeerStatistics()
         self.body_hashes_ever_served: Set[bytes] = set()
         """
-        Every block hash whose body this peer served the client, across
-        the peer's whole lifetime.
+        Every body hash served over the peer's lifetime.
 
-        `statistics.body_hashes_served` is reset for each test so its
-        transcript stays attributable, but the client it describes is
-        reused across a whole group of tests and keeps every block it
-        ever imported. Two tests of one group may declare byte-identical
-        chains, and the client re-syncs nothing for the second one - its
-        blocks already traveled the wire during the first. This set is
-        the evidence that they did: the consumer's wire-coverage check
-        consults it, so a body is required to cross the wire once per
-        client, not once per test.
+        The client is reused across a group and keeps every block it
+        imported, so a later test declaring the same chain syncs
+        nothing: a block has to cross the wire once per client, not
+        once per test.
         """
         self.header_hashes_ever_served: Set[bytes] = set()
-        """
-        Every block hash whose header this peer served the client,
-        across the peer's whole lifetime.
-
-        The lifetime counterpart of the per-test
-        `statistics.header_hashes_served`, kept for the same reason as
-        `body_hashes_ever_served`: the reused client keeps every block
-        it ever imported, so a header is required to cross the wire
-        once per client, not once per test.
-        """
+        """Every header hash served over the peer's lifetime (as above)."""
         self.remote_name = ""
         self.disconnect_reason: Optional[int] = None
 
@@ -406,51 +383,32 @@ class MockPeer:
             self._serve_headers(session, decode_get_block_headers(payload))
         elif code == GET_BLOCK_BODIES:
             self._serve_bodies(session, *decode_get_block_bodies(payload))
-        elif code in protocol.unanswered_requests:
-            # A full syncing client derives receipts - and, from
-            # Amsterdam, block access lists - by executing the block,
-            # so a request here means the client chose a path this peer
-            # cannot honestly serve. Leave it unanswered and make the
-            # silence visible.
-            name = protocol.unanswered_requests[code]
-            if code == GET_RECEIPTS:
-                description = protocol.decode_get_receipts(payload).describe()
-            elif code == GET_BLOCK_ACCESS_LISTS:
-                _, hashes = decode_get_block_access_lists(payload)
-                description = f"access lists for {len(hashes)} hashes"
-            else:
-                description = name
+        elif code == GET_BLOCK_ACCESS_LISTS and protocol.has_bals:
+            self._answer_bals(session, *decode_get_block_access_lists(payload))
+        elif code == GET_RECEIPTS:
+            # A full syncing client derives receipts by executing the
+            # block; serving them would let a failing test pass with no
+            # coverage. Leave the request unanswered and make it visible.
+            request = protocol.decode_get_receipts(payload)
             with self._lock:
-                self.statistics.unanswered_requests[name] = (
-                    self.statistics.unanswered_requests.get(name, 0) + 1
-                )
-                self.statistics.record(f"{description} (unanswered)")
-            logger.warning("Client requested %s; not served", name)
+                self.statistics.receipt_requests += 1
+                self.statistics.record(f"{request.describe()} (unanswered)")
+            logger.warning("Client requested GetReceipts; not served")
         elif code == DISCONNECT:
             self.disconnect_reason = decode_disconnect(payload)
             logger.info(
                 "Client disconnected: reason %d", self.disconnect_reason
             )
-        elif code in (STATUS, HELLO, PONG):
-            pass
         else:
-            with self._lock:
-                self.statistics.unknown_requests += 1
-            logger.debug(
-                "Ignoring %s", MESSAGE_NAMES.get(code, f"message {code}")
-            )
+            logger.debug("Ignoring message %d", code)
 
     def _serve_headers(
         self, session: RLPxSession, request: BlockHeadersRequest
     ) -> None:
         """Answer a GetBlockHeaders request from the current chain."""
         with self._lock:
-            # The test's statistics object is captured under the lock:
-            # `set_chain` swaps in a fresh one when the next test
-            # starts, and a straggler request from the previous test
-            # must land in the previous test's statistics, not poison
-            # the next test's transcript (or satisfy its wire-coverage
-            # check with another chain's bodies).
+            # Captured under the lock: a straggler from the previous
+            # test must land in that test's statistics, not this one's.
             statistics = self.statistics
             statistics.header_requests += 1
             if request.origin_hash is None:
@@ -478,8 +436,6 @@ class MockPeer:
                 if number < 0:
                     break
 
-        # Written before recording, for the same reason as in
-        # `_serve_bodies`: a failed send must not read as service.
         session.write_message(
             BLOCK_HEADERS, encode_response(request.request_id, headers)
         )
@@ -510,8 +466,6 @@ class MockPeer:
         chain into a request, and starve its sync.
         """
         with self._lock:
-            # Captured for the same straggler-attribution reason as in
-            # `_serve_headers`.
             statistics = self.statistics
             statistics.body_requests += 1
             chain = self._chains.current
@@ -531,11 +485,7 @@ class MockPeer:
             served_hashes.append(block_hash)
             served_bytes += len(body)
 
-        # The response is written before anything is recorded as served:
-        # `body_hashes_served` is the evidence behind the consumer's
-        # per-block wire-coverage assertion, and a `write_message` that
-        # raises mid-send must not leave statistics claiming the bodies
-        # reached the client.
+        # Recorded only after the write succeeds (see `PeerStatistics`).
         session.write_message(
             BLOCK_BODIES, encode_response(request_id, bodies)
         )
@@ -554,6 +504,53 @@ class MockPeer:
             statistics.record(
                 f"bodies for {len(hashes)} hashes -> "
                 f"{len(bodies)} served ({served_bytes} bytes){detail}"
+            )
+
+    def _answer_bals(
+        self, session: RLPxSession, request_id: int, hashes: List[bytes]
+    ) -> None:
+        """
+        Answer a GetBlockAccessLists request from the served chains.
+
+        Entries are positional (EIP-8159): one per requested hash, the
+        RLP empty string for a BAL not held or withheld. Silence is not
+        an option, as clients penalize a peer that leaves these
+        requests unanswered. The response stops at the soft byte limit,
+        like bodies.
+        """
+        with self._lock:
+            statistics = self.statistics
+            statistics.bal_requests += 1
+
+        entries: List[bytes] = []
+        served = 0
+        withheld = 0
+        served_bytes = 0
+        for block_hash in hashes[:MAX_BODIES_PER_RESPONSE]:
+            if served_bytes >= SOFT_RESPONSE_LIMIT:
+                break
+            bal = self._chains.bal_rlp_by_hash(block_hash)
+            if bal is None:
+                entries.append(UNAVAILABLE_BAL)
+                continue
+            if not self.serve_bals:
+                entries.append(UNAVAILABLE_BAL)
+                withheld += 1
+                continue
+            entries.append(bal)
+            served += 1
+            served_bytes += len(bal)
+
+        session.write_message(
+            BLOCK_ACCESS_LISTS, encode_response(request_id, entries)
+        )
+
+        with self._lock:
+            statistics.bals_served += served
+            statistics.bals_withheld += withheld
+            statistics.record(
+                f"BALs for {len(hashes)} hashes -> {served} "
+                f"served ({served_bytes} bytes), {withheld} withheld"
             )
 
     def close(self) -> None:

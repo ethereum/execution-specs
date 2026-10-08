@@ -9,6 +9,10 @@ import pytest
 # Imported as a module: a hook imported by name into a test module would
 # be registered as that module's own `pytest_generate_tests`.
 from execution_testing.cli.pytest_commands.plugins.consume import consume
+from execution_testing.cli.pytest_commands.plugins.consume.simulators.helpers.test_tracker import (  # noqa: E501
+    GroupVariants,
+    group_variants_key,
+)
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.consume import TestCaseBase, TestCaseIndexFile
 from execution_testing.test_types import AllocGroupHash
@@ -47,9 +51,12 @@ def engine_x_case(test_id: str, fork: Any) -> TestCaseIndexFile:
 def generate(
     cases: List[TestCaseBase],
     clients: Sequence[str] = ("geth",),
-    **config: Any,
+    group_variants: GroupVariants | None = None,
 ) -> List[Any]:
     """Run consume's generator over `cases` for `clients`."""
+    stash = pytest.Stash()
+    if group_variants is not None:
+        stash[group_variants_key] = group_variants
     metafunc = Metafunc(
         SimpleNamespace(
             test_cases=cases,
@@ -57,7 +64,7 @@ def generate(
             hive_execution_clients=[
                 SimpleNamespace(name=name) for name in clients
             ],
-            **config,
+            stash=stash,
         )
     )
     consume.pytest_generate_tests(cast(pytest.Metafunc, metafunc))

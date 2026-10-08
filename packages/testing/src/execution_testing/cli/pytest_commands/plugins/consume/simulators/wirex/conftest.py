@@ -23,10 +23,12 @@ import json
 import logging
 import os
 import time
-from typing import TYPE_CHECKING, Dict, Generator
+from enum import StrEnum
+from functools import partial
+from typing import TYPE_CHECKING, Dict, Generator, Mapping, NamedTuple
 
 import pytest
-from hive.client import Client
+from hive.client import Client, ClientType
 
 from execution_testing.devp2p.chain import (
     Chain,
@@ -37,8 +39,19 @@ from execution_testing.devp2p.peer import MockPeer
 from execution_testing.devp2p.protocol import ETH_PROTOCOLS
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.fixtures.consume import (
+    TestCaseBase,
+    TestCaseIndexFile,
+    TestCaseStream,
+)
 
-from ..helpers.test_tracker import count_tests_per_group
+from ..helpers.test_tracker import (
+    GroupVariants,
+    count_tests_per_group,
+    group_variant_of,
+    group_variants_key,
+    xdist_group_of,
+)
 from .sync_targets import (
     UNDECODABLE_BODY_INVALIDITIES,
     SyncTargetCase,
@@ -69,6 +82,38 @@ pytest_plugins = (
 
 DEFAULT_NETWORK_ID = 1
 """Network identifier the client is started with, and the peer claims."""
+
+
+class BalMode(StrEnum):
+    """A `--wirex-bals` mode: whether the mock peer serves BALs."""
+
+    WITHHOLD = "withhold"
+    SERVE = "serve"
+    BOTH = "both"
+
+
+class BalVariant(StrEnum):
+    """The BAL group variants, which are also the test ID suffixes."""
+
+    WITHHELD = "bal_withheld"
+    SERVED = "bal_served"
+
+
+BAL_MODE_VARIANTS: Mapping[BalMode, tuple[BalVariant, ...]] = {
+    BalMode.WITHHOLD: (BalVariant.WITHHELD,),
+    BalMode.SERVE: (BalVariant.SERVED,),
+    BalMode.BOTH: (BalVariant.WITHHELD, BalVariant.SERVED),
+}
+"""The group variants each `--wirex-bals` mode runs a fixture under."""
+
+WITHHOLD_ONLY_CLIENTS = ("nethermind",)
+"""
+Clients that run only `withhold` under `--wirex-bals both`.
+
+nethermind requests BALs only for finalized blocks, and WireX finalizes
+only genesis, so its served tests would repeat its withheld ones.
+Matched as a substring of the Hive client name.
+"""
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -117,6 +162,23 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--wirex-bals",
+        action="store",
+        dest="wirex_bals",
+        choices=[mode.value for mode in BalMode],
+        default="both",
+        help=(
+            "Whether the mock peer serves BALs in reply to eth/71 "
+            "GetBlockAccessLists. 'withhold' answers every entry as "
+            "unavailable, so the client must execute each block itself; "
+            "'serve' answers from each block's payload. 'both' (default) "
+            "runs each Amsterdam-onward fixture once per mode, except on "
+            + ", ".join(WITHHOLD_ONLY_CLIENTS)
+            + " (withhold only). Amsterdam-onward test IDs end in "
+            "'-bal_withheld' or '-bal_served'."
+        ),
+    )
+    group.addoption(
         "--wirex-sync-timeout",
         action="store",
         dest="wirex_sync_timeout",
@@ -157,11 +219,58 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def pytest_configure(config: pytest.Config) -> None:
     """Set the supported fixture formats for the wirex simulator."""
     config.supported_fixture_formats = [BlockchainEngineXFixture]  # type: ignore[attr-defined]
+    mode = BalMode(str(config.getoption("wirex_bals", "both")))
+    group_variants: GroupVariants = partial(bal_variants, mode=mode)
+    config.stash[group_variants_key] = group_variants
+
+
+def pytest_report_header(config: pytest.Config) -> list[str]:
+    """State the BAL mode, and the clients that run one mode only."""
+    mode = BalMode(str(config.getoption("wirex_bals", "both")))
+    if mode != BalMode.BOTH:
+        return [f"wirex BALs: {mode}"]
+    return [
+        "wirex BALs: both (withhold only on "
+        + ", ".join(WITHHOLD_ONLY_CLIENTS)
+        + ")"
+    ]
+
+
+def withholds_only(client_name: str) -> bool:
+    """Return whether the client runs `withhold` only under `both`."""
+    return any(client in client_name for client in WITHHOLD_ONLY_CLIENTS)
+
+
+def bal_variants(
+    test_case: TestCaseBase, client_type: ClientType, mode: BalMode
+) -> tuple[str, ...]:
+    """
+    Return the BAL modes to run `test_case` under on `client_type`.
+
+    Only Amsterdam-onward blocks carry a BAL, so an earlier fixture runs
+    once, unsuffixed.
+    """
+    fork = test_case.fork
+    if fork is None or not fork.transitions_to().header_bal_hash_required():
+        return ("",)
+    if mode == BalMode.BOTH and withholds_only(client_type.name):
+        return (BalVariant.WITHHELD,)
+    return BAL_MODE_VARIANTS[mode]
+
+
+class ChainProperties(NamedTuple):
+    """What the collection order reads of one test's served chains."""
+
+    has_invalid: bool
+    """Whether the test declares an invalid payload."""
+
+    longest_chain: int
+    """The length of the test's longest served chain."""
 
 
 def _chain_properties(
     config: pytest.Config, items: list[pytest.Item]
-) -> Dict[str, tuple[bool, int]]:
+) -> Dict[str, ChainProperties]:
     """
     Return, per node ID, whether a test declares an invalid payload and
     the length of its longest served chain.
@@ -169,7 +278,7 @@ def _chain_properties(
     The fixture index records neither, so read each fixture file once
     and drop it before opening the next.
     """
-    properties: Dict[str, tuple[bool, int]] = {}
+    properties: Dict[str, ChainProperties] = {}
     cases_by_path: Dict[str, list[tuple[str, str]]] = {}
     source_path = getattr(config, "fixtures_source", None)
     for item in items:
@@ -177,17 +286,18 @@ def _chain_properties(
         if callspec is None:
             continue
         test_case = callspec.params.get("test_case")
-        fixture = getattr(test_case, "fixture", None)
-        if fixture is not None:  # stdin: the fixture is already loaded
-            properties[item.nodeid] = (
-                any(not payload.valid() for payload in fixture.payloads),
-                max(target_path_lengths(fixture)),
-            )
+        if isinstance(test_case, TestCaseStream):
+            # stdin: the fixture is already loaded.
+            fixture = test_case.fixture
+            if isinstance(fixture, BlockchainEngineXFixture):
+                properties[item.nodeid] = ChainProperties(
+                    any(not payload.valid() for payload in fixture.payloads),
+                    max(target_path_lengths(fixture)),
+                )
             continue
-        json_path = getattr(test_case, "json_path", None)
-        if json_path is None or source_path is None:
+        if not isinstance(test_case, TestCaseIndexFile) or source_path is None:
             continue
-        path = str(source_path.path / json_path)
+        path = str(source_path.path / test_case.json_path)
         cases_by_path.setdefault(path, []).append((item.nodeid, test_case.id))
     for path, cases in cases_by_path.items():
         with open(path) as file:
@@ -197,7 +307,7 @@ def _chain_properties(
             if raw_fixture is None:
                 continue
             payloads = raw_fixture.get("engineNewPayloads", [])
-            properties[nodeid] = (
+            properties[nodeid] = ChainProperties(
                 any(
                     payload.get("validationError") is not None
                     for payload in payloads
@@ -218,7 +328,7 @@ def pytest_collection_modifyitems(
 
     group_counts = count_tests_per_group(session, items)
 
-    chain_properties: Dict[str, tuple[bool, int]] = {}
+    chain_properties: Dict[str, ChainProperties] = {}
     if config.getoption("wirex_sort_by_chain_length", True):
         chain_properties = _chain_properties(config, items)
         logger.info(
@@ -229,19 +339,11 @@ def pytest_collection_modifyitems(
     def sort_key(item: pytest.Item) -> tuple[int, str, bool, int, str]:
         """Order by group size, group ID, validity, then chain length."""
         has_invalid, chain_length = chain_properties.get(
-            item.nodeid, (False, 0)
+            item.nodeid, ChainProperties(False, 0)
         )
-        for marker in item.iter_markers("xdist_group"):
-            if "name" in marker.kwargs:
-                group = marker.kwargs["name"]
-                return (
-                    -group_counts[group],
-                    group,
-                    has_invalid,
-                    chain_length,
-                    item.nodeid,
-                )
-        return (0, "", has_invalid, chain_length, item.nodeid)
+        group = xdist_group_of(item)
+        count = 0 if group is None else group_counts[group]
+        return (-count, group or "", has_invalid, chain_length, item.nodeid)
 
     items.sort(key=sort_key)
 
@@ -276,6 +378,16 @@ def wirex_eth_versions(request: pytest.FixtureRequest) -> tuple[int, ...]:
     return (int(option),)
 
 
+@pytest.fixture(scope="function")
+def wirex_serve_bals(request: pytest.FixtureRequest) -> bool:
+    """
+    Return whether this test's peer serves BALs.
+
+    A test without a variant predates Amsterdam and has no BAL to serve.
+    """
+    return group_variant_of(request.node) == BalVariant.SERVED
+
+
 @pytest.fixture(scope="session")
 def wirex_sync_timeout(request: pytest.FixtureRequest) -> float:
     """Return how long to wait for a client to reach the fixture head."""
@@ -303,34 +415,11 @@ def sync_target_cases(
     """
     Rebuild the served chain behind each of this test's sync targets.
 
-    Every announced target selects one root-to-leaf path through the
-    authored payloads (see `sync_targets`), and each path is judged on
-    its own: a path skips when it is too short to put any block on the
-    wire, when its declared invalidity leaves a block with no wire
-    representation, or when an invalid path cannot be reconstructed at
-    all. The fixture skips only when every one of its paths does; a
-    fixture that loses some paths but keeps others runs the keepers
-    and logs each omission.
-
-    Paths containing payloads flagged invalid still reconstruct and
-    are served as rejection tests (see ``test_blockchain_via_wirex``):
-    their blocks are semantically invalid but hash-consistent, so they
-    travel the wire like any other block. Two classes drop with an
-    explicit reason, for different causes:
-
-    - A payload whose declared invalidity is in the encoding of a
-      transaction itself (see ``UNDECODABLE_BODY_INVALIDITIES``) cannot
-      be represented over devp2p: the client discards such a body
-      instead of judging the block it belongs to.
-    - A payload whose header cannot be rebuilt from the payload is a
-      limit of the fixture, not of devp2p. The header is derived from
-      the payload's fields, and the commitments the payload does not
-      carry (the transactions and withdrawals roots, the requests and
-      block access list hashes) are recomputed from its content. A
-      header whose commitment was modified at fill (via
-      ``rlp_modifier``) still hashes to the declared block hash, but
-      the modified value is nowhere in the payload, so the rebuilt
-      header hashes differently.
+    Drop a path that is too short to put a block on devp2p, that
+    declares a body no client can decode, or whose invalid header
+    cannot be rebuilt from its payload (a commitment modified at fill
+    leaves no trace in the payload); the drop message names the cause.
+    Skip the test only when every path is dropped, and log each drop.
     """
     paths = resolve_sync_paths(genesis_header.block_hash, fixture)
     cases: list[SyncTargetCase] = []
@@ -387,6 +476,7 @@ def dial_mock_peer(
     client: Client,
     chain: Chain,
     eth_versions: tuple[int, ...],
+    serve_bals: bool,
     total_timing_data: "TimingData",
 ) -> MockPeer:
     """
@@ -404,6 +494,7 @@ def dial_mock_peer(
         private_key=os.urandom(32),
         network_id=DEFAULT_NETWORK_ID,
         eth_versions=eth_versions,
+        serve_bals=serve_bals,
     )
     with total_timing_data.time("Connect mock peer"):
         # The client readiness gate waits on the Engine API port only;
@@ -430,6 +521,7 @@ def mock_peer(
     sync_target_cases: list[SyncTargetCase],
     mock_peers: Dict[str, MockPeer],
     wirex_eth_versions: tuple[int, ...],
+    wirex_serve_bals: bool,
     total_timing_data: "TimingData",
 ) -> MockPeer:
     """
@@ -446,7 +538,11 @@ def mock_peer(
     peer = mock_peers.get(client.id)
     if peer is None:
         peer = dial_mock_peer(
-            client, chain, wirex_eth_versions, total_timing_data
+            client,
+            chain,
+            wirex_eth_versions,
+            wirex_serve_bals,
+            total_timing_data,
         )
         mock_peers[client.id] = peer
         return peer

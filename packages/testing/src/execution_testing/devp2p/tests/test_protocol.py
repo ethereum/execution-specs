@@ -3,10 +3,7 @@ Tests for the version-switchable eth protocol layer.
 
 The wire shapes asserted here are taken from the devp2p specification
 (`caps/eth.md`) and cross-checked against geth's
-`eth/protocols/eth/protocol.go`: the Status layout is shared by every
-version since eth/69, eth/70 (EIP-7975) inserts a receipt offset into
-GetReceipts, eth/71 (EIP-8159) adds the block access list request
-pair, and eth/72 (EIP-8070) changes only mempool blob propagation.
+`eth/protocols/eth/protocol.go`.
 """
 
 import ethereum_rlp as eth_rlp
@@ -15,8 +12,6 @@ from ethereum_types.numeric import Uint
 
 from ..protocol import (
     ETH_PROTOCOLS,
-    GET_BLOCK_ACCESS_LISTS,
-    GET_RECEIPTS,
     ProtocolError,
     Status,
     decode_get_block_access_lists,
@@ -166,7 +161,7 @@ class TestGetReceipts:
 
 
 class TestBlockAccessLists:
-    """eth/71 (EIP-8159) adds the request pair; the peer stays silent."""
+    """eth/71 (EIP-8159) adds the request pair; the peer always answers."""
 
     def test_request_decodes(self) -> None:
         """[request-id, [hashes]], the GetBlockBodies shape."""
@@ -175,13 +170,10 @@ class TestBlockAccessLists:
         assert request_id == 9
         assert hashes == [b"\xdd" * 32, b"\xee" * 32]
 
-    def test_eth71_onward_defers_the_request(self) -> None:
-        """The silence is a per-version decision, not a global one."""
+    def test_eth71_onward_carries_the_request(self) -> None:
+        """The pair exists from eth/71 on."""
         for version, protocol in ETH_PROTOCOLS.items():
-            expected = version >= 71
-            assert (
-                GET_BLOCK_ACCESS_LISTS in protocol.unanswered_requests
-            ) is expected
+            assert protocol.has_bals is (version >= 71)
 
 
 class TestRegistry:
@@ -191,8 +183,3 @@ class TestRegistry:
         """Each protocol object declares the version it is keyed by."""
         for version, protocol in ETH_PROTOCOLS.items():
             assert protocol.version == version
-
-    def test_receipts_are_never_answered(self) -> None:
-        """The receipts rule holds on every implemented version."""
-        for protocol in ETH_PROTOCOLS.values():
-            assert protocol.unanswered_requests[GET_RECEIPTS] == "GetReceipts"

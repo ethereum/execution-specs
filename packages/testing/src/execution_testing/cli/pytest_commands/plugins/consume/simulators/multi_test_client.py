@@ -24,6 +24,7 @@ from .helpers.ruleset import ruleset
 from .helpers.test_tracker import (
     PreAllocGroupTestTracker,
     group_identifier_of,
+    xdist_group_of,
 )
 
 if TYPE_CHECKING:
@@ -474,14 +475,6 @@ def genesis_header(pre_alloc_group: PreAllocGroup) -> FixtureHeader:
     return pre_alloc_group.genesis
 
 
-def _group_identifier(item: pytest.Item) -> str | None:
-    """Return the client group `item` was assigned at parametrization."""
-    for marker in item.iter_markers("xdist_group"):
-        if "name" in marker.kwargs:
-            return marker.kwargs["name"]
-    return None
-
-
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_makereport(
     item: pytest.Item, call: pytest.CallInfo[None]
@@ -501,7 +494,7 @@ def pytest_runtest_makereport(
     if report.when != "setup" or report.passed:
         return report
     manager = item.session.stash.get(multi_test_client_manager_key, None)
-    group_identifier = _group_identifier(item)
+    group_identifier = xdist_group_of(item)
     if manager is not None and group_identifier is not None:
         manager.mark_test_completed(group_identifier, item.nodeid)
     return report

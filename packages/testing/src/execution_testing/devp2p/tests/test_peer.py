@@ -1,30 +1,31 @@
-"""
-Tests for how the peer bounds the responses it serves.
+"""Tests for what the peer serves and what it records as served."""
 
-A response is bounded by serialized bytes, not only by a count of items.
-Clients cap the size of every message they read - geth's `maxMessageSize`
-is ten mebibytes, and exceeding it drops the peer rather than truncating
-the message - so two multi-megabyte bodies have to travel as two
-responses. EIP-7934 caps a block at eight mebibytes, which puts two of
-them in one response over that cap, and blocks that large are exactly
-what the `eip7934_block_rlp_limit` fixtures serve.
-"""
-
-import socket
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, Callable, Dict, List, Tuple, cast
 
+import ethereum_rlp as eth_rlp
 import pytest
+from ethereum_types.numeric import Uint
 
+from ..chain import Block, Chain
 from ..keccak import keccak256
 from ..peer import (
     BLOCK_BODIES,
+    BLOCK_HEADERS,
     MAX_BODIES_PER_RESPONSE,
+    MAX_HEADERS_PER_RESPONSE,
     SOFT_RESPONSE_LIMIT,
+    UNAVAILABLE_BAL,
     MockPeer,
 )
-from ..protocol import BlockHeadersRequest
-from ..rlpx import MAX_FRAME_SIZE, RLPxError, RLPxSession
+from ..protocol import (
+    BLOCK_ACCESS_LISTS,
+    ETH_PROTOCOLS,
+    GET_BLOCK_ACCESS_LISTS,
+    GET_RECEIPTS,
+    BlockHeadersRequest,
+)
+from ..rlpx import RLPxSession
 
 LARGE_BODY_SIZE = 8 * 1024 * 1024
 """A body the size EIP-7934 allows a block to reach."""
@@ -45,26 +46,63 @@ class _StubHead:
 
 @dataclass
 class _StubChain:
-    """A chain that only has to answer for its head."""
+    """A current chain: its head, and the headers it holds by number."""
 
     head: _StubHead = field(default_factory=_StubHead)
+    headers: Dict[int, bytes] = field(default_factory=dict)
+
+    def header_rlp_by_number(self, number: int) -> bytes | None:
+        """Return the header RLP held under `number`, if any."""
+        return self.headers.get(number)
 
 
 class _StubChains:
-    """The bodies a peer holds, keyed by block hash."""
+    """What a peer holds: bodies and BALs by hash, and a current chain."""
 
-    def __init__(self, bodies: Dict[bytes, bytes]) -> None:
-        """Hold `bodies` and present a chain to report as current."""
-        self._bodies = bodies
-        self.current = _StubChain()
+    def __init__(
+        self,
+        bodies: Dict[bytes, bytes] | None = None,
+        headers: Dict[int, bytes] | None = None,
+        bals: Dict[bytes, bytes | None] | None = None,
+    ) -> None:
+        """Hold the given items; a `None` BAL is a pre-Amsterdam block."""
+        self._bodies = bodies or {}
+        self._bals = bals or {}
+        self.current = _StubChain(headers=headers or {})
 
     def install(self, chain: Any) -> None:
-        """Accept a new chain without changing the held bodies."""
+        """Accept a new chain without changing what is held."""
         del chain
 
     def body_rlp_by_hash(self, block_hash: bytes) -> bytes | None:
         """Return the body held under `block_hash`, if any."""
         return self._bodies.get(block_hash)
+
+    def bal_rlp_by_hash(self, block_hash: bytes) -> bytes | None:
+        """Return the BAL held under `block_hash`, if any."""
+        return self._bals.get(block_hash)
+
+
+def _peer(**overrides: Any) -> MockPeer:
+    """Return a peer that is never dialed for real."""
+    arguments: Dict[str, Any] = {
+        "host": "127.0.0.1",
+        "port": 30303,
+        "remote_public_key": b"\x00" * 64,
+        "private_key": b"\x01" * 32,
+        "network_id": 1,
+    }
+    return MockPeer(**(arguments | overrides))
+
+
+def _stub_peer(
+    bodies: Dict[bytes, bytes] | None = None,
+    headers: Dict[int, bytes] | None = None,
+) -> MockPeer:
+    """Return a peer holding stub `bodies` and current `headers`."""
+    peer = _peer()
+    peer._chains = cast(Any, _StubChains(bodies, headers))
+    return peer
 
 
 class _RecordingSession:
@@ -90,35 +128,23 @@ class _FailingSession:
 
 def _serve(bodies: Dict[bytes, bytes], hashes: List[bytes]) -> int:
     """
-    Ask a peer holding `bodies` for `hashes`, and return how many it sent.
+    Ask a peer holding `bodies` for `hashes`; return how many it sent.
 
-    The response is counted rather than decoded: these payloads reach
-    megabytes, and a pure Python RLP decode of one takes long enough to
-    dominate the suite.
+    The response is sized rather than decoded: a pure Python RLP decode
+    of megabytes would dominate the suite.
     """
-    peer = MockPeer(
-        host="127.0.0.1",
-        port=30303,
-        remote_public_key=b"\x00" * 64,
-        private_key=b"\x01" * 32,
-        network_id=1,
-    )
-    peer._chains = cast(Any, _StubChains(bodies))
+    peer = _stub_peer(bodies)
     session = _RecordingSession()
     peer._serve_bodies(cast(RLPxSession, session), 1, hashes)
 
-    assert len(session.messages) == 1
-    code, payload = session.messages[0]
+    ((code, payload),) = session.messages
     assert code == BLOCK_BODIES
     served = peer.statistics.bodies_served
-    # The response carries every served body and nothing else of size.
     # Unknown hashes are skipped, so the served bodies are the first
-    # `served` known hashes of the request.
+    # `served` known hashes, and the response carries nothing else.
     known = [block_hash for block_hash in hashes if block_hash in bodies]
     expected = sum(len(bodies[block_hash]) for block_hash in known[:served])
     assert expected <= len(payload) <= expected + 16
-    # Exactly the served hashes are recorded - the per-block coverage
-    # the consumer asserts - never an unknown or a bounded-out one.
     assert peer.statistics.body_hashes_served == set(known[:served])
     return served
 
@@ -158,23 +184,8 @@ class TestBodyResponseSize:
         assert _serve(bodies, hashes) == MAX_BODIES_PER_RESPONSE
 
     def test_lifetime_service_survives_a_chain_switch(self) -> None:
-        """
-        `body_hashes_ever_served` accumulates across `set_chain`.
-
-        The per-test statistics reset with every chain switch, but the
-        reused client keeps every block it imported, so the evidence
-        that a body once traveled the wire must outlive the test that
-        made it travel: a later test declaring a byte-identical chain
-        syncs nothing, and its coverage check reads this set.
-        """
-        peer = MockPeer(
-            host="127.0.0.1",
-            port=30303,
-            remote_public_key=b"\x00" * 64,
-            private_key=b"\x01" * 32,
-            network_id=1,
-        )
-        peer._chains = cast(Any, _StubChains({_hash(1): b"\x01"}))
+        """`body_hashes_ever_served` survives a chain switch."""
+        peer = _stub_peer(bodies={_hash(1): b"\x01"})
         peer._serve_bodies(
             cast(RLPxSession, _RecordingSession()), 1, [_hash(1)]
         )
@@ -185,23 +196,8 @@ class TestBodyResponseSize:
         assert peer.body_hashes_ever_served == {_hash(1)}
 
     def test_failed_write_records_nothing_as_served(self) -> None:
-        """
-        A response whose socket write raises is not service.
-
-        `body_hashes_served` is the evidence behind the consumer's
-        per-block wire-coverage assertion, so a body that never left
-        the peer must not appear in it - and the transcript must not
-        claim it was served. The request itself is still counted: it
-        arrived, whatever became of the answer.
-        """
-        peer = MockPeer(
-            host="127.0.0.1",
-            port=30303,
-            remote_public_key=b"\x00" * 64,
-            private_key=b"\x01" * 32,
-            network_id=1,
-        )
-        peer._chains = cast(Any, _StubChains({_hash(1): b"\x01"}))
+        """A failed write records no body as served, only the request."""
+        peer = _stub_peer(bodies={_hash(1): b"\x01"})
         with pytest.raises(OSError):
             peer._serve_bodies(
                 cast(RLPxSession, _FailingSession()), 1, [_hash(1)]
@@ -213,42 +209,16 @@ class TestBodyResponseSize:
         assert not any("served" in line for line in peer.statistics.transcript)
 
 
-@dataclass
-class _StubHeaderChain:
-    """A chain that answers header requests by number."""
-
-    headers: Dict[int, bytes]
-
-    def header_rlp_by_number(self, number: int) -> bytes | None:
-        """Return the header RLP held under `number`, if any."""
-        return self.headers.get(number)
-
-
-def _headers_request(number: int) -> BlockHeadersRequest:
-    """Return a request for the single header at `number`."""
+def _headers_request(number: int, amount: int = 1) -> BlockHeadersRequest:
+    """Return a forward request for `amount` headers from `number`."""
     return BlockHeadersRequest(
         request_id=7,
         origin_hash=None,
         origin_number=number,
-        amount=1,
+        amount=amount,
         skip=0,
         reverse=False,
     )
-
-
-def _peer_with_headers(headers: Dict[int, bytes]) -> MockPeer:
-    """Return a peer whose current chain serves exactly `headers`."""
-    peer = MockPeer(
-        host="127.0.0.1",
-        port=30303,
-        remote_public_key=b"\x00" * 64,
-        private_key=b"\x01" * 32,
-        network_id=1,
-    )
-    chains = _StubChains({})
-    chains.current = cast(Any, _StubHeaderChain(headers))
-    peer._chains = cast(Any, chains)
-    return peer
 
 
 class TestHeaderServiceEvidence:
@@ -257,7 +227,7 @@ class TestHeaderServiceEvidence:
     def test_served_headers_are_recorded_by_hash(self) -> None:
         """The evidence is the keccak of the exact bytes served."""
         header = b"\x02" * 100
-        peer = _peer_with_headers({1: header})
+        peer = _stub_peer(headers={1: header})
         peer._serve_headers(
             cast(RLPxSession, _RecordingSession()), _headers_request(1)
         )
@@ -266,14 +236,9 @@ class TestHeaderServiceEvidence:
         assert peer.header_hashes_ever_served == {keccak256(header)}
 
     def test_lifetime_service_survives_a_chain_switch(self) -> None:
-        """
-        `header_hashes_ever_served` accumulates across `set_chain`,
-        exactly as the body evidence does and for the same reason: a
-        header is required to cross the wire once per client, not once
-        per test.
-        """
+        """`header_hashes_ever_served` survives a chain switch."""
         header = b"\x03" * 100
-        peer = _peer_with_headers({1: header})
+        peer = _stub_peer(headers={1: header})
         peer._serve_headers(
             cast(RLPxSession, _RecordingSession()), _headers_request(1)
         )
@@ -284,15 +249,8 @@ class TestHeaderServiceEvidence:
         assert peer.header_hashes_ever_served == {keccak256(header)}
 
     def test_failed_write_records_nothing_as_served(self) -> None:
-        """
-        A header response whose socket write raises is not service.
-
-        The evidence feeds the consumer's per-block wire-coverage
-        assertion, so a header that never left the peer must not
-        appear in it. The request itself is still counted: it arrived,
-        whatever became of the answer.
-        """
-        peer = _peer_with_headers({1: b"\x04" * 100})
+        """A failed write records no header as served, only the request."""
+        peer = _stub_peer(headers={1: b"\x04" * 100})
         with pytest.raises(OSError):
             peer._serve_headers(
                 cast(RLPxSession, _FailingSession()), _headers_request(1)
@@ -303,12 +261,261 @@ class TestHeaderServiceEvidence:
         assert peer.header_hashes_ever_served == set()
 
 
+@dataclass
+class _StubHeader:
+    """The header fields a `Chain` reads, hashed like a real header."""
+
+    number: int
+    rlp: bytes
+    block_hash: bytes
+    withdrawals_root: bytes | None = None
+
+
+def _stub_header(number: int, tag: bytes) -> _StubHeader:
+    """Return a header at `number`, distinguished by `tag`."""
+    rlp = eth_rlp.encode([Uint(number), tag])
+    return _StubHeader(number=number, rlp=rlp, block_hash=keccak256(rlp))
+
+
+GENESIS = _stub_header(0, b"genesis")
+
+
+def _chain(tags: List[bytes]) -> Chain:
+    """
+    Return a chain whose block `n` carries `tags[n - 1]`.
+
+    Two chains built from equal leading tags share those blocks, hash
+    for hash, as two tests of one group share a block prefix.
+    """
+    blocks = [
+        Block(
+            header=cast(Any, _stub_header(number, tag)),
+            transactions=[],
+            withdrawals=None,
+        )
+        for number, tag in enumerate(tags, start=1)
+    ]
+    return Chain(cast(Any, GENESIS), blocks)
+
+
+def _hash_at(chain: Chain, number: int) -> bytes:
+    """Return the hash of `chain`'s block at `number`, genesis included."""
+    if number == 0:
+        return bytes(chain.genesis.block_hash)
+    return chain.blocks[number - 1].block_hash
+
+
+def _serving(*chains: Chain) -> MockPeer:
+    """Return a peer that served `chains` in order, the last current."""
+    peer = _peer()
+    for chain in chains:
+        peer.set_chain(chain)
+    return peer
+
+
+def _walk(
+    peer: MockPeer,
+    origin: int | bytes,
+    amount: int,
+    skip: int = 0,
+    reverse: bool = False,
+) -> List[bytes]:
+    """
+    Ask `peer` for headers from `origin` and return the served hashes.
+
+    An `int` origin names a block by number, a `bytes` origin by hash.
+    """
+    session = _RecordingSession()
+    request = BlockHeadersRequest(
+        request_id=9,
+        origin_hash=origin if isinstance(origin, bytes) else None,
+        origin_number=origin if isinstance(origin, int) else None,
+        amount=amount,
+        skip=skip,
+        reverse=reverse,
+    )
+    peer._serve_headers(cast(RLPxSession, session), request)
+    assert len(session.messages) == 1
+    code, payload = session.messages[0]
+    assert code == BLOCK_HEADERS
+    request_id, headers = cast(
+        Tuple[bytes, List[Any]], eth_rlp.decode(payload)
+    )
+    assert int.from_bytes(request_id, "big") == 9
+    return [keccak256(eth_rlp.encode(header)) for header in headers]
+
+
+class TestHeaderRequests:
+    """Header requests walk the served chain as the eth protocol says."""
+
+    @pytest.mark.parametrize(
+        "origin,by_hash,amount,skip,reverse,expected",
+        [
+            pytest.param(1, False, 4, 2, False, [1, 4, 7, 10], id="skip"),
+            pytest.param(
+                10, False, 4, 2, True, [10, 7, 4, 1], id="reverse-skip"
+            ),
+            pytest.param(
+                3, False, 10, 0, True, [3, 2, 1, 0], id="reverse-to-genesis"
+            ),
+            pytest.param(9, False, 5, 0, False, [9, 10], id="past-head"),
+            pytest.param(11, False, 1, 0, False, [], id="beyond-head"),
+            pytest.param(1, False, 0, 0, False, [], id="amount-zero"),
+            pytest.param(
+                10, True, 3, 0, True, [10, 9, 8], id="hash-head-reverse"
+            ),
+            pytest.param(
+                2, True, 3, 1, False, [2, 4, 6], id="hash-forward-skip"
+            ),
+            pytest.param(0, True, 3, 0, False, [0, 1, 2], id="hash-genesis"),
+        ],
+    )
+    def test_header_requests(
+        self,
+        origin: int,
+        by_hash: bool,
+        amount: int,
+        skip: int,
+        reverse: bool,
+        expected: List[int],
+    ) -> None:
+        """Exactly the requested blocks are served, in order, and recorded."""
+        chain = _chain([bytes([number]) for number in range(1, 11)])
+        peer = _serving(chain)
+        served = _walk(
+            peer,
+            _hash_at(chain, origin) if by_hash else origin,
+            amount,
+            skip,
+            reverse,
+        )
+        wanted = [_hash_at(chain, number) for number in expected]
+        assert served == wanted
+        assert peer.statistics.header_requests == 1
+        assert peer.statistics.headers_served == len(wanted)
+        assert peer.statistics.header_hashes_served == set(wanted)
+
+    def test_an_unknown_hash_is_answered_empty(self) -> None:
+        """A hash on no served chain gets an empty, counted answer."""
+        peer = _serving(_chain([b"\x01", b"\x02"]))
+        assert _walk(peer, b"\xee" * 32, 2) == []
+        assert peer.statistics.header_requests == 1
+        assert peer.statistics.header_hashes_served == set()
+
+    def test_header_count_is_capped(self) -> None:
+        """One response carries at most the per-response header cap."""
+        length = MAX_HEADERS_PER_RESPONSE + 10
+        chain = _chain([number.to_bytes(2, "big") for number in range(length)])
+        served = _walk(_serving(chain), 0, length + 1)
+        assert served == [
+            _hash_at(chain, number)
+            for number in range(MAX_HEADERS_PER_RESPONSE)
+        ]
+
+    def test_a_hash_from_an_older_chain_is_walked_on_that_chain(
+        self,
+    ) -> None:
+        """
+        A client still syncing the previous test's chain is answered
+        from that chain when it names a block only that chain holds.
+        """
+        older = _chain([b"1a", b"2a", b"3a"])
+        current = _chain([b"1b", b"2b"])
+        peer = _serving(older, current)
+        served = _walk(peer, _hash_at(older, 3), 4, reverse=True)
+        assert served == [_hash_at(older, number) for number in (3, 2, 1, 0)]
+
+    def test_forward_walk_from_a_shared_block_follows_the_current_chain(
+        self,
+    ) -> None:
+        """
+        A forward walk from a block the current chain shares with an
+        older one leads to the current head, not the older one's.
+        """
+        older = _chain([b"1", b"2a", b"3a"])
+        current = _chain([b"1", b"2b", b"3b"])
+        assert _hash_at(older, 1) == _hash_at(current, 1)
+        peer = _serving(older, current)
+        served = _walk(peer, _hash_at(current, 1), 3)
+        assert served == [_hash_at(current, number) for number in (1, 2, 3)]
+
+    @pytest.mark.parametrize("walked", ["older", "current"])
+    def test_reverse_walk_from_either_chain_reaches_genesis(
+        self, walked: str
+    ) -> None:
+        """A reverse walk from either chain's head follows its ancestry."""
+        chains = {
+            "older": _chain([b"1", b"2a", b"3a"]),
+            "current": _chain([b"1", b"2b", b"3b"]),
+        }
+        peer = _serving(chains["older"], chains["current"])
+        chain = chains[walked]
+        served = _walk(peer, _hash_at(chain, 3), 4, reverse=True)
+        assert served == [_hash_at(chain, number) for number in (3, 2, 1, 0)]
+
+
+class _HandoverSession(_RecordingSession):
+    """A session during whose write the next test takes over the peer."""
+
+    def __init__(self, handover: Callable[[], None]) -> None:
+        """Run `handover` on the first write."""
+        super().__init__()
+        self.handover = handover
+
+    def write_message(self, code: int, payload: bytes) -> None:
+        """Start the next test, then record the message."""
+        self.handover()
+        super().write_message(code, payload)
+
+
+class TestStragglerAttribution:
+    """A straggling response is recorded for the test that asked for it."""
+
+    def test_a_straggling_body_response_stays_with_its_test(self) -> None:
+        """The served body lands in the asking test's statistics."""
+        peer = _stub_peer(bodies={_hash(1): b"\x01"})
+        asking = peer.statistics
+        session = _HandoverSession(
+            lambda: peer.set_chain(cast(Any, _StubChain()))
+        )
+        peer._serve_bodies(cast(RLPxSession, session), 1, [_hash(1)])
+
+        assert peer.statistics is not asking
+        assert asking.bodies_served == 1
+        assert asking.body_hashes_served == {_hash(1)}
+        assert any("served" in line for line in asking.transcript)
+        assert peer.statistics.bodies_served == 0
+        assert peer.statistics.body_hashes_served == set()
+        assert not any("served" in line for line in peer.statistics.transcript)
+        assert peer.body_hashes_ever_served == {_hash(1)}
+
+    def test_a_straggling_header_response_stays_with_its_test(self) -> None:
+        """The served headers land in the asking test's statistics."""
+        chain = _chain([b"\x01", b"\x02"])
+        peer = _serving(chain)
+        asking = peer.statistics
+        session = _HandoverSession(lambda: peer.set_chain(_chain([b"\x03"])))
+        peer._serve_headers(
+            cast(RLPxSession, session), _headers_request(1, amount=2)
+        )
+
+        served = {_hash_at(chain, 1), _hash_at(chain, 2)}
+        assert peer.statistics is not asking
+        assert asking.headers_served == 2
+        assert asking.header_hashes_served == served
+        assert any("2 headers" in line for line in asking.transcript)
+        assert peer.statistics.headers_served == 0
+        assert peer.statistics.header_hashes_served == set()
+        assert peer.statistics.transcript == []
+        assert peer.header_hashes_ever_served == served
+
+
 class TestEvidenceSeparation:
     """Header service and body service are separate evidence."""
 
     def test_header_service_is_not_body_evidence(self) -> None:
         """Serving a header records no body, per test or lifetime."""
-        peer = _peer_with_headers({1: b"\x05" * 100})
+        peer = _stub_peer(headers={1: b"\x05" * 100})
         peer._serve_headers(
             cast(RLPxSession, _RecordingSession()), _headers_request(1)
         )
@@ -319,8 +526,7 @@ class TestEvidenceSeparation:
 
     def test_body_service_is_not_header_evidence(self) -> None:
         """Serving a body records no header, per test or lifetime."""
-        peer = _peer_with_headers({})
-        peer._chains = cast(Any, _StubChains({_hash(1): b"\x01"}))
+        peer = _stub_peer(bodies={_hash(1): b"\x01"})
         peer._serve_bodies(
             cast(RLPxSession, _RecordingSession()), 1, [_hash(1)]
         )
@@ -330,27 +536,70 @@ class TestEvidenceSeparation:
         assert peer.header_hashes_ever_served == set()
 
 
-class TestFrameSizeGuard:
-    """A frame too large to describe is refused, not silently mangled."""
+def _bal_peer(bals: Dict[bytes, bytes | None], serve: bool) -> MockPeer:
+    """Return an eth/71 peer holding `bals`."""
+    peer = _peer(serve_bals=serve)
+    peer.protocol = ETH_PROTOCOLS[71]
+    peer._chains = cast(Any, _StubChains(bals=bals))
+    return peer
 
-    def test_oversized_frame_is_refused(self) -> None:
-        """A frame at the three byte length ceiling raises."""
 
-        class _RefusingSocket:
-            """A socket that fails the test if it is ever written to."""
+def _request_bals(
+    peer: MockPeer, hashes: List[bytes]
+) -> Tuple[int, List[bytes]]:
+    """Ask `peer` for the BALs of `hashes`; return the id and entries."""
+    session = _RecordingSession()
+    payload = eth_rlp.encode([Uint(5), hashes])
+    peer._handle(cast(RLPxSession, session), GET_BLOCK_ACCESS_LISTS, payload)
+    ((code, response),) = session.messages
+    assert code == BLOCK_ACCESS_LISTS
+    request_id, entries = cast(
+        Tuple[bytes, List[Any]], eth_rlp.decode(response)
+    )
+    return (
+        int.from_bytes(request_id, "big"),
+        [eth_rlp.encode(entry) for entry in entries],
+    )
 
-            def sendall(self, data: bytes) -> None:
-                """Reject a write the size guard should have stopped."""
-                del data
-                raise AssertionError("oversized frame reached the socket")
 
-        session = RLPxSession(
-            cast(socket.socket, _RefusingSocket()),
-            aes_secret=b"\x02" * 32,
-            mac_secret=b"\x03" * 32,
-            egress_seed=b"\x04" * 32,
-            ingress_seed=b"\x05" * 32,
+class TestBalService:
+    """BALs are withheld by default and served on request."""
+
+    BAL = eth_rlp.encode([[b"\x11" * 20, [], [], [], [], []]])
+
+    def test_withheld_by_default(self) -> None:
+        """Every entry is unavailable; held BALs count as withheld."""
+        peer = _bal_peer({_hash(1): self.BAL, _hash(2): None}, serve=False)
+        assert _request_bals(peer, [_hash(1), _hash(2)]) == (
+            5,
+            [UNAVAILABLE_BAL, UNAVAILABLE_BAL],
         )
-        # One byte for the message code brings the frame to the ceiling.
-        with pytest.raises(RLPxError, match="frame of"):
-            session.write_message(0x10, b"\x00" * (MAX_FRAME_SIZE - 1))
+        assert peer.statistics.bal_requests == 1
+        assert peer.statistics.bals_served == 0
+        assert peer.statistics.bals_withheld == 1
+        assert peer.statistics.receipt_requests == 0
+
+    def test_served_entries_are_positional(self) -> None:
+        """One entry per hash, in order: the unwrapped BAL, else empty."""
+        peer = _bal_peer({_hash(1): self.BAL, _hash(2): None}, serve=True)
+        assert _request_bals(peer, [_hash(1), _hash(2), _hash(3)]) == (
+            5,
+            [self.BAL, UNAVAILABLE_BAL, UNAVAILABLE_BAL],
+        )
+        assert peer.statistics.bal_requests == 1
+        assert peer.statistics.bals_served == 1
+        assert peer.statistics.bals_withheld == 0
+        assert peer.statistics.receipt_requests == 0
+
+    @pytest.mark.parametrize("version", sorted(ETH_PROTOCOLS))
+    def test_receipts_stay_unanswered_when_serving(self, version: int) -> None:
+        """No version answers receipts, even with BALs served."""
+        peer = _bal_peer({}, serve=True)
+        peer.protocol = ETH_PROTOCOLS[version]
+        session = _RecordingSession()
+        offset = [] if version == 69 else [Uint(0)]
+        payload = eth_rlp.encode([Uint(5), *offset, [_hash(1)]])
+        peer._handle(cast(RLPxSession, session), GET_RECEIPTS, payload)
+        assert session.messages == []
+        assert peer.statistics.receipt_requests == 1
+        assert "receipts for 1 hashes" in peer.statistics.transcript[-1]
