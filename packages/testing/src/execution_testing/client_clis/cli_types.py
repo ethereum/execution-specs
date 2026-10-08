@@ -8,6 +8,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Annotated,
     Any,
     Dict,
@@ -56,6 +57,11 @@ from execution_testing.test_types import (
     TransactionReceipt,
 )
 from execution_testing.vm import Opcode, Opcodes
+
+if TYPE_CHECKING:
+    from execution_testing.evm_tools.t8n.evm_trace.bal_witness import (
+        BalWitness,
+    )
 
 logger = get_logger(__name__)
 
@@ -889,6 +895,8 @@ class TransitionToolOutput:
     # Populated by ``ClientBackend.evaluate`` (live-client path). Always
     # ``None`` from the classical t8n path.
     engine_payload: EnginePayloadMetadata | None = None
+    # Set only by a tool honoring ``TransitionTool.compute_bal_witness``.
+    bal_witness: "BalWitness | None" = None
 
     @classmethod
     def model_validate_files(

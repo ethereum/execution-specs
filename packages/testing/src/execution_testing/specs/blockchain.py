@@ -19,6 +19,7 @@ import pytest
 from pydantic import (
     ConfigDict,
     Field,
+    PrivateAttr,
     field_validator,
     model_serializer,
 )
@@ -111,6 +112,7 @@ from .helpers import (
     verify_block,
     verify_transactions,
 )
+from .invariants import BlockTotals, check_block_invariants
 
 logger = get_logger(__name__)
 
@@ -938,6 +940,11 @@ class BlockchainTest(BaseTest):
     """
     Include transaction receipts in the fixture output.
     """
+    _from_state_test: bool = PrivateAttr(default=False)
+    """
+    Generated from a state test, whose own fill already checked every
+    invariant a block access list plays no part in.
+    """
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
@@ -1509,6 +1516,30 @@ class BlockchainTest(BaseTest):
                 f"also rejects the block itself ({block_exception}). The "
                 "fixture would carry two defects and name one. Change the "
                 "block so that only the transaction is invalid."
+            )
+
+        # A state test's blockchain form adds only the block access list
+        # to what the state form checked, so a fork without one skips it.
+        if (
+            self.invariant_checks
+            and block.exception is None
+            and not (self._from_state_test and t8n_bal is None)
+        ):
+            check_block_invariants(
+                block_access_list_only=self._from_state_test,
+                fork=fork,
+                pre_alloc=(
+                    previous_alloc.materialize()
+                    if isinstance(previous_alloc, LazyAlloc)
+                    else previous_alloc
+                ),
+                post_alloc=transition_tool_output.alloc.materialize(),
+                result=transition_tool_output.result,
+                txs=txs,
+                totals=BlockTotals.of_built_block(built_block),
+                block_access_list=t8n_bal,
+                bal_witness=transition_tool_output.bal_witness,
+                block_number=int(header.number),
             )
 
         return built_block
