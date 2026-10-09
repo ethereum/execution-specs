@@ -4,6 +4,7 @@ Byte-level interface to BLS12-381 curve operations.
 All inputs and outputs are raw (unpadded) bytes.
 """
 
+from functools import lru_cache
 from typing import Sequence
 
 from py_ecc.bls.hash_to_curve import (
@@ -62,6 +63,11 @@ def bytes_to_fq2(raw: bytes) -> FQ2:
     return FQ2((c0, c1))
 
 
+# Note: Caching as a way to optimize client performance can create a DoS
+# attack vector for worst-case inputs that trigger only cache misses. This
+# should not be relied upon for client performance optimization in
+# production systems.
+@lru_cache(maxsize=128)
 def bytes_to_g1(raw: bytes, subgroup_check: bool = False) -> Point3D[FQ]:
     """
     Decode a 96-byte raw G1 point to a py-ecc Point3D.
@@ -94,6 +100,11 @@ def g1_to_bytes(point: Point3D[FQ]) -> bytes:
     return int(x).to_bytes(48, "big") + int(y).to_bytes(48, "big")
 
 
+# Note: Caching as a way to optimize client performance can create a DoS
+# attack vector for worst-case inputs that trigger only cache misses. This
+# should not be relied upon for client performance optimization in
+# production systems.
+@lru_cache(maxsize=128)
 def bytes_to_g2(raw: bytes, subgroup_check: bool = False) -> Point3D[FQ2]:
     """
     Decode a 192-byte raw G2 point to a py-ecc Point3D.
