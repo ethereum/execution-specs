@@ -40,7 +40,11 @@ from execution_testing.fixtures.reorg import (
     TxRef,
 )
 from execution_testing.logging import get_logger
-from execution_testing.rpc import EngineRPC, EthRPC
+from execution_testing.rpc import (
+    EngineRPC,
+    EthRPC,
+    SendTransactionExceptionError,
+)
 from execution_testing.rpc.rpc_types import ForkchoiceState, JSONRPCError
 
 from ..helpers.exceptions import LoggedError
@@ -548,9 +552,13 @@ class StepRunner:
             self.eth.send_raw_transaction(self.tx_rlp(step.tx))
             result = "accepted"
             detail = ""
-        except JSONRPCError as e:
+        except SendTransactionExceptionError as e:
+            # EthRPC wraps the client's JSON-RPC error; any other failure
+            # is not a rejection.
+            if not isinstance(e.__cause__, JSONRPCError):
+                raise
             result = "rejected"
-            detail = f" ({e.code}: {e.message})"
+            detail = f" ({e.__cause__.code}: {e.__cause__.message})"
         if result not in step.expect:
             raise LoggedError(
                 f"{name}: tx {ref} {result}{detail}, expected {step.expect}"
