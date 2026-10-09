@@ -38,8 +38,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 
-from execution_testing.base_types import Alloc, Number
+from execution_testing.base_types import Alloc, Hash, HexNumber, Number
 from execution_testing.exceptions import EngineAPIError
+from execution_testing.fixtures.blockchain import PayloadAttributes
 from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
     LATEST_VALID_HASH_NULL,
@@ -52,6 +53,7 @@ from execution_testing.fixtures.reorg import (
     Outcome,
     Step,
 )
+from execution_testing.forks import Fork, TransitionFork
 
 DISPUTED_HEAD_EQUALS_FINALIZED = (
     "execution-apis#891: whether head == finalized is covered by the "
@@ -77,6 +79,12 @@ class ModelDag:
     """
     post_state: Optional[Callable[[str], Optional[Alloc]]] = None
     """label -> that block's post-state (``None`` if unknown), if checked."""
+    timestamp: Dict[str, int] = field(default_factory=dict)
+    """label -> timestamp; with the next two, the build-request defaults."""
+    gas_limit: Dict[str, int] = field(default_factory=dict)
+    """label -> gas limit."""
+    slot: Dict[str, int] = field(default_factory=dict)
+    """label -> slot number (0 before Amsterdam)."""
 
     def ancestors(self, label: str) -> List[str]:
         """Labels from ``label`` (inclusive) back to genesis."""
@@ -135,6 +143,17 @@ class ClientModel:
     head: str = GENESIS_LABEL
     safe: str = ZERO_LABEL
     finalized: str = ZERO_LABEL
+    build: Optional[Tuple[str, PayloadAttributes]] = None
+    """
+    Parent label and attributes of the build ``getPayload`` retrieves: the
+    consumer keeps the ``payloadId`` of the last ``forkchoiceUpdated`` that
+    did not error, so that response decides it.
+    """
+    build_diverged: Optional[str] = None
+    """
+    The step whose outcomes leave different builds; a ``getPayload`` that
+    depends on it is rejected.
+    """
 
     def __post_init__(self) -> None:
         """Genesis is always known and valid."""
@@ -380,8 +399,22 @@ class ClientModel:
     def apply_forkchoice(
         self, step: ForkchoiceUpdatedStep, outcome: Outcome
     ) -> None:
-        """Update model state assuming ``outcome`` happened."""
-        if self._forkchoice_effect(step, outcome):
+        """
+        Update model state assuming ``outcome`` happened. A response that is
+        not an error replaces the build ``getPayload`` retrieves: with this
+        request's if it returns a ``payloadId``, else with none.
+        """
+        applied = self._forkchoice_effect(step, outcome)
+        attrs = step.payload_attributes
+        if outcome.error_code is None and not outcome.any_error:
+            self.build = None
+            self.build_diverged = None
+            if attrs is not None and (
+                outcome.payload_id == "nonNull"
+                or (outcome.payload_id is None and applied)
+            ):
+                self.build = (step.head, attrs)
+        if applied:
             self.head = step.head
             self.safe = step.safe
             self.finalized = step.finalized
@@ -401,6 +434,8 @@ class ClientModel:
         self.head = other.head
         self.safe = other.safe
         self.finalized = other.finalized
+        self.build = other.build
+        self.build_diverged = other.build_diverged
 
     def copy(self) -> "ClientModel":
         """Independent copy for branch exploration."""
@@ -411,6 +446,8 @@ class ClientModel:
             head=self.head,
             safe=self.safe,
             finalized=self.finalized,
+            build=self.build,
+            build_diverged=self.build_diverged,
         )
 
 
@@ -472,7 +509,7 @@ def _continue(
 
     When a later step follows, every branch must leave the same
     head/safe/finalized; a block they leave in different states is marked
-    diverged.
+    diverged, and so is the build when they leave different ones.
     """
     ids = [oid for oid, _ in branches]
     states = {(m.head, m.safe, m.finalized) for _, m in branches}
@@ -493,12 +530,107 @@ def _continue(
                 f"{where}: outcomes {ids} leave block {label!r} in "
                 "different states"
             )
+    reasons = [m.build_diverged for _, m in branches if m.build_diverged]
+    if reasons:
+        model.build_diverged = reasons[0]
+    elif any(m.build != model.build for _, m in branches[1:]):
+        model.build_diverged = (
+            f"{where}: outcomes {ids} leave different payload builds"
+        )
+
+
+def _default_build_request(
+    step: ForkchoiceUpdatedStep,
+    dag: ModelDag,
+    fork: Fork | TransitionFork,
+) -> None:
+    """
+    Fill a build request's unset attribute fields, and its version, from
+    the head block and the fork of the requested timestamp.
+    """
+    attrs = step.payload_attributes
+    assert attrs is not None
+    if int(attrs.timestamp) == 0:
+        attrs.timestamp = HexNumber(dag.timestamp[step.head] + 12)
+    attrs_fork = fork.fork_at(block_number=0, timestamp=int(attrs.timestamp))
+    if attrs.withdrawals is None and attrs_fork.header_withdrawals_required():
+        attrs.withdrawals = []
+    if (
+        attrs.parent_beacon_block_root is None
+        and attrs_fork.header_beacon_root_required()
+    ):
+        attrs.parent_beacon_block_root = Hash(0xBEAC0)
+    if (
+        attrs.slot_number is None
+        and attrs_fork.engine_payload_attribute_slot_number()
+    ):
+        attrs.slot_number = HexNumber(dag.slot[step.head] + 1)
+    if (
+        attrs.target_gas_limit is None
+        and attrs_fork.engine_payload_attribute_target_gas_limit()
+    ):
+        attrs.target_gas_limit = HexNumber(dag.gas_limit[step.head])
+    if step.version is None:
+        version = attrs_fork.engine_forkchoice_updated_version()
+        assert version is not None
+        step.version = Number(version)
+
+
+def _bind_payload(
+    step: GetPayloadStep,
+    model: ClientModel,
+    fork: Fork | TransitionFork | None,
+) -> None:
+    """
+    Add the payload ``getPayload`` binds to the DAG as a valid child of its
+    parent (the client built it), with the timestamp, slot and gas limit
+    of the build it retrieves, and fill its version from that build's
+    fork.
+    """
+    where = f"getPayload({step.bind!r})"
+    if model.build_diverged is not None:
+        raise ValueError(
+            f"{model.build_diverged}; {where} depends on which occurred: "
+            "move it into each branch"
+        )
+    if model.build is None:
+        raise ValueError(
+            f"{where}: no build in progress; the last forkchoiceUpdated "
+            "that did not error started none"
+        )
+    parent, attrs = model.build
+    if parent != step.parent:
+        raise ValueError(
+            f"{where}: the build in progress is on {parent!r}, not "
+            f"{step.parent!r}"
+        )
+    dag = model.dag
+    dag.parent[step.bind] = parent
+    dag.valid[step.bind] = True
+    dag.timestamp[step.bind] = int(attrs.timestamp)
+    dag.slot[step.bind] = (
+        0 if attrs.slot_number is None else int(attrs.slot_number)
+    )
+    dag.gas_limit[step.bind] = (
+        dag.gas_limit[parent]
+        if attrs.target_gas_limit is None
+        else int(attrs.target_gas_limit)
+    )
+    if step.version is None:
+        if fork is None:
+            raise ValueError(f"{where} without version and no fork provided")
+        version = fork.fork_at(
+            block_number=0, timestamp=int(attrs.timestamp)
+        ).engine_get_payload_version()
+        assert version is not None
+        step.version = Number(version)
 
 
 def annotate_steps(
     steps: List[Step],
     model: ClientModel,
     fcu_version: Optional[Dict[str, int]] = None,
+    fork: Fork | TransitionFork | None = None,
     more_follow: bool = False,
 ) -> List[Step]:
     """
@@ -508,9 +640,11 @@ def annotate_steps(
 
     Each outcome's branch is annotated with its own copy of the model;
     ``more_follow`` says a step follows in an enclosing list (see
-    ``_continue``). ``getPayload`` adds its bound label to the DAG as a
-    valid child of its parent: the client built it. ``assertState`` is
-    checked against the DAG's post-states where they are known.
+    ``_continue``). With ``fork``, build requests get their unset attribute
+    fields and version from it. ``getPayload`` binds the build its
+    preceding steps leave in progress (see ``ClientModel.build``).
+    ``assertState`` is checked against the DAG's post-states where they
+    are known.
     """
     for i, step in enumerate(steps):
         has_continuation = i + 1 < len(steps) or more_follow
@@ -528,6 +662,7 @@ def annotate_steps(
                         step.branches[outcome.id],
                         branch_model,
                         fcu_version,
+                        fork,
                         has_continuation,
                     )
                 branches.append((outcome.id, branch_model))
@@ -538,6 +673,8 @@ def annotate_steps(
                 has_continuation,
             )
         elif isinstance(step, ForkchoiceUpdatedStep):
+            if step.payload_attributes is not None and fork is not None:
+                _default_build_request(step, model.dag, fork)
             if step.version is None:
                 if fcu_version is None:
                     raise ValueError(
@@ -561,7 +698,7 @@ def annotate_steps(
                 if outcome.status != "SYNCING":
                     branch.insert(0, branch_model.head_assertion())
                 annotate_steps(
-                    branch, branch_model, fcu_version, has_continuation
+                    branch, branch_model, fcu_version, fork, has_continuation
                 )
                 branches.append((outcome.id, branch_model))
             _continue(
@@ -576,14 +713,9 @@ def annotate_steps(
             if state is not None:
                 step.verify(label, state)
         elif isinstance(step, GetPayloadStep):
-            model.dag.parent[step.bind] = step.parent
-            model.dag.valid[step.bind] = True
+            _bind_payload(step, model, fork)
             if fcu_version is not None:
                 fcu_version.setdefault(step.bind, fcu_version[step.parent])
-            if step.version is None:
-                # Set by ReorgTest from the fork of the payload being built;
-                # forkchoiceUpdated's version is not a valid substitute.
-                raise ValueError("getPayload step without version")
     return steps
 
 

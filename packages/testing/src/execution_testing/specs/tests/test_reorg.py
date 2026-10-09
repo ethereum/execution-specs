@@ -1,6 +1,6 @@
 """Tests for the ``ReorgTest`` spec: DAG filling and fixture emission."""
 
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, List, Tuple
 
 import pytest
 from pydantic import ValidationError
@@ -18,6 +18,8 @@ from execution_testing.fixtures.reorg import (
     ForkchoiceUpdatedStep,
     GetPayloadStep,
     NewPayloadStep,
+    Outcome,
+    Step,
     TxRef,
 )
 from execution_testing.forks import (
@@ -279,6 +281,87 @@ def test_build_request_version_follows_attributes_fork(
     fcu = fixture.steps[1]
     assert isinstance(fcu, ForkchoiceUpdatedStep)
     assert fcu.version == Amsterdam.engine_forkchoice_updated_version()
+
+
+BUILT = [Outcome(id="built", status="VALID", payload_id="nonNull")]
+
+
+def build_on_a1(timestamp: int, **kwargs: Any) -> ForkchoiceUpdatedStep:
+    """A build request on ``a1``."""
+    return ForkchoiceUpdatedStep(
+        head="a1",
+        payload_attributes=PayloadAttributes(
+            timestamp=timestamp,
+            prev_randao=Hash(0),
+            suggested_fee_recipient=Address(0),
+        ),
+        **kwargs,
+    )
+
+
+@pytest.mark.parametrize(
+    "second,retrieved_fork",
+    [
+        pytest.param(
+            [build_on_a1(15_000, expect=BUILT)],
+            Amsterdam,
+            id="second_build_in_main_list",
+        ),
+        pytest.param(
+            [
+                ForkchoiceUpdatedStep(
+                    head="a1",
+                    expect=[Outcome(id="x", status="VALID")],
+                    branches={"x": [build_on_a1(15_000, expect=BUILT)]},
+                )
+            ],
+            Amsterdam,
+            id="second_build_in_branch",
+        ),
+        pytest.param(
+            [
+                build_on_a1(
+                    15_000,
+                    version=3,
+                    expect=[
+                        Outcome(
+                            id="unsupported",
+                            error_code=EngineAPIError.UnsupportedFork,
+                        )
+                    ],
+                )
+            ],
+            BPO2ToAmsterdamAtTime15k.transitions_from(),
+            id="second_build_rejected",
+        ),
+    ],
+)
+def test_get_payload_version_follows_retrieved_build(
+    default_t8n: TransitionTool, second: List[Step], retrieved_fork: Fork
+) -> None:
+    """
+    ``getPayload`` takes the version of the build the consumer retrieves:
+    the last one a non-error ``forkchoiceUpdated`` started, wherever it
+    sits (PR3556-GQ-01).
+    """
+    test = ReorgTest(
+        fork=BPO2ToAmsterdamAtTime15k,
+        pre=Alloc(),
+        blocks=[ReorgBlock(label="a1", timestamp=14_980)],
+        steps=[
+            NewPayloadStep(block="a1"),
+            build_on_a1(14_990, expect=BUILT),
+            *second,
+            GetPayloadStep(bind="p1", parent="a1"),
+        ],
+    )
+    fixture = test.generate(
+        t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture
+    ).fixture
+    assert isinstance(fixture, BlockchainEngineReorgFixture)
+    get_payload = fixture.steps[-1]
+    assert isinstance(get_payload, GetPayloadStep)
+    assert get_payload.version == retrieved_fork.engine_get_payload_version()
 
 
 @pytest.mark.parametrize("field", ["version", "expect"])

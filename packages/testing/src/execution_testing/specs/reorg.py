@@ -27,7 +27,7 @@ from typing import (
 
 from pydantic import Field
 
-from execution_testing.base_types import Hash, HexNumber, Number
+from execution_testing.base_types import Hash, Number
 from execution_testing.client_clis import FillerBackend, LazyAlloc
 from execution_testing.fixtures import (
     BlockchainEngineReorgFixture,
@@ -38,7 +38,6 @@ from execution_testing.fixtures.blockchain import (
     FixtureBlobSchedule,
     FixtureConfig,
     FixtureNewPayloadRequest,
-    PayloadAttributes,
 )
 from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
@@ -224,89 +223,6 @@ class ReorgTest(BlockchainTest):
             for branch in getattr(step, "branches", {}).values():
                 self._validate_step_labels(branch, set(labels), tx_counts)
 
-    def _resolve_payload_attributes(
-        self,
-        steps: List[Step],
-        timestamps: Dict[str, int],
-        gas_limits: Dict[str, int],
-        slots: Dict[str, int],
-        builds: Dict[str, PayloadAttributes] | None = None,
-    ) -> None:
-        """
-        Fill unset ``forkchoiceUpdated.payload_attributes`` fields and the
-        versions of build requests and ``getPayload`` steps from the fork
-        of the requested timestamp. A bound label takes the timestamp,
-        slot and target gas limit of its build request.
-        """
-        if builds is None:
-            builds = {}
-        for step in steps:
-            if isinstance(step, GetPayloadStep):
-                build = builds.get(step.parent)
-                if build is None:
-                    raise ValueError(
-                        f"getPayload({step.bind!r}): no build request on "
-                        f"{step.parent!r}"
-                    )
-                timestamps[step.bind] = int(build.timestamp)
-                slots[step.bind] = (
-                    0 if build.slot_number is None else int(build.slot_number)
-                )
-                gas_limits[step.bind] = (
-                    gas_limits[step.parent]
-                    if build.target_gas_limit is None
-                    else int(build.target_gas_limit)
-                )
-                if step.version is None:
-                    payload_version = self.fork.fork_at(
-                        block_number=0, timestamp=int(build.timestamp)
-                    ).engine_get_payload_version()
-                    assert payload_version is not None
-                    step.version = Number(payload_version)
-            if isinstance(step, ForkchoiceUpdatedStep):
-                attrs = step.payload_attributes
-                if attrs is not None:
-                    if int(attrs.timestamp) == 0:
-                        attrs.timestamp = HexNumber(timestamps[step.head] + 12)
-                    fork = self.fork.fork_at(
-                        block_number=0, timestamp=int(attrs.timestamp)
-                    )
-                    if (
-                        attrs.withdrawals is None
-                        and fork.header_withdrawals_required()
-                    ):
-                        attrs.withdrawals = []
-                    if (
-                        attrs.parent_beacon_block_root is None
-                        and fork.header_beacon_root_required()
-                    ):
-                        attrs.parent_beacon_block_root = Hash(0xBEAC0)
-                    if (
-                        attrs.slot_number is None
-                        and fork.engine_payload_attribute_slot_number()
-                    ):
-                        attrs.slot_number = HexNumber(slots[step.head] + 1)
-                    if (
-                        attrs.target_gas_limit is None
-                        and fork.engine_payload_attribute_target_gas_limit()
-                    ):
-                        attrs.target_gas_limit = HexNumber(
-                            gas_limits[step.head]
-                        )
-                    if step.version is None:
-                        fcu_version = fork.engine_forkchoice_updated_version()
-                        assert fcu_version is not None
-                        step.version = Number(fcu_version)
-                    builds[step.head] = attrs
-            for branch in getattr(step, "branches", {}).values():
-                self._resolve_payload_attributes(
-                    branch,
-                    timestamps,
-                    gas_limits,
-                    slots,
-                    dict(builds),
-                )
-
     def make_reorg_fixture(self, t8n: FillerBackend) -> FillResult:
         """Execute every block against its labeled parent, emit fixture."""
         self.validate_dag()
@@ -405,7 +321,6 @@ class ReorgTest(BlockchainTest):
             },
         }
         steps = [s.model_copy(deep=True) for s in self.steps]
-        self._resolve_payload_attributes(steps, timestamps, gas_limits, slots)
 
         def post_state(label: str) -> Alloc | None:
             alloc = child_alloc.get(label)
@@ -419,9 +334,12 @@ class ReorgTest(BlockchainTest):
                 valid=dag_valid,
                 hash_invalid=dag_hash_invalid,
                 post_state=post_state,
+                timestamp=timestamps,
+                gas_limit=gas_limits,
+                slot=slots,
             )
         )
-        steps = annotate_steps(steps, model, fcu_version)
+        steps = annotate_steps(steps, model, fcu_version, self.fork)
 
         fixture = BlockchainEngineReorgFixture(
             fork=self.fork,

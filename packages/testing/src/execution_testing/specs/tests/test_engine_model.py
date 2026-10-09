@@ -10,6 +10,7 @@ from execution_testing.fixtures.blockchain import PayloadAttributes
 from execution_testing.fixtures.reorg import (
     AssertHeadStep,
     ForkchoiceUpdatedStep,
+    GetPayloadStep,
     NewPayloadStep,
     Outcome,
     Step,
@@ -487,6 +488,59 @@ def test_any_error_on_a_build_request_is_rejected() -> None:
     )
     with pytest.raises(ValueError, match="set errorCode"):
         annotate_steps([step], model)
+
+
+BUILT = Outcome(id="built", status="VALID", payload_id="nonNull")
+
+
+@pytest.mark.parametrize(
+    "outcomes,parent,match",
+    [
+        pytest.param(
+            [BUILT],
+            "genesis",
+            "on 'a1', not 'genesis'",
+            id="build_on_another_parent",
+        ),
+        pytest.param(
+            [Outcome(id="none", status="VALID", payload_id="null")],
+            "a1",
+            "no build in progress",
+            id="no_build_in_progress",
+        ),
+        pytest.param(
+            [
+                BUILT,
+                Outcome(
+                    id="unsupported", error_code=EngineAPIError.UnsupportedFork
+                ),
+            ],
+            "a1",
+            "different payload builds",
+            id="outcomes_leave_different_builds",
+        ),
+    ],
+)
+def test_get_payload_rejects_a_build_it_cannot_retrieve(
+    outcomes: List[Outcome], parent: str, match: str
+) -> None:
+    """
+    ``getPayload`` must retrieve the build in progress, on its parent, and
+    one that does not depend on which outcome occurred (PR3556-GQ-01).
+    """
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.known["a1"] = Validity.VALID
+    steps: List[Step] = [
+        ForkchoiceUpdatedStep(
+            head="a1",
+            version=3,
+            payload_attributes=ATTRIBUTES,
+            expect=[o.model_copy() for o in outcomes],
+        ),
+        GetPayloadStep(bind="p", parent=parent, version=3),
+    ]
+    with pytest.raises(ValueError, match=match):
+        annotate_steps(steps, model)
 
 
 def test_annotate_single_outcome_branch_updates_known_map() -> None:
