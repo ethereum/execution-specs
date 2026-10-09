@@ -96,7 +96,7 @@ def linear(
     return blocks, steps
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 @pytest.mark.parametrize(
     "on_side_chain", [False, True], ids=["canonical", "sidechain"]
 )
@@ -149,7 +149,7 @@ def test_bad_block_hash_on_new_payload(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_parent_hash_equals_block_hash(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -183,7 +183,7 @@ def test_parent_hash_equals_block_hash(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 @pytest.mark.parametrize("field", sorted(INVALID_FIELDS))
 @pytest.mark.parametrize(
     "on_side_chain", [False, True], ids=["canonical", "sidechain"]
@@ -277,7 +277,7 @@ def test_invalid_payload_field(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 @pytest.mark.parametrize("invalid_index", [1, 3, 5])
 @pytest.mark.parametrize(
     "reorg_from_canonical",
@@ -403,7 +403,7 @@ def test_invalid_missing_ancestor_reorg(
     )
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_invalid_ancestor_descendants_delivered_first(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:

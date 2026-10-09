@@ -42,7 +42,7 @@ def applied(head: str) -> List[Outcome]:
     return [Outcome(id="applied", status="VALID", latest_valid_hash=head)]
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_tx_reorg_shared_dropped_postponed_added(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -122,7 +122,7 @@ def test_tx_reorg_shared_dropped_postponed_added(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_logs_follow_reorg(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
     r"""
     Port of geth ``testLogReorgs`` and erigon
@@ -195,7 +195,7 @@ def test_logs_follow_reorg(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_txpool_reinjection_after_reorg(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:

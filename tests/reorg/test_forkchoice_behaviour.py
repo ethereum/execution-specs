@@ -132,7 +132,7 @@ def chain(
     return blocks, steps
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 @pytest.mark.parametrize(
     "canonical_len,fork_point,fork_len",
     [
@@ -199,7 +199,7 @@ def test_head_follows_fcu_regardless_of_length(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_reorg_back_and_forth_between_branches(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -255,7 +255,7 @@ def test_reorg_back_and_forth_between_branches(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_reorg_to_older_canonical_ancestor_and_forward(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -314,7 +314,7 @@ def test_reorg_to_older_canonical_ancestor_and_forward(
     )
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_fcu_to_unknown_block_is_syncing(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -378,7 +378,7 @@ def test_fcu_to_unknown_block_is_syncing(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 @pytest.mark.parametrize("field", ["head", "safe", "finalized"])
 def test_inconsistent_forkchoice_state(
     reorg_test: ReorgTestFiller, pre: Alloc, field: str
@@ -416,7 +416,7 @@ def test_inconsistent_forkchoice_state(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_safe_finalized_labels_follow_fcu(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -472,7 +472,7 @@ def test_safe_finalized_labels_follow_fcu(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_newpayload_does_not_move_head(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -495,7 +495,7 @@ def test_newpayload_does_not_move_head(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_reexecute_payloads(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
     """
     Hive ``ReExecutePayloadTest``, besu
@@ -541,7 +541,7 @@ def test_reexecute_payloads(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_many_siblings_same_parent(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -583,7 +583,7 @@ def test_many_siblings_same_parent(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_out_of_order_payload_delivery(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -626,7 +626,7 @@ def test_out_of_order_payload_delivery(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_alternating_canonical_and_depth1_forks(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -661,7 +661,7 @@ def test_alternating_canonical_and_depth1_forks(
     )
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_valid_and_invalid_forks_with_older_canonical_head(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -714,7 +714,7 @@ def test_valid_and_invalid_forks_with_older_canonical_head(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_reorg_to_fork_behind_finalized(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -749,7 +749,7 @@ def test_reorg_to_fork_behind_finalized(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_forkchoice_state_unchanged_on_invalid_state(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -788,7 +788,7 @@ def test_forkchoice_state_unchanged_on_invalid_state(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_fcu_rewind_with_no_finalized(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:

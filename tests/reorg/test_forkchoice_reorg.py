@@ -75,7 +75,7 @@ def linear_chain(
     return blocks, Account(balance=length), steps
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_sibling_reorg(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
     r"""
     Genesis <- a1 <- a2.
@@ -170,7 +170,7 @@ def test_sibling_reorg(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
     )
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 @pytest.mark.parametrize("invalid_index", [1, 3, 5])
 def test_invalid_side_chain(
     reorg_test: ReorgTestFiller, pre: Alloc, invalid_index: int
@@ -262,7 +262,7 @@ def test_invalid_side_chain(
     )
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_fcu_below_finalized_with_inconsistent_state(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -315,7 +315,7 @@ def test_fcu_below_finalized_with_inconsistent_state(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_fcu_finalized_regression(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -354,7 +354,7 @@ def test_fcu_finalized_regression(
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
 
 
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Shanghai")
 def test_fcu_rewind_to_canonical_ancestor_above_finalized(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
