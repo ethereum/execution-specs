@@ -148,38 +148,24 @@ class BaseTest(BaseModel):
     operation_mode: OpMode | None = None
     sync_block: bool = True
     """
-    Append framework-built empty blocks above a blockchain test's
-    authored leaves, stored out-of-chain in the fixture's
-    ``sync_payloads`` field, when filling a fixture format that carries
-    them (currently ``blockchain_test_engine_x``).
-
-    A sync-based consumer announces each appended block, which makes
-    every representable payload the test author wrote an ancestor of at
-    least one target the client must fetch and execute through its
-    devp2p sync path. The test's own directives are filled exactly as
-    written. On by default; the filler turns it off when
-    ``--no-sync-block`` withholds the blocks or the test itself opts out
-    by passing ``sync_block=False``. See "Sync Payloads" in the
-    filling-tests docs.
+    Append an empty block above each of the test's leaf blocks, stored
+    in the fixture's sync payloads for formats that carry them. A test
+    opts out by passing ``sync_block=False``. See "Sync Payloads" in
+    the filling-tests docs.
     """
     test_id: str = ""
     """
     The test's pytest node id, with any xdist group suffix stripped.
 
-    Set by the ``fill`` and ``execute`` plugins for every test they
-    run, so anything that needs a value unique to the test can rely on
-    it. The default exists only because every ``blockchain_test(...)``
-    call in the test tree is type-checked against this constructor; a
-    consumer of the field asserts that it is set rather than trusting
-    the default. The appended sync block digests it into its fee
-    recipient: two
-    tests of one pre-allocation group may declare byte-identical
-    payload graphs, and a client reused across the group only starts a
-    sync for a head it has never seen, so the salt keeps every appended
-    block's hash unique to its test. Different leaves already have
-    different parent hashes. The fee recipient is a free field for an
-    empty block: no fees are paid, so the coinbase is never touched and
-    the state root is unaffected.
+    Set by the test framework; a consumer asserts that it is set
+    rather than trusting the default. The appended sync block digests
+    it into its fee recipient: two tests of one pre-allocation group
+    may declare byte-identical payload graphs, and a client reused
+    across the group only starts a sync for a head it has never seen,
+    so the salt keeps every appended block's hash unique to its test.
+    Different leaves already have different parent hashes. The fee
+    recipient is a free field for an empty block: no fees are paid, so
+    the coinbase is never touched and the state root is unaffected.
     """
     gas_optimization_max_gas_limit: int | None = None
     expected_benchmark_gas_used: int | None = None
