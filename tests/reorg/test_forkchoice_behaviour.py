@@ -31,6 +31,9 @@ Ports of:
   https://github.com/besu-eth/besu/blob/72361b3bb9b67ad07dc3cb933a53acc3c071dd19/ethereum/api/src/test/java/org/hyperledger/besu/ethereum/api/jsonrpc/internal/methods/engine/AbstractEngineForkchoiceUpdatedTest.java#L77
 - besu ``shouldIgnoreUpdateToOldHeadAndNotPreparePayload``:
   https://github.com/besu-eth/besu/blob/72361b3bb9b67ad07dc3cb933a53acc3c071dd19/ethereum/api/src/test/java/org/hyperledger/besu/ethereum/api/jsonrpc/internal/methods/engine/AbstractEngineForkchoiceUpdatedTest.java#L434
+- besu ``forkchoiceUpdateShouldIgnoreAncestorOfChainHead`` (removed
+  upstream in besu#10709):
+  https://github.com/besu-eth/besu/blob/72361b3bb9b67ad07dc3cb933a53acc3c071dd19/consensus/merge/src/test/java/org/hyperledger/besu/consensus/merge/blockcreation/MergeCoordinatorTest.java#L1061
 - besu ``updateForkChoiceShouldPersistFirstFinalizedBlockHash``:
   https://github.com/besu-eth/besu/blob/def0a84d72bcf54816132c2843852eb38fdbbe59/consensus/merge/src/test/java/org/hyperledger/besu/consensus/merge/blockcreation/MergeCoordinatorTest.java#L1053
 - besu ``shouldReturnSuccessOnAlreadyPresent``:
@@ -92,6 +95,9 @@ Ports of:
   https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/tests/e2e-testsuite/main.rs#L546
 - reth ``test_engine_tree_buffered_blocks_are_eventually_connected_e2e``:
   https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/tests/e2e-testsuite/main.rs#L500
+- reth ``test_reorg_to_fork_behind_finalized`` (replaced upstream in
+  reth#26567):
+  https://github.com/paradigmxyz/reth/blob/b224494e257deb41b3b99e388c14580816a7552d/crates/engine/tree/tests/e2e-testsuite/fcu_finalized_blocks.rs#L44
 - reth ``test_engine_tree_fcu_missing_head``:
   https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/src/tree/tests.rs#L1673
 - reth ``test_fcu_with_canonical_ancestor_updates_latest_block``:
@@ -802,9 +808,10 @@ def test_reorg_to_fork_behind_finalized(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    With finalized = a7 and head = a10, FCU to a fork tip branching at a5
-    (so a7 is not on its chain) with finalized still a7. paris.md step 5
-    leaves ``-38002`` as the only legal response.
+    Reth ``test_reorg_to_fork_behind_finalized``: with finalized = a7 and
+    head = a10, FCU to a fork tip branching at a5 (so a7 is not on its
+    chain) with finalized still a7. paris.md step 5 leaves ``-38002`` as the
+    only legal response.
     """
     blocks, steps = chain(pre, "a", 10)
     fork, _ = chain(pre, "f", 5, parent="a5", start=6, value=2)
