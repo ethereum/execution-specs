@@ -63,7 +63,7 @@ def verify_only_tx_gas_used(
 def nonce_manager_with_slots(pre: Alloc, slots: dict[int, int]) -> None:
     """
     Seed the nonce manager's storage in the pre-state, keeping its
-    activation code and nonce. The test must be `pre_alloc_mutable`.
+    deployed code and nonce. The test must be `pre_alloc_mutable`.
     """
     pre[Spec.NONCE_MANAGER] = Account(
         nonce=Spec.NONCE_MANAGER_NONCE,

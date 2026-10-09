@@ -2,7 +2,6 @@
 
 import re
 from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass
 from enum import Enum, auto
 from functools import lru_cache
 from typing import (
@@ -43,18 +42,6 @@ from execution_testing.vm import (
 from ..recipient_type import RecipientType
 from .gas_costs import GasCosts
 from .requests import SystemContractRequest
-
-
-@dataclass(frozen=True)
-class ActivationInstall:
-    """
-    An `activation_code_installs` entry that, besides writing the code,
-    raises the account's nonce to at least `min_nonce`, keeping any
-    higher nonce, the balance and the storage.
-    """
-
-    code: bytes
-    min_nonce: int = 0
 
 
 class MemoryExpansionGasCalculator(Protocol):
