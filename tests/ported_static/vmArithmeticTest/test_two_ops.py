@@ -7,12 +7,9 @@ state_tests/VMTests/vmArithmeticTest/twoOpsFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -26,27 +23,13 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/VMTests/vmArithmeticTest/twoOpsFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_two_ops(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # {
     #
@@ -79,7 +62,7 @@ def test_two_ops(
     #     [[0x11000100120001]] (ADD (SLT 2 1) 1)
     #     [[0x11000100130000]] (ADD (SGT 2 1) 3)
     # ... (1127 more lines)
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x11000100010000, value=Op.ADD(Op.ADD(0x2, 0x1), 0x3)
         )
@@ -1648,7 +1631,6 @@ def test_two_ops(
         + Op.SSTORE(key=0x11001D001D0001, value=Op.SAR(Op.SAR(0x2, 0x1), 0x1))
         + Op.STOP,
         nonce=1,
-        address=Address(0xE262558822902632416F26EDBF70CCAC609CD2CE),  # noqa: E501
     )
 
     tx = Transaction(
@@ -2817,4 +2799,4 @@ def test_two_ops(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

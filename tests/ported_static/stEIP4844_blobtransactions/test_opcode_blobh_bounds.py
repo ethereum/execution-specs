@@ -7,13 +7,10 @@ state_tests/Cancun/stEIP4844_blobtransactions/opcodeBlobhBoundsFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -30,28 +27,13 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_opcode_blobh_bounds(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """BLOB005."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=1,
-        excess_blob_gas=0,
-        gas_limit=68719476736,
-    )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #    ; Can also add lll style comments here
@@ -62,7 +44,7 @@ def test_opcode_blobh_bounds(
     #    [[4]] (BLOBHASH 0xffffffffffffffffffffffffffffffff) ; 128
     #    [[5]] (BLOBHASH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) ; 256  # noqa: E501
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.BLOBHASH(index=0x0))
         + Op.SSTORE(key=0x1, value=Op.BLOBHASH(index=0xA))
         + Op.SSTORE(key=0x2, value=Op.BLOBHASH(index=0xFFFFFFFF))
@@ -80,8 +62,6 @@ def test_opcode_blobh_bounds(
         + Op.STOP,
         storage={0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xC8126E943C569C35DF09619F8E1E67460ACFF695),  # noqa: E501
     )
 
     tx = Transaction(
@@ -124,4 +104,4 @@ def test_opcode_blobh_bounds(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

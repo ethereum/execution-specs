@@ -8,7 +8,6 @@ state_tests/stStaticCall/static_CallRecursiveBomb0Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -16,6 +15,8 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+
+from tests.ported_static.constants import HIGH_GAS_LIMIT
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -27,27 +28,18 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
 @pytest.mark.slow
-@pytest.mark.pre_alloc_mutable
 def test_static_call_recursive_bomb0(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_static_call_recursive_bomb0."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000000,
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     # Source: lll
     # { (MSTORE 0 (+ (MLOAD 0) 1)) (STATICCALL (- (GAS) 11000) (ADDRESS) 0 0 0 0) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.ADD(Op.MLOAD(offset=0x0), 0x1))
         + Op.STATICCALL(
             gas=Op.SUB(Op.GAS, 0x2AF8),
@@ -59,11 +51,10 @@ def test_static_call_recursive_bomb0(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
     # Source: lll
     # { [[ 0 ]] (STATICCALL 100000000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0)  [[ 1 ]] 1 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.STATICCALL(
@@ -78,7 +69,6 @@ def test_static_call_recursive_bomb0(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         balance=0x77359400,
-        nonce=0,
     )
 
     tx = Transaction(

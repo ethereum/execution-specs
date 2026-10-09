@@ -7,11 +7,8 @@ state_tests/Cancun/stEIP5656_MCOPY/MCOPYFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -156,7 +153,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_mcopy(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -166,21 +162,8 @@ def test_mcopy(
     v: int,
 ) -> None:
     """MCOPY memory copy test cases."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
-    )
+    sender = pre.fund_eoa(amount=0x3B9ACA00)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1687174231,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
-    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: yul
     # cancun {
     #   // Fill memory at [0-96] (3x32) with the pattern of unique bytes.
@@ -196,7 +179,7 @@ def test_mcopy(
     #   sstore(1, mload(32))
     #   sstore(2, mload(64))
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(
             offset=Op.PUSH0,
             value=0xA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
@@ -219,7 +202,6 @@ def test_mcopy(
         + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x40))
         + Op.STOP,
         nonce=1,
-        address=Address(0xBFD584EC9DC8FBADCEA812C707E1765B4DF8FA6C),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -432,4 +414,4 @@ def test_mcopy(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
