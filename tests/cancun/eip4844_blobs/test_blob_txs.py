@@ -580,6 +580,8 @@ def generate_invalid_tx_max_fee_per_blob_gas_tests(fork: Fork) -> List:
 )  # Extra balance to cover block blob gas cost
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.eels_base_coverage
+# EIP-7999: the blob fee cap no longer binds on its own.
+@pytest.mark.valid_before("EIP7999")
 def test_invalid_tx_max_fee_per_blob_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -612,6 +614,8 @@ def test_invalid_tx_max_fee_per_blob_gas(
 )
 @pytest.mark.state_test_only
 @pytest.mark.valid_from("Cancun")
+# EIP-7999: the blob fee cap no longer binds on its own.
+@pytest.mark.valid_before("EIP7999")
 def test_invalid_tx_max_fee_per_blob_gas_state(
     state_test: StateTestFiller,
     state_env: Environment,
@@ -736,6 +740,8 @@ def test_invalid_block_blob_count(
 @pytest.mark.exception_test
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow()
+# EIP-7999: the sender needs only the fee taken at inclusion.
+@pytest.mark.valid_before("EIP7999")
 def test_insufficient_balance_blob_tx(
     state_test: StateTestFiller,
     state_env: Environment,
@@ -933,6 +939,8 @@ def test_sufficient_balance_blob_tx_pre_fund_tx(
     ids=[""],
 )  # Amount sent by the contract to the sender mid execution
 @pytest.mark.valid_from("Cancun")
+# EIP-7999: the fee taken at inclusion is the EIP-7999 budget settlement.
+@pytest.mark.valid_before("EIP7999")
 def test_blob_gas_subtraction_tx(
     state_test: StateTestFiller,
     state_env: Environment,
@@ -987,6 +995,8 @@ def test_blob_gas_subtraction_tx(
 )
 @pytest.mark.exception_test
 @pytest.mark.valid_from("Cancun")
+# EIP-7999: the sender needs only the fee taken at inclusion.
+@pytest.mark.valid_before("EIP7999")
 def test_insufficient_balance_blob_tx_combinations(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

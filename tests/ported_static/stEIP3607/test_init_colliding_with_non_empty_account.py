@@ -64,6 +64,8 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.pre_alloc_mutable
+# EIP-7999 moves calldata gas out of the header's gas used.
+@pytest.mark.valid_before("EIP7999")
 def test_init_colliding_with_non_empty_account(
     state_test: StateTestFiller,
     pre: Alloc,

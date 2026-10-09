@@ -277,7 +277,9 @@ def tx(
             )
         ]
 
-    if tx_type > 4:
+    # Type 5 (EIP-7999) takes the same fields as type 2 and resolves its
+    # fee budget at signing.
+    if tx_type > 5:
         raise Exception(
             f"Unexpected transaction type: '{tx_type}'. Test requires update."
         )

@@ -25,6 +25,8 @@ REFERENCE_SPEC_VERSION = ref_spec_7623.version
 ENABLE_FORK = Prague
 pytestmark = [
     pytest.mark.valid_from(str(ENABLE_FORK)),
+    # EIP-7999 retires the floor; the suite's threshold search never ends.
+    pytest.mark.valid_before("EIP7999"),
     pytest.mark.inclusion_test,
 ]
 

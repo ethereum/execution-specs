@@ -181,6 +181,8 @@ def test_max_initcode_size_via_create(
         pytest.param(100_000, id="above_floor"),
     ],
 )
+# EIP-7999 retires the calldata floor.
+@pytest.mark.valid_before("EIP7999")
 def test_max_initcode_size_calldata_floor(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -115,6 +115,8 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.pre_alloc_mutable
+# EIP-7999: the sender needs only the fee taken at inclusion.
+@pytest.mark.valid_before("EIP7999")
 def test_val_causes_oof(
     state_test: StateTestFiller,
     pre: Alloc,

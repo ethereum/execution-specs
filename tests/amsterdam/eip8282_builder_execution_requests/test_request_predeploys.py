@@ -934,7 +934,14 @@ def test_request_gas_boundary(
     [
         pytest.param(False, id="full_block"),
         pytest.param(
-            True, id="one_more_transaction", marks=pytest.mark.exception_test
+            True,
+            id="one_more_transaction",
+            marks=[
+                pytest.mark.exception_test,
+                # EIP-7999 moves calldata gas out of the block's
+                # execution capacity.
+                pytest.mark.valid_before("EIP7999"),
+            ],
         ),
     ],
 )

@@ -27,6 +27,8 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.exception_test
 @pytest.mark.pre_alloc_mutable
+# EIP-7999: the sender needs only the fee taken at inclusion.
+@pytest.mark.valid_before("EIP7999")
 def test_transaction_intinsic_bug_paris(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -28,7 +28,11 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7623.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7623.version
 
 ENABLE_FORK = Prague
-pytestmark = [pytest.mark.valid_from(str(ENABLE_FORK))]
+pytestmark = [
+    pytest.mark.valid_from(str(ENABLE_FORK)),
+    # EIP-7999 retires the floor; the suite's threshold search never ends.
+    pytest.mark.valid_before("EIP7999"),
+]
 
 
 class RefundTestType(Enum):

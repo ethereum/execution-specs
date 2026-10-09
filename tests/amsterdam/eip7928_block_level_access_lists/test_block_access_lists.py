@@ -3975,6 +3975,8 @@ def test_bal_cross_tx_access_stays_cold(
     )
 
 
+# EIP-7999 tips calldata gas at the calldata base fee.
+@pytest.mark.valid_before("EIP7999")
 def test_bal_cross_tx_coinbase_balance_observed(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

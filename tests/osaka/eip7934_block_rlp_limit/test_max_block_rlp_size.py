@@ -654,6 +654,8 @@ def _exact_size_transactions_impl(
     ],
 )
 @pytest.mark.valid_from("Osaka")
+# EIP-7999 header vectors change the header RLP the size calibration models.
+@pytest.mark.valid_before("EIP7999")
 def test_block_at_rlp_size_limit_boundary(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -702,6 +704,8 @@ def test_block_at_rlp_size_limit_boundary(
 @pytest.mark.verify_sync
 @pytest.mark.valid_from("Osaka")
 @pytest.mark.eels_base_coverage
+# EIP-7999 header vectors change the header RLP the size calibration models.
+@pytest.mark.valid_before("EIP7999")
 def test_block_rlp_size_at_limit_with_all_typed_transactions(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -736,6 +740,8 @@ def test_block_rlp_size_at_limit_with_all_typed_transactions(
 @EIPChecklist.BlockLevelConstraint.Test.Content.Logs()
 @pytest.mark.verify_sync
 @pytest.mark.valid_from("Osaka")
+# EIP-7999 header vectors change the header RLP the size calibration models.
+@pytest.mark.valid_before("EIP7999")
 def test_block_at_rlp_limit_with_logs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -772,6 +778,8 @@ def test_block_at_rlp_limit_with_logs(
 @EIPChecklist.BlockLevelConstraint.Test.Content.Withdrawals()
 @pytest.mark.verify_sync
 @pytest.mark.valid_from("Osaka")
+# EIP-7999 header vectors change the header RLP the size calibration models.
+@pytest.mark.valid_before("EIP7999")
 def test_block_at_rlp_limit_with_withdrawals(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

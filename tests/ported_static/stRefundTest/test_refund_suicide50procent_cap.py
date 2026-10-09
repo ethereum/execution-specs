@@ -48,6 +48,8 @@ GRANT_MARGIN = 1_000
     [False, True],
     ids=["starved_grant", "full_grant"],
 )
+# EIP-7999 caps the refund on EVM gas alone, calldata gas aside.
+@pytest.mark.valid_before("EIP7999")
 def test_refund_suicide50procent_cap(
     state_test: StateTestFiller,
     pre: Alloc,

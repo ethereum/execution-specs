@@ -3531,6 +3531,16 @@ def test_eoa_tx_after_set_code(
                     ),
                 )
             )
+        case 5:
+            follow_up_eoa_txs.append(
+                Transaction(
+                    ty=tx_type,
+                    sender=auth_signer,
+                    to=auth_signer,
+                    value=0,
+                    max_priority_fees_per_gas=[1_000],
+                )
+            )
         case _:
             raise ValueError(
                 f"Unsupported tx type: {tx_type}, test needs update"

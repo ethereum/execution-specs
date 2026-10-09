@@ -977,6 +977,8 @@ def test_top_level_failure_zeros_block_state_gas(
 
 
 @pytest.mark.valid_from("EIP8037")
+# EIP-7999 moves calldata gas out of the header's gas used.
+@pytest.mark.valid_before("EIP7999")
 def test_creation_tx_failure_preserves_intrinsic_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

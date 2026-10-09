@@ -53,7 +53,11 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
 REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 # All tests run from Cancun fork
-pytestmark = pytest.mark.valid_from("Cancun")
+pytestmark = [
+    pytest.mark.valid_from("Cancun"),
+    # EIP-7999 replaces the EIP-4844 excess blob gas update, the subject here.
+    pytest.mark.valid_before("EIP7999"),
+]
 
 
 @pytest.fixture

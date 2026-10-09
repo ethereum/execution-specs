@@ -50,6 +50,8 @@ COLLIDING_CODE = bytes.fromhex("1122334455")
 )
 @pytest.mark.parametrize("tx_value", [0, 1], ids=["v0", "v1"])
 @pytest.mark.pre_alloc_mutable
+# EIP-7999 moves calldata gas out of the header's gas used.
+@pytest.mark.valid_before("EIP7999")
 def test_transaction_collision(
     state_test: StateTestFiller,
     pre: Alloc,

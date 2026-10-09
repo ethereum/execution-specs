@@ -39,6 +39,8 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
+# EIP-7999 caps the refund on EVM gas alone, calldata gas aside.
+@pytest.mark.valid_before("EIP7999")
 def test_refund_sstore(
     state_test: StateTestFiller,
     pre: Alloc,

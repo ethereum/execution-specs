@@ -968,6 +968,8 @@ def test_receipt_cumulative_differs_from_header_gas_used(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
+# EIP-7999 prices from excess gas; the scalar base fee chain is lossy.
+@pytest.mark.valid_before("EIP7999")
 def test_base_fee_per_gas_follows_dominant_dimension(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -1106,6 +1108,8 @@ def test_base_fee_per_gas_follows_dominant_dimension(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
+# EIP-7999 prices from excess gas; the scalar base fee chain is lossy.
+@pytest.mark.valid_before("EIP7999")
 def test_base_fee_decreases_from_dominant_dimension(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -1287,6 +1291,8 @@ def test_cumulative_block_state_gas_boundary(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
+# EIP-7999 moves calldata gas out of the header's gas used.
+@pytest.mark.valid_before("EIP7999")
 def test_block_2d_inclusion_execution_gate_full_gas_reservation(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

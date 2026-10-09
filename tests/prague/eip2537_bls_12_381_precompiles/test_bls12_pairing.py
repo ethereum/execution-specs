@@ -211,9 +211,10 @@ def test_valid_multi_inf(
     Test maximum input given the current environment gas limit for the
     BLS12_PAIRING precompile.
     """
-    extra_gas = 100_000
-
     max_gas_limit = fork.transaction_gas_limit_cap() or Environment().gas_limit
+    # The call keeps a 64th of the gas it forwards, which the calldata
+    # floor's slack used to cover before EIP-7999 retired the floor.
+    extra_gas = 100_000 + max_gas_limit // 64
 
     inf_data = Spec.INF_G1 + Spec.INF_G2
 

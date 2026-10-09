@@ -584,6 +584,8 @@ def test_intrinsic_within_cap_gas_limit_above_cap(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
+# EIP-7999 retires the calldata floor.
+@pytest.mark.valid_before("EIP7999")
 def test_calldata_floor_enforced_with_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,

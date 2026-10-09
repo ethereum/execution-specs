@@ -250,6 +250,8 @@ def test_create_child_spill_not_double_charged(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
+# EIP-7999 moves calldata gas out of the header's gas used.
+@pytest.mark.valid_before("EIP7999")
 def test_code_deposit_state_gas_scales_with_size(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1352,6 +1354,8 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
+# EIP-7999 moves calldata gas out of the header's gas used.
+@pytest.mark.valid_before("EIP7999")
 def test_sstore_oog_no_reservoir_inflation(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1628,6 +1632,8 @@ def test_create_no_double_charge_new_account(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
+# EIP-7999 moves calldata gas out of the header's gas used.
+@pytest.mark.valid_before("EIP7999")
 def test_code_deposit_halt_discards_initcode_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -1720,6 +1726,8 @@ def test_code_deposit_halt_discards_initcode_state_gas(
 @pytest.mark.pre_alloc_mutable()
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.valid_from("EIP8037")
+# EIP-7999 retires the calldata floor.
+@pytest.mark.valid_before("EIP7999")
 def test_create_tx_header_gas_used(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -1803,6 +1811,8 @@ def test_create_tx_header_gas_used(
 
 
 @pytest.mark.valid_from("EIP8037")
+# EIP-7999 moves calldata gas out of the header's gas used.
+@pytest.mark.valid_before("EIP7999")
 def test_create_initcode_halt_no_code_deposit_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -2587,6 +2597,8 @@ def test_create_account_charge_reduces_child_gas(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
+# EIP-7999 moves calldata gas out of the header's gas used.
+@pytest.mark.valid_before("EIP7999")
 def test_failed_create_tx_refills_top_frame_new_account(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2673,6 +2685,8 @@ def test_failed_create_tx_refills_top_frame_new_account(
 
 @pytest.mark.pre_alloc_mutable()
 @pytest.mark.valid_from("EIP8037")
+# EIP-7999 moves calldata gas out of the header's gas used.
+@pytest.mark.valid_before("EIP7999")
 def test_create_tx_collision_has_no_net_new_account_charge(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -2725,6 +2739,8 @@ def test_create_tx_collision_has_no_net_new_account_charge(
 
 @pytest.mark.pre_alloc_mutable()
 @pytest.mark.valid_from("EIP8037")
+# EIP-7999 moves calldata gas out of the header's gas used.
+@pytest.mark.valid_before("EIP7999")
 def test_create_tx_collision_refunds_reservoir(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

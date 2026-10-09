@@ -225,6 +225,8 @@ def get_boundary_scenarios(fork: Fork) -> Iterator[Any]:
     get_boundary_scenarios,
 )
 @pytest.mark.eels_base_coverage
+# EIP-7999 normalizes the blob excess; prices drift from the EIP-4844 schedule.
+@pytest.mark.valid_before("EIP7999")
 def test_reserve_price_boundary(
     blockchain_test: BlockchainTestFiller,
     env: Environment,

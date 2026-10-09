@@ -1631,6 +1631,8 @@ def test_bal_withdrawal_to_7702_delegation(
 
 
 @pytest.mark.with_all_create_opcodes
+# EIP-7999 lowers the base fee after the empty genesis block.
+@pytest.mark.valid_before("EIP7999")
 def test_bal_7702_delegated_create(
     fork: Fork,
     pre: Alloc,

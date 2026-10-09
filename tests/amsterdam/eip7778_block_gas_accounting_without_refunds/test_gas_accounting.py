@@ -119,7 +119,12 @@ def test_simple_gas_accounting(
 @pytest.mark.parametrize(
     "trailing_tx_data_floor",
     [
-        pytest.param(True, id="trailing_tx_hits_data_floor"),
+        pytest.param(
+            True,
+            id="trailing_tx_hits_data_floor",
+            # EIP-7999 retires the calldata floor.
+            marks=pytest.mark.valid_before("EIP7999"),
+        ),
         pytest.param(False, id=""),
     ],
 )
@@ -294,6 +299,8 @@ class CallDataTestType(Enum):
         "interval that DATA_FLOOR_BETWEEN needs is empty"
     ),
 )
+# EIP-7999 retires the calldata floor.
+@pytest.mark.valid_before("EIP7999")
 def test_varying_calldata_costs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -543,6 +550,8 @@ def test_multiple_refund_types_in_one_tx(
     )
 
 
+# EIP-7999 retires the calldata floor.
+@pytest.mark.valid_before("EIP7999")
 def test_mixed_gas_regimes(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

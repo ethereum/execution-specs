@@ -30,7 +30,12 @@ from .spec import ref_spec_2780
 REFERENCE_SPEC_GIT_PATH = ref_spec_2780.git_path
 REFERENCE_SPEC_VERSION = ref_spec_2780.version
 
-pytestmark = pytest.mark.valid_from("Amsterdam")
+pytestmark = [
+    pytest.mark.valid_from("Amsterdam"),
+    # EIP-7999 retires the calldata floor: the suite's threshold search
+    # never ends and the floor is its subject.
+    pytest.mark.valid_before("EIP7999"),
+]
 
 
 def _floor_dominating_calldata(fork: Fork) -> Bytes:

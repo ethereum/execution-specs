@@ -290,6 +290,8 @@ def test_create_transaction_initcode_selfdestruct(
 
 
 @pytest.mark.parametrize("value", [0, 1])
+# EIP-7999 tips calldata gas at the calldata base fee.
+@pytest.mark.valid_before("EIP7999")
 def test_created_coinbase_initcode_selfdestruct_keeps_priority_fee(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -24,6 +24,9 @@ REFERENCE_SPEC_VERSION = ref_spec_7976.version
 pytestmark = [
     pytest.mark.valid_from("EIP7976"),
     pytest.mark.inclusion_test,
+    # EIP-7999 retires the calldata floor: the suite's threshold search
+    # never ends and the floor is its subject.
+    pytest.mark.valid_before("EIP7999"),
 ]
 
 

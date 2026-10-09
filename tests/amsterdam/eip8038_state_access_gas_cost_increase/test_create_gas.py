@@ -289,6 +289,8 @@ class TestCreateTxGasBoundary:
         ],
     )
     @EIPChecklist.GasCostChanges.Test.OutOfGas()
+    # EIP-7999 moves calldata gas out of the header's gas used.
+    @pytest.mark.valid_before("EIP7999")
     def test_create_tx_gas_boundary(
         self,
         state_test: StateTestFiller,

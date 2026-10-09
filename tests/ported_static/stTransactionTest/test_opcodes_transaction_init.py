@@ -36,6 +36,9 @@ from execution_testing import (
     keccak256,
 )
 from execution_testing.forks import Fork
+from execution_testing.forks.forks.eips.bogota.eip_7999 import (
+    CALLDATA_GAS_RESOURCE,
+)
 from execution_testing.vm import Bytecode, Op, Opcodes
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -402,6 +405,17 @@ CASES: dict[Opcodes, Case] = {
         lambda c: c.fork.blob_gas_price_calculator()(
             excess_blob_gas=EXCESS_BLOB_GAS
         ),
+    ),
+    # EIP-7999 prices calldata from the block's excess gas vector, which
+    # the environment derives from the pinned base fee and blob excess.
+    Op.CALLDATABASEFEE: Case(
+        Op.CALLDATABASEFEE,
+        lambda c: c.fork.base_fees_calculator()(
+            excess_gas=c.fork.initial_excess_gas_calculator()(
+                base_fee_per_gas=BASE_FEE_PER_GAS,
+                excess_blob_gas=EXCESS_BLOB_GAS,
+            )
+        )[CALLDATA_GAS_RESOURCE],
     ),
     # --- EIP-8024 immediate-operand stack ops. DUPN[n] copies the
     # n-th item up, SWAPN[n] swaps the top with the one n below it, and

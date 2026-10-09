@@ -34,6 +34,10 @@ from .spec import ref_spec_8037
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
+# EIP-7999 retires the calldata floor: the file's threshold search never
+# ends and the floor is its subject.
+pytestmark = pytest.mark.valid_before("EIP7999")
+
 
 def calldata_length_where_floor_overtakes(fork: Fork, state_gas: int) -> int:
     """
