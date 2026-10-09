@@ -431,6 +431,28 @@ def _reject_unmatched_branches(
         )
 
 
+def _reject_duplicate_outcome_ids(
+    step: Union[NewPayloadStep, ForkchoiceUpdatedStep], where: str
+) -> None:
+    """
+    Reject two outcomes sharing an id in the same step's ``expect``, once it
+    is final. Both would modify the same ``branches`` entry, producing a
+    branch that asserts the state of whichever outcome actually matched
+    (PR3556-F3-02).
+    """
+    seen: Set[str] = set()
+    duplicates: Set[str] = set()
+    for outcome in step.expect:
+        if outcome.id in seen:
+            duplicates.add(outcome.id)
+        else:
+            seen.add(outcome.id)
+    if duplicates:
+        raise ValueError(
+            f"{where}: repeated outcome id(s) {sorted(duplicates)}"
+        )
+
+
 def _state_class(model: ClientModel, label: str) -> Optional[Validity]:
     """``model.known[label]``, counting a truly valid RECEIVED as VALID."""
     state = model.known.get(label)
@@ -496,6 +518,7 @@ def annotate_steps(
             if not step.expect:
                 step.expect = model.new_payload_outcomes(step.block)
             _reject_unmatched_branches(step, f"newPayload({step.block!r})")
+            _reject_duplicate_outcome_ids(step, f"newPayload({step.block!r})")
             branches: List[Tuple[str, ClientModel]] = []
             for outcome in step.expect:
                 branch_model = model.copy()
@@ -525,6 +548,9 @@ def annotate_steps(
             if not step.expect:
                 step.expect = model.forkchoice_outcomes(step)
             _reject_unmatched_branches(
+                step, f"forkchoiceUpdated(head={step.head!r})"
+            )
+            _reject_duplicate_outcome_ids(
                 step, f"forkchoiceUpdated(head={step.head!r})"
             )
             branches = []

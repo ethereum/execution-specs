@@ -390,6 +390,28 @@ def test_annotate_rejects_unmatched_forkchoice_branch_key() -> None:
         annotate_steps(steps, model)
 
 
+def test_annotate_rejects_duplicate_outcome_ids() -> None:
+    """
+    Two outcomes sharing an id in one step's expect are rejected
+    (PR3556-F3-02): both would modify the same branch, leaving it with
+    contradictory assertions.
+    """
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.known["a1"] = Validity.VALID
+    steps: List[Step] = [
+        ForkchoiceUpdatedStep(
+            head="a1",
+            version=3,
+            expect=[
+                Outcome(id="either", status="VALID", latest_valid_hash="a1"),
+                Outcome(id="either", error_code=EngineAPIError.TooDeepReorg),
+            ],
+        ),
+    ]
+    with pytest.raises(ValueError, match="either"):
+        annotate_steps(steps, model)
+
+
 def test_forkchoice_effect_follows_head_moved_not_id() -> None:
     """An outcome moves the head when headMoved says so, whatever its id."""
     model = ClientModel(dag=dag_linear_with_fork())
