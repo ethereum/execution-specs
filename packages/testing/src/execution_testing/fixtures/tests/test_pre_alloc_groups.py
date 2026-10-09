@@ -536,6 +536,40 @@ def test_pack_isolates_disagreeing_shared_address(tmp_path: Path) -> None:
     ]
 
 
+def test_pack_isolates_funded_default_fee_recipient(tmp_path: Path) -> None:
+    """
+    The default fee recipient funded by one test is never merged into a
+    test that assumes it empty, even when no other group allocates it:
+    every block with the default environment pays its fees there.
+    """
+    env = Environment()
+    fee_recipient = int.from_bytes(env.fee_recipient, "big")
+    _write_group(
+        tmp_path,
+        1,
+        "tests/a.py::test_a",
+        {fee_recipient: Account(balance=1), 0xA000: Account(balance=1)},
+        environment=env,
+    )
+    _write_group(
+        tmp_path,
+        2,
+        "tests/b.py::test_b",
+        {0xB000: Account(balance=2)},
+        environment=env,
+    )
+
+    pack_pre_alloc_groups(tmp_path)
+
+    packed = _packed(tmp_path)
+    assert len(packed) == 2
+    with_fee_recipient = [
+        g for g in packed.values() if str(env.fee_recipient) in g["pre"]
+    ]
+    assert len(with_fee_recipient) == 1
+    assert with_fee_recipient[0]["testIds"] == ["tests/a.py::test_a"]
+
+
 def test_builder_genesis_carries_the_environment() -> None:
     """
     Every `Environment` field the genesis header shares reaches that header.
