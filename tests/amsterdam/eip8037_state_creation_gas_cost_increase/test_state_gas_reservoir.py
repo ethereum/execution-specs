@@ -28,6 +28,7 @@ from execution_testing import (
     Fork,
     Header,
     Op,
+    RecipientType,
     StateTestFiller,
     Storage,
     Transaction,
@@ -715,6 +716,136 @@ def test_create_tx_reservoir(
     )
 
     state_test(pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "tx_kind",
+    [
+        pytest.param("create", id="create_tx"),
+        pytest.param("value_transfer", id="value_to_empty_account"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_top_frame_new_account_charge_split_across_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_kind: str,
+) -> None:
+    """
+    Test a top-frame new-account charge that the reservoir covers only
+    in part.
+
+    The reservoir holds half of the charge and the other half spills
+    into `gas_left`. The sender is billed the full charge.
+    """
+    sender = pre.fund_eoa()
+
+    if tx_kind == "create":
+        init_code = Op.STOP
+        top_frame_state_gas = fork.transaction_top_frame_state_gas(
+            contract_creation=True
+        )
+        intrinsic_cost = fork.transaction_intrinsic_cost_calculator()(
+            calldata=init_code,
+            contract_creation=True,
+            return_cost_deducted_prior_execution=True,
+        )
+        to = None
+        data: Bytecode = init_code
+        value = 0
+        target = compute_create_address(address=sender, nonce=0)
+        expected_target = Account(nonce=1)
+    elif tx_kind == "value_transfer":
+        top_frame_state_gas = fork.transaction_top_frame_state_gas(
+            sends_value=True, recipient_type=RecipientType.EMPTY_ACCOUNT
+        )
+        intrinsic_cost = fork.transaction_intrinsic_cost_calculator()(
+            sends_value=True,
+            recipient_type=RecipientType.EMPTY_ACCOUNT,
+            return_cost_deducted_prior_execution=True,
+        )
+        target = pre.fund_eoa(amount=0)
+        to = target
+        data = Bytecode()
+        value = 1
+        expected_target = Account(balance=value)
+    else:
+        raise ValueError(f"Unknown tx_kind: {tx_kind}")
+
+    tx = Transaction(
+        to=to,
+        data=data,
+        value=value,
+        state_gas_reservoir=top_frame_state_gas // 2,
+        sender=sender,
+        # The whole charge is billed, whichever pool paid for it.
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=intrinsic_cost + top_frame_state_gas
+        ),
+    )
+
+    state_test(pre=pre, post={target: expected_target}, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "precompile_gas_covered",
+    [
+        pytest.param(True, id="precompile_gas_covered"),
+        pytest.param(False, id="one_gas_short"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_top_frame_new_account_spill_with_precompile_out_of_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    precompile_gas_covered: bool,
+) -> None:
+    """
+    Test a value transfer to an empty precompile with no reservoir, so
+    the top-frame new-account charge spills into `gas_left` and the
+    precompile runs on what is left.
+
+    With the precompile gas covered, the transfer succeeds. One gas
+    short, the precompile runs out of gas and the transaction burns its
+    whole gas limit, including the spilled charge.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    identity = Address(0x04)
+    value = 1
+    precompile_gas = fork.gas_costs().PRECOMPILE_IDENTITY_BASE
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True, recipient_type=RecipientType.EMPTY_ACCOUNT
+    )
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True,
+        recipient_type=RecipientType.PRECOMPILE,
+        return_cost_deducted_prior_execution=True,
+    )
+    exact_gas = intrinsic_cost + top_frame_state_gas + precompile_gas
+
+    if precompile_gas_covered:
+        gas_limit = gas_limit_cap
+        expected_gas_used = exact_gas
+        expected_precompile: Account | None = Account(balance=value)
+    else:
+        gas_limit = exact_gas - 1
+        expected_gas_used = gas_limit
+        expected_precompile = None
+
+    tx = Transaction(
+        to=identity,
+        value=value,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
+    )
+
+    state_test(pre=pre, post={identity: expected_precompile}, tx=tx)
 
 
 @pytest.mark.parametrize(

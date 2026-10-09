@@ -1,0 +1,9 @@
+extend = "../pyproject.toml"
+# Resolve first-party packages from the repository root, as the root
+# configuration does.
+src = ["..", "../src"]
+
+[lint.isort]
+# Keep imports that fit on one line on one line, even with a trailing
+# comma, so formatting-only differences don't creep in between forks.
+split-on-trailing-comma = false

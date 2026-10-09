@@ -21,10 +21,7 @@ from ethereum.exceptions import (
 )
 from ethereum.state import Address
 
-from .exceptions import (
-    PriorityFeeGreaterThanMaxFeeError,
-    TransactionTypeError,
-)
+from .exceptions import PriorityFeeGreaterThanMaxFeeError, TransactionTypeError
 
 
 @final
@@ -336,6 +333,7 @@ def validate_transaction(tx: Transaction) -> Uint:
             raise PriorityFeeGreaterThanMaxFeeError(
                 "priority fee greater than max fee"
             )
+
     return intrinsic_gas
 
 

@@ -8,14 +8,14 @@ from typing import Dict, List, Tuple
 import pytest
 from pytest import StashKey
 
-from execution_testing.base_types import Account, Number
+from execution_testing.base_types import Number
 from execution_testing.execution import BaseExecute, LabeledExecuteFormat
 from execution_testing.fixtures import BaseFixture, LabeledFixtureFormat
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.specs import BaseTest
 from execution_testing.specs.base import OpMode
-from execution_testing.test_types import EOA, Alloc, ChainConfig
+from execution_testing.test_types import EOA, Account, Alloc, ChainConfig
 
 from ..shared.address_stubs import AddressStubs, StubEOA
 from ..shared.helpers import get_rpc_endpoint
@@ -204,6 +204,12 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
+        "invalid_tx_not_last: Allow a block's one invalid transaction to be "
+        "followed by valid transactions. The block is still rejected at the "
+        "invalid transaction.",
+    )
+    config.addinivalue_line(
+        "markers",
         "tagged: Marks a static test as tagged. Tags are used to generate "
         "dynamic addresses for static tests at fill time. All tagged tests "
         "are compatible with dynamic address generation.",
@@ -316,6 +322,25 @@ def pytest_make_parametrize_id(
 SPEC_TYPES_PARAMETERS: List[str] = list(BaseTest.spec_types.keys())
 
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    """
+    Fail collection of a test that requests no spec type fixture.
+
+    Every test under a test directory must fill or execute a spec. Failing
+    at collection reports the test by name in every process, xdist workers
+    included; later hooks cannot handle an item without a spec type.
+    """
+    if not any(p in metafunc.fixturenames for p in SPEC_TYPES_PARAMETERS):
+        pytest.fail(
+            f"{metafunc.definition.nodeid} requests none of the spec "
+            f"fixtures ({', '.join(SPEC_TYPES_PARAMETERS)}). Every test "
+            "collected from a test directory must request one; move helper "
+            "checks into a module whose name does not start with 'test_'.",
+            pytrace=False,
+        )
+
+
 def pytest_runtest_call(item: pytest.Item) -> None:
     """Pytest hook called in the context of test execution."""
     if isinstance(item, EIPSpecTestItem):
@@ -335,14 +360,6 @@ def pytest_runtest_call(item: pytest.Item) -> None:
         raise InvalidFillerError(
             "A filler should only implement either a state test or a "
             "blockchain test; not both."
-        )
-
-    # Check that the test defines either test type as parameter.
-    if not any(i for i in item.funcargs if i in SPEC_TYPES_PARAMETERS):
-        pytest.fail(
-            "Test must define either one of the following parameters to "
-            + "properly generate a test: "
-            + ", ".join(SPEC_TYPES_PARAMETERS)
         )
 
 
@@ -411,3 +428,12 @@ def is_inclusion_test(request: pytest.FixtureRequest) -> bool:
     test.
     """
     return request.node.get_closest_marker("inclusion_test") is not None
+
+
+@pytest.fixture(scope="function")
+def invalid_tx_not_last(request: pytest.FixtureRequest) -> bool:
+    """
+    Check, given the test node properties, whether the test allows its
+    invalid transaction to be followed by valid ones.
+    """
+    return request.node.get_closest_marker("invalid_tx_not_last") is not None

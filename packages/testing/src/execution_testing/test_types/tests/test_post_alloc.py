@@ -4,8 +4,7 @@ from typing import Type
 
 import pytest
 
-from execution_testing.base_types import Account
-from execution_testing.test_types import Alloc
+from execution_testing.test_types import Account, Alloc, EmptyPostStateContext
 
 
 @pytest.fixture()
@@ -122,7 +121,13 @@ def test_verify_post_alloc(
 ) -> None:
     """Test `verify_post_alloc` method of `Alloc`."""
     if expected_exception_type is None:
-        post.verify_post_alloc(alloc)
+        post.verify_post_alloc(
+            pre_alloc=Alloc(), got_alloc=alloc, context=EmptyPostStateContext()
+        )
     else:
         with pytest.raises(expected_exception_type) as _:
-            post.verify_post_alloc(alloc)
+            post.verify_post_alloc(
+                pre_alloc=Alloc(),
+                got_alloc=alloc,
+                context=EmptyPostStateContext(),
+            )

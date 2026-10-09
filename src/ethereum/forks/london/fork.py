@@ -36,10 +36,7 @@ from ethereum.state_mpt import State, apply_changes_to_state
 from . import FORK_CRITERIA, vm
 from .blocks import Block, Header, Log, Receipt, encode_receipt
 from .bloom import logs_bloom
-from .exceptions import (
-    InsufficientMaxFeePerGasError,
-    WrongChainIdError,
-)
+from .exceptions import InsufficientMaxFeePerGasError, WrongChainIdError
 from .state_tracker import (
     BlockState,
     TransactionState,
@@ -867,14 +864,14 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
 
     The bounds of the gas limit, ``max_adjustment_delta``, is set as the
     quotient of the parent block's gas limit and the
-    ``LIMIT_ADJUSTMENT_FACTOR``. Therefore, if the gas limit that is
-    passed through as a parameter is greater than or equal to the *sum* of
-    the parent's gas and the adjustment delta then the limit for gas is too
-    high and fails this function's check. Similarly, if the limit is less
-    than or equal to the *difference* of the parent's gas and the adjustment
-    delta *or* the predefined ``LIMIT_MINIMUM`` then this function's
-    check fails because the gas limit doesn't allow for a sufficient or
-    reasonable amount of gas to be used on a block.
+    ``LIMIT_ADJUSTMENT_FACTOR``. Therefore, if the gas limit that is passed
+    through as a parameter is greater than or equal to the *sum* of the
+    parent's gas and the adjustment delta then the limit for gas is too high
+    and fails this function's check. Similarly, if the limit is less than or
+    equal to the *difference* of the parent's gas and the adjustment delta *or*
+    the predefined ``LIMIT_MINIMUM`` then this function's check fails because
+    the gas limit doesn't allow for a sufficient or reasonable amount of gas to
+    be used on a block.
 
     Parameters
     ----------

@@ -19,6 +19,7 @@ from ..forks.forks import (
     BPO5,
     Amsterdam,
     Berlin,
+    Bogota,
     Cancun,
     Frontier,
     Homestead,
@@ -30,6 +31,7 @@ from ..forks.forks import (
     Shanghai,
 )
 from ..forks.transition import (
+    AmsterdamToBogotaAtTime15k,
     BerlinToLondonAt5,
     BPO1ToBPO2AtTime15k,
     BPO2ToAmsterdamAtTime15k,
@@ -61,8 +63,8 @@ from ..transition_base_fork import TransitionBaseClass, transition_fork
 
 FIRST_DEPLOYED = Frontier
 LAST_DEPLOYED = Osaka
-LAST_DEVELOPMENT = Amsterdam
-DEVELOPMENT_FORKS = [Amsterdam]
+LAST_DEVELOPMENT = Bogota
+DEVELOPMENT_FORKS = [Amsterdam, Bogota]
 
 
 def test_transition_forks() -> None:
@@ -70,6 +72,10 @@ def test_transition_forks() -> None:
     assert transition_fork_from_to(Berlin, London) == BerlinToLondonAt5
     assert transition_fork_from_to(Berlin, Paris) is None
     assert transition_fork_to(Shanghai) == {ParisToShanghaiAtTime15k}
+    assert (
+        transition_fork_from_to(Amsterdam, Bogota)
+        == AmsterdamToBogotaAtTime15k
+    )
 
     # Test forks transitioned to and from
     assert BerlinToLondonAt5.transitions_to() == London
@@ -622,6 +628,41 @@ def test_blob_schedules(
         )
 
 
+@pytest.mark.parametrize("fork", [London, Amsterdam])
+@pytest.mark.parametrize(
+    "parent_base_fee_per_gas", [20, 7 * 10**8, 10**9, 10**9 + 7]
+)
+def test_base_fee_change_calculator_round_trip(
+    fork: Fork, parent_base_fee_per_gas: int
+) -> None:
+    """
+    Test that the gas returned for a reachable base fee yields that base
+    fee, for increases and decreases, including exact divisions.
+    """
+    gas_limit = 30_000_000
+    base_fee_per_gas = fork.base_fee_per_gas_calculator()
+    gas_for_base_fee = fork.base_fee_change_calculator()
+    for parent_gas_used in range(0, gas_limit + 1, 250_000):
+        required = base_fee_per_gas(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_used=parent_gas_used,
+            parent_gas_limit=gas_limit,
+        )
+        gas_used = gas_for_base_fee(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_limit=gas_limit,
+            required_base_fee_per_gas=required,
+        )
+        assert (
+            base_fee_per_gas(
+                parent_base_fee_per_gas=parent_base_fee_per_gas,
+                parent_gas_used=gas_used,
+                parent_gas_limit=gas_limit,
+            )
+            == required
+        )
+
+
 def test_bpo_fork() -> None:  # noqa: D103
     assert Osaka.bpo_fork() is False
     assert BPO1.bpo_fork() is True
@@ -820,6 +861,9 @@ def test_method_versions() -> None:  # noqa: D103
 
     assert Amsterdam.engine_get_payload_version() == 6
     assert Amsterdam.engine_new_payload_version() == 5
+
+    assert Bogota.engine_get_payload_version() == 6
+    assert Bogota.engine_new_payload_version() == 5
 
 
 def test_eips() -> None:  # noqa: D103

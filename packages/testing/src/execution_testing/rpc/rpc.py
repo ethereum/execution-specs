@@ -34,18 +34,12 @@ from tenacity import (
     wait_fixed as wait_fixed_tenacity,
 )
 
-from execution_testing.base_types import (
-    Account,
-    Address,
-    Bytes,
-    Hash,
-    to_json,
-)
+from execution_testing.base_types import Address, Bytes, Hash, to_json
 from execution_testing.fixtures.blockchain import PayloadAttributes
 from execution_testing.logging import (
     get_logger,
 )
-from execution_testing.test_types import Alloc
+from execution_testing.test_types import Account, Alloc
 
 from .rpc_types import (
     EthConfigResponse,
@@ -1494,12 +1488,20 @@ class EngineRPC(BaseJwtRPC):
         *,
         version: int,
         custody_columns: bytes | None = None,
+        custody_columns_null: bool = False,
     ) -> ForkchoiceUpdateResponse:
         """
         `engine_forkchoiceUpdatedVX`: Updates the forkchoice state of the
         execution client.
+
+        `custody_columns_null` sends an explicit `null` as the
+        `custodyColumns` parameter (EIP-8070: the client treats it as a
+        no-op for its blobpool).
         """
         method = f"forkchoiceUpdatedV{version}"
+        assert custody_columns is None or not custody_columns_null, (
+            "Pass either custody_columns or custody_columns_null, not both."
+        )
 
         params: List[Any]
         if payload_attributes is None:
@@ -1511,6 +1513,9 @@ class EngineRPC(BaseJwtRPC):
             # a bitmap of the blob columns custodied by the node.
             assert version >= 4, "custodyColumns requires forkchoiceUpdatedV4."
             params.append(f"0x{custody_columns.hex()}")
+        elif custody_columns_null:
+            assert version >= 4, "custodyColumns requires forkchoiceUpdatedV4."
+            params.append(None)
 
         return ForkchoiceUpdateResponse.model_validate(
             self.post_request(

@@ -5,7 +5,6 @@ from typing import Any, Mapping, Type
 import pytest
 
 from execution_testing.base_types import (
-    Account,
     Address,
     Bytes,
     Hash,
@@ -23,6 +22,7 @@ from execution_testing.fixtures import (
 from execution_testing.forks import Fork, get_deployed_forks
 from execution_testing.specs import Block
 from execution_testing.test_types import (
+    Account,
     Alloc,
     Environment,
     Transaction,

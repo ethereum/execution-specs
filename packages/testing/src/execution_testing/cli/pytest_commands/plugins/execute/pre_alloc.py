@@ -12,7 +12,6 @@ from filelock import FileLock
 from pydantic import PrivateAttr
 
 from execution_testing.base_types import (
-    Account,
     Address,
     Bytes,
     Hash,
@@ -33,6 +32,7 @@ from execution_testing.rpc.rpc_types import TransactionByHashResponse
 from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
     EOA,
+    Account,
     AuthorizationTuple,
     ChainConfig,
     TestPhase,

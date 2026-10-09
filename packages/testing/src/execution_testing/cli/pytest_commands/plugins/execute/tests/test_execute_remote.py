@@ -27,7 +27,6 @@ from hive.simulation import Simulation
 from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
 
 from execution_testing.base_types import (
-    Account,
     Address,
     EmptyOmmersRoot,
     EmptyTrieRoot,
@@ -45,6 +44,7 @@ from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
     DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
+    Account,
     Alloc,
     ChainConfig,
     Environment,
@@ -387,6 +387,9 @@ def fork_name() -> str:
     return str(TEST_FORK)
 
 
+IMPORTS = ["Account", "Address", "Storage", "Transaction", "Op", "GasFee"]
+
+
 @dataclass(kw_only=True)
 class ExecuteRunner:
     """Formatted runner of a test."""
@@ -417,7 +420,7 @@ class ExecuteRunner:
         test_file = tests_dir.join("test_module.py")
         test_module = (
             "from execution_testing import "
-            + "Account, Address, Storage, Transaction, Op\n"
+            + f"{','.join(IMPORTS)}\n"
             + textwrap.dedent(test_method)
         )
         test_file.write(textwrap.dedent(test_module))
@@ -563,6 +566,24 @@ def test_simple_state_test(execute_runner: ExecuteRunner) -> None:
                     sender=sender,
                     to=None,
                     gas_limit=100_000,
+                ),
+            )
+    """.format()
+
+    execute_runner.run_assert(test_method=test_method)
+
+
+def test_no_gas_limit(execute_runner: ExecuteRunner) -> None:
+    """Execute a state test where the transaction specifies no gas limit."""
+    test_method = """\
+        def test_no_gas_limit(state_test, pre) -> None:
+            sender = pre.fund_eoa()
+            state_test(
+                pre=pre,
+                post={{}},
+                tx=Transaction(
+                    sender=sender,
+                    to=None,
                 ),
             )
     """.format()
@@ -865,3 +886,61 @@ def test_fail_pre_mutation(execute_runner: ExecuteRunner) -> None:
     """.format()
 
     execute_runner.run_assert(test_method=test_method, failed=1)
+
+
+def test_nonce_change(execute_runner: ExecuteRunner) -> None:
+    """
+    Execute a test that verifies the `nonce_change` property of an account
+    in the `post`.
+    """
+    test_method = """\
+        def test_nonce_change(state_test, pre) -> None:
+            sender = pre.fund_eoa()
+            state_test(
+                pre=pre,
+                post={{
+                    sender: Account(nonce_change=1)
+                }},
+                tx=Transaction(
+                    sender=sender,
+                    to=None,
+                    gas_limit=100_000,
+                ),
+            )
+    """.format()
+
+    execute_runner.run_assert(test_method=test_method)
+
+
+def test_balance_change(execute_runner: ExecuteRunner) -> None:
+    """
+    Execute a test that verifies the `balance_change` property of multiple
+    accounts in the `post`.
+    """
+    test_method = """\
+        def test_balance_change(state_test, fork, pre, env) -> None:
+            sender = pre.fund_eoa()
+            recipient = pre.fund_eoa(amount=1)  # So we don't start at zero
+            intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
+            sent_value = 1
+            tx = Transaction(
+                sender=sender,
+                value=sent_value,
+                to=recipient,
+            )
+            state_test(
+                pre=pre,
+                post={{
+                    sender: Account(
+                        balance_change=-sent_value - GasFee(
+                            tx,
+                            gas=intrinsic_gas_cost,
+                        )
+                    ),
+                    recipient: Account(balance_change=sent_value)
+                }},
+                tx=tx,
+            )
+    """.format()
+
+    execute_runner.run_assert(test_method=test_method)

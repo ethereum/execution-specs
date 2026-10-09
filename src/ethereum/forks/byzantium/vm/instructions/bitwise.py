@@ -14,10 +14,7 @@ Implementations of the EVM bitwise instructions.
 from ethereum_types.numeric import U256, Uint
 
 from .. import Evm
-from ..gas import (
-    GasCosts,
-    charge_gas,
-)
+from ..gas import GasCosts, charge_gas
 from ..stack import pop, push
 
 

@@ -1560,6 +1560,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         is_tx_gas_heavy_test: bool,
         is_exception_test: bool,
         is_inclusion_test: bool,
+        invalid_tx_not_last: bool,
     ) -> Any:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
@@ -1581,10 +1582,23 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
             fixture_format, BaseFixture
         )
 
+        spec_called = False
+
         class BaseTestWrapper(cls):  # type: ignore
             __is_base_test_wrapper__ = True
 
             def __init__(self, *args: Any, **kwargs: Any) -> None:
+                # Every call writes its fixture under the same test ID, so a
+                # second call would silently replace the first.
+                nonlocal spec_called
+                if spec_called:
+                    pytest.fail(
+                        f"`{cls.pytest_parameter_name()}` can only be called "
+                        "once per test; use `pytest.mark.parametrize` for "
+                        "multiple cases."
+                    )
+                spec_called = True
+
                 if "pre" not in kwargs:
                     kwargs["pre"] = pre
                 if "expected_benchmark_gas_used" not in kwargs:
@@ -1595,6 +1609,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 kwargs["is_tx_gas_heavy_test"] = is_tx_gas_heavy_test
                 kwargs["is_exception_test"] = is_exception_test
                 kwargs["is_inclusion_test"] = is_inclusion_test
+                kwargs["invalid_tx_not_last"] = invalid_tx_not_last
                 if (
                     op_mode == OpMode.OPTIMIZE_GAS
                     or op_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING

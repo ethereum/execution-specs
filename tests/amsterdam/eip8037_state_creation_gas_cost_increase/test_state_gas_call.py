@@ -29,11 +29,13 @@ from execution_testing import (
     Bytecode,
     CodeGasMeasure,
     Conditional,
+    Environment,
     Fork,
     Header,
     Op,
     StateTestFiller,
     Storage,
+    Tip,
     Transaction,
     TransactionReceipt,
     WhileGas,
@@ -1992,13 +1994,27 @@ def test_call_new_account_no_execution_account_creation_cost(
     "gas_delta",
     [pytest.param(0, id="exact_fit"), pytest.param(-1, id="one_short")],
 )
+@pytest.mark.parametrize(
+    "recipient_is_coinbase",
+    [
+        False,
+        pytest.param(
+            True,
+            marks=pytest.mark.execute(
+                pytest.mark.skip(reason="requires an empty fee recipient")
+            ),
+        ),
+    ],
+)
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_call_new_account_state_gas_boundary(
     state_test: StateTestFiller,
     pre: Alloc,
+    env: Environment,
     fork: Fork,
     gas_delta: int,
+    recipient_is_coinbase: bool,
 ) -> None:
     """
     Pin the CALL new-account state charge at its exact-fit boundary.
@@ -2007,13 +2023,20 @@ def test_call_new_account_state_gas_boundary(
     the charge spills from `gas_left`. At `exact_fit` the target is
     materialized; one gas short the caller frame goes out of gas and the
     value transfer is rolled back.
+
+    An absent coinbase is still charged: it is warm, but receives its
+    priority fee only after execution.
     """
-    target = pre.nonexistent_account()
+    if recipient_is_coinbase:
+        target = env.fee_recipient
+    else:
+        target = pre.nonexistent_account()
     caller_code = (
         Op.CALL(
             gas=0,
             address=target,
             value=1,
+            address_warm=recipient_is_coinbase,
             value_transfer=True,
             account_new=True,
         )
@@ -2043,7 +2066,14 @@ def test_call_new_account_state_gas_boundary(
         expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
     )
 
-    state_test(pre=pre, post=post, tx=tx)
+    if recipient_is_coinbase:
+        # The coinbase also receives the priority fee on the gas used.
+        transferred = 1 if gas_delta == 0 else 0
+        post[target] = Account(
+            balance_change=transferred + Tip(tx, gas=gas_used)
+        )
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -2214,6 +2244,62 @@ def test_call_insufficient_balance_refunds_new_account_state_gas(
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=sstore_state_gas),
     )
+
+
+@pytest.mark.valid_from("EIP8037")
+@pytest.mark.parametrize(
+    "gas_delta", [0, -1], ids=["exact_gas", "exact_gas_minus_1"]
+)
+def test_unfundable_value_call_to_dead_account_needs_new_account_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_delta: int,
+) -> None:
+    """
+    Charge NEW_ACCOUNT before the balance check of a value CALL.
+
+    The frame has zero balance, so the CALL to a dead account always fails
+    its balance check. The spec still charges NEW_ACCOUNT first and refills
+    it only after the check fails, so the frame must hold the full charge
+    and halts one gas short. A client that checked the balance first would
+    skip the charge and succeed in both cases; measuring the gas consumed
+    cannot tell the two apart, since the refill nets it to zero.
+    """
+    dead = pre.nonexistent_account()
+    frame_code = Op.CALL(
+        gas=0,
+        address=dead,
+        value=1,
+        # gas accounting
+        address_warm=False,
+        value_transfer=True,
+        account_new=True,
+    )
+    # The state charge is what separates the two cases: without it the
+    # frame would complete on execution gas alone.
+    assert frame_code.state_cost(fork) > 0
+    frame = pre.deploy_contract(frame_code, balance=0)
+    # The trailing POP is paid from the refilled charge, so the frame
+    # must hold exactly what the CALL itself charges.
+    frame_gas = frame_code.gas_cost(fork) + gas_delta
+
+    storage = Storage()
+    caller = pre.deploy_contract(
+        Op.SSTORE(
+            storage.store_next(1 if gas_delta == 0 else 0, "frame_result"),
+            Op.CALL(gas=frame_gas, address=frame),
+        ),
+        storage=storage.canary(),
+    )
+
+    tx = Transaction(to=caller, sender=pre.fund_eoa(), state_gas_reservoir=0)
+    post = {
+        caller: Account(storage=storage),
+        frame: Account(balance=0),
+        dead: Account.NONEXISTENT,
+    }
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")

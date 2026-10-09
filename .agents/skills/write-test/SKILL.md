@@ -72,7 +72,7 @@ An expectation is what `fill` checks. Each lives on one object:
 | `Transaction` | `error=`, `expected_receipt=TransactionReceipt(...)` |
 | `Block` | `exception=`, `header_verify=Header(...)`, `expected_block_access_list=` |
 | `StateTest` | `blockchain_test_header_verify=Header(...)`, `expected_block_access_list=` |
-| `post` | `Account(storage=..., balance=..., nonce=..., code=...)` |
+| `post` | `Account(storage=..., balance=... \| balance_change=..., nonce=... \| nonce_change=..., code=...)` |
 
 Choose each so it holds only if the behavior under test happened; then the fill fails when that behavior stops instead of writing a fixture that passes for another reason.
 

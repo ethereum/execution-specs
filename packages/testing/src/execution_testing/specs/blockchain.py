@@ -86,8 +86,10 @@ from execution_testing.fixtures.common import (
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork, Requests
 from execution_testing.test_types import (
+    Account,
     Alloc,
     Environment,
+    PostStateContext,
     Removable,
     TestPhase,
     Transaction,
@@ -101,7 +103,11 @@ from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
-from .helpers import verify_block, verify_transactions
+from .helpers import (
+    RecordedPostStateContext,
+    verify_block,
+    verify_transactions,
+)
 
 
 def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
@@ -488,6 +494,16 @@ class BuiltBlock(CamelModel):
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
 
+    def record_landings(self, context: RecordedPostStateContext) -> None:
+        """Record in `context` that this block's transactions landed."""
+        context.record_block(
+            txs=self.txs,
+            fork=self.fork,
+            base_fee_per_gas=self.header.base_fee_per_gas,
+            excess_blob_gas=self.header.excess_blob_gas,
+            fee_recipient=self.header.fee_recipient,
+        )
+
     def cumulative_gas_used(self) -> int:
         """Return the last receipt's cumulative gas used."""
         if not self.result.receipts:
@@ -850,6 +866,15 @@ class BlockchainTest(BaseTest):
                         "last transaction of the last block, but block "
                         f"{i} contains an invalid transaction elsewhere"
                     )
+        if self.invalid_tx_not_last and not any(
+            tx.error is not None
+            for block in self.blocks
+            for tx in block.txs[:-1]
+        ):
+            raise Exception(
+                "test correctness: the test is marked `invalid_tx_not_last` "
+                "but no block has an invalid transaction before its last one"
+            )
         for i, block in enumerate(self.blocks):
             expectation = block.expected_block_access_list
             if (
@@ -989,10 +1014,12 @@ class BlockchainTest(BaseTest):
                     "test correctness: only one transaction can produce "
                     "an exception in a block"
                 )
-            if not txs[-1].error:
+            if not txs[-1].error and not self.invalid_tx_not_last:
                 raise Exception(
                     "test correctness: the transaction that produces an "
-                    "exception must be the last transaction in the block"
+                    "exception must be the last transaction in the block; "
+                    "mark the test `invalid_tx_not_last` when the trailing "
+                    "transactions are the point"
                 )
 
         transition_tool_output = t8n.evaluate(
@@ -1252,20 +1279,39 @@ class BlockchainTest(BaseTest):
                 + "`block.exception`"
             )
 
+        block_exception = transition_tool_output.result.block_exception
+        if (
+            rejected_txs
+            and block_exception is not None
+            and not block.skip_exception_verification
+        ):
+            # The block exception is not verified when a transaction is
+            # rejected, so without this check it would go unnoticed.
+            raise Exception(
+                f"test correctness: block number {int(env.number)} rejects "
+                f"transaction(s) {rejected_txs}, and the transition tool "
+                f"also rejects the block itself ({block_exception}). The "
+                "fixture would carry two defects and name one. Change the "
+                "block so that only the transaction is invalid."
+            )
+
         return built_block
 
     def verify_post_state(
         self,
+        *,
         t8n: FillerBackend,
-        t8n_state: Alloc,
+        pre_alloc: Alloc,
+        got_alloc: Alloc,
+        context: PostStateContext,
         expected_state: Alloc | None = None,
     ) -> None:
         """Verify post alloc after all block/s or payload/s are generated."""
         try:
-            if expected_state:
-                expected_state.verify_post_alloc(t8n_state)
-            else:
-                self.post.verify_post_alloc(t8n_state)
+            expected_state = expected_state if expected_state else self.post
+            expected_state.verify_post_alloc(
+                pre_alloc=pre_alloc, got_alloc=got_alloc, context=context
+            )
         except Exception as e:
             print_traces(t8n.get_traces())
             raise e
@@ -1294,6 +1340,7 @@ class BlockchainTest(BaseTest):
         env = environment_from_parent_header(genesis.header)
         head = genesis.header.block_hash
         invalid_blocks = 0
+        context = RecordedPostStateContext()
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
@@ -1344,6 +1391,7 @@ class BlockchainTest(BaseTest):
             # expected_block_access_list set
 
             if block.exception is None:
+                built_block.record_landings(context)
                 # Update env, alloc and last block hash for the next block.
                 alloc = built_block.alloc
                 state_root = built_block.state_root
@@ -1354,15 +1402,19 @@ class BlockchainTest(BaseTest):
 
             if block.expected_post_state:
                 self.verify_post_state(
-                    t8n,
-                    t8n_state=alloc.materialize()
+                    t8n=t8n,
+                    pre_alloc=pre,
+                    got_alloc=alloc.materialize()
                     if isinstance(alloc, LazyAlloc)
                     else alloc,
+                    context=context,
                     expected_state=block.expected_post_state,
                 )
         self.check_exception_test(exception=invalid_blocks > 0)
         alloc = alloc.materialize() if isinstance(alloc, LazyAlloc) else alloc
-        self.verify_post_state(t8n, t8n_state=alloc)
+        self.verify_post_state(
+            t8n=t8n, pre_alloc=pre, got_alloc=alloc, context=context
+        )
         fixture = BlockchainFixture(
             fork=self.fork,
             genesis=genesis.header,
@@ -1411,6 +1463,7 @@ class BlockchainTest(BaseTest):
         env = environment_from_parent_header(genesis.header)
         head_hash = genesis.header.block_hash
         invalid_blocks = 0
+        context = RecordedPostStateContext()
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
@@ -1436,6 +1489,7 @@ class BlockchainTest(BaseTest):
                 built_block.get_fixture_engine_new_payload()
             )
             if block.exception is None:
+                built_block.record_landings(context)
                 alloc = built_block.alloc
                 state_root = built_block.state_root
                 env = apply_new_parent(built_block.env, built_block.header)
@@ -1445,10 +1499,12 @@ class BlockchainTest(BaseTest):
 
             if block.expected_post_state:
                 self.verify_post_state(
-                    t8n,
-                    t8n_state=alloc.materialize()
+                    t8n=t8n,
+                    pre_alloc=pre,
+                    got_alloc=alloc.materialize()
                     if isinstance(alloc, LazyAlloc)
                     else alloc,
+                    context=context,
                     expected_state=block.expected_post_state,
                 )
         self.check_exception_test(exception=invalid_blocks > 0)
@@ -1461,7 +1517,9 @@ class BlockchainTest(BaseTest):
         )
 
         alloc = alloc.materialize() if isinstance(alloc, LazyAlloc) else alloc
-        self.verify_post_state(t8n, t8n_state=alloc)
+        self.verify_post_state(
+            t8n=t8n, pre_alloc=pre, got_alloc=alloc, context=context
+        )
 
         # Create base fixture data, common to all fixture formats
         fixture_data: Dict[str, Any] = {
@@ -1682,6 +1740,11 @@ class BlockchainTest(BaseTest):
         # Alloc is not authoritative in stateful mode; pass self.pre as a
         # placeholder — ClientBackend ignores it.
         alloc: Alloc | LazyAlloc = self.pre
+        context = RecordedPostStateContext()
+        # Relative post expectations compare against the live state right
+        # before the first execution block, after the setup blocks funded
+        # and deployed the test's accounts.
+        pre_state_block_number = start_block_number
         for block in blocks_to_process:
             built_block = self.generate_block_data(
                 t8n=t8n,
@@ -1693,6 +1756,7 @@ class BlockchainTest(BaseTest):
                 "ClientBackend must return TestingBuildBlock; got "
                 f"{type(built_block).__name__}"
             )
+            built_block.record_landings(context)
             payload = payload_metadata_to_fixture(
                 built_block.engine_payload, phase=block.phase
             )
@@ -1703,6 +1767,8 @@ class BlockchainTest(BaseTest):
             )
             if payload.phase == TestPhase.SETUP:
                 setup_payloads.append(payload)
+                if not execution_payloads:
+                    pre_state_block_number = int(built_block.header.number)
             else:
                 execution_payloads.append(payload)
                 block_opcode_count = t8n.extract_block_opcode_count(
@@ -1739,7 +1805,23 @@ class BlockchainTest(BaseTest):
 
         if self.post.root:
             got_alloc = t8n.get_post_state_alloc(self.post)
-            self.post.verify_post_alloc(got_alloc)
+            # Only accounts expecting a change need their pre-state, and
+            # only their balance and nonce.
+            relative = Alloc(
+                {
+                    address: Account()
+                    for address, account in self.post.root.items()
+                    if account is not None
+                    and {"balance_change", "nonce_change"}
+                    & account.model_fields_set
+                }
+            )
+            pre_alloc = t8n.eth_rpc.get_alloc(
+                relative, block_number=pre_state_block_number, skip_code=True
+            )
+            self.post.verify_post_alloc(
+                pre_alloc=pre_alloc, got_alloc=got_alloc, context=context
+            )
 
         fixture = BlockchainEngineStatefulFixture(
             fork=self.fork,

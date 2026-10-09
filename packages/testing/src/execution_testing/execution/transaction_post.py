@@ -1,6 +1,6 @@
 """Simple transaction-send then post-check execution format."""
 
-from typing import ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List
 
 import pytest
 from pytest import FixtureRequest
@@ -14,17 +14,117 @@ from execution_testing.rpc import (
     SendTransactionExceptionError,
 )
 from execution_testing.test_types import (
+    Account,
     Alloc,
     Environment,
     NetworkWrappedTransaction,
+    PostStateContext,
     TestPhase,
     Transaction,
     TransactionTestMetadata,
+)
+from execution_testing.test_types.balance_expectations import (
+    TransactionKey,
+    TransactionLanding,
+    transaction_key,
 )
 
 from .base import BaseExecute, ExecuteResult
 
 logger = get_logger(__name__)
+
+
+class RPCTransactionLanding(TransactionLanding):
+    """
+    Landing of a transaction on a live network, fetched piece by piece.
+
+    The receipt is requested the first time any value is needed; the block
+    is requested only for the base fee or the fee recipient, so a sender's
+    `GasFee` costs a single receipt request.
+    """
+
+    _context: "RPCPostStateContext"
+    _tx_hash: Hash
+    _receipt: Dict[str, Any] | None
+
+    def __init__(
+        self, *, context: "RPCPostStateContext", tx_hash: Hash
+    ) -> None:
+        """Track the transaction `tx_hash`, without fetching anything yet."""
+        self._context = context
+        self._tx_hash = tx_hash
+        self._receipt = None
+
+    def receipt(self) -> Dict[str, Any]:
+        """Return the transaction receipt, fetching it on first use."""
+        if self._receipt is None:
+            receipt = self._context.eth_rpc.get_transaction_receipt(
+                self._tx_hash
+            )
+            assert receipt is not None, f"missing receipt for {self._tx_hash}"
+            self._receipt = receipt
+        return self._receipt
+
+    def block(self) -> Dict[str, Any]:
+        """Return the block the transaction landed in."""
+        return self._context.block(Hash(self.receipt()["blockHash"]))
+
+    def effective_gas_price(self) -> int:
+        """Return the price per gas the transaction paid."""
+        return int(self.receipt()["effectiveGasPrice"], 16)
+
+    def base_fee_per_gas(self) -> int:
+        """Return the block base fee, or zero before the London fork."""
+        base_fee = self.block().get("baseFeePerGas")
+        return int(base_fee, 16) if base_fee else 0
+
+    def blob_gas_price(self) -> int | None:
+        """Return the blob gas price the transaction paid, if any."""
+        blob_gas_price = self.receipt().get("blobGasPrice")
+        return int(blob_gas_price, 16) if blob_gas_price else None
+
+    def fee_recipient(self) -> Address:
+        """Return the block fee recipient."""
+        return Address(self.block()["miner"])
+
+
+class RPCPostStateContext(PostStateContext):
+    """
+    Context for execute, where transactions land on a live network.
+
+    Nothing is fetched up front: each landing requests its receipt and block
+    only when an expectation needs them, and each block is fetched at most
+    once however many of the transactions landed in it.
+    """
+
+    eth_rpc: EthRPC
+    _landings: Dict[TransactionKey, RPCTransactionLanding]
+    _blocks: Dict[Hash, Dict[str, Any]]
+
+    def __init__(self, *, eth_rpc: EthRPC, txs: List[Transaction]) -> None:
+        """Track the sent `txs`, without fetching anything yet."""
+        self.eth_rpc = eth_rpc
+        self._landings = {
+            transaction_key(tx): RPCTransactionLanding(
+                context=self, tx_hash=tx.hash
+            )
+            for tx in txs
+        }
+        self._blocks = {}
+
+    def block(self, block_hash: Hash) -> Dict[str, Any]:
+        """Return the block `block_hash`, fetching it on first use."""
+        if block_hash not in self._blocks:
+            block = self.eth_rpc.get_block_by_hash(block_hash, full_txs=False)
+            assert block is not None, f"block {block_hash} not found"
+            self._blocks[block_hash] = block
+        return self._blocks[block_hash]
+
+    def landing(self, key: TransactionKey) -> TransactionLanding:
+        """Return the landing of the transaction `key`."""
+        if key not in self._landings:
+            raise PostStateContext.TransactionNotLandedError(key)
+        return self._landings[key]
 
 
 class TransactionPost(BaseExecute):
@@ -92,6 +192,26 @@ class TransactionPost(BaseExecute):
                 balances[sender] += tx.signer_minimum_balance(fork=fork)
         return balances
 
+    def snapshot_pre_state(self, eth_rpc: EthRPC) -> Alloc:
+        """
+        Fetch the live state of the post accounts that expect changes.
+
+        The test's `pre` is not authoritative on a live network: senders are
+        topped up to cover their transactions, and accounts the test did not
+        create (fee recipients, precompiles, system contracts) may already
+        hold a balance.
+        """
+        relative_fields = {"balance_change", "nonce_change"}
+        relative = Alloc(
+            {
+                address: Account()
+                for address, account in self.post.root.items()
+                if account is not None
+                and relative_fields & account.model_fields_set
+            }
+        )
+        return eth_rpc.get_alloc(relative, skip_code=True)
+
     def execute(
         self,
         fork: Fork,
@@ -111,8 +231,11 @@ class TransactionPost(BaseExecute):
                         "execute mode."
                     )
 
+        pre_state = self.snapshot_pre_state(eth_rpc)
+
         # Track transaction hashes for gas validation (benchmarking)
         all_tx_hashes: List[Hash] = []
+        landed_txs: List[Transaction] = []
         last_block_tx_hashes: List[Hash] = []
 
         for block in self.blocks:
@@ -172,6 +295,11 @@ class TransactionPost(BaseExecute):
                 current_block_tx_hashes = [tx.hash for tx in signed_txs]
             all_tx_hashes.extend(current_block_tx_hashes)
             last_block_tx_hashes = current_block_tx_hashes
+            landed_txs.extend(
+                tx.tx if isinstance(tx, NetworkWrappedTransaction) else tx
+                for tx in signed_txs
+                if tx.error is None
+            )
 
         # Fetch transaction receipts to get actual gas used
         benchmark_gas_used: int | None = None
@@ -186,6 +314,7 @@ class TransactionPost(BaseExecute):
                 benchmark_gas_used += gas_used
 
         actual_alloc = eth_rpc.get_alloc(self.post)
+        context = RPCPostStateContext(eth_rpc=eth_rpc, txs=landed_txs)
         for address, expected_account in self.post.root.items():
             actual_account = actual_alloc.root[address]
             assert actual_account is not None
@@ -202,7 +331,12 @@ class TransactionPost(BaseExecute):
                     f"{actual_account.nonce}, expected 0."
                 )
             else:
-                expected_account.check_alloc(address, actual_account)
+                expected_account.check_alloc(
+                    address=address,
+                    pre_account=pre_state.root.get(address),
+                    account=actual_account,
+                    context=context,
+                )
 
         return ExecuteResult(
             benchmark_gas_used=benchmark_gas_used,
