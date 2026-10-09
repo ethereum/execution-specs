@@ -4,8 +4,8 @@ Keyed nonces for frame transactions, introduced in [EIP-8250].
 A frame transaction selects a set of nonce keys sharing one sequence
 number. The legacy key set aliases the sender's account nonce; every
 other key selects an independent sequence held in the storage of the
-nonce manager system contract, so transactions whose key sets are
-disjoint do not order each other.
+nonce manager contract, so transactions whose key sets are disjoint do
+not order each other.
 
 Keyed nonce reads and writes are protocol bookkeeping: they bypass the
 access lists and `SSTORE` pricing of ordinary storage access, and warm
