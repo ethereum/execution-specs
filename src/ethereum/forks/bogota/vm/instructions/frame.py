@@ -7,7 +7,10 @@ halt.
 [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
 """
 
+from typing import final
+
 from ethereum_types.bytes import Bytes
+from ethereum_types.enum import UintEnum
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.utils.numeric import ceil32
@@ -24,6 +27,59 @@ from .. import Evm, FrameContext, attempt_approval
 from ..exceptions import InvalidParameter, Revert
 from ..gas import GasCosts, calculate_gas_extend_memory, charge_gas
 from ..stack import pop, push
+
+
+@final
+class TransactionParameter(UintEnum):
+    """
+    Values of the `TXPARAM` parameter operand.
+    """
+
+    TYPE = Uint(0x00)
+    NONCE = Uint(0x01)
+    SENDER = Uint(0x02)
+    MAX_PRIORITY_FEE_PER_GAS = Uint(0x03)
+    MAX_FEE_PER_GAS = Uint(0x04)
+    MAX_FEE_PER_BLOB_GAS = Uint(0x05)
+    MAX_COST = Uint(0x06)
+    BLOB_COUNT = Uint(0x07)
+    SIG_HASH = Uint(0x08)
+    FRAME_COUNT = Uint(0x09)
+    CURRENT_FRAME_INDEX = Uint(0x0A)
+    SIGNATURE_COUNT = Uint(0x0B)
+    STATE_GAS_LEFT = Uint(0x0C)
+
+
+@final
+class FrameParameter(UintEnum):
+    """
+    Values of the `FRAMEPARAM` parameter operand.
+    """
+
+    RESOLVED_TARGET = Uint(0x00)
+    EXECUTION_GAS_LIMIT = Uint(0x01)
+    MODE = Uint(0x02)
+    FLAGS = Uint(0x03)
+    DATA_LENGTH = Uint(0x04)
+    STATUS = Uint(0x05)
+    ALLOWED_SCOPE = Uint(0x06)
+    ATOMIC_BATCH = Uint(0x07)
+    VALUE = Uint(0x08)
+    STATE_GAS_LIMIT = Uint(0x09)
+    EXECUTION_GAS_USED = Uint(0x0A)
+    STATE_GAS_USED = Uint(0x0B)
+
+
+@final
+class SignatureParameter(UintEnum):
+    """
+    Values of the `SIGPARAM` parameter operand.
+    """
+
+    RESOLVED_SIGNER = Uint(0x00)
+    SCHEME = Uint(0x01)
+    MSG = Uint(0x02)
+    SIGNATURE_LENGTH = Uint(0x03)
 
 
 def frame_transaction_context(evm: Evm) -> FrameContext:
@@ -100,32 +156,32 @@ def txparam(evm: Evm) -> None:
     frame_context = frame_transaction_context(evm)
     tx = frame_context.tx
 
-    if param == U256(0x00):
+    if param == TransactionParameter.TYPE:
         # The frame transaction's type identifier.
         value = U256(0x06)
-    elif param == U256(0x01):
+    elif param == TransactionParameter.NONCE:
         value = U256(tx.nonce)
-    elif param == U256(0x02):
+    elif param == TransactionParameter.SENDER:
         value = U256.from_be_bytes(tx.sender)
-    elif param == U256(0x03):
+    elif param == TransactionParameter.MAX_PRIORITY_FEE_PER_GAS:
         value = U256(tx.fees.max_priority_fee_per_gas)
-    elif param == U256(0x04):
+    elif param == TransactionParameter.MAX_FEE_PER_GAS:
         value = U256(tx.fees.max_fee_per_gas)
-    elif param == U256(0x05):
+    elif param == TransactionParameter.MAX_FEE_PER_BLOB_GAS:
         value = tx.fees.max_fee_per_blob_gas
-    elif param == U256(0x06):
+    elif param == TransactionParameter.MAX_COST:
         value = U256(frame_context.max_cost)
-    elif param == U256(0x07):
+    elif param == TransactionParameter.BLOB_COUNT:
         value = U256(len(tx.blob_versioned_hashes))
-    elif param == U256(0x08):
+    elif param == TransactionParameter.SIG_HASH:
         value = U256.from_be_bytes(frame_context.signature_hash)
-    elif param == U256(0x09):
+    elif param == TransactionParameter.FRAME_COUNT:
         value = U256(len(tx.frames))
-    elif param == U256(0x0A):
+    elif param == TransactionParameter.CURRENT_FRAME_INDEX:
         value = U256(frame_context.current_frame_index)
-    elif param == U256(0x0B):
+    elif param == TransactionParameter.SIGNATURE_COUNT:
         value = U256(len(tx.signatures))
-    elif param == U256(0x0C):
+    elif param == TransactionParameter.STATE_GAS_LEFT:
         # State gas remaining in the executing frame's pool.
         value = U256(frame_context.state_gas_left)
     else:
@@ -233,42 +289,42 @@ def frameparam(evm: Evm) -> None:
         raise InvalidParameter("frame index out of bounds")
     frame = tx.frames[int(frame_index)]
 
-    if param == U256(0x00):
+    if param == FrameParameter.RESOLVED_TARGET:
         value = U256.from_be_bytes(resolve_frame_target(tx, frame))
-    elif param == U256(0x01):
+    elif param == FrameParameter.EXECUTION_GAS_LIMIT:
         value = U256(frame.gas_limits.execution)
-    elif param == U256(0x02):
+    elif param == FrameParameter.MODE:
         value = U256(frame.mode)
-    elif param == U256(0x03):
+    elif param == FrameParameter.FLAGS:
         value = U256(frame.flags)
-    elif param == U256(0x04):
+    elif param == FrameParameter.DATA_LENGTH:
         value = U256(len(frame.data))
-    elif param == U256(0x05):
+    elif param == FrameParameter.STATUS:
         if frame_index >= U256(frame_context.current_frame_index):
             raise InvalidParameter(
                 "status of the current or a subsequent frame"
             )
         receipt = frame_context.frame_receipts[int(frame_index)]
         value = U256(receipt.status)
-    elif param == U256(0x06):
+    elif param == FrameParameter.ALLOWED_SCOPE:
         value = U256(frame.flags & APPROVE_SCOPE_MASK)
-    elif param == U256(0x07):
+    elif param == FrameParameter.ATOMIC_BATCH:
         if FrameFlag.ATOMIC_BATCH in frame.flags:
             value = U256(1)
         else:
             value = U256(0)
-    elif param == U256(0x08):
+    elif param == FrameParameter.VALUE:
         value = frame.value
-    elif param == U256(0x09):
+    elif param == FrameParameter.STATE_GAS_LIMIT:
         value = U256(frame.gas_limits.state)
-    elif param == U256(0x0A):
+    elif param == FrameParameter.EXECUTION_GAS_USED:
         if frame_index >= U256(frame_context.current_frame_index):
             raise InvalidParameter(
                 "gas usage of the current or a subsequent frame"
             )
         receipt = frame_context.frame_receipts[int(frame_index)]
         value = U256(receipt.gas_used.execution)
-    elif param == U256(0x0B):
+    elif param == FrameParameter.STATE_GAS_USED:
         if frame_index >= U256(frame_context.current_frame_index):
             raise InvalidParameter(
                 "gas usage of the current or a subsequent frame"
@@ -310,19 +366,19 @@ def sigparam(evm: Evm) -> None:
         raise InvalidParameter("signature index out of bounds")
     signature = signatures[int(signature_index)]
 
-    if param == U256(0x00):
+    if param == SignatureParameter.RESOLVED_SIGNER:
         resolved_signer = frame_context.resolved_signers[int(signature_index)]
         if resolved_signer is None:
             raise InvalidParameter("resolved signer of an ARBITRARY entry")
         value = U256.from_be_bytes(resolved_signer)
-    elif param == U256(0x01):
+    elif param == SignatureParameter.SCHEME:
         value = U256(signature.scheme)
-    elif param == U256(0x02):
+    elif param == SignatureParameter.MSG:
         if len(signature.message) == 0:
             value = U256(0)
         else:
             value = U256.from_be_bytes(signature.message)
-    elif param == U256(0x03):
+    elif param == SignatureParameter.SIGNATURE_LENGTH:
         if signature.scheme != FrameSignatureScheme.ARBITRARY:
             raise InvalidParameter(
                 "signature length of a protocol-validated scheme"
