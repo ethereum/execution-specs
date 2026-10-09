@@ -8,8 +8,9 @@ results in an exceptional halt.
 [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
 """
 
-from typing import Sequence, TypeVar
+from typing import Sequence, TypeVar, final
 
+from ethereum_types.enum import UintEnum
 from ethereum_types.numeric import U256, Uint, ulen
 
 from ethereum.crypto.hash import Hash32
@@ -38,6 +39,57 @@ from ..transaction_diff import (
 from .frame import frame_transaction_context
 
 T = TypeVar("T")
+
+
+@final
+class TraceParameter(UintEnum):
+    """
+    Values of the `TXTRACE` parameter operand.
+    """
+
+    BALANCES_CHANGED = Uint(0x00)
+    SLOTS_CHANGED = Uint(0x01)
+    CONTRACTS_DEPLOYED = Uint(0x02)
+    BALANCE_ADDRESS = Uint(0x03)
+    BALANCE_BEFORE = Uint(0x04)
+    BALANCE_AFTER = Uint(0x05)
+    SLOT_ADDRESS = Uint(0x06)
+    SLOT_KEY = Uint(0x07)
+    SLOT_BEFORE = Uint(0x08)
+    SLOT_AFTER = Uint(0x09)
+    DEPLOYED_ADDRESS = Uint(0x0A)
+    DEPLOYED_CODEHASH = Uint(0x0B)
+    EVENTS_COUNT = Uint(0x0C)
+    EVENT_ADDRESS = Uint(0x0D)
+    EVENT_TOPIC_COUNT = Uint(0x0E)
+    EVENT_TOPIC0 = Uint(0x0F)
+    EVENT_TOPIC1 = Uint(0x10)
+    EVENT_TOPIC2 = Uint(0x11)
+    EVENT_TOPIC3 = Uint(0x12)
+    EVENT_DATA_LEN = Uint(0x13)
+    GAS_PRE_CHARGE = Uint(0x14)
+    GAS_PAYER = Uint(0x15)
+
+
+@final
+class DiffParameter(UintEnum):
+    """
+    Values of the `TXDIFF` parameter operand.
+    """
+
+    SLOT_BEFORE = Uint(0x00)
+    SLOT_AFTER = Uint(0x01)
+    BALANCE_BEFORE = Uint(0x02)
+    BALANCE_AFTER = Uint(0x03)
+    CODEHASH_BEFORE = Uint(0x04)
+    CODEHASH_AFTER = Uint(0x05)
+    ADDRESS_SLOTS_COUNT = Uint(0x06)
+    ADDRESS_SLOT_INDEX = Uint(0x07)
+    ADDRESS_EVENTS_COUNT = Uint(0x08)
+    ADDRESS_EVENT_INDEX = Uint(0x09)
+    ACCOUNT_CHANGE_FLAGS = Uint(0x0A)
+    TOPIC_EVENTS_COUNT = Uint(0x0B)
+    TOPIC_EVENT_INDEX = Uint(0x0C)
 
 
 def post_tx_frame_context(evm: Evm) -> FrameContext:
@@ -91,13 +143,12 @@ def txtrace(evm: Evm) -> None:
     stack, selected by the parameter operand and, for the per-entry
     parameters, an index into the table the parameter enumerates.
 
-    The count parameters (`0x00`, `0x01`, `0x02`, `0x0C`) and the gas
-    payment parameters (`0x14`, `0x15`) take no index and halt on a
-    non-zero one. The gas pre-charge is the payer's escrow, the
-    transaction's maximum cost with blob fees included. The payer is
-    the address that approved payment, read as zero by a `POST_TX`
-    frame executing before any frame approved payment, which leaves
-    the transaction invalid regardless.
+    The count parameters and the gas payment parameters take no index
+    and halt on a non-zero one. The gas pre-charge is the payer's
+    escrow, the transaction's maximum cost with blob fees included.
+    The payer is the address that approved payment, read as zero by a
+    `POST_TX` frame executing before any frame approved payment, which
+    leaves the transaction invalid regardless.
     """
     # STACK
     param = pop(evm.stack)
@@ -110,54 +161,54 @@ def txtrace(evm: Evm) -> None:
     frame_context = post_tx_frame_context(evm)
     diff = transaction_diff(evm.tx_env.state, frame_context)
 
-    if param == U256(0x00):
+    if param == TraceParameter.BALANCES_CHANGED:
         require_reserved_zero(index)
         value = U256(len(diff.balances))
-    elif param == U256(0x01):
+    elif param == TraceParameter.SLOTS_CHANGED:
         require_reserved_zero(index)
         value = U256(len(diff.slots))
-    elif param == U256(0x02):
+    elif param == TraceParameter.CONTRACTS_DEPLOYED:
         require_reserved_zero(index)
         value = U256(len(diff.deployed))
-    elif param == U256(0x03):
+    elif param == TraceParameter.BALANCE_ADDRESS:
         value = U256.from_be_bytes(table_entry(diff.balances, index).address)
-    elif param == U256(0x04):
+    elif param == TraceParameter.BALANCE_BEFORE:
         value = table_entry(diff.balances, index).before
-    elif param == U256(0x05):
+    elif param == TraceParameter.BALANCE_AFTER:
         value = table_entry(diff.balances, index).after
-    elif param == U256(0x06):
+    elif param == TraceParameter.SLOT_ADDRESS:
         value = U256.from_be_bytes(table_entry(diff.slots, index).address)
-    elif param == U256(0x07):
+    elif param == TraceParameter.SLOT_KEY:
         value = U256.from_be_bytes(table_entry(diff.slots, index).key)
-    elif param == U256(0x08):
+    elif param == TraceParameter.SLOT_BEFORE:
         value = table_entry(diff.slots, index).before
-    elif param == U256(0x09):
+    elif param == TraceParameter.SLOT_AFTER:
         value = table_entry(diff.slots, index).after
-    elif param == U256(0x0A):
+    elif param == TraceParameter.DEPLOYED_ADDRESS:
         value = U256.from_be_bytes(table_entry(diff.deployed, index).address)
-    elif param == U256(0x0B):
+    elif param == TraceParameter.DEPLOYED_CODEHASH:
         value = U256.from_be_bytes(table_entry(diff.deployed, index).code_hash)
-    elif param == U256(0x0C):
+    elif param == TraceParameter.EVENTS_COUNT:
         require_reserved_zero(index)
         value = U256(len(diff.events))
-    elif param == U256(0x0D):
+    elif param == TraceParameter.EVENT_ADDRESS:
         value = U256.from_be_bytes(table_entry(diff.events, index).address)
-    elif param == U256(0x0E):
+    elif param == TraceParameter.EVENT_TOPIC_COUNT:
         value = U256(len(table_entry(diff.events, index).topics))
-    elif param == U256(0x0F):
+    elif param == TraceParameter.EVENT_TOPIC0:
         value = event_topic(table_entry(diff.events, index), 0)
-    elif param == U256(0x10):
+    elif param == TraceParameter.EVENT_TOPIC1:
         value = event_topic(table_entry(diff.events, index), 1)
-    elif param == U256(0x11):
+    elif param == TraceParameter.EVENT_TOPIC2:
         value = event_topic(table_entry(diff.events, index), 2)
-    elif param == U256(0x12):
+    elif param == TraceParameter.EVENT_TOPIC3:
         value = event_topic(table_entry(diff.events, index), 3)
-    elif param == U256(0x13):
+    elif param == TraceParameter.EVENT_DATA_LEN:
         value = U256(len(table_entry(diff.events, index).data))
-    elif param == U256(0x14):
+    elif param == TraceParameter.GAS_PRE_CHARGE:
         require_reserved_zero(index)
         value = U256(frame_context.max_cost)
-    elif param == U256(0x15):
+    elif param == TraceParameter.GAS_PAYER:
         require_reserved_zero(index)
         if frame_context.payer is None:
             value = U256(0)
@@ -178,13 +229,13 @@ def txdiff(evm: Evm) -> None:
     onto the stack, selected by the parameter operand, an address or
     topic value, and a slot key, per-address index, or zero.
 
-    Parameters `0x00` to `0x05` read one account's slot, balance, or
-    code hash before and after the transaction. They may fall back to
+    The slot, balance, and code hash parameters read one account's
+    value before and after the transaction. They may fall back to
     the live state for a key the transaction never wrote, so they are
     priced and recorded like any other state read: a cold or warm
     access per [EIP-2929]. The access warms the key for the rest of the
-    frame and, once the frame succeeds, for later frames. Parameters
-    `0x06` to `0x0C` are per-address and per-topic views over the
+    frame and, once the frame succeeds, for later frames. The other
+    parameters are per-address and per-topic views over the
     enumeration tables and the account change flags, answered from the
     transaction-local diff alone at the flat `TXTRACE` cost.
 
@@ -198,14 +249,19 @@ def txdiff(evm: Evm) -> None:
     # GAS (STATE-INDEPENDENT)
     address = to_address_masked(key_operand)
     slot_key = index_operand.to_be_bytes32()
-    if param == U256(0x00) or param == U256(0x01):
+    if param in (DiffParameter.SLOT_BEFORE, DiffParameter.SLOT_AFTER):
         # STATE ACCESS (STATE-DEPENDENT GAS)
         if (address, slot_key) in evm.accessed_storage_keys:
             charge_gas(evm, GasCosts.WARM_ACCESS)
         else:
             evm.accessed_storage_keys.add((address, slot_key))
             charge_gas(evm, GasCosts.COLD_STORAGE_ACCESS)
-    elif U256(0x02) <= param <= U256(0x05):
+    elif param in (
+        DiffParameter.BALANCE_BEFORE,
+        DiffParameter.BALANCE_AFTER,
+        DiffParameter.CODEHASH_BEFORE,
+        DiffParameter.CODEHASH_AFTER,
+    ):
         # STATE ACCESS (STATE-DEPENDENT GAS)
         if address in evm.accessed_addresses:
             charge_gas(evm, GasCosts.WARM_ACCESS)
@@ -219,26 +275,31 @@ def txdiff(evm: Evm) -> None:
     frame_context = post_tx_frame_context(evm)
     tx_state = evm.tx_env.state
 
-    if param == U256(0x00) or param == U256(0x01):
+    if param in (DiffParameter.SLOT_BEFORE, DiffParameter.SLOT_AFTER):
         # The live read records the access. An unwritten slot reads the
         # same value before and after.
         live_value = get_storage(tx_state, address, slot_key)
-        if param == U256(0x00):
+        if param == DiffParameter.SLOT_BEFORE:
             value = pre_state_storage(tx_state, address, slot_key)
         else:
             value = live_value
-    elif U256(0x02) <= param <= U256(0x05):
+    elif param in (
+        DiffParameter.BALANCE_BEFORE,
+        DiffParameter.BALANCE_AFTER,
+        DiffParameter.CODEHASH_BEFORE,
+        DiffParameter.CODEHASH_AFTER,
+    ):
         require_reserved_zero(index_operand)
         live_account = get_account_optional(tx_state, address)
         before = pre_state_account(tx_state, address)
-        if param == U256(0x02):
+        if param == DiffParameter.BALANCE_BEFORE:
             value = before.balance
-        elif param == U256(0x03):
+        elif param == DiffParameter.BALANCE_AFTER:
             if live_account is None:
                 value = U256(0)
             else:
                 value = live_account.balance
-        elif param == U256(0x04):
+        elif param == DiffParameter.CODEHASH_BEFORE:
             value = U256.from_be_bytes(before.code_hash)
         else:
             if live_account is None:
@@ -247,28 +308,28 @@ def txdiff(evm: Evm) -> None:
                 value = U256.from_be_bytes(live_account.code_hash)
     else:
         diff = transaction_diff(tx_state, frame_context)
-        if param == U256(0x06):
+        if param == DiffParameter.ADDRESS_SLOTS_COUNT:
             require_reserved_zero(index_operand)
             value = U256(len(slot_indices_of(diff, address)))
-        elif param == U256(0x07):
+        elif param == DiffParameter.ADDRESS_SLOT_INDEX:
             value = U256(
                 table_entry(slot_indices_of(diff, address), index_operand)
             )
-        elif param == U256(0x08):
+        elif param == DiffParameter.ADDRESS_EVENTS_COUNT:
             require_reserved_zero(index_operand)
             value = U256(len(event_indices_of(diff, address)))
-        elif param == U256(0x09):
+        elif param == DiffParameter.ADDRESS_EVENT_INDEX:
             value = U256(
                 table_entry(event_indices_of(diff, address), index_operand)
             )
-        elif param == U256(0x0A):
+        elif param == DiffParameter.ACCOUNT_CHANGE_FLAGS:
             require_reserved_zero(index_operand)
             value = account_change_flags(tx_state, diff, address)
-        elif param == U256(0x0B):
+        elif param == DiffParameter.TOPIC_EVENTS_COUNT:
             require_reserved_zero(index_operand)
             topic = Hash32(key_operand.to_be_bytes32())
             value = U256(len(event_indices_with_topic(diff, topic)))
-        elif param == U256(0x0C):
+        elif param == DiffParameter.TOPIC_EVENT_INDEX:
             topic = Hash32(key_operand.to_be_bytes32())
             value = U256(
                 table_entry(
