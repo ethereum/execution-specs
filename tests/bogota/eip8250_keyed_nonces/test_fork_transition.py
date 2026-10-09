@@ -186,3 +186,64 @@ def test_keyed_transaction_in_first_post_fork_block(
     }
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@pytest.mark.pre_alloc_mutable
+def test_keyed_transactions_before_nonce_manager_deployed(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Consume a key from the fork block on a chain that has not deployed
+    the nonce manager, whose address holds only a balance. The sequence
+    lives in the storage of the codeless account.
+    """
+    # The balance keeps the address in the state without code or nonce.
+    pre[Spec.NONCE_MANAGER] = Account(nonce=0, balance=1, code=b"")
+    sender = pre.fund_eoa()
+    slot = keyed_nonce_slot(sender, NONCE_KEY)
+
+    # No deployment follows: creation over the written slot is undefined
+    # until EIP-8253.
+    blocks = [Block(timestamp=FORK_TIMESTAMP - 1)] + [
+        Block(
+            timestamp=FORK_TIMESTAMP + nonce,
+            txs=[
+                Transaction(
+                    sender=sender,
+                    frames=[verify_frame()],
+                    nonce_keys=[NONCE_KEY],
+                    nonce=nonce,
+                )
+            ],
+            expected_block_access_list=BlockAccessListExpectation(
+                account_expectations={
+                    Spec.NONCE_MANAGER: BalAccountExpectation(
+                        nonce_changes=[],
+                        balance_changes=[],
+                        code_changes=[],
+                        storage_changes=[
+                            BalStorageSlot(
+                                slot=slot,
+                                slot_changes=[
+                                    BalStorageChange(
+                                        block_access_index=1,
+                                        post_value=nonce + 1,
+                                    )
+                                ],
+                            )
+                        ],
+                    ),
+                }
+            ),
+        )
+        for nonce in range(2)
+    ]
+    post = {
+        Spec.NONCE_MANAGER: Account(
+            nonce=0, balance=1, code=b"", storage={slot: 2}
+        ),
+        sender: Account(nonce=0),
+    }
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
