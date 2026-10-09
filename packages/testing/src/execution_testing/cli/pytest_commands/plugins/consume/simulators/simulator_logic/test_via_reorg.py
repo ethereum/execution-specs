@@ -9,7 +9,6 @@ result matches none of its listed outcomes. There is no runtime policy: every
 decision is in the fixture.
 """
 
-import hashlib
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, List
@@ -374,10 +373,7 @@ class StepRunner:
                 )
         versioned_hashes: List[Hash] = []
         if response.blobs_bundle is not None:
-            versioned_hashes = [
-                Hash(bytes([1]) + hashlib.sha256(bytes(c)).digest()[1:])
-                for c in response.blobs_bundle.commitments
-            ]
+            versioned_hashes = response.blobs_bundle.blob_versioned_hashes()
         attributes = self.last_payload_attributes
         self.bound[step.bind] = BoundPayload(
             payload=payload,
