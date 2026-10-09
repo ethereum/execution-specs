@@ -15,7 +15,7 @@ class ReferenceSpec:
 
 
 ref_spec_8250 = ReferenceSpec(
-    "EIPS/eip-8250.md", "e49b435eb2ddab14b15c56eea93f719d75886f38"
+    "EIPS/eip-8250.md", "8b225fbc980e98831058a393c0f35df6e878bda0"
 )
 
 
@@ -26,7 +26,7 @@ class Spec:
     https://eips.ethereum.org/EIPS/eip-8250.
     """
 
-    NONCE_MANAGER = Address(0x8250)
+    NONCE_MANAGER = Address(0x8250968C12E01A19D6F667B9B2F3B3A4D0E51CB7)
     NONCE_MANAGER_CODE = bytes.fromhex("60006000fd")
     NONCE_MANAGER_NONCE = 1
     MAX_NONCE_KEYS = 16
