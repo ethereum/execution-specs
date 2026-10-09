@@ -68,6 +68,11 @@ class EIP8141(BaseFork):
         ] + super(EIP8141, cls).valid_opcodes()
 
     @classmethod
+    def frame_mode_count(cls) -> int:
+        """The `DEFAULT`, `VERIFY` and `SENDER` frame modes are introduced."""
+        return 3
+
+    @classmethod
     def gas_costs(cls) -> GasCosts:
         """Add the frame transaction intrinsic gas constants."""
         return replace(
