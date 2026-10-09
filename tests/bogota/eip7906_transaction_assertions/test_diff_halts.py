@@ -65,6 +65,10 @@ pytestmark = pytest.mark.valid_from("EIP7906")
             id="reserved_index_events_count",
         ),
         pytest.param(
+            Op.TXTRACE(Spec.TXTRACE_EVENTS_COUNT, 2**255),
+            id="reserved_index_high_bit",
+        ),
+        pytest.param(
             Op.TXTRACE(Spec.TXTRACE_UNDEFINED, 0), id="undefined_param"
         ),
         pytest.param(Op.TXTRACE(2**64, 0), id="undefined_param_above_64_bits"),
@@ -113,6 +117,12 @@ pytestmark = pytest.mark.valid_from("EIP7906")
         pytest.param(
             Op.EVENTDATACOPY(0, 0, 2**64 - 1, 1),
             id="copy_range_beyond_64_bits",
+        ),
+        pytest.param(
+            # `dataOffset + length` would wrap to zero in 256-bit
+            # arithmetic, which the range check must not do.
+            Op.EVENTDATACOPY(0, 0, 2**256 - 1, 1),
+            id="copy_range_wraps_past_256_bits",
         ),
         pytest.param(
             Op.EVENTDATACOPY(2**64, 0, 0, 0),
@@ -197,6 +207,12 @@ HaltingRead = Callable[[Address], Bytecode]
         pytest.param(
             lambda _: Op.TXDIFF(Spec.TXDIFF_ACCOUNT_CHANGE_FLAGS, 0xBEEF, 1),
             id="reserved_index_flags",
+        ),
+        pytest.param(
+            lambda _: Op.TXDIFF(
+                Spec.TXDIFF_ACCOUNT_CHANGE_FLAGS, 0xBEEF, 2**255
+            ),
+            id="reserved_index_high_bit",
         ),
         pytest.param(
             lambda _: Op.TXDIFF(Spec.TXDIFF_TOPIC_EVENTS_COUNT, TOPIC_1, 1),
