@@ -120,6 +120,9 @@ def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
         parent_excess_blob_gas=parent.excess_blob_gas,
         parent_gas_used=parent.gas_used,
         parent_gas_limit=parent.gas_limit,
+        parent_gas_limits=parent.gas_limits,
+        parent_gas_used_vector=parent.gas_used_vector,
+        parent_excess_gas=parent.excess_gas,
         parent_ommers_hash=parent.ommers_hash,
         block_hashes={parent.number: parent.block_hash},
     )
@@ -137,6 +140,9 @@ def apply_new_parent(
     updated["parent_excess_blob_gas"] = new_parent.excess_blob_gas
     updated["parent_gas_used"] = new_parent.gas_used
     updated["parent_gas_limit"] = new_parent.gas_limit
+    updated["parent_gas_limits"] = new_parent.gas_limits
+    updated["parent_gas_used_vector"] = new_parent.gas_used_vector
+    updated["parent_excess_gas"] = new_parent.excess_gas
     updated["parent_ommers_hash"] = new_parent.ommers_hash
     updated["parent_slot_number"] = new_parent.slot_number
     block_hashes = env.block_hashes.copy()
@@ -215,6 +221,10 @@ class Header(CamelModel):
     requests_hash: Removable | Hash | None = None
     block_access_list_hash: Removable | Hash | None = None
     slot_number: Removable | HexNumber | None = None
+    # EIP-7999 per-resource vectors.
+    gas_limits: Removable | List[HexNumber] | None = None
+    gas_used_vector: Removable | List[HexNumber] | None = None
+    excess_gas: Removable | List[HexNumber] | None = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """
@@ -448,6 +458,10 @@ class Block(Header):
             new_env_values["block_access_list"] = self.block_access_list
         if not isinstance(self.slot_number, Removable):
             new_env_values["slot_number"] = self.slot_number
+        if not isinstance(self.gas_limits, Removable):
+            new_env_values["gas_limits"] = self.gas_limits
+        if not isinstance(self.excess_gas, Removable):
+            new_env_values["excess_gas"] = self.excess_gas
         """
         These values are required, but they depend on the previous environment,
         so they can be calculated here.

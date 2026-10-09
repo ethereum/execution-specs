@@ -17,6 +17,7 @@ from typing import (
     Union,
     cast,
     get_args,
+    get_origin,
     get_type_hints,
 )
 
@@ -245,6 +246,27 @@ class FixtureHeader(CamelModel):
         Annotated[ZeroPaddedHexNumber, HeaderForkRequirement("slot_number")]
         | None
     ) = Field(None)
+    # EIP-7999: per-resource vectors. When present they replace the scalar
+    # gas limit, gas used, base fee and blob gas fields in the RLP; the
+    # scalars stay as mirrors of the EVM and blob entries.
+    gas_limits: (
+        Annotated[
+            List[ZeroPaddedHexNumber], HeaderForkRequirement("gas_vectors")
+        ]
+        | None
+    ) = Field(None)
+    gas_used_vector: (
+        Annotated[
+            List[ZeroPaddedHexNumber], HeaderForkRequirement("gas_vectors")
+        ]
+        | None
+    ) = Field(None)
+    excess_gas: (
+        Annotated[
+            List[ZeroPaddedHexNumber], HeaderForkRequirement("gas_vectors")
+        ]
+        | None
+    ) = Field(None)
 
     fork: Fork | None = Field(None, exclude=True)
 
@@ -282,18 +304,49 @@ class FixtureHeader(CamelModel):
                         f"Field {field} is required for fork {self.fork}"
                     )
 
+    GAS_VECTOR_FIELDS: ClassVar[Tuple[str, ...]] = (
+        "gas_limits",
+        "gas_used_vector",
+        "excess_gas",
+    )
+    """EIP-7999 vector fields, encoded in place of the scalar gas fields."""
+
+    GAS_SCALAR_FIELDS: ClassVar[Tuple[str, ...]] = (
+        "gas_limit",
+        "gas_used",
+        "base_fee_per_gas",
+        "blob_gas_used",
+        "excess_blob_gas",
+    )
+    """Scalar fields the EIP-7999 vectors replace in the RLP."""
+
     @cached_property
     def rlp_encode_list(self) -> List:
-        """Compute the RLP of the header."""
-        header_list = []
+        """
+        Compute the RLP of the header.
+
+        With EIP-7999 vectors present, the scalar gas fields are left out
+        and the vectors follow the withdrawals root.
+        """
+        has_gas_vectors = self.gas_limits is not None
+        header_list: List[Any] = []
         for field in self.__class__.model_fields:
-            if field == "fork":
+            if field == "fork" or field in self.GAS_VECTOR_FIELDS:
+                continue
+            if has_gas_vectors and field in self.GAS_SCALAR_FIELDS:
                 continue
             value = getattr(self, field)
             if value is not None:
                 header_list.append(
                     value if isinstance(value, bytes) else Uint(value)
                 )
+            if has_gas_vectors and field == "withdrawals_root":
+                for vector_field in self.GAS_VECTOR_FIELDS:
+                    vector = getattr(self, vector_field)
+                    assert vector is not None, (
+                        f"{vector_field} is required with gas vectors"
+                    )
+                    header_list.append([Uint(v) for v in vector])
         return header_list
 
     @cached_property
@@ -359,6 +412,16 @@ class FixtureHeader(CamelModel):
             if field_info.default_factory is not None:
                 return field_info.default_factory()  # type: ignore[call-arg]
 
+        # A list field defaults to an empty list before the element type is
+        # unwrapped, since `unwrap_annotation` descends into the element.
+        outer_type = field_hint
+        while get_origin(outer_type) is not list and get_args(outer_type):
+            outer_type = next(
+                arg for arg in get_args(outer_type) if arg is not type(None)
+            )
+        if get_origin(outer_type) is list:
+            return []
+
         # Unwrap type annotations to get the actual type
         actual_type = unwrap_annotation(field_hint)
 
@@ -402,6 +465,23 @@ class FixtureHeader(CamelModel):
             extras["slot_number"] = (
                 int(env.slot_number) if env.slot_number is not None else 0
             )
+        if fork.header_gas_vectors_required():
+            # EIP-7999: the genesis block uses no gas; the scalar mirrors
+            # follow the vectors the environment carries.
+            assert env.gas_limits is not None and env.excess_gas is not None
+            excess_gas = [int(v) for v in env.excess_gas]
+            base_fees = fork.base_fees_calculator()(excess_gas=excess_gas)
+            # `excess_blob_gas` keeps the environment's EIP-4844 value.
+            environment_values.pop("base_fee_per_gas", None)
+            # A genesis environment may emulate a parent's blob usage
+            # through `blob_gas_used`; the vector carries it so the first
+            # block's blob excess follows from it.
+            extras["gas_used_vector"] = [
+                0,
+                int(env.blob_gas_used) if env.blob_gas_used else 0,
+                0,
+            ]
+            extras["base_fee_per_gas"] = base_fees[0]
         return cls(**environment_values, **extras)
 
 

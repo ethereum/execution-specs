@@ -43,6 +43,13 @@ FORK_GATED_FIELDS: Dict[str, Callable[[Fork], bool]] = {
     ),
     "slot_number": lambda fork: fork.header_slot_number_required(),
     "parent_slot_number": lambda fork: fork.header_slot_number_required(),
+    "gas_limits": lambda fork: fork.header_gas_vectors_required(),
+    "excess_gas": lambda fork: fork.header_gas_vectors_required(),
+    "parent_gas_limits": lambda fork: fork.header_gas_vectors_required(),
+    "parent_gas_used_vector": (
+        lambda fork: fork.header_gas_vectors_required()
+    ),
+    "parent_excess_gas": lambda fork: fork.header_gas_vectors_required(),
 }
 """
 Environment fields, current and parent, that only some block headers
@@ -163,6 +170,19 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     parent_slot_number: ZeroPaddedHexNumber | None = Field(None)
     parent_beacon_block_root: Hash | None = Field(None)
 
+    # EIP-7999: per-resource gas vectors. The scalar `gas_limit`,
+    # `base_fee_per_gas` and `excess_blob_gas` fields mirror the EVM and
+    # blob entries on forks that carry these.
+    gas_limits: List[ZeroPaddedHexNumber] | None = Field(
+        None, alias="currentGasLimits"
+    )
+    excess_gas: List[ZeroPaddedHexNumber] | None = Field(
+        None, alias="currentExcessGas"
+    )
+    parent_gas_limits: List[ZeroPaddedHexNumber] | None = Field(None)
+    parent_gas_used_vector: List[ZeroPaddedHexNumber] | None = Field(None)
+    parent_excess_gas: List[ZeroPaddedHexNumber] | None = Field(None)
+
     block_hashes: Dict[ZeroPaddedHexNumber, Hash] = Field(default_factory=dict)
     ommers: List[Hash] = Field(default_factory=list)
     withdrawals: List[Withdrawal] | None = Field(None)
@@ -233,6 +253,46 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
                 if self.parent_slot_number is not None
                 else 0
             )
+
+        if fork.header_gas_vectors_required():
+            # EIP-7999: derive the gas limits from the EVM gas limit and the
+            # excess gas from the parent's vectors, or, without a
+            # multidimensional parent, from the scalar base fee and excess
+            # blob gas this environment prices at.
+            if self.gas_limits is None:
+                updated_values["gas_limits"] = (
+                    fork.block_gas_limits_calculator()(
+                        gas_limit=int(self.gas_limit)
+                    )
+                )
+            if (
+                self.excess_gas is None
+                and self.parent_base_fee_per_gas is None
+            ):
+                # No parent: price directly at the scalar base fee and
+                # excess blob gas. With a parent, the transition tool
+                # derives the vector from the parent header, as the spec
+                # does.
+                base_fee_per_gas = updated_values.get(
+                    "base_fee_per_gas", self.base_fee_per_gas
+                )
+                excess_blob_gas = updated_values.get(
+                    "excess_blob_gas", self.excess_blob_gas
+                )
+                updated_values["excess_gas"] = (
+                    fork.initial_excess_gas_calculator()(
+                        base_fee_per_gas=(
+                            int(base_fee_per_gas)
+                            if base_fee_per_gas is not None
+                            else DEFAULT_BASE_FEE
+                        ),
+                        excess_blob_gas=(
+                            int(excess_blob_gas)
+                            if excess_blob_gas is not None
+                            else 0
+                        ),
+                    )
+                )
 
         return self.copy(**updated_values)
 

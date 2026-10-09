@@ -87,6 +87,21 @@ def type_3_default_transaction(sender: EOA) -> Transaction:
 
 
 @pytest.fixture
+def type_5_default_transaction(sender: EOA) -> Transaction:
+    """Type 5 (multidimensional) default transaction of EIP-7999."""
+    return Transaction(
+        ty=5,
+        sender=sender,
+        max_fee=10**15,
+        max_priority_fees_per_gas=[10**9],
+        data=b"\x00" * 200,
+        access_list=[
+            AccessList(address=0x4567, storage_keys=[1000, 2000, 3000]),
+        ],
+    )
+
+
+@pytest.fixture
 def type_4_default_transaction(sender: EOA, pre: Alloc) -> Transaction:
     """Type 4 (set code) default transaction introduced in Prague fork."""
     # Create authorized accounts with funds

@@ -427,7 +427,11 @@ class T8N(Load):
             # Validate block access list gas limit constraint (EIP-7928)
             self.fork.validate_block_access_list_gas_limit(
                 block_access_list=block_output.block_access_list,
-                block_gas_limit=block_env.block_gas_limit,
+                block_gas_limit=(
+                    block_env.gas_limits[0]
+                    if self.fork.has_multidimensional_fee_market
+                    else block_env.block_gas_limit
+                ),
             )
 
     def run_blockchain_test(self) -> None:

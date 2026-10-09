@@ -34,6 +34,7 @@ class ForkLoad:
             (2, "FeeMarketTransaction"),
             (3, "BlobTransaction"),
             (4, "SetCodeTransaction"),
+            (5, "MultidimTransaction"),
         ):
             if hasattr(transactions, attribute):
                 tx_types.append(tx_type)
@@ -284,6 +285,41 @@ class ForkLoad:
     def SetCodeTransaction(self) -> Any:
         """Set code transaction class of the fork."""
         return self._module("transactions").SetCodeTransaction
+
+    @property
+    def MultidimTransaction(self) -> Any:
+        """MultidimTransaction class of the fork (EIP-7999)."""
+        return self._module("transactions").MultidimTransaction
+
+    @property
+    def has_multidimensional_fee_market(self) -> bool:
+        """Check if the fork prices resources separately (EIP-7999)."""
+        return hasattr(self._module("vm.gas"), "calculate_excess_gas")
+
+    @property
+    def calculate_block_gas_limits(self) -> Any:
+        """calculate_block_gas_limits function of the fork (EIP-7999)."""
+        return self._module("vm.gas").calculate_block_gas_limits
+
+    @property
+    def calculate_block_base_fees(self) -> Any:
+        """calculate_block_base_fees function of the fork (EIP-7999)."""
+        return self._module("vm.gas").calculate_block_base_fees
+
+    @property
+    def calculate_excess_gas(self) -> Any:
+        """calculate_excess_gas function of the fork (EIP-7999)."""
+        return self._module("vm.gas").calculate_excess_gas
+
+    @property
+    def denormalize_blob_excess(self) -> Any:
+        """denormalize_blob_excess function of the fork (EIP-7999)."""
+        return self._module("vm.gas").denormalize_blob_excess
+
+    @property
+    def PreviousHeader(self) -> Any:
+        """Header class of the fork before this one."""
+        return self._module("fork").PreviousHeader
 
     @property
     def Withdrawal(self) -> Any:

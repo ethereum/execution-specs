@@ -57,6 +57,7 @@ class TransactionType(IntEnum):
     BASE_FEE = 2
     BLOB_TRANSACTION = 3
     SET_CODE = 4
+    MULTIDIM = 5
 
 
 @dataclass
@@ -217,6 +218,9 @@ class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
     access_list: List[AccessList] | None = None
     max_fee_per_blob_gas: NumberBoundTypeVar | None = None
     blob_versioned_hashes: Sequence[Hash] | None = None
+    # EIP-7999: one fee budget and priority fee caps per resource.
+    max_fee: NumberBoundTypeVar | None = None
+    max_priority_fees_per_gas: List[NumberBoundTypeVar] | None = None
 
     v: NumberBoundTypeVar = Field(0)  # type: ignore
     r: NumberBoundTypeVar = Field(0)  # type: ignore
@@ -382,6 +386,8 @@ class Transaction(
             "max_fee_per_gas": "type-2+",
             "max_priority_fee_per_gas": "type-2+",
             "max_fee_per_blob_gas": "type-3+",
+            "max_fee": "type-5",
+            "max_priority_fees_per_gas": "type-5",
         }
 
         def __init__(self, *conflicting_fields: str) -> None:
@@ -419,6 +425,8 @@ class Transaction(
                 "max_fee_per_gas",
                 "max_priority_fee_per_gas",
                 "max_fee_per_blob_gas",
+                "max_fee",
+                "max_priority_fees_per_gas",
             )
             if getattr(self, field_name) is not None
         ]
@@ -429,6 +437,11 @@ class Transaction(
             # Try to deduce transaction type from included fields
             if self.initcodes is not None:
                 self.ty = HexNumber(6)
+            elif (
+                self.max_fee is not None
+                or self.max_priority_fees_per_gas is not None
+            ):
+                self.ty = HexNumber(5)
             elif self.authorization_list is not None:
                 self.ty = HexNumber(4)
             elif (
@@ -471,12 +484,16 @@ class Transaction(
         if self.ty < 1:
             assert self.access_list is None, "access_list must be None"
 
-        if self.ty >= 2 and self.max_fee_per_gas is None:
+        # Type 5 prices with one `max_fee` budget instead of fee caps per
+        # gas. Caps per gas given to a type 5 transaction are converted into
+        # that budget once the gas limit is known (see `_resolved_budget`).
+        per_gas_fee_market = self.ty >= 2 and self.ty != 5
+        if per_gas_fee_market and self.max_fee_per_gas is None:
             self.max_fee_per_gas = HexNumber(
                 TransactionDefaults.max_fee_per_gas
             )
             self.model_fields_set.remove("max_fee_per_gas")
-        if self.ty >= 2 and self.max_priority_fee_per_gas is None:
+        if per_gas_fee_market and self.max_priority_fee_per_gas is None:
             self.max_priority_fee_per_gas = HexNumber(
                 TransactionDefaults.max_priority_fee_per_gas
             )
@@ -486,16 +503,48 @@ class Transaction(
             assert self.max_priority_fee_per_gas is None, (
                 "max_priority_fee_per_gas must be None"
             )
+        if self.ty == 5 and self.max_fee is not None:
+            if self.max_fee_per_gas is not None:
+                raise Transaction.InvalidFeePaymentError(
+                    "max_fee", "max_fee_per_gas"
+                )
+            if self.max_priority_fee_per_gas is not None:
+                raise Transaction.InvalidFeePaymentError(
+                    "max_fee", "max_priority_fee_per_gas"
+                )
 
         if self.ty == 3 and self.max_fee_per_blob_gas is None:
             self.max_fee_per_blob_gas = HexNumber(1)
             self.model_fields_set.remove("max_fee_per_blob_gas")
-        if self.ty != 3:
+        if self.ty not in (3, 5):
             assert self.blob_versioned_hashes is None, (
                 "blob_versioned_hashes must be None"
             )
+        if self.ty not in (3, 5):
             assert self.max_fee_per_blob_gas is None, (
                 "max_fee_per_blob_gas must be None"
+            )
+
+        if self.ty == 5:
+            if self.blob_versioned_hashes is None:
+                self.blob_versioned_hashes = []
+            if self.max_priority_fees_per_gas is None:
+                self.max_priority_fees_per_gas = [
+                    HexNumber(
+                        self.max_priority_fee_per_gas
+                        if self.max_priority_fee_per_gas is not None
+                        else TransactionDefaults.max_priority_fee_per_gas
+                    )
+                ]
+                self.model_fields_set.remove("max_priority_fees_per_gas")
+            if self.max_fee is None and "gas_limit" in self.model_fields_set:
+                self.max_fee = self._resolved_budget(int(self.gas_limit))
+                self.model_fields_set.remove("max_fee")
+                self._clear_per_gas_caps()
+        else:
+            assert self.max_fee is None, "max_fee must be None"
+            assert self.max_priority_fees_per_gas is None, (
+                "max_priority_fees_per_gas must be None"
             )
 
         if self.ty == 4 and self.authorization_list is None:
@@ -522,6 +571,44 @@ class Transaction(
     def with_nonce(self, nonce: int) -> "Transaction":
         """Create a copy of the transaction with a modified nonce."""
         return self.copy(nonce=nonce)
+
+    @property
+    def gas_limits(self) -> List[HexNumber]:
+        """
+        Return the EIP-7999 `gas_limit` list: the EVM gas limit alone.
+        """
+        return [self.gas_limit]
+
+    def _clear_per_gas_caps(self) -> None:
+        """Drop the caps per gas a type-5 budget was resolved from."""
+        self.max_fee_per_gas = None
+        self.max_priority_fee_per_gas = None
+        self.max_fee_per_blob_gas = None
+
+    def _resolved_budget(self, gas_limit: int) -> HexNumber:
+        """
+        Return the EIP-7999 budget of a type-5 transaction given its EVM gas
+        limit.
+
+        Caps per gas, when given, convert the way EIP-7999 converts older
+        transactions: the fee cap over the gas limit plus the calldata gas,
+        and the blob fee cap over the blob gas. Without caps, the default fee
+        cap prices the EVM gas, the calldata at the floor rate and each blob,
+        a budget the default fees can always afford.
+        """
+        blob_gas = 2**17 * len(self.blob_versioned_hashes or [])
+        if self.max_fee_per_gas is not None:
+            zero_bytes = self.data.count(0)
+            calldata_gas = 4 * zero_bytes + 16 * (len(self.data) - zero_bytes)
+            budget = int(self.max_fee_per_gas) * (gas_limit + calldata_gas)
+            if self.max_fee_per_blob_gas is not None:
+                budget += int(self.max_fee_per_blob_gas) * blob_gas
+            return HexNumber(budget)
+        calldata_gas = 16 * len(self.data)
+        return HexNumber(
+            TransactionDefaults.max_fee_per_gas
+            * (gas_limit + calldata_gas + blob_gas)
+        )
 
     @cached_property
     def signature_bytes(self) -> Bytes:
@@ -726,6 +813,13 @@ class Transaction(
                 ),
             )
 
+        if self.ty == 5 and "max_fee" not in self.model_fields_set:
+            gas_limit = updated_values.get("gas_limit", self.gas_limit)
+            updated_values["max_fee"] = self._resolved_budget(int(gas_limit))
+            updated_values["max_fee_per_gas"] = None
+            updated_values["max_priority_fee_per_gas"] = None
+            updated_values["max_fee_per_blob_gas"] = None
+
         return self.model_copy(update=updated_values)
 
     def with_signature_and_sender(
@@ -757,6 +851,10 @@ class Transaction(
 
         if "gas_limit" not in self.model_fields_set:
             raise ValueError("gas_limit must be set to sign a transaction")
+
+        if self.ty == 5 and self.max_fee is None:
+            self.max_fee = self._resolved_budget(int(self.gas_limit))
+            self._clear_per_gas_caps()
 
         # Get the signing bytes
         signing_hash = self.rlp_signing_bytes().keccak256()
@@ -822,6 +920,20 @@ class Transaction(
                 "data",
                 "access_list",
                 "initcodes",
+            ]
+        elif self.ty == 5:
+            # EIP-7999: https://eips.ethereum.org/EIPS/eip-7999
+            field_list = [
+                "chain_id",
+                "nonce",
+                "gas_limits",
+                "to",
+                "value",
+                "data",
+                "access_list",
+                "blob_versioned_hashes",
+                "max_fee",
+                "max_priority_fees_per_gas",
             ]
         elif self.ty == 4:
             # EIP-7702: https://eips.ethereum.org/EIPS/eip-7702
@@ -1052,6 +1164,11 @@ class Transaction(
         if self.ty <= 1:
             if "gas_price" not in self.model_fields_set:
                 self.gas_price = HexNumber(gas_price)
+        elif self.ty == 5:
+            if "max_priority_fees_per_gas" not in self.model_fields_set:
+                self.max_priority_fees_per_gas = [
+                    HexNumber(max_priority_fee_per_gas)
+                ]
         else:
             if "max_fee_per_gas" not in self.model_fields_set:
                 self.max_fee_per_gas = HexNumber(max_fee_per_gas)
@@ -1087,6 +1204,11 @@ class Transaction(
 
     def signer_minimum_balance(self, *, fork: Fork) -> int:
         """Return minimum balance of the signer."""
+        if self.ty == 5:
+            assert self.max_fee is not None, (
+                "Impossible to calculate minimum balance without max_fee"
+            )
+            return self.max_fee + self.value
         gas_price = self.gas_price or self.max_fee_per_gas
         assert gas_price is not None, (
             "Impossible to calculate minimum balance without gas price"

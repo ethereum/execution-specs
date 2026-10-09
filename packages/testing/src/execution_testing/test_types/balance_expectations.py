@@ -57,6 +57,11 @@ def effective_gas_price(tx: "Transaction", base_fee_per_gas: int) -> int:
     """Return the price per gas that `tx` pays given the block base fee."""
     if tx.gas_price is not None:
         return int(tx.gas_price)
+    if tx.max_fee is not None:
+        # EIP-7999: the tip depends on every resource's base fee, which this
+        # scalar view cannot price. Balance terms over such a transaction
+        # must settle through the EIP-7999 fee functions instead.
+        return base_fee_per_gas
     assert tx.max_fee_per_gas is not None
     assert tx.max_priority_fee_per_gas is not None
     return min(

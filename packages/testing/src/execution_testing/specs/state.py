@@ -57,6 +57,7 @@ from execution_testing.test_types import (
     PostStateContext,
     Transaction,
 )
+from execution_testing.test_types.block_types import DEFAULT_BASE_FEE
 
 from .base import BaseTest, FillResult, OpMode
 from .blockchain import Block, BlockchainTest, Header
@@ -321,6 +322,27 @@ class StateTest(BaseTest):
             kwargs["excess_blob_gas"] = self.env.excess_blob_gas + (
                 genesis_fork.target_blobs_per_block()
                 * genesis_fork.blob_gas_per_blob()
+            )
+
+        if genesis_fork.header_gas_vectors_required():
+            # EIP-7999 prices from the excess gas vector: build the genesis
+            # vector so that the empty genesis block leaves block 1 at the
+            # state test's base fee and excess blob gas exactly.
+            genesis_excess_gas = genesis_fork.genesis_excess_gas_calculator()
+            kwargs["excess_gas"] = genesis_excess_gas(
+                base_fee_per_gas=(
+                    int(self.env.base_fee_per_gas)
+                    if self.env.base_fee_per_gas
+                    else DEFAULT_BASE_FEE
+                ),
+                excess_blob_gas=(
+                    int(self.env.excess_blob_gas)
+                    if self.env.excess_blob_gas
+                    else 0
+                ),
+                gas_limit=int(
+                    kwargs.get("gas_limit", Environment().gas_limit)
+                ),
             )
 
         return Environment(**kwargs)

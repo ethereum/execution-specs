@@ -124,8 +124,26 @@ class TransactionLoad:
         """Get the blob versioned hashes of the transaction."""
         return [
             hex_to_hash(blob_hash)
-            for blob_hash in self.raw.get("blobVersionedHashes")
+            for blob_hash in self.raw.get("blobVersionedHashes", [])
         ]
+
+    def json_to_gas_limits(self) -> List[Uint]:
+        """
+        Get the EIP-7999 gas limit list of the transaction, the EVM gas
+        limit alone, from the scalar ``gasLimit``.
+        """
+        return [self.json_to_gas()]
+
+    def json_to_max_fee(self) -> U256:
+        """Get the EIP-7999 fee budget of the transaction."""
+        return hex_to_u256(self.raw.get("maxFee"))
+
+    def json_to_max_priority_fees_per_gas(self) -> List[Uint]:
+        """Get the EIP-7999 priority fee caps per gas of the transaction."""
+        caps = self.raw.get("maxPriorityFeesPerGas")
+        if not isinstance(caps, list):
+            caps = [caps]
+        return [hex_to_uint(cap) for cap in caps]
 
     def json_to_v(self) -> U256:
         """Get the v value of the transaction."""
@@ -177,7 +195,12 @@ class TransactionLoad:
         """Convert json transaction data to a transaction object."""
         if "type" in self.raw:
             tx_type = parse_hex_or_int(self.raw.get("type"), Uint)
-            if tx_type == Uint(4):
+            if tx_type == Uint(5):
+                if not self.fork.supports_tx_type(5):
+                    raise self.unsupported_tx_type(5)
+                tx_cls = self.fork.MultidimTransaction
+                tx_byte_prefix = b"\x05"
+            elif tx_type == Uint(4):
                 if not self.fork.supports_tx_type(4):
                     raise self.unsupported_tx_type(4)
                 tx_cls = self.fork.SetCodeTransaction
@@ -203,7 +226,12 @@ class TransactionLoad:
             else:
                 raise ValueError(f"Unknown transaction type: {tx_type}")
         else:
-            if "authorizationList" in self.raw:
+            if "maxFee" in self.raw:
+                if not self.fork.supports_tx_type(5):
+                    raise self.unsupported_tx_type(5)
+                tx_cls = self.fork.MultidimTransaction
+                tx_byte_prefix = b"\x05"
+            elif "authorizationList" in self.raw:
                 if not self.fork.supports_tx_type(4):
                     raise self.unsupported_tx_type(4)
                 tx_cls = self.fork.SetCodeTransaction

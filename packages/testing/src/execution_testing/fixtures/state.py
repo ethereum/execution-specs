@@ -60,6 +60,9 @@ class FixtureTransaction(TransactionFixtureConverter):
     initcodes: List[Bytes] | None = None
     max_fee_per_blob_gas: ZeroPaddedHexNumber | None = None
     blob_versioned_hashes: Sequence[Hash] | None = None
+    # EIP-7999: one fee budget and priority fee caps per resource.
+    max_fee: ZeroPaddedHexNumber | None = None
+    max_priority_fees_per_gas: List[ZeroPaddedHexNumber] | None = None
     sender: Address | None = None
     secret_key: Hash | None = None
 

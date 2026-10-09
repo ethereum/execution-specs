@@ -4,7 +4,7 @@ Build the spec's per-fork ``BlockEnvironment`` from a testing-package
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum_rlp import rlp
@@ -53,21 +53,30 @@ def build_block_environment(
     block_timestamp = U256(int(env.timestamp))
     coinbase = Bytes20(env.fee_recipient)
 
-    base_fee_per_gas = _resolve_base_fee_per_gas(env, fork, block_gas_limit)
-
     kw_arguments: dict[str, Any] = {
         "block_hashes": _resolve_block_hashes(env.block_hashes, block_number),
         "coinbase": coinbase,
         "number": block_number,
         "time": block_timestamp,
-        "block_gas_limit": block_gas_limit,
         "chain_id": chain_id,
         "state": block_state,
     }
 
-    if fork.has_calculate_base_fee_per_gas:
-        assert base_fee_per_gas is not None
-        kw_arguments["base_fee_per_gas"] = base_fee_per_gas
+    if fork.has_multidimensional_fee_market:
+        # EIP-7999: the block prices every resource from its excess gas.
+        gas_limits = _resolve_gas_limits(env, fork, block_gas_limit)
+        excess_gas = _resolve_excess_gas(env, fork)
+        kw_arguments["gas_limits"] = gas_limits
+        kw_arguments["excess_gas"] = excess_gas
+        kw_arguments["base_fees"] = fork.calculate_block_base_fees(excess_gas)
+    else:
+        kw_arguments["block_gas_limit"] = block_gas_limit
+        if fork.has_calculate_base_fee_per_gas:
+            base_fee_per_gas = _resolve_base_fee_per_gas(
+                env, fork, block_gas_limit
+            )
+            assert base_fee_per_gas is not None
+            kw_arguments["base_fee_per_gas"] = base_fee_per_gas
 
     if fork.hardfork.consensus.is_pos():
         kw_arguments["prev_randao"] = _resolve_prev_randao(env)
@@ -80,7 +89,10 @@ def build_block_environment(
         kw_arguments["parent_beacon_block_root"] = (
             None if state_test else _resolve_parent_beacon_block_root(env)
         )
-        kw_arguments["excess_blob_gas"] = _resolve_excess_blob_gas(env, fork)
+        if not fork.has_multidimensional_fee_market:
+            kw_arguments["excess_blob_gas"] = _resolve_excess_blob_gas(
+                env, fork
+            )
 
     if fork.has_hash_block_access_list:
         kw_arguments["block_access_list_builder"] = (
@@ -113,6 +125,92 @@ def _resolve_base_fee_per_gas(
         Uint(int(env.parent_gas_used)),
         Uint(int(env.parent_base_fee_per_gas)),
     )
+
+
+def _resolve_gas_limits(
+    env: "TestingEnvironment", fork: "ForkLoad", block_gas_limit: Uint
+) -> Tuple[Uint, ...]:
+    """Use ``currentGasLimits`` if present; else derive from the EVM limit."""
+    if env.gas_limits is not None:
+        return tuple(Uint(int(limit)) for limit in env.gas_limits)
+    return tuple(fork.calculate_block_gas_limits(block_gas_limit))
+
+
+def _resolve_excess_gas(
+    env: "TestingEnvironment", fork: "ForkLoad"
+) -> Tuple[Uint, ...]:
+    """
+    Use ``currentExcessGas`` if present; else derive from the parent.
+
+    A parent that carries the EIP-7999 vectors is rebuilt as the fork's
+    header; a parent from before the fork is rebuilt as the previous
+    fork's header, so the spec's transition rule lifts its scalar fields.
+    """
+    if env.excess_gas is not None:
+        return tuple(Uint(int(excess)) for excess in env.excess_gas)
+
+    arguments = _parent_header_arguments(fork)
+    if env.parent_excess_gas is not None:
+        assert env.parent_gas_limits is not None
+        assert env.parent_gas_used_vector is not None
+        arguments["gas_limits"] = tuple(
+            Uint(int(v)) for v in env.parent_gas_limits
+        )
+        arguments["gas_used_vector"] = tuple(
+            Uint(int(v)) for v in env.parent_gas_used_vector
+        )
+        arguments["excess_gas"] = tuple(
+            Uint(int(v)) for v in env.parent_excess_gas
+        )
+        parent_header = fork.Header(**arguments)
+    else:
+        assert env.parent_gas_limit is not None
+        assert env.parent_gas_used is not None
+        assert env.parent_base_fee_per_gas is not None
+        arguments["gas_limit"] = Uint(int(env.parent_gas_limit))
+        arguments["gas_used"] = Uint(int(env.parent_gas_used))
+        arguments["base_fee_per_gas"] = Uint(int(env.parent_base_fee_per_gas))
+        arguments["blob_gas_used"] = U64(
+            int(env.parent_blob_gas_used) if env.parent_blob_gas_used else 0
+        )
+        arguments["excess_blob_gas"] = U64(
+            int(env.parent_excess_blob_gas)
+            if env.parent_excess_blob_gas
+            else 0
+        )
+        parent_header = fork.PreviousHeader(**arguments)
+    return tuple(fork.calculate_excess_gas(parent_header))
+
+
+def _parent_header_arguments(fork: "ForkLoad") -> dict[str, Any]:
+    """
+    Zeroed header fields shared by every post-merge header shape, for a
+    synthetic parent that only the fee-market fields of matter.
+    """
+    arguments: dict[str, Any] = {
+        "parent_hash": Hash32(b"\0" * 32),
+        "ommers_hash": Hash32(b"\0" * 32),
+        "coinbase": Bytes20(b"\0" * 20),
+        "state_root": Hash32(b"\0" * 32),
+        "transactions_root": Hash32(b"\0" * 32),
+        "receipt_root": Hash32(b"\0" * 32),
+        "bloom": Bytes256(b"\0" * 256),
+        "difficulty": Uint(0),
+        "number": Uint(0),
+        "timestamp": U256(0),
+        "extra_data": b"",
+        "prev_randao": Bytes32(b"\0" * 32),
+        "nonce": Bytes8(b"\0" * 8),
+        "withdrawals_root": Hash32(b"\0" * 32),
+        "parent_beacon_block_root": Hash32(b"\0" * 32),
+    }
+    if fork.has_compute_requests_hash:
+        arguments["requests_hash"] = Hash32(b"\0" * 32)
+    if fork.has_hash_block_access_list:
+        arguments["block_access_list_hash"] = Hash32(b"\0" * 32)
+    if fork.has_slot_number:
+        arguments["slot_number"] = U64(0)
+    return arguments
 
 
 def _resolve_excess_blob_gas(

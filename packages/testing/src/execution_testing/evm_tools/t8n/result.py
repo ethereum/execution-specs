@@ -108,6 +108,21 @@ def build_result(
         arguments["block_exception"] = block_exception
     if hasattr(block_env, "difficulty"):
         arguments["difficulty"] = int(block_env.difficulty)
+    if hasattr(block_env, "base_fees"):
+        # EIP-7999: per-resource vectors, with the scalar fields mirroring
+        # the EVM and blob entries.
+        arguments["base_fee_per_gas"] = int(block_env.base_fees[0])
+        arguments["excess_gas"] = [int(v) for v in block_env.excess_gas]
+        # The mirror keeps EIP-4844 units so tooling reads it as before.
+        arguments["excess_blob_gas"] = int(
+            t8n.fork.denormalize_blob_excess(block_env.excess_gas[1])
+        )
+        arguments["blob_gas_used"] = int(block_output.blob_gas_used)
+        arguments["gas_used_vector"] = [
+            arguments["gas_used"],
+            int(block_output.blob_gas_used),
+            int(block_output.calldata_gas_used),
+        ]
     if hasattr(block_env, "base_fee_per_gas"):
         arguments["base_fee_per_gas"] = int(block_env.base_fee_per_gas)
     if hasattr(block_output, "withdrawals_trie"):

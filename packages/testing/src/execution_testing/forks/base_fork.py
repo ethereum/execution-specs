@@ -271,6 +271,70 @@ class SystemCallPhase(Enum):
     AFTER_TRANSACTIONS = "after_transactions"
 
 
+class BlockGasLimitsCalculator(Protocol):
+    """
+    A protocol to derive a block's per-resource gas limits from its EVM gas
+    limit (EIP-7999).
+    """
+
+    def __call__(self, *, gas_limit: int) -> List[int]:
+        """Return the gas limits, one per resource."""
+        pass
+
+
+class BaseFeesCalculator(Protocol):
+    """A protocol to price every resource from a block's excess gas."""
+
+    def __call__(self, *, excess_gas: List[int]) -> List[int]:
+        """Return the base fees, one per resource."""
+        pass
+
+
+class ExcessGasCalculator(Protocol):
+    """
+    A protocol to compute a block's excess gas vector from its parent's
+    vectors (EIP-7999).
+    """
+
+    def __call__(
+        self,
+        *,
+        parent_excess_gas: List[int],
+        parent_gas_used: List[int],
+        parent_gas_limits: List[int],
+    ) -> List[int]:
+        """Return the excess gas, one entry per resource."""
+        pass
+
+
+class InitialExcessGasCalculator(Protocol):
+    """
+    A protocol to build the excess gas vector that prices a given base fee
+    and EIP-4844 excess blob gas, for a block without a multidimensional
+    parent.
+    """
+
+    def __call__(
+        self, *, base_fee_per_gas: int, excess_blob_gas: int
+    ) -> List[int]:
+        """Return the excess gas, one entry per resource."""
+        pass
+
+
+class GenesisExcessGasCalculator(Protocol):
+    """
+    A protocol to build a genesis excess gas vector whose empty genesis
+    block leaves its child priced at a given base fee and EIP-4844 excess
+    blob gas.
+    """
+
+    def __call__(
+        self, *, base_fee_per_gas: int, excess_blob_gas: int, gas_limit: int
+    ) -> List[int]:
+        """Return the genesis excess gas, one entry per resource."""
+        pass
+
+
 class BaseForkMeta(ABCMeta):
     """Metaclass for BaseFork."""
 
@@ -572,6 +636,63 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     def header_slot_number_required(cls) -> bool:
         """Return true if the header must contain slot number (EIP-7843)."""
         pass
+
+    @classmethod
+    def header_gas_vectors_required(cls) -> bool:
+        """
+        Return true if the header carries per-resource gas limits, gas used
+        and excess gas vectors (EIP-7999). The scalar gas fields then
+        mirror the EVM and blob entries and leave the RLP.
+        """
+        return False
+
+    @classmethod
+    def block_gas_limits_calculator(cls) -> BlockGasLimitsCalculator:
+        """
+        Return a callable that derives a block's per-resource gas limits
+        from its EVM gas limit.
+        """
+        raise NotImplementedError(
+            f"Block gas limits calculator is not supported in {cls.name()}"
+        )
+
+    @classmethod
+    def base_fees_calculator(cls) -> BaseFeesCalculator:
+        """Return a callable that prices every resource from excess gas."""
+        raise NotImplementedError(
+            f"Base fees calculator is not supported in {cls.name()}"
+        )
+
+    @classmethod
+    def excess_gas_calculator(cls) -> ExcessGasCalculator:
+        """
+        Return a callable that computes a block's excess gas vector from
+        its parent's vectors.
+        """
+        raise NotImplementedError(
+            f"Excess gas calculator is not supported in {cls.name()}"
+        )
+
+    @classmethod
+    def initial_excess_gas_calculator(cls) -> InitialExcessGasCalculator:
+        """
+        Return a callable that builds the excess gas vector pricing a given
+        base fee and EIP-4844 excess blob gas.
+        """
+        raise NotImplementedError(
+            f"Initial excess gas calculator is not supported in {cls.name()}"
+        )
+
+    @classmethod
+    def genesis_excess_gas_calculator(cls) -> GenesisExcessGasCalculator:
+        """
+        Return a callable that builds a genesis excess gas vector whose
+        empty genesis block leaves its child at a given base fee and
+        EIP-4844 excess blob gas.
+        """
+        raise NotImplementedError(
+            f"Genesis excess gas calculator is not supported in {cls.name()}"
+        )
 
     # Gas related abstract methods
 

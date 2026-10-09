@@ -194,5 +194,24 @@ class TransactionException(ExceptionBase):
     """
     TYPE_4_TX_PRE_FORK = auto()
     """Transaction type 4 included before activation fork."""
+    TYPE_5_TX_INVALID_GAS_LIMITS = auto()
+    """
+    Transaction is type 5, but its gas limit list does not hold the EVM gas
+    limit alone.
+    """
+    TYPE_5_TX_INVALID_PRIORITY_FEES = auto()
+    """
+    Transaction is type 5, but its priority fee caps cover neither one nor
+    every resource, or a cap exceeds 2**64 - 1.
+    """
+    TYPE_5_TX_MAX_FEE_TOO_LARGE = auto()
+    """Transaction is type 5, but its fee budget exceeds 2**128 - 1."""
+    TYPE_5_TX_CONTRACT_CREATION = auto()
+    """Transaction is type 5, carries blobs, and has an empty `to`."""
+    CALLDATA_GAS_LIMIT_EXCEEDED = auto()
+    """
+    Transaction's calldata gas exceeds the block's remaining calldata gas
+    (EIP-7999).
+    """
     LOG_MISMATCH = auto()
     """Transaction receipt logs do not match expected logs."""

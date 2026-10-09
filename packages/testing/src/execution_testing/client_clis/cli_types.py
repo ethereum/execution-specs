@@ -446,6 +446,9 @@ class Result(CamelModel):
         None, alias="currentExcessBlobGas"
     )
     blob_gas_used: HexNumber | None = None
+    # EIP-7999: per-resource vectors, beside the scalar mirrors above.
+    gas_used_vector: List[HexNumber] | None = None
+    excess_gas: List[HexNumber] | None = Field(None, alias="currentExcessGas")
     requests_hash: Hash | None = None
     requests: List[Bytes] | None = None
     block_access_list: Bytes | None = None

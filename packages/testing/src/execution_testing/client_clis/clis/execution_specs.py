@@ -255,6 +255,23 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
             "TransactionGasLimitExceededError"
         ),
+        TransactionException.CALLDATA_GAS_LIMIT_EXCEEDED: (
+            "CalldataGasLimitExceededError"
+        ),
+        TransactionException.TYPE_5_TX_INVALID_GAS_LIMITS: (
+            "InvalidGasLimitsVectorError"
+        ),
+        TransactionException.TYPE_5_TX_INVALID_PRIORITY_FEES: (
+            "InvalidPriorityFeesVectorError"
+        ),
+        TransactionException.TYPE_5_TX_MAX_FEE_TOO_LARGE: (
+            "MaxFeeTooLargeError"
+        ),
+        TransactionException.TYPE_5_TX_CONTRACT_CREATION: (
+            "TransactionTypeContractCreationError("
+            "'transaction type `MultidimTransaction` not allowed to "
+            "create contracts')"
+        ),
         BlockException.SYSTEM_CONTRACT_EMPTY: "System contract address",
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: "call failed:",
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: "deposit",
@@ -274,7 +291,7 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         ),
         # Temporary solution for issue #1981.
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
-            r"InsufficientMaxFeePerGasError|InvalidBlock"
+            r"InsufficientMaxFee(PerGas)?Error|InvalidBlock"
         ),
         TransactionException.TYPE_1_TX_PRE_FORK: (
             r"module '.*transactions' has no attribute "

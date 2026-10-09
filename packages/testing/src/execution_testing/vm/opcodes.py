@@ -2419,6 +2419,34 @@ class Opcodes(Opcode, Enum):
     Source: [EIP-7843](https://eips.ethereum.org/EIPS/eip-7843)
     """
 
+    CALLDATABASEFEE = Opcode(0x4C, popped_stack_items=0, pushed_stack_items=1)
+    """
+    CALLDATABASEFEE() = fee
+    ----
+
+    Description
+    ----
+    Returns the current block's calldata base fee.
+
+    Inputs
+    ----
+    None
+
+    Outputs
+    ----
+    - fee: calldata base fee of the current block
+
+    Fork
+    ----
+    Bogota (EIP-7999)
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-7999](https://eips.ethereum.org/EIPS/eip-7999)
+    """
+
     POP = Opcode(0x50, popped_stack_items=1)
     """
     POP()
