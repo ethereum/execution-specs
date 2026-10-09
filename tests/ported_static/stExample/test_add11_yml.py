@@ -7,7 +7,6 @@ state_tests/stExample/add11_ymlFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -33,32 +32,21 @@ def test_add11_yml(
 ) -> None:
     """A test for (add 1 1) opcode result."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     pre[coinbase] = Account(balance=0, nonce=1)
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #    ; Can also add lll style comments here
     #    [[0]] (ADD 1 1)
     # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)) + Op.STOP,
+    contract_0_code = Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)) + Op.STOP
+    contract_0 = pre.deploy_contract(
+        code=contract_0_code,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
@@ -71,7 +59,7 @@ def test_add11_yml(
     post = {
         contract_0: Account(
             storage={0: 2},
-            code=bytes.fromhex("600160010160005500"),
+            code=contract_0_code,
         ),
         coinbase: Account(nonce=1),
         sender: Account(storage={}, code=b"", nonce=1),

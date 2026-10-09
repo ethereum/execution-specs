@@ -7,12 +7,9 @@ state_tests/stQuadraticComplexityTest/Return50000_2Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -49,7 +46,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_return50000_2(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -59,34 +55,23 @@ def test_return50000_2(
     v: int,
 ) -> None:
     """Test_return50000_2."""
-    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     # Source: lll
     # { [ 0 ] (CALLDATALOAD 49999) (RETURN @0 1) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0xC34F))
+    addr_code = (
+        Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0xC34F))
         + Op.RETURN(offset=Op.MLOAD(offset=0x0), size=0x1)
-        + Op.STOP,
+        + Op.STOP
+    )
+    addr = pre.deploy_contract(
+        code=addr_code,
         balance=0xFFFFFFFFFFFFF,
-        nonce=0,
-        address=Address(0xF2C82CA2413A9F3F06781DB577400DDB6C76767D),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (CALL 1564 <contract:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 50000 0 0) ) [[ 1 ]] @i }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPDEST
+    target_code = (
+        Op.JUMPDEST
         + Op.JUMPI(
             pc=0x3F, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
         )
@@ -94,7 +79,7 @@ def test_return50000_2(
             key=0x0,
             value=Op.CALL(
                 gas=0x61C,
-                address=0xF2C82CA2413A9F3F06781DB577400DDB6C76767D,
+                address=Op.PUSH20[addr],
                 value=0x0,
                 args_offset=0x0,
                 args_size=0xC350,
@@ -106,10 +91,11 @@ def test_return50000_2(
         + Op.JUMP(pc=0x0)
         + Op.JUMPDEST
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x80))
-        + Op.STOP,
+        + Op.STOP
+    )
+    target = pre.deploy_contract(
+        code=target_code,
         balance=0xFFFFFFFFFFFFF,
-        nonce=0,
-        address=Address(0x6123B8B3E245B90F39ED7418D320A60ABB365B9F),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -120,15 +106,13 @@ def test_return50000_2(
                 sender: Account(storage={}, code=b"", nonce=1),
                 addr: Account(
                     storage={},
-                    code=bytes.fromhex("61c34f356000526001600051f300"),
-                    nonce=0,
+                    code=addr_code,
+                    nonce=1,
                 ),
                 target: Account(
                     storage={0: 1, 1: 50000},
-                    code=bytes.fromhex(
-                        "5b61c3506080511015603f576000600061c3506000600073f2c82ca2413a9f3f06781db577400ddb6c76767d61061cf16000556001608051016080526000565b60805160015500"  # noqa: E501
-                    ),
-                    nonce=0,
+                    code=(target_code),
+                    nonce=1,
                 ),
             },
         },
@@ -139,15 +123,13 @@ def test_return50000_2(
                 sender: Account(storage={}, code=b"", nonce=1),
                 addr: Account(
                     storage={},
-                    code=bytes.fromhex("61c34f356000526001600051f300"),
-                    nonce=0,
+                    code=addr_code,
+                    nonce=1,
                 ),
                 target: Account(
                     storage={},
-                    code=bytes.fromhex(
-                        "5b61c3506080511015603f576000600061c3506000600073f2c82ca2413a9f3f06781db577400ddb6c76767d61061cf16000556001608051016080526000565b60805160015500"  # noqa: E501
-                    ),
-                    nonce=0,
+                    code=(target_code),
+                    nonce=1,
                 ),
             },
         },
@@ -170,4 +152,4 @@ def test_return50000_2(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -10,7 +10,6 @@ to cover EIP-8037 state-gas spill; pre-EIP-8037 unchanged.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -73,28 +72,16 @@ def test_coinbase_warm_account_call_gas_fail(
 ) -> None:
     """Test_coinbase_warm_account_call_gas_fail."""
     coinbase = Address(0x50228C44ED92561D94511E8518A75AA463BD444B)
-    sender = EOA(
-        key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     pre[coinbase] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     # Source: yul
     # berlin
     # {
     #    let cb := coinbase()
     #    pop(call(0, cb, 0, 0, 0, 0, 0))
     # }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.CALL(
             gas=Op.DUP2,
             address=Op.COINBASE,
@@ -107,7 +94,6 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x8DDF5D9A5251C41EFD2949F53DB0A464116C7C6E),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -115,7 +101,7 @@ def test_coinbase_warm_account_call_gas_fail(
     #    let cb := coinbase()
     #    pop(callcode(0, cb, 0, 0, 0, 0, 0))
     # }
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.CALLCODE(
             gas=Op.DUP2,
             address=Op.COINBASE,
@@ -128,7 +114,6 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x498516B6B2F25CB6A8E011A7C37A617B77E7D500),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -136,7 +121,7 @@ def test_coinbase_warm_account_call_gas_fail(
     #    let cb := coinbase()
     #    pop(delegatecall(0, cb, 0, 0, 0, 0))
     # }
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.DELEGATECALL(
             gas=Op.DUP2,
             address=Op.COINBASE,
@@ -148,7 +133,6 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x8873820BB96DAA39DB93AE64A9D6397E4C6A48D7),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -156,7 +140,7 @@ def test_coinbase_warm_account_call_gas_fail(
     #    let cb := coinbase()
     #    pop(staticcall(0, cb, 0, 0, 0, 0))
     # }
-    addr_4 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(
         code=Op.STATICCALL(
             gas=Op.DUP2,
             address=Op.COINBASE,
@@ -168,7 +152,6 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x303B6790D019874A107418EB549E4E7766A64728),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -200,7 +183,7 @@ def test_coinbase_warm_account_call_gas_fail(
     #    sstore(0, call(callgas, calladdr, 0, 0, 0, 0, 0))
     #
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.PUSH1[0x0]
         + Op.DUP1 * 4
         + Op.CALLDATALOAD(offset=0x4)
@@ -208,23 +191,17 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.DUP2
         + Op.JUMPI(
             pc=0x88,
-            condition=Op.EQ(
-                0x8DDF5D9A5251C41EFD2949F53DB0A464116C7C6E, Op.DUP1
-            ),
+            condition=Op.EQ(Op.PUSH20[addr], Op.DUP1),
         )
         + Op.JUMPI(
             pc=0x88,
-            condition=Op.EQ(
-                0x498516B6B2F25CB6A8E011A7C37A617B77E7D500, Op.DUP1
-            ),
+            condition=Op.EQ(Op.PUSH20[addr_2], Op.DUP1),
         )
         + Op.JUMPI(
             pc=0x80,
-            condition=Op.EQ(
-                0x8873820BB96DAA39DB93AE64A9D6397E4C6A48D7, Op.DUP1
-            ),
+            condition=Op.EQ(Op.PUSH20[addr_3], Op.DUP1),
         )
-        + Op.PUSH20[0x303B6790D019874A107418EB549E4E7766A64728]
+        + Op.PUSH20[addr_4]
         + Op.JUMPI(pc=0x79, condition=Op.EQ)
         + Op.JUMPDEST
         + Op.SSTORE(key=0x0, value=Op.CALL)
@@ -245,7 +222,6 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.JUMP(pc=0x73),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0x0A92FC97BB4C47B3D5E9E96FBB1C3FC2F07DBA81),  # noqa: E501
     )
 
     tx_data = [
@@ -260,12 +236,13 @@ def test_coinbase_warm_account_call_gas_fail(
         outer_tx_gas = 500_000
     tx_gas = [outer_tx_gas]
 
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
+
     tx = Transaction(
         sender=sender,
         to=target,
         data=tx_data[d],
         gas_limit=tx_gas[g],
-        nonce=1,
     )
 
     post = {target: Account(storage={0: 1})}
