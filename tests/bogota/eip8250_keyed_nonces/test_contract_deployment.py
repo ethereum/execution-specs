@@ -54,8 +54,8 @@ def test_nonce_manager_deployment(
     Verify the nonce manager deployment, then consume a keyed nonce into
     its storage.
 
-    A missing nonce manager makes no block invalid: clients do not check
-    for it at the fork.
+    A fork block without the nonce manager is valid: clients do not
+    check for it at the fork.
     """
     sender = pre.fund_eoa()
     tx = Transaction(

@@ -161,6 +161,7 @@ def test_keyed_transaction_in_first_post_fork_block(
                         nonce_changes=[],
                         balance_changes=[],
                         code_changes=[],
+                        storage_reads=[],
                         storage_changes=[
                             BalStorageSlot(
                                 slot=keyed_nonce_slot(sender, NONCE_KEY),
@@ -222,6 +223,7 @@ def test_keyed_transactions_before_nonce_manager_deployed(
                         nonce_changes=[],
                         balance_changes=[],
                         code_changes=[],
+                        storage_reads=[],
                         storage_changes=[
                             BalStorageSlot(
                                 slot=slot,

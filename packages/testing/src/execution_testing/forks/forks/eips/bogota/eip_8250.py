@@ -3,8 +3,7 @@ EIP-8250: Keyed Nonces for Frame Transactions.
 
 Replace the single sender nonce of a frame transaction with a bounded
 set of nonce keys sharing one sequence number, the non-zero keys
-selecting independent sequences held by a nonce manager system
-contract.
+selecting independent sequences held by a nonce manager contract.
 
 https://eips.ethereum.org/EIPS/eip-8250
 """
