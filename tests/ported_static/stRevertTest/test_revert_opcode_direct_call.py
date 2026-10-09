@@ -8,9 +8,7 @@ state_tests/stRevertTest/RevertOpcodeDirectCallFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -47,7 +45,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_revert_opcode_direct_call(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -57,16 +54,7 @@ def test_revert_opcode_direct_call(
     v: int,
 ) -> None:
     """Test_revert_opcode_direct_call."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # {  [[10]] (CALL 60000 (CALLDATALOAD 0) 0 0 0 0 0)}
@@ -85,28 +73,24 @@ def test_revert_opcode_direct_call(
         )
         + Op.STOP,
         balance=1,
-        nonce=0,
-        address=Address(0xF94D87FAF19D8C731E70E1B0A25F9668718F6E17),  # noqa: E501
     )
     # Source: lll
     # { [[1]] 12 (REVERT 0 1) [[3]] 13 }
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0xC)
         + Op.REVERT(offset=0x0, size=0x1)
         + Op.SSTORE(key=0x3, value=0xD)
         + Op.STOP,
         balance=1,
-        nonce=0,
-        address=Address(0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B),  # noqa: E501
     )
     # Source: lll
     # { [[0]] (CALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] 14 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
                 gas=0xC350,
-                address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -117,8 +101,6 @@ def test_revert_opcode_direct_call(
         + Op.SSTORE(key=0x2, value=0xE)
         + Op.STOP,
         balance=1,
-        nonce=0,
-        address=Address(0xCEB48D108C874B5B014ACDD1A2466D65A3D01DE6),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -127,7 +109,7 @@ def test_revert_opcode_direct_call(
             "network": [">=Cancun"],
             "result": {
                 addr_2: Account(storage={}),
-                target: Account(storage={0: 0, 2: 14}, nonce=0),
+                target: Account(storage={0: 0, 2: 14}, nonce=1),
             },
         },
         {
@@ -155,4 +137,4 @@ def test_revert_opcode_direct_call(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

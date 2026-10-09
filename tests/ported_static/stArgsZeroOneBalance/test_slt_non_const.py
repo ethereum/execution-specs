@@ -8,10 +8,8 @@ state_tests/stArgsZeroOneBalance/sltNonConstFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -47,7 +45,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_slt_non_const(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -57,31 +54,19 @@ def test_slt_non_const(
     v: int,
 ) -> None:
     """Test_slt_non_const."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
 
     # Source: lll
     # { [[ 0 ]](SLT (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>)) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.SLT(
-                Op.BALANCE(address=0x31D72308BB942D557F1F7AD5987321FB3D75C896),
-                Op.BALANCE(address=0x31D72308BB942D557F1F7AD5987321FB3D75C896),
+                Op.BALANCE(address=Op.ADDRESS),
+                Op.BALANCE(address=Op.ADDRESS),
             ),
         )
         + Op.STOP,
-        nonce=0,
-        address=Address(0x31D72308BB942D557F1F7AD5987321FB3D75C896),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -114,4 +99,4 @@ def test_slt_non_const(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

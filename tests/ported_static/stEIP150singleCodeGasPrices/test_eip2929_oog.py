@@ -14,14 +14,12 @@ not a write boundary.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
     BalAccountExpectation,
     BlockAccessListExpectation,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -102,7 +100,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_eip2929_oog(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -112,62 +109,30 @@ def test_eip2929_oog(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x0000000000000000000000000000000000001054)
-    contract_1 = Address(0x0000000000000000000000000000000000001055)
-    contract_2 = Address(0x0000000000000000000000000000000000001031)
-    contract_3 = Address(0x000000000000000000000000000000000000103B)
-    contract_4 = Address(0x000000000000000000000000000000000000103C)
-    contract_5 = Address(0x000000000000000000000000000000000000103F)
-    contract_6 = Address(0x00000000000000000000000000000000000010F1)
-    contract_7 = Address(0x00000000000000000000000000000000000010F2)
-    contract_8 = Address(0x00000000000000000000000000000000000010F4)
-    contract_9 = Address(0x00000000000000000000000000000000000010FA)
-    contract_10 = Address(0x000000000000000000000000000000000000ACC7)
-    contract_11 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # {
     #    @@0
     # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.SLOAD(key=0x0) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x0000000000000000000000000000000000001054),  # noqa: E501
     )
     # Source: lll
     # {
     #    [[0]] 0x60A7
     # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x60A7) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x0000000000000000000000000000000000001055),  # noqa: E501
     )
     # Source: lll
     # {
     #    (return 0 0)
     # }
-    contract_10 = pre.deploy_contract(  # noqa: F841
+    contract_10 = pre.deploy_contract(
         code=Op.RETURN(offset=0x0, size=0x0) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000000ACC7),  # noqa: E501
     )
     # Source: lll
     # {
@@ -176,7 +141,7 @@ def test_eip2929_oog(
     #
     #    [[0]] (call callGas addr 0 0 0 0 0)
     # }
-    contract_11 = pre.deploy_contract(  # noqa: F841
+    contract_11 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
@@ -192,27 +157,23 @@ def test_eip2929_oog(
         + Op.STOP,
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
     # Source: lll
     # {
     #    (balance 0xACC7)
     # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.BALANCE(address=0xACC7) + Op.STOP,
+    contract_2 = pre.deploy_contract(
+        code=Op.BALANCE(address=contract_10) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x0000000000000000000000000000000000001031),  # noqa: E501
     )
     # Source: lll
     # {
     #    (call 0x06A5 0xACC7 0 0 0 0 0)
     # }
-    contract_6 = pre.deploy_contract(  # noqa: F841
+    contract_6 = pre.deploy_contract(
         code=Op.CALL(
             gas=0x6A5,
-            address=0xACC7,
+            address=contract_10,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -221,17 +182,15 @@ def test_eip2929_oog(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000010F1),  # noqa: E501
     )
     # Source: lll
     # {
     #    (staticcall 0x06A5 0xACC7 0 0 0 0)
     # }
-    contract_9 = pre.deploy_contract(  # noqa: F841
+    contract_9 = pre.deploy_contract(
         code=Op.STATICCALL(
             gas=0x6A5,
-            address=0xACC7,
+            address=contract_10,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -239,17 +198,15 @@ def test_eip2929_oog(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000010FA),  # noqa: E501
     )
     # Source: lll
     # {
     #    (callcode 0x06A5 0xACC7 0 0 0 0 0)
     # }
-    contract_7 = pre.deploy_contract(  # noqa: F841
+    contract_7 = pre.deploy_contract(
         code=Op.CALLCODE(
             gas=0x6A5,
-            address=0xACC7,
+            address=contract_10,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -258,17 +215,15 @@ def test_eip2929_oog(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000010F2),  # noqa: E501
     )
     # Source: lll
     # {
     #    (delegatecall 0x06A5 0xACC7 0 0 0 0)
     # }
-    contract_8 = pre.deploy_contract(  # noqa: F841
+    contract_8 = pre.deploy_contract(
         code=Op.DELEGATECALL(
             gas=0x6A5,
-            address=0xACC7,
+            address=contract_10,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -276,41 +231,33 @@ def test_eip2929_oog(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000010F4),  # noqa: E501
     )
     # Source: lll
     # {
     #    (extcodecopy 0x1031 0 0 0x20)
     # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
+    contract_4 = pre.deploy_contract(
         code=Op.EXTCODECOPY(
-            address=0x1031, dest_offset=0x0, offset=0x0, size=0x20
+            address=contract_2, dest_offset=0x0, offset=0x0, size=0x20
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000000103C),  # noqa: E501
     )
     # Source: lll
     # {
     #    (extcodesize 0x1031)
     # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.EXTCODESIZE(address=0x1031) + Op.STOP,
+    contract_3 = pre.deploy_contract(
+        code=Op.EXTCODESIZE(address=contract_2) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000000103B),  # noqa: E501
     )
     # Source: lll
     # {
     #    (extcodehash 0x1031)
     # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.EXTCODEHASH(address=0x1031) + Op.STOP,
+    contract_5 = pre.deploy_contract(
+        code=Op.EXTCODEHASH(address=contract_2) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000000103F),  # noqa: E501
     )
 
     tx_data = [
@@ -334,7 +281,6 @@ def test_eip2929_oog(
         data=tx_data[d],
         gas_limit=tx_gas[g],
         value=tx_value[v],
-        nonce=1,
     )
 
     post = {contract_11: Account(storage={0: 0})}
@@ -403,7 +349,6 @@ def test_eip2929_oog(
         )
 
     state_test(
-        env=env,
         pre=pre,
         post=post,
         tx=tx,

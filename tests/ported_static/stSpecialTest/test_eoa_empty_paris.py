@@ -15,12 +15,9 @@ EIP-8038.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -96,7 +93,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_eoa_empty_paris(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -115,69 +111,43 @@ def test_eoa_empty_paris(
     cold_account_delta = (
         gas_costs.COLD_ACCOUNT_ACCESS - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
     )
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x000000000000000000000000000000000000BAD1)
-    contract_1 = Address(0x000000000000000000000000000000000000BAD2)
-    contract_2 = Address(0x000000000000000000000000000000000000BAD3)
-    contract_3 = Address(0x000000000000000000000000000000000000BAD4)
-    contract_4 = Address(0x000000000000000000000000000000000000DEAD)
-    contract_5 = Address(0x000000000000000000000000000000000000C0DE)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x3B9ACA00)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=89128960,
-    )
-
-    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: hex
     # 0x
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code="",
         balance=1,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000BAD1),  # noqa: E501
     )
     # Source: hex
     # 0x
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code="",
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000BAD2),  # noqa: E501
     )
     # Source: hex
     # 0x
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code="",
         balance=1,
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000BAD3),  # noqa: E501
-    )
-    # Source: hex
-    # 0x
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code="",
-        storage={57005: 48879},
-        balance=10,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000BAD4),  # noqa: E501
     )
     # Source: yul
     # berlin
     # {
     #    selfdestruct(origin())
     # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
+    contract_4 = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=Op.ORIGIN),
         balance=10000,
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000DEAD),  # noqa: E501
+    )
+    # Source: hex
+    # 0x
+    contract_3 = pre.deploy_contract(
+        code="",
+        storage={contract_4: 48879},
+        balance=10,
     )
     # Source: yul
     # berlin
@@ -204,7 +174,7 @@ def test_eoa_empty_paris(
     #    pop(call(gas(), 0xDEAD, 0, 0, 0, 0, 0))
     #    sstore(0xFF, sub(gas0, gas()))
     # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
+    contract_5 = pre.deploy_contract(
         code=Op.ORIGIN
         + Op.SSTORE(key=0x0, value=Op.DUP1)
         + Op.SSTORE(key=0x31, value=Op.BALANCE(address=Op.DUP1))
@@ -213,10 +183,10 @@ def test_eoa_empty_paris(
         + Op.SSTORE(
             key=0x13F, value=Op.EXTCODEHASH(address=Op.ADD(Op.DUP2, 0x1))
         )
-        + Op.SSTORE(key=0xBAD1, value=Op.EXTCODEHASH(address=0xBAD1))
-        + Op.SSTORE(key=0xBAD2, value=Op.EXTCODEHASH(address=0xBAD2))
-        + Op.SSTORE(key=0xBAD3, value=Op.EXTCODEHASH(address=0xBAD3))
-        + Op.SSTORE(key=0xBAD4, value=Op.EXTCODEHASH(address=0xBAD4))
+        + Op.SSTORE(key=contract_0, value=Op.EXTCODEHASH(address=contract_0))
+        + Op.SSTORE(key=contract_1, value=Op.EXTCODEHASH(address=contract_1))
+        + Op.SSTORE(key=contract_2, value=Op.EXTCODEHASH(address=contract_2))
+        + Op.SSTORE(key=contract_3, value=Op.EXTCODEHASH(address=contract_3))
         + Op.SSTORE(key=0xBAD5, value=Op.EXTCODEHASH(address=0xBAD5))
         + Op.PUSH1[0x0]
         + Op.DUP1 * 3
@@ -233,7 +203,7 @@ def test_eoa_empty_paris(
         + Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=0xDEAD,
+                address=contract_4,
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -246,7 +216,6 @@ def test_eoa_empty_paris(
         + Op.SSTORE(key=0xFF, value=Op.SUB)
         + Op.STOP,
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -264,10 +233,10 @@ def test_eoa_empty_paris(
                         241: 118,
                         255: 7626 + cold_account_delta,
                         319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_0: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_1: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_2: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_3: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                     },
                 ),
             },
@@ -286,10 +255,10 @@ def test_eoa_empty_paris(
                         241: 6818 + call_value_delta,
                         255: 7626 + cold_account_delta,
                         319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_0: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_1: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_2: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_3: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                     },
                 ),
             },
@@ -316,10 +285,10 @@ def test_eoa_empty_paris(
                         241: 118,
                         255: 7626 + cold_account_delta,
                         319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_0: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_1: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_2: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_3: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                     },
                 ),
             },
@@ -338,10 +307,10 @@ def test_eoa_empty_paris(
                         241: 6818 + call_value_delta,
                         255: 7626 + cold_account_delta,
                         319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_0: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_1: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_2: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_3: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                     },
                 ),
             },
@@ -360,10 +329,10 @@ def test_eoa_empty_paris(
                         241: 118,
                         255: 7626 + cold_account_delta,
                         319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_0: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_1: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_2: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_3: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                     },
                 ),
             },
@@ -382,10 +351,10 @@ def test_eoa_empty_paris(
                         241: 6818 + call_value_delta,
                         255: 7626 + cold_account_delta,
                         319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_0: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_1: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_2: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        contract_3: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                     },
                 ),
             },
@@ -411,4 +380,4 @@ def test_eoa_empty_paris(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

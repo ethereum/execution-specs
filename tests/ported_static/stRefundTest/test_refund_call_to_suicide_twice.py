@@ -8,9 +8,7 @@ state_tests/stRefundTest/refund_CallToSuicideTwiceFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -47,7 +45,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_refund_call_to_suicide_twice(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -57,26 +54,23 @@ def test_refund_call_to_suicide_twice(
     v: int,
 ) -> None:
     """Test_refund_call_to_suicide_twice."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x2540BE400)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
+    # Source: lll
+    # { (SELFDESTRUCT <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) }  # noqa: E501
+    addr = pre.deploy_contract(
+        code=Op.SELFDESTRUCT(address=Op.CALLER) + Op.STOP,
+        storage={1: 1},
+        balance=0xDE0B6B3A7640000,
     )
-
     # Source: lll
     # { [[ 0 ]] (CALL (CALLDATALOAD 0) <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 ) (CALL (CALLDATALOAD 0) <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 )}  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
                 gas=Op.CALLDATALOAD(offset=0x0),
-                address=0x9DEA1AD5123F3D8B91CFC830B1C602597883E97C,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -86,7 +80,7 @@ def test_refund_call_to_suicide_twice(
         )
         + Op.CALL(
             gas=Op.CALLDATALOAD(offset=0x0),
-            address=0x9DEA1AD5123F3D8B91CFC830B1C602597883E97C,
+            address=addr,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -96,20 +90,6 @@ def test_refund_call_to_suicide_twice(
         + Op.STOP,
         storage={1: 1},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x81BDBAA560B5AD52B0F9857CF4CA40B74D4B6996),  # noqa: E501
-    )
-    # Source: lll
-    # { (SELFDESTRUCT <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(
-            address=0x81BDBAA560B5AD52B0F9857CF4CA40B74D4B6996
-        )
-        + Op.STOP,
-        storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x9DEA1AD5123F3D8B91CFC830B1C602597883E97C),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -132,7 +112,7 @@ def test_refund_call_to_suicide_twice(
                     storage={0: 1, 1: 1}, balance=0x1BC16D674EC8000A
                 ),
                 sender: Account(nonce=1),
-                addr: Account(storage={1: 1}, balance=0, nonce=0),
+                addr: Account(storage={1: 1}, balance=0, nonce=1),
             },
         },
     ]
@@ -155,4 +135,4 @@ def test_refund_call_to_suicide_twice(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

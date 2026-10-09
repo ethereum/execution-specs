@@ -7,11 +7,8 @@ state_tests/stRevertTest/RevertOpcodeMultipleSubCallsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -228,7 +225,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_revert_opcode_multiple_sub_calls(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -238,23 +234,11 @@ def test_revert_opcode_multiple_sub_calls(
     v: int,
 ) -> None:
     """Test_revert_opcode_multiple_sub_calls."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { (CALL 260000 (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALL(
             gas=0x3F7A0,
             address=Op.CALLDATALOAD(offset=0x0),
@@ -265,44 +249,36 @@ def test_revert_opcode_multiple_sub_calls(
             ret_size=0x0,
         )
         + Op.STOP,
-        nonce=0,
-        address=Address(0x89AB420962193A25593B5663462B75C083D56148),  # noqa: E501
     )
     # Source: lll
     # { [[1]] 12 (REVERT 0 1) }
-    addr_5 = pre.deploy_contract(  # noqa: F841
+    addr_5 = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0xC)
         + Op.REVERT(offset=0x0, size=0x1)
         + Op.STOP,
-        nonce=0,
-        address=Address(0x86C575F296A8A021A2A64972E57A20B06FE8B897),  # noqa: E501
     )
     # Source: lll
     # { [[2]] 12 (REVERT 0 1) }
-    addr_6 = pre.deploy_contract(  # noqa: F841
+    addr_6 = pre.deploy_contract(
         code=Op.SSTORE(key=0x2, value=0xC)
         + Op.REVERT(offset=0x0, size=0x1)
         + Op.STOP,
-        nonce=0,
-        address=Address(0x3D2496D905CF0E9C77473CBFB6E100062B5AF57F),  # noqa: E501
     )
     # Source: lll
     # { [[3]] 12 (REVERT 0 1) }
-    addr_7 = pre.deploy_contract(  # noqa: F841
+    addr_7 = pre.deploy_contract(
         code=Op.SSTORE(key=0x3, value=0xC)
         + Op.REVERT(offset=0x0, size=0x1)
         + Op.STOP,
-        nonce=0,
-        address=Address(0x83BAC26DD305C061381C042D0BAC07B08D15BBCE),  # noqa: E501
     )
     # Source: lll
     # { [[10]](CALLCODE 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) [[11]](CALLCODE 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0 0) [[12]](CALLCODE 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0xA,
             value=Op.CALLCODE(
                 gas=0xC350,
-                address=0x86C575F296A8A021A2A64972E57A20B06FE8B897,
+                address=addr_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -314,7 +290,7 @@ def test_revert_opcode_multiple_sub_calls(
             key=0xB,
             value=Op.CALLCODE(
                 gas=0xC350,
-                address=0x3D2496D905CF0E9C77473CBFB6E100062B5AF57F,
+                address=addr_6,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -326,7 +302,7 @@ def test_revert_opcode_multiple_sub_calls(
             key=0xC,
             value=Op.CALLCODE(
                 gas=0xC350,
-                address=0x83BAC26DD305C061381C042D0BAC07B08D15BBCE,
+                address=addr_7,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -337,17 +313,15 @@ def test_revert_opcode_multiple_sub_calls(
         + Op.SSTORE(key=0x4, value=0xC)
         + Op.SSTORE(key=0x5, value=0xC)
         + Op.STOP,
-        nonce=0,
-        address=Address(0xEE88DFD8455D7D9D6D33231F3DAF6D9A4526D5CF),  # noqa: E501
     )
     # Source: lll
     # { [[10]](CALL 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) [[11]](DELEGATECALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0) [[12]](CALLCODE 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
-    addr_4 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0xA,
             value=Op.CALL(
                 gas=0xC350,
-                address=0x86C575F296A8A021A2A64972E57A20B06FE8B897,
+                address=addr_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -359,7 +333,7 @@ def test_revert_opcode_multiple_sub_calls(
             key=0xB,
             value=Op.DELEGATECALL(
                 gas=0xC350,
-                address=0x3D2496D905CF0E9C77473CBFB6E100062B5AF57F,
+                address=addr_6,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -370,7 +344,7 @@ def test_revert_opcode_multiple_sub_calls(
             key=0xC,
             value=Op.CALLCODE(
                 gas=0xC350,
-                address=0x83BAC26DD305C061381C042D0BAC07B08D15BBCE,
+                address=addr_7,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -381,17 +355,15 @@ def test_revert_opcode_multiple_sub_calls(
         + Op.SSTORE(key=0x4, value=0xC)
         + Op.SSTORE(key=0x5, value=0xC)
         + Op.STOP,
-        nonce=0,
-        address=Address(0x1302FD3B212E7E634F82ED6D00AC14544E8B1CAB),  # noqa: E501
     )
     # Source: lll
     # { [[10]](DELEGATECALL 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0) [[11]](DELEGATECALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0) [[12]](DELEGATECALL 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0xA,
             value=Op.DELEGATECALL(
                 gas=0xC350,
-                address=0x86C575F296A8A021A2A64972E57A20B06FE8B897,
+                address=addr_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -402,7 +374,7 @@ def test_revert_opcode_multiple_sub_calls(
             key=0xB,
             value=Op.DELEGATECALL(
                 gas=0xC350,
-                address=0x3D2496D905CF0E9C77473CBFB6E100062B5AF57F,
+                address=addr_6,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -413,7 +385,7 @@ def test_revert_opcode_multiple_sub_calls(
             key=0xC,
             value=Op.DELEGATECALL(
                 gas=0xC350,
-                address=0x83BAC26DD305C061381C042D0BAC07B08D15BBCE,
+                address=addr_7,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -423,17 +395,15 @@ def test_revert_opcode_multiple_sub_calls(
         + Op.SSTORE(key=0x4, value=0xC)
         + Op.SSTORE(key=0x5, value=0xC)
         + Op.STOP,
-        nonce=0,
-        address=Address(0x68CF97C6CA41ECFC5623D8A7E9B6F72068213E95),  # noqa: E501
     )
     # Source: lll
     # { [[10]](CALL 50000 <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) [[11]](CALL 50000 <contract:0xc000000000000000000000000000000000000000> 0 0 0 0 0) [[12]](CALL 50000 <contract:0xd000000000000000000000000000000000000000> 0 0 0 0 0) [[4]]12 [[5]]12 }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.SSTORE(
             key=0xA,
             value=Op.CALL(
                 gas=0xC350,
-                address=0x86C575F296A8A021A2A64972E57A20B06FE8B897,
+                address=addr_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -445,7 +415,7 @@ def test_revert_opcode_multiple_sub_calls(
             key=0xB,
             value=Op.CALL(
                 gas=0xC350,
-                address=0x3D2496D905CF0E9C77473CBFB6E100062B5AF57F,
+                address=addr_6,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -457,7 +427,7 @@ def test_revert_opcode_multiple_sub_calls(
             key=0xC,
             value=Op.CALL(
                 gas=0xC350,
-                address=0x83BAC26DD305C061381C042D0BAC07B08D15BBCE,
+                address=addr_7,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -468,8 +438,6 @@ def test_revert_opcode_multiple_sub_calls(
         + Op.SSTORE(key=0x4, value=0xC)
         + Op.SSTORE(key=0x5, value=0xC)
         + Op.STOP,
-        nonce=0,
-        address=Address(0xD7E294F032A5CC430E9E6C4148220867E9704DCD),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -480,7 +448,7 @@ def test_revert_opcode_multiple_sub_calls(
                 sender: Account(nonce=1),
                 addr: Account(
                     storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
-                    nonce=0,
+                    nonce=1,
                 ),
                 addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
                 addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
@@ -494,7 +462,7 @@ def test_revert_opcode_multiple_sub_calls(
                 sender: Account(nonce=1),
                 addr_2: Account(
                     storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
-                    nonce=0,
+                    nonce=1,
                 ),
                 addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
                 addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
@@ -508,7 +476,7 @@ def test_revert_opcode_multiple_sub_calls(
                 sender: Account(nonce=1),
                 addr_3: Account(
                     storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
-                    nonce=0,
+                    nonce=1,
                 ),
                 addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
                 addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
@@ -522,7 +490,7 @@ def test_revert_opcode_multiple_sub_calls(
                 sender: Account(nonce=1),
                 addr_4: Account(
                     storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
-                    nonce=0,
+                    nonce=1,
                 ),
                 addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
                 addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
@@ -535,7 +503,7 @@ def test_revert_opcode_multiple_sub_calls(
             "result": {
                 sender: Account(nonce=1),
                 addr_4: Account(
-                    storage={4: 0, 5: 0, 10: 0, 11: 0, 12: 0}, nonce=0
+                    storage={4: 0, 5: 0, 10: 0, 11: 0, 12: 0}, nonce=1
                 ),
                 addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
                 addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
@@ -549,11 +517,11 @@ def test_revert_opcode_multiple_sub_calls(
                 sender: Account(nonce=1),
                 addr: Account(
                     storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
-                    nonce=0,
+                    nonce=1,
                 ),
-                addr_2: Account(storage={}, nonce=0),
-                addr_3: Account(storage={}, nonce=0),
-                addr_4: Account(storage={}, nonce=0),
+                addr_2: Account(storage={}, nonce=1),
+                addr_3: Account(storage={}, nonce=1),
+                addr_4: Account(storage={}, nonce=1),
                 addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
                 addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
                 addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
@@ -565,11 +533,11 @@ def test_revert_opcode_multiple_sub_calls(
             "result": {
                 sender: Account(nonce=1),
                 addr: Account(
-                    storage={4: 0, 5: 0, 10: 0, 11: 0, 12: 0}, nonce=0
+                    storage={4: 0, 5: 0, 10: 0, 11: 0, 12: 0}, nonce=1
                 ),
-                addr_2: Account(storage={}, nonce=0),
-                addr_3: Account(storage={}, nonce=0),
-                addr_4: Account(storage={}, nonce=0),
+                addr_2: Account(storage={}, nonce=1),
+                addr_3: Account(storage={}, nonce=1),
+                addr_4: Account(storage={}, nonce=1),
                 addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
                 addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
                 addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
@@ -602,4 +570,4 @@ def test_revert_opcode_multiple_sub_calls(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
