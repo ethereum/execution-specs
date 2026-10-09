@@ -2,6 +2,8 @@
 
 from typing import Sequence
 
+from ethereum_rlp import rlp
+from ethereum_types.numeric import U256
 from execution_testing import Account, Alloc, Fork, Op, Transaction
 
 from ..eip8141_frame_transactions.helpers import default_code_frame_gas
@@ -20,6 +22,26 @@ def keyed_nonce_first_use(fork: Fork) -> int:
     EIP prices as one storage slot creation.
     """
     return Op.SSTORE(original_value=0, new_value=1).state_cost(fork)
+
+
+def nonce_field_calldata(nonce_keys: Sequence[int], nonce_seq: int) -> bytes:
+    """
+    Return the encoding of the nonce fields the EIP prices as transaction
+    data: `rlp(nonce_keys) || rlp(nonce_seq)`.
+    """
+    return rlp.encode([U256(key) for key in nonce_keys]) + rlp.encode(
+        U256(nonce_seq)
+    )
+
+
+def keyed_nonce_access_cost(nonce_keys: Sequence[int]) -> int:
+    """
+    Return the EIP's `keyed_nonce_access_cost`: `KEYED_NONCE_ACCESS_COST`
+    per key, and nothing for the legacy key set.
+    """
+    if list(nonce_keys) == [0]:
+        return 0
+    return len(nonce_keys) * Spec.KEYED_NONCE_ACCESS_COST
 
 
 def nonce_fields(tx: Transaction) -> tuple[Sequence[int], int]:

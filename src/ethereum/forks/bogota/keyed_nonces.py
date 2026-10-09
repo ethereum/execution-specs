@@ -9,9 +9,13 @@ not order each other.
 
 Keyed nonce reads and writes are protocol bookkeeping: they bypass the
 access lists and `SSTORE` pricing of ordinary storage access, and warm
-nothing for later user-level access.
+nothing for later user-level access. Each non-zero key pays for its
+slot's read and write in the transaction's intrinsic cost instead (see
+[`KEYED_NONCE_ACCESS`][kna]). They are still ordinary storage of the
+nonce manager, so the block access list records them as such.
 
 [EIP-8250]: https://eips.ethereum.org/EIPS/eip-8250
+[kna]: ref:ethereum.forks.bogota.vm.gas.GasCosts.KEYED_NONCE_ACCESS
 """
 
 from ethereum_types.bytes import Bytes32
