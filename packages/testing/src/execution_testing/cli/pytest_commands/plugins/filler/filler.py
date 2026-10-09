@@ -203,7 +203,7 @@ class FillingSession:
 
         return cls(
             fixture_output=FixtureOutput.from_config(config),
-            filling_phase=cls.filling_phase_from_config(config, formats),
+            filling_phase=cls.filling_phase_from_config(config),
             formats=formats,
             pre_alloc_groups=None,
         )
@@ -211,7 +211,6 @@ class FillingSession:
     @staticmethod
     def filling_phase_from_config(
         config: pytest.Config,
-        formats: List[str] | None = None,
     ) -> FixtureFillingPhase:
         """
         Infer current phase from the pytest configuration.
@@ -238,17 +237,6 @@ class FillingSession:
         )
         use_pre_alloc = config.getoption("use_pre_alloc_groups", False)
         generate_all = config.getoption("generate_all_formats", False)
-
-        if not generate_all and formats:
-            for fmt_name in formats:
-                fmt = BaseFixture.formats.get(fmt_name)
-                if (
-                    fmt
-                    and FixtureFillingPhase.PRE_ALLOC_GENERATION
-                    in fmt.format_phases
-                ):
-                    generate_all = True
-                    break
 
         if use_pre_alloc:
             # Phase 2: Using pre-generated groups
