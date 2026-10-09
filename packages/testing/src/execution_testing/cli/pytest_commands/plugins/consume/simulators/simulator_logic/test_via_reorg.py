@@ -332,9 +332,9 @@ class StepRunner:
         if observed.error_code is None and any(
             o.head_moved is not None for o in step.expect
         ):
-            observed.head_moved = self._head_hash("latest") == self.resolve(
-                step.head
-            )
+            observed.head_moved = self._head_hash_or_fail(
+                name, "latest"
+            ) == self.resolve(step.head)
         outcome = self.select(name, step.expect, observed)
         self.run(step.branches.get(outcome.id, []), depth + 1)
 
@@ -395,14 +395,19 @@ class StepRunner:
         )
 
     def _head_hash(self, tag: str) -> Hash | None:
-        try:
-            block = self.eth.get_block_by_number(tag)  # type: ignore[arg-type]
-        except JSONRPCError as e:
-            logger.info(
-                f"eth_getBlockByNumber({tag!r}) error {e.code}: {e.message}"
-            )
-            return None
+        """Raises ``JSONRPCError`` on an RPC failure; callers handle it."""
+        block = self.eth.get_block_by_number(tag)  # type: ignore[arg-type]
         return Hash(block["hash"]) if block else None
+
+    def _head_hash_or_fail(self, name: str, tag: str) -> Hash | None:
+        """``_head_hash``, failing the step on an RPC error (PR3556-R0020)."""
+        try:
+            return self._head_hash(tag)
+        except JSONRPCError as e:
+            raise LoggedError(
+                f"{name}: eth_getBlockByNumber({tag!r}) error {e.code}: "
+                f"{e.message}"
+            ) from e
 
     def assert_head(self, name: str, step: AssertHeadStep) -> None:
         """Check latest/safe/finalized via ``eth_getBlockByNumber``."""
@@ -413,7 +418,7 @@ class StepRunner:
         ):
             if label is None:
                 continue
-            got = self._head_hash(tag)
+            got = self._head_hash_or_fail(name, tag)
             want = self.resolve(label)
             if got != want:
                 raise LoggedError(
