@@ -26,8 +26,9 @@ Rules follow `execution-apis` ``paris.md`` as amended by PR #786:
   head's chain → ``-38002``; head extends current head → VALID; otherwise
   (rewind or side-chain reorg) → VALID (applied) or ``-38006`` (refused,
   implementation-specific depth cap). An error leaves the forkchoice state
-  untouched (updates are atomic), except ``-38003`` (invalid payload
-  attributes): the state is updated before the attributes are validated.
+  untouched (updates are atomic), except ``-38003``/``-38005`` (invalid
+  payload attributes / unsupported fork): the state is updated before the
+  attributes are validated.
 
 Authors may always provide ``expect`` explicitly; the model never widens an
 author-provided set.
@@ -337,17 +338,21 @@ class ClientModel:
         Whether ``outcome`` means the requested update was applied.
 
         Derived from the outcome's constraints and the no-reorg shortcut
-        (step 2), never from ``outcome.id``. ``-38003`` still applies: the
-        state is updated before the attributes are validated (steps 8.1,
-        8.3).
+        (step 2), never from ``outcome.id``. ``-38003``/``-38005`` still
+        apply: the state is updated before the attributes are validated
+        (step 8 of ``paris.md``, extended by ``cancun.md``/``amsterdam.md``).
         """
-        if outcome.error_code == EngineAPIError.InvalidPayloadAttributes:
+        if outcome.error_code in (
+            EngineAPIError.InvalidPayloadAttributes,
+            EngineAPIError.UnsupportedFork,
+        ):
             return True
         if outcome.any_error and step.payload_attributes is not None:
             raise ValueError(
                 f"forkchoiceUpdated(head={step.head!r}): outcome "
-                f"{outcome.id!r} accepts any error, but -38003 applies the "
-                "update and other errors do not; set errorCode instead"
+                f"{outcome.id!r} accepts any error, but -38003/-38005 "
+                "apply the update and other errors do not; set errorCode "
+                "instead"
             )
         if outcome.error_code is not None or outcome.any_error:
             return False

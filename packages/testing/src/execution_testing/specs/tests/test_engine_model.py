@@ -424,23 +424,28 @@ def test_forkchoice_effect_applies_authored_valid_outcome() -> None:
     assert model.head == "b2"
 
 
-@pytest.mark.parametrize("outcome_id", ["bad_attributes", "invalid_timestamp"])
+@pytest.mark.parametrize(
+    "outcome_id,error_code",
+    [
+        ("bad_attributes", EngineAPIError.InvalidPayloadAttributes),
+        ("invalid_timestamp", EngineAPIError.InvalidPayloadAttributes),
+        ("unsupported_fork", EngineAPIError.UnsupportedFork),
+    ],
+)
 def test_invalid_payload_attributes_still_applies_forkchoice(
-    outcome_id: str,
+    outcome_id: str, error_code: EngineAPIError
 ) -> None:
-    """A -38003 branch asserts the updated head, whatever the outcome id."""
+    """
+    A -38003/-38005 branch asserts the updated head, whatever the outcome id
+    (PR3556-F3-01).
+    """
     model = ClientModel(dag=dag_linear_with_fork())
     model.known["a1"] = Validity.VALID
     step = ForkchoiceUpdatedStep(
         head="a1",
         version=3,
         payload_attributes=ATTRIBUTES,
-        expect=[
-            Outcome(
-                id=outcome_id,
-                error_code=EngineAPIError.InvalidPayloadAttributes,
-            )
-        ],
+        expect=[Outcome(id=outcome_id, error_code=error_code)],
     )
     annotate_steps([step], model)
     head_check = step.branches[outcome_id][0]
