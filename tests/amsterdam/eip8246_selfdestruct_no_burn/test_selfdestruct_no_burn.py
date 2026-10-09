@@ -27,6 +27,7 @@ from execution_testing import (
     TransactionReceipt,
     compute_create2_address,
     compute_create_address,
+    create_op,
     keccak256,
 )
 from execution_testing import (
@@ -129,17 +130,12 @@ def test_selfdestructing_initcode_preserves_balance(
 
     # Build selfdestruct target contract via CREATE/CREATE2
     salt = 0
-    if create_opcode == Op.CREATE2:
-        create_call = create_opcode(
-            value=initial_balance,
-            size=len(selfdestruct_initcode),
-            salt=salt,
-        )
-    else:
-        create_call = create_opcode(
-            value=initial_balance,
-            size=len(selfdestruct_initcode),
-        )
+    create_call = create_op(
+        create_opcode,
+        value=initial_balance,
+        size=len(selfdestruct_initcode),
+        salt=salt,
+    )
 
     # Selfdestruct target contract factory
     # Exits via STOP/REVERT/OOG for different scenario

@@ -20,6 +20,7 @@ from execution_testing import (
     TransactionException,
     TransactionReceipt,
     compute_create_address,
+    create_op,
     keccak256,
 )
 from execution_testing import Macros as Om
@@ -112,11 +113,7 @@ def test_max_initcode_size_via_create(
 
     alice = pre.fund_eoa()
 
-    create_call = (
-        create_opcode(value=0, offset=0, size=Op.CALLDATASIZE, salt=0)
-        if create_opcode == Op.CREATE2
-        else create_opcode(value=0, offset=0, size=Op.CALLDATASIZE)
-    )
+    create_call = create_op(create_opcode, size=Op.CALLDATASIZE)
 
     factory_code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)

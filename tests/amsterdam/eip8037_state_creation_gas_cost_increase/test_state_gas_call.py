@@ -38,6 +38,7 @@ from execution_testing import (
     TransactionReceipt,
     WhileGas,
     compute_create_address,
+    create_op,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -1473,11 +1474,7 @@ def test_call_value_to_self_destructed_same_tx_account(
     storage = Storage()
     orchestrator_code = (
         Op.MSTORE(0, mstore_value)
-        + (
-            Op.CREATE2(1, 0, size, 0)
-            if create_opcode == Op.CREATE2
-            else Op.CREATE(1, 0, size)
-        )
+        + create_op(create_opcode, value=1, size=size)
         + Op.MSTORE(0x20, Op.DUP1)
         + Op.POP
         + Op.SSTORE(
@@ -1542,11 +1539,7 @@ def test_call_value_to_self_destructed_header_gas_used(
 
     orchestrator_code = (
         Op.MSTORE(0, mstore_value)
-        + (
-            Op.CREATE2(1, 0, size, 0)
-            if create_opcode == Op.CREATE2
-            else Op.CREATE(1, 0, size)
-        )
+        + create_op(create_opcode, value=1, size=size)
         + Op.MSTORE(0x20, Op.DUP1)
         + Op.POP
         + Op.POP(
@@ -1636,11 +1629,7 @@ def test_call_zero_value_to_self_destructed_same_tx_account(
 
     orchestrator_code = (
         Op.MSTORE(0, mstore_value)
-        + (
-            Op.CREATE2(1, 0, size, 0)
-            if create_opcode == Op.CREATE2
-            else Op.CREATE(1, 0, size)
-        )
+        + create_op(create_opcode, value=1, size=size)
         + Op.MSTORE(0x20, Op.DUP1)
         + Op.POP
         + Op.POP(Op.CALL(gas=Op.GAS, address=Op.MLOAD(0x20), value=0))
@@ -1926,11 +1915,7 @@ def test_create_oog_during_state_gas_charge(
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     init_code = Op.STOP
-    inner_create_call = (
-        create_opcode(value=0, offset=31, size=1, salt=0)
-        if create_opcode == Op.CREATE2
-        else create_opcode(value=0, offset=31, size=1)
-    )
+    inner_create_call = create_op(create_opcode, offset=31, size=1)
 
     inner_code = Op.MSTORE(0, init_code_at_high_bytes(init_code)[0]) + Op.POP(
         inner_create_call

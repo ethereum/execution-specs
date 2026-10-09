@@ -26,6 +26,7 @@ from execution_testing import (
     Transaction,
     TransactionReceipt,
     compute_create_address,
+    create_op,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -448,12 +449,7 @@ def test_create_selfdestruct_no_refund_account_and_storage(
     mstore = Op.MSTORE.with_metadata(new_memory_size=32, old_memory_size=0)(
         0, mstore_value
     )
-    create_metadata = create_opcode.with_metadata(init_code_size=size)
-    create_call = (
-        create_metadata(value=0, offset=0, size=size, salt=0)
-        if create_opcode == Op.CREATE2
-        else create_metadata(value=0, offset=0, size=size)
-    )
+    create_call = create_op(create_opcode, size=size, init_code_size=size)
     factory_code = mstore + Op.POP(create_call)
     factory = pre.deploy_contract(code=factory_code)
 

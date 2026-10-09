@@ -38,6 +38,7 @@ from execution_testing import (
     Withdrawal,
     add_kzg_version,
     compute_create_address,
+    create_op,
 )
 from execution_testing import Macros as Om
 
@@ -3043,13 +3044,7 @@ def test_bal_cross_tx_deploy_then_call(
     initcode_bytes = bytes(initcode)
 
     salt = 0
-    is_create2 = create_opcode == Op.CREATE2
-    if is_create2:
-        deploy_op = Op.CREATE2(
-            value=0, offset=0, size=Op.CALLDATASIZE, salt=salt
-        )
-    else:
-        deploy_op = Op.CREATE(value=0, offset=0, size=Op.CALLDATASIZE)
+    deploy_op = create_op(create_opcode, size=Op.CALLDATASIZE, salt=salt)
     factory_code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
         + Op.SSTORE(0, deploy_op)
@@ -3116,7 +3111,16 @@ def test_bal_cross_tx_deploy_then_call(
     "failure_mode",
     [
         pytest.param("none", id="no_failure"),
-        pytest.param("collision", id="mid_chain_collision"),
+        pytest.param(
+            "collision",
+            id="mid_chain_collision",
+            marks=pytest.mark.pre_alloc_group(
+                "separate",
+                reason="Seeds code at a factory CREATE address that the "
+                "other failure modes deploy to, so sharing their genesis "
+                "turns their deployment into a collision.",
+            ),
+        ),
         pytest.param("oog", id="mid_chain_oog"),
     ],
 )

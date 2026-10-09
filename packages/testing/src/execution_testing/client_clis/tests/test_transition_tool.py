@@ -498,3 +498,19 @@ def test_opcode_count_accumulation() -> None:
     tool.reset_opcode_count()
     assert tool.opcode_count == OpcodeCount({})
     assert tool.opcode_count_per_block == []
+
+
+def test_an_opcode_count_accepts_every_name_geth_reports() -> None:
+    """
+    Geth's t8n reports an undefined byte as ``"opcode 0xb8 not defined"``
+    and still names EOF opcodes the fork does not define. The count keeps
+    the byte and drops the names with no opcode here, rather than failing
+    the whole result.
+    """
+    count = OpcodeCount.model_validate(
+        {"ADD": 3, "opcode 0xb8 not defined": 2, "EOFCREATE": 1}
+    )
+    assert {str(k): v for k, v in count.root.items()} == {
+        "ADD": 3,
+        "0xb8": 2,
+    }

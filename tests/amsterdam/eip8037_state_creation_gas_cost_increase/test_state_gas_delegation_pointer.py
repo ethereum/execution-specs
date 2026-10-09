@@ -22,6 +22,7 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionReceipt,
+    create_op,
 )
 
 from .spec import ref_spec_8037
@@ -280,12 +281,13 @@ def test_account_state_gas_via_delegation_pointer(
     Each still bills its state charge from the reservoir, and the header
     reports it in the state dimension.
     """
-    if state_op == Op.CREATE:
-        code = Op.POP(Op.CREATE(0, 0, 0))
-    elif state_op == Op.CREATE2:
-        code = Op.POP(Op.CREATE2(0, 0, 0, 0))
-    else:
+    if state_op in (Op.CREATE, Op.CREATE2):
+        code = Op.POP(create_op(state_op))
+    elif state_op == Op.SELFDESTRUCT:
         code = Op.SELFDESTRUCT(pre.nonexistent_account(), account_new=True)
+    else:
+        raise ValueError(f"unexpected state_op {state_op}")
+
     contract = pre.deploy_contract(code=code)
 
     delegator = pre.fund_eoa(delegation=contract, amount=1)

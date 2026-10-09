@@ -18,6 +18,7 @@ from execution_testing import (
     Transaction,
     TransactionReceipt,
     compute_create_address,
+    create_op,
     keccak256,
 )
 from execution_testing import Macros as Om
@@ -97,11 +98,7 @@ def test_max_code_size_via_create(
 
     alice = pre.fund_eoa()
 
-    create_call = (
-        create_opcode(value=0, offset=0, size=Op.CALLDATASIZE, salt=0)
-        if create_opcode == Op.CREATE2
-        else create_opcode(value=0, offset=0, size=Op.CALLDATASIZE)
-    )
+    create_call = create_op(create_opcode, size=Op.CALLDATASIZE)
 
     factory_code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
@@ -416,17 +413,7 @@ def test_warm_after_failed_create_over_max_code_size(
     """
     initcode = Op.RETURN(offset=0, size=fork.max_code_size() + 1)
     initcode_bytes = bytes(initcode)
-    if create_opcode == Op.CREATE2:
-        create_call = create_opcode(
-            value=0,
-            offset=0,
-            size=len(initcode_bytes),
-            salt=0,
-        )
-    else:
-        create_call = create_opcode(
-            value=0, offset=0, size=len(initcode_bytes)
-        )
+    create_call = create_op(create_opcode, size=len(initcode_bytes))
 
     creator_code = Op.MSTORE(
         0, Op.PUSH32(initcode_bytes.ljust(32, b"\0"))

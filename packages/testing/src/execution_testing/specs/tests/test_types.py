@@ -1,5 +1,6 @@
 """Test types from execution_testing.specs."""
 
+from typing import List
 from unittest.mock import sentinel
 
 import pytest
@@ -19,7 +20,12 @@ from execution_testing.fixtures.blockchain import (
     FixtureHeader,
 )
 from execution_testing.forks import Amsterdam, Fork, Osaka
-from execution_testing.test_types import Alloc, Environment
+from execution_testing.test_types import (
+    Alloc,
+    Environment,
+    Transaction,
+    Withdrawal,
+)
 from execution_testing.test_types.block_access_list import (
     BlockAccessList,
     BlockAccessListExpectation,
@@ -170,6 +176,8 @@ def built_block(
     rlp_modifier: Header | None = None,
     block_access_list: BlockAccessList | None = None,
     engine_new_payload_block_access_list: Bytes | None = None,
+    txs: List[Transaction] | None = None,
+    withdrawals: List[Withdrawal] | None = None,
 ) -> BuiltBlock:
     """Generate a dummy built block with all default values."""
     return BuiltBlock(
@@ -177,9 +185,9 @@ def built_block(
         env=Environment(),
         alloc=LazyAllocStr(raw="", _state_root=Hash(0)),
         state_root=Hash(0),
-        txs=[],
+        txs=txs if txs is not None else [],
         ommers=[],
-        withdrawals=None,
+        withdrawals=withdrawals,
         requests=None,
         result=result_empty,
         fork=fork,
@@ -187,6 +195,46 @@ def built_block(
         block_access_list=block_access_list,
         engine_new_payload_block_access_list=engine_new_payload_block_access_list,
     )
+
+
+@pytest.mark.parametrize(
+    "withdrawals",
+    [
+        pytest.param(None, id="no_withdrawals"),
+        pytest.param([], id="empty_withdrawals"),
+        pytest.param(
+            [
+                Withdrawal(
+                    index=i, validator_index=i, address=Address(i), amount=i
+                )
+                for i in range(3)
+            ],
+            id="withdrawals",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "txs",
+    [
+        pytest.param([], id="no_txs"),
+        pytest.param([Transaction(ty=0)], id="legacy_tx"),
+        pytest.param([Transaction(ty=2)], id="typed_tx"),
+        pytest.param(
+            [
+                Transaction(ty=0, data=b"\x01" * 300),
+                Transaction(ty=1, nonce=1),
+                Transaction(ty=2, nonce=2, data=b"\x02" * 60),
+            ],
+            id="mixed_txs",
+        ),
+    ],
+)
+def test_built_block_rlp_size(
+    txs: List[Transaction], withdrawals: List[Withdrawal] | None
+) -> None:
+    """Test that `BuiltBlock.rlp_size` equals the length of the block RLP."""
+    block = built_block(txs=txs, withdrawals=withdrawals)
+    assert block.rlp_size() == len(block.get_block_rlp())
 
 
 class TestDeriveEnginePayloadModifier:
