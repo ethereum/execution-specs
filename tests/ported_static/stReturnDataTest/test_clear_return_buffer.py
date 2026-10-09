@@ -8,10 +8,8 @@ state_tests/stReturnDataTest/clearReturnBufferFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Storage,
@@ -1049,7 +1047,6 @@ def _storage_with_any(base: dict, any_keys: list) -> Storage:
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_clear_return_buffer(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1059,17 +1056,7 @@ def test_clear_return_buffer(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     # Source: yul
     # berlin
@@ -1079,13 +1066,12 @@ def test_clear_return_buffer(
     #    mstore(0, 0x60A7)
     #    return(0, bufLen)
     # }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x0)
         + Op.MSTORE(offset=0x0, value=0x60A7)
         + Op.PUSH1[0x0]
         + Op.RETURN,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
     # Source: yul
     # berlin
@@ -1095,13 +1081,12 @@ def test_clear_return_buffer(
     #    mstore(0, 0x60A7)
     #    revert(0, bufLen)
     # }
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x0)
         + Op.MSTORE(offset=0x0, value=0x60A7)
         + Op.PUSH1[0x0]
         + Op.REVERT,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
     # Source: yul
     # berlin
@@ -1116,7 +1101,7 @@ def test_clear_return_buffer(
     #    sstore(1, address())
     #    stop()
     # }
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.PUSH1[0x20]
         + Op.PUSH1[0x0]
         + Op.DUP2 * 2
@@ -1129,7 +1114,6 @@ def test_clear_return_buffer(
         + Op.SSTORE(key=0x1, value=Op.ADDRESS)
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
     # Source: yul
     # berlin
@@ -1144,7 +1128,7 @@ def test_clear_return_buffer(
     #    sstore(1, address())
     #    stop()
     # }
-    addr_4 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(
         code=Op.PUSH1[0x20]
         + Op.PUSH1[0x0]
         + Op.DUP2 * 2
@@ -1157,7 +1141,6 @@ def test_clear_return_buffer(
         + Op.SSTORE(key=0x1, value=Op.ADDRESS)
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
     # Source: yul
     # berlin
@@ -1171,10 +1154,9 @@ def test_clear_return_buffer(
     #    // Crash with an illegal opcode
     #    verbatim_0i_0o("0xFE")
     # }
-    addr_5 = pre.deploy_contract(  # noqa: F841
+    addr_5 = pre.deploy_contract(
         code=bytes.fromhex("602060008181808035833582525af1503078464500"),
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
     # Source: yul
     # berlin
@@ -1208,21 +1190,21 @@ def test_clear_return_buffer(
     #      // Write the buffer length to memory (so we can send it)
     #      //    0x0 PUSH32 <bufLen>
     # ... (155 more lines)
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x44)
         + Op.CALLDATALOAD(offset=0x24)
         + Op.CALLDATALOAD(offset=0x4)
-        + Op.JUMPI(pc=0x19F, condition=Op.EQ(Op.DUP2, 0xF0))
-        + Op.JUMPI(pc=0x18A, condition=Op.EQ(0x11F0, Op.DUP1))
-        + Op.JUMPI(pc=0x17C, condition=Op.EQ(0xF5, Op.DUP1))
-        + Op.JUMPI(pc=0x164, condition=Op.EQ(0x11F5, Op.DUP1))
-        + Op.JUMPI(pc=0x147, condition=Op.EQ(0xF1, Op.DUP1))
-        + Op.JUMPI(pc=0x129, condition=Op.EQ(0x11F1, Op.DUP1))
-        + Op.JUMPI(pc=0x10C, condition=Op.EQ(0xF2, Op.DUP1))
-        + Op.JUMPI(pc=Op.PUSH2[0xEE], condition=Op.EQ(0x11F2, Op.DUP1))
-        + Op.JUMPI(pc=Op.PUSH2[0xD2], condition=Op.EQ(0xF4, Op.DUP1))
-        + Op.JUMPI(pc=Op.PUSH2[0xB5], condition=Op.EQ(0x11F4, Op.DUP1))
-        + Op.JUMPI(pc=Op.PUSH2[0x96], condition=Op.EQ(0xFA, Op.DUP1))
+        + Op.JUMPI(pc=0x220, condition=Op.EQ(Op.DUP2, 0xF0))
+        + Op.JUMPI(pc=0x20B, condition=Op.EQ(0x11F0, Op.DUP1))
+        + Op.JUMPI(pc=0x1FD, condition=Op.EQ(0xF5, Op.DUP1))
+        + Op.JUMPI(pc=0x1E5, condition=Op.EQ(0x11F5, Op.DUP1))
+        + Op.JUMPI(pc=0x1B7, condition=Op.EQ(0xF1, Op.DUP1))
+        + Op.JUMPI(pc=0x189, condition=Op.EQ(0x11F1, Op.DUP1))
+        + Op.JUMPI(pc=0x15B, condition=Op.EQ(0xF2, Op.DUP1))
+        + Op.JUMPI(pc=Op.PUSH2[0x12D], condition=Op.EQ(0x11F2, Op.DUP1))
+        + Op.JUMPI(pc=Op.PUSH2[0x100], condition=Op.EQ(0xF4, Op.DUP1))
+        + Op.JUMPI(pc=Op.PUSH2[0xD3], condition=Op.EQ(0x11F4, Op.DUP1))
+        + Op.JUMPI(pc=Op.PUSH2[0xA6], condition=Op.EQ(0xFA, Op.DUP1))
         + Op.PUSH2[0x11FA]
         + Op.JUMPI(pc=Op.PUSH2[0x72], condition=Op.EQ)
         + Op.REVERT(offset=Op.DUP1, size=0x0)
@@ -1234,7 +1216,7 @@ def test_clear_return_buffer(
         + Op.POP(
             Op.STATICCALL(
                 gas=Op.GAS,
-                address=0xBAD0CA11,
+                address=Op.PUSH20[addr_5],
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x100,
@@ -1254,14 +1236,14 @@ def test_clear_return_buffer(
         + Op.POP(
             Op.STATICCALL(
                 gas=Op.GAS,
-                address=0x57A700CA11ED,
+                address=Op.PUSH20[addr_4],
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x100,
                 ret_size=0x20,
             )
         )
-        + Op.JUMP(pc=Op.PUSH2[0x8A])
+        + Op.JUMP(pc=Op.PUSH2[0x9A])
         + Op.JUMPDEST
         + Op.POP
         + Op.PUSH1[0x0]
@@ -1271,14 +1253,14 @@ def test_clear_return_buffer(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=Op.GAS,
-                address=0xBAD0CA11,
+                address=Op.PUSH20[addr_5],
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x100,
                 ret_size=0x20,
             )
         )
-        + Op.JUMP(pc=Op.PUSH2[0x8A])
+        + Op.JUMP(pc=Op.PUSH2[0x9A])
         + Op.JUMPDEST
         + Op.POP
         + Op.PUSH1[0x0]
@@ -1288,14 +1270,14 @@ def test_clear_return_buffer(
         + Op.POP(
             Op.DELEGATECALL(
                 gas=Op.GAS,
-                address=0xCA11ED,
+                address=Op.PUSH20[addr_3],
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x100,
                 ret_size=0x20,
             )
         )
-        + Op.JUMP(pc=Op.PUSH2[0x8A])
+        + Op.JUMP(pc=Op.PUSH2[0x9A])
         + Op.JUMPDEST
         + Op.POP
         + Op.PUSH1[0x0]
@@ -1305,7 +1287,7 @@ def test_clear_return_buffer(
         + Op.POP(
             Op.CALLCODE(
                 gas=Op.GAS,
-                address=0xBAD0CA11,
+                address=Op.PUSH20[addr_5],
                 value=Op.DUP1,
                 args_offset=0x0,
                 args_size=0x40,
@@ -1313,7 +1295,7 @@ def test_clear_return_buffer(
                 ret_size=0x20,
             )
         )
-        + Op.JUMP(pc=Op.PUSH2[0x8A])
+        + Op.JUMP(pc=Op.PUSH2[0x9A])
         + Op.JUMPDEST
         + Op.POP
         + Op.PUSH1[0x0]
@@ -1323,7 +1305,7 @@ def test_clear_return_buffer(
         + Op.POP(
             Op.CALLCODE(
                 gas=Op.GAS,
-                address=0xCA11ED,
+                address=Op.PUSH20[addr_3],
                 value=Op.DUP1,
                 args_offset=0x0,
                 args_size=0x40,
@@ -1331,7 +1313,7 @@ def test_clear_return_buffer(
                 ret_size=0x20,
             )
         )
-        + Op.JUMP(pc=Op.PUSH2[0x8A])
+        + Op.JUMP(pc=Op.PUSH2[0x9A])
         + Op.JUMPDEST
         + Op.POP
         + Op.PUSH1[0x0]
@@ -1341,7 +1323,7 @@ def test_clear_return_buffer(
         + Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=0xBAD0CA11,
+                address=Op.PUSH20[addr_5],
                 value=Op.DUP1,
                 args_offset=0x0,
                 args_size=0x40,
@@ -1349,7 +1331,7 @@ def test_clear_return_buffer(
                 ret_size=0x20,
             )
         )
-        + Op.JUMP(pc=Op.PUSH2[0x8A])
+        + Op.JUMP(pc=Op.PUSH2[0x9A])
         + Op.JUMPDEST
         + Op.POP
         + Op.PUSH1[0x0]
@@ -1359,7 +1341,7 @@ def test_clear_return_buffer(
         + Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=0xCA11ED,
+                address=Op.PUSH20[addr_3],
                 value=Op.DUP1,
                 args_offset=0x0,
                 args_size=0x40,
@@ -1367,41 +1349,41 @@ def test_clear_return_buffer(
                 ret_size=0x20,
             )
         )
-        + Op.JUMP(pc=Op.PUSH2[0x8A])
+        + Op.JUMP(pc=Op.PUSH2[0x9A])
         + Op.JUMPDEST
         + Op.POP
         + Op.PUSH2[0x5A17]
         + Op.SWAP2
-        + Op.PUSH2[0x172]
+        + Op.PUSH2[0x1F3]
         + Op.SWAP2
-        + Op.JUMP(pc=0x23E)
+        + Op.JUMP(pc=0x2BF)
         + Op.JUMPDEST
         + Op.PUSH1[0x0]
         + Op.DUP1
         + Op.POP(Op.CREATE2)
-        + Op.JUMP(pc=Op.PUSH2[0x8A])
+        + Op.JUMP(pc=Op.PUSH2[0x9A])
         + Op.JUMPDEST
         + Op.POP
         + Op.PUSH2[0x5A17]
         + Op.SWAP2
-        + Op.PUSH2[0x172]
+        + Op.PUSH2[0x1F3]
         + Op.SWAP2
-        + Op.JUMP(pc=0x1A6)
+        + Op.JUMP(pc=0x227)
         + Op.JUMPDEST
         + Op.POP
         + Op.SWAP1
-        + Op.PUSH2[0x195]
+        + Op.PUSH2[0x216]
         + Op.SWAP2
-        + Op.JUMP(pc=0x23E)
+        + Op.JUMP(pc=0x2BF)
         + Op.JUMPDEST
         + Op.PUSH1[0x0]
         + Op.DUP1
         + Op.POP(Op.CREATE)
-        + Op.JUMP(pc=Op.PUSH2[0x8A])
+        + Op.JUMP(pc=Op.PUSH2[0x9A])
         + Op.JUMPDEST
         + Op.POP
         + Op.SWAP1
-        + Op.PUSH2[0x195]
+        + Op.PUSH2[0x216]
         + Op.SWAP2
         + Op.JUMPDEST
         + Op.SWAP1
@@ -1442,187 +1424,654 @@ def test_clear_return_buffer(
         + Op.JUMP
         + Op.JUMPDEST
         + Op.SWAP1
-        + Op.PUSH2[0x248]
+        + Op.PUSH2[0x2C9]
         + Op.SWAP2
-        + Op.JUMP(pc=0x1A6)
+        + Op.JUMP(pc=0x227)
         + Op.JUMPDEST
         + Op.MSTORE8(offset=Op.SUB(Op.DUP3, 0x1), value=0xFE)
         + Op.SWAP1
         + Op.JUMP,
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
 
     tx_data = [
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xF3F3) + Hash(0x20),
-        Bytes("048071d3") + Hash(0xF0) + Hash(0xFDFD) + Hash(0x20),
-        Bytes("048071d3") + Hash(0xF0) + Hash(0xF3F3) + Hash(0x1),
-        Bytes("048071d3") + Hash(0xF0) + Hash(0xF3F3) + Hash(0x10),
-        Bytes("048071d3") + Hash(0xF0) + Hash(0xF3F3) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0xF0) + Hash(0xF3F3) + Hash(0x100),
-        Bytes("048071d3") + Hash(0xF0) + Hash(0xF3F3) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0xF0) + Hash(0xF3F3) + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0xF0)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0xF0)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1),
+        Bytes("048071d3")
+        + Hash(0xF0)
+        + Hash(addr, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0xF0)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0xF0)
+        + Hash(addr, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0xF0)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0xF0)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1000),
         Bytes("048071d3") + Hash(0xF0) + Hash(0xF3FD) + Hash(0x1),
-        Bytes("048071d3") + Hash(0xF0) + Hash(0xFDFD) + Hash(0x10),
-        Bytes("048071d3") + Hash(0xF0) + Hash(0xFDFD) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0xF0) + Hash(0xFDFD) + Hash(0x100),
-        Bytes("048071d3") + Hash(0xF0) + Hash(0xFDFD) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0xF0) + Hash(0xFDFD) + Hash(0x1000),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0xF3F3) + Hash(0x20),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0xFDFD) + Hash(0x20),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0xF3F3) + Hash(0x1),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0xF3F3) + Hash(0x10),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0xF3F3) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0xF3F3) + Hash(0x100),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0xF3F3) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0xF3F3) + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0xF0)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0xF0)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0xF0)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0xF0)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0xF0)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(addr, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(addr, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(addr, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1000),
         Bytes("048071d3") + Hash(0xF5) + Hash(0xF3FD) + Hash(0x1),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0xFDFD) + Hash(0x10),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0xFDFD) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0xFDFD) + Hash(0x100),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0xFDFD) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0xFDFD) + Hash(0x1000),
-        Bytes("048071d3") + Hash(0xF1) + Hash(0xF3F3) + Hash(0x20),
-        Bytes("048071d3") + Hash(0xF1) + Hash(0xFDFD) + Hash(0x20),
-        Bytes("048071d3") + Hash(0xF1) + Hash(0xF3F3) + Hash(0x1),
-        Bytes("048071d3") + Hash(0xF1) + Hash(0xF3F3) + Hash(0x10),
-        Bytes("048071d3") + Hash(0xF1) + Hash(0xF3F3) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0xF1) + Hash(0xF3F3) + Hash(0x100),
-        Bytes("048071d3") + Hash(0xF1) + Hash(0xF3F3) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0xF1) + Hash(0xF3F3) + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0xF1)
+        + Hash(addr, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0xF1)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0xF1)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1),
+        Bytes("048071d3")
+        + Hash(0xF1)
+        + Hash(addr, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0xF1)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0xF1)
+        + Hash(addr, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0xF1)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0xF1)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1000),
         Bytes("048071d3") + Hash(0xF1) + Hash(0xF3FD) + Hash(0x1),
-        Bytes("048071d3") + Hash(0xF1) + Hash(0xFDFD) + Hash(0x10),
-        Bytes("048071d3") + Hash(0xF1) + Hash(0xFDFD) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0xF1) + Hash(0xFDFD) + Hash(0x100),
-        Bytes("048071d3") + Hash(0xF1) + Hash(0xFDFD) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0xF1) + Hash(0xFDFD) + Hash(0x1000),
-        Bytes("048071d3") + Hash(0xF2) + Hash(0xF3F3) + Hash(0x20),
-        Bytes("048071d3") + Hash(0xF2) + Hash(0xFDFD) + Hash(0x20),
-        Bytes("048071d3") + Hash(0xF2) + Hash(0xF3F3) + Hash(0x1),
-        Bytes("048071d3") + Hash(0xF2) + Hash(0xF3F3) + Hash(0x10),
-        Bytes("048071d3") + Hash(0xF2) + Hash(0xF3F3) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0xF2) + Hash(0xF3F3) + Hash(0x100),
-        Bytes("048071d3") + Hash(0xF2) + Hash(0xF3F3) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0xF2) + Hash(0xF3F3) + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0xF1)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0xF1)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0xF1)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0xF1)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0xF1)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0xF2)
+        + Hash(addr, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0xF2)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0xF2)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1),
+        Bytes("048071d3")
+        + Hash(0xF2)
+        + Hash(addr, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0xF2)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0xF2)
+        + Hash(addr, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0xF2)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0xF2)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1000),
         Bytes("048071d3") + Hash(0xF2) + Hash(0xF3FD) + Hash(0x1),
-        Bytes("048071d3") + Hash(0xF2) + Hash(0xFDFD) + Hash(0x10),
-        Bytes("048071d3") + Hash(0xF2) + Hash(0xFDFD) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0xF2) + Hash(0xFDFD) + Hash(0x100),
-        Bytes("048071d3") + Hash(0xF2) + Hash(0xFDFD) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0xF2) + Hash(0xFDFD) + Hash(0x1000),
-        Bytes("048071d3") + Hash(0xF4) + Hash(0xF3F3) + Hash(0x20),
-        Bytes("048071d3") + Hash(0xF4) + Hash(0xFDFD) + Hash(0x20),
-        Bytes("048071d3") + Hash(0xF4) + Hash(0xF3F3) + Hash(0x1),
-        Bytes("048071d3") + Hash(0xF4) + Hash(0xF3F3) + Hash(0x10),
-        Bytes("048071d3") + Hash(0xF4) + Hash(0xF3F3) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0xF4) + Hash(0xF3F3) + Hash(0x100),
-        Bytes("048071d3") + Hash(0xF4) + Hash(0xF3F3) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0xF4) + Hash(0xF3F3) + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0xF2)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0xF2)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0xF2)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0xF2)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0xF2)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0xF4)
+        + Hash(addr, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0xF4)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0xF4)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1),
+        Bytes("048071d3")
+        + Hash(0xF4)
+        + Hash(addr, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0xF4)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0xF4)
+        + Hash(addr, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0xF4)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0xF4)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1000),
         Bytes("048071d3") + Hash(0xF4) + Hash(0xF3FD) + Hash(0x1),
-        Bytes("048071d3") + Hash(0xF4) + Hash(0xFDFD) + Hash(0x10),
-        Bytes("048071d3") + Hash(0xF4) + Hash(0xFDFD) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0xF4) + Hash(0xFDFD) + Hash(0x100),
-        Bytes("048071d3") + Hash(0xF4) + Hash(0xFDFD) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0xF4) + Hash(0xFDFD) + Hash(0x1000),
-        Bytes("048071d3") + Hash(0xFA) + Hash(0xF3F3) + Hash(0x20),
-        Bytes("048071d3") + Hash(0xFA) + Hash(0xFDFD) + Hash(0x20),
-        Bytes("048071d3") + Hash(0xFA) + Hash(0xF3F3) + Hash(0x1),
-        Bytes("048071d3") + Hash(0xFA) + Hash(0xF3F3) + Hash(0x10),
-        Bytes("048071d3") + Hash(0xFA) + Hash(0xF3F3) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0xFA) + Hash(0xF3F3) + Hash(0x100),
-        Bytes("048071d3") + Hash(0xFA) + Hash(0xF3F3) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0xFA) + Hash(0xF3F3) + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0xF4)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0xF4)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0xF4)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0xF4)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0xF4)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0xFA)
+        + Hash(addr, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0xFA)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0xFA)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1),
+        Bytes("048071d3")
+        + Hash(0xFA)
+        + Hash(addr, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0xFA)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0xFA)
+        + Hash(addr, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0xFA)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0xFA)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1000),
         Bytes("048071d3") + Hash(0xFA) + Hash(0xF3FD) + Hash(0x1),
-        Bytes("048071d3") + Hash(0xFA) + Hash(0xFDFD) + Hash(0x10),
-        Bytes("048071d3") + Hash(0xFA) + Hash(0xFDFD) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0xFA) + Hash(0xFDFD) + Hash(0x100),
-        Bytes("048071d3") + Hash(0xFA) + Hash(0xFDFD) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0xFA) + Hash(0xFDFD) + Hash(0x1000),
-        Bytes("048071d3") + Hash(0x11F1) + Hash(0xF3F3) + Hash(0x20),
-        Bytes("048071d3") + Hash(0x11F1) + Hash(0xFDFD) + Hash(0x20),
-        Bytes("048071d3") + Hash(0x11F1) + Hash(0xF3F3) + Hash(0x1),
-        Bytes("048071d3") + Hash(0x11F1) + Hash(0xF3F3) + Hash(0x10),
-        Bytes("048071d3") + Hash(0x11F1) + Hash(0xF3F3) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0x11F1) + Hash(0xF3F3) + Hash(0x100),
-        Bytes("048071d3") + Hash(0x11F1) + Hash(0xF3F3) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0x11F1) + Hash(0xF3F3) + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0xFA)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0xFA)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0xFA)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0xFA)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0xFA)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0x11F1)
+        + Hash(addr, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0x11F1)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0x11F1)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1),
+        Bytes("048071d3")
+        + Hash(0x11F1)
+        + Hash(addr, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0x11F1)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0x11F1)
+        + Hash(addr, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0x11F1)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0x11F1)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1000),
         Bytes("048071d3") + Hash(0x11F1) + Hash(0xF3FD) + Hash(0x1),
-        Bytes("048071d3") + Hash(0x11F1) + Hash(0xFDFD) + Hash(0x10),
-        Bytes("048071d3") + Hash(0x11F1) + Hash(0xFDFD) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0x11F1) + Hash(0xFDFD) + Hash(0x100),
-        Bytes("048071d3") + Hash(0x11F1) + Hash(0xFDFD) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0x11F1) + Hash(0xFDFD) + Hash(0x1000),
-        Bytes("048071d3") + Hash(0x11F2) + Hash(0xF3F3) + Hash(0x20),
-        Bytes("048071d3") + Hash(0x11F2) + Hash(0xFDFD) + Hash(0x20),
-        Bytes("048071d3") + Hash(0x11F2) + Hash(0xF3F3) + Hash(0x1),
-        Bytes("048071d3") + Hash(0x11F2) + Hash(0xF3F3) + Hash(0x10),
-        Bytes("048071d3") + Hash(0x11F2) + Hash(0xF3F3) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0x11F2) + Hash(0xF3F3) + Hash(0x100),
-        Bytes("048071d3") + Hash(0x11F2) + Hash(0xF3F3) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0x11F2) + Hash(0xF3F3) + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0x11F1)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0x11F1)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0x11F1)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0x11F1)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0x11F1)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0x11F2)
+        + Hash(addr, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0x11F2)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0x11F2)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1),
+        Bytes("048071d3")
+        + Hash(0x11F2)
+        + Hash(addr, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0x11F2)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0x11F2)
+        + Hash(addr, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0x11F2)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0x11F2)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1000),
         Bytes("048071d3") + Hash(0x11F2) + Hash(0xF3FD) + Hash(0x1),
-        Bytes("048071d3") + Hash(0x11F2) + Hash(0xFDFD) + Hash(0x10),
-        Bytes("048071d3") + Hash(0x11F2) + Hash(0xFDFD) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0x11F2) + Hash(0xFDFD) + Hash(0x100),
-        Bytes("048071d3") + Hash(0x11F2) + Hash(0xFDFD) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0x11F2) + Hash(0xFDFD) + Hash(0x1000),
-        Bytes("048071d3") + Hash(0x11F4) + Hash(0xF3F3) + Hash(0x20),
-        Bytes("048071d3") + Hash(0x11F4) + Hash(0xFDFD) + Hash(0x20),
-        Bytes("048071d3") + Hash(0x11F4) + Hash(0xF3F3) + Hash(0x1),
-        Bytes("048071d3") + Hash(0x11F4) + Hash(0xF3F3) + Hash(0x10),
-        Bytes("048071d3") + Hash(0x11F4) + Hash(0xF3F3) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0x11F4) + Hash(0xF3F3) + Hash(0x100),
-        Bytes("048071d3") + Hash(0x11F4) + Hash(0xF3F3) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0x11F4) + Hash(0xF3F3) + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0x11F2)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0x11F2)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0x11F2)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0x11F2)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0x11F2)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0x11F4)
+        + Hash(addr, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0x11F4)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0x11F4)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1),
+        Bytes("048071d3")
+        + Hash(0x11F4)
+        + Hash(addr, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0x11F4)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0x11F4)
+        + Hash(addr, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0x11F4)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0x11F4)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1000),
         Bytes("048071d3") + Hash(0x11F4) + Hash(0xF3FD) + Hash(0x1),
-        Bytes("048071d3") + Hash(0x11F4) + Hash(0xFDFD) + Hash(0x10),
-        Bytes("048071d3") + Hash(0x11F4) + Hash(0xFDFD) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0x11F4) + Hash(0xFDFD) + Hash(0x100),
-        Bytes("048071d3") + Hash(0x11F4) + Hash(0xFDFD) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0x11F4) + Hash(0xFDFD) + Hash(0x1000),
-        Bytes("048071d3") + Hash(0x11FA) + Hash(0xF3F3) + Hash(0x20),
-        Bytes("048071d3") + Hash(0x11FA) + Hash(0xFDFD) + Hash(0x20),
-        Bytes("048071d3") + Hash(0x11FA) + Hash(0xF3F3) + Hash(0x1),
-        Bytes("048071d3") + Hash(0x11FA) + Hash(0xF3F3) + Hash(0x10),
-        Bytes("048071d3") + Hash(0x11FA) + Hash(0xF3F3) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0x11FA) + Hash(0xF3F3) + Hash(0x100),
-        Bytes("048071d3") + Hash(0x11FA) + Hash(0xF3F3) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0x11FA) + Hash(0xF3F3) + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0x11F4)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0x11F4)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0x11F4)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0x11F4)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0x11F4)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0x11FA)
+        + Hash(addr, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0x11FA)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0x11FA)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1),
+        Bytes("048071d3")
+        + Hash(0x11FA)
+        + Hash(addr, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0x11FA)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0x11FA)
+        + Hash(addr, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0x11FA)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0x11FA)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1000),
         Bytes("048071d3") + Hash(0x11FA) + Hash(0xF3FD) + Hash(0x1),
-        Bytes("048071d3") + Hash(0x11FA) + Hash(0xFDFD) + Hash(0x10),
-        Bytes("048071d3") + Hash(0x11FA) + Hash(0xFDFD) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0x11FA) + Hash(0xFDFD) + Hash(0x100),
-        Bytes("048071d3") + Hash(0x11FA) + Hash(0xFDFD) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0x11FA) + Hash(0xFDFD) + Hash(0x1000),
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xF3F3) + Hash(0x20),
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xFDFD) + Hash(0x20),
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xF3F3) + Hash(0x1),
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xF3F3) + Hash(0x10),
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xF3F3) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xF3F3) + Hash(0x100),
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xF3F3) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xF3F3) + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0x11FA)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0x11FA)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0x11FA)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0x11FA)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0x11FA)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1000),
         Bytes("048071d3") + Hash(0x11F0) + Hash(0xF3FD) + Hash(0x1),
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xFDFD) + Hash(0x10),
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xFDFD) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xFDFD) + Hash(0x100),
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xFDFD) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0x11F0) + Hash(0xFDFD) + Hash(0x1000),
-        Bytes("048071d3") + Hash(0x11F5) + Hash(0xF3F3) + Hash(0x20),
-        Bytes("048071d3") + Hash(0x11F5) + Hash(0xFDFD) + Hash(0x20),
-        Bytes("048071d3") + Hash(0x11F5) + Hash(0xF3F3) + Hash(0x1),
-        Bytes("048071d3") + Hash(0x11F5) + Hash(0xF3F3) + Hash(0x10),
-        Bytes("048071d3") + Hash(0x11F5) + Hash(0xF3F3) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0x11F5) + Hash(0xF3F3) + Hash(0x100),
-        Bytes("048071d3") + Hash(0x11F5) + Hash(0xF3F3) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0x11F5) + Hash(0xF3F3) + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0x11F0)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0x11F5)
+        + Hash(addr, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0x11F5)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x20),
+        Bytes("048071d3")
+        + Hash(0x11F5)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1),
+        Bytes("048071d3")
+        + Hash(0x11F5)
+        + Hash(addr, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0x11F5)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0x11F5)
+        + Hash(addr, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0x11F5)
+        + Hash(addr, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0x11F5)
+        + Hash(addr, left_padding=True)
+        + Hash(0x1000),
         Bytes("048071d3") + Hash(0x11F5) + Hash(0xF3FD) + Hash(0x1),
-        Bytes("048071d3") + Hash(0x11F5) + Hash(0xFDFD) + Hash(0x10),
-        Bytes("048071d3") + Hash(0x11F5) + Hash(0xFDFD) + Hash(0xFF),
-        Bytes("048071d3") + Hash(0x11F5) + Hash(0xFDFD) + Hash(0x100),
-        Bytes("048071d3") + Hash(0x11F5) + Hash(0xFDFD) + Hash(0xFFF),
-        Bytes("048071d3") + Hash(0x11F5) + Hash(0xFDFD) + Hash(0x1000),
+        Bytes("048071d3")
+        + Hash(0x11F5)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x10),
+        Bytes("048071d3")
+        + Hash(0x11F5)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFF),
+        Bytes("048071d3")
+        + Hash(0x11F5)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x100),
+        Bytes("048071d3")
+        + Hash(0x11F5)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0xFFF),
+        Bytes("048071d3")
+        + Hash(0x11F5)
+        + Hash(addr_2, left_padding=True)
+        + Hash(0x1000),
     ]
     tx_gas = [16777216]
     tx_value = [1]
@@ -1633,9 +2082,8 @@ def test_clear_return_buffer(
         data=tx_data[d],
         gas_limit=tx_gas[g],
         value=tx_value[v],
-        nonce=1,
     )
 
     post = {target: Account(storage=_storage_with_any({0: 0}, [1]))}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
