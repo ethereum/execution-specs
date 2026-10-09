@@ -6203,6 +6203,123 @@ class Opcodes(Opcode, Enum):
     Gas: 3 + 3 * ceil(size / 32) (plus memory expansion)
     """
 
+    TXTRACE = Opcode(
+        0xB6,
+        popped_stack_items=2,
+        pushed_stack_items=1,
+        kwargs=["param", "index"],
+    )
+    """
+    TXTRACE(param, index)
+    ----
+
+    Description
+    ----
+    Push one value of the executing frame transaction's state diff
+    (EIP-7906): a table count, an entry of the balance, slot,
+    deployment or event tables at `index`, or the gas payment
+    parameters. Valid only inside a `POST_TX` frame, exceptionally
+    halts elsewhere, on an undefined parameter, an out-of-bounds index,
+    or a non-zero index for a parameter that takes none.
+
+    Inputs
+    ----
+    - param: parameter selector (0x00-0x15)
+    - index: entry index, or 0 for the count and payment parameters
+
+    Outputs
+    ----
+    - value: the requested diff value
+
+    Fork
+    ----
+    Bogota
+
+    Gas: WARM_STORAGE_READ_COST
+    """
+
+    TXDIFF = Opcode(
+        0xB7,
+        popped_stack_items=3,
+        pushed_stack_items=1,
+        kwargs=["param", "key", "index"],
+        metadata={
+            "state_access": None,
+            "key_warm": False,
+            "address_warm": False,
+        },
+    )
+    """
+    TXDIFF(param, key, index)
+    ----
+
+    Description
+    ----
+    Push one keyed lookup into the executing frame transaction's state
+    diff (EIP-7906): an account's slot, balance or code hash before and
+    after the transaction (params 0x00-0x05, priced as a warm or cold
+    state read), or per-address and per-topic views over the diff
+    tables and the account change flags (params 0x06-0x0C, flat cost).
+    Valid only inside a `POST_TX` frame. For gas calculation, set
+    `state_access="slot"` for params 0x00-0x01 or `"account"` for
+    params 0x02-0x05, and provide `key_warm` or `address_warm`. The
+    default `state_access=None` prices a view or flags parameter.
+
+    Inputs
+    ----
+    - param: parameter selector (0x00-0x0C)
+    - key: the address the query is keyed on, or a topic value
+    - index: slot key, per-address index, or 0
+
+    Outputs
+    ----
+    - value: the requested diff value
+
+    Fork
+    ----
+    Bogota
+
+    Gas: COLD_STORAGE_ACCESS or WARM_ACCESS for slots,
+    COLD_ACCOUNT_ACCESS or WARM_ACCESS for accounts, and
+    WARM_STORAGE_READ_COST for the views
+    """
+
+    EVENTDATACOPY = Opcode(
+        0xB8,
+        popped_stack_items=4,
+        pushed_stack_items=0,
+        kwargs=["event_index", "dest_offset", "offset", "size"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
+    )
+    """
+    EVENTDATACOPY(event_index, dest_offset, offset, size)
+    ----
+
+    Description
+    ----
+    Copy a portion of one event's non-indexed data into memory with
+    CALLDATACOPY pricing (EIP-7906). Exceptionally halts outside a
+    `POST_TX` frame, on an out-of-bounds event index, or on a range
+    past the end of the event's data.
+
+    Inputs
+    ----
+    - event_index: index of the event in the transaction's event table
+    - dest_offset: byte offset in memory to copy to
+    - offset: byte offset in the event data to copy from
+    - size: number of bytes to copy
+
+    Outputs
+    ----
+    None
+
+    Fork
+    ----
+    Bogota
+
+    Gas: 3 + 3 * ceil(size / 32) (plus memory expansion)
+    """
+
 
 _push_opcodes_byte_list: List[Opcode] = [
     Opcodes.PUSH1,

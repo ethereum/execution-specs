@@ -387,12 +387,8 @@ FRAME_CASES = [
     ),
     # Decode-time rejections: field values outside their type's
     # domain never construct, so the transaction never decodes.
-    pytest.param(
-        [verify_frame(), default_frame(mode=3)],
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="undefined_frame_mode",
-        marks=pytest.mark.exception_test,
-    ),
+    # The first undefined mode moves as later EIPs add modes. It is
+    # covered by `test_first_undefined_frame_mode` through the fork.
     pytest.param(
         [verify_frame(), default_frame(mode=255)],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
@@ -480,6 +476,47 @@ def test_frame_constraints_transaction(
         sender=sender,
         frames=frames(pre, sender) if callable(frames) else frames,
         error=error,
+    )
+
+    transaction_test(pre=pre, tx=tx)
+
+
+@pytest.mark.exception_test
+def test_first_undefined_frame_mode(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Reject a frame carrying the first mode value the fork leaves
+    undefined: the value never decodes into a frame mode, so the
+    transaction never decodes.
+    """
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        sender=sender,
+        frames=[verify_frame(), default_frame(mode=fork.frame_mode_count())],
+        error=TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+    )
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=0)})
+
+
+@pytest.mark.exception_test
+def test_first_undefined_frame_mode_transaction(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Assert `test_first_undefined_frame_mode` on the transaction itself
+    rather than on a block containing it.
+    """
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        sender=sender,
+        frames=[verify_frame(), default_frame(mode=fork.frame_mode_count())],
+        error=TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
     )
 
     transaction_test(pre=pre, tx=tx)

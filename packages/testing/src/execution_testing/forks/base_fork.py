@@ -1275,6 +1275,18 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def frame_mode_count(cls) -> int:
+        """
+        Return the number of frame modes an EIP-8141 frame may carry at
+        the fork, zero before frame transactions exist.
+
+        Modes are numbered from zero, so the count is also the smallest
+        mode value a frame cannot carry.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def contract_creating_tx_types(cls) -> List[int]:
         """
         Return list of the transaction types supported by the fork that can

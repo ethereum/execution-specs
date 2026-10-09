@@ -287,6 +287,7 @@ class GasCosts:
     OPCODE_TLOAD: Final[ExecutionGas] = ExecutionGas(Uint(100))
     OPCODE_TSTORE: Final[ExecutionGas] = ExecutionGas(Uint(100))
     OPCODE_TXPARAM: Final[ExecutionGas] = BASE
+    OPCODE_TXTRACE: Final[ExecutionGas] = WARM_ACCESS
     OPCODE_FRAMEDATALOAD: Final[ExecutionGas] = VERY_LOW
     OPCODE_FRAMEPARAM: Final[ExecutionGas] = BASE
     OPCODE_SIGPARAM: Final[ExecutionGas] = BASE
@@ -297,6 +298,7 @@ class GasCosts:
     OPCODE_RETURNDATACOPY_BASE: Final[ExecutionGas] = VERY_LOW
     OPCODE_RETURNDATACOPY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))
     OPCODE_CALLDATACOPY_BASE: Final[ExecutionGas] = VERY_LOW
+    OPCODE_EVENTDATACOPY_BASE: Final[ExecutionGas] = VERY_LOW
     OPCODE_CODECOPY_BASE: Final[ExecutionGas] = VERY_LOW
     OPCODE_MCOPY_BASE: Final[ExecutionGas] = VERY_LOW
     OPCODE_MLOAD_BASE: Final[ExecutionGas] = VERY_LOW
