@@ -58,6 +58,7 @@ from .helpers import (
     post_tx_frame,
     reverted_body_receipts,
     settled_receipt,
+    state_creations,
     success_receipts,
 )
 from .spec import Spec, ref_spec_7906
@@ -759,17 +760,112 @@ def test_frames_before_payment_approval_survive_failed_assertion(
 ) -> None:
     """
     Keep a `SENDER` frame that runs between the execution and payment
-    approvals when the assertion fails. It belongs to the validation
-    prefix, which ends at the payment approval, so only the frames
-    after that revert.
+    approvals when the assertion fails, and charge its state gas to the
+    sponsor. It belongs to the validation prefix, which ends at the
+    payment approval, so only the frames after that revert.
+    """
+    sender = pre.fund_eoa(amount=FUNDS)
+    approve = Op.APPROVE(0, 0, Spec8141.APPROVE_PAYMENT)
+    sponsor = pre.deploy_contract(code=approve, balance=FUNDS)
+    prefix_write = Op.SSTORE(SLOT_A, 1) + Op.STOP
+    body_write = Op.SSTORE(SLOT_B, 1) + Op.STOP
+    prefix_writer = pre.deploy_contract(code=prefix_write)
+    body_writer = pre.deploy_contract(code=body_write)
+    revert = Op.REVERT(0, 0)
+    assertion = pre.deploy_contract(code=revert)
+    entry = fork.frame_entry_gas_calculator()()
+    receipts = [
+        FrameReceipt(
+            status=Spec8141.STATUS_SUCCESS,
+            gas_used=default_code_frame_gas(fork, target_warm=True),
+            state_gas_used=0,
+        ),
+        FrameReceipt(
+            status=Spec8141.STATUS_SUCCESS,
+            gas_used=entry + prefix_write.execution_cost(fork),
+            state_gas_used=prefix_write.state_cost(fork),
+        ),
+        FrameReceipt(
+            status=Spec8141.STATUS_SUCCESS,
+            gas_used=entry + approve.execution_cost(fork),
+            state_gas_used=0,
+        ),
+        FrameReceipt(
+            status=Spec8141.STATUS_SUCCESS,
+            gas_used=entry + body_write.execution_cost(fork),
+            state_gas_used=0,
+            logs=[],
+        ),
+        FrameReceipt(
+            status=Spec8141.STATUS_FAILURE,
+            gas_used=entry + revert.execution_cost(fork),
+            state_gas_used=0,
+        ),
+    ]
+    tx = Transaction(
+        sender=sender,
+        max_fee_per_gas=FEE_PER_GAS,
+        max_priority_fee_per_gas=0,
+        frames=[
+            verify_frame(flags=Spec8141.APPROVE_EXECUTION),
+            body_frame(fork, target=prefix_writer),
+            verify_frame(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
+            body_frame(fork, target=body_writer),
+            post_tx_frame(fork, target=assertion),
+        ],
+    )
+    payer_used, block_gas_used = frame_transaction_gas(
+        fork, tx, receipts, refundable=0
+    )
+    tx.expected_receipt = TransactionReceipt(
+        payer=sponsor, cumulative_gas_used=payer_used, frame_receipts=receipts
+    )
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1, balance=FUNDS),
+            sponsor: Account(balance=FUNDS - FEE_PER_GAS * payer_used),
+            prefix_writer: Account(storage={SLOT_A: 1}),
+            body_writer: Account(storage={SLOT_B: 0}),
+        },
+        blockchain_test_header_verify=Header(gas_used=block_gas_used),
+    )
+
+
+def test_failed_assertion_keeps_prefix_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Charge the state gas of a validation prefix that revives an
+    account, sets slots and deploys a contract when the assertion
+    fails, while the body's identical creations revert and charge
+    nothing.
     """
     sender = pre.fund_eoa(amount=FUNDS)
     sponsor = pre.deploy_contract(
         code=Op.APPROVE(0, 0, Spec8141.APPROVE_PAYMENT), balance=FUNDS
     )
-    prefix_writer = pre.deploy_contract(code=Op.SSTORE(SLOT_A, 1) + Op.STOP)
-    body_writer = pre.deploy_contract(code=Op.SSTORE(SLOT_B, 1) + Op.STOP)
+    prefix = state_creations(pre, fork)
+    body = state_creations(pre, fork)
     assertion = pre.deploy_contract(code=Op.REVERT(0, 0))
+    receipts = [
+        FrameReceipt(status=Spec8141.STATUS_SUCCESS, state_gas_used=0),
+        *[
+            FrameReceipt(status=Spec8141.STATUS_SUCCESS, state_gas_used=gas)
+            for gas in prefix.state_gas(fork)
+        ],
+        FrameReceipt(status=Spec8141.STATUS_SUCCESS, state_gas_used=0),
+        *[
+            FrameReceipt(
+                status=Spec8141.STATUS_SUCCESS, state_gas_used=0, logs=[]
+            )
+            for _ in body.frames
+        ],
+        FrameReceipt(status=Spec8141.STATUS_FAILURE, state_gas_used=0),
+    ]
 
     state_test(
         pre=pre,
@@ -777,23 +873,18 @@ def test_frames_before_payment_approval_survive_failed_assertion(
             sender=sender,
             frames=[
                 verify_frame(flags=Spec8141.APPROVE_EXECUTION),
-                body_frame(fork, target=prefix_writer),
+                *prefix.frames,
                 verify_frame(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
-                body_frame(fork, target=body_writer),
+                *body.frames,
                 post_tx_frame(fork, target=assertion),
             ],
             expected_receipt=TransactionReceipt(
-                payer=sponsor,
-                frame_receipts=[
-                    FrameReceipt(status=Spec8141.STATUS_SUCCESS),
-                    FrameReceipt(status=Spec8141.STATUS_SUCCESS),
-                    *reverted_body_receipts(fork, 1),
-                ],
+                payer=sponsor, frame_receipts=receipts
             ),
         ),
         post={
-            sender: Account(nonce=1, balance=FUNDS),
-            prefix_writer: Account(storage={SLOT_A: 1}),
-            body_writer: Account(storage={SLOT_B: 0}),
+            sender: Account(nonce=1, balance=FUNDS - VALUE),
+            **prefix.post(kept=True),
+            **body.post(kept=False),
         },
     )

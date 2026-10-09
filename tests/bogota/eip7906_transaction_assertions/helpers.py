@@ -517,3 +517,81 @@ def mixed_body(pre: Alloc, fork: Fork) -> MixedBody:
         ),
     ]
     return body
+
+
+DEPLOYER_CODE = (
+    Op.MSTORE(0, initcode_word(INITCODE_DEPLOYING))
+    + Op.POP(Op.CREATE(0, 0, len(bytes(INITCODE_DEPLOYING))))
+    + Op.STOP
+)
+"""Deploy one contract with runtime code."""
+
+SET_TWO_SLOTS = Op.SSTORE(SLOT_A, 1) + Op.SSTORE(SLOT_B, 1) + Op.STOP
+"""Set two empty slots."""
+
+
+@dataclass
+class StateCreations:
+    """
+    The accounts of a frame sequence that creates every kind of state:
+    a recipient its value transfer revives, two slots its writer sets
+    and a contract its factory deploys.
+    """
+
+    recipient: EOA
+    writer: Address
+    factory: Address
+    deployed: Address
+    frames: List[Frame] = field(default_factory=list)
+
+    def state_gas(self, fork: Fork) -> List[int]:
+        """Return the state gas each frame charges when it is kept."""
+        return [
+            fork.gas_costs().NEW_ACCOUNT,
+            SET_TWO_SLOTS.state_cost(fork),
+            creation_state_gas(
+                fork, creations=1, deposited_bytes=len(DEPLOYED_RUNTIME)
+            ),
+        ]
+
+    def post(self, *, kept: bool) -> Dict[Address, Account | None]:
+        """Return the post state the frames leave, kept or reverted."""
+        if kept:
+            return {
+                self.recipient: Account(balance=VALUE),
+                self.writer: Account(storage={SLOT_A: 1, SLOT_B: 1}),
+                self.factory: Account(nonce=2),
+                self.deployed: Account(nonce=1, code=DEPLOYED_RUNTIME),
+            }
+        return {
+            self.recipient: Account.NONEXISTENT,
+            self.writer: Account(storage={SLOT_A: 0, SLOT_B: 0}),
+            self.factory: Account(nonce=1),
+            self.deployed: Account.NONEXISTENT,
+        }
+
+
+def state_creations(pre: Alloc, fork: Fork) -> StateCreations:
+    """
+    Return `SENDER` frames that revive a dead recipient, set two slots
+    and deploy a contract, each with the state gas its creations need.
+    """
+    factory = pre.deploy_contract(code=DEPLOYER_CODE)
+    creations = StateCreations(
+        recipient=pre.fund_eoa(amount=0),
+        writer=pre.deploy_contract(code=SET_TWO_SLOTS),
+        factory=factory,
+        deployed=compute_create_address(address=factory, nonce=1),
+    )
+    new_account, slots, deployment = creations.state_gas(fork)
+    creations.frames = [
+        body_frame(
+            fork,
+            target=creations.recipient,
+            value=VALUE,
+            state_gas_limit=new_account,
+        ),
+        body_frame(fork, target=creations.writer, state_gas_limit=slots),
+        body_frame(fork, target=creations.factory, state_gas_limit=deployment),
+    ]
+    return creations
