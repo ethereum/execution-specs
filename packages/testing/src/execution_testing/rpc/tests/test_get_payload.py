@@ -4,6 +4,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from execution_testing.base_types import Bytes
 from execution_testing.rpc import EngineRPC
@@ -73,3 +74,12 @@ def test_get_payload_v2_requires_the_wrapper(engine: EngineRPC) -> None:
         str(response.execution_payload.block_hash)
         == EXECUTION_PAYLOAD["blockHash"]
     )
+    with (
+        patch.object(
+            engine.session,
+            "post",
+            return_value=json_rpc_response(EXECUTION_PAYLOAD),
+        ),
+        pytest.raises(ValidationError, match="executionPayload"),
+    ):
+        engine.get_payload(Bytes(b"\x00" * 8), version=2)
