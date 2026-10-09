@@ -13,7 +13,12 @@ Implementation of pre-compiles in G2 (curve over base prime field).
 
 from ethereum_types.numeric import U256, Uint
 
-from ethereum.crypto.bls12_381 import g2_add, g2_msm, map_fp2_to_g2
+from ethereum.crypto.bls12_381 import (
+    InvalidInputError,
+    g2_add,
+    g2_msm,
+    map_fp2_to_g2,
+)
 
 from ....fork_types import ExecutionGas
 from ....vm import Evm
@@ -60,7 +65,7 @@ def bls12_g2_add(evm: Evm) -> None:
 
     try:
         raw = g2_add(p1, p2)
-    except ValueError as e:
+    except InvalidInputError as e:
         raise InvalidParameter(str(e)) from e
 
     evm.output = pad_g2(raw)
@@ -111,7 +116,7 @@ def bls12_g2_msm(evm: Evm) -> None:
 
     try:
         raw = g2_msm(points, scalars)
-    except ValueError as e:
+    except InvalidInputError as e:
         raise InvalidParameter(str(e)) from e
 
     evm.output = pad_g2(raw)
@@ -144,7 +149,7 @@ def bls12_map_fp2_to_g2(evm: Evm) -> None:
 
     try:
         raw = map_fp2_to_g2(fp2)
-    except ValueError as e:
+    except InvalidInputError as e:
         raise InvalidParameter(str(e)) from e
 
     evm.output = pad_g2(raw)

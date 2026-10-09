@@ -13,7 +13,7 @@ Implementation of the BLS12 381 pairing pre-compile.
 
 from ethereum_types.numeric import Uint
 
-from ethereum.crypto.bls12_381 import pairing_check
+from ethereum.crypto.bls12_381 import InvalidInputError, pairing_check
 
 from ....fork_types import ExecutionGas
 from ....vm import Evm
@@ -58,7 +58,7 @@ def bls12_pairing(evm: Evm) -> None:
 
     try:
         result = pairing_check(g1_points, g2_points)
-    except ValueError as e:
+    except InvalidInputError as e:
         raise InvalidParameter(str(e)) from e
 
     if result:
