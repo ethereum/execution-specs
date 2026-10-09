@@ -58,7 +58,9 @@ pytestmark = pytest.mark.valid_from("EIP7906")
 # TODO: Contract creation over a zero-nonce account that holds storage
 # stays undefined for clients until EIP-8253 (Hegota) bumps the nonce of
 # the mainnet accounts of that shape. Revisit the storage-only tests once
-# EIP-8253 ships: unskip them or drop them. See PR #3508.
+# EIP-8253 ships: unskip them or drop them. See PR #3508. They are the
+# only tests of the wiped, never-written slot rule, so dropping them
+# leaves that rule untested.
 STORAGE_ONLY_ACCOUNT_SKIP = pytest.mark.skip(
     reason="Undefined until EIP-8253 (Hegota), see PR #3508"
 )
