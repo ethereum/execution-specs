@@ -2,12 +2,20 @@
 Reorgs across a fork boundary (transition at timestamp 15000; filled for every
 transition from Shanghai -> Cancun onwards).
 
-Ports of hive ``WithdrawalsReorgSpec`` (``suites/withdrawals/tests.go``:
-"Withdrawals Fork on Block N - M Block Re-Org" via NewPayload), hive
-``suites/cancun`` fork-transition payload-version tests, geth
-``TestSetCanonical``-style fork-crossing reorgs, besu
-``MergeCoordinatorTest`` post-fork payload handling, nethermind
-``forkchoiceUpdatedV2/V3`` version tests (wrong version -> -38005).
+Ports of:
+
+- hive ``WithdrawalsReorgSpec`` ("Withdrawals Fork on Block N - M Block Re-Org"
+  via NewPayload):
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/withdrawals/tests.go#L1500
+- hive ``suites/cancun`` (fork-transition payload-version tests, e.g.):
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/cancun/tests.go#L774
+- geth ``TestSetCanonical`` (style only: fork-crossing reorgs):
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L3410
+- besu ``MergeCoordinatorTest`` (post-fork payload handling):
+  https://github.com/besu-eth/besu/blob/def0a84d72bcf54816132c2843852eb38fdbbe59/consensus/merge/src/test/java/org/hyperledger/besu/consensus/merge/blockcreation/MergeCoordinatorTest.java
+- nethermind ``ForkChoiceUpdated_should_return_proper_error_code`` (wrong
+  version -> -38005):
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V3.cs#L492
 
 Genesis is the pre-fork; blocks at or after timestamp 15000 are post-fork and
 use the post-fork ``engine_newPayload``/``forkchoiceUpdated`` versions (V2 ->

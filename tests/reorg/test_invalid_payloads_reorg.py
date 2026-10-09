@@ -2,26 +2,38 @@
 Invalid payloads on side chains and the ``latestValidHash`` contract.
 
 Ports of:
-- hive ``BadHashOnNewPayload`` (canonical / sidechain),
-  ``ParentHashOnNewPayload``, ``InvalidPayloadTestCase`` (per field,
-  canonical and sidechain, non-syncing variants),
-  ``InvalidMissingAncestorReOrgTest`` (payloads via NP, no P2P),
-  ``InvalidTransitionPayload`` is out of scope (genesis is post-merge
-  here).
-- reth ``test_engine_tree_reorg_with_missing_ancestor_expecting_valid``,
-  ``test_find_invalid_ancestor_in_buffered_blocks``,
-  ``test_engine_tree_fcu_canon_chain_insertion``,
-  ``test_handle_invalid_block``.
-- besu ``shouldReturnInvalidWithLatestValidHashIsABadBlock``,
-  ``shouldReturnInvalidBlockHashOnBadHashParameter``,
-  ``shouldReturnInvalidOnBlockExecutionError``,
-  ``shouldReturnInvalidWhenBadBlock``,
-  ``shouldPropagateBadBlockToDescendants`` (bad-block-manager tests).
-- nethermind ``newPayloadV1_should_return_invalid_when_block_hash_wrong``
-  and ``executePayloadV1_invalid_block_...`` family,
-  ``Invalid_blocks_should_be_...``.
-- geth ``TestInvalidBloom``/``TestSideImportPrunedBlocks``-style: an
-  invalid side block never becomes canonical.
+
+- hive ``BadHashOnNewPayload`` (canonical / sidechain):
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/bad_hash.go#L41
+- hive ``ParentHashOnNewPayload``:
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/bad_hash.go#L139
+- hive ``InvalidPayloadTestCase`` (per field, canonical and sidechain,
+  non-syncing variants):
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/invalid_payload.go#L23
+- hive ``InvalidMissingAncestorReOrgTest`` (payloads via NP, no P2P):
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/invalid_ancestor.go#L27
+- reth ``test_engine_tree_reorg_with_missing_ancestor_expecting_valid_e2e``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/tests/e2e-testsuite/main.rs#L468
+- reth ``test_engine_tree_fcu_canon_chain_insertion_v1_e2e``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/tests/e2e-testsuite/main.rs#L297
+- besu ``shouldReturnInvalidWithLatestValidHashIsABadBlock``:
+  https://github.com/besu-eth/besu/blob/0930cdcd1b8723e9db608e6ea48edcd644b86b2c/ethereum/api/src/test/java/org/hyperledger/besu/ethereum/api/jsonrpc/internal/methods/engine/EngineNewPayloadV1Test.java#L258
+- besu ``shouldReturnInvalidBlockHashOnBadHashParameter``:
+  https://github.com/besu-eth/besu/blob/0930cdcd1b8723e9db608e6ea48edcd644b86b2c/ethereum/api/src/test/java/org/hyperledger/besu/ethereum/api/jsonrpc/internal/methods/engine/EngineNewPayloadV1Test.java#L314
+- besu ``shouldReturnInvalidOnBlockExecutionError``:
+  https://github.com/besu-eth/besu/blob/0930cdcd1b8723e9db608e6ea48edcd644b86b2c/ethereum/api/src/test/java/org/hyperledger/besu/ethereum/api/jsonrpc/internal/methods/engine/EngineNewPayloadV1Test.java#L208
+- besu ``shouldReturnInvalidWhenBadBlock``:
+  https://github.com/besu-eth/besu/blob/0930cdcd1b8723e9db608e6ea48edcd644b86b2c/ethereum/api/src/test/java/org/hyperledger/besu/ethereum/api/jsonrpc/internal/methods/engine/EngineNewPayloadV1Test.java#L416
+- nethermind ``executePayloadV1_rejects_invalid_blockHash``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L434
+- nethermind
+  ``executePayloadV1_invalid_hash_returns_invalid_and_does_not_store_bad_block``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L446
+- geth ``TestInvalidBloom`` (style only):
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/eth/catalyst/api_test.go#L977
+- geth ``TestSideImportPrunedBlocks`` (style only: an invalid side block never
+  becomes canonical):
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L2498
 """
 
 from typing import Any, Dict, List
@@ -408,9 +420,8 @@ def test_invalid_ancestor_descendants_delivered_first(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Reth ``test_find_invalid_ancestor_in_buffered_blocks`` /
-    ``test_engine_tree_reorg_with_missing_ancestor_expecting_valid``: the
-    *descendants* of an invalid block are delivered before the invalid
+    Reth ``test_engine_tree_reorg_with_missing_ancestor_expecting_valid_e2e``:
+    the *descendants* of an invalid block are delivered before the invalid
     block itself (buffered as SYNCING/ACCEPTED); once the invalid ancestor
     arrives it is INVALID and the buffered descendants, re-sent, are INVALID
     with lvh = the invalid block's parent.

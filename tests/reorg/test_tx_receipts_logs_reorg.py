@@ -2,16 +2,26 @@
 Transaction, receipt, log and transaction-pool behaviour across reorgs.
 
 Ports of:
-- go-ethereum `core/blockchain_test.go:testChainTxReorgs` (shared /
-  dropped / postponed / added transactions) and `testLogReorgs`.
-- besu `DefaultBlockchainTest.reorgWithOverlappingTransactions`.
-- erigon `engine_api_reorg_test.go`:
-  `TestEthGetLogsDoNotGetAffectedAfterNewPayloadOnSideChain`.
-- reth `e2e/pool.rs:maintain_txpool_reorg`, besu
-  `shouldReAddTransactionsFromThePreviousCanonicalHeadWhenAReorgOccurs`
-  / `shouldNotReAddTransactionsThatAreInBothForksWhenReorgHappens`, geth
-  `legacypool.reset` (pool re-injection is client policy: recorded, not
-  required).
+
+- geth ``testChainTxReorgs`` (shared / dropped / postponed / added
+  transactions):
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L926
+- geth ``testLogReorgs``:
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L1063
+- besu ``reorgWithOverlappingTransactions``:
+  https://github.com/besu-eth/besu/blob/95cac2efc4dad29816eaecc644f7a43ea30288b7/ethereum/core/src/test/java/org/hyperledger/besu/ethereum/chain/DefaultBlockchainTest.java#L700
+- erigon ``TestEthGetLogsDoNotGetAffectedAfterNewPayloadOnSideChain``:
+  https://github.com/erigontech/erigon/blob/76167d7987af908e88391a40dfd054c275c6e04d/execution/engineapi/engine_api_reorg_test.go#L196
+- reth ``maintain_txpool_reorg``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/ethereum/node/tests/e2e/pool.rs#L115
+- besu ``shouldReAddTransactionsFromThePreviousCanonicalHeadWhenAReorgOccurs``:
+  https://github.com/besu-eth/besu/blob/99918668353791ec55f56d05dbcda0b6bf358b82/ethereum/eth/src/test/java/org/hyperledger/besu/ethereum/eth/transactions/AbstractTransactionPoolTest.java#L202
+- besu ``shouldNotReAddTransactionsThatAreInBothForksWhenReorgHappens``:
+  https://github.com/besu-eth/besu/blob/99918668353791ec55f56d05dbcda0b6bf358b82/ethereum/eth/src/test/java/org/hyperledger/besu/ethereum/eth/transactions/AbstractTransactionPoolTest.java#L234
+- geth ``LegacyPool.reset``:
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/txpool/legacypool/legacypool.go#L1299
+
+Pool re-injection is client policy: recorded, not required.
 """
 
 from typing import List
@@ -201,7 +211,7 @@ def test_txpool_reinjection_after_reorg(
 ) -> None:
     r"""
     Port of reth ``maintain_txpool_reorg`` / besu txpool re-add tests / geth
-    ``legacypool.reset``.
+    ``LegacyPool.reset``.
 
     genesis <- a1(tx1)
             \\- b1(tx2, same sender+nonce, conflicting)

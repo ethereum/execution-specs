@@ -4,8 +4,9 @@ Chains delivered to a client by syncing from a peer rather than by
 
 Post-merge clients do not gossip blocks, so a client that is told a head it
 has never been sent can only reach it by syncing the chain from a peer over
-devp2p. That is the delivery path hive's ``ReOrgViaSync`` variants exercise
-and the one no single-client fixture can express.
+devp2p. That is the delivery path hive's ``ReOrgViaSync`` variants
+(https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/withdrawals/tests.go#L1504)
+exercise, and the one no single-client fixture can express.
 
 WIP: the multi-client fixture interface (an additional peer client, per-step
 client targeting, and a poll-for-head step) is withheld pending the design of

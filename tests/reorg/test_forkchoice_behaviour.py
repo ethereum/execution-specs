@@ -3,48 +3,131 @@ Forkchoice behaviour across reorganizations (post-merge: the head follows
 ``forkchoiceUpdated`` regardless of chain length).
 
 Ports of:
-- geth ``testShorterFork/testLongerFork/testEqualFork`` (AfterMerge),
-  ``testReorgLong/Short``, ``testBlockchainHeaderchainReorgConsistency``,
-  ``testSideLogRebirth`` (side chain with lower difficulty still wins).
-- besu ``DefaultBlockchainTest.appendBlockWithReorgTo{ChainAtEqualHeight,
-  ShorterChain,LongerChain}``, ``appendBlockForFork``,
-  ``MergeCoordinatorTest.forkchoiceUpdateShouldIgnoreAncestorOfChainHead``,
-  ``AbstractEngineForkchoiceUpdatedTest`` (invalid forkchoice state
-  variants, ignore update to old head),
-  ``updateForkChoiceShouldPersistFirstFinalizedBlockHash``.
-- nethermind ``Can_reorganize_to_{shorter,longer,same}_path``,
-  ``Can_reorganize_there_and_back``,
-  ``forkchoiceUpdatedV1_can_reorganize_to_last_block``,
-  ``forkchoiceUpdatedV1_head_block_after_reorg``,
-  ``block_should_not_be_canonical_before_forkchoiceUpdatedV1``,
-  ``block_should_not_be_canonical_after_reorg``,
-  ``forkChoiceUpdatedV1_to_unknown_block_fails``,
-  ``forkChoiceUpdatedV1_to_unknown_safeBlock_hash_should_fail``,
-  ``forkchoiceUpdatedV1_should_update_{finalized,safe}_block_hash``,
-  ``forkchoiceUpdatedV1_should_work_with_zero_keccak_as_safe_block``,
-  ``forkchoiceUpdatedV1_should_change_head_when_all_parameters_are_the_newHeadHash``,
-  ``payloadV1_invalid_parent_hash``,
-  ``inconsistent_{finalized,safe}_hash``.
+
+- geth ``testShorterForkAfterMerge``:
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L364
+- geth ``testLongerForkAfterMerge``:
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L422
+- geth ``testEqualForkAfterMerge``:
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L481
+- geth ``testReorgLong``:
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L542
+- geth ``testReorgShort``:
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L557
+- geth ``testBlockchainHeaderchainReorgConsistency``:
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L1540
+- geth ``testSideLogRebirth`` (side chain with lower difficulty still wins):
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L1205
+- besu ``appendBlockWithReorgToChainAtEqualHeight``:
+  https://github.com/besu-eth/besu/blob/95cac2efc4dad29816eaecc644f7a43ea30288b7/ethereum/core/src/test/java/org/hyperledger/besu/ethereum/chain/DefaultBlockchainTest.java#L388
+- besu ``appendBlockWithReorgToShorterChain``:
+  https://github.com/besu-eth/besu/blob/95cac2efc4dad29816eaecc644f7a43ea30288b7/ethereum/core/src/test/java/org/hyperledger/besu/ethereum/chain/DefaultBlockchainTest.java#L467
+- besu ``appendBlockWithReorgToLongerChain``:
+  https://github.com/besu-eth/besu/blob/95cac2efc4dad29816eaecc644f7a43ea30288b7/ethereum/core/src/test/java/org/hyperledger/besu/ethereum/chain/DefaultBlockchainTest.java#L588
+- besu ``appendBlockForFork``:
+  https://github.com/besu-eth/besu/blob/95cac2efc4dad29816eaecc644f7a43ea30288b7/ethereum/core/src/test/java/org/hyperledger/besu/ethereum/chain/DefaultBlockchainTest.java#L814
+- besu ``AbstractEngineForkchoiceUpdatedTest`` (invalid forkchoice state
+  variants):
+  https://github.com/besu-eth/besu/blob/72361b3bb9b67ad07dc3cb933a53acc3c071dd19/ethereum/api/src/test/java/org/hyperledger/besu/ethereum/api/jsonrpc/internal/methods/engine/AbstractEngineForkchoiceUpdatedTest.java#L77
+- besu ``shouldIgnoreUpdateToOldHeadAndNotPreparePayload``:
+  https://github.com/besu-eth/besu/blob/72361b3bb9b67ad07dc3cb933a53acc3c071dd19/ethereum/api/src/test/java/org/hyperledger/besu/ethereum/api/jsonrpc/internal/methods/engine/AbstractEngineForkchoiceUpdatedTest.java#L434
+- besu ``updateForkChoiceShouldPersistFirstFinalizedBlockHash``:
+  https://github.com/besu-eth/besu/blob/def0a84d72bcf54816132c2843852eb38fdbbe59/consensus/merge/src/test/java/org/hyperledger/besu/consensus/merge/blockcreation/MergeCoordinatorTest.java#L1053
+- besu ``shouldReturnSuccessOnAlreadyPresent``:
+  https://github.com/besu-eth/besu/blob/0930cdcd1b8723e9db608e6ea48edcd644b86b2c/ethereum/api/src/test/java/org/hyperledger/besu/ethereum/api/jsonrpc/internal/methods/engine/EngineNewPayloadV1Test.java#L246
+- nethermind ``Can_reorganize_to_shorter_path``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Blockchain.Test/BlockchainProcessorTests.cs#L968
+- nethermind ``Can_reorganize_to_longer_path``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Blockchain.Test/BlockchainProcessorTests.cs#L948
+- nethermind ``Can_reorganize_to_same_length``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Blockchain.Test/BlockchainProcessorTests.cs#L959
+- nethermind ``Can_reorganize_there_and_back``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Blockchain.Test/BlockchainProcessorTests.cs#L937
+- nethermind ``forkchoiceUpdatedV1_can_reorganize_to_last_block``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L1506
+- nethermind ``forkchoiceUpdatedV1_head_block_after_reorg``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L1542
+- nethermind ``block_should_not_be_canonical_before_forkchoiceUpdatedV1``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L274
+- nethermind ``block_should_not_be_canonical_after_reorg``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L292
+- nethermind
+  ``forkChoiceUpdatedV1_to_unknown_block_is_syncing_and_records_forkchoice``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L844
+- nethermind ``forkChoiceUpdatedV1_to_unknown_safeBlock_hash_should_fail``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L862
+- nethermind ``forkchoiceUpdatedV1_should_update_finalized_block_hash``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L642
+- nethermind ``forkchoiceUpdatedV1_should_update_safe_block_hash``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L766
+- nethermind
+  ``forkchoiceUpdatedV1_should_work_with_zero_keccak_as_safe_block``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L798
+- nethermind
+  ``forkchoiceUpdatedV1_should_change_head_when_all_parameters_are_the_newHeadHash``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L1311
+- nethermind ``payloadV1_invalid_parent_hash``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L1811
+- nethermind ``inconsistent_finalized_hash``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L2480
+- nethermind ``inconsistent_safe_hash``:
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L2481
 - erigon
-  ``TestValidateChainAndUpdateForkChoiceWithSideForksThatGoBackAndForwardInHeight``,
-  ``TestReorgsWithInsertChain``,
-  ``TestFcuAllowsReorgBackOnCanonicalChainWhenAfterFinalisedHash``.
-- reth ``test_tree_state_on_new_head_deep_fork``,
-  ``test_engine_tree_fcu_reorg_with_all_blocks``,
-  ``test_engine_tree_valid_forks_with_older_canonical_head`` (+invalid
-  variant), ``test_engine_tree_fcu_extends_canon_chain``,
-  ``test_engine_tree_buffered_blocks_are_eventually_connected``,
-  ``test_reorg_to_fork_behind_finalized``,
-  ``test_testsuite_{create_fork,reorg_with_tagging,deep_reorg}``,
-  ``test_handle_canonical_head``,
-  ``test_on_forkchoice_updated_integration``.
-- hive ``ReOrgBackToCanonicalTest``, ``ReOrgBackFromSyncingTest``,
-  ``SafeReOrgToSideChainTest``, ``BlockStatus``,
-  ``InconsistentForkchoiceTest``,
-  ``ForkchoiceUpdatedUnknownBlockHashTest``,
-  ``NewPayloadWithMissingFcUTest``, ``ReExecutePayloadTest``,
-  ``MultiplePayloadsExtendingCanonicalChainTest``,
-  ``NewPayloadOnSyncingClientTest``.
+  ``TestValidateChainAndUpdateForkChoiceWithSideForksThatGoBackAndForwardInHeight``:
+  https://github.com/erigontech/erigon/blob/76167d7987af908e88391a40dfd054c275c6e04d/execution/execmodule/exec_module_test.go#L303
+- erigon ``TestReorgsWithInsertChain``:
+  https://github.com/erigontech/erigon/blob/76167d7987af908e88391a40dfd054c275c6e04d/execution/execmodule/execmoduletester/exec_module_tester_test.go#L84
+- erigon ``TestFcuAllowsReorgBackOnCanonicalChainWhenAfterFinalisedHash``:
+  https://github.com/erigontech/erigon/blob/76167d7987af908e88391a40dfd054c275c6e04d/execution/engineapi/engine_api_reorg_test.go#L338
+- reth ``test_tree_state_on_new_head_deep_fork``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/src/tree/tests.rs#L1470
+- reth ``test_engine_tree_fcu_reorg_with_all_blocks_v1_e2e``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/tests/e2e-testsuite/main.rs#L325
+- reth ``test_engine_tree_valid_forks_with_older_canonical_head_e2e``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/tests/e2e-testsuite/main.rs#L364
+- reth
+  ``test_engine_tree_valid_and_invalid_forks_with_older_canonical_head_e2e``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/tests/e2e-testsuite/main.rs#L409
+- reth ``test_engine_tree_fcu_extends_canon_chain_v1_e2e``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/tests/e2e-testsuite/main.rs#L546
+- reth ``test_engine_tree_buffered_blocks_are_eventually_connected_e2e``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/tests/e2e-testsuite/main.rs#L500
+- reth ``test_engine_tree_fcu_missing_head``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/src/tree/tests.rs#L1673
+- reth ``test_fcu_with_canonical_ancestor_updates_latest_block``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/src/tree/tests.rs#L1778
+- reth ``test_find_invalid_ancestor_detects_block_itself``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/src/tree/tests.rs#L2444
+- reth ``test_testsuite_create_fork``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/e2e-test-utils/tests/e2e-testsuite/main.rs#L136
+- reth ``test_testsuite_reorg_with_tagging``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/e2e-test-utils/tests/e2e-testsuite/main.rs#L155
+- reth ``test_testsuite_deep_reorg``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/e2e-test-utils/tests/e2e-testsuite/main.rs#L186
+- reth ``test_handle_canonical_head``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/src/tree/tests.rs#L2646
+- reth ``test_on_forkchoice_updated_integration``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/src/tree/tests.rs#L2747
+- hive ``ReOrgBackToCanonicalTest``:
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/reorg.go#L404
+- hive ``ReOrgBackFromSyncingTest``:
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/reorg.go#L543
+- hive ``SafeReOrgToSideChainTest``:
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/reorg.go#L743
+- hive ``BlockStatus``:
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/rpc.go#L23
+- hive ``InconsistentForkchoiceTest``:
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/forkchoice.go#L24
+- hive ``ForkchoiceUpdatedUnknownBlockHashTest``:
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/forkchoice.go#L87
+- hive ``NewPayloadWithMissingFcUTest``:
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/payload_execution.go#L447
+- hive ``ReExecutePayloadTest``:
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/payload_execution.go#L17
+- hive ``MultiplePayloadsExtendingCanonicalChainTest``:
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/payload_execution.go#L202
+- hive ``NewPayloadOnSyncingClientTest``:
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/payload_execution.go#L300
 """
 
 from typing import List, Tuple
@@ -320,9 +403,9 @@ def test_fcu_to_unknown_block_is_syncing(
 ) -> None:
     """
     Hive ``ReOrgBackFromSyncingTest`` +
-    ``ForkchoiceUpdatedUnknownBlockHashTest``,
-    nethermind ``forkChoiceUpdatedV1_to_unknown_block_fails`` /
-    ``forkChoiceUpdatedV1_to_unknown_safeBlock_hash_should_fail``, reth
+    ``ForkchoiceUpdatedUnknownBlockHashTest``, nethermind
+    ``forkChoiceUpdatedV1_to_unknown_block_is_syncing_and_records_forkchoice``
+    / ``forkChoiceUpdatedV1_to_unknown_safeBlock_hash_should_fail``, reth
     ``test_engine_tree_fcu_missing_head``.
 
     A 10-deep side chain exists but only its leaf is ever delivered: the leaf
@@ -589,10 +672,10 @@ def test_out_of_order_payload_delivery(
 ) -> None:
     """
     Hive ``NewPayloadOnSyncingClientTest``, reth
-    ``test_engine_tree_buffered_blocks_are_eventually_connected``, nethermind
-    ``payloadV1_invalid_parent_hash``: a payload whose parent is unknown is
-    SYNCING/ACCEPTED and FCU to it is SYNCING; once the gap is filled the
-    payload and the FCU are VALID.
+    ``test_engine_tree_buffered_blocks_are_eventually_connected_e2e``,
+    nethermind ``payloadV1_invalid_parent_hash``: a payload whose parent is
+    unknown is SYNCING/ACCEPTED and FCU to it is SYNCING; once the gap is
+    filled the payload and the FCU are VALID.
     """
     blocks, steps = chain(pre, "a", 4)
     steps = steps[:4]  # a1, a2 delivered and canonical.
@@ -666,10 +749,10 @@ def test_valid_and_invalid_forks_with_older_canonical_head(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Reth ``test_engine_tree_valid_forks_with_older_canonical_head`` and its
-    ``_and_invalid_`` variant: canonical to a6; head moved back to a1; two
-    8-block forks A/B off a6 delivered; FCU(B tip) applied; FCU(A tip) also
-    VALID; an invalid block on top of A is INVALID and the head stays.
+    Reth ``test_engine_tree_valid_forks_with_older_canonical_head_e2e`` and its
+    ``valid_and_invalid`` variant: canonical to a6; head moved back to a1;
+    two 8-block forks A/B off a6 delivered; FCU(B tip) applied; FCU(A tip)
+    also VALID; an invalid block on top of A is INVALID and the head stays.
     """
     blocks, steps = chain(pre, "a", 6)
     fa, _ = chain(pre, "x", 8, parent="a6", start=7, value=2)
@@ -719,10 +802,9 @@ def test_reorg_to_fork_behind_finalized(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Reth ``test_reorg_to_fork_behind_finalized``: with finalized = a7 and
-    head = a10, FCU to a fork tip branching at a5 (so a7 is not on its
-    chain) with finalized still a7. paris.md step 5 leaves ``-38002`` as the
-    only legal response.
+    With finalized = a7 and head = a10, FCU to a fork tip branching at a5
+    (so a7 is not on its chain) with finalized still a7. paris.md step 5
+    leaves ``-38002`` as the only legal response.
     """
     blocks, steps = chain(pre, "a", 10)
     fork, _ = chain(pre, "f", 5, parent="a5", start=6, value=2)

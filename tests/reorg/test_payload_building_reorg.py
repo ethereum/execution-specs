@@ -2,14 +2,18 @@
 Payload building on reorganized heads (client-built payloads bound via
 ``getPayload``).
 
-Ports of hive `suites/engine/reorg.go`:
-- ``ReOrgPrevValidatedPayloadOnSideChainTest``: reorg to a previously
-  validated non-leaf side payload and build a new payload on top of it.
-- ``SidechainReOrgTest`` (build two payloads on the same parent with
-  different attributes, switch between them).
-- ``TransactionReOrgTest`` (``ReOrgOut``): a transaction sent to the pool is
-  included when building on one head and absent from a payload built on a
-  sibling head.
+Ports of:
+
+- hive ``ReOrgPrevValidatedPayloadOnSideChainTest`` (reorg to a previously
+  validated non-leaf side payload and build a new payload on top of it):
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/reorg.go#L629
+- hive ``SidechainReOrgTest`` (build two payloads on the same parent with
+  different attributes, switch between them):
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/reorg.go#L20
+- hive ``TransactionReOrgTest`` (``ReOrgOut``: a transaction sent to the pool
+  is included when building on one head and absent from a payload built on a
+  sibling head):
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/reorg.go#L124
 """
 
 from typing import List

@@ -2,12 +2,25 @@
 Reorg depth matrix: side-chain reorgs of depth D at client-default and tuned
 depth caps.
 
-Ports of geth ``testReorgLong``/``TestLargeReorgTrieGC`` (256+ deep reorg
-across the state-pruning horizon), reth ``test_long_reorg`` /
-``test_reorg_through_backfill`` (e2e, depth ~100), erigon
-``TestReorgsWithInsertChain`` (deep unwind), besu ``BackwardSyncContextTest``
-(deep reorg via backward sync), nethermind ``Can_reorganize_to_longer_path``
-scaled up, and hive ``ReOrgBackToCanonicalTest`` for side chains.
+Ports of:
+
+- geth ``testReorgLong``:
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L542
+- geth ``TestLargeReorgTrieGC`` (256+ deep reorg across the state-pruning
+  horizon):
+  https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L1631
+- reth ``test_long_reorg`` (e2e, depth ~100):
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/ethereum/node/tests/e2e/p2p.rs#L213
+- reth ``test_reorg_through_backfill``:
+  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/ethereum/node/tests/e2e/p2p.rs#L295
+- erigon ``TestReorgsWithInsertChain`` (deep unwind):
+  https://github.com/erigontech/erigon/blob/76167d7987af908e88391a40dfd054c275c6e04d/execution/execmodule/execmoduletester/exec_module_tester_test.go#L84
+- besu ``BackwardSyncContextTest`` (deep reorg via backward sync):
+  https://github.com/besu-eth/besu/blob/6fa699b3bd82d5041a8cd5d591c3eb52c2203233/ethereum/eth/src/test/java/org/hyperledger/besu/ethereum/eth/sync/backwardsync/BackwardSyncContextTest.java#L106
+- nethermind ``Can_reorganize_to_longer_path`` (scaled up):
+  https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Blockchain.Test/BlockchainProcessorTests.cs#L948
+- hive ``ReOrgBackToCanonicalTest`` (for side chains):
+  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/reorg.go#L404
 
 Client depth knobs (as run in hive wrappers): geth ``--engine.maxreorgdepth``
 (default 32, 0 = unlimited), erigon ``MAX_REORG_DEPTH`` (512), nethermind
