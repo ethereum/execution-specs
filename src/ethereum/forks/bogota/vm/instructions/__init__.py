@@ -16,6 +16,7 @@ import enum
 from typing import Callable, Dict
 
 from . import arithmetic as arithmetic_instructions
+from . import assertion as assertion_instructions
 from . import bitwise as bitwise_instructions
 from . import block as block_instructions
 from . import comparison as comparison_instructions
@@ -217,6 +218,9 @@ class Ops(enum.Enum):
     FRAMEPARAM = 0xB3
     SIGPARAM = 0xB4
     SIGDATACOPY = 0xB5
+    TXTRACE = 0xB6
+    TXDIFF = 0xB7
+    EVENTDATACOPY = 0xB8
 
     # System Operations
     CREATE = 0xF0
@@ -382,6 +386,9 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.FRAMEPARAM: frame_instructions.frameparam,
     Ops.SIGPARAM: frame_instructions.sigparam,
     Ops.SIGDATACOPY: frame_instructions.sigdatacopy,
+    Ops.TXTRACE: assertion_instructions.txtrace,
+    Ops.TXDIFF: assertion_instructions.txdiff,
+    Ops.EVENTDATACOPY: assertion_instructions.eventdatacopy,
     Ops.CREATE: system_instructions.create,
     Ops.RETURN: system_instructions.return_,
     Ops.CALL: system_instructions.call,
