@@ -68,6 +68,7 @@ from .blockchain import (
     environment_from_parent_header,
 )
 from .engine_model import ClientModel, ModelDag, annotate_steps
+from .helpers import RecordedPostStateContext
 
 
 class ReorgBlock(Block):
@@ -235,6 +236,12 @@ class ReorgTest(BlockchainTest):
             GENESIS_LABEL: environment_from_parent_header(genesis.header)
         }
         child_alloc: Dict[str, Alloc | LazyAlloc] = {GENESIS_LABEL: pre}
+        # Landings of the transactions in each label's post-state: siblings
+        # can include the same transaction at different prices, so each
+        # block resolves fees against its own ancestry only.
+        child_landings: Dict[str, RecordedPostStateContext] = {
+            GENESIS_LABEL: RecordedPostStateContext()
+        }
         fixture_blocks: Dict[str, FixtureReorgBlock] = {}
         dag_parent: Dict[str, str] = {}
         dag_valid: Dict[str, bool] = {}
@@ -289,12 +296,18 @@ class ReorgTest(BlockchainTest):
             # post-state of its execution and on its (modified) header.
             child_env[block.label] = apply_new_parent(built.env, built.header)
             child_alloc[block.label] = built.alloc
+            child_landings[block.label] = RecordedPostStateContext(
+                landings=dict(child_landings[parent].landings)
+            )
+            built.record_landings(child_landings[block.label])
             if block.expected_post_state:
                 self.verify_post_state(
-                    t8n,
-                    t8n_state=built.alloc.materialize()
+                    t8n=t8n,
+                    pre_alloc=pre,
+                    got_alloc=built.alloc.materialize()
                     if isinstance(built.alloc, LazyAlloc)
                     else built.alloc,
+                    context=child_landings[block.label],
                     expected_state=block.expected_post_state,
                 )
             previous_label = block.label
