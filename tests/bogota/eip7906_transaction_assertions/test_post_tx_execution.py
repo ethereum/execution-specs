@@ -38,7 +38,9 @@ from .helpers import (
     body_frame,
     expect_eq,
     frame_gas,
+    measured_gas,
     post_tx_frame,
+    probe_overhead,
     reverted_body_receipts,
     success_receipts,
 )
@@ -105,6 +107,11 @@ def test_post_tx_success_commits_body(
             Op.APPROVE(0, 0, Spec8141.APPROVE_EXECUTION_AND_PAYMENT),
             id="approve",
         ),
+        pytest.param(
+            # The lowest flag bit outside the approval scope mask.
+            Op.APPROVE(0, 0, Spec8141.ATOMIC_BATCH_FLAG),
+            id="approve_scope_beyond_mask",
+        ),
     ],
 )
 def test_post_tx_is_static(
@@ -139,6 +146,50 @@ def test_post_tx_is_static(
             sender: Account(nonce=1),
             writer: Account(storage={SLOT_A: 0}),
             assertion: Account(storage={SLOT_B: 0}),
+        },
+    )
+
+
+def test_post_tx_nested_approve_halts(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Halt `APPROVE` reached through a call from a `POST_TX` frame's
+    target: the static violation precedes the caller check that would
+    revert, so the callee consumes all the gas it was given.
+    """
+    sender = pre.fund_eoa()
+    writer = pre.deploy_contract(code=Op.SSTORE(SLOT_A, 1) + Op.STOP)
+    approver = pre.deploy_contract(
+        code=Op.APPROVE(0, 0, Spec8141.APPROVE_EXECUTION_AND_PAYMENT)
+    )
+    callee_gas = 100_000
+    probe = Op.CALL(gas=callee_gas, address=approver)
+    assertion = pre.deploy_contract(
+        code=expect_eq(
+            measured_gas(probe),
+            Op.CALL.with_metadata(
+                address_warm=False, inner_call_cost=callee_gas
+            ).gas_cost(fork)
+            + probe_overhead(fork, probe),
+        )
+        + Op.STOP
+    )
+
+    state_test(
+        pre=pre,
+        tx=assertion_transaction(
+            fork,
+            sender,
+            body=[body_frame(fork, target=writer)],
+            assertion=assertion,
+            frame_receipts=success_receipts(3),
+        ),
+        post={
+            sender: Account(nonce=1),
+            writer: Account(storage={SLOT_A: 1}),
         },
     )
 
