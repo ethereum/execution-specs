@@ -128,9 +128,6 @@ def approve(evm: Evm) -> None:
     frame = tx.frames[int(frame_context.current_frame_index)]
     resolved_target = resolve_frame_target(tx, frame)
 
-    # A `POST_TX` frame is not granted the `VERIFY` exception: `APPROVE`
-    # anywhere in its call subtree is an ordinary static-context
-    # violation (EIP-7906).
     if frame.mode == FrameMode.POST_TX:
         raise WriteInStaticContext
 
