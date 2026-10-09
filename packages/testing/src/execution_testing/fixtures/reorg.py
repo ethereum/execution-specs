@@ -86,8 +86,9 @@ class Outcome(CamelModel):
     """
     One legal outcome of an Engine API step.
 
-    Every set field is a constraint; unset fields are not checked. A step's
-    ``expect`` is a list of outcomes and the first matching one is selected.
+    Every set field is a constraint; unset fields are not checked. Each
+    outcome sets an error, ``status`` or ``head_moved``. A step's ``expect``
+    is a list of outcomes and the first matching one is selected.
     """
 
     id: str
@@ -120,33 +121,30 @@ class Outcome(CamelModel):
     """For ``forkchoiceUpdated`` with payload attributes."""
 
     @model_validator(mode="after")
-    def _check_error_combination(self) -> Self:
+    def _check_constraints(self) -> Self:
         """
         Reject payload-status constraints alongside an error expectation,
-        and an outcome left with no constraint at all.
+        and an outcome that sets no error, ``status`` or ``head_moved``.
 
         The matcher returns as soon as it matches ``error_code``/
         ``any_error``; a JSON-RPC error carries no payload status, so any
         other constraint on this outcome could never be enforced. Use a
         follow-up ``AssertHeadStep`` for post-error chain-state checks.
 
-        An outcome with none of these fields set matches any response
-        (PR3556-R0012): it would both accept an observed result that
-        contradicts the model's generated ``assertHead`` and let the
-        matcher select it ahead of more specific outcomes regardless of
-        what the client actually returned.
+        The remaining fields are also met by a SYNCING or INVALID response,
+        so on their own they leave unknown what the client learned and
+        whether its head moved.
         """
-        constraints = (
-            "status",
-            "latest_valid_hash",
-            "validation_error",
-            "payload_id",
-            "head_moved",
-        )
         if self.error_code is not None or self.any_error:
             unenforceable = [
                 field
-                for field in constraints
+                for field in (
+                    "status",
+                    "latest_valid_hash",
+                    "validation_error",
+                    "payload_id",
+                    "head_moved",
+                )
                 if getattr(self, field) is not None
             ]
             if unenforceable:
@@ -154,12 +152,10 @@ class Outcome(CamelModel):
                     f"outcome {self.id!r}: error_code/any_error cannot be "
                     f"combined with {unenforceable}"
                 )
-        elif not any(
-            getattr(self, field) is not None for field in constraints
-        ):
+        elif self.status is None and self.head_moved is None:
             raise ValueError(
-                f"outcome {self.id!r}: constrains nothing; set one of "
-                f"{constraints} or an error expectation"
+                f"outcome {self.id!r}: set status, head_moved or an error "
+                "expectation"
             )
         return self
 

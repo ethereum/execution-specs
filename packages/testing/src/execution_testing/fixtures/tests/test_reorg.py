@@ -23,10 +23,28 @@ def test_outcome_rejects_any_error_with_payload_id() -> None:
         Outcome(id="x", any_error=True, payload_id="nonNull")
 
 
-def test_outcome_rejects_no_constraint_at_all() -> None:
-    """An outcome with nothing set would match any observed response."""
-    with pytest.raises(ValidationError, match="constrains nothing"):
-        Outcome(id="reply")
+@pytest.mark.parametrize(
+    "constraints",
+    [
+        {},
+        {"payload_id": "null"},
+        {"latest_valid_hash": "any"},
+        {"latest_valid_hash": "null"},
+        {"validation_error": "none"},
+    ],
+)
+def test_outcome_rejects_unknown_effect(constraints: dict) -> None:
+    """
+    Without an error, status or headMoved, an outcome also matches a
+    SYNCING response, so what the step did is unknown.
+    """
+    with pytest.raises(ValidationError, match="set status, head_moved"):
+        Outcome(id="reply", **constraints)
+
+
+def test_outcome_allows_head_moved_without_status() -> None:
+    """`headMoved` alone settles whether a forkchoice update applied."""
+    Outcome(id="x", head_moved=False)
 
 
 def test_outcome_allows_bare_error_expectation() -> None:

@@ -154,7 +154,7 @@ The wait before `engine_getPayloadVX` is the consumer's `--get-payload-wait-time
 
 ### `Outcome`
 
-One legal outcome of an Engine API step. Every set field is a constraint; unset fields are not checked.
+One legal outcome of an Engine API step. Every set field is a constraint; unset fields are not checked. Each outcome sets `errorCode`/`anyError`, `status` or `headMoved`: the other fields alone are also met by a `SYNCING` or `INVALID` response.
 
 #### - `id`: `String`
 
