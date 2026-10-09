@@ -87,6 +87,9 @@ class GasCosts:
     # nonces are introduced.
     KEYED_NONCE_ACCESS: int = 0
 
+    # EIP-7906 transaction diff instructions, 0 before the EIP.
+    OPCODE_TXTRACE: int = 0
+
     # Refunds
     REFUND_STORAGE_CLEAR: int
     REFUND_SELF_DESTRUCT: int
