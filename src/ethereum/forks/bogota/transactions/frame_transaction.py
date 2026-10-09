@@ -85,6 +85,15 @@ Exact length, in bytes, of an expiry verifier frame's data: an unsigned
 big-endian expiry timestamp.
 """
 
+RECENT_ROOT_ADDRESS: Final[Address] = Address(
+    bytes.fromhex("8272d9679689ea2f307140cdf9002d27dc00ffff")
+)
+"""
+Address of the recent root contract of [EIP-8272].
+
+[EIP-8272]: https://eips.ethereum.org/EIPS/eip-8272
+"""
+
 
 @final
 class FrameMode(UintEnum, boundary=STRICT):
