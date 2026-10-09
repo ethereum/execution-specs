@@ -328,8 +328,11 @@ class StepRunner:
                     validation_error=ps.validation_error,
                     payload_id=response.payload_id,
                 )
-                self.last_payload_id = response.payload_id
-                self.last_payload_attributes = attributes
+                if response.payload_id is not None:
+                    # A response without a payloadId starts no build and
+                    # ends none (paris.md, payload building).
+                    self.last_payload_id = response.payload_id
+                    self.last_payload_attributes = attributes
             except JSONRPCError as e:
                 observed = Observed(error_code=e.code, error_message=e.message)
         if observed.error_code is None and any(
@@ -343,8 +346,8 @@ class StepRunner:
 
     def get_payload(self, name: str, step: GetPayloadStep) -> None:
         """
-        Retrieve the payload of the last ``forkchoiceUpdated`` that did not
-        error and bind it.
+        Retrieve the payload of the last ``payloadId`` a
+        ``forkchoiceUpdated`` returned and bind it.
         """
         name = f"{name}(bind={step.bind})"
         payload_id = self.last_payload_id

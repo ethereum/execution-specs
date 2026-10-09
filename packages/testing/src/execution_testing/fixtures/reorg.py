@@ -207,9 +207,9 @@ class ForkchoiceUpdatedStep(StepBase):
 
 class GetPayloadStep(StepBase):
     """
-    Send ``engine_getPayloadVX`` with the ``payloadId`` of the last
-    ``forkchoiceUpdated`` that did not error, and bind the built payload to
-    a new label.
+    Send ``engine_getPayloadVX`` with the last ``payloadId`` a
+    ``forkchoiceUpdated`` returned, and bind the built payload to a new
+    label.
     """
 
     type: Literal["getPayload"] = "getPayload"

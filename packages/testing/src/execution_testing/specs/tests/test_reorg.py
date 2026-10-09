@@ -379,6 +379,24 @@ def build_on_a1(timestamp: int, **kwargs: Any) -> ForkchoiceUpdatedStep:
             BPO2ToAmsterdamAtTime15k.transitions_from(),
             id="second_build_rejected",
         ),
+        pytest.param(
+            [
+                ForkchoiceUpdatedStep(
+                    head="a1", expect=[Outcome(id="x", status="VALID")]
+                )
+            ],
+            BPO2ToAmsterdamAtTime15k.transitions_from(),
+            id="update_without_attributes",
+        ),
+        pytest.param(
+            [
+                build_on_a1(
+                    15_000, expect=[Outcome(id="syncing", status="SYNCING")]
+                )
+            ],
+            BPO2ToAmsterdamAtTime15k.transitions_from(),
+            id="build_answered_without_payload_id",
+        ),
     ],
 )
 def test_get_payload_version_follows_retrieved_build(
@@ -386,8 +404,8 @@ def test_get_payload_version_follows_retrieved_build(
 ) -> None:
     """
     ``getPayload`` takes the version of the build the consumer retrieves:
-    the last one a non-error ``forkchoiceUpdated`` started, wherever it
-    sits (PR3556-GQ-01).
+    that of the last ``payloadId`` a ``forkchoiceUpdated`` returned,
+    wherever it sits (PR3556-GQ-01).
     """
     test = ReorgTest(
         fork=BPO2ToAmsterdamAtTime15k,

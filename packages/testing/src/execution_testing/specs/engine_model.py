@@ -148,8 +148,8 @@ class ClientModel:
     build: Optional[Tuple[str, PayloadAttributes]] = None
     """
     Parent label and attributes of the build ``getPayload`` retrieves: the
-    consumer keeps the ``payloadId`` of the last ``forkchoiceUpdated`` that
-    did not error, so that response decides it.
+    consumer keeps the last ``payloadId`` a ``forkchoiceUpdated`` returned,
+    so that response decides it.
     """
     build_diverged: Optional[str] = None
     """
@@ -413,20 +413,23 @@ class ClientModel:
         self, step: ForkchoiceUpdatedStep, outcome: Outcome
     ) -> None:
         """
-        Update model state assuming ``outcome`` happened. A response that is
-        not an error replaces the build ``getPayload`` retrieves: with this
-        request's if it returns a ``payloadId``, else with none.
+        Update model state assuming ``outcome`` happened. A response that
+        returns a ``payloadId`` makes this request's build the one
+        ``getPayload`` retrieves; any other response leaves it.
         """
         applied = self._forkchoice_effect(step, outcome)
         attrs = step.payload_attributes
-        if outcome.error_code is None and not outcome.any_error:
-            self.build = None
-            self.build_diverged = None
-            if attrs is not None and (
+        if (
+            attrs is not None
+            and outcome.error_code is None
+            and not outcome.any_error
+            and (
                 outcome.payload_id == "nonNull"
                 or (outcome.payload_id is None and applied)
-            ):
-                self.build = (step.head, attrs)
+            )
+        ):
+            self.build = (step.head, attrs)
+            self.build_diverged = None
         if applied:
             self.head = step.head
             self.safe = step.safe
@@ -609,8 +612,8 @@ def _bind_payload(
         )
     if model.build is None:
         raise ValueError(
-            f"{where}: no build in progress; the last forkchoiceUpdated "
-            "that did not error started none"
+            f"{where}: no build in progress; no earlier forkchoiceUpdated "
+            "returned a payloadId"
         )
     parent, attrs = model.build
     if parent != step.parent:
