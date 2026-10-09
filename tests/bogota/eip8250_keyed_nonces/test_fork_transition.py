@@ -1,10 +1,11 @@
 """
 Tests for the EIP-8250 fork transition.
 
-The fork installs the nonce manager before the first post-fork block's
-transactions run. The pre-fork blocks run under the `amsterdam` spec
-module and the fork block onwards under `bogota`. The installation is
-not part of the fork block's access list.
+The nonce manager is an ordinary contract that must already be in the
+state when the fork activates, here through the genesis allocation.
+Activation changes no state, so the fork block's access list records
+nothing for the installation. The pre-fork blocks run under the
+`amsterdam` spec module and the fork block onwards under `bogota`.
 """
 
 import pytest
@@ -36,55 +37,45 @@ FORK_TIMESTAMP = 15_000
 NONCE_MANAGER_UNTOUCHED = BlockAccessListExpectation(
     account_expectations={
         Spec.NONCE_MANAGER: BalAccountExpectation(
-            nonce_changes=[], code_changes=[], storage_changes=[]
+            nonce_changes=[],
+            balance_changes=[],
+            code_changes=[],
+            storage_changes=[],
         ),
     }
 )
 """The nonce manager is read by a probe and records no change."""
 
 
-@pytest.mark.pre_alloc_mutable
-@pytest.mark.parametrize(
-    "pre_fork_nonce,pre_fork_balance",
-    [
-        pytest.param(None, None, id="absent_before_fork"),
-        pytest.param(0, 1, id="balance_before_fork"),
-        pytest.param(7, 1, id="nonce_and_balance_before_fork"),
-    ],
-)
-def test_nonce_manager_initialized_at_fork_transition(
+def test_nonce_manager_unchanged_at_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    pre_fork_nonce: int | None,
-    pre_fork_balance: int | None,
 ) -> None:
     """
-    Install the nonce manager code at the fork block, raise its nonce
-    to at least one and keep its balance, with no block access list
-    entry for the installation.
+    Keep the nonce manager unchanged across the fork, with no block
+    access list entry for activation, while ordinary calls to it revert
+    on both sides of the fork.
     """
     sender = pre.fund_eoa()
     probe = pre.deploy_contract(
         Op.SSTORE(Op.NUMBER, Op.EXTCODESIZE(Spec.NONCE_MANAGER)) + Op.STOP
     )
-    if pre_fork_nonce is not None and pre_fork_balance is not None:
-        pre[Spec.NONCE_MANAGER] = Account(
-            nonce=pre_fork_nonce, balance=pre_fork_balance
-        )
 
     blocks = [
         Block(
             timestamp=FORK_TIMESTAMP - 1,
             txs=[
                 Transaction(sender=sender, to=probe),
-                # Before the fork the call is a plain transfer.
                 Transaction(sender=sender, to=Spec.NONCE_MANAGER, value=1),
             ],
             expected_block_access_list=NONCE_MANAGER_UNTOUCHED,
         ),
         Block(
             timestamp=FORK_TIMESTAMP,
-            txs=[Transaction(sender=sender, to=probe)],
+            txs=[
+                Transaction(sender=sender, to=probe),
+                Transaction(sender=sender, to=Spec.NONCE_MANAGER, value=1),
+            ],
             expected_block_access_list=NONCE_MANAGER_UNTOUCHED,
         ),
         Block(
@@ -96,13 +87,49 @@ def test_nonce_manager_initialized_at_fork_transition(
 
     code_size = len(Spec.NONCE_MANAGER_CODE)
     post = {
-        probe: Account(storage={1: 0, 2: code_size, 3: code_size}),
+        probe: Account(storage={1: code_size, 2: code_size, 3: code_size}),
         Spec.NONCE_MANAGER: Account(
-            nonce=max(pre_fork_nonce or 0, Spec.NONCE_MANAGER_NONCE),
-            balance=(pre_fork_balance or 0) + 1,
+            nonce=Spec.NONCE_MANAGER_NONCE,
+            balance=0,
             code=Spec.NONCE_MANAGER_CODE,
             storage={},
         ),
+    }
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@pytest.mark.pre_alloc_mutable
+def test_missing_nonce_manager_not_installed_at_fork(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Accept the fork block on a chain whose state lacks the nonce
+    manager, and install nothing at activation.
+    """
+    # Remove the nonce manager from the genesis allocation.
+    pre[Spec.NONCE_MANAGER] = Account(nonce=0, balance=0, code=b"")
+    sender = pre.fund_eoa()
+    probe = pre.deploy_contract(
+        Op.SSTORE(Op.NUMBER, Op.EXTCODESIZE(Spec.NONCE_MANAGER)) + Op.STOP
+    )
+
+    blocks = [
+        Block(
+            timestamp=timestamp,
+            txs=[Transaction(sender=sender, to=probe)],
+            expected_block_access_list=NONCE_MANAGER_UNTOUCHED,
+        )
+        for timestamp in (
+            FORK_TIMESTAMP - 1,
+            FORK_TIMESTAMP,
+            FORK_TIMESTAMP + 1,
+        )
+    ]
+    post = {
+        probe: Account(storage={1: 0, 2: 0, 3: 0}),
+        Spec.NONCE_MANAGER: Account.NONEXISTENT,
     }
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
@@ -113,8 +140,8 @@ def test_keyed_transaction_in_first_post_fork_block(
     pre: Alloc,
 ) -> None:
     """
-    Consume a key in the fork block, whose access list records the slot
-    write and no installation.
+    Consume a key in the fork block, whose access list records only the
+    slot write.
     """
     sender = pre.fund_eoa()
     tx = Transaction(
@@ -134,6 +161,7 @@ def test_keyed_transaction_in_first_post_fork_block(
                         nonce_changes=[],
                         balance_changes=[],
                         code_changes=[],
+                        storage_reads=[],
                         storage_changes=[
                             BalStorageSlot(
                                 slot=keyed_nonce_slot(sender, NONCE_KEY),
@@ -154,6 +182,68 @@ def test_keyed_transaction_in_first_post_fork_block(
             nonce=Spec.NONCE_MANAGER_NONCE,
             code=Spec.NONCE_MANAGER_CODE,
             storage={keyed_nonce_slot(sender, NONCE_KEY): 1},
+        ),
+        sender: Account(nonce=0),
+    }
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@pytest.mark.pre_alloc_mutable
+def test_keyed_transactions_before_nonce_manager_deployed(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Consume a key from the fork block on a chain that has not deployed
+    the nonce manager, whose address holds only a balance. The sequence
+    lives in the storage of the codeless account.
+    """
+    # The balance keeps the address in the state without code or nonce.
+    pre[Spec.NONCE_MANAGER] = Account(nonce=0, balance=1, code=b"")
+    sender = pre.fund_eoa()
+    slot = keyed_nonce_slot(sender, NONCE_KEY)
+
+    # No deployment follows: creation over the written slot is undefined
+    # until EIP-8253.
+    blocks = [Block(timestamp=FORK_TIMESTAMP - 1)] + [
+        Block(
+            timestamp=FORK_TIMESTAMP + nonce,
+            txs=[
+                Transaction(
+                    sender=sender,
+                    frames=[verify_frame()],
+                    nonce_keys=[NONCE_KEY],
+                    nonce=nonce,
+                )
+            ],
+            expected_block_access_list=BlockAccessListExpectation(
+                account_expectations={
+                    Spec.NONCE_MANAGER: BalAccountExpectation(
+                        nonce_changes=[],
+                        balance_changes=[],
+                        code_changes=[],
+                        storage_reads=[],
+                        storage_changes=[
+                            BalStorageSlot(
+                                slot=slot,
+                                slot_changes=[
+                                    BalStorageChange(
+                                        block_access_index=1,
+                                        post_value=nonce + 1,
+                                    )
+                                ],
+                            )
+                        ],
+                    ),
+                }
+            ),
+        )
+        for nonce in range(2)
+    ]
+    post = {
+        Spec.NONCE_MANAGER: Account(
+            nonce=0, balance=1, code=b"", storage={slot: 2}
         ),
         sender: Account(nonce=0),
     }
