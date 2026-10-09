@@ -122,23 +122,31 @@ class Outcome(CamelModel):
     @model_validator(mode="after")
     def _check_error_combination(self) -> Self:
         """
-        Reject payload-status constraints alongside an error expectation.
+        Reject payload-status constraints alongside an error expectation,
+        and an outcome left with no constraint at all.
 
         The matcher returns as soon as it matches ``error_code``/
         ``any_error``; a JSON-RPC error carries no payload status, so any
         other constraint on this outcome could never be enforced. Use a
         follow-up ``AssertHeadStep`` for post-error chain-state checks.
+
+        An outcome with none of these fields set matches any response
+        (PR3556-R0012): it would both accept an observed result that
+        contradicts the model's generated ``assertHead`` and let the
+        matcher select it ahead of more specific outcomes regardless of
+        what the client actually returned.
         """
+        constraints = (
+            "status",
+            "latest_valid_hash",
+            "validation_error",
+            "payload_id",
+            "head_moved",
+        )
         if self.error_code is not None or self.any_error:
             unenforceable = [
                 field
-                for field in (
-                    "status",
-                    "latest_valid_hash",
-                    "validation_error",
-                    "payload_id",
-                    "head_moved",
-                )
+                for field in constraints
                 if getattr(self, field) is not None
             ]
             if unenforceable:
@@ -146,6 +154,13 @@ class Outcome(CamelModel):
                     f"outcome {self.id!r}: error_code/any_error cannot be "
                     f"combined with {unenforceable}"
                 )
+        elif not any(
+            getattr(self, field) is not None for field in constraints
+        ):
+            raise ValueError(
+                f"outcome {self.id!r}: constrains nothing; set one of "
+                f"{constraints} or an error expectation"
+            )
         return self
 
 

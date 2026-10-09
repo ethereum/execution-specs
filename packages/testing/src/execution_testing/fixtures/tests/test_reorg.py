@@ -23,6 +23,12 @@ def test_outcome_rejects_any_error_with_payload_id() -> None:
         Outcome(id="x", any_error=True, payload_id="nonNull")
 
 
+def test_outcome_rejects_no_constraint_at_all() -> None:
+    """An outcome with nothing set would match any observed response."""
+    with pytest.raises(ValidationError, match="constrains nothing"):
+        Outcome(id="reply")
+
+
 def test_outcome_allows_bare_error_expectation() -> None:
     """A plain error expectation, optionally disputed, is unrestricted."""
     Outcome(id="x", error_code=EngineAPIError.InvalidForkchoiceState)
