@@ -40,8 +40,14 @@ from .block_access_lists import (
 )
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
-from .exceptions import WrongChainIdError
-from .fork_types import Authorization, BlockAccessIndex, ExecutionGas, StateGas
+from .exceptions import InsufficientMaxFeeError, WrongChainIdError
+from .fork_types import (
+    Authorization,
+    BlockAccessIndex,
+    ExecutionGas,
+    GasVector,
+    StateGas,
+)
 from .requests import (
     BUILDER_DEPOSIT_REQUEST_TYPE,
     BUILDER_EXIT_REQUEST_TYPE,
@@ -66,10 +72,14 @@ from .state_tracker import (
 from .transactions import (
     BlobTransaction,
     LegacyTransaction,
+    MultidimTransaction,
     SetCodeTransaction,
     Transaction,
     calculate_effective_gas_price,
-    calculate_max_gas_fee,
+    calculate_max_fee,
+    calculate_priority_fee,
+    calculate_resource_fees,
+    calculate_resource_gas_limits,
     chain_id,
     check_nonce,
     decode_transaction,
@@ -82,23 +92,25 @@ from .transactions import (
 from .utils.address import compute_contract_address
 from .utils.hexadecimal import hex_to_address
 from .vm.eoa_delegation import is_valid_delegation
-from .vm.gas import MAX_BLOB_GAS_PER_BLOCK as MAX_BLOB_GAS_PER_BLOCK
 from .vm.gas import (
+    BLOB_GAS_RESOURCE,
+    CALLDATA_GAS_RESOURCE,
+    EVM_GAS_RESOURCE,
+    RESOURCE_COUNT,
     GasCosts,
     StateGasCosts,
     TransactionGasSettlement,
     allocate_evm_gas,
-    calculate_data_fee,
-    calculate_excess_blob_gas,
+    calculate_block_base_fees,
+    calculate_block_gas_limits,
+    calculate_excess_gas,
     calculate_total_blob_gas,
     check_block_gas_capacity,
-    check_max_fee_per_blob_gas,
     settle_transaction_gas,
 )
+from .vm.gas import MAX_BLOB_GAS_PER_BLOCK as MAX_BLOB_GAS_PER_BLOCK
 from .vm.interpreter import TransactionOutput, process_top_level
 
-BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
-ELASTICITY_MULTIPLIER = Uint(2)
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 SYSTEM_ADDRESS = hex_to_address("0xfffffffffffffffffffffffffffffffffffffffe")
 BEACON_ROOTS_ADDRESS = hex_to_address(
@@ -303,14 +315,14 @@ def execute_block(
     block_env = vm.BlockEnvironment(
         chain_id=chain_context.chain_id,
         state=block_state,
-        block_gas_limit=block.header.gas_limit,
+        gas_limits=block.header.gas_limits,
         block_hashes=chain_context.block_hashes,
         coinbase=block.header.coinbase,
         number=block.header.number,
-        base_fee_per_gas=block.header.base_fee_per_gas,
+        base_fees=calculate_block_base_fees(block.header.excess_gas),
         time=block.header.timestamp,
         prev_randao=block.header.prev_randao,
-        excess_blob_gas=block.header.excess_blob_gas,
+        excess_gas=block.header.excess_gas,
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
         slot_number=block.header.slot_number,
@@ -332,12 +344,17 @@ def execute_block(
         block_output.block_access_list
     )
 
-    block_gas_used = max(
-        block_output.block_gas_used,
-        block_output.block_state_gas_used,
+    # The EVM entry is the larger EIP-8037 dimension; the blob and
+    # calldata entries are the resources' totals.
+    block_gas_used: GasVector = (
+        max(block_output.block_gas_used, block_output.block_state_gas_used),
+        Uint(block_output.blob_gas_used),
+        block_output.calldata_gas_used,
     )
-    if block_gas_used != block.header.gas_used:
-        raise InvalidBlock(f"{block_gas_used} != {block.header.gas_used}")
+    if block_gas_used != block.header.gas_used_vector:
+        raise InvalidBlock(
+            f"{block_gas_used} != {block.header.gas_used_vector}"
+        )
     if transactions_root != block.header.transactions_root:
         raise InvalidBlock
     if block_state_root != block.header.state_root:
@@ -348,77 +365,12 @@ def execute_block(
         raise InvalidBlock
     if withdrawals_root != block.header.withdrawals_root:
         raise InvalidBlock
-    if block_output.blob_gas_used != block.header.blob_gas_used:
-        raise InvalidBlock
     if requests_hash != block.header.requests_hash:
         raise InvalidBlock
     if computed_block_access_list_hash != block.header.block_access_list_hash:
         raise InvalidBlock("Invalid block access list hash")
 
     return block_diff
-
-
-def calculate_base_fee_per_gas(
-    block_gas_limit: Uint,
-    parent_gas_limit: Uint,
-    parent_gas_used: Uint,
-    parent_base_fee_per_gas: Uint,
-) -> Uint:
-    """
-    Calculates the base fee per gas for the block.
-
-    Parameters
-    ----------
-    block_gas_limit :
-        Gas limit of the block for which the base fee is being calculated.
-    parent_gas_limit :
-        Gas limit of the parent block.
-    parent_gas_used :
-        Gas used in the parent block.
-    parent_base_fee_per_gas :
-        Base fee per gas of the parent block.
-
-    Returns
-    -------
-    base_fee_per_gas : `Uint`
-        Base fee per gas for the block.
-
-    """
-    parent_gas_target = parent_gas_limit // ELASTICITY_MULTIPLIER
-    if not check_gas_limit(block_gas_limit, parent_gas_limit):
-        raise InvalidBlock
-
-    if parent_gas_used == parent_gas_target:
-        expected_base_fee_per_gas = parent_base_fee_per_gas
-    elif parent_gas_used > parent_gas_target:
-        gas_used_delta = parent_gas_used - parent_gas_target
-
-        parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta
-        target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
-
-        base_fee_per_gas_delta = max(
-            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR,
-            Uint(1),
-        )
-
-        expected_base_fee_per_gas = (
-            parent_base_fee_per_gas + base_fee_per_gas_delta
-        )
-    else:
-        gas_used_delta = parent_gas_target - parent_gas_used
-
-        parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta
-        target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
-
-        base_fee_per_gas_delta = (
-            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR
-        )
-
-        expected_base_fee_per_gas = (
-            parent_base_fee_per_gas - base_fee_per_gas_delta
-        )
-
-    return Uint(expected_base_fee_per_gas)
 
 
 def validate_header(
@@ -445,21 +397,31 @@ def validate_header(
     if header.number < Uint(1):
         raise InvalidBlock
 
-    excess_blob_gas = calculate_excess_blob_gas(parent_header)
-    if header.excess_blob_gas != excess_blob_gas:
+    if (
+        len(header.gas_limits) != RESOURCE_COUNT
+        or len(header.gas_used_vector) != RESOURCE_COUNT
+        or len(header.excess_gas) != RESOURCE_COUNT
+    ):
         raise InvalidBlock
 
-    if header.gas_used > header.gas_limit:
+    # Only the EVM gas limit is voted; the others derive from it.
+    evm_gas_limit = header.gas_limits[EVM_GAS_RESOURCE]
+    if isinstance(parent_header, Header):
+        parent_evm_gas_limit = parent_header.gas_limits[EVM_GAS_RESOURCE]
+    else:
+        parent_evm_gas_limit = parent_header.gas_limit
+    if not check_gas_limit(evm_gas_limit, parent_evm_gas_limit):
+        raise InvalidBlock
+    if header.gas_limits != calculate_block_gas_limits(evm_gas_limit):
         raise InvalidBlock
 
-    expected_base_fee_per_gas = calculate_base_fee_per_gas(
-        header.gas_limit,
-        parent_header.gas_limit,
-        parent_header.gas_used,
-        parent_header.base_fee_per_gas,
-    )
-    if expected_base_fee_per_gas != header.base_fee_per_gas:
+    if header.excess_gas != calculate_excess_gas(parent_header):
         raise InvalidBlock
+
+    for i in range(RESOURCE_COUNT):
+        if header.gas_used_vector[i] > header.gas_limits[i]:
+            raise InvalidBlock
+
     if header.timestamp <= parent_header.timestamp:
         raise InvalidBlock
     if header.number != parent_header.number + Uint(1):
@@ -526,47 +488,50 @@ def check_transaction(
         If the sender's balance is not enough to pay for the transaction.
     InvalidSenderError :
         If the transaction is from an address that does not exist anymore.
-    InsufficientMaxFeePerGasError :
-        If the maximum fee per gas is insufficient for the transaction.
-    InsufficientMaxFeePerBlobGasError :
-        If the maximum fee per blob gas is insufficient for the transaction.
+    InsufficientMaxFeeError :
+        If the transaction's fee budget cannot cover the base fees of the
+        resources it reserves.
     BlobGasLimitExceededError :
         If the blob gas used by the transaction exceeds the block's blob gas
         limit.
+    CalldataGasLimitExceededError :
+        If the calldata gas used by the transaction exceeds the block's
+        calldata gas limit.
 
     """
     sender = recover_sender(tx)
     intrinsic = validate_transaction(tx, sender)
     tx_state = TransactionState(parent=block_env.state)
 
-    check_block_gas_capacity(
-        block_env, block_output, tx.gas, calculate_total_blob_gas(tx)
-    )
+    tx_gas_limits = calculate_resource_gas_limits(tx)
+    check_block_gas_capacity(block_env, block_output, tx_gas_limits)
 
     sender_account = get_account(tx_state, sender)
 
-    effective_gas_price = calculate_effective_gas_price(
-        tx, block_env.base_fee_per_gas
+    # Fund every reserved resource at its base fee from the single budget,
+    # then set aside the priority fee the remainder can pay (EIP-7999).
+    max_fee = calculate_max_fee(tx)
+    required_max_fee = calculate_resource_fees(
+        block_env.base_fees, tx_gas_limits
     )
-    max_gas_fee = calculate_max_gas_fee(tx, tx.gas)
+    if required_max_fee > max_fee:
+        raise InsufficientMaxFeeError(max_fee, required_max_fee)
+    max_priority_fee = calculate_priority_fee(
+        tx, tx_gas_limits, block_env.base_fees, max_fee - required_max_fee
+    )
+    fee_to_deduct = required_max_fee + max_priority_fee
+    effective_gas_price = calculate_effective_gas_price(
+        block_env.base_fees, tx_gas_limits, max_priority_fee
+    )
 
-    if isinstance(tx, BlobTransaction):
-        check_max_fee_per_blob_gas(
-            tx.blob_versioned_hashes,
-            tx.max_fee_per_blob_gas,
-            block_env.excess_blob_gas,
-        )
-
-        max_gas_fee += Uint(calculate_total_blob_gas(tx)) * Uint(
-            tx.max_fee_per_blob_gas
-        )
+    if isinstance(tx, (BlobTransaction, MultidimTransaction)):
         blob_versioned_hashes = tx.blob_versioned_hashes
     else:
         blob_versioned_hashes = ()
 
     check_nonce(tx, sender_account.nonce)
 
-    if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
+    if Uint(sender_account.balance) < fee_to_deduct + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
     sender_code = get_code(tx_state, sender_account.code_hash)
     if sender_account.code_hash != EMPTY_CODE_HASH and not is_valid_delegation(
@@ -576,7 +541,7 @@ def check_transaction(
 
     # Split the EVM gas into an execution-gas grant (capped by the
     # remaining execution-gas budget) and a state gas reservoir.
-    allocation = allocate_evm_gas(tx.gas, intrinsic)
+    allocation = allocate_evm_gas(tx_gas_limits[EVM_GAS_RESOURCE], intrinsic)
 
     access_list_addresses = set()
     access_list_storage_keys = set()
@@ -609,11 +574,12 @@ def check_transaction(
         is_create=is_create,
         data=tx.data,
         value=tx.value,
-        gas_limit=tx.gas,
+        gas_limit=tx_gas_limits[EVM_GAS_RESOURCE],
         effective_gas_price=effective_gas_price,
         execution_gas_grant=allocation.execution_gas,
         state_gas_reservoir=allocation.state_gas_reservoir,
-        calldata_floor=intrinsic.calldata_floor,
+        resource_gas_limits=tx_gas_limits,
+        fee_to_deduct=fee_to_deduct,
         access_list_addresses=access_list_addresses,
         access_list_storage_keys=access_list_storage_keys,
         accounts_with_paid_writes=accounts_with_paid_writes,
@@ -754,12 +720,15 @@ def process_unchecked_system_transaction(
         data=data,
         value=U256(0),
         gas_limit=SYSTEM_TRANSACTION_GAS,
-        effective_gas_price=block_env.base_fee_per_gas,
+        effective_gas_price=block_env.base_fees[EVM_GAS_RESOURCE],
         execution_gas_grant=SYSTEM_TRANSACTION_GAS,
         state_gas_reservoir=StateGas(
             StateGasCosts.STORAGE_SET * SYSTEM_MAX_SSTORES_PER_CALL
         ),
-        calldata_floor=Uint(0),
+        # A system transaction reserves no blob or calldata gas and pays
+        # no fee.
+        resource_gas_limits=(SYSTEM_TRANSACTION_GAS, Uint(0), Uint(0)),
+        fee_to_deduct=Uint(0),
         access_list_addresses=set(),
         access_list_storage_keys=set(),
         # A system transaction charges no gas, so no write is paid for.
@@ -846,7 +815,7 @@ def apply_body(
     # Validate block access list gas limit constraint (EIP-7928)
     validate_block_access_list_gas_limit(
         block_access_list=block_output.block_access_list,
-        block_gas_limit=block_env.block_gas_limit,
+        block_gas_limit=block_env.gas_limits[EVM_GAS_RESOURCE],
     )
 
     return block_output
@@ -921,60 +890,50 @@ def process_general_purpose_requests(
         )
 
 
-def update_sender_state(
-    block_env: vm.BlockEnvironment,
-    tx_env: vm.TransactionEnvironment,
-    tx: Transaction,
-) -> None:
+def update_sender_state(tx_env: vm.TransactionEnvironment) -> None:
     """
-    Debit the sender for the transaction's maximum possible gas fee.
+    Debit the sender for the transaction's fee at inclusion.
 
-    Increment the sender's nonce and deduct the largest fee the
-    transaction could incur -- its gas limit priced at the effective gas
-    price, plus the blob fee resolved at inclusion -- up front.
-    Execution later refunds whatever execution gas was not spent.
+    Increment the sender's nonce and deduct `fee_to_deduct` up front: the
+    base fees of every reserved resource plus the priority fee the budget
+    can pay ([EIP-7999]). Settlement later refunds whatever the
+    transaction did not consume.
 
     Parameters
     ----------
-    block_env :
-        The block's execution environment.
     tx_env :
         The transaction's execution environment.
-    tx :
-        The transaction being charged.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
 
     """
     tx_state = tx_env.state
     sender = tx_env.origin
     sender_account = get_account(tx_state, sender)
 
-    effective_gas_fee = tx_env.gas_limit * tx_env.effective_gas_price
-    if isinstance(tx, BlobTransaction):
-        blob_gas_fee = calculate_data_fee(block_env.excess_blob_gas, tx)
-    else:
-        blob_gas_fee = Uint(0)
-
     increment_nonce(tx_state, sender)
 
-    sender_balance_after_gas_fee = (
-        Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
+    sender_balance_after_fee = (
+        Uint(sender_account.balance) - tx_env.fee_to_deduct
     )
-    set_account_balance(tx_state, sender, U256(sender_balance_after_gas_fee))
+    set_account_balance(tx_state, sender, U256(sender_balance_after_fee))
 
 
 def disburse_gas_fees(
     block_env: vm.BlockEnvironment,
     tx_env: vm.TransactionEnvironment,
+    tx: Transaction,
     settlement: TransactionGasSettlement,
     payer: Address,
-) -> None:
+) -> GasVector:
     """
-    Refund the payer's unspent gas and pay the priority fee.
+    Burn the base fees on the gas consumed, pay the priority fee, and
+    refund the rest of the fee taken at inclusion.
 
-    Return the gas the transaction did not use to the ``payer`` that
-    fronted the maximum fee at inclusion, priced at the effective gas
-    price, and credit the coinbase with the priority fee on the gas that
-    was used.
+    The gas consumed is the settled EVM gas plus the blob and calldata gas
+    reserved, which are consumed in full. Its base fees stay burned, the
+    coinbase receives the priority fee on it, and the ``payer`` that
+    fronted `fee_to_deduct` gets the remainder back ([EIP-7999]).
 
     Parameters
     ----------
@@ -982,23 +941,43 @@ def disburse_gas_fees(
         The block scoped environment.
     tx_env :
         The transaction's execution environment.
+    tx :
+        The transaction being settled.
     settlement :
-        The settled gas amounts.
+        The settled EVM gas amounts.
     payer :
-        The account that fronted the maximum gas fee and receives the
-        refund.
+        The account that fronted the fee and receives the refund.
+
+    Returns
+    -------
+    tx_gas_consumed : `GasVector`
+        The gas consumed in each resource.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
 
     """
     tx_state = tx_env.state
-    gas_refund_amount = settlement.gas_left * tx_env.effective_gas_price
-
-    priority_fee_per_gas = (
-        tx_env.effective_gas_price - block_env.base_fee_per_gas
+    tx_gas_consumed: GasVector = (
+        settlement.gas_used,
+        tx_env.resource_gas_limits[BLOB_GAS_RESOURCE],
+        tx_env.resource_gas_limits[CALLDATA_GAS_RESOURCE],
     )
-    transaction_fee = settlement.gas_used * priority_fee_per_gas
 
-    create_ether(tx_state, payer, U256(gas_refund_amount))
-    create_ether(tx_state, block_env.coinbase, U256(transaction_fee))
+    base_fee_paid = calculate_resource_fees(
+        block_env.base_fees, tx_gas_consumed
+    )
+    priority_fee_paid = calculate_priority_fee(
+        tx,
+        tx_gas_consumed,
+        block_env.base_fees,
+        tx_env.fee_to_deduct - base_fee_paid,
+    )
+    refund = tx_env.fee_to_deduct - base_fee_paid - priority_fee_paid
+
+    create_ether(tx_state, payer, U256(refund))
+    create_ether(tx_state, block_env.coinbase, U256(priority_fee_paid))
+
+    return tx_gas_consumed
 
 
 def process_transaction(
@@ -1050,26 +1029,33 @@ def process_transaction(
 
     tx_env = check_transaction(block_env, block_output, tx, index)
 
-    update_sender_state(block_env, tx_env, tx)
+    update_sender_state(tx_env)
 
     tx_output = process_top_level(block_env, tx_env)
 
     settlement = settle_transaction_gas(
         tx_env.gas_limit,
-        tx_env.calldata_floor,
         tx_output.gas_left,
         tx_output.state_gas_left,
         tx_output.refund_counter,
         tx_output.state_gas_used,
     )
 
-    disburse_gas_fees(block_env, tx_env, settlement, tx_env.origin)
+    tx_gas_consumed = disburse_gas_fees(
+        block_env, tx_env, tx, settlement, tx_env.origin
+    )
 
     block_output.block_gas_used += settlement.execution_gas_used
     block_output.block_state_gas_used += settlement.state_gas_used
     block_output.blob_gas_used += calculate_total_blob_gas(tx)
+    block_output.calldata_gas_used += tx_gas_consumed[CALLDATA_GAS_RESOURCE]
 
-    block_output.cumulative_gas_used += settlement.gas_used
+    # Receipts keep counting the calldata gas, as they did when it sat in
+    # the gas limit; EIP-7999 leaves receipts unspecified. Blob gas stays
+    # out, as under EIP-4844.
+    block_output.cumulative_gas_used += (
+        settlement.gas_used + tx_gas_consumed[CALLDATA_GAS_RESOURCE]
+    )
     receipt = make_receipt(
         tx, tx_output.error, block_output.cumulative_gas_used, tx_output.logs
     )

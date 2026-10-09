@@ -14,7 +14,7 @@ Implementations of the EVM block instructions.
 from ethereum_types.numeric import U256, Uint
 
 from .. import Evm
-from ..gas import GasCosts, charge_gas
+from ..gas import EVM_GAS_RESOURCE, GasCosts, charge_gas
 from ..stack import pop, push
 
 
@@ -225,7 +225,7 @@ def gas_limit(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_GASLIMIT)
 
     # OPERATION
-    push(evm.stack, U256(evm.block_env.block_gas_limit))
+    push(evm.stack, U256(evm.block_env.gas_limits[EVM_GAS_RESOURCE]))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

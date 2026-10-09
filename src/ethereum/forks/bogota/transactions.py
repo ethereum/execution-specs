@@ -16,7 +16,6 @@ from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
     InsufficientTransactionGasError,
-    InvalidBlock,
     InvalidSignatureError,
     NonceMismatchError,
     NonceOverflowError,
@@ -27,32 +26,41 @@ from .exceptions import (
     BlobCountExceededError,
     EmptyAuthorizationListError,
     InitCodeTooLargeError,
-    InsufficientMaxFeePerGasError,
     InvalidBlobVersionedHashError,
+    InvalidGasLimitsVectorError,
+    InvalidPriorityFeesVectorError,
+    MaxFeeTooLargeError,
     NoBlobDataError,
     PriorityFeeGreaterThanMaxFeeError,
     TransactionGasLimitExceededError,
     TransactionTypeContractCreationError,
     TransactionTypeError,
 )
-from .fork_types import Authorization, ExecutionGas, VersionedHash
+from .fork_types import Authorization, ExecutionGas, GasVector, VersionedHash
 
 
 @final
 @dataclass
 class IntrinsicGasCost:
-    """Intrinsic gas costs for a transaction, split by gas type."""
+    """Intrinsic gas costs for a transaction."""
 
     execution: ExecutionGas
-    """Execution gas (calldata, base cost, access list, etc.)."""
-
-    calldata_floor: ExecutionGas
     """
-    Minimum gas cost based on calldata size per [EIP-7623], including the
-    access list data surcharge per [EIP-7981].
+    Execution gas charged before execution: base cost, recipient and value
+    costs, access list and authorization costs. Calldata is priced by its
+    own resource under [EIP-7999].
 
-    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
-    [EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    """
+
+    calldata: Uint
+    """
+    Calldata gas, priced by the calldata resource under [EIP-7999] but
+    still counted against the [EIP-7825] execution cap, so the gas an
+    execution can burn is bounded as before.
+
+    [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
     """
 
 
@@ -490,12 +498,105 @@ class SetCodeTransaction:
     """
 
 
+@final
+@slotted_freezable
+@dataclass
+class MultidimTransaction:
+    """
+    The transaction type added in [EIP-7999].
+
+    One `max_fee` budget pays for every resource the transaction reserves,
+    each priced at its own base fee.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    """
+
+    chain_id: U64
+    """
+    The ID of the chain on which this transaction is executed.
+    """
+
+    nonce: U256
+    """
+    A scalar value equal to the number of transactions sent by the sender.
+    """
+
+    gas_limits: Tuple[Uint, ...]
+    """
+    The gas limits the sender sets, `gas_limit` in [EIP-7999]. Only the
+    EVM gas limit is listed, at index 0: blob and calldata gas follow from
+    the transaction's contents.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    """
+
+    to: Bytes0 | Address
+    """
+    The address of the recipient. If empty, the transaction is a contract
+    creation.
+    """
+
+    value: U256
+    """
+    The amount of ether (in wei) to send with this transaction.
+    """
+
+    data: Bytes
+    """
+    The data payload of the transaction, which can be used to call functions
+    on contracts or to create new contracts.
+    """
+
+    access_list: Tuple[Access, ...]
+    """
+    A tuple of `Access` objects that specify which addresses and storage slots
+    are accessed in the transaction.
+    """
+
+    blob_versioned_hashes: Tuple[VersionedHash, ...]
+    """
+    The versioned hashes of the blobs carried by the transaction, empty when
+    it carries none.
+    """
+
+    max_fee: U256
+    """
+    The most wei the sender pays for inclusion, base fees and priority fees
+    of every resource together.
+    """
+
+    max_priority_fees_per_gas: Tuple[Uint, ...]
+    """
+    The priority fee caps per gas, `max_priority_fee_per_gas` in
+    [EIP-7999]. One entry caps the tip over every tipped resource together;
+    one entry per resource caps each resource's tip on its own.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    """
+
+    y_parity: U256
+    """
+    The recovery id of the signature.
+    """
+
+    r: U256
+    """
+    The first part of the signature.
+    """
+
+    s: U256
+    """
+    The second part of the signature.
+    """
+
+
 Transaction = (
     LegacyTransaction
     | AccessListTransaction
     | FeeMarketTransaction
     | BlobTransaction
     | SetCodeTransaction
+    | MultidimTransaction
 )
 """
 Union type representing any valid transaction type.
@@ -507,6 +608,7 @@ AccessListCapableTransaction = (
     | FeeMarketTransaction
     | BlobTransaction
     | SetCodeTransaction
+    | MultidimTransaction
 )
 """
 Transaction types that include an [EIP-2930]-style access list.
@@ -550,6 +652,8 @@ def encode_transaction(tx: Transaction) -> LegacyTransaction | Bytes:
         return b"\x03" + rlp.encode(tx)
     elif isinstance(tx, SetCodeTransaction):
         return b"\x04" + rlp.encode(tx)
+    elif isinstance(tx, MultidimTransaction):
+        return b"\x05" + rlp.encode(tx)
     else:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
 
@@ -575,6 +679,8 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
             return rlp.decode_to(BlobTransaction, tx[1:])
         elif tx[0] == 4:
             return rlp.decode_to(SetCodeTransaction, tx[1:])
+        elif tx[0] == 5:
+            return rlp.decode_to(MultidimTransaction, tx[1:])
         elif tx[0] >= 0xC0:
             assert tx[0] <= 0xFE
             return rlp.decode_to(LegacyTransaction, tx)
@@ -626,7 +732,7 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
     [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
     """  # noqa: E501
-    from .vm.gas import GasCosts
+    from .vm.gas import EVM_GAS_RESOURCE, GasCosts
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
@@ -635,7 +741,7 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
         raise InitCodeTooLargeError("Code size too large")
 
-    if tx.gas > GasCosts.TX_MAX_TOTAL_GAS_LIMIT:
+    if evm_gas_limit(tx) > GasCosts.TX_MAX_TOTAL_GAS_LIMIT:
         raise TransactionGasLimitExceededError("Gas limit too high")
 
     if isinstance(tx, FeeMarketCapableTransaction):
@@ -644,10 +750,15 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
                 "priority fee greater than max fee"
             )
 
+    if isinstance(tx, MultidimTransaction):
+        validate_multidim_fields(tx)
+
     if isinstance(tx, BlobTransaction):
-        blob_count = len(tx.blob_versioned_hashes)
-        if blob_count == 0:
+        if len(tx.blob_versioned_hashes) == 0:
             raise NoBlobDataError("no blob data in transaction")
+
+    if isinstance(tx, (BlobTransaction, MultidimTransaction)):
+        blob_count = len(tx.blob_versioned_hashes)
         if blob_count > BLOB_COUNT_LIMIT:
             raise BlobCountExceededError(
                 f"Tx has {blob_count} blobs. Max allowed: {BLOB_COUNT_LIMIT}"
@@ -657,31 +768,79 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
                 raise InvalidBlobVersionedHashError(
                     "invalid blob versioned hash"
                 )
-
-    if isinstance(tx, (BlobTransaction, SetCodeTransaction)):
-        if not isinstance(tx.to, Address):
+        # A blob-carrying transaction cannot create a contract (EIP-4844).
+        if blob_count > 0 and not isinstance(tx.to, Address):
             raise TransactionTypeContractCreationError(tx)
 
     if isinstance(tx, SetCodeTransaction):
+        if not isinstance(tx.to, Address):
+            raise TransactionTypeContractCreationError(tx)
         if not any(tx.authorizations):
             raise EmptyAuthorizationListError("empty authorization list")
 
     intrinsic = calculate_intrinsic_cost(tx, sender)
-    intrinsic_gas = Uint(intrinsic.execution)
-    if intrinsic_gas > tx.gas:
+    # Also rejects an older transaction whose gas limit cannot cover its
+    # calldata gas.
+    evm_gas = calculate_resource_gas_limits(tx)[EVM_GAS_RESOURCE]
+    if Uint(intrinsic.execution) > evm_gas:
         raise InsufficientTransactionGasError("Insufficient intrinsic gas")
-    if intrinsic.calldata_floor > tx.gas:
-        raise InsufficientTransactionGasError("Insufficient calldata floor")
-    if intrinsic.execution > GasCosts.TX_MAX_GAS_LIMIT:
+    if intrinsic.execution + intrinsic.calldata > GasCosts.TX_MAX_GAS_LIMIT:
         raise InsufficientTransactionGasError(
-            "Intrinsic execution gas exceeds TX_MAX_GAS_LIMIT"
-        )
-    if intrinsic.calldata_floor > GasCosts.TX_MAX_GAS_LIMIT:
-        raise InsufficientTransactionGasError(
-            "Intrinsic calldata floor exceeds TX_MAX_GAS_LIMIT"
+            "Intrinsic gas exceeds TX_MAX_GAS_LIMIT"
         )
 
     return intrinsic
+
+
+MAX_FEE_LIMIT = U256(2**128 - 1)
+"""
+Largest fee budget a multidimensional transaction may carry ([EIP-7999]).
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
+
+MAX_PRIORITY_FEE_PER_GAS_LIMIT = Uint(2**64 - 1)
+"""
+Largest priority fee cap per gas a multidimensional transaction may carry
+([EIP-7999]).
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
+
+
+def validate_multidim_fields(tx: MultidimTransaction) -> None:
+    """
+    Check the shape and bounds of a multidimensional transaction's fee
+    and limit fields ([EIP-7999]).
+
+    Raises
+    ------
+    InvalidGasLimitsVectorError :
+        If the gas limit list does not hold the EVM gas limit alone.
+    InvalidPriorityFeesVectorError :
+        If the priority fee caps cover neither one nor every resource, or
+        a cap exceeds `MAX_PRIORITY_FEE_PER_GAS_LIMIT`.
+    MaxFeeTooLargeError :
+        If the fee budget exceeds `MAX_FEE_LIMIT`.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+
+    """
+    from .vm.gas import RESOURCE_COUNT
+
+    if len(tx.gas_limits) != 1:
+        raise InvalidGasLimitsVectorError(
+            "gas limit list must hold the EVM gas limit only"
+        )
+    if len(tx.max_priority_fees_per_gas) not in (1, RESOURCE_COUNT):
+        raise InvalidPriorityFeesVectorError(
+            "priority fee caps must cover one or every resource"
+        )
+    for max_priority_fee_per_gas in tx.max_priority_fees_per_gas:
+        if max_priority_fee_per_gas > MAX_PRIORITY_FEE_PER_GAS_LIMIT:
+            raise InvalidPriorityFeesVectorError("priority fee cap too high")
+    if tx.max_fee > MAX_FEE_LIMIT:
+        raise MaxFeeTooLargeError("max fee too high")
 
 
 def calculate_intrinsic_cost(
@@ -707,9 +866,8 @@ def calculate_intrinsic_cost(
        charged at the top frame, not here.
     3. Value cost (`TX_VALUE_COST` for a non-self-transfer call) when
        ``tx.value > 0``.
-    4. Calldata cost (zero and non-zero bytes).
-    5. Access list entry charges and the data surcharge (if applicable).
-    6. Authorizations (if applicable): only the state-independent base
+    4. Access list entry charges and the data surcharge (if applicable).
+    5. Authorizations (if applicable): only the state-independent base
        cost (`EXECUTION_PER_AUTH_BASE_COST`) per tuple. The
        state-dependent account-creation and delegation-write costs are
        charged at the top frame by `set_delegation`.
@@ -717,19 +875,19 @@ def calculate_intrinsic_cost(
     Self-transfers (``sender == tx.to``) skip the recipient and value
     charges.
 
-    This function takes a transaction and its sender as parameters and
-    returns the intrinsic execution gas cost and the minimum (floor)
-    gas cost based on the calldata size and access list data surcharge.
-    The surcharge is added to both costs, so it is charged regardless of
-    which side determines the gas used. The floor is anchored on the
-    execution-gas portion of items 1 to 3 above rather than `TX_BASE`
-    alone, so it never undercuts the transaction's own intrinsic base.
+    Calldata is not charged to execution gas here: [EIP-7999] prices it
+    through the calldata resource (see `calculate_calldata_gas`) and
+    retires the [EIP-7623] floor. It is still returned, since the
+    [EIP-7825] cap keeps counting it. The [EIP-7981] access list data
+    surcharge stays in execution gas, as [EIP-7999] does not reassign it.
+
+    [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+
+    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+    [EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
     """
     from .vm.gas import GasCosts, init_code_cost
-
-    tokens_in_calldata = count_tokens_in_data(tx.data)
-
-    data_cost = tokens_in_calldata * GasCosts.TX_DATA_TOKEN_STANDARD
 
     is_create = tx.to == Bytes0(b"")
     is_self_transfer = tx.to == sender
@@ -769,30 +927,18 @@ def calculate_intrinsic_cost(
             tx.authorizations
         )
 
-    # EIP-7976 floor tokens: all calldata bytes count uniformly.
-    floor_tokens_in_calldata = ulen(tx.data) * GasCosts.TX_DATA_TOKEN_STANDARD
-
-    # Decomposed execution-gas intrinsic base (EIP-2780), which also
-    # anchors the calldata floor.
+    # Decomposed execution-gas intrinsic base (EIP-2780).
     base_execution_gas = GasCosts.TX_BASE + recipient_execution_gas
-
-    # Floor gas cost (EIP-7623: minimum gas for data-heavy transactions).
-    data_floor_gas_cost = (
-        base_execution_gas
-        + floor_tokens_in_calldata * GasCosts.TX_DATA_TOKEN_FLOOR
-        + access_list_data_cost
-    )
 
     return IntrinsicGasCost(
         execution=ExecutionGas(
             base_execution_gas
             + init_code_gas
-            + data_cost
             + access_list_cost
             + access_list_data_cost
             + auth_cost
         ),
-        calldata_floor=ExecutionGas(data_floor_gas_cost),
+        calldata=calculate_calldata_gas(tx.data),
     )
 
 
@@ -808,43 +954,220 @@ def count_tokens_in_data(data: bytes) -> Uint:
     return num_zeros + num_non_zeros * Uint(4)
 
 
-def calculate_effective_gas_price(
-    tx: Transaction, base_fee_per_gas: Uint
+def calculate_calldata_gas(data: Bytes) -> Uint:
+    """
+    Calculate the calldata gas of a transaction's data, charged to the
+    calldata resource ([EIP-7999] `get_calldata_gas`).
+
+    Each data token costs `TX_DATA_TOKEN_STANDARD` gas, so a zero byte
+    costs 4 gas and a non-zero byte 16, as before [EIP-7999].
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    """
+    from .vm.gas import GasCosts
+
+    return count_tokens_in_data(data) * GasCosts.TX_DATA_TOKEN_STANDARD
+
+
+def evm_gas_limit(tx: Transaction) -> Uint:
+    """
+    Return the EVM gas limit a transaction states.
+
+    A multidimensional transaction lists it at index 0 of its gas limits;
+    an older transaction's single gas limit still covers its calldata gas,
+    which `calculate_resource_gas_limits` moves to the calldata resource.
+    """
+    if isinstance(tx, MultidimTransaction):
+        return tx.gas_limits[0]
+    return tx.gas
+
+
+def calculate_resource_gas_limits(tx: Transaction) -> GasVector:
+    """
+    Reserve gas in every resource for a transaction, `get_gas_limits` in
+    [EIP-7999].
+
+    A multidimensional transaction lists its EVM gas limit; its blob and
+    calldata gas follow from its contents. An older transaction's single
+    gas limit is split: its calldata gas moves to the calldata resource
+    and the remainder is EVM gas, so the limit must at least cover the
+    calldata.
+
+    Raises
+    ------
+    InsufficientTransactionGasError :
+        If an older transaction's gas limit cannot cover its calldata gas.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+
+    """
+    from .vm.gas import GasCosts
+
+    calldata_gas = calculate_calldata_gas(tx.data)
+    blob_gas = Uint(0)
+    if isinstance(tx, (BlobTransaction, MultidimTransaction)):
+        blob_gas = Uint(GasCosts.PER_BLOB) * ulen(tx.blob_versioned_hashes)
+
+    if isinstance(tx, MultidimTransaction):
+        evm_gas = tx.gas_limits[0]
+    else:
+        if tx.gas < calldata_gas:
+            raise InsufficientTransactionGasError(
+                "Insufficient gas for calldata"
+            )
+        evm_gas = tx.gas - calldata_gas
+
+    return (evm_gas, blob_gas, calldata_gas)
+
+
+def calculate_max_fee(tx: Transaction) -> Uint:
+    """
+    Return the most wei a transaction pays for inclusion, `get_max_fee` in
+    [EIP-7999].
+
+    An older transaction's fee cap per gas becomes one budget over its gas
+    limit, with a blob transaction's blob fee cap added over its blob gas.
+    The budget is fungible across resources: the individual caps no longer
+    bind on their own.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    """
+    from .vm.gas import GasCosts
+
+    if isinstance(tx, MultidimTransaction):
+        return Uint(tx.max_fee)
+    if isinstance(tx, BlobTransaction):
+        blob_gas = Uint(GasCosts.PER_BLOB) * ulen(tx.blob_versioned_hashes)
+        return (
+            tx.max_fee_per_gas * tx.gas
+            + Uint(tx.max_fee_per_blob_gas) * blob_gas
+        )
+    if isinstance(tx, FeeMarketCapableTransaction):
+        return tx.max_fee_per_gas * tx.gas
+    return tx.gas_price * tx.gas
+
+
+def calculate_resource_fees(base_fees: GasVector, gas: GasVector) -> Uint:
+    """
+    Price gas amounts at their resources' base fees and sum them.
+
+    `get_required_max_fee` in [EIP-7999] when `gas` holds the reserved
+    limits, and the base fee burned when it holds the gas consumed.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    """
+    total = Uint(0)
+    for base_fee, amount in zip(base_fees, gas, strict=True):
+        total += base_fee * amount
+    return total
+
+
+def calculate_priority_fee(
+    tx: Transaction,
+    gas: GasVector,
+    base_fees: GasVector,
+    remaining_fee: Uint,
 ) -> Uint:
     """
-    Calculate the price per unit of gas the transaction actually pays.
+    Calculate the priority fee a transaction pays on the given gas
+    amounts, `get_priority_fee` in [EIP-7999].
 
-    A fee-market transaction pays the base fee plus a priority fee
-    capped by both of its fee caps; its maximum fee must cover the base
-    fee, or an `InsufficientMaxFeePerGasError` is raised. A transaction
-    priced with a plain gas price pays that price outright, which must
-    likewise cover the base fee.
+    Only tipped resources earn the block producer a priority fee: blob gas
+    carries none. The tip is capped by the transaction's priority fee cap
+    over the tipped gas and by what its budget leaves after the base fees
+    of the tipped gas. A multidimensional transaction with a cap per
+    resource pays each cap on that resource's gas instead.
+
+    Parameters
+    ----------
+    tx :
+        The transaction.
+    gas :
+        The gas amounts to tip, reserved at admission or consumed at
+        settlement.
+    base_fees :
+        The block's base fees.
+    remaining_fee :
+        The wei the budget still holds after the base fees of `gas`.
+
+    Returns
+    -------
+    priority_fee : `Uint`
+        The priority fee.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+
     """
-    if isinstance(tx, FeeMarketCapableTransaction):
-        if tx.max_fee_per_gas < base_fee_per_gas:
-            raise InsufficientMaxFeePerGasError(
-                tx.max_fee_per_gas, base_fee_per_gas
+    from .vm.gas import BLOB_GAS_RESOURCE, TIPPED_RESOURCES
+
+    tipped_gas = sum((gas[i] for i in TIPPED_RESOURCES), Uint(0))
+    tipped_base_fee = sum(
+        (gas[i] * base_fees[i] for i in TIPPED_RESOURCES), Uint(0)
+    )
+
+    if isinstance(tx, MultidimTransaction):
+        if len(tx.max_priority_fees_per_gas) == 1:
+            # One cap over every tipped resource, blobs set aside.
+            blob_base_fee = (
+                gas[BLOB_GAS_RESOURCE] * base_fees[BLOB_GAS_RESOURCE]
             )
+            tipped_max_fee = Uint(tx.max_fee) - blob_base_fee
+            if tipped_max_fee > tipped_base_fee:
+                tipped_priority_fee = tipped_max_fee - tipped_base_fee
+            else:
+                tipped_priority_fee = Uint(0)
+            max_priority_fee = min(
+                tx.max_priority_fees_per_gas[0] * tipped_gas,
+                tipped_priority_fee,
+            )
+        else:
+            max_priority_fee = Uint(0)
+            for cap, amount in zip(
+                tx.max_priority_fees_per_gas, gas, strict=True
+            ):
+                max_priority_fee += cap * amount
+        return min(max_priority_fee, remaining_fee)
 
-        priority_fee_per_gas = min(
-            tx.max_priority_fee_per_gas,
-            tx.max_fee_per_gas - base_fee_per_gas,
-        )
-        return priority_fee_per_gas + base_fee_per_gas
-
-    if tx.gas_price < base_fee_per_gas:
-        raise InvalidBlock
-    return tx.gas_price
-
-
-def calculate_max_gas_fee(tx: Transaction, gas_limit: Uint) -> Uint:
-    """
-    Calculate the largest execution-gas fee the transaction can incur:
-    `gas_limit` priced at the transaction's fee cap.
-    """
     if isinstance(tx, FeeMarketCapableTransaction):
-        return gas_limit * tx.max_fee_per_gas
-    return gas_limit * tx.gas_price
+        tipped_max_fee = tx.max_fee_per_gas * tipped_gas
+        if tipped_max_fee > tipped_base_fee:
+            tipped_priority_fee = tipped_max_fee - tipped_base_fee
+        else:
+            tipped_priority_fee = Uint(0)
+        max_priority_fee = min(
+            tx.max_priority_fee_per_gas * tipped_gas, tipped_priority_fee
+        )
+        if isinstance(tx, BlobTransaction):
+            # Blobs draw on the same budget, so the tip is clamped to
+            # what is left.
+            return min(max_priority_fee, remaining_fee)
+        return max_priority_fee
+
+    # A gas-priced transaction tips whatever its price leaves after the
+    # base fees.
+    tipped_max_fee = tx.gas_price * tipped_gas
+    if tipped_max_fee > tipped_base_fee:
+        return tipped_max_fee - tipped_base_fee
+    return Uint(0)
+
+
+def calculate_effective_gas_price(
+    base_fees: GasVector, tx_gas_limits: GasVector, max_priority_fee: Uint
+) -> Uint:
+    """
+    Calculate the price per unit of EVM gas that `GASPRICE` reports: the
+    EVM base fee plus the admitted priority fee spread over the tipped gas.
+
+    [EIP-7999] leaves `GASPRICE` unspecified under per-resource base fees;
+    this is the prototype's definition. For a transaction without
+    calldata it equals the pre-[EIP-7999] effective gas price.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    """
+    from .vm.gas import EVM_GAS_RESOURCE, TIPPED_RESOURCES
+
+    tipped_gas = sum((tx_gas_limits[i] for i in TIPPED_RESOURCES), Uint(0))
+    return base_fees[EVM_GAS_RESOURCE] + max_priority_fee // tipped_gas
 
 
 def check_nonce(tx: Transaction, sender_nonce: Uint) -> None:
@@ -934,6 +1257,12 @@ def recover_sender(tx: Transaction) -> Address:
             raise InvalidSignatureError("bad y_parity")
         public_key = secp256k1_recover(
             r, s, tx.y_parity, signing_hash_7702(tx)
+        )
+    elif isinstance(tx, MultidimTransaction):
+        if tx.y_parity not in (U256(0), U256(1)):
+            raise InvalidSignatureError("bad y_parity")
+        public_key = secp256k1_recover(
+            r, s, tx.y_parity, signing_hash_7999(tx)
         )
 
     return Address(keccak256(public_key)[12:32])
@@ -1094,6 +1423,34 @@ def signing_hash_7702(tx: SetCodeTransaction) -> Hash32:
                 tx.data,
                 tx.access_list,
                 tx.authorizations,
+            )
+        )
+    )
+
+
+def signing_hash_7999(tx: MultidimTransaction) -> Hash32:
+    """
+    Compute the hash of a transaction used in an [EIP-7999] signature.
+
+    This function takes a transaction as a parameter and returns the
+    signing hash of the transaction used in an [EIP-7999] signature.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    """
+    return keccak256(
+        b"\x05"
+        + rlp.encode(
+            (
+                tx.chain_id,
+                tx.nonce,
+                tx.gas_limits,
+                tx.to,
+                tx.value,
+                tx.data,
+                tx.access_list,
+                tx.blob_versioned_hashes,
+                tx.max_fee,
+                tx.max_priority_fees_per_gas,
             )
         )
     )

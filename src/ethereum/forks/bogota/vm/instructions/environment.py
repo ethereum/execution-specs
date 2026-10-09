@@ -24,8 +24,10 @@ from ...vm.memory import buffer_read, memory_write
 from .. import Evm
 from ..exceptions import OutOfBoundsRead
 from ..gas import (
+    BLOB_GAS_RESOURCE,
+    CALLDATA_GAS_RESOURCE,
+    EVM_GAS_RESOURCE,
     GasCosts,
-    calculate_blob_gas_price,
     calculate_gas_extend_memory,
     charge_gas,
 )
@@ -553,7 +555,7 @@ def base_fee(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_BASEFEE)
 
     # OPERATION
-    push(evm.stack, U256(evm.block_env.base_fee_per_gas))
+    push(evm.stack, U256(evm.block_env.base_fees[EVM_GAS_RESOURCE]))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -603,8 +605,34 @@ def blob_base_fee(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_BLOBBASEFEE)
 
     # OPERATION
-    blob_base_fee = calculate_blob_gas_price(evm.block_env.excess_blob_gas)
-    push(evm.stack, U256(blob_base_fee))
+    push(evm.stack, U256(evm.block_env.base_fees[BLOB_GAS_RESOURCE]))
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
+def calldata_base_fee(evm: Evm) -> None:
+    """
+    Pushes the calldata base fee on to the stack.
+
+    Introduced in [EIP-7999].
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GasCosts.OPCODE_CALLDATABASEFEE)
+
+    # OPERATION
+    push(evm.stack, U256(evm.block_env.base_fees[CALLDATA_GAS_RESOURCE]))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

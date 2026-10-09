@@ -100,6 +100,7 @@ class Ops(enum.Enum):
     BLOBHASH = 0x49
     BLOBBASEFEE = 0x4A
     SLOTNUM = 0x4B
+    CALLDATABASEFEE = 0x4C
 
     # Control Flow Ops
     STOP = 0x00
@@ -283,6 +284,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.BASEFEE: environment_instructions.base_fee,
     Ops.BLOBHASH: environment_instructions.blob_hash,
     Ops.BLOBBASEFEE: environment_instructions.blob_base_fee,
+    Ops.CALLDATABASEFEE: environment_instructions.calldata_base_fee,
     Ops.SSTORE: storage_instructions.sstore,
     Ops.TLOAD: storage_instructions.tload,
     Ops.TSTORE: storage_instructions.tstore,

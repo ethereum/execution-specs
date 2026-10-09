@@ -12,7 +12,7 @@ Types reused throughout the specification, which are specific to Ethereum.
 """
 
 from dataclasses import dataclass
-from typing import NewType, final
+from typing import NewType, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes256
@@ -37,6 +37,16 @@ Bloom = Bytes256
 ExecutionGas = NewType("ExecutionGas", Uint)
 
 StateGas = NewType("StateGas", Uint)
+
+GasVector = Tuple[Uint, ...]
+"""
+Gas amounts per resource under [EIP-7999], indexed by resource: EVM
+gas, blob gas, and calldata gas. The EVM entry carries both
+[EIP-8037] dimensions, execution gas and state gas.
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+[EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+"""
 
 
 @final

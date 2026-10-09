@@ -67,38 +67,6 @@ class BlobGasLimitExceededError(InvalidTransaction):
     """
 
 
-class InsufficientMaxFeePerBlobGasError(InvalidTransaction):
-    """
-    The maximum fee per blob gas is insufficient for the transaction.
-    """
-
-
-class InsufficientMaxFeePerGasError(InvalidTransaction):
-    """
-    The maximum fee per gas is insufficient for the transaction.
-    """
-
-    transaction_max_fee_per_gas: Final[Uint]
-    """
-    The maximum fee per gas specified in the transaction.
-    """
-
-    block_base_fee_per_gas: Final[Uint]
-    """
-    The base fee per gas of the block in which the transaction is included.
-    """
-
-    def __init__(
-        self, transaction_max_fee_per_gas: Uint, block_base_fee_per_gas: Uint
-    ):
-        super().__init__(
-            f"Insufficient max fee per gas "
-            f"({transaction_max_fee_per_gas} < {block_base_fee_per_gas})"
-        )
-        self.transaction_max_fee_per_gas = transaction_max_fee_per_gas
-        self.block_base_fee_per_gas = block_base_fee_per_gas
-
-
 class InvalidBlobVersionedHashError(InvalidTransaction):
     """
     The versioned hash of the blob is invalid.
@@ -152,4 +120,66 @@ class BlockAccessListGasLimitExceededError(InvalidBlock):
     Introduced in [EIP-7928].
 
     [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
+    """
+
+
+class InsufficientMaxFeeError(InvalidTransaction):
+    """
+    The transaction's fee budget cannot cover the base fees of every
+    resource it reserves ([EIP-7999]).
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    """
+
+    max_fee: Final[Uint]
+    """
+    The fee budget of the transaction.
+    """
+
+    required_max_fee: Final[Uint]
+    """
+    The base fees of every resource the transaction reserves.
+    """
+
+    def __init__(self, max_fee: Uint, required_max_fee: Uint):
+        super().__init__(
+            f"Insufficient max fee ({max_fee} < {required_max_fee})"
+        )
+        self.max_fee = max_fee
+        self.required_max_fee = required_max_fee
+
+
+class CalldataGasLimitExceededError(InvalidTransaction):
+    """
+    The transaction's calldata gas does not fit the block's remaining
+    calldata gas ([EIP-7999]).
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    """
+
+
+class InvalidGasLimitsVectorError(InvalidTransaction):
+    """
+    A multidimensional transaction lists a number of gas limits other than
+    the single EVM gas limit ([EIP-7999]).
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    """
+
+
+class InvalidPriorityFeesVectorError(InvalidTransaction):
+    """
+    A multidimensional transaction lists priority fee caps for neither one
+    nor every resource, or a cap above `2**64 - 1` ([EIP-7999]).
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    """
+
+
+class MaxFeeTooLargeError(InvalidTransaction):
+    """
+    A multidimensional transaction's fee budget exceeds `2**128 - 1`
+    ([EIP-7999]).
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
     """

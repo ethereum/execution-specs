@@ -26,7 +26,13 @@ from ethereum.utils.byte import left_pad_zero_bytes
 
 from ..block_access_lists import BlockAccessList, BlockAccessListBuilder
 from ..blocks import Log, Receipt, Withdrawal
-from ..fork_types import Authorization, ExecutionGas, StateGas, VersionedHash
+from ..fork_types import (
+    Authorization,
+    ExecutionGas,
+    GasVector,
+    StateGas,
+    VersionedHash,
+)
 from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
 from .gas import GasMeter, repay_state_gas_spill
@@ -48,14 +54,14 @@ class BlockEnvironment:
 
     chain_id: U64
     state: BlockState
-    block_gas_limit: Uint
+    gas_limits: GasVector
     block_hashes: List[Hash32]
     coinbase: Address
     number: Uint
-    base_fee_per_gas: Uint
+    base_fees: GasVector
     time: U256
     prev_randao: Bytes32
-    excess_blob_gas: U64
+    excess_gas: GasVector
     parent_beacon_block_root: Hash32
     block_access_list_builder: BlockAccessListBuilder
     slot_number: U64
@@ -89,6 +95,8 @@ class BlockOutput:
         Trie root of all the withdrawals in the block.
     blob_gas_used : `ethereum.base_types.U64`
         Total blob gas used in the block.
+    calldata_gas_used : `ethereum.base_types.Uint`
+        Total calldata gas used in the block ([EIP-7999]).
     requests : `Bytes`
         Hash of all the requests in the block.
     block_access_list: `BlockAccessList`
@@ -110,6 +118,7 @@ class BlockOutput:
         default_factory=lambda: Trie(secured=False, default=None)
     )
     blob_gas_used: U64 = U64(0)
+    calldata_gas_used: Uint = Uint(0)
     requests: List[Bytes] = field(default_factory=list)
     block_access_list: BlockAccessList = field(default_factory=list)
 
@@ -131,7 +140,10 @@ class TransactionEnvironment:
     effective_gas_price: Uint
     execution_gas_grant: ExecutionGas
     state_gas_reservoir: StateGas
-    calldata_floor: Uint
+    # Gas reserved in every resource, `tx_gas_limits` in EIP-7999.
+    resource_gas_limits: GasVector
+    # Wei taken from the sender at inclusion, `fee_to_deduct` in EIP-7999.
+    fee_to_deduct: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
     accounts_with_paid_writes: Set[Address]

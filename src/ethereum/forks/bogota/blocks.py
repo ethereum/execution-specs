@@ -20,12 +20,13 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.hash import Hash32
 from ethereum.state import Address, Root
 
-from .fork_types import Bloom
+from .fork_types import Bloom, GasVector
 from .transactions import (
     AccessListTransaction,
     BlobTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
+    MultidimTransaction,
     SetCodeTransaction,
     Transaction,
 )
@@ -159,27 +160,6 @@ class Header:
     Block number (height) in the chain.
     """
 
-    gas_limit: Uint
-    """
-    Maximum gas allowed in this block. Pre [EIP-1559], this was the maximum
-    gas that could be consumed by all transactions in the block. Post
-    [EIP-1559], this is still the maximum gas limit, but the base fee per gas
-    is adjusted so that effective block gas utilization targets 50% of
-    that limit. The gas_limit is a voted parameter that can be
-    [adjusted by a factor of 1/1024] from the previous block's limit by the
-    block proposer, allowing the network to coordinate on capacity
-    increases (e.g. the 60M limit proposed in EIP-7935).
-
-    [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
-    [adjusted by a factor of 1/1024]:
-    https://ethereum.org/en/developers/docs/blocks/
-    """
-
-    gas_used: Uint
-    """
-    Total gas used by all transactions in this block.
-    """
-
     timestamp: U256
     """
     Timestamp of when the block was mined, in seconds since the unix epoch.
@@ -200,37 +180,44 @@ class Header:
     Nonce used in the mining process (pre-PoS), set to zero in PoS.
     """
 
-    base_fee_per_gas: Uint
-    """
-    Base fee per gas for transactions in this block, introduced in
-    [EIP-1559]. This is the minimum fee per gas that must be paid for a
-    transaction to be included in this block.
-
-    [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
-    """
-
     withdrawals_root: Root
     """
     Root hash of the withdrawals trie, which contains all withdrawals in this
     block.
     """
-
-    blob_gas_used: U64
+    gas_limits: GasVector
     """
-    Total blob gas consumed by the transactions within this block. Introduced
-    in [EIP-4844].
+    Gas limits of this block, one per resource ([EIP-7999]): EVM gas, blob
+    gas, and calldata gas. Only the EVM gas limit is chosen by the proposer,
+    [adjusted by a factor of 1/1024] from the parent's; the other two derive
+    from it and the blob schedule through
+    [`calculate_block_gas_limits`][cbgl].
 
-    [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    [adjusted by a factor of 1/1024]:
+    https://ethereum.org/en/developers/docs/blocks/
+    [cbgl]: ref:ethereum.forks.bogota.vm.gas.calculate_block_gas_limits
     """
 
-    excess_blob_gas: U64
+    gas_used_vector: GasVector
     """
-    Running total of blob gas consumed in excess of the target, prior to this
-    block. Blocks with above-target blob gas consumption increase this value,
-    while blocks with below-target blob gas consumption decrease it (to a
-    minimum of zero). Introduced in [EIP-4844].
+    Gas used by this block, one entry per resource, `gas_used` in
+    [EIP-7999]. The EVM entry is the
+    larger of the execution gas and state gas totals ([EIP-8037]); the blob
+    and calldata entries sum the blob gas and calldata gas of the included
+    transactions.
 
-    [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+    [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+    """
+
+    excess_gas: GasVector
+    """
+    Normalized running excess of each resource, from which this block's
+    base fees derive. Computed from the parent by
+    [`calculate_excess_gas`][ceg] ([EIP-7999]).
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    [ceg]: ref:ethereum.forks.bogota.vm.gas.calculate_excess_gas
     """
 
     parent_beacon_block_root: Root
@@ -399,6 +386,7 @@ def encode_receipt(tx: Transaction, receipt: Receipt) -> Bytes | Receipt:
     - FeeMarketTransaction receipts are prefixed with `b"\x02"`.
     - BlobTransaction receipts are prefixed with `b"\x03"`.
     - SetCodeTransaction receipts are prefixed with `b"\x04"`.
+    - MultidimTransaction receipts are prefixed with `b"\x05"`.
     - LegacyTransaction receipts are returned as is.
     """
     if isinstance(tx, AccessListTransaction):
@@ -409,6 +397,8 @@ def encode_receipt(tx: Transaction, receipt: Receipt) -> Bytes | Receipt:
         return b"\x03" + rlp.encode(receipt)
     elif isinstance(tx, SetCodeTransaction):
         return b"\x04" + rlp.encode(receipt)
+    elif isinstance(tx, MultidimTransaction):
+        return b"\x05" + rlp.encode(receipt)
     else:
         return receipt
 
@@ -426,10 +416,12 @@ def decode_receipt(receipt: Bytes | Receipt) -> Receipt:
     receipts.
     - Receipts prefixed with `b"\x04"` are decoded as SetCodeTransaction
     receipts.
+    - Receipts prefixed with `b"\x05"` are decoded as MultidimTransaction
+    receipts.
     - LegacyTransaction receipts are returned as is.
     """
     if isinstance(receipt, Bytes):
-        assert receipt[0] in (1, 2, 3, 4)
+        assert receipt[0] in (1, 2, 3, 4, 5)
         return rlp.decode_to(Receipt, receipt[1:])
     else:
         return receipt

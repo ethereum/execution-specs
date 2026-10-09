@@ -24,10 +24,15 @@ from ethereum.utils.numeric import ceil32, taylor_exponential
 from ..blocks import Header
 from ..exceptions import (
     BlobGasLimitExceededError,
-    InsufficientMaxFeePerBlobGasError,
+    CalldataGasLimitExceededError,
 )
-from ..fork_types import ExecutionGas, StateGas, StateGasPerByte, VersionedHash
-from ..transactions import BlobTransaction, IntrinsicGasCost, Transaction
+from ..fork_types import ExecutionGas, GasVector, StateGas, StateGasPerByte
+from ..transactions import (
+    BlobTransaction,
+    IntrinsicGasCost,
+    MultidimTransaction,
+    Transaction,
+)
 from .exceptions import OutOfGasError
 
 if TYPE_CHECKING:
@@ -218,6 +223,7 @@ class GasCosts:
     OPCODE_SELFBALANCE: Final[ExecutionGas] = FAST_STEP
     OPCODE_BASEFEE: Final[ExecutionGas] = BASE
     OPCODE_BLOBBASEFEE: Final[ExecutionGas] = BASE
+    OPCODE_CALLDATABASEFEE: Final[ExecutionGas] = BASE
     OPCODE_SLOTNUM: Final[ExecutionGas] = BASE
     OPCODE_BLOBHASH: Final[ExecutionGas] = ExecutionGas(Uint(3))
     OPCODE_PUSH: Final[ExecutionGas] = VERY_LOW
@@ -253,6 +259,111 @@ class GasCosts:
 MAX_BLOB_GAS_PER_BLOCK: Final[U64] = (
     GasCosts.BLOB_SCHEDULE_MAX * GasCosts.PER_BLOB
 )
+
+EVM_GAS_RESOURCE: Final[int] = 0
+"""
+Index of the EVM gas resource in an [EIP-7999] gas vector. It carries
+both [EIP-8037] dimensions, execution gas and state gas.
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+[EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+"""
+
+BLOB_GAS_RESOURCE: Final[int] = 1
+"""
+Index of the blob gas resource in an [EIP-7999] gas vector.
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
+
+CALLDATA_GAS_RESOURCE: Final[int] = 2
+"""
+Index of the calldata gas resource in an [EIP-7999] gas vector.
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
+
+RESOURCE_COUNT: Final[int] = 3
+"""
+Number of resources priced by the [EIP-7999] fee market.
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
+
+TIPPED_RESOURCES: Final[Tuple[int, ...]] = (
+    EVM_GAS_RESOURCE,
+    CALLDATA_GAS_RESOURCE,
+)
+"""
+Resources whose gas earns the block producer a priority fee, `tip_indices`
+in [EIP-7999]. Blob gas carries no tip.
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
+
+EVM_LIMIT_TARGET_RATIO: Final[Uint] = Uint(2)
+"""
+Ratio of the EVM gas limit to its target ([EIP-7999]).
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
+
+CALLDATA_GAS_LIMIT_RATIO: Final[Uint] = Uint(4)
+"""
+Ratio of the EVM gas limit to the calldata gas limit ([EIP-7999]).
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
+
+CALLDATA_LIMIT_TARGET_RATIO: Final[Uint] = Uint(4)
+"""
+Ratio of the calldata gas limit to its target ([EIP-7999]).
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
+
+GAS_RESERVE_FACTOR: Final[Tuple[Uint, ...]] = (Uint(0), Uint(16), Uint(12))
+"""
+Per resource, how far its base fee may fall below the anchor resource's
+before the [EIP-7918] reserve price holds it, zero for no reserve
+([EIP-7999]). Blob gas anchors on EVM gas at the [EIP-7918] ratio of
+`PER_BLOB` to `BLOB_BASE_COST`; calldata anchors on blob gas.
+
+[EIP-7918]: https://eips.ethereum.org/EIPS/eip-7918
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
+
+GAS_RESERVE_INDEX: Final[Tuple[int, ...]] = (0, 0, 1)
+"""
+Per resource, the resource whose base fee anchors its reserve price
+([EIP-7999]).
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
+
+MIN_BASE_FEE_PER_GAS: Final[Uint] = Uint(1)
+"""
+Lowest base fee of any resource ([EIP-7999]).
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
+
+GAS_NORMALIZATION_FACTOR: Final[Uint] = Uint(10**9)
+"""
+Scale of the normalized excess gas: a resource's excess moves by this
+factor per limit's worth of gas above or below target ([EIP-7999]).
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
+
+BASE_FEE_UPDATE_FRACTION: Final[Uint] = Uint(4_245_093_508)
+"""
+Denominator of the exponential that prices every resource from its
+normalized excess gas, `GAS_NORMALIZATION_FACTOR / (2 * ln(1.125))`,
+so a full block moves a base fee by at most 12.5% ([EIP-7999]).
+
+[EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+"""
 
 
 @final
@@ -883,54 +994,263 @@ def init_code_cost(init_code_length: Uint) -> ExecutionGas:
     )
 
 
-def calculate_excess_blob_gas(
-    parent_header: Header | PreviousHeader,
-) -> U64:
+def calculate_block_gas_limits(evm_gas_limit: Uint) -> GasVector:
     """
-    Calculates the excess blob gas for the current block based
-    on the gas used in the parent block.
+    Derive a block's gas limits, one per resource, from its EVM gas limit.
+
+    Only the EVM gas limit is chosen by the proposer. The blob gas limit
+    follows the blob schedule and the calldata gas limit is a fixed
+    fraction of the EVM gas limit ([EIP-7999]).
+
+    Parameters
+    ----------
+    evm_gas_limit :
+        The block's EVM gas limit.
+
+    Returns
+    -------
+    gas_limits : `GasVector`
+        The block's gas limits.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+
+    """
+    return (
+        evm_gas_limit,
+        Uint(MAX_BLOB_GAS_PER_BLOCK),
+        evm_gas_limit // CALLDATA_GAS_LIMIT_RATIO,
+    )
+
+
+def calculate_block_gas_targets(gas_limits: GasVector) -> GasVector:
+    """
+    Derive a block's gas targets, one per resource, from its gas limits.
+
+    Parameters
+    ----------
+    gas_limits :
+        The block's gas limits.
+
+    Returns
+    -------
+    gas_targets : `GasVector`
+        The block's gas targets.
+
+    """
+    return (
+        gas_limits[EVM_GAS_RESOURCE] // EVM_LIMIT_TARGET_RATIO,
+        Uint(GasCosts.BLOB_TARGET_GAS_PER_BLOCK),
+        gas_limits[CALLDATA_GAS_RESOURCE] // CALLDATA_LIMIT_TARGET_RATIO,
+    )
+
+
+def calculate_base_fee(excess_gas: Uint) -> Uint:
+    """
+    Price a resource from its normalized excess gas, `fake_exponential` in
+    [EIP-7999].
+
+    Parameters
+    ----------
+    excess_gas :
+        The resource's normalized excess gas.
+
+    Returns
+    -------
+    base_fee : `Uint`
+        The resource's base fee per gas.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+
+    """
+    return taylor_exponential(
+        MIN_BASE_FEE_PER_GAS, excess_gas, BASE_FEE_UPDATE_FRACTION
+    )
+
+
+def denormalize_blob_excess(excess_gas: Uint) -> Uint:
+    """
+    Scale the blob resource's normalized excess gas back to [EIP-4844]
+    units, for tooling that reports `excess_blob_gas`. Not consensus
+    relevant.
+
+    [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+    """
+    return (
+        excess_gas * Uint(MAX_BLOB_GAS_PER_BLOCK) // GAS_NORMALIZATION_FACTOR
+    )
+
+
+def calculate_block_base_fees(excess_gas: GasVector) -> GasVector:
+    """
+    Price every resource from a block's excess gas, `get_block_base_fees`
+    in [EIP-7999].
+
+    [EIP-7999] reads the parent's `excess_gas`. A header's `excess_gas`
+    already folds in the parent's usage, so this prices the block that
+    carries it, as [EIP-4844] prices blob gas from the block's own excess
+    blob gas.
+
+    Parameters
+    ----------
+    excess_gas :
+        The block's excess gas.
+
+    Returns
+    -------
+    base_fees : `GasVector`
+        The block's base fees, one per resource.
+
+    [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+
+    """
+    return tuple(calculate_base_fee(excess) for excess in excess_gas)
+
+
+def invert_base_fee(base_fee_per_gas: Uint) -> Uint:
+    """
+    Find the smallest normalized excess gas that prices at or above
+    `base_fee_per_gas`.
+
+    Used once, at the fork transition, to carry the parent's [EIP-1559]
+    base fee into the EVM resource's excess gas. The price is
+    non-decreasing in the excess, so a binary search finds it.
+
+    Parameters
+    ----------
+    base_fee_per_gas :
+        The base fee to reach.
+
+    Returns
+    -------
+    excess_gas : `Uint`
+        The smallest excess gas pricing at or above `base_fee_per_gas`.
+
+    [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+
+    """
+    low = Uint(0)
+    high = Uint(1)
+    while calculate_base_fee(high) < base_fee_per_gas:
+        high *= Uint(2)
+    while low < high:
+        mid = (low + high) // Uint(2)
+        if calculate_base_fee(mid) < base_fee_per_gas:
+            low = mid + Uint(1)
+        else:
+            high = mid
+    return low
+
+
+def parent_resource_fields(
+    parent_header: Header | PreviousHeader,
+) -> Tuple[GasVector, GasVector, GasVector]:
+    """
+    Read the parent's gas limits, gas used, and excess gas as vectors.
+
+    A parent from before this fork carries scalar fields. They are lifted
+    into vectors so that the first block after the transition prices its
+    resources from the parent's [EIP-1559] base fee and [EIP-4844] excess
+    blob gas rather than from a reset. The parent's calldata usage is
+    unknown and counts as zero. [EIP-7999] leaves the transition
+    unspecified.
 
     Parameters
     ----------
     parent_header :
-        The parent block of the current block.
+        The parent block's header.
 
     Returns
     -------
-    excess_blob_gas: `ethereum.base_types.U64`
-        The excess blob gas for the current block.
+    gas_limits, gas_used, excess_gas : `GasVector`
+        The parent's per-resource fields.
+
+    [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+    [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
 
     """
-    # Defaults for a parent without blob gas fields.
-    excess_blob_gas = U64(0)
-    blob_gas_used = U64(0)
-    base_fee_per_gas = Uint(0)
-
-    if isinstance(parent_header, (Header, PreviousHeader)):
-        # Read them from any parent that carries the fields, so
-        # accumulated excess blob gas survives a fork transition.
-        excess_blob_gas = parent_header.excess_blob_gas
-        blob_gas_used = parent_header.blob_gas_used
-        base_fee_per_gas = parent_header.base_fee_per_gas
-
-    parent_blob_gas = excess_blob_gas + blob_gas_used
-    if parent_blob_gas < GasCosts.BLOB_TARGET_GAS_PER_BLOCK:
-        return U64(0)
-
-    target_blob_gas_price = Uint(GasCosts.PER_BLOB)
-    target_blob_gas_price *= calculate_blob_gas_price(excess_blob_gas)
-
-    base_blob_tx_price = GasCosts.BLOB_BASE_COST * base_fee_per_gas
-    if base_blob_tx_price > target_blob_gas_price:
-        blob_schedule_delta = (
-            GasCosts.BLOB_SCHEDULE_MAX - GasCosts.BLOB_SCHEDULE_TARGET
-        )
+    if isinstance(parent_header, Header):
         return (
-            excess_blob_gas
-            + blob_gas_used * blob_schedule_delta // GasCosts.BLOB_SCHEDULE_MAX
+            parent_header.gas_limits,
+            parent_header.gas_used_vector,
+            parent_header.excess_gas,
         )
 
-    return parent_blob_gas - GasCosts.BLOB_TARGET_GAS_PER_BLOCK
+    gas_limits = calculate_block_gas_limits(parent_header.gas_limit)
+    gas_used = (
+        parent_header.gas_used,
+        Uint(parent_header.blob_gas_used),
+        Uint(0),
+    )
+    excess_gas = (
+        invert_base_fee(parent_header.base_fee_per_gas),
+        Uint(parent_header.excess_blob_gas)
+        * GAS_NORMALIZATION_FACTOR
+        // Uint(MAX_BLOB_GAS_PER_BLOCK),
+        Uint(0),
+    )
+    return gas_limits, gas_used, excess_gas
+
+
+def calculate_excess_gas(
+    parent_header: Header | PreviousHeader,
+) -> GasVector:
+    """
+    Compute a block's excess gas from its parent, `calc_excess_gas` in
+    [EIP-7999].
+
+    Each resource's excess rises by the parent's usage above target and
+    falls by the shortfall below it, scaled by `GAS_NORMALIZATION_FACTOR`
+    over the resource's limit so that every resource shares
+    `BASE_FEE_UPDATE_FRACTION`. A resource priced under its [EIP-7918]
+    reserve, its base fee times `GAS_RESERVE_FACTOR` below the anchor
+    resource's base fee, only rises, by the usage scaled to the gap between
+    limit and target.
+
+    Parameters
+    ----------
+    parent_header :
+        The parent block's header.
+
+    Returns
+    -------
+    excess_gas : `GasVector`
+        The block's excess gas, one entry per resource.
+
+    [EIP-7918]: https://eips.ethereum.org/EIPS/eip-7918
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+
+    """
+    limits, used, parent_excess = parent_resource_fields(parent_header)
+    base_fees = calculate_block_base_fees(parent_excess)
+    targets = calculate_block_gas_targets(limits)
+
+    excess_gas = []
+    for i in range(RESOURCE_COUNT):
+        excess = parent_excess[i]
+        reserve_factor = GAS_RESERVE_FACTOR[i]
+        anchor_base_fee = base_fees[GAS_RESERVE_INDEX[i]]
+        if (
+            reserve_factor > Uint(0)
+            and base_fees[i] * reserve_factor < anchor_base_fee
+        ):
+            # Reserve path: the excess rises with usage and cannot fall.
+            delta = used[i] * (limits[i] - targets[i]) // limits[i]
+            excess += delta * GAS_NORMALIZATION_FACTOR // limits[i]
+        elif used[i] >= targets[i]:
+            delta = used[i] - targets[i]
+            excess += delta * GAS_NORMALIZATION_FACTOR // limits[i]
+        else:
+            delta = targets[i] - used[i]
+            normalized_delta = delta * GAS_NORMALIZATION_FACTOR // limits[i]
+            if excess < normalized_delta:
+                excess = Uint(0)
+            else:
+                excess -= normalized_delta
+        excess_gas.append(excess)
+
+    return tuple(excess_gas)
 
 
 def calculate_total_blob_gas(tx: Transaction) -> U64:
@@ -948,105 +1268,24 @@ def calculate_total_blob_gas(tx: Transaction) -> U64:
         The total blob gas for the transaction.
 
     """
-    if isinstance(tx, BlobTransaction):
+    if isinstance(tx, (BlobTransaction, MultidimTransaction)):
         return GasCosts.PER_BLOB * U64(len(tx.blob_versioned_hashes))
     else:
         return U64(0)
 
 
-def calculate_blob_gas_price(excess_blob_gas: U64) -> Uint:
-    """
-    Calculate the blob gasprice for a block.
-
-    Parameters
-    ----------
-    excess_blob_gas :
-        The excess blob gas for the block.
-
-    Returns
-    -------
-    blob_gasprice: `Uint`
-        The blob gasprice.
-
-    """
-    return taylor_exponential(
-        GasCosts.BLOB_MIN_GASPRICE,
-        Uint(excess_blob_gas),
-        GasCosts.BLOB_BASE_FEE_UPDATE_FRACTION,
-    )
-
-
-def calculate_data_fee(excess_blob_gas: U64, tx: Transaction) -> Uint:
-    """
-    Calculate the blob data fee for a transaction.
-
-    Parameters
-    ----------
-    excess_blob_gas :
-        The excess_blob_gas for the execution.
-    tx :
-        The transaction for which the blob data fee is to be calculated.
-
-    Returns
-    -------
-    data_fee: `Uint`
-        The blob data fee.
-
-    """
-    return Uint(calculate_total_blob_gas(tx)) * calculate_blob_gas_price(
-        excess_blob_gas
-    )
-
-
-def check_max_fee_per_blob_gas(
-    blob_versioned_hashes: Tuple[VersionedHash, ...],
-    max_fee_per_blob_gas: U256,
-    excess_blob_gas: U64,
-) -> None:
-    """
-    Check that a transaction carrying blobs pays at least the blob gas
-    price.
-
-    A transaction without blobs pays no blob fee, so its fee cap is not
-    checked.
-
-    Parameters
-    ----------
-    blob_versioned_hashes :
-        The transaction's blob versioned hashes.
-    max_fee_per_blob_gas :
-        The transaction's fee cap per unit of blob gas.
-    excess_blob_gas :
-        The block's excess blob gas.
-
-    Raises
-    ------
-    InsufficientMaxFeePerBlobGasError :
-        If the fee cap does not cover the blob gas price.
-
-    """
-    if not blob_versioned_hashes:
-        return
-
-    blob_gas_price = calculate_blob_gas_price(excess_blob_gas)
-    if Uint(max_fee_per_blob_gas) < blob_gas_price:
-        raise InsufficientMaxFeePerBlobGasError(
-            "insufficient max fee per blob gas"
-        )
-
-
 def check_block_gas_capacity(
     block_env: "BlockEnvironment",
     block_output: "BlockOutput",
-    tx_gas: Uint,
-    tx_blob_gas: U64,
+    tx_gas_limits: GasVector,
 ) -> None:
     """
     Check that the transaction fits the block's remaining gas capacity.
 
-    Each dimension is checked against its own remaining budget:
-    execution gas, where a single transaction can consume at most
-    [`TX_MAX_GAS_LIMIT`]; state gas; and blob gas.
+    Each resource is checked against its own remaining budget, the
+    `all_less_or_equal` check of [EIP-7999]. The EVM resource is checked
+    per [EIP-8037] dimension: execution gas, where a single transaction
+    can consume at most [`TX_MAX_GAS_LIMIT`], and state gas.
 
     Parameters
     ----------
@@ -1054,10 +1293,8 @@ def check_block_gas_capacity(
         The block scoped environment.
     block_output :
         The block output for the current block.
-    tx_gas :
-        The transaction's gas limit.
-    tx_blob_gas :
-        The blob gas used by the transaction.
+    tx_gas_limits :
+        The gas the transaction reserves in each resource.
 
     Raises
     ------
@@ -1066,26 +1303,43 @@ def check_block_gas_capacity(
         state gas.
     BlobGasLimitExceededError :
         If the transaction exceeds the block's remaining blob gas.
+    CalldataGasLimitExceededError :
+        If the transaction exceeds the block's remaining calldata gas.
 
     [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.bogota.vm.gas.GasCosts.TX_MAX_GAS_LIMIT
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
+    [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
 
     """  # noqa: E501
-    execution_gas_available = (
-        block_env.block_gas_limit - block_output.block_gas_used
+    evm_gas_limit = block_env.gas_limits[EVM_GAS_RESOURCE]
+    execution_gas_available = evm_gas_limit - block_output.block_gas_used
+    state_gas_available = evm_gas_limit - block_output.block_state_gas_used
+    blob_gas_available = block_env.gas_limits[BLOB_GAS_RESOURCE] - Uint(
+        block_output.blob_gas_used
     )
-    state_gas_available = (
-        block_env.block_gas_limit - block_output.block_state_gas_used
+    calldata_gas_available = (
+        block_env.gas_limits[CALLDATA_GAS_RESOURCE]
+        - block_output.calldata_gas_used
     )
-    blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
-    if min(GasCosts.TX_MAX_GAS_LIMIT, tx_gas) > execution_gas_available:
+    # The execution gas a transaction can burn is bounded by the cap less
+    # its calldata gas, which the cap keeps counting.
+    tx_evm_gas = tx_gas_limits[EVM_GAS_RESOURCE]
+    tx_calldata_gas = tx_gas_limits[CALLDATA_GAS_RESOURCE]
+    tx_execution_bound = min(
+        GasCosts.TX_MAX_GAS_LIMIT - tx_calldata_gas, tx_evm_gas
+    )
+    if tx_execution_bound > execution_gas_available:
         raise GasUsedExceedsLimitError("execution gas used exceeds limit")
 
-    if tx_gas > state_gas_available:
+    if tx_evm_gas > state_gas_available:
         raise GasUsedExceedsLimitError("state gas used exceeds limit")
 
-    if tx_blob_gas > blob_gas_available:
+    if tx_gas_limits[BLOB_GAS_RESOURCE] > blob_gas_available:
         raise BlobGasLimitExceededError("blob gas limit exceeded")
+
+    if tx_gas_limits[CALLDATA_GAS_RESOURCE] > calldata_gas_available:
+        raise CalldataGasLimitExceededError("calldata gas limit exceeded")
 
 
 @final
@@ -1110,8 +1364,12 @@ def allocate_evm_gas(
 
     After the intrinsic cost is removed, the remaining EVM gas is
     divided into execution gas -- capped by the execution-gas budget
-    that remains below `TX_MAX_GAS_LIMIT` -- and a state gas reservoir
-    that holds whatever exceeds that cap.
+    that remains below `TX_MAX_GAS_LIMIT` once the intrinsic execution
+    gas and the calldata gas are counted ([EIP-7999] keeps calldata
+    inside the cap) -- and a state gas reservoir that holds whatever
+    exceeds that cap.
+
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
 
     Only valid once `validate_transaction` has confirmed the transaction
     can afford its intrinsic cost, which guarantees the subtractions
@@ -1131,7 +1389,9 @@ def allocate_evm_gas(
 
     """
     evm_gas = tx_gas - Uint(intrinsic.execution)
-    execution_gas_budget = GasCosts.TX_MAX_GAS_LIMIT - intrinsic.execution
+    execution_gas_budget = (
+        GasCosts.TX_MAX_GAS_LIMIT - intrinsic.execution - intrinsic.calldata
+    )
     execution_gas = ExecutionGas(min(execution_gas_budget, evm_gas))
     state_gas_reservoir = StateGas(evm_gas - execution_gas)
     return EvmGasAllocation(execution_gas, state_gas_reservoir)
@@ -1162,35 +1422,31 @@ class TransactionGasSettlement:
 
 def settle_transaction_gas(
     tx_gas: Uint,
-    calldata_floor: Uint,
     gas_left: ExecutionGas,
     state_gas_left: StateGas,
     refund_counter: U256,
     state_gas_used: int,
 ) -> TransactionGasSettlement:
     """
-    Settle a transaction's gas after execution.
+    Settle a transaction's EVM gas after execution.
 
     Compute, in order:
 
-    - the gas used before refunds, from the gas limit less the
+    - the gas used before refunds, from the EVM gas limit less the
       execution gas and reservoir the top frame returned;
     - the refund, capped at one fifth of that pre-refund usage;
-    - the gas used, taken as the larger of the post-refund usage and the
-      calldata floor, so a transaction never pays below the floor; and
+    - the gas used, the post-refund usage. [EIP-7999] retires the
+      [EIP-7623] calldata floor, since calldata is priced by its own
+      resource; and
     - the per-dimension block amounts: the state gas used (clamped to
       zero, since refunds can drive it negative) and the execution gas
-      used, which carries the floor because the floor binds the
-      execution dimension. Unlike the sender-facing `gas_used`, it
-      ignores refunds: block accounting counts pre-refund gas
-      ([EIP-7778]).
+      used. Unlike the sender-facing `gas_used`, they ignore refunds:
+      block accounting counts pre-refund gas ([EIP-7778]).
 
     Parameters
     ----------
     tx_gas :
-        The transaction's gas limit.
-    calldata_floor :
-        The transaction's calldata floor gas.
+        The transaction's EVM gas limit.
     gas_left :
         Execution gas the top frame returned.
     state_gas_left :
@@ -1205,20 +1461,18 @@ def settle_transaction_gas(
     settlement : `TransactionGasSettlement`
         The settled gas amounts.
 
+    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     [EIP-7778]: https://eips.ethereum.org/EIPS/eip-7778
+    [EIP-7999]: https://eips.ethereum.org/EIPS/eip-7999
 
     """
     gas_used_before_refund = tx_gas - gas_left - state_gas_left
     gas_refund = min(gas_used_before_refund // Uint(5), Uint(refund_counter))
-    gas_used_after_refund = gas_used_before_refund - gas_refund
-    gas_used = max(gas_used_after_refund, calldata_floor)
+    gas_used = gas_used_before_refund - gas_refund
 
     settled_state_gas_used = StateGas(Uint(max(0, state_gas_used)))
     execution_gas_used = ExecutionGas(
-        max(
-            gas_used_before_refund - settled_state_gas_used,
-            calldata_floor,
-        )
+        gas_used_before_refund - settled_state_gas_used
     )
     return TransactionGasSettlement(
         gas_used=gas_used,
