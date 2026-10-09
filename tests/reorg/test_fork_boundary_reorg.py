@@ -1,6 +1,6 @@
 """
 Reorgs across a fork boundary (transition at timestamp 15000; filled for every
-transition from Shanghai -> Cancun onwards).
+transition from Paris -> Shanghai onwards).
 
 Ports of:
 
@@ -18,9 +18,10 @@ Ports of:
   https://github.com/NethermindEth/nethermind/blob/c8bb53e7f807ad476d3073c3e092070037bd451b/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V3.cs#L492
 
 Genesis is the pre-fork; blocks at or after timestamp 15000 are post-fork and
-use the post-fork ``engine_newPayload``/``forkchoiceUpdated`` versions (V2 ->
-V3 -> V4, execution requests on post-fork payloads only). A reorg may move
-the head from a post-fork block to a pre-fork block and back.
+use the post-fork ``engine_newPayload``/``forkchoiceUpdated`` versions (V1 ->
+V2 -> V3 -> V4; only post-fork payloads carry the new fork's fields, such as
+withdrawals or execution requests). A reorg may move the head from a
+post-fork block to a pre-fork block and back.
 """
 
 from typing import List
@@ -48,7 +49,7 @@ def applied(head: str) -> List[Outcome]:
     return [Outcome(id="applied", status="VALID", latest_valid_hash=head)]
 
 
-@pytest.mark.valid_at_transition_to("Cancun", subsequent_forks=True)
+@pytest.mark.valid_at_transition_to("Shanghai", subsequent_forks=True)
 def test_reorg_across_fork_boundary(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -135,7 +136,7 @@ def test_reorg_across_fork_boundary(
     )
 
 
-@pytest.mark.valid_at_transition_to("Cancun", subsequent_forks=True)
+@pytest.mark.valid_at_transition_to("Shanghai", subsequent_forks=True)
 def test_sibling_first_fork_blocks(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
