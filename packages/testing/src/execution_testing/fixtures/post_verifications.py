@@ -53,6 +53,15 @@ class PostVerifications(CamelModel):
             if account is None:
                 accounts[address] = None
                 continue
+            storage_checked = "storage" in account.model_fields_set
+            storage: Mapping[ZeroPaddedHexNumber, ZeroPaddedHexNumber] | None
+            if not storage_checked:
+                storage = None
+            elif account.storage is None:
+                # Storage.EMPTY: storage must be completely empty.
+                storage = {}
+            else:
+                storage = dict(account.storage.root)  # type: ignore[arg-type]
             accounts[address] = AccountCheck(
                 nonce=(
                     account.nonce
@@ -69,10 +78,6 @@ class PostVerifications(CamelModel):
                     if "code" in account.model_fields_set
                     else None
                 ),
-                storage=(
-                    dict(account.storage.root)
-                    if "storage" in account.model_fields_set
-                    else None
-                ),
+                storage=storage,
             )
         return cls(accounts=accounts)

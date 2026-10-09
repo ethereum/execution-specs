@@ -152,6 +152,12 @@ def test_transaction_receipt_keeps_status_when_root_is_empty() -> None:
         ),
         pytest.param(
             Account(
+                storage=Storage.EMPTY,
+            ),
+            id="storage_empty_sentinel",
+        ),
+        pytest.param(
+            Account(
                 nonce=0,
                 balance=0,
                 code="",
@@ -177,19 +183,19 @@ def test_empty_accounts(account: Account) -> None:
             {"nonce": "1", "code": "0x123", "balance": "1", "storage": {0: 1}},
             True,
         ),
-        # Storage must be empty: Fail
+        # Empty storage dict is meaningless, allows all values: Pass
         (
             Account(storage={}),
             {"nonce": "1", "code": "0x123", "balance": "1", "storage": {0: 1}},
-            False,
+            True,
         ),
-        # Storage must be empty: Pass
+        # Empty storage dict is meaningless, allows all values: Pass
         (
             Account(storage={}),
             {"nonce": "1", "code": "0x123", "balance": "1", "storage": {}},
             True,
         ),
-        # Storage must be empty: Pass
+        # Empty storage dict is meaningless, allows all values: Pass
         (
             Account(storage={}),
             {
@@ -198,6 +204,18 @@ def test_empty_accounts(account: Account) -> None:
                 "balance": "1",
                 "storage": {0: 0, 1: 0},
             },
+            True,
+        ),
+        # Storage.EMPTY: storage must be empty, Fail
+        (
+            Account(storage=Storage.EMPTY),
+            {"nonce": "1", "code": "0x123", "balance": "1", "storage": {0: 1}},
+            False,
+        ),
+        # Storage.EMPTY: storage must be empty, Pass
+        (
+            Account(storage=Storage.EMPTY),
+            {"nonce": "1", "code": "0x123", "balance": "1", "storage": {}},
             True,
         ),
         # Storage must be empty: Pass
