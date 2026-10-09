@@ -526,14 +526,22 @@ class StepRunner:
         logs = self.eth.post_request(
             request=RPCCall(method="getLogs", params=[params])
         ).result_or_raise()
-        got = sorted(self.label_of(log["blockHash"]) for log in logs)
-        want = sorted(step.blocks)
-        if got != want:
-            raise LoggedError(
-                f"{name}: eth_getLogs returned logs from {got}, "
-                f"expected {want}"
+        got_hashes = sorted(Hash(log["blockHash"]) for log in logs)
+        want_hashes = []
+        for label in step.blocks:
+            resolved = self.resolve(label)
+            assert resolved is not None  # a block label never resolves null
+            want_hashes.append(resolved)
+        want_hashes.sort()
+        if got_hashes != want_hashes:
+            got_labels = sorted(
+                self.label_of(log["blockHash"]) for log in logs
             )
-        logger.info(f"{name}: logs from {want}")
+            raise LoggedError(
+                f"{name}: eth_getLogs returned logs from {got_labels}, "
+                f"expected {sorted(step.blocks)}"
+            )
+        logger.info(f"{name}: logs from {sorted(step.blocks)}")
 
     def send_raw_transaction(
         self, name: str, step: SendRawTransactionStep
