@@ -90,13 +90,15 @@ def probe_transaction(
         pytest.param(Spec.TXPARAM_TYPE, Spec.FRAME_TX_TYPE, id="type"),
         pytest.param(Spec.TXPARAM_NONCE, 0, id="nonce"),
         pytest.param(
-            Spec.TXPARAM_MAX_PRIORITY_FEE, MAX_PRIORITY_FEE, id="priority_fee"
+            Spec.TXPARAM_MAX_PRIORITY_FEE_PER_GAS,
+            MAX_PRIORITY_FEE,
+            id="priority_fee",
         ),
-        pytest.param(Spec.TXPARAM_MAX_FEE, MAX_FEE, id="max_fee"),
-        pytest.param(Spec.TXPARAM_MAX_BLOB_FEE, 0, id="max_blob_fee"),
+        pytest.param(Spec.TXPARAM_MAX_FEE_PER_GAS, MAX_FEE, id="max_fee"),
+        pytest.param(Spec.TXPARAM_MAX_FEE_PER_BLOB_GAS, 0, id="max_blob_fee"),
         pytest.param(Spec.TXPARAM_BLOB_COUNT, 0, id="blob_count"),
         pytest.param(Spec.TXPARAM_FRAME_COUNT, 2, id="frame_count"),
-        pytest.param(Spec.TXPARAM_FRAME_INDEX, 1, id="frame_index"),
+        pytest.param(Spec.TXPARAM_CURRENT_FRAME_INDEX, 1, id="frame_index"),
         pytest.param(Spec.TXPARAM_SIGNATURE_COUNT, 1, id="signature_count"),
     ],
 )
@@ -264,7 +266,7 @@ def test_txparam_state_gas_left(
         pytest.param(0, Spec.FRAMEPARAM_DATA_LENGTH, 0, id="empty_data"),
         pytest.param(
             0,
-            Spec.FRAMEPARAM_GAS_LIMIT,
+            Spec.FRAMEPARAM_EXECUTION_GAS_LIMIT,
             DEFAULT_FRAME_GAS_LIMIT,
             id="gas_limit",
         ),
@@ -289,7 +291,10 @@ def test_txparam_state_gas_left(
         ),
         pytest.param(1, Spec.FRAMEPARAM_VALUE, 0, id="value"),
         pytest.param(
-            1, Spec.FRAMEPARAM_GAS_LIMIT, PROBE_FRAME_GAS, id="own_gas_limit"
+            1,
+            Spec.FRAMEPARAM_EXECUTION_GAS_LIMIT,
+            PROBE_FRAME_GAS,
+            id="own_gas_limit",
         ),
         pytest.param(
             1,
@@ -336,8 +341,12 @@ def test_frameparam_resolved_target(
     """
     sender = pre.fund_eoa()
     probe = pre.deploy_contract(
-        code=Op.SSTORE(SLOT_RESULT, Op.FRAMEPARAM(0, Spec.FRAMEPARAM_TARGET))
-        + Op.SSTORE(SLOT_RESULT + 1, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_TARGET))
+        code=Op.SSTORE(
+            SLOT_RESULT, Op.FRAMEPARAM(0, Spec.FRAMEPARAM_RESOLVED_TARGET)
+        )
+        + Op.SSTORE(
+            SLOT_RESULT + 1, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_RESOLVED_TARGET)
+        )
         + Op.STOP
     )
 
