@@ -381,13 +381,28 @@ class TestAccessListService:
     ACCESS_LIST = eth_rlp.encode([[b"\x11" * 20, [], [], [], [], []]])
 
     def test_withheld_by_default(self) -> None:
-        """The default peer leaves the request unanswered and counts it."""
-        peer = _access_list_peer({_hash(1): self.ACCESS_LIST}, serve=False)
-        assert _request_access_lists(peer, [_hash(1)]) == []
-        assert peer.statistics.unanswered_requests == {
-            "GetBlockAccessLists": 1
-        }
+        """
+        The default peer answers every entry as unavailable, even for a
+        block whose access list it holds, and counts what it withheld.
+        A silent peer would be penalized: reth bans it after about 32
+        unanswered requests, and erigon waits 10 s for every block.
+        """
+        peer = _access_list_peer(
+            {_hash(1): self.ACCESS_LIST, _hash(2): None}, serve=False
+        )
+        messages = _request_access_lists(peer, [_hash(1), _hash(2)])
+        assert len(messages) == 1
+        code, payload = messages[0]
+        assert code == BLOCK_ACCESS_LISTS
+        _, entries = cast(Tuple[bytes, List[Any]], eth_rlp.decode(payload))
+        assert [eth_rlp.encode(entry) for entry in entries] == [
+            UNAVAILABLE_ACCESS_LIST,
+            UNAVAILABLE_ACCESS_LIST,
+        ]
+        assert peer.statistics.access_list_requests == 1
         assert peer.statistics.access_lists_served == 0
+        assert peer.statistics.access_lists_withheld == 1
+        assert peer.statistics.unanswered_requests == {}
 
     def test_served_entries_are_positional(self) -> None:
         """
@@ -413,6 +428,7 @@ class TestAccessListService:
         ]
         assert peer.statistics.access_list_requests == 1
         assert peer.statistics.access_lists_served == 1
+        assert peer.statistics.access_lists_withheld == 0
         assert peer.statistics.unanswered_requests == {}
 
     def test_receipts_stay_unanswered_when_serving(self) -> None:

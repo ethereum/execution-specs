@@ -241,10 +241,10 @@ class EthProtocol:
 
     A protocol object owns exactly the things versions change: the
     version number, the codecs whose wire shape differs between
-    versions, and the set of requests this peer deliberately leaves
-    unanswered. Everything version independent - RLP helpers, the fork
-    id, the header and body request codecs, which have been stable
-    since eth/66 - stays at module level.
+    versions, the messages a version adds, and the set of requests this
+    peer deliberately leaves unanswered. Everything version independent
+    - RLP helpers, the fork id, the header and body request codecs,
+    which have been stable since eth/66 - stays at module level.
     """
 
     version: int
@@ -256,16 +256,21 @@ class EthProtocol:
     receipts response can be resumed mid-block.
     """
 
+    has_block_access_lists: bool
+    """
+    Whether the version carries the GetBlockAccessLists request pair.
+    Added by eth/71 (EIP-8159). The peer always answers it, either with
+    the access lists or with the entry EIP-8159 prescribes for one a
+    peer does not hold (see `MockPeer`).
+    """
+
     unanswered_requests: Mapping[int, str]
     """
     Wire code to message name of every request this peer deliberately
-    leaves unanswered by default. Receipts, and from eth/71 block access
-    lists, are data a client could import instead of deriving by
-    execution; serving either could let a failing test pass with no
-    coverage, so the silence is a recorded decision per message type
-    rather than an omission. Access lists can be served on request (see
-    `MockPeer`), since clients that execute anyway use them to run a
-    block's transactions in parallel.
+    never answers. Receipts are data a client could import instead of
+    deriving by execution; serving them would let a failing test pass
+    with no coverage, so the silence is a recorded decision rather than
+    an omission.
     """
 
     def encode_status(self, status: Status) -> bytes:
@@ -315,28 +320,26 @@ ETH_PROTOCOLS: Dict[int, EthProtocol] = {
     69: EthProtocol(
         version=69,
         receipts_request_has_offset=False,
+        has_block_access_lists=False,
         unanswered_requests={GET_RECEIPTS: "GetReceipts"},
     ),
     70: EthProtocol(
         version=70,
         receipts_request_has_offset=True,
+        has_block_access_lists=False,
         unanswered_requests={GET_RECEIPTS: "GetReceipts"},
     ),
     71: EthProtocol(
         version=71,
         receipts_request_has_offset=True,
-        unanswered_requests={
-            GET_RECEIPTS: "GetReceipts",
-            GET_BLOCK_ACCESS_LISTS: "GetBlockAccessLists",
-        },
+        has_block_access_lists=True,
+        unanswered_requests={GET_RECEIPTS: "GetReceipts"},
     ),
     72: EthProtocol(
         version=72,
         receipts_request_has_offset=True,
-        unanswered_requests={
-            GET_RECEIPTS: "GetReceipts",
-            GET_BLOCK_ACCESS_LISTS: "GetBlockAccessLists",
-        },
+        has_block_access_lists=True,
+        unanswered_requests={GET_RECEIPTS: "GetReceipts"},
     ),
 }
 """
@@ -346,10 +349,14 @@ eth/70 (EIP-7975) changes only the receipts pair, which this peer never
 serves, so implementing it means decoding the new request shape. eth/71
 (EIP-8159) adds the block access list request pair; a block access list
 carries post-state values a client could import instead of executing,
-so the receipts rule generalizes and the requests are counted but never
-answered. eth/72 (EIP-8070) changes only blob transaction propagation
-through the mempool, which this peer never takes part in: it announces
-no transactions, so a client has no reason to request cells from it.
+so by default the peer answers every request as if it held none (see
+`MockPeer`), which leaves the client to execute. Silence is not an
+option here: clients penalize a peer that never answers, by banning
+it (reth, after about 32 requests) or by waiting out a timeout on
+every block (erigon, 10 s). eth/72 (EIP-8070) changes only blob
+transaction propagation through the mempool, which this peer never
+takes part in: it announces no transactions, so a client has no reason
+to request cells from it.
 """
 
 

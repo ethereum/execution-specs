@@ -113,6 +113,12 @@ class PeerStatistics:
     """
     access_list_requests: int = 0
     access_lists_served: int = 0
+    access_lists_withheld: int = 0
+    """
+    Access lists the peer answered as unavailable, although it held
+    them, because it was not asked to serve them. The client then has
+    to execute the block to derive its access list.
+    """
     unknown_requests: int = 0
     unanswered_requests: Dict[str, int] = field(default_factory=dict)
     """
@@ -161,11 +167,12 @@ class MockPeer:
         version matrix wants.
 
         `serve_access_lists` answers eth/71 GetBlockAccessLists requests
-        instead of leaving them unanswered. A client that receives a
-        block's access list may use it to execute the block's
-        transactions in parallel, a different execution path from the
-        sequential one it falls back to without; serving lets a test
-        reach it over the sync path.
+        with the access lists. By default every entry is answered as
+        unavailable, so the client has to execute each block on its own.
+        A client that receives a block's access list may use it to
+        execute the block's transactions in parallel, a different
+        execution path from the sequential one it falls back to without;
+        serving lets a test reach it over the sync path.
         """
         self.host = host
         self.port = port
@@ -402,22 +409,20 @@ class MockPeer:
             self._serve_headers(session, decode_get_block_headers(payload))
         elif code == GET_BLOCK_BODIES:
             self._serve_bodies(session, *decode_get_block_bodies(payload))
-        elif code == GET_BLOCK_ACCESS_LISTS and self.serve_access_lists:
-            self._serve_access_lists(
+        elif (
+            code == GET_BLOCK_ACCESS_LISTS and protocol.has_block_access_lists
+        ):
+            self._answer_access_lists(
                 session, *decode_get_block_access_lists(payload)
             )
         elif code in protocol.unanswered_requests:
-            # A full syncing client derives receipts - and, from
-            # Amsterdam, block access lists - by executing the block,
-            # so a request here means the client chose a path this peer
-            # cannot honestly serve. Leave it unanswered and make the
-            # silence visible.
+            # A full syncing client derives receipts by executing the
+            # block, so a request here means the client chose a path
+            # this peer cannot honestly serve. Leave it unanswered and
+            # make the silence visible.
             name = protocol.unanswered_requests[code]
             if code == GET_RECEIPTS:
                 description = protocol.decode_get_receipts(payload).describe()
-            elif code == GET_BLOCK_ACCESS_LISTS:
-                _, hashes = decode_get_block_access_lists(payload)
-                description = f"access lists for {len(hashes)} hashes"
             else:
                 description = name
             with self._lock:
@@ -556,7 +561,7 @@ class MockPeer:
                 f"{len(bodies)} served ({served_bytes} bytes){detail}"
             )
 
-    def _serve_access_lists(
+    def _answer_access_lists(
         self, session: RLPxSession, request_id: int, hashes: List[bytes]
     ) -> None:
         """
@@ -564,7 +569,10 @@ class MockPeer:
 
         Entries are positional (EIP-8159): one per requested hash, in
         order, with the RLP empty string for a block whose access list
-        this peer does not hold. The response stops early once it
+        this peer does not hold. Unless the peer serves access lists,
+        every entry is that empty string, which is how a real peer that
+        retains none answers; the client then derives each access list
+        by executing the block. The response stops early once it
         reaches the soft byte limit, as the bodies response does; the
         client asks again for the rest.
         """
@@ -574,6 +582,7 @@ class MockPeer:
 
         entries: List[bytes] = []
         served = 0
+        withheld = 0
         served_bytes = 0
         for block_hash in hashes[:MAX_BODIES_PER_RESPONSE]:
             if served_bytes >= SOFT_RESPONSE_LIMIT:
@@ -581,6 +590,10 @@ class MockPeer:
             access_list = self._chains.access_list_rlp_by_hash(block_hash)
             if access_list is None:
                 entries.append(UNAVAILABLE_ACCESS_LIST)
+                continue
+            if not self.serve_access_lists:
+                entries.append(UNAVAILABLE_ACCESS_LIST)
+                withheld += 1
                 continue
             entries.append(access_list)
             served += 1
@@ -594,9 +607,10 @@ class MockPeer:
 
         with self._lock:
             statistics.access_lists_served += served
+            statistics.access_lists_withheld += withheld
             statistics.record(
                 f"access lists for {len(hashes)} hashes -> {served} "
-                f"served ({served_bytes} bytes)"
+                f"served ({served_bytes} bytes), {withheld} withheld"
             )
 
     def close(self) -> None:

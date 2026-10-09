@@ -140,10 +140,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         choices=["withhold", "serve", "both"],
         default="withhold",
         help=(
-            "Whether the mock peer answers eth/71 GetBlockAccessLists "
-            "requests. 'withhold' (default) leaves them unanswered, so "
-            "a client must execute each block on its own, and a pass "
-            "proves it did. 'serve' answers them from each block's "
+            "Whether the mock peer serves block access lists in reply "
+            "to eth/71 GetBlockAccessLists requests. 'withhold' "
+            "(default) answers every entry as unavailable, so a client "
+            "must execute each block on its own, and a pass proves it "
+            "did. 'serve' answers them from each block's "
             "payload, so a client that uses access lists to execute a "
             "block's transactions in parallel takes that path instead. "
             "'both' runs every fixture whose blocks carry access lists "

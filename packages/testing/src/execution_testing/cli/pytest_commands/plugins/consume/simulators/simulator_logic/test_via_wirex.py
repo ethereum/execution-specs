@@ -578,7 +578,8 @@ def _run_sync_target(
         f"{statistics.bodies_served} body/bodies in "
         f"{statistics.body_requests} request(s)"
         + (
-            f", {statistics.access_lists_served} access list(s) in "
+            f", {statistics.access_lists_served} access list(s) served "
+            f"and {statistics.access_lists_withheld} withheld in "
             f"{statistics.access_list_requests} request(s)"
             if statistics.access_list_requests
             else ""

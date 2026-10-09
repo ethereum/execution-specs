@@ -151,7 +151,7 @@ class TestGetReceipts:
 
 
 class TestBlockAccessLists:
-    """eth/71 (EIP-8159) adds the request pair; the peer stays silent."""
+    """eth/71 (EIP-8159) adds the request pair; the peer always answers."""
 
     def test_request_decodes(self) -> None:
         """[request-id, [hashes]], the GetBlockBodies shape."""
@@ -160,13 +160,11 @@ class TestBlockAccessLists:
         assert request_id == 9
         assert hashes == [b"\xdd" * 32, b"\xee" * 32]
 
-    def test_eth71_onward_defers_the_request(self) -> None:
-        """The silence is a per-version decision, not a global one."""
+    def test_eth71_onward_carries_the_request(self) -> None:
+        """The pair exists from eth/71 and is never left unanswered."""
         for version, protocol in ETH_PROTOCOLS.items():
-            expected = version >= 71
-            assert (
-                GET_BLOCK_ACCESS_LISTS in protocol.unanswered_requests
-            ) is expected
+            assert protocol.has_block_access_lists is (version >= 71)
+            assert GET_BLOCK_ACCESS_LISTS not in protocol.unanswered_requests
 
 
 class TestRegistry:
