@@ -158,7 +158,7 @@ One legal outcome of an Engine API step. Every set field is a constraint; unset 
 
 #### - `id`: `String`
 
-Identifier; selects the `branches` entry to run when matched.
+Identifier, unique within the step's `expect`; selects the `branches` entry to run when matched.
 
 #### - `disputed`: [`Optional`](./common_types.md#optional)`[String]`
 

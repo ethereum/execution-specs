@@ -487,8 +487,8 @@ def _reject_duplicate_outcome_ids(
     """
     Reject two outcomes sharing an id in the same step's ``expect``, once it
     is final. Both would modify the same ``branches`` entry, producing a
-    branch that asserts the state of whichever outcome actually matched
-    (PR3556-F3-02).
+    branch that asserts the state each of them leaves, so whichever
+    matched, its other checks fail.
     """
     seen: Set[str] = set()
     duplicates: Set[str] = set()
