@@ -11,7 +11,7 @@ from ethereum.cancun.blocks import Withdrawal
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
 from ethereum.forks.bogota.transactions.frame_transaction import (
-    RECENT_ROOT_VERIFIER,
+    RECENT_ROOT_ADDRESS,
     FrameMode,
 )
 from ethereum.trace import EvmTracer
@@ -48,7 +48,7 @@ Unscheduled
 # constructed while decoding transactions, never compared explicitly
 FrameMode.DEFAULT
 # Documents the EIP-8272 recent root contract; nothing in `src/` calls it.
-RECENT_ROOT_VERIFIER
+RECENT_ROOT_ADDRESS
 
 # src/ethereum/ethash.py
 ethash.generate_dataset

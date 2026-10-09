@@ -7,12 +7,6 @@ from execution_testing import Fork, Frame, Op
 from ..eip8141_frame_transactions.spec import Spec as FrameSpec
 from .spec import Spec
 
-WRITE_STATE_GAS = 200_000
-"""
-State gas budget of a frame publishing a root: a fresh recent root entry
-is one storage set, with headroom.
-"""
-
 VALIDATION_FIXED_GAS = 119
 """
 Execution gas of the validation operation outside the tuple loop: the
@@ -83,7 +77,18 @@ def recent_root_frame(
     return Frame(**kwargs)
 
 
-def write_frame(salt: bytes, root: bytes, **overrides: Any) -> Frame:
+def write_state_gas(fork: Fork, *, writes: int = 1) -> int:
+    """
+    Return the state gas budget for `writes` fresh storage sets: a
+    published entry is one, and a relay that also records its own
+    witness slot needs a second.
+    """
+    return writes * Op.SSTORE(0, 1).state_cost(fork)
+
+
+def write_frame(
+    fork: Fork, salt: bytes, root: bytes, **overrides: Any
+) -> Frame:
     """
     Return a `SENDER` frame publishing `root` under `salt` for the
     transaction sender: it calls the recent root contract with the 64-byte
@@ -94,7 +99,7 @@ def write_frame(salt: bytes, root: bytes, **overrides: Any) -> Frame:
     kwargs: Dict[str, Any] = dict(
         mode=FrameSpec.MODE_SENDER,
         target=Spec.RECENT_ROOT_ADDRESS,
-        state_gas_limit=WRITE_STATE_GAS,
+        state_gas_limit=write_state_gas(fork),
         data=bytes(salt) + bytes(root),
     )
     kwargs.update(overrides)

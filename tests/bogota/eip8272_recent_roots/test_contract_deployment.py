@@ -94,7 +94,10 @@ def test_recent_root_contract_deployment(
 
     publish = Transaction(
         sender=sender,
-        frames=[verify_frame(), write_frame(SALT, ROOT)],
+        frames=[
+            verify_frame(),
+            write_frame(fork.transitions_to(), SALT, ROOT),
+        ],
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[

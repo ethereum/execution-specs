@@ -37,10 +37,10 @@ from ..eip8141_frame_transactions.helpers import (
 )
 from ..eip8141_frame_transactions.spec import Spec as FrameSpec
 from .helpers import (
-    WRITE_STATE_GAS,
     recent_root_frame,
     validation_gas,
     write_frame,
+    write_state_gas,
 )
 from .spec import (
     Spec,
@@ -134,7 +134,7 @@ def test_publish_then_verify(
 
     publish = Transaction(
         sender=sender,
-        frames=[verify_frame(), write_frame(SALT, ROOT_A)],
+        frames=[verify_frame(), write_frame(fork, SALT, ROOT_A)],
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
@@ -233,7 +233,7 @@ def test_last_write_in_slot_wins(
     source = source_id(sender, SALT)
     key = storage_key(source, WRITE_SLOT)
 
-    writes = [write_frame(SALT, ROOT_A), write_frame(SALT, ROOT_B)]
+    writes = [write_frame(fork, SALT, ROOT_A), write_frame(fork, SALT, ROOT_B)]
     if separate_transactions:
         publish = [
             Transaction(sender=sender, frames=[verify_frame(), write])
@@ -274,8 +274,8 @@ def test_ring_overwrite(
 ) -> None:
     """
     A write `RECENT_ROOT_LENGTH` slots after an earlier one lands on the
-    same ring buffer key and replaces the earlier entry; the new root
-    verifies in the following slot and the old root does not.
+    same ring buffer key and replaces the earlier entry. The new root
+    verifies in the following slot.
     """
     sender = pre.fund_eoa()
     target = pre.deploy_contract(code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP)
@@ -288,11 +288,11 @@ def test_ring_overwrite(
     # assigned at construction.
     publish_first = Transaction(
         sender=sender,
-        frames=[verify_frame(), write_frame(SALT, ROOT_A)],
+        frames=[verify_frame(), write_frame(fork, SALT, ROOT_A)],
     )
     publish_again = Transaction(
         sender=sender,
-        frames=[verify_frame(), write_frame(SALT, ROOT_B)],
+        frames=[verify_frame(), write_frame(fork, SALT, ROOT_B)],
     )
     verify_new = Transaction(
         sender=sender,
@@ -342,7 +342,7 @@ def test_publish_from_contract(
             sender_frame(
                 target=relay,
                 data=write_calldata(SALT, ROOT_A),
-                state_gas_limit=WRITE_STATE_GAS,
+                state_gas_limit=write_state_gas(fork, writes=2),
             ),
         ],
     )
@@ -408,7 +408,7 @@ def test_delegated_write_uses_calling_storage(
                 sender_frame(
                     target=relay,
                     data=write_calldata(SALT, ROOT_A),
-                    state_gas_limit=WRITE_STATE_GAS,
+                    state_gas_limit=write_state_gas(fork, writes=2),
                 ),
             ],
         ),
@@ -446,7 +446,7 @@ def test_write_with_value_reverts(
         pre=pre,
         tx=Transaction(
             sender=sender,
-            frames=[verify_frame(), write_frame(SALT, ROOT_A, value=1)],
+            frames=[verify_frame(), write_frame(fork, SALT, ROOT_A, value=1)],
             expected_receipt=TransactionReceipt(
                 payer=sender,
                 frame_receipts=[
@@ -494,7 +494,10 @@ def test_write_with_wrong_length_reverts(
         pre=pre,
         tx=Transaction(
             sender=sender,
-            frames=[verify_frame(), write_frame(SALT, ROOT_A, data=data)],
+            frames=[
+                verify_frame(),
+                write_frame(fork, SALT, ROOT_A, data=data),
+            ],
             expected_receipt=TransactionReceipt(
                 payer=sender,
                 frame_receipts=[
@@ -569,7 +572,7 @@ def test_delegated_eoa_write_uses_authority_storage(
                 sender_frame(
                     target=authority,
                     data=write_calldata(SALT, ROOT_A),
-                    state_gas_limit=WRITE_STATE_GAS,
+                    state_gas_limit=write_state_gas(fork),
                 ),
             ],
             expected_receipt=TransactionReceipt(
@@ -608,8 +611,8 @@ def test_sources_by_salt(
         sender=sender,
         frames=[
             verify_frame(),
-            write_frame(SALT, ROOT_A),
-            write_frame(OTHER_SALT, ROOT_B),
+            write_frame(fork, SALT, ROOT_A),
+            write_frame(fork, OTHER_SALT, ROOT_B),
         ],
         expected_receipt=TransactionReceipt(
             payer=sender,
@@ -688,7 +691,7 @@ def test_default_frame_write_uses_entry_point_source(
                 default_frame(
                     target=Spec.RECENT_ROOT_ADDRESS,
                     data=write_calldata(SALT, ROOT_A),
-                    state_gas_limit=WRITE_STATE_GAS,
+                    state_gas_limit=write_state_gas(fork),
                 ),
             ],
             expected_receipt=TransactionReceipt(
@@ -748,7 +751,7 @@ def test_static_call_write_fails(
                 sender_frame(
                     target=relay,
                     data=write_calldata(SALT, ROOT_A),
-                    state_gas_limit=WRITE_STATE_GAS,
+                    state_gas_limit=write_state_gas(fork),
                 ),
             ],
             expected_receipt=TransactionReceipt(
