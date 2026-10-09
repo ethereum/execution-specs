@@ -8,10 +8,8 @@ state_tests/stStaticCall/static_CallContractToCreateContractWhichWouldCreateCont
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -30,29 +28,17 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow
-@pytest.mark.pre_alloc_mutable
 def test_static_call_contract_to_create_contract_which_would_create_contract_if_called(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """Test_static_call_contract_to_create_contract_which_would_create_con..."""  # noqa: E501
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
     sender = pre.fund_eoa(amount=0x2540BE400)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: lll
     # {(MSTORE 0 0x600c60005566602060406000f060205260076039f3) [[ 0 ]](CREATE 1 11 21) [[ 1 ]] (STATICCALL 150000 (SLOAD 0) 0 0 0 0)}  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0, value=0x600C60005566602060406000F060205260076039F3
         )
@@ -70,8 +56,6 @@ def test_static_call_contract_to_create_contract_which_would_create_contract_if_
         )
         + Op.STOP,
         balance=1000,
-        nonce=0,
-        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
 
     gas_limit = 300000
@@ -89,19 +73,19 @@ def test_static_call_contract_to_create_contract_which_would_create_contract_if_
     post = {
         contract_0: Account(
             storage={
-                0: compute_create_address(address=contract_0, nonce=0),
+                0: compute_create_address(address=contract_0, nonce=1),
                 1: 0,
             },
-            nonce=1,
+            nonce=2,
         ),
         compute_create_address(
-            address=compute_create_address(address=contract_0, nonce=0),
+            address=compute_create_address(address=contract_0, nonce=1),
             nonce=0,
         ): Account.NONEXISTENT,
         sender: Account(nonce=1),
-        compute_create_address(address=contract_0, nonce=0): Account(
+        compute_create_address(address=contract_0, nonce=1): Account(
             storage={0: 12}, balance=1, nonce=1
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
