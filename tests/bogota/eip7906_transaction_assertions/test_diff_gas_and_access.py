@@ -36,6 +36,7 @@ from .helpers import (
     FACTORY_CODE,
     KEY_A,
     KEY_U,
+    NEVER_EXISTED,
     TOPIC_1,
     TOPIC_2,
     TOPIC_3,
@@ -546,6 +547,47 @@ def test_txdiff_access_gas_boundary(
         post={sender: Account(nonce=1), target: Account(storage={KEY_U: 3})},
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={target: expectation if accessed else None}
+        ),
+    )
+
+
+@pytest.mark.parametrize("param", LIVE_LOOKUPS)
+def test_txdiff_never_existing_account_lookup_is_recorded(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    param: int,
+) -> None:
+    """
+    Record a live lookup of an account that never exists: a slot read
+    files the address with the slot as its only entry, which `SLOAD`
+    can only do for an account whose code is running, and an account
+    read files it touched.
+    """
+    sender = pre.fund_eoa()
+    is_slot = param <= Spec.TXDIFF_SLOT_AFTER
+    assertion = pre.deploy_contract(
+        code=Op.POP(Op.TXDIFF(param, NEVER_EXISTED, KEY_U if is_slot else 0))
+        + Op.STOP
+    )
+    state_test(
+        pre=pre,
+        tx=assertion_transaction(
+            fork,
+            sender,
+            body=[],
+            assertion=assertion,
+            frame_receipts=success_receipts(2),
+        ),
+        post={sender: Account(nonce=1), NEVER_EXISTED: Account.NONEXISTENT},
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                NEVER_EXISTED: BalAccountExpectation(
+                    storage_reads=[KEY_U], storage_changes=[]
+                )
+                if is_slot
+                else BalAccountExpectation.empty()
+            }
         ),
     )
 
