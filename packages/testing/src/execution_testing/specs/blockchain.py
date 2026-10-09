@@ -1614,9 +1614,13 @@ class BlockchainTest(BaseTest):
             )
             return None
         env = apply_new_parent(head.env, head.header)
-        # The salt goes into the fee recipient: an empty block pays no
-        # fees, so the coinbase is never touched and the state root,
-        # receipts, requests and block access list are unaffected.
+        # Salt the block with the test's id: two tests of one
+        # pre-allocation group may declare byte-identical payload graphs,
+        # and a client reused across the group only starts a sync for a
+        # head it has never seen. The salt goes into the fee recipient:
+        # an empty block pays no fees, so the coinbase is never touched
+        # and the state root, receipts, requests and block access list
+        # are unaffected.
         assert self.test_id, (
             "the fill plugin sets test_id on every spec; a sync block "
             "cannot be salted without it"
