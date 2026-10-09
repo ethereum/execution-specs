@@ -3,8 +3,7 @@ EIP-8250: Keyed Nonces for Frame Transactions.
 
 Replace the single sender nonce of a frame transaction with a bounded
 set of nonce keys sharing one sequence number, the non-zero keys
-selecting independent sequences held by a nonce manager system
-contract.
+selecting independent sequences held by a nonce manager contract.
 
 https://eips.ethereum.org/EIPS/eip-8250
 """
@@ -16,9 +15,9 @@ from ethereum_types.numeric import U256
 
 from execution_testing.base_types import Bytes
 
-from ....base_fork import ActivationInstall, BaseFork
+from ....base_fork import BaseFork
 
-NONCE_MANAGER_ADDRESS = 0x0000000000000000000000000000000000008250
+NONCE_MANAGER_ADDRESS = 0x8250968C12E01A19D6F667B9B2F3B3A4D0E51CB7
 NONCE_MANAGER_BYTECODE = bytes.fromhex("60006000fd")
 
 
@@ -42,7 +41,7 @@ class EIP8250(BaseFork):
 
     @classmethod
     def pre_allocation(cls) -> Mapping:
-        """Pre-allocate the nonce manager as installed at activation."""
+        """Pre-allocate the nonce manager contract."""
         return {
             NONCE_MANAGER_ADDRESS: {
                 "nonce": 1,
@@ -51,13 +50,11 @@ class EIP8250(BaseFork):
         } | super(EIP8250, cls).pre_allocation()  # type: ignore
 
     @classmethod
-    def activation_code_installs(cls) -> Mapping:
-        """
-        Install the nonce manager when the fork activates: its code, and
-        a nonce of at least one, keeping any balance it already held.
-        """
+    def pre_allocation_blockchain(cls) -> Mapping:
+        """Pre-allocate the nonce manager contract."""
         return {
-            NONCE_MANAGER_ADDRESS: ActivationInstall(
-                code=NONCE_MANAGER_BYTECODE, min_nonce=1
-            ),
-        } | super(EIP8250, cls).activation_code_installs()  # type: ignore
+            NONCE_MANAGER_ADDRESS: {
+                "nonce": 1,
+                "code": NONCE_MANAGER_BYTECODE,
+            }
+        } | super(EIP8250, cls).pre_allocation_blockchain()  # type: ignore
