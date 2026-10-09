@@ -8,10 +8,8 @@ state_tests/stEIP150singleCodeGasPrices/gasCostJumpFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -50,7 +48,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_gas_cost_jump(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -60,54 +57,31 @@ def test_gas_cost_jump(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x0000000000000000000000000000000000001000)
-    contract_1 = Address(0x0000000000000000000000000000000000002000)
-    contract_2 = Address(0x0000000000000000000000000000000000003000)
-    contract_3 = Address(0x0000000000000000000000000000000000004000)
-    contract_4 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: raw
     # 0x600060005B5B00
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.PUSH1[0x0] * 2 + Op.JUMPDEST * 2 + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: raw
     # 0x60006005565B00
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.PUSH1[0x0] + Op.JUMP(pc=0x5) + Op.JUMPDEST + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000002000),  # noqa: E501
     )
     # Source: raw
     # 0x60016005575B00
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.JUMPI(pc=0x5, condition=0x1) + Op.JUMPDEST + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000003000),  # noqa: E501
     )
     # Source: raw
     # 0x60006005575B00
-    contract_3 = pre.deploy_contract(  # noqa: F841
+    contract_3 = pre.deploy_contract(
         code=Op.JUMPI(pc=0x5, condition=0x0) + Op.JUMPDEST + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000004000),  # noqa: E501
     )
     # Source: lll
     # {
@@ -141,12 +115,12 @@ def test_gas_cost_jump(
     #
     #   ; Get the baseline cost
     # ... (51 more lines)
-    contract_4 = pre.deploy_contract(  # noqa: F841
+    contract_4 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(
             Op.CALL(
                 gas=0x10000,
-                address=contract_0,
+                address=Op.PUSH20[contract_0],
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -155,15 +129,15 @@ def test_gas_cost_jump(
             )
         )
         + Op.MSTORE(offset=0x20, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.JUMPI(pc=0x2E, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x1))
+        + Op.JUMPI(pc=0x40, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x1))
         + Op.POP(0x0)
-        + Op.JUMP(pc=0x4E)
+        + Op.JUMP(pc=0x72)
         + Op.JUMPDEST
         + Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(
             Op.CALL(
                 gas=0x10000,
-                address=contract_1,
+                address=Op.PUSH20[contract_1],
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -173,15 +147,15 @@ def test_gas_cost_jump(
         )
         + Op.MSTORE(offset=0x40, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.JUMPDEST
-        + Op.JUMPI(pc=0x5E, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x2))
+        + Op.JUMPI(pc=0x82, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x2))
         + Op.POP(0x0)
-        + Op.JUMP(pc=0x7E)
+        + Op.JUMP(pc=0xB4)
         + Op.JUMPDEST
         + Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(
             Op.CALL(
                 gas=0x10000,
-                address=contract_2,
+                address=Op.PUSH20[contract_2],
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -191,15 +165,15 @@ def test_gas_cost_jump(
         )
         + Op.MSTORE(offset=0x40, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.JUMPDEST
-        + Op.JUMPI(pc=0x8E, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3))
+        + Op.JUMPI(pc=0xC4, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3))
         + Op.POP(0x0)
-        + Op.JUMP(pc=0xAE)
+        + Op.JUMP(pc=0xF6)
         + Op.JUMPDEST
         + Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(
             Op.CALL(
                 gas=0x10000,
-                address=contract_3,
+                address=Op.PUSH20[contract_3],
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -219,7 +193,6 @@ def test_gas_cost_jump(
         + Op.STOP,
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
     )
 
     tx_data = [
@@ -240,4 +213,4 @@ def test_gas_cost_jump(
 
     post = {contract_4: Account(storage={0: 0})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
