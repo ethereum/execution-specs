@@ -476,6 +476,34 @@ def test_invalid_payload_attributes_still_applies_forkchoice(
     assert head_check.latest == "a1"
 
 
+@pytest.mark.parametrize(
+    "version,attributes",
+    [(2, ATTRIBUTES), (3, None)],
+    ids=["v2_with_attributes", "v3_without_attributes"],
+)
+def test_unordered_unsupported_fork_is_rejected(
+    version: int, attributes: PayloadAttributes | None
+) -> None:
+    """
+    A -38005 the spec does not order against the update leaves the head
+    unknown, so filling rejects it.
+    """
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.known["a1"] = Validity.VALID
+    step = ForkchoiceUpdatedStep(
+        head="a1",
+        version=version,
+        payload_attributes=attributes,
+        expect=[
+            Outcome(
+                id="unsupported", error_code=EngineAPIError.UnsupportedFork
+            )
+        ],
+    )
+    with pytest.raises(ValueError, match="head after it is unknown"):
+        annotate_steps([step], model)
+
+
 def test_any_error_on_a_build_request_is_rejected() -> None:
     """AnyError cannot tell -38003, which still applies, from other errors."""
     model = ClientModel(dag=dag_linear_with_fork())

@@ -28,6 +28,7 @@ from execution_testing.forks import (
     Cancun,
     Fork,
     Prague,
+    ShanghaiToCancunAtTime15k,
 )
 from execution_testing.test_types import Alloc, Environment, Transaction
 
@@ -281,6 +282,50 @@ def test_build_request_version_follows_attributes_fork(
     fcu = fixture.steps[1]
     assert isinstance(fcu, ForkchoiceUpdatedStep)
     assert fcu.version == Amsterdam.engine_forkchoice_updated_version()
+
+
+def test_unsupported_fork_build_request_keeps_the_update(
+    default_t8n: TransitionTool,
+) -> None:
+    """
+    ``forkchoiceUpdatedV3`` with pre-Cancun attributes fails their
+    validation with -38005 after the update applied, so the head moves
+    (PR3556-F3-01).
+    """
+    test = ReorgTest(
+        fork=ShanghaiToCancunAtTime15k,
+        pre=Alloc(),
+        blocks=[ReorgBlock(label="a1", timestamp=14_900)],
+        steps=[
+            NewPayloadStep(block="a1"),
+            ForkchoiceUpdatedStep(
+                head="a1",
+                version=3,
+                payload_attributes=PayloadAttributes(
+                    timestamp=14_901,
+                    prev_randao=Hash(0),
+                    suggested_fee_recipient=Address(0),
+                    withdrawals=[],
+                    parent_beacon_block_root=Hash(1),
+                ),
+                expect=[
+                    Outcome(
+                        id="unsupported",
+                        error_code=EngineAPIError.UnsupportedFork,
+                    )
+                ],
+            ),
+        ],
+    )
+    fixture = test.generate(
+        t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture
+    ).fixture
+    assert isinstance(fixture, BlockchainEngineReorgFixture)
+    fcu = fixture.steps[1]
+    assert isinstance(fcu, ForkchoiceUpdatedStep)
+    head_check = fcu.branches["unsupported"][0]
+    assert isinstance(head_check, AssertHeadStep)
+    assert head_check.latest == "a1"
 
 
 BUILT = [Outcome(id="built", status="VALID", payload_id="nonNull")]

@@ -26,9 +26,11 @@ Rules follow `execution-apis` ``paris.md`` as amended by PR #786:
   head's chain → ``-38002``; head extends current head → VALID; otherwise
   (rewind or side-chain reorg) → VALID (applied) or ``-38006`` (refused,
   implementation-specific depth cap). An error leaves the forkchoice state
-  untouched (updates are atomic), except ``-38003``/``-38005`` (invalid
-  payload attributes / unsupported fork): the state is updated before the
-  attributes are validated.
+  untouched (updates are atomic), except ``-38003`` and, from
+  ``forkchoiceUpdatedV3`` with payload attributes, ``-38005``: both come
+  from validating the attributes, after the state is updated (step 8). Any
+  other ``-38005`` is rejected: the spec does not order it against the
+  update.
 
 Authors may always provide ``expect`` explicitly; the model never widens an
 author-provided set.
@@ -357,14 +359,25 @@ class ClientModel:
         Whether ``outcome`` means the requested update was applied.
 
         Derived from the outcome's constraints and the no-reorg shortcut
-        (step 2), never from ``outcome.id``. ``-38003``/``-38005`` still
-        apply: the state is updated before the attributes are validated
-        (step 8 of ``paris.md``, extended by ``cancun.md``/``amsterdam.md``).
+        (step 2), never from ``outcome.id``. ``-38003`` still applies, and
+        so does ``-38005`` from ``forkchoiceUpdatedV3`` or later with
+        payload attributes: both come from validating the attributes, after
+        the state is updated (step 8 of ``paris.md``, extended by
+        ``cancun.md``, ``prague.md`` and ``amsterdam.md``). The other
+        ``-38005`` rules, added to earlier method versions by later forks,
+        are not ordered against the update.
         """
-        if outcome.error_code in (
-            EngineAPIError.InvalidPayloadAttributes,
-            EngineAPIError.UnsupportedFork,
-        ):
+        if outcome.error_code == EngineAPIError.InvalidPayloadAttributes:
+            return True
+        if outcome.error_code == EngineAPIError.UnsupportedFork:
+            if step.payload_attributes is None or int(step.version or 0) < 3:
+                raise ValueError(
+                    f"forkchoiceUpdated(head={step.head!r}): outcome "
+                    f"{outcome.id!r} expects -38005, which the spec orders "
+                    "after the update only for forkchoiceUpdatedV3 and "
+                    "later with payload attributes; otherwise the head "
+                    "after it is unknown"
+                )
             return True
         if outcome.any_error and step.payload_attributes is not None:
             raise ValueError(
