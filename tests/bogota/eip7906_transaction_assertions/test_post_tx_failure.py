@@ -38,6 +38,7 @@ from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
 
 from .helpers import (
     BODY_EFFECTS,
+    CAROL_FUNDS,
     DEPLOYED_RUNTIME,
     FEE_PER_GAS,
     FUNDS,
@@ -265,11 +266,16 @@ def test_diff_excludes_unrolled_batch(
     "post_tx_fails",
     [pytest.param(False, id="holds"), pytest.param(True, id="fails")],
 )
+@pytest.mark.parametrize(
+    "assertion_reads",
+    [pytest.param(False, id="blind"), pytest.param(True, id="reads")],
+)
 def test_post_tx_block_access_list(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     post_tx_fails: bool,
+    assertion_reads: bool,
 ) -> None:
     """
     Record the execution body's changes in the block access list only
@@ -277,13 +283,22 @@ def test_post_tx_block_access_list(
     body's storage write as a bare access and leaves the transfer
     recipient as a touched account without changes, as an atomic batch
     unroll does. The sender's nonce bump in the validation prefix stays,
-    and the assertion, which only reads, is touched either way.
+    and the assertion, which only reads, is touched either way. An
+    assertion that looks up the written slot and an untouched account
+    before deciding adds no entry for the slot and leaves the account
+    touched, its own failure included.
     """
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=RECIPIENT_FUNDS)
+    carol = pre.fund_eoa(amount=CAROL_FUNDS)
     writer = pre.deploy_contract(code=Op.SSTORE(SLOT_A, 1) + Op.STOP)
+    lookups = Bytecode()
+    if assertion_reads:
+        lookups = Op.POP(
+            Op.TXDIFF(Spec.TXDIFF_SLOT_AFTER, writer, SLOT_A)
+        ) + Op.POP(Op.TXDIFF(Spec.TXDIFF_BALANCE_AFTER, carol, 0))
     assertion = pre.deploy_contract(
-        code=Op.REVERT(0, 0) if post_tx_fails else Op.STOP
+        code=lookups + (Op.REVERT(0, 0) if post_tx_fails else Op.STOP)
     )
 
     tx = assertion_transaction(
@@ -313,7 +328,8 @@ def test_post_tx_block_access_list(
                         BalStorageChange(block_access_index=1, post_value=1)
                     ],
                 )
-            ]
+            ],
+            storage_reads=[],
         )
         recipient_expectation = BalAccountExpectation(
             balance_changes=[
@@ -331,6 +347,9 @@ def test_post_tx_block_access_list(
             account_expectations={
                 writer: writer_expectation,
                 recipient: recipient_expectation,
+                carol: BalAccountExpectation.empty()
+                if assertion_reads
+                else None,
                 assertion: BalAccountExpectation.empty(),
                 sender: BalAccountExpectation(
                     nonce_changes=[
@@ -347,6 +366,7 @@ def test_post_tx_block_access_list(
                 if post_tx_fails
                 else RECIPIENT_FUNDS + VALUE
             ),
+            carol: Account(balance=CAROL_FUNDS),
         },
     )
 
@@ -887,4 +907,74 @@ def test_failed_assertion_keeps_prefix_state_gas(
             **prefix.post(kept=True),
             **body.post(kept=False),
         },
+    )
+
+
+def test_failed_assertion_keeps_prefix_storage_change(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Keep the validation prefix's write to a slot the reverted body
+    overwrote: the block access list records the prefix's value at the
+    transaction's index and, the slot having a change, no read of it.
+    """
+    sender = pre.fund_eoa(amount=FUNDS)
+    sponsor = pre.deploy_contract(
+        code=Op.APPROVE(0, 0, Spec8141.APPROVE_PAYMENT), balance=FUNDS
+    )
+    counter = pre.deploy_contract(
+        code=Op.SSTORE(SLOT_A, Op.ADD(Op.SLOAD(SLOT_A), 1)) + Op.STOP
+    )
+    assertion = pre.deploy_contract(code=Op.REVERT(0, 0))
+
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=sender,
+            frames=[
+                verify_frame(flags=Spec8141.APPROVE_EXECUTION),
+                body_frame(fork, target=counter),
+                verify_frame(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
+                body_frame(fork, target=counter),
+                post_tx_frame(fork, target=assertion),
+            ],
+            expected_receipt=TransactionReceipt(
+                payer=sponsor,
+                frame_receipts=[
+                    FrameReceipt(status=Spec8141.STATUS_SUCCESS),
+                    FrameReceipt(status=Spec8141.STATUS_SUCCESS),
+                    FrameReceipt(status=Spec8141.STATUS_SUCCESS),
+                    FrameReceipt(status=Spec8141.STATUS_SUCCESS, logs=[]),
+                    FrameReceipt(status=Spec8141.STATUS_FAILURE),
+                ],
+            ),
+        ),
+        post={
+            sender: Account(nonce=1, balance=FUNDS),
+            counter: Account(storage={SLOT_A: 1}),
+        },
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                counter: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=SLOT_A,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=1
+                                )
+                            ],
+                        )
+                    ],
+                    storage_reads=[],
+                ),
+                sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+            },
+        ),
     )
