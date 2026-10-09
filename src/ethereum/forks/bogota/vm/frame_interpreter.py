@@ -155,7 +155,7 @@ class AtomicBatch:
 
 @final
 @dataclass
-class ExecutionBody:
+class ValidationPrefixCheckpoint:
     """
     Rollback point captured when the validation prefix ends.
 
@@ -285,7 +285,7 @@ def unroll_atomic_batch(
 
 def revert_execution_body(
     tx_env: TransactionEnvironment,
-    body: ExecutionBody,
+    checkpoint: ValidationPrefixCheckpoint,
 ) -> FrameJournal:
     """
     Revert the execution body after a `POST_TX` frame failed.
@@ -303,14 +303,14 @@ def revert_execution_body(
     assert frame_context is not None
 
     # The prefix set the payer, and no later frame can withdraw it.
-    assert frame_context.payer == body.context_snapshot.payer
+    assert frame_context.payer == checkpoint.context_snapshot.payer
 
     executed_body_receipts = frame_context.frame_receipts[
-        int(body.first_frame_index) :
+        int(checkpoint.first_frame_index) :
     ]
 
-    restore_tx_state(tx_env.state, body.state_snapshot)
-    restore_frame_context(tx_env, body.context_snapshot)
+    restore_tx_state(tx_env.state, checkpoint.state_snapshot)
+    restore_frame_context(tx_env, checkpoint.context_snapshot)
 
     for receipt in executed_body_receipts:
         frame_context.frame_receipts.append(
@@ -321,7 +321,7 @@ def revert_execution_body(
             )
         )
 
-    return body.journal
+    return checkpoint.journal
 
 
 def create_evm_from_frame(
@@ -698,24 +698,11 @@ def process_frames(
 
     open_batch: Optional[AtomicBatch] = None
     skip_batch = False
-    body: Optional[ExecutionBody] = None
-    skip_rest = False
+    prefix_checkpoint: Optional[ValidationPrefixCheckpoint] = None
 
     for index, frame in enumerate(tx.frames):
         frame_context.current_frame_index = Uint(index)
         has_batch_flag = FrameFlag.ATOMIC_BATCH in frame.flags
-
-        if skip_rest:
-            # A frame after a failed `POST_TX` frame never executes. Its
-            # zero-usage receipt makes its allotted gas count as unused.
-            frame_context.frame_receipts.append(
-                FrameReceipt(
-                    status=FrameStatus.SKIPPED,
-                    gas_used=GasUsed(execution=Uint(0), state=Uint(0)),
-                    logs=(),
-                )
-            )
-            continue
 
         if has_batch_flag and open_batch is None:
             context_snapshot = copy_frame_context(tx_env)
@@ -781,16 +768,22 @@ def process_frames(
             and receipt.status == FrameStatus.FAILURE
         ):
             # The assertion failed: the execution body is reverted
-            # unconditionally, overriding any atomic batch, and the
-            # remaining frames are skipped. Without a validation prefix
-            # there is no body to revert, and the transaction is
-            # invalid at the end of the loop regardless.
-            if body is not None:
-                journal = revert_execution_body(tx_env, body)
-            open_batch = None
-            skip_batch = False
-            skip_rest = True
-            continue
+            # unconditionally, overriding any atomic batch. Without a
+            # validation prefix there is no body to revert, and the
+            # transaction is invalid after the loop regardless.
+            if prefix_checkpoint is not None:
+                journal = revert_execution_body(tx_env, prefix_checkpoint)
+            # The remaining frames never execute. Their zero-usage
+            # receipts make their allotted gas count as unused.
+            for _ in tx.frames[index + 1 :]:
+                frame_context.frame_receipts.append(
+                    FrameReceipt(
+                        status=FrameStatus.SKIPPED,
+                        gas_used=GasUsed(execution=Uint(0), state=Uint(0)),
+                        logs=(),
+                    )
+                )
+            break
 
         terminates_batch = open_batch is not None and not has_batch_flag
         if receipt.status == FrameStatus.FAILURE and open_batch is not None:
@@ -802,14 +795,15 @@ def process_frames(
         elif terminates_batch:
             open_batch = None
 
-        if body is None and frame_context.payer is not None:
+        if prefix_checkpoint is None and frame_context.payer is not None:
             # The validation prefix ended with this frame: checkpoint
-            # the state a failing `POST_TX` frame restores to. Approval
-            # scope is banned on batch frames, so no batch is open.
+            # the state a failing `POST_TX` frame restores to.
+            # `validate_frame_transaction` bans approval scope on batch
+            # frames, so no batch is open.
             assert open_batch is None
             context_snapshot = copy_frame_context(tx_env)
             assert context_snapshot is not None
-            body = ExecutionBody(
+            prefix_checkpoint = ValidationPrefixCheckpoint(
                 first_frame_index=Uint(index + 1),
                 state_snapshot=copy_tx_state(tx_state),
                 context_snapshot=context_snapshot,
