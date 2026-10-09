@@ -331,7 +331,7 @@ class StepRunner:
         if observed.error_code is None and any(
             o.head_moved is not None for o in step.expect
         ):
-            observed.head_moved = self._head_hash_or_fail(
+            observed.head_moved = self._head_hash(
                 name, "latest"
             ) == self.resolve(step.head)
         outcome = self.select(name, step.expect, observed)
@@ -390,20 +390,19 @@ class StepRunner:
             f"({len(payload.transactions)} txs) on {step.parent}"
         )
 
-    def _head_hash(self, tag: str) -> Hash | None:
-        """Raises ``JSONRPCError`` on an RPC failure; callers handle it."""
-        block = self.eth.get_block_by_number(tag)  # type: ignore[arg-type]
-        return Hash(block["hash"]) if block else None
-
-    def _head_hash_or_fail(self, name: str, tag: str) -> Hash | None:
-        """``_head_hash``, failing the step on an RPC error (PR3556-R0020)."""
+    def _head_hash(self, name: str, tag: str) -> Hash:
+        """
+        Hash of the ``tag`` block; fail the step if the lookup errors or
+        returns no block, which establishes nothing about the head.
+        """
+        call = f"{name}: eth_getBlockByNumber({tag!r})"
         try:
-            return self._head_hash(tag)
+            block = self.eth.get_block_by_number(tag)  # type: ignore[arg-type]
         except JSONRPCError as e:
-            raise LoggedError(
-                f"{name}: eth_getBlockByNumber({tag!r}) error {e.code}: "
-                f"{e.message}"
-            ) from e
+            raise LoggedError(f"{call} error {e.code}: {e.message}") from e
+        if not block:
+            raise LoggedError(f"{call} returned no block")
+        return Hash(block["hash"])
 
     def assert_head(self, name: str, step: AssertHeadStep) -> None:
         """Check latest/safe/finalized via ``eth_getBlockByNumber``."""
@@ -414,7 +413,7 @@ class StepRunner:
         ):
             if label is None:
                 continue
-            got = self._head_hash_or_fail(name, tag)
+            got = self._head_hash(name, tag)
             want = self.resolve(label)
             if got != want:
                 raise LoggedError(

@@ -1,4 +1,4 @@
-"""Tests for the reorg consumer's handling of a failed head RPC lookup."""
+"""Tests for the reorg consumer's `headMoved` observation."""
 
 from unittest.mock import MagicMock
 
@@ -37,15 +37,33 @@ def runner(
     return StepRunner(fixture, eth, engine, TimingData("test"), 0.0)
 
 
-def test_head_moved_fails_on_rpc_error(default_t8n: TransitionTool) -> None:
+@pytest.mark.parametrize(
+    "latest,error",
+    [
+        ("genesis", None),
+        ("a1", "matches none"),
+        ("error", "-32603"),
+        ("null", "returned no block"),
+    ],
+)
+def test_head_moved_false_needs_an_observed_unmoved_head(
+    default_t8n: TransitionTool, latest: str, error: str | None
+) -> None:
     """
-    A `headMoved` check must fail its step when the `latest` lookup errors,
-    not be satisfied by it (PR3556-R0020).
+    ``headMoved=False`` passes only when ``latest`` is observed to be
+    another block; a failed or empty lookup fails the step.
     """
     eth = MagicMock()
-    eth.get_block_by_number.side_effect = JSONRPCError(-32603, "boom")
     engine = MagicMock()
     step_runner = runner(default_t8n, eth, engine)
+    if latest == "error":
+        eth.get_block_by_number.side_effect = JSONRPCError(-32603, "boom")
+    elif latest == "null":
+        eth.get_block_by_number.return_value = None
+    else:
+        eth.get_block_by_number.return_value = {
+            "hash": step_runner.resolve(latest)
+        }
     response = MagicMock()
     response.payload_status.status.value = "SYNCING"
     response.payload_status.latest_valid_hash = None
@@ -64,5 +82,9 @@ def test_head_moved_fails_on_rpc_error(default_t8n: TransitionTool) -> None:
             )
         ],
     )
-    with pytest.raises(LoggedError, match="-32603"):
+    if error is None:
         step_runner.forkchoice_updated("fcu", step, 0)
+        assert step_runner.matched[-1].endswith(":syncing")
+    else:
+        with pytest.raises(LoggedError, match=error):
+            step_runner.forkchoice_updated("fcu", step, 0)
