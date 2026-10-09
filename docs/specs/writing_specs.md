@@ -200,6 +200,7 @@ The spec lint tool checks for style and formatting issues specific to EELS and e
 
 - The order of identifiers between each hardfork is consistent.
 - Import statements follow the relevant import rules in modules.
+- Consecutive hardforks don't differ only in formatting, such as line breaks, trailing commas, blank lines or re-wrapped docstrings. A formatting change belongs in every hardfork or in none.
 
 Run it with `just lint-spec` (or `uv run ethereum-spec-lint`).
 

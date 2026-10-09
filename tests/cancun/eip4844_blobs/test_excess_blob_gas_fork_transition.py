@@ -17,6 +17,7 @@ from execution_testing import (
     BlockException,
     EngineAPIError,
     Environment,
+    Fork,
     Hash,
     Header,
     Op,
@@ -32,13 +33,27 @@ REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 # Timestamp of the fork
 FORK_TIMESTAMP = 15_000
-BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
+
+# Non-zero to avoid account creation charges
+DESTINATION_ACCOUNT_START_BALANCE = 1
 
 
 @pytest.fixture
-def block_gas_limit(fork: TransitionFork) -> int:  # noqa: D103
+def pre_fork(fork: TransitionFork) -> Fork:
+    """Fork from which the transition starts."""
+    return fork.transitions_from()
+
+
+@pytest.fixture
+def post_fork(fork: TransitionFork) -> Fork:
+    """Fork at which the transition ends."""
+    return fork.transitions_to()
+
+
+@pytest.fixture
+def block_gas_limit(pre_fork: Fork) -> int:  # noqa: D103
     gas_limit = int(Environment().gas_limit)
-    tx_gas_limit_cap = fork.transitions_from().transaction_gas_limit_cap()
+    tx_gas_limit_cap = pre_fork.transaction_gas_limit_cap()
     if tx_gas_limit_cap is not None:
         # Below transaction gas limit cap to reach gas limit easily
         gas_limit = min(gas_limit, tx_gas_limit_cap * 2)
@@ -47,7 +62,7 @@ def block_gas_limit(fork: TransitionFork) -> int:  # noqa: D103
 
 @pytest.fixture
 def genesis_environment(
-    block_gas_limit: int, block_base_fee_per_gas: int
+    block_gas_limit: int, block_base_fee_per_gas: int, pre_fork: Fork
 ) -> Environment:
     """
     Genesis environment that enables existing transition tests to be used of
@@ -55,7 +70,7 @@ def genesis_environment(
     """
     return Environment(
         base_fee_per_gas=(
-            block_base_fee_per_gas * BASE_FEE_MAX_CHANGE_DENOMINATOR
+            block_base_fee_per_gas * pre_fork.base_fee_max_change_denominator()
         )
         // 7,
         gas_limit=block_gas_limit,
@@ -63,17 +78,17 @@ def genesis_environment(
 
 
 @pytest.fixture
-def pre_fork_blobs_per_block(fork: TransitionFork) -> int:
+def pre_fork_blobs_per_block(pre_fork: Fork) -> int:
     """Amount of blobs to produce with the pre-fork rules."""
-    if fork.transitions_from().supports_blobs():
-        return fork.transitions_from().max_blobs_per_block()
+    if pre_fork.supports_blobs():
+        return pre_fork.max_blobs_per_block()
     return 0
 
 
 @pytest.fixture
-def post_fork_blobs_per_block(fork: TransitionFork) -> int:
+def post_fork_blobs_per_block(post_fork: Fork) -> int:
     """Amount of blobs to produce with the post-fork rules."""
-    return fork.transitions_to().target_blobs_per_block() + 1
+    return post_fork.target_blobs_per_block() + 1
 
 
 @pytest.fixture
@@ -82,7 +97,7 @@ def pre_fork_blocks(
     destination_account: Address,
     gas_spender_account: Address,
     sender: EOA,
-    fork: TransitionFork,
+    pre_fork: Fork,
     block_base_fee_per_gas: int,
     block_gas_limit: int,
 ) -> List[Block]:
@@ -113,11 +128,13 @@ def pre_fork_blocks(
         txs = []
         blob_index = 0
         remaining_blobs = pre_fork_blobs_per_block
-        max_blobs_per_tx = fork.transitions_from().max_blobs_per_tx()
+        max_blobs_per_tx = pre_fork.max_blobs_per_tx()
 
         while remaining_blobs > 0:
             tx_blobs = min(remaining_blobs, max_blobs_per_tx)
-            blob_tx_gas_limit = 21_000
+            blob_tx_gas_limit = (
+                pre_fork.transaction_intrinsic_cost_calculator()()
+            )
             txs.append(
                 Transaction(
                     ty=Spec.BLOB_TX_TYPE,
@@ -159,7 +176,7 @@ def pre_fork_blocks(
 
 @pytest.fixture
 def pre_fork_excess_blob_gas(
-    fork: TransitionFork,
+    pre_fork: Fork,
     pre_fork_blobs_per_block: int,
     pre_fork_blocks: List[Block],
     block_base_fee_per_gas: int,
@@ -171,10 +188,10 @@ def pre_fork_excess_blob_gas(
     blocks using the fork's calculator, which handles EIP-7918 reserve price
     for >=Osaka.
     """
-    if not fork.transitions_from().supports_blobs():
+    if not pre_fork.supports_blobs():
         return 0
 
-    calc_excess_blob_gas = fork.transitions_from().excess_blob_gas_calculator()
+    calc_excess_blob_gas = pre_fork.excess_blob_gas_calculator()
     excess_blob_gas = 0
 
     # Calculate excess accumulation for each pre-fork block
@@ -191,20 +208,17 @@ def pre_fork_excess_blob_gas(
 
 
 @pytest.fixture
-def post_fork_block_count(fork: TransitionFork) -> int:
+def post_fork_block_count(post_fork: Fork) -> int:
     """Amount of blocks to produce with the post-fork rules."""
     return SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
-        fork=fork.transitions_to(), blob_gas_price=2
-    ) // (
-        fork.transitions_to().max_blobs_per_block()
-        - fork.transitions_to().target_blobs_per_block()
-    )
+        fork=post_fork, blob_gas_price=2
+    ) // (post_fork.max_blobs_per_block() - post_fork.target_blobs_per_block())
 
 
 @pytest.fixture
 def destination_account(pre: Alloc) -> Address:  # noqa: D103
-    # Empty account to receive the blobs
-    return pre.fund_eoa(amount=0)
+    # Non-empty account to receive the blobs
+    return pre.fund_eoa(amount=DESTINATION_ACCOUNT_START_BALANCE)
 
 
 @pytest.fixture
@@ -215,7 +229,7 @@ def gas_spender_account(pre: Alloc) -> Address:  # noqa: D103
 
 @pytest.fixture
 def fork_block_excess_blob_gas(
-    fork: TransitionFork,
+    post_fork: Fork,
     pre_fork_excess_blob_gas: int,
     pre_fork_blobs_per_block: int,
     block_base_fee_per_gas: int,
@@ -223,9 +237,7 @@ def fork_block_excess_blob_gas(
     """Calculate the expected excess blob gas for the fork block."""
     if pre_fork_blobs_per_block == 0:
         return 0
-    calc_excess_blob_gas_post_fork = (
-        fork.transitions_to().excess_blob_gas_calculator()
-    )
+    calc_excess_blob_gas_post_fork = post_fork.excess_blob_gas_calculator()
     return calc_excess_blob_gas_post_fork(
         parent_excess_blob_gas=pre_fork_excess_blob_gas,
         parent_blob_count=pre_fork_blobs_per_block,
@@ -237,11 +249,12 @@ def fork_block_excess_blob_gas(
 def post_fork_blocks(
     destination_account: Address,
     post_fork_block_count: int,
+    pre_fork_blobs_per_block: int,
     post_fork_blobs_per_block: int,
     fork_block_excess_blob_gas: int,
     sender: EOA,
     pre_fork_blocks: List[Block],
-    fork: TransitionFork,
+    post_fork: Fork,
 ) -> list[Block]:
     """Generate blocks after the fork."""
     blocks = []
@@ -265,7 +278,7 @@ def post_fork_blocks(
         txs = []
         blob_index = 0
         remaining_blobs = post_fork_blobs_per_block
-        max_blobs_per_tx = fork.transitions_to().max_blobs_per_tx()
+        max_blobs_per_tx = post_fork.max_blobs_per_tx()
         while remaining_blobs > 0:
             tx_blobs = min(remaining_blobs, max_blobs_per_tx)
             txs.append(
@@ -332,7 +345,9 @@ def post(  # noqa: D103
     if total_value == 0:
         return {}
     return {
-        destination_account: Account(balance=total_value),
+        destination_account: Account(
+            balance=total_value + DESTINATION_ACCOUNT_START_BALANCE
+        ),
     }
 
 

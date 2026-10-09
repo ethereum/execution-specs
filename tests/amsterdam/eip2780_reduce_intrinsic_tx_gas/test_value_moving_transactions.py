@@ -18,6 +18,7 @@ from execution_testing import (
     Address,
     Alloc,
     Fork,
+    GasFee,
     Hash,
     Initcode,
     Op,
@@ -311,8 +312,7 @@ def test_value_contract_creation_tx(
     plus the few EVM gas units spent before the revert -- the
     ``NEW_ACCOUNT`` charge does not appear on the receipt.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     code_to_deploy = Op.STOP
     if tx_reverts:
@@ -357,7 +357,7 @@ def test_value_contract_creation_tx(
         expected_target = None
     else:
         gas_used = intrinsic_gas + new_account_state_gas + execution_gas
-        sender_value_delta = value
+        sender_value_delta = -value
         expected_target = Account(code=code_to_deploy, balance=value)
 
     expected_target_address = compute_create_address(address=sender, nonce=0)
@@ -367,25 +367,19 @@ def test_value_contract_creation_tx(
     else:
         expected_logs = []
 
-    gas_price = 1_000_000_000
-    gas_limit = intrinsic_gas + new_account_state_gas + execution_gas + 1000
-
     tx = Transaction(
         sender=sender,
         to=None,
         value=value,
         data=call_data,
-        gas_limit=gas_limit,
-        gas_price=gas_price,
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
-    sender_final_balance = (
-        sender_initial_balance - sender_value_delta - gas_used * gas_price
-    )
-
     post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
+        sender: Account(
+            nonce=1,
+            balance_change=sender_value_delta - GasFee(tx, gas=gas_used),
+        ),
         expected_target_address: expected_target,
     }
 
@@ -489,8 +483,7 @@ def test_value_move_to_precompiles(
     - ``pre_funded``: the precompile already holds a balance and is
       therefore alive, so no ``NEW_ACCOUNT`` charge applies.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     pre_funded_amount = 0
     if pre_funded:
@@ -521,14 +514,11 @@ def test_value_move_to_precompiles(
     else:
         expected_logs = []
 
-    gas_price = 1_000_000_000
-
     tx = Transaction(
         sender=sender,
         to=precompile,
         value=value,
         data=tx_data,
-        gas_price=gas_price,
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
@@ -556,9 +546,7 @@ def test_value_move_to_precompiles(
         )
         expected_sender = Account(
             nonce=1,
-            balance=(
-                sender_initial_balance - value - total_gas_cost * gas_price
-            ),
+            balance_change=-value - GasFee(tx, gas=total_gas_cost),
         )
     post = {
         sender: expected_sender,

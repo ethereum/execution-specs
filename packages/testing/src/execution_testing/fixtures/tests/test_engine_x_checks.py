@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 
 import pytest
 
-from execution_testing.base_types import Account, Address, Bytes, Hash
+from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.fixtures.blockchain import (
     BlockchainEngineFixture,
     BlockchainEngineXFixture,
@@ -28,7 +28,12 @@ from execution_testing.forks import Prague
 from execution_testing.forks.forks.eips.prague.eip_2935 import (
     HISTORY_STORAGE_ADDRESS,
 )
-from execution_testing.test_types import Alloc, AllocGroupHash, Environment
+from execution_testing.test_types import (
+    Account,
+    Alloc,
+    AllocGroupHash,
+    Environment,
+)
 from execution_testing.test_types.block_access_list import (
     BalAccountChange,
     BalNonceChange,

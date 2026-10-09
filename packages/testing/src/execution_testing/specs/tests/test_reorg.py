@@ -5,12 +5,13 @@ from typing import Any, Callable, List, Tuple
 import pytest
 from pydantic import ValidationError
 
-from execution_testing.base_types import Account, Address, Hash
+from execution_testing.base_types import Address, Hash
 from execution_testing.client_clis import TransitionTool
 from execution_testing.exceptions import BlockException, EngineAPIError
 from execution_testing.fixtures import BlockchainEngineReorgFixture
 from execution_testing.fixtures.blockchain import PayloadAttributes
 from execution_testing.fixtures.reorg import (
+    GENESIS_LABEL,
     AccountExpectation,
     AssertHeadStep,
     AssertReceiptStep,
@@ -30,7 +31,13 @@ from execution_testing.forks import (
     Prague,
     ShanghaiToCancunAtTime15k,
 )
-from execution_testing.test_types import Alloc, Environment, Transaction
+from execution_testing.test_types import (
+    Account,
+    Alloc,
+    Environment,
+    Tip,
+    Transaction,
+)
 
 from ..blockchain import Header
 from ..reorg import ReorgBlock, ReorgTest
@@ -557,6 +564,42 @@ def test_expected_post_state_mismatch_fails_fill(
         test.generate(
             t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture
         )
+
+
+def test_expected_post_state_resolves_fees_on_its_own_branch(
+    default_t8n: TransitionTool,
+) -> None:
+    """
+    A relative expectation resolves a transaction's fees where it landed on
+    the block's own branch, not on a sibling built later that included it.
+    """
+    on_branch, on_sibling = Address(0xFEE1), Address(0xFEE2)
+    test = ReorgTest(
+        fork=Cancun,
+        pre=pre_alloc(),
+        blocks=[
+            ReorgBlock(label="a1", txs=[tx(0, 1)], fee_recipient=on_branch),
+            ReorgBlock(
+                label="b1",
+                parent=GENESIS_LABEL,
+                txs=[tx(0, 1)],
+                fee_recipient=on_sibling,
+            ),
+            ReorgBlock(
+                label="a2",
+                parent="a1",
+                expected_post_state=Alloc(
+                    {
+                        on_branch: Account(
+                            balance_change=Tip(tx(0, 1), gas=21_000)
+                        )
+                    }
+                ),
+            ),
+        ],
+        steps=[],
+    )
+    test.generate(t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture)
 
 
 def test_assert_state_mismatch_fails_fill(

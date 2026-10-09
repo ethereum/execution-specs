@@ -9,18 +9,18 @@ from typing import Any, Dict, Generator, List, Type
 import pytest
 from pytest_metadata.plugin import metadata_key
 
-from execution_testing.base_types import Account
-from execution_testing.base_types.base_types import HexNumber
+from execution_testing.base_types import HexNumber
 from execution_testing.execution import BaseExecute, LabeledExecuteFormat
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.specs import BaseTest
-from execution_testing.test_types import Alloc as BaseAlloc
 from execution_testing.test_types import (
+    Account,
     Environment,
     EnvironmentDefaults,
 )
+from execution_testing.test_types import Alloc as BaseAlloc
 
 from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
 from ..shared.helpers import (
@@ -318,6 +318,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         is_tx_gas_heavy_test: bool,
         is_exception_test: bool,
         is_inclusion_test: bool,
+        invalid_tx_not_last: bool,
     ) -> Type[BaseTest]:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
@@ -359,6 +360,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 kwargs["is_tx_gas_heavy_test"] = is_tx_gas_heavy_test
                 kwargs["is_exception_test"] = is_exception_test
                 kwargs["is_inclusion_test"] = is_inclusion_test
+                kwargs["invalid_tx_not_last"] = invalid_tx_not_last
                 kwargs |= {
                     p: request.getfixturevalue(p)
                     for p in cls_fixture_parameters

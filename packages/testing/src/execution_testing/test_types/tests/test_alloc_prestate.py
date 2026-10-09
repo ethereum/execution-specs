@@ -22,8 +22,8 @@ from ethereum.crypto.hash import keccak256
 from ethereum_types.bytes import Bytes20, Bytes32
 from ethereum_types.numeric import U256, Uint
 
-from execution_testing.base_types import Account, StateCommitment
-from execution_testing.test_types import Alloc
+from execution_testing.base_types import StateCommitment
+from execution_testing.test_types import Account, Alloc
 from execution_testing.test_types.account_types import _Phase
 
 

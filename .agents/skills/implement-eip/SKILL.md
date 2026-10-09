@@ -77,3 +77,6 @@ uv run ethereum-spec-new-fork --new-fork=<name> --template-fork=<template>
 
 - Feature branches: `eips/<fork_name>/eip-<number>`
 - PR targets: `forks/<fork_name>`
+- A feature branch leaves the fork's module docstring unchanged, so that
+  devnet branches can merge any set of feature branches; the EIP's line
+  under `### Changes` is added when it lands on `forks/<fork_name>`.

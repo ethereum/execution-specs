@@ -11,10 +11,11 @@ from execution_testing.fixtures import (
     LabeledFixtureFormat,
     StateFixture,
 )
-from execution_testing.forks import Istanbul
+from execution_testing.forks import Amsterdam, Istanbul
 from execution_testing.test_types import Alloc, Environment, Transaction
 
 from ..base import BaseTest
+from ..blobs import BlobsTest
 from ..blockchain import BlockchainTest
 from ..state import StateTest
 
@@ -199,3 +200,23 @@ def test_state_test_conversion_checks_the_env_first() -> None:
     )
     with pytest.raises(ValueError, match="excess_blob_gas"):
         state_test.generate_blockchain_test()
+
+
+def test_blobs_test_rejects_empty_custody_columns_updates() -> None:
+    """
+    Verify a blobs test accepts any non-empty sequence of `custodyColumns`
+    updates, with `None` for an explicit `null`, and rejects an empty one,
+    which would send nothing while looking like a request to.
+    """
+    bitmap = b"\xff" * 16
+    for updates in ([bitmap], [None], [bitmap, None], [bitmap, bitmap]):
+        BlobsTest(
+            pre=Alloc(),
+            txs=[],
+            fork=Amsterdam,
+            custody_columns_updates=updates,
+        )
+    with pytest.raises(ValueError, match="custody_columns_updates"):
+        BlobsTest(
+            pre=Alloc(), txs=[], fork=Amsterdam, custody_columns_updates=[]
+        )

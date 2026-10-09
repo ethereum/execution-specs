@@ -10,6 +10,11 @@ any block is filled.
 
 Tests without the marker are unaffected: an invalid transaction may sit at the
 end of any block.
+
+The `invalid_tx_not_last` marker relaxes the per-block rule in the other
+direction: the block's one invalid transaction may be followed by valid ones.
+The marker has to be earned, so a marked test whose invalid transaction is
+last everywhere is rejected too.
 """
 
 import textwrap
@@ -61,6 +66,9 @@ INCLUSION_TEST_MARKERS = (
     "@pytest.mark.inclusion_test\n@pytest.mark.exception_test"
 )
 EXCEPTION_TEST_MARKER = "@pytest.mark.exception_test"
+INVALID_TX_NOT_LAST_MARKERS = (
+    "@pytest.mark.invalid_tx_not_last\n@pytest.mark.exception_test"
+)
 
 # Invalid transaction in a block other than the last one.
 INVALID_TX_IN_EARLIER_BLOCK = (
@@ -164,6 +172,11 @@ def test_misplaced_invalid_tx_is_rejected(
             INVALID_TX_IN_EARLIER_BLOCK,
             id="unmarked_test_with_invalid_tx_in_earlier_block",
         ),
+        pytest.param(
+            INVALID_TX_NOT_LAST_MARKERS,
+            INVALID_TX_BEFORE_LAST_IN_LAST_BLOCK,
+            id="invalid_tx_not_last_with_invalid_tx_before_last",
+        ),
     ],
 )
 def test_allowed_invalid_tx_placement_fills(
@@ -176,10 +189,60 @@ def test_allowed_invalid_tx_placement_fills(
     check does not reject it.
 
     The first case is the layout an inclusion test is meant to have; the second
-    is the same layout the check rejects, minus the marker that enables it.
+    is the same layout the check rejects, minus the marker that enables it; the
+    third is the layout the per-block check rejects, with the marker that lifts
+    it.
     """
     module_path = write_test_module(pytester, markers, blocks)
 
     result = run_fill(pytester, module_path)
 
     result.assert_outcomes(passed=1, failed=0)
+
+
+def test_invalid_tx_before_last_needs_the_marker(
+    pytester: pytest.Pytester,
+) -> None:
+    """
+    Fill an unmarked test whose invalid transaction is followed by a valid
+    one and assert the per-block check rejects it, naming the marker.
+    """
+    module_path = write_test_module(
+        pytester, EXCEPTION_TEST_MARKER, INVALID_TX_BEFORE_LAST_IN_LAST_BLOCK
+    )
+
+    result = run_fill(pytester, module_path)
+
+    result.assert_outcomes(passed=0, failed=1)
+    output = "\n".join(result.outlines + result.errlines)
+    assert "must be the last transaction in the block" in output, output
+    assert "invalid_tx_not_last" in output, output
+
+
+@pytest.mark.parametrize(
+    "blocks",
+    [
+        pytest.param(
+            INVALID_TX_LAST_IN_LAST_BLOCK, id="invalid_tx_last_in_last_block"
+        ),
+        pytest.param(
+            INVALID_TX_IN_EARLIER_BLOCK, id="invalid_tx_last_in_earlier_block"
+        ),
+    ],
+)
+def test_invalid_tx_not_last_marker_must_be_earned(
+    pytester: pytest.Pytester, blocks: str
+) -> None:
+    """
+    Fill a marked test whose invalid transaction is last in every block and
+    assert the static check rejects the unearned marker.
+    """
+    module_path = write_test_module(
+        pytester, INVALID_TX_NOT_LAST_MARKERS, blocks
+    )
+
+    result = run_fill(pytester, module_path)
+
+    result.assert_outcomes(passed=0, failed=1)
+    output = "\n".join(result.outlines + result.errlines)
+    assert "marked `invalid_tx_not_last`" in output, output
