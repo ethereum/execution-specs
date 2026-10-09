@@ -7,7 +7,6 @@ state_tests/stEIP1559/valCausesOOFFiller.yml
 
 import pytest
 from execution_testing import (
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -124,17 +123,7 @@ def test_val_causes_oof(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x5F5E100, nonce=1)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=1000,
-        gas_limit=71794957647893862,
-    )
 
     # Source: yul
     # london
@@ -145,7 +134,7 @@ def test_val_causes_oof(
     #        sstore(i, 0x60A7)
     #     }     // for loop
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x4)
         + Op.JUMPDEST
         + Op.JUMPI(pc=0xC, condition=Op.GT(Op.DUP2, 0x0))
@@ -156,7 +145,6 @@ def test_val_causes_oof(
         + Op.ADD
         + Op.JUMP(pc=0x3),
         balance=0x5AF3107A4000,
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
@@ -200,6 +188,8 @@ def test_val_causes_oof(
         0: [],
         1: [],
     }
+
+    env = Environment(base_fee_per_gas=1000)
 
     tx = Transaction(
         sender=sender,

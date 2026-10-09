@@ -8,7 +8,6 @@ state_tests/stQuadraticComplexityTest/Create1000ByzantiumFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -18,6 +17,8 @@ from execution_testing import (
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
+
+from tests.ported_static.constants import HIGH_GAS_LIMIT
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -46,7 +47,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_create1000_byzantium(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -56,22 +56,11 @@ def test_create1000_byzantium(
     v: int,
 ) -> None:
     """Gas analysis showed this test's gas can go as low as 21053, and..."""
-    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_0 = Address(0xBBBF5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=8600000000,
-    )
 
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 1000) [i](+ @i 1) [[ 0 ]] (CREATE 1 0 50000) ) [[ 1 ]] @i}  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.JUMPDEST
         + Op.JUMPI(
             pc=0x23, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0x3E8))
@@ -85,7 +74,6 @@ def test_create1000_byzantium(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x80))
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
-        nonce=0,
     )
 
     tx_data = [
@@ -93,6 +81,8 @@ def test_create1000_byzantium(
     ]
     tx_gas = [150000, 250000000]
     tx_value = [10]
+
+    env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
     tx = Transaction(
         sender=sender,
@@ -104,7 +94,7 @@ def test_create1000_byzantium(
 
     post = {
         compute_create_address(
-            address=contract_0, nonce=866
+            address=contract_0, nonce=867
         ): Account.NONEXISTENT,
     }
 

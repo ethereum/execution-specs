@@ -12,10 +12,8 @@ import pytest
 from execution_testing import (
     EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -40,19 +38,8 @@ def test_staticcall_to_precompile_from_transaction(
     fork: Fork,
 ) -> None:
     """STATICCALL to precompiled contracts from transaction code."""
-    coinbase = Address(0xCAFE000000000000000000000000000000000001)
-    contract_0 = Address(0xA000000000000000000000000000000000000000)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
     )
 
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
@@ -88,7 +75,7 @@ def test_staticcall_to_precompile_from_transaction(
     #   [ 0x00 ] 0x0000000000000000000000000000000000000000000000000000000000000000  # noqa: E501
     #   [ 1000 ] 0x0000000000000000000000000000000000000000000000000000000000000000  # noqa: E501
     # ... (70 more lines)
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0,
             value=0x18C547E4F7B0F325AD1E56F57E26C745B09A3E503D86E00E5255FF7F715D3D1C,  # noqa: E501
@@ -335,8 +322,6 @@ def test_staticcall_to_precompile_from_transaction(
         )
         + Op.SSTORE(key=0x20, value=Op.MLOAD(offset=0x3E8))
         + Op.STOP,
-        nonce=0,
-        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
 
     gas_limit = 1000000
@@ -378,4 +363,4 @@ def test_staticcall_to_precompile_from_transaction(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -8,10 +8,8 @@ state_tests/stTransactionTest/InternalCallStoreClearsOOGFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,27 +23,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stTransactionTest/InternalCallStoreClearsOOGFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_internal_call_store_clears_oog(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_internal_call_store_clears_oog."""
-    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0x3B9ACA00)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
 
     # Source: lll
     # {(SSTORE 0 0)(SSTORE 1 0)(SSTORE 2 0)(SSTORE 3 0)(SSTORE 4 0)(SSTORE 5 0)(SSTORE 6 0)(SSTORE 7 0)(SSTORE 8 0)(SSTORE 9 0)}  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x0)
         + Op.SSTORE(key=0x1, value=0x0)
         + Op.SSTORE(key=0x2, value=0x0)
@@ -69,11 +56,10 @@ def test_internal_call_store_clears_oog(
             8: 12,
             9: 12,
         },
-        nonce=0,
     )
     # Source: lll
     # { (CALL 40000 <contract:0x0000000000000000000000000000000000000000> 1 0 0 0 0) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALL(
             gas=0x9C40,
             address=addr,
@@ -85,7 +71,6 @@ def test_internal_call_store_clears_oog(
         )
         + Op.STOP,
         balance=10,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -116,4 +101,4 @@ def test_internal_call_store_clears_oog(
         target: Account(balance=20),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

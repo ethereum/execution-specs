@@ -11,7 +11,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -56,20 +55,11 @@ def test_static_callcodecallcall_abcb_recursive2(
     v: int,
 ) -> None:
     """Test_static_callcodecallcall_abcb_recursive2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # {  [[ 0 ]] (CALLCODE 25000000 <contract:0x1000000000000000000000000000000000000001> (CALLVALUE) 0 64 0 64 ) [[ 1 ]] 1 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALLCODE(
@@ -85,7 +75,6 @@ def test_static_callcodecallcall_abcb_recursive2(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
         address=Address(0x3DA1F9D4153096BD467629A1FDB678437ACD810B),  # noqa: E501
     )
     # Source: lll
@@ -101,7 +90,6 @@ def test_static_callcodecallcall_abcb_recursive2(
         )
         + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0x2733821FA13C4EAD1C9631C76820333F42059B7C),  # noqa: E501
     )
     # Source: lll
@@ -117,7 +105,6 @@ def test_static_callcodecallcall_abcb_recursive2(
         )
         + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0x1E2229D0F325B81B81B8B14F2D239FF9742683C0),  # noqa: E501
     )
 
@@ -137,4 +124,4 @@ def test_static_callcodecallcall_abcb_recursive2(
 
     post = {target: Account(storage={0: 1, 1: 1})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

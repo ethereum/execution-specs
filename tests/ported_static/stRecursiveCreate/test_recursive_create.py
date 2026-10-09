@@ -8,10 +8,8 @@ state_tests/stRecursiveCreate/recursiveCreateFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -26,33 +24,20 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRecursiveCreate/recursiveCreateFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_recursive_create(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_recursive_create."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
 
     # Source: lll
     # {(CODECOPY 0 0 32)(CREATE 0 0 32)}
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.CODECOPY(dest_offset=0x0, offset=0x0, size=0x20)
         + Op.CREATE(value=0x0, offset=0x0, size=0x20)
         + Op.STOP,
         balance=0x1312D00,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -64,7 +49,7 @@ def test_recursive_create(
     )
 
     post = {
-        compute_create_address(address=contract_0, nonce=0): Account(nonce=2),
+        compute_create_address(address=contract_0, nonce=1): Account(nonce=2),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

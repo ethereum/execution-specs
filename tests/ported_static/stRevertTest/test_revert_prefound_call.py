@@ -8,10 +8,8 @@ state_tests/stRevertTest/RevertPrefoundCallFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,28 +23,17 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRevertTest/RevertPrefoundCallFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_revert_prefound_call(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_revert_prefound_call."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
-
-    addr = pre.fund_eoa(amount=1)  # noqa: F841
+    addr = pre.fund_eoa(amount=1)
     # Source: lll
     # { [[0]] (CALL 50000 <eoa:0x7db299e0885c85039f56fa504a13dd8ce8a56aa7> 0 0 32 0 32) [[1]]12 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
@@ -62,7 +49,6 @@ def test_revert_prefound_call(
         + Op.SSTORE(key=0x1, value=0xC)
         + Op.STOP,
         balance=1,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -74,4 +60,4 @@ def test_revert_prefound_call(
 
     post = {addr: Account(storage={}, code=b"", balance=1, nonce=0)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -8,10 +8,8 @@ state_tests/stRevertTest/RevertOpcodeFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -59,7 +57,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_revert_opcode(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -69,25 +66,14 @@ def test_revert_opcode(
     v: int,
 ) -> None:
     """Test_revert_opcode."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
 
     # Source: raw
     # 0x600160005560016000fd6011600155
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x1)
         + Op.REVERT(offset=0x0, size=0x1)
         + Op.SSTORE(key=0x1, value=0x11),
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
@@ -126,4 +112,4 @@ def test_revert_opcode(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

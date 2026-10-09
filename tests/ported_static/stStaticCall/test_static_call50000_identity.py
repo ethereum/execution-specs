@@ -8,9 +8,7 @@ state_tests/stStaticCall/static_Call50000_identityFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -49,7 +47,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_call50000_identity(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -59,21 +56,11 @@ def test_static_call50000_identity(
     v: int,
 ) -> None:
     """Test_static_call50000_identity."""
-    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=89250000,
-    )
 
     # Source: lll
     # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
@@ -88,12 +75,10 @@ def test_static_call50000_identity(
         )
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
-        nonce=0,
-        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (STATICCALL 1564 4 0 50000 0 0) ) [[ 1 ]] @i}  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.JUMPDEST
         + Op.JUMPI(
             pc=0x2A, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
@@ -115,12 +100,10 @@ def test_static_call50000_identity(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x80))
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
-        nonce=0,
-        address=Address(0x60EE5F7DB2E72863689037B116BD02FD7C5EDFE4),  # noqa: E501
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (MSTORE 0 (STATICCALL 1564 4 0 50000 0 0)) ) (MSTORE 32 @i ) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.JUMPDEST
         + Op.JUMPI(
             pc=0x2A, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
@@ -142,8 +125,6 @@ def test_static_call50000_identity(
         + Op.MSTORE(offset=0x20, value=Op.MLOAD(offset=0x80))
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
-        nonce=0,
-        address=Address(0x8E9932C9D52EB968F6FA6BCAF50DF4F2C7799852),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -152,7 +133,7 @@ def test_static_call50000_identity(
             "network": [">=Cancun<Osaka"],
             "result": {
                 sender: Account(storage={}, code=b"", nonce=1),
-                addr: Account(storage={}, nonce=0),
+                addr: Account(storage={}, nonce=1),
                 target: Account(storage={0: 0, 1: 1}),
             },
         },
@@ -161,7 +142,7 @@ def test_static_call50000_identity(
             "network": [">=Cancun<Osaka"],
             "result": {
                 sender: Account(storage={}, code=b"", nonce=1),
-                addr: Account(storage={}, nonce=0),
+                addr: Account(storage={}, nonce=1),
                 target: Account(storage={0: 0, 1: 1}),
             },
         },
@@ -185,4 +166,4 @@ def test_static_call50000_identity(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -17,10 +17,8 @@ tracks the parameters. See `_oog_lift` below for the derivation.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -57,7 +55,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_create_oo_gafter_init_code(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -67,25 +64,14 @@ def test_create_oo_gafter_init_code(
     v: int,
 ) -> None:
     """Test_create_oo_gafter_init_code."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE 0 18 14) }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0x6460016001556000526005601BF3)
         + Op.CREATE(value=0x0, offset=0x12, size=0xE)
         + Op.STOP,
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
@@ -95,7 +81,7 @@ def test_create_oo_gafter_init_code(
             "result": {
                 contract_0: Account(storage={1: 0}),
                 compute_create_address(
-                    address=contract_0, nonce=0
+                    address=contract_0, nonce=1
                 ): Account.NONEXISTENT,
             },
         },
@@ -104,7 +90,7 @@ def test_create_oo_gafter_init_code(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(storage={1: 0}),
-                compute_create_address(address=contract_0, nonce=0): Account(
+                compute_create_address(address=contract_0, nonce=1): Account(
                     code=bytes.fromhex("6001600155")
                 ),
             },
@@ -166,4 +152,4 @@ def test_create_oo_gafter_init_code(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

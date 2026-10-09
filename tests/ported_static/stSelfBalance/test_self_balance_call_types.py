@@ -8,9 +8,7 @@ state_tests/stSelfBalance/selfBalanceCallTypesFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -53,7 +51,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_self_balance_call_types(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -63,40 +60,27 @@ def test_self_balance_call_types(
     v: int,
 ) -> None:
     """SELFBALANCE tests inside CALL, DELEGATECALL, and CALLCODE."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # { [[ 0x11 ]] (EQ (SELFBALANCE) (BALANCE (ADDRESS))) }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x11,
             value=Op.EQ(Op.SELFBALANCE, Op.BALANCE(address=Op.ADDRESS)),
         )
         + Op.STOP,
         balance=4096,
-        nonce=0,
-        address=Address(0xA590BBF1B07B00FED987724E1DB1BF206C2BC37C),  # noqa: E501
     )
     # Source: lll
     # { [[ 0x21 ]] (SELFBALANCE) }
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.SSTORE(key=0x21, value=Op.SELFBALANCE) + Op.STOP,
         balance=4352,
-        nonce=0,
-        address=Address(0x76BAC61EE2056F42F6CC29F5400ADAE3E5705237),  # noqa: E501
     )
     # Source: lll
     # (asm GAS SELFBALANCE GAS SWAP1 POP SWAP1 SUB 2 SWAP1 SUB 0x31 SSTORE)
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.GAS
         + Op.SELFBALANCE
         + Op.GAS
@@ -109,12 +93,10 @@ def test_self_balance_call_types(
         + Op.SSTORE(key=0x31, value=Op.SUB)
         + Op.STOP,
         balance=4608,
-        nonce=0,
-        address=Address(0x8537CE29429EA557E3903C255EE6554DD8D21D26),  # noqa: E501
     )
     # Source: lll
     # (asm SELFBALANCE DUP1 0x41 SSTORE 0 0 0 0 1 0 0 CALL POP SELFBALANCE DUP1 0x42 SSTORE SWAP1 SUB 0x43 SSTORE)  # noqa: E501
-    addr_4 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(
         code=Op.SELFBALANCE
         + Op.SSTORE(key=0x41, value=Op.DUP1)
         + Op.POP(
@@ -134,12 +116,10 @@ def test_self_balance_call_types(
         + Op.SSTORE(key=0x43, value=Op.SUB)
         + Op.STOP,
         balance=4864,
-        nonce=0,
-        address=Address(0xE1CE93B3251FB38AE74D41AF9F865978C572CF63),  # noqa: E501
     )
     # Source: lll
     # {(set 'i 0) (while @@ @i {(when (eq 0x01 $0x0) (call allgas @@ @i 0 0 0 0 0)) (when (eq 0x02 $0x0) (delegatecall allgas @@ @i 0 0 0 0)) (when (eq 0x03 $0x0) (callcode allgas @@ @i 0 0 0 0 0)) [i]:(+ @i 1)})}  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(offset=0x80, value=0x0)
         + Op.JUMPDEST
         + Op.JUMPI(
@@ -198,8 +178,6 @@ def test_self_balance_call_types(
         + Op.STOP,
         storage={0: addr, 1: addr_2, 2: addr_3, 3: addr_4},
         balance=8192,
-        nonce=0,
-        address=Address(0x84BF87FBEF135AFEA15330FDF5847EB504CFF901),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -252,4 +230,4 @@ def test_self_balance_call_types(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

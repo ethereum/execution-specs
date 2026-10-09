@@ -8,10 +8,8 @@ state_tests/stEIP150singleCodeGasPrices/gasCostExpFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -86,7 +84,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_gas_cost_exp(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -96,17 +93,7 @@ def test_gas_cost_exp(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: lll
     # {
@@ -138,7 +125,7 @@ def test_gas_cost_exp(
     #
     #   [[0]] (- @gasB4 @gasAfter @expectedCost)
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x4))
         + Op.MSTORE(offset=0x20, value=Op.CALLDATALOAD(offset=0x24))
         + Op.MSTORE(offset=0x40, value=Op.GAS)
@@ -154,7 +141,6 @@ def test_gas_cost_exp(
         + Op.STOP,
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
     )
 
     tx_data = [
@@ -181,4 +167,4 @@ def test_gas_cost_exp(
 
     post = {target: Account(storage={0: 0})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

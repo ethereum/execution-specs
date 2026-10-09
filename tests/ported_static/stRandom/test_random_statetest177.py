@@ -8,7 +8,6 @@ state_tests/stRandom/randomStatetest177Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -25,27 +24,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom/randomStatetest177Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest177(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_random_statetest177."""
-    coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
     # Source: raw
     # 0x7e24654d920bee1c2af8b3225f6035ea04b87e1d3f2486057268ed05d8d6e5a67f3da4409848b450c9ab9713bf10ec5124e50fda175accc13d0db75bbc03a25a066d85332a97eae6e7219bc62ce53f23690f1df7f7b11c1659165b7c438533bc1f73a59ae2c28e633d8c971763576dd25386518678a15c64a2682c68bf3c1a7433af2e6dd0276f494254235fe7b28b1f997661eba4767c05f37a8b9b7980106e2bbe8744bed6d0f782ac6a99e07d9486451ab20e48c9e99f083973d5a10a57f4c3e7e3fa3bfd63a39006f35f7325ae8b67348d74c87e78d6dc699541fdf8d085697e58b02f9fef3f78554901cc888449b92fe07e74fb3069f7be725f408005886e73e720275f04f63284f6f10b6df25694b3a55936d06ed8c18d03d868d30b7766bd0d6a111f734650113a9f6b31ef3be38904ccd66a304bbf877e9d6ccc3e98fa65a685b0bf181c6dd67c9db728914ff2977b8c19193f67b9053f72c819b5bc5542945bd6a9079965d91f47a11f3862d346cb6b70d29eca71b0d12d01996b89763f13059617d671ddc626d93a3e3fda99999484470e34277f9ac904a6be6b8b9f0a91e98e2759a946222e419d34089491db069bbeeea7d19868e6fef55cd7440fbbdd7bf7cab153de2f407fc2c1f51952d5d5388159f73c98deb0a3f75d04eb70cee4f3dd886b6ba2ab3d1e110db841c50767a4e0ed4abca1bd1d6688861c4bb169fa8b63d253f1a4636a3979396965ae9c16c2197c57851d68f1ee6fff3c92e794d07cc6d2f5b964448fee1c3f52921cd138bfe26f57a3ce26ae8e622c80fcfb7f414b5750048e67dd2c715bdf907a881ef7a77dc8b166b413ebb4261bda628c26666d7ec3d2d20bdc7e117960da38d995574327fc1b63764875b839f395793a937b5f2793db93b23b7160bb44cf7bf515a85769d5f51851260f073969b185817c3e5b658753947f6ae534b0e68afa57a476ff52028737e7d342c1ddc7c5dc786fe6216838882c6f6e8519b16b2d9451ea2f048765576af461aab462031f6a64f0ae07fa9a64d4772252eb9e6aa14429a7e2a1d43482699065e44695fbea176d63d01d22231d221b6f8dfda47f5164a47454ab396f17257ddec269f67ed7c6d17ffac1c61372aaf587427eee43772c5f28fde9d395b65bf2d77e4eaa635bea61396414a53508797e2506ed2f921f29bf2fda1796f4396c4edb6f6ecc6d79fd82d9838a512df1454ce72268d8a32e0971c718b6836e4bcb788766f266a3edfdd24686274f684c4b0a7fd7082159766f4670a09a9e231bf61fe5f955a75b8870744ec89c81940d46be921c40917862e1c186679f354a704fd5537ceb310616acf9779c43c8f585c064fafa775d279d62aec380625fc16d601ef067eddffdf0f1359f386970fe2eb95c063421601a7a5f9256a6398651be88998deb83d16edd603992a27f758bda8c1bf974e49a52cf19c9bc32a79db4778535677e3caeae7f2f6ac54f147d2729c30d694bcb622c13106c3382d4c27bc4ee55eadb4921d97965e605bd3daa1c233230119dce876049813474dc4b3ec1d0ea8d73d182beb19cd3c8f198578d863907a60fd633a65872d93e47dc134fc815d9800bad3f2d58bb97b5776f42800f1f182951ba5aced03a7c3abd859969483189606297788fbf5565010d13f07077752867293dbfe29b7346020ef70d18cacd7508ccb3731b39  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.PUSH31[
             0x24654D920BEE1C2AF8B3225F6035EA04B87E1D3F2486057268ED05D8D6E5A6
         ]
@@ -150,11 +138,10 @@ def test_random_statetest177(
             offset=0x10D13F07077,
             size=0x483189606297788FBF55,
         ),
-        nonce=0,
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
+    coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,
             condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
@@ -165,9 +152,9 @@ def test_random_statetest177(
             key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
         ),
         balance=46,
-        nonce=0,
-        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
@@ -180,8 +167,8 @@ def test_random_statetest177(
     )
 
     post = {
-        target: Account(storage={}, nonce=0),
-        coinbase: Account(storage={}, nonce=0),
+        target: Account(storage={}, nonce=1),
+        coinbase: Account(storage={}, nonce=1),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 

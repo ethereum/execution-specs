@@ -8,10 +8,8 @@ state_tests/stTransactionTest/NoSrcAccountFiller.yml
 import pytest
 from execution_testing import (
     AccessList,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -248,7 +246,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_no_src_account(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -258,23 +255,12 @@ def test_no_src_account(
     v: int,
 ) -> None:
     """Test_no_src_account."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=89128960,
-    )
 
     # Source: raw
     # 0x00
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.STOP,
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
@@ -455,4 +441,4 @@ def test_no_src_account(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

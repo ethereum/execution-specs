@@ -11,10 +11,8 @@ state-gas, so lift the budget by Fork.oog_budget_lift.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -61,7 +59,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_revert_sub_call_storage_oog2(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -71,44 +68,34 @@ def test_revert_sub_call_storage_oog2(
     v: int,
 ) -> None:
     """Test_revert_sub_call_storage_oog2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: raw
     # 0x60606040526000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063b28175c4146046578063c0406226146052575b6000565b3460005760506076565b005b34600057605c6081565b604051808215151515815260200191505060405180910390f35b600c6000819055505b565b600060896076565b600d600081905550600e6001819055505b905600a165627a7a72305820b7c6987c21e63fed8a74d899557744a3be8d3fda191ce0f56cf261d6b860f6b40029  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=bytes.fromhex(
             "60606040526000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063b28175c4146046578063c0406226146052575b6000565b3460005760506076565b005b34600057605c6081565b604051808215151515815260200191505060405180910390f35b600c6000819055505b565b600060896076565b600d600081905550600e6001819055505b905600a165627a7a72305820b7c6987c21e63fed8a74d899557744a3be8d3fda191ce0f56cf261d6b860f6b40029"  # noqa: E501
         ),
         balance=1,
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": 0, "value": -1},
             "network": [">=Cancun"],
-            "result": {target: Account(storage={}, balance=1, nonce=0)},
+            "result": {target: Account(storage={}, balance=1, nonce=1)},
         },
         {
             "indexes": {"data": -1, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                target: Account(storage={0: 13, 1: 14}, balance=1, nonce=0)
+                target: Account(storage={0: 13, 1: 14}, balance=1, nonce=1)
             },
         },
         {
             "indexes": {"data": -1, "gas": 1, "value": 1},
             "network": [">=Cancun"],
-            "result": {target: Account(storage={}, balance=1, nonce=0)},
+            "result": {target: Account(storage={}, balance=1, nonce=1)},
         },
     ]
 
@@ -129,4 +116,4 @@ def test_revert_sub_call_storage_oog2(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

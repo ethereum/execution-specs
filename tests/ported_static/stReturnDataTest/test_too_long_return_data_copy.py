@@ -8,10 +8,8 @@ state_tests/stReturnDataTest/tooLongReturnDataCopyFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -190,16 +188,7 @@ def test_too_long_return_data_copy(
     v: int,
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000, nonce=1)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: yul
     # berlin
@@ -215,7 +204,7 @@ def test_too_long_return_data_copy(
     #    // Return the result
     #    return(0x00, byteCount)
     # }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x0)
         + Op.MSTORE(
             offset=0x0,
@@ -240,7 +229,7 @@ def test_too_long_return_data_copy(
     #    // Return the result
     #    revert(0x00, byteCount)
     # }
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x0)
         + Op.MSTORE(
             offset=0x0,
@@ -283,7 +272,7 @@ def test_too_long_return_data_copy(
     #    // If we get here, kill the goat to show success
     #    sstore(0, 0xDEAD)
     # ... (1 more lines)
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x4)
         + Op.CALLDATALOAD(offset=0x24)
         + Op.PUSH2[0x100]
@@ -477,4 +466,4 @@ def test_too_long_return_data_copy(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

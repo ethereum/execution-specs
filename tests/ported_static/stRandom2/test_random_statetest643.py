@@ -32,17 +32,9 @@ def test_random_statetest643(
     """Return ~1 MB out of bounds of the init code."""
     sender = pre.fund_eoa(amount=0xA015CDDAB7107B04)
 
-    env = Environment(
-        fee_recipient=sender,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
     # Source: raw
     # 0x79ecfecf2ab84463f738fc85b069590fcff0334fb1a7108861a44465a26237bc83297ff893a1a95c84afbecc79e1ee4acc8fca826df1ab268bdfd9e712ad0d261f5ede0b6545e6a7d462826d39eb0ac5b4c3ef35f0b4e6d9e05f0773fc63be0c082847f6f9f7728764e142fcd95702c36d65c1e55ec0e2128768030e4eb0de74b57969caa2f2493998537ad0ecba9400ebae911dad6f98bd15da63a8614aa455dc593fa70386a260c66270f1d7527b75f1bf8a683b5d1721f7dd57755bd6a9bed9f874e3876cfcac6762ea51  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.PUSH26[0xECFECF2AB84463F738FC85B069590FCFF0334FB1A7108861A444]
         + Op.SIGNEXTEND(
             0xF893A1A95C84AFBECC79E1EE4ACC8FCA826DF1AB268BDFD9E712AD0D261F5EDE,
@@ -64,7 +56,7 @@ def test_random_statetest643(
     )
     # Source: raw
     # 0x436debc3912504eded08f73b9ff9490d73fc4f820a0890b7e8417fa97940713aeb870e59a790607f6b3d5649e57458ea8692da323253735967657e3fc6e02f6de1c0ff6cc18e051bdd52ad7b1eb441440620426b3485ab683d44ff8d5544eb7f7fb3e1f4c30063640b5a626f341b6271dd59621208476208431973<contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>6338f86b9af4  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.NUMBER
         + Op.PUSH14[0xEBC3912504EDED08F73B9FF9490D]
         + Op.PUSH20[0xFC4F820A0890B7E8417FA97940713AEB870E59A7]
@@ -87,6 +79,8 @@ def test_random_statetest643(
         nonce=243,
         address=Address(0x971AB94B9C20484B37B157476A9F106F639779ED),  # noqa: E501
     )
+
+    env = Environment(fee_recipient=sender, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,

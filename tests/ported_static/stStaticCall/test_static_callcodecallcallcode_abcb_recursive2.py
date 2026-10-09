@@ -10,7 +10,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -68,20 +67,11 @@ def test_static_callcodecallcallcode_abcb_recursive2(
     v: int,
 ) -> None:
     """Test_static_callcodecallcallcode_abcb_recursive2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # {  [[ 0 ]] (CALLCODE 25000000 (CALLDATALOAD 0) (CALLVALUE) 0 64 0 64 ) [[ 1 ]] 1 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALLCODE(
@@ -97,12 +87,11 @@ def test_static_callcodecallcallcode_abcb_recursive2(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
         address=Address(0xBA3C5101AD0B43DE0F1853243EB3F9811EAEE1E0),  # noqa: E501
     )
     # Source: lll
     # {  (STATICCALL 1000000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.STATICCALL(
             gas=0xF4240,
             address=0x1A3C543695D7CA3A7D5522E9C7AABE5512571706,
@@ -113,7 +102,6 @@ def test_static_callcodecallcallcode_abcb_recursive2(
         )
         + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0x2733821FA13C4EAD1C9631C76820333F42059B7C),  # noqa: E501
     )
     # Source: lll
@@ -130,12 +118,11 @@ def test_static_callcodecallcallcode_abcb_recursive2(
         )
         + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0x1A3C543695D7CA3A7D5522E9C7AABE5512571706),  # noqa: E501
     )
     # Source: lll
     # {  (STATICCALL 1000000 <contract:0x2000000000000000000000000000000000000002> 0 64 0 64 ) }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.STATICCALL(
             gas=0xF4240,
             address=0xB81EB378451B4361DF035AEA57913023DFFBF39A,
@@ -146,7 +133,6 @@ def test_static_callcodecallcallcode_abcb_recursive2(
         )
         + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0x6ACC177800643D95AB1DAEE1BD55CF99E3814E07),  # noqa: E501
     )
     # Source: lll
@@ -163,7 +149,6 @@ def test_static_callcodecallcallcode_abcb_recursive2(
         )
         + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0xB81EB378451B4361DF035AEA57913023DFFBF39A),  # noqa: E501
     )
 
@@ -184,4 +169,4 @@ def test_static_callcodecallcallcode_abcb_recursive2(
 
     post = {target: Account(storage={0: 1, 1: 1})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

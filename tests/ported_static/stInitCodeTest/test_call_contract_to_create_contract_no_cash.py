@@ -8,10 +8,8 @@ state_tests/stInitCodeTest/CallContractToCreateContractNoCashFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -27,27 +25,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_call_contract_to_create_contract_no_cash(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_call_contract_to_create_contract_no_cash."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x3B9ACA00)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: lll
     # {(MSTORE 0 0x600c60005566602060406000f060205260076039f3)[[0]](CREATE 100000 11 21)}  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0, value=0x600C60005566602060406000F060205260076039F3
         )
@@ -56,7 +43,6 @@ def test_call_contract_to_create_contract_no_cash(
         )
         + Op.STOP,
         balance=10000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -67,8 +53,8 @@ def test_call_contract_to_create_contract_no_cash(
     )
 
     post = {
-        target: Account(nonce=0),
+        target: Account(nonce=1),
         sender: Account(nonce=1),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
