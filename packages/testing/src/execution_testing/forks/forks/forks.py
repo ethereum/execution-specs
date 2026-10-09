@@ -1030,6 +1030,11 @@ class Frontier(BaseFork):
         return [0]
 
     @classmethod
+    def frame_mode_count(cls) -> int:
+        """At Genesis, there are no frame transactions to carry modes."""
+        return 0
+
+    @classmethod
     def contract_creating_tx_types(cls) -> List[int]:
         """At Genesis, only legacy transactions are allowed."""
         return [0]
