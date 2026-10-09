@@ -16,12 +16,14 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Bytecode,
     Environment,
     Fork,
     Frame,
     FrameReceipt,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
     TransactionException,
     TransactionReceipt,
@@ -622,4 +624,190 @@ def test_full_width_slot_and_zero_root(
         frames=[recent_root_frame(validation_tuple(source, slot, root))],
         verifier_gas=validation_gas(fork, tuples=1, cold_keys=1),
         current_slot=slot + 1,
+    )
+
+
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize(
+    "tuples",
+    [
+        pytest.param(1, id="one_tuple"),
+        pytest.param(Spec.MAX_RECENT_ROOT_REFERENCES, id="sixteen_tuples"),
+    ],
+)
+def test_later_frame_reads_verifier_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tuples: int,
+) -> None:
+    """
+    A later frame reads the completed verifier frame's defining fields
+    through `FRAMEPARAM` and its last tuple through `FRAMEDATALOAD`, as
+    application validation does.
+    """
+    slot = CURRENT_SLOT - 1
+    references = [
+        (source_id(pre.fund_eoa(amount=0), SALT), slot, root_of(index))
+        for index in range(tuples)
+    ]
+    install_entries(pre, seeded_entries(references))
+    last_source, last_slot, last_root = references[-1]
+    last_offset = (tuples - 1) * Spec.RECENT_ROOT_TUPLE_BYTES
+
+    sender = pre.fund_eoa()
+    storage = Storage()
+    reads: List[tuple[int | bytes, Bytecode]] = [
+        (
+            Spec.RECENT_ROOT_ADDRESS,
+            Op.FRAMEPARAM(0, FrameSpec.FRAMEPARAM_TARGET),
+        ),
+        (FrameSpec.MODE_VERIFY, Op.FRAMEPARAM(0, FrameSpec.FRAMEPARAM_MODE)),
+        (
+            FrameSpec.APPROVE_NONE,
+            Op.FRAMEPARAM(0, FrameSpec.FRAMEPARAM_FLAGS),
+        ),
+        (0, Op.FRAMEPARAM(0, FrameSpec.FRAMEPARAM_STATE_GAS_LIMIT)),
+        (
+            tuples * Spec.RECENT_ROOT_TUPLE_BYTES,
+            Op.FRAMEPARAM(0, FrameSpec.FRAMEPARAM_DATA_LENGTH),
+        ),
+        (
+            FrameSpec.STATUS_SUCCESS,
+            Op.FRAMEPARAM(0, FrameSpec.FRAMEPARAM_STATUS),
+        ),
+        (last_source, Op.FRAMEDATALOAD(last_offset, 0)),
+        (last_slot, Op.SHR(192, Op.FRAMEDATALOAD(last_offset + 32, 0))),
+        (last_root, Op.FRAMEDATALOAD(last_offset + 40, 0)),
+    ]
+    reader_code = (
+        sum(
+            (
+                Op.SSTORE(storage.store_next(expected), value)
+                for expected, value in reads
+            ),
+            Bytecode(),
+        )
+        + Op.STOP
+    )
+    reader = pre.deploy_contract(code=reader_code)
+    tuple_data = [validation_tuple(*reference) for reference in references]
+
+    state_test(
+        env=Environment(slot_number=CURRENT_SLOT),
+        pre=pre,
+        tx=Transaction(
+            sender=sender,
+            frames=[
+                recent_root_frame(tuple_data),
+                verify_frame(),
+                sender_frame(
+                    target=reader,
+                    gas_limit=fork.frame_entry_gas_calculator()()
+                    + reader_code.execution_cost(fork),
+                    state_gas_limit=reader_code.state_cost(fork),
+                ),
+            ],
+            expected_receipt=TransactionReceipt(
+                payer=sender,
+                frame_receipts=[
+                    FrameReceipt(
+                        status=FrameSpec.STATUS_SUCCESS,
+                        gas_used=validation_gas(
+                            fork, tuples=tuples, cold_keys=tuples
+                        ),
+                        state_gas_used=0,
+                    ),
+                    FrameReceipt(status=FrameSpec.STATUS_SUCCESS),
+                    FrameReceipt(status=FrameSpec.STATUS_SUCCESS),
+                ],
+            ),
+        ),
+        post={reader: Account(storage=storage)},
+    )
+
+
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize(
+    "call_opcode,in_recent_root_context",
+    [
+        pytest.param(Op.CALL, True, id="call"),
+        pytest.param(Op.STATICCALL, True, id="staticcall"),
+        pytest.param(Op.DELEGATECALL, False, id="delegatecall"),
+        pytest.param(Op.CALLCODE, False, id="callcode"),
+    ],
+)
+@pytest.mark.parametrize(
+    "valid", [True, False], ids=["valid_tuple", "wrong_root"]
+)
+def test_validation_called_from_contract(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    call_opcode: Op,
+    in_recent_root_context: bool,
+    valid: bool,
+) -> None:
+    """
+    A contract calling the validation operation sees a success flag and
+    no return data, and a failing tuple fails only that call. Under
+    `DELEGATECALL` and `CALLCODE` the code reads the caller's storage,
+    which holds no entries.
+    """
+    slot = CURRENT_SLOT - 1
+    source = source_id(pre.fund_eoa(amount=0), SALT)
+    root = root_of(0)
+    install_entries(pre, seeded_entries([(source, slot, root)]))
+    reference = validation_tuple(source, slot, root if valid else root_of(1))
+
+    call = (
+        call_opcode(
+            gas=Op.GAS,
+            address=Spec.RECENT_ROOT_ADDRESS,
+            value=0,
+            args_offset=0,
+            args_size=Op.CALLDATASIZE,
+            ret_offset=0,
+            ret_size=0,
+        )
+        if call_opcode in (Op.CALL, Op.CALLCODE)
+        else call_opcode(
+            gas=Op.GAS,
+            address=Spec.RECENT_ROOT_ADDRESS,
+            args_offset=0,
+            args_size=Op.CALLDATASIZE,
+            ret_offset=0,
+            ret_size=0,
+        )
+    )
+    storage = Storage()
+    caller = pre.deploy_contract(
+        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            storage.store_next(int(valid and in_recent_root_context)),
+            call,
+        )
+        + Op.SSTORE(storage.store_next(0), Op.RETURNDATASIZE)
+        + Op.STOP
+    )
+    sender = pre.fund_eoa()
+
+    state_test(
+        env=Environment(slot_number=CURRENT_SLOT),
+        pre=pre,
+        tx=Transaction(
+            sender=sender,
+            frames=[
+                verify_frame(),
+                sender_frame(target=caller, data=reference),
+            ],
+            expected_receipt=TransactionReceipt(
+                payer=sender,
+                frame_receipts=[
+                    FrameReceipt(status=FrameSpec.STATUS_SUCCESS),
+                    FrameReceipt(status=FrameSpec.STATUS_SUCCESS),
+                ],
+            ),
+        ),
+        post={caller: Account(storage=storage)},
     )

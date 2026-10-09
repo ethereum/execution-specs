@@ -30,7 +30,11 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from ..eip8141_frame_transactions.helpers import sender_frame, verify_frame
+from ..eip8141_frame_transactions.helpers import (
+    default_frame,
+    sender_frame,
+    verify_frame,
+)
 from ..eip8141_frame_transactions.spec import Spec as FrameSpec
 from .helpers import (
     WRITE_STATE_GAS,
@@ -61,6 +65,9 @@ WRITE_SLOT = 100
 
 SALT = (0x5A17).to_bytes(32, "big")
 """Salt of the root sources in these tests."""
+
+OTHER_SALT = (0x5A18).to_bytes(32, "big")
+"""Second salt, giving the same address a second root source."""
 
 ROOT_A = (0xA1).to_bytes(32, "big")
 ROOT_B = (0xB2).to_bytes(32, "big")
@@ -205,29 +212,37 @@ def test_publish_then_verify(
     )
 
 
+@pytest.mark.parametrize(
+    "separate_transactions",
+    [False, True],
+    ids=["one_transaction", "two_transactions"],
+)
 def test_last_write_in_slot_wins(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
+    separate_transactions: bool,
 ) -> None:
     """
     Two writes by the same source in one slot target the same storage
-    key: the later one overwrites the earlier, and only its root
-    verifies in the next slot.
+    key: the later one overwrites the earlier, within one transaction or
+    across two, and only its root verifies in the next slot.
     """
     sender = pre.fund_eoa()
     target = pre.deploy_contract(code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP)
     source = source_id(sender, SALT)
     key = storage_key(source, WRITE_SLOT)
 
-    publish_twice = Transaction(
-        sender=sender,
-        frames=[
-            verify_frame(),
-            write_frame(SALT, ROOT_A),
-            write_frame(SALT, ROOT_B),
-        ],
-    )
+    writes = [write_frame(SALT, ROOT_A), write_frame(SALT, ROOT_B)]
+    if separate_transactions:
+        publish = [
+            Transaction(sender=sender, frames=[verify_frame(), write])
+            for write in writes
+        ]
+    else:
+        publish = [
+            Transaction(sender=sender, frames=[verify_frame(), *writes])
+        ]
     verify_last = Transaction(
         sender=sender,
         frames=[
@@ -240,7 +255,7 @@ def test_last_write_in_slot_wins(
     blockchain_test(
         pre=pre,
         blocks=[
-            Block(slot_number=WRITE_SLOT, txs=[publish_twice]),
+            Block(slot_number=WRITE_SLOT, txs=publish),
             Block(slot_number=WRITE_SLOT + 1, txs=[verify_last]),
         ],
         post={
@@ -570,4 +585,179 @@ def test_delegated_eoa_write_uses_authority_storage(
             ),
             Spec.RECENT_ROOT_ADDRESS: Account(storage={key: 0}),
         },
+    )
+
+
+def test_sources_by_salt(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    One address publishing under two salts in the same slot owns two
+    root sources, and both roots verify together in the next slot.
+    """
+    sender = pre.fund_eoa()
+    target = pre.deploy_contract(code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP)
+    published = [
+        (source_id(sender, SALT), ROOT_A),
+        (source_id(sender, OTHER_SALT), ROOT_B),
+    ]
+
+    publish = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(),
+            write_frame(SALT, ROOT_A),
+            write_frame(OTHER_SALT, ROOT_B),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(status=FrameSpec.STATUS_SUCCESS),
+                FrameReceipt(status=FrameSpec.STATUS_SUCCESS, logs=[]),
+                FrameReceipt(status=FrameSpec.STATUS_SUCCESS, logs=[]),
+            ],
+        ),
+    )
+    verify = Transaction(
+        sender=sender,
+        frames=[
+            recent_root_frame(
+                [
+                    validation_tuple(source, WRITE_SLOT, root)
+                    for source, root in published
+                ]
+            ),
+            verify_frame(),
+            sender_frame(target=target),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(
+                    status=FrameSpec.STATUS_SUCCESS,
+                    gas_used=validation_gas(fork, tuples=2, cold_keys=2),
+                    state_gas_used=0,
+                ),
+                FrameReceipt(status=FrameSpec.STATUS_SUCCESS),
+                FrameReceipt(status=FrameSpec.STATUS_SUCCESS),
+            ],
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(slot_number=WRITE_SLOT, txs=[publish]),
+            Block(slot_number=WRITE_SLOT + 1, txs=[verify]),
+        ],
+        post={
+            Spec.RECENT_ROOT_ADDRESS: Account(
+                storage={
+                    storage_key(source, WRITE_SLOT): entry_value(
+                        source, WRITE_SLOT, root
+                    )
+                    for source, root in published
+                },
+            ),
+            target: Account(storage={SLOT_EXECUTED: 1}),
+        },
+    )
+
+
+def test_default_frame_write_uses_entry_point_source(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A `DEFAULT` frame calls as the frame entry point, so its write lands
+    under the entry point's source rather than the sender's.
+    """
+    sender = pre.fund_eoa()
+    entry_point_source = source_id(FrameSpec.ENTRY_POINT, SALT)
+
+    state_test(
+        env=Environment(slot_number=WRITE_SLOT),
+        pre=pre,
+        tx=Transaction(
+            sender=sender,
+            frames=[
+                verify_frame(),
+                default_frame(
+                    target=Spec.RECENT_ROOT_ADDRESS,
+                    data=write_calldata(SALT, ROOT_A),
+                    state_gas_limit=WRITE_STATE_GAS,
+                ),
+            ],
+            expected_receipt=TransactionReceipt(
+                payer=sender,
+                frame_receipts=[
+                    FrameReceipt(status=FrameSpec.STATUS_SUCCESS),
+                    FrameReceipt(status=FrameSpec.STATUS_SUCCESS, logs=[]),
+                ],
+            ),
+        ),
+        post={
+            Spec.RECENT_ROOT_ADDRESS: Account(
+                storage={
+                    storage_key(entry_point_source, WRITE_SLOT): entry_value(
+                        entry_point_source, WRITE_SLOT, ROOT_A
+                    ),
+                    storage_key(source_id(sender, SALT), WRITE_SLOT): 0,
+                },
+            ),
+        },
+    )
+
+
+def test_static_call_write_fails(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A write reached through `STATICCALL` fails and stores nothing, while
+    the calling frame carries on and the transaction stays valid.
+    """
+    sender = pre.fund_eoa()
+    relay = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.POP(
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=Spec.RECENT_ROOT_ADDRESS,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=0,
+                ret_size=0,
+            )
+        )
+        + Op.STOP
+    )
+    key = storage_key(source_id(relay, SALT), WRITE_SLOT)
+
+    state_test(
+        env=Environment(slot_number=WRITE_SLOT),
+        pre=pre,
+        tx=Transaction(
+            sender=sender,
+            frames=[
+                verify_frame(),
+                sender_frame(
+                    target=relay,
+                    data=write_calldata(SALT, ROOT_A),
+                    state_gas_limit=WRITE_STATE_GAS,
+                ),
+            ],
+            expected_receipt=TransactionReceipt(
+                payer=sender,
+                frame_receipts=[
+                    FrameReceipt(status=FrameSpec.STATUS_SUCCESS),
+                    FrameReceipt(status=FrameSpec.STATUS_SUCCESS),
+                ],
+            ),
+        ),
+        post={Spec.RECENT_ROOT_ADDRESS: Account(storage={key: 0})},
     )
