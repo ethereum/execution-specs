@@ -24,6 +24,7 @@ from execution_testing.forks import (
 )
 from execution_testing.specs.benchmark import BenchmarkTest
 from execution_testing.specs.blockchain import (
+    DEFAULT_BLOCK_TIMESTAMP_INCREMENT,
     Block,
     BlockchainTest,
     sync_block_context_unavailable,
@@ -215,12 +216,12 @@ def test_gas_limit_ceiling(gas_limit: int, available: bool) -> None:
     [
         pytest.param(2**64 - 1, False, id="max"),
         pytest.param(
-            2**64 - Cancun.block_time(),
+            2**64 - DEFAULT_BLOCK_TIMESTAMP_INCREMENT,
             False,
             id="one_short_of_room",
         ),
         pytest.param(
-            2**64 - 1 - Cancun.block_time(),
+            2**64 - 1 - DEFAULT_BLOCK_TIMESTAMP_INCREMENT,
             True,
             id="exactly_enough_room",
         ),

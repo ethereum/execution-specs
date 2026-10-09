@@ -107,6 +107,12 @@ from .helpers import verify_block, verify_transactions
 
 logger = get_logger(__name__)
 
+DEFAULT_BLOCK_TIMESTAMP_INCREMENT = 12
+"""
+Seconds between a block and its parent when the block does not pin a
+timestamp of its own (see ``Block.set_environment``).
+"""
+
 MAX_SYNC_BLOCK_BLOB_PRICE_STEPS = 1024
 """
 Steps of the blob price's Taylor series the appended sync block's fee
@@ -146,27 +152,24 @@ def sync_block_context_unavailable(
     # Type ceilings first: the fork of a block that cannot exist is
     # not well-defined. Engine payload block numbers, timestamps, gas
     # limits and slot numbers must fit uint64. The appended block takes
-    # its parent's block number plus one and its timestamp plus the block
-    # time of the head's own fork; it inherits the parent's gas limit and
-    # takes its slot number plus one. Python integers do not wrap and
-    # `t8n` accepts some of the values, so unguarded these heads would
-    # not fill bare: the typed payload model rejects the overflowing
-    # child and fails the whole fill. The fields are semantic and never
+    # its parent's block number plus one and its timestamp plus a fixed
+    # step; it inherits the parent's gas limit and takes its slot number
+    # plus one. Python integers do not wrap and `t8n` accepts some of the
+    # values, so unguarded these heads would not fill bare: the typed
+    # payload model rejects the overflowing child and fails the whole
+    # fill. The fields are semantic and never
     # clamped or shifted; the fill declines the block instead.
     if int(head.number) + 1 > 2**64 - 1:
         return "the head's block number has no successor in uint64"
     if int(head.gas_limit) > 2**64 - 1:
         return "the head's gas limit does not fit uint64"
-    block_time = test_fork.fork_at(
-        block_number=int(head.number), timestamp=int(head.timestamp)
-    ).block_time()
-    if int(head.timestamp) + block_time > 2**64 - 1:
+    if int(head.timestamp) + DEFAULT_BLOCK_TIMESTAMP_INCREMENT > 2**64 - 1:
         return "the head's timestamp leaves no uint64 room for a child"
     if head.slot_number is not None and int(head.slot_number) + 1 > 2**64 - 1:
         return "the head's slot number has no successor in uint64"
     fork = test_fork.fork_at(
         block_number=int(head.number) + 1,
-        timestamp=int(head.timestamp) + block_time,
+        timestamp=int(head.timestamp) + DEFAULT_BLOCK_TIMESTAMP_INCREMENT,
     )
     # The appended block inherits its parent's gas limit, and the
     # fork's floor is not a constant: from Amsterdam on it is the
@@ -493,9 +496,7 @@ class Block(Header):
             overrides.append("expected_block_access_list.modify_rlp")
         return overrides
 
-    def set_environment(
-        self, env: Environment, test_fork: Fork | TransitionFork
-    ) -> Environment:
+    def set_environment(self, env: Environment) -> Environment:
         """
         Create copy of the environment with the characteristics of this
         specific block.
@@ -561,14 +562,9 @@ class Block(Header):
             new_env_values["timestamp"] = self.timestamp
         else:
             assert env.parent_timestamp is not None
-            # The step is the parent's fork's block time: this block's
-            # own fork cannot be resolved until its timestamp is known.
-            parent_fork = test_fork.fork_at(
-                block_number=max(int(Number(new_env_values["number"])) - 1, 0),
-                timestamp=int(Number(env.parent_timestamp)),
-            )
             new_env_values["timestamp"] = int(
-                Number(env.parent_timestamp) + parent_fork.block_time()
+                Number(env.parent_timestamp)
+                + DEFAULT_BLOCK_TIMESTAMP_INCREMENT
             )
 
         return env.copy(**new_env_values)
@@ -1066,7 +1062,7 @@ class BlockchainTest(BaseTest):
         filling will pass an ``ClientBackend`` that drives
         ``testing_buildBlockV1`` against a live client.
         """
-        env = block.set_environment(previous_env, self.fork)
+        env = block.set_environment(previous_env)
         fork = self.fork.fork_at(
             block_number=env.number, timestamp=env.timestamp
         )
