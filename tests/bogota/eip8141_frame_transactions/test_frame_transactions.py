@@ -450,6 +450,112 @@ def test_frame_revert_discards_the_approval_it_granted(
 
 
 @pytest.mark.parametrize(
+    "middle_reverts,outer_approves",
+    [
+        pytest.param(
+            True,
+            False,
+            id="middle_reverts",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(False, False, id="middle_returns"),
+        pytest.param(True, True, id="middle_reverts_outer_approves"),
+    ],
+)
+def test_call_revert_above_approve_discards_the_approval(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    middle_reverts: bool,
+    outer_approves: bool,
+) -> None:
+    """
+    A call that reverts above an `APPROVE` discards the approval
+    context it granted, even when the frame itself succeeds.
+
+    The approval context is journaled with the state changes that
+    produced it, and reverting a call restores it to the call's
+    checkpoint, as reverting a frame or an atomic batch does. Here the
+    frame's invocation calls a middle invocation, which calls an inner
+    one that approves and returns; the middle one then reverts, rolling
+    back the nonce increment and the `max_cost` collection, while the
+    outer one returns.
+
+    In the `middle_reverts` case no approval survives, so the
+    transaction has no payer and is rejected. Keeping the approval
+    would produce a free transaction. The `middle_returns` case is the
+    control: the same nested `APPROVE` with the middle invocation
+    returning is accepted with the payer bound. In the
+    `middle_reverts_outer_approves` case the outer invocation approves
+    again after the revert, which only succeeds if the context went back
+    to unapproved, and the nonce advances once.
+    """
+    # The frame's target must be `tx.sender` for the approval scopes, so
+    # every invocation runs the sender's code, picked by calldata: the
+    # frame supplies two bytes, the middle call one, the inner call none.
+    approve = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
+    outer = (
+        Op.SSTORE(SLOT_EXECUTED, 1)
+        + Op.POP(
+            Op.CALL(gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1)
+        )
+        + (approve if outer_approves else Op.STOP)
+    )
+    middle = Op.POP(Op.CALL(gas=Op.GAS, address=Op.ADDRESS)) + (
+        Op.REVERT(0, 0) if middle_reverts else Op.STOP
+    )
+    sender_code = Conditional(
+        condition=Op.CALLDATASIZE,
+        if_true=Conditional(
+            condition=Op.EQ(Op.CALLDATASIZE, 2),
+            if_true=outer,
+            if_false=middle,
+        ),
+        # `APPROVE` exits this call context, returning control to `middle`.
+        if_false=approve,
+    )
+    sender = pre.deploy_contract(code=sender_code, balance=10**18)
+
+    approved = not middle_reverts or outer_approves
+    tx = Transaction(
+        sender=sender,
+        nonce=1,
+        frames=[
+            Frame(
+                mode=Spec.MODE_DEFAULT,
+                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
+                target=sender,
+                gas_limit=400_000,
+                data=Bytes(b"\x01\x01"),
+            ),
+        ],
+        error=(
+            None
+            if approved
+            else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+        ),
+        expected_receipt=(
+            TransactionReceipt(
+                payer=sender,
+                frame_receipts=[FrameReceipt(status=Spec.STATUS_SUCCESS)],
+            )
+            if approved
+            else None
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(
+                nonce=2 if approved else 1,
+                storage={SLOT_EXECUTED: 1 if approved else 0},
+            ),
+        },
+    )
+
+
+@pytest.mark.parametrize(
     "inner_attempts_approval",
     [
         pytest.param(True, id="refused_approval"),
