@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom2/randomStatetest648Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest648(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -34,22 +33,18 @@ def test_random_statetest648(
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xFFFFFFFF)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10944489199640098,
+    # Source: raw
+    # 0x600050
+    addr = pre.deploy_contract(
+        code=Op.POP(0x0),
     )
-
     # Source: raw
     # 0x600060006000600060f15af450600060005060f5fffd
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.POP(
             Op.DELEGATECALL(
                 gas=Op.GAS,
-                address=0xF1,
+                address=Op.ADDRESS,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -58,16 +53,11 @@ def test_random_statetest648(
         )
         + Op.PUSH1[0x0]
         + Op.POP(0x0)
-        + Op.SELFDESTRUCT(address=0xF5)
+        + Op.SELFDESTRUCT(address=addr)
         + Op.REVERT,
-        nonce=0,
     )
-    # Source: raw
-    # 0x600050
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(0x0),
-        nonce=0,
-    )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,

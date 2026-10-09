@@ -8,9 +8,7 @@ state_tests/stZeroKnowledge/pairingTestFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -189,24 +187,11 @@ def test_pairing_test(
     v: int,
 ) -> None:
     """Test_pairing_test."""
-    coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_2 = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=14012015,
-    )
 
     # Source: lll
     # {(MSTORE 32 (CALLDATALOAD 32)) (MSTORE 64 (CALLDATALOAD 64)) (MSTORE 96 (CALLDATALOAD 96)) (MSTORE 128 (CALLDATALOAD 128)) (MSTORE 160 (CALLDATALOAD 160)) (MSTORE 192 (CALLDATALOAD 192)) (MSTORE 224 (CALLDATALOAD 224)) (MSTORE 256 (CALLDATALOAD 256)) (MSTORE 288 (CALLDATALOAD 288)) (MSTORE 320 (CALLDATALOAD 320)) (MSTORE 352 (CALLDATALOAD 352)) (MSTORE 384 (CALLDATALOAD 384)) (MSTORE 416 (CALLDATALOAD 416)) (MSTORE 448 (CALLDATALOAD 448)) (MSTORE 480 (CALLDATALOAD 480)) (MSTORE 512 (CALLDATALOAD 512)) (MSTORE 544 (CALLDATALOAD 544)) (MSTORE 576 (CALLDATALOAD 576)) (MSTORE 608 (CALLDATALOAD 608)) (MSTORE 640 (CALLDATALOAD 640)) (MSTORE 672 (CALLDATALOAD 672)) (MSTORE 704 (CALLDATALOAD 704)) (MSTORE 736 (CALLDATALOAD 736)) [[0]](CALLCODE 500000 8 0 32 (CALLDATALOAD 0) 1000 32)  [[1]] (MLOAD 1000) }  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x20, value=Op.CALLDATALOAD(offset=0x20))
         + Op.MSTORE(offset=0x40, value=Op.CALLDATALOAD(offset=0x40))
         + Op.MSTORE(offset=0x60, value=Op.CALLDATALOAD(offset=0x60))
@@ -244,7 +229,6 @@ def test_pairing_test(
         )
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x3E8))
         + Op.STOP,
-        nonce=0,
     )
     # Source: lll
     # { (MSTORE 0 (CALLDATALOAD 0)) (MSTORE 32 (CALLDATALOAD 32)) (MSTORE 64 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000)  [[0]](CALLCODE 5000000 7 0 0 96 1000 64)  [[1]](MLOAD 1000) [[2]](MLOAD 1032) }  # noqa: E501
@@ -270,7 +254,6 @@ def test_pairing_test(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x3E8))
         + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x408))
         + Op.STOP,
-        nonce=0,
     )
     # Source: lll
     # { (MSTORE 0 (CALLDATALOAD 0)) (MSTORE 32 (CALLDATALOAD 32)) (MSTORE 64 (CALLDATALOAD 64)) (MSTORE 96 (CALLDATALOAD 96)) [[0]](CALLCODE 5000000 6 0 0 128 1000 64)  [[1]](MLOAD 1000) [[2]](MLOAD 1032) }  # noqa: E501
@@ -294,7 +277,6 @@ def test_pairing_test(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x3E8))
         + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x408))
         + Op.STOP,
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
@@ -588,4 +570,4 @@ def test_pairing_test(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

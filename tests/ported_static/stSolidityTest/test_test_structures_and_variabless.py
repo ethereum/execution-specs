@@ -7,12 +7,9 @@ state_tests/stSolidityTest/TestStructuresAndVariablessFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -26,29 +23,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSolidityTest/TestStructuresAndVariablessFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_test_structures_and_variabless(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_test_structures_and_variabless."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x6F0117D3E9C684C7D6E1E6B79DC3880DA2BEBE77C765B171C062FDFFD38A673F
-    )
+    sender = pre.fund_eoa(amount=0x2540BE400)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
-    pre[sender] = Account(balance=0x2540BE400)
     # Source: raw
     # 0x7c010000000000000000000000000000000000000000000000000000000060003504632a9afb838114610039578063c04062261461004b57005b61004161005d565b8060005260206000f35b61005361016c565b8060005260206000f35b600160ff8154141561006e57610076565b506000610169565b60015460035414156100875761008f565b506000610169565b73<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>73ffffffffffffffffffffffffffffffffffffffff60016002540481161614156100cd576100d5565b506000610169565b7f676c6f62616c2064617461203332206c656e67746820737472696e670000000060045414156101045761010c565b506000610169565b6005600080815260200190815260200160002060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>141561016057610168565b506000610169565b5b90565b600060ff806001555073<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>6002805473ffffffffffffffffffffffffffffffffffffffff1916821790555060ff80600355507f676c6f62616c2064617461203332206c656e67746820737472696e6700000000806004555073<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>6005600080815260200190815260200160002060006101000a81548173ffffffffffffffffffffffffffffffffffffffff0219169083021790555061022f61005d565b600060006101000a81548160ff0219169083021790555060ff6001600054041690509056  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.DIV(
             Op.CALLDATALOAD(offset=0x0),
             0x100000000000000000000000000000000000000000000000000000000,
@@ -98,7 +82,7 @@ def test_test_structures_and_variabless(
                         Op.AND(Op.DUP2, Op.DIV(Op.SLOAD(key=0x2), 0x1)),
                         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                     ),
-                    sender,
+                    Op.PUSH20[sender],
                 )
             ),
         )
@@ -144,7 +128,7 @@ def test_test_structures_and_variabless(
             pc=0x160,
             condition=Op.ISZERO(
                 Op.EQ(
-                    sender,
+                    Op.PUSH20[sender],
                     Op.AND(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, Op.DIV),
                 )
             ),
@@ -162,7 +146,7 @@ def test_test_structures_and_variabless(
         + Op.PUSH1[0xFF]
         + Op.SSTORE(key=0x1, value=Op.DUP1)
         + Op.POP
-        + Op.PUSH20[0xD96ED4431B417993AB4F4D4A656959D13C66E1DC]
+        + Op.PUSH20[sender]
         + Op.PUSH1[0x2]
         + Op.OR(
             Op.DUP3,
@@ -182,7 +166,7 @@ def test_test_structures_and_variabless(
         ]
         + Op.SSTORE(key=0x4, value=Op.DUP1)
         + Op.POP
-        + Op.PUSH20[0xD96ED4431B417993AB4F4D4A656959D13C66E1DC]
+        + Op.PUSH20[sender]
         + Op.PUSH1[0x5]
         + Op.PUSH1[0x0]
         + Op.MSTORE(offset=Op.DUP2, value=Op.DUP1)
@@ -222,8 +206,6 @@ def test_test_structures_and_variabless(
         + Op.SWAP1
         + Op.JUMP,
         balance=0x186A0,
-        nonce=0,
-        address=Address(0x53D3DBDFD3AE109712A4771F7F37A6B1CDA7B864),  # noqa: E501
     )
 
     tx = Transaction(
@@ -246,4 +228,4 @@ def test_test_structures_and_variabless(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

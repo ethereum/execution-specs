@@ -18,6 +18,7 @@ from execution_testing import (
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
+from tests.ported_static.constants import HIGH_GAS_LIMIT
 from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
@@ -59,21 +60,13 @@ def test_static_ab_acalls2(
     v: int,
 ) -> None:
     """Test_static_ab_acalls2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000000,
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     # Source: lll
     # { [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
@@ -88,12 +81,11 @@ def test_static_ab_acalls2(
         )
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
-        nonce=0,
         address=Address(0x2B0DE1D059B61D3AFBDBC6D7D59720FE04C1FFF2),  # noqa: E501
     )
     # Source: lll
     # {  [[ 0 ]] (ADD (SLOAD 0) 1) (STATICCALL (- (GAS) 100000) <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
         + Op.STATICCALL(
             gas=Op.SUB(Op.GAS, 0x186A0),
@@ -105,12 +97,11 @@ def test_static_ab_acalls2(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
         address=Address(0xCEE890DF61958E0D40FBBFC310AF80B8C47D0DFE),  # noqa: E501
     )
     # Source: lll
     # { [[ 0 ]] (ADD (SLOAD 0) 1) (STATICCALL (- (GAS) 100000) <contract:0x095e7baea6a6c7c4c2dfeb977efac326af552d87> 0 0 0 0) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
         + Op.STATICCALL(
             gas=Op.SUB(Op.GAS, 0x186A0),
@@ -121,12 +112,11 @@ def test_static_ab_acalls2(
             ret_size=0x0,
         )
         + Op.STOP,
-        nonce=0,
         address=Address(0xE278F8058BEF1396C2B1DF4D1DC4B65233133C57),  # noqa: E501
     )
     # Source: lll
     # {  ( MSTORE 0 (ADD (MLOAD 0) 1)) (STATICCALL (- (GAS) 100000) <contract:0x245304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0) }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.ADD(Op.MLOAD(offset=0x0), 0x1))
         + Op.STATICCALL(
             gas=Op.SUB(Op.GAS, 0x186A0),
@@ -138,7 +128,6 @@ def test_static_ab_acalls2(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
         address=Address(0xDB486D3E181181D2063032B1250C07CA0185A446),  # noqa: E501
     )
     # Source: lll
@@ -154,7 +143,6 @@ def test_static_ab_acalls2(
             ret_size=0x0,
         )
         + Op.STOP,
-        nonce=0,
         address=Address(0x57EFC7A25D8E40B0798FB4CBC2BCC3C124141CBB),  # noqa: E501
     )
 

@@ -8,9 +8,7 @@ state_tests/stStaticCall/static_Call1024OOGFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -48,7 +46,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_call1024_oog(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -58,21 +55,12 @@ def test_static_call1024_oog(
     v: int,
 ) -> None:
     """Test_static_call1024_oog."""
-    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     addr = pre.fund_eoa(amount=7000)  # noqa: F841
     # Source: lll
     # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
@@ -87,12 +75,10 @@ def test_static_call1024_oog(
         )
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
-        nonce=0,
-        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
     # Source: lll
     # { [[ 0 ]] (ADD @@0 1) [[ 1 ]] (STATICCALL (MUL (SUB (GAS) 10000) (SUB 1 (DIV @@0 1025))) <contract:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[ 2 ]] (ADD 1(MUL @@0 1000)) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
         + Op.SSTORE(
             key=0x1,
@@ -101,7 +87,7 @@ def test_static_call1024_oog(
                     Op.SUB(Op.GAS, 0x2710),
                     Op.SUB(0x1, Op.DIV(Op.SLOAD(key=0x0), 0x401)),
                 ),
-                address=0x5EB006F1716196A0D072B390030A665386C48B9B,
+                address=Op.ADDRESS,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -113,12 +99,10 @@ def test_static_call1024_oog(
         )
         + Op.STOP,
         balance=1024,
-        nonce=0,
-        address=Address(0x5EB006F1716196A0D072B390030A665386C48B9B),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 (ADD (MLOAD 0) 1))  (STATICCALL (MUL (SUB (GAS) 10000) (SUB 1 (DIV (MLOAD 0) 1025))) <contract:0xcbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) (MSTORE 32 (ADD 1(MUL (MLOAD 0) 1000))) }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.ADD(Op.MLOAD(offset=0x0), 0x1))
         + Op.POP(
             Op.STATICCALL(
@@ -126,7 +110,7 @@ def test_static_call1024_oog(
                     Op.SUB(Op.GAS, 0x2710),
                     Op.SUB(0x1, Op.DIV(Op.MLOAD(offset=0x0), 0x401)),
                 ),
-                address=0x42223EC7D9570A769BECBE4BEED7D885E01E6E37,
+                address=Op.ADDRESS,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -138,8 +122,6 @@ def test_static_call1024_oog(
         )
         + Op.STOP,
         balance=1024,
-        nonce=0,
-        address=Address(0x42223EC7D9570A769BECBE4BEED7D885E01E6E37),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -179,4 +161,4 @@ def test_static_call1024_oog(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

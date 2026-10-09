@@ -10,10 +10,8 @@ state_tests/stCallDelegateCodesCallCodeHomestead/callcallcode_01_SuicideEndFille
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -29,39 +27,43 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_callcallcode_01_suicide_end(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_callcallcode_01_suicide_end."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=30000000,
-    )
 
     # Source: lll
     # {  (SSTORE 2 1) }
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.SSTORE(key=0x2, value=0x1) + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
-        address=Address(0x703B936FD4D674F0FF5D6957F61097152F8781B8),  # noqa: E501
+    )
+    # Source: lll
+    # {  [[ 1 ]] (DELEGATECALL 50000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (SELFDESTRUCT <contract:target:0x1000000000000000000000000000000000000000>) }  # noqa: E501
+    addr = pre.deploy_contract(
+        code=Op.SSTORE(
+            key=0x1,
+            value=Op.DELEGATECALL(
+                address=addr_2,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            ),
+        )
+        + Op.SELFDESTRUCT(address=Op.ADDRESS)
+        + Op.STOP,
+        balance=0x2540BE400,
     )
     # Source: lll
     # {  [[ 0 ]] (CALLCODE 150000 <contract:0x1000000000000000000000000000000000000001> 0 0 64 0 64 ) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALLCODE(
-                address=0x1CCA6E93108EC94304AE5EB121D323E6C317FE7A,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x40,
@@ -71,27 +73,6 @@ def test_callcallcode_01_suicide_end(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xA74CA10B765DCDA3B60687F73F2881E2A56EDA64),  # noqa: E501
-    )
-    # Source: lll
-    # {  [[ 1 ]] (DELEGATECALL 50000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) (SELFDESTRUCT <contract:target:0x1000000000000000000000000000000000000000>) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x1,
-            value=Op.DELEGATECALL(
-                address=0x703B936FD4D674F0FF5D6957F61097152F8781B8,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            ),
-        )
-        + Op.SELFDESTRUCT(address=0xA74CA10B765DCDA3B60687F73F2881E2A56EDA64)
-        + Op.STOP,
-        balance=0x2540BE400,
-        nonce=0,
-        address=Address(0x1CCA6E93108EC94304AE5EB121D323E6C317FE7A),  # noqa: E501
     )
 
     tx = Transaction(sender=sender, to=target, data=Bytes(""))
@@ -100,11 +81,11 @@ def test_callcallcode_01_suicide_end(
         target: Account(
             storage={0: 1, 1: 1, 2: 1},
             balance=0xDE0B6B3A7640000,
-            nonce=0,
+            nonce=1,
         ),
         addr: Account(storage={0: 0, 1: 0, 2: 0}),
         addr_2: Account(storage={2: 0, 3: 0}),
         sender: Account(storage={1: 0, 2: 0, 3: 0}),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

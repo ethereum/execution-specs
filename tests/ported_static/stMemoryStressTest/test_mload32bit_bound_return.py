@@ -8,10 +8,8 @@ state_tests/stMemoryStressTest/mload32bitBound_returnFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -43,7 +41,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_mload32bit_bound_return(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -53,24 +50,13 @@ def test_mload32bit_bound_return(
     v: int,
 ) -> None:
     """Test_mload32bit_bound_return."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x186A0C3B1E19A180)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=17592320524892,
-    )
 
     # Source: lll
     # { (RETURN 0 4294967295) }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.RETURN(offset=0x0, size=0xFFFFFFFF) + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx_data = [
@@ -87,4 +73,4 @@ def test_mload32bit_bound_return(
 
     post = {target: Account(storage={})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

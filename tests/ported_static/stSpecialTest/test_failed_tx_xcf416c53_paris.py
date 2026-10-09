@@ -11,7 +11,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -32,23 +31,13 @@ def test_failed_tx_xcf416c53_paris(
     pre: Alloc,
 ) -> None:
     """Test_failed_tx_xcf416c53_paris."""
-    coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
     addr = Address(0x0000000000000000000000000000000000000003)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=200000000,
-    )
 
     pre[addr] = Account(balance=10)
     # Source: raw
     # 0x7c0100000000000000000000000000000000000000000000000000000000600035046397dd3054811415610065576004356040526024356060526040516060515b808212156100625760006000600060006000866000f150600182019150610040565b50505b50  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.DIV(
             Op.CALLDATALOAD(offset=0x0),
             0x100000000000000000000000000000000000000000000000000000000,
@@ -83,7 +72,6 @@ def test_failed_tx_xcf416c53_paris(
         + Op.POP * 2
         + Op.JUMPDEST
         + Op.POP,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -99,4 +87,4 @@ def test_failed_tx_xcf416c53_paris(
         addr: Account(balance=10),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

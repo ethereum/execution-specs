@@ -8,10 +8,8 @@ state_tests/stMemExpandingEIP150Calls/OOGinReturnFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -72,7 +70,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_oo_gin_return(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -82,43 +79,29 @@ def test_oo_gin_return(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=4294967296,
-    )
 
     # Source: lll
     # {
     #     [0] 0xDEAD60A7
     #     (return 0 0x100)
     # }
-    return_ = pre.deploy_contract(  # noqa: F841
+    return_ = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0xDEAD60A7)
         + Op.RETURN(offset=0x0, size=0x100)
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x9F5C4C430E37B429D18F8ABA147E2302AF08F210),  # noqa: E501
     )
     # Source: lll
     # {
     #     [0] 0xDEAD60A7
     #     (revert 0 0x100)
     # }
-    revert = pre.deploy_contract(  # noqa: F841
+    revert = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0xDEAD60A7)
         + Op.REVERT(offset=0x0, size=0x100)
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0xCEE9F0C6117CC881AD7B4C378C2BEBEE8FCD04A9),  # noqa: E501
     )
     # Source: lll
     # {
@@ -144,7 +127,7 @@ def test_oo_gin_return(
     #   (if (> (returndatasize) 0) (returndatacopy retVal 0 0x20) NOP)
     #   [[1]] @retVal
     # }   ; end of LLL code
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(offset=0x120, value=Op.CALLDATALOAD(offset=0x4))
         + Op.MSTORE(offset=0x140, value=Op.CALLDATALOAD(offset=0x24))
         + Op.MSTORE(offset=0x0, value=0x60A760A7)
@@ -170,8 +153,6 @@ def test_oo_gin_return(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x160))
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0xEBD3191DD8150F47E30F87927DB4592163EE9224),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -209,4 +190,4 @@ def test_oo_gin_return(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

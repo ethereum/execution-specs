@@ -8,9 +8,7 @@ state_tests/stStaticCall/static_callBasicFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -60,7 +58,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_call_basic(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -70,21 +67,11 @@ def test_static_call_basic(
     v: int,
 ) -> None:
     """Test_static_call_basic."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
 
     # Source: lll
     # {  [[ 0 ]] (STATICCALL 100000 (CALLDATALOAD 0) 0 0 0 0) [[ 1 ]] 1 }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.STATICCALL(
@@ -99,52 +86,42 @@ def test_static_call_basic(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x13670D6BD41ACD42D75E7C4C25DF7384A6FBD752),  # noqa: E501
     )
     # Source: lll
     # { [[ 1 ]] 1 }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         storage={1: 1},
         balance=23,
-        nonce=0,
-        address=Address(0xD3C0847CA0222F22DCFB4A433A378FF58AD6A881),  # noqa: E501
     )
     # Source: lll
     # { [[ 1 ]] 0 }
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={1: 0},
         balance=23,
-        nonce=0,
-        address=Address(0xEAD198F480FB91A5FBEDCF5EB28CD369EE4C6CF2),  # noqa: E501
     )
     # Source: lll
     # { (LOG0 1 10) (MSTORE 1 1) }
-    addr_4 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(
         code=Op.LOG0(offset=0x1, size=0xA)
         + Op.MSTORE(offset=0x1, value=0x1)
         + Op.STOP,
         balance=23,
-        nonce=0,
-        address=Address(0x2E0DD8ABE4E68C5B602F3C65051F4B30C6D018DA),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 1 1) }
-    addr_6 = pre.deploy_contract(  # noqa: F841
+    addr_6 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         balance=23,
-        nonce=0,
-        address=Address(0xC93C7A588B13699E562B3933E8F2B1C15E610781),  # noqa: E501
     )
     # Source: lll
     # { (CALL 40000 <contract:0x2000000000000000000000000000000000000003> 0 0 0 0 0) (MSTORE 1 1) }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.POP(
             Op.CALL(
                 gas=0x9C40,
-                address=0x2E0DD8ABE4E68C5B602F3C65051F4B30C6D018DA,
+                address=addr_4,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -155,16 +132,14 @@ def test_static_call_basic(
         + Op.MSTORE(offset=0x1, value=0x1)
         + Op.STOP,
         balance=23,
-        nonce=0,
-        address=Address(0xEB015F637A39C63F8B6DB67505F5C02C613DEFC1),  # noqa: E501
     )
     # Source: lll
     # { (CALLCODE 40000 <contract:0x3000000000000000000000000000000000000003> 1 0 0 0 0) (MSTORE 1 1) }  # noqa: E501
-    addr_5 = pre.deploy_contract(  # noqa: F841
+    addr_5 = pre.deploy_contract(
         code=Op.POP(
             Op.CALLCODE(
                 gas=0x9C40,
-                address=0xC93C7A588B13699E562B3933E8F2B1C15E610781,
+                address=addr_6,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x0,
@@ -175,8 +150,6 @@ def test_static_call_basic(
         + Op.MSTORE(offset=0x1, value=0x1)
         + Op.STOP,
         balance=23,
-        nonce=0,
-        address=Address(0xD5B64FA2CA1E471B45B639A5E9C259CA24C28ACE),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -220,4 +193,4 @@ def test_static_call_basic(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -8,10 +8,8 @@ state_tests/stEIP150singleCodeGasPrices/gasCostMemSegFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -362,7 +360,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_gas_cost_mem_seg(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -372,17 +369,7 @@ def test_gas_cost_mem_seg(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: lll
     # {
@@ -416,7 +403,7 @@ def test_gas_cost_mem_seg(
     #       [gasAfter] (gas)
     #   } NOP)
     # ... (70 more lines)
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.JUMPI(
             pc=Op.PUSH2[0x11],
             condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x20),
@@ -536,7 +523,6 @@ def test_gas_cost_mem_seg(
         + Op.STOP,
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
     )
 
     tx_data = [
@@ -789,4 +775,4 @@ def test_gas_cost_mem_seg(
 
     post = {target: Account(storage={0: 0})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

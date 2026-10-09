@@ -36,7 +36,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     "opcode",
     ["calldataload", "calldatacopy", "codecopy"],
 )
-@pytest.mark.pre_alloc_mutable
 def test_create_transaction_call_data(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -17,12 +17,10 @@ undeclared-key entries.
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
     Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -66,7 +64,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_manual_create(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -76,21 +73,8 @@ def test_manual_create(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=71794957647893862,
-    )
-
-    pre[sender] = Account(balance=0x1000000000000000000, nonce=1)
+    sender = pre.fund_eoa(amount=0x1000000000000000000)
+    created = compute_create_address(address=sender, nonce=0)
 
     # EIP-8037 SSTORE-set spill into regular gas (empty reservoir).
     # Derive the warm and cold fresh-set deltas from the fork's own
@@ -109,18 +93,14 @@ def test_manual_create(
             "indexes": {"data": [2], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                compute_create_address(address=sender, nonce=1): Account(
-                    storage={0: 20008 + warm_set_delta, 1: 106}
-                ),
+                created: Account(storage={0: 20008 + warm_set_delta, 1: 106}),
             },
         },
         {
             "indexes": {"data": [0, 1], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                compute_create_address(address=sender, nonce=1): Account(
-                    storage={0: 22108 + cold_set_delta, 1: 106}
-                ),
+                created: Account(storage={0: 22108 + cold_set_delta, 1: 106}),
             },
         },
     ]
@@ -172,32 +152,20 @@ def test_manual_create(
     tx_access_lists: dict[int, list] = {
         0: [
             AccessList(
-                address=Address(0x0000000000000000000000000000000000000100),
-                storage_keys=[
-                    Hash(
-                        "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-                    ),  # noqa: E501
-                ],
+                address=Address(0x100),
+                storage_keys=[Hash(0)],
             ),
         ],
         1: [
             AccessList(
-                address=Address(0xEC0E71AD0A90FFE1909D27DAC207F7680ABBA42D),
-                storage_keys=[
-                    Hash(
-                        "0x0000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
-                    ),  # noqa: E501
-                ],
+                address=created,
+                storage_keys=[Hash(1)],
             ),
         ],
         2: [
             AccessList(
-                address=Address(0xEC0E71AD0A90FFE1909D27DAC207F7680ABBA42D),
-                storage_keys=[
-                    Hash(
-                        "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-                    ),  # noqa: E501
-                ],
+                address=created,
+                storage_keys=[Hash(0)],
             ),
         ],
     }
@@ -207,9 +175,8 @@ def test_manual_create(
         to=None,
         data=tx_data[d],
         gas_limit=tx_gas[g],
-        nonce=1,
         access_list=tx_access_lists.get(d),
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

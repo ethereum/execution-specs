@@ -8,7 +8,6 @@ state_tests/stMemoryStressTest/FillStackFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -47,7 +46,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_fill_stack(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -57,22 +55,12 @@ def test_fill_stack(
     v: int,
 ) -> None:
     """Test_fill_stack."""
-    coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
     sender = pre.fund_eoa(amount=0x152D02C7E14AF6800000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
     # Source: raw
     # 0x5b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe457f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3504357155320803a975560005155  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPDEST
+    target_code = (
+        Op.JUMPDEST
         + Op.PUSH32[
             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
         ]
@@ -91,13 +79,15 @@ def test_fill_stack(
         + Op.SWAP8
         + Op.SSTORE
         + Op.MLOAD(offset=0x0)
-        + Op.SSTORE,
-        nonce=0,
+        + Op.SSTORE
+    )
+    target = pre.deploy_contract(
+        code=target_code,
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(
+    coinbase_code = (
+        Op.JUMPI(
             pc=0x9,
             condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
         )
@@ -105,10 +95,11 @@ def test_fill_stack(
         + Op.JUMPDEST
         + Op.SSTORE(
             key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
-        ),
+        )
+    )
+    coinbase = pre.deploy_contract(
+        code=coinbase_code,
         balance=46,
-        nonce=0,
-        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -118,16 +109,14 @@ def test_fill_stack(
             "result": {
                 target: Account(
                     storage={},
-                    code=bytes.fromhex(
-                        "5b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe457f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3504357155320803a975560005155"  # noqa: E501
-                    ),
+                    code=target_code,
                     balance=0,
-                    nonce=0,
+                    nonce=1,
                 ),
                 coinbase: Account(
                     storage={},
-                    code=bytes.fromhex("6000355415600957005b60203560003555"),
-                    nonce=0,
+                    code=coinbase_code,
+                    nonce=1,
                 ),
                 sender: Account(storage={}, code=b"", nonce=1),
             },
@@ -138,16 +127,14 @@ def test_fill_stack(
             "result": {
                 target: Account(
                     storage={},
-                    code=bytes.fromhex(
-                        "5b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe457f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3504357155320803a975560005155"  # noqa: E501
-                    ),
+                    code=target_code,
                     balance=0,
-                    nonce=0,
+                    nonce=1,
                 ),
                 coinbase: Account(
                     storage={},
-                    code=bytes.fromhex("6000355415600957005b60203560003555"),
-                    nonce=0,
+                    code=coinbase_code,
+                    nonce=1,
                 ),
                 sender: Account(storage={}, code=b"", nonce=1),
             },
@@ -163,6 +150,8 @@ def test_fill_stack(
     ]
     tx_gas = [3141592, 16777216]
     tx_value = [264050067]
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,

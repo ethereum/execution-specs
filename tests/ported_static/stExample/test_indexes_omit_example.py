@@ -34,25 +34,19 @@ def test_indexes_omit_example(
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
     pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # {
     #    ; Can also add lll style comments here
     #    [[0]] (ADD 1 1)
     # }
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)) + Op.STOP,
+    target_code = Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)) + Op.STOP
+    target = pre.deploy_contract(
+        code=target_code,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
@@ -65,7 +59,7 @@ def test_indexes_omit_example(
     post = {
         target: Account(
             storage={0: 2},
-            code=bytes.fromhex("600160010160005500"),
+            code=target_code,
         ),
     }
 

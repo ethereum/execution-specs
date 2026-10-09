@@ -8,11 +8,8 @@ state_tests/stCreateTest/CreateTransactionRefundEFFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Environment,
     Fork,
     StateTestFiller,
     Transaction,
@@ -29,37 +26,21 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stCreateTest/CreateTransactionRefundEFFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_create_transaction_refund_ef(
     state_test: StateTestFiller,
     fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test combination of gas refund and EF-prefixed create transaction..."""
-    contract_0 = Address(0x00000000000000000000000000000000005EF94D)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x5AF3107A4000)
 
-    env = Environment(
-        fee_recipient=sender,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=3000000 if fork >= Amsterdam else 1000000,
-    )
-
-    pre[sender] = Account(balance=0x5AF3107A4000)
     # Source: yul
     # berlin {
     #   sstore(0,0)
     # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.SSTORE(key=Op.DUP1, value=0x0) + Op.STOP,
         storage={0: 1},
-        nonce=0,
-        address=Address(0x00000000000000000000000000000000005EF94D),  # noqa: E501
     )
 
     tx = Transaction(
@@ -86,4 +67,4 @@ def test_create_transaction_refund_ef(
         compute_create_address(address=sender, nonce=0): Account.NONEXISTENT,
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

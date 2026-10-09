@@ -36,27 +36,16 @@ def test_suicides_and_send_money_to_itself_ether_destroyed(
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = pre.fund_eoa(amount=0x7459280)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
     pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # {(SELFDESTRUCT <contract:target:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>)}  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(
-            address=0xCCBD97BED823989BF91C6AC4CEAC020B2881F3A5
-        )
-        + Op.STOP,
+    target_code = Op.SELFDESTRUCT(address=Op.ADDRESS) + Op.STOP
+    target = pre.deploy_contract(
+        code=target_code,
         balance=1000,
-        nonce=0,
-        address=Address(0xCCBD97BED823989BF91C6AC4CEAC020B2881F3A5),  # noqa: E501
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
@@ -68,11 +57,9 @@ def test_suicides_and_send_money_to_itself_ether_destroyed(
 
     post = {
         target: Account(
-            code=bytes.fromhex(
-                "73ccbd97bed823989bf91c6ac4ceac020b2881f3a5ff00"
-            ),
+            code=(target_code),
             balance=1010,
-            nonce=0,
+            nonce=1,
         ),
     }
 

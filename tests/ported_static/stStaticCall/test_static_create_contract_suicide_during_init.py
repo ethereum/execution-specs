@@ -8,9 +8,7 @@ state_tests/stStaticCall/static_CREATE_ContractSuicideDuringInitFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -58,7 +56,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_create_contract_suicide_during_init(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -68,31 +65,16 @@ def test_static_create_contract_suicide_during_init(
     v: int,
 ) -> None:
     """Test_static_create_contract_suicide_during_init."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_1 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_2 = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_3 = Address(0xE94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
 
     # Source: lll
     # { (MSTORE 1 1) }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
-        nonce=0,
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.JUMPDEST
         + Op.JUMPI(
             pc=0x1C, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
@@ -103,18 +85,16 @@ def test_static_create_contract_suicide_during_init(
         + Op.JUMPDEST
         + Op.STOP,
         balance=11,
-        nonce=0,
     )
     # Source: lll
     # { (SSTORE 1 1) }
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         balance=11,
-        nonce=0,
     )
     # Source: lll
     # { (CALL 100 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b 1 0 0 0 0) }
-    contract_3 = pre.deploy_contract(  # noqa: F841
+    contract_3 = pre.deploy_contract(
         code=Op.CALL(
             gas=0x64,
             address=contract_0,
@@ -126,7 +106,6 @@ def test_static_create_contract_suicide_during_init(
         )
         + Op.STOP,
         balance=11,
-        nonce=0,
     )
 
     tx_data = [
@@ -197,4 +176,4 @@ def test_static_create_contract_suicide_during_init(
         contract_0: Account(storage={1: 0}, balance=0),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -8,7 +8,6 @@ state_tests/stMemoryStressTest/MSTORE_Bounds2aFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -18,6 +17,7 @@ from execution_testing import (
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
+from tests.ported_static.constants import HIGH_GAS_LIMIT
 from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
@@ -48,7 +48,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_mstore_bounds2a(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -58,25 +57,14 @@ def test_mstore_bounds2a(
     v: int,
 ) -> None:
     """Test_mstore_bounds2a."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(
         amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
     )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
-
     # Source: lll
     # {  (MSTORE 0x3fffff 1)}
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(offset=0x3FFFFF, value=0x1) + Op.STOP,
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
@@ -99,6 +87,8 @@ def test_mstore_bounds2a(
     ]
     tx_gas = [150000, 250000000]
     tx_value = [1]
+
+    env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
     tx = Transaction(
         sender=sender,

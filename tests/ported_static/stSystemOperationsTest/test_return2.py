@@ -8,10 +8,8 @@ state_tests/stSystemOperationsTest/return2Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,32 +23,20 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSystemOperationsTest/return2Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_return2(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_return2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
 
     # Source: lll
     # { (MSTORE8 0 55) (RETURN 0 33)}
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE8(offset=0x0, value=0x37)
         + Op.RETURN(offset=0x0, size=0x21)
         + Op.STOP,
         balance=23,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -63,4 +49,4 @@ def test_return2(
 
     post = {sender: Account(nonce=1)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -36,23 +36,15 @@ def test_invalid_tr(
     coinbase = Address(0x7704D8A022A1BA8F3539FC82C7D7FB065ABC0DF3)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=71794957647893862,
-    )
-
     pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { [[0]] (ADD 1 1) }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)) + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,

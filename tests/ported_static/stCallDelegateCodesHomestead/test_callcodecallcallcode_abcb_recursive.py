@@ -11,7 +11,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     StateTestFiller,
     Transaction,
@@ -36,20 +35,11 @@ def test_callcodecallcallcode_abcb_recursive(
     pre: Alloc,
 ) -> None:
     """DELEGATECALL -> CALL -> DELEGATECALL2 -> CALL -> ."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # {  [[ 0 ]] (DELEGATECALL 25000000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.DELEGATECALL(
@@ -63,12 +53,11 @@ def test_callcodecallcallcode_abcb_recursive(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
         address=Address(0x15600A91A7AF84B8C85782714B3391ED5D73F9A0),  # noqa: E501
     )
     # Source: lll
     # {  [[ 1 ]] (CALL 1000000 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x1,
             value=Op.CALL(
@@ -83,12 +72,11 @@ def test_callcodecallcallcode_abcb_recursive(
         )
         + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0x66C0D9F841A86866465E6385C3827BE02B580020),  # noqa: E501
     )
     # Source: lll
     # {  [[ 2 ]] (DELEGATECALL 500000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x2,
             value=Op.DELEGATECALL(
@@ -102,7 +90,6 @@ def test_callcodecallcallcode_abcb_recursive(
         )
         + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0xA72F0E2F2FC5FD0878AF9B8E4AAED09983670929),  # noqa: E501
     )
 
@@ -125,4 +112,4 @@ def test_callcodecallcallcode_abcb_recursive(
         sender: Account(storage={1: 0}),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

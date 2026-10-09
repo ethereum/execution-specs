@@ -8,10 +8,8 @@ state_tests/stEIP150singleCodeGasPrices/gasCostReturnFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,43 +23,24 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stEIP150singleCodeGasPrices/gasCostReturnFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
-@pytest.mark.pre_alloc_group(
-    "separate",
-    reason="Calls hardcoded addresses 0x1000 and 0x2000 without declaring "
-    "them, so gas usage depends on them staying empty; sharing a genesis "
-    "with a test that allocates either address changes the execution.",
-)
 def test_gas_cost_return(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: raw
     # 0x600060FF00
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.PUSH1[0x0] + Op.PUSH1[0xFF] + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
     )
     # Source: raw
     # 0x600060FFF3
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.RETURN(offset=0xFF, size=0x0),
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
     )
     # Source: lll
     # {
@@ -95,7 +74,7 @@ def test_gas_cost_return(
     #   (call 0x10000 0x2000 0 0 0 0 0)
     #   [gasRETURN] (- @gasB4 (gas))
     # ... (11 more lines)
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0x60A7)
         + Op.MSTORE(offset=0x20, value=0x60A7)
         + Op.MSTORE(offset=0x40, value=0x60A7)
@@ -103,7 +82,7 @@ def test_gas_cost_return(
         + Op.POP(
             Op.CALL(
                 gas=0x10000,
-                address=0x1000,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -116,7 +95,7 @@ def test_gas_cost_return(
         + Op.POP(
             Op.CALL(
                 gas=0x10000,
-                address=0x2000,
+                address=addr_2,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -131,7 +110,6 @@ def test_gas_cost_return(
         + Op.STOP,
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -144,4 +122,4 @@ def test_gas_cost_return(
 
     post = {target: Account(storage={0: 0, 1: 0})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

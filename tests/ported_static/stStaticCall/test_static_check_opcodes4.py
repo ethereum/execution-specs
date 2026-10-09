@@ -7,12 +7,10 @@ state_tests/stStaticCall/static_CheckOpcodes4Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -71,24 +69,11 @@ def test_static_check_opcodes4(
     v: int,
 ) -> None:
     """Test_static_check_opcodes4."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
-
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[1]] (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000001> 0 0 0 0) [[2]] (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0) [[3]] (CALLER) [[4]] (CALLVALUE) [[5]] (ORIGIN) [[6]] (ADDRESS) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x1,
             value=Op.STATICCALL(
@@ -116,7 +101,6 @@ def test_static_check_opcodes4(
         + Op.SSTORE(key=0x5, value=Op.ORIGIN)
         + Op.SSTORE(key=0x6, value=Op.ADDRESS)
         + Op.STOP,
-        nonce=0,
         address=Address(0x3350A62DDDDD0FF0E39CD82E2D185FE06B5FCF49),  # noqa: E501
     )
     # Source: lll
@@ -124,9 +108,7 @@ def test_static_check_opcodes4(
     addr = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x22,
-            condition=Op.EQ(
-                0xFAA10B404AB607779993C016CD5DA73AE1F29D7E, Op.ORIGIN
-            ),
+            condition=Op.EQ(Op.PUSH20[sender], Op.ORIGIN),
         )
         + Op.SSTORE(key=0x1, value=0x2)
         + Op.JUMP(pc=0x28)
@@ -162,7 +144,6 @@ def test_static_check_opcodes4(
         + Op.MSTORE(offset=0x1, value=0x1)
         + Op.JUMPDEST
         + Op.STOP,
-        nonce=0,
         address=Address(0xB4B91C40F3E3A6E5576B0413572B88D535CEE7B0),  # noqa: E501
     )
     # Source: lll
@@ -170,9 +151,7 @@ def test_static_check_opcodes4(
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x22,
-            condition=Op.EQ(
-                0xFAA10B404AB607779993C016CD5DA73AE1F29D7E, Op.ORIGIN
-            ),
+            condition=Op.EQ(Op.PUSH20[sender], Op.ORIGIN),
         )
         + Op.SSTORE(key=0x1, value=0x2)
         + Op.JUMP(pc=0x28)
@@ -208,7 +187,6 @@ def test_static_check_opcodes4(
         + Op.MSTORE(offset=0x1, value=0x1)
         + Op.JUMPDEST
         + Op.STOP,
-        nonce=0,
         address=Address(0x8FD6268252F0D331531601B40524719C7F681FE9),  # noqa: E501
     )
 
@@ -267,4 +245,4 @@ def test_static_check_opcodes4(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
