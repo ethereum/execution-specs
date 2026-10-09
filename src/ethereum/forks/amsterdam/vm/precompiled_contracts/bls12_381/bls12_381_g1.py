@@ -11,7 +11,7 @@ Introduction
 Implementation of pre-compiles in G1 (curve over base prime field).
 """
 
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import Uint
 
 from ethereum.crypto.bls12_381 import (
     InvalidInputError,
@@ -23,7 +23,6 @@ from ethereum.crypto.bls12_381 import (
 from ....fork_types import ExecutionGas
 from ....vm import Evm
 from ....vm.gas import GasCosts, charge_gas
-from ....vm.memory import buffer_read
 from ...exceptions import InvalidParameter
 from . import (
     G1_K_DISCOUNT,
@@ -112,7 +111,7 @@ def bls12_g1_msm(evm: Evm) -> None:
     for i in range(k):
         start = i * LENGTH_PER_PAIR
         points.append(unpad_g1(data[start : start + 128]))
-        scalars.append(bytes(buffer_read(data, U256(start + 128), U256(32))))
+        scalars.append(data[start + 128 : start + LENGTH_PER_PAIR])
 
     try:
         raw = g1_msm(points, scalars)
@@ -148,7 +147,7 @@ def bls12_map_fp_to_g1(evm: Evm) -> None:
     fp = unpad_fp(data)
 
     try:
-        raw = map_fp_to_g1(bytes(fp))
+        raw = map_fp_to_g1(fp)
     except InvalidInputError as e:
         raise InvalidParameter(str(e)) from e
 

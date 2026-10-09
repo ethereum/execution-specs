@@ -44,7 +44,7 @@ def unpad_fp(data: Bytes) -> Bytes:
     return data[16:]
 
 
-def unpad_g1(data: Bytes) -> bytes:
+def unpad_g1(data: Bytes) -> Bytes:
     """
     Strip padding from a 128-byte G1 encoding to 96 raw bytes.
 
@@ -55,7 +55,7 @@ def unpad_g1(data: Bytes) -> bytes:
 
     Returns
     -------
-    raw : bytes
+    raw : Bytes
         The 96-byte unpadded G1 point.
 
     Raises
@@ -66,10 +66,10 @@ def unpad_g1(data: Bytes) -> bytes:
     """
     x = unpad_fp(data[:64])
     y = unpad_fp(data[64:])
-    return bytes(x + y)
+    return x + y
 
 
-def unpad_g2(data: Bytes) -> bytes:
+def unpad_g2(data: Bytes) -> Bytes:
     """
     Strip padding from a 256-byte G2 encoding to 192 raw bytes.
 
@@ -80,7 +80,7 @@ def unpad_g2(data: Bytes) -> bytes:
 
     Returns
     -------
-    raw : bytes
+    raw : Bytes
         The 192-byte unpadded G2 point.
 
     Raises
@@ -93,10 +93,10 @@ def unpad_g2(data: Bytes) -> bytes:
     c1_x = unpad_fp(data[64:128])
     c0_y = unpad_fp(data[128:192])
     c1_y = unpad_fp(data[192:256])
-    return bytes(c0_x + c1_x + c0_y + c1_y)
+    return c0_x + c1_x + c0_y + c1_y
 
 
-def pad_g1(raw: bytes) -> Bytes:
+def pad_g1(raw: Bytes) -> Bytes:
     """
     Add 16-byte zero padding to a 96-byte G1 point.
 
@@ -116,7 +116,7 @@ def pad_g1(raw: bytes) -> Bytes:
     return ZERO_PAD + x + ZERO_PAD + y
 
 
-def pad_g2(raw: bytes) -> Bytes:
+def pad_g2(raw: Bytes) -> Bytes:
     """
     Add 16-byte zero padding to a 192-byte G2 point.
 

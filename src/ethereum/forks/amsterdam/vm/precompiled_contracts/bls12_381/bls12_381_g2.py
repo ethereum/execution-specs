@@ -11,7 +11,7 @@ Introduction
 Implementation of pre-compiles in G2 (curve over base prime field).
 """
 
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import Uint
 
 from ethereum.crypto.bls12_381 import (
     InvalidInputError,
@@ -23,7 +23,6 @@ from ethereum.crypto.bls12_381 import (
 from ....fork_types import ExecutionGas
 from ....vm import Evm
 from ....vm.gas import GasCosts, charge_gas
-from ....vm.memory import buffer_read
 from ...exceptions import InvalidParameter
 from . import (
     G2_K_DISCOUNT,
@@ -112,7 +111,7 @@ def bls12_g2_msm(evm: Evm) -> None:
     for i in range(k):
         start = i * LENGTH_PER_PAIR
         points.append(unpad_g2(data[start : start + 256]))
-        scalars.append(bytes(buffer_read(data, U256(start + 256), U256(32))))
+        scalars.append(data[start + 256 : start + LENGTH_PER_PAIR])
 
     try:
         raw = g2_msm(points, scalars)
@@ -145,7 +144,7 @@ def bls12_map_fp2_to_g2(evm: Evm) -> None:
     charge_gas(evm, GasCosts.PRECOMPILE_BLS_G2MAP)
 
     # OPERATION
-    fp2 = bytes(unpad_fp(data[:64]) + unpad_fp(data[64:]))
+    fp2 = unpad_fp(data[:64]) + unpad_fp(data[64:])
 
     try:
         raw = map_fp2_to_g2(fp2)

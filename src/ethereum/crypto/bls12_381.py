@@ -39,23 +39,42 @@ class InvalidInputError(EthereumException):
     """
 
 
-def bytes_to_g1(raw: bytes) -> Point3D[FQ]:
+def bytes_to_field_element(raw: bytes) -> int:
+    """
+    Decode a big-endian base field element, rejecting values outside the
+    field.
+    """
+    value = int.from_bytes(raw, "big")
+    if value >= FQ.field_modulus:
+        raise InvalidInputError("field element >= field modulus")
+    return value
+
+
+def bytes_to_fq2(raw: bytes) -> FQ2:
+    """
+    Decode a 96-byte FP2 element, `c0` first.
+    """
+    if len(raw) != 96:
+        raise ValueError("FP2 element must be 96 bytes")
+
+    c0 = bytes_to_field_element(raw[:48])
+    c1 = bytes_to_field_element(raw[48:])
+    return FQ2((c0, c1))
+
+
+def bytes_to_g1(raw: bytes, subgroup_check: bool = False) -> Point3D[FQ]:
     """
     Decode a 96-byte raw G1 point to a py-ecc Point3D.
 
     Validate that field elements are in range and the point is on the
-    curve.
+    curve, and that it is in the prime-order subgroup if
+    `subgroup_check` is set.
     """
     if len(raw) != 96:
         raise ValueError("G1 point must be 96 bytes")
 
-    x = int.from_bytes(raw[:48], "big")
-    if x >= FQ.field_modulus:
-        raise InvalidInputError("x coordinate >= field modulus")
-
-    y = int.from_bytes(raw[48:], "big")
-    if y >= FQ.field_modulus:
-        raise InvalidInputError("y coordinate >= field modulus")
+    x = bytes_to_field_element(raw[:48])
+    y = bytes_to_field_element(raw[48:])
 
     z = 1
     if x == 0 and y == 0:
@@ -64,6 +83,8 @@ def bytes_to_g1(raw: bytes) -> Point3D[FQ]:
     point: Point3D[FQ] = (FQ(x), FQ(y), FQ(z))
     if not is_on_curve(point, b):
         raise InvalidInputError("G1 point is not on curve")
+    if subgroup_check and not is_inf(bls12_multiply(point, curve_order)):
+        raise InvalidInputError("Subgroup check failed for G1 point")
     return point
 
 
@@ -73,35 +94,19 @@ def g1_to_bytes(point: Point3D[FQ]) -> bytes:
     return int(x).to_bytes(48, "big") + int(y).to_bytes(48, "big")
 
 
-def bytes_to_g2(raw: bytes) -> Point3D[FQ2]:
+def bytes_to_g2(raw: bytes, subgroup_check: bool = False) -> Point3D[FQ2]:
     """
     Decode a 192-byte raw G2 point to a py-ecc Point3D.
 
     Validate that field elements are in range and the point is on the
-    curve.
+    curve, and that it is in the prime-order subgroup if
+    `subgroup_check` is set.
     """
     if len(raw) != 192:
         raise ValueError("G2 point must be 192 bytes")
 
-    c0_x = int.from_bytes(raw[:48], "big")
-    if c0_x >= FQ.field_modulus:
-        raise InvalidInputError("coordinate >= field modulus")
-
-    c1_x = int.from_bytes(raw[48:96], "big")
-    if c1_x >= FQ.field_modulus:
-        raise InvalidInputError("coordinate >= field modulus")
-
-    c0_y = int.from_bytes(raw[96:144], "big")
-    if c0_y >= FQ.field_modulus:
-        raise InvalidInputError("coordinate >= field modulus")
-
-    c1_y = int.from_bytes(raw[144:], "big")
-
-    if c1_y >= FQ.field_modulus:
-        raise InvalidInputError("coordinate >= field modulus")
-
-    x = FQ2((c0_x, c1_x))
-    y = FQ2((c0_y, c1_y))
+    x = bytes_to_fq2(raw[:96])
+    y = bytes_to_fq2(raw[96:])
 
     z: FQ2
     if x == FQ2((0, 0)) and y == FQ2((0, 0)):
@@ -110,9 +115,10 @@ def bytes_to_g2(raw: bytes) -> Point3D[FQ2]:
         z = FQ2((1, 0))
 
     point: Point3D[FQ2] = (x, y, z)
-
     if not is_on_curve(point, b2):
         raise InvalidInputError("G2 point is not on curve")
+    if subgroup_check and not is_inf(bls12_multiply(point, curve_order)):
+        raise InvalidInputError("Subgroup check failed for G2 point")
     return point
 
 
@@ -169,9 +175,7 @@ def g1_msm(
     """
     result: Point3D[FQ] = Z1
     for raw_point, raw_scalar in zip(points, scalars, strict=True):
-        point = bytes_to_g1(raw_point)
-        if not is_inf(bls12_multiply(point, curve_order)):
-            raise InvalidInputError("Subgroup check failed for G1 point")
+        point = bytes_to_g1(raw_point, subgroup_check=True)
 
         m = int.from_bytes(raw_scalar, "big")
         product = bls12_multiply(point, m)
@@ -196,9 +200,7 @@ def g2_msm(
     """
     result: Point3D[FQ2] = Z2
     for raw_point, raw_scalar in zip(points, scalars, strict=True):
-        point = bytes_to_g2(raw_point)
-        if not is_inf(bls12_multiply(point, curve_order)):
-            raise InvalidInputError("Subgroup check failed for G2 point")
+        point = bytes_to_g2(raw_point, subgroup_check=True)
 
         m = int.from_bytes(raw_scalar, "big")
         product = bls12_multiply(point, m)
@@ -214,10 +216,7 @@ def map_fp_to_g1(fp: bytes) -> bytes:
     if len(fp) != 48:
         raise ValueError("field element must be 48 bytes")
 
-    value = int.from_bytes(fp, "big")
-    if value >= FQ.field_modulus:
-        raise InvalidInputError("coordinate >= field modulus")
-
+    value = bytes_to_field_element(fp)
     g1_point = clear_cofactor_G1(map_to_curve_G1(FQ(value)))
 
     return g1_to_bytes(g1_point)
@@ -227,19 +226,7 @@ def map_fp2_to_g2(fp2: bytes) -> bytes:
     """
     Map a 96-byte FP2 element to a 192-byte G2 point.
     """
-    if len(fp2) != 96:
-        raise ValueError("FP2 element must be 96 bytes")
-
-    c0 = int.from_bytes(fp2[:48], "big")
-    if c0 >= FQ.field_modulus:
-        raise InvalidInputError("coordinate >= field modulus")
-
-    c1 = int.from_bytes(fp2[48:], "big")
-    if c1 >= FQ.field_modulus:
-        raise InvalidInputError("coordinate >= field modulus")
-
-    fq2 = FQ2((c0, c1))
-    g2_point = clear_cofactor_G2(map_to_curve_G2(fq2))
+    g2_point = clear_cofactor_G2(map_to_curve_G2(bytes_to_fq2(fp2)))
 
     return g2_to_bytes(g2_point)
 
@@ -260,13 +247,8 @@ def pairing_check(
     """
     result = FQ12.one()
     for raw_g1, raw_g2 in zip(g1_points, g2_points, strict=True):
-        g1_point = bytes_to_g1(raw_g1)
-        if not is_inf(bls12_multiply(g1_point, curve_order)):
-            raise InvalidInputError("Subgroup check failed for G1 point")
-
-        g2_point = bytes_to_g2(raw_g2)
-        if not is_inf(bls12_multiply(g2_point, curve_order)):
-            raise InvalidInputError("Subgroup check failed for G2 point")
+        g1_point = bytes_to_g1(raw_g1, subgroup_check=True)
+        g2_point = bytes_to_g2(raw_g2, subgroup_check=True)
 
         result *= pairing(g2_point, g1_point)
 
