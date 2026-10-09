@@ -338,13 +338,14 @@ class StepRunner:
         self.run(step.branches.get(outcome.id, []), depth + 1)
 
     def get_payload(self, name: str, step: GetPayloadStep) -> None:
-        """Retrieve the payload built after the last FCU and bind it."""
+        """
+        Retrieve the payload of the last ``forkchoiceUpdated`` that did not
+        error and bind it.
+        """
         name = f"{name}(bind={step.bind})"
         payload_id = self.last_payload_id
         if payload_id is None:
-            raise LoggedError(
-                f"{name}: no payloadId from previous forkchoiceUpdated"
-            )
+            raise LoggedError(f"{name}: no payloadId to retrieve")
         assert step.version is not None  # checked when the fixture loads
         if self.get_payload_wait_time > 0:
             time.sleep(self.get_payload_wait_time)

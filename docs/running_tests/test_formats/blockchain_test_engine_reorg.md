@@ -110,9 +110,11 @@ Human-readable description of the step, for logging.
 #### `getPayload`
 
 - `bind`: `String` — new label for the built payload.
-- `version`: [`Number`](./common_types.md#number) — `engine_getPayloadVX` version.
+- `version`: [`Number`](./common_types.md#number) — `engine_getPayloadVX` version; when unset, that of the retrieved build's fork.
 - `parent`: `String` — expected parent of the built payload.
 - `transactionsInclude` / `transactionsExclude`: [`List`](./common_types.md#list)`[`[`TxRef`](#txref)`]` — transactions that must (or must not) be in the built payload.
+
+`getPayload` retrieves the build whose `payloadId` the last `forkchoiceUpdated` that did not error returned. Filling rejects a `getPayload` with no such build, one on another `parent`, or one that depends on which outcome of an earlier step occurred. A bound label's `forkchoiceUpdated` and `newPayload` versions are those of its build's fork.
 
 The wait before `engine_getPayloadVX` is the consumer's `--get-payload-wait-time` option, not a fixture field.
 

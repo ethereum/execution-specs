@@ -409,6 +409,36 @@ def test_get_payload_version_follows_retrieved_build(
     assert get_payload.version == retrieved_fork.engine_get_payload_version()
 
 
+def test_bound_head_forkchoice_version_follows_its_build(
+    default_t8n: TransitionTool,
+) -> None:
+    """
+    A payload built across the fork boundary is a block of the new fork, so
+    a ``forkchoiceUpdated`` to it takes the new fork's version.
+    """
+    test = ReorgTest(
+        fork=BPO2ToAmsterdamAtTime15k,
+        pre=Alloc(),
+        blocks=[ReorgBlock(label="a1", timestamp=14_980)],
+        steps=[
+            NewPayloadStep(block="a1"),
+            build_on_a1(15_000, expect=BUILT),
+            GetPayloadStep(bind="p1", parent="a1"),
+            NewPayloadStep(
+                block="p1", expect=[Outcome(id="valid", status="VALID")]
+            ),
+            ForkchoiceUpdatedStep(head="p1"),
+        ],
+    )
+    fixture = test.generate(
+        t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture
+    ).fixture
+    assert isinstance(fixture, BlockchainEngineReorgFixture)
+    fcu = fixture.steps[-1]
+    assert isinstance(fcu, ForkchoiceUpdatedStep)
+    assert fcu.version == Amsterdam.engine_forkchoice_updated_version()
+
+
 @pytest.mark.parametrize("field", ["version", "expect"])
 def test_fixture_load_rejects_unfilled_step(
     default_t8n: TransitionTool, field: str

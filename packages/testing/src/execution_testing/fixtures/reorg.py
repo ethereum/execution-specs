@@ -207,14 +207,16 @@ class ForkchoiceUpdatedStep(StepBase):
 
 class GetPayloadStep(StepBase):
     """
-    Send ``engine_getPayloadVX`` with the id returned by the previous
-    ``forkchoiceUpdated`` and bind the built payload to a new label.
+    Send ``engine_getPayloadVX`` with the ``payloadId`` of the last
+    ``forkchoiceUpdated`` that did not error, and bind the built payload to
+    a new label.
     """
 
     type: Literal["getPayload"] = "getPayload"
     bind: BlockLabel
     """New label for the built payload (usable in later steps)."""
     version: Number | None = None
+    """Engine API version; when unset, that of the build's fork."""
     parent: BlockRef
     """Expected parent of the built payload."""
     transactions_include: List[TxRef] = Field(default_factory=list)

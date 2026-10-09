@@ -593,12 +593,13 @@ def _bind_payload(
     step: GetPayloadStep,
     model: ClientModel,
     fork: Fork | TransitionFork | None,
+    fcu_version: Optional[Dict[str, int]],
 ) -> None:
     """
     Add the payload ``getPayload`` binds to the DAG as a valid child of its
     parent (the client built it), with the timestamp, slot and gas limit
-    of the build it retrieves, and fill its version from that build's
-    fork.
+    of the build it retrieves, and take its ``getPayload`` and
+    ``forkchoiceUpdated`` versions from that build's fork.
     """
     where = f"getPayload({step.bind!r})"
     if model.build_diverged is not None:
@@ -629,12 +630,23 @@ def _bind_payload(
         if attrs.target_gas_limit is None
         else int(attrs.target_gas_limit)
     )
+    build_fork = (
+        None
+        if fork is None
+        else fork.fork_at(block_number=0, timestamp=int(attrs.timestamp))
+    )
+    if fcu_version is not None:
+        bound_fcu = (
+            fcu_version[parent]
+            if build_fork is None
+            else build_fork.engine_forkchoice_updated_version()
+        )
+        assert bound_fcu is not None
+        fcu_version[step.bind] = bound_fcu
     if step.version is None:
-        if fork is None:
+        if build_fork is None:
             raise ValueError(f"{where} without version and no fork provided")
-        version = fork.fork_at(
-            block_number=0, timestamp=int(attrs.timestamp)
-        ).engine_get_payload_version()
+        version = build_fork.engine_get_payload_version()
         assert version is not None
         step.version = Number(version)
 
@@ -726,9 +738,7 @@ def annotate_steps(
             if state is not None:
                 step.verify(label, state)
         elif isinstance(step, GetPayloadStep):
-            _bind_payload(step, model, fork)
-            if fcu_version is not None:
-                fcu_version.setdefault(step.bind, fcu_version[step.parent])
+            _bind_payload(step, model, fork, fcu_version)
     return steps
 
 
