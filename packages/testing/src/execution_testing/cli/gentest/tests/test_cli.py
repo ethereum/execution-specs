@@ -2,15 +2,17 @@
 
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
+import requests
 from click.testing import CliRunner
 
-from execution_testing.base_types import Account, Storage
+import execution_testing.config.env
+from execution_testing.base_types import Account, Bytes, Storage
 from execution_testing.test_types import Environment, Transaction
 
 from ..cli import generate
-from ..test_context_providers import StateTestProvider
 
 transactions_by_type = {
     0: {
@@ -121,8 +123,7 @@ def test_tx_type(
     """Generates a test case for any transaction type."""
     # This test is run in a CI environment, where connection to a
     # node could be unreliable. Therefore, we mock the RPC request to avoid any
-    # network issues. This is done by patching the `get_context` method of the
-    # `StateTestProvider`.
+    # network issues. This is done by patching `requests.Session.post`.
     runner = CliRunner()
     tmp_path_tests = tmp_path / "tests"
     tmp_path_tests.mkdir()
@@ -130,13 +131,46 @@ def test_tx_type(
     tmp_path_output.mkdir()
     generated_py_file = str(tmp_path_tests / f"gentest_type_{tx_type}.py")
 
-    tx = transactions_by_type[tx_type]
+    tx: dict[str, Any] = transactions_by_type[tx_type]
+    block = tx["environment"].model_dump(mode="json")
+    pre_state = {
+        address: account.model_dump(mode="json")
+        for address, account in tx["pre_state"].items()
+    }
+    contract_code = Bytes("0x00")
+    pre_state[str(tx["transaction"].to)] |= {
+        "code": str(contract_code),
+        "codeHash": str(contract_code.keccak256()),
+    }
+    results = {
+        "eth_getTransactionByHash": tx["transaction"].model_dump(
+            mode="json", by_alias=True, exclude_none=True
+        )
+        | {"hash": transaction_hash, "blockNumber": block["number"]},
+        "debug_traceCall": pre_state,
+        "eth_getBlockByNumber": {
+            "miner": block["fee_recipient"],
+            "number": block["number"],
+            "difficulty": block["difficulty"],
+            "gasLimit": block["gas_limit"],
+            "timestamp": block["timestamp"],
+        },
+    }
 
-    def get_mock_context(self: StateTestProvider) -> dict:
-        del self
-        return tx
+    def post(session: requests.Session, _url: str, **kwargs: Any) -> MagicMock:
+        assert {**session.headers, **kwargs["headers"]}["x-test"] == "gentest"
+        response = MagicMock()
+        response.json.return_value = {
+            "jsonrpc": "2.0",
+            "id": kwargs["json"]["id"],
+            "result": results[kwargs["json"]["method"]],
+        }
+        return response
 
-    monkeypatch.setattr(StateTestProvider, "get_context", get_mock_context)
+    monkeypatch.setattr(requests.Session, "post", post)
+    env_path = tmp_path / "env.yaml"
+    env_path.write_text("remote_nodes: [{rpc_headers: {x-test: gentest}}]")
+    monkeypatch.setattr(execution_testing.config.env, "ENV_PATH", env_path)
 
     ## Generate ##
     # catch_exceptions=False lets any error from gentest propagate with its
