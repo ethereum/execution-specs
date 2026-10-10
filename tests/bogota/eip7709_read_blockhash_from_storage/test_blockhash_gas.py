@@ -5,12 +5,9 @@ Test that `BLOCKHASH` of an in-window block adds the `SLOAD` cost of its
 history slot.
 """
 
-from typing import Dict
-
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -90,41 +87,3 @@ def test_blockhash_gas(
         blocks=blocks,
         post={contract: Account(storage={0: measured.gas_cost(fork)})},
     )
-
-
-@pytest.mark.slow()
-def test_blockhash_too_old_but_available_in_history_charges_base_only(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Test that a BLOCKHASH query older than 256 blocks charges only the
-    base opcode cost, even when EIP-2935 still serves the hash.
-    """
-    measured = Op.BLOCKHASH(1, in_window=False)
-    code = CodeGasMeasure(code=measured, extra_stack_items=1)
-
-    contract_address = pre.deploy_contract(
-        code,
-        storage={0: 0xDEADBEEF},
-    )
-    sender = pre.fund_eoa()
-
-    blocks = [Block() for _ in range(Spec.BLOCKHASH_SERVE_WINDOW + 1)]
-    blocks.append(
-        Block(
-            txs=[
-                Transaction(
-                    to=contract_address,
-                    gas_limit=1_000_000,
-                    sender=sender,
-                )
-            ]
-        )
-    )
-
-    post: Dict[Address, Account] = {
-        contract_address: Account(storage={0: measured.gas_cost(fork)}),
-    }
-    blockchain_test(pre=pre, blocks=blocks, post=post)

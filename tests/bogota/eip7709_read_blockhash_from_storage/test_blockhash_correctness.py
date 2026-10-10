@@ -14,6 +14,8 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    CodeGasMeasure,
+    Fork,
     Op,
     Storage,
     Transaction,
@@ -164,82 +166,68 @@ def test_blockhash_future_block(
 
 
 @pytest.mark.parametrize(
-    "block_offset,expect_equal",
+    "block_offset,in_window",
     [
         pytest.param(
             Spec.BLOCKHASH_SERVE_WINDOW,
             True,
-            id="last_valid_block",
+            id="oldest_in_window",
         ),
         pytest.param(
             Spec.BLOCKHASH_SERVE_WINDOW + 1,
             False,
-            id="first_invalid_block",
+            id="newest_out_of_window",
         ),
     ],
 )
 @pytest.mark.slow()
-def test_blockhash_boundary_256(
+def test_blockhash_serve_window_boundary(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     block_offset: int,
-    expect_equal: bool,
+    in_window: bool,
 ) -> None:
     """
-    Test the 256-block BLOCKHASH window boundary for block 1.
-
-    When block 1 is `N - 256`, `BLOCKHASH(1)` must equal the history
-    contract and be non-zero. When block 1 is `N - 257`, `BLOCKHASH(1)`
-    must be zero even though the history contract still returns the
-    stored hash.
+    Test that `BLOCKHASH` returns the hash of a block, and charges for its
+    history slot, only while the block lies within the serve window, even
+    though the history contract still holds the hash after it leaves.
     """
     storage = Storage()
 
     query_block = 1
+    measured = Op.BLOCKHASH(query_block, in_window=in_window)
+    expected_hash = Op.MLOAD(HISTORY_RET_OFFSET) if in_window else 0
     code = (
+        # Measure first: the history call below warms the slot.
+        CodeGasMeasure(
+            code=measured,
+            extra_stack_items=1,
+            sstore_key=storage.store_next(measured.gas_cost(fork)),
+        )
         # Check that the history contract call succeeds and writes the
         # reference block hash to memory.
-        Op.SSTORE(
+        + Op.SSTORE(
             storage.store_next(True),
             history_staticcall(query_block),
         )
-        # Check that the history contract still serves a non-zero hash here.
+        # Check that the history contract still serves a non-zero hash.
         + Op.SSTORE(
             storage.store_next(False),
             Op.ISZERO(Op.MLOAD(HISTORY_RET_OFFSET)),
         )
-        # Check that BLOCKHASH becomes zero only after the 256-block window.
+        # Check that BLOCKHASH returns the history hash only in window.
         + Op.SSTORE(
-            storage.store_next(not expect_equal),
-            Op.ISZERO(Op.BLOCKHASH(query_block)),
-        )
-        # Check that BLOCKHASH matches history only on the last valid case.
-        + Op.SSTORE(
-            storage.store_next(expect_equal),
-            Op.EQ(
-                Op.BLOCKHASH(query_block),
-                Op.MLOAD(HISTORY_RET_OFFSET),
-            ),
+            storage.store_next(True),
+            Op.EQ(Op.BLOCKHASH(query_block), expected_hash),
         )
     )
 
-    contract_address = pre.deploy_contract(code)
-    sender = pre.fund_eoa()
-
+    contract = pre.deploy_contract(code, storage=storage.canary())
     blocks = [Block() for _ in range(block_offset)]
-    blocks.append(
-        Block(
-            txs=[
-                Transaction(
-                    to=contract_address,
-                    gas_limit=1_000_000,
-                    sender=sender,
-                )
-            ]
-        )
+    blocks.append(Block(txs=[Transaction(to=contract, sender=pre.fund_eoa())]))
+    blockchain_test(
+        pre=pre,
+        blocks=blocks,
+        post={contract: Account(storage=storage)},
     )
-
-    post: Dict[Address, Account] = {
-        contract_address: Account(storage=storage),
-    }
-    blockchain_test(pre=pre, blocks=blocks, post=post)
