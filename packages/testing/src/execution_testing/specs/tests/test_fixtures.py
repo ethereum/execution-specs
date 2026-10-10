@@ -18,6 +18,7 @@ from execution_testing.fixtures import (
     BlockchainFixture,
     BlockchainFixtureCommon,
     FixtureFormat,
+    LabeledFixtureFormat,
     StateFixture,
 )
 from execution_testing.forks import (
@@ -39,7 +40,12 @@ from execution_testing.test_types import (
 )
 from execution_testing.vm import Op
 
-from ..blockchain import Block, BlockchainTest, Header
+from ..blockchain import (
+    BLOCKCHAIN_ENGINE_IL_FIXTURE_FORMATS,
+    Block,
+    BlockchainTest,
+    Header,
+)
 from ..state import StateTest
 from .helpers import remove_info_metadata
 
@@ -163,6 +169,75 @@ def test_blockchain_fixtures_include_inclusion_lists(
         engine_fixture.payloads[0].inclusion_list_satisfied
         == inclusion_list_satisfied
     )
+
+
+def inclusion_list_tx_of_size(size: int) -> Transaction:
+    """Return a signed transaction whose RLP encoding is `size` bytes."""
+    data_size = 0
+    while True:
+        tx = Transaction(
+            nonce=0,
+            to=Address(0x1234),
+            gas_limit=1_000_000,
+            gas_price=10,
+            data=bytes(data_size),
+        ).with_signature_and_sender()
+        encoded_size = len(tx.rlp())
+        if encoded_size == size:
+            return tx
+        data_size += size - encoded_size
+
+
+@pytest.mark.parametrize("bytes_over_limit", [0, 1])
+@pytest.mark.parametrize("list_source", ["written", "variant"])
+def test_inclusion_list_entry_size_limit(
+    default_t8n: TransitionTool,
+    bytes_over_limit: int,
+    list_source: str,
+) -> None:
+    """
+    Test that an inclusion list entry above the fork's limit skips a variant
+    and fails a test that wrote the list itself.
+    """
+    sender = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    pre = Alloc({sender: Account(balance=10**18)})
+    size_limit = Bogota.inclusion_list_transactions_size_limit()
+    assert size_limit is not None
+    tx = inclusion_list_tx_of_size(size_limit + bytes_over_limit)
+
+    fixture_format: FixtureFormat | LabeledFixtureFormat
+    if list_source == "written":
+        block = Block(txs=[], inclusion_list_txs=[tx])
+        fixture_format = BlockchainEngineFixture
+    elif list_source == "variant":
+        block = Block(txs=[tx])
+        fixture_format = BLOCKCHAIN_ENGINE_IL_FIXTURE_FORMATS[0]
+    else:
+        raise ValueError(f"unknown list source: {list_source}")
+    test = BlockchainTest(
+        fork=Bogota,
+        pre=pre,
+        post={},
+        blocks=[block],
+        genesis_environment=Environment(),
+    )
+
+    if bytes_over_limit == 0:
+        # A skip here would report the test as skipped instead of failed.
+        try:
+            fixture = test.generate(
+                t8n=default_t8n, fixture_format=fixture_format
+            ).fixture
+        except pytest.skip.Exception as e:
+            pytest.fail(f"an entry at the limit was skipped: {e}")
+        assert isinstance(fixture, BlockchainEngineFixture)
+        assert fixture.payloads[0].params[-1] == [tx.rlp()]
+    elif list_source == "written":
+        with pytest.raises(Exception, match="test correctness"):
+            test.generate(t8n=default_t8n, fixture_format=fixture_format)
+    else:
+        with pytest.raises(pytest.skip.Exception, match="list limit"):
+            test.generate(t8n=default_t8n, fixture_format=fixture_format)
 
 
 @pytest.mark.parametrize(
