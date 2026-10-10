@@ -663,6 +663,66 @@ def test_base_fee_change_calculator_round_trip(
         )
 
 
+@pytest.mark.parametrize("fork", [London, Amsterdam])
+@pytest.mark.parametrize("parent_base_fee_per_gas", [1, 7, 8])
+def test_base_fee_change_calculator_minimum_increase(
+    fork: Fork, parent_base_fee_per_gas: int
+) -> None:
+    """
+    Test that the gas returned for the minimum base fee increase fits in
+    the parent gas limit, including base fees too small for the regular
+    increase to reach one wei.
+    """
+    gas_limit = 30_000_000
+    base_fee_per_gas = fork.base_fee_per_gas_calculator()
+    gas_for_base_fee = fork.base_fee_change_calculator()
+    required = parent_base_fee_per_gas + 1
+    gas_used = gas_for_base_fee(
+        parent_base_fee_per_gas=parent_base_fee_per_gas,
+        parent_gas_limit=gas_limit,
+        required_base_fee_per_gas=required,
+    )
+    assert gas_used <= gas_limit
+    assert (
+        base_fee_per_gas(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_used=gas_used,
+            parent_gas_limit=gas_limit,
+        )
+        == required
+    )
+
+
+@pytest.mark.parametrize("fork", [London, Amsterdam])
+@pytest.mark.parametrize("parent_base_fee_per_gas", [7, 100])
+@pytest.mark.parametrize(
+    "full_block", [False, True], ids=["decrease", "increase"]
+)
+def test_base_fee_change_calculator_unreachable(
+    fork: Fork, parent_base_fee_per_gas: int, full_block: bool
+) -> None:
+    """
+    Test that a base fee one step past what an empty or full block reaches
+    raises instead of returning gas outside the block.
+    """
+    gas_limit = 30_000_000
+    base_fee_per_gas = fork.base_fee_per_gas_calculator()
+    gas_for_base_fee = fork.base_fee_change_calculator()
+    reachable = base_fee_per_gas(
+        parent_base_fee_per_gas=parent_base_fee_per_gas,
+        parent_gas_used=gas_limit if full_block else 0,
+        parent_gas_limit=gas_limit,
+    )
+    with pytest.raises(AssertionError):
+        gas_for_base_fee(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_limit=gas_limit,
+            required_base_fee_per_gas=(
+                reachable + 1 if full_block else reachable - 1
+            ),
+        )
+
+
 def test_bpo_fork() -> None:  # noqa: D103
     assert Osaka.bpo_fork() is False
     assert BPO1.bpo_fork() is True
