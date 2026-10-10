@@ -44,3 +44,23 @@ When creating pull requests that touch several forks under `src/ethereum/forks/`
 This saves you from applying code review feedback repeatedly for each fork.
 
 See [Writing Specs](docs/specs/writing_specs.md) for the technical style rules (naming, comments, docstrings, constants, cross-fork discipline) and for the `ethereum_spec_tools` CLI utilities that help with these workflows.
+
+## Commit messages and PR titles
+
+We follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages and PR titles:
+
+```console
+<type>(<area>): <description>
+```
+
+PR titles and squash commit messages must match this format, where `<type>` and `<area>` correspond to repository labels:
+
+- `<type>`: Derived from [`C-<type>`](https://github.com/ethereum/execution-specs/labels?q=C-) labels (e.g., `feat`, `fix` / `bug`, `docs`, `refactor`, `test`, `chore`).
+- `<area>`: Derived from [`A-<area>`](https://github.com/ethereum/execution-specs/labels?q=A-) labels (e.g., `doc`, `spec-specs`, `spec-tools`, `tooling`, or specific forks/EIPs).
+
+### Rules
+
+- Use lowercase for `<type>` and `<area>`, with backticks for code references.
+- Keep the description concise and in the imperative mood (e.g., "add", not "added" or "adds").
+- Do not end the title or message with a period.
+- For breaking changes, append `!` directly after the type or area (e.g., `feat(spec-specs)!: ...`).
