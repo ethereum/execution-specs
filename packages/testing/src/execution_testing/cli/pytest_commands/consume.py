@@ -51,9 +51,12 @@ def get_command_logic_test_paths(command_name: str) -> List[Path]:
             / "simulator_logic"
             / f"test_via_{test_command}.py"
         ]
-    elif command_name == "sync":
+    elif command_name in ["sync", "wirex"]:
         command_logic_test_paths = [
-            base_path / "simulators" / "simulator_logic" / "test_via_sync.py"
+            base_path
+            / "simulators"
+            / "simulator_logic"
+            / f"test_via_{command_name}.py"
         ]
     elif command_name == "direct":
         command_logic_test_paths = [
@@ -129,6 +132,12 @@ def enginex() -> None:
 @consume_command(is_hive=True)
 def sync() -> None:
     """Client consumes via the Engine API with sync testing."""
+    pass
+
+
+@consume_command(is_hive=True)
+def wirex() -> None:
+    """Client full syncs fixture blocks from a mock devp2p peer."""
     pass
 
 

@@ -13,9 +13,62 @@ logger = logging.getLogger(__name__)
 enginex_group_counts_key: StashKey[dict[str, int]] = StashKey()
 
 
-def make_group_identifier(pre_hash: AllocGroupHash, client_name: str) -> str:
-    """Build xdist group key from pre-alloc hash and client name."""
-    return f"{pre_hash}-{client_name}"
+def count_tests_per_group(
+    session: pytest.Session, items: list[pytest.Item]
+) -> dict[str, int]:
+    """
+    Count the collected tests of each pre-allocation group and stash
+    the counts on the session.
+
+    The xdist_group markers are set during parametrization. The counts
+    feed the largest-group-first sort of the simulators' collection
+    hooks and, via the session stash, the test tracker's client
+    teardown accounting.
+    """
+    group_counts: dict[str, int] = {}
+    for item in items:
+        for marker in item.iter_markers("xdist_group"):
+            if "name" in marker.kwargs:
+                group_counts[marker.kwargs["name"]] = (
+                    group_counts.get(marker.kwargs["name"], 0) + 1
+                )
+                break
+
+    session.stash[enginex_group_counts_key] = group_counts
+    logger.info(
+        f"Counted {len(group_counts)} pre-alloc groups with "
+        f"{sum(group_counts.values())} total tests"
+    )
+    return group_counts
+
+
+def make_group_identifier(
+    pre_hash: AllocGroupHash, client_name: str, variant: str = ""
+) -> str:
+    """
+    Build xdist group key from pre-alloc hash, client name and variant.
+
+    A variant names one of several client configurations a simulator
+    runs the same fixture under (see `group_variants`); each gets its
+    own group, and with it its own client, because a client that has
+    imported a fixture's chain cannot import it again.
+    """
+    identifier = f"{pre_hash}-{client_name}"
+    return f"{identifier}-{variant}" if variant else identifier
+
+
+def group_identifier_of(item: pytest.Item) -> str:
+    """Return the client group `item` was assigned at parametrization."""
+    for marker in item.iter_markers("xdist_group"):
+        if "name" in marker.kwargs:
+            return marker.kwargs["name"]
+    raise ValueError(f"{item.nodeid} has no xdist_group marker")
+
+
+def group_variant_of(item: pytest.Item) -> str:
+    """Return the group variant `item` runs under, or "" for none."""
+    marker = item.get_closest_marker("group_variant")
+    return "" if marker is None else str(marker.args[0])
 
 
 class PreAllocGroupTestTracker:
