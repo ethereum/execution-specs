@@ -25,3 +25,8 @@ class EIP7805(
     def engine_new_payload_inclusion_list_transactions(cls) -> bool:
         """Payload attributes include the inclusion list transactions."""
         return True
+
+    @classmethod
+    def inclusion_list_transactions_size_limit(cls) -> int | None:
+        """A committee member's list carries at most 8 KiB of transactions."""
+        return 8192
