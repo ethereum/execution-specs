@@ -71,12 +71,12 @@ Op.SSTORE(key=1, value=0, key_warm=True, original_value=1, new_value=0)
 
 #### Block Hash
 
-From EIP-7709, `BLOCKHASH` reads an in-window block's hash from the EIP-2935 history contract and charges the cost of an `SLOAD` of that slot. It accepts:
+From EIP-7709, `BLOCKHASH` reads an in-window block's hash from slot `block_number % HISTORY_SERVE_WINDOW` of the EIP-2935 history contract and charges the cost of an `SLOAD` of that slot. It accepts:
 
-- `in_window`: Whether the block is one of the 256 most recent complete blocks (default `True`). Out-of-window blocks, including the current and future ones, charge only the base cost and warm nothing.
-- `key_warm`: Whether the block's history slot is already warm (default `False`). Unlike `SLOAD` and `SSTORE`, the key is not the opcode's argument but the slot `block_number % HISTORY_SERVE_WINDOW` of the history contract. An earlier `BLOCKHASH` of the same block, a call to the history contract that reads the slot, or the transaction's access list warms it.
+- `in_window`: Whether the block is one of the 256 most recent complete blocks (default `True`). For an out-of-window block, including the current block and future ones, `BLOCKHASH` charges only the base cost and warms nothing.
+- `key_warm`: Whether the block's history slot is already warm (default `False`). The key is this history slot, not the opcode's argument as in `SLOAD` and `SSTORE`. Any of these warms it: an earlier `BLOCKHASH` of the same block, a call to the history contract that reads the slot, or an access-list entry for the slot.
 
-Before EIP-7709 the framework ignores both fields.
+Before EIP-7709, the framework ignores both fields.
 
 Example:
 
