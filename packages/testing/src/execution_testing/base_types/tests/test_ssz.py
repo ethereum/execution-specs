@@ -19,7 +19,12 @@ from remerkleable.progressive import (
 from remerkleable.progressive import ProgressiveContainer
 from remerkleable.progressive import ProgressiveList as RmkProgressiveList
 
-from execution_testing.base_types import Address, Bloom, Bytes, Hash
+from execution_testing.base_types import (
+    Address,
+    Bytes,
+    Hash,
+    PayloadLogsBloom,
+)
 from execution_testing.base_types.ssz import (
     ProgressiveModel,
     SSZForkSchema,
@@ -72,7 +77,7 @@ class ExecutionPayload(SSZModel):
     parent_hash: Hash
     fee_recipient: Address
     state_root: Hash
-    logs_bloom: Bloom
+    logs_bloom: PayloadLogsBloom
     block_number: Uint64
     base_fee_per_gas: Uint256
     extra_data: Annotated[Bytes, byte_list(MAX_EXTRA)]
@@ -270,7 +275,7 @@ def _payload() -> ExecutionPayload:
         parent_hash=Hash(b"\xaa" * 32),
         fee_recipient=Address(b"\xbb" * 20),
         state_root=Hash(b"\xcc" * 32),
-        logs_bloom=Bloom(b"\x00" * 256),
+        logs_bloom=PayloadLogsBloom(b"\x00" * 256),
         block_number=21_000_000,
         base_fee_per_gas=10**18,
         extra_data=Bytes(b"\xde\xad"),

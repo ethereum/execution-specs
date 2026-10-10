@@ -11,6 +11,7 @@ from execution_testing.base_types import (
     AccessList,
     Address,
     BlobSchedule,
+    Bloom,
     Bytes,
     ZeroPaddedHexNumber,
 )
@@ -958,6 +959,11 @@ class Frontier(BaseFork):
         return False
 
     @classmethod
+    def empty_logs_bloom(cls) -> Bloom:
+        """At genesis, a block without logs has an all-zero bloom filter."""
+        return Bloom(b"\x00" * 256)
+
+    @classmethod
     def engine_new_payload_blob_hashes(cls) -> bool:
         """At genesis, payloads do not have blob hashes."""
         return False
@@ -1337,6 +1343,7 @@ class Frontier(BaseFork):
             "number": ZeroPaddedHexNumber(block_number),
             "timestamp": ZeroPaddedHexNumber(timestamp),
             "fork": cls,
+            "logs_bloom": cls.empty_logs_bloom(),
         }
 
         # Iterate through FixtureHeader fields to populate defaults
