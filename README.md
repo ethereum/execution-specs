@@ -13,6 +13,8 @@ The Ethereum Execution Layer Specifications (EELS) are an executable Python refe
 
 ## Quick Start
 
+> **Note**: EIP-8198 (Quick Slots) is tracked for the Bogota fork. See [Issue #3748](https://github.com/ethereum/execution-specs/issues/3748) for implementation status.
+
 execution-specs uses [`uv`](https://docs.astral.sh/uv/) to manage the Python environment and dependencies, and [`just`](https://just.systems/) as a task runner for common commands (linting, building docs, generating fixtures). The commands below install both and set up the repo from scratch.
 
 Requires a Unix-like shell. All platforms:
