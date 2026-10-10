@@ -929,6 +929,30 @@ class BlockchainTest(BaseTest):
                         "last transaction of the last block, but block "
                         f"{i} contains an invalid transaction elsewhere"
                     )
+            # The inclusion-list variant moves that last transaction into the
+            # list and expects the block it leaves behind to be valid.
+            if not self.blocks or not self.blocks[-1].txs:
+                raise Exception(
+                    "test correctness: an inclusion test needs a transaction "
+                    "at the end of its last block to move into the inclusion "
+                    "list"
+                )
+            last_block_exception = self.blocks[-1].exception
+            if last_block_exception:
+                exceptions = (
+                    last_block_exception
+                    if isinstance(last_block_exception, list)
+                    else [last_block_exception]
+                )
+                if not any(
+                    isinstance(exception, TransactionException)
+                    for exception in exceptions
+                ):
+                    raise Exception(
+                        "test correctness: in an inclusion test the last "
+                        "block can only be invalid because of its last "
+                        "transaction, but it declares only block exceptions"
+                    )
         if self.invalid_tx_not_last and not any(
             tx.error is not None
             for block in self.blocks
