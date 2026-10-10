@@ -17,7 +17,6 @@ ref_spec_7709 = ReferenceSpec(
 )
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-7709 specifications as defined at
@@ -27,5 +26,3 @@ class Spec:
     HISTORY_STORAGE_ADDRESS = 0x0000F90827F1C53A10CB7A02335B175320002935
     HISTORY_SERVE_WINDOW = 8191
     BLOCKHASH_SERVE_WINDOW = 256
-    GAS_COLD_STORAGE_ACCESS = 2100
-    GAS_WARM_ACCESS = 100

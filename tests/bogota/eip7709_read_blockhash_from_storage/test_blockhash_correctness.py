@@ -14,32 +14,18 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Bytecode,
     Op,
     Storage,
     Transaction,
 )
 
+from .helpers import HISTORY_RET_OFFSET, history_staticcall
 from .spec import Spec, ref_spec_7709
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7709.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7709.version
 
 pytestmark = pytest.mark.valid_from("EIP7709")
-
-HISTORY_RET_OFFSET = 32
-
-
-def history_staticcall(query_block: int) -> Bytecode:
-    """Return bytecode that queries the history contract for a block hash."""
-    return Op.MSTORE(0, query_block) + Op.STATICCALL(
-        Op.GAS,
-        Spec.HISTORY_STORAGE_ADDRESS,
-        0,
-        32,
-        HISTORY_RET_OFFSET,
-        32,
-    )
 
 
 @pytest.mark.parametrize(
