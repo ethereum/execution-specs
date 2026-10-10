@@ -4,7 +4,7 @@ import io
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Generator, cast
+from typing import TYPE_CHECKING, Callable, Generator, cast
 
 import pytest
 from _pytest.reports import TestReport
@@ -50,6 +50,12 @@ class MultiTestClientManager:
         """Initialize the multi-test client manager."""
         self.clients: dict[str, Client] = {}  # group_identifier -> Client
         self.test_tracker: PreAllocGroupTestTracker | None = None
+        self.stop_callbacks: list[Callable[[Client], None]] = []
+        """
+        Called with each client the manager stops, so a simulator can
+        release what it holds for that client (such as a peer
+        connection).
+        """
         logger.debug("MultiTestClientManager initialized")
 
     def set_test_tracker(self, tracker: PreAllocGroupTestTracker) -> None:
@@ -105,6 +111,15 @@ class MultiTestClientManager:
                 f"Error stopping discarded client for group "
                 f"{group_identifier}: {e}"
             )
+        self._notify_stopped(client)
+
+    def _notify_stopped(self, client: Client) -> None:
+        """Run the stop callbacks for `client`, logging any failure."""
+        for callback in self.stop_callbacks:
+            try:
+                callback(client)
+            except Exception as e:
+                logger.error(f"Stop callback failed for {client.id}: {e}")
 
     def mark_test_completed(self, group_identifier: str, test_id: str) -> None:
         """
@@ -144,6 +159,7 @@ class MultiTestClientManager:
                 finally:
                     # Always remove from tracking, even if stop failed
                     del self.clients[group_identifier]
+                    self._notify_stopped(client)
 
     def stop_all_clients(self) -> None:
         """Stop all remaining clients (called at session end)."""
@@ -160,6 +176,7 @@ class MultiTestClientManager:
                 logger.error(
                     f"Error stopping client for group {group_identifier}: {e}"
                 )
+            self._notify_stopped(client)
 
         self.clients.clear()
         logger.info("All clients stopped")

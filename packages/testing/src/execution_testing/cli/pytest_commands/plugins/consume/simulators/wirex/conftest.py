@@ -49,6 +49,7 @@ from .sync_targets import (
 )
 
 if TYPE_CHECKING:
+    from ..multi_test_client import MultiTestClientManager
     from ..timing_data import TimingData
 
 logger = logging.getLogger(__name__)
@@ -453,9 +454,24 @@ def sync_target_cases(
 
 
 @pytest.fixture(scope="session")
-def mock_peers() -> Generator[Dict[str, MockPeer], None, None]:
-    """Hold one peer per client for the lifetime of the session."""
+def mock_peers(
+    multi_test_client_manager: "MultiTestClientManager",
+) -> Generator[Dict[str, MockPeer], None, None]:
+    """
+    Hold one peer per live client.
+
+    A peer keeps every chain it has served, so it is closed and
+    dropped as soon as the client manager stops its client, rather
+    than at the end of the session.
+    """
     peers: Dict[str, MockPeer] = {}
+
+    def close_peer(client: Client) -> None:
+        peer = peers.pop(client.id, None)
+        if peer is not None:
+            peer.close()
+
+    multi_test_client_manager.stop_callbacks.append(close_peer)
     yield peers
     for peer in peers.values():
         peer.close()
