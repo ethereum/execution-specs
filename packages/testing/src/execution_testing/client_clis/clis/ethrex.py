@@ -217,12 +217,13 @@ class EthrexExceptionMapper(ExceptionMapper):
         # `validate_static_constraints` names the EIP-8141 rule it failed, so
         # the reason follows the prefix. Two other shapes reach the same
         # conclusion: ethrex checks signature-entry structure inside signature
-        # validation rather than static validation, and a frame or signature
-        # field too wide for its type is rejected while decoding.
+        # validation rather than static validation, and a frame, signature or
+        # EIP-8250 nonce field too wide for its type is rejected while
+        # decoding.
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
             r"Invalid frame transaction format: .*|"
             r"Invalid frame transaction: signature validation failed|"
-            r"Error decoding field 'frames' of type .*|"
-            r"Error decoding field 'signatures' of type .*"
+            r"Error decoding field "
+            r"'(frames|signatures|nonce_keys|nonce_seq)' of type .*"
         ),
     }
