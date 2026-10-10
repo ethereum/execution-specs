@@ -13,6 +13,7 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    Fork,
     Hash,
     Op,
     Transaction,
@@ -485,27 +486,38 @@ def test_bal_2935_absent_contract(
     )
 
 
-def test_bal_2935_blockhash_does_not_read_history(
+def test_bal_2935_blockhash_history_read(
     pre: Alloc,
+    fork: Fork,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
-    Ensure `BLOCKHASH` leaves no read on the history contract.
+    Ensure `BLOCKHASH` reads the history contract only under EIP-7709.
 
     EIP-2935 lets a client answer `BLOCKHASH` out of this contract's
     storage, but the block access list commits to the reads a block
-    makes, so taking that route would add an entry the spec does not
-    produce. The ancestor queried here is not the parent, whose slot the
-    pre-execution system call writes anyway.
+    makes, so before EIP-7709 that route would add an entry the spec does
+    not produce. The ancestor queried here is not the parent, whose slot
+    the pre-execution system call writes anyway.
     """
     alice = pre.fund_eoa()
 
+    queried_number = 0
     witness_slot = 0
     # Offset by one so an untouched slot cannot pass for a hash that
     # came back zero.
     querier = pre.deploy_contract(
-        code=Op.SSTORE(witness_slot, Op.ADD(Op.ISZERO(Op.BLOCKHASH(0)), 1))
+        code=Op.SSTORE(
+            witness_slot,
+            Op.ADD(Op.ISZERO(Op.BLOCKHASH(queried_number)), 1),
+        )
     )
+
+    # EIP-7709 serves `BLOCKHASH` from the queried ancestor's slot.
+    if fork.is_eip_enabled(7709):
+        history_reads = [queried_number % Spec.HISTORY_SERVE_WINDOW]
+    else:
+        history_reads = []
 
     parent_number = 1
     blockchain_test(
@@ -525,8 +537,7 @@ def test_bal_2935_blockhash_does_not_read_history(
                                     validate_any_change=True,
                                 )
                             ],
-                            # The queried ancestor's slot would land here.
-                            storage_reads=[],
+                            storage_reads=history_reads,
                         ),
                         querier: BalAccountExpectation(
                             storage_changes=[
