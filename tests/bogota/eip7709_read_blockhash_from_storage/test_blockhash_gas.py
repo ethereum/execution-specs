@@ -31,7 +31,7 @@ pytestmark = pytest.mark.valid_from("EIP7709")
 
 def blockhash_cost(fork: Fork, access_cost: int = 0) -> int:
     """Return the expected BLOCKHASH gas cost for the current fork."""
-    return Op.BLOCKHASH.gas_cost(fork) + access_cost
+    return Op.BLOCKHASH(in_window=False).gas_cost(fork) + access_cost
 
 
 def test_blockhash_cold_gas(

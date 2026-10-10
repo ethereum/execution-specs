@@ -5,7 +5,9 @@ import pytest
 from execution_testing.vm import Bytecode, Op
 
 from ..forks.forks import (
+    Amsterdam,
     Berlin,
+    Bogota,
     ConstantinopleFix,
     Homestead,
     Istanbul,
@@ -201,6 +203,51 @@ from ..helpers import Fork
             Op.SLOAD(key_warm=True),
             Osaka.gas_costs().WARM_SLOAD,
             id="sload_warm",
+        ),
+        # BLOCKHASH tests: the history slot access cost starts at Bogota
+        pytest.param(
+            Amsterdam,
+            Op.BLOCKHASH,
+            Amsterdam.gas_costs().OPCODE_BLOCKHASH,
+            id="blockhash_amsterdam",
+        ),
+        pytest.param(
+            Amsterdam,
+            Op.BLOCKHASH(key_warm=True),
+            Amsterdam.gas_costs().OPCODE_BLOCKHASH,
+            id="blockhash_warmth_inert_amsterdam",
+        ),
+        pytest.param(
+            Amsterdam,
+            Op.BLOCKHASH(in_window=False),
+            Amsterdam.gas_costs().OPCODE_BLOCKHASH,
+            id="blockhash_window_inert_amsterdam",
+        ),
+        pytest.param(
+            Bogota,
+            Op.BLOCKHASH,
+            Bogota.gas_costs().OPCODE_BLOCKHASH
+            + Bogota.gas_costs().COLD_STORAGE_ACCESS,
+            id="blockhash_cold_bogota",
+        ),
+        pytest.param(
+            Bogota,
+            Op.BLOCKHASH(key_warm=True),
+            Bogota.gas_costs().OPCODE_BLOCKHASH
+            + Bogota.gas_costs().WARM_SLOAD,
+            id="blockhash_warm_bogota",
+        ),
+        pytest.param(
+            Bogota,
+            Op.BLOCKHASH(in_window=False),
+            Bogota.gas_costs().OPCODE_BLOCKHASH,
+            id="blockhash_out_of_window_bogota",
+        ),
+        pytest.param(
+            Bogota,
+            Op.BLOCKHASH(in_window=False, key_warm=True),
+            Bogota.gas_costs().OPCODE_BLOCKHASH,
+            id="blockhash_out_of_window_warm_bogota",
         ),
         # MCOPY tests
         pytest.param(
