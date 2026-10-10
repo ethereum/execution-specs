@@ -1024,6 +1024,7 @@ class BlockchainTest(BaseTest):
         block: Block,
         previous_env: Environment,
         previous_alloc: Alloc | LazyAlloc,
+        inclusion_list_variant: bool = False,
     ) -> BuiltBlock:
         """
         Generate common block data for both make_fixture and make_hive_fixture.
@@ -1098,6 +1099,21 @@ class BlockchainTest(BaseTest):
             if inclusion_list_txs is not None
             else None
         )
+        il_size_limit = fork.inclusion_list_transactions_size_limit()
+        for il_tx in inclusion_list_txs or []:
+            il_tx_size = len(il_tx.rlp())
+            if il_size_limit is None or il_tx_size <= il_size_limit:
+                continue
+            reason = (
+                f"an inclusion list entry of {il_tx_size} bytes exceeds the "
+                f"{il_size_limit}-byte list limit, so no committee member "
+                "could have sent it"
+            )
+            # A variant moves the test's own transaction into the list, which
+            # some tests make larger than any list can carry.
+            if inclusion_list_variant:
+                pytest.skip(reason)
+            raise Exception(f"test correctness: {reason}")
 
         if (failing_tx_count := len([tx for tx in txs if tx.error])) > 0:
             if failing_tx_count > 1:
@@ -1620,6 +1636,9 @@ class BlockchainTest(BaseTest):
                 block=block,
                 previous_env=env,
                 previous_alloc=alloc,
+                inclusion_list_variant=(
+                    is_last_block and is_inclusion_list_variant
+                ),
             )
             block_number = int(built_block.header.number)
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
