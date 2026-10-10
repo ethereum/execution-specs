@@ -77,6 +77,29 @@ class TestFillClickCli:
         result = run_fill("--invalid-option")
         assert "unrecognized arguments" in result.output
 
+    def test_fill_formats_engine_x_appends_generate_all(
+        self, run_fill: Callable[..., Result], tmp_path: Path
+    ) -> None:
+        """Test that passing an EngineX format automatically enables two-phase generation in CLI."""
+        output_dir = tmp_path / "output"
+        
+        result = run_fill(
+            str(MINIMAL_TEST_SOURCE),
+            "--fork", "Cancun",
+            f"--output={output_dir}",
+            "--formats=blockchain_test_engine_x",
+            "--clean",
+        )
+        assert result.exit_code == pytest.ExitCode.OK, result.output
+        
+        pre_alloc_dir = output_dir / "blockchain_tests_engine_x" / "pre_alloc"
+        assert pre_alloc_dir.exists(), "Pre-allocation phase did not run."
+        
+        fixtures_dir = output_dir / "blockchain_tests_engine_x" / "for_cancun"
+        assert fixtures_dir.exists(), "Phase 2 did not write the final EngineX fixtures."
+        
+        assert list(fixtures_dir.rglob("*.json")), "No JSON fixture files generated."
+
 
 class TestFillPytester:
     """
@@ -228,6 +251,42 @@ class TestFillPytester:
 
         assert result.ret == pytest.ExitCode.OK
         assert not list(log_dir.glob("*.log"))
+
+    @pytest.mark.parametrize(
+        "expected_exit_code", [pytest.ExitCode.USAGE_ERROR]
+    )
+    def test_fill_invalid_formats_flag(
+        self, run_fill: Callable[..., RunResult], fill_args: list[str]
+    ) -> None:
+        """Test invoking `fill` with an invalid format name."""
+        fill_args += ["--formats=stat_test"]
+        result = run_fill(*fill_args)
+        assert result.ret == pytest.ExitCode.USAGE_ERROR
+        output = "\n".join(result.errlines + result.outlines)
+        assert "Invalid fixture format(s) specified: stat_test" in output
+
+    def test_fill_formats_strips_whitespace(
+        self, run_fill: Callable[..., RunResult], fill_args: list[str]
+    ) -> None:
+        """Test that `--formats` strips whitespace from entries."""
+        fill_args += ["--formats=blockchain_test, blockchain_test_engine"]
+        result = run_fill(*fill_args)
+        assert result.ret == pytest.ExitCode.OK
+
+    @pytest.mark.parametrize(
+        "expected_exit_code", [pytest.ExitCode.USAGE_ERROR]
+    )
+    def test_fill_formats_empty_strings(
+        self, run_fill: Callable[..., RunResult], fill_args: list[str]
+    ) -> None:
+        """Test invoking `fill` with empty formats raises an error."""
+        fill_args += ["--formats= , "]
+        result = run_fill(*fill_args)
+        assert result.ret == pytest.ExitCode.USAGE_ERROR
+        output = "\n".join(result.errlines + result.outlines)
+        assert "No valid fixture formats specified in --formats" in output
+
+
 
     def test_generate_pre_alloc_groups_preserves_chain_id_for_valid_from(
         self,

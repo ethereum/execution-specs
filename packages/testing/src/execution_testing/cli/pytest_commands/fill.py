@@ -59,8 +59,27 @@ class FillCommand(PytestCommand):
         has_phase_1_flag = "--generate-pre-alloc-groups" in processed_args
         has_phase_2_flag = "--generate-all-formats" in processed_args
 
+        if not has_phase_2_flag:
+            formats_str = next(
+                (arg.split("=", 1)[1] for arg in processed_args if arg.startswith("--formats=")), None
+            )
+            if formats_str is None and "--formats" in processed_args:
+                idx = processed_args.index("--formats")
+                if idx + 1 < len(processed_args):
+                    formats_str = processed_args[idx + 1]
+
+            if formats_str:
+                from execution_testing.fixtures.base import BaseFixture, FixtureFillingPhase
+
+                formats = [f.strip() for f in formats_str.split(",") if f.strip()]
+                for fmt_name in formats:
+                    fmt = BaseFixture.formats.get(fmt_name)
+                    if fmt and FixtureFillingPhase.PRE_ALLOC_GENERATION in fmt.format_phases:
+                        has_phase_2_flag = True
+                        processed_args.append("--generate-all-formats")
+                        break
+
         if has_phase_2_flag:
-            # --generate-all-formats always regenerates pre-alloc as phase 1.
             return self._create_two_phase_executions(processed_args)
         if has_phase_1_flag:
             # Phase 1 only: generate pre-alloc groups without filling.
