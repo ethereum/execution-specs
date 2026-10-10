@@ -39,11 +39,11 @@ The five simulator images are pushed by independent jobs, so a channel tag can p
 
 The check in the `images` job is what makes the execute images safe to publish: it collects the release's tests under the branch-head framework, so that a source tree the framework can no longer load fails the job instead of every hive run that pulls the tag. For a consume image it verifies that the fixture index is non-empty, covers only the image's format, and points only at files present in the image. A failed check leaves that simulator image's tags unchanged. The repository, fixture and tests images may already have been published, and other simulator jobs can still advance.
 
-To see what a run would do without running it, run the planner locally; it needs network access to list the releases:
+To see what a run would do without running it, run the planner locally; it needs network access to list the releases. The examples on this page use `forks/bogota`, the default branch at the time of writing; substitute the current one:
 
 ```bash
-uv run eest images plan --branch devnets/glamsterdam/8 --sha "$(git rev-parse HEAD)" --default-branch forks/amsterdam | jq .
-uv run eest images plan --release tests@v20.0.2 --sha "$(git rev-parse origin/forks/amsterdam)" --default-branch forks/amsterdam | jq .
+uv run eest images plan --branch devnets/glamsterdam/8 --sha "$(git rev-parse HEAD)" --default-branch forks/bogota | jq .
+uv run eest images plan --release tests@v20.0.2 --sha "$(git rev-parse origin/forks/bogota)" --default-branch forks/bogota | jq .
 ```
 
 ## Running it by hand
@@ -51,19 +51,19 @@ uv run eest images plan --release tests@v20.0.2 --sha "$(git rev-parse origin/fo
 Publish the images for an existing release; the branch is inferred:
 
 ```bash
-gh workflow run docker-images.yaml --ref forks/amsterdam -f release_tag=tests-glamsterdam-devnet@v8.1.4
+gh workflow run docker-images.yaml --ref forks/bogota -f release_tag=tests-glamsterdam-devnet@v8.1.4
 ```
 
 Rebuild a branch's simulator images for its current release without a new release:
 
 ```bash
-gh workflow run docker-images.yaml --ref forks/amsterdam -f branch=devnets/glamsterdam/8
+gh workflow run docker-images.yaml --ref forks/bogota -f branch=devnets/glamsterdam/8
 ```
 
 Publish a nightly fill whose artifact is still live, by the commit it built:
 
 ```bash
-gh workflow run docker-images.yaml --ref forks/amsterdam -f nightly_sha=<commit>
+gh workflow run docker-images.yaml --ref forks/bogota -f nightly_sha=<commit>
 ```
 
 `nightly_sha` accepts 7–40 lowercase hex characters. The helper `.github/scripts/resolve_image_nightly.py` expands it to a full commit SHA and finds a completed scheduled fill in the publishing repository with a live `fixtures_<sha7>` artifact. It can reuse the artifact even if that fill's later image publication failed. The download uses that run's ID and the job token; an expired or missing artifact fails before any image is built. The scheduled workflow call already knows its run ID and does not need this lookup.
