@@ -151,6 +151,12 @@ class ForkLoad:
         return self._module("block_access_lists").hash_block_access_list
 
     @property
+    def block_access_list_to_rlp(self) -> Any:
+        """Return the fork's BAL conversion, or the original BAL layout."""
+        module = self._module("block_access_lists")
+        return getattr(module, "block_access_list_to_rlp", lambda bal: bal)
+
+    @property
     def has_hash_block_access_list(self) -> bool:
         """Check if the fork has a `hash_block_access_list` function."""
         try:

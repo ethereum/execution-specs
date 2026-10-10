@@ -783,18 +783,29 @@ class Alloc(BaseAlloc):
             return spec_state_mpt
         raise NotImplementedError("State commitment type not yet implemented.")
 
-    def _materialize_state(self) -> spec_state.PreState:
+    def _materialize_state(
+        self, storage_address: Bytes20 | None = None
+    ) -> spec_state.PreState:
         """
         Build a spec-side `PreState` mirror of `self.root` using the
         implementation module for this allocation's commitment scheme.
 
-        Used as the trie-backed delegate for `compute_state_root` (a
-        cold, once-per-block call). The materialized state is not
-        retained.
+        For an account storage root, materialize only `storage_address`.
+        The materialized state is not retained.
         """
         mod = self._state_module()
         state: spec_state.PreState = mod.State()
-        for address, account in self.root.items():
+        accounts = (
+            self.root.items()
+            if storage_address is None
+            else (
+                (
+                    Address(storage_address),
+                    self.root.get(Address(storage_address)),
+                ),
+            )
+        )
+        for address, account in accounts:
             if account is None:
                 continue
             addr = Bytes20(address)
@@ -872,6 +883,18 @@ class Alloc(BaseAlloc):
         if code_hash == spec_state.EMPTY_CODE_HASH:
             return Bytes(b"")
         return self._code_store[code_hash]
+
+    def compute_storage_root(
+        self, address: Bytes20, block_diff: spec_state.BlockDiff
+    ) -> Hash32:
+        """
+        Compute an account's post-block storage root without changing `Alloc`.
+
+        Conforms to `ethereum.state.PreState.compute_storage_root`.
+        """
+        self._ensure_live()
+        state = self._materialize_state(storage_address=address)
+        return state.compute_storage_root(address, block_diff)
 
     def compute_state_root(self, block_diff: spec_state.BlockDiff) -> Hash32:
         """
