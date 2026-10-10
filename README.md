@@ -11,6 +11,12 @@
 
 The Ethereum Execution Layer Specifications (EELS) are an executable Python reference implementation of Ethereum's execution layer, along with the test cases that verify it. It provides a shared, runnable description of consensus-critical behaviour, and the accompanying tests generate fixtures that can be used to validate execution client implementations.
 
+## EIP-8116: Replace cumulative receipt fields
+
+**Target Fork**: Bogota
+
+See [Issue #3747](https://github.com/ethereum/execution-specs/issues/3747) for implementation status.
+
 ## Quick Start
 
 execution-specs uses [`uv`](https://docs.astral.sh/uv/) to manage the Python environment and dependencies, and [`just`](https://just.systems/) as a task runner for common commands (linting, building docs, generating fixtures). The commands below install both and set up the repo from scratch.
