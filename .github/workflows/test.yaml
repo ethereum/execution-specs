@@ -98,7 +98,7 @@ jobs:
             until_fork: Osaka
           - label: amsterdam
             from_fork: Amsterdam
-            until_fork: Amsterdam
+            until_fork: BPODecrease
           - label: bogota
             from_fork: Bogota
             until_fork: Bogota

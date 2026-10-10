@@ -235,11 +235,13 @@ def get_selected_fork_set(
     forks_from: Set[Type[BaseFork]],
     forks_until: Set[Type[BaseFork]],
     transition_forks: bool = True,
-    bpo_siblings: bool = True,
+    bpo_siblings: bool = False,
 ) -> Set[Type[BaseFork | TransitionBaseClass]]:
     """
     Process sets derived from `--fork`, `--until` and `--from` to return an
     unified fork set.
+
+    Include parallel BPO branches only when explicitly requested.
     """
     selected_fork_set: Set[Type[BaseFork]] = set()
     if single_fork:
