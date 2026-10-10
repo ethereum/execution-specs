@@ -140,6 +140,10 @@ class EIP1559(BaseFork):
                     )
                     // parent_base_fee_per_gas
                 ) + parent_gas_target
+                # When the proportional increase rounds down to zero, the
+                # base fee still rises by one, and the estimate above can
+                # exceed the gas limit. A full block reaches that increase.
+                parent_gas_used = min(parent_gas_used, parent_gas_limit)
                 # Flooring the estimate can leave it a little short.
                 while (
                     base_fee_per_gas_calculator(

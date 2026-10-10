@@ -663,6 +663,36 @@ def test_base_fee_change_calculator_round_trip(
         )
 
 
+@pytest.mark.parametrize("fork", [London, Amsterdam])
+@pytest.mark.parametrize("parent_base_fee_per_gas", [1, 7, 8])
+def test_base_fee_change_calculator_minimum_increase(
+    fork: Fork, parent_base_fee_per_gas: int
+) -> None:
+    """
+    Test that the gas returned for the minimum base fee increase fits in
+    the parent gas limit, including base fees too small for the regular
+    increase to reach one wei.
+    """
+    gas_limit = 30_000_000
+    base_fee_per_gas = fork.base_fee_per_gas_calculator()
+    gas_for_base_fee = fork.base_fee_change_calculator()
+    required = parent_base_fee_per_gas + 1
+    gas_used = gas_for_base_fee(
+        parent_base_fee_per_gas=parent_base_fee_per_gas,
+        parent_gas_limit=gas_limit,
+        required_base_fee_per_gas=required,
+    )
+    assert gas_used <= gas_limit
+    assert (
+        base_fee_per_gas(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_used=gas_used,
+            parent_gas_limit=gas_limit,
+        )
+        == required
+    )
+
+
 def test_bpo_fork() -> None:  # noqa: D103
     assert Osaka.bpo_fork() is False
     assert BPO1.bpo_fork() is True
