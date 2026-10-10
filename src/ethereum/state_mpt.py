@@ -79,6 +79,24 @@ class State:
         assert isinstance(value, U256)
         return value
 
+    def compute_storage_root(
+        self, address: Address, block_diff: BlockDiff
+    ) -> Root:
+        """
+        Compute an account's storage trie root after applying `block_diff`.
+
+        Clear pre-existing storage before applying writes when the diff
+        records a storage clear. The pre-state itself is not modified.
+        """
+        trie = self._storage_tries.get(address)
+        if trie is None or address in block_diff.storage_clears:
+            storage_trie = Trie[Bytes32, U256](secured=True, default=U256(0))
+        else:
+            storage_trie = copy_trie(trie)
+        for key, value in block_diff.storage_changes.get(address, {}).items():
+            trie_set(storage_trie, key, value)
+        return root(storage_trie)
+
     def compute_state_root(self, block_diff: BlockDiff) -> Root:
         """
         Compute the state root after applying `block_diff` to the

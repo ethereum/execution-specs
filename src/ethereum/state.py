@@ -115,6 +115,17 @@ class PreState(Protocol):
         """
         ...
 
+    def compute_storage_root(
+        self, address: Address, block_diff: BlockDiff
+    ) -> Root:
+        """
+        Compute an account's storage root after applying `block_diff`.
+
+        The pre-state itself is not modified. Apply storage clears before
+        storage changes so that writes after a clear begin from empty storage.
+        """
+        ...
+
     def compute_state_root(self, block_diff: BlockDiff) -> Root:
         """
         Compute the state root after applying `block_diff` to the

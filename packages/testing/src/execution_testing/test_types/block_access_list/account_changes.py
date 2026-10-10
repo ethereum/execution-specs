@@ -2,7 +2,8 @@
 Account change classes for Block Access List.
 
 This module contains the core data structures representing changes to accounts
-in a block access list as defined in EIP-7928.
+in a block access list as defined in EIP-7928, with optional post-block
+storage roots from EIP-8268.
 """
 
 from typing import ClassVar, List, Self, Union
@@ -122,6 +123,11 @@ class BalAccountChange(CamelModel, RLPSerializable):
         default_factory=list,
         description="List of storage slots that were read",
     )
+    storage_root: Bytes | None = Field(
+        default=None,
+        description="Optional post-block storage trie root from EIP-8268",
+        exclude_if=lambda value: value is None,
+    )
 
     rlp_fields: ClassVar[List[str]] = [
         "address",
@@ -131,6 +137,12 @@ class BalAccountChange(CamelModel, RLPSerializable):
         "nonce_changes",
         "code_changes",
     ]
+
+    def get_rlp_fields(self) -> List[str]:
+        """Include a trailing storage root only when one is present."""
+        if self.storage_root is not None:
+            return [*self.rlp_fields, "storage_root"]
+        return self.rlp_fields
 
 
 BlockAccessListChangeLists = Union[

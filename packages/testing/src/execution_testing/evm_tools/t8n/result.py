@@ -122,7 +122,7 @@ def build_result(
         )
     if hasattr(block_output, "block_access_list"):
         arguments["block_access_list"] = rlp.encode(
-            block_output.block_access_list
+            t8n.fork.block_access_list_to_rlp(block_output.block_access_list)
         )
         arguments["block_access_list_hash"] = t8n.fork.hash_block_access_list(
             block_output.block_access_list
