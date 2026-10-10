@@ -2079,6 +2079,7 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=1,
         pushed_stack_items=1,
         kwargs=["block_number"],
+        metadata={"in_window": True, "key_warm": False},
     )
     """
     BLOCKHASH(block_number) = hash
@@ -2105,7 +2106,18 @@ class Opcodes(Opcode, Enum):
 
     Gas
     ----
-    20
+    - static_gas = 20
+    - dynamic_gas = 0 before EIP-7709. From EIP-7709, an in-window block
+      adds the cost of an SLOAD of its history storage slot: 100 if
+      key_warm, 2100 otherwise. An out-of-window block adds nothing
+
+    Metadata
+    ----
+    - in_window: whether the block is one of the 256 most recent complete
+                 blocks (default: True). Ignored before EIP-7709
+    - key_warm: whether the history storage slot of the block, at
+                `block_number % HISTORY_SERVE_WINDOW`, is already warm
+                (default: False). Ignored before EIP-7709
 
     Source: [evm.codes/#40](https://www.evm.codes/#40)
     """

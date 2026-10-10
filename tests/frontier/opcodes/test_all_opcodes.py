@@ -321,6 +321,10 @@ def test_constant_gas(
             opcode = opcode[17]
         else:
             opcode = opcode[0]
+    if opcode == Op.BLOCKHASH:
+        # The state test runs in block 1, so `BLOCKHASH(1)` queries the
+        # current block, which lies outside the serve window.
+        opcode = opcode.with_metadata(in_window=False)
     setup_code = (
         Op.MLOAD(0)
         + Op.POP

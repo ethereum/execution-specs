@@ -13,15 +13,39 @@ Implementations of the EVM block instructions.
 
 from ethereum_types.numeric import U256, Uint
 
+from ...state_tracker import get_storage
+from ...utils.hexadecimal import hex_to_address
 from .. import Evm
 from ..gas import GasCosts, charge_gas
 from ..stack import pop, push
 
+HISTORY_STORAGE_ADDRESS = hex_to_address(
+    "0x0000F90827F1C53a10cb7A02335B175320002935"
+)
+"""
+Address of the history contract, which stores recent block hashes.
+"""
+
+HISTORY_SERVE_WINDOW = Uint(8191)
+"""
+Number of slots in the history contract's ring buffer of block hashes.
+"""
+
+BLOCKHASH_SERVE_WINDOW = Uint(256)
+"""
+Number of most recent blocks whose hashes `BLOCKHASH` returns.
+"""
+
 
 def block_hash(evm: Evm) -> None:
     """
-    Push the hash of one of the 256 most recent complete blocks onto the
-    stack. The block number to hash is present at the top of the stack.
+    Push the hash of one of the [`BLOCKHASH_SERVE_WINDOW`] most recent
+    complete blocks onto the stack. The block number to hash is present at
+    the top of the stack. Any other block number pushes zero.
+
+    The hash is read from the [history contract], and the read has the gas
+    cost, warming, and access recording of an [`SLOAD`] of the block's
+    history slot.
 
     Parameters
     ----------
@@ -33,32 +57,42 @@ def block_hash(evm: Evm) -> None:
     :py:class:`~ethereum.forks.bogota.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
     :py:class:`~ethereum.forks.bogota.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `20`.
+        If `evm.gas_left` is less than the base cost plus, for an
+        in-window block, the cost of accessing its history slot.
 
-    """
+    [`BLOCKHASH_SERVE_WINDOW`]: ref:ethereum.forks.bogota.vm.instructions.block.BLOCKHASH_SERVE_WINDOW
+    [history contract]: ref:ethereum.forks.bogota.vm.instructions.block.HISTORY_STORAGE_ADDRESS
+    [`SLOAD`]: ref:ethereum.forks.bogota.vm.instructions.storage.sload
+
+    """  # noqa: E501
     # STACK
     block_number = Uint(pop(evm.stack))
 
     # GAS
     charge_gas(evm, GasCosts.OPCODE_BLOCKHASH)
 
-    # OPERATION
-    max_block_number = block_number + Uint(256)
     current_block_number = evm.block_env.number
-    if (
-        current_block_number <= block_number
-        or current_block_number > max_block_number
-    ):
-        # Default hash to 0, if the block of interest is not yet on the chain
-        # (including the block which has the current executing transaction),
-        # or if the block's age is more than 256.
-        current_block_hash = b"\x00"
-    else:
-        current_block_hash = evm.block_env.block_hashes[
-            -(current_block_number - block_number)
-        ]
+    is_in_window = (
+        block_number < current_block_number
+        and current_block_number <= block_number + BLOCKHASH_SERVE_WINDOW
+    )
+    key = U256(block_number % HISTORY_SERVE_WINDOW).to_be_bytes32()
+    if is_in_window:
+        if (HISTORY_STORAGE_ADDRESS, key) in evm.accessed_storage_keys:
+            charge_gas(evm, GasCosts.WARM_ACCESS)
+        else:
+            evm.accessed_storage_keys.add((HISTORY_STORAGE_ADDRESS, key))
+            charge_gas(evm, GasCosts.COLD_STORAGE_ACCESS)
 
-    push(evm.stack, U256.from_be_bytes(current_block_hash))
+    # OPERATION
+    if is_in_window:
+        tx_state = evm.tx_env.state
+        hash_value = get_storage(tx_state, HISTORY_STORAGE_ADDRESS, key)
+    else:
+        # Blocks not yet on the chain (including the current one) and
+        # blocks older than the serve window hash to zero.
+        hash_value = U256(0)
+    push(evm.stack, hash_value)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
