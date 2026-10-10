@@ -8,6 +8,7 @@ format, particularly zero-padded hex strings.
 from typing import Any
 
 import pytest
+from ethereum_rlp import rlp
 from pydantic import ValidationError
 
 from execution_testing.base_types import Address, Bytes
@@ -20,6 +21,27 @@ from execution_testing.test_types.block_access_list import (
     BalStorageSlot,
     BlockAccessList,
 )
+
+
+@pytest.mark.parametrize("storage_root", [None, b"", b"\x11" * 32])
+def test_bal_storage_root_roundtrip(storage_root: bytes | None) -> None:
+    """Preserve optional storage roots through RLP and JSON round trips."""
+    changed: list[Any] = [Address(0xA), [], [], [], [[b"\x01", b"\x02"]], []]
+    if storage_root is not None:
+        changed.append(storage_root)
+    accessed: list[Any] = [Address(0xB), [], [], [], [], []]
+    encoded = Bytes(rlp.encode([changed, accessed]))
+    decoded = BlockAccessList.from_rlp(encoded)
+    assert decoded.root[0].storage_root == storage_root
+    assert decoded.root[1].storage_root is None
+    assert decoded.rlp == encoded
+    assert decoded.rlp_hash == encoded.keccak256()
+    json_data = decoded.model_dump(mode="json")
+    assert "storage_root" not in json_data[1]
+    if storage_root is None:
+        assert "storage_root" not in json_data[0]
+    restored = BlockAccessList.model_validate(json_data)
+    assert restored.rlp == encoded
 
 
 def test_bal_serialization_roundtrip_zero_padded_hex() -> None:

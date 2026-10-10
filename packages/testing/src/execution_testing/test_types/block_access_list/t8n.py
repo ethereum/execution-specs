@@ -81,7 +81,7 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
     """
     Block Access List for t8n tool communication and fixtures.
 
-    This model represents the BAL exactly as defined in EIP-7928
+    This model represents the BAL as defined in EIP-7928 and EIP-8268
     - it is itself a list of account changes (root model), not a container.
 
     Used for:
@@ -112,6 +112,8 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
            balance_changes, nonce_changes, code_changes],
           ...
         ]
+
+        EIP-8268 adds a trailing storage root to entries with state changes.
         """
         decoded = _seq_from_rlp(eth_rlp.decode(data))
         accounts = []
@@ -151,13 +153,18 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
                         "new_code",
                         value_fn=lambda v: Bytes(_bytes_from_rlp(v)),
                     ),
+                    storage_root=(
+                        Bytes(_bytes_from_rlp(fields[6]))
+                        if len(fields) > 6
+                        else None
+                    ),
                 )
             )
 
         return cls(root=accounts)
 
     def to_list(self) -> List[Any]:
-        """Return the list for RLP encoding per EIP-7928."""
+        """Return the list for RLP encoding, including any storage roots."""
         return to_serializable_element(self.root)
 
     @validate_call
