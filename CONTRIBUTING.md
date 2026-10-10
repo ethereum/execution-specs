@@ -69,4 +69,6 @@ The remaining `C-` labels (for example `C-eip`, `C-question` and `C-tracker`) ca
 
 `<area>` comes from an [`A-<area>`](https://github.com/ethereum/execution-specs/labels?q=A-) label, for example `spec-specs` for the specification, `tests` for consensus tests, `test-fill` for the `fill` command, `doc` for documentation, or `ci`. Separate multiple areas with a comma, for example `feat(spec-specs,tests): ...`.
 
+Maintainers apply the matching labels when triaging the PR.
+
 Keep the description short, lowercase and in the imperative mood ("add", not "added" or "adds"), with code names in backticks and no trailing period.
