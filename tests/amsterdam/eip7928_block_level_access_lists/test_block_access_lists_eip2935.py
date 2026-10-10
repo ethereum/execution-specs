@@ -559,3 +559,66 @@ def test_bal_2935_blockhash_history_read(
         ],
         post={querier: Account(storage={witness_slot: 1})},
     )
+
+
+def test_bal_2935_blockhash_parent(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure `BLOCKHASH` of the parent leaves no history contract read.
+
+    The pre-execution system call writes the parent's slot, and a written
+    slot is listed only as a change, so the read EIP-7709 adds must not
+    surface in `storage_reads`.
+    """
+    alice = pre.fund_eoa()
+
+    parent_number = 0
+    witness_slot = 0
+    # Offset by one so an untouched slot cannot pass for a hash that
+    # came back zero.
+    querier = pre.deploy_contract(
+        code=Op.SSTORE(
+            witness_slot,
+            Op.ADD(Op.ISZERO(Op.BLOCKHASH(parent_number)), 1),
+        )
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[Transaction(sender=alice, to=querier)],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        HISTORY_STORAGE_ADDRESS: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=parent_number
+                                    % Spec.HISTORY_SERVE_WINDOW,
+                                    validate_any_change=True,
+                                )
+                            ],
+                            storage_reads=[],
+                        ),
+                        querier: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=witness_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=1,
+                                        )
+                                    ],
+                                )
+                            ],
+                        ),
+                        SYSTEM_ADDRESS: None,
+                    }
+                ),
+            ),
+        ],
+        post={querier: Account(storage={witness_slot: 1})},
+    )
