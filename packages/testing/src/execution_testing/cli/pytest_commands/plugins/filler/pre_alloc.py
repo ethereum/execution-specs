@@ -38,6 +38,7 @@ from execution_testing.test_types import (
 from execution_testing.tools import Initcode
 
 from ..shared.execute_fill import stub_accounts_key, stub_eoas_key
+from ..shared.helpers import strip_any_xdist_group_suffix
 from ..shared.pre_alloc import Alloc as SharedAlloc
 from ..shared.pre_alloc import AllocFlags
 
@@ -441,11 +442,7 @@ def node_id_for_entropy(
     hashing results in the contracts and senders addresses being the same
     across fixture types and forks for the same test.
     """
-    node_id: str = request.node.nodeid
-    # Strip xdist group suffix (e.g., @t8n-cache-abc12345) so entropy is
-    # deterministic regardless of whether xdist is active.
-    if "@" in node_id:
-        node_id = node_id.rsplit("@", 1)[0]
+    node_id: str = strip_any_xdist_group_suffix(request.node.nodeid)
     for fixture_format_name in ALL_FIXTURE_FORMAT_NAMES:
         if fixture_format_name in node_id:
             parts = node_id.split("::")

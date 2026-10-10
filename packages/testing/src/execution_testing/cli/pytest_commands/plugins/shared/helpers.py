@@ -8,6 +8,25 @@ import pytest
 from execution_testing.specs import BaseTest
 
 
+def strip_any_xdist_group_suffix(nodeid: str) -> str:
+    """
+    Return the node id without any xdist group suffix.
+
+    Under ``--dist=loadgroup`` an xdist worker appends ``@<group>`` to
+    a node id, so any value derived from one - a spec's ``test_id``,
+    a fixture's own id, the pre-alloc group keys and entropy - would
+    otherwise depend on whether and how the run was distributed.
+    Every group name the fill or a test sets is a bare word, while a
+    parametrized node id always ends in ``]``, so a trailing ``@``
+    segment without one is a group name and never part of the test's
+    own id.
+    """
+    base, separator, suffix = nodeid.rpartition("@")
+    if separator and base and "]" not in suffix:
+        return base
+    return nodeid
+
+
 def option_was_explicitly_set(config: pytest.Config, option_name: str) -> bool:
     """Return whether a long CLI option was passed explicitly."""
     normalized_option = option_name.strip()

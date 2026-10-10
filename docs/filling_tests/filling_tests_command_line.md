@@ -107,6 +107,24 @@ This flag automatically performs a two-phase execution:
     uv run fill --generate-all-formats --output=fixtures.tar.gz tests/shanghai/
     ```
 
+## Sync Payloads
+
+By default, the filler tries to append an empty sync payload to every chain represented in a **`blockchain_test_engine_x` fixture**. These are added to trigger propagation of all test blocks (the sync payload's ancestors) via devp2p in the `wirex` simulator. The filler stores these payloads separately in the optional `syncPayloads` list. The `--no-sync-block` flag disables this behavior:
+
+```console
+uv run fill --no-sync-block --generate-all-formats tests/cancun/
+```
+
+Most tests describe one linear chain and therefore get one sync payload:
+
+```text
+G → T₁ … Tₙ → S*
+```
+
+`*` marks the sync payload that a sync-based consumer announces.
+
+Announcing a sync payload starts syncing because its parent is unknown to the client, so the client fetches the test blocks below it over devp2p. A sync payload is omitted when the test must announce its own payload, when another block cannot be appended, or when the feature is disabled; the fixture still fills. A small number of tests describe sibling chains and therefore have more than one `syncPayloads` entry. Refer to [Sync Payloads](./sync_payloads.md) for more detailed explanations. [Blockchain Engine X Test consumption](../running_tests/test_formats/blockchain_test_engine_x.md#consumption) explains how a consumer reconstructs each chain by hash.
+
 ## Debugging the `t8n` Command
 
 The `--evm-dump-dir` flag can be used to dump the inputs and outputs of every call made to the `t8n` command for debugging purposes, see [Debugging Transition Tools](./debugging_t8n_tools.md).
