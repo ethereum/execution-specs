@@ -630,6 +630,7 @@ class BuiltBlock(CamelModel):
             inclusion_list_satisfied=(
                 self.inclusion_list_satisfied
                 if self.expected_exception is None
+                and self.engine_api_error_code is None
                 else None
             ),
             execution_payload_modifier=self.engine_payload_modifier(),
