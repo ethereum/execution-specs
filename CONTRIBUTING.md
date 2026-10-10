@@ -47,20 +47,26 @@ See [Writing Specs](docs/specs/writing_specs.md) for the technical style rules (
 
 ## Commit messages and PR titles
 
-We follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages and PR titles:
+Pull requests are squash merged, and the PR title becomes the commit message. PR titles follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
 
-```console
+```text
 <type>(<area>): <description>
 ```
 
-PR titles and squash commit messages must match this format, where `<type>` and `<area>` correspond to repository labels:
+`<type>` comes from a [`C-<type>`](https://github.com/ethereum/execution-specs/labels?q=C-) label:
 
-- `<type>`: Derived from [`C-<type>`](https://github.com/ethereum/execution-specs/labels?q=C-) labels (e.g., `feat`, `fix` / `bug`, `docs`, `refactor`, `test`, `chore`).
-- `<area>`: Derived from [`A-<area>`](https://github.com/ethereum/execution-specs/labels?q=A-) labels (e.g., `doc`, `spec-specs`, `spec-tools`, `tooling`, or specific forks/EIPs).
+| `<type>`   | Label        | Use for                                                     |
+| ---------- | ------------ | ----------------------------------------------------------- |
+| `feat`     | `C-feat`     | An improvement or new feature, including new test cases.    |
+| `fix`      | `C-bug`      | A bug fix. Issues use the `bug` label; PR titles use `fix`. |
+| `refactor` | `C-refactor` | Code changes that neither fix a bug nor add a feature.      |
+| `perf`     | `C-perf`     | A performance optimization.                                 |
+| `docs`     | `C-docs`     | Documentation-only changes.                                 |
+| `test`     | `C-test`     | Changes to unit tests only.                                 |
+| `chore`    | `C-chore`    | Routine maintenance, such as cleanups and dependency bumps. |
 
-### Rules
+The remaining `C-` labels (for example `C-eip`, `C-question` and `C-tracker`) categorize issues and are not used as title types.
 
-- Use lowercase for `<type>` and `<area>`, with backticks for code references.
-- Keep the description concise and in the imperative mood (e.g., "add", not "added" or "adds").
-- Do not end the title or message with a period.
-- For breaking changes, append `!` directly after the type or area (e.g., `feat(spec-specs)!: ...`).
+`<area>` comes from an [`A-<area>`](https://github.com/ethereum/execution-specs/labels?q=A-) label, for example `spec-specs` for the specification, `tests` for consensus tests, `test-fill` for the `fill` command, `doc` for documentation, or `ci`. Separate multiple areas with a comma, for example `feat(spec-specs,tests): ...`.
+
+Keep the description short, lowercase and in the imperative mood ("add", not "added" or "adds"), with code names in backticks and no trailing period.
