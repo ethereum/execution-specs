@@ -35,6 +35,7 @@ from tenacity import (
 )
 
 from execution_testing.base_types import Address, Bytes, Hash, to_json
+from execution_testing.fixtures.blockchain import PayloadAttributes
 from execution_testing.logging import (
     get_logger,
 )
@@ -50,7 +51,6 @@ from .rpc_types import (
     JSONRPCError,
     JSONRPCRequest,
     JSONRPCResponse,
-    PayloadAttributes,
     PayloadStatus,
     PayloadStatusEnum,
     RPCCall,
@@ -1536,11 +1536,15 @@ class EngineRPC(BaseJwtRPC):
         """
         method = f"getPayloadV{version}"
 
+        result = self.post_request(
+            request=RPCCall(method=method, params=[f"{payload_id}"]),
+        ).result_or_raise()
+        if version == 1:
+            # V1's result is the execution payload itself, not wrapped in
+            # an `executionPayload` field (execution-apis paris.md).
+            result = {"executionPayload": result}
         return GetPayloadResponse.model_validate(
-            self.post_request(
-                request=RPCCall(method=method, params=[f"{payload_id}"]),
-            ).result_or_raise(),
-            context=self.response_validation_context,
+            result, context=self.response_validation_context
         )
 
     def get_blobs(

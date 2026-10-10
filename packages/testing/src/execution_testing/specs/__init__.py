@@ -15,6 +15,7 @@ from .blockchain import (
     BlockchainTestSpec,
     Header,
 )
+from .reorg import ReorgBlock, ReorgTest, ReorgTestFiller, ReorgTestSpec
 from .state import StateTest, StateTestFiller, StateTestSpec
 from .transaction import (
     TransactionTest,
@@ -38,6 +39,10 @@ __all__ = (
     "Block",
     "Header",
     "OpcodeTarget",
+    "ReorgBlock",
+    "ReorgTest",
+    "ReorgTestFiller",
+    "ReorgTestSpec",
     "StateTest",
     "StateTestFiller",
     "StateTestSpec",

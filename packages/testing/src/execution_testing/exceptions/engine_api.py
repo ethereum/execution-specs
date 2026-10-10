@@ -17,3 +17,4 @@ class EngineAPIError(IntEnum):
     InvalidPayloadAttributes = -38003
     TooLargeRequest = -38004
     UnsupportedFork = -38005
+    TooDeepReorg = -38006
