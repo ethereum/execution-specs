@@ -53,7 +53,8 @@ class TestGenerateBuildMatrix:
         matrix = json.loads(out["build_matrix"])
         assert len(matrix) > 1
         assert out["feature_name"] == "tests"
-        assert matrix[-1]["until_fork"] == "Amsterdam"
+        ranges = {e["label"]: e["until_fork"] for e in matrix}
+        assert ranges["osaka"] == "BPO2"
         assert out["combine_labels"] != ""
         labels = [e["label"] for e in matrix]
         assert all(lbl != "" for lbl in labels)
