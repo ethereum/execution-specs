@@ -5,6 +5,7 @@ import time
 from typing import Generator
 
 import pytest
+from _pytest.reports import TestReport
 from hive.client import Client
 
 from execution_testing.base_types import to_json
@@ -19,6 +20,11 @@ from .helpers.ruleset import ruleset
 from .helpers.test_tracker import PreAllocGroupTestTracker
 
 logger = logging.getLogger(__name__)
+
+multi_test_client_manager_key: pytest.StashKey["MultiTestClientManager"] = (
+    pytest.StashKey()
+)
+"""Session stash entry for the manager, read by the setup-outcome hook."""
 
 
 class MultiTestClientManager:
@@ -129,14 +135,15 @@ class MultiTestClientManager:
 
 
 @pytest.fixture(scope="session")
-def multi_test_client_manager() -> Generator[
-    MultiTestClientManager, None, None
-]:
+def multi_test_client_manager(
+    request: pytest.FixtureRequest,
+) -> Generator[MultiTestClientManager, None, None]:
     """
     Provide session-scoped MultiTestClientManager with automatic cleanup.
 
     """
     manager = MultiTestClientManager()
+    request.session.stash[multi_test_client_manager_key] = manager
     try:
         yield manager
     finally:
@@ -279,3 +286,36 @@ def environment(
 
     environment_cache[pre_hash] = env
     return env
+
+
+def _group_identifier(item: pytest.Item) -> str | None:
+    """Return the client group `item` was assigned at parametrization."""
+    for marker in item.iter_markers("xdist_group"):
+        if "name" in marker.kwargs:
+            return marker.kwargs["name"]
+    return None
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(
+    item: pytest.Item, call: pytest.CallInfo[None]
+) -> Generator[None, TestReport, TestReport]:
+    """
+    Count a test that did not get past setup toward its group.
+
+    A group's client is stopped once every test of the group has
+    completed, and completion is normally recorded when the `client`
+    fixture tears down. A test that skips or errors in a fixture
+    requested before `client` never reaches it, so without this hook
+    its group would never complete and its client would stay alive
+    until the session ends. Recording the same test twice is harmless.
+    """
+    del call
+    report = yield
+    if report.when != "setup" or report.passed:
+        return report
+    manager = item.session.stash.get(multi_test_client_manager_key, None)
+    group_identifier = _group_identifier(item)
+    if manager is not None and group_identifier is not None:
+        manager.mark_test_completed(group_identifier, item.nodeid)
+    return report
