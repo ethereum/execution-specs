@@ -832,6 +832,8 @@ BLOCKCHAIN_ENGINE_IL_FIXTURE_FORMATS: List[
         transition_tool_cache_key_suffix="inclusion_list",
     )
     for f in BLOCKCHAIN_ENGINE_FIXTURE_FORMATS
+    # Only the engine simulators check `inclusionListSatisfied`.
+    if f in (BlockchainEngineFixture, BlockchainEngineXFixture)
 ]
 
 
