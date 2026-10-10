@@ -44,3 +44,31 @@ When creating pull requests that touch several forks under `src/ethereum/forks/`
 This saves you from applying code review feedback repeatedly for each fork.
 
 See [Writing Specs](docs/specs/writing_specs.md) for the technical style rules (naming, comments, docstrings, constants, cross-fork discipline) and for the `ethereum_spec_tools` CLI utilities that help with these workflows.
+
+## Commit messages and PR titles
+
+Pull requests are squash merged, and the PR title becomes the commit message. PR titles follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
+
+```text
+<type>(<area>): <description>
+```
+
+`<type>` comes from a [`C-<type>`](https://github.com/ethereum/execution-specs/labels?q=C-) label:
+
+| `<type>`   | Label        | Use for                                                     |
+| ---------- | ------------ | ----------------------------------------------------------- |
+| `feat`     | `C-feat`     | An improvement or new feature, including new test cases.    |
+| `fix`      | `C-bug`      | A bug fix. Issues use the `bug` label; PR titles use `fix`. |
+| `refactor` | `C-refactor` | Code changes that neither fix a bug nor add a feature.      |
+| `perf`     | `C-perf`     | A performance optimization.                                 |
+| `docs`     | `C-docs`     | Documentation-only changes.                                 |
+| `test`     | `C-test`     | Changes to unit tests only.                                 |
+| `chore`    | `C-chore`    | Routine maintenance, such as cleanups and dependency bumps. |
+
+The remaining `C-` labels (for example `C-eip`, `C-question` and `C-tracker`) categorize issues and are not used as title types.
+
+`<area>` comes from an [`A-<area>`](https://github.com/ethereum/execution-specs/labels?q=A-) label, for example `spec-specs` for the specification, `tests` for consensus tests, `test-fill` for the `fill` command, `doc` for documentation, or `ci`. Separate multiple areas with a comma, for example `feat(spec-specs,tests): ...`.
+
+Maintainers apply the matching labels when triaging the PR.
+
+Keep the description short, lowercase and in the imperative mood ("add", not "added" or "adds"), with code names in backticks and no trailing period.
