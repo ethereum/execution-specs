@@ -69,6 +69,15 @@ pytestmark = pytest.mark.valid_from("EIP7709")
             Op.BLOCKHASH(1),
             id="aliased_future_block_does_not_warm",
         ),
+        pytest.param(
+            1,
+            Op.POP(Op.BLOCKHASH(1)),
+            # Aliases block 1's warm slot but lies in the future.
+            Op.BLOCKHASH(
+                1 + Spec.HISTORY_SERVE_WINDOW, in_window=False, key_warm=True
+            ),
+            id="aliased_future_block_ignores_warm_slot",
+        ),
     ],
 )
 def test_blockhash_gas(
