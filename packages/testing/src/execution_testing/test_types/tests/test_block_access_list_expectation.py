@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from execution_testing.base_types import Address, Bytes, StorageKey
+from execution_testing.base_types import Address, Bytes, Hash, StorageKey
 from execution_testing.test_types.block_access_list import (
     BalAccountAbsentValues,
     BalAccountChange,
@@ -764,6 +764,59 @@ def test_absent_values_code_changes(has_change_should_raise: bool) -> None:
             expectation.verify_against(actual_bal)
     else:
         expectation.verify_against(actual_bal)
+
+
+@pytest.mark.parametrize(
+    "actual_hash,matches",
+    [
+        pytest.param(Hash(1), True, id="same_hash"),
+        pytest.param(Hash(2), False, id="other_hash"),
+        pytest.param(None, False, id="code_cleared"),
+    ],
+)
+def test_code_change_hash_must_match(
+    actual_hash: Hash | None, matches: bool
+) -> None:
+    """A hash-form code change matches only the same `new_code_hash`."""
+    alice = Address(0xA)
+    change = BalCodeChange(
+        block_access_index=1, new_code=b"", new_code_hash=Hash(1)
+    )
+    actual_bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=alice,
+                code_changes=[
+                    BalCodeChange(
+                        block_access_index=1,
+                        new_code=b"",
+                        new_code_hash=actual_hash,
+                    )
+                ],
+            )
+        ]
+    )
+    expected = BlockAccessListExpectation(
+        account_expectations={
+            alice: BalAccountExpectation(code_changes=[change])
+        }
+    )
+    forbidden = BlockAccessListExpectation(
+        account_expectations={
+            alice: BalAccountExpectation(
+                absent_values=BalAccountAbsentValues(code_changes=[change])
+            )
+        }
+    )
+
+    if matches:
+        expected.verify_against(actual_bal)
+        with pytest.raises(Exception, match="Unexpected code change"):
+            forbidden.verify_against(actual_bal)
+    else:
+        with pytest.raises(BlockAccessListValidationError):
+            expected.verify_against(actual_bal)
+        forbidden.verify_against(actual_bal)
 
 
 def test_multiple_absent_valuess() -> None:
