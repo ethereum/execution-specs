@@ -1,0 +1,3 @@
+general/code_coverage/eels = Not measurable until EELS implements SETCODEFROM; measure with `uv run fill --until Bogota --cov=ethereum.forks.bogota --cov-branch tests/bogota/eip8298_setcodefrom`
+general/code_coverage/test_coverage = Not measurable until EELS implements SETCODEFROM; same command with `--cov=tests/bogota/eip8298_setcodefrom`
+general/code_coverage/missed_lines = Not measurable until EELS implements SETCODEFROM; read off the coverage report above
