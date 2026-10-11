@@ -7,6 +7,7 @@ Mostly a copy of `tests/cancun/eip4844_blobs/conftest.py`.
 import pytest
 from execution_testing import Environment, Fork
 
+from ...cancun.eip4844_blobs.spec import SpecHelpers
 from .spec import Spec
 
 
@@ -96,56 +97,16 @@ def block_base_fee_per_gas(
     If a positive value is passed instead, the returned base fee per gas value
     will trigger the reserve price.
     """
-    blob_base_cost = Spec.BLOB_BASE_COST
-    gas_per_blob = fork.transitions_to().blob_gas_per_blob()
-    if parent_excess_blobs is None:
-        blob_base_fee = 1
-    else:
-        parent_excess_blob_gas = parent_excess_blobs * gas_per_blob
-        blob_gas_price_calculator = (
-            fork.transitions_to().blob_gas_price_calculator()
-        )
-        blob_base_fee = blob_gas_price_calculator(
-            excess_blob_gas=parent_excess_blob_gas
-        )
-    boundary_base_fee = gas_per_blob * blob_base_fee // blob_base_cost
-    if Spec.is_reserve_price_active(
-        fork=fork,
-        base_fee_per_gas=boundary_base_fee,
-        blob_base_fee=blob_base_fee,
-    ):
-        raise AssertionError(f"""
-        Reserve price should be inactive at boundary:
-        parent_excess_blob_gas={parent_excess_blob_gas}
-        blob_base_fee={blob_base_fee}
-
-        boundary_base_fee={boundary_base_fee}
-        BLOB_BASE_COST={blob_base_cost}
-        BLOB_BASE_COST * boundary_base_fee={boundary_base_fee * blob_base_cost}
-
-        blob_base_fee={blob_base_fee}
-        GAS_PER_BLOB={gas_per_blob}
-        GAS_PER_BLOB * blob_base_fee={gas_per_blob * blob_base_fee}
-        """)
-    if not Spec.is_reserve_price_active(
-        fork=fork,
-        base_fee_per_gas=boundary_base_fee + 1,
-        blob_base_fee=blob_base_fee,
-    ):
-        boundary_plus_one = boundary_base_fee + 1
-        raise AssertionError(f"""
-        Reserve price should be active after boundary:
-        parent_excess_blob_gas={parent_excess_blob_gas}
-        blob_base_fee={blob_base_fee}
-
-        boundary_base_fee={boundary_plus_one}
-        BLOB_BASE_COST={blob_base_cost}
-        BLOB_BASE_COST * boundary_base_fee={boundary_plus_one * blob_base_cost}
-
-        blob_base_fee={blob_base_fee}
-        GAS_PER_BLOB={gas_per_blob}
-        GAS_PER_BLOB * blob_base_fee={gas_per_blob * blob_base_fee}
-        """)
+    post_fork = fork.transitions_to()
+    parent_excess_blob_gas = (
+        0
+        if parent_excess_blobs is None
+        else parent_excess_blobs * post_fork.blob_gas_per_blob()
+    )
+    boundary_base_fee = SpecHelpers.get_reserve_price_boundary_base_fee(
+        fork=post_fork,
+        parent_excess_blob_gas=parent_excess_blob_gas,
+    )
     return boundary_base_fee + block_base_fee_per_gas_delta
 
 

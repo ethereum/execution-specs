@@ -21,6 +21,7 @@ from execution_testing import (
     Hash,
     Header,
     Op,
+    ParameterSet,
     Transaction,
     TransitionFork,
     add_kzg_version,
@@ -33,9 +34,87 @@ REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 # Timestamp of the fork
 FORK_TIMESTAMP = 15_000
+PRE_FORK_BLOCK_TIMESTAMPS = range(999, FORK_TIMESTAMP, 1_000)
 
 # Non-zero to avoid account creation charges
 DESTINATION_ACCOUNT_START_BALANCE = 1
+
+
+def get_pre_fork_excess_blob_gas(
+    pre_fork: Fork,
+    pre_fork_blobs_per_block: int,
+    block_base_fee_per_gas: int,
+) -> int:
+    """
+    Return the excess blob gas of the last pre-fork block.
+
+    Uses the pre-fork calculator, which handles the EIP-7918 reserve price
+    for >=Osaka.
+    """
+    if not pre_fork.supports_blobs():
+        return 0
+
+    calc_excess_blob_gas = pre_fork.excess_blob_gas_calculator()
+    excess_blob_gas = 0
+
+    # First block is built on genesis which has 0 blobs
+    for i in range(len(PRE_FORK_BLOCK_TIMESTAMPS)):
+        parent_blob_count = 0 if i == 0 else pre_fork_blobs_per_block
+        excess_blob_gas = calc_excess_blob_gas(
+            parent_excess_blob_gas=excess_blob_gas,
+            parent_blob_count=parent_blob_count,
+            parent_base_fee_per_gas=block_base_fee_per_gas,
+        )
+
+    return excess_blob_gas
+
+
+def get_fork_block_reserve_price_base_fee(
+    pre_fork: Fork,
+    post_fork: Fork,
+    pre_fork_blobs_per_block: int,
+    delta: int,
+) -> int:
+    """
+    Return the base fee that sits `delta` above the EIP-7918 reserve price
+    boundary of the fork block.
+
+    The boundary depends on the blob base fee at the fork, which in turn
+    depends on the base fee through the pre-fork reserve price, so iterate
+    until the value is stable.
+    """
+    base_fee = 1
+    for _ in range(10):
+        parent_excess_blob_gas = get_pre_fork_excess_blob_gas(
+            pre_fork, pre_fork_blobs_per_block, base_fee
+        )
+        next_base_fee = (
+            SpecHelpers.get_reserve_price_boundary_base_fee(
+                fork=post_fork,
+                parent_excess_blob_gas=parent_excess_blob_gas,
+            )
+            + delta
+        )
+        if next_base_fee == base_fee:
+            return base_fee
+        base_fee = next_base_fee
+    raise AssertionError(
+        "Reserve price base fee did not converge for "
+        f"{pre_fork.name()} to {post_fork.name()}"
+    )
+
+
+def reserve_price_cases(fork: TransitionFork) -> List[ParameterSet]:
+    """
+    Return the base fee cases to cover at the fork block.
+
+    The boundary cases only apply when the fork introduces or keeps the
+    EIP-7918 reserve price.
+    """
+    cases = ["reserve_inactive"]
+    if fork.transitions_to().blob_reserve_price_active():
+        cases += ["reserve_boundary", "reserve_active"]
+    return [pytest.param(case, id=case) for case in cases]
 
 
 @pytest.fixture
@@ -104,7 +183,7 @@ def pre_fork_blocks(
     """Generate blocks to reach the fork."""
     blocks = []
 
-    for t in range(999, FORK_TIMESTAMP, 1_000):
+    for t in PRE_FORK_BLOCK_TIMESTAMPS:
         remaining_gas = block_gas_limit // 2
         if pre_fork_blobs_per_block == 0:
             blocks.append(
@@ -175,36 +254,49 @@ def pre_fork_blocks(
 
 
 @pytest.fixture
+def reserve_price_case() -> str:
+    """Return the default base fee case for the fork block."""
+    return "reserve_inactive"
+
+
+@pytest.fixture
+def block_base_fee_per_gas(
+    block_base_fee_per_gas: int,
+    pre_fork: Fork,
+    post_fork: Fork,
+    pre_fork_blobs_per_block: int,
+    reserve_price_case: str,
+) -> int:
+    """
+    Return the base fee per gas of the pre-fork blocks.
+
+    Boundary cases are derived from the post-fork blob parameters so that
+    the fork block always lands on the intended side of the EIP-7918 reserve
+    price condition.
+    """
+    if reserve_price_case == "reserve_inactive":
+        return block_base_fee_per_gas
+    if reserve_price_case == "reserve_boundary":
+        delta = 0
+    elif reserve_price_case == "reserve_active":
+        delta = 1
+    else:
+        raise ValueError(f"unhandled reserve price case {reserve_price_case}")
+    return get_fork_block_reserve_price_base_fee(
+        pre_fork, post_fork, pre_fork_blobs_per_block, delta
+    )
+
+
+@pytest.fixture
 def pre_fork_excess_blob_gas(
     pre_fork: Fork,
     pre_fork_blobs_per_block: int,
-    pre_fork_blocks: List[Block],
     block_base_fee_per_gas: int,
 ) -> int:
-    """
-    Return the cumulative excess blob gas up until the fork.
-
-    Calculates the expected excess blob gas by iterating through pre-fork
-    blocks using the fork's calculator, which handles EIP-7918 reserve price
-    for >=Osaka.
-    """
-    if not pre_fork.supports_blobs():
-        return 0
-
-    calc_excess_blob_gas = pre_fork.excess_blob_gas_calculator()
-    excess_blob_gas = 0
-
-    # Calculate excess accumulation for each pre-fork block
-    # First block is built on genesis which has 0 blobs
-    for i in range(len(pre_fork_blocks)):
-        parent_blob_count = 0 if i == 0 else pre_fork_blobs_per_block
-        excess_blob_gas = calc_excess_blob_gas(
-            parent_excess_blob_gas=excess_blob_gas,
-            parent_blob_count=parent_blob_count,
-            parent_base_fee_per_gas=block_base_fee_per_gas,
-        )
-
-    return excess_blob_gas
+    """Return the cumulative excess blob gas up until the fork."""
+    return get_pre_fork_excess_blob_gas(
+        pre_fork, pre_fork_blobs_per_block, block_base_fee_per_gas
+    )
 
 
 @pytest.fixture
@@ -541,7 +633,7 @@ def test_fork_transition_excess_blob_gas_at_blob_genesis(
         ),
     ],
 )
-@pytest.mark.parametrize("block_base_fee_per_gas", [7, 16, 23])
+@pytest.mark.parametrize_by_fork("reserve_price_case", reserve_price_cases)
 @pytest.mark.slow
 def test_fork_transition_excess_blob_gas_post_blob_genesis(
     blockchain_test: BlockchainTestFiller,

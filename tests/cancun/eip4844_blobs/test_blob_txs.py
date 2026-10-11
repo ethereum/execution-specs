@@ -33,6 +33,7 @@ from execution_testing import (
     Hash,
     Header,
     Op,
+    ParameterSet,
     RecipientType,
     Removable,
     StateTestFiller,
@@ -47,6 +48,64 @@ from .spec import Spec, SpecHelpers, ref_spec_4844
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
 REFERENCE_SPEC_VERSION = ref_spec_4844.version
+
+
+def reserve_price_cases(fork: Fork) -> List[ParameterSet]:
+    """
+    Return the base fee cases to cover, adding the EIP-7918 reserve price
+    case for forks that support it.
+    """
+    cases = ["reserve_inactive"]
+    if fork.blob_reserve_price_active():
+        cases.append("reserve_active")
+    return [pytest.param(case, id=case) for case in cases]
+
+
+@pytest.fixture
+def reserve_price_case() -> str:
+    """Return the default base fee case."""
+    return "reserve_inactive"
+
+
+@pytest.fixture
+def parent_excess_blobs(
+    parent_excess_blobs: int | None,
+    fork: Fork,
+    reserve_price_case: str,
+) -> int | None:
+    """
+    Return the excess blobs of the parent block.
+
+    The reserve price is only evaluated once the parent excess blob gas
+    reaches the target, so raise it to the target for the reserve price case.
+    """
+    if reserve_price_case == "reserve_inactive" or parent_excess_blobs is None:
+        return parent_excess_blobs
+    return max(parent_excess_blobs, fork.target_blobs_per_block())
+
+
+@pytest.fixture
+def block_base_fee_per_gas(
+    block_base_fee_per_gas: int,
+    fork: Fork,
+    parent_excess_blob_gas: int | None,
+    reserve_price_case: str,
+) -> int:
+    """
+    Return the base fee per gas, derived from the fork's blob parameters for
+    the reserve price case.
+    """
+    if reserve_price_case == "reserve_inactive":
+        return block_base_fee_per_gas
+    if reserve_price_case != "reserve_active":
+        raise ValueError(f"unhandled reserve price case {reserve_price_case}")
+    return (
+        SpecHelpers.get_reserve_price_boundary_base_fee(
+            fork=fork,
+            parent_excess_blob_gas=parent_excess_blob_gas or 0,
+        )
+        + 1
+    )
 
 
 @pytest.fixture
@@ -471,7 +530,7 @@ def block(
     "blobs_per_tx",
     SpecHelpers.all_valid_blob_combinations,
 )
-@pytest.mark.parametrize("block_base_fee_per_gas", [7, 100])
+@pytest.mark.parametrize_by_fork("reserve_price_case", reserve_price_cases)
 @pytest.mark.valid_from("Cancun")
 def test_valid_blob_tx_combinations(
     blockchain_test: BlockchainTestFiller,
@@ -782,7 +841,7 @@ def test_insufficient_balance_blob_tx(
     [b"", b"\x00", b"\x01"],
     ids=["no_calldata", "single_zero_calldata", "single_one_calldata"],
 )
-@pytest.mark.parametrize("block_base_fee_per_gas", [7, 100])
+@pytest.mark.parametrize_by_fork("reserve_price_case", reserve_price_cases)
 @pytest.mark.parametrize("tx_max_fee_per_blob_gas_multiplier", [1, 100, 10000])
 @pytest.mark.valid_from("Cancun")
 def test_sufficient_balance_blob_tx(
