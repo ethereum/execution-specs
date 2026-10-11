@@ -30,7 +30,7 @@ pytestmark = pytest.mark.valid_from("Osaka")
 
 
 def _leaf_size(count: int, withdrawal: Withdrawal) -> int:
-    """RLP size of `withdrawal`'s leaf in a trie of `count` withdrawals."""
+    """Return the RLP size of `withdrawal`'s leaf in a trie of `count`."""
     depth, kind, rest = index_shape(count, int(withdrawal.index))[-1]
     assert kind == "leaf"
     value = rlp.encode(withdrawal.to_serializable_list())
@@ -87,10 +87,10 @@ def test_single_small_withdrawal_root_is_hashed(
     """
     One 100 Gwei withdrawal: the whole trie is a 30-byte leaf.
 
-    post: leaf(2), 30 bytes
-    A node under 32 bytes is inlined everywhere except at the root, which
-    is always hashed; `withdrawalsRoot` is keccak256 of the leaf RLP.
-    State-trie roots are never this small.
+    post: leaf(2), 30 B
+    A node under 32 B is inlined everywhere except at the root, which is
+    always hashed: `withdrawalsRoot` is keccak256 of the leaf RLP. State
+    tries never have a root this small.
     """
     recipient = pre.fund_eoa(amount=0)
     amount = 100

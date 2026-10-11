@@ -1,36 +1,32 @@
 """
 Exercise the Merkle Patricia Trie via account addresses.
 
-The account trie runs the same node code as a storage trie in every
-surveyed client; what differs is the bookkeeping around it: account
-destruction and resurrection, the storage root carried inside the leaf
-value, and the accounts every block touches (sender, coinbase, system
-contracts). The tests here target that bookkeeping on mined addresses
-(`*_ADDRS_*` in `constants.py`).
+The account trie adds bookkeeping to the node operations the storage
+tests cover: accounts are deleted and re-created, each leaf value carries
+a storage root, and every block touches accounts the test does not
+choose (sender, coinbase, system contracts). The tests use mined
+addresses (`*_ADDRS_*` in `constants.py`).
 
-The account trie also holds accounts the test does not control, so shape
-assertions are computed over the genesis set of every fixture the test
-fills (pre-alloc plus the fork's predeploys, fewer in a state test than
-in the blockchain fixtures derived from it, plus the coinbase after the
-block) and pin the node kind around the mined group rather than the
-whole path; an uncontrolled account sharing the group's prefix would
-fail the fill.
+Because of those accounts, shape assertions run over the genesis of
+every fixture a test fills (the pre-alloc plus the fork's predeploys,
+fewer in a state test than in the blockchain fixtures derived from it,
+plus the coinbase after the block) and pin only the nodes around the
+mined group; an uncontrolled account sharing the group's prefix fails
+the fill.
 
-Deleting a committed account leaf on these forks is only possible for a
-contract created in the same transaction (EIP-6780). The deletion tests
-fund a mined address at genesis and CREATE2 onto it through the
-deterministic factory with init code that immediately self-destructs:
-creation at a balance-only address is legal, the contract counts as
-created in the transaction, and the pre-existing leaf is removed. The
-init code sends the balance to the sender, because from EIP-8246 a
+A committed account leaf can only be deleted by a contract created in the
+same transaction (EIP-6780). The deletion tests fund a mined address at
+genesis and CREATE2 onto it through the deterministic factory with init
+code that self-destructs at once: creation at a balance-only address is
+legal, and the contract counts as created in the transaction. The init
+code sends the balance to the sender, because from EIP-8246 a
 self-destructed account keeps its balance and is removed only when that
 balance is zero (EIP-161).
 
-Not expressible: wiping a committed storage trie in one step while its
-account survives; EIP-161 clearing of a committed empty account (the
-filler does not emit empty genesis accounts); and, excluded on purpose,
-CREATE2 onto an address with pre-existing storage, where this
-specification and geth currently disagree.
+Not expressible: emptying a committed storage trie in one step while its
+account survives, and clearing a committed empty account (the filler
+emits no empty genesis accounts). CREATE2 onto an address that holds
+storage is out of scope.
 """
 
 from typing import Iterable, List, Tuple
@@ -92,12 +88,11 @@ def _create2_address(salt: int) -> Address:
 
 def _ensure_factory(pre: Alloc, fork: Fork) -> None:
     """
-    Bring the deterministic factory into the genesis state.
+    Put the deterministic factory into the genesis state.
 
-    From EIP-7997 the fork allocates it in genesis at the same address.
-    Before that the filler only injects it on first use of
-    `deterministic_deploy_contract`, so deploy a trivial contract through
-    it.
+    Forks with EIP-7997 allocate it in genesis; on the others the filler
+    adds it only on the first `deterministic_deploy_contract`, so deploy a
+    trivial contract through it.
     """
     if fork.deterministic_factory_contract_address() is None:
         pre.deterministic_deploy_contract(deploy_code=Op.STOP)
@@ -105,7 +100,7 @@ def _ensure_factory(pre: Alloc, fork: Fork) -> None:
 
 
 def _delete_tx(sender: EOA, salt: int) -> Transaction:
-    """CREATE2 `DELETE_INITCODE` with `salt`; it self-destructs at once."""
+    """Return a factory call that deploys `DELETE_INITCODE` under `salt`."""
     return Transaction(
         sender=sender,
         to=DETERMINISTIC_FACTORY_ADDRESS,
@@ -115,7 +110,7 @@ def _delete_tx(sender: EOA, salt: int) -> Transaction:
 
 def _genesis(pre: Alloc, fork: Fork) -> List[Address]:
     """
-    Addresses in a blockchain fixture's genesis trie.
+    Return the addresses in a blockchain fixture's genesis trie.
 
     The filler adds the fork's `pre_allocation_blockchain()` to the
     pre-alloc; call this once every account is in `pre`.
@@ -125,7 +120,7 @@ def _genesis(pre: Alloc, fork: Fork) -> List[Address]:
 
 def _state_test_genesis_sets(pre: Alloc, fork: Fork) -> List[List[Address]]:
     """
-    Addresses in the genesis trie of each fixture a state test fills.
+    Return the genesis addresses of each fixture a state test fills.
 
     The state fixture adds only `pre_allocation()` to the pre-alloc, the
     blockchain fixtures derived from it the set of `_genesis`; a shape
@@ -140,7 +135,7 @@ def _state_test_genesis_sets(pre: Alloc, fork: Fork) -> List[List[Address]]:
 def _after_block(
     genesis: Iterable[Address], *removed: Address
 ) -> List[Address]:
-    """Addresses after a block: `removed` gone, the coinbase credited."""
+    """Return `genesis` after a block: `removed` gone, the coinbase added."""
     return [a for a in genesis if a not in removed] + [
         Environment().fee_recipient
     ]
@@ -220,6 +215,7 @@ def test_genesis_full_branch_arity_sixteen(
 
 
 def _pay_each(addresses: List[Address]) -> Bytecode:
+    """Return code that sends 1 wei to each address in turn."""
     code = Bytecode()
     for address in addresses:
         code += Op.POP(Op.CALL(gas=Op.GAS, address=address, value=1))
@@ -232,7 +228,7 @@ def test_insert_full_branch_during_execution(
     """
     A contract pays sixteen mined addresses, creating their leaves.
 
-    pre:  no node at depth 4 on the group's path
+    pre:  no branch at depth 4 on the group's path
     post: .. -> branch@4 -> {16 x leaf}
     """
     addresses = [Address(x) for x in SIXTEEN_ADDRS_BRANCH4]
@@ -257,12 +253,10 @@ def test_touched_empty_account_never_persists(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    A zero-value call to a never-seen address creates nothing.
+    A zero-value call to a never-seen address creates no leaf.
 
     pre:  no leaf for the target
-    post: still none
-    Control: EIP-161 clears the transiently empty account before the root
-    is computed.
+    post: none; EIP-161 removes the touched empty account
     """
     target = pre.fund_eoa(amount=0)
     assert target not in pre
@@ -285,7 +279,7 @@ def test_account_deleted_and_recreated_same_block(
 
     pre:  .. -> branch@4 -> {survivor, doomed}
     post: the same shape; doomed is a balance-only leaf again
-    A per-block destruction record must not shadow the later write.
+    The value transfer wins over the deletion earlier in the block.
     """
     survivor, doomed, sender, genesis = _fund_collapse_pair(pre, fork)
     after = account_shape(_after_block(genesis), survivor)
@@ -327,9 +321,7 @@ def test_storage_root_flip_with_account_shape_change(
 
     pre:  .. -> ext -> branch@4 -> {survivor contract, doomed}
     post: .. -> leaf whose value carries the flipped storage root
-    Storage root and account re-pathing change in one block diff. The
-    survivor is created through the factory with a salt mined so that its
-    address shares four nibbles with the doomed one.
+    The survivor's storage root and its path change in the same block.
     """
     doomed = _create2_address(COLLAPSE_SALT)
     survivor = pre.deterministic_deploy_contract(
@@ -374,7 +366,7 @@ def test_delete_and_update_survivor_same_block(
 
     pre:  .. -> branch@4 -> {survivor = 1 wei, doomed}
     post: .. -> leaf survivor = 2 wei
-    The collapsed leaf must carry the survivor's updated balance.
+    The collapsed leaf carries the survivor's new balance.
     """
     survivor, doomed, sender, genesis = _fund_collapse_pair(pre, fork)
     after = account_shape(_after_block(genesis, doomed), survivor)
@@ -434,10 +426,10 @@ def test_resurrection_via_withdrawal(
     Delete a leaf, then a withdrawal targets its address in the same block.
 
     pre:  .. -> branch@4 -> {survivor, doomed}
-    post: the pre shape with doomed re-created by the withdrawal credit,
-          or the collapsed leaf when the withdrawal carries 0 Gwei
-    Withdrawals are applied after the transactions; a zero one must not
-    leave an empty account behind.
+    post: the pre shape when the withdrawal credits the address, the
+          collapsed leaf when it credits 0 Gwei
+    Withdrawals apply after the transactions; a zero-amount one leaves no
+    empty account behind.
     """
     survivor, doomed, sender, genesis = _fund_collapse_pair(pre, fork)
     resurrected: Account | None
@@ -643,8 +635,8 @@ def test_mass_delete_sixteen_to_one(
 
     pre:  .. -> ext -> branch@4 -> {survivor, 15 x doomed}
     post: .. -> leaf survivor
-    Fifteen CREATE2 deletions in one block collapse the branch onto the
-    survivor and merge it into the extension above.
+    The branch collapses onto the survivor, which merges with the
+    extension above.
     """
     survivor = Address(SIXTEEN_ADDRS_BRANCH4[0])
     doomed = [_create2_address(s) for s in SIXTEEN_SALTS_BRANCH4]

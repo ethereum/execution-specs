@@ -1,14 +1,14 @@
 """
-Keys whose keccak256 hashes force specific Merkle Patricia Trie shapes.
+Mined keys that force Merkle Patricia Trie shapes, and the code they use.
 
 Storage slots are hashed as 32-byte big-endian indices, addresses as
 20-byte big-endian integers, CREATE2 salts through the deterministic
-factory with the self-destructing init code of the account tests. Every
-value was found by brute-force search over consecutive integers; each
-comment states the search rule precisely enough to reproduce the value
-with a few lines of Python. Nothing here is recomputed at fill time: the
-tests that use a group assert the trie shape it is meant to produce
-against the reference `patricialize`, so a wrong value fails the fill.
+factory with `DELETE_INITCODE` unless stated. Every value is the first
+hit of a brute-force search over consecutive integers; each comment
+states the search rule precisely enough to reproduce the value with a
+few lines of Python. Nothing here is recomputed at fill time: the tests
+that use a group assert the shape it is meant to produce against the
+reference `patricialize`, so a wrong value fails the fill.
 
 "Share exactly n nibbles" means the keccak256 hashes agree on their first
 n hex digits and differ on digit n. Searches start at 1 (slots), 0x10000

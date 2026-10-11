@@ -99,17 +99,17 @@ def test_index_trie_shapes(
     last_shape: Shape,
 ) -> None:
     """
-    One block of `count` transfers; the index tries take the shape below.
+    One block of `count` transfers.
 
-    post along the last key:
-      17:  branch@0 -> {.., 1: leaf(1)}                 nibble-1 slot opens
+    post: along the last key, for each count:
+      17:  branch@0 -> {.., 1: leaf(1)}
       129: branch@0 -> {8: branch@1 -> {leaf(0), leaf(2)}}
-      130: .. -> branch@1 -> {.., 1: ext(1) -> branch@3}   1-nibble ext
-      145: .. -> branch@1 -> {.., 1: branch@2}             the ext dissolves
-      257: branch@0 -> {8: branch@1 -> {.., 2: leaf(4)}}   3-byte key
-      258: .. -> branch@1 -> {.., 2: ext(3) -> branch@5}   3-nibble ext
-      273: .. -> branch@1 -> {.., 2: ext(2) -> branch@4}   split at last nibble
-    Same keys drive the receipts trie of the block.
+      130: .. -> branch@1 -> {.., 1: ext(1) -> branch@3}
+      145: .. -> branch@1 -> {.., 1: branch@2}
+      257: branch@0 -> {8: branch@1 -> {.., 2: leaf(4)}}
+      258: .. -> branch@1 -> {.., 2: ext(3) -> branch@5}
+      273: .. -> branch@1 -> {.., 2: ext(2) -> branch@4}
+    The receipts trie of the block has the same keys.
     """
     assert index_shape(count, count - 1) == last_shape
     sender = pre.fund_eoa()

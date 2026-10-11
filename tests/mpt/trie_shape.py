@@ -31,6 +31,7 @@ child count) or `empty` (size 0, an empty trie)."""
 
 
 def _nibbles(preimage: bytes, secured: bool) -> Bytes:
+    """Return the nibble path of `preimage`, hashed when `secured`."""
     key = keccak256(preimage) if secured else preimage
     return bytes_to_nibble_list(Bytes(key))
 
@@ -64,17 +65,17 @@ def path_shape(
 
 
 def storage_shape(slots: Sequence[int], target: int) -> Shape:
-    """Shape along `target` in a storage trie holding `slots`."""
+    """Return the shape along `target` in a storage trie of `slots`."""
     return path_shape([slot_key(s) for s in slots], slot_key(target))
 
 
 def account_shape(addresses: Iterable[bytes], target: bytes) -> Shape:
-    """Shape along `target` in an account trie holding `addresses`."""
+    """Return the shape along `target` in an account trie of `addresses`."""
     return path_shape([bytes(a) for a in addresses], bytes(target))
 
 
 def index_shape(count: int, position: int) -> Shape:
-    """Shape along `position` in an index trie of `count` entries."""
+    """Return the shape along `position` in an index trie of `count` keys."""
     keys = [bytes(rlp.encode(Uint(i))) for i in range(count)]
     return path_shape(keys, keys[position], secured=False)
 
@@ -104,21 +105,22 @@ def covering(shape: Shape, depth: int) -> Tuple[int, str, int]:
 
 
 def slot_key(slot: int) -> bytes:
-    """Storage-trie preimage for a slot index."""
+    """Return the storage-trie preimage of slot `slot`."""
     return slot.to_bytes(32, "big")
 
 
 def leaf_rlp_size(rest_nibbles: int, value_rlp: bytes) -> int:
     """
-    RLP size of a leaf with `rest_nibbles` left and an RLP-encoded value.
+    Return the RLP size of a leaf with `rest_nibbles` left and a value.
 
-    Mirrors `encode_internal_node`: under 32 bytes the node is inlined into
-    its parent, from 32 bytes on it is referenced by hash.
+    `value_rlp` is RLP-encoded. Mirrors `encode_internal_node`: under 32
+    bytes the node is inlined into its parent, from 32 bytes on it is
+    referenced by hash.
     """
     compact = nibble_list_to_compact(Bytes(bytes(rest_nibbles)), True)
     return len(rlp.encode((compact, Bytes(value_rlp))))
 
 
 def storage_leaf_size(rest_nibbles: int, value: int) -> int:
-    """`leaf_rlp_size` for a storage slot holding `value`."""
+    """Return `leaf_rlp_size` for a storage slot holding `value`."""
     return leaf_rlp_size(rest_nibbles, bytes(rlp.encode(U256(value))))
