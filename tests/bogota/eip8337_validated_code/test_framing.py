@@ -50,6 +50,20 @@ CASES = [
     ("framed_chain_tail_call", "6004BC00BB600856BBBF", True),
     # The top level jumps to f; f jumps to g; g returns: unframed all the way.
     ("unframed_chain", "600356BB600756BBBF", False),
+    # A longer unframed chain: the top level jumps to a, a jumps to b, b
+    # jumps to c, c stops. Framing must propagate across three jump links;
+    # none of the entries returns, so the code is valid.
+    #   PUSH1 a JUMP  a: CALLDEST PUSH1 b JUMP
+    #   b: CALLDEST PUSH1 c JUMP  c: CALLDEST STOP
+    ("unframed_chain_three_links_stop", "600356BB600756BB600B56BB00", True),
+    # The same chain ending in a RETURNSUB at the third entry: framing must
+    # reach c to see that an unframed entry returns, so the code is invalid.
+    #   ... c: CALLDEST RETURNSUB
+    (
+        "unframed_chain_three_links_returnsub",
+        "600356BB600756BB600B56BBBF",
+        False,
+    ),
 ]
 
 
