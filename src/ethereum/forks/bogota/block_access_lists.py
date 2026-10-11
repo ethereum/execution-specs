@@ -139,6 +139,41 @@ class CodeChange:
 @final
 @slotted_freezable
 @dataclass
+class AdoptedCodeChange:
+    """
+    In a [`BlockAccessList`][bal], represents an [`Account`] adopting the
+    code of another account through [`SETCODEFROM`]. The change records the
+    adopted code hash instead of the bytecode, which is already in the state
+    or in an earlier code change.
+
+    [bal]: ref:ethereum.forks.bogota.block_access_lists.BlockAccessList
+    [`Account`]: ref:ethereum.state.Account
+    [`SETCODEFROM`]: ref:ethereum.forks.bogota.vm.instructions.system.setcodefrom
+    """  # noqa: E501
+
+    block_access_index: BlockAccessIndex
+    """
+    Position within the set of all changes in a [`Block`].
+
+    [`Block`]: ref:ethereum.forks.bogota.blocks.Block
+    """
+
+    new_code: Bytes
+    """
+    Always empty: the code is identified by `new_code_hash`.
+    """
+
+    new_code_hash: Hash32
+    """
+    Code hash of an [`Account`] after this change has been applied.
+
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+
+@final
+@slotted_freezable
+@dataclass
 class SlotChanges:
     """
     In a [`BlockAccessList`][bal], represents a change in an [`Account`]'s
@@ -205,7 +240,7 @@ class AccountChanges:
     [`Account`]: ref:ethereum.state.Account
     """
 
-    code_changes: Tuple[CodeChange, ...]
+    code_changes: Tuple[CodeChange | AdoptedCodeChange, ...]
     """
     Writes to the code of the associated [`Account`].
 
@@ -273,7 +308,9 @@ class AccountData:
     List of nonce changes for this account, ordered by transaction index.
     """
 
-    code_changes: List[CodeChange] = field(default_factory=list)
+    code_changes: List[CodeChange | AdoptedCodeChange] = field(
+        default_factory=list
+    )
     """
     List of code changes (contract deployments) for this account,
     ordered by transaction index.
@@ -476,20 +513,21 @@ def add_nonce_change(
 def add_code_change(
     builder: BlockAccessListBuilder,
     address: Address,
-    block_access_index: BlockAccessIndex,
-    new_code: Bytes,
+    change: CodeChange | AdoptedCodeChange,
 ) -> None:
     """
     Add a code change to the block access list.
 
     Records contract code deployment or modification. This typically occurs
     during contract creation via [`CREATE`], [`CREATE2`], or
-    [`SetCodeTransaction`][sct] operations.
+    [`SetCodeTransaction`][sct] operations, or when an account adopts the code
+    of another account through [`SETCODEFROM`].
 
     [`CREATE`]: ref:ethereum.forks.bogota.vm.instructions.system.create
     [`CREATE2`]: ref:ethereum.forks.bogota.vm.instructions.system.create2
     [sct]: ref:ethereum.forks.bogota.transactions.SetCodeTransaction
-    """
+    [`SETCODEFROM`]: ref:ethereum.forks.bogota.vm.instructions.system.setcodefrom
+    """  # noqa: E501
     ensure_account(builder, address)
 
     # Check if we already have a code change for this block_access_index
@@ -497,20 +535,15 @@ def add_code_change(
     # first deployed and then cleared in the same transaction
     existing_changes = builder.accounts[address].code_changes
     for i, existing in enumerate(existing_changes):
-        if existing.block_access_index == block_access_index:
+        if existing.block_access_index == change.block_access_index:
             # Replace the existing code change with the new one
             # For selfdestructs, this ensures we only record the final
             # state (empty code)
-            existing_changes[i] = CodeChange(
-                block_access_index=block_access_index, new_code=new_code
-            )
+            existing_changes[i] = change
             return
 
     # No existing change for this block_access_index, add a new one
-    change = CodeChange(
-        block_access_index=block_access_index, new_code=new_code
-    )
-    builder.accounts[address].code_changes.append(change)
+    existing_changes.append(change)
 
 
 def remove_storage_write(
@@ -804,11 +837,27 @@ def update_builder_from_tx(
         post_code_hash = (
             post_account.code_hash if post_account else EMPTY_CODE_HASH
         )
-        if pre_code_hash != post_code_hash:
-            post_code = get_code(tx_state, post_code_hash)
-            add_code_change(builder, address, idx, post_code)
-        else:
+        if pre_code_hash == post_code_hash:
             remove_code_change(builder, address, idx)
+        elif address in tx_state.accounts_with_adopted_code:
+            add_code_change(
+                builder,
+                address,
+                AdoptedCodeChange(
+                    block_access_index=idx,
+                    new_code=Bytes(b""),
+                    new_code_hash=post_code_hash,
+                ),
+            )
+        else:
+            add_code_change(
+                builder,
+                address,
+                CodeChange(
+                    block_access_index=idx,
+                    new_code=get_code(tx_state, post_code_hash),
+                ),
+            )
 
     for address, slots in tx_state.storage_writes.items():
         for key, post_value in slots.items():

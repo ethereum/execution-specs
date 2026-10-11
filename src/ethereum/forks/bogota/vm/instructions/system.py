@@ -12,23 +12,27 @@ Implementations of the EVM system related instructions.
 """
 
 from dataclasses import dataclass
-from typing import final
+from typing import Optional, final
 
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
 
-from ethereum.state import Address
+from ethereum.crypto.hash import Hash32
+from ethereum.state import EMPTY_CODE_HASH, Address
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import ExecutionGas, StateGas
 from ...state_tracker import (
     account_deployable,
+    adopt_code,
     get_account,
+    get_account_optional,
     get_code,
     increment_nonce,
     is_account_alive,
     move_ether,
 )
+from ...system_contracts import SYSTEM_CONTRACTS
 from ...utils.address import (
     compute_contract_address,
     compute_create2_contract_address,
@@ -36,7 +40,12 @@ from ...utils.address import (
 )
 from ...vm.eoa_delegation import calculate_delegation_cost
 from .. import CALL_SUCCESS, Evm, emit_transfer_log, incorporate_child
-from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
+from ..exceptions import (
+    CodeChangeInSystemContract,
+    OutOfGasError,
+    Revert,
+    WriteInStaticContext,
+)
 from ..gas import (
     GasCosts,
     GasMeter,
@@ -775,6 +784,74 @@ def selfdestruct(evm: Evm) -> None:
 
     # PROGRAM COUNTER
     pass
+
+
+def setcodefrom(evm: Evm) -> None:
+    """
+    Replace the code of the current account with the code of another account.
+
+    The current account adopts the code hash of `source`, which must exist,
+    hold code that does not start with `0xEF`, and not have been created in
+    the current transaction. Otherwise nothing changes. `1` is pushed onto the
+    stack when `source` is valid and `0` when it is not.
+
+    The running frame keeps executing the code it loaded, while later calls to
+    the current account run the adopted code. The code of a system contract
+    can never be replaced.
+
+    See [EIP-8298].
+
+    [EIP-8298]: https://eips.ethereum.org/EIPS/eip-8298
+    """
+    if evm.is_static:
+        raise WriteInStaticContext
+    if evm.current_target in SYSTEM_CONTRACTS:
+        raise CodeChangeInSystemContract
+
+    # STACK
+    source = to_address_masked(pop(evm.stack))
+
+    # GAS (STATE-INDEPENDENT)
+    # Looking `source` up and inspecting its code is paid on every attempt,
+    # before `source` is accessed.
+    is_cold_access = source not in evm.accessed_addresses
+    if is_cold_access:
+        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
+    else:
+        access_gas_cost = GasCosts.WARM_ACCESS
+    access_gas_cost += GasCosts.WARM_ACCESS
+    charge_gas(evm, access_gas_cost)
+
+    # STATE ACCESS (STATE-DEPENDENT GAS)
+    # A valid `source` also pays to compare the current account's code hash
+    # with its own, and to write it when the two differ.
+    if is_cold_access:
+        evm.accessed_addresses.add(source)
+
+    tx_state = evm.tx_env.state
+    source_account = get_account_optional(tx_state, source)
+    success = U256(0)
+    new_code_hash: Optional[Hash32] = None
+    if (
+        source_account is not None
+        and source_account.code_hash != EMPTY_CODE_HASH
+        and get_code(tx_state, source_account.code_hash)[0] != 0xEF
+        and source not in tx_state.created_accounts
+    ):
+        success = U256(1)
+        charge_gas(evm, GasCosts.WARM_ACCESS)
+        current_account = get_account(tx_state, evm.current_target)
+        if current_account.code_hash != source_account.code_hash:
+            charge_gas(evm, GasCosts.ACCOUNT_WRITE)
+            new_code_hash = source_account.code_hash
+
+    # OPERATION
+    if new_code_hash is not None:
+        adopt_code(tx_state, evm.current_target, new_code_hash)
+    push(evm.stack, success)
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
 
 
 def delegatecall(evm: Evm) -> None:
