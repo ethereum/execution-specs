@@ -85,6 +85,15 @@ class InvalidJumpDestError(ExceptionalHalt):
     """
 
 
+class InvalidValidatedCode(ExceptionalHalt):
+    """
+    Raised at `CREATE` when code beginning with the `MAGIC` bytes fails
+    validation (EIP-8337).
+    """
+
+    pass
+
+
 class ReturnStackOverflowError(ExceptionalHalt):
     """
     Raised when `CALLSUB` would push a return address onto a return stack
