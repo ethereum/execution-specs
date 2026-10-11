@@ -137,13 +137,14 @@ class EIP8141(BaseFork):
         frames: Sequence[FrameGasInfo],
         signatures: Sequence[FrameSignatureGasInfo],
         sender: BytesConvertible | None,
+        nonce_keys: Sequence[int],
     ) -> int:
         """
         Return the costs a frame transaction always pays regardless of
         execution: the base cost, the per-frame cost, the verification
-        cost of each signature entry, and the value transfer cost of
-        each value-bearing frame whose explicit target differs from the
-        sender.
+        cost of each signature entry, the value transfer cost of each
+        value-bearing frame whose explicit target differs from the
+        sender, and any nonce key access cost priced by a later EIP.
         """
         gas_costs = cls.gas_costs()
         scheme_gas = {
@@ -166,6 +167,7 @@ class EIP8141(BaseFork):
             + len(frames) * gas_costs.TX_PER_FRAME
             + sum(scheme_gas[int(sig.scheme)] for sig in signatures)
             + value_transfer_cost
+            + cls._frame_transaction_nonce_access_cost(nonce_keys)
         )
 
     @classmethod
@@ -197,7 +199,7 @@ class EIP8141(BaseFork):
                 )
             )
             return cls._frame_transaction_base_cost(
-                frame_list, signatures, sender
+                frame_list, signatures, sender, nonce_keys
             ) + (
                 data_length
                 * gas_costs.TX_DATA_TOKEN_STANDARD
@@ -273,7 +275,7 @@ class EIP8141(BaseFork):
         ) -> int:
             frame_list = cls._frame_list(frames)
             intrinsic_cost = cls._frame_transaction_base_cost(
-                frame_list, signatures, sender
+                frame_list, signatures, sender, nonce_keys
             ) + sum(
                 calldata_gas_calculator(data=data)
                 for data in cls._frame_transaction_charged_bytes(

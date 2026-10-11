@@ -355,6 +355,13 @@ def test_keyed_then_legacy_from_one_sender(
     [
         pytest.param([NONCE_KEY], 0, {}, id="fresh_key"),
         pytest.param([NONCE_KEY], 1, {NONCE_KEY: 1}, id="used_key"),
+        pytest.param(
+            [NONCE_KEY, OTHER_KEY],
+            1,
+            {NONCE_KEY: 1, OTHER_KEY: 1},
+            id="two_used_keys",
+        ),
+        pytest.param([NONCE_KEY, OTHER_KEY], 0, {}, id="two_fresh_keys"),
         pytest.param([0], 0, {}, id="legacy_key_set"),
     ],
 )
@@ -367,9 +374,10 @@ def test_block_access_list(
     used_keys: Dict[int, int],
 ) -> None:
     """
-    Record a keyed write as a nonce manager storage change with no
-    sender nonce change, and leave the nonce manager out of the list
-    for the legacy key set.
+    Record each keyed write as a nonce manager storage change at the
+    transaction's index, with the written sequence and never among the
+    storage reads, with no sender nonce change, and leave the nonce
+    manager out of the list for the legacy key set.
     """
     sender = pre.fund_eoa()
     if used_keys:
@@ -389,23 +397,28 @@ def test_block_access_list(
         post_slots = {}
         sender_nonce = 1
     else:
+        written_slots = sorted(
+            keyed_nonce_slot(sender, key) for key in nonce_keys
+        )
         nonce_manager_expectation = BalAccountExpectation(
             nonce_changes=[],
             balance_changes=[],
             code_changes=[],
             storage_changes=[
                 BalStorageSlot(
-                    slot=keyed_nonce_slot(sender, NONCE_KEY),
+                    slot=slot,
                     slot_changes=[
                         BalStorageChange(
                             block_access_index=1, post_value=nonce_seq + 1
                         )
                     ],
                 )
+                for slot in written_slots
             ],
+            storage_reads=[],
         )
         sender_expectation = BalAccountExpectation(nonce_changes=[])
-        post_slots = {keyed_nonce_slot(sender, NONCE_KEY): nonce_seq + 1}
+        post_slots = dict.fromkeys(written_slots, nonce_seq + 1)
         sender_nonce = 0
     block = Block(
         txs=[tx],
