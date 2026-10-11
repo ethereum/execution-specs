@@ -5274,6 +5274,55 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#A4](https://www.evm.codes/#A4)
     """
 
+    SETCODEFROM = Opcode(
+        0xA7,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["source"],
+        metadata={
+            "address_warm": False,
+            "source_valid": False,
+            "code_changed": False,
+        },
+    )
+    """
+    SETCODEFROM(source) = success
+    ----
+
+    Description
+    ----
+    Set the current account's code hash to the code hash of an existing
+    deployed contract
+
+    Inputs
+    ----
+    - source: 20-byte address of the account whose code hash is adopted
+
+    Outputs
+    ----
+    - success: 1 if source is a valid source account, 0 otherwise
+
+    Fork
+    ----
+    Bogota
+
+    Gas
+    ----
+    - static_gas = 0
+    - dynamic_gas = SOURCE_ACCOUNT_ACCESS_COST + WARM_ACCESS, plus
+      WARM_ACCESS if source is valid, plus ACCOUNT_WRITE if the code hash
+      changes
+
+    Metadata
+    ----
+    - address_warm: whether source is already warm (default: False)
+    - source_valid: whether source is a valid source account (default: False)
+    - code_changed: whether the current account's code hash changes
+      (default: False)
+
+    Source: [EIP-8298](https://eips.ethereum.org/EIPS/eip-8298)
+    """
+
     DUPN = Opcode(
         0xE6,
         pushed_stack_items=1,
