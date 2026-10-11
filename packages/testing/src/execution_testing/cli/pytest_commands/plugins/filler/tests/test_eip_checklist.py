@@ -194,12 +194,19 @@ def test_generator_built_test_is_credited_to_its_directory(
 @pytest.mark.parametrize(
     "coverage_kind", ["tests", "external", "not_applicable"]
 )
-def test_repeated_checklist_rows(coverage_kind: str) -> None:
-    """Render coverage on every repeated row while counting its ID once."""
-    item_id = (
+@pytest.mark.parametrize(
+    "item_id",
+    [
         "transaction_type/test/intrinsic_validity/"
-        "data_floor_above_intrinsic_gas_cost"
-    )
+        "data_floor_above_intrinsic_gas_cost/invalid",
+        "transaction_type/test/intrinsic_validity/"
+        "data_floor_above_intrinsic_gas_cost/valid",
+    ],
+)
+def test_checklist_rows_have_independent_coverage(
+    coverage_kind: str, item_id: str
+) -> None:
+    """Render coverage on only the matching data-floor checklist row."""
     eip = EIP(number=7981)
     total = eip.total_items
     item = eip.items[item_id]
@@ -211,7 +218,7 @@ def test_repeated_checklist_rows(coverage_kind: str) -> None:
     else:
         item.not_applicable_reason = evidence
 
-    prefix = f"| `{item_id}` |"
+    prefix = f"| `{item_id}`"
     original_rows = [
         line
         for line in TEMPLATE_CONTENT.splitlines()
@@ -222,7 +229,7 @@ def test_repeated_checklist_rows(coverage_kind: str) -> None:
         for line in eip.generate_filled_checklist_lines()
         if line.startswith(prefix)
     ]
-    assert len(rows) == len(original_rows) == 2
+    assert len(rows) == len(original_rows) == 1
     status = "N/A" if coverage_kind == "not_applicable" else "✅"
     for original, rendered in zip(original_rows, rows, strict=True):
         assert original.split("|")[2].strip() == rendered.split("|")[2].strip()

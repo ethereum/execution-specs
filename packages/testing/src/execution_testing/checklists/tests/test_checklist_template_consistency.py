@@ -1,6 +1,7 @@
 """Test consistency between checklist template and EIPChecklist class."""
 
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Any, Set
 
@@ -30,6 +31,17 @@ def extract_markdown_ids(markdown_content: str) -> Set[str]:
             ids.add(potential_id)
 
     return ids
+
+
+def find_duplicate_markdown_ids(markdown_content: str) -> Set[str]:
+    """Return checklist IDs that occur more than once in the template."""
+    pattern = r"\|\s*`([^`]+)`\s*\|"
+    ids = [
+        match.group(1)
+        for match in re.finditer(pattern, markdown_content)
+        if "/" in match.group(1)
+    ]
+    return {item_id for item_id, count in Counter(ids).items() if count > 1}
 
 
 def get_all_checklist_ids(obj: Any) -> Set[str]:
@@ -78,6 +90,13 @@ def test_checklist_template_consistency() -> None:
 
     # Create detailed error messages
     errors = []
+
+    duplicate_ids = find_duplicate_markdown_ids(markdown_content)
+    if duplicate_ids:
+        errors.append(
+            "Duplicate IDs found in markdown template:\n"
+            + "\n".join(f"  - `{id_}`" for id_ in sorted(duplicate_ids))
+        )
 
     if missing_in_checklist:
         errors.append(
@@ -142,6 +161,14 @@ def test_id_extraction_functions() -> None:
     ids = extract_markdown_ids(sample_markdown)
     assert "test/example/id" in ids
     assert "another/test/path" in ids
+
+    duplicate_markdown = """
+    | `test/example/id` | First row | | |
+    | `test/example/id` | Second row | | |
+    """
+    assert find_duplicate_markdown_ids(duplicate_markdown) == {
+        "test/example/id"
+    }
 
     # Test checklist extraction
     checklist_ids = get_all_checklist_ids(EIPChecklist)
