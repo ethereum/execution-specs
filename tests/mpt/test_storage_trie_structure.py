@@ -30,8 +30,10 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Hash,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
 )
 from execution_testing.base_types import StorageRootType
@@ -50,6 +52,7 @@ from .constants import (
     SINGLE_SLOT_SIBLING_DEPTH1,
     SINGLE_SLOT_SIBLING_DEPTH2,
     SIXTEEN_SLOTS_BRANCH4,
+    SLOT_WRITER,
     TWO_SLOTS_EXT4,
     TWO_SLOTS_EXT4_SIBLING_DEPTH1,
     TWO_SLOTS_EXT4_SIBLING_DEPTH2,
@@ -62,8 +65,6 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 pytestmark = pytest.mark.valid_from("Osaka")
-
-SLOT_WRITER = Op.SSTORE(Op.CALLDATALOAD(0), Op.CALLDATALOAD(32)) + Op.STOP
 
 
 def _writer_code(pairs: List[Tuple[int, int]]) -> Bytecode:
@@ -79,23 +80,16 @@ def _write(
 ) -> Transaction:
     """One `SLOT_WRITER` call setting `slot` to `value`."""
     return Transaction(
-        sender=sender,
-        to=contract,
-        data=slot.to_bytes(32, "big") + value.to_bytes(32, "big"),
+        sender=sender, to=contract, data=Hash(slot) + Hash(value)
     )
 
 
-def _storage(slots: Sequence[int]) -> Dict[int, int]:
+def _storage(slots: Sequence[int]) -> Storage:
     """Storage mapping `slot -> position + 1` for `slots`."""
     assert len(set(slots)) == len(slots)
-    return {slot: i + 1 for i, slot in enumerate(slots)}
-
-
-def _alloc(values: Dict[int, int]) -> StorageRootType:
-    """`values` typed for `deploy_contract(storage=...)`."""
-    storage: StorageRootType = {}
-    for slot, value in values.items():
-        storage[slot] = value
+    storage = Storage()
+    for i, slot in enumerate(slots):
+        storage[slot] = i + 1
     return storage
 
 
@@ -323,7 +317,7 @@ def test_insert_diverges_at_extension_first_nibble(
     ]
     storage = _storage(committed)
     contract = pre.deploy_contract(
-        code=_writer_code([(new_slot, 3)]), storage=_alloc(storage)
+        code=_writer_code([(new_slot, 3)]), storage=storage
     )
 
     state_test(
@@ -410,7 +404,7 @@ def test_insert_splits_extension_under_branch(
     assert storage_shape([*committed, new_slot], target) == post_shape
     storage = _storage(committed)
     contract = pre.deploy_contract(
-        code=_writer_code([(new_slot, 9)]), storage=_alloc(storage)
+        code=_writer_code([(new_slot, 9)]), storage=storage
     )
 
     state_test(
@@ -455,23 +449,26 @@ def test_insert_splits_nested_extension_first_nibble(
 
 
 @pytest.mark.parametrize(
-    "present,writes,post_shape",
+    "committed,writes,present,post_shape",
     [
         pytest.param(
-            ROOT_SIXTEEN[:1],
+            ROOT_SIXTEEN,
             [(s, 0) for s in ROOT_SIXTEEN[1:]],
+            ROOT_SIXTEEN[:1],
             [(0, "leaf", 64)],
             id="sixteen_to_one",
         ),
         pytest.param(
-            ROOT_SIXTEEN[1:],
+            ROOT_SIXTEEN,
             [(ROOT_SIXTEEN[0], 0)],
+            ROOT_SIXTEEN[1:],
             [(0, "branch", 15), (1, "leaf", 63)],
             id="sixteen_to_fifteen",
         ),
         pytest.param(
-            ROOT_SIXTEEN,
+            (),
             [(s, i + 1) for i, s in enumerate(ROOT_SIXTEEN)],
+            ROOT_SIXTEEN,
             [(0, "branch", 16), (1, "leaf", 63)],
             id="fill",
         ),
@@ -480,8 +477,9 @@ def test_insert_splits_nested_extension_first_nibble(
 def test_root_branch_arity_sixteen(
     state_test: StateTestFiller,
     pre: Alloc,
-    present: Sequence[int],
+    committed: Sequence[int],
     writes: List[Tuple[int, int]],
+    present: Sequence[int],
     post_shape: Shape,
 ) -> None:
     """
@@ -497,15 +495,12 @@ def test_root_branch_arity_sixteen(
         (1, "leaf", 63),
     ]
     assert storage_shape(present, present[0]) == post_shape
-    committed = _storage(ROOT_SIXTEEN) if len(writes) < 16 else {}
     contract = pre.deploy_contract(
-        code=_writer_code(writes), storage=_alloc(committed)
+        code=_writer_code(writes), storage=_storage(committed)
     )
-    expected = dict(committed)
-    for slot, value in writes:
-        expected.pop(slot, None)
-        if value:
-            expected[slot] = value
+    expected = {
+        s: v for s, v in _storage(ROOT_SIXTEEN).items() if s in present
+    }
 
     state_test(
         pre=pre,
@@ -643,7 +638,7 @@ def test_delete_missing_is_noop(
     assert storage_shape(committed, committed[0]) == pre_shape
     assert absent not in storage
     contract = pre.deploy_contract(
-        code=_writer_code([(absent, 0)]), storage=_alloc(storage)
+        code=_writer_code([(absent, 0)]), storage=storage
     )
 
     state_test(
@@ -653,440 +648,230 @@ def test_delete_missing_is_noop(
     )
 
 
-def test_delete_collapses_branch_into_leaf(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
+# One slot deleted from a group: (group, target, along, pre, post), where
+# pre and post are the path along the slot `along` before and after the
+# delete.
+DELETE_CASES = [
+    # The leaf absorbs the branch nibble and the root extension.
+    pytest.param(
+        TWO_SLOTS_EXT4,
+        TWO_SLOTS_EXT4[0],
+        TWO_SLOTS_EXT4[1],
+        [(0, "ext", 4), (4, "branch", 2), (5, "leaf", 59)],
+        [(0, "leaf", 64)],
+        id="collapse_to_leaf",
+    ),
+    # Both extensions and the branch nibble merge into one.
+    pytest.param(
+        EXT_MERGE_TRIO,
+        EXT_MERGE_TRIO[2],
+        EXT_MERGE_TRIO[0],
+        [
+            (0, "ext", 2),
+            (2, "branch", 2),
+            (3, "ext", 2),
+            (5, "branch", 2),
+            (6, "leaf", 58),
+        ],
+        [(0, "ext", 5), (5, "branch", 2), (6, "leaf", 58)],
+        id="merge_extensions",
+    ),
+    # The root extension grows onto the surviving branch.
+    pytest.param(
+        BRANCH_SURVIVOR_TRIO,
+        BRANCH_SURVIVOR_TRIO[2],
+        BRANCH_SURVIVOR_TRIO[0],
+        [(0, "ext", 2), (2, "branch", 2), (3, "branch", 2), (4, "leaf", 60)],
+        [(0, "ext", 3), (3, "branch", 2), (4, "leaf", 60)],
+        id="collapse_onto_branch",
+    ),
+    # The root branch collapses into a leaf.
+    pytest.param(
+        ROOT_PAIR,
+        ROOT_PAIR[0],
+        ROOT_PAIR[1],
+        [(0, "branch", 2), (1, "leaf", 63)],
+        [(0, "leaf", 64)],
+        id="root_to_leaf",
+    ),
+    # A full branch loses one child and stays a branch.
+    pytest.param(
+        SIXTEEN_SLOTS_BRANCH4,
+        SIXTEEN_SLOTS_BRANCH4[0],
+        SIXTEEN_SLOTS_BRANCH4[1],
+        [(0, "ext", 4), (4, "branch", 16), (5, "leaf", 59)],
+        [(0, "ext", 4), (4, "branch", 15), (5, "leaf", 59)],
+        id="full_branch_minus_one",
+    ),
+    # With two children left the branch stays.
+    pytest.param(
+        SIXTEEN_SLOTS_BRANCH4[:3],
+        SIXTEEN_SLOTS_BRANCH4[0],
+        SIXTEEN_SLOTS_BRANCH4[1],
+        [(0, "ext", 4), (4, "branch", 3), (5, "leaf", 59)],
+        [(0, "ext", 4), (4, "branch", 2), (5, "leaf", 59)],
+        id="three_to_two",
+    ),
+    # Below a branch the leaf only gains the branch nibble.
+    pytest.param(
+        (SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1, ROOT_PAIR[1]),
+        SINGLE_SLOT_SIBLING_DEPTH1,
+        SINGLE_SLOT,
+        [(0, "branch", 2), (1, "branch", 2), (2, "leaf", 62)],
+        [(0, "branch", 2), (1, "leaf", 63)],
+        id="leaf_under_branch",
+    ),
+    # Below a branch the extension only gains the branch nibble.
+    pytest.param(
+        (*TWO_SLOTS_EXT4, TWO_SLOTS_EXT4_SIBLING_DEPTH1, SINGLE_SLOT),
+        TWO_SLOTS_EXT4_SIBLING_DEPTH1,
+        TWO_SLOTS_EXT4[0],
+        [
+            (0, "branch", 2),
+            (1, "branch", 2),
+            (2, "ext", 2),
+            (4, "branch", 2),
+            (5, "leaf", 59),
+        ],
+        [(0, "branch", 2), (1, "ext", 3), (4, "branch", 2), (5, "leaf", 59)],
+        id="ext_under_branch",
+    ),
+    # Below a branch a 1-nibble extension appears above the survivor.
+    pytest.param(
+        (
+            SINGLE_SLOT,
+            SINGLE_SLOT_SIBLING_DEPTH1,
+            SINGLE_SLOT_SIBLING_DEPTH2,
+            ROOT_PAIR[1],
+        ),
+        SINGLE_SLOT_SIBLING_DEPTH1,
+        SINGLE_SLOT,
+        [
+            (0, "branch", 2),
+            (1, "branch", 2),
+            (2, "branch", 2),
+            (3, "leaf", 61),
+        ],
+        [(0, "branch", 2), (1, "ext", 1), (2, "branch", 2), (3, "leaf", 61)],
+        id="branch_under_branch",
+    ),
+    # The root branch becomes a 1-nibble extension.
+    pytest.param(
+        (SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1, ROOT_PAIR[1]),
+        ROOT_PAIR[1],
+        SINGLE_SLOT,
+        [(0, "branch", 2), (1, "branch", 2), (2, "leaf", 62)],
+        [(0, "ext", 1), (1, "branch", 2), (2, "leaf", 62)],
+        id="root_onto_branch",
+    ),
+    # The root branch merges into the extension below it.
+    pytest.param(
+        (*TWO_SLOTS_EXT4, SINGLE_SLOT),
+        SINGLE_SLOT,
+        TWO_SLOTS_EXT4[0],
+        [(0, "branch", 2), (1, "ext", 3), (4, "branch", 2), (5, "leaf", 59)],
+        [(0, "ext", 4), (4, "branch", 2), (5, "leaf", 59)],
+        id="root_onto_ext",
+    ),
+    # The merged leaf stays below branch@2 instead of becoming the root.
+    pytest.param(
+        EXT_MERGE_TRIO,
+        EXT_MERGE_TRIO[0],
+        EXT_MERGE_TRIO[1],
+        [
+            (0, "ext", 2),
+            (2, "branch", 2),
+            (3, "ext", 2),
+            (5, "branch", 2),
+            (6, "leaf", 58),
+        ],
+        [(0, "ext", 2), (2, "branch", 2), (3, "leaf", 61)],
+        id="nested_ext_leaf",
+    ),
+    # Two extensions merge below the root branch.
+    pytest.param(
+        (*TWO_SLOTS_EXT4, TWO_SLOTS_EXT4_SIBLING_DEPTH2, SINGLE_SLOT),
+        TWO_SLOTS_EXT4_SIBLING_DEPTH2,
+        TWO_SLOTS_EXT4[0],
+        [
+            (0, "branch", 2),
+            (1, "ext", 1),
+            (2, "branch", 2),
+            (3, "ext", 1),
+            (4, "branch", 2),
+            (5, "leaf", 59),
+        ],
+        [(0, "branch", 2), (1, "ext", 3), (4, "branch", 2), (5, "leaf", 59)],
+        id="nested_ext_ext",
+    ),
+    # The extension parent grows onto the surviving branch.
+    pytest.param(
+        (*TWO_SLOTS_EXT4, TWO_SLOTS_EXT4_SIBLING_DEPTH3, SINGLE_SLOT),
+        TWO_SLOTS_EXT4_SIBLING_DEPTH3,
+        TWO_SLOTS_EXT4[0],
+        [
+            (0, "branch", 2),
+            (1, "ext", 2),
+            (3, "branch", 2),
+            (4, "branch", 2),
+            (5, "leaf", 59),
+        ],
+        [(0, "branch", 2), (1, "ext", 3), (4, "branch", 2), (5, "leaf", 59)],
+        id="nested_ext_branch",
+    ),
+]
+
+
+def _delete_case(
+    group: Sequence[int],
+    target: int,
+    along: int,
+    pre_shape: Shape,
+    post_shape: Shape,
+) -> Tuple[Storage, Dict[int, int]]:
     """
-    Delete one of two siblings under a root extension.
+    Return the storage of `group` and what remains once `target` is zero.
 
-    pre:  ext(4) -> branch@4 -> {leaf(59), leaf(59)}
-    post: leaf(64)
-    The survivor absorbs the branch nibble and the extension.
+    Assert the path along `along` before and after the delete.
     """
-    a, b = TWO_SLOTS_EXT4
-    assert storage_shape([a, b], b)[:2] == [(0, "ext", 4), (4, "branch", 2)]
-    assert storage_shape([b], b) == [(0, "leaf", 64)]
-    contract = pre.deploy_contract(
-        code=_writer_code([(a, 0)]), storage={a: 1, b: 2}
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage={b: 2})},
-    )
-
-
-def test_delete_merges_adjacent_extensions(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
-    """
-    Delete the shallow sibling of a nested extension.
-
-    pre:  ext(2) -> branch@2 -> {l3, ext(2) -> branch@5 -> {l1, l2}}
-    post: ext(5) -> branch@5 -> {l1, l2}
-    Two extensions and the collapsed branch's nibble merge into one.
-    """
-    l1, l2, l3 = EXT_MERGE_TRIO
-    assert storage_shape([l1, l2, l3], l1)[:3] == [
-        (0, "ext", 2),
-        (2, "branch", 2),
-        (3, "ext", 2),
-    ]
-    assert storage_shape([l1, l2], l1)[0] == (0, "ext", 5)
-    contract = pre.deploy_contract(
-        code=_writer_code([(l3, 0)]), storage={l1: 1, l2: 2, l3: 3}
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage={l1: 1, l2: 2})},
-    )
-
-
-def test_delete_collapses_into_nested_extension(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
-    """
-    Delete a deep sibling; the survivor merges into a non-root extension.
-
-    pre:  ext(2) -> branch@2 -> {l3, ext(2) -> branch@5 -> {l1, l2}}
-    post: ext(2) -> branch@2 -> {l3, leaf(61)}
-    The merged leaf sits under branch@2 rather than becoming the root, so
-    the merge and the parent branch's slot update happen together.
-    """
-    l1, l2, l3 = EXT_MERGE_TRIO
-    assert storage_shape([l1, l2, l3], l2)[2:] == [
-        (3, "ext", 2),
-        (5, "branch", 2),
-        (6, "leaf", 58),
-    ]
-    assert storage_shape([l2, l3], l2) == [
-        (0, "ext", 2),
-        (2, "branch", 2),
-        (3, "leaf", 61),
-    ]
-    contract = pre.deploy_contract(
-        code=_writer_code([(l1, 0)]), storage={l1: 1, l2: 2, l3: 3}
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage={l2: 2, l3: 3})},
-    )
+    storage = _storage(group)
+    remaining: Dict[int, int] = {
+        s: v for s, v in storage.items() if s != target
+    }
+    assert storage_shape(group, along) == pre_shape
+    assert storage_shape(list(remaining), along) == post_shape
+    return storage, remaining
 
 
 @pytest.mark.parametrize(
-    "doomed,pre_shape",
-    [
-        pytest.param(
-            TWO_SLOTS_EXT4_SIBLING_DEPTH2,
-            [
-                (0, "branch", 2),
-                (1, "ext", 1),
-                (2, "branch", 2),
-                (3, "ext", 1),
-                (4, "branch", 2),
-                (5, "leaf", 59),
-            ],
-            id="extension_survivor",
-        ),
-        pytest.param(
-            TWO_SLOTS_EXT4_SIBLING_DEPTH3,
-            [
-                (0, "branch", 2),
-                (1, "ext", 2),
-                (3, "branch", 2),
-                (4, "branch", 2),
-                (5, "leaf", 59),
-            ],
-            id="branch_survivor",
-        ),
-    ],
+    "group,target,along,pre_shape,post_shape", DELETE_CASES
 )
-def test_delete_under_nested_extension(
+def test_delete_from_genesis_trie(
     state_test: StateTestFiller,
     pre: Alloc,
-    doomed: int,
+    group: Sequence[int],
+    target: int,
+    along: int,
     pre_shape: Shape,
+    post_shape: Shape,
 ) -> None:
     """
-    Collapse a branch whose parent is an extension below the root branch.
+    Zero one slot of a storage trie committed at genesis.
 
-    pre:  branch@0 -> {ext(1) -> branch@2 -> {d, ext(1) -> ..}, ..}  ext
-          branch@0 -> {ext(2) -> branch@3 -> {d, branch@4}, ..}      branch
-    post: branch@0 -> {ext(3) -> branch@4 -> {p, q}, leaf(63)}
-    Unlike the root-extension cells, the merged extension is written into
-    the root branch's slot instead of becoming the root.
+    Each `DELETE_CASES` row gives the path before and after the delete;
+    the rows cover every survivor kind under every parent kind.
     """
-    p, q = TWO_SLOTS_EXT4
-    storage = _storage((p, q, doomed, SINGLE_SLOT))
-    remaining = {s: v for s, v in storage.items() if s != doomed}
-    assert storage_shape(list(storage), p) == pre_shape
-    assert storage_shape(list(remaining), p) == [
-        (0, "branch", 2),
-        (1, "ext", 3),
-        (4, "branch", 2),
-        (5, "leaf", 59),
-    ]
+    storage, remaining = _delete_case(
+        group, target, along, pre_shape, post_shape
+    )
     contract = pre.deploy_contract(
-        code=_writer_code([(doomed, 0)]), storage=_alloc(storage)
+        code=_writer_code([(target, 0)]), storage=storage
     )
 
     state_test(
         pre=pre,
         tx=Transaction(sender=pre.fund_eoa(), to=contract),
         post={contract: Account(storage=remaining)},
-    )
-
-
-def test_delete_collapses_branch_onto_branch(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
-    """
-    Delete the leaf sibling of a branch under a root extension.
-
-    pre:  ext(2) -> branch@2 -> {c, branch@3 -> {a, b}}
-    post: ext(3) -> branch@3 -> {a, b}
-    The survivor is a branch; the extension grows by one nibble.
-    """
-    a, b, c = BRANCH_SURVIVOR_TRIO
-    assert storage_shape([a, b, c], a) == [
-        (0, "ext", 2),
-        (2, "branch", 2),
-        (3, "branch", 2),
-        (4, "leaf", 60),
-    ]
-    assert storage_shape([a, b], a) == [
-        (0, "ext", 3),
-        (3, "branch", 2),
-        (4, "leaf", 60),
-    ]
-    contract = pre.deploy_contract(
-        code=_writer_code([(c, 0)]), storage={a: 1, b: 2, c: 3}
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage={a: 1, b: 2})},
-    )
-
-
-def test_delete_collapses_root_branch_into_leaf(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
-    """
-    Delete one of two leaves under a root branch.
-
-    pre:  branch@0 -> {leaf(63), leaf(63)}
-    post: leaf(64)
-    """
-    a, b = ROOT_PAIR
-    assert storage_shape([a, b], a) == [(0, "branch", 2), (1, "leaf", 63)]
-    assert storage_shape([b], b) == [(0, "leaf", 64)]
-    contract = pre.deploy_contract(
-        code=_writer_code([(a, 0)]), storage={a: 1, b: 2}
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage={b: 2})},
-    )
-
-
-def test_delete_under_branch_parent_leaf_survivor(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
-    """
-    Collapse a branch whose parent is a branch, onto a leaf.
-
-    pre:  branch@0 -> {branch@1 -> {leaf(62), leaf(62)}, leaf(63)}
-    post: branch@0 -> {leaf(63), leaf(63)}
-    Nothing merges: the survivor only gains the branch nibble.
-    """
-    a, sibling, other = SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1, ROOT_PAIR[1]
-    assert storage_shape([a, sibling, other], a) == [
-        (0, "branch", 2),
-        (1, "branch", 2),
-        (2, "leaf", 62),
-    ]
-    assert storage_shape([a, other], a) == [(0, "branch", 2), (1, "leaf", 63)]
-    contract = pre.deploy_contract(
-        code=_writer_code([(sibling, 0)]),
-        storage={a: 1, sibling: 2, other: 3},
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage={a: 1, other: 3})},
-    )
-
-
-def test_delete_under_branch_parent_branch_survivor(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
-    """
-    Collapse a branch whose parent is a branch, onto a branch.
-
-    pre:  branch@0 -> {branch@1 -> {leaf, branch@2 -> {..}}, leaf(63)}
-    post: branch@0 -> {ext(1) -> branch@2 -> {..}, leaf(63)}
-    A fresh 1-nibble extension appears between two branches.
-    """
-    a, d1, d2, other = (
-        SINGLE_SLOT,
-        SINGLE_SLOT_SIBLING_DEPTH1,
-        SINGLE_SLOT_SIBLING_DEPTH2,
-        ROOT_PAIR[1],
-    )
-    assert storage_shape([a, d1, d2, other], a) == [
-        (0, "branch", 2),
-        (1, "branch", 2),
-        (2, "branch", 2),
-        (3, "leaf", 61),
-    ]
-    assert storage_shape([a, d2, other], a) == [
-        (0, "branch", 2),
-        (1, "ext", 1),
-        (2, "branch", 2),
-        (3, "leaf", 61),
-    ]
-    contract = pre.deploy_contract(
-        code=_writer_code([(d1, 0)]),
-        storage={a: 1, d1: 2, d2: 3, other: 4},
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage={a: 1, d2: 3, other: 4})},
-    )
-
-
-def test_delete_root_branch_onto_branch(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
-    """
-    Collapse the root branch onto a branch.
-
-    pre:  branch@0 -> {branch@1 -> {leaf(62), leaf(62)}, leaf(63)}
-    post: ext(1) -> branch@1 -> {leaf(62), leaf(62)}
-    The root changes kind from branch to extension.
-    """
-    a, sibling, other = SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1, ROOT_PAIR[1]
-    assert storage_shape([a, sibling, other], a) == [
-        (0, "branch", 2),
-        (1, "branch", 2),
-        (2, "leaf", 62),
-    ]
-    assert storage_shape([a, sibling], a) == [
-        (0, "ext", 1),
-        (1, "branch", 2),
-        (2, "leaf", 62),
-    ]
-    contract = pre.deploy_contract(
-        code=_writer_code([(other, 0)]),
-        storage={a: 1, sibling: 2, other: 3},
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage={a: 1, sibling: 2})},
-    )
-
-
-def test_delete_root_branch_onto_extension(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
-    """
-    Collapse the root branch onto an extension.
-
-    pre:  branch@0 -> {ext(3) -> branch@4 -> {p, q}, leaf(63)}
-    post: ext(4) -> branch@4 -> {p, q}
-    The root changes kind from branch to extension and the extension
-    grows by the branch nibble; the last survivor-parent cell.
-    """
-    p, q = TWO_SLOTS_EXT4
-    other = SINGLE_SLOT
-    assert storage_shape([p, q, other], p) == [
-        (0, "branch", 2),
-        (1, "ext", 3),
-        (4, "branch", 2),
-        (5, "leaf", 59),
-    ]
-    assert storage_shape([p, q], p) == [
-        (0, "ext", 4),
-        (4, "branch", 2),
-        (5, "leaf", 59),
-    ]
-    contract = pre.deploy_contract(
-        code=_writer_code([(other, 0)]), storage={p: 1, q: 2, other: 3}
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage={p: 1, q: 2})},
-    )
-
-
-def test_delete_under_branch_parent_extension_survivor(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
-    """
-    Collapse a branch whose parent is a branch, onto an extension.
-
-    pre:  branch@0 -> {branch@1 -> {leaf, ext(2) -> branch@4 -> {..}}, ..}
-    post: branch@0 -> {ext(3) -> branch@4 -> {..}, ..}
-    The extension grows by the branch nibble; nothing above it merges.
-    """
-    p, q = TWO_SLOTS_EXT4
-    sibling, other = TWO_SLOTS_EXT4_SIBLING_DEPTH1, SINGLE_SLOT
-    assert storage_shape([p, q, sibling, other], p) == [
-        (0, "branch", 2),
-        (1, "branch", 2),
-        (2, "ext", 2),
-        (4, "branch", 2),
-        (5, "leaf", 59),
-    ]
-    assert storage_shape([p, q, other], p) == [
-        (0, "branch", 2),
-        (1, "ext", 3),
-        (4, "branch", 2),
-        (5, "leaf", 59),
-    ]
-    contract = pre.deploy_contract(
-        code=_writer_code([(sibling, 0)]),
-        storage={p: 1, q: 2, sibling: 3, other: 4},
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage={p: 1, q: 2, other: 4})},
-    )
-
-
-def test_delete_from_full_branch_keeps_branch(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
-    """
-    Delete one of sixteen children.
-
-    pre:  ext(4) -> branch@4 -> {16 x leaf(59)}
-    post: ext(4) -> branch@4 -> {15 x leaf(59)}
-    """
-    slots = SIXTEEN_SLOTS_BRANCH4
-    storage = _storage(slots)
-    remaining = {s: v for s, v in storage.items() if s != slots[0]}
-    assert storage_shape(slots, slots[1])[1] == (4, "branch", 16)
-    assert storage_shape(slots[1:], slots[1])[1] == (4, "branch", 15)
-    contract = pre.deploy_contract(
-        code=_writer_code([(slots[0], 0)]), storage=_alloc(storage)
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage=remaining)},
-    )
-
-
-def test_delete_from_three_child_branch(
-    state_test: StateTestFiller, pre: Alloc
-) -> None:
-    """
-    Delete one of three children: the smallest non-collapsing delete.
-
-    pre:  ext(4) -> branch@4 -> {leaf, leaf, leaf}
-    post: ext(4) -> branch@4 -> {leaf, leaf}
-    A client that collapses at two remaining children fails here and
-    passes the 16-to-15 case.
-    """
-    slots = SIXTEEN_SLOTS_BRANCH4[:3]
-    assert storage_shape(slots, slots[1]) == [
-        (0, "ext", 4),
-        (4, "branch", 3),
-        (5, "leaf", 59),
-    ]
-    assert storage_shape(slots[1:], slots[1]) == [
-        (0, "ext", 4),
-        (4, "branch", 2),
-        (5, "leaf", 59),
-    ]
-    contract = pre.deploy_contract(
-        code=_writer_code([(slots[0], 0)]), storage=_alloc(_storage(slots))
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=contract),
-        post={contract: Account(storage={slots[1]: 2, slots[2]: 3})},
     )
 
 
@@ -1114,7 +899,7 @@ def test_delete_all_slots_empties_trie(
     assert storage_shape(slots, slots[0])[0][1] == root_kind
     contract = pre.deploy_contract(
         code=_writer_code([(s, 0) for s in slots]),
-        storage=_alloc(_storage(slots)),
+        storage=_storage(slots),
     )
 
     state_test(
@@ -1128,92 +913,26 @@ def test_delete_all_slots_empties_trie(
 
 
 @pytest.mark.parametrize(
-    "group,target",
-    [
-        pytest.param(TWO_SLOTS_EXT4, TWO_SLOTS_EXT4[0], id="collapse_to_leaf"),
-        pytest.param(EXT_MERGE_TRIO, EXT_MERGE_TRIO[2], id="merge_extensions"),
-        pytest.param(
-            BRANCH_SURVIVOR_TRIO,
-            BRANCH_SURVIVOR_TRIO[2],
-            id="collapse_onto_branch",
-        ),
-        pytest.param(ROOT_PAIR, ROOT_PAIR[0], id="root_to_leaf"),
-        pytest.param(
-            SIXTEEN_SLOTS_BRANCH4,
-            SIXTEEN_SLOTS_BRANCH4[0],
-            id="full_branch_minus_one",
-        ),
-        pytest.param(
-            SIXTEEN_SLOTS_BRANCH4[:3],
-            SIXTEEN_SLOTS_BRANCH4[0],
-            id="three_to_two",
-        ),
-        pytest.param(
-            (SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1, ROOT_PAIR[1]),
-            SINGLE_SLOT_SIBLING_DEPTH1,
-            id="leaf_under_branch",
-        ),
-        pytest.param(
-            (*TWO_SLOTS_EXT4, TWO_SLOTS_EXT4_SIBLING_DEPTH1, SINGLE_SLOT),
-            TWO_SLOTS_EXT4_SIBLING_DEPTH1,
-            id="ext_under_branch",
-        ),
-        pytest.param(
-            (
-                SINGLE_SLOT,
-                SINGLE_SLOT_SIBLING_DEPTH1,
-                SINGLE_SLOT_SIBLING_DEPTH2,
-                ROOT_PAIR[1],
-            ),
-            SINGLE_SLOT_SIBLING_DEPTH1,
-            id="branch_under_branch",
-        ),
-        pytest.param(
-            (SINGLE_SLOT, SINGLE_SLOT_SIBLING_DEPTH1, ROOT_PAIR[1]),
-            ROOT_PAIR[1],
-            id="root_onto_branch",
-        ),
-        pytest.param(
-            (*TWO_SLOTS_EXT4, SINGLE_SLOT),
-            SINGLE_SLOT,
-            id="root_onto_ext",
-        ),
-        pytest.param(EXT_MERGE_TRIO, EXT_MERGE_TRIO[0], id="nested_ext_leaf"),
-        pytest.param(
-            (*TWO_SLOTS_EXT4, TWO_SLOTS_EXT4_SIBLING_DEPTH2, SINGLE_SLOT),
-            TWO_SLOTS_EXT4_SIBLING_DEPTH2,
-            id="nested_ext_ext",
-        ),
-        pytest.param(
-            (*TWO_SLOTS_EXT4, TWO_SLOTS_EXT4_SIBLING_DEPTH3, SINGLE_SLOT),
-            TWO_SLOTS_EXT4_SIBLING_DEPTH3,
-            id="nested_ext_branch",
-        ),
-    ],
+    "group,target,along,pre_shape,post_shape", DELETE_CASES
 )
-def test_delete_against_committed_trie(
+def test_delete_from_block_built_trie(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     group: Sequence[int],
     target: int,
+    along: int,
+    pre_shape: Shape,
+    post_shape: Shape,
 ) -> None:
     """
-    Insert a group in block 1, delete `target` in block 2, re-insert it in
-    block 3.
+    Zero one slot of a trie built in an earlier block, then restore it.
 
-    pre:  empty
-    post: the group's shape, after a round trip through the reduced shape
-    Every collapse cell of the genesis-committed tests, replayed on nodes
-    the client itself built in block 1 (its diff layer or dirty cache)
-    rather than imported at genesis; block 3 splits the reduced shape
-    back open the same way.
+    pre:  empty; block 1 writes the group
+    post: block 2 zeroes the slot, block 3 writes it back
+    The `DELETE_CASES` deletes, run on nodes built in block 1 instead of
+    loaded at genesis, each followed by the insert that undoes it.
     """
-    values = _storage(group)
-    without = {s: v for s, v in values.items() if s != target}
-    survivor = next(s for s in group if s != target)
-    assert storage_shape(group, survivor) != storage_shape(
-        list(without), survivor
-    )
+    values, without = _delete_case(group, target, along, pre_shape, post_shape)
     contract = pre.deploy_contract(code=SLOT_WRITER)
     sender = pre.fund_eoa()
 
@@ -1240,7 +959,7 @@ def test_delete_against_committed_trie(
 
 
 def test_mass_delete_sixteen_to_one(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+    state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
     Zero fifteen of sixteen children in one block.
@@ -1255,13 +974,13 @@ def test_mass_delete_sixteen_to_one(
     assert storage_shape([survivor], survivor) == [(0, "leaf", 64)]
     contract = pre.deploy_contract(
         code=_writer_code([(s, 0) for s in doomed]),
-        storage=_alloc(_storage(slots)),
+        storage=_storage(slots),
     )
 
-    blockchain_test(
+    state_test(
         pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
         post={contract: Account(storage={survivor: 1})},
-        blocks=[Block(txs=[Transaction(sender=pre.fund_eoa(), to=contract)])],
     )
 
 
@@ -1322,7 +1041,7 @@ def test_insert_then_delete_same_block(
     assert storage_shape([*committed, slot], slot) != storage_shape(
         committed, committed[0]
     )
-    contract = pre.deploy_contract(code=SLOT_WRITER, storage=_alloc(storage))
+    contract = pre.deploy_contract(code=SLOT_WRITER, storage=storage)
     sender = pre.fund_eoa()
 
     blockchain_test(
@@ -1809,7 +1528,7 @@ def test_delete_around_inline_leaves(
     Block 2 restores the pre shape, re-inlining what block 1 hashed.
     """
     trio = (*EMBEDDED_LEAF_PAIR, EMBEDDED_LEAF_PAIR_SIBLING_DEPTH4)
-    storage = {trio[i]: v for i, v in values.items()}
+    storage: StorageRootType = {trio[i]: v for i, v in values.items()}
     doomed_slot = trio[doomed]
     survivor = trio[0] if doomed else trio[1]
     before, after = survivor_sizes
@@ -1822,7 +1541,7 @@ def test_delete_around_inline_leaves(
         assert storage_shape(remaining, survivor)[0] == (0, "ext", 8)
     else:
         assert storage_shape(remaining, survivor)[-1] == (5, "leaf", 59)
-    contract = pre.deploy_contract(code=SLOT_WRITER, storage=_alloc(storage))
+    contract = pre.deploy_contract(code=SLOT_WRITER, storage=storage)
     sender = pre.fund_eoa()
     without = {s: v for s, v in storage.items() if s != doomed_slot}
 
@@ -1834,11 +1553,7 @@ def test_delete_around_inline_leaves(
                 txs=[_write(sender, contract, doomed_slot, 0)],
                 expected_post_state={contract: Account(storage=without)},
             ),
-            Block(
-                txs=[
-                    _write(sender, contract, doomed_slot, storage[doomed_slot])
-                ]
-            ),
+            Block(txs=[_write(sender, contract, doomed_slot, values[doomed])]),
         ],
     )
 
@@ -1879,8 +1594,8 @@ def test_delete_inline_leaf_survivor_stays_inline(
     ]
     assert storage_leaf_size(54, 1) == 31 and storage_leaf_size(55, 1) == 31
     assert storage_leaf_size(54, doomed_value) == doomed_size
-    storage = {x: 1, y: doomed_value, s: 1}
-    contract = pre.deploy_contract(code=SLOT_WRITER, storage=_alloc(storage))
+    storage: StorageRootType = {x: 1, y: doomed_value, s: 1}
+    contract = pre.deploy_contract(code=SLOT_WRITER, storage=storage)
     sender = pre.fund_eoa()
 
     blockchain_test(

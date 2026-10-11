@@ -33,7 +33,7 @@ CREATE2 onto an address with pre-existing storage, where this
 specification and geth currently disagree.
 """
 
-from typing import Iterable, List
+from typing import Iterable, List, Tuple
 
 import pytest
 from execution_testing import (
@@ -59,18 +59,21 @@ from execution_testing.base_types import StorageRootType
 from .constants import (
     ADDR_EXT_MERGE_TRIO,
     COLLAPSE_SALT,
+    DELETE_INITCODE,
     EXT_MERGE_SALT,
+    GWEI,
     SHARE2_SALT,
     SHARE3_SALT,
     SINGLE_SLOT,
     SIXTEEN_ADDRS_BRANCH4,
     SIXTEEN_SALTS_BRANCH4,
+    SLOT_WRITER,
     SURVIVOR_SALT,
     TWO_ADDRS_EXT4,
     TWO_ADDRS_EXT4_SIBLING_DEPTH1,
     TWO_ADDRS_EXT4_SIBLING_DEPTH3,
 )
-from .trie_shape import Shape, account_shape, covering, node_at
+from .trie_shape import account_shape, covering, node_at
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -78,25 +81,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 pytestmark = pytest.mark.valid_from("Osaka")
 
 FUNDING = 10**18
-SLOT_WRITER = Op.SSTORE(Op.CALLDATALOAD(0), Op.CALLDATALOAD(32)) + Op.STOP
-
-# The salts in `constants.py` were mined against exactly these bytes and
-# this factory address; either changing would silently move every doomed
-# address. The beneficiary is `ORIGIN`, not the contract itself: the
-# balance has to leave for the account to be removed (EIP-8246).
-DELETE_INITCODE = bytes(Op.SELFDESTRUCT(Op.ORIGIN))
-assert DELETE_INITCODE == bytes.fromhex("32ff")
-assert DETERMINISTIC_FACTORY_ADDRESS == Address(
-    0x4E59B44847B379578588920CA78FBF26C0B4956C
-)
 
 
-def create2_preimage(salt: int) -> bytes:
-    """Address the deterministic factory creates for `salt`."""
-    return bytes(
-        compute_create2_address(
-            DETERMINISTIC_FACTORY_ADDRESS, salt, DELETE_INITCODE
-        )
+def _create2_address(salt: int) -> Address:
+    """Return the address the factory creates for `DELETE_INITCODE`."""
+    return compute_create2_address(
+        DETERMINISTIC_FACTORY_ADDRESS, salt, DELETE_INITCODE
     )
 
 
@@ -156,8 +146,24 @@ def _after_block(
     ]
 
 
-def _shape(addresses: Iterable[Address], target: Address) -> Shape:
-    return account_shape(addresses, target)
+def _fund_collapse_pair(
+    pre: Alloc, fork: Fork
+) -> Tuple[Address, Address, EOA, List[Address]]:
+    """
+    Fund a survivor and a deletable sibling that share four nibbles.
+
+    Return both, a funded sender and the blockchain genesis, where the
+    pair sits under one 2-child branch at depth 4.
+    """
+    survivor = Address(TWO_ADDRS_EXT4[0])
+    doomed = _create2_address(COLLAPSE_SALT)
+    pre.fund_address(survivor, amount=1)
+    pre.fund_address(doomed, amount=FUNDING)
+    _ensure_factory(pre, fork)
+    sender = pre.fund_eoa()
+    genesis = _genesis(pre, fork)
+    assert node_at(account_shape(genesis, survivor), 4) == ("branch", 2)
+    return survivor, doomed, sender, genesis
 
 
 # --- shapes present at genesis ------------------------------------------
@@ -177,7 +183,7 @@ def test_genesis_extension_and_branch(
     pre.fund_address(b, amount=2)
     sender, recipient = pre.fund_eoa(), pre.fund_eoa(amount=1)
     for genesis in _state_test_genesis_sets(pre, fork):
-        assert node_at(_shape(genesis, a), 4) == ("branch", 2)
+        assert node_at(account_shape(genesis, a), 4) == ("branch", 2)
 
     state_test(
         pre=pre,
@@ -200,7 +206,8 @@ def test_genesis_full_branch_arity_sixteen(
         pre.fund_address(address, amount=i + 1)
     sender, recipient = pre.fund_eoa(), pre.fund_eoa(amount=1)
     for genesis in _state_test_genesis_sets(pre, fork):
-        assert node_at(_shape(genesis, addresses[0]), 4) == ("branch", 16)
+        shape = account_shape(genesis, addresses[0])
+        assert node_at(shape, 4) == ("branch", 16)
 
     state_test(
         pre=pre,
@@ -215,7 +222,7 @@ def test_genesis_full_branch_arity_sixteen(
 def _pay_each(addresses: List[Address]) -> Bytecode:
     code = Bytecode()
     for address in addresses:
-        code += Op.POP(Op.CALL(Op.GAS, address, 1, 0, 0, 0, 0))
+        code += Op.POP(Op.CALL(gas=Op.GAS, address=address, value=1))
     return code + Op.STOP
 
 
@@ -232,9 +239,9 @@ def test_insert_full_branch_during_execution(
     payer = pre.deploy_contract(code=_pay_each(addresses), balance=16)
     sender = pre.fund_eoa()
     for genesis in _state_test_genesis_sets(pre, fork):
-        assert covering(_shape(genesis, addresses[0]), 4)[1] != "branch"
+        assert covering(account_shape(genesis, addresses[0]), 4)[1] != "branch"
         after = _after_block(genesis) + addresses
-        assert node_at(_shape(after, addresses[0]), 4) == ("branch", 16)
+        assert node_at(account_shape(after, addresses[0]), 4) == ("branch", 16)
 
     state_test(
         pre=pre,
@@ -267,79 +274,6 @@ def test_touched_empty_account_never_persists(
     )
 
 
-# --- deletes of committed leaves ----------------------------------------
-
-
-def test_delete_collapses_branch_into_leaf(
-    state_test: StateTestFiller, pre: Alloc, fork: Fork
-) -> None:
-    """
-    Delete one of two funded accounts sharing four nibbles.
-
-    pre:  .. -> ext -> branch@4 -> {survivor, doomed}
-    post: .. -> leaf   (the survivor absorbs the nibble and the extension)
-    """
-    survivor = Address(TWO_ADDRS_EXT4[0])
-    doomed = Address(create2_preimage(COLLAPSE_SALT))
-    pre.fund_address(survivor, amount=1)
-    pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre, fork)
-    sender = pre.fund_eoa()
-    for genesis in _state_test_genesis_sets(pre, fork):
-        before = _shape(genesis, survivor)
-        assert node_at(before, 4) == ("branch", 2)
-        assert before[before.index((4, "branch", 2)) - 1][1] == "ext"
-        after = _shape(_after_block(genesis, doomed), survivor)
-        assert covering(after, 4)[1] == "leaf"
-
-    state_test(
-        pre=pre,
-        tx=_delete_tx(sender, COLLAPSE_SALT),
-        post={
-            survivor: Account(balance=1),
-            doomed: Account.NONEXISTENT,
-        },
-    )
-
-
-def test_delete_merges_adjacent_extensions(
-    state_test: StateTestFiller, pre: Alloc, fork: Fork
-) -> None:
-    """
-    Delete the shallow sibling of a nested extension.
-
-    pre:  .. -> ext -> branch@2 -> {doomed, ext(2) -> branch@5 -> {l1, l2}}
-    post: .. -> ext -> branch@5 -> {l1, l2}   (one extension ends at 5)
-    """
-    l1, l2 = (Address(x) for x in ADDR_EXT_MERGE_TRIO[:2])
-    doomed = Address(create2_preimage(EXT_MERGE_SALT))
-    pre.fund_address(l1, amount=1)
-    pre.fund_address(l2, amount=2)
-    pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre, fork)
-    sender = pre.fund_eoa()
-    for genesis in _state_test_genesis_sets(pre, fork):
-        before = _shape(genesis, l1)
-        assert node_at(before, 2) == ("branch", 2)
-        assert before[before.index((2, "branch", 2)) - 1][1] == "ext"
-        assert node_at(before, 3) == ("ext", 2)
-        assert node_at(before, 5) == ("branch", 2)
-        after = _shape(_after_block(genesis, doomed), l1)
-        depth, kind, size = covering(after, 2)
-        assert kind == "ext" and depth + size == 5
-        assert node_at(after, 5) == ("branch", 2)
-
-    state_test(
-        pre=pre,
-        tx=_delete_tx(sender, EXT_MERGE_SALT),
-        post={
-            l1: Account(balance=1),
-            l2: Account(balance=2),
-            doomed: Account.NONEXISTENT,
-        },
-    )
-
-
 # --- delete and re-create inside one block ------------------------------
 
 
@@ -353,18 +287,9 @@ def test_account_deleted_and_recreated_same_block(
     post: the same shape; doomed is a balance-only leaf again
     A per-block destruction record must not shadow the later write.
     """
-    survivor = Address(TWO_ADDRS_EXT4[0])
-    doomed = Address(create2_preimage(COLLAPSE_SALT))
-    pre.fund_address(survivor, amount=1)
-    pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre, fork)
-    sender = pre.fund_eoa()
-    genesis = _genesis(pre, fork)
-    assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
-    assert node_at(_shape(_after_block(genesis), survivor), 4) == (
-        "branch",
-        2,
-    )
+    survivor, doomed, sender, genesis = _fund_collapse_pair(pre, fork)
+    after = account_shape(_after_block(genesis), survivor)
+    assert node_at(after, 4) == ("branch", 2)
 
     blockchain_test(
         pre=pre,
@@ -406,19 +331,18 @@ def test_storage_root_flip_with_account_shape_change(
     survivor is created through the factory with a salt mined so that its
     address shares four nibbles with the doomed one.
     """
-    doomed = Address(create2_preimage(COLLAPSE_SALT))
+    doomed = _create2_address(COLLAPSE_SALT)
     survivor = pre.deterministic_deploy_contract(
         deploy_code=SLOT_WRITER, salt=SURVIVOR_SALT, storage=pre_storage
     )
     pre.fund_address(doomed, amount=FUNDING)
     sender = pre.fund_eoa()
     genesis = _genesis(pre, fork)
-    before = _shape(genesis, survivor)
+    before = account_shape(genesis, survivor)
     assert node_at(before, 4) == ("branch", 2)
     assert before[before.index((4, "branch", 2)) - 1][1] == "ext"
-    assert covering(_shape(_after_block(genesis, doomed), survivor), 4)[1] == (
-        "leaf"
-    )
+    after = account_shape(_after_block(genesis, doomed), survivor)
+    assert covering(after, 4)[1] == "leaf"
     post_storage = {SINGLE_SLOT: value} if value else {}
 
     blockchain_test(
@@ -452,17 +376,9 @@ def test_delete_and_update_survivor_same_block(
     post: .. -> leaf survivor = 2 wei
     The collapsed leaf must carry the survivor's updated balance.
     """
-    survivor = Address(TWO_ADDRS_EXT4[0])
-    doomed = Address(create2_preimage(COLLAPSE_SALT))
-    pre.fund_address(survivor, amount=1)
-    pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre, fork)
-    sender = pre.fund_eoa()
-    genesis = _genesis(pre, fork)
-    assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
-    assert covering(_shape(_after_block(genesis, doomed), survivor), 4)[1] == (
-        "leaf"
-    )
+    survivor, doomed, sender, genesis = _fund_collapse_pair(pre, fork)
+    after = account_shape(_after_block(genesis, doomed), survivor)
+    assert covering(after, 4)[1] == "leaf"
 
     blockchain_test(
         pre=pre,
@@ -489,17 +405,9 @@ def test_delete_resurrect_delete_across_blocks(
     The resurrected balance-only account is deployable again, so the
     same CREATE2 deletes it a second time from persisted nodes.
     """
-    survivor = Address(TWO_ADDRS_EXT4[0])
-    doomed = Address(create2_preimage(COLLAPSE_SALT))
-    pre.fund_address(survivor, amount=1)
-    pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre, fork)
-    sender = pre.fund_eoa()
-    genesis = _genesis(pre, fork)
-    assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
-    assert covering(_shape(_after_block(genesis, doomed), survivor), 4)[1] == (
-        "leaf"
-    )
+    survivor, doomed, sender, genesis = _fund_collapse_pair(pre, fork)
+    after = account_shape(_after_block(genesis, doomed), survivor)
+    assert covering(after, 4)[1] == "leaf"
 
     blockchain_test(
         pre=pre,
@@ -531,22 +439,15 @@ def test_resurrection_via_withdrawal(
     Withdrawals are applied after the transactions; a zero one must not
     leave an empty account behind.
     """
-    survivor = Address(TWO_ADDRS_EXT4[0])
-    doomed = Address(create2_preimage(COLLAPSE_SALT))
-    pre.fund_address(survivor, amount=1)
-    pre.fund_address(doomed, amount=FUNDING)
-    _ensure_factory(pre, fork)
-    sender = pre.fund_eoa()
-    genesis = _genesis(pre, fork)
-    assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
+    survivor, doomed, sender, genesis = _fund_collapse_pair(pre, fork)
     resurrected: Account | None
     if amount:
-        resurrected = Account(balance=amount * 10**9)
-        after = _shape(_after_block(genesis), survivor)
+        resurrected = Account(balance=amount * GWEI)
+        after = account_shape(_after_block(genesis), survivor)
         assert node_at(after, 4) == ("branch", 2)
     else:
         resurrected = Account.NONEXISTENT
-        after = _shape(_after_block(genesis, doomed), survivor)
+        after = account_shape(_after_block(genesis, doomed), survivor)
         assert covering(after, 4)[1] == "leaf"
 
     blockchain_test(
@@ -568,38 +469,45 @@ def test_resurrection_via_withdrawal(
     )
 
 
-# --- collapse cells with a controlled parent -----------------------------
+# --- collapses under a controlled parent ---------------------------------
 
 
-def _cell(
+def _fund_collapse(
     pre: Alloc,
     fork: Fork,
     funded: List[Address],
     salt: int,
-    target: Address,
     depth: int,
     parent_kind: str,
     survivor_kind: str,
 ) -> Address:
     """
-    Fund `funded` and the address created by `salt`; pin the collapse cell.
+    Fund `funded` and the address `salt` creates; return the latter.
 
-    Asserts, in every genesis the state test fills, that `target`'s path
-    holds a 2-child branch at `depth` whose parent is `parent_kind`, and
-    that after the block the node covering `depth` is `survivor_kind`.
-    Every other account must already be in `pre`.
+    Assert, in every genesis the state test fills, that the path of
+    `funded[0]` holds a 2-child branch at `depth` below a `parent_kind`
+    node and above a `survivor_kind` node, and how deleting the created
+    account collapses it. Every other account must already be in `pre`.
     """
-    doomed = Address(create2_preimage(salt))
+    doomed = _create2_address(salt)
     for address in funded:
         pre.fund_address(address, amount=1)
     pre.fund_address(doomed, amount=FUNDING)
     _ensure_factory(pre, fork)
     for genesis in _state_test_genesis_sets(pre, fork):
-        before = _shape(genesis, target)
+        before = account_shape(genesis, funded[0])
         assert node_at(before, depth) == ("branch", 2)
         assert before[before.index((depth, "branch", 2)) - 1][1] == parent_kind
-        after = _shape(_after_block(genesis, doomed), target)
-        assert covering(after, depth)[1] == survivor_kind
+        assert node_at(before, depth + 1)[0] == survivor_kind
+        after = account_shape(_after_block(genesis, doomed), funded[0])
+        start, kind, size = covering(after, depth)
+        if survivor_kind == "leaf":
+            assert kind == "leaf"
+        else:
+            # The branch nibble, the survivor and an extension parent merge
+            # into one extension that ends at the survivor's branch.
+            below = [d for d, k, _ in before if d > depth and k == "branch"]
+            assert kind == "ext" and start + size == below[0]
     return doomed
 
 
@@ -607,12 +515,28 @@ def _cell(
     "funded,salt,depth,parent_kind,survivor_kind",
     [
         pytest.param(
+            [TWO_ADDRS_EXT4[0]],
+            COLLAPSE_SALT,
+            4,
+            "ext",
+            "leaf",
+            id="leaf_under_ext",
+        ),
+        pytest.param(
             [TWO_ADDRS_EXT4[0], TWO_ADDRS_EXT4_SIBLING_DEPTH3],
             COLLAPSE_SALT,
             4,
             "branch",
             "leaf",
             id="leaf_under_branch",
+        ),
+        pytest.param(
+            [*ADDR_EXT_MERGE_TRIO[:2]],
+            EXT_MERGE_SALT,
+            2,
+            "ext",
+            "ext",
+            id="ext_under_ext",
         ),
         pytest.param(
             [*TWO_ADDRS_EXT4, TWO_ADDRS_EXT4_SIBLING_DEPTH1],
@@ -623,6 +547,14 @@ def _cell(
             id="ext_under_branch",
         ),
         pytest.param(
+            [*TWO_ADDRS_EXT4, TWO_ADDRS_EXT4_SIBLING_DEPTH1],
+            SHARE3_SALT,
+            3,
+            "ext",
+            "branch",
+            id="branch_under_ext",
+        ),
+        pytest.param(
             [
                 TWO_ADDRS_EXT4[0],
                 TWO_ADDRS_EXT4_SIBLING_DEPTH3,
@@ -631,20 +563,12 @@ def _cell(
             SHARE2_SALT,
             2,
             "branch",
-            "ext",
+            "branch",
             id="branch_under_branch",
-        ),
-        pytest.param(
-            [*TWO_ADDRS_EXT4, TWO_ADDRS_EXT4_SIBLING_DEPTH1],
-            SHARE3_SALT,
-            3,
-            "ext",
-            "ext",
-            id="branch_under_ext",
         ),
     ],
 )
-def test_delete_collapse_cells(
+def test_delete_collapses_under_controlled_parent(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -655,28 +579,18 @@ def test_delete_collapse_cells(
     survivor_kind: str,
 ) -> None:
     """
-    Account-trie collapses whose parent node is controlled.
+    Delete one child of a 2-child branch below a mined parent node.
 
-    pre:  branch@3 -> {d3, branch@4 -> {p, doomed}}         leaf_under_branch
-          branch@1 -> {d1, branch@2 -> {doomed, ext(1) ..}} ext_under_branch
-          branch@1 -> {d1, branch@2 -> {doomed, branch@3}}  branch_under_branch
-          branch@1 -> {d1, ext(1) -> branch@3 -> {doomed, branch@4}} under_ext
-    post: leaf under branch@3; ext(2) under branch@1; ext(1) -> branch@3
-          under branch@1; ext(2) -> branch@4 under branch@1
-    Mined siblings at depths 1 and 3 make the parent kind independent of
-    the uncontrolled accounts, up to a 16^-2 collision the assert reports.
+    pre:  .. -> parent -> branch@d -> {doomed, survivor}
+    post: .. -> parent -> survivor, extended by the branch nibble; under
+          an extension parent the two merge into one node
+    Mined siblings at depths 1 and 3 fix the parent kind whatever the
+    uncontrolled accounts are; a collision fails the shape assert.
     """
     addresses = [Address(x) for x in funded]
     sender = pre.fund_eoa()
-    doomed = _cell(
-        pre,
-        fork,
-        addresses,
-        salt,
-        addresses[0],
-        depth,
-        parent_kind,
-        survivor_kind,
+    doomed = _fund_collapse(
+        pre, fork, addresses, salt, depth, parent_kind, survivor_kind
     )
 
     state_test(
@@ -699,15 +613,15 @@ def test_delete_from_three_child_branch(
     post: .. -> branch@4 -> {p, q}
     """
     p, q = (Address(x) for x in TWO_ADDRS_EXT4)
-    doomed = Address(create2_preimage(COLLAPSE_SALT))
+    doomed = _create2_address(COLLAPSE_SALT)
     pre.fund_address(p, amount=1)
     pre.fund_address(q, amount=2)
     pre.fund_address(doomed, amount=FUNDING)
     _ensure_factory(pre, fork)
     sender = pre.fund_eoa()
     for genesis in _state_test_genesis_sets(pre, fork):
-        assert node_at(_shape(genesis, p), 4) == ("branch", 3)
-        after = _shape(_after_block(genesis, doomed), p)
+        assert node_at(account_shape(genesis, p), 4) == ("branch", 3)
+        after = account_shape(_after_block(genesis, doomed), p)
         assert node_at(after, 4) == ("branch", 2)
 
     state_test(
@@ -733,19 +647,18 @@ def test_mass_delete_sixteen_to_one(
     survivor and merge it into the extension above.
     """
     survivor = Address(SIXTEEN_ADDRS_BRANCH4[0])
-    doomed = [Address(create2_preimage(s)) for s in SIXTEEN_SALTS_BRANCH4]
+    doomed = [_create2_address(s) for s in SIXTEEN_SALTS_BRANCH4]
     pre.fund_address(survivor, amount=1)
     for address in doomed:
         pre.fund_address(address, amount=FUNDING)
     _ensure_factory(pre, fork)
     sender = pre.fund_eoa()
     genesis = _genesis(pre, fork)
-    before = _shape(genesis, survivor)
+    before = account_shape(genesis, survivor)
     assert node_at(before, 4) == ("branch", 16)
     assert before[before.index((4, "branch", 16)) - 1][1] == "ext"
-    assert covering(_shape(_after_block(genesis, *doomed), survivor), 4)[
-        1
-    ] == ("leaf")
+    after = account_shape(_after_block(genesis, *doomed), survivor)
+    assert covering(after, 4)[1] == "leaf"
 
     blockchain_test(
         pre=pre,

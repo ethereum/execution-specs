@@ -17,6 +17,21 @@ n hex digits and differ on digit n. Searches start at 1 (slots), 0x10000
 
 from typing import Final
 
+from execution_testing import Op
+
+# Wei per Gwei, the unit of withdrawal amounts.
+GWEI: Final = 10**9
+
+# Stores `calldata[32:64]` at slot `calldata[0:32]`.
+SLOT_WRITER: Final = (
+    Op.SSTORE(Op.CALLDATALOAD(0), Op.CALLDATALOAD(32)) + Op.STOP
+)
+
+# Init code the account deletion tests CREATE2 through the deterministic
+# factory. The beneficiary is `ORIGIN`, not the contract itself: the
+# balance has to leave for the account to be removed (EIP-8246).
+DELETE_INITCODE: Final = bytes(Op.SELFDESTRUCT(Op.ORIGIN))
+
 # --- storage slots ------------------------------------------------------
 
 # An arbitrary slot: single-leaf inserts, updates and deletes.
@@ -143,18 +158,18 @@ TWO_ADDRS_EXT4_SIBLING_DEPTH3: Final = 68252
 
 # --- CREATE2 salts ------------------------------------------------------
 
-# Smallest salt whose factory-created address (see `DELETE_INITCODE` in
-# the account tests) is a sibling of a mined address group: funding that
-# address at genesis, then CREATE2-ing onto it and SELFDESTRUCT-ing in the
-# same transaction deletes a committed account leaf (EIP-6780).
+# Smallest salt whose factory-created address for `DELETE_INITCODE` is a
+# sibling of a mined address group: funding that address at genesis, then
+# CREATE2-ing onto it and SELFDESTRUCT-ing in the same transaction deletes
+# a committed account leaf (EIP-6780).
 COLLAPSE_SALT: Final = 212508  # shares exactly 4 nibbles with TWO_ADDRS_EXT4
 EXT_MERGE_SALT: Final = 58  # shares exactly 2 nibbles with ADDR_EXT_MERGE_TRIO
 SHARE2_SALT: Final = 30  # shares exactly 2 nibbles with TWO_ADDRS_EXT4
 SHARE3_SALT: Final = 2620  # shares exactly 3 nibbles with TWO_ADDRS_EXT4
 
-# Smallest salt whose factory address for the account tests' SLOT_WRITER
-# init code (`Initcode(deploy_code=SLOT_WRITER)`) shares exactly 4 nibbles
-# with COLLAPSE_SALT's address: a contract survivor in that branch.
+# Smallest salt whose factory address for `SLOT_WRITER`'s init code
+# (`Initcode(deploy_code=SLOT_WRITER)`) shares exactly 4 nibbles with
+# COLLAPSE_SALT's address: a contract survivor in that branch.
 SURVIVOR_SALT: Final = 22435
 
 # Smallest salts whose created addresses fall under SIXTEEN_ADDRS_BRANCH4's

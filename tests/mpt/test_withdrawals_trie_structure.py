@@ -12,8 +12,6 @@ branch whose nibble-0 child is a branch of empty-path leaves. Growing
 
 import pytest
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes, Bytes20
-from ethereum_types.numeric import U64, Uint
 from execution_testing import (
     Account,
     Alloc,
@@ -22,15 +20,7 @@ from execution_testing import (
     Withdrawal,
 )
 
-from ethereum.crypto.hash import keccak256
-from ethereum.merkle_patricia_trie import (
-    Trie,
-    bytes_to_nibble_list,
-    nibble_list_to_compact,
-    root,
-    trie_set,
-)
-
+from .constants import GWEI
 from .trie_shape import index_shape, leaf_rlp_size
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -38,33 +28,13 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 pytestmark = pytest.mark.valid_from("Osaka")
 
-GWEI = 10**9
 
-
-def _key(index: int) -> bytes:
-    return bytes(rlp.encode(Uint(index)))
-
-
-def _value_rlp(
-    index: int, validator_index: int, address: bytes, amount: int
-) -> bytes:
-    """RLP of the withdrawal object stored in the trie."""
-    return bytes(
-        rlp.encode(
-            (U64(index), U64(validator_index), Bytes20(address), U64(amount))
-        )
-    )
-
-
-def _leaf_size(
-    count: int, index: int, validator_index: int, address: bytes, amount: int
-) -> int:
-    """RLP size of the leaf for `index` in a trie of `count` withdrawals."""
-    depth, kind, rest = index_shape(count, index)[-1]
+def _leaf_size(count: int, withdrawal: Withdrawal) -> int:
+    """RLP size of `withdrawal`'s leaf in a trie of `count` withdrawals."""
+    depth, kind, rest = index_shape(count, int(withdrawal.index))[-1]
     assert kind == "leaf"
-    return leaf_rlp_size(
-        rest, _value_rlp(index, validator_index, address, amount)
-    )
+    value = rlp.encode(withdrawal.to_serializable_list())
+    return leaf_rlp_size(rest, bytes(value))
 
 
 @pytest.mark.parametrize(
@@ -89,10 +59,17 @@ def test_withdrawal_leaf_embedding_boundary(
     """
     recipient_a = pre.fund_eoa(amount=0)
     recipient_b = pre.fund_eoa(amount=0)
+    withdrawals = [
+        Withdrawal(
+            index=0, validator_index=1, address=recipient_a, amount=amount
+        ),
+        Withdrawal(
+            index=1, validator_index=2, address=recipient_b, amount=amount
+        ),
+    ]
     assert index_shape(2, 0) == [(0, "branch", 2), (1, "leaf", 1)]
-    for index, recipient in ((0, recipient_a), (1, recipient_b)):
-        size = _leaf_size(2, index, index + 1, bytes(recipient), amount)
-        assert size == leaf_size, (index, size)
+    for withdrawal in withdrawals:
+        assert _leaf_size(2, withdrawal) == leaf_size, withdrawal
 
     blockchain_test(
         pre=pre,
@@ -100,24 +77,7 @@ def test_withdrawal_leaf_embedding_boundary(
             recipient_a: Account(balance=amount * GWEI),
             recipient_b: Account(balance=amount * GWEI),
         },
-        blocks=[
-            Block(
-                withdrawals=[
-                    Withdrawal(
-                        index=0,
-                        validator_index=1,
-                        address=recipient_a,
-                        amount=amount,
-                    ),
-                    Withdrawal(
-                        index=1,
-                        validator_index=2,
-                        address=recipient_b,
-                        amount=amount,
-                    ),
-                ]
-            )
-        ],
+        blocks=[Block(withdrawals=withdrawals)],
     )
 
 
@@ -134,32 +94,16 @@ def test_single_small_withdrawal_root_is_hashed(
     """
     recipient = pre.fund_eoa(amount=0)
     amount = 100
-    assert index_shape(1, 0) == [(0, "leaf", 2)]
-    assert _leaf_size(1, 0, 0, bytes(recipient), amount) == 30
-    key = Bytes(_key(0))
-    value = Bytes(_value_rlp(0, 0, bytes(recipient), amount))
-    trie: Trie[Bytes, Bytes] = Trie(secured=False, default=Bytes(b""))
-    trie_set(trie, key, value)
-    leaf_rlp = rlp.encode(
-        (nibble_list_to_compact(bytes_to_nibble_list(key), True), value)
+    withdrawal = Withdrawal(
+        index=0, validator_index=0, address=recipient, amount=amount
     )
-    assert root(trie) == keccak256(leaf_rlp)
+    assert index_shape(1, 0) == [(0, "leaf", 2)]
+    assert _leaf_size(1, withdrawal) == 30
 
     blockchain_test(
         pre=pre,
         post={recipient: Account(balance=amount * GWEI)},
-        blocks=[
-            Block(
-                withdrawals=[
-                    Withdrawal(
-                        index=0,
-                        validator_index=0,
-                        address=recipient,
-                        amount=amount,
-                    )
-                ]
-            )
-        ],
+        blocks=[Block(withdrawals=[withdrawal])],
     )
 
 
@@ -176,14 +120,23 @@ def test_withdrawal_branch_mixes_embedded_and_hashed(
     """
     recipients = [pre.fund_eoa(amount=0) for _ in range(count)]
     amounts = [2**16 if i % 2 else 2**24 for i in range(count)]
+    withdrawals = [
+        Withdrawal(
+            index=i,
+            validator_index=i,
+            address=recipients[i],
+            amount=amounts[i],
+        )
+        for i in range(count)
+    ]
     assert index_shape(count, 1) == [
         (0, "branch", 2),
         (1, "branch", count - 1),
         (2, "leaf", 0),
     ]
     assert index_shape(count, 0) == [(0, "branch", 2), (1, "leaf", 1)]
-    for i in range(1, count):
-        size = _leaf_size(count, i, i, bytes(recipients[i]), amounts[i])
+    for i, withdrawal in enumerate(withdrawals[1:], start=1):
+        size = _leaf_size(count, withdrawal)
         assert (size < 32) == bool(i % 2), (i, size)
 
     blockchain_test(
@@ -192,17 +145,5 @@ def test_withdrawal_branch_mixes_embedded_and_hashed(
             recipient: Account(balance=amount * GWEI)
             for recipient, amount in zip(recipients, amounts, strict=True)
         },
-        blocks=[
-            Block(
-                withdrawals=[
-                    Withdrawal(
-                        index=i,
-                        validator_index=i,
-                        address=recipients[i],
-                        amount=amounts[i],
-                    )
-                    for i in range(count)
-                ]
-            )
-        ],
+        blocks=[Block(withdrawals=withdrawals)],
     )
