@@ -185,7 +185,7 @@ def _bootstrap_engine_at_genesis(
         logger.info("Calling getBlockByNumber to get genesis block...")
         genesis_block = eth_rpc.get_block_by_number(0)
         assert genesis_block is not None, "genesis_block is None"
-        if genesis_block["hash"] != str(genesis_header.block_hash):
+        if genesis_block.hash != genesis_header.block_hash:
             raise GenesisBlockMismatchExceptionError(
                 expected_header=genesis_header,
                 got_genesis_block=genesis_block,
