@@ -319,9 +319,9 @@ def validate(code: Bytes, start: int, stack_limit: int = STACK_LIMIT) -> bool:
     enter_parents: Dict[int, List[Tuple[int, int]]] = defaultdict(list)
     # entry -> return points waiting on its net
     pending: Dict[int, List[Tuple[int, int, int]]] = defaultdict(list)
-    # entry -> the entries that reach it by jump or fall-through (not by
+    # entry -> the entries it reaches by jump or fall-through (not by
     # CALLSUB); framing propagates along these links
-    jump_parents: Dict[int, List[int]] = defaultdict(list)
+    jump_children: Dict[int, List[int]] = defaultdict(list)
     # entries that contain a RETURNSUB
     returning: Set[int] = set()
     # (pc, offset, entry, preceding push value)
@@ -364,7 +364,7 @@ def validate(code: Bytes, start: int, stack_limit: int = STACK_LIMIT) -> bool:
         # any other way first records the link between the subroutines.
         if op == Ops.CALLDEST.value and (entry != pc or offset != 0):
             parents[pc].append((entry, offset))
-            jump_parents[pc].append(entry)
+            jump_children[entry].append(pc)
             if pc in net_effect:  # settled: the arriving net follows
                 if not resolve(entry, offset + net_effect[pc]):
                     return False
@@ -444,15 +444,17 @@ def validate(code: Bytes, start: int, stack_limit: int = STACK_LIMIT) -> bool:
     # Constraint 3, framing: an entry reached by jump from an unframed
     # entry is unframed; the top level is unframed; no unframed entry may
     # contain a RETURNSUB. Framing propagates along jump links only, since
-    # a CALLSUB frames its callee. This ends: the set only grows.
+    # a CALLSUB frames its callee. A worklist walks each link at most once:
+    # an entry is made unframed at most once, and its children are visited
+    # only then, so this is linear in the size of the code.
     unframed: Set[int] = {_OUTER}
-    changed = True
-    while changed:
-        changed = False
-        for e, ps in jump_parents.items():
-            if e not in unframed and any(p in unframed for p in ps):
-                unframed.add(e)
-                changed = True
+    work: List[int] = [_OUTER]
+    while work:
+        parent = work.pop()
+        for entry in jump_children[parent]:
+            if entry not in unframed:
+                unframed.add(entry)
+                work.append(entry)
     if unframed & returning:
         return False
 
