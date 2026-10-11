@@ -21,8 +21,12 @@ contract created in the same transaction (EIP-6780). The deletion tests
 fund a mined address at genesis and CREATE2 onto it through the
 deterministic factory with init code that immediately self-destructs:
 creation at a balance-only address is legal, the contract counts as
-created in the transaction, and the pre-existing leaf is removed. Not
-expressible: wiping a committed storage trie in one step while its
+created in the transaction, and the pre-existing leaf is removed. The
+init code sends the balance to the sender, because from EIP-8246 a
+self-destructed account keeps its balance and is removed only when that
+balance is zero (EIP-161).
+
+Not expressible: wiping a committed storage trie in one step while its
 account survives; EIP-161 clearing of a committed empty account (the
 filler does not emit empty genesis accounts); and, excluded on purpose,
 CREATE2 onto an address with pre-existing storage, where this
@@ -78,7 +82,8 @@ SLOT_WRITER = Op.SSTORE(Op.CALLDATALOAD(0), Op.CALLDATALOAD(32)) + Op.STOP
 
 # The salts in `constants.py` were mined against exactly these bytes and
 # this factory address; either changing would silently move every doomed
-# address.
+# address. The beneficiary is `ORIGIN`, not the contract itself: the
+# balance has to leave for the account to be removed (EIP-8246).
 DELETE_INITCODE = bytes(Op.SELFDESTRUCT(Op.ORIGIN))
 assert DELETE_INITCODE == bytes.fromhex("32ff")
 assert DETERMINISTIC_FACTORY_ADDRESS == Address(
