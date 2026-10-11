@@ -1844,10 +1844,17 @@ def test_delete_around_inline_leaves(
 
 
 @pytest.mark.parametrize(
-    "doomed_value", [1, 128], ids=["deleted_inline", "deleted_hashed"]
+    "doomed_value,doomed_size",
+    [
+        pytest.param(1, 31, id="deleted_inline"),
+        pytest.param(128, 33, id="deleted_hashed"),
+    ],
 )
 def test_delete_inline_leaf_survivor_stays_inline(
-    blockchain_test: BlockchainTestFiller, pre: Alloc, doomed_value: int
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    doomed_value: int,
+    doomed_size: int,
 ) -> None:
     """
     Collapse a branch of inline leaves; the survivor stays inline.
@@ -1871,7 +1878,7 @@ def test_delete_inline_leaf_survivor_stays_inline(
         (9, "leaf", 55),
     ]
     assert storage_leaf_size(54, 1) == 31 and storage_leaf_size(55, 1) == 31
-    assert storage_leaf_size(54, doomed_value) in (31, 33)
+    assert storage_leaf_size(54, doomed_value) == doomed_size
     storage = {x: 1, y: doomed_value, s: 1}
     contract = pre.deploy_contract(code=SLOT_WRITER, storage=_alloc(storage))
     sender = pre.fund_eoa()

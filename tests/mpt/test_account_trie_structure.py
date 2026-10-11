@@ -413,7 +413,9 @@ def test_storage_root_flip_with_account_shape_change(
     pre.fund_address(doomed, amount=FUNDING)
     sender = pre.fund_eoa()
     genesis = _genesis(pre, fork)
-    assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
+    before = _shape(genesis, survivor)
+    assert node_at(before, 4) == ("branch", 2)
+    assert before[before.index((4, "branch", 2)) - 1][1] == "ext"
     assert covering(_shape(_after_block(genesis, doomed), survivor), 4)[1] == (
         "leaf"
     )
@@ -537,9 +539,15 @@ def test_resurrection_via_withdrawal(
     sender = pre.fund_eoa()
     genesis = _genesis(pre, fork)
     assert node_at(_shape(genesis, survivor), 4) == ("branch", 2)
-    resurrected = (
-        Account(balance=amount * 10**9) if amount else Account.NONEXISTENT
-    )
+    resurrected: Account | None
+    if amount:
+        resurrected = Account(balance=amount * 10**9)
+        after = _shape(_after_block(genesis), survivor)
+        assert node_at(after, 4) == ("branch", 2)
+    else:
+        resurrected = Account.NONEXISTENT
+        after = _shape(_after_block(genesis, doomed), survivor)
+        assert covering(after, 4)[1] == "leaf"
 
     blockchain_test(
         pre=pre,

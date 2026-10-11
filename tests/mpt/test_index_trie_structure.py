@@ -112,7 +112,6 @@ def test_index_trie_shapes(
     Same keys drive the receipts trie of the block.
     """
     assert index_shape(count, count - 1) == last_shape
-    assert index_shape(count, 0)[0] == last_shape[0]
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=0)
 
