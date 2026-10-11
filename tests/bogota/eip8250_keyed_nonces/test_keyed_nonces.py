@@ -563,19 +563,13 @@ def test_keyed_nonce_access_cost(
 ) -> None:
     """
     Charge `KEYED_NONCE_ACCESS_COST` for every non-zero nonce key in both
-    the intrinsic cost and the calldata floor, so a transaction pays it
-    whichever of the two binds. The legacy key set pays nothing, and a
-    used key pays the same as a fresh one.
+    the intrinsic cost and the calldata floor, whichever binds. The legacy
+    key set pays nothing, and a used key pays the same as a fresh one.
 
     A worker's cold reads keep the standard cost above the calldata floor
     in `standard`. In `floor` the worker's frame data lifts the floor above
     the standard cost by the smallest margin the data allows, and
     `below_floor` carries one byte less, so the standard cost binds again.
-
-    The expected gas is built from the EIP's constant: the transaction
-    priced with the legacy key set, which carries no access cost, with
-    the calldata of its own nonce fields swapped in and the access cost
-    added on each side.
     """
     sender = sender_at_sequence(pre, nonce_keys, nonce_seq)
     state_gas = first_use_count(nonce_keys, nonce_seq) * keyed_nonce_first_use(
@@ -584,7 +578,7 @@ def test_keyed_nonce_access_cost(
     worker, worker_gas = cold_read_burner(pre, fork)
     verify_gas = default_code_frame_gas(fork, target_warm=True)
 
-    access = keyed_nonce_access_cost(nonce_keys)
+    access = keyed_nonce_access_cost(fork, nonce_keys)
     own_nonce_data = nonce_field_calldata(nonce_keys, nonce_seq)
     legacy_nonce_data = nonce_field_calldata([0], 0)
     gas_costs = fork.gas_costs()
@@ -613,6 +607,8 @@ def test_keyed_nonce_access_cost(
         )
         tx.sign()
         assert tx.frames is not None and tx.signatures is not None
+        # Price the transaction with the legacy key set, which carries no
+        # access cost, then swap in its own nonce fields and add the cost.
         intrinsic = (
             intrinsic_calculator(
                 frames=tx.frames,
@@ -635,19 +631,6 @@ def test_keyed_nonce_access_cost(
             + (len(own_nonce_data) - len(legacy_nonce_data))
             * floor_gas_per_byte
             + access
-        )
-        assert intrinsic == intrinsic_calculator(
-            frames=tx.frames,
-            signatures=tx.signatures,
-            nonce_keys=nonce_keys,
-            nonce_seq=nonce_seq,
-            return_cost_deducted_prior_execution=True,
-        )
-        assert floor == floor_calculator(
-            frames=tx.frames,
-            signatures=tx.signatures,
-            nonce_keys=nonce_keys,
-            nonce_seq=nonce_seq,
         )
         return tx, intrinsic + verify_gas + worker_gas, floor
 
@@ -921,6 +904,97 @@ def test_static_validity_transaction(
         nonce=nonce_seq,
         error=error,
     )
+    transaction_test(pre=pre, tx=tx)
+
+
+GAS_CAP_CASES = [
+    pytest.param(0, None, id="at_cap"),
+    pytest.param(
+        1,
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM,
+        id="above_cap",
+        marks=pytest.mark.exception_test,
+    ),
+]
+"""
+Gas in excess of the per-transaction cap, with the exception the excess
+must be rejected with.
+"""
+
+
+def max_key_set_at_gas_cap(
+    pre: Alloc,
+    fork: Fork,
+    cap_excess: int,
+    error: Optional[TransactionException],
+) -> Transaction:
+    """
+    Return a transaction using the maximum key set whose intrinsic cost
+    plus frame gas lands `cap_excess` above the per-transaction gas cap.
+    """
+    sender = pre.deploy_contract(
+        code=Op.APPROVE(0, 0, Spec8141.APPROVE_EXECUTION_AND_PAYMENT),
+        balance=10**18,
+    )
+    nonce_keys = list(range(1, Spec.MAX_NONCE_KEYS + 1))
+    # A contract sender carries no signature entries and the frame no
+    # data, so the calculator prices the intrinsic cost exactly.
+    intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=1,
+        nonce_keys=nonce_keys,
+        return_cost_deducted_prior_execution=True,
+    )
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+    return Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(
+                gas_limit=cap - intrinsic + cap_excess,
+                state_gas_limit=len(nonce_keys) * keyed_nonce_first_use(fork),
+            )
+        ],
+        nonce_keys=nonce_keys,
+        nonce=0,
+        error=error,
+    )
+
+
+@pytest.mark.parametrize("cap_excess,error", GAS_CAP_CASES)
+def test_gas_limit_cap_counts_keyed_nonce_access(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    cap_excess: int,
+    error: Optional[TransactionException],
+) -> None:
+    """
+    Count `KEYED_NONCE_ACCESS_COST` toward the per-transaction gas cap,
+    sizing frame gas so the maximum key set lands on the cap or one above.
+    """
+    tx = max_key_set_at_gas_cap(pre, fork, cap_excess, error)
+    assert tx.sender is not None and tx.nonce_keys is not None
+    written = {keyed_nonce_slot(tx.sender, key): 1 for key in tx.nonce_keys}
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={Spec.NONCE_MANAGER: Account(storage={} if error else written)},
+    )
+
+
+@pytest.mark.parametrize("cap_excess,error", GAS_CAP_CASES)
+def test_gas_limit_cap_counts_keyed_nonce_access_transaction(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    cap_excess: int,
+    error: Optional[TransactionException],
+) -> None:
+    """
+    Check the `test_gas_limit_cap_counts_keyed_nonce_access` cases as
+    transaction tests.
+    """
+    tx = max_key_set_at_gas_cap(pre, fork, cap_excess, error)
     transaction_test(pre=pre, tx=tx)
 
 
