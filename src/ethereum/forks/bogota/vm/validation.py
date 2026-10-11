@@ -441,7 +441,7 @@ def validate(code: Bytes, start: int, stack_limit: int = STACK_LIMIT) -> bool:
                 value = _push_value(code, pc)
             work_items.append((nxt, offset, entry, value))
 
-    # Constraint 3, framing: an entry reached by jump from an unframed
+    # Constraint 4, framing: an entry reached by jump from an unframed
     # entry is unframed; the top level is unframed; no unframed entry may
     # contain a RETURNSUB. Framing propagates along jump links only, since
     # a CALLSUB frames its callee. A worklist walks each link at most once:
