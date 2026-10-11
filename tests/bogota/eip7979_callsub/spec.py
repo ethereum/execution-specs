@@ -20,10 +20,11 @@ ref_spec_7979 = ReferenceSpec(
 class Spec:
     """Constants and parameters from EIP-7979."""
 
-    # Placeholder opcode values, to be confirmed on final assignment.
-    CALLSUB_OPCODE: int = 0xB0
-    CALLDEST_OPCODE: int = 0xB1
-    RETURNSUB_OPCODE: int = 0xB2
+    # Opcode values; 0xBD and 0xBE are left for EIP-8173's multi-way
+    # call and jump.
+    CALLDEST_OPCODE: int = 0xBB
+    CALLSUB_OPCODE: int = 0xBC
+    RETURNSUB_OPCODE: int = 0xBF
 
     # Gas costs: mid, jumpdest, low.
     CALLSUB_GAS: int = 8

@@ -42,7 +42,7 @@ def marker_via_callsub() -> Bytecode:
 def marker_via_jump_to_calldest() -> Bytecode:
     """
     Return code that JUMPs to a CALLDEST and stores the marker at the slot
-    keyed by block NUMBER. Before the fork a 0xB1 byte is not a valid jump
+    keyed by block NUMBER. Before the fork a 0xBB byte is not a valid jump
     destination, so the JUMP halts the frame.
     """
     main = Op.PUSH1[0] + Op.JUMP + Op.STOP
@@ -72,7 +72,7 @@ def test_opcodes_at_fork_transition(
     code: Bytecode,
 ) -> None:
     """
-    Before the fork the new opcodes are undefined and 0xB1 is not a jump
+    Before the fork the new opcodes are undefined and 0xBB is not a jump
     destination; from the fork onward the code runs and stores its marker.
 
     Storage is keyed by block NUMBER so each block's outcome is visible:

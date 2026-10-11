@@ -112,14 +112,14 @@ def test_subroutine_called_twice(
             id="jumpdest",
         ),
         pytest.param(
-            # Destination 5 is the 0xB1 byte inside the PUSH1 immediate.
-            Op.PUSH1[0x05] + Op.CALLSUB + Op.STOP + Op.PUSH1[0xB1] + Op.STOP,
+            # Destination 5 is the 0xBB byte inside the PUSH1 immediate.
+            Op.PUSH1[0x05] + Op.CALLSUB + Op.STOP + Op.PUSH1[0xBB] + Op.STOP,
             id="calldest_byte_in_push_data",
         ),
         pytest.param(
-            # Destination 5 is the 0xB1 byte inside a DUPN immediate
+            # Destination 5 is the 0xBB byte inside a DUPN immediate
             # (EIP-8024): the scan skips it, so it is not an instruction.
-            Op.PUSH1[0x05] + Op.CALLSUB + Op.STOP + Op.DUPN[0xB1] + Op.STOP,
+            Op.PUSH1[0x05] + Op.CALLSUB + Op.STOP + Op.DUPN[0xBB] + Op.STOP,
             id="calldest_byte_in_dupn_immediate",
         ),
         pytest.param(

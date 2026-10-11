@@ -195,9 +195,9 @@ class Ops(enum.Enum):
     EXCHANGE = 0xE8
 
     # EIP-7979: Call and return instructions
-    CALLSUB = 0xB0
-    CALLDEST = 0xB1
-    RETURNSUB = 0xB2
+    CALLDEST = 0xBB
+    CALLSUB = 0xBC
+    RETURNSUB = 0xBF
 
     # Memory Operations
     MLOAD = 0x51

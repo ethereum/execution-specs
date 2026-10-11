@@ -76,7 +76,7 @@ class InvalidJumpDestError(ExceptionalHalt):
 
       * The jump destination is less than the length of the code.
       * The jump destination should have the `JUMPDEST` opcode (0x5B), or
-        the `CALLDEST` opcode (0xB1, EIP-7979).
+        the `CALLDEST` opcode (0xBB, EIP-7979).
       * The jump destination shouldn't be part of the data corresponding to
         `PUSH-N` opcodes.
 

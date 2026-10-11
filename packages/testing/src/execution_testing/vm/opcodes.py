@@ -5274,7 +5274,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#A4](https://www.evm.codes/#A4)
     """
 
-    CALLSUB = Opcode(0xB0, popped_stack_items=1, kwargs=["pc"])
+    CALLSUB = Opcode(0xBC, popped_stack_items=1, kwargs=["pc"])
     """
     CALLSUB(pc)
     ----
@@ -5306,7 +5306,7 @@ class Opcodes(Opcode, Enum):
     Source: [EIP-7979](https://eips.ethereum.org/EIPS/eip-7979)
     """
 
-    CALLDEST = Opcode(0xB1)
+    CALLDEST = Opcode(0xBB)
     """
     CALLDEST()
     ----
@@ -5337,7 +5337,7 @@ class Opcodes(Opcode, Enum):
     Source: [EIP-7979](https://eips.ethereum.org/EIPS/eip-7979)
     """
 
-    RETURNSUB = Opcode(0xB2)
+    RETURNSUB = Opcode(0xBF)
     """
     RETURNSUB()
     ----

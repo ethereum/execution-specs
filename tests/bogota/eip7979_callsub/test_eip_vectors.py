@@ -85,11 +85,11 @@ def test_eip_vectors(
 ) -> None:
     """Run each EIP test vector verbatim and record whether it halted."""
     expected_hex = {
-        "simple_routine": "6004b000b1b2",
-        "two_levels_of_subroutines": "6004b000b16009b0b2b1b2",
-        "failure_invalid_destination": "60ffb000b1b2",
-        "failure_empty_return_stack": "b2",
-        "subroutine_at_end_of_code": "600556b1b25b6003b0",
+        "simple_routine": "6004bc00bbbf",
+        "two_levels_of_subroutines": "6004bc00bb6009bcbfbbbf",
+        "failure_invalid_destination": "60ffbc00bbbf",
+        "failure_empty_return_stack": "bf",
+        "subroutine_at_end_of_code": "600556bbbf5b6003bc",
     }
     assert bytes(bytecode).hex() in expected_hex.values()
 
