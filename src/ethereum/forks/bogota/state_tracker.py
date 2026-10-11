@@ -81,6 +81,10 @@ class TransactionState:
     ``storage_reads`` and ``account_reads`` are shared references
     that survive rollback (reads from failed calls still appear in the
     Block Access List).
+
+    ``accounts_with_adopted_code`` holds the accounts whose code hash was
+    last set by ``SETCODEFROM``, which the Block Access List records as a
+    hash rather than as bytecode.
     """
 
     parent: BlockState
@@ -94,6 +98,7 @@ class TransactionState:
     )
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
     created_accounts: Set[Address] = field(default_factory=set)
+    accounts_with_adopted_code: Set[Address] = field(default_factory=set)
     storage_clears: Set[Address] = field(default_factory=set)
     transient_storage: Dict[Tuple[Address, Bytes32], U256] = field(
         default_factory=dict
@@ -728,6 +733,27 @@ def set_code(
     modify_state(tx_state, address, write_code_hash)
 
 
+def adopt_code(
+    tx_state: TransactionState, address: Address, code_hash: Hash32
+) -> None:
+    """
+    Point the account at `address` to existing code by its `code_hash`, as
+    [`SETCODEFROM`] does.
+
+    The bytecode is already stored, so only the code hash is written. The
+    account is remembered so that the Block Access List records the change
+    as the code hash instead of the bytecode.
+
+    [`SETCODEFROM`]: ref:ethereum.forks.bogota.vm.instructions.system.setcodefrom
+    """  # noqa: E501
+
+    def write_code_hash(account: Account) -> None:
+        account.code_hash = code_hash
+
+    modify_state(tx_state, address, write_code_hash)
+    tx_state.accounts_with_adopted_code.add(address)
+
+
 # -- Snapshot / Rollback ---------------------------------------------------
 
 
@@ -759,6 +785,7 @@ def copy_tx_state(tx_state: TransactionState) -> TransactionState:
         },
         code_writes=dict(tx_state.code_writes),
         created_accounts=tx_state.created_accounts,
+        accounts_with_adopted_code=set(tx_state.accounts_with_adopted_code),
         storage_clears=set(tx_state.storage_clears),
         transient_storage=dict(tx_state.transient_storage),
         storage_reads=tx_state.storage_reads,
@@ -785,6 +812,7 @@ def restore_tx_state(
     tx_state.code_writes = snapshot.code_writes
     tx_state.storage_clears = snapshot.storage_clears
     tx_state.transient_storage = snapshot.transient_storage
+    tx_state.accounts_with_adopted_code = snapshot.accounts_with_adopted_code
 
 
 # -- Lifecycle --------------------------------------------------------------
@@ -839,6 +867,7 @@ def incorporate_tx_into_block(
     tx_state.storage_writes.clear()
     tx_state.code_writes.clear()
     tx_state.created_accounts.clear()
+    tx_state.accounts_with_adopted_code.clear()
     tx_state.storage_clears.clear()
     tx_state.transient_storage.clear()
     tx_state.storage_reads = set()
