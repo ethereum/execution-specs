@@ -488,3 +488,54 @@ def test_validation_state_system_address_read(
         ],
         post=post,
     )
+
+
+@pytest.mark.parametrize("block_contents", ["empty", "transfer"])
+def test_validation_state_system_address_unread(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    block_contents: str,
+) -> None:
+    """
+    Leave out the SYSTEM_ADDRESS account proof when only system calls use it.
+
+    The block's system calls use SYSTEM_ADDRESS as their origin without
+    reading its account, so the witness must not prove it. This is the
+    premise of `test_validation_state_system_address_read`.
+    """
+    # A funded SYSTEM_ADDRESS has its own leaf in the account trie.
+    pre.fund_address(SYSTEM_ADDRESS, 1)
+
+    txs: list[Transaction] = []
+    post: dict[Address, Account] = {
+        SYSTEM_ADDRESS: Account(balance=1, nonce=0),
+    }
+    if block_contents == "empty":
+        pass
+    elif block_contents == "transfer":
+        sender = pre.fund_eoa()
+        recipient = pre.fund_eoa(amount=1)
+        txs.append(Transaction(sender=sender, to=recipient, value=1))
+        post[sender] = Account(nonce=1)
+        post[recipient] = Account(balance=2)
+    else:
+        raise ValueError(f"Unknown block contents: {block_contents}")
+
+    full_alloc = merge_with_amsterdam_pre_alloc(pre)
+    proof_nodes = collect_account_proof_nodes(full_alloc, [SYSTEM_ADDRESS])
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                expected_execution_witness_state=(
+                    ExecutionWitnessStateExpectation(
+                        nodes_absent=[_leaf_node(proof_nodes)],
+                    )
+                ),
+                expected_stateless_validation_success=True,
+            )
+        ],
+        post=post,
+    )
