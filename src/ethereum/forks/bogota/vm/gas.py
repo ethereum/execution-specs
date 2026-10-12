@@ -222,6 +222,17 @@ class GasCosts:
     [ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
     """  # noqa: E501
 
+    KEYED_NONCE_ACCESS: Final[ExecutionGas] = (
+        COLD_STORAGE_ACCESS + STORAGE_WRITE
+    )
+    """
+    Intrinsic cost of each non-zero nonce key of a [`FrameTransaction`][ftx]:
+    the cold read and the write of its slot in the nonce manager, which the
+    protocol performs outside the access lists and `SSTORE` pricing.
+
+    [ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
+    """  # noqa: E501
+
     # Block
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)
     LIMIT_MINIMUM: Final[Uint] = Uint(5000)
