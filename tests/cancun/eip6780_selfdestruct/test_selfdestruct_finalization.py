@@ -112,6 +112,7 @@ def finalized_bal(
 @EIPChecklist.Opcode.Test.ExecutionContext.Call(eip=[8246])
 @EIPChecklist.Opcode.Test.GasUsage.ExtraGas(eip=[8246])
 @EIPChecklist.Opcode.Test.Terminating.Scenarios.SubLevel(eip=[8246])
+@pytest.mark.valid_before("EIP4758")
 def test_selfdestruct_sequences(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -247,6 +248,7 @@ def test_selfdestruct_sequences(
         pytest.param(True, True, id="nonce_and_storage"),
     ],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_selfdestruct_clears_nonce_and_storage(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -335,6 +337,7 @@ def test_selfdestruct_clears_nonce_and_storage(
     )
 
 
+@pytest.mark.valid_before("EIP4758")
 def test_reinvoked_selfdestruct_create_nonce(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -446,6 +449,7 @@ def test_reinvoked_selfdestruct_create_nonce(
 @EIPChecklist.Opcode.Test.ExecutionContext.Delegatecall.Code(eip=[8246])
 @EIPChecklist.Opcode.Test.ExecutionContext.Delegatecall.Storage(eip=[8246])
 @EIPChecklist.Opcode.Test.ExecutionContext.Callcode(eip=[8246])
+@pytest.mark.valid_before("EIP4758")
 def test_selfdestruct_in_delegate_context(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -648,6 +652,7 @@ def test_selfdestruct_static_context_same_tx(
     [pytest.param(0, id="zero_balance"), pytest.param(3, id="funded")],
 )
 @EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Reentry(eip=[8246])
+@pytest.mark.valid_before("EIP4758")
 def test_recreate_in_later_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -708,6 +713,7 @@ def test_recreate_in_later_block(
     "existing_balance",
     [pytest.param(0, id="zero_balance"), pytest.param(3, id="funded")],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_selfdestruct_to_self_keeps_existing_balance(
     state_test: StateTestFiller,
     pre: Alloc,

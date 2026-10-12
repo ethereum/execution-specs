@@ -4030,6 +4030,7 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     )
 
 
+@pytest.mark.valid_before("EIP4758")
 def test_bal_create2_selfdestruct_then_recreate_and_write(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
