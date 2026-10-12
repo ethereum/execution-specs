@@ -1429,6 +1429,17 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         del nonce_keys, nonce_seq
         return []
 
+    @classmethod
+    def _frame_transaction_nonce_access_cost(
+        cls, nonce_keys: Sequence[int]
+    ) -> int:
+        """
+        Return the intrinsic cost of accessing a frame transaction's
+        nonce key set.
+        """
+        del nonce_keys
+        return 0
+
     # Engine API information abstract methods
     @classmethod
     @abstractmethod
