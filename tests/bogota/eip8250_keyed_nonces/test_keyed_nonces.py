@@ -925,54 +925,80 @@ must be rejected with.
 def max_key_set_at_gas_cap(
     pre: Alloc,
     fork: Fork,
+    floor_bound: bool,
     cap_excess: int,
     error: Optional[TransactionException],
 ) -> Transaction:
     """
-    Return a transaction using the maximum key set whose intrinsic cost
-    plus frame gas lands `cap_excess` above the per-transaction gas cap.
+    Return a transaction using the maximum key set whose standard cost,
+    or calldata floor if `floor_bound`, lands `cap_excess` above the
+    per-transaction gas cap.
     """
     sender = pre.deploy_contract(
         code=Op.APPROVE(0, 0, Spec8141.APPROVE_EXECUTION_AND_PAYMENT),
         balance=10**18,
     )
     nonce_keys = list(range(1, Spec.MAX_NONCE_KEYS + 1))
-    # A contract sender carries no signature entries and the frame no
-    # data, so the calculator prices the intrinsic cost exactly.
-    intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=1,
-        nonce_keys=nonce_keys,
-        return_cost_deducted_prior_execution=True,
-    )
+    state_gas_limit = len(nonce_keys) * keyed_nonce_first_use(fork)
     cap = fork.transaction_gas_limit_cap()
     assert cap is not None
-    return Transaction(
-        sender=sender,
-        frames=[
+    if floor_bound:
+        # The floor grows by whole bytes of data, so the boundary pair is
+        # the longest data whose floor fits under the cap and one byte
+        # more.
+        gas_costs = fork.gas_costs()
+        floor_per_byte = (
+            gas_costs.TX_DATA_TOKEN_STANDARD * gas_costs.TX_DATA_TOKEN_FLOOR
+        )
+        base = fork.frame_transaction_data_floor_cost_calculator()(
+            frames=2, nonce_keys=nonce_keys
+        )
+        data_length = (cap - base) // floor_per_byte + cap_excess
+        frames = [
+            verify_frame(state_gas_limit=state_gas_limit),
+            default_frame(gas_limit=0, data=Bytes(bytes(data_length))),
+        ]
+    else:
+        # A contract sender carries no signature entries and the frame no
+        # data, so the calculator prices the intrinsic cost exactly.
+        intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
+            frames=1,
+            nonce_keys=nonce_keys,
+            return_cost_deducted_prior_execution=True,
+        )
+        frames = [
             verify_frame(
                 gas_limit=cap - intrinsic + cap_excess,
-                state_gas_limit=len(nonce_keys) * keyed_nonce_first_use(fork),
+                state_gas_limit=state_gas_limit,
             )
-        ],
+        ]
+    return Transaction(
+        sender=sender,
+        frames=frames,
         nonce_keys=nonce_keys,
         nonce=0,
         error=error,
     )
 
 
+@pytest.mark.parametrize(
+    "floor_bound", [False, True], ids=["standard", "floor"]
+)
 @pytest.mark.parametrize("cap_excess,error", GAS_CAP_CASES)
 def test_gas_limit_cap_counts_keyed_nonce_access(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    floor_bound: bool,
     cap_excess: int,
     error: Optional[TransactionException],
 ) -> None:
     """
-    Count `KEYED_NONCE_ACCESS_COST` toward the per-transaction gas cap,
-    sizing frame gas so the maximum key set lands on the cap or one above.
+    Count `KEYED_NONCE_ACCESS_COST` toward the per-transaction gas cap
+    through both the standard cost and the calldata floor, with the
+    maximum key set landing on the cap or one above.
     """
-    tx = max_key_set_at_gas_cap(pre, fork, cap_excess, error)
+    tx = max_key_set_at_gas_cap(pre, fork, floor_bound, cap_excess, error)
     assert tx.sender is not None and tx.nonce_keys is not None
     written = {keyed_nonce_slot(tx.sender, key): 1 for key in tx.nonce_keys}
     state_test(
@@ -982,11 +1008,15 @@ def test_gas_limit_cap_counts_keyed_nonce_access(
     )
 
 
+@pytest.mark.parametrize(
+    "floor_bound", [False, True], ids=["standard", "floor"]
+)
 @pytest.mark.parametrize("cap_excess,error", GAS_CAP_CASES)
 def test_gas_limit_cap_counts_keyed_nonce_access_transaction(
     transaction_test: TransactionTestFiller,
     pre: Alloc,
     fork: Fork,
+    floor_bound: bool,
     cap_excess: int,
     error: Optional[TransactionException],
 ) -> None:
@@ -994,8 +1024,61 @@ def test_gas_limit_cap_counts_keyed_nonce_access_transaction(
     Check the `test_gas_limit_cap_counts_keyed_nonce_access` cases as
     transaction tests.
     """
-    tx = max_key_set_at_gas_cap(pre, fork, cap_excess, error)
+    tx = max_key_set_at_gas_cap(pre, fork, floor_bound, cap_excess, error)
     transaction_test(pre=pre, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "shortfall,error",
+    [
+        pytest.param(0, None, id="exact_max_cost"),
+        pytest.param(
+            1,
+            TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
+            id="one_wei_short",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+def test_payer_max_cost_counts_keyed_nonce_access(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    shortfall: int,
+    error: Optional[TransactionException],
+) -> None:
+    """
+    Count `KEYED_NONCE_ACCESS_COST` in the maximum cost the payer must
+    hold at payment approval, funding the maximum key set's payer with
+    exactly that cost or one wei less.
+    """
+    nonce_keys = list(range(1, Spec.MAX_NONCE_KEYS + 1))
+    frame = verify_frame(
+        state_gas_limit=len(nonce_keys) * keyed_nonce_first_use(fork)
+    )
+    # Any fee cap at or above the base fee; the payer escrows the
+    # transaction's maximum gas at this price.
+    fee_per_gas = 10**9
+    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=[frame], nonce_keys=nonce_keys
+    )
+    sender = pre.deploy_contract(
+        code=Op.APPROVE(0, 0, Spec8141.APPROVE_EXECUTION_AND_PAYMENT),
+        balance=max_gas * fee_per_gas - shortfall,
+    )
+    written = {keyed_nonce_slot(sender, key): 1 for key in nonce_keys}
+    state_test(
+        pre=pre,
+        tx=Transaction(
+            sender=sender,
+            frames=[frame],
+            nonce_keys=nonce_keys,
+            nonce=0,
+            max_fee_per_gas=fee_per_gas,
+            error=error,
+        ),
+        post={Spec.NONCE_MANAGER: Account(storage={} if error else written)},
+    )
 
 
 @pytest.mark.pre_alloc_mutable
