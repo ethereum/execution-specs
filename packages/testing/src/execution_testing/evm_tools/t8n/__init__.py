@@ -209,6 +209,9 @@ class T8N(Load):
                 trace.set_evm_trace(tracer)
             else:
                 trace.set_evm_trace(tracers)
+        else:
+            # Drop any tracer an earlier run left behind.
+            trace.set_evm_trace(trace.discard_evm_trace)
         self.tracers = tracers
 
         self.logger = get_stream_logger("T8N")

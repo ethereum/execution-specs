@@ -1,6 +1,7 @@
 """Helpers for pytest plugins."""
 
 import os
+from pathlib import Path
 from typing import Any, Dict, Tuple, Type
 
 import pytest
@@ -69,3 +70,12 @@ def get_spec_format_for_item(
         if spec_type.pytest_parameter_name() in params:
             return spec_type, params[spec_type.pytest_parameter_name()]
     raise ValueError("No spec type format found in the test item.")
+
+
+BENCHMARK_DIR = Path("tests") / "benchmark"
+
+
+def is_benchmark_test(request: pytest.FixtureRequest) -> bool:
+    """Check if the test is under the benchmark directory."""
+    benchmark_path = Path(request.config.rootpath) / BENCHMARK_DIR
+    return benchmark_path in Path(request.node.fspath).parents

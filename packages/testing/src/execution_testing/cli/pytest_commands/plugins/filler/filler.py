@@ -90,6 +90,7 @@ from ..shared.fixture_output import (
 )
 from ..shared.helpers import (
     get_spec_format_for_item,
+    is_benchmark_test,
     is_help_or_collectonly_mode,
     option_was_explicitly_set,
 )
@@ -1204,7 +1205,8 @@ def t8n(
     session_t8n.reset_traces()
     session_t8n.call_counter = 0
     session_t8n.debug_dump_dir = dump_dir_parameter_level
-    # TODO: Configure the transition tool to count opcodes only when required.
+    # Only benchmark tests report opcode counts.
+    session_t8n.count_opcodes = is_benchmark_test(request)
     session_t8n.reset_opcode_count()
     yield session_t8n
     # Only collect subkey stats for cacheable tests (non-cacheable tests

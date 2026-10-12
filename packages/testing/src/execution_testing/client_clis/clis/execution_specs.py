@@ -135,7 +135,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
             )
 
         count_tracer = None
-        if self.supports_opcode_count:
+        if self.supports_opcode_count and self.opcode_count is not None:
             count_tracer = CountTracer()
             if tracers is None:
                 tracers = GroupTracer()
