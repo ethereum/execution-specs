@@ -56,6 +56,13 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
         type=str,
         default=None,
     )
+    for field, dest in (
+        ("inclusionListTransactions", "inclusion_list_txs"),
+        ("inclusionListMembership", "inclusion_list_membership"),
+        ("inclusionListClaims", "inclusion_list_claims"),
+        ("inclusionListReplayLimits", "inclusion_list_replay_limits"),
+    ):
+        t8n_parser.add_argument(f"--input.{field}", dest=dest, default=None)
     t8n_parser.add_argument(
         "--output.alloc", dest="output_alloc", type=str, default="alloc.json"
     )
@@ -312,6 +319,7 @@ def build_t8n_from_cli_options(
     testing pydantic types, bundles them into a ``TransitionToolData``,
     builds the tracer group, and hands them to ``T8N``.
     """
+    from execution_testing.base_types import Bytes as TestingBytes
     from execution_testing.base_types.composite_types import BlobSchedule
     from execution_testing.client_clis.transition_tool import TransitionTool
     from execution_testing.test_types import (
@@ -321,9 +329,19 @@ def build_t8n_from_cli_options(
         Environment as TestingEnvironment,
     )
     from execution_testing.test_types import (
+        InclusionListClaim,
+        InclusionListReplayLimits,
+    )
+    from execution_testing.test_types import (
         Transaction as TestingTransaction,
     )
 
+    inclusion_fields = (
+        ("inclusionListTransactions", "inclusion_list_txs"),
+        ("inclusionListMembership", "inclusion_list_membership"),
+        ("inclusionListClaims", "inclusion_list_claims"),
+        ("inclusionListReplayLimits", "inclusion_list_replay_limits"),
+    )
     forks = Hardfork.discover()
 
     if "stdin" in (
@@ -331,6 +349,7 @@ def build_t8n_from_cli_options(
         options.input_alloc,
         options.input_txs,
         options.blob_parameters,
+        *(getattr(options, dest, None) for _, dest in inclusion_fields),
     ):
         stdin = json.load(in_file)
     else:
@@ -358,6 +377,21 @@ def build_t8n_from_cli_options(
         blob_schedule = BlobSchedule()
         blob_schedule.append(fork=testing_fork.name(), schedule=blob_params)
 
+    inclusion_data = {}
+    for field, dest in inclusion_fields:
+        path = getattr(options, dest, None)
+        if path is not None:
+            inclusion_data[field] = _read_json_input(path, stdin, field)
+        elif stdin is not None and field in stdin:
+            inclusion_data[field] = stdin[field]
+    il_txs = None
+    if "inclusionListTransactions" in inclusion_data:
+        il_txs, _ = _parse_txs_json_to_testing(
+            inclusion_data["inclusionListTransactions"],
+            fork_module,
+            TestingTransaction,
+        )
+
     t8n_data = TransitionTool.TransitionToolData(
         alloc=alloc,
         env=env,
@@ -367,6 +401,30 @@ def build_t8n_from_cli_options(
         reward=_resolve_state_reward(options.state_reward, fork_module),
         blob_schedule=blob_schedule,
         state_test=options.state_test,
+        inclusion_list_txs=il_txs,
+        inclusion_list_membership=(
+            [
+                TestingBytes(value)
+                for value in inclusion_data["inclusionListMembership"]
+            ]
+            if "inclusionListMembership" in inclusion_data
+            else None
+        ),
+        inclusion_list_claims=(
+            [
+                InclusionListClaim.model_validate(value)
+                for value in inclusion_data["inclusionListClaims"]
+            ]
+            if "inclusionListClaims" in inclusion_data
+            else None
+        ),
+        inclusion_list_replay_limits=(
+            InclusionListReplayLimits.model_validate(
+                inclusion_data["inclusionListReplayLimits"]
+            )
+            if "inclusionListReplayLimits" in inclusion_data
+            else None
+        ),
     )
 
     # ``Ommer.address`` is parsed via the per-fork ``hex_to_address``

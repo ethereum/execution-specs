@@ -213,6 +213,46 @@ class ForkLoad:
         return self._module("fork").check_inclusion_list_transactions
 
     @property
+    def has_inclusion_list_claims(self) -> bool:
+        """Check whether the fork supports indexed inclusion-list replay."""
+        return hasattr(self._module("fork"), "check_inclusion_list")
+
+    @property
+    def InclusionListInputs(self) -> Any:
+        """Return the fork's `InclusionListInputs` inclusion-list helper."""
+        return self._module("inclusion_lists").InclusionListInputs
+
+    @property
+    def InclusionClaim(self) -> Any:
+        """Return the fork's `InclusionClaim` inclusion-list helper."""
+        return self._module("inclusion_lists").InclusionClaim
+
+    @property
+    def ReplayLimits(self) -> Any:
+        """Return the fork's `ReplayLimits` inclusion-list helper."""
+        return self._module("inclusion_list_frames").ReplayLimits
+
+    @property
+    def validate_inclusion_list_inputs(self) -> Any:
+        """Return the fork's inclusion-list input validator."""
+        return self._module("inclusion_lists").validate_inclusion_list_inputs
+
+    @property
+    def snapshot_indices(self) -> Any:
+        """Return the fork's `snapshot_indices` inclusion-list helper."""
+        return self._module("inclusion_lists").snapshot_indices
+
+    @property
+    def capture_inclusion_list_state(self) -> Any:
+        """Return the fork's inclusion-list state snapshot helper."""
+        return self._module("inclusion_lists").capture_inclusion_list_state
+
+    @property
+    def check_inclusion_list(self) -> Any:
+        """Return the fork's `check_inclusion_list` inclusion-list helper."""
+        return self._module("inclusion_lists").check_inclusion_list
+
+    @property
     def has_inclusion_list_satisfied(self) -> bool:
         """
         Check if the block output has an `inclusion_list_satisfied` field.

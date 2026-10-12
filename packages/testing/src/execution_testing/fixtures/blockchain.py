@@ -84,6 +84,10 @@ from execution_testing.test_types import (
     Withdrawal,
 )
 from execution_testing.test_types.block_types import WithdrawalGeneric
+from execution_testing.test_types.inclusion_list import (
+    InclusionListClaim,
+    validate_inclusion_list_metadata,
+)
 from execution_testing.test_types.transaction_types import (
     TransactionFixtureConverter,
     TransactionGeneric,
@@ -593,7 +597,7 @@ EngineNewPayloadV4Parameters = Tuple[
     List[Bytes],
 ]
 EngineNewPayloadV5Parameters = EngineNewPayloadV4Parameters
-EngineNewPayloadV6Parameters = Tuple[
+LegacyEngineNewPayloadV6Parameters = Tuple[
     FixtureExecutionPayload,
     List[Hash],
     Hash,
@@ -601,10 +605,21 @@ EngineNewPayloadV6Parameters = Tuple[
     List[Bytes],
 ]
 
+EngineNewPayloadV6Parameters = Tuple[
+    FixtureExecutionPayload,
+    List[Hash],
+    Hash,
+    List[Bytes],
+    List[Bytes],
+    List[Bytes],
+    List[InclusionListClaim],
+]
+
 # Important: We check EngineNewPayloadV6Parameters first as it has more fields,
 # and pydantic has a weird behavior when the smaller tuple is checked first.
 EngineNewPayloadParameters = Union[
     EngineNewPayloadV6Parameters,
+    LegacyEngineNewPayloadV6Parameters,
     EngineNewPayloadV5Parameters,
     EngineNewPayloadV4Parameters,
     EngineNewPayloadV3Parameters,
@@ -662,6 +677,12 @@ class FixtureEngineNewPayload(CamelModel):
             else None
         )
         return PayloadAttributes(
+            inclusion_list_transactions=(
+                self.params[4] if len(self.params) == 7 else None
+            ),
+            inclusion_list_membership=(
+                self.params[5] if len(self.params) == 7 else None
+            ),
             timestamp=execution_payload.timestamp,
             prev_randao=execution_payload.prev_randao,
             suggested_fee_recipient=execution_payload.fee_recipient,
@@ -719,6 +740,8 @@ class FixtureEngineNewPayload(CamelModel):
         requests: List[Bytes] | None,
         block_access_list: Bytes | None = None,
         inclusion_list_transactions: List[Transaction] | None = None,
+        inclusion_list_membership: List[Bytes] | None = None,
+        inclusion_list_claims: List[InclusionListClaim] | None = None,
         execution_payload_modifier: (
             "FixtureExecutionPayloadModifier | None"
         ) = None,
@@ -790,6 +813,20 @@ class FixtureEngineNewPayload(CamelModel):
                 raise ValueError(
                     f"Inclusion list satisfied is required for ${fork}."
                 )
+
+        if fork.engine_new_payload_inclusion_list_claims():
+            if (
+                inclusion_list_membership is None
+                or inclusion_list_claims is None
+            ):
+                raise ValueError(
+                    "Inclusion list membership and claims are required "
+                    f"for {fork}."
+                )
+            validate_inclusion_list_metadata(
+                params[4], inclusion_list_membership, inclusion_list_claims
+            )
+            params.extend([inclusion_list_membership, inclusion_list_claims])
 
         payload_params: EngineNewPayloadParameters = cast(
             EngineNewPayloadParameters,

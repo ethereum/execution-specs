@@ -48,6 +48,8 @@ from execution_testing.test_types import (
     Account,
     Alloc,
     Environment,
+    InclusionListClaim,
+    InclusionListReplayLimits,
     Transaction,
     TransactionReceipt,
 )
@@ -662,6 +664,34 @@ class TransitionToolInput:
     env: Environment
     blob_params: ForkBlobSchedule | None = None
     inclusion_list_txs: List[Transaction] | None = None
+    inclusion_list_membership: List[Bytes] | None = None
+    inclusion_list_claims: List[InclusionListClaim] | None = None
+    inclusion_list_replay_limits: InclusionListReplayLimits | None = None
+
+    def inclusion_list_data(self) -> Dict[str, Any]:
+        """Serialize supplied inclusion inputs without inventing policy."""
+        data: Dict[str, Any] = {}
+        if self.inclusion_list_txs is not None:
+            data["inclusionListTransactions"] = [
+                tx.model_dump(mode="json", by_alias=True, exclude_none=True)
+                for tx in self.inclusion_list_txs
+            ]
+        if self.inclusion_list_membership is not None:
+            data["inclusionListMembership"] = [
+                value.hex() for value in self.inclusion_list_membership
+            ]
+        if self.inclusion_list_claims is not None:
+            data["inclusionListClaims"] = [
+                claim.model_dump(mode="json", by_alias=True)
+                for claim in self.inclusion_list_claims
+            ]
+        if self.inclusion_list_replay_limits is not None:
+            data["inclusionListReplayLimits"] = (
+                self.inclusion_list_replay_limits.model_dump(
+                    mode="json", by_alias=True
+                )
+            )
+        return data
 
     def to_files(
         self, directory_path: Path, **model_dump_config: Any
@@ -704,6 +734,11 @@ class TransitionToolInput:
             )
             input_paths["blobParams"] = str(blob_path)
 
+        for name, value in self.inclusion_list_data().items():
+            path = directory_path / f"{name}.json"
+            path.write_text(json.dumps(value))
+            input_paths[name] = str(path)
+
         return input_paths
 
     def _serialize_alloc(self, **model_dump_config: Any) -> str:
@@ -741,6 +776,10 @@ class TransitionToolInput:
             input_contents["blobParams"] = self.blob_params.model_dump_json(
                 **model_dump_config
             )
+        input_contents.update(
+            (name, json.dumps(value))
+            for name, value in self.inclusion_list_data().items()
+        )
         contents: List[str] = [
             f'"{content_type}": {type_contents}'
             for content_type, type_contents in input_contents.items()
@@ -777,6 +816,7 @@ class TransitionToolInput:
                 mode=mode, **model_dump_config
             )
 
+        input_contents.update(self.inclusion_list_data())
         return input_contents
 
 

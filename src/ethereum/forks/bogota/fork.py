@@ -14,7 +14,6 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, final
 
-from ethereum_rlp import exceptions as rlp_exceptions
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.frozen import slotted_freezable
@@ -44,6 +43,13 @@ from .bloom import logs_bloom
 from .exceptions import WrongChainIdError
 from .fork_types import Authorization, BlockAccessIndex, ExecutionGas, StateGas
 from .frame_processing import process_frame_transaction
+from .inclusion_lists import (
+    InclusionListInputs,
+    capture_inclusion_list_state,
+    check_inclusion_list,
+    snapshot_indices,
+    validate_inclusion_list_inputs,
+)
 from .requests import (
     BUILDER_DEPOSIT_REQUEST_TYPE,
     BUILDER_EXIT_REQUEST_TYPE,
@@ -321,6 +327,30 @@ def execute_block(
         Account, storage, and code changes produced by block execution.
 
     """
+    block_diff, _ = execute_block_with_inclusion_list(
+        block,
+        pre_state,
+        chain_context,
+        InclusionListInputs(transactions=inclusion_list_transactions),
+    )
+    return block_diff
+
+
+def execute_block_with_inclusion_list(
+    block: Block,
+    pre_state: State,
+    chain_context: ChainContext,
+    inputs: InclusionListInputs,
+) -> Tuple[BlockDiff, bool]:
+    """
+    Validate the payload before evaluating its inclusion-list obligations.
+
+    Return the block changes and a separate inclusion verdict. An omitted
+    eligible transaction makes that verdict false without invalidating the
+    execution payload. Metadata errors and missing authenticated state
+    propagate to the caller instead of becoming omission exemptions.
+    """
+    validate_inclusion_list_inputs(inputs)
     if len(rlp.encode(block)) > MAX_RLP_BLOCK_SIZE:
         raise InvalidBlock("Block rlp size exceeds MAX_RLP_BLOCK_SIZE")
 
@@ -352,7 +382,8 @@ def execute_block(
         block_env=block_env,
         transactions=block.transactions,
         withdrawals=block.withdrawals,
-        inclusion_list_transactions=inclusion_list_transactions,
+        inclusion_list_inputs=inputs,
+        defer_inclusion_check=True,
     )
     block_diff = extract_block_diff(block_state)
     block_state_root = pre_state.compute_state_root(block_diff)
@@ -388,7 +419,13 @@ def execute_block(
     if computed_block_access_list_hash != block.header.block_access_list_hash:
         raise InvalidBlock("Invalid block access list hash")
 
-    return block_diff
+    satisfied = check_inclusion_list(
+        block_env,
+        block.transactions,
+        inputs,
+        block_output.inclusion_list_snapshots,
+    )
+    return block_diff, satisfied
 
 
 def calculate_base_fee_per_gas(
@@ -836,7 +873,10 @@ def apply_body(
     block_env: vm.BlockEnvironment,
     transactions: Tuple[LegacyTransaction | Bytes, ...],
     withdrawals: Tuple[Withdrawal, ...],
-    inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...],
+    inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...] = (),
+    *,
+    inclusion_list_inputs: InclusionListInputs | None = None,
+    defer_inclusion_check: bool = False,
 ) -> vm.BlockOutput:
     """
     Executes a block.
@@ -857,7 +897,11 @@ def apply_body(
     withdrawals :
         Withdrawals to be processed in the current block.
     inclusion_list_transactions :
-        Inclusion list transactions against which the block will be checked.
+        Legacy inclusion-list envelopes without Profile 2 metadata.
+    inclusion_list_inputs :
+        Envelopes, committee membership, claims and replay configuration.
+    defer_inclusion_check :
+        Leave the verdict to the caller after validating header roots.
 
     Returns
     -------
@@ -865,6 +909,15 @@ def apply_body(
         The block output for the current block.
 
     """
+    inputs = inclusion_list_inputs or InclusionListInputs(
+        transactions=inclusion_list_transactions
+    )
+    validate_inclusion_list_inputs(inputs)
+    indices = (
+        snapshot_indices(inputs, ulen(transactions), transactions)
+        if inputs.transactions
+        else set()
+    )
     block_output = vm.BlockOutput()
 
     process_unchecked_system_transaction(
@@ -879,16 +932,17 @@ def apply_body(
         data=block_env.block_hashes[-1],  # The parent hash
     )
 
+    if Uint(0) in indices:
+        block_output.inclusion_list_snapshots[Uint(0)] = (
+            capture_inclusion_list_state(block_env, block_output)
+        )
     for i, tx in enumerate(map(decode_transaction, transactions)):
         process_transaction(block_env, block_output, tx, Uint(i))
-
-    # Check if the block satisfies the inclusion list constraints (EIP-7805)
-    block_output.inclusion_list_satisfied = check_inclusion_list_transactions(
-        block_env=block_env,
-        block_output=block_output,
-        transactions=transactions,
-        inclusion_list_transactions=inclusion_list_transactions,
-    )
+        index = Uint(i + 1)
+        if index in indices:
+            block_output.inclusion_list_snapshots[index] = (
+                capture_inclusion_list_state(block_env, block_output)
+            )
 
     # EIP-7928: Post-execution operations use index N+1
     block_env.block_access_list_builder.block_access_index = BlockAccessIndex(
@@ -911,6 +965,14 @@ def apply_body(
         block_access_list=block_output.block_access_list,
         block_gas_limit=block_env.block_gas_limit,
     )
+
+    if not defer_inclusion_check:
+        block_output.inclusion_list_satisfied = check_inclusion_list(
+            block_env,
+            transactions,
+            inputs,
+            block_output.inclusion_list_snapshots,
+        )
 
     return block_output
 
@@ -1254,33 +1316,13 @@ def check_inclusion_list_transactions(
         True if the block passes the inclusion list check, False otherwise.
 
     """
-    tx_hashes = {get_transaction_hash(raw_tx) for raw_tx in transactions}
-
-    for raw_tx in inclusion_list_transactions:
-        if get_transaction_hash(raw_tx) in tx_hashes:
-            continue
-
-        try:
-            tx = decode_transaction(raw_tx)
-        except EthereumException:
-            continue
-        except rlp_exceptions.DecodingError:
-            continue
-
-        try:
-            tx_chain_id = chain_id(tx)
-            if tx_chain_id is not None and tx_chain_id != block_env.chain_id:
-                continue
-            check_transaction(
-                block_env=block_env,
-                block_output=block_output,
-                tx=tx,
-                index=ulen(transactions),
+    return check_inclusion_list(
+        block_env,
+        transactions,
+        InclusionListInputs(transactions=inclusion_list_transactions),
+        {
+            ulen(transactions): capture_inclusion_list_state(
+                block_env, block_output
             )
-        except EthereumException:
-            continue
-        else:
-            # This inclusion list transaction could have been included.
-            return False
-
-    return True
+        },
+    )

@@ -11,7 +11,7 @@ are effects of the `APPROVE` instruction, during execution.
 [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
 """
 
-from typing import Tuple
+from typing import Optional, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -44,6 +44,7 @@ from .transactions import (
 )
 from .transactions.frame_transaction import (
     FrameTransaction,
+    FrameTransactionValidation,
     validate_frame_transaction,
 )
 from .vm.frame_interpreter import process_frames
@@ -61,6 +62,7 @@ def check_frame_transaction(
     block_output: vm.BlockOutput,
     tx: FrameTransaction,
     index: Uint,
+    validation: Optional[FrameTransactionValidation] = None,
 ) -> vm.TransactionEnvironment:
     """
     Admit a raw frame transaction and build its execution environment.
@@ -73,7 +75,8 @@ def check_frame_transaction(
     explicit field, authenticated by the signature entries during
     static validation — and no balance or EOA check: payment is
     collected from the payer during execution, when a frame `APPROVE`s
-    it.
+    it. Supply `validation` only when both the static checks and protocol
+    signatures have already been checked for this exact transaction.
 
     Parameters
     ----------
@@ -85,6 +88,8 @@ def check_frame_transaction(
         The frame transaction.
     index :
         The index of the current transaction.
+    validation :
+        Cached validation, including verified protocol signatures.
 
     Returns
     -------
@@ -120,7 +125,8 @@ def check_frame_transaction(
         representable in 256 bits.
 
     """
-    validation = validate_frame_transaction(tx)
+    if validation is None:
+        validation = validate_frame_transaction(tx)
     tx_state = TransactionState(parent=block_env.state)
 
     # The frames' total gas budget in each dimension. The execution

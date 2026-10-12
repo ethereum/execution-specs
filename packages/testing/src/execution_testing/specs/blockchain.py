@@ -100,6 +100,10 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessListExpectation,
 )
 from execution_testing.test_types.chain_config_types import ChainConfigDefaults
+from execution_testing.test_types.inclusion_list import (
+    InclusionListClaim,
+    InclusionListReplayLimits,
+)
 
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
@@ -361,6 +365,12 @@ class Block(Header):
     """Expected gas used for the block."""
     inclusion_list_txs: List[Transaction] | None = None
     """Transactions supplied as the block's inclusion list."""
+    inclusion_list_membership: List[Bytes] | None = None
+    """Per-transaction committee bitvectors, in inclusion-list order."""
+    inclusion_list_claims: List[InclusionListClaim] | None = None
+    """Committed omission claims, preserving their order and duplicates."""
+    inclusion_list_replay_limits: InclusionListReplayLimits | None = None
+    """Explicit experimental replay policy; not an Engine API field."""
     expected_inclusion_list_satisfied: bool | None = None
     """Expected outcome of the inclusion list verification for this block."""
 
@@ -497,6 +507,8 @@ class BuiltBlock(CamelModel):
     block_access_list: BlockAccessList | None
     inclusion_list_txs: List[Transaction] | None
     inclusion_list_satisfied: bool | None
+    inclusion_list_membership: List[Bytes] | None = None
+    inclusion_list_claims: List[InclusionListClaim] | None = None
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
 
@@ -627,6 +639,8 @@ class BuiltBlock(CamelModel):
             if self.block_access_list
             else None,
             inclusion_list_transactions=self.inclusion_list_txs,
+            inclusion_list_membership=self.inclusion_list_membership,
+            inclusion_list_claims=self.inclusion_list_claims,
             inclusion_list_satisfied=(
                 self.inclusion_list_satisfied
                 if self.expected_exception is None
@@ -1126,6 +1140,17 @@ class BlockchainTest(BaseTest):
             if inclusion_list_txs is not None
             else None
         )
+        inclusion_list_membership = block.inclusion_list_membership
+        inclusion_list_claims = block.inclusion_list_claims
+        if fork.engine_new_payload_inclusion_list_claims():
+            if inclusion_list_membership is None:
+                # A legacy test describes one synthetic committee member's
+                # list. Supply that provenance here, never infer it in EELS.
+                inclusion_list_membership = [
+                    Bytes(b"\x01\x00") for _ in inclusion_list_txs or []
+                ]
+            if inclusion_list_claims is None:
+                inclusion_list_claims = []
         il_size_limit = fork.inclusion_list_transactions_size_limit()
         for il_tx in inclusion_list_txs or []:
             il_tx_size = len(il_tx.rlp())
@@ -1166,6 +1191,9 @@ class BlockchainTest(BaseTest):
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
                 inclusion_list_txs=inclusion_list_txs,
+                inclusion_list_membership=inclusion_list_membership,
+                inclusion_list_claims=inclusion_list_claims,
+                inclusion_list_replay_limits=block.inclusion_list_replay_limits,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -1232,6 +1260,7 @@ class BlockchainTest(BaseTest):
         if (
             fork.engine_new_payload_inclusion_list_transactions()
             and transition_tool_output.result.block_exception is None
+            and not transition_tool_output.result.rejected_transactions
             and actual_inclusion_list_satisfied is None
         ):
             raise Exception(
@@ -1384,6 +1413,8 @@ class BlockchainTest(BaseTest):
             block_access_list=bal,
             inclusion_list_txs=inclusion_list_txs,
             inclusion_list_satisfied=actual_inclusion_list_satisfied,
+            inclusion_list_membership=inclusion_list_membership,
+            inclusion_list_claims=inclusion_list_claims,
             engine_new_payload_block_access_list=(
                 block.engine_new_payload_block_access_list
                 if block.engine_new_payload_block_access_list is not None

@@ -98,6 +98,11 @@ class TransactionState:
     transient_storage: Dict[Tuple[Address, Bytes32], U256] = field(
         default_factory=dict
     )
+    code_read_hook: Optional[Callable[[Hash32, Optional[Bytes]], None]] = None
+    """
+    Observe code-body reads before and after loading, without rolling back
+    the observer when execution reverts. `None` denotes the pre-read hook.
+    """
 
 
 def get_pre_state_account_optional(
@@ -242,11 +247,17 @@ def get_code(tx_state: TransactionState, code_hash: Hash32) -> Bytes:
     """
     if code_hash == EMPTY_CODE_HASH:
         return b""
+    if tx_state.code_read_hook is not None:
+        tx_state.code_read_hook(code_hash, None)
     if code_hash in tx_state.code_writes:
-        return tx_state.code_writes[code_hash]
-    if code_hash in tx_state.parent.code_writes:
-        return tx_state.parent.code_writes[code_hash]
-    return tx_state.parent.pre_state.get_code(code_hash)
+        code = tx_state.code_writes[code_hash]
+    elif code_hash in tx_state.parent.code_writes:
+        code = tx_state.parent.code_writes[code_hash]
+    else:
+        code = tx_state.parent.pre_state.get_code(code_hash)
+    if tx_state.code_read_hook is not None:
+        tx_state.code_read_hook(code_hash, code)
+    return code
 
 
 def get_storage(
@@ -763,6 +774,7 @@ def copy_tx_state(tx_state: TransactionState) -> TransactionState:
         transient_storage=dict(tx_state.transient_storage),
         storage_reads=tx_state.storage_reads,
         account_reads=tx_state.account_reads,
+        code_read_hook=tx_state.code_read_hook,
     )
 
 

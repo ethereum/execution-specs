@@ -9,7 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 import execution_testing.cli.check_fixtures
-from execution_testing.base_types import AccessList, Address, Hash
+from execution_testing.base_types import AccessList, Address, Bytes, Hash
 from execution_testing.client_clis import TransitionTool
 from execution_testing.exceptions import (
     EngineAPIError,
@@ -166,7 +166,11 @@ def test_blockchain_fixtures_include_inclusion_lists(
         .fixture
     )
     assert isinstance(engine_fixture, BlockchainEngineFixture)
-    assert engine_fixture.payloads[0].params[-1] == [signed_il_tx.rlp()]
+    params = engine_fixture.payloads[0].params
+    assert len(params) == 7
+    assert params[4] == [signed_il_tx.rlp()]
+    assert params[5] == [Bytes("0x0100")]
+    assert params[6] == []
     assert engine_fixture.payloads[0].valid()
     assert (
         engine_fixture.payloads[0].inclusion_list_satisfied
@@ -282,7 +286,9 @@ def test_inclusion_list_entry_size_limit(
         except pytest.skip.Exception as e:
             pytest.fail(f"an entry at the limit was skipped: {e}")
         assert isinstance(fixture, BlockchainEngineFixture)
-        assert fixture.payloads[0].params[-1] == [tx.rlp()]
+        params = fixture.payloads[0].params
+        assert len(params) == 7
+        assert params[4] == [tx.rlp()]
     elif list_source == "written":
         with pytest.raises(Exception, match="test correctness"):
             test.generate(t8n=default_t8n, fixture_format=fixture_format)
