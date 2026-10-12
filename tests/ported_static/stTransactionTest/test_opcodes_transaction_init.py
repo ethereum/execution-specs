@@ -577,10 +577,16 @@ def test_opcodes_transaction_init(
         protected=fork.supports_protected_txs(),
     )
 
+    # EIP-4758 turns SELFDESTRUCT into SENDALL, which halts like STOP
+    # and no longer deletes the account it runs in.
+    discarded = case.discarded and not (
+        opcode == Op.SELFDESTRUCT and fork.is_eip_enabled(4758)
+    )
+
     post: dict[Address, Account | None] = {sender: Account(nonce=1)}
     post[created] = (
         Account.NONEXISTENT
-        if case.discarded
+        if discarded
         else Account(
             code=deployed_code,
             # EIP-161 starts a new contract's nonce at one; before it,

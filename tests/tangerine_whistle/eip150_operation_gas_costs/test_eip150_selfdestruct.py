@@ -172,12 +172,13 @@ def build_bal_expectations(
 
     # Victim expectation
     if same_tx:
-        if success:
+        if success and not fork.is_eip_enabled(4758):
             # Created and destroyed in same tx - no net changes
             victim_expectation = BalAccountExpectation.empty()
         else:
-            # OOG: CREATE succeeded but SELFDESTRUCT failed
-            # Only include balance_changes if originator_balance > 0
+            # The created account persists: on OOG because SELFDESTRUCT
+            # failed, and under EIP-4758 because SENDALL never deletes.
+            # Only include balance_changes if the balance stayed behind.
             victim_expectation = BalAccountExpectation(
                 nonce_changes=[
                     BalNonceChange(block_access_index=1, post_nonce=1)
@@ -188,7 +189,7 @@ def build_bal_expectations(
                     )
                 ],
             )
-            if originator_balance > 0:
+            if originator_balance > 0 and not success:
                 victim_expectation.balance_changes.append(
                     BalBalanceChange(
                         block_access_index=1, post_balance=originator_balance
@@ -247,7 +248,9 @@ def build_post_state(
     caller_nonce = 2 if same_tx else 1
 
     if success:
-        contract_destroyed = fork < Cancun or same_tx
+        contract_destroyed = fork < Cancun or (
+            same_tx and not fork.is_eip_enabled(4758)
+        )
         final_beneficiary_balance = (
             beneficiary_initial_balance + originator_balance
         )
@@ -259,12 +262,15 @@ def build_post_state(
                 victim: Account.NONEXISTENT,
             }
         else:
-            # >=Cancun pre-existing: code preserved, balance transferred
+            # >=Cancun pre-existing, or EIP-4758 same tx: code
+            # preserved, balance transferred
             post = {
                 alice: Account(nonce=1),
                 caller: Account(nonce=caller_nonce),
                 victim: Account(balance=0, code=victim_code),
             }
+            if same_tx:
+                post[victim] = Account(balance=0, code=victim_code, nonce=1)
 
         # Beneficiary: verify balance if non-empty, NONEXISTENT if empty
         # Pre-EIP-161: empty accounts touched during execution persist
@@ -313,12 +319,7 @@ def build_post_state(
     ],
 )
 @pytest.mark.parametrize(
-    "same_tx",
-    [
-        False,
-        pytest.param(True, marks=pytest.mark.valid_before("EIP4758")),
-    ],
-    ids=["pre_deploy", "same_tx"],
+    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
 )
 @pytest.mark.parametrize(
     "originator_balance",
@@ -442,12 +443,7 @@ def test_selfdestruct_to_account(
     ],
 )
 @pytest.mark.parametrize(
-    "same_tx",
-    [
-        False,
-        pytest.param(True, marks=pytest.mark.valid_before("EIP4758")),
-    ],
-    ids=["pre_deploy", "same_tx"],
+    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
 )
 @pytest.mark.parametrize(
     "originator_balance",
@@ -573,12 +569,7 @@ def test_selfdestruct_state_access_boundary(
 )
 @pytest.mark.with_all_precompiles
 @pytest.mark.parametrize(
-    "same_tx",
-    [
-        False,
-        pytest.param(True, marks=pytest.mark.valid_before("EIP4758")),
-    ],
-    ids=["pre_deploy", "same_tx"],
+    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
 )
 @pytest.mark.parametrize(
     "originator_balance",
@@ -687,12 +678,7 @@ def test_selfdestruct_to_precompile(
 )
 @pytest.mark.with_all_precompiles
 @pytest.mark.parametrize(
-    "same_tx",
-    [
-        False,
-        pytest.param(True, marks=pytest.mark.valid_before("EIP4758")),
-    ],
-    ids=["pre_deploy", "same_tx"],
+    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
 )
 @pytest.mark.parametrize(
     "originator_balance",
@@ -802,12 +788,7 @@ def test_selfdestruct_to_precompile_state_access_boundary(
 )
 @pytest.mark.with_all_system_contracts
 @pytest.mark.parametrize(
-    "same_tx",
-    [
-        False,
-        pytest.param(True, marks=pytest.mark.valid_before("EIP4758")),
-    ],
-    ids=["pre_deploy", "same_tx"],
+    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
 )
 @pytest.mark.parametrize(
     "originator_balance",
@@ -867,11 +848,11 @@ def test_selfdestruct_to_system_contract(
 
         # Victim expectation
         if same_tx:
-            if is_success:
+            if is_success and not fork.is_eip_enabled(4758):
                 # Created and destroyed in same tx - no net changes
                 victim_expectation = BalAccountExpectation.empty()
             else:
-                # OOG: contract created but selfdestruct failed
+                # Contract persists: OOG, or EIP-4758 SENDALL
                 victim_expectation = BalAccountExpectation(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=1)
@@ -883,7 +864,7 @@ def test_selfdestruct_to_system_contract(
                         )
                     ],
                 )
-                if originator_balance > 0:
+                if originator_balance > 0 and not is_success:
                     victim_expectation.balance_changes.append(
                         BalBalanceChange(
                             block_access_index=1,
@@ -959,12 +940,7 @@ def test_selfdestruct_to_system_contract(
     ids=["no_balance", "has_balance"],
 )
 @pytest.mark.parametrize(
-    "same_tx",
-    [
-        False,
-        pytest.param(True, marks=pytest.mark.valid_before("EIP4758")),
-    ],
-    ids=["pre_deploy", "same_tx"],
+    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
 )
 @pytest.mark.valid_from("TangerineWhistle")
 def test_selfdestruct_to_self(
@@ -1039,7 +1015,7 @@ def test_selfdestruct_to_self(
     expected_bal: BlockAccessListExpectation | None = None
     if fork.is_eip_enabled(7928):
         if same_tx:
-            if is_success:
+            if is_success and not fork.is_eip_enabled(4758):
                 # per EIP-8246
                 if fork.is_eip_enabled(8246) and originator_balance > 0:
                     victim_expectation = BalAccountExpectation(
@@ -1053,7 +1029,8 @@ def test_selfdestruct_to_self(
                 else:
                     victim_expectation = BalAccountExpectation.empty()
             else:
-                # OOG: CREATE succeeded but SELFDESTRUCT failed
+                # Contract persists with its balance: OOG, or an EIP-4758
+                # SENDALL to self, which moves nothing
                 victim_expectation = BalAccountExpectation(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=1)
@@ -1116,14 +1093,19 @@ def test_selfdestruct_to_self(
     # Build post state
     caller_nonce = 2 if same_tx else 1
 
-    if not is_success:
-        # OOG: SELFDESTRUCT failed, contract survives
+    if not is_success or (same_tx and fork.is_eip_enabled(4758)):
+        # Contract survives with its balance: OOG, or an EIP-4758
+        # SENDALL to self
         if same_tx:
             post: dict = {
                 alice: Account(nonce=1),
                 caller: Account(nonce=caller_nonce, balance=0),
                 victim: Account(balance=originator_balance, code=victim_code),
             }
+            if fork.is_eip_enabled(4758):
+                post[victim] = Account(
+                    balance=originator_balance, code=victim_code, nonce=1
+                )
         else:
             post = {
                 alice: Account(nonce=1),
@@ -1170,7 +1152,6 @@ def test_selfdestruct_to_self(
     ids=["no_balance", "has_balance"],
 )
 @pytest.mark.valid_from("TangerineWhistle")
-@pytest.mark.valid_before("EIP4758")
 def test_initcode_selfdestruct_to_self(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -1224,8 +1205,23 @@ def test_initcode_selfdestruct_to_self(
                 BalBalanceChange(block_access_index=1, post_balance=0)
             )
 
+        if fork.is_eip_enabled(4758):
+            # SENDALL to self halts the initcode; the account persists
+            # with nonce 1, no code, and its balance.
+            victim_initcode_expectation = BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+            )
+            if originator_balance > 0:
+                victim_initcode_expectation.balance_changes.append(
+                    BalBalanceChange(
+                        block_access_index=1,
+                        post_balance=originator_balance,
+                    )
+                )
         # per EIP-8246
-        if fork.is_eip_enabled(8246) and originator_balance > 0:
+        elif fork.is_eip_enabled(8246) and originator_balance > 0:
             victim_initcode_expectation = BalAccountExpectation(
                 balance_changes=[
                     BalBalanceChange(
@@ -1251,7 +1247,11 @@ def test_initcode_selfdestruct_to_self(
 
     # per EIP-8246
     victim_post: Account | None
-    if fork.is_eip_enabled(8246) and originator_balance > 0:
+    if fork.is_eip_enabled(4758):
+        victim_post = Account(
+            balance=originator_balance, nonce=1, code=b"", storage={}
+        )
+    elif fork.is_eip_enabled(8246) and originator_balance > 0:
         victim_post = Account(
             balance=originator_balance, nonce=0, code=b"", storage={}
         )
