@@ -32,6 +32,7 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 
+@pytest.mark.valid_before("EIP3298")
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refundMaxFiller.yml"],
 )

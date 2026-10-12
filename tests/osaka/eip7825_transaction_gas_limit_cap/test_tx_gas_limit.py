@@ -241,6 +241,7 @@ def test_tx_gas_larger_than_block_gas_limit(
     blockchain_test(pre=pre, post={}, blocks=[block])
 
 
+@pytest.mark.valid_before("EIP3298")
 @pytest.mark.parametrize(
     "exceed_gas_refund_limit",
     [

@@ -145,3 +145,57 @@ def test_restore_refund_applied_uncapped(
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=gross),
     )
+
+
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
+def test_floor_binds_after_uncapped_refund(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    The calldata floor still binds once the uncapped refund is applied,
+    while the block header still reports the pre-refund gas.
+    """
+    code = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=1,
+        current_value=1,
+        new_value=2,
+    )(0, 2) + Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=1,
+        current_value=2,
+        new_value=1,
+    )(0, 1)
+    contract = pre.deploy_contract(code=code, storage={0: 1})
+
+    refund = code.refund(fork)
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    floor_calc = fork.transaction_data_floor_cost_calculator()
+    # Grow the calldata until the floor lands between the post-refund
+    # and the pre-refund gas.
+    for size in range(0, 20_000, 25):
+        data = b"\x00" * size
+        gross = intrinsic_calc(
+            calldata=data, return_cost_deducted_prior_execution=True
+        ) + code.execution_cost(fork)
+        floor = floor_calc(data=data)
+        if gross - refund < floor < gross:
+            break
+    else:
+        raise AssertionError("no calldata size puts the floor in the window")
+
+    tx = Transaction(
+        to=contract,
+        data=data,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=floor),
+    )
+
+    state_test(
+        pre=pre,
+        post={contract: Account(storage={0: 1})},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=gross),
+    )

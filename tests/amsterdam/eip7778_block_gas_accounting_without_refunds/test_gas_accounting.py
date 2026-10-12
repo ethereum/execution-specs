@@ -275,15 +275,18 @@ class CallDataTestType(Enum):
 )
 @pytest.mark.with_all_refund_types()
 @pytest.mark.filter_combinations(
-    lambda refund_type, refund_tx_failure, calldata_test_type, **_: not (
+    lambda refund_type, refund_tx_failure, calldata_test_type, fork, **_: not (
         refund_type == RefundTypes.STORAGE_CLEAR
-        and refund_tx_failure is not None
+        and (
+            refund_tx_failure is not None
+            or fork.gas_costs().REFUND_STORAGE_CLEAR == 0
+        )
         and calldata_test_type
         == CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER
     ),
     reason=(
-        "STORAGE_CLEAR refund is zero on revert, so the (post, pre) "
-        "interval that DATA_FLOOR_BETWEEN needs is empty"
+        "STORAGE_CLEAR refund is zero on revert and from EIP-3298, so the "
+        "(post, pre) interval that DATA_FLOOR_BETWEEN needs is empty"
     ),
 )
 def test_varying_calldata_costs(
@@ -387,6 +390,7 @@ def test_varying_calldata_costs(
     )
 
 
+@pytest.mark.valid_before("EIP3298")
 @EIPChecklist.BlockLevelConstraint.Test.Boundary.Under()
 @EIPChecklist.BlockLevelConstraint.Test.Boundary.Exact()
 @EIPChecklist.BlockLevelConstraint.Test.Boundary.Over()

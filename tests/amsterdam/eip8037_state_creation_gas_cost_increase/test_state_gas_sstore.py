@@ -140,6 +140,7 @@ def test_sstore_nonzero_to_nonzero(
     )
 
 
+@pytest.mark.valid_before("EIP3298")
 @EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable()
 @pytest.mark.parametrize(
     "abort_mode",
@@ -554,7 +555,12 @@ def test_sstore_clear_refund_reversal(
 @pytest.mark.parametrize(
     "initial_value,post_value",
     [
-        pytest.param(2, 0, id="dirty_clear"),
+        pytest.param(
+            2,
+            0,
+            id="dirty_clear",
+            marks=pytest.mark.valid_before("EIP3298"),
+        ),
         pytest.param(0, 1, id="clear_then_restore_original"),
     ],
 )

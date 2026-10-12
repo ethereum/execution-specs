@@ -288,6 +288,7 @@ def test_charge_spill_boundary(
     )
 
 
+@pytest.mark.valid_before("EIP3298")
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
 @pytest.mark.parametrize(
     "fund_from_reservoir",
