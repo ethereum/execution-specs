@@ -422,7 +422,7 @@ def test_validation_state_complete_witness_still_validates(
 @pytest.mark.parametrize(
     "access",
     [
-        "coinbase_without_tip",
+        "fee_recipient_without_tip",
         "zero_value_transfer",
         "zero_withdrawal",
         "authorization_wrong_nonce",
@@ -480,8 +480,8 @@ def test_validation_state_unchanged_account_read(
     fee_recipient: Address | None = None
     # The opcode cases discard the result: storing it would change the
     # post-state root under a guest that reads the target as absent.
-    if access == "coinbase_without_tip":
-        # With no tip, paying the coinbase reads it but adds nothing. The
+    if access == "fee_recipient_without_tip":
+        # With no tip, paying the fee recipient reads it but adds nothing. The
         # max fee clears the base fee, so only the priority fee sets the tip.
         fee_recipient = target
         txs.append(
