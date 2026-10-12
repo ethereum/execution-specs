@@ -86,6 +86,7 @@ FACTORY = Address(Spec.FACTORY_ADDRESS)
 @EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Opcode()
 @EIPChecklist.Opcode.Test.Terminating.Scenarios.Initcode()
 @EIPChecklist.Opcode.Test.Terminating.Rollback.Balance()
+@pytest.mark.valid_before("EIP4758")
 def test_selfdestructing_initcode_preserves_balance(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -257,6 +258,7 @@ def test_selfdestructing_initcode_preserves_balance(
 )
 @EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Tx()
 @EIPChecklist.Opcode.Test.Terminating.Scenarios.TopLevel()
+@pytest.mark.valid_before("EIP4758")
 def test_create_transaction_initcode_selfdestruct(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -332,9 +334,10 @@ def test_created_coinbase_initcode_selfdestruct_keeps_priority_fee(
         env=Environment(fee_recipient=created),
         pre=pre,
         post={
+            # Under EIP-4758 the account is not cleared and keeps nonce 1.
             created: Account(
                 balance_change=value + Tip(tx, gas=gas_used),
-                nonce=0,
+                nonce=1 if fork.is_eip_enabled(4758) else 0,
                 code=b"",
                 storage={},
             ),
@@ -409,10 +412,11 @@ def test_created_coinbase_selfdestruct_keeps_priority_fee(
         env=Environment(fee_recipient=created),
         pre=pre,
         post={
+            # Under EIP-4758 the account is not cleared at all.
             created: Account(
                 balance_change=value + Tip(tx, gas=gas_used),
-                nonce=0,
-                code=b"",
+                nonce=1 if fork.is_eip_enabled(4758) else 0,
+                code=deploy_code if fork.is_eip_enabled(4758) else b"",
                 storage={},
             ),
             factory: Account(
@@ -432,6 +436,7 @@ def test_created_coinbase_selfdestruct_keeps_priority_fee(
 )
 @EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Reentry()
 @EIPChecklist.Opcode.Test.Terminating.Scenarios.Initcode()
+@pytest.mark.valid_before("EIP4758")
 def test_create2_redeploy_over_remnant(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -540,6 +545,7 @@ def test_create2_redeploy_over_remnant(
 
 
 @EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Reentry()
+@pytest.mark.valid_before("EIP4758")
 def test_deterministic_factory_redeploy_takes_balance(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -607,6 +613,7 @@ def test_deterministic_factory_redeploy_takes_balance(
         pytest.param(False, id="selfdestruct_to_other_then_refunded"),
     ],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_deployed_code_selfdestruct_clears_code(
     state_test: StateTestFiller,
     pre: Alloc,

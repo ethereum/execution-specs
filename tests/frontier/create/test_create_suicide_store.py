@@ -40,6 +40,7 @@ class Operation(IntEnum):
     "for precompile).",
 )
 @pytest.mark.valid_from("Frontier")
+@pytest.mark.valid_before("EIP4758")
 @pytest.mark.with_all_create_opcodes
 @pytest.mark.eels_base_coverage
 def test_create_suicide_store(

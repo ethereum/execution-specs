@@ -211,7 +211,8 @@ def test_valid_multi_inf(
     Test maximum input given the current environment gas limit for the
     BLS12_PAIRING precompile.
     """
-    extra_gas = 100_000
+    gas_costs = fork.gas_costs()
+    extra_gas = 70_000 + gas_costs.STORAGE_SET + gas_costs.COLD_STORAGE_ACCESS
 
     max_gas_limit = fork.transaction_gas_limit_cap() or Environment().gas_limit
 
@@ -425,7 +426,8 @@ def test_invalid_multi_inf(
     Test maximum input given the current environment gas limit for the
     BLS12_PAIRING precompile and an invalid tail.
     """
-    extra_gas = 100_000
+    gas_costs = fork.gas_costs()
+    extra_gas = 70_000 + gas_costs.STORAGE_SET + gas_costs.COLD_STORAGE_ACCESS
 
     max_gas_limit = fork.transaction_gas_limit_cap() or Environment().gas_limit
 
