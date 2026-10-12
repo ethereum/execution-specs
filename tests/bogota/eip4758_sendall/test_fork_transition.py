@@ -33,11 +33,6 @@ SALT = 0
 RESULT_OFFSET = 0x100
 
 
-# TODO: Re-enable when a dedicated bogota fork module (and its
-#  transition fork) exists; the pseudo-fork shares the amsterdam
-#  spec module, so the pre-fork side cannot execute the deletion
-#  path this test needs.
-@pytest.mark.skip(reason="requires a real post-Amsterdam fork module")
 @pytest.mark.valid_at_transition_to("EIP4758")
 def test_same_tx_selfdestruct_across_transition(
     blockchain_test: BlockchainTestFiller, pre: Alloc
@@ -91,11 +86,6 @@ def test_same_tx_selfdestruct_across_transition(
     blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
-# TODO: Re-enable when a dedicated bogota fork module (and its
-#  transition fork) exists; the pseudo-fork shares the amsterdam
-#  spec module, so the pre-fork side cannot execute the deletion
-#  path this test needs.
-@pytest.mark.skip(reason="requires a real post-Amsterdam fork module")
 @pytest.mark.valid_at_transition_to("EIP4758")
 def test_create2_recreate_freed_address_across_transition(
     blockchain_test: BlockchainTestFiller, pre: Alloc

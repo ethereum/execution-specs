@@ -1015,9 +1015,6 @@ def process_transaction(
     deploying code, and incrementing nonces are all examples of actions that
     happen within this function or from a call made within this function.
 
-    Accounts that are marked for deletion are processed and destroyed after
-    execution.
-
     Parameters
     ----------
     block_env :
