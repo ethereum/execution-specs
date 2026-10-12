@@ -837,8 +837,18 @@ def update_builder_from_tx(
         post_code_hash = (
             post_account.code_hash if post_account else EMPTY_CODE_HASH
         )
+        tx_start_account = _get_pre_tx_account(
+            block_state.account_writes, block_state.pre_state, address
+        )
+        tx_start_code_hash = (
+            tx_start_account.code_hash if tx_start_account else EMPTY_CODE_HASH
+        )
         if pre_code_hash == post_code_hash:
             remove_code_change(builder, address, idx)
+        elif tx_start_code_hash == post_code_hash:
+            # The code was changed by an earlier transaction at this index,
+            # whose entry already records it in the right form.
+            pass
         elif address in tx_state.accounts_with_adopted_code:
             add_code_change(
                 builder,

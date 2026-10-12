@@ -36,6 +36,7 @@ from .helpers import (
     SENTINEL,
     SHELL_CODE,
     TEMPLATE_B_CODE,
+    TEMPLATE_B_MARKER,
     TEMPLATE_CODE,
     TEMPLATE_MARKER,
     adopt_code,
@@ -544,6 +545,90 @@ def test_system_call_cannot_adopt(
         )
         post = {system_contract: Account(code=override)}
     blockchain_test(pre=pre, blocks=[block], post=post)
+
+
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize(
+    "phase,block_access_index",
+    [
+        pytest.param(
+            SystemCallPhase.BEFORE_TRANSACTIONS, 0, id="pre_execution"
+        ),
+        pytest.param(
+            SystemCallPhase.AFTER_TRANSACTIONS, 1, id="post_execution"
+        ),
+    ],
+)
+@pytest.mark.parametrize("later_calls", ["touch", "readopt"])
+def test_adoption_across_system_calls(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    phase: SystemCallPhase,
+    block_access_index: int,
+    later_calls: str,
+    shell: Address,
+    template: Address,
+    template_b: Address,
+) -> None:
+    """
+    Verify system calls sharing a block access index record the code the
+    adopter adopted last, as a code hash, including when later calls write
+    the adopter without changing its code.
+    """
+    if later_calls == "touch":
+        # The adopted code only writes the marker.
+        source = template
+        final_code = TEMPLATE_CODE
+        marker = TEMPLATE_MARKER
+    elif later_calls == "readopt":
+        # The adopted code adopts `template_b` when the next call runs it.
+        source = pre.deploy_contract(
+            Op.SSTORE(MARKER_SLOT, TEMPLATE_B_MARKER)
+            + Op.POP(Op.SETCODEFROM(template_b))
+            + Op.STOP
+        )
+        final_code = TEMPLATE_B_CODE
+        marker = TEMPLATE_B_MARKER
+    else:
+        raise ValueError(f"unexpected later_calls: {later_calls}")
+    callers = [
+        address
+        for address, call_phase in fork.system_contract_call_phases().items()
+        if call_phase == phase
+    ]
+    assert len(callers) >= 2, f"fewer than two system calls in {phase}"
+    # Whichever call runs first adopts `source`; the later ones run the
+    # adopted code and add to the adopter's balance.
+    for caller in callers:
+        pre[caller] = Account(
+            balance=1,
+            code=Op.POP(call_with(shell, source, value=1)) + Op.STOP,
+        )
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        shell: BalAccountExpectation(
+                            code_changes=adoption(
+                                block_access_index, final_code
+                            ),
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={
+            shell: Account(
+                code=final_code,
+                balance=len(callers),
+                storage={RESULT_SLOT: 1, MARKER_SLOT: marker},
+            ),
+        },
+    )
 
 
 @pytest.mark.pre_alloc_mutable
