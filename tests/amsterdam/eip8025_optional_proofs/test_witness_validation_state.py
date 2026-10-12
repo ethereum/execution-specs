@@ -3,8 +3,6 @@
 from typing import Callable, Type
 
 import pytest
-from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes as TrieBytes
 from execution_testing import (
     AccessList,
     Account,
@@ -30,13 +28,14 @@ from execution_testing.test_types.execution_witness.modifiers import (
     reverse_state_nodes,
 )
 
-from ethereum.forks.amsterdam.incremental_mpt import compact_to_nibbles
 from tests.cancun.eip4788_beacon_root.spec import Spec as SpecEip4788
 from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
 from .gas_helpers import empty_account_value_transfer_gas_limit
 from .spec import ref_spec_8025
 from .state_helpers import (
+    COLLAPSE_DELETED_SLOT,
+    COLLAPSE_SIBLING_SHAPES,
     as_storage,
     build_large_storage,
     collect_account_path_only_nodes,
@@ -48,6 +47,7 @@ from .state_helpers import (
     large_storage_value,
     merge_with_amsterdam_pre_alloc,
     storage_root_node,
+    trie_node_kind,
 )
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
@@ -66,17 +66,7 @@ def _required_node(nodes: list[Bytes]) -> Bytes:
 
 def _leaf_nodes(nodes: list[Bytes]) -> list[Bytes]:
     """Return the leaf nodes of a proof set."""
-    leaves: list[Bytes] = []
-    for node in nodes:
-        decoded = rlp.decode(bytes(node))
-        if not isinstance(decoded, list) or len(decoded) != 2:
-            continue
-        path_bytes = decoded[0]
-        assert isinstance(path_bytes, (bytes, bytearray))
-        _, is_leaf = compact_to_nibbles(TrieBytes(path_bytes))
-        if is_leaf:
-            leaves.append(node)
-    return leaves
+    return [node for node in nodes if trie_node_kind(node) == "leaf"]
 
 
 def _leaf_node(nodes: list[Bytes]) -> Bytes:
@@ -189,19 +179,32 @@ def test_validation_state_missing_absent_slot_proof_leaf_node(
     )
 
 
+@pytest.mark.parametrize("sibling_slots,sibling_kind", COLLAPSE_SIBLING_SHAPES)
 def test_validation_state_missing_delete_auxiliary_node(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    sibling_slots: list[int],
+    sibling_kind: str,
 ) -> None:
-    """Removing the delete-collapse auxiliary node should fail."""
-    storage = build_large_storage([1, 2])
-    proof_nodes = collect_storage_proof_nodes(storage, [1])
-    auxiliary_nodes = collect_storage_delete_auxiliary_nodes(storage, 1)
+    """
+    Removing the delete-collapse auxiliary node should fail.
+
+    The collapse cannot tell from a hash alone whether the sibling's path
+    merges into the collapsed node. Treating the hash as a branch gives the
+    correct root in the `sibling_branch` case, so only the missing-node
+    check rejects it there.
+    """
+    storage = build_large_storage([COLLAPSE_DELETED_SLOT, *sibling_slots])
+    proof_nodes = collect_storage_proof_nodes(storage, [COLLAPSE_DELETED_SLOT])
+    auxiliary_nodes = collect_storage_delete_auxiliary_nodes(
+        storage, COLLAPSE_DELETED_SLOT
+    )
     assert len(auxiliary_nodes) == 1
     removed_node = auxiliary_nodes[0]
+    assert trie_node_kind(removed_node) == sibling_kind
 
     contract = pre.deploy_contract(
-        code=Op.SSTORE(1, 0) + Op.STOP,
+        code=Op.SSTORE(COLLAPSE_DELETED_SLOT, 0) + Op.STOP,
         storage=as_storage(storage),
     )
     sender = pre.fund_eoa()
@@ -222,7 +225,9 @@ def test_validation_state_missing_delete_auxiliary_node(
         ],
         post={
             sender: Account(nonce=1),
-            contract: Account(storage={2: storage[2]}),
+            contract: Account(
+                storage={slot: storage[slot] for slot in sibling_slots}
+            ),
         },
     )
 

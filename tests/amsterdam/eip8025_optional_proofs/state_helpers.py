@@ -2,6 +2,9 @@
 
 from collections.abc import Mapping, Sequence
 
+import pytest
+from ethereum_rlp import rlp
+from ethereum_types.bytes import Bytes as TrieBytes
 from ethereum_types.bytes import Bytes32
 from ethereum_types.numeric import U256, Uint
 from execution_testing import Account, Address, Alloc, Bytes, Storage
@@ -10,6 +13,7 @@ from execution_testing.forks import Amsterdam
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.forks.amsterdam.incremental_mpt import (
     build_mpt,
+    compact_to_nibbles,
     mpt_get,
     mpt_root,
     mpt_set,
@@ -25,6 +29,19 @@ from ethereum.state import (
 from ethereum.state import (
     Address as StateAddress,
 )
+
+COLLAPSE_DELETED_SLOT = 2
+"""Slot whose deletion leaves the storage root branch with one child."""
+
+COLLAPSE_SIBLING_SHAPES = [
+    # keccak(2) starts with 4 and every sibling slot starts with b, so
+    # deleting slot 2 collapses the root onto the subtree under b. Slot 1
+    # starts with b1, slot 24 with b1 and slot 14 with bb.
+    pytest.param([1], "leaf", id="sibling_leaf"),
+    pytest.param([1, 24], "extension", id="sibling_extension"),
+    pytest.param([1, 14], "branch", id="sibling_branch"),
+]
+"""Sibling slots and the node type the collapse has to resolve."""
 
 
 def large_storage_value(slot: int) -> int:
@@ -68,6 +85,19 @@ def _collect_storage_node_set(
 def _nodes(nodes: set[bytes]) -> list[Bytes]:
     """Return nodes as execution-testing bytes."""
     return [Bytes(node) for node in nodes]
+
+
+def trie_node_kind(node: Bytes) -> str:
+    """Return whether a trie node is a `leaf`, `extension` or `branch`."""
+    decoded = rlp.decode(bytes(node))
+    assert isinstance(decoded, list)
+    if len(decoded) == 17:
+        return "branch"
+    assert len(decoded) == 2
+    path_bytes = decoded[0]
+    assert isinstance(path_bytes, (bytes, bytearray))
+    _, is_leaf = compact_to_nibbles(TrieBytes(path_bytes))
+    return "leaf" if is_leaf else "extension"
 
 
 def collect_storage_proof_nodes(
