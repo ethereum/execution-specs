@@ -1,6 +1,6 @@
 """Execution witness state validation tests."""
 
-from typing import Callable
+from typing import Callable, Type
 
 import pytest
 from ethereum_rlp import rlp
@@ -14,6 +14,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytes,
     ExecutionWitnessStateExpectation,
+    FeeSystemContractRequest,
     Fork,
     Op,
     Transaction,
@@ -675,4 +676,71 @@ def test_validation_state_unchanged_storage_read(
             sender: Account(nonce=1),
             contract: Account(storage=storage),
         },
+    )
+
+
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.with_all_system_contract_request_types(
+    selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
+)
+@pytest.mark.parametrize(
+    "witness_complete",
+    [
+        pytest.param(True, id="complete_witness"),
+        pytest.param(False, id="missing_storage_root"),
+    ],
+)
+def test_validation_state_unchanged_request_queue_read(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    request_class: Type[FeeSystemContractRequest],
+    witness_complete: bool,
+) -> None:
+    """
+    Require the storage proof of an empty request queue's system call.
+
+    With nothing queued, the end-of-block system call reads the excess,
+    count, head and tail slots and writes back the same zeros. A guest that
+    treats a missing proof as an absent slot computes the same post-state
+    root, so only the witness check can reject a block whose witness leaves
+    the proof out.
+    """
+    predeploy = request_class.system_contract_address
+    genesis_account = Alloc.model_validate(fork.pre_allocation_blockchain())[
+        predeploy
+    ]
+    assert genesis_account is not None
+    # A drained queue resets its head and tail but keeps the slots of the
+    # records it dequeued, so its storage trie is not empty.
+    storage = build_large_storage(request_class.record_slots(0, 1))
+    pre[predeploy] = Account(
+        nonce=genesis_account.nonce,
+        code=genesis_account.code,
+        storage=as_storage(storage),
+    )
+
+    queue_slots = [
+        request_class.excess_slot,
+        request_class.count_slot,
+        request_class.queue_head_slot,
+        request_class.queue_tail_slot,
+    ]
+    proof_nodes = collect_storage_proof_nodes(storage, queue_slots)
+    # No queue slot's hashed key shares a first nibble with a record slot's,
+    # so the root alone proves all four absent.
+    assert len(proof_nodes) == 1
+    expectation = ExecutionWitnessStateExpectation(nodes_present=proof_nodes)
+    if not witness_complete:
+        expectation = expectation.modify(remove_state_node(proof_nodes[0]))
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                expected_execution_witness_state=expectation,
+                expected_stateless_validation_success=witness_complete,
+            )
+        ],
+        post={predeploy: Account(storage=storage)},
     )
