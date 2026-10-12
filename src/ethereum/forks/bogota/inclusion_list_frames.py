@@ -401,6 +401,17 @@ def replay_frame_candidate(
                 )
                 if actual_code != code:
                     return False
+        if candidate.deploy_index is not None:
+            # The factory's code is a dependency of the deployment, so it must
+            # be a contract whose code no authority can change.
+            factory = resolve_frame_target(
+                tx, tx.frames[candidate.deploy_index]
+            )
+            factory_code = get_code(
+                tx_env.state, get_account(tx_env.state, factory).code_hash
+            )
+            if not factory_code or is_valid_delegation(factory_code):
+                return False
         if candidate.recent_root_index is not None:
             data = tx.frames[candidate.recent_root_index].data
             for offset in range(0, len(data), RECENT_ROOT_TUPLE_BYTES):

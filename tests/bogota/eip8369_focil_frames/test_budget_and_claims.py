@@ -499,3 +499,63 @@ def test_call_target_must_be_undelegated(
             )
         ],
     )
+
+
+@pytest.mark.parametrize(
+    ("delegated", "satisfied"),
+    [
+        pytest.param(False, False, id="contract-factory"),
+        pytest.param(True, True, id="delegated-factory"),
+    ],
+)
+def test_deploy_frame_target_must_be_undelegated(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    delegated: bool,
+    satisfied: bool,
+) -> None:
+    """
+    Refuse a deploy frame whose factory is an EIP-7702 delegated account.
+
+    The deployment depends on the factory's code, which the authority of a
+    delegated account can change.
+    """
+    initcode = Initcode(deploy_code=Op.APPROVE(0, 0, 3))
+    factory_code = Om.MSTORE(bytes(initcode), 0) + Op.POP(
+        Op.CREATE2(value=0, offset=0, size=len(initcode), salt=0)
+    )
+    implementation = pre.deploy_contract(code=factory_code)
+    factory = (
+        pre.fund_eoa(amount=0, delegation=implementation)
+        if delegated
+        else implementation
+    )
+    sender = compute_create2_address(
+        address=factory, salt=0, initcode=initcode
+    )
+    pre.fund_address(sender, 10**18)
+    blockchain_test(
+        pre=pre,
+        post={sender: Account(nonce=0, balance=10**18, code=b"")},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[
+                    Transaction(
+                        sender=sender,
+                        frames=[
+                            Frame(mode=0, target=factory),
+                            Frame(
+                                mode=1,
+                                flags=3,
+                                gas_limit=50_000,
+                                state_gas_limit=0,
+                            ),
+                        ],
+                    )
+                ],
+                inclusion_list_membership=[b"\x01\x00"],
+                expected_inclusion_list_satisfied=satisfied,
+            )
+        ],
+    )
