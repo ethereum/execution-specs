@@ -6,6 +6,7 @@ import pytest
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes as TrieBytes
 from execution_testing import (
+    AccessList,
     Account,
     Address,
     Alloc,
@@ -31,6 +32,7 @@ from execution_testing.test_types.execution_witness.modifiers import (
 
 from ethereum.forks.amsterdam.incremental_mpt import compact_to_nibbles
 from tests.cancun.eip4788_beacon_root.spec import Spec as SpecEip4788
+from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
 from .gas_helpers import empty_account_value_transfer_gas_limit
 from .spec import ref_spec_8025
@@ -602,46 +604,115 @@ def test_validation_state_unchanged_account_read(
     )
 
 
-@pytest.mark.parametrize("block_contents", ["empty", "transfer"])
-def test_validation_state_system_address_unread(
+@pytest.mark.parametrize("target_kind", ["eoa", "system_address"])
+@pytest.mark.parametrize(
+    "block_contents",
+    [
+        "empty",
+        "transfer",
+        "fee_recipient_of_empty_block",
+        "access_list",
+        "authorization_wrong_chain_id",
+        "authorization_target",
+    ],
+)
+def test_validation_state_unread_account(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    target_kind: str,
     block_contents: str,
 ) -> None:
     """
-    Leave out the SYSTEM_ADDRESS account proof when only system calls use it.
+    Leave out an account's proof when the block names it without reading it.
 
-    The block's system calls use SYSTEM_ADDRESS as their origin without
-    reading its account, so the witness must not prove it. This is the
-    premise of the `system_address` cases of
-    `test_validation_state_unchanged_account_read`.
+    The guest ignores extra nodes, so these cases guard the witness builder,
+    not the guest. In the `empty` and `transfer` cases, only system calls
+    name SYSTEM_ADDRESS: this is the premise of the `system_address` cases
+    of `test_validation_state_unchanged_account_read`.
     """
-    # A funded SYSTEM_ADDRESS has its own leaf in the account trie.
-    pre.fund_address(SYSTEM_ADDRESS, 1)
+    # A funded target has its own leaf in the account trie.
+    target: Address
+    if target_kind == "eoa":
+        if block_contents in ("empty", "transfer"):
+            pytest.skip("System calls never name an EOA")
+        target = pre.fund_eoa(amount=1)
+    elif target_kind == "system_address":
+        if block_contents == "authorization_wrong_chain_id":
+            pytest.skip("SYSTEM_ADDRESS has no key to sign an authorization")
+        target = SYSTEM_ADDRESS
+        pre.fund_address(target, 1)
+    else:
+        raise ValueError(f"Unknown target kind: {target_kind}")
 
+    sender = pre.fund_eoa()
     txs: list[Transaction] = []
-    post: dict[Address, Account] = {
-        SYSTEM_ADDRESS: Account(balance=1, nonce=0),
-    }
+    fee_recipient: Address | None = None
+    post: dict[Address, Account] = {target: Account(balance=1, nonce=0)}
     if block_contents == "empty":
         pass
     elif block_contents == "transfer":
-        sender = pre.fund_eoa()
         recipient = pre.fund_eoa(amount=1)
         txs.append(Transaction(sender=sender, to=recipient, value=1))
         post[sender] = Account(nonce=1)
         post[recipient] = Account(balance=2)
+    elif block_contents == "fee_recipient_of_empty_block":
+        # With no transactions, the block pays its fee recipient nothing.
+        fee_recipient = target
+    elif block_contents == "access_list":
+        txs.append(
+            Transaction(
+                sender=sender,
+                to=pre.fund_eoa(amount=0),
+                access_list=[AccessList(address=target, storage_keys=[0])],
+            )
+        )
+    elif block_contents == "authorization_wrong_chain_id":
+        # `validate_authorization` rejects the chain ID before it reads the
+        # authority.
+        txs.append(
+            Transaction(
+                sender=sender,
+                to=pre.fund_eoa(amount=0),
+                authorization_list=[
+                    AuthorizationTuple(
+                        chain_id=12345,
+                        address=pre.deploy_contract(code=Op.STOP),
+                        nonce=0,
+                        signer=target,
+                    )
+                ],
+            )
+        )
+    elif block_contents == "authorization_target":
+        # Setting the delegation writes the authority's code without reading
+        # the target.
+        authority = pre.fund_eoa(amount=1)
+        txs.append(
+            Transaction(
+                sender=sender,
+                to=pre.fund_eoa(amount=0),
+                authorization_list=[
+                    AuthorizationTuple(
+                        address=target, nonce=0, signer=authority
+                    )
+                ],
+            )
+        )
+        post[authority] = Account(
+            nonce=1, code=Spec7702.delegation_designation(target)
+        )
     else:
         raise ValueError(f"Unknown block contents: {block_contents}")
 
     full_alloc = merge_with_amsterdam_pre_alloc(pre)
-    proof_nodes = collect_account_proof_nodes(full_alloc, [SYSTEM_ADDRESS])
+    proof_nodes = collect_account_proof_nodes(full_alloc, [target])
 
     blockchain_test(
         pre=pre,
         blocks=[
             Block(
                 txs=txs,
+                fee_recipient=fee_recipient,
                 expected_execution_witness_state=(
                     ExecutionWitnessStateExpectation(
                         nodes_absent=[_leaf_node(proof_nodes)],
