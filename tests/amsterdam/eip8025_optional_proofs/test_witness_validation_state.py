@@ -7,6 +7,7 @@ from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes as TrieBytes
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -15,6 +16,7 @@ from execution_testing import (
     Fork,
     Op,
     Transaction,
+    Withdrawal,
 )
 from execution_testing.forks import Amsterdam
 from execution_testing.test_types.execution_witness import ExecutionWitness
@@ -25,6 +27,7 @@ from execution_testing.test_types.execution_witness.modifiers import (
 )
 
 from ethereum.forks.amsterdam.incremental_mpt import compact_to_nibbles
+from tests.cancun.eip4788_beacon_root.spec import Spec as SpecEip4788
 
 from .gas_helpers import empty_account_value_transfer_gas_limit
 from .spec import ref_spec_8025
@@ -44,6 +47,8 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8025.version
+
+SYSTEM_ADDRESS = Address(SpecEip4788.SYSTEM_ADDRESS)
 
 
 def _required_node(nodes: list[Bytes]) -> Bytes:
@@ -409,4 +414,86 @@ def test_validation_state_complete_witness_still_validates(
             sender: Account(nonce=1),
             contract: Account(storage=storage),
         },
+    )
+
+
+@pytest.mark.parametrize(
+    "access",
+    ["zero_withdrawal", "withdrawal", "balance"],
+)
+@pytest.mark.parametrize(
+    "witness_complete",
+    [
+        pytest.param(True, id="complete_witness"),
+        pytest.param(False, id="missing_proof_leaf"),
+    ],
+)
+def test_validation_state_system_address_read(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    access: str,
+    witness_complete: bool,
+) -> None:
+    """
+    Require the SYSTEM_ADDRESS account proof when the block reads it.
+
+    A system call uses SYSTEM_ADDRESS as its origin without reading its
+    account, so its proof is otherwise absent. A withdrawal to it, even of
+    zero, and a BALANCE of it both read the account, so the witness must
+    prove it and removing its proof leaf must fail validation.
+    """
+    # A funded SYSTEM_ADDRESS has its own leaf in the account trie.
+    pre.fund_address(SYSTEM_ADDRESS, 1)
+
+    txs: list[Transaction] = []
+    withdrawals: list[Withdrawal] = []
+    post: dict[Address, Account] = {}
+    relative_to: list[Address] = []
+    if access == "balance":
+        contract = pre.deploy_contract(
+            code=Op.SSTORE(0, Op.BALANCE(SYSTEM_ADDRESS))
+        )
+        sender = pre.fund_eoa()
+        txs.append(Transaction(sender=sender, to=contract))
+        post[contract] = Account(storage={0: 1})
+        relative_to = [sender, contract]
+    else:
+        amount = 0 if access == "zero_withdrawal" else 1
+        withdrawals.append(
+            Withdrawal(
+                index=0,
+                validator_index=0,
+                address=SYSTEM_ADDRESS,
+                amount=amount,
+            )
+        )
+        post[SYSTEM_ADDRESS] = Account(balance=1 + amount * 10**9)
+
+    full_alloc = merge_with_amsterdam_pre_alloc(pre)
+    proof_nodes = collect_account_proof_nodes(full_alloc, [SYSTEM_ADDRESS])
+    expectation = ExecutionWitnessStateExpectation(nodes_present=proof_nodes)
+    if not witness_complete:
+        system_address_only_nodes = collect_account_path_only_nodes(
+            full_alloc,
+            SYSTEM_ADDRESS,
+            [
+                *relative_to,
+                *Amsterdam.execution_witness_implicit_code_addresses(),
+            ],
+        )
+        expectation = expectation.modify(
+            remove_state_node(_leaf_node(system_address_only_nodes))
+        )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                withdrawals=withdrawals,
+                expected_execution_witness_state=expectation,
+                expected_stateless_validation_success=witness_complete,
+            )
+        ],
+        post=post,
     )
