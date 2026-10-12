@@ -294,6 +294,16 @@ class MockPeer:
                 ),
             )
 
+    def served_chain_holding(self, block_hash: bytes) -> Optional[Chain]:
+        """
+        Return a chain this peer served that holds `block_hash`, if any.
+
+        Chains that share a block share its whole ancestry, so whichever
+        one is returned describes the block's ancestors exactly.
+        """
+        with self._lock:
+            return self._chains.chain_for_hash(block_hash)
+
     def reset_statistics(self) -> None:
         """
         Start fresh statistics for the next test.

@@ -10,8 +10,8 @@ the chain classes, rejection tests and wire coverage.
 """
 
 import time
-from contextlib import nullcontext
-from typing import Callable, ContextManager
+from contextlib import AbstractContextManager, nullcontext
+from typing import Callable
 
 from hive.client import Client
 
@@ -40,6 +40,7 @@ from ..wirex.sync_targets import (
     HEADER_JUDGEABLE_INVALIDITIES,
     SyncTargetCase,
     TargetContext,
+    TargetContextFactory,
 )
 
 logger = get_logger(__name__)
@@ -201,16 +202,17 @@ def _run_sync_target(
     Engine API call can block past the deadline, so the last action
     before giving up is always a fresh read.
     """
+    path = case.path
     chain = case.chain
-    head_payload = case.target
+    head_payload = path.target
     head_hash = head_payload.params[0].block_hash
-    expect_rejection = case.expects_rejection
+    expect_rejection = path.expects_rejection
 
     # Name the target in messages only when the fixture has several.
-    prefix = f"{case.name}: " if case.path.total > 1 else ""
+    prefix = f"{path.name}: " if path.total > 1 else ""
     if prefix:
         logger.info(
-            f"Running {case.label}, expecting the branch to be "
+            f"Running {path.label}, expecting the branch to be "
             + ("rejected" if expect_rejection else "synchronized")
         )
 
@@ -373,7 +375,7 @@ def _run_sync_target(
             f"the peer served {statistics.headers_served} header(s) and "
             f"{statistics.bodies_served} body/bodies"
         )
-        if not case.announces_scaffolding:
+        if not path.announces_scaffolding:
             logger.info(
                 f"{prefix}Not asserting wire coverage: this chain "
                 "carries no framework sync target, so its own head was "
@@ -384,7 +386,7 @@ def _run_sync_target(
         # `any`, not `all`: a chain that may fail either way lets the
         # client take the header shortcut.
         header_judgeable = bool(
-            case.invalidities & HEADER_JUDGEABLE_INVALIDITIES
+            path.invalidities & HEADER_JUDGEABLE_INVALIDITIES
         )
         if header_judgeable:
             logger.info(
@@ -501,9 +503,7 @@ def test_blockchain_via_wirex(
     genesis_header: FixtureHeader,
     sync_target_cases: list[SyncTargetCase],
     mock_peer: MockPeer,
-    target_context_factory: Callable[
-        [SyncTargetCase], ContextManager[TargetContext]
-    ],
+    target_context_factory: TargetContextFactory,
     wirex_sync_timeout: float,
     wirex_poll_interval: float,
     wirex_announce_interval: float,
@@ -517,7 +517,7 @@ def test_blockchain_via_wirex(
     """
     first = TargetContext(client, eth_rpc, engine_rpc, mock_peer)
     for index, case in enumerate(sync_target_cases):
-        opened: ContextManager[TargetContext] = (
+        opened: AbstractContextManager[TargetContext] = (
             nullcontext(first) if index == 0 else target_context_factory(case)
         )
         with opened as context:

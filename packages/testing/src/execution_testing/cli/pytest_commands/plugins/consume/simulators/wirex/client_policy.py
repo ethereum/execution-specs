@@ -1,28 +1,17 @@
 """
-The wirex client policy: group reuse, replacement, and isolation.
+The wirex client policy: when a test may reuse its group's client.
 
-This module overrides the shared `client` fixture and must therefore be
-the *last* entry in the wirex conftest's ``pytest_plugins``: the
-conftest module itself is registered before the plugins it declares, so
-a same-named fixture defined in the conftest would be shadowed by
-`multi_test_client`'s - pytest resolves duplicate plugin fixtures in
-favor of the most recently registered plugin.
+A single-target fixture runs on the pre-allocation group's reused
+client unless `replacement_reason` gives a reason to boot a fresh one.
+A fixture announcing several sync targets runs each target on its own
+isolated client. The "Rejection Tests" and "Test Ordering and Client
+Reuse" sections of `docs/running_tests/consume/wirex.md` explain why.
 
-Three policies live here:
-
-- A single-target fixture runs on the pre-allocation group's reused
-  client, exactly as `consume enginex` would run it.
-- A single-target rejection whose head sits below the reused client's
-  is handed a fresh client under the group's identifier, because reuse
-  would starve the verdict (see `client`).
-- A fixture announcing several sync targets runs each target on its
-  own isolated client: the fill side orders rejected targets first and
-  the valid target last, but a client that has synced a chain with a
-  bad block has been observed to back off in ways that starve the next
-  sync, so isolation is the safe policy until repeated mixed-validity
-  smokes prove reuse harmless. The authored ancestry is never
-  delivered over the Engine API to make reuse work - that would take
-  the coverage off the wire this simulator exists to state.
+This module overrides `multi_test_client`'s `client` fixture, so the
+wirex conftest lists it after `multi_test_client` in `pytest_plugins`.
+It cannot live in the conftest itself: the conftest registers before
+the plugins it lists, and pytest prefers the fixture of the most
+recently registered plugin.
 """
 
 import logging
@@ -30,16 +19,17 @@ from contextlib import contextmanager
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    ContextManager,
     Generator,
     Iterator,
+    NamedTuple,
 )
 
 import pytest
 from hive.client import Client, ClientType
 from hive.testing import HiveTest
 
+from execution_testing.base_types import Hash, HexNumber
+from execution_testing.devp2p.chain import Chain
 from execution_testing.devp2p.peer import MockPeer
 from execution_testing.exceptions import ExceptionMapper
 from execution_testing.rpc import EngineRPC, EthRPC
@@ -51,7 +41,7 @@ from ..multi_test_client import (
     group_client,
 )
 from .conftest import dial_mock_peer
-from .sync_targets import SyncTargetCase, TargetContext
+from .sync_targets import SyncTargetCase, TargetContext, TargetContextFactory
 
 if TYPE_CHECKING:
     from ..helpers.timing import TimingData
@@ -61,22 +51,74 @@ logger = logging.getLogger(__name__)
 
 def isolated_identifier(group_identifier: str, index: int) -> str:
     """
-    Return the client identifier for one sync target's isolated client.
+    Return the identifier of the isolated client for target `index`.
 
-    The suffix is the target's stable position in the fixture's
-    announcement order, so logs and Hive artifacts name which branch a
-    client served. Targets of one fixture run strictly one after
-    another and the identifier is released when its target completes,
-    so the key never collides within a session.
+    Targets run one after another and release their identifier, so it
+    never collides.
     """
     return f"{group_identifier}-t{index}"
 
 
-def client_head_number(client: Client) -> int:
-    """Return the block number of `client`'s current head."""
-    with EthRPC(f"http://{client.ip}:8545") as rpc:
+MAX_REORG_DEPTH = 64
+"""
+Deepest reorg, in blocks, a reused client is asked to make.
+
+Clients keep state only for their most recent blocks and cannot full
+sync from a fork point below that: nethermind's beacon sync stops 64
+blocks below its head (`Reorganization.MaxDepth`), ethrex keeps 128
+blocks of state (`DB_COMMIT_THRESHOLD`), and reth falls back to a path
+taking minutes.
+"""
+
+HEAD_LOOKUP_TIMEOUT = (5.0, 10.0)
+"""
+(connect, read) timeout of each attempt of the head lookup a reuse
+decision needs. The RPC client retries a timed out request, so a client
+that never answers is given up on after about a minute.
+"""
+
+
+class ClientHead(NamedTuple):
+    """The number and hash of a client's current head block."""
+
+    number: int
+    block_hash: Hash
+
+
+def client_head(client: Client) -> ClientHead:
+    """Return the number and hash of `client`'s current head."""
+    with EthRPC(
+        f"http://{client.ip}:8545", request_timeout=HEAD_LOOKUP_TIMEOUT
+    ) as rpc:
         head_block = rpc.get_block_by_number("latest")
-    return 0 if head_block is None else int(head_block["number"], 16)
+    if head_block is None:
+        raise LookupError("client returned no head block")
+    return ClientHead(
+        number=int(HexNumber(head_block["number"])),
+        block_hash=Hash(head_block["hash"]),
+    )
+
+
+def reorg_depth(
+    head_number: int, head_chain: Chain | None, chain: Chain
+) -> int:
+    """
+    Return how many blocks a client must unwind to sync `chain`.
+
+    `head_chain` is the served chain holding the client's head, which
+    determines the head's ancestry; the depth is the head's distance
+    above the highest block that ancestry shares with `chain`. A head
+    on no served chain shares only genesis with it.
+    """
+    common = 0
+    if head_chain is not None:
+        for block in chain.blocks:
+            if block.number > head_number:
+                break
+            if head_chain.number_of(block.block_hash) != block.number:
+                break
+            common = block.number
+    return head_number - common
 
 
 def build_engine_rpc(
@@ -84,7 +126,9 @@ def build_engine_rpc(
 ) -> EngineRPC:
     """Return an Engine RPC handle for `client`, mapper attached."""
     context = (
-        {"exception_mapper": exception_mapper} if exception_mapper else None
+        {"exception_mapper": exception_mapper}
+        if exception_mapper is not None
+        else None
     )
     return EngineRPC(
         f"http://{client.ip}:8551", response_validation_context=context
@@ -106,34 +150,16 @@ def client(
     """
     Provide this test's client, per the wirex client policy.
 
-    A fixture announcing several sync targets gets an isolated fresh
-    client for its first target - the test body opens equally isolated
-    contexts for the rest - and the group's reused client is never
-    touched: a rejected branch leaves sync machinery in a backoff
-    state that has been observed to starve a following valid sync, and
-    a multi-target fixture is precisely a sequence of such branches.
-    The test still counts toward its group's completion, so the
-    group's client (used by the group's other tests) is torn down on
-    time.
+    A multi-target fixture gets an isolated client for its first target
+    (the test body opens the rest) and never touches the group's
+    client: a rejected branch can leave a client's sync machinery
+    backing off and starve whatever syncs next. The fixture still
+    counts toward its group's completion, so the group's client is
+    torn down on time.
 
-    A single-target fixture runs on the group's client, replaced with
-    a fresh one when reuse would starve a rejection verdict: a
-    rejection target strictly below the reused client's head cannot be
-    judged over devp2p - the sync machinery of geth-like clients
-    refuses to walk its head backwards, so the target's ancestry never
-    arrives and the head stays unjudgeable. Delivering that ancestry
-    over the Engine API instead would take the verdict off the sync
-    path, which is exactly the coverage this simulator exists to
-    state - so the group's client is discarded and the test gets a
-    fresh one, at genesis, for which the whole chain (invalid block
-    included) is above the head and travels the wire. Tests that
-    follow in the same group reuse the replacement.
-
-    The default ordering (valid chains before invalid ones, each by
-    ascending chain length) makes the replacement rare: at most one
-    per group, at the valid-to-invalid boundary, and only when the
-    group's tallest valid chain outgrows its shortest invalid one.
-    Equal-height targets sync fine and keep the reused client.
+    A single-target fixture gets the group's client, first replaced by
+    a fresh one when `replacement_reason` says reuse would fail. The
+    group's later tests reuse the replacement.
     """
     group_identifier = group_identifier_of(request.node)
 
@@ -144,7 +170,7 @@ def client(
         )
         logger.info(
             f"Fixture announces {first_case.path.total} sync targets; "
-            f"running {first_case.name} on an isolated client"
+            f"running {first_case.path.name} on an isolated client"
         )
         isolated = boot_managed_client(
             multi_test_hive_test,
@@ -158,9 +184,8 @@ def client(
         try:
             yield isolated
         finally:
-            peer = mock_peers.pop(isolated.id, None)
-            if peer is not None:
-                peer.close()
+            # Discarding the client also closes its peer (see the
+            # `mock_peers` fixture).
             multi_test_client_manager.discard_client(identifier)
             multi_test_client_manager.mark_test_completed(
                 group_identifier, request.node.nodeid
@@ -168,17 +193,14 @@ def client(
         return
 
     (case,) = sync_target_cases
-    if case.expects_rejection:
-        running = multi_test_client_manager.get_client(group_identifier)
-        if running is not None:
-            head_number = client_head_number(running)
-            if case.chain.head.number < head_number:
-                logger.info(
-                    f"Rejection target {case.chain.head.number} is below "
-                    f"the reused client's head {head_number}; replacing "
-                    "the client so the verdict stays on the sync path"
-                )
-                multi_test_client_manager.discard_client(group_identifier)
+    running = multi_test_client_manager.get_client(group_identifier)
+    if running is not None:
+        reason = replacement_reason(running, case, mock_peers.get(running.id))
+        if reason is not None:
+            # Loud, because a reason given on every test, such as a
+            # failing head lookup, would quietly turn client reuse off.
+            logger.warning(f"{reason}; replacing the client")
+            multi_test_client_manager.discard_client(group_identifier)
     yield from group_client(
         multi_test_hive_test,
         multi_test_client_manager,
@@ -188,6 +210,41 @@ def client(
         total_timing_data,
         request,
     )
+
+
+def replacement_reason(
+    running: Client, case: SyncTargetCase, peer: MockPeer | None
+) -> str | None:
+    """
+    Return why `case` must not run on the reused client `running`.
+
+    `None` means the client may be reused. Reuse fails for a rejection
+    below the client's head (clients refuse to walk their head
+    backwards, so the ancestry would never travel the wire), for a
+    reorg deeper than `MAX_REORG_DEPTH`, and when the client's head
+    cannot be looked up.
+    """
+    try:
+        head = client_head(running)
+    except Exception as error:
+        return f"The reused client's head lookup failed ({error!r})"
+    if case.path.expects_rejection and case.chain.head.number < head.number:
+        return (
+            f"Rejection target {case.chain.head.number} is below the "
+            f"reused client's head {head.number}, so the verdict would "
+            "leave the sync path"
+        )
+    head_chain = (
+        None if peer is None else peer.served_chain_holding(head.block_hash)
+    )
+    depth = reorg_depth(head.number, head_chain, case.chain)
+    if depth > MAX_REORG_DEPTH:
+        return (
+            f"Syncing this chain would reorg the reused client {depth} "
+            f"blocks below its head {head.number}, deeper than "
+            f"{MAX_REORG_DEPTH}"
+        )
+    return None
 
 
 @pytest.fixture(scope="function")
@@ -203,34 +260,27 @@ def target_context_factory(
     wirex_serve_bals: bool,
     client_exception_mapper: ExceptionMapper | None,
     request: pytest.FixtureRequest,
-) -> Callable[[SyncTargetCase], ContextManager[TargetContext]]:
+) -> TargetContextFactory:
     """
-    Open an isolated client context for one sync target.
+    Return a context manager running one sync target on its own client.
 
-    The test body calls this for every target after the first (whose
-    context the ordinary fixtures provide): each call boots a fresh
-    manager-tracked client at the group's genesis, registers it with
-    the Hive test so its logs land in the result, dials it with its
-    own mock peer serving the target's chain, and tears everything
-    down when the target completes - the peer closed, the client
-    stopped and released. A failure inside the context still tears it
-    down, and the session-end manager cleanup backstops anything that
-    escapes.
+    Used for each target after the first: boot a fresh client at the
+    group's genesis, register it with the Hive test so its logs land in
+    the result, dial it with its own mock peer serving the target's
+    chain, and close the peer and discard the client on exit.
 
-    The registration target must be the per-test `hive_test`, never
-    the module-scoped test the client was started under: hive's
-    multi-test registration installs a copy of the client record
-    without the stop authority in the target test, so registering a
-    client with its own source test overwrites the original record
-    and makes the later stop a silent no-op - the container leaks
-    with every call reporting success.
+    Register the client with the per-test `hive_test`, never the
+    module-scoped test it was started under: hive's multi-test
+    registration copies the client record without its stop authority,
+    so registering a client with its own test makes the later stop a
+    silent no-op and leaks the container.
     """
     group_identifier = group_identifier_of(request.node)
 
     @contextmanager
     def open_target_context(case: SyncTargetCase) -> Iterator[TargetContext]:
         identifier = isolated_identifier(group_identifier, case.path.index)
-        logger.info(f"Running {case.name} on an isolated client")
+        logger.info(f"Running {case.path.name} on an isolated client")
         target_client = boot_managed_client(
             multi_test_hive_test,
             multi_test_client_manager,

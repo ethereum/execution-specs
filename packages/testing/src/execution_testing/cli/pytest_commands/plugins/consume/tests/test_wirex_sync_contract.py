@@ -8,18 +8,33 @@ demands, and the identifiers isolating a multi-target fixture's
 clients.
 """
 
-from dataclasses import dataclass
-from typing import cast
+from dataclasses import dataclass, field
+from types import SimpleNamespace
+from typing import Any, cast
+
+import pytest
 
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.devp2p.chain import Block, Chain
+from execution_testing.devp2p.peer import MockPeer, PeerStatistics
 from execution_testing.fixtures.blockchain import FixtureHeader
 
+from ..simulators.helpers.exceptions import LoggedError
+from ..simulators.simulator_logic import test_via_wirex
 from ..simulators.simulator_logic.test_via_wirex import (
+    assert_wire_coverage,
     required_wire_bodies,
     required_wire_headers,
 )
-from ..simulators.wirex.client_policy import isolated_identifier
+from ..simulators.wirex import client_policy
+from ..simulators.wirex.client_policy import (
+    HEAD_LOOKUP_TIMEOUT,
+    MAX_REORG_DEPTH,
+    ClientHead,
+    isolated_identifier,
+    reorg_depth,
+    replacement_reason,
+)
 
 
 @dataclass
@@ -46,26 +61,37 @@ def _chain(blocks: list[Block]) -> Chain:
     return Chain(genesis=cast(FixtureHeader, genesis), blocks=blocks)
 
 
+def _peer(chain: Chain, *, bodies: set[int]) -> MockPeer:
+    """Return a peer that served every header and the `bodies` named."""
+    return cast(
+        MockPeer,
+        SimpleNamespace(
+            header_hashes_ever_served={b.block_hash for b in chain.blocks},
+            body_hashes_ever_served={
+                b.block_hash for b in chain.blocks if b.number in bodies
+            },
+            statistics=PeerStatistics(),
+        ),
+    )
+
+
 class TestRequiredWireBodies:
     """Which bodies the wire-coverage check demands, per chain shape."""
 
     def test_the_announced_head_is_exempt(self) -> None:
-        """
-        A reth-shaped client passes: ancestors served, head never.
-
-        The head's payload arrives through the Engine API, and whether
-        a client also re-fetches its body from a peer goes both ways
-        across measured clients - so the head is never required.
-        """
+        """A non-empty head body is never owed, so a peer may skip it."""
         ancestors = [_block(1, empty=False), _block(2, empty=False)]
-        chain = _chain([*ancestors, _block(3, empty=True)])
-        required = required_wire_bodies(chain)
-        assert required == ancestors
-        served = {block.block_hash for block in ancestors}
-        assert [b.number for b in required if b.block_hash not in served] == []
+        chain = _chain([*ancestors, _block(3, empty=False)])
+        assert required_wire_bodies(chain) == ancestors
+        assert_wire_coverage(chain, _peer(chain, bodies={1, 2}), "synced")
 
-    def test_a_missing_ancestor_is_named(self) -> None:
+    def test_a_missing_ancestor_is_named(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """An ancestor body that never traveled fails, by number."""
+        monkeypatch.setattr(
+            test_via_wirex, "time", SimpleNamespace(sleep=lambda _s: None)
+        )
         chain = _chain(
             [
                 _block(1, empty=False),
@@ -73,13 +99,12 @@ class TestRequiredWireBodies:
                 _block(3, empty=True),
             ]
         )
-        served = {_block(1, empty=False).block_hash}
-        missing = [
-            block.number
-            for block in required_wire_bodies(chain)
-            if block.block_hash not in served
-        ]
-        assert missing == [2]
+        with pytest.raises(
+            LoggedError,
+            match=r"The client synced, but the non-empty body/bodies of "
+            r"block\(s\) 2 never traveled",
+        ):
+            assert_wire_coverage(chain, _peer(chain, bodies={1}), "synced")
 
     def test_derivable_ancestor_bodies_are_exempt(self) -> None:
         """An empty body a client derives from its header is not owed."""
@@ -119,3 +144,176 @@ class TestIsolatedClientIdentifiers:
         group = "0xdeadbeef-go-ethereum"
         assert isolated_identifier(group, 0) == f"{group}-t0"
         assert isolated_identifier(group, 2) == f"{group}-t2"
+
+
+def _fork(length: int, *, branch: int, shared: int = 0) -> Chain:
+    """
+    Return a chain of `length` blocks whose first `shared` blocks are
+    the trunk every branch shares, and whose rest is `branch`'s own.
+    """
+    blocks = []
+    for number in range(1, length + 1):
+        owner = 0 if number <= shared else branch
+        header = _StubHeader(
+            number=number, block_hash=Hash(owner * 100_000 + number)
+        )
+        blocks.append(
+            Block(
+                header=cast(FixtureHeader, header),
+                transactions=[Bytes(b"\x01")],
+                withdrawals=None,
+            )
+        )
+    return _chain(blocks)
+
+
+class TestReorgDepth:
+    """How far below its head a reused client must unwind."""
+
+    def test_a_chain_forking_at_genesis_unwinds_the_whole_head(self) -> None:
+        """Sibling chains share only genesis."""
+        old, new = _fork(259, branch=1), _fork(268, branch=2)
+        assert reorg_depth(259, old, new) == 259
+
+    def test_a_shared_trunk_is_not_unwound(self) -> None:
+        """A chain extending the head's ancestry unwinds only above it."""
+        old = _fork(259, branch=1, shared=200)
+        new = _fork(268, branch=2, shared=200)
+        assert reorg_depth(259, old, new) == 59
+
+    def test_an_extension_needs_no_reorg(self) -> None:
+        """A chain continuing the head's own chain unwinds nothing."""
+        assert reorg_depth(3, _fork(3, branch=1), _fork(259, branch=1)) == 0
+
+    def test_a_head_on_no_served_chain_shares_only_genesis(self) -> None:
+        """Without the head's ancestry, the fork is taken at genesis."""
+        assert reorg_depth(69, None, _fork(258, branch=2)) == 69
+
+
+class TestReplacementReason:
+    """When a single-target fixture must not reuse the group client."""
+
+    def _reason(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        head: Chain,
+        chain: Chain,
+        *,
+        expects_rejection: bool = False,
+    ) -> str | None:
+        """Return the verdict for `chain` on a client at `head`'s top."""
+        monkeypatch.setattr(
+            client_policy,
+            "client_head",
+            lambda _client: ClientHead(
+                head.head.number, Hash(head.head.block_hash)
+            ),
+        )
+        peer = SimpleNamespace(
+            served_chain_holding=lambda block_hash: (
+                head if head.number_of(block_hash) is not None else None
+            )
+        )
+        case = SimpleNamespace(
+            chain=chain,
+            path=SimpleNamespace(expects_rejection=expects_rejection),
+        )
+        return replacement_reason(
+            cast(Any, SimpleNamespace(id="c")),
+            cast(Any, case),
+            cast(Any, peer),
+        )
+
+    def test_a_shallow_reorg_reuses_the_client(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A sibling chain at the depth limit runs on the reused client."""
+        head = _fork(MAX_REORG_DEPTH, branch=1)
+        assert self._reason(monkeypatch, head, _fork(70, branch=2)) is None
+
+    def test_a_deep_reorg_replaces_the_client(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A sibling chain forking at genesis below a 259-block head."""
+        reason = self._reason(
+            monkeypatch, _fork(259, branch=1), _fork(268, branch=2)
+        )
+        assert reason is not None and "259 blocks" in reason
+
+    def test_a_rejection_below_the_head_replaces_the_client(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A rejection below the head is replaced before depth is checked."""
+        reason = self._reason(
+            monkeypatch,
+            _fork(10, branch=1),
+            _fork(5, branch=2),
+            expects_rejection=True,
+        )
+        assert reason is not None and "below" in reason
+
+
+@dataclass
+class _HeadRPC:
+    """An `EthRPC` whose latest block is `answer`, or which raises it."""
+
+    answer: Any
+    opened: list[tuple[str, Any]] = field(default_factory=list)
+
+    def __call__(self, url: str, *, request_timeout: Any) -> "_HeadRPC":
+        """Record how the client's RPC was opened."""
+        self.opened.append((url, request_timeout))
+        return self
+
+    def __enter__(self) -> "_HeadRPC":
+        """Open nothing."""
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        """Close nothing."""
+
+    def get_block_by_number(
+        self, block_number: int | str = "latest", full_txs: bool = True
+    ) -> Any:
+        """Answer the latest block."""
+        del full_txs
+        assert block_number == "latest"
+        if isinstance(self.answer, Exception):
+            raise self.answer
+        return self.answer
+
+
+class TestClientHeadLookup:
+    """How a reused client's head is looked up, and a failed lookup."""
+
+    CLIENT = SimpleNamespace(id="c", ip="10.0.0.2")
+
+    def test_the_head_is_the_latest_block(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The latest block's number and hash, under the lookup timeout."""
+        rpc = _HeadRPC({"number": "0x45", "hash": "0x" + "11" * 32})
+        monkeypatch.setattr(client_policy, "EthRPC", rpc)
+        head = client_policy.client_head(cast(Any, self.CLIENT))
+        assert head == (69, bytes.fromhex("11" * 32))
+        assert rpc.opened == [("http://10.0.0.2:8545", HEAD_LOOKUP_TIMEOUT)]
+
+    @pytest.mark.parametrize(
+        "answer,cause",
+        [
+            pytest.param(None, "no head block", id="no-block"),
+            pytest.param(TimeoutError("no answer"), "no answer", id="timeout"),
+        ],
+    )
+    def test_a_failed_lookup_replaces_the_client(
+        self, monkeypatch: pytest.MonkeyPatch, answer: Any, cause: str
+    ) -> None:
+        """A client that cannot answer for its head is not reused."""
+        monkeypatch.setattr(client_policy, "EthRPC", _HeadRPC(answer))
+        reason = replacement_reason(
+            cast(Any, self.CLIENT),
+            cast(Any, SimpleNamespace(chain=_fork(3, branch=2))),
+            None,
+        )
+        assert reason is not None
+        assert "lookup failed" in reason and cause in reason
