@@ -718,7 +718,7 @@ def test_stacked_storage_commit(
         pre=pre,
         # The frame tree stops just short of the gas limit.
         skip_gas_used_validation=True,
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected()],
         tx=Transaction(to=contract, sender=pre.fund_eoa()),
     )
 
