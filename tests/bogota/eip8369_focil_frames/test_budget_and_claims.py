@@ -7,12 +7,12 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Bytecode,
     Conditional,
     Environment,
     Fork,
     Frame,
     InclusionListClaim,
-    InclusionListReplayLimits,
     Initcode,
     Op,
     Transaction,
@@ -25,6 +25,10 @@ from execution_testing import (
 
 from .spec import ref_spec_8369
 
+# EIP-7805's replay code limits, as EELS defines them.
+MAX_REPLAY_CODE_BODIES = 16
+MAX_REPLAY_CODE_BYTES = 2**17
+
 REFERENCE_SPEC_GIT_PATH = ref_spec_8369.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8369.version
 
@@ -32,11 +36,6 @@ pytestmark = [
     pytest.mark.valid_from("Bogota"),
     pytest.mark.blockchain_test_engine_only,
 ]
-
-# Explicit policy for this experimental fork, not protocol default limits.
-REPLAY_LIMITS = InclusionListReplayLimits(
-    max_code_bodies=32, max_code_bytes=65_536
-)
 
 EXPIRY_VERIFIER = Address(0x81413F0CF12E9B6A49B1D0439E081C577D57FFFF)
 
@@ -142,7 +141,6 @@ def test_fill_debits_only_candidates(
                 txs=[],
                 inclusion_list_txs=[*fillers, candidate],
                 inclusion_list_membership=[b"\x01\x00"] * (FILLER_COUNT + 1),
-                inclusion_list_replay_limits=REPLAY_LIMITS,
                 expected_inclusion_list_satisfied=satisfied,
             )
         ],
@@ -206,7 +204,6 @@ def test_claim_fits_gas_used_before_index(
                 inclusion_list_txs=[omitted],
                 inclusion_list_membership=[b"\x01\x00"],
                 inclusion_list_claims=claims,
-                inclusion_list_replay_limits=REPLAY_LIMITS,
                 expected_inclusion_list_satisfied=not claimed,
             )
         ],
@@ -265,7 +262,6 @@ def test_claim_uses_payer_balance_at_index(
                 inclusion_list_txs=[omitted],
                 inclusion_list_membership=[b"\x01\x00"],
                 inclusion_list_claims=claims,
-                inclusion_list_replay_limits=REPLAY_LIMITS,
                 expected_inclusion_list_satisfied=not claimed,
             )
         ],
@@ -316,8 +312,190 @@ def test_deploy_frame_creates_sender(
                 txs=[],
                 inclusion_list_txs=[omitted],
                 inclusion_list_membership=[b"\x01\x00"],
-                inclusion_list_replay_limits=REPLAY_LIMITS,
                 expected_inclusion_list_satisfied=False,
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("frame", "satisfied"),
+    [
+        pytest.param("deploy", False, id="deploy-frame-may-tstore"),
+        pytest.param("verify", True, id="verify-frame-is-static"),
+    ],
+)
+def test_transient_storage_in_prefix(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    frame: str,
+    satisfied: bool,
+) -> None:
+    """
+    Allow `TSTORE` wherever EIP-8141's validation rules allow it.
+
+    Transient storage is discarded with the transaction, so it is not a
+    state write: the deploy frame may use it. A `VERIFY` frame is static,
+    so `TSTORE` there fails the frame and the omission is excused.
+    """
+    if frame == "deploy":
+        initcode = Initcode(deploy_code=Op.APPROVE(0, 0, 3))
+        factory = pre.deploy_contract(
+            code=Op.TSTORE(0, 1)
+            + Om.MSTORE(bytes(initcode), 0)
+            + Op.POP(Op.CREATE2(value=0, offset=0, size=len(initcode), salt=0))
+        )
+        sender = compute_create2_address(
+            address=factory, salt=0, initcode=initcode
+        )
+        pre.fund_address(sender, 10**18)
+        nonce = 0
+        frames = [
+            Frame(mode=0, target=factory),
+            Frame(mode=1, flags=3, gas_limit=50_000, state_gas_limit=0),
+        ]
+    else:
+        sender = pre.deploy_contract(
+            code=Op.TSTORE(0, 1) + Op.APPROVE(0, 0, 3), balance=10**18
+        )
+        nonce = 1
+        frames = [Frame(mode=1, flags=3, gas_limit=50_000, state_gas_limit=0)]
+    blockchain_test(
+        pre=pre,
+        post={sender: Account(nonce=nonce, balance=10**18)},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[
+                    Transaction(sender=sender, nonce=nonce, frames=frames)
+                ],
+                inclusion_list_membership=[b"\x01\x00"],
+                expected_inclusion_list_satisfied=satisfied,
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize("dimension", ["bodies", "bytes"])
+@pytest.mark.parametrize(
+    "fits",
+    [
+        pytest.param(True, id="at-limit"),
+        pytest.param(False, id="over-limit"),
+    ],
+)
+def test_replay_code_limits(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    dimension: str,
+    fits: bool,
+) -> None:
+    """
+    Bound the distinct code bodies a replay loads and their total bytes.
+
+    The sender's code is one body and every helper it calls is another.
+    At a limit the omission is unjustified; one past it, replay fails and
+    the omission is excused.
+    """
+
+    def caller_of(helpers: list[Address]) -> Bytecode:
+        # A full-width push keeps the code's size independent of addresses.
+        return sum(
+            (
+                Op.POP(Op.STATICCALL(gas=5_000, address=Op.PUSH20(h)))
+                for h in helpers
+            ),
+            Bytecode(),
+        ) + Op.APPROVE(0, 0, 3)
+
+    if dimension == "bodies":
+        count = MAX_REPLAY_CODE_BODIES - 1 + (0 if fits else 1)
+        helpers = [
+            pre.deploy_contract(code=Op.PUSH2(i) + Op.STOP)
+            for i in range(count)
+        ]
+    else:
+        first = pre.deploy_contract(code=Op.STOP + b"\x5b" * (2**16 - 1))
+        size = (
+            MAX_REPLAY_CODE_BYTES
+            - len(caller_of([first, first]))
+            - 2**16
+            + (0 if fits else 1)
+        )
+        helpers = [
+            first,
+            pre.deploy_contract(code=Op.STOP + b"\x5c" * (size - 1)),
+        ]
+    sender_code = caller_of(helpers)
+    sender = pre.deploy_contract(code=sender_code, balance=10**18)
+    omitted = Transaction(
+        sender=sender,
+        nonce=1,
+        frames=[Frame(mode=1, flags=3, gas_limit=200_000, state_gas_limit=0)],
+    )
+    blockchain_test(
+        pre=pre,
+        post={sender: Account(nonce=1, balance=10**18)},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[omitted],
+                inclusion_list_membership=[b"\x01\x00"],
+                expected_inclusion_list_satisfied=not fits,
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("delegated", "satisfied"),
+    [
+        pytest.param(False, False, id="contract-target"),
+        pytest.param(True, True, id="delegated-target"),
+    ],
+)
+def test_call_target_must_be_undelegated(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    delegated: bool,
+    satisfied: bool,
+) -> None:
+    """
+    Refuse a `CALL*` from the prefix to an EIP-7702 delegated account.
+
+    EIP-8141's trace rules admit only existing contracts and precompiles
+    as targets, excluding delegated accounts, whose code their authority
+    can change.
+    """
+    helper = pre.deploy_contract(code=Op.STOP)
+    target = pre.fund_eoa(delegation=helper) if delegated else helper
+    sender = pre.deploy_contract(
+        code=Op.POP(Op.STATICCALL(gas=5_000, address=target))
+        + Op.APPROVE(0, 0, 3),
+        balance=10**18,
+    )
+    blockchain_test(
+        pre=pre,
+        post={sender: Account(nonce=1, balance=10**18)},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[
+                    Transaction(
+                        sender=sender,
+                        nonce=1,
+                        frames=[
+                            Frame(
+                                mode=1,
+                                flags=3,
+                                gas_limit=50_000,
+                                state_gas_limit=0,
+                            )
+                        ],
+                    )
+                ],
+                inclusion_list_membership=[b"\x01\x00"],
+                expected_inclusion_list_satisfied=satisfied,
             )
         ],
     )

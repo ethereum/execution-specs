@@ -11,7 +11,6 @@ from execution_testing import (
     Frame,
     Hash,
     InclusionListClaim,
-    InclusionListReplayLimits,
     Op,
     Transaction,
     Withdrawal,
@@ -26,11 +25,6 @@ pytestmark = [
     pytest.mark.valid_from("Bogota"),
     pytest.mark.blockchain_test_engine_only,
 ]
-
-# Explicit policy for this experimental fork, not protocol default limits.
-REPLAY_LIMITS = InclusionListReplayLimits(
-    max_code_bodies=32, max_code_bytes=65_536
-)
 
 
 @pytest.mark.parametrize(
@@ -82,7 +76,6 @@ def test_omitted_prefix_trace_and_isolation(
                 txs=[],
                 inclusion_list_txs=[omitted],
                 inclusion_list_membership=[b"\x01\x00"],
-                inclusion_list_replay_limits=REPLAY_LIMITS,
                 expected_inclusion_list_satisfied=satisfied,
             )
         ],
@@ -114,7 +107,6 @@ def test_end_index_excludes_withdrawals(
                 withdrawals=[withdrawal] if funding == "withdrawal" else [],
                 inclusion_list_txs=[omitted],
                 inclusion_list_membership=[b"\x01\x00"],
-                inclusion_list_replay_limits=REPLAY_LIMITS,
                 expected_inclusion_list_satisfied=funding == "withdrawal",
             )
         ],
@@ -152,7 +144,6 @@ def test_child_trace_survives_revert(
                 txs=[],
                 inclusion_list_txs=[omitted],
                 inclusion_list_membership=[b"\x01\x00"],
-                inclusion_list_replay_limits=REPLAY_LIMITS,
                 expected_inclusion_list_satisfied=forbidden,
             )
         ],
@@ -214,7 +205,6 @@ def test_claim_selects_transaction_boundary(
                 inclusion_list_txs=[omitted],
                 inclusion_list_membership=[b"\x01\x00"],
                 inclusion_list_claims=claim_list,
-                inclusion_list_replay_limits=REPLAY_LIMITS,
                 expected_inclusion_list_satisfied=satisfied,
             )
         ],
