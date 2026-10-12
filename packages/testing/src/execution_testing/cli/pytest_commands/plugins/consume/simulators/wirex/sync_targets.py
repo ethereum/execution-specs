@@ -15,8 +15,9 @@ expectation and invalidity census here is taken over one path's
 payloads, so a sibling's invalidity never affects another path.
 """
 
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from typing import Any, Mapping, TypeVar
+from typing import Any, Callable, Mapping, TypeVar
 
 from hive.client import Client
 
@@ -172,36 +173,6 @@ class SyncTargetCase:
     path: SyncPath
     chain: Chain
 
-    @property
-    def target(self) -> FixtureEngineNewPayload:
-        """Return the payload announced as the sync target."""
-        return self.path.target
-
-    @property
-    def announces_scaffolding(self) -> bool:
-        """Return whether the announced head is a framework payload."""
-        return self.path.announces_scaffolding
-
-    @property
-    def expects_rejection(self) -> bool:
-        """Return whether this path passes by the client refusing it."""
-        return self.path.expects_rejection
-
-    @property
-    def invalidities(self) -> set[BlockException | TransactionException]:
-        """Return every exception this path's payloads declare."""
-        return self.path.invalidities
-
-    @property
-    def name(self) -> str:
-        """Return the short name failure messages prefix this case by."""
-        return self.path.name
-
-    @property
-    def label(self) -> str:
-        """Return the name logs and failures identify this case by."""
-        return self.path.label
-
 
 @dataclass(frozen=True)
 class TargetContext:
@@ -211,6 +182,12 @@ class TargetContext:
     eth_rpc: EthRPC
     engine_rpc: EngineRPC
     mock_peer: MockPeer
+
+
+TargetContextFactory = Callable[
+    [SyncTargetCase], AbstractContextManager[TargetContext]
+]
+"""Open the context a sync target after the first runs in."""
 
 
 def resolve_sync_paths(

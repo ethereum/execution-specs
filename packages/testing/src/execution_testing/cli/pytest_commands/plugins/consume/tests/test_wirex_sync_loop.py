@@ -6,23 +6,41 @@ module's clock by a fake one, so a client that blocks an announcement
 for minutes, or drops the peer mid-sync, is simulated in microseconds.
 """
 
+import inspect
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from types import SimpleNamespace
-from typing import Any, Callable, cast
+from typing import Any, Callable, Collection, Iterator, cast
 
 import pytest
+from tenacity import RetryCallState
 
-from execution_testing.base_types import Bytes, Hash
+from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.devp2p.chain import Block, Chain
 from execution_testing.devp2p.peer import MockPeer, PeerStatistics
+from execution_testing.exceptions import BlockException
 from execution_testing.fixtures.blockchain import FixtureHeader
-from execution_testing.rpc import EngineRPC, EthRPC
-from execution_testing.rpc.rpc_types import PayloadStatus, PayloadStatusEnum
+from execution_testing.rpc import (
+    EngineRPC,
+    EthRPC,
+    ForkchoiceUpdateTimeoutError,
+)
+from execution_testing.rpc.rpc_types import (
+    ForkchoiceState,
+    ForkchoiceUpdateResponse,
+    JSONRPCError,
+    PayloadAttributes,
+    PayloadStatus,
+    PayloadStatusEnum,
+)
 
-from ..simulators.helpers.exceptions import LoggedError
+from ..simulators.helpers.exceptions import (
+    GenesisBlockMismatchExceptionError,
+    LoggedError,
+)
 from ..simulators.helpers.timing import TimingData
 from ..simulators.simulator_logic import test_via_wirex
-from ..simulators.wirex.sync_targets import SyncTargetCase
+from ..simulators.wirex.sync_targets import SyncPath, SyncTargetCase
 
 SYNC_TIMEOUT = 30.0
 ANNOUNCE_INTERVAL = 3.0
@@ -77,27 +95,33 @@ def _chain(length: int) -> Chain:
     return Chain(genesis=cast(FixtureHeader, genesis), blocks=blocks)
 
 
-def _case(chain: Chain, *, expects_rejection: bool) -> SyncTargetCase:
-    """Return a single-target case announcing the head of `chain`."""
+def _case(
+    chain: Chain,
+    *,
+    expects_rejection: bool,
+    announces_scaffolding: bool = True,
+    invalidities: frozenset[Any] = frozenset(),
+    error_code: int | None = None,
+    index: int = 0,
+    total: int = 1,
+) -> SyncTargetCase:
+    """Return a case announcing the head of `chain`."""
     target = SimpleNamespace(
         params=[SimpleNamespace(block_hash=chain.head.block_hash)],
         new_payload_version=4,
         forkchoice_updated_version=3,
-        error_code=None,
+        error_code=error_code,
     )
-    return cast(
-        SyncTargetCase,
-        SimpleNamespace(
-            chain=chain,
-            target=target,
-            expects_rejection=expects_rejection,
-            announces_scaffolding=True,
-            invalidities=set(),
-            path=SimpleNamespace(total=1),
-            name="target 0",
-            label="target 0",
-        ),
+    path = SimpleNamespace(
+        target=target,
+        expects_rejection=expects_rejection,
+        announces_scaffolding=announces_scaffolding,
+        invalidities=set(invalidities),
+        total=total,
+        name=f"target {index}",
+        label=f"target {index}",
     )
+    return SyncTargetCase(path=cast(SyncPath, path), chain=chain)
 
 
 def _status(status: PayloadStatusEnum) -> PayloadStatus:
@@ -107,185 +131,628 @@ def _status(status: PayloadStatusEnum) -> PayloadStatus:
     )
 
 
+def _response(status: PayloadStatusEnum) -> ForkchoiceUpdateResponse:
+    """Return a forkchoice response carrying only `status`."""
+    return ForkchoiceUpdateResponse(
+        payload_status=_status(status), payload_id=None
+    )
+
+
 @dataclass
 class FakeEngine:
     """
     An Engine API whose answers are functions of the fake time.
 
-    `verdict` gives the `newPayload` answer at a time;
-    `forkchoice_delay` gives how long the n-th `forkchoiceUpdated` of
-    an announcement blocks.
+    `verdict` gives the `newPayload` answer at a time and `refusal` the
+    error code it raises instead, if any; `forkchoice_delay` gives how
+    long the n-th `forkchoiceUpdated` of an announcement blocks and
+    `forkchoice_refusal` the error code it raises; `confirmation` is
+    the answer, or the exception, of the confirming update.
     """
 
     clock: FakeClock
     verdict: Callable[[float], PayloadStatusEnum]
     forkchoice_delay: Callable[[int], float] = lambda _call: 0.0
+    refusal: Callable[[float], int | None] = lambda _now: None
+    forkchoice_refusal: Callable[[int], int | None] = lambda _call: None
+    confirmation: PayloadStatusEnum | Exception = PayloadStatusEnum.VALID
     forkchoice_calls: int = 0
 
     def new_payload(self, *params: Any, version: int) -> PayloadStatus:
-        """Answer with the verdict of this instant."""
+        """Answer with the verdict of this instant, or refuse."""
         del params, version
+        code = self.refusal(self.clock.now)
+        if code is not None:
+            raise JSONRPCError(code, "refused")
         return _status(self.verdict(self.clock.now))
 
-    def forkchoice_updated(self, **kwargs: Any) -> None:
-        """Block for this call's delay."""
-        del kwargs
-        self.clock.now += self.forkchoice_delay(self.forkchoice_calls)
+    def forkchoice_updated(
+        self,
+        forkchoice_state: ForkchoiceState,
+        payload_attributes: PayloadAttributes | None = None,
+        *,
+        version: int,
+    ) -> ForkchoiceUpdateResponse:
+        """Block for this call's delay, then accept or refuse."""
+        del forkchoice_state, payload_attributes, version
+        call = self.forkchoice_calls
+        self.clock.now += self.forkchoice_delay(call)
         self.forkchoice_calls += 1
+        code = self.forkchoice_refusal(call)
+        if code is not None:
+            raise JSONRPCError(code, "refused")
+        return _response(PayloadStatusEnum.SYNCING)
 
-    def forkchoice_updated_with_retry(self, **kwargs: Any) -> Any:
-        """Confirm the head as canonical."""
-        del kwargs
-        return SimpleNamespace(payload_status=_status(PayloadStatusEnum.VALID))
+    def forkchoice_updated_with_retry(
+        self,
+        forkchoice_state: ForkchoiceState,
+        forkchoice_version: int,
+        *,
+        max_attempts: int = 30,
+        wait_fixed: float = 1.0,
+        on_retry: Callable[[RetryCallState], None] | None = None,
+    ) -> ForkchoiceUpdateResponse:
+        """Confirm the head with the configured answer."""
+        del forkchoice_state, forkchoice_version, max_attempts
+        del wait_fixed, on_retry
+        if isinstance(self.confirmation, Exception):
+            raise self.confirmation
+        return _response(self.confirmation)
+
+
+GENESIS_HASH = Hash(0)
 
 
 @dataclass
 class FakeEth:
-    """An eth API whose head appears at `imported_at` fake seconds."""
+    """
+    An eth API whose head appears at `imported_at` fake seconds.
+
+    `overrides` replaces the answer for a block number, so a test can
+    serve a wrong or missing genesis or latest block.
+    """
 
     clock: FakeClock
     head_hash: str
     imported_at: float
+    overrides: dict[int | str, Any] = field(default_factory=dict)
 
-    def get_block_by_hash(self, block_hash: Hash, full_txs: bool) -> Any:
+    def get_block_by_hash(
+        self, block_hash: Hash, full_txs: bool = True
+    ) -> Any:
         """Return the head once it has been imported."""
         del block_hash, full_txs
         if self.clock.now >= self.imported_at:
             return {"hash": self.head_hash}
         return None
 
-    def get_block_by_number(self, number: str) -> Any:
-        """Return the imported head as the latest block."""
-        del number
+    def get_block_by_number(
+        self, block_number: int | str = "latest", full_txs: bool = True
+    ) -> Any:
+        """Return genesis for 0 and the imported head otherwise."""
+        del full_txs
+        if block_number in self.overrides:
+            return self.overrides[block_number]
+        if block_number == 0:
+            return {"hash": str(GENESIS_HASH)}
         return {"hash": self.head_hash}
 
 
 @dataclass
 class FakePeer:
-    """A peer that served every block of `chain` and stays connected."""
+    """
+    A peer that served every block of `chain` and stays connected.
+
+    The headers and bodies of the blocks numbered in `unserved_headers`
+    and `unserved_bodies` never traveled.
+    """
 
     chain: Chain
+    unserved_headers: Collection[int] = ()
+    unserved_bodies: Collection[int] = ()
     alive: bool = True
     redials: int = 0
     statistics: PeerStatistics = field(default_factory=PeerStatistics)
 
     def __post_init__(self) -> None:
-        """Record every block as served."""
-        hashes = {block.block_hash for block in self.chain.blocks}
-        self.header_hashes_ever_served = set(hashes)
-        self.body_hashes_ever_served = set(hashes)
+        """Record every block as served, bar the unserved ones."""
+        blocks = self.chain.blocks
+        self.header_hashes_ever_served = {
+            b.block_hash
+            for b in blocks
+            if b.number not in self.unserved_headers
+        }
+        self.body_hashes_ever_served = {
+            b.block_hash
+            for b in blocks
+            if b.number not in self.unserved_bodies
+        }
 
-    def reconnect(self, chain: Chain) -> None:
+    def reconnect(self, chain: Chain, timeout: float = 30.0) -> None:
         """Count a redial."""
-        del chain
+        del chain, timeout
         self.redials += 1
         self.alive = True
 
 
+def _head(chain: Chain) -> str:
+    """Return the hex hash `eth` answers for the head of `chain`."""
+    return "0x" + chain.head.block_hash.hex()
+
+
+CHAIN = _chain(3)
+"""The chain every single-target test serves and announces."""
+
+NEVER = 1e9
+"""An import time no test reaches."""
+
+
+def _engine(
+    clock: FakeClock,
+    verdict: PayloadStatusEnum | Callable[[float], PayloadStatusEnum] = (
+        PayloadStatusEnum.SYNCING
+    ),
+    **knobs: Any,
+) -> FakeEngine:
+    """Return an engine answering `verdict`, fixed or a function of time."""
+    if isinstance(verdict, PayloadStatusEnum):
+        fixed = verdict
+        return FakeEngine(clock, verdict=lambda _now: fixed, **knobs)
+    return FakeEngine(clock, verdict=verdict, **knobs)
+
+
 def _run(
-    case: SyncTargetCase, engine: FakeEngine, eth: FakeEth, peer: FakePeer
+    clock: FakeClock,
+    engine: FakeEngine,
+    *,
+    expects_rejection: bool = False,
+    imported_at: float = NEVER,
+    peer: FakePeer | None = None,
+    overrides: dict[int | str, Any] | None = None,
+    genesis_header: FixtureHeader | None = None,
+    **case_knobs: Any,
 ) -> None:
-    """Run one target through the test body's loop."""
+    """
+    Run `CHAIN` through the test body's loop against the fakes.
+
+    The head is imported at `imported_at`, and genesis is checked only
+    when `genesis_header` is given.
+    """
+    verified = {"client"}
+    if genesis_header is None:
+        genesis_header = cast(FixtureHeader, _StubHeader(0, GENESIS_HASH))
+    else:
+        verified = set()
+    eth = FakeEth(clock, _head(CHAIN), imported_at, overrides or {})
     test_via_wirex._run_sync_target(
-        case=case,
+        case=_case(CHAIN, expects_rejection=expects_rejection, **case_knobs),
         client=cast(Any, SimpleNamespace(id="client")),
         eth_rpc=cast(EthRPC, eth),
         engine_rpc=cast(EngineRPC, engine),
-        mock_peer=cast(MockPeer, peer),
+        mock_peer=cast(MockPeer, peer or FakePeer(CHAIN)),
         timing_data=TimingData("Total"),
-        genesis_verified_clients={"client"},
-        genesis_header=cast(FixtureHeader, _StubHeader(0, Hash(0))),
+        genesis_verified_clients=verified,
+        genesis_header=genesis_header,
         sync_timeout=SYNC_TIMEOUT,
         poll_interval=POLL_INTERVAL,
         announce_interval=ANNOUNCE_INTERVAL,
     )
 
 
-class TestValidSyncDeadline:
-    """The valid loop's last look at the head."""
+FAKE_SIGNATURES = [
+    (FakeEngine.new_payload, EngineRPC.new_payload),
+    (FakeEngine.forkchoice_updated, EngineRPC.forkchoice_updated),
+    (
+        FakeEngine.forkchoice_updated_with_retry,
+        EngineRPC.forkchoice_updated_with_retry,
+    ),
+    (FakeEth.get_block_by_hash, EthRPC.get_block_by_hash),
+    (FakeEth.get_block_by_number, EthRPC.get_block_by_number),
+    (FakePeer.reconnect, MockPeer.reconnect),
+]
 
-    def test_a_blocking_reannouncement_does_not_hide_the_sync(
-        self, clock: FakeClock
+
+class TestFakeFidelity:
+    """The fakes stand in for the real APIs the test body calls."""
+
+    @pytest.mark.parametrize(
+        "fake,real",
+        FAKE_SIGNATURES,
+        ids=[fake.__qualname__ for fake, _ in FAKE_SIGNATURES],
+    )
+    def test_a_fake_accepts_only_calls_the_real_method_accepts(
+        self, fake: Callable[..., Any], real: Callable[..., Any]
     ) -> None:
-        """
-        A re-announcement blocking far past the deadline is followed
-        by one more look at the head, which the client imported while
-        the call blocked.
-        """
-        chain = _chain(3)
-        case = _case(chain, expects_rejection=False)
-        engine = FakeEngine(
+        """Fake parameters are real ones of the same kind, none missing."""
+        fake_parameters = inspect.signature(fake).parameters
+        real_parameters = inspect.signature(real).parameters
+        for name, parameter in fake_parameters.items():
+            assert name in real_parameters, f"{name} is not a real parameter"
+            assert parameter.kind == real_parameters[name].kind, name
+        for name, parameter in real_parameters.items():
+            required = parameter.default is inspect.Parameter.empty
+            variadic = parameter.kind in (
+                parameter.VAR_POSITIONAL,
+                parameter.VAR_KEYWORD,
+            )
+            if required and not variadic:
+                assert name in fake_parameters, f"{name} is required"
+
+
+VALID = PayloadStatusEnum.VALID
+INVALID = PayloadStatusEnum.INVALID
+SYNCING = PayloadStatusEnum.SYNCING
+
+
+@pytest.mark.parametrize(
+    "expects_rejection", [False, True], ids=["sync", "rejection"]
+)
+class TestDeadline:
+    """Both wait loops read the client once more before giving up."""
+
+    def test_a_blocking_reannouncement_hides_nothing(
+        self, clock: FakeClock, expects_rejection: bool
+    ) -> None:
+        """A head imported or rejected during a blocked call is still read."""
+        engine = _engine(
             clock,
-            verdict=lambda _now: PayloadStatusEnum.SYNCING,
+            lambda now: INVALID if now >= 100.0 else SYNCING,
             forkchoice_delay=lambda call: 194.0 if call == 1 else 0.0,
         )
-        eth = FakeEth(clock, "0x" + chain.head.block_hash.hex(), 100.0)
-        _run(case, engine, eth, FakePeer(chain))
+        _run(
+            clock,
+            engine,
+            expects_rejection=expects_rejection,
+            imported_at=100.0,
+        )
         assert clock.now > SYNC_TIMEOUT
 
-    def test_a_head_never_imported_still_times_out(
-        self, clock: FakeClock
+    def test_a_silent_client_times_out(
+        self, clock: FakeClock, expects_rejection: bool
     ) -> None:
-        """The loop ends at the deadline when the head never appears."""
-        chain = _chain(3)
-        case = _case(chain, expects_rejection=False)
-        engine = FakeEngine(
-            clock, verdict=lambda _now: PayloadStatusEnum.SYNCING
-        )
-        eth = FakeEth(clock, "0x" + chain.head.block_hash.hex(), 1e9)
-        with pytest.raises(LoggedError, match="never imported"):
-            _run(case, engine, eth, FakePeer(chain))
+        """A client that never imports nor rejects fails at the deadline."""
+        never = "never rejected" if expects_rejection else "never imported"
+        with pytest.raises(LoggedError, match=never):
+            _run(clock, _engine(clock), expects_rejection=expects_rejection)
         assert SYNC_TIMEOUT <= clock.now < SYNC_TIMEOUT + 1
 
 
-class TestRejectionDeadline:
-    """The rejection loop's verdict reading."""
-
-    def test_a_blocking_reannouncement_does_not_hide_the_verdict(
-        self, clock: FakeClock
-    ) -> None:
-        """
-        A verdict formed while a re-announcement blocked past the
-        deadline is still read: the loop asks once more before giving
-        up.
-        """
-        chain = _chain(3)
-        case = _case(chain, expects_rejection=True)
-        engine = FakeEngine(
-            clock,
-            verdict=lambda now: (
-                PayloadStatusEnum.INVALID
-                if now >= 100.0
-                else PayloadStatusEnum.SYNCING
-            ),
-            forkchoice_delay=lambda call: 194.0 if call == 1 else 0.0,
-        )
-        eth = FakeEth(clock, "0x" + chain.head.block_hash.hex(), 1e9)
-        _run(case, engine, eth, FakePeer(chain))
-        assert clock.now > SYNC_TIMEOUT
-
-    def test_a_client_that_never_rejects_times_out(
-        self, clock: FakeClock
-    ) -> None:
-        """The loop ends at the deadline when no verdict arrives."""
-        chain = _chain(3)
-        case = _case(chain, expects_rejection=True)
-        engine = FakeEngine(
-            clock, verdict=lambda _now: PayloadStatusEnum.SYNCING
-        )
-        eth = FakeEth(clock, "0x" + chain.head.block_hash.hex(), 1e9)
-        with pytest.raises(LoggedError, match="never rejected"):
-            _run(case, engine, eth, FakePeer(chain))
-        assert SYNC_TIMEOUT <= clock.now < SYNC_TIMEOUT + 1
+class TestAcceptanceHold:
+    """A VALID verdict on an invalid head fails only once it has held."""
 
     def test_a_held_acceptance_fails(self, clock: FakeClock) -> None:
-        """A VALID that holds for the acceptance hold time fails."""
-        chain = _chain(3)
-        case = _case(chain, expects_rejection=True)
-        engine = FakeEngine(
-            clock, verdict=lambda _now: PayloadStatusEnum.VALID
-        )
-        eth = FakeEth(clock, "0x" + chain.head.block_hash.hex(), 1e9)
+        """A VALID that holds for half a second fails there and then."""
         with pytest.raises(LoggedError, match="accepted the invalid chain"):
-            _run(case, engine, eth, FakePeer(chain))
-        assert clock.now < test_via_wirex.ACCEPTANCE_HOLD_TIME + 1
+            _run(clock, _engine(clock, VALID), expects_rejection=True)
+        assert 0.5 <= clock.now < 0.6
+
+    def test_a_transient_acceptance_then_rejection_passes(
+        self, clock: FakeClock
+    ) -> None:
+        """A VALID that turns INVALID within the hold is no acceptance."""
+        engine = _engine(clock, lambda now: VALID if now < 0.3 else INVALID)
+        _run(clock, engine, expects_rejection=True)
+
+    def test_an_acceptance_interrupted_by_syncing_restarts_the_hold(
+        self, clock: FakeClock
+    ) -> None:
+        """VALID flapping with SYNCING, each under the hold, never fails."""
+        engine = _engine(
+            clock, lambda now: VALID if now % 0.6 < 0.3 else SYNCING
+        )
+        with pytest.raises(LoggedError, match="never rejected"):
+            _run(clock, engine, expects_rejection=True)
+
+    def test_an_acceptance_young_at_the_deadline_is_no_rejection(
+        self, clock: FakeClock
+    ) -> None:
+        """A VALID begun just before the deadline still fails the test."""
+        engine = _engine(
+            clock, lambda now: VALID if now >= SYNC_TIMEOUT - 0.2 else SYNCING
+        )
+        with pytest.raises(
+            LoggedError, match=r"last status: PayloadStatusEnum.VALID\)"
+        ):
+            _run(clock, engine, expects_rejection=True)
+
+
+OFF_WIRE = {
+    "body": (
+        FakePeer(CHAIN, unserved_bodies={2}),
+        r"the non-empty body/bodies of block\(s\) 2 never traveled",
+    ),
+    "header": (
+        FakePeer(CHAIN, unserved_headers={1}),
+        r"the header\(s\) of block\(s\) 1 never traveled",
+    ),
+}
+
+
+class TestWireCoverage:
+    """A right verdict passes only when reached over this peer's wire."""
+
+    @pytest.mark.parametrize(
+        "verdict,expects_rejection,outcome",
+        [
+            (VALID, False, "reached the expected head"),
+            (INVALID, True, "rejected the invalid chain"),
+        ],
+        ids=["sync", "rejection"],
+    )
+    @pytest.mark.parametrize(
+        "peer,missing", OFF_WIRE.values(), ids=OFF_WIRE.keys()
+    )
+    def test_a_verdict_reached_off_wire_fails(
+        self,
+        clock: FakeClock,
+        verdict: PayloadStatusEnum,
+        expects_rejection: bool,
+        outcome: str,
+        peer: FakePeer,
+        missing: str,
+    ) -> None:
+        """A verdict fails on any ancestor header or body not served."""
+        with pytest.raises(LoggedError, match=f"{outcome}, but {missing}"):
+            _run(
+                clock,
+                _engine(clock, verdict),
+                expects_rejection=expects_rejection,
+                imported_at=1.0,
+                peer=peer,
+            )
+
+    def test_a_header_judgeable_rejection_needs_headers_not_bodies(
+        self, clock: FakeClock
+    ) -> None:
+        """A header-judgeable invalidity owes every header but no body."""
+        judgeable = frozenset({BlockException.INCORRECT_EXCESS_BLOB_GAS})
+        _run(
+            clock,
+            _engine(clock, INVALID),
+            expects_rejection=True,
+            invalidities=judgeable,
+            peer=FakePeer(CHAIN, unserved_bodies={1, 2}),
+        )
+        with pytest.raises(
+            LoggedError,
+            match=r"rejected the invalid chain, but the header\(s\) of "
+            r"block\(s\) 2 never traveled",
+        ):
+            _run(
+                clock,
+                _engine(clock, INVALID),
+                expects_rejection=True,
+                invalidities=judgeable,
+                peer=FakePeer(CHAIN, unserved_headers={2}),
+            )
+
+    def test_an_unscaffolded_rejection_makes_no_wire_claim(
+        self, clock: FakeClock
+    ) -> None:
+        """A rejection of a chain announcing its own head owes nothing."""
+        _run(
+            clock,
+            _engine(clock, INVALID),
+            expects_rejection=True,
+            announces_scaffolding=False,
+            peer=FakePeer(
+                CHAIN, unserved_headers={1, 2}, unserved_bodies={1, 2}
+            ),
+        )
+
+
+CONFIRMATION_FAILURES = {
+    "non-valid-confirmation": (
+        {"confirmation": SYNCING},
+        {},
+        "failed to sync to .*SYNCING",
+    ),
+    "confirmation-timeout": (
+        {
+            "confirmation": ForkchoiceUpdateTimeoutError(
+                attempts=10,
+                elapsed=5.0,
+                interval=0.5,
+                final_status=SYNCING,
+            )
+        },
+        {},
+        "never made it canonical",
+    ),
+    "wrong-latest-head": (
+        {},
+        {"latest": {"hash": str(Hash(2))}},
+        f"Client head is {Hash(2)}",
+    ),
+    "missing-latest-head": ({}, {"latest": None}, "returned no head block"),
+}
+
+
+@pytest.mark.parametrize(
+    "engine_knobs,overrides,match",
+    CONFIRMATION_FAILURES.values(),
+    ids=CONFIRMATION_FAILURES.keys(),
+)
+def test_an_imported_head_must_be_confirmed_and_latest(
+    clock: FakeClock,
+    engine_knobs: dict[str, Any],
+    overrides: dict[int | str, Any],
+    match: str,
+) -> None:
+    """An imported head fails unless made canonical and reported latest."""
+    with pytest.raises(LoggedError, match=match):
+        _run(
+            clock,
+            _engine(clock, **engine_knobs),
+            imported_at=1.0,
+            overrides=overrides,
+        )
+
+
+def _genesis(state_root: int) -> FixtureHeader:
+    """Return a genesis header told apart by its `state_root`."""
+    return FixtureHeader(
+        fee_recipient=Address(0),
+        state_root=Hash(state_root),
+        number=0,
+        gas_limit=30_000_000,
+        timestamp=0,
+        extra_data=Bytes(b""),
+    )
+
+
+def _rpc_block(header: FixtureHeader) -> dict[str, Any]:
+    """Return `header` as `eth_getBlockByNumber` answers it."""
+    return header.model_dump(mode="json", by_alias=True)
+
+
+class TestGenesisVerification:
+    """A client is run only on the group's genesis."""
+
+    def test_a_matching_genesis_passes(self, clock: FakeClock) -> None:
+        """A client whose genesis is the group's syncs as usual."""
+        genesis = _genesis(1)
+        _run(
+            clock,
+            _engine(clock),
+            imported_at=1.0,
+            overrides={0: _rpc_block(genesis)},
+            genesis_header=genesis,
+        )
+
+    def test_a_mismatched_genesis_fails(self, clock: FakeClock) -> None:
+        """A client on another genesis fails before anything is announced."""
+        engine = _engine(clock)
+        with pytest.raises(
+            GenesisBlockMismatchExceptionError, match="hash mismatch"
+        ):
+            _run(
+                clock,
+                engine,
+                imported_at=1.0,
+                overrides={0: _rpc_block(_genesis(2))},
+                genesis_header=_genesis(1),
+            )
+        assert engine.forkchoice_calls == 0
+
+    def test_a_missing_genesis_fails(self, clock: FakeClock) -> None:
+        """A client that returns no genesis block fails."""
+        with pytest.raises(LoggedError, match="returned no genesis block"):
+            _run(
+                clock,
+                _engine(clock),
+                imported_at=1.0,
+                overrides={0: None},
+                genesis_header=_genesis(1),
+            )
+
+
+REFUSAL_CODE = -32602
+
+
+@dataclass(frozen=True)
+class RefusalSite:
+    """Where in the loop the client refuses the head, and when."""
+
+    expects_rejection: bool
+    knobs: dict[str, Any]
+    refused_at: tuple[float, float]
+
+
+REFUSAL_SITES = {
+    "valid-announcement": RefusalSite(
+        False, {"refusal": lambda _now: REFUSAL_CODE}, (0.0, 0.0)
+    ),
+    "rejection-announcement": RefusalSite(
+        True, {"refusal": lambda _now: REFUSAL_CODE}, (0.0, 0.0)
+    ),
+    "rejection-poll": RefusalSite(
+        True,
+        {"refusal": lambda now: REFUSAL_CODE if now >= 1.0 else None},
+        (1.0, 1.01),
+    ),
+    "rejection-reannouncement": RefusalSite(
+        True,
+        {"forkchoice_refusal": lambda call: REFUSAL_CODE if call else None},
+        (ANNOUNCE_INTERVAL, ANNOUNCE_INTERVAL + 0.01),
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    "site", REFUSAL_SITES.values(), ids=REFUSAL_SITES.keys()
+)
+class TestRpcRefusal:
+    """An Engine API error is a verdict only with the declared code."""
+
+    @staticmethod
+    def _run_refused(
+        clock: FakeClock, site: RefusalSite, declared: int | None
+    ) -> None:
+        """Run a case declaring `declared` against a refusing client."""
+        _run(
+            clock,
+            _engine(clock, **site.knobs),
+            expects_rejection=site.expects_rejection,
+            error_code=declared,
+        )
+
+    def test_the_declared_code_passes(
+        self, clock: FakeClock, site: RefusalSite
+    ) -> None:
+        """A refusal with the declared code ends the test, passing."""
+        self._run_refused(clock, site, REFUSAL_CODE)
+        earliest, latest = site.refused_at
+        assert earliest <= clock.now <= latest
+
+    def test_a_wrong_code_fails(
+        self, clock: FakeClock, site: RefusalSite
+    ) -> None:
+        """A refusal with another code than the declared one fails."""
+        with pytest.raises(LoggedError, match="wrong error code"):
+            self._run_refused(clock, site, -38003)
+
+    def test_an_undeclared_refusal_is_raised(
+        self, clock: FakeClock, site: RefusalSite
+    ) -> None:
+        """A refusal the fixture does not declare propagates."""
+        with pytest.raises(JSONRPCError):
+            self._run_refused(clock, site, None)
+
+
+def test_every_target_of_a_fixture_runs_and_is_judged(
+    clock: FakeClock,
+) -> None:
+    """A later target that never syncs fails, named by its position."""
+    second_chain = _chain(4)
+    first = _case(CHAIN, expects_rejection=False, total=2)
+    second = _case(second_chain, expects_rejection=False, index=1, total=2)
+    entered = []
+
+    @contextmanager
+    def target_context(case: SyncTargetCase) -> Iterator[Any]:
+        """Hand `case` a client that never imports its head."""
+        entered.append(case)
+        yield SimpleNamespace(
+            client=SimpleNamespace(id="client"),
+            eth_rpc=FakeEth(clock, _head(second_chain), NEVER),
+            engine_rpc=_engine(clock),
+            mock_peer=FakePeer(second_chain),
+        )
+
+    with pytest.raises(LoggedError, match="^target 1: Client never imported"):
+        test_via_wirex.test_blockchain_via_wirex(
+            timing_data=TimingData("Total"),
+            eth_rpc=cast(EthRPC, FakeEth(clock, _head(CHAIN), 1.0)),
+            engine_rpc=cast(EngineRPC, _engine(clock)),
+            client=cast(Any, SimpleNamespace(id="client")),
+            genesis_verified_clients={"client"},
+            genesis_header=cast(FixtureHeader, _StubHeader(0, GENESIS_HASH)),
+            sync_target_cases=[first, second],
+            mock_peer=cast(MockPeer, FakePeer(CHAIN)),
+            target_context_factory=target_context,
+            wirex_sync_timeout=SYNC_TIMEOUT,
+            wirex_poll_interval=POLL_INTERVAL,
+            wirex_announce_interval=ANNOUNCE_INTERVAL,
+        )
+    assert entered == [second]

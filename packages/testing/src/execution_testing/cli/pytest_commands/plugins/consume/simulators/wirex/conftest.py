@@ -1,22 +1,11 @@
 """
 Pytest fixtures for the `consume wirex` simulator.
 
-The client topology is the one `consume enginex` established: one client
-per pre-allocation group, reused by every test in that group. What
-differs is how a test's blocks reach the client: instead of being handed
-over one `engine_newPayload` call at a time, they are downloaded by the
-client from a mock devp2p peer, so the blocks travel the client's
-production full sync path. There is no rewind between tests - every
-chain forks at the group's genesis, and the new head is announced.
-
-The peer is created once per client and re-pointed at each test's chain,
-which keeps the RLPx handshake out of the per-test cost.
-
-One exception to the topology: a fixture announcing several sync
-targets (see `sync_targets`) runs each target against its own isolated
-client, so the group client and its peer connection are never touched
-by multi-target fixtures - the isolation policy lives in
-`client_policy`.
+The client topology is `consume enginex`'s, one client per
+pre-allocation group, but each client downloads the test's blocks from
+a mock devp2p peer, so they travel its production full sync path.
+Every chain forks at the group's genesis and there is no rewind between
+tests. `client_policy` holds the exceptions to client reuse.
 """
 
 import json
@@ -403,7 +392,7 @@ def wirex_announce_interval(request: pytest.FixtureRequest) -> float:
 
 @pytest.fixture(scope="session")
 def wirex_poll_interval(request: pytest.FixtureRequest) -> float:
-    """Return the interval between forkchoice updates while syncing."""
+    """Return the interval between polls while waiting for a verdict."""
     return float(request.config.getoption("wirex_poll_interval"))
 
 
@@ -541,14 +530,11 @@ def mock_peer(
     total_timing_data: "TimingData",
 ) -> MockPeer:
     """
-    Return the peer connected to this test's client.
+    Return this client's peer, re-pointed at the test's first target.
 
-    The connection is established once per client and then re-pointed
-    at each test's chain, so the RLPx handshake is paid once per group
-    rather than once per test. The chain installed here is the first
-    sync target's; a multi-target fixture's later targets run on their
-    own isolated clients, each dialed by its own peer (see
-    `client_policy`).
+    The peer is dialed once per client, so the RLPx handshake is paid
+    once per group. Later targets of a multi-target fixture use their
+    own peers (see `client_policy`).
     """
     chain = sync_target_cases[0].chain
     peer = mock_peers.get(client.id)
