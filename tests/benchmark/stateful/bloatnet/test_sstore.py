@@ -18,6 +18,7 @@ from execution_testing import (
     Hash,
     IteratingBytecode,
     Op,
+    ReceiptStatusExpected,
     RecipientType,
     Storage,
     TestPhaseManager,
@@ -267,7 +268,7 @@ def test_sstore_sparse_slots_multi_contract(
         pre=pre,
         blocks=[block],
         skip_gas_used_validation=True,
-        expected_receipt_status=True,
+        verifications=[ReceiptStatusExpected()],
     )
 
 
