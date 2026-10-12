@@ -11,7 +11,10 @@ from click.testing import CliRunner
 import execution_testing.cli.check_fixtures
 from execution_testing.base_types import AccessList, Address, Hash
 from execution_testing.client_clis import TransitionTool
-from execution_testing.exceptions import TransactionException
+from execution_testing.exceptions import (
+    EngineAPIError,
+    TransactionException,
+)
 from execution_testing.fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
@@ -169,6 +172,54 @@ def test_blockchain_fixtures_include_inclusion_lists(
         engine_fixture.payloads[0].inclusion_list_satisfied
         == inclusion_list_satisfied
     )
+
+
+@pytest.mark.parametrize("rejection", ["exception", "engine_api_error"])
+def test_rejected_payload_omits_inclusion_list_satisfied(
+    default_t8n: TransitionTool,
+    rejection: str,
+) -> None:
+    """
+    Test that a payload not deemed VALID carries no `inclusionListSatisfied`,
+    which the engine API only sets on VALID payloads.
+    """
+    sender = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    pre = Alloc({sender: Account(balance=10**18)})
+    tx = Transaction(nonce=0, to=Address(0x1234), gas_price=10)
+
+    if rejection == "exception":
+        invalid_tx = tx.copy(
+            gas_limit=Bogota.transaction_intrinsic_cost_calculator()() - 1,
+            error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+        )
+        block = Block(
+            txs=[invalid_tx],
+            inclusion_list_txs=[],
+            exception=TransactionException.INTRINSIC_GAS_TOO_LOW,
+        )
+    elif rejection == "engine_api_error":
+        block = Block(
+            txs=[tx],
+            inclusion_list_txs=[],
+            engine_api_error_code=EngineAPIError.InvalidParams,
+        )
+    else:
+        raise ValueError(f"unknown rejection: {rejection}")
+
+    fixture = (
+        BlockchainTest(
+            fork=Bogota,
+            pre=pre,
+            post={},
+            blocks=[block],
+            genesis_environment=Environment(),
+            is_exception_test=rejection == "exception",
+        )
+        .generate(t8n=default_t8n, fixture_format=BlockchainEngineFixture)
+        .fixture
+    )
+    assert isinstance(fixture, BlockchainEngineFixture)
+    assert fixture.payloads[0].inclusion_list_satisfied is None
 
 
 def inclusion_list_tx_of_size(size: int) -> Transaction:

@@ -18,6 +18,7 @@ class EIP7805(
     # `engine_getInclusionListV1` introduced on the GET side.
     engine_new_payload_version_bump=True,
     engine_forkchoice_updated_version_bump=True,
+    engine_get_inclusion_list_version_bump=True,
 ):
     """EIP-7805 class."""
 
