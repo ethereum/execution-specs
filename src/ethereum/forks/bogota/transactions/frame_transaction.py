@@ -882,9 +882,11 @@ def calculate_frame_transaction_intrinsic_cost(
     cost of the byte fields priced as calldata — the `data` of each
     frame, the `signer`, `message`, and `signature` bytes of each
     signature entry, and the encoding of the nonce fields (see
-    [`nonce_calldata`][nc]) — the signature verification cost, and the value transfer cost
+    [`nonce_calldata`][nc]) — the signature verification cost, the value transfer cost
     of each value-bearing frame with an explicit target other than the
-    sender, covering the recipient balance write and transfer log.
+    sender, covering the recipient balance write and transfer log, and
+    the keyed nonce access cost of each non-zero nonce key (see
+    [`KEYED_NONCE_ACCESS`][kna]), covering the read and write of its slot.
     Unlike other transaction types, there is no recipient component:
     target access is paid during frame execution from each frame's own
     execution gas budget.
@@ -892,11 +894,13 @@ def calculate_frame_transaction_intrinsic_cost(
     The calldata floor of [EIP-7976] counts every charged byte uniformly
     and is anchored on the costs the transaction always pays regardless
     of execution — the base cost, the per-frame cost, the signature
-    verification cost, and the value transfer cost — so it never
-    undercuts the transaction's own intrinsic base.
+    verification cost, the value transfer cost, and the keyed nonce
+    access cost — so it never undercuts the transaction's own intrinsic
+    base.
 
     [EIP-7976]: https://eips.ethereum.org/EIPS/eip-7976
     [nc]: ref:ethereum.forks.bogota.transactions.frame_transaction.nonce_calldata
+    [kna]: ref:ethereum.forks.bogota.vm.gas.GasCosts.KEYED_NONCE_ACCESS
     """  # noqa: E501
     from ..vm.gas import GasCosts
     from . import IntrinsicGasCost, count_tokens_in_data
@@ -929,11 +933,19 @@ def calculate_frame_transaction_intrinsic_cost(
     # EIP-7976 floor tokens: all charged bytes count uniformly.
     floor_tokens = data_length * GasCosts.TX_DATA_TOKEN_STANDARD
 
+    # The legacy key set reads and writes the account nonce instead.
+    keyed_nonce_access_gas = Uint(0)
+    if tx.nonce_keys != LEGACY_NONCE_KEYS:
+        keyed_nonce_access_gas = (
+            ulen(tx.nonce_keys) * GasCosts.KEYED_NONCE_ACCESS
+        )
+
     base_execution_gas = (
         GasCosts.TX_FRAME_INTRINSIC
         + ulen(tx.frames) * GasCosts.TX_PER_FRAME
         + signature_gas
         + value_transfer_gas
+        + keyed_nonce_access_gas
     )
 
     return IntrinsicGasCost(
