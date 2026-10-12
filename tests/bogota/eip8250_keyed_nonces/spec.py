@@ -15,7 +15,7 @@ class ReferenceSpec:
 
 
 ref_spec_8250 = ReferenceSpec(
-    "EIPS/eip-8250.md", "8b225fbc980e98831058a393c0f35df6e878bda0"
+    "EIPS/eip-8250.md", "f8db63dd96df22c2ee9475ccec41fa9b8cbcb226"
 )
 
 
@@ -31,6 +31,10 @@ class Spec:
     NONCE_MANAGER_NONCE = 1
     MAX_NONCE_KEYS = 16
     MAX_NONCE_SEQ = 2**64 - 1
+
+    # EIP-8038's `COLD_STORAGE_ACCESS + STORAGE_WRITE`, charged per
+    # non-zero key in the intrinsic cost and the calldata floor.
+    KEYED_NONCE_ACCESS_COST = 2_100 + 10_000
 
     # `0x11` is the first selector after the four this EIP adds.
     TXPARAM_NONCE_SEQ = 0x01
