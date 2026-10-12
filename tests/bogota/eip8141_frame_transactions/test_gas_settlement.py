@@ -14,6 +14,8 @@ state-dimension halves of those rollback scenarios are pinned in
 `test_state_gas.py`.
 """
 
+from typing import Tuple
+
 import pytest
 from execution_testing import (
     Account,
@@ -32,6 +34,7 @@ from execution_testing import (
 from .helpers import (
     default_code_frame_gas,
     default_frame,
+    floor_binding_padding,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -57,14 +60,11 @@ the expected `FAILURE` readback is distinguishable from a slot never
 written.
 """
 
-FLOOR_WORKER_GAS = 30_000
+FLOOR_WORKER_READS = 100
 """
-Execution gas budget of the floor-bound worker frame, kept small so
-the calldata floor dominates the settlement anchor.
+Warm balance reads of the floor-bound worker, keeping the standard cost
+above the floor the signature bytes set before any frame data.
 """
-
-FLOOR_PADDING_DATA = b"\x00" * 30_000
-"""Frame data driving the calldata floor above the settlement anchor."""
 
 WORKER_FRAME_GAS = 100_000
 """Execution gas budget of the frames running the worker contracts."""
@@ -100,62 +100,91 @@ def _spent_gas(fork: Fork, tx: Transaction, receipts: list) -> int:
         pytest.param(False, id="no_state_write"),
     ],
 )
+@pytest.mark.parametrize(
+    "floor_bound", [True, False], ids=["floor", "below_floor"]
+)
 def test_calldata_floor_with_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     with_state_write: bool,
+    floor_bound: bool,
 ) -> None:
     """
     Bind the calldata floor on a transaction that also grows state.
 
     The floor is compared against the execution dimension alone, so a
     floor-bound transaction pays the floor plus its state gas in full:
-    state growth never rides free under the data floor.
+    state growth never rides free under the data floor. The frame data
+    is the fewest bytes that bind the floor, or one byte less in
+    `below_floor`, where the execution dimension binds again.
     """
     sender = pre.fund_eoa()
-    write = Op.SSTORE(SLOT_CREATED, 1)
-    worker_code = (write if with_state_write else Bytecode()) + Op.STOP
+    write = Op.SSTORE(
+        SLOT_CREATED, 1, key_warm=False, original_value=0, new_value=1
+    )
+    # The sender seeds the warm set, so the worker's reads of it are warm.
+    reads = (
+        Op.POP(Op.BALANCE(address=sender, address_warm=True))
+        * FLOOR_WORKER_READS
+    )
+    worker_code = reads + (write if with_state_write else Bytecode()) + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
     state_used = write.state_cost(fork) if with_state_write else 0
+    # Every frame budget is exactly what its execution uses, so the
+    # execution dimension is known to the byte. The verifying frame
+    # needs its entry access and nothing more: the default code itself
+    # draws no execution gas.
+    verify_gas = default_code_frame_gas(fork, target_warm=True)
+    worker_gas = fork.frame_entry_gas_calculator()(
+        target_warm=False
+    ) + worker_code.execution_cost(fork)
 
-    tx = Transaction(
-        sender=sender,
-        frames=[
-            # The floor must dominate the settlement anchor, so every
-            # budget the anchor sums is kept to what execution needs.
-            # The verifying frame needs its entry access and nothing
-            # more: the default code itself draws no execution gas.
-            verify_frame(
-                gas_limit=default_code_frame_gas(fork, target_warm=True),
-                state_gas_limit=0,
-            ),
-            default_frame(
-                target=worker,
-                gas_limit=FLOOR_WORKER_GAS,
-                state_gas_limit=state_used,
-                data=FLOOR_PADDING_DATA,
-            ),
-        ],
-    )
-    # Materialize the signature bytes the calldata floor charges for.
-    tx.sign()
-    assert tx.frames is not None and tx.signatures is not None
+    def build(padding: int) -> Tuple[Transaction, int, int]:
+        """Return the signed transaction, its execution gas and its floor."""
+        tx = Transaction(
+            sender=sender,
+            nonce=0,
+            frames=[
+                verify_frame(gas_limit=verify_gas, state_gas_limit=0),
+                default_frame(
+                    target=worker,
+                    gas_limit=worker_gas,
+                    state_gas_limit=state_used,
+                    data=bytes(padding),
+                ),
+            ],
+        )
+        # Materialize the signature bytes the calldata floor charges for.
+        tx.sign()
+        assert tx.frames is not None and tx.signatures is not None
+        execution_used = (
+            fork.frame_transaction_intrinsic_cost_calculator()(
+                frames=tx.frames,
+                signatures=tx.signatures,
+                return_cost_deducted_prior_execution=True,
+            )
+            + verify_gas
+            + worker_gas
+        )
+        calldata_floor = fork.frame_transaction_data_floor_cost_calculator()(
+            frames=tx.frames, signatures=tx.signatures
+        )
+        return tx, execution_used, calldata_floor
 
-    calldata_floor = fork.frame_transaction_data_floor_cost_calculator()(
-        frames=tx.frames, signatures=tx.signatures
-    )
-    standard_gas_limit = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=tx.frames,
-        signatures=tx.signatures,
-        return_cost_deducted_prior_execution=True,
-    ) + sum(frame.gas_limit + frame.state_gas_limit for frame in tx.frames)
-    # The premise of the test: the floor binds.
-    assert calldata_floor > standard_gas_limit
+    def floor_binds(padding: int) -> bool:
+        _, execution_used, calldata_floor = build(padding)
+        return calldata_floor > execution_used
+
+    padding = floor_binding_padding(floor_binds)
+    if not floor_bound:
+        padding -= 1
+    tx, execution_used, calldata_floor = build(padding)
+    assert (calldata_floor > execution_used) == floor_bound
 
     tx.expected_receipt = TransactionReceipt(
         payer=sender,
-        cumulative_gas_used=calldata_floor + state_used,
+        cumulative_gas_used=max(execution_used, calldata_floor) + state_used,
     )
 
     state_test(
@@ -171,26 +200,30 @@ def test_calldata_floor_with_state_gas(
 
 
 @pytest.mark.parametrize(
-    "floor_case",
+    "against_post_refund,one_byte_short",
     [
-        pytest.param("below_post_refund", id="post_refund_above_floor"),
-        pytest.param("between", id="floor_between_pre_and_post_refund"),
-        pytest.param("above_pre_refund", id="floor_above_pre_refund"),
+        pytest.param(True, True, id="post_refund_above_floor"),
+        pytest.param(True, False, id="floor_between_pre_and_post_refund"),
+        pytest.param(False, True, id="floor_just_below_pre_refund"),
+        pytest.param(False, False, id="floor_above_pre_refund"),
     ],
 )
 def test_storage_refund_settlement(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    floor_case: str,
+    against_post_refund: bool,
+    one_byte_short: bool,
 ) -> None:
     """
     Settle a frame transaction that clears a pre-existing storage slot.
 
-    The three cases pin both settlement clamps around the calldata floor:
+    The cases pin both settlement clamps around the calldata floor:
     payer-facing gas uses post-refund execution while block execution gas
-    remains pre-refund under EIP-7778. Clearing durable state consumes no
-    state gas, so the frame declares none.
+    remains pre-refund under EIP-7778. The frame data is the fewest bytes
+    that lift the floor above the post-refund or the pre-refund execution
+    gas, or one byte less. Clearing durable state consumes no state gas,
+    so the frame declares none.
     """
     sender = pre.fund_eoa()
     clear = Op.SSTORE(
@@ -228,12 +261,13 @@ def test_storage_refund_settlement(
         ),
     ]
 
-    data = b""
-    bytes_to_add_per_iteration = b"\x00" * 16
-    num_iterations = 200
-    found_floor_case = False
+    refund = worker_code.refund(fork)
 
-    for _ in range(num_iterations):
+    def build(data_length: int) -> Tuple[Transaction, int, int]:
+        """
+        Return the signed transaction, its spent gas before the refund
+        and its calldata floor.
+        """
         tx = Transaction(
             sender=sender,
             nonce=0,
@@ -243,7 +277,7 @@ def test_storage_refund_settlement(
                     target=worker,
                     gas_limit=WORKER_FRAME_GAS,
                     state_gas_limit=0,
-                    data=data,
+                    data=bytes(data_length),
                 ),
             ],
         )
@@ -251,36 +285,25 @@ def test_storage_refund_settlement(
         # floor charge for.
         tx.sign()
         assert tx.frames is not None and tx.signatures is not None
-
-        gas_used_before_refund = _spent_gas(fork, tx, receipts)
-        refund = worker_code.refund(fork)
-        # The premise of the test: the refund applies uncapped.
-        assert 0 < refund <= gas_used_before_refund // 5
-        gas_used_after_refund = gas_used_before_refund - refund
         calldata_floor = fork.frame_transaction_data_floor_cost_calculator()(
             frames=tx.frames, signatures=tx.signatures
         )
+        return tx, _spent_gas(fork, tx, receipts), calldata_floor
 
-        if floor_case == "below_post_refund":
-            found_floor_case = calldata_floor < gas_used_after_refund
-        elif floor_case == "between":
-            found_floor_case = (
-                gas_used_after_refund < calldata_floor < gas_used_before_refund
-            )
-        else:
-            assert floor_case == "above_pre_refund"
-            found_floor_case = gas_used_before_refund < calldata_floor
+    def floor_binds(data_length: int) -> bool:
+        _, gas_used_before_refund, calldata_floor = build(data_length)
+        if against_post_refund:
+            return calldata_floor > gas_used_before_refund - refund
+        return calldata_floor > gas_used_before_refund
 
-        if found_floor_case:
-            break
-
-        data += bytes_to_add_per_iteration
-
-    if not found_floor_case:
-        raise ValueError(
-            f"Could not find calldata for {floor_case} in "
-            f"{num_iterations} iterations."
-        )
+    data_length = floor_binding_padding(floor_binds)
+    if one_byte_short:
+        data_length -= 1
+    tx, gas_used_before_refund, calldata_floor = build(data_length)
+    # The premise of the test: the refund applies uncapped.
+    assert 0 < refund <= gas_used_before_refund // 5
+    gas_used_after_refund = gas_used_before_refund - refund
+    assert floor_binds(data_length) != one_byte_short
 
     payer_gas_used = max(gas_used_after_refund, calldata_floor)
     block_gas_used = max(gas_used_before_refund, calldata_floor)
