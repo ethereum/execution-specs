@@ -43,6 +43,7 @@ from .state_helpers import (
     find_account_with_shared_secured_nibble,
     large_storage_value,
     merge_with_amsterdam_pre_alloc,
+    storage_root_node,
 )
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
@@ -59,8 +60,8 @@ def _required_node(nodes: list[Bytes]) -> Bytes:
     return sorted(nodes)[0]
 
 
-def _leaf_node(nodes: list[Bytes]) -> Bytes:
-    """Pick the unique leaf node from a proof set."""
+def _leaf_nodes(nodes: list[Bytes]) -> list[Bytes]:
+    """Return the leaf nodes of a proof set."""
     leaves: list[Bytes] = []
     for node in nodes:
         decoded = rlp.decode(bytes(node))
@@ -71,7 +72,12 @@ def _leaf_node(nodes: list[Bytes]) -> Bytes:
         _, is_leaf = compact_to_nibbles(TrieBytes(path_bytes))
         if is_leaf:
             leaves.append(node)
+    return leaves
 
+
+def _leaf_node(nodes: list[Bytes]) -> Bytes:
+    """Pick the unique leaf node from a proof set."""
+    leaves = _leaf_nodes(nodes)
     assert len(leaves) == 1
     return leaves[0]
 
@@ -613,9 +619,10 @@ def test_validation_state_system_address_unread(
 
 @pytest.mark.parametrize(
     "access",
-    # An SSTORE that rewrites a present slot's value is left out: a guest
-    # that reads the slot as absent prices it as a new write and fails on
-    # gas.
+    # `SSTORE(24, storage[24])` is not a case: a guest that reads slot 24 as
+    # zero would charge it as setting a new slot, so its gas used would differ
+    # from the block's and it would reject the block without the witness
+    # check.
     ["sload_present", "sload_absent", "sstore_zero_to_absent"],
 )
 @pytest.mark.parametrize(
@@ -638,9 +645,10 @@ def test_validation_state_unchanged_storage_read(
     computes the same post-state root, so only the witness check can reject
     a block whose witness leaves the proof out.
     """
-    # Present slot 24 and absent slot 1 share one proof, which ends in slot
-    # 24's leaf, as `test_validation_state_missing_absent_slot_proof_leaf_node`
-    # shows.
+    # Slots 1 and 24 hash to keys starting with `b1`, and slot 14 to one
+    # starting with `bb`. Below an extension on `b`, a branch sends both `b1`
+    # keys to slot 24's leaf, so present slot 24 and absent slot 1 share one
+    # proof, which ends in that leaf.
     storage = build_large_storage([14, 24])
     if access == "sload_present":
         slot = 24
@@ -684,10 +692,11 @@ def test_validation_state_unchanged_storage_read(
     selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
 )
 @pytest.mark.parametrize(
-    "witness_complete",
+    "missing_node",
     [
-        pytest.param(True, id="complete_witness"),
-        pytest.param(False, id="missing_storage_root"),
+        pytest.param(None, id="complete_witness"),
+        pytest.param("storage_root", id="missing_storage_root"),
+        pytest.param("proof_leaf", id="missing_proof_leaf"),
     ],
 )
 def test_validation_state_unchanged_request_queue_read(
@@ -695,7 +704,7 @@ def test_validation_state_unchanged_request_queue_read(
     blockchain_test: BlockchainTestFiller,
     fork: Fork,
     request_class: Type[FeeSystemContractRequest],
-    witness_complete: bool,
+    missing_node: str | None,
 ) -> None:
     """
     Require the storage proof of an empty request queue's system call.
@@ -712,8 +721,11 @@ def test_validation_state_unchanged_request_queue_read(
     ]
     assert genesis_account is not None
     # A drained queue resets its head and tail but keeps the slots of the
-    # records it dequeued, so its storage trie is not empty.
-    storage = build_large_storage(request_class.record_slots(0, 1))
+    # records it dequeued. One block's worth of them puts nodes below the
+    # root on the paths of the slots the system call reads.
+    storage = build_large_storage(
+        request_class.record_slots(0, request_class.max_per_block)
+    )
     pre[predeploy] = Account(
         nonce=genesis_account.nonce,
         code=genesis_account.code,
@@ -727,19 +739,28 @@ def test_validation_state_unchanged_request_queue_read(
         request_class.queue_tail_slot,
     ]
     proof_nodes = collect_storage_proof_nodes(storage, queue_slots)
-    # No queue slot's hashed key shares a first nibble with a record slot's,
-    # so the root alone proves all four absent.
-    assert len(proof_nodes) == 1
     expectation = ExecutionWitnessStateExpectation(nodes_present=proof_nodes)
-    if not witness_complete:
-        expectation = expectation.modify(remove_state_node(proof_nodes[0]))
+    if missing_node is None:
+        pass
+    elif missing_node == "storage_root":
+        expectation = expectation.modify(
+            remove_state_node(storage_root_node(storage))
+        )
+    elif missing_node == "proof_leaf":
+        # The block reads only the queue slots, so each leaf in their proof
+        # ends one of their absence proofs.
+        expectation = expectation.modify(
+            remove_state_node(_required_node(_leaf_nodes(proof_nodes)))
+        )
+    else:
+        raise ValueError(f"Unknown missing node: {missing_node}")
 
     blockchain_test(
         pre=pre,
         blocks=[
             Block(
                 expected_execution_witness_state=expectation,
-                expected_stateless_validation_success=witness_complete,
+                expected_stateless_validation_success=missing_node is None,
             )
         ],
         post={predeploy: Account(storage=storage)},

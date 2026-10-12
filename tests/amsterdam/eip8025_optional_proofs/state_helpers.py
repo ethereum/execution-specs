@@ -78,6 +78,16 @@ def collect_storage_proof_nodes(
     return _nodes(_collect_storage_node_set(storage, slots))
 
 
+def storage_root_node(storage: Mapping[int, int]) -> Bytes:
+    """Return the root node of a non-empty storage trie."""
+    root = mpt_root(
+        build_mpt(_storage_mpt_input(storage), secured=True, default=U256(0))
+    )
+    nodes = _collect_storage_node_set(storage, [next(iter(storage))])
+    (root_node,) = [node for node in nodes if keccak256(node) == root]
+    return Bytes(root_node)
+
+
 def collect_storage_delete_auxiliary_nodes(
     storage: Mapping[int, int],
     slot_to_delete: int,
