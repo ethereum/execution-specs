@@ -159,14 +159,15 @@ class ValidationPrefixCheckpoint:
     """
     Rollback point captured when the validation prefix ends.
 
-    The validation prefix is the shortest prefix of frames whose
-    execution sets `payer`, and every frame after it is the execution
-    body. When a `POST_TX` frame fails, `revert_execution_body`
-    restores everything captured here, the same three rollback domains
-    an atomic batch captures, so the transaction keeps the prefix's
-    effects, the gas payment included, and loses the body's
-    ([EIP-7906]).
+    The validation prefix is the frames up to and including the first
+    frame after whose execution `payer` is set, and every frame after
+    it is the execution body ([EIP-8141]). When a `POST_TX` frame
+    fails, `revert_execution_body` restores everything captured here,
+    the same three rollback domains an atomic batch captures, so the
+    transaction keeps the prefix's effects, the gas payment included,
+    and loses the body's ([EIP-7906]).
 
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141#validation-prefix-and-execution-body
     [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
     """
 
