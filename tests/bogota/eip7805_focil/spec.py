@@ -13,5 +13,5 @@ class ReferenceSpec:
 
 ref_spec_7805 = ReferenceSpec(
     git_path="EIPS/eip-7805.md",
-    version="3727e348c4e9b56dfe53c2a1580d15102063ca28",
+    version="652e4b2d3e4d957f7fa9d57b70bf3d6b97dfbe71",
 )

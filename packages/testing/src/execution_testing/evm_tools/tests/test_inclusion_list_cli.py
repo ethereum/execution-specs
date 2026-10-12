@@ -19,7 +19,6 @@ from execution_testing.test_types import (
     Alloc,
     Environment,
     InclusionListClaim,
-    InclusionListReplayLimits,
     Transaction,
 )
 
@@ -30,7 +29,7 @@ pytestmark = pytest.mark.evm_tools
 def test_cli_preserves_inclusion_context(
     tmp_path: Path, use_stdin: bool
 ) -> None:
-    """Preserve raw envelopes, duplicate claims, bitvectors and limits."""
+    """Preserve raw envelopes, duplicate claims and bitvectors."""
     transaction = Transaction(gas_limit=21_000).with_signature_and_sender()
     claim = InclusionListClaim(
         transaction_hash=transaction.hash, transaction_index=2**64 - 1
@@ -46,9 +45,6 @@ def test_cli_preserves_inclusion_context(
         inclusion_list_txs=[transaction],
         inclusion_list_membership=[Bytes("0x0002")],
         inclusion_list_claims=[claim, claim],
-        inclusion_list_replay_limits=InclusionListReplayLimits(
-            max_code_bodies=3, max_code_bytes=1000
-        ),
     ).to_input()
     parser = argparse.ArgumentParser()
     t8n_arguments(parser.add_subparsers())
@@ -78,8 +74,6 @@ def test_cli_preserves_inclusion_context(
             and bytes(value.transaction_hash) == bytes(transaction.hash)
             for value in inputs.claims
         )
-        assert inputs.replay_limits.max_code_bodies == 3
-        assert inputs.replay_limits.max_code_bytes == 1000
 
 
 def test_cli_rejects_malformed_membership() -> None:

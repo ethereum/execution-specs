@@ -60,7 +60,6 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
         ("inclusionListTransactions", "inclusion_list_txs"),
         ("inclusionListMembership", "inclusion_list_membership"),
         ("inclusionListClaims", "inclusion_list_claims"),
-        ("inclusionListReplayLimits", "inclusion_list_replay_limits"),
     ):
         t8n_parser.add_argument(f"--input.{field}", dest=dest, default=None)
     t8n_parser.add_argument(
@@ -330,7 +329,6 @@ def build_t8n_from_cli_options(
     )
     from execution_testing.test_types import (
         InclusionListClaim,
-        InclusionListReplayLimits,
     )
     from execution_testing.test_types import (
         Transaction as TestingTransaction,
@@ -340,7 +338,6 @@ def build_t8n_from_cli_options(
         ("inclusionListTransactions", "inclusion_list_txs"),
         ("inclusionListMembership", "inclusion_list_membership"),
         ("inclusionListClaims", "inclusion_list_claims"),
-        ("inclusionListReplayLimits", "inclusion_list_replay_limits"),
     )
     forks = Hardfork.discover()
 
@@ -416,13 +413,6 @@ def build_t8n_from_cli_options(
                 for value in inclusion_data["inclusionListClaims"]
             ]
             if "inclusionListClaims" in inclusion_data
-            else None
-        ),
-        inclusion_list_replay_limits=(
-            InclusionListReplayLimits.model_validate(
-                inclusion_data["inclusionListReplayLimits"]
-            )
-            if "inclusionListReplayLimits" in inclusion_data
             else None
         ),
     )

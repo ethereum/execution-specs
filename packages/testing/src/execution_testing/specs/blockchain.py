@@ -102,7 +102,6 @@ from execution_testing.test_types.block_access_list import (
 from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 from execution_testing.test_types.inclusion_list import (
     InclusionListClaim,
-    InclusionListReplayLimits,
 )
 
 from .base import BaseTest, FillResult, OpMode, verify_result
@@ -369,8 +368,6 @@ class Block(Header):
     """Per-transaction committee bitvectors, in inclusion-list order."""
     inclusion_list_claims: List[InclusionListClaim] | None = None
     """Committed omission claims, preserving their order and duplicates."""
-    inclusion_list_replay_limits: InclusionListReplayLimits | None = None
-    """Explicit experimental replay policy; not an Engine API field."""
     expected_inclusion_list_satisfied: bool | None = None
     """Expected outcome of the inclusion list verification for this block."""
 
@@ -1193,7 +1190,6 @@ class BlockchainTest(BaseTest):
                 inclusion_list_txs=inclusion_list_txs,
                 inclusion_list_membership=inclusion_list_membership,
                 inclusion_list_claims=inclusion_list_claims,
-                inclusion_list_replay_limits=block.inclusion_list_replay_limits,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )

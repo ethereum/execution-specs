@@ -29,7 +29,8 @@ from ethereum.forks.bogota.blocks import Block, Header
 from ethereum.forks.bogota.bloom import logs_bloom
 from ethereum.forks.bogota.fork_types import ExecutionGas, StateGas
 from ethereum.forks.bogota.inclusion_list_frames import (
-    ReplayLimits,
+    MAX_REPLAY_CODE_BODIES,
+    MAX_REPLAY_CODE_BYTES,
     classify_frame_candidate,
     verify_candidate_signatures,
 )
@@ -89,7 +90,7 @@ def inclusion_inputs(
     membership: tuple[Bytes, ...] | None = None,
     claims: tuple[InclusionClaim, ...] = (),
 ) -> InclusionListInputs:
-    """Supply explicit membership and a test fork's replay resource policy."""
+    """Supply explicit membership for every envelope unless given."""
     return InclusionListInputs(
         transactions=envelopes,
         membership=(
@@ -98,7 +99,6 @@ def inclusion_inputs(
             else membership
         ),
         claims=claims,
-        replay_limits=ReplayLimits(max_code_bodies=32, max_code_bytes=65_536),
     )
 
 
@@ -495,17 +495,43 @@ def test_recent_root_exception_is_canonical_and_top_level(
 def test_replay_code_limits_are_enforced(
     replay_environment: BlockEnvironment, dimension: str, fits: bool
 ) -> None:
-    """Bound distinct code bodies and their bytes before continuing replay."""
+    """
+    Bound distinct code bodies and their bytes before continuing replay.
+
+    The sender's own code is a body, and each helper it calls is another.
+    """
     env = replay_environment
     state = env.state.pre_state
     assert isinstance(state, State)
-    helper = Address((0x2000).to_bytes(20, "big"))
-    helper_code = Bytes(Op.STOP)
+    helper_count = MAX_REPLAY_CODE_BODIES - 1 if dimension == "bodies" else 2
+    if dimension == "bodies" and not fits:
+        helper_count += 1
+    helpers = [
+        Address((0x2000 + i).to_bytes(20, "big")) for i in range(helper_count)
+    ]
     sender_code = Bytes(
-        Op.POP(Op.STATICCALL(gas=20_000, address=helper)) + Op.APPROVE(0, 0, 3)
+        sum(
+            (Op.POP(Op.STATICCALL(gas=5_000, address=h)) for h in helpers),
+            Bytecode(),
+        )
+        + Op.APPROVE(0, 0, 3)
     )
+    if dimension == "bodies":
+        helper_codes = [
+            Bytes(Op.PUSH2(i) + Op.STOP) for i in range(helper_count)
+        ]
+    else:
+        # Two helpers fill the byte limit exactly with the sender's code.
+        first = 2**16
+        second = MAX_REPLAY_CODE_BYTES - len(sender_code) - first
+        if not fits:
+            second += 1
+        helper_codes = [
+            Bytes(Op.STOP + b"\x5b" * (first - 1)),
+            Bytes(Op.STOP + b"\x5c" * (second - 1)),
+        ]
     for address, code in (
-        (helper, helper_code),
+        *zip(helpers, helper_codes, strict=True),
         (Address((0x1000).to_bytes(20, "big")), sender_code),
     ):
         set_account(
@@ -517,16 +543,7 @@ def test_replay_code_limits_are_enforced(
                 code_hash=store_code(state, code),
             ),
         )
-    body_limit = 2 if fits or dimension != "bodies" else 1
-    byte_limit = len(sender_code) + len(helper_code)
-    if dimension == "bytes" and not fits:
-        byte_limit -= 1
-    inputs = replace(
-        inclusion_inputs((frame_envelope(),)),
-        replay_limits=ReplayLimits(
-            max_code_bodies=body_limit, max_code_bytes=byte_limit
-        ),
-    )
+    inputs = inclusion_inputs((frame_envelope(execution=200_000),))
     snapshots = {Uint(0): capture_inclusion_list_state(env, BlockOutput())}
     assert check_inclusion_list(env, (), inputs, snapshots) == (not fits)
 

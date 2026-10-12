@@ -90,7 +90,6 @@ from .test_types import (
     FrameSignature,
     GasFee,
     InclusionListClaim,
-    InclusionListReplayLimits,
     NetworkWrappedTransaction,
     Removable,
     SystemContractInteractionBase,
@@ -155,7 +154,6 @@ from .vm import (
 
 __all__ = (
     "InclusionListClaim",
-    "InclusionListReplayLimits",
     "DETERMINISTIC_FACTORY_ADDRESS",
     "AccessList",
     "Account",

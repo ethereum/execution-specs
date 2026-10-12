@@ -45,7 +45,6 @@ from execution_testing.test_types import (
     Alloc,
     Environment,
     InclusionListClaim,
-    InclusionListReplayLimits,
     Transaction,
 )
 
@@ -339,7 +338,6 @@ class TransitionTool(EthereumCLI):
         inclusion_list_txs: List[Transaction] | None = None
         inclusion_list_membership: List[Bytes] | None = None
         inclusion_list_claims: List[InclusionListClaim] | None = None
-        inclusion_list_replay_limits: InclusionListReplayLimits | None = None
 
         @property
         def fork_name(self) -> str:
@@ -383,7 +381,6 @@ class TransitionTool(EthereumCLI):
                 inclusion_list_txs=self.inclusion_list_txs,
                 inclusion_list_membership=self.inclusion_list_membership,
                 inclusion_list_claims=self.inclusion_list_claims,
-                inclusion_list_replay_limits=self.inclusion_list_replay_limits,
             )
 
         def get_request_data(self) -> TransitionToolRequest:

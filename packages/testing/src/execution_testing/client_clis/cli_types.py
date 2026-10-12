@@ -49,7 +49,6 @@ from execution_testing.test_types import (
     Alloc,
     Environment,
     InclusionListClaim,
-    InclusionListReplayLimits,
     Transaction,
     TransactionReceipt,
 )
@@ -666,7 +665,6 @@ class TransitionToolInput:
     inclusion_list_txs: List[Transaction] | None = None
     inclusion_list_membership: List[Bytes] | None = None
     inclusion_list_claims: List[InclusionListClaim] | None = None
-    inclusion_list_replay_limits: InclusionListReplayLimits | None = None
 
     def inclusion_list_data(self) -> Dict[str, Any]:
         """Serialize supplied inclusion inputs without inventing policy."""
@@ -685,12 +683,6 @@ class TransitionToolInput:
                 claim.model_dump(mode="json", by_alias=True)
                 for claim in self.inclusion_list_claims
             ]
-        if self.inclusion_list_replay_limits is not None:
-            data["inclusionListReplayLimits"] = (
-                self.inclusion_list_replay_limits.model_dump(
-                    mode="json", by_alias=True
-                )
-            )
         return data
 
     def to_files(

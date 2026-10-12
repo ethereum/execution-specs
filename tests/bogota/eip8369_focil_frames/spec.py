@@ -12,5 +12,5 @@ class ReferenceSpec:
 
 
 ref_spec_8369 = ReferenceSpec(
-    "EIPS/eip-8369.md", "de138849c84aebcf1dcd466cfc6b139c92384d07"
+    "EIPS/eip-8369.md", "fb0b606f5d319bb74badd1f6d5f9098375fc31c6"
 )

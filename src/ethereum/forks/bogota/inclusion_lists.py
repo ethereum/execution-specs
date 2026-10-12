@@ -28,7 +28,6 @@ from .block_access_lists import BlockAccessListBuilder
 from .fork_types import ExecutionGas, StateGas
 from .inclusion_list_frames import (
     FrameCandidate,
-    ReplayLimits,
     classify_frame_candidate,
     replay_frame_candidate,
     verify_candidate_signatures,
@@ -72,16 +71,14 @@ class InclusionListInputs:
     """
     Carry the consensus layer's selected envelopes, membership and claims.
 
-    Missing membership denotes the original Profile-1-only interface.
-    Profile 2 requires explicit fork replay limits; these are local fork
-    configuration, never parameters supplied by the builder or a peer.
+    Missing membership denotes the original Profile-1-only interface, under
+    which omitted frame transactions are excused and claims have no effect.
     The consensus layer authenticates the revealed claims against the bid.
     """
 
     transactions: Tuple[LegacyTransaction | Bytes, ...] = ()
     membership: Tuple[Bytes, ...] = ()
     claims: Tuple[InclusionClaim, ...] = ()
-    replay_limits: ReplayLimits | None = None
 
 
 @final
@@ -131,9 +128,8 @@ def validate_inclusion_list_inputs(inputs: InclusionListInputs) -> None:
         ) <= int(U64.MAX_VALUE):
             raise ValueError("Invalid inclusion claim")
     if not inputs.membership:
-        if inputs.claims or inputs.replay_limits is not None:
-            if inputs.transactions:
-                raise ValueError("Profile 2 requires explicit membership")
+        if inputs.claims and inputs.transactions:
+            raise ValueError("Profile 2 requires explicit membership")
         return
     if len(inputs.membership) != len(inputs.transactions):
         raise ValueError("Membership length differs from transaction count")
@@ -178,7 +174,7 @@ def snapshot_indices(
 ) -> Set[Uint]:
     """Retain only states named by claims for omitted frame candidates."""
     indices = {transaction_count}
-    if inputs.replay_limits is None:
+    if not inputs.membership:
         return indices
     claims = evaluation_indices(inputs, transaction_count)
     included = set(map(transaction_envelope, transactions))
@@ -231,7 +227,7 @@ def admitted_frame_candidates(
     inputs: InclusionListInputs,
 ) -> Dict[Bytes, FrameCandidate]:
     """Fill every membership position without pooling or refunding budgets."""
-    if inputs.replay_limits is None or not inputs.membership:
+    if not inputs.membership:
         return {}
     envelopes = tuple(map(transaction_envelope, inputs.transactions))
     memberships = dict(zip(envelopes, inputs.membership, strict=True))
@@ -322,13 +318,8 @@ def check_inclusion_list(
             block_state_gas_used=snapshot.state_gas_used,
         )
         if isinstance(tx, FrameTransaction):
-            assert inputs.replay_limits is not None
             if replay_frame_candidate(
-                replay_env,
-                replay_output,
-                admitted[envelope],
-                index,
-                inputs.replay_limits,
+                replay_env, replay_output, admitted[envelope], index
             ):
                 return False
         else:

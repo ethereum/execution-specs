@@ -1,4 +1,4 @@
-"""Inclusion-list omission claims and explicit replay policy for fixtures."""
+"""Inclusion-list omission claims for fixtures."""
 
 from collections.abc import Sequence
 
@@ -12,13 +12,6 @@ class InclusionListClaim(CamelModel):
 
     transaction_hash: Hash
     transaction_index: HexNumber = Field(ge=0, lt=2**64)
-
-
-class InclusionListReplayLimits(CamelModel):
-    """Supply experimental replay limits to the transition tool only."""
-
-    max_code_bodies: HexNumber = Field(gt=0)
-    max_code_bytes: HexNumber = Field(gt=0)
 
 
 def validate_inclusion_list_metadata(

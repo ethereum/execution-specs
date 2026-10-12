@@ -247,7 +247,6 @@ class T8N(Load):
                 raise ValueError(
                     "Inclusion list transactions must be supplied"
                 )
-            replay_limits = t8n_data.inclusion_list_replay_limits
             self.inclusion_list_inputs = self.fork.InclusionListInputs(
                 transactions=tuple(
                     Bytes(tx.rlp()) for tx in self.inclusion_list_txs or []
@@ -262,14 +261,6 @@ class T8N(Load):
                         transaction_index=U64(claim.transaction_index),
                     )
                     for claim in t8n_data.inclusion_list_claims or []
-                ),
-                replay_limits=(
-                    self.fork.ReplayLimits(
-                        max_code_bodies=int(replay_limits.max_code_bodies),
-                        max_code_bytes=int(replay_limits.max_code_bytes),
-                    )
-                    if replay_limits is not None
-                    else None
                 ),
             )
             self.fork.validate_inclusion_list_inputs(

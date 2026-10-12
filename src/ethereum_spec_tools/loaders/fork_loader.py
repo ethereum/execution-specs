@@ -228,11 +228,6 @@ class ForkLoad:
         return self._module("inclusion_lists").InclusionClaim
 
     @property
-    def ReplayLimits(self) -> Any:
-        """Return the fork's `ReplayLimits` inclusion-list helper."""
-        return self._module("inclusion_list_frames").ReplayLimits
-
-    @property
     def validate_inclusion_list_inputs(self) -> Any:
         """Return the fork's inclusion-list input validator."""
         return self._module("inclusion_lists").validate_inclusion_list_inputs

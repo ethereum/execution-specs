@@ -35,12 +35,17 @@ from .transactions.frame_transaction import (
     validate_signature,
 )
 from .vm import BlockEnvironment, BlockOutput, Evm
+from .vm.eoa_delegation import is_valid_delegation
 from .vm.frame_interpreter import process_frames
 from .vm.instructions import Ops
 from .vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 
 MAX_VERIFY_GAS_PER_TX = Uint(2**18)
 """Maximum declared validation work for a frame candidate."""
+MAX_REPLAY_CODE_BODIES = 16
+"""Distinct code bodies one validation replay may load."""
+MAX_REPLAY_CODE_BYTES = 2**17
+"""Combined size of the distinct code bodies one validation replay loads."""
 AA_VOPS_SLOT_COUNT = U256(4)
 """Ordinary validation storage surface of each sender and payer."""
 RECENT_ROOT_LENGTH = 8192
@@ -69,27 +74,6 @@ RECENT_ROOT_CODE = bytes.fromhex(
     "c852604860a8205500"
 )
 """Canonical recent-root runtime specified by EIP-8272."""
-
-
-@final
-@dataclass(frozen=True)
-class ReplayLimits:
-    """
-    Supply the enforcing fork's explicit code-loading limits.
-
-    No consensus defaults are selected here: activation requires benchmarked
-    bounds on both distinct code bodies and their combined encoded size.
-    """
-
-    max_code_bodies: int
-    max_code_bytes: int
-
-    def __post_init__(self) -> None:
-        """
-        Require an explicit positive bound in each code dimension.
-        """
-        if self.max_code_bodies <= 0 or self.max_code_bytes <= 0:
-            raise ValueError("replay code limits must be positive")
 
 
 @final
@@ -239,27 +223,27 @@ class ValidationAccessTrace:
     """
 
     candidate: FrameCandidate
-    limits: ReplayLimits
     code_sizes: Dict[Hash32, int] = field(default_factory=dict)
     recent_root_slots: Set[Bytes32] = field(default_factory=set)
 
-    def code_read(self, code_hash: Hash32, code: Optional[Bytes]) -> None:
+    def load_code(self, code: Bytes) -> None:
         """
-        Bound distinct code loads and require their authenticated contents.
+        Bound the distinct code bodies the replay loads and their bytes.
+
+        A body is loaded when execution starts in it, after any delegation is
+        followed, or when `EXTCODESIZE` or `EXTCODECOPY` reads it. Empty code
+        and precompiles load nothing.
         """
+        if not code:
+            return
+        code_hash = keccak256(code)
         if code_hash in self.code_sizes:
             return
-        if len(self.code_sizes) >= self.limits.max_code_bodies:
+        if len(self.code_sizes) >= MAX_REPLAY_CODE_BODIES:
             raise InvalidFrameError("validation code body count exceeded")
-        if code is not None:
-            if keccak256(code) != code_hash:
-                raise ValueError("code does not match authenticated code hash")
-            if (
-                sum(self.code_sizes.values()) + len(code)
-                > self.limits.max_code_bytes
-            ):
-                raise InvalidFrameError("validation code byte limit exceeded")
-            self.code_sizes[code_hash] = len(code)
+        if sum(self.code_sizes.values()) + len(code) > MAX_REPLAY_CODE_BYTES:
+            raise InvalidFrameError("validation code byte limit exceeded")
+        self.code_sizes[code_hash] = len(code)
 
     def create(self, address: Address) -> None:
         """
@@ -272,6 +256,8 @@ class ValidationAccessTrace:
         """
         Check the attempted operation before it can read or modify state.
         """
+        if evm.pc == 0:
+            self.load_code(evm.code)
         try:
             op = Ops(opcode)
         except ValueError as error:
@@ -305,7 +291,6 @@ class ValidationAccessTrace:
             Ops.SELFDESTRUCT,
             Ops.BALANCE,
             Ops.SELFBALANCE,
-            Ops.TSTORE,
         }
         if op in banned:
             raise InvalidFrameError("banned validation opcode")
@@ -356,13 +341,20 @@ class ValidationAccessTrace:
             target_word = evm.stack[-1]
         if target_word is not None:
             target = Address((int(target_word) % 2**160).to_bytes(20, "big"))
+            code = get_code(
+                evm.tx_env.state,
+                get_account(evm.tx_env.state, target).code_hash,
+            )
+            if op in (Ops.EXTCODESIZE, Ops.EXTCODECOPY):
+                self.load_code(code)
             if (
                 target not in PRE_COMPILED_CONTRACTS
                 and target != candidate.tx.sender
-                and get_account(evm.tx_env.state, target).code_hash
-                == EMPTY_CODE_HASH
             ):
-                raise InvalidFrameError("validation target has no code")
+                if not code:
+                    raise InvalidFrameError("validation target has no code")
+                if is_valid_delegation(code):
+                    raise InvalidFrameError("validation target is delegated")
 
 
 def replay_frame_candidate(
@@ -370,7 +362,6 @@ def replay_frame_candidate(
     block_output: BlockOutput,
     candidate: FrameCandidate,
     index: Uint,
-    limits: ReplayLimits,
 ) -> bool:
     """
     Execute a candidate's complete prefix on a disposable insertion state.
@@ -388,10 +379,9 @@ def replay_frame_candidate(
         tx_env = check_frame_transaction(
             block_env, block_output, tx, index, candidate.validation
         )
-        trace = ValidationAccessTrace(candidate, limits)
+        trace = ValidationAccessTrace(candidate)
         tx_env.validation_opcode_hook = trace.opcode
         tx_env.validation_create_hook = trace.create
-        tx_env.state.code_read_hook = trace.code_read
         for verifier_index, address, code in (
             (candidate.expiry_index, EXPIRY_VERIFIER, EXPIRY_VERIFIER_CODE),
             (

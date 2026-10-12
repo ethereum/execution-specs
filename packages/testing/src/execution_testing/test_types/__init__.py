@@ -40,7 +40,7 @@ from .helpers import (
     contract_address_from_hash,
     eoa_from_hash,
 )
-from .inclusion_list import InclusionListClaim, InclusionListReplayLimits
+from .inclusion_list import InclusionListClaim
 from .phase_manager import TestPhase, TestPhaseManager
 from .receipt_types import FrameReceipt, TransactionLog, TransactionReceipt
 from .system_contract_interactions import (
@@ -67,7 +67,6 @@ from .utils import Removable, keccak256
 
 __all__ = (
     "InclusionListClaim",
-    "InclusionListReplayLimits",
     "DETERMINISTIC_FACTORY_BYTECODE",
     "DETERMINISTIC_FACTORY_ADDRESS",
     "Account",
