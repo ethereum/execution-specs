@@ -8,6 +8,8 @@ from execution_testing import (
     AuthorizationTuple,
     Block,
     BlockchainTestFiller,
+    Bytes,
+    Fork,
     Op,
     Transaction,
 )
@@ -124,6 +126,108 @@ def test_included_il_tx_of_each_type_is_readable(
                 txs=[il_tx],
                 inclusion_list_txs=[il_tx],
                 expected_inclusion_list_satisfied=True,
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "type_2_control",
+        "legacy_control",
+        "empty",
+        "type_0x00_with_legacy_payload",
+        "undefined_type",
+        "type_0x7f",
+        "type_0xff",
+        "type_1_with_type_2_payload",
+        "type_2_trailing_byte",
+        "truncated_legacy",
+    ],
+)
+@pytest.mark.parametrize(
+    "appendable_tx_follows",
+    [
+        pytest.param(False, id="alone"),
+        pytest.param(True, id="before_appendable_tx"),
+    ],
+)
+def test_undecodable_il_entry_is_skipped(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    entry: str,
+    appendable_tx_follows: bool,
+) -> None:
+    """
+    An inclusion list entry that is not a transaction is skipped.
+
+    Alone it leaves the payload satisfied. Followed by an appendable
+    transaction, the check moves on past it and the payload is unsatisfied.
+    The control entries show the payloads the others reuse are appendable.
+    """
+    # Entries built from raw bytes are signed here, before the framework
+    # would set their gas limit.
+    transfer_gas = fork.transaction_intrinsic_cost_calculator()()
+    type_2_tx = Transaction(
+        ty=2,
+        sender=pre.fund_eoa(),
+        to=pre.nonexistent_account(),
+        gas_limit=transfer_gas,
+    ).with_signature_and_sender()
+    type_2_payload = type_2_tx.rlp()[1:]
+    legacy_tx = Transaction(
+        ty=0,
+        sender=pre.fund_eoa(),
+        to=pre.nonexistent_account(),
+        gas_limit=transfer_gas,
+    ).with_signature_and_sender()
+    undefined_type = max(fork.tx_types()) + 1
+    assert undefined_type < 0x7F
+
+    entry_appendable = False
+    if entry == "type_2_control":
+        il_entry = Bytes(type_2_tx.rlp())
+        entry_appendable = True
+    elif entry == "legacy_control":
+        il_entry = Bytes(legacy_tx.rlp())
+        entry_appendable = True
+    elif entry == "empty":
+        il_entry = Bytes(b"")
+    elif entry == "type_0x00_with_legacy_payload":
+        il_entry = Bytes(b"\x00" + legacy_tx.rlp())
+    elif entry == "undefined_type":
+        il_entry = Bytes(bytes([undefined_type]) + type_2_payload)
+    elif entry == "type_0x7f":
+        il_entry = Bytes(b"\x7f" + type_2_payload)
+    elif entry == "type_0xff":
+        il_entry = Bytes(b"\xff" + type_2_payload)
+    elif entry == "type_1_with_type_2_payload":
+        il_entry = Bytes(b"\x01" + type_2_payload)
+    elif entry == "type_2_trailing_byte":
+        il_entry = Bytes(type_2_tx.rlp() + b"\x00")
+    elif entry == "truncated_legacy":
+        il_entry = Bytes(legacy_tx.rlp()[:-1])
+    else:
+        raise ValueError(f"unknown entry: {entry}")
+
+    inclusion_list: list[Transaction | Bytes] = [il_entry]
+    if appendable_tx_follows:
+        inclusion_list.append(
+            Transaction(sender=pre.fund_eoa(), to=pre.nonexistent_account())
+        )
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=inclusion_list,
+                expected_inclusion_list_satisfied=not (
+                    entry_appendable or appendable_tx_follows
+                ),
             )
         ],
     )
