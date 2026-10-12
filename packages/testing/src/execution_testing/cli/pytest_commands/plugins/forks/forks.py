@@ -1703,9 +1703,9 @@ def pytest_collection_modifyitems(
                 returncode=pytest.ExitCode.USAGE_ERROR,
             )
 
-    # Remove items in reverse order to maintain indices
-    for i in reversed(items_to_remove):
-        del items[i]
+    # Rebuild in one pass since deleting by index is quadratic
+    removed = set(items_to_remove)
+    items[:] = [item for i, item in enumerate(items) if i not in removed]
 
     if deselected:
         config.hook.pytest_deselected(items=deselected)

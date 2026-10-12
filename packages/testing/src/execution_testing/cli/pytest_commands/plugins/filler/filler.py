@@ -1920,8 +1920,9 @@ def pytest_collection_modifyitems(
                     f"fork_{base_fork.name()}",
                 )
 
-    for i in reversed(items_for_removal):
-        items.pop(i)
+    # Rebuild in one pass since popping by index is quadratic
+    removed = set(items_for_removal)
+    items[:] = [item for i, item in enumerate(items) if i not in removed]
 
     # Warn users if tests were removed because they have no fixture formats
     if specs_without_fixture_formats:
