@@ -126,17 +126,22 @@ def classify_frame_candidate(tx: FrameTransaction) -> Optional[FrameCandidate]:
     expiry_index = None
     recent_root_index = None
     deploy_index = None
-    if tx.frames[index].to == EXPIRY_VERIFIER:
-        frame = tx.frames[index]
-        if frame.mode != FrameMode.VERIFY or frame.flags != FrameFlag(0):
+    # Only `VERIFY` frames are protocol verifiers; a `DEFAULT` frame to the
+    # same address is matched as a deploy frame below.
+    frame = tx.frames[index]
+    if frame.mode == FrameMode.VERIFY and frame.to == EXPIRY_VERIFIER:
+        if frame.flags != FrameFlag(0):
             return None
         expiry_index = index
         index += 1
-    if index < len(tx.frames) and tx.frames[index].to == RECENT_ROOT_ADDRESS:
+    if (
+        index < len(tx.frames)
+        and tx.frames[index].mode == FrameMode.VERIFY
+        and tx.frames[index].to == RECENT_ROOT_ADDRESS
+    ):
         frame = tx.frames[index]
         if (
-            frame.mode != FrameMode.VERIFY
-            or frame.flags != FrameFlag(0)
+            frame.flags != FrameFlag(0)
             or frame.gas_limits.state != 0
             or not 1
             <= len(frame.data) // RECENT_ROOT_TUPLE_BYTES
