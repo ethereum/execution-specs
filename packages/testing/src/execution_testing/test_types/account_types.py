@@ -1,5 +1,6 @@
 """Account-related types for Ethereum tests."""
 
+import copy
 import hashlib
 import json
 from collections.abc import Sequence
@@ -17,6 +18,7 @@ from typing import (
     Literal,
     Optional,
     Self,
+    Tuple,
 )
 
 import ethereum.state as spec_state
@@ -51,6 +53,7 @@ from execution_testing.base_types.conversions import (
 )
 
 from .balance_expectations import BalanceExpression, PostStateContext, Tip
+from .incremental_trie import IncrementalStateTrie
 from .utils import keccak256
 
 
@@ -459,6 +462,24 @@ class Alloc(BaseAlloc):
     Unset by default: it must be seeded from the accompanying fork before any
     state-root computation.
     """
+    _derived_from: Dict[Address, "Account | None"] | None = PrivateAttr(
+        default=None
+    )
+    """
+    The `root` that `_code_store` and `_state_trie` were derived from.
+
+    Accounts are replaced rather than mutated, so the comparison with `root`
+    is cheap and detects any change since the derivation.
+    """
+    _state_trie: IncrementalStateTrie | None = PrivateAttr(default=None)
+    """
+    Incremental MPT of `root`, built on first use, advanced by `apply_diff`
+    and shared with structural copies.
+    """
+    _pending_state_trie: (
+        Tuple[spec_state.BlockDiff, IncrementalStateTrie] | None
+    ) = PrivateAttr(default=None)
+    """Trie computed by `compute_state_root`, for `apply_diff` to reuse."""
 
     @dataclass(kw_only=True)
     class UnexpectedAccountError(Exception):
@@ -642,7 +663,10 @@ class Alloc(BaseAlloc):
 
     def state_root(self) -> Hash:
         """Return state root of the allocation."""
-        return Hash(self._state_module().state_root(self._materialize_state()))
+        state_module = self._state_module()
+        if state_module is spec_state_mpt:
+            return Hash(self._incremental_state_trie().root())
+        return Hash(state_module.state_root(self._materialize_state()))
 
     def verify_post_alloc(
         self,
@@ -724,6 +748,10 @@ class Alloc(BaseAlloc):
             genesis_account = base_alloc.root.get(address)
             post_account = self.root.get(address)
 
+            # Account shared with the base, as after `structural_copy`
+            if genesis_account is post_account:
+                continue
+
             # Account was deleted (exists in genesis but not in post)
             if genesis_account is not None and post_account is None:
                 diff[address] = None
@@ -754,7 +782,12 @@ class Alloc(BaseAlloc):
             )
 
     def _build_cache(self) -> None:
-        """Populate the code-hash → bytes cache from `self.root`."""
+        """
+        Populate the code-hash → bytes cache from `self.root`, unless it was
+        already built from the same accounts.
+        """
+        if self._derived_from is not None and self._derived_from == self.root:
+            return
         self._code_store = {spec_state.EMPTY_CODE_HASH: Bytes(b"")}
         for account in self.root.values():
             if account is None:
@@ -763,6 +796,74 @@ class Alloc(BaseAlloc):
             if not code:
                 continue
             self._code_store[spec_keccak256(code)] = Bytes(code)
+        self._state_trie = None
+        self._derived_from = dict(self.root)
+
+    def _incremental_state_trie(self) -> IncrementalStateTrie:
+        """Return the incremental MPT of `self.root`, building it if needed."""
+        self._build_cache()
+        if self._state_trie is None:
+            trie = IncrementalStateTrie.build(
+                (
+                    bytes(address),
+                    spec_state.Account(
+                        nonce=Uint(int(account.nonce)),
+                        balance=U256(int(account.balance)),
+                        code_hash=(
+                            spec_keccak256(account.code)
+                            if account.code
+                            else spec_state.EMPTY_CODE_HASH
+                        ),
+                    ),
+                    {
+                        int(key).to_bytes(32, "big"): int(value)
+                        for key, value in account.storage.root.items()
+                    },
+                )
+                for address, account in self.root.items()
+                if account is not None
+            )
+            # Encode every node now, so that copies sharing the trie only
+            # re-encode the paths their blocks touch.
+            trie.root()
+            self._state_trie = trie
+        return self._state_trie
+
+    def structural_copy(self) -> Self:
+        """
+        Return a copy to execute blocks against, cheaper than a deep copy.
+
+        The copy shares account objects and the state trie with `self`.
+        `apply_diff` replaces accounts instead of mutating them and the trie
+        is immutable, so separate account maps, code stores and private
+        attributes are enough to keep the two apart. A copy of an allocation
+        under construction starts `LIVE`.
+        """
+        if self._state_commitment in (None, StateCommitment.MPT):
+            # Callers like `T8N` seed the commitment on the copy only, so
+            # share a trie unless `self` is committed to another scheme.
+            self._incremental_state_trie()
+        else:
+            self._build_cache()
+        copied = self.model_copy(update={"root": dict(self.root)})
+        shared = {
+            "_derived_from": self._derived_from,
+            "_state_trie": self._state_trie,
+        }
+        own_private: Dict[str, Any] = self.__pydantic_private__ or {}
+        private = {
+            name: copy.copy(value)
+            for name, value in own_private.items()
+            if name not in shared
+        }
+        private.update(shared)
+        private["_pending_state_trie"] = None
+        if self._phase is _Phase.CONSTRUCTION:
+            private["_phase"] = _Phase.LIVE
+        # `RootModel.__copy__` leaves the copy sharing the private attribute
+        # dict of `self`, so give it its own.
+        object.__setattr__(copied, "__pydantic_private__", private)
+        return copied
 
     def _ensure_live(self) -> None:
         """Transition from `CONSTRUCTION` to `LIVE`, building the cache."""
@@ -788,9 +889,8 @@ class Alloc(BaseAlloc):
         Build a spec-side `PreState` mirror of `self.root` using the
         implementation module for this allocation's commitment scheme.
 
-        Used as the trie-backed delegate for `compute_state_root` (a
-        cold, once-per-block call). The materialized state is not
-        retained.
+        Used for state roots under commitments that have no incremental
+        trie. The materialized state is not retained.
         """
         mod = self._state_module()
         state: spec_state.PreState = mod.State()
@@ -879,12 +979,13 @@ class Alloc(BaseAlloc):
         pre-state.
 
         Conforms to `ethereum.state.PreState.compute_state_root`.
-        Builds the trie inline; `Alloc` does not cache `Trie`
-        instances.
         """
         self._ensure_live()
-        state = self._materialize_state()
-        return state.compute_state_root(block_diff)
+        if self._state_module() is not spec_state_mpt:
+            return self._materialize_state().compute_state_root(block_diff)
+        trie = self._incremental_state_trie().with_diff(block_diff)
+        self._pending_state_trie = (block_diff, trie)
+        return trie.root()
 
     # ------------------------------------------------------------------
     # Lifecycle: apply_diff and freeze
@@ -896,7 +997,8 @@ class Alloc(BaseAlloc):
 
         The only mutation entry point in the `LIVE` phase. Writes bypass
         `__setitem__` intentionally — `_code_store` is updated additively
-        in lockstep with `self.root`.
+        in lockstep with `self.root`, and the state trie is advanced with
+        them.
         """
         if self._phase is _Phase.FROZEN:
             raise RuntimeError("apply_diff not allowed: Alloc is FROZEN")
@@ -907,6 +1009,16 @@ class Alloc(BaseAlloc):
                 "built. Trigger a PreState method (or hand it to a "
                 "BlockState) before calling apply_diff."
             )
+
+        # Rebuild the caches if `root` was changed outside `apply_diff`.
+        self._build_cache()
+        state_trie = None
+        if self._state_trie is not None:
+            pending = self._pending_state_trie
+            if pending is not None and pending[0] == diff:
+                state_trie = pending[1]
+            else:
+                state_trie = self._state_trie.with_diff(diff)
 
         for code_hash, code in diff.code_changes.items():
             self._code_store[Hash32(code_hash)] = Bytes(code)
@@ -975,6 +1087,10 @@ class Alloc(BaseAlloc):
                 self.root[addr] = account.model_copy(
                     update={"storage": Storage(root=cleaned)}
                 )
+
+        self._derived_from = dict(self.root)
+        self._state_trie = state_trie
+        self._pending_state_trie = None
 
     def freeze(self) -> None:
         """Lock the allocation: no further mutations allowed."""
