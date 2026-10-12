@@ -7,16 +7,22 @@ import pytest
 from execution_testing import (
     EOA,
     Alloc,
+    BalAccountExpectation,
+    BalStorageChange,
+    BalStorageSlot,
     BenchmarkTestFiller,
     Block,
+    BlockAccessListExpectation,
     Bytecode,
     Fork,
     Hash,
     IteratingBytecode,
     Op,
     RecipientType,
+    Storage,
     TestPhaseManager,
     Transaction,
+    WhileGas,
 )
 
 from tests.benchmark.helper.delegation import (
@@ -162,6 +168,106 @@ def test_sstore_bloated(
         runtime_code=runtime_code,
         cache_strategy=cache_strategy,
         tx_generator=tx_generator,
+    )
+
+
+@pytest.mark.parametrize("distinct_senders", [False, True])
+@pytest.mark.parametrize("existing_slots", [False, True])
+def test_sstore_sparse_slots_multi_contract(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    existing_slots: bool,
+    distinct_senders: bool,
+) -> None:
+    """Benchmark SSTORE to far-apart slots of a fresh contract per tx."""
+    # Far-apart slots spread the writes across the storage trie.
+    slot_stride = 2**240
+    original_value = 1 if existing_slots else 0
+
+    # Every tx increments this slot, so no two txs can run in parallel.
+    counter_code = Op.SSTORE(
+        0,
+        Op.ADD(Op.SLOAD(0, key_warm=False), 1),
+        # gas accounting
+        key_warm=True,
+        original_value=1,
+        new_value=2,
+    )
+    shared_counter = pre.deploy_contract(code=counter_code, storage={0: 1})
+
+    sstore = Op.SSTORE(
+        Op.DUP2,
+        2,
+        # gas accounting
+        key_warm=False,
+        original_value=original_value,
+        new_value=2,
+    )
+    runtime_code = (
+        Op.POP(Op.CALL(address=shared_counter, address_warm=False))
+        + Op.PUSH0  # [slot]
+        + WhileGas(
+            body=sstore + Op.PUSH32(slot_stride) + Op.ADD,
+            fork=fork,
+        )
+    )
+
+    max_sstores_per_tx = tx_gas_limit // sstore.gas_cost(fork)
+    assert max_sstores_per_tx * slot_stride < 2**256, "slots would wrap"
+    storage: Storage.StorageDictType = {}
+    if existing_slots:
+        for i in range(max_sstores_per_tx):
+            storage[i * slot_stride] = original_value
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    min_tx_gas = intrinsic_gas + (runtime_code + counter_code).gas_cost(fork)
+    tx_gas_limits = []
+    gas_available = gas_benchmark_value
+    while gas_available >= min_tx_gas:
+        tx_gas_limits.append(min(gas_available, tx_gas_limit))
+        gas_available -= tx_gas_limits[-1]
+
+    shared_sender = pre.fund_eoa()
+
+    txs = []
+    for gas_limit in tx_gas_limits:
+        target = pre.deploy_contract(
+            code=runtime_code, storage=Storage(storage)
+        )
+        txs.append(
+            Transaction(
+                gas_limit=gas_limit,
+                to=target,
+                sender=pre.fund_eoa() if distinct_senders else shared_sender,
+            )
+        )
+
+    counter_changes = []
+    for i in range(1, len(txs) + 1):
+        counter_changes.append(
+            BalStorageChange(block_access_index=i, post_value=i + 1)
+        )
+    block = Block(
+        txs=txs,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                shared_counter: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(slot=0, slot_changes=counter_changes)
+                    ],
+                ),
+            },
+        ),
+    )
+
+    benchmark_test(
+        pre=pre,
+        blocks=[block],
+        skip_gas_used_validation=True,
+        expected_receipt_status=True,
     )
 
 
