@@ -604,8 +604,9 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
 
     The gas limit of a transaction may not exceed [`TX_MAX_TOTAL_GAS_LIMIT`]
     ([EIP-8037]). [`TX_MAX_GAS_LIMIT`] ([EIP-7825]) bounds only the
-    execution-gas a transaction can spend, so it is checked against the
-    intrinsic execution cost rather than against the gas limit.
+    execution-gas a transaction can spend, so it is checked against the larger
+    of the intrinsic execution cost and the [EIP-7623] calldata floor rather
+    than against the gas limit.
 
     This function takes a transaction and gas_limit as parameters and
     returns the intrinsic gas costs for the transaction after validation.
