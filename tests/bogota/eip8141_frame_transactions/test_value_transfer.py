@@ -11,16 +11,21 @@ is exempt and emits no log.
 [EIP-7708]: https://eips.ethereum.org/EIPS/eip-7708
 """
 
+from typing import Dict
+
 import pytest
 from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BlockAccessListExpectation,
     Bytes,
     Fork,
     FrameReceipt,
     FrameSignature,
     Hash,
+    Op,
     StateTestFiller,
     Transaction,
     TransactionLog,
@@ -162,23 +167,37 @@ def test_value_transfer(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@pytest.mark.parametrize(
+    "recipient_delegated",
+    [
+        pytest.param(False, id="recipient_eoa"),
+        pytest.param(True, id="recipient_delegated_eoa"),
+    ],
+)
 def test_value_transfer_exceeding_balance(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    recipient_delegated: bool,
 ) -> None:
     """
     Transfer more value than the sender holds, with a sponsor paying.
 
     The balance check happens after the target's access is charged, so
     the reverting frame's receipt reports that access rather than
-    nothing. A sponsor pays the gas, keeping the shortfall a property
-    of the sender's balance alone, and a `SENDER` frame's failure
-    leaves the transaction valid.
+    nothing. A delegated recipient's designation is resolved only when
+    the frame is dispatched, after the balance check, so the failed
+    frame neither pays for nor reads the delegate. A sponsor pays the
+    gas, keeping the shortfall a property of the sender's balance
+    alone, and a `SENDER` frame's failure leaves the transaction valid.
     """
     sender = pre.fund_eoa(amount=TRANSFER_VALUE)
     payer = pre.fund_eoa()
-    recipient = pre.fund_eoa(amount=1)
+    if recipient_delegated:
+        delegate = pre.deploy_contract(code=Op.STOP)
+        recipient = pre.fund_eoa(amount=1, delegation=delegate)
+    else:
+        recipient = pre.fund_eoa(amount=1)
 
     tx = Transaction(
         sender=sender,
@@ -216,11 +235,20 @@ def test_value_transfer_exceeding_balance(
         ),
     )
 
+    post: Dict[Address, Account] = {
+        sender: Account(nonce=1, balance=TRANSFER_VALUE),
+        recipient: Account(balance=1),
+    }
+    bal_accounts: Dict[Address, BalAccountExpectation | None] = {
+        recipient: BalAccountExpectation.empty()
+    }
+    if recipient_delegated:
+        bal_accounts[delegate] = None
     state_test(
         pre=pre,
         tx=tx,
-        post={
-            sender: Account(nonce=1, balance=TRANSFER_VALUE),
-            recipient: Account(balance=1),
-        },
+        post=post,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations=bal_accounts
+        ),
     )
