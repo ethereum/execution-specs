@@ -102,6 +102,7 @@ def test_block_gas_accounting_all_transaction_types(
     )
 
 
+@pytest.mark.valid_before("EIP3298")
 @EIPChecklist.BlockLevelConstraint.Test.Content.TransactionTypes()
 @pytest.mark.inclusion_test
 @pytest.mark.parametrize(

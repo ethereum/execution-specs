@@ -803,6 +803,7 @@ class TestRefundCapInteraction:
         """Create sender account."""
         return pre.fund_eoa()
 
+    @pytest.mark.valid_before("EIP3298")
     def test_refund_cap_at_one_fifth(
         self,
         state_test: StateTestFiller,

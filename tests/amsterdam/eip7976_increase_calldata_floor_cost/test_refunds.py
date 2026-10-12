@@ -253,6 +253,7 @@ def tx_gas_limit(
     return tx_gas_limit
 
 
+@pytest.mark.valid_before("EIP3298")
 @pytest.mark.parametrize(
     "refund_test_type",
     [

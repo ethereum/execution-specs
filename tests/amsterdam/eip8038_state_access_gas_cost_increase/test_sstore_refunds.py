@@ -517,6 +517,7 @@ def test_sstore_clear_refund_granted_twice(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.valid_before("EIP3298")
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Over()
 @pytest.mark.parametrize("num_clears", [1, 8, 32])
@@ -574,6 +575,7 @@ def test_sstore_refund_quotient_cap(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.valid_before("EIP3298")
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Exact()
 def test_sstore_refund_cap_exact_equality(

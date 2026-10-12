@@ -1383,6 +1383,7 @@ def test_block_2d_inclusion_execution_gate_full_gas_reservation(
     )
 
 
+@pytest.mark.valid_before("EIP3298")
 @pytest.mark.parametrize(
     "header_rule",
     [

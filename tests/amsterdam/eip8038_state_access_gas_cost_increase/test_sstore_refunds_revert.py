@@ -72,6 +72,7 @@ def _clear_refund(fork: Fork) -> int:
     ).refund(fork)
 
 
+@pytest.mark.valid_before("EIP3298")
 @_REVERTABLE()
 @_REVERTABLE.Revert()
 @_REVERTABLE.OutOfGas()
@@ -132,6 +133,7 @@ def test_sstore_clear_refund_discarded_on_frame_failure(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.valid_before("EIP3298")
 @_REVERTABLE()
 @_REVERTABLE.UpperRevert()
 def test_sstore_clear_refund_discarded_on_upper_frame_revert(
