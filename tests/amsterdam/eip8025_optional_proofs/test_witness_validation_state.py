@@ -49,6 +49,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 SYSTEM_ADDRESS = Address(SpecEip4788.SYSTEM_ADDRESS)
+GWEI = 10**9
 
 
 def _required_node(nodes: list[Bytes]) -> Bytes:
@@ -448,7 +449,6 @@ def test_validation_state_system_address_read(
     txs: list[Transaction] = []
     withdrawals: list[Withdrawal] = []
     post: dict[Address, Account] = {}
-    relative_to: list[Address] = []
     if access == "balance":
         contract = pre.deploy_contract(
             code=Op.SSTORE(0, Op.BALANCE(SYSTEM_ADDRESS))
@@ -456,7 +456,6 @@ def test_validation_state_system_address_read(
         sender = pre.fund_eoa()
         txs.append(Transaction(sender=sender, to=contract))
         post[contract] = Account(storage={0: 1})
-        relative_to = [sender, contract]
     else:
         amount = 0 if access == "zero_withdrawal" else 1
         withdrawals.append(
@@ -467,22 +466,14 @@ def test_validation_state_system_address_read(
                 amount=amount,
             )
         )
-        post[SYSTEM_ADDRESS] = Account(balance=1 + amount * 10**9)
+        post[SYSTEM_ADDRESS] = Account(balance=1 + amount * GWEI)
 
     full_alloc = merge_with_amsterdam_pre_alloc(pre)
     proof_nodes = collect_account_proof_nodes(full_alloc, [SYSTEM_ADDRESS])
     expectation = ExecutionWitnessStateExpectation(nodes_present=proof_nodes)
     if not witness_complete:
-        system_address_only_nodes = collect_account_path_only_nodes(
-            full_alloc,
-            SYSTEM_ADDRESS,
-            [
-                *relative_to,
-                *Amsterdam.execution_witness_implicit_code_addresses(),
-            ],
-        )
         expectation = expectation.modify(
-            remove_state_node(_leaf_node(system_address_only_nodes))
+            remove_state_node(_leaf_node(proof_nodes))
         )
 
     blockchain_test(
