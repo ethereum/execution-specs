@@ -383,6 +383,10 @@ class NethermindExceptionMapper(ExceptionMapper):
             "HeaderBlobGasMismatch: "
             "Blob gas in header does not match calculated"
         ),
+        BlockException.INVALID_GAS_USED: (
+            "HeaderGasUsedMismatch: "
+            "Gas used in header does not match calculated"
+        ),
         BlockException.INVALID_REQUESTS: (
             "InvalidRequestsHash: Requests hash mismatch in block"
         ),
