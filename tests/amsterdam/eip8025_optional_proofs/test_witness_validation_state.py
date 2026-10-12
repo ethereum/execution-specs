@@ -608,3 +608,71 @@ def test_validation_state_system_address_unread(
         ],
         post=post,
     )
+
+
+@pytest.mark.parametrize(
+    "access",
+    # An SSTORE that rewrites a present slot's value is left out: a guest
+    # that reads the slot as absent prices it as a new write and fails on
+    # gas.
+    ["sload_present", "sload_absent", "sstore_zero_to_absent"],
+)
+@pytest.mark.parametrize(
+    "witness_complete",
+    [
+        pytest.param(True, id="complete_witness"),
+        pytest.param(False, id="missing_proof_leaf"),
+    ],
+)
+def test_validation_state_unchanged_storage_read(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    access: str,
+    witness_complete: bool,
+) -> None:
+    """
+    Require a slot's proof when the block reads it without a change.
+
+    After such a read, a guest that treats a missing proof as an absent slot
+    computes the same post-state root, so only the witness check can reject
+    a block whose witness leaves the proof out.
+    """
+    # Present slot 24 and absent slot 1 share one proof, which ends in slot
+    # 24's leaf, as `test_validation_state_missing_absent_slot_proof_leaf_node`
+    # shows.
+    storage = build_large_storage([14, 24])
+    if access == "sload_present":
+        slot = 24
+        code = Op.POP(Op.SLOAD(slot))
+    elif access == "sload_absent":
+        slot = 1
+        code = Op.POP(Op.SLOAD(slot))
+    elif access == "sstore_zero_to_absent":
+        slot = 1
+        code = Op.SSTORE(slot, 0)
+    else:
+        raise ValueError(f"Unknown access: {access}")
+
+    contract = pre.deploy_contract(code=code, storage=as_storage(storage))
+    sender = pre.fund_eoa()
+    proof_nodes = collect_storage_proof_nodes(storage, [slot])
+    expectation = ExecutionWitnessStateExpectation(nodes_present=proof_nodes)
+    if not witness_complete:
+        expectation = expectation.modify(
+            remove_state_node(_leaf_node(proof_nodes))
+        )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[Transaction(sender=sender, to=contract)],
+                expected_execution_witness_state=expectation,
+                expected_stateless_validation_success=witness_complete,
+            )
+        ],
+        post={
+            sender: Account(nonce=1),
+            contract: Account(storage=storage),
+        },
+    )
