@@ -143,6 +143,38 @@ def find_account_with_shared_secured_nibble(
     raise AssertionError("failed to find non-precompile sibling address")
 
 
+def _shared_secured_nibbles(address: Address, other: Address) -> int:
+    """Count the leading nibbles that two addresses' secured keys share."""
+    key = keccak256(bytes(address)).hex()
+    other_key = keccak256(bytes(other)).hex()
+    count = 0
+    while count < len(key) and key[count] == other_key[count]:
+        count += 1
+    return count
+
+
+def find_account_ending_absence_proof(
+    alloc: Alloc,
+    target: Address,
+) -> Address:
+    """
+    Return an address whose leaf would end one account absence proof.
+
+    The address's secured key shares more leading nibbles with the target's
+    than any account in `alloc` does. Once funded, its leaf ends the target's
+    absence proof and lies on no proof of an account in `alloc`.
+    """
+    depth = 1 + max(
+        (_shared_secured_nibbles(target, address) for address in alloc),
+        default=0,
+    )
+    for value in range(0x1000, 0x1000000):
+        address = Address(value)
+        if _shared_secured_nibbles(target, address) >= depth:
+            return address
+    raise AssertionError("failed to find an address to end the proof")
+
+
 def merge_with_amsterdam_pre_alloc(pre: Alloc) -> Alloc:
     """Merge test-local accounts with Amsterdam's implicit pre-allocation."""
     return Alloc.merge(

@@ -13,6 +13,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytes,
+    Environment,
     ExecutionWitnessStateExpectation,
     FeeSystemContractRequest,
     Fork,
@@ -40,6 +41,7 @@ from .state_helpers import (
     collect_account_proof_nodes,
     collect_storage_delete_auxiliary_nodes,
     collect_storage_proof_nodes,
+    find_account_ending_absence_proof,
     find_account_with_shared_secured_nibble,
     large_storage_value,
     merge_with_amsterdam_pre_alloc,
@@ -425,7 +427,7 @@ def test_validation_state_complete_witness_still_validates(
     )
 
 
-@pytest.mark.parametrize("target_kind", ["eoa", "system_address"])
+@pytest.mark.parametrize("target_kind", ["eoa", "system_address", "absent"])
 @pytest.mark.parametrize(
     "access",
     [
@@ -464,7 +466,9 @@ def test_validation_state_unchanged_account_read(
     account computes the same post-state root, so only the witness check can
     reject a block whose witness leaves the proof out. SYSTEM_ADDRESS is a
     target of its own: system calls use it without reading it, so its proof
-    is otherwise absent.
+    is otherwise absent. An absent target is the account version of an
+    absent slot: a guest that treats the missing node as empty reads the
+    target as absent, which happens to be right.
     """
     # A funded target has its own leaf in the account trie.
     target: Address
@@ -478,6 +482,11 @@ def test_validation_state_unchanged_account_read(
             pytest.skip("SYSTEM_ADDRESS has no key to sign an authorization")
         target = SYSTEM_ADDRESS
         pre.fund_address(target, 1)
+    elif target_kind == "absent":
+        if access == "authorization_authority_has_code":
+            pytest.skip("An absent account holds no code")
+        # A key with no account, so that it can sign an authorization.
+        target = pre.fund_eoa(amount=0)
     else:
         raise ValueError(f"Unknown target kind: {target_kind}")
 
@@ -541,13 +550,39 @@ def test_validation_state_unchanged_account_read(
     else:
         raise ValueError(f"Unknown access: {access}")
 
+    sibling: Address | None = None
+    if target_kind == "absent":
+        # An absence proof ends in the node its path reaches: the root, a
+        # branch or another account's leaf, which other proofs hold too. A
+        # sibling whose leaf ends the target's proof gives it a node of its
+        # own.
+        sibling = find_account_ending_absence_proof(
+            merge_with_amsterdam_pre_alloc(pre), target
+        )
+        pre.fund_address(sibling, 1)
+
     full_alloc = merge_with_amsterdam_pre_alloc(pre)
     proof_nodes = collect_account_proof_nodes(full_alloc, [target])
+    if sibling is None:
+        removed_node = _leaf_node(proof_nodes)
+    else:
+        # No other address the block names may need the sibling's leaf, or
+        # the guest could reject the block for that address's read.
+        named = {
+            *full_alloc,
+            *(tx.to for tx in txs if tx.to is not None),
+            Environment().fee_recipient
+            if fee_recipient is None
+            else fee_recipient,
+        }
+        target_only_nodes = collect_account_path_only_nodes(
+            full_alloc, target, list(named - {target, sibling})
+        )
+        assert len(target_only_nodes) == 1
+        removed_node = _leaf_node(target_only_nodes)
     expectation = ExecutionWitnessStateExpectation(nodes_present=proof_nodes)
     if not witness_complete:
-        expectation = expectation.modify(
-            remove_state_node(_leaf_node(proof_nodes))
-        )
+        expectation = expectation.modify(remove_state_node(removed_node))
 
     blockchain_test(
         pre=pre,
@@ -561,7 +596,9 @@ def test_validation_state_unchanged_account_read(
             )
         ],
         # The read leaves the target as it was.
-        post={target: pre[target]},
+        post={
+            target: pre[target] if sibling is None else Account.NONEXISTENT,
+        },
     )
 
 
