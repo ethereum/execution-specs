@@ -480,6 +480,8 @@ class Alloc(BaseAlloc):
         Tuple[spec_state.BlockDiff, IncrementalStateTrie] | None
     ) = PrivateAttr(default=None)
     """Trie computed by `compute_state_root`, for `apply_diff` to reuse."""
+    _zero_storage_addresses: List[Address] = PrivateAttr(default_factory=list)
+    """Accounts in `root` holding zero storage values, for `apply_diff`."""
 
     @dataclass(kw_only=True)
     class UnexpectedAccountError(Exception):
@@ -740,13 +742,10 @@ class Alloc(BaseAlloc):
 
         """
         diff: Dict[Address, Account | None] = {}
+        base_root = base_alloc.root
 
-        # Find all addresses that exist in either state
-        all_addresses = set(self.root.keys()) | set(base_alloc.root.keys())
-
-        for address in all_addresses:
-            genesis_account = base_alloc.root.get(address)
-            post_account = self.root.get(address)
+        for address, post_account in self.root.items():
+            genesis_account = base_root.get(address)
 
             # Account shared with the base, as after `structural_copy`
             if genesis_account is post_account:
@@ -765,6 +764,11 @@ class Alloc(BaseAlloc):
                 diff[address] = post_account
 
             # Account unchanged - don't include in diff
+
+        # Account was deleted (exists in genesis only)
+        for address, genesis_account in base_root.items():
+            if genesis_account is not None and address not in self.root:
+                diff[address] = None
 
         return Alloc(diff)
 
@@ -789,9 +793,12 @@ class Alloc(BaseAlloc):
         if self._derived_from is not None and self._derived_from == self.root:
             return
         self._code_store = {spec_state.EMPTY_CODE_HASH: Bytes(b"")}
-        for account in self.root.values():
+        self._zero_storage_addresses = []
+        for address, account in self.root.items():
             if account is None:
                 continue
+            if any(int(value) == 0 for value in account.storage.root.values()):
+                self._zero_storage_addresses.append(address)
             code = bytes(account.code) if account.code else b""
             if not code:
                 continue
@@ -1074,8 +1081,10 @@ class Alloc(BaseAlloc):
         # pair carried over untouched from the pre-state JSON would
         # otherwise survive into the post-state dump and produce noise
         # the spec-state-backed pipeline never had (the spec's
-        # ``set_storage`` drops zeros on insert).
-        for addr, account in list(self.root.items()):
+        # ``set_storage`` drops zeros on insert). The diff never adds
+        # zeros, so only accounts that held them before can hold them now.
+        for addr in self._zero_storage_addresses:
+            account = self.root.get(addr)
             if account is None or not account.storage.root:
                 continue
             cleaned = {
@@ -1091,6 +1100,7 @@ class Alloc(BaseAlloc):
         self._derived_from = dict(self.root)
         self._state_trie = state_trie
         self._pending_state_trie = None
+        self._zero_storage_addresses = []
 
     def freeze(self) -> None:
         """Lock the allocation: no further mutations allowed."""

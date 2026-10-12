@@ -333,3 +333,66 @@ def test_deleted_account_storage_is_dropped() -> None:
         copied.apply_diff(diff)
         assert copied.state_root() == _spec_root_of(copied)
     assert copied.root[address].storage.root == {}  # type: ignore[union-attr]
+
+
+def _set_based_diff(post: Alloc, base: Alloc) -> Dict[Address, object]:
+    """Return the diff as computed over the union of both address sets."""
+    diff: Dict[Address, object] = {}
+    for address in set(post.root) | set(base.root):
+        before, after = base.root.get(address), post.root.get(address)
+        if before is not None and after is None:
+            diff[address] = None
+        elif before != after:
+            diff[address] = after
+    return diff
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_calculate_diff_matches_set_based_diff(seed: int) -> None:
+    """Shared, replaced, created, deleted and absent accounts all match."""
+    rng = random.Random(seed)
+    base = _alloc(rng, 30)
+    base.root[Address(rng.randbytes(20))] = None
+    post = base.structural_copy()
+    addresses = list(post.root)
+    for address in rng.sample(addresses, 5):
+        del post.root[address]
+    for address in rng.sample(addresses, 5):
+        post.root[address] = Account(balance=rng.randrange(3))
+    for _ in range(3):
+        post.root[Address(rng.randbytes(20))] = rng.choice(
+            [None, Account(nonce=1)]
+        )
+    assert post.calculate_diff(base).root == _set_based_diff(post, base)
+
+
+def test_apply_diff_drops_zero_storage_from_every_account() -> None:
+    """
+    Zero storage values from the pre-state are dropped from untouched
+    accounts too, and the original keeps them.
+    """
+    alloc = _alloc(random.Random(0), 5)
+    holder = Address(Bytes20(b"\x02" * 20))
+    alloc[holder] = Account(balance=1, storage={1: 0, 2: 5})
+    copied = alloc.structural_copy()
+    other = next(address for address in copied.root if address != holder)
+    diff = spec_state.BlockDiff(
+        account_changes={
+            Bytes20(other): SpecAccount(
+                nonce=Uint(1),
+                balance=U256(1),
+                code_hash=spec_state.EMPTY_CODE_HASH,
+            )
+        }
+    )
+    copied.compute_state_root(diff)
+    copied.apply_diff(diff)
+    assert copied.root[holder].storage.root == {2: 5}  # type: ignore[union-attr]
+    assert alloc.root[holder].storage.root == {1: 0, 2: 5}  # type: ignore[union-attr]
+    assert all(
+        int(value) != 0
+        for account in copied.root.values()
+        if account is not None
+        for value in account.storage.root.values()
+    )
+    assert copied.state_root() == _spec_root_of(copied)
