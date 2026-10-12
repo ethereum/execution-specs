@@ -50,7 +50,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 SYSTEM_ADDRESS = Address(SpecEip4788.SYSTEM_ADDRESS)
-GWEI = 10**9
 
 
 def _required_node(nodes: list[Bytes]) -> Bytes:
@@ -419,9 +418,23 @@ def test_validation_state_complete_witness_still_validates(
     )
 
 
+@pytest.mark.parametrize("target_kind", ["eoa", "system_address"])
 @pytest.mark.parametrize(
     "access",
-    ["zero_withdrawal", "withdrawal", "balance"],
+    [
+        "coinbase_without_tip",
+        "zero_value_transfer",
+        "zero_withdrawal",
+        "authorization_wrong_nonce",
+        pytest.param(
+            "authorization_authority_has_code",
+            marks=pytest.mark.pre_alloc_mutable,
+        ),
+        "balance",
+        "extcodehash",
+        "extcodesize",
+        "selfdestruct_zero_balance",
+    ],
 )
 @pytest.mark.parametrize(
     "witness_complete",
@@ -430,47 +443,99 @@ def test_validation_state_complete_witness_still_validates(
         pytest.param(False, id="missing_proof_leaf"),
     ],
 )
-def test_validation_state_system_address_read(
+def test_validation_state_unchanged_account_read(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    target_kind: str,
     access: str,
     witness_complete: bool,
 ) -> None:
     """
-    Require the SYSTEM_ADDRESS account proof when the block reads it.
+    Require an account's proof when the block reads it without a change.
 
-    A system call uses SYSTEM_ADDRESS as its origin without reading its
-    account, so its proof is otherwise absent. A withdrawal to it, even of
-    zero, and a BALANCE of it both read the account, so the witness must
-    prove it and removing its proof leaf must fail validation.
+    After such a read, a guest that treats a missing proof as an absent
+    account computes the same post-state root, so only the witness check can
+    reject a block whose witness leaves the proof out. SYSTEM_ADDRESS is a
+    target of its own: system calls use it without reading it, so its proof
+    is otherwise absent.
     """
-    # A funded SYSTEM_ADDRESS has its own leaf in the account trie.
-    pre.fund_address(SYSTEM_ADDRESS, 1)
+    # A funded target has its own leaf in the account trie.
+    target: Address
+    if target_kind == "eoa":
+        if access == "authorization_authority_has_code":
+            target = pre.fund_eoa(amount=1, code=Op.STOP, nonce=1)
+        else:
+            target = pre.fund_eoa(amount=1)
+    elif target_kind == "system_address":
+        if access.startswith("authorization_"):
+            pytest.skip("SYSTEM_ADDRESS has no key to sign an authorization")
+        target = SYSTEM_ADDRESS
+        pre.fund_address(target, 1)
+    else:
+        raise ValueError(f"Unknown target kind: {target_kind}")
 
+    sender = pre.fund_eoa()
     txs: list[Transaction] = []
     withdrawals: list[Withdrawal] = []
-    post: dict[Address, Account] = {}
-    if access == "balance":
-        contract = pre.deploy_contract(
-            code=Op.SSTORE(0, Op.BALANCE(SYSTEM_ADDRESS))
-        )
-        sender = pre.fund_eoa()
-        txs.append(Transaction(sender=sender, to=contract))
-        post[contract] = Account(storage={0: 1})
-    else:
-        amount = 0 if access == "zero_withdrawal" else 1
-        withdrawals.append(
-            Withdrawal(
-                index=0,
-                validator_index=0,
-                address=SYSTEM_ADDRESS,
-                amount=amount,
+    fee_recipient: Address | None = None
+    # The opcode cases discard the result: storing it would change the
+    # post-state root under a guest that reads the target as absent.
+    if access == "coinbase_without_tip":
+        # With no tip, paying the coinbase reads it but adds nothing. The
+        # max fee clears the base fee, so only the priority fee sets the tip.
+        fee_recipient = target
+        txs.append(
+            Transaction(
+                sender=sender,
+                to=pre.fund_eoa(amount=0),
+                max_fee_per_gas=1_000,
+                max_priority_fee_per_gas=0,
             )
         )
-        post[SYSTEM_ADDRESS] = Account(balance=1 + amount * GWEI)
+    elif access == "zero_value_transfer":
+        txs.append(Transaction(sender=sender, to=target, value=0))
+    elif access == "zero_withdrawal":
+        withdrawals.append(
+            Withdrawal(index=0, validator_index=0, address=target, amount=0)
+        )
+    elif access in (
+        "authorization_wrong_nonce",
+        "authorization_authority_has_code",
+    ):
+        # The authorization fails for one reason: a nonce mismatch, or the
+        # target's code. A guest that reads the target as absent sees nonce
+        # 0, which does not match, so it skips the authorization too.
+        txs.append(
+            Transaction(
+                sender=sender,
+                to=pre.fund_eoa(amount=0),
+                authorization_list=[
+                    AuthorizationTuple(
+                        address=pre.deploy_contract(code=Op.STOP),
+                        nonce=1,
+                        signer=target,
+                    )
+                ],
+            )
+        )
+    elif access == "balance":
+        contract = pre.deploy_contract(code=Op.POP(Op.BALANCE(target)))
+        txs.append(Transaction(sender=sender, to=contract))
+    elif access == "extcodehash":
+        contract = pre.deploy_contract(code=Op.POP(Op.EXTCODEHASH(target)))
+        txs.append(Transaction(sender=sender, to=contract))
+    elif access == "extcodesize":
+        contract = pre.deploy_contract(code=Op.POP(Op.EXTCODESIZE(target)))
+        txs.append(Transaction(sender=sender, to=contract))
+    elif access == "selfdestruct_zero_balance":
+        # With no balance to move, the beneficiary only gets read.
+        contract = pre.deploy_contract(code=Op.SELFDESTRUCT(target))
+        txs.append(Transaction(sender=sender, to=contract))
+    else:
+        raise ValueError(f"Unknown access: {access}")
 
     full_alloc = merge_with_amsterdam_pre_alloc(pre)
-    proof_nodes = collect_account_proof_nodes(full_alloc, [SYSTEM_ADDRESS])
+    proof_nodes = collect_account_proof_nodes(full_alloc, [target])
     expectation = ExecutionWitnessStateExpectation(nodes_present=proof_nodes)
     if not witness_complete:
         expectation = expectation.modify(
@@ -483,11 +548,13 @@ def test_validation_state_system_address_read(
             Block(
                 txs=txs,
                 withdrawals=withdrawals,
+                fee_recipient=fee_recipient,
                 expected_execution_witness_state=expectation,
                 expected_stateless_validation_success=witness_complete,
             )
         ],
-        post=post,
+        # The read leaves the target as it was.
+        post={target: pre[target]},
     )
 
 
@@ -502,7 +569,8 @@ def test_validation_state_system_address_unread(
 
     The block's system calls use SYSTEM_ADDRESS as their origin without
     reading its account, so the witness must not prove it. This is the
-    premise of `test_validation_state_system_address_read`.
+    premise of the `system_address` cases of
+    `test_validation_state_unchanged_account_read`.
     """
     # A funded SYSTEM_ADDRESS has its own leaf in the account trie.
     pre.fund_address(SYSTEM_ADDRESS, 1)
@@ -539,123 +607,4 @@ def test_validation_state_system_address_unread(
             )
         ],
         post=post,
-    )
-
-
-@pytest.mark.parametrize(
-    "access",
-    [
-        "coinbase_without_tip",
-        "zero_value_transfer",
-        "authorization_wrong_nonce",
-        pytest.param(
-            "authorization_authority_has_code",
-            marks=pytest.mark.pre_alloc_mutable,
-        ),
-        "balance",
-        "extcodehash",
-        "extcodesize",
-        "selfdestruct_zero_balance",
-    ],
-)
-@pytest.mark.parametrize(
-    "witness_complete",
-    [
-        pytest.param(True, id="complete_witness"),
-        pytest.param(False, id="missing_proof_leaf"),
-    ],
-)
-def test_validation_state_unchanged_account_read(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-    access: str,
-    witness_complete: bool,
-) -> None:
-    """
-    Require an account's proof when the block reads it without a change.
-
-    After such a read, a guest that treats a missing proof as an absent
-    account computes the same post-state root, so only the witness check can
-    reject a block whose witness leaves the proof out.
-    """
-    # A funded target has its own leaf in the account trie.
-    if access == "authorization_authority_has_code":
-        target = pre.fund_eoa(amount=1, code=Op.STOP, nonce=1)
-        target_account = Account(balance=1, nonce=1, code=Op.STOP)
-    else:
-        target = pre.fund_eoa(amount=1)
-        target_account = Account(balance=1, nonce=0)
-
-    sender = pre.fund_eoa()
-    fee_recipient: Address | None = None
-    # The opcode cases discard the result: storing it would change the
-    # post-state root under a guest that reads the target as absent.
-    if access == "coinbase_without_tip":
-        # With no tip, paying the coinbase reads it but adds nothing. The
-        # max fee clears the base fee, so only the priority fee sets the tip.
-        fee_recipient = target
-        tx = Transaction(
-            sender=sender,
-            to=pre.fund_eoa(amount=0),
-            max_fee_per_gas=1_000,
-            max_priority_fee_per_gas=0,
-        )
-    elif access == "zero_value_transfer":
-        tx = Transaction(sender=sender, to=target, value=0)
-    elif access in (
-        "authorization_wrong_nonce",
-        "authorization_authority_has_code",
-    ):
-        # The authorization fails for one reason: a nonce mismatch, or the
-        # target's code. A guest that reads the target as absent sees nonce
-        # 0, which does not match, so it skips the authorization too.
-        tx = Transaction(
-            sender=sender,
-            to=pre.fund_eoa(amount=0),
-            authorization_list=[
-                AuthorizationTuple(
-                    address=pre.deploy_contract(code=Op.STOP),
-                    nonce=1,
-                    signer=target,
-                )
-            ],
-        )
-    elif access == "balance":
-        contract = pre.deploy_contract(code=Op.POP(Op.BALANCE(target)))
-        tx = Transaction(sender=sender, to=contract)
-    elif access == "extcodehash":
-        contract = pre.deploy_contract(code=Op.POP(Op.EXTCODEHASH(target)))
-        tx = Transaction(sender=sender, to=contract)
-    elif access == "extcodesize":
-        contract = pre.deploy_contract(code=Op.POP(Op.EXTCODESIZE(target)))
-        tx = Transaction(sender=sender, to=contract)
-    elif access == "selfdestruct_zero_balance":
-        # With no balance to move, the beneficiary only gets read.
-        contract = pre.deploy_contract(code=Op.SELFDESTRUCT(target))
-        tx = Transaction(sender=sender, to=contract)
-    else:
-        raise ValueError(f"Unknown access: {access}")
-
-    full_alloc = merge_with_amsterdam_pre_alloc(pre)
-    proof_nodes = collect_account_proof_nodes(full_alloc, [target])
-    expectation = ExecutionWitnessStateExpectation(nodes_present=proof_nodes)
-    if not witness_complete:
-        expectation = expectation.modify(
-            remove_state_node(_leaf_node(proof_nodes))
-        )
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                fee_recipient=fee_recipient,
-                expected_execution_witness_state=expectation,
-                expected_stateless_validation_success=witness_complete,
-            )
-        ],
-        post={
-            sender: Account(nonce=1),
-            target: target_account,
-        },
     )
