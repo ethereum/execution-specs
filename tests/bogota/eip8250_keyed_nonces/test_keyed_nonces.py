@@ -7,12 +7,13 @@ selects a sequence in the `NONCE_MANAGER` storage. The payment-scoped
 creation of state gas per keyed domain used for the first time.
 """  # noqa: E501
 
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import pytest
 from execution_testing import (
     EOA,
     Account,
+    Address,
     Alloc,
     Bytecode,
     Bytes,
@@ -77,8 +78,46 @@ COLD_READS = 40
 COLD_READ_BASE = 0x10000
 """First of the untouched addresses whose balances are read cold."""
 
-FLOOR_PADDING = bytes(30_000)
-"""Frame data lifting the calldata floor above the standard cost."""
+MAX_FLOOR_PADDING = 1 << 16
+"""Upper bound of the floor-binding padding search, far above any case."""
+
+
+def floor_binding_padding(floor_binds: Callable[[int], bool]) -> int:
+    """
+    Return the fewest bytes of frame data for which `floor_binds` holds.
+
+    With that padding the calldata floor binds by the smallest margin the
+    data allows, and one byte less leaves the standard cost binding, so a
+    client that miscounts the charged data by a single byte charges the
+    wrong side.
+    """
+    low, high = 0, MAX_FLOOR_PADDING
+    assert not floor_binds(low) and floor_binds(high)
+    while high - low > 1:
+        middle = (low + high) // 2
+        if floor_binds(middle):
+            high = middle
+        else:
+            low = middle
+    return high
+
+
+def cold_read_burner(pre: Alloc, fork: Fork) -> Tuple[Address, int]:
+    """
+    Deploy a contract reading `COLD_READS` untouched balances, whose
+    execution lifts the standard cost above the calldata floor, and return
+    it with the execution gas of a frame running it.
+    """
+    code = Bytecode()
+    for account in range(COLD_READS):
+        code += Op.POP(
+            Op.BALANCE(address=COLD_READ_BASE + account, address_warm=False)
+        )
+    code += Op.STOP
+    gas = fork.frame_entry_gas_calculator()(target_warm=False) + code.gas_cost(
+        fork
+    )
+    return pre.deploy_contract(code=code), gas
 
 
 def delegated_sender_code(sender_work: Bytecode) -> Bytecode:
@@ -443,43 +482,56 @@ def test_nonce_fields_in_calldata_floor(
 ) -> None:
     """
     Count the nonce field encoding in the calldata floor of a
-    transaction whose frame data lifts the floor above its standard cost.
+    transaction whose frame data lifts the floor above its standard cost,
+    by the smallest margin the data allows.
     """
     sender = sender_at_sequence(pre, nonce_keys, nonce_seq)
     first_uses = first_use_count(nonce_keys, nonce_seq)
     state_gas = first_uses * keyed_nonce_first_use(fork)
-    tx = Transaction(
-        sender=sender,
-        frames=[
-            verify_frame(
-                gas_limit=default_code_frame_gas(fork, target_warm=True),
-                state_gas_limit=state_gas,
-            ),
-            default_frame(
-                target=pre.deploy_contract(code=Op.STOP),
-                gas_limit=fork.frame_entry_gas_calculator()(target_warm=False),
-                state_gas_limit=0,
-                data=FLOOR_PADDING,
-            ),
-        ],
-        nonce_keys=nonce_keys,
-        nonce=nonce_seq,
-    )
-    tx.sign()
-    assert tx.frames is not None and tx.signatures is not None
-    floor = fork.frame_transaction_data_floor_cost_calculator()(
-        frames=tx.frames,
-        signatures=tx.signatures,
-        nonce_keys=nonce_keys,
-        nonce_seq=nonce_seq,
-    )
-    standard_gas_limit = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=tx.frames,
-        signatures=tx.signatures,
-        nonce_keys=nonce_keys,
-        nonce_seq=nonce_seq,
-        return_cost_deducted_prior_execution=True,
-    ) + sum(frame.gas_limit for frame in tx.frames)
+    worker, worker_gas = cold_read_burner(pre, fork)
+    verify_gas = default_code_frame_gas(fork, target_warm=True)
+
+    def build(padding: int) -> Tuple[Transaction, int, int]:
+        """Return the signed transaction, its standard cost and its floor."""
+        tx = Transaction(
+            sender=sender,
+            frames=[
+                verify_frame(gas_limit=verify_gas, state_gas_limit=state_gas),
+                default_frame(
+                    target=worker,
+                    gas_limit=worker_gas,
+                    state_gas_limit=0,
+                    data=bytes(padding),
+                ),
+            ],
+            nonce_keys=nonce_keys,
+            nonce=nonce_seq,
+        )
+        tx.sign()
+        assert tx.frames is not None and tx.signatures is not None
+        floor = fork.frame_transaction_data_floor_cost_calculator()(
+            frames=tx.frames,
+            signatures=tx.signatures,
+            nonce_keys=nonce_keys,
+            nonce_seq=nonce_seq,
+        )
+        standard_gas_limit = (
+            fork.frame_transaction_intrinsic_cost_calculator()(
+                frames=tx.frames,
+                signatures=tx.signatures,
+                nonce_keys=nonce_keys,
+                nonce_seq=nonce_seq,
+                return_cost_deducted_prior_execution=True,
+            )
+            + sum(frame.gas_limit for frame in tx.frames)
+        )
+        return tx, standard_gas_limit, floor
+
+    def floor_binds(padding: int) -> bool:
+        _, standard_gas_limit, floor = build(padding)
+        return floor > standard_gas_limit
+
+    tx, standard_gas_limit, floor = build(floor_binding_padding(floor_binds))
     assert floor > standard_gas_limit
     tx.expected_receipt = TransactionReceipt(
         payer=sender, cumulative_gas_used=floor + state_gas
@@ -500,22 +552,25 @@ def test_nonce_fields_in_calldata_floor(
         ),
     ],
 )
-@pytest.mark.parametrize(
-    "floor_bound", [False, True], ids=["standard", "floor"]
-)
+@pytest.mark.parametrize("regime", ["standard", "floor", "below_floor"])
 def test_keyed_nonce_access_cost(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     nonce_keys: List[int],
     nonce_seq: int,
-    floor_bound: bool,
+    regime: str,
 ) -> None:
     """
     Charge `KEYED_NONCE_ACCESS_COST` for every non-zero nonce key in both
     the intrinsic cost and the calldata floor, so a transaction pays it
     whichever of the two binds. The legacy key set pays nothing, and a
     used key pays the same as a fresh one.
+
+    A worker's cold reads keep the standard cost above the calldata floor
+    in `standard`. In `floor` the worker's frame data lifts the floor above
+    the standard cost by the smallest margin the data allows, and
+    `below_floor` carries one byte less, so the standard cost binds again.
 
     The expected gas is built from the EIP's constant: the transaction
     priced with the legacy key set, which carries no access cost, with
@@ -526,41 +581,8 @@ def test_keyed_nonce_access_cost(
     state_gas = first_use_count(nonce_keys, nonce_seq) * keyed_nonce_first_use(
         fork
     )
-    if floor_bound:
-        worker = pre.deploy_contract(code=Op.STOP)
-        worker_gas = fork.frame_entry_gas_calculator()(target_warm=False)
-        worker_data = FLOOR_PADDING
-    else:
-        worker_code = Bytecode()
-        for account in range(COLD_READS):
-            worker_code += Op.POP(
-                Op.BALANCE(
-                    address=COLD_READ_BASE + account, address_warm=False
-                )
-            )
-        worker_code += Op.STOP
-        worker = pre.deploy_contract(code=worker_code)
-        worker_gas = fork.frame_entry_gas_calculator()(
-            target_warm=False
-        ) + worker_code.gas_cost(fork)
-        worker_data = b""
+    worker, worker_gas = cold_read_burner(pre, fork)
     verify_gas = default_code_frame_gas(fork, target_warm=True)
-    tx = Transaction(
-        sender=sender,
-        frames=[
-            verify_frame(gas_limit=verify_gas, state_gas_limit=state_gas),
-            default_frame(
-                target=worker,
-                gas_limit=worker_gas,
-                state_gas_limit=0,
-                data=worker_data,
-            ),
-        ],
-        nonce_keys=nonce_keys,
-        nonce=nonce_seq,
-    )
-    tx.sign()
-    assert tx.frames is not None and tx.signatures is not None
 
     access = keyed_nonce_access_cost(nonce_keys)
     own_nonce_data = nonce_field_calldata(nonce_keys, nonce_seq)
@@ -573,44 +595,73 @@ def test_keyed_nonce_access_cost(
     intrinsic_calculator = fork.frame_transaction_intrinsic_cost_calculator()
     floor_calculator = fork.frame_transaction_data_floor_cost_calculator()
 
-    intrinsic = (
-        intrinsic_calculator(
+    def build(padding: int) -> Tuple[Transaction, int, int]:
+        """Return the signed transaction, its execution gas and its floor."""
+        tx = Transaction(
+            sender=sender,
+            frames=[
+                verify_frame(gas_limit=verify_gas, state_gas_limit=state_gas),
+                default_frame(
+                    target=worker,
+                    gas_limit=worker_gas,
+                    state_gas_limit=0,
+                    data=bytes(padding),
+                ),
+            ],
+            nonce_keys=nonce_keys,
+            nonce=nonce_seq,
+        )
+        tx.sign()
+        assert tx.frames is not None and tx.signatures is not None
+        intrinsic = (
+            intrinsic_calculator(
+                frames=tx.frames,
+                signatures=tx.signatures,
+                nonce_keys=[0],
+                nonce_seq=0,
+                return_cost_deducted_prior_execution=True,
+            )
+            - calldata_gas(data=legacy_nonce_data)
+            + calldata_gas(data=own_nonce_data)
+            + access
+        )
+        floor = (
+            floor_calculator(
+                frames=tx.frames,
+                signatures=tx.signatures,
+                nonce_keys=[0],
+                nonce_seq=0,
+            )
+            + (len(own_nonce_data) - len(legacy_nonce_data))
+            * floor_gas_per_byte
+            + access
+        )
+        assert intrinsic == intrinsic_calculator(
             frames=tx.frames,
             signatures=tx.signatures,
-            nonce_keys=[0],
-            nonce_seq=0,
+            nonce_keys=nonce_keys,
+            nonce_seq=nonce_seq,
             return_cost_deducted_prior_execution=True,
         )
-        - calldata_gas(data=legacy_nonce_data)
-        + calldata_gas(data=own_nonce_data)
-        + access
-    )
-    floor = (
-        floor_calculator(
+        assert floor == floor_calculator(
             frames=tx.frames,
             signatures=tx.signatures,
-            nonce_keys=[0],
-            nonce_seq=0,
+            nonce_keys=nonce_keys,
+            nonce_seq=nonce_seq,
         )
-        + (len(own_nonce_data) - len(legacy_nonce_data)) * floor_gas_per_byte
-        + access
-    )
-    assert intrinsic == intrinsic_calculator(
-        frames=tx.frames,
-        signatures=tx.signatures,
-        nonce_keys=nonce_keys,
-        nonce_seq=nonce_seq,
-        return_cost_deducted_prior_execution=True,
-    )
-    assert floor == floor_calculator(
-        frames=tx.frames,
-        signatures=tx.signatures,
-        nonce_keys=nonce_keys,
-        nonce_seq=nonce_seq,
-    )
+        return tx, intrinsic + verify_gas + worker_gas, floor
 
-    execution_used = intrinsic + verify_gas + worker_gas
-    assert (floor > execution_used) == floor_bound
+    def floor_binds(padding: int) -> bool:
+        _, execution_used, floor = build(padding)
+        return floor > execution_used
+
+    padding = 0
+    if regime != "standard":
+        padding = floor_binding_padding(floor_binds)
+        if regime == "below_floor":
+            padding -= 1
+    tx, execution_used, floor = build(padding)
+    assert (floor > execution_used) == (regime == "floor")
     tx.expected_receipt = TransactionReceipt(
         payer=sender,
         cumulative_gas_used=max(execution_used, floor) + state_gas,
