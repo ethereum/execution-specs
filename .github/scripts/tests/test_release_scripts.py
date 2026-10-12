@@ -867,11 +867,16 @@ class TestMergeIndexFiles:
         assert len(merged["test_cases"]) == 2
         assert merged["root_hash"] is not None
 
-    def test_skips_dirs_without_index(self, tmp_path):
-        """Verify directories without .meta/index.json are skipped."""
+    def test_dir_without_index_fails(self, tmp_path):
+        """
+        Verify a split without an index fails the merge.
+
+        Such a directory is an incomplete or failed download; skipping
+        it would release fixtures without that fork range.
+        """
         dir_a = tmp_path / "fixtures__cancun"
         dir_a.mkdir()
-        dir_b = tmp_path / "fixtures__empty"
+        dir_b = tmp_path / "fixtures__missing"
         dir_b.mkdir()
         output = tmp_path / "out.json"
 
@@ -896,11 +901,9 @@ class TestMergeIndexFiles:
         )
 
         result = _run_merge_script(str(output), str(dir_a), str(dir_b))
-        assert result.returncode == 0
-        assert output.exists()
-
-        merged = json.loads(output.read_text())
-        assert merged["test_count"] == 1
+        assert result.returncode == 1
+        assert "fixtures__missing" in result.stderr
+        assert not output.exists()
 
     def test_no_args_fails(self):
         """Verify error when no arguments provided."""
