@@ -39,24 +39,48 @@ def gas_used_cases(fork: Fork) -> List[ParameterSet]:
         pytest.param(gas_target, id="at_target"),
         pytest.param(gas_target + 1, id="target_plus_one"),
         pytest.param(BLOCK_GAS_LIMIT, id="full"),
-        # At 20 wei these differ from a single division by the combined
-        # denominator, which flooring once more would round up.
+        # At the first larger rise after a full block (20 wei at 5/48) these
+        # differ from a single division by the combined denominator, which
+        # flooring once more would round up.
         pytest.param(100_000, id="near_empty"),
         pytest.param(BLOCK_GAS_LIMIT - 100_000, id="near_full"),
     ]
 
 
-BASE_FEE_CASES = [
-    # At or below 9 wei an empty block no longer lowers the base fee.
-    pytest.param(7, id="base_fee_7"),
-    pytest.param(9, id="base_fee_9"),
-    pytest.param(10, id="base_fee_10"),
-    # Up to 19 wei a full block raises the base fee by exactly one wei.
-    pytest.param(19, id="base_fee_19"),
-    pytest.param(20, id="base_fee_20"),
-    pytest.param(10**9, id="base_fee_1_gwei"),
-    pytest.param(10**9 + 7, id="base_fee_1_gwei_plus_7"),
-]
+def base_fee_cases(fork: Fork) -> List[ParameterSet]:
+    """Return parent base fees on both sides of the fork's rounding edges."""
+    numerator = fork.base_fee_max_change_numerator()
+    denominator = fork.base_fee_max_change_denominator()
+    full_block_numerator = numerator * (
+        fork.base_fee_elasticity_multiplier() - 1
+    )
+    # An empty block lowers the base fee by
+    # `base_fee * numerator // denominator`, which is zero up to here.
+    last_unchanged_by_empty_block = (denominator - 1) // numerator
+    # A full block raises it by
+    # `max(base_fee * full_block_numerator // denominator, 1)`, which is one
+    # wei up to here.
+    last_one_wei_rise = (2 * denominator - 1) // full_block_numerator
+    return [
+        # The framework's default genesis base fee.
+        pytest.param(7, id="base_fee_7"),
+        pytest.param(
+            last_unchanged_by_empty_block,
+            id="last_unchanged_by_empty_block",
+        ),
+        pytest.param(
+            last_unchanged_by_empty_block + 1,
+            id="first_lowered_by_empty_block",
+        ),
+        pytest.param(
+            last_one_wei_rise, id="last_one_wei_rise_after_full_block"
+        ),
+        pytest.param(
+            last_one_wei_rise + 1, id="first_larger_rise_after_full_block"
+        ),
+        pytest.param(10**9, id="base_fee_1_gwei"),
+        pytest.param(10**9 + 7, id="base_fee_1_gwei_plus_7"),
+    ]
 
 
 def genesis_base_fee_for(fork: Fork, base_fee_per_gas: int) -> int:
@@ -82,7 +106,7 @@ def genesis_base_fee_for(fork: Fork, base_fee_per_gas: int) -> int:
 
 
 @pytest.mark.parametrize_by_fork("parent_gas_used", gas_used_cases)
-@pytest.mark.parametrize("parent_base_fee_per_gas", BASE_FEE_CASES)
+@pytest.mark.parametrize_by_fork("parent_base_fee_per_gas", base_fee_cases)
 def test_base_fee_update(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
