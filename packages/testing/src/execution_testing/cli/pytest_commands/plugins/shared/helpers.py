@@ -65,7 +65,8 @@ def get_spec_format_for_item(
     params: Dict[str, Any],
 ) -> Tuple[Type[BaseTest], Any]:
     """Return the spec type and execute format for the given test item."""
-    for spec_type in BaseTest.spec_types.values():
-        if spec_type.pytest_parameter_name() in params:
-            return spec_type, params[spec_type.pytest_parameter_name()]
+    # Spec types are registered under their pytest parameter name.
+    for parameter_name, spec_type in BaseTest.spec_types.items():
+        if parameter_name in params:
+            return spec_type, params[parameter_name]
     raise ValueError("No spec type format found in the test item.")
