@@ -225,6 +225,8 @@ class ValidationAccessTrace:
     candidate: FrameCandidate
     code_sizes: Dict[Hash32, int] = field(default_factory=dict)
     recent_root_slots: Set[Bytes32] = field(default_factory=set)
+    started: Dict[int, Evm] = field(default_factory=dict)
+    """Message frames already counted, held so their identities stay unique."""
 
     def load_code(self, code: Bytes) -> None:
         """
@@ -256,7 +258,10 @@ class ValidationAccessTrace:
         """
         Check the attempted operation before it can read or modify state.
         """
-        if evm.pc == 0:
+        if evm.pc == 0 and id(evm) not in self.started:
+            # Execution starts in this frame's code; a jump back to offset
+            # zero is not a new start and must not rehash the body.
+            self.started[id(evm)] = evm
             self.load_code(evm.code)
         try:
             op = Ops(opcode)

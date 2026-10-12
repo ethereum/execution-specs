@@ -20,7 +20,7 @@ from execution_testing.forks import Bogota
 
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock
-from ethereum.forks.bogota import fork
+from ethereum.forks.bogota import fork, inclusion_list_frames
 from ethereum.forks.bogota.block_access_lists import (
     BlockAccessListBuilder,
     hash_block_access_list,
@@ -546,6 +546,38 @@ def test_replay_code_limits_are_enforced(
     inputs = inclusion_inputs((frame_envelope(execution=200_000),))
     snapshots = {Uint(0): capture_inclusion_list_state(env, BlockOutput())}
     assert check_inclusion_list(env, (), inputs, snapshots) == (not fits)
+
+
+def test_loop_to_offset_zero_hashes_its_body_once(
+    replay_environment: BlockEnvironment, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Count a body where execution starts in it, not on every jump back."""
+    env = replay_environment
+    state = env.state.pre_state
+    assert isinstance(state, State)
+    sender_code = Bytes(Op.JUMPDEST + Op.JUMP(0)) + b"\x00" * 2**15
+    set_account(
+        state,
+        Address((0x1000).to_bytes(20, "big")),
+        Account(
+            nonce=Uint(1),
+            balance=U256(10**18),
+            code_hash=store_code(state, sender_code),
+        ),
+    )
+    hashed: list[int] = []
+
+    def counting_keccak(data: bytes) -> Bytes32:
+        if len(data) == len(sender_code):
+            hashed.append(len(data))
+        return keccak256(data)
+
+    monkeypatch.setattr(inclusion_list_frames, "keccak256", counting_keccak)
+    inputs = inclusion_inputs((frame_envelope(execution=200_000),))
+    snapshots = {Uint(0): capture_inclusion_list_state(env, BlockOutput())}
+    # The loop runs out of gas, so the omission is excused.
+    assert check_inclusion_list(env, (), inputs, snapshots)
+    assert len(hashed) == 1
 
 
 def test_missing_code_is_not_an_omission_excuse(
