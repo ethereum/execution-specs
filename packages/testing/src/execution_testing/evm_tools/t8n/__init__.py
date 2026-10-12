@@ -203,7 +203,12 @@ class T8N(Load):
         )
 
         if tracers is not None:
-            trace.set_evm_trace(tracers)
+            if len(tracers.tracers) == 1:
+                # A group of one would add a call to every trace event.
+                (tracer,) = tracers.tracers
+                trace.set_evm_trace(tracer)
+            else:
+                trace.set_evm_trace(tracers)
         self.tracers = tracers
 
         self.logger = get_stream_logger("T8N")
