@@ -771,6 +771,7 @@ class BuiltBlock(CamelModel):
             inclusion_list_satisfied=(
                 self.inclusion_list_satisfied
                 if self.expected_exception is None
+                and self.engine_api_error_code is None
                 else None
             ),
             execution_payload_modifier=self.engine_payload_modifier(),
@@ -972,6 +973,8 @@ BLOCKCHAIN_ENGINE_IL_FIXTURE_FORMATS: List[
         transition_tool_cache_key_suffix="inclusion_list",
     )
     for f in BLOCKCHAIN_ENGINE_FIXTURE_FORMATS
+    # Only the engine simulators check `inclusionListSatisfied`.
+    if f in (BlockchainEngineFixture, BlockchainEngineXFixture)
 ]
 
 
@@ -1085,6 +1088,30 @@ class BlockchainTest(BaseTest):
                         "transaction allowed to produce an exception is the "
                         "last transaction of the last block, but block "
                         f"{i} contains an invalid transaction elsewhere"
+                    )
+            # The inclusion-list variant moves that last transaction into the
+            # list and expects the block it leaves behind to be valid.
+            if not self.blocks or not self.blocks[-1].txs:
+                raise Exception(
+                    "test correctness: an inclusion test needs a transaction "
+                    "at the end of its last block to move into the inclusion "
+                    "list"
+                )
+            last_block_exception = self.blocks[-1].exception
+            if last_block_exception:
+                exceptions = (
+                    last_block_exception
+                    if isinstance(last_block_exception, list)
+                    else [last_block_exception]
+                )
+                if not any(
+                    isinstance(exception, TransactionException)
+                    for exception in exceptions
+                ):
+                    raise Exception(
+                        "test correctness: in an inclusion test the last "
+                        "block can only be invalid because of its last "
+                        "transaction, but it declares only block exceptions"
                     )
         if self.invalid_tx_not_last and not any(
             tx.error is not None
