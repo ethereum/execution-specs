@@ -391,6 +391,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     _engine_forkchoice_updated_version_bump: ClassVar[bool] = False
     _engine_get_payload_version_bump: ClassVar[bool] = False
     _engine_get_blobs_version_bump: ClassVar[bool] = False
+    _engine_get_inclusion_list_version_bump: ClassVar[bool] = False
 
     def __init_subclass__(
         cls,
@@ -406,6 +407,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         engine_forkchoice_updated_version_bump: Optional[bool] = None,
         engine_get_payload_version_bump: Optional[bool] = None,
         engine_get_blobs_version_bump: Optional[bool] = None,
+        engine_get_inclusion_list_version_bump: Optional[bool] = None,
     ) -> None:
         """
         Initialize new fork with values that don't carry over to subclass
@@ -478,6 +480,16 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         else:
             cls._engine_get_blobs_version_bump = any(
                 eip_base._engine_get_blobs_version_bump
+                for eip_base in eip_bases
+            )
+
+        if engine_get_inclusion_list_version_bump is not None:
+            cls._engine_get_inclusion_list_version_bump = (
+                engine_get_inclusion_list_version_bump
+            )
+        else:
+            cls._engine_get_inclusion_list_version_bump = any(
+                eip_base._engine_get_inclusion_list_version_bump
                 for eip_base in eip_bases
             )
 
@@ -1323,6 +1335,20 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         current_cls: Type["BaseFork"] | None = cls
         while current_cls is not None:
             if current_cls._engine_get_blobs_version_bump:
+                current_version += 1
+            current_cls = current_cls.parent()
+        return current_version if current_version > 0 else None
+
+    @classmethod
+    def engine_get_inclusion_list_version(cls) -> Optional[int]:
+        """
+        Return the `engine_getInclusionList` method version, or `None` if the
+        fork has no inclusion lists.
+        """
+        current_version = 0
+        current_cls: Type["BaseFork"] | None = cls
+        while current_cls is not None:
+            if current_cls._engine_get_inclusion_list_version_bump:
                 current_version += 1
             current_cls = current_cls.parent()
         return current_version if current_version > 0 else None
