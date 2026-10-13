@@ -290,7 +290,7 @@ def test_storage_refund_settlement(
         data_length -= 1
     tx, gas_used_before_refund, calldata_floor = build(data_length)
     # The premise of the test: the refund applies uncapped.
-    assert 0 < refund <= gas_used_before_refund // 5
+    assert 0 < refund <= gas_used_before_refund // fork.max_refund_quotient()
     gas_used_after_refund = gas_used_before_refund - refund
 
     payer_gas_used = max(gas_used_after_refund, calldata_floor)
