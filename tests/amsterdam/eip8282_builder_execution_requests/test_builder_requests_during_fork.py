@@ -66,7 +66,7 @@ def test_builder_requests_during_fork(
     before, on and after the fork block. The pre-fork deposit waits in the
     queue until the fork block's system call returns it; exits revert until
     that call clears the inhibitor the exit constructor seeded (see
-    `Spec.EXCESS_INHIBITOR`).
+    `Spec.INHIBITOR`).
     """
     deposit_predeploy = BuilderDepositRequest.system_contract_address
     exit_predeploy = BuilderExitRequest.system_contract_address

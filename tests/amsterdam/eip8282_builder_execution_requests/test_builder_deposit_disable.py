@@ -3,7 +3,7 @@ Disable-switch tests for
 [EIP-8282: Builder Execution Requests](https://eips.ethereum.org/EIPS/eip-8282).
 
 The builder deposit predeploy carries a reversible kill switch: while
-`EXCESS_INHIBITOR` sits in the excess slot, deposits revert, and the next
+`INHIBITOR` sits in the excess slot, deposits revert, and the next
 end-of-block system call clears the slot and re-enables the queue (the system
 call sets the inhibitor only when it carries input, which the protocol never
 sends, so absent a fork that appends calldata the disabled state always lasts
@@ -45,7 +45,7 @@ def inhibited_pre(pre: Alloc, fork: Fork) -> Alloc:
     pre[BuilderDepositRequest.system_contract_address] = Account(
         nonce=predeploy.nonce,
         code=predeploy.code,
-        storage={BuilderDepositRequest.excess_slot: Spec.EXCESS_INHIBITOR},
+        storage={BuilderDepositRequest.excess_slot: Spec.INHIBITOR},
     )
     return pre
 
