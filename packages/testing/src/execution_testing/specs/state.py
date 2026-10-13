@@ -57,6 +57,7 @@ from execution_testing.test_types import (
     PostStateContext,
     Transaction,
 )
+from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 
 from .base import BaseTest, FillResult, OpMode
 from .blockchain import Block, BlockchainTest, Header
@@ -85,7 +86,10 @@ class StateTest(BaseTest):
     blockchain_test_header_verify: Optional[Header] = None
     blockchain_test_rlp_modifier: Optional[Header] = None
     expected_block_access_list: Optional[BlockAccessListExpectation] = None
-    chain_id: int = 1
+    chain_id: int = Field(
+        default_factory=lambda: ChainConfigDefaults.chain_id,
+        validate_default=True,
+    )
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]

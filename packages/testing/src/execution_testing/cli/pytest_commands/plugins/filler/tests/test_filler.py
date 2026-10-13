@@ -979,6 +979,72 @@ def test_fill_variables(
         assert properties["build"] == build_name
 
 
+test_module_chain_id = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import Account, Environment, Op, Transaction
+
+    @pytest.mark.valid_at("Cancun")
+    def test_chain_id(state_test, pre, chain_config) -> None:
+        contract = pre.deploy_contract(Op.SSTORE(1, Op.CHAINID) + Op.STOP)
+        tx = Transaction(to=contract, gas_limit=100_000, sender=pre.fund_eoa())
+        state_test(
+            env=Environment(),
+            pre=pre,
+            post={contract: Account(storage={1: chain_config.chain_id})},
+            tx=tx,
+        )
+    """
+)
+
+
+@pytest.mark.parametrize(
+    "args, expected_chain_id",
+    [
+        pytest.param([], 1, id="default-chain-id"),
+        pytest.param(["--chain-id", "2"], 2, id="chain-id-2"),
+    ],
+)
+def test_fill_chain_id_reaches_state_test_fixtures(
+    testdir: pytest.Testdir,
+    args: list[str],
+    expected_chain_id: int,
+) -> None:
+    """
+    Test that `--chain-id` reaches both the transition tool and the fixture.
+
+    The filled test stores `CHAINID`, so the post state only holds if t8n ran
+    the configured chain; the fixture value on its own is written by the
+    framework and would pass even if execution disagreed. A spec that does not
+    follow the option fails the fill with `WrongChainIdError` instead.
+    """
+    tests_dir = testdir.mkdir("tests")
+    cancun_tests_dir = tests_dir.mkdir("cancun")
+    cancun_tests_dir.join("test_module_chain_id.py").write(
+        test_module_chain_id
+    )
+
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    result = testdir.runpytest(
+        *args, "-c", "pytest-fill.ini", "-m", "state_test", "--no-html"
+    )
+    result.assert_outcomes(passed=1, failed=0, skipped=0, errors=0)
+
+    state_tests_dir = (
+        Path(default_output_directory()).absolute() / "state_tests"
+    )
+    fixture_files = list(state_tests_dir.rglob("*.json"))
+    assert len(fixture_files) == 1, (
+        f"Expected one fixture, got {fixture_files}"
+    )
+
+    (fixture,) = json.loads(fixture_files[0].read_text()).values()
+    assert int(fixture["config"]["chainid"], 16) == expected_chain_id
+
+
 test_module_benchmark = textwrap.dedent(
     """\
     from execution_testing import Account, Environment, TestAddress, Transaction
