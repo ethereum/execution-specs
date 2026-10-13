@@ -123,7 +123,7 @@ def test_calldata_floor_with_state_gas(
     )
     worker_code = (write if with_state_write else Bytecode()) + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
-    state_used = write.state_cost(fork) if with_state_write else 0
+    state_used = worker_code.state_cost(fork)
     # Every frame budget is exactly what its execution uses, so the
     # execution dimension is known to the byte.
     entry_gas = fork.frame_entry_gas_calculator()
