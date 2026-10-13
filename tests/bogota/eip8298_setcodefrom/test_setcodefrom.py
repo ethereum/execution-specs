@@ -589,6 +589,10 @@ def test_system_contract_source(
         pytest.param(
             "ef_prefixed_non_designator", marks=pytest.mark.pre_alloc_mutable
         ),
+        pytest.param("mainnet_ef", marks=pytest.mark.pre_alloc_mutable),
+        pytest.param(
+            "mainnet_ef_f09f918bf09f9fa9", marks=pytest.mark.pre_alloc_mutable
+        ),
     ],
 )
 def test_invalid_source(
@@ -613,6 +617,15 @@ def test_invalid_source(
         bal[template] = None  # the delegation target is never accessed
     elif source_kind == "ef_prefixed_non_designator":
         source = pre.deploy_contract(Bytes("0xef00") + bytes(40))
+    elif source_kind == "mainnet_ef":
+        # Code of 0xca7bf67ab492b49806e24b6e2e4ec105183caa01 and
+        # 0x897da0f23ccc5e939ec7a53032c5e80fd1a947ec, deployed before
+        # EIP-3541.
+        source = pre.deploy_contract(Bytes("0xef"))
+    elif source_kind == "mainnet_ef_f09f918bf09f9fa9":
+        # Code of 0x6e51d4d9be52b623a3d3a2fa8d3c5e3e01175cd0, deployed
+        # before EIP-3541.
+        source = pre.deploy_contract(Bytes("0xeff09f918bf09f9fa9"))
     else:
         raise ValueError(f"Unknown source_kind: {source_kind}")
     bal[source] = BalAccountExpectation.empty()
