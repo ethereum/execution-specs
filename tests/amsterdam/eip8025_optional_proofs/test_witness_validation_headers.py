@@ -16,9 +16,11 @@ from execution_testing import (
 from execution_testing.test_types.execution_witness import ExecutionWitness
 from execution_testing.test_types.execution_witness.modifiers import (
     clear_headers,
+    duplicate_header_at,
     remove_header_at,
     replace_header_at,
     reverse_headers,
+    swap_headers_at,
 )
 
 from .spec import ref_spec_8025
@@ -27,13 +29,6 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8025.version
-
-
-def prepend_copy_of_parent(witness: ExecutionWitness) -> ExecutionWitness:
-    """Prepend a copy of the parent header, which links to no header."""
-    return witness.model_copy(
-        update={"headers": [witness.headers[-1], *witness.headers]}
-    )
 
 
 @pytest.mark.parametrize(
@@ -46,12 +41,11 @@ def prepend_copy_of_parent(witness: ExecutionWitness) -> ExecutionWitness:
             id="missing_oldest_blockhash_ancestor",
         ),
         pytest.param(5, reverse_headers(), id="non_contiguous_chain"),
-        pytest.param(5, remove_header_at(2), id="gap_in_chain"),
-        pytest.param(
-            5,
-            prepend_copy_of_parent,
-            id="unlinked_header_prepended",
-        ),
+        pytest.param(5, remove_header_at(2), id="missing_middle_header"),
+        # Both keep the oldest header in its slot, so BLOCKHASH still finds
+        # it whether the guest looks it up by position or by number.
+        pytest.param(5, swap_headers_at(1, 2), id="swapped_middle_headers"),
+        pytest.param(5, duplicate_header_at(0), id="duplicated_oldest_header"),
         pytest.param(
             5,
             replace_header_at(-1, Bytes(b"\xff")),
@@ -66,7 +60,8 @@ def test_validation_headers_invalid_ancestor_chain(
     modifier: Callable[[ExecutionWitness], ExecutionWitness],
 ) -> None:
     """
-    Removing, reordering or corrupting a required header should fail.
+    Reject witness headers that are missing, out of order, unlinked or
+    malformed.
     """
     contract = pre.deploy_contract(
         code=Op.BLOCKHASH(Op.SUB(Op.NUMBER, offset)) + Op.POP + Op.STOP

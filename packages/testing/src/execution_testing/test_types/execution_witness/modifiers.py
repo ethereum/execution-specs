@@ -157,6 +157,27 @@ def remove_header_at(
     return transform
 
 
+def duplicate_header_at(
+    index: int,
+) -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Insert a copy of the header at `index` right after it."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        new_headers = list(witness.headers)
+        try:
+            header = new_headers[index]
+        except IndexError as exc:
+            raise IndexError(
+                f"Header index {index} out of range for witness headers"
+            ) from exc
+        new_headers.insert(index % len(new_headers) + 1, header)
+        return witness.model_copy(update={"headers": new_headers})
+
+    return transform
+
+
 def prepend_header(
     header: Bytes,
 ) -> Callable[[ExecutionWitness], ExecutionWitness]:
@@ -181,6 +202,31 @@ def reverse_headers() -> Callable[[ExecutionWitness], ExecutionWitness]:
         return witness.model_copy(
             update={"headers": list(reversed(witness.headers))}
         )
+
+    return transform
+
+
+def swap_headers_at(
+    first: int,
+    second: int,
+) -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Swap the header entries at `first` and `second`."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        new_headers = list(witness.headers)
+        try:
+            new_headers[first], new_headers[second] = (
+                new_headers[second],
+                new_headers[first],
+            )
+        except IndexError as exc:
+            raise IndexError(
+                f"Header index {first} or {second} out of range for witness "
+                "headers"
+            ) from exc
+        return witness.model_copy(update={"headers": new_headers})
 
     return transform
 
@@ -217,6 +263,8 @@ __all__ = [
     "reverse_state_nodes",
     "prepend_header",
     "remove_header_at",
+    "duplicate_header_at",
     "reverse_headers",
+    "swap_headers_at",
     "replace_header_at",
 ]
