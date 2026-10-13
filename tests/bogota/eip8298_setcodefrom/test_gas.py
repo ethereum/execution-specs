@@ -351,12 +351,14 @@ def test_warmth_reverts_with_frame(
     )
 
 
+@pytest.mark.parametrize("value", [0, 1], ids=["no_value", "value"])
 @pytest.mark.parametrize("delta", [-1, 0, 1], ids=["oog", "exact", "extra"])
 def test_initcode_adoption_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     delta: int,
+    value: int,
 ) -> None:
     """
     Verify an adopting creation pays account creation and the `RETURN`
@@ -368,17 +370,24 @@ def test_initcode_adoption_gas(
             template, address_warm=False, source_valid=True, code_changed=True
         )
     ) + Op.RETURN(0, 32, new_memory_size=32)
+    sends_value = value > 0
     gas_used = (
         fork.transaction_intrinsic_cost_calculator()(
             calldata=initcode,
             contract_creation=True,
+            sends_value=sends_value,
             return_cost_deducted_prior_execution=True,
         )
-        + fork.transaction_top_frame_state_gas(contract_creation=True)
+        + fork.transaction_top_frame_execution_gas(
+            contract_creation=True, sends_value=sends_value
+        )
+        + fork.transaction_top_frame_state_gas(
+            contract_creation=True, sends_value=sends_value
+        )
         + initcode.gas_cost(fork)
     )
     floor = fork.transaction_data_floor_cost_calculator()(
-        data=initcode, contract_creation=True
+        data=initcode, contract_creation=True, sends_value=sends_value
     )
     assert floor < gas_used, "the calldata floor must not bind"
     created = delta >= 0
@@ -386,6 +395,7 @@ def test_initcode_adoption_gas(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=None,
+        value=value,
         data=initcode,
         gas_limit=gas_limit,
         state_gas_reservoir=0,
@@ -399,7 +409,7 @@ def test_initcode_adoption_gas(
         pre=pre,
         post={
             tx.created_contract: (
-                Account(code=SSTORE_MARKER_A, nonce=1)
+                Account(code=SSTORE_MARKER_A, nonce=1, balance=value)
                 if created
                 else Account.NONEXISTENT
             )
