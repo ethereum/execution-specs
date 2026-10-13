@@ -307,6 +307,24 @@ class T8N(Load):
         raw.setdefault("type", "0x" + format(int(tx.ty), "02x"))
         return TransactionLoad(raw, self.fork).read()
 
+    def _encode_representable(
+        self, txs: Sequence["TestingTransaction"]
+    ) -> tuple[Any, ...]:
+        """
+        Encode the transactions the fork can represent.
+
+        Skip those ``convert_transaction`` rejects as malformed: no valid
+        block carries them and the fork cannot decode them from a list.
+        """
+        encoded = []
+        for tx in txs:
+            try:
+                fork_tx = self.convert_transaction(tx)
+            except UnsupportedTxError:
+                continue
+            encoded.append(self.fork.encode_transaction(fork_tx))
+        return tuple(encoded)
+
     def pay_block_rewards(self, block_reward: U256, block_env: Any) -> None:
         """Apply the block rewards to the block coinbase."""
         ommer_count = U256(len(self.ommers))
@@ -422,18 +440,8 @@ class T8N(Load):
                 self.fork.check_inclusion_list_transactions(
                     block_env,
                     block_output,
-                    tuple(
-                        self.fork.encode_transaction(
-                            self.convert_transaction(tx)
-                        )
-                        for tx in self.txs
-                    ),
-                    tuple(
-                        self.fork.encode_transaction(
-                            self.convert_transaction(tx)
-                        )
-                        for tx in self.inclusion_list_txs
-                    ),
+                    self._encode_representable(self.txs),
+                    self._encode_representable(self.inclusion_list_txs),
                 )
             )
 
