@@ -32,21 +32,22 @@ REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
 @pytest.mark.parametrize(
-    "extcode_opcode,removed_code",
+    "extcode_opcode",
     [
-        pytest.param("extcodesize", "caller", id="current_frame_code"),
-        pytest.param("extcodecopy", "target", id="external_code_read_target"),
+        pytest.param("extcodesize", id="external_code_size_target"),
+        pytest.param("extcodecopy", id="external_code_read_target"),
     ],
 )
 def test_validation_codes_missing_read_code(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     extcode_opcode: str,
-    removed_code: str,
 ) -> None:
     """
-    Removing the executing contract's code, or code it reads externally,
-    should fail guest execution.
+    Reject a witness that lacks code read by EXTCODESIZE or EXTCODECOPY.
+
+    Neither opcode's cost depends on the code it reads, and the caller
+    discards the result, so only the witness check can reject the block.
     """
     target_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
     target = pre.deploy_contract(code=target_code)
@@ -62,7 +63,6 @@ def test_validation_codes_missing_read_code(
 
     sender = pre.fund_eoa()
     tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
-    codes = {"caller": Bytes(caller_code), "target": Bytes(target_code)}
 
     blockchain_test(
         pre=pre,
@@ -71,8 +71,41 @@ def test_validation_codes_missing_read_code(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=list(codes.values()),
-                    ).modify(remove_code(codes[removed_code]))
+                        codes_present=[Bytes(caller_code), Bytes(target_code)],
+                    ).modify(remove_code(Bytes(target_code)))
+                ),
+                expected_stateless_validation_success=False,
+            )
+        ],
+        post={sender: Account(nonce=1)},
+    )
+
+
+def test_validation_codes_missing_stop_tx_target_code(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Reject a witness that lacks the code of the transaction's target,
+    even if that code is a single STOP.
+
+    Running empty code in place of a lone STOP uses the same gas and
+    leaves the same state, so only the witness check can reject the block.
+    """
+    target_code = Op.STOP
+    target = pre.deploy_contract(code=target_code)
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, to=target, gas_limit=500_000)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_execution_witness_codes=(
+                    ExecutionWitnessCodesExpectation(
+                        codes_present=[Bytes(target_code)],
+                    ).modify(remove_code(Bytes(target_code)))
                 ),
                 expected_stateless_validation_success=False,
             )
