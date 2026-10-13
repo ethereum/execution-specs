@@ -63,8 +63,6 @@ VALID_MODULE = textwrap.dedent(
     from execution_testing import Block, Transaction
 
 
-    # Two tests of one pre-allocation group: a client reused across
-    # them must not already know either announced sync block.
     @pytest.mark.parametrize("value", [1, 2])
     def test_single_block(blockchain_test, pre, value) -> None:
         tx = Transaction(
@@ -74,6 +72,15 @@ VALID_MODULE = textwrap.dedent(
             sender=pre.fund_eoa(),
         )
         blockchain_test(pre=pre, post={}, blocks=[Block(txs=[tx])])
+
+
+    # Two tests of one pre-allocation group whose authored payloads are
+    # byte-identical: only the salt keeps their appended blocks apart,
+    # and a client reused across the group only starts a sync for a
+    # head it has never seen.
+    @pytest.mark.parametrize("copy", [1, 2])
+    def test_identical_chains(blockchain_test, pre, copy) -> None:
+        blockchain_test(pre=pre, post={}, blocks=[Block()])
 
 
     # A state test: the sync block fields live on ``BaseTest`` exactly
@@ -116,7 +123,8 @@ INVALID_MODULE = textwrap.dedent(
     def test_invalid_underivable_head(blockchain_test, pre) -> None:
         # The pinned blob fields sum to 2**64, overflowing the next
         # block's excess-blob-gas derivation, so no sync block can be
-        # built (or derived by a client) above this head.
+        # built (or derived by a client) above this head. The excess
+        # alone is small enough to price.
         tx = Transaction(
             to=0, value=1, gas_limit=21_000, sender=pre.fund_eoa()
         )
@@ -127,8 +135,8 @@ INVALID_MODULE = textwrap.dedent(
                 Block(
                     txs=[tx],
                     rlp_modifier=Header(
-                        excess_blob_gas=2**64 - 1,
-                        blob_gas_used=1,
+                        excess_blob_gas=1,
+                        blob_gas_used=2**64 - 1,
                     ),
                     exception=[
                         BlockException.INCORRECT_EXCESS_BLOB_GAS,
@@ -167,6 +175,24 @@ INVALID_MODULE = textwrap.dedent(
                     txs=[invalid_tx(pre)],
                     exception=TransactionException.INTRINSIC_GAS_TOO_LOW,
                 ),
+            ],
+        )
+
+
+    @pytest.mark.exception_test
+    def test_identical_invalid_siblings(blockchain_test, pre) -> None:
+        # Both rejected blocks are built on genesis from one transaction,
+        # so they are one block, and one sync target covers both.
+        tx = invalid_tx(pre)
+        blockchain_test(
+            pre=pre,
+            post={},
+            blocks=[
+                Block(
+                    txs=[tx],
+                    exception=TransactionException.INTRINSIC_GAS_TOO_LOW,
+                )
+                for _ in range(2)
             ],
         )
 
@@ -290,6 +316,31 @@ CEILING_MODULE = textwrap.dedent(
     """
 )
 
+XDIST_MODULE = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import Block, Transaction
+
+
+    def single_block_test(blockchain_test, pre, value):
+        tx = Transaction(
+            to=0, value=value, gas_limit=21_000, sender=pre.fund_eoa()
+        )
+        blockchain_test(pre=pre, post={}, blocks=[Block(txs=[tx])])
+
+
+    @pytest.mark.parametrize("value", [1, 2])
+    def test_grouped_by_the_fill(blockchain_test, pre, value) -> None:
+        single_block_test(blockchain_test, pre, value)
+
+
+    @pytest.mark.xdist_group(name="bigmem")
+    def test_grouped_by_the_author(blockchain_test, pre) -> None:
+        single_block_test(blockchain_test, pre, 3)
+    """
+)
+
 # Fixture directory to the format name that appears in a test id.
 FORMATS = {
     "blockchain_tests": "blockchain_test",
@@ -318,6 +369,7 @@ def fill(
     *args: str,
     output_name: str = "fixtures",
     all_formats: bool = False,
+    subprocess: bool = False,
 ) -> Path:
     """
     Fill the module into a fresh output directory and return it.
@@ -325,7 +377,8 @@ def fill(
     An engine_x fill is two pytest sessions - the `fill` CLI runs phase
     1 (pre-allocation grouping) and phase 2 (fixture filling) back to
     back - so both are run here the same way. Without ``all_formats``
-    phase 2 emits only the engine_x format.
+    phase 2 emits only the engine_x format. ``subprocess`` runs each
+    session in its own process, which an xdist fill needs.
     """
     output = pytester.path / output_name
     common = (
@@ -340,9 +393,10 @@ def fill(
         *args,
         str(test_module.relative_to(pytester.path)),
     )
-    result = pytester.runpytest("--generate-pre-alloc-groups", *common)
+    run = pytester.runpytest_subprocess if subprocess else pytester.runpytest
+    result = run("--generate-pre-alloc-groups", *common)
     assert result.ret == 0, "fill phase 1 was expected to succeed"
-    result = pytester.runpytest("--use-pre-alloc-groups", *common)
+    result = run("--use-pre-alloc-groups", *common)
     assert result.ret == 0, "fill phase 2 was expected to succeed"
     return output
 
@@ -453,9 +507,21 @@ def test_valid_chains_carry_the_appended_block(
         fixture["syncPayloads"][0]["params"][0]["feeRecipient"]
         for fixture in engine_x.values()
     }
-    assert len(salts) == 3, (
-        "each test's appended block must be unique to it, even across "
-        "the byte-identical chains of one pre-allocation group"
+    assert len(salts) == 5, "each test's appended block is salted by its id"
+
+    identical = [
+        fixture
+        for test_id, fixture in engine_x.items()
+        if "test_identical_chains" in test_id
+    ]
+    assert len(identical) == 2
+    authored, appended = (
+        {fixture[field][0]["params"][0]["blockHash"] for fixture in identical}
+        for field in ("engineNewPayloads", "syncPayloads")
+    )
+    assert len(authored) == 1, "the two tests author the same block"
+    assert len(appended) == 2, (
+        "the salt must keep the appended blocks of byte-identical chains apart"
     )
 
 
@@ -518,6 +584,18 @@ def test_invalid_chains_carry_the_appended_block(
         invalid["params"][0]["parentHash"] == valid["params"][0]["parentHash"]
     ), "the rejected and accepted authored payloads are siblings"
     assert siblings["lastblockhash"] == valid["params"][0]["blockHash"]
+
+    duplicates = next(
+        fixture
+        for test_id, fixture in engine_x.items()
+        if "test_identical_invalid_siblings" in test_id
+    )
+    first, second = duplicates["engineNewPayloads"]
+    assert first == second, "both rejected payloads are the same block"
+    assert len(duplicates["syncPayloads"]) == 1, (
+        "a leaf authored twice gets one sync target"
+    )
+    assert_sync_payloads_above(duplicates, blocks=2, leaf_indices=[0])
 
     underivable = next(
         fixture
@@ -595,29 +673,78 @@ def test_no_sync_block_restores_the_plain_fill(
 ) -> None:
     """
     ``--no-sync-block`` removes the appended block and nothing else:
-    the authored fields are byte-identical to a default fill's. The
-    ``syncPayloads`` field and fixture metadata derived from the complete
-    serialized fixture are expected to differ.
+    the formats without sync payloads are byte-identical to a default
+    fill's, and engine_x differs only by ``syncPayloads`` and the
+    ``_info`` derived from the complete serialized fixture.
     """
     test_module = make_test_module(
         pytester, VALID_MODULE, "test_single_block.py"
     )
-    default = fill(pytester, test_module, output_name="fixtures-default")
+    default = fill(
+        pytester,
+        test_module,
+        output_name="fixtures-default",
+        all_formats=True,
+    )
     without = fill(
         pytester,
         test_module,
         "--no-sync-block",
         output_name="fixtures-without",
+        all_formats=True,
     )
+
+    for format_dir in ("blockchain_tests", "blockchain_tests_engine"):
+        assert fixtures_of_format(default, format_dir) == fixtures_of_format(
+            without, format_dir
+        ), f"{format_dir} must not depend on the sync block"
 
     default_fixtures = fixtures_of_format(default, "blockchain_tests_engine_x")
     without_fixtures = fixtures_of_format(without, "blockchain_tests_engine_x")
     assert default_fixtures.keys() == without_fixtures.keys()
     for test_id, fixture in default_fixtures.items():
         assert_sync_payloads_above(fixture, blocks=1, leaf_indices=[0])
-        stripped = {k: v for k, v in fixture.items() if k != "syncPayloads"}
         other = without_fixtures[test_id]
         assert "syncPayloads" not in other
         assert {k: v for k, v in other.items() if k != "_info"} == {
-            k: v for k, v in stripped.items() if k != "_info"
+            k: v
+            for k, v in fixture.items()
+            if k not in ("_info", "syncPayloads")
         }, "the appended block must not change the author's own fixture"
+
+
+@pytest.mark.slow
+def test_xdist_fill_matches_the_serial_fill(
+    pytester: pytest.Pytester, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    An engine_x fill under ``--dist=loadgroup`` emits the same fixtures
+    as a serial fill. Xdist appends each test's group to its node id,
+    including a group the author set; neither the fixture ids nor the
+    sync block's salt may carry it.
+    """
+    test_module = make_test_module(pytester, XDIST_MODULE, "test_xdist.py")
+    serial = fill(pytester, test_module, output_name="fixtures-serial")
+    distributed = fill(
+        pytester,
+        test_module,
+        "-n",
+        "2",
+        output_name="fixtures-xdist",
+        subprocess=True,
+    )
+    capsys.readouterr()
+
+    def without_info(output: Path) -> Dict[str, Dict[str, Any]]:
+        return {
+            test_id: {k: v for k, v in fixture.items() if k != "_info"}
+            for test_id, fixture in fixtures_of_format(
+                output, "blockchain_tests_engine_x"
+            ).items()
+        }
+
+    serial_fixtures = without_info(serial)
+    distributed_fixtures = without_info(distributed)
+    assert len(serial_fixtures) == 3
+    assert not any("@" in test_id for test_id in distributed_fixtures)
+    assert distributed_fixtures == serial_fixtures
