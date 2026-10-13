@@ -48,7 +48,7 @@ class StateTest(FixtureTestItem):
         self.add_marker("evm_tools")
         self.add_marker("json_state_tests")
         eels_fork = FORKS[fork_name].short_name
-        self.fork_cache = self.session.stash[fork_cache_key]
+        self.fork_cache = self.config.stash[fork_cache_key]
 
         # Mark tests with exceptional markers
         test_patterns = exceptional_state_test_patterns(fork_name, eels_fork)
