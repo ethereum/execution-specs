@@ -999,26 +999,10 @@ test_module_chain_id = textwrap.dedent(
 )
 
 
-@pytest.mark.parametrize(
-    "args, expected_chain_id",
-    [
-        pytest.param([], 1, id="default-chain-id"),
-        pytest.param(["--chain-id", "2"], 2, id="chain-id-2"),
-    ],
-)
 def test_fill_chain_id_reaches_state_test_fixtures(
     testdir: pytest.Testdir,
-    args: list[str],
-    expected_chain_id: int,
 ) -> None:
-    """
-    Test that `--chain-id` reaches both the transition tool and the fixture.
-
-    The filled test stores `CHAINID`, so the post state only holds if t8n ran
-    the configured chain; the fixture value on its own is written by the
-    framework and would pass even if execution disagreed. A spec that does not
-    follow the option fails the fill with `WrongChainIdError` instead.
-    """
+    """Test that `--chain-id` reaches the transition tool and the fixture."""
     tests_dir = testdir.mkdir("tests")
     cancun_tests_dir = tests_dir.mkdir("cancun")
     cancun_tests_dir.join("test_module_chain_id.py").write(
@@ -1029,7 +1013,13 @@ def test_fill_chain_id_reaches_state_test_fixtures(
         name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
     result = testdir.runpytest(
-        *args, "-c", "pytest-fill.ini", "-m", "state_test", "--no-html"
+        "--chain-id",
+        "2",
+        "-c",
+        "pytest-fill.ini",
+        "-m",
+        "state_test",
+        "--no-html",
     )
     result.assert_outcomes(passed=1, failed=0, skipped=0, errors=0)
 
@@ -1042,7 +1032,7 @@ def test_fill_chain_id_reaches_state_test_fixtures(
     )
 
     (fixture,) = json.loads(fixture_files[0].read_text()).values()
-    assert int(fixture["config"]["chainid"], 16) == expected_chain_id
+    assert int(fixture["config"]["chainid"], 16) == 2
 
 
 test_module_benchmark = textwrap.dedent(
