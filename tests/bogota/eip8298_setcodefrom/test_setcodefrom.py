@@ -317,19 +317,21 @@ def test_transitive_adopt_same_tx(
 ) -> None:
     """Verify a source that adopted earlier in the tx hands over its hash."""
     template = pre.deploy_contract(SSTORE_MARKER_A)
-    shell = pre.deploy_contract(
+    first_adopter = pre.deploy_contract(ADOPT_FROM_CALLDATA)
+    second_adopter = pre.deploy_contract(
         ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
     )
-    shell_twin = pre.deploy_contract(ADOPT_FROM_CALLDATA)
     driver = pre.deploy_contract(
-        Op.POP(call_with(shell_twin, template))
-        + Op.POP(call_with(shell, shell_twin))
+        Op.POP(call_with(first_adopter, template))
+        + Op.POP(call_with(second_adopter, first_adopter))
         + Op.STOP
     )
     tx = Transaction(sender=pre.fund_eoa(), to=driver)
     post = {
-        shell_twin: Account(code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}),
-        shell: Account(code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}),
+        first_adopter: Account(code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}),
+        second_adopter: Account(
+            code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}
+        ),
     }
     state_test(pre=pre, post=post, tx=tx)
 
