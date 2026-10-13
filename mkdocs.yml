@@ -80,7 +80,6 @@ markdown_extensions:
   - def_list
   - footnotes
   - md_in_html
-  - mkdocs-click
   - toc:
       permalink: true
       toc_depth: 4
