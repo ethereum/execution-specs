@@ -14,16 +14,16 @@ state-dimension halves of those rollback scenarios are pinned in
 `test_state_gas.py`.
 """
 
-from typing import List, Tuple
+from typing import Tuple
 
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Bytecode,
     Conditional,
     Fork,
-    Frame,
     FrameReceipt,
     Header,
     Op,
@@ -98,12 +98,20 @@ def _spent_gas(fork: Fork, tx: Transaction, receipts: list) -> int:
 @pytest.mark.parametrize(
     "floor_bound", [True, False], ids=["floor", "below_floor"]
 )
+@pytest.mark.parametrize(
+    "sender_kind",
+    [
+        pytest.param("eoa", id="eoa_sender"),
+        pytest.param("contract", id="contract_sender"),
+    ],
+)
 def test_calldata_floor_with_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     with_state_write: bool,
     floor_bound: bool,
+    sender_kind: str,
 ) -> None:
     """
     Bind the calldata floor on a transaction that also grows state.
@@ -112,78 +120,98 @@ def test_calldata_floor_with_state_gas(
     floor-bound transaction pays the floor plus its state gas in full:
     state growth never rides free under the data floor. The frame data
     is the fewest bytes that bind the floor, or one byte less in
-    `below_floor`, where the execution dimension binds again.
+    `below_floor`, where the execution dimension binds again. An EOA
+    sender's signature bytes count toward the floor, while a contract
+    sender carries none.
     """
-    approve = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
-    # A contract sender carries no signature entries, so the charged data
-    # is the frame data alone and the floor starts below the standard cost.
-    sender = pre.deploy_contract(code=approve, balance=10**18)
+    sender: Address
+    if sender_kind == "eoa":
+        sender = pre.fund_eoa()
+        nonce = 0
+        # The default code approves without drawing execution gas.
+        verify_code = Bytecode()
+    else:
+        verify_code = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
+        sender = pre.deploy_contract(code=verify_code, balance=10**18)
+        nonce = 1
     write = Op.SSTORE(
         SLOT_CREATED, 1, key_warm=False, original_value=0, new_value=1
     )
-    worker_code = (write if with_state_write else Bytecode()) + Op.STOP
+    # Pad execution so the signature bytes alone never bind the floor.
+    # The sender seeds the warm set, so its balance reads are warm.
+    padding = Op.POP(Op.BALANCE(address=sender, address_warm=True)) * 20
+    worker_code = (
+        padding + (write if with_state_write else Bytecode()) + Op.STOP
+    )
     worker = pre.deploy_contract(code=worker_code)
     state_used = worker_code.state_cost(fork)
     # Every frame budget is exactly what its execution uses, so the
     # execution dimension is known to the byte.
     entry_gas = fork.frame_entry_gas_calculator()
-    verify_gas = entry_gas(target_warm=True) + approve.execution_cost(fork)
+    verify_gas = entry_gas(target_warm=True) + verify_code.execution_cost(fork)
     worker_gas = entry_gas(target_warm=False) + worker_code.execution_cost(
         fork
     )
     intrinsic_calculator = fork.frame_transaction_intrinsic_cost_calculator()
     floor_calculator = fork.frame_transaction_data_floor_cost_calculator()
 
-    def frames(data_length: int) -> List[Frame]:
-        """Return the frames with `data_length` bytes of worker data."""
-        return [
-            verify_frame(gas_limit=verify_gas, state_gas_limit=0),
-            default_frame(
-                target=worker,
-                gas_limit=worker_gas,
-                state_gas_limit=state_used,
-                data=bytes(data_length),
-            ),
-        ]
-
-    def execution_used(data_length: int) -> int:
-        return (
+    def build(data_length: int) -> Tuple[Transaction, int, int]:
+        """
+        Return the signed transaction, its execution gas and its calldata
+        floor.
+        """
+        tx = Transaction(
+            sender=sender,
+            nonce=nonce,
+            frames=[
+                verify_frame(gas_limit=verify_gas, state_gas_limit=0),
+                default_frame(
+                    target=worker,
+                    gas_limit=worker_gas,
+                    state_gas_limit=state_used,
+                    data=bytes(data_length),
+                ),
+            ],
+        )
+        # Materialize the signature bytes, none for a contract sender,
+        # that the intrinsic cost and calldata floor charge for.
+        tx.sign()
+        assert tx.frames is not None and tx.signatures is not None
+        execution_gas = (
             intrinsic_calculator(
-                frames=frames(data_length),
+                frames=tx.frames,
+                signatures=tx.signatures,
                 return_cost_deducted_prior_execution=True,
             )
             + verify_gas
             + worker_gas
         )
+        calldata_floor = floor_calculator(
+            frames=tx.frames, signatures=tx.signatures
+        )
+        return tx, execution_gas, calldata_floor
 
     def floor_binds(data_length: int) -> bool:
-        return floor_calculator(frames=frames(data_length)) > execution_used(
-            data_length
-        )
+        _, execution_gas, calldata_floor = build(data_length)
+        return calldata_floor > execution_gas
 
     data_length = floor_binding_padding(floor_binds)
     if not floor_bound:
         data_length -= 1
-    execution_gas = execution_used(data_length)
-    calldata_floor = floor_calculator(frames=frames(data_length))
+    tx, execution_gas, calldata_floor = build(data_length)
     # The premise of the test: the floor binds, or in `below_floor`
     # falls short by the last byte.
     assert (calldata_floor > execution_gas) == floor_bound
     gas_used = calldata_floor if floor_bound else execution_gas
-    tx = Transaction(
-        sender=sender,
-        nonce=1,
-        frames=frames(data_length),
-        expected_receipt=TransactionReceipt(
-            payer=sender, cumulative_gas_used=gas_used + state_used
-        ),
+    tx.expected_receipt = TransactionReceipt(
+        payer=sender, cumulative_gas_used=gas_used + state_used
     )
 
     state_test(
         pre=pre,
         tx=tx,
         post={
-            sender: Account(nonce=2),
+            sender: Account(nonce=nonce + 1),
             worker: Account(
                 storage={SLOT_CREATED: 1 if with_state_write else 0}
             ),
