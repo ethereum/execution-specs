@@ -61,6 +61,9 @@ class StateGasCosts:
     AUTH_BASE: Final[StateGas] = (
         STATE_BYTES_PER_AUTH_BASE * COST_PER_STATE_BYTE
     )
+    KEYED_NONCE_FIRST_USE: Final[StateGas] = (
+        STATE_BYTES_PER_STORAGE_SET * COST_PER_STATE_BYTE
+    )
 
 
 # These values may be patched at runtime by a future gas repricing utility
@@ -216,6 +219,17 @@ class GasCosts:
     for introspection.
 
     [s]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.ARBITRARY
+    [ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
+    """  # noqa: E501
+
+    KEYED_NONCE_ACCESS: Final[ExecutionGas] = (
+        COLD_STORAGE_ACCESS + STORAGE_WRITE
+    )
+    """
+    Intrinsic cost of each non-zero nonce key of a [`FrameTransaction`][ftx]:
+    the cold read and the write of its slot in the nonce manager, which the
+    protocol performs outside the access lists and `SSTORE` pricing.
+
     [ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
     """  # noqa: E501
 

@@ -99,11 +99,14 @@ class EIP8141(BaseFork):
         cls,
         frames: Sequence[FrameGasInfo],
         signatures: Sequence[FrameSignatureGasInfo],
+        nonce_keys: Sequence[int],
+        nonce_seq: int,
     ) -> List[Bytes]:
         """
         Return the transaction's byte fields priced as calldata: the
         `data` of each frame and the `signer`, `msg`, and `signature`
-        bytes of each signature entry.
+        bytes of each signature entry, plus any nonce field encoding
+        priced by a later EIP.
         """
         charged_bytes = [Bytes(frame.data) for frame in frames]
         for signature in signatures:
@@ -112,7 +115,9 @@ class EIP8141(BaseFork):
                 Bytes(signature.msg),
                 Bytes(signature.signature),
             ]
-        return charged_bytes
+        return charged_bytes + cls._frame_transaction_nonce_bytes(
+            nonce_keys, nonce_seq
+        )
 
     @classmethod
     def _frame_list(
@@ -132,13 +137,14 @@ class EIP8141(BaseFork):
         frames: Sequence[FrameGasInfo],
         signatures: Sequence[FrameSignatureGasInfo],
         sender: BytesConvertible | None,
+        nonce_keys: Sequence[int],
     ) -> int:
         """
         Return the costs a frame transaction always pays regardless of
         execution: the base cost, the per-frame cost, the verification
-        cost of each signature entry, and the value transfer cost of
-        each value-bearing frame whose explicit target differs from the
-        sender.
+        cost of each signature entry, the value transfer cost of each
+        value-bearing frame whose explicit target differs from the
+        sender, and any nonce key access cost priced by a later EIP.
         """
         gas_costs = cls.gas_costs()
         scheme_gas = {
@@ -161,6 +167,7 @@ class EIP8141(BaseFork):
             + len(frames) * gas_costs.TX_PER_FRAME
             + sum(scheme_gas[int(sig.scheme)] for sig in signatures)
             + value_transfer_cost
+            + cls._frame_transaction_nonce_access_cost(nonce_keys)
         )
 
     @classmethod
@@ -181,16 +188,18 @@ class EIP8141(BaseFork):
             frames: Sequence[FrameGasInfo] | int,
             signatures: Sequence[FrameSignatureGasInfo] = (),
             sender: BytesConvertible | None = None,
+            nonce_keys: Sequence[int] = (0,),
+            nonce_seq: int = 0,
         ) -> int:
             frame_list = cls._frame_list(frames)
             data_length = sum(
                 len(data)
                 for data in cls._frame_transaction_charged_bytes(
-                    frame_list, signatures
+                    frame_list, signatures, nonce_keys, nonce_seq
                 )
             )
             return cls._frame_transaction_base_cost(
-                frame_list, signatures, sender
+                frame_list, signatures, sender, nonce_keys
             ) + (
                 data_length
                 * gas_costs.TX_DATA_TOKEN_STANDARD
@@ -260,15 +269,17 @@ class EIP8141(BaseFork):
             frames: Sequence[FrameGasInfo] | int,
             signatures: Sequence[FrameSignatureGasInfo] = (),
             sender: BytesConvertible | None = None,
+            nonce_keys: Sequence[int] = (0,),
+            nonce_seq: int = 0,
             return_cost_deducted_prior_execution: bool = False,
         ) -> int:
             frame_list = cls._frame_list(frames)
             intrinsic_cost = cls._frame_transaction_base_cost(
-                frame_list, signatures, sender
+                frame_list, signatures, sender, nonce_keys
             ) + sum(
                 calldata_gas_calculator(data=data)
                 for data in cls._frame_transaction_charged_bytes(
-                    frame_list, signatures
+                    frame_list, signatures, nonce_keys, nonce_seq
                 )
             )
 
@@ -286,7 +297,11 @@ class EIP8141(BaseFork):
             return max(
                 standard_gas_limit,
                 floor_cost_calculator(
-                    frames=frame_list, signatures=signatures, sender=sender
+                    frames=frame_list,
+                    signatures=signatures,
+                    sender=sender,
+                    nonce_keys=nonce_keys,
+                    nonce_seq=nonce_seq,
                 )
                 + total_state_gas,
             )
