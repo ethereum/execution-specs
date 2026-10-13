@@ -1586,7 +1586,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         is_exception_test: bool,
         is_inclusion_test: bool,
         invalid_tx_not_last: bool,
-    ) -> Any:
+    ) -> Generator[Any, None, None]:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
         within a test function.
@@ -1801,7 +1801,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
             request.node.config.fixture_format = fixture_format.format_name
 
         init_current_test = init_wrapper
-        return BaseTestWrapper
+        yield BaseTestWrapper
+        # Drop the test's setup, so the shared class keeps nothing alive.
+        init_current_test = None
 
     return base_test_parametrizer_func
 
