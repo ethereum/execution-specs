@@ -291,6 +291,26 @@ class SpecHelpers:
         )
 
     @classmethod
+    def get_reserve_price_boundary_base_fee(
+        cls,
+        *,
+        fork: Fork,
+        parent_excess_blob_gas: int,
+    ) -> int:
+        """
+        Get the highest parent base fee per gas that leaves the EIP-7918
+        reserve price inactive for the given parent excess blob gas.
+
+        Any base fee above the returned value activates the reserve price.
+        """
+        blob_base_cost = fork.blob_base_cost()
+        gas_per_blob = fork.blob_gas_per_blob()
+        blob_base_fee = fork.blob_gas_price_calculator()(
+            excess_blob_gas=parent_excess_blob_gas
+        )
+        return gas_per_blob * blob_base_fee // blob_base_cost
+
+    @classmethod
     def get_blob_combinations(
         cls,
         blob_count: int,
