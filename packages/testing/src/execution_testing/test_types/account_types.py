@@ -66,7 +66,7 @@ class _Phase(Enum):
 
     CONSTRUCTION = auto()
     """
-    Free mutations on `self.root` are allowed; caches derived from it are
+    Free mutations on `self.root` are allowed. Caches derived from it are
     rebuilt when it changes.
     """
     LIVE = auto()
