@@ -41,7 +41,7 @@ from .helpers import (
     eoa_from_hash,
 )
 from .phase_manager import TestPhase, TestPhaseManager
-from .receipt_types import TransactionLog, TransactionReceipt
+from .receipt_types import FrameReceipt, TransactionLog, TransactionReceipt
 from .system_contract_interactions import (
     SystemContractInteractionBase,
     SystemContractInteractionContract,
@@ -51,7 +51,11 @@ from .system_contract_interactions import (
     relay_contract_code,
 )
 from .transaction_types import (
+    DEFAULT_FRAME_GAS_LIMIT,
+    DEFAULT_FRAME_STATE_GAS_LIMIT,
     AuthorizationTuple,
+    Frame,
+    FrameSignature,
     NetworkWrappedTransaction,
     Transaction,
     TransactionDefaults,
@@ -82,12 +86,17 @@ __all__ = (
     "BlockAccessListExpectation",
     "ChainConfig",
     "ChainConfigDefaults",
+    "DEFAULT_FRAME_GAS_LIMIT",
+    "DEFAULT_FRAME_STATE_GAS_LIMIT",
     "Environment",
     "EnvironmentDefaults",
     "EmptyPostStateContext",
     "EOA",
     "fee_increment_blocks",
     "GasFee",
+    "Frame",
+    "FrameReceipt",
+    "FrameSignature",
     "NetworkWrappedTransaction",
     "PostStateContext",
     "Removable",

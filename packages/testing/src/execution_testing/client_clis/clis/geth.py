@@ -97,6 +97,26 @@ class GethExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_4_TX_PRE_FORK: (
             "transaction type not supported"
         ),
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
+            "invalid frame tx format"
+        ),
+        TransactionException.TYPE_6_INVALID_SIGNATURE: (
+            "invalid frame tx signature"
+        ),
+        TransactionException.TYPE_6_INVALID_FRAME_EXECUTION: (
+            "invalid frame execution"
+        ),
+        TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
+            "maximum transaction cost exceeds 256 bits"
+        ),
+        # Geth decodes a frame transaction's fees as 256-bit integers, so an
+        # oversized fee is rejected while decoding, without naming the field.
+        TransactionException.GASPRICE_OVERFLOW: (
+            "invalid frame tx format: rlp: value too large for uint256"
+        ),
+        TransactionException.PRIORITY_OVERFLOW: (
+            "invalid frame tx format: rlp: value too large for uint256"
+        ),
         TransactionException.INITCODE_SIZE_EXCEEDED: (
             "max initcode size exceeded"
         ),
