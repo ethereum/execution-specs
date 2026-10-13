@@ -60,7 +60,7 @@ def test_evicted_context_resubmits_original_inputs() -> None:
         ]
     )
     rpc.new_payload = Mock(return_value=status(3))
-    claim = {"transactionHash": Hash(4), "transactionIndex": "0x2"}
+    claim = {"transactionHash": Hash(4), "evaluationIndex": "0x2"}
     inputs: tuple[Any, ...] = (
         {"blockHash": Hash(1)},
         [],

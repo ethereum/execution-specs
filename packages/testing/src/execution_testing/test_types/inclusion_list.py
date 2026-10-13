@@ -11,7 +11,7 @@ class InclusionListClaim(CamelModel):
     """Identify an omitted transaction and its claimed evaluation index."""
 
     transaction_hash: Hash
-    transaction_index: HexNumber = Field(ge=0, lt=2**64)
+    evaluation_index: HexNumber = Field(ge=0, lt=2**64)
 
 
 def validate_inclusion_list_metadata(

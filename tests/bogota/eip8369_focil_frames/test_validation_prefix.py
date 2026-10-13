@@ -188,13 +188,13 @@ def test_claim_selects_transaction_boundary(
     mutate = Transaction(sender=pre.fund_eoa(), to=sender, data=b"\x01")
     claim_list = [
         InclusionListClaim(
-            transaction_hash=omitted.hash, transaction_index=index
+            transaction_hash=omitted.hash, evaluation_index=index
         )
         for index in claims
     ]
     # An unrelated claim must not alter the omitted transaction's default.
     claim_list.append(
-        InclusionListClaim(transaction_hash=Hash(123), transaction_index=0)
+        InclusionListClaim(transaction_hash=Hash(123), evaluation_index=0)
     )
     blockchain_test(
         pre=pre,

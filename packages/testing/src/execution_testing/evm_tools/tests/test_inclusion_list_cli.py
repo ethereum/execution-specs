@@ -32,7 +32,7 @@ def test_cli_preserves_inclusion_context(
     """Preserve raw envelopes, duplicate claims and bitvectors."""
     transaction = Transaction(gas_limit=21_000).with_signature_and_sender()
     claim = InclusionListClaim(
-        transaction_hash=transaction.hash, transaction_index=2**64 - 1
+        transaction_hash=transaction.hash, evaluation_index=2**64 - 1
     )
     data = TransitionTool.TransitionToolData(
         alloc=Alloc(),
@@ -70,7 +70,7 @@ def test_cli_preserves_inclusion_context(
         assert inputs.membership == (b"\x00\x02",)
         assert len(inputs.claims) == 2
         assert all(
-            int(value.transaction_index) == 2**64 - 1
+            int(value.evaluation_index) == 2**64 - 1
             and bytes(value.transaction_hash) == bytes(transaction.hash)
             for value in inputs.claims
         )

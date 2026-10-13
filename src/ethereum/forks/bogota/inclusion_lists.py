@@ -62,7 +62,7 @@ class InclusionClaim:
     """Identify a transaction and its claimed insertion index."""
 
     transaction_hash: Bytes32
-    transaction_index: U64
+    evaluation_index: U64
 
 
 @final
@@ -124,7 +124,7 @@ def validate_inclusion_list_inputs(inputs: InclusionListInputs) -> None:
         raise ValueError("Too many inclusion claims")
     for claim in inputs.claims:
         if len(claim.transaction_hash) != 32 or not 0 <= int(
-            claim.transaction_index
+            claim.evaluation_index
         ) <= int(U64.MAX_VALUE):
             raise ValueError("Invalid inclusion claim")
     if not inputs.membership:
@@ -160,7 +160,7 @@ def evaluation_indices(
     counts = Counter(claim.transaction_hash for claim in inputs.claims)
     return {
         claim.transaction_hash: min(
-            Uint(claim.transaction_index), transaction_count
+            Uint(claim.evaluation_index), transaction_count
         )
         for claim in inputs.claims
         if counts[claim.transaction_hash] == 1

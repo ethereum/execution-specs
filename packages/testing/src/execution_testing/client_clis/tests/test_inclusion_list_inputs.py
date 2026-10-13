@@ -17,7 +17,7 @@ from execution_testing.test_types import (
 def test_inclusion_list_input_serialization(tmp_path: Path) -> None:
     """Keep ordering and duplicate claims in every path."""
     tx = Transaction(gas_limit=21_000).with_signature_and_sender()
-    claim = InclusionListClaim(transaction_hash=tx.hash, transaction_index=1)
+    claim = InclusionListClaim(transaction_hash=tx.hash, evaluation_index=1)
     data = TransitionTool.TransitionToolData(
         alloc=Alloc(),
         txs=[],
@@ -38,8 +38,8 @@ def test_inclusion_list_input_serialization(tmp_path: Path) -> None:
     )
     assert encoded["inclusionListMembership"] == ["0x0102"]
     assert encoded["inclusionListClaims"] == [
-        {"transactionHash": tx.hash.hex(), "transactionIndex": "0x1"},
-        {"transactionHash": tx.hash.hex(), "transactionIndex": "0x1"},
+        {"transactionHash": tx.hash.hex(), "evaluationIndex": "0x1"},
+        {"transactionHash": tx.hash.hex(), "evaluationIndex": "0x1"},
     ]
     paths = inputs.to_files(tmp_path, by_alias=True, exclude_none=True)
     for field in (

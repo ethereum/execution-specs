@@ -258,7 +258,7 @@ class T8N(Load):
                 claims=tuple(
                     self.fork.InclusionClaim(
                         transaction_hash=Bytes32(claim.transaction_hash),
-                        transaction_index=U64(claim.transaction_index),
+                        evaluation_index=U64(claim.evaluation_index),
                     )
                     for claim in t8n_data.inclusion_list_claims or []
                 ),

@@ -30,7 +30,7 @@ def built_payload() -> GetPayloadResponse:
         **GENESIS_ENVIRONMENT_DEFAULTS
     ).set_fork_requirements(Bogota)
     header = FixtureHeader.genesis(Bogota, environment, Hash(0))
-    claim = InclusionListClaim(transaction_hash=Hash(1), transaction_index=7)
+    claim = InclusionListClaim(transaction_hash=Hash(1), evaluation_index=7)
     return GetPayloadResponse(
         execution_payload=FixtureExecutionPayload.from_fixture_header(
             header=header, transactions=[], withdrawals=[]
