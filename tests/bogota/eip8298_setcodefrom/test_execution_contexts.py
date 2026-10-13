@@ -18,6 +18,7 @@ from execution_testing import (
     Conditional,
     EIPChecklist,
     Fork,
+    GasConsumer,
     Hash,
     Initcode,
     Op,
@@ -497,19 +498,37 @@ def test_initcode_reentrant_call_sees_adopted_code(
 
 
 @pytest.mark.with_all_create_opcodes
+@pytest.mark.parametrize("ending", ["revert", "invalid", "out_of_gas"])
 def test_initcode_revert_after_adopt(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     create_opcode: Op,
+    ending: str,
 ) -> None:
-    """Verify initcode that adopts and then reverts creates no account."""
+    """
+    Verify initcode that adopts and then reverts or halts creates no
+    account.
+    """
     template = pre.deploy_contract(SSTORE_MARKER_A)
-    initcode = Op.POP(Op.SETCODEFROM(template)) + REVERT_WITH_CODE_HASH
+    adopt = Op.POP(Op.SETCODEFROM(template))
+    if ending == "revert":
+        initcode = adopt + REVERT_WITH_CODE_HASH
+        returned = SSTORE_MARKER_A.keccak256()
+    elif ending == "invalid":
+        initcode = adopt + Op.INVALID
+        returned = Hash(0)
+    elif ending == "out_of_gas":
+        initcode = adopt + GasConsumer.out_of_gas(fork)
+        returned = Hash(0)
+    else:
+        raise ValueError(f"unexpected ending: {ending}")
+    # The return data is copied past the initcode, which fills memory first.
     factory = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
         + Op.SSTORE(RESULT_SLOT, create_opcode(offset=0, size=Op.CALLDATASIZE))
-        + Op.RETURNDATACOPY(0, 0, 32)
-        + Op.SSTORE(1, Op.MLOAD(0))
+        + Op.RETURNDATACOPY(Op.CALLDATASIZE, 0, Op.RETURNDATASIZE)
+        + Op.SSTORE(1, Op.MLOAD(Op.CALLDATASIZE))
         + Op.STOP,
         storage={RESULT_SLOT: SENTINEL, 1: SENTINEL},
     )
@@ -524,7 +543,7 @@ def test_initcode_revert_after_adopt(
         pre=pre,
         post={
             factory: Account(
-                storage={RESULT_SLOT: 0, 1: SSTORE_MARKER_A.keccak256()},
+                storage={RESULT_SLOT: 0, 1: returned},
                 nonce=2,
             ),
             created: Account.NONEXISTENT,
