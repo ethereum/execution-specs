@@ -45,9 +45,6 @@ def is_help_or_collectonly_mode(config: pytest.Config) -> bool:
         or any(
             config.getoption(flag, default=False) for flag in show_help_flags
         )
-        or config.pluginmanager.has_plugin(
-            "execution_testing.cli.pytest_commands.plugins.filler.gen_test_doc.gen_test_doc"
-        )
     )
 
 

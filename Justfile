@@ -509,20 +509,10 @@ docs-spec-parallel shards="4":
 docs *args:
     uv run mkdocs build --strict -d "{{ output_dir }}/docs/site" "$@"
 
-# Build HTML site documentation with mkdocs (skip test case reference)
-[group('docs')]
-docs-fast *args:
-    FAST_DOCS=True uv run mkdocs build --strict -d "{{ output_dir }}/docs/site" "$@"
-
 # Serve site documentation locally with mkdocs (live reload)
 [group('docs')]
 docs-serve *args:
     uv run mkdocs serve "$@"
-
-# Serve site documentation locally with mkdocs (skip test case reference)
-[group('docs')]
-docs-serve-fast *args:
-    FAST_DOCS=True uv run mkdocs serve "$@"
 
 # Lint markdown files (markdownlint)
 [group('docs')]

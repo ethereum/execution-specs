@@ -8,7 +8,6 @@ copyright: "Copyright: 2026, Ethereum Community"
 plugins:
   - git-authors:
       exclude:
-        - tests/*
         - navigation.md
         - getting_started/contributing.md
         - getting_started/security.md
@@ -29,7 +28,6 @@ plugins:
   - gen-files:
       scripts:
         - docs/scripts/copy_repo_docs_to_mkdocs.py
-        - docs/scripts/gen_test_case_reference.py
         - docs/scripts/generate_fill_help.py
   - literate-nav:
       nav_file: navigation.md
@@ -41,7 +39,6 @@ watch:
   - CONTRIBUTING.md
   - SECURITY.md
   - packages/testing/src/
-  - tests/
 
 theme:
   name: material
