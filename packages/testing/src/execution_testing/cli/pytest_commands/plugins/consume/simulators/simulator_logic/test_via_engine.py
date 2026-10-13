@@ -301,7 +301,14 @@ def test_blockchain_via_engine(
             if head_payload.inclusion_list_satisfied is False:
                 # The unsatisfied list holds a transaction still appendable
                 # on the head state, so the client has a candidate to pick.
-                inclusion_list_param = head_payload.params[-1]
+                # The list sits after the requests; omission claims, when
+                # present, follow it. The length check is for mypy
+                # narrowing.
+                inclusion_list_param = (
+                    head_payload.params[4]
+                    if len(head_payload.params) >= 5
+                    else []
+                )
                 assert isinstance(inclusion_list_param, list)
                 for raw_tx in inclusion_list_param:
                     try:
