@@ -15,7 +15,11 @@ from execution_testing import (
 
 from ethereum.forks.amsterdam.stateless import (
     MAX_BYTES_PER_HEADER,
+    MAX_WITNESS_HEADERS,
     StatelessInput,
+)
+from ethereum.forks.amsterdam.stateless_guest import (
+    deserialize_stateless_input,
 )
 
 from .gas_helpers import empty_account_value_transfer_gas_limit
@@ -207,6 +211,82 @@ def test_witness_header_ssz_size_limit(
                 txs=[tx],
                 stateless_input_bytes_modifier=pad_last_witness_header(
                     bytes_over_limit
+                ),
+                expected_stateless_validation_success=False,
+                expected_stateless_input_decode_failure=decoding_fails,
+            )
+        ],
+        post={
+            sender: Account(nonce=1),
+            recipient: Account(balance=1),
+        },
+    )
+
+
+def append_parent_header_copies(count: int) -> StatelessInputBytesModifier:
+    """Append `count` copies of the parent header to the witness headers."""
+
+    def modifier(input_bytes: Bytes) -> Bytes:
+        # Serialization refuses more than MAX_WITNESS_HEADERS headers, so edit
+        # the bytes. The headers are the last SSZ field: the list is an offset
+        # table, one 4-byte offset per header, followed by the header bytes.
+        headers = deserialize_stateless_input(input_bytes).witness.headers
+        encoded = bytes(input_bytes)
+        data_len = sum(len(header) for header in headers)
+        start = len(encoded) - 4 * len(headers) - data_len
+        lengths = [len(header) for header in headers]
+        lengths += [len(headers[-1])] * count
+        offsets = []
+        position = 4 * len(lengths)
+        for length in lengths:
+            offsets.append(position)
+            position += length
+        table = b"".join(o.to_bytes(4, "little") for o in offsets)
+        data = encoded[start + 4 * len(headers) :]
+        return Bytes(
+            encoded[:start] + table + data + bytes(headers[-1]) * count
+        )
+
+    return modifier
+
+
+@pytest.mark.parametrize(
+    "header_count,decoding_fails",
+    [
+        pytest.param(MAX_WITNESS_HEADERS, False, id="at_count_limit"),
+        pytest.param(MAX_WITNESS_HEADERS + 1, True, id="over_count_limit"),
+    ],
+)
+def test_witness_header_ssz_count_limit(
+    fork: Fork,
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    header_count: int,
+    decoding_fails: bool,
+) -> None:
+    """
+    A witness with more headers than its SSZ list limit fails to decode.
+
+    The witness carries only the parent header, so copies of it fill the
+    list. At the limit the input decodes, and validation fails only because
+    the copies do not form a chain.
+    """
+    sender = pre.fund_eoa()
+    recipient = pre.fund_eoa(amount=0)
+    tx = Transaction(
+        sender=sender,
+        to=recipient,
+        value=1,
+        gas_limit=empty_account_value_transfer_gas_limit(fork),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                stateless_input_bytes_modifier=append_parent_header_copies(
+                    header_count - 1
                 ),
                 expected_stateless_validation_success=False,
                 expected_stateless_input_decode_failure=decoding_fails,
