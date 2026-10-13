@@ -259,13 +259,13 @@ def test_initcode_create_opcodes(
     )
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior()
-def test_initcode_self_inspection(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """Verify EXTCODE* see adopted code and CODE* see the initcode."""
-    template = pre.deploy_contract(SSTORE_MARKER_A)
+def self_inspection(
+    template: Address,
+) -> tuple[Bytecode, dict[int, int | Hash]]:
+    """
+    Return initcode that adopts `template` (`SSTORE_MARKER_A`) and stores
+    what `EXTCODE*` and `CODE*` show of the new account, and that storage.
+    """
     initcode = (
         Op.POP(Op.SETCODEFROM(template))
         + Op.SSTORE(0, Op.EXTCODEHASH(Op.ADDRESS))
@@ -277,22 +277,62 @@ def test_initcode_self_inspection(
         + Op.SSTORE(4, Op.MLOAD(32))
         + Op.STOP
     )
+    storage: dict[int, int | Hash] = {
+        0: SSTORE_MARKER_A.keccak256(),
+        1: len(SSTORE_MARKER_A),
+        2: Hash(bytes(SSTORE_MARKER_A)[:32], right_padding=True),
+        3: len(initcode),
+        4: Hash(bytes(initcode)[:32], right_padding=True),
+    }
+    return initcode, storage
+
+
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior()
+def test_initcode_self_inspection(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Verify EXTCODE* see adopted code and CODE* see the initcode."""
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    initcode, storage = self_inspection(template)
     tx = Transaction(sender=pre.fund_eoa(), to=None, data=initcode)
     state_test(
         pre=pre,
         post={
-            tx.created_contract: Account(
-                code=SSTORE_MARKER_A,
-                storage={
-                    0: SSTORE_MARKER_A.keccak256(),
-                    1: len(SSTORE_MARKER_A),
-                    2: Hash(bytes(SSTORE_MARKER_A)[:32], right_padding=True),
-                    3: len(initcode),
-                    4: Hash(bytes(initcode)[:32], right_padding=True),
-                },
-            )
+            tx.created_contract: Account(code=SSTORE_MARKER_A, storage=storage)
         },
         tx=tx,
+    )
+
+
+@pytest.mark.with_all_create_opcodes
+def test_initcode_self_inspection_create_opcodes(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    create_opcode: Op,
+) -> None:
+    """
+    Verify EXTCODE* see adopted code and CODE* see the initcode in
+    CREATE/CREATE2 initcode.
+    """
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    initcode, storage = self_inspection(template)
+    factory = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.POP(create_opcode(offset=0, size=Op.CALLDATASIZE))
+        + Op.STOP
+    )
+    created = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode,
+        opcode=create_opcode,
+    )
+    state_test(
+        pre=pre,
+        post={created: Account(code=SSTORE_MARKER_A, storage=storage)},
+        tx=Transaction(sender=pre.fund_eoa(), to=factory, data=initcode),
     )
 
 
