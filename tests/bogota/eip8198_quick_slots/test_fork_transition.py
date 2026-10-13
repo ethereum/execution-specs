@@ -478,15 +478,20 @@ def test_blob_count_limit_at_fork(
 
 
 @pytest.mark.parametrize(
-    "rejected_block",
-    ["last_pre_fork_block_new_fraction", "fork_block_one_wei_short"],
+    "rejected_block_index",
+    [
+        pytest.param(
+            FORK_BLOCK_INDEX - 1, id="last_pre_fork_block_new_fraction"
+        ),
+        pytest.param(FORK_BLOCK_INDEX, id="fork_block_one_wei_short"),
+    ],
 )
 @pytest.mark.exception_test
 def test_insufficient_max_fee_per_blob_gas_at_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: TransitionFork,
-    rejected_block: str,
+    rejected_block_index: int,
 ) -> None:
     """
     Reject a blob transaction priced at the new update fraction one block
@@ -494,46 +499,36 @@ def test_insufficient_max_fee_per_blob_gas_at_fork(
     """
     sender = pre.fund_eoa()
     destination = pre.fund_eoa(amount=0)
-    pre_fork_timestamp = BLOCK_TIMESTAMPS[FORK_BLOCK_INDEX - 1]
+    timestamps = BLOCK_TIMESTAMPS[
+        FORK_BLOCK_INDEX - 1 : rejected_block_index + 1
+    ]
     genesis_excess_blob_gas = (
         GENESIS_EXCESS_BLOBS * fork.transitions_to().blob_gas_per_blob()
     )
-    pre_fork_excess_blob_gas = next_excess_blob_gas(
-        fork, pre_fork_timestamp, genesis_excess_blob_gas, 0
+    excess_blob_gas = genesis_excess_blob_gas
+    for timestamp in timestamps:
+        excess_blob_gas = next_excess_blob_gas(
+            fork, timestamp, excess_blob_gas, 0
+        )
+    rejected_fork = fork.fork_at(
+        block_number=len(timestamps), timestamp=timestamps[-1]
     )
-
-    if rejected_block == "last_pre_fork_block_new_fraction":
-        leading_blocks = []
-        rejected_timestamp = pre_fork_timestamp
-        required_price = fork.fork_at(
-            timestamp=pre_fork_timestamp
-        ).blob_gas_price_calculator()(excess_blob_gas=pre_fork_excess_blob_gas)
+    required_price = rejected_fork.blob_gas_price_calculator()(
+        excess_blob_gas=excess_blob_gas
+    )
+    if rejected_block_index < FORK_BLOCK_INDEX:
         offered_price = fork.transitions_to().blob_gas_price_calculator()(
-            excess_blob_gas=pre_fork_excess_blob_gas
+            excess_blob_gas=excess_blob_gas
         )
         # The new fraction prices the same excess lower, so a client applying
         # it a block early would accept this offer.
         assert offered_price < required_price
-    elif rejected_block == "fork_block_one_wei_short":
-        leading_blocks = [Block(timestamp=pre_fork_timestamp)]
-        rejected_timestamp = FORK_TIMESTAMP
-        fork_block_excess_blob_gas = next_excess_blob_gas(
-            fork, FORK_TIMESTAMP, pre_fork_excess_blob_gas, 0
-        )
-        offered_price = (
-            fork.fork_at(timestamp=FORK_TIMESTAMP).blob_gas_price_calculator()(
-                excess_blob_gas=fork_block_excess_blob_gas
-            )
-            - 1
-        )
     else:
-        raise ValueError(f"unknown rejected block: {rejected_block}")
+        offered_price = required_price - 1
 
     error = TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS
-    rejected_fork = fork.fork_at(
-        block_number=len(leading_blocks) + 1, timestamp=rejected_timestamp
-    )
-    blocks = leading_blocks + [
+    blocks = [Block(timestamp=timestamp) for timestamp in timestamps[:-1]]
+    blocks.append(
         Block(
             txs=blob_transactions(
                 sender=sender,
@@ -543,10 +538,10 @@ def test_insufficient_max_fee_per_blob_gas_at_fork(
                 max_fee_per_blob_gas=offered_price,
                 error=error,
             ),
-            timestamp=rejected_timestamp,
+            timestamp=timestamps[-1],
             exception=error,
         )
-    ]
+    )
 
     blockchain_test(
         pre=pre,
