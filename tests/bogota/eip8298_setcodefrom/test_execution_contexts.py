@@ -412,10 +412,12 @@ def test_initcode_self_as_source(
     )
 
 
+@pytest.mark.parametrize("reentry", ["via_helper", "direct"])
 @EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Reentry()
 def test_initcode_reentrant_call_sees_adopted_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    reentry: str,
 ) -> None:
     """
     Verify a call back into the new account runs the adopted code, and
@@ -428,12 +430,16 @@ def test_initcode_reentrant_call_sees_adopted_code(
         + Op.STOP
     )
     template = pre.deploy_contract(template_code)
-    helper = pre.deploy_contract(Op.POP(Op.CALL(address=Op.CALLER)) + Op.STOP)
-    initcode = (
-        Op.POP(Op.SETCODEFROM(template))
-        + Op.POP(Op.CALL(address=helper))
-        + Op.STOP
-    )
+    if reentry == "via_helper":
+        helper = pre.deploy_contract(
+            Op.POP(Op.CALL(address=Op.CALLER)) + Op.STOP
+        )
+        call_back = Op.CALL(address=helper)
+    elif reentry == "direct":
+        call_back = Op.CALL(address=Op.ADDRESS)
+    else:
+        raise ValueError(f"unexpected reentry: {reentry}")
+    initcode = Op.POP(Op.SETCODEFROM(template)) + Op.POP(call_back) + Op.STOP
     tx = Transaction(sender=pre.fund_eoa(), to=None, data=initcode)
     state_test(
         pre=pre,
