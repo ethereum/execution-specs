@@ -223,29 +223,21 @@ def test_witness_header_ssz_size_limit(
     )
 
 
-def append_parent_header_copies(count: int) -> StatelessInputBytesModifier:
-    """Append `count` copies of the parent header to the witness headers."""
+def repeat_parent_header(count: int) -> StatelessInputBytesModifier:
+    """Replace the witness headers with `count` copies of the parent."""
 
     def modifier(input_bytes: Bytes) -> Bytes:
-        # Serialization refuses more than MAX_WITNESS_HEADERS headers, so edit
-        # the bytes. The headers are the last SSZ field: the list is an offset
-        # table, one 4-byte offset per header, followed by the header bytes.
+        # Serialization refuses more than MAX_WITNESS_HEADERS headers, so
+        # encode the list by hand. It is the last SSZ field: one 4-byte
+        # offset per header, then the header bytes.
         headers = deserialize_stateless_input(input_bytes).witness.headers
-        encoded = bytes(input_bytes)
-        data_len = sum(len(header) for header in headers)
-        start = len(encoded) - 4 * len(headers) - data_len
-        lengths = [len(header) for header in headers]
-        lengths += [len(headers[-1])] * count
-        offsets = []
-        position = 4 * len(lengths)
-        for length in lengths:
-            offsets.append(position)
-            position += length
-        table = b"".join(o.to_bytes(4, "little") for o in offsets)
-        data = encoded[start + 4 * len(headers) :]
-        return Bytes(
-            encoded[:start] + table + data + bytes(headers[-1]) * count
+        old_size = 4 * len(headers) + sum(len(h) for h in headers)
+        parent = bytes(headers[-1])
+        offsets = b"".join(
+            (4 * count + i * len(parent)).to_bytes(4, "little")
+            for i in range(count)
         )
+        return Bytes(input_bytes[:-old_size] + offsets + parent * count)
 
     return modifier
 
@@ -285,8 +277,8 @@ def test_witness_header_ssz_count_limit(
         blocks=[
             Block(
                 txs=[tx],
-                stateless_input_bytes_modifier=append_parent_header_copies(
-                    header_count - 1
+                stateless_input_bytes_modifier=repeat_parent_header(
+                    header_count
                 ),
                 expected_stateless_validation_success=False,
                 expected_stateless_input_decode_failure=decoding_fails,
