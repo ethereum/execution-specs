@@ -8,16 +8,29 @@ whole state on every block. Fixtures that share a large genesis
 The tries here compute the same roots with the spec's node types and
 encoders, but cache every subtree encoding by its nibble prefix. Applying
 changes drops only the cached prefixes of the changed keys, so the next root
-re-encodes roughly `changes x depth` nodes instead of the whole trie.
+re-encodes roughly `changes x depth` nodes instead of the whole trie. Each
+update still copies the key list, values and node cache, which is linear in
+the trie size but cheap next to re-encoding it.
 """
 
 from bisect import bisect_left, insort
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Self, Tuple
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Self,
+    Tuple,
+    cast,
+)
 
 from ethereum.crypto.hash import keccak256
 from ethereum.merkle_patricia_trie import (
     EMPTY_TRIE_ROOT,
     BranchNode,
+    BranchSubnodes,
     ExtensionNode,
     LeafNode,
     bytes_to_nibble_list,
@@ -34,10 +47,11 @@ _EMPTY_NODE = encode_internal_node(None)
 
 class IncrementalTrie:
     """
-    Secured trie over nibble keys, caching each subtree encoding by prefix.
+    Trie over nibble keys, caching each subtree encoding by prefix.
 
-    Instances are immutable: `with_changes` returns a new trie and leaves
-    the original (and its cache) untouched.
+    Callers hash keys first for a secured trie. Instances are logically
+    immutable: `with_changes` returns a new trie, and computing a root only
+    fills the node cache.
     """
 
     __slots__ = ("_keys", "_values", "_cache")
@@ -126,7 +140,7 @@ class IncrementalTrie:
                     for nibble in range(16)
                 )
                 encoded = encode_internal_node(
-                    BranchNode(subnodes, value)  # type: ignore[arg-type]
+                    BranchNode(cast(BranchSubnodes, subnodes), value)
                 )
         self._cache[prefix] = encoded
         return encoded
@@ -207,7 +221,13 @@ class IncrementalStateTrie:
         return cls(accounts, storage, IncrementalTrie.build(leaves))
 
     def with_diff(self, diff: BlockDiff) -> Self:
-        """Return the state trie after `Alloc.apply_diff(diff)`."""
+        """
+        Return the state trie after `Alloc.apply_diff(diff)`.
+
+        This follows `Alloc.apply_diff` rather than the spec's
+        `apply_changes_to_state`: a deleted account takes its storage with
+        it even without a storage clear.
+        """
         accounts = dict(self._accounts)
         storage = dict(self._storage)
         touched = set()
@@ -215,8 +235,7 @@ class IncrementalStateTrie:
         for raw_address in diff.storage_clears:
             address = bytes(raw_address)
             touched.add(address)
-            if address in accounts:
-                storage.pop(address, None)
+            storage.pop(address, None)
 
         for raw_address, account in diff.account_changes.items():
             address = bytes(raw_address)

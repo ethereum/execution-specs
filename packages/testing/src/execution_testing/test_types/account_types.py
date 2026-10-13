@@ -65,7 +65,10 @@ class _Phase(Enum):
     """
 
     CONSTRUCTION = auto()
-    """Free mutations on `self.root` are allowed; no cache exists."""
+    """
+    Free mutations on `self.root` are allowed; caches derived from it are
+    rebuilt when it changes.
+    """
     LIVE = auto()
     """Cache built; only `apply_diff` may mutate."""
     FROZEN = auto()
@@ -436,17 +439,34 @@ class Account(BaseAccount):
         return cls(**kwargs)
 
 
+def _spec_account(account: Account) -> spec_state.Account:
+    """Return the spec-side counterpart of `account`, without its storage."""
+    code = bytes(account.code) if account.code else b""
+    return spec_state.Account(
+        nonce=Uint(int(account.nonce)),
+        balance=U256(int(account.balance)),
+        code_hash=spec_keccak256(code) if code else spec_state.EMPTY_CODE_HASH,
+    )
+
+
 class Alloc(BaseAlloc):
     """
     Allocation of accounts in the state, pre and post test execution.
 
     Doubles as a `PreState` provider for the spec's state transition: once
     any `PreState` method is called the instance transitions from
-    `CONSTRUCTION` to `LIVE` (a code-hash → bytes cache is built once) and
+    `CONSTRUCTION` to `LIVE` (the code-hash → bytes cache is built) and
     further free mutations via `__setitem__`/`__delitem__` are rejected.
     The only mutation entry point in `LIVE` is `apply_diff`, which patches
-    `self.root` and updates the cache in lockstep. `freeze` locks the
+    `self.root` and updates the caches in lockstep. `freeze` locks the
     allocation for read-only assertion use.
+
+    Accounts are replaced, never mutated in place: `apply_diff` builds new
+    `Account`s and structural copies share account objects. The derived
+    caches (code store and incremental state trie) notice an account that
+    was added, removed or replaced, but not an in-place write such as
+    `alloc[address].storage[key] = value` made after a state root was
+    computed or the allocation was copied.
     """
 
     root: Dict[Address, Account | None] = Field(  # type: ignore[assignment]
@@ -469,7 +489,7 @@ class Alloc(BaseAlloc):
     The `root` that `_code_store` and `_state_trie` were derived from.
 
     Accounts are replaced rather than mutated, so the comparison with `root`
-    is cheap and detects any change since the derivation.
+    is cheap and detects any account added, removed or replaced since.
     """
     _state_trie: IncrementalStateTrie | None = PrivateAttr(default=None)
     """
@@ -787,8 +807,9 @@ class Alloc(BaseAlloc):
 
     def _build_cache(self) -> None:
         """
-        Populate the code-hash → bytes cache from `self.root`, unless it was
-        already built from the same accounts.
+        Derive the code-hash → bytes cache and the zero-storage list from
+        `self.root` and drop the state trie, unless they were already
+        derived from the same accounts.
         """
         if self._derived_from is not None and self._derived_from == self.root:
             return
@@ -804,6 +825,7 @@ class Alloc(BaseAlloc):
                 continue
             self._code_store[spec_keccak256(code)] = Bytes(code)
         self._state_trie = None
+        self._pending_state_trie = None
         self._derived_from = dict(self.root)
 
     def _incremental_state_trie(self) -> IncrementalStateTrie:
@@ -813,15 +835,7 @@ class Alloc(BaseAlloc):
             trie = IncrementalStateTrie.build(
                 (
                     bytes(address),
-                    spec_state.Account(
-                        nonce=Uint(int(account.nonce)),
-                        balance=U256(int(account.balance)),
-                        code_hash=(
-                            spec_keccak256(account.code)
-                            if account.code
-                            else spec_state.EMPTY_CODE_HASH
-                        ),
-                    ),
+                    _spec_account(account),
                     {
                         int(key).to_bytes(32, "big"): int(value)
                         for key, value in account.storage.root.items()
@@ -843,8 +857,7 @@ class Alloc(BaseAlloc):
         The copy shares account objects and the state trie with `self`.
         `apply_diff` replaces accounts instead of mutating them and the trie
         is immutable, so separate account maps, code stores and private
-        attributes are enough to keep the two apart. A copy of an allocation
-        under construction starts `LIVE`.
+        attributes are enough to keep the two apart.
         """
         if self._state_commitment in (None, StateCommitment.MPT):
             # Callers like `T8N` seed the commitment on the copy only, so
@@ -853,22 +866,20 @@ class Alloc(BaseAlloc):
         else:
             self._build_cache()
         copied = self.model_copy(update={"root": dict(self.root)})
-        shared = {
+        # `RootModel.__copy__` leaves the copy sharing the private attribute
+        # dict of `self`, so give it its own: shallow copies, except for the
+        # derived state, which is shared or reset. TODO: rely on
+        # `model_copy` once pydantic/pydantic#13989 is released.
+        derived = {
             "_derived_from": self._derived_from,
             "_state_trie": self._state_trie,
+            "_pending_state_trie": None,
         }
         own_private: Dict[str, Any] = self.__pydantic_private__ or {}
         private = {
-            name: copy.copy(value)
+            name: derived[name] if name in derived else copy.copy(value)
             for name, value in own_private.items()
-            if name not in shared
         }
-        private.update(shared)
-        private["_pending_state_trie"] = None
-        if self._phase is _Phase.CONSTRUCTION:
-            private["_phase"] = _Phase.LIVE
-        # `RootModel.__copy__` leaves the copy sharing the private attribute
-        # dict of `self`, so give it its own.
         object.__setattr__(copied, "__pydantic_private__", private)
         return copied
 
@@ -943,15 +954,7 @@ class Alloc(BaseAlloc):
         account = self.root.get(Address(address))
         if account is None:
             return None
-        code = bytes(account.code) if account.code else b""
-        code_hash = (
-            spec_keccak256(code) if code else spec_state.EMPTY_CODE_HASH
-        )
-        return spec_state.Account(
-            nonce=Uint(int(account.nonce)),
-            balance=U256(int(account.balance)),
-            code_hash=code_hash,
-        )
+        return _spec_account(account)
 
     def get_storage(self, address: Bytes20, key: Bytes32) -> U256:
         """
@@ -1076,13 +1079,13 @@ class Alloc(BaseAlloc):
                 update={"storage": Storage(root=merged)}
             )
 
-        # Drop zero-valued storage entries from every account. Ethereum
-        # treats an absent slot as zero, so a literal ``{0x00: 0x00}``
-        # pair carried over untouched from the pre-state JSON would
-        # otherwise survive into the post-state dump and produce noise
-        # the spec-state-backed pipeline never had (the spec's
-        # ``set_storage`` drops zeros on insert). The diff never adds
-        # zeros, so only accounts that held them before can hold them now.
+        # Drop zero-valued storage entries carried over from the
+        # pre-state. Ethereum treats an absent slot as zero, so a literal
+        # `{0x00: 0x00}` pair from the pre-state JSON would otherwise
+        # survive into the post-state dump and produce noise the
+        # spec-state-backed pipeline never had (the spec's `set_storage`
+        # drops zeros on insert). The diff never adds zeros, so only
+        # accounts that held them before can hold them now.
         for addr in self._zero_storage_addresses:
             account = self.root.get(addr)
             if account is None or not account.storage.root:

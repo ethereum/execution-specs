@@ -623,8 +623,9 @@ class GroupPreAlloc(Alloc):
 
     def structural_copy(self) -> Self:
         """
-        Copy for executing blocks, without the cached state root and model
-        dump, which describe the group's genesis rather than the copy.
+        Return a copy to execute blocks against, without the cached state
+        root and model dump, which describe the group's genesis rather than
+        the copy.
         """
         copied = super().structural_copy()
         copied._cached_state_root = None
