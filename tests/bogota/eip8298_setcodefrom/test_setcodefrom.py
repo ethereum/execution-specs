@@ -589,31 +589,63 @@ def test_invalid_source(
     )
 
 
+@pytest.mark.parametrize("creation", ["committed", "reverted"])
 def test_source_created_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,
+    creation: str,
 ) -> None:
-    """Verify a source created earlier in the same tx is invalid."""
+    """
+    Verify a source created earlier in the same tx is invalid, as is the
+    address of a creation whose frame reverted.
+    """
     shell = pre.deploy_contract(
         ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
     )
-    driver = pre.deploy_contract(
-        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.MSTORE(32, Op.CREATE(0, 0, Op.CALLDATASIZE))
-        + Op.POP(Op.CALL(address=shell, args_offset=32, args_size=32))
-        + Op.STOP
-    )
+    adopt = Op.POP(Op.CALL(address=shell, args_offset=32, args_size=32))
+    post: dict[Address, Account | None] = {
+        shell: Account(code=ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: 0}),
+    }
+    if creation == "committed":
+        driver = pre.deploy_contract(
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            + Op.MSTORE(32, Op.CREATE(0, 0, Op.CALLDATASIZE))
+            + adopt
+            + Op.STOP
+        )
+        source = compute_create_address(address=driver, nonce=1)
+        post[source] = Account(code=SSTORE_MARKER_A)
+    elif creation == "reverted":
+        # The creator reverts with the new address as its revert data.
+        creator = pre.deploy_contract(
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            + Op.MSTORE(0, Op.CREATE(0, 0, Op.CALLDATASIZE))
+            + Op.REVERT(0, 32)
+        )
+        driver = pre.deploy_contract(
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            + Op.POP(
+                Op.CALL(
+                    address=creator,
+                    args_size=Op.CALLDATASIZE,
+                    ret_offset=32,
+                    ret_size=32,
+                )
+            )
+            + Op.SSTORE(0, Op.MLOAD(32))
+            + adopt
+            + Op.STOP
+        )
+        source = compute_create_address(address=creator, nonce=1)
+        post[source] = Account.NONEXISTENT
+        post[driver] = Account(storage={0: source})
+    else:
+        raise ValueError(f"Unknown creation: {creation}")
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=driver,
         data=Initcode(deploy_code=SSTORE_MARKER_A),
     )
-    post = {
-        shell: Account(code=ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: 0}),
-        compute_create_address(address=driver, nonce=1): Account(
-            code=SSTORE_MARKER_A
-        ),
-    }
     state_test(pre=pre, post=post, tx=tx)
 
 
