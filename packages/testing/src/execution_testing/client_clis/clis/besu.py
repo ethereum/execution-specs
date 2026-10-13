@@ -466,7 +466,12 @@ class BesuExceptionMapper(ExceptionMapper):
             r"frame signature signer does not match the recovered signer|"
             r"Frame signature msg must be empty or a 32-byte digest|"
             r"Frame signature signer must be empty or a 20-byte address|"
-            r"Frame transaction must have at least one frame"
+            r"Frame transaction must have at least one frame|"
+            r"invalid nonce key count|"
+            r"nonce keys not strictly increasing|"
+            r"zero nonce key alongside other keys|"
+            r"nonce key exceeds 2\^256-1|"
+            r"nonce sequence exceeds 2\^64-1"
         ),
         TransactionException.TYPE_6_INVALID_SIGNATURE: (
             r"secp256k1 frame signature must be 65 bytes|"
@@ -484,11 +489,15 @@ class BesuExceptionMapper(ExceptionMapper):
         ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: (
             r"(?:transaction invalid )?transaction nonce \d+ "
-            r"below sender account nonce \d+"
+            r"below sender account nonce \d+|"
+            r"(?:transaction invalid )?transaction nonce \d+ "
+            r"below nonce key 0x[0-9a-f]* sequence \d+"
         ),
         TransactionException.NONCE_MISMATCH_TOO_HIGH: (
             r"(?:transaction invalid )?transaction nonce \d+ "
-            r"does not match sender account nonce \d+"
+            r"does not match sender account nonce \d+|"
+            r"(?:transaction invalid )?transaction nonce \d+ "
+            r"above nonce key 0x[0-9a-f]* sequence \d+"
         ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
             r"(?:transaction invalid )?Transaction gas limit "
