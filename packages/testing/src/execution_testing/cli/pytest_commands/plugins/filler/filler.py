@@ -698,6 +698,17 @@ def pytest_configure(config: pytest.Config) -> None:
     if option_was_explicitly_set(config, "--block-gas-limit"):
         EnvironmentDefaults.gas_limit = config.getoption("block_gas_limit")
 
+    # Default chain id can be overwritten by user flag or env var
+    ChainConfigDefaults.chain_id = DEFAULT_CHAIN_ID
+    chain_id = config.getoption("chain_id")
+    if chain_id is None:
+        env_chain_id = os.environ.get("CHAIN_ID")
+        if env_chain_id is not None:
+            chain_id = int(env_chain_id)
+
+    if chain_id is not None:
+        ChainConfigDefaults.chain_id = int(chain_id)
+
     # Initialize fixture output configuration
     config.fixture_output = FixtureOutput.from_config(  # type: ignore[attr-defined]
         config
@@ -822,17 +833,6 @@ def pytest_configure(config: pytest.Config) -> None:
         config.t8n_cache_stats_aggregated = (  # type: ignore[attr-defined]
             TransitionToolCacheStats()
         )
-
-    # Default chain id can be overwritten by user flag or env var
-    ChainConfigDefaults.chain_id = DEFAULT_CHAIN_ID
-    chain_id = config.getoption("chain_id")
-    if chain_id is None:
-        env_chain_id = os.environ.get("CHAIN_ID")
-        if env_chain_id is not None:
-            chain_id = int(env_chain_id)
-
-    if chain_id is not None:
-        ChainConfigDefaults.chain_id = int(chain_id)
 
 
 @pytest.hookimpl(trylast=True)

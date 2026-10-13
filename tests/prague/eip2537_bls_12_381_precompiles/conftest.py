@@ -74,8 +74,3 @@ G2_POINTS_NOT_ON_CURVE = [
     BLSPointGenerator.generate_random_g2_point_not_on_curve(seed=i)
     for i in range(NUM_TEST_POINTS)
 ]
-
-# Field points that maps to the identity point using `BLS12_MAP_FP_TO_G2`
-G2_FIELD_POINTS_MAP_TO_IDENTITY = (
-    BLSPointGenerator.generate_g2_map_isogeny_kernel_points()
-)
