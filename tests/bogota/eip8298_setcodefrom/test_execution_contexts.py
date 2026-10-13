@@ -417,8 +417,17 @@ def test_initcode_reentrant_call_sees_adopted_code(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Verify a call back into the new account runs the adopted code."""
-    template = pre.deploy_contract(SSTORE_MARKER_A)
+    """
+    Verify a call back into the new account runs the adopted code, and
+    that `CODESIZE` and `CODECOPY` in that frame see it.
+    """
+    template_code = (
+        Op.SSTORE(0, Op.CODESIZE)
+        + Op.CODECOPY(0, 0, 32)
+        + Op.SSTORE(1, Op.MLOAD(0))
+        + Op.STOP
+    )
+    template = pre.deploy_contract(template_code)
     helper = pre.deploy_contract(Op.POP(Op.CALL(address=Op.CALLER)) + Op.STOP)
     initcode = (
         Op.POP(Op.SETCODEFROM(template))
@@ -430,8 +439,11 @@ def test_initcode_reentrant_call_sees_adopted_code(
         pre=pre,
         post={
             tx.created_contract: Account(
-                code=SSTORE_MARKER_A,
-                storage={MARKER_SLOT: MARKER_A},
+                code=template_code,
+                storage={
+                    0: len(template_code),
+                    1: Hash(bytes(template_code)[:32], right_padding=True),
+                },
             )
         },
         tx=tx,
