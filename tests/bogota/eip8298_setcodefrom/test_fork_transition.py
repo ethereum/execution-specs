@@ -10,7 +10,13 @@ from execution_testing import (
     Transaction,
 )
 
-from .helpers import RESULT_SLOT, SENTINEL, SHELL_CODE, TEMPLATE_CODE, word
+from .helpers import (
+    ADOPT_FROM_CALLDATA,
+    RESULT_SLOT,
+    SENTINEL,
+    SSTORE_MARKER_A,
+    word,
+)
 from .spec import ref_spec_8298
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8298.git_path
@@ -27,10 +33,12 @@ def test_setcodefrom_at_fork_transition(
     pre: Alloc,
 ) -> None:
     """Verify `SETCODEFROM` halts before the fork and adopts from it on."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     sender = pre.fund_eoa()
     shells = [
-        pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+        pre.deploy_contract(
+            ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+        )
         for _ in range(3)
     ]
     blocks = [
@@ -50,9 +58,9 @@ def test_setcodefrom_at_fork_transition(
         post={
             # Undefined 0xA7 halts the frame before the SSTORE.
             shells[0]: Account(
-                code=SHELL_CODE, storage={RESULT_SLOT: SENTINEL}
+                code=ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
             ),
-            shells[1]: Account(code=TEMPLATE_CODE, storage={RESULT_SLOT: 1}),
-            shells[2]: Account(code=TEMPLATE_CODE, storage={RESULT_SLOT: 1}),
+            shells[1]: Account(code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}),
+            shells[2]: Account(code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}),
         },
     )

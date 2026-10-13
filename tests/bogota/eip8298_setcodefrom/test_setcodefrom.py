@@ -26,16 +26,16 @@ from execution_testing import (
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .helpers import (
-    MARKED_SHELL_CODE,
-    MARKED_SHELL_MARKER,
+    ADOPT_FROM_CALLDATA,
+    MARKER_A,
+    MARKER_C,
     MARKER_SLOT,
     RESULT_SLOT,
     REVERT_WITH_CODE_HASH,
     SENTINEL,
-    SHELL_CODE,
-    TEMPLATE_B_CODE,
-    TEMPLATE_CODE,
-    TEMPLATE_MARKER,
+    SSTORE_MARKER_A,
+    SSTORE_MARKER_B,
+    SSTORE_MARKER_C_THEN_ADOPT,
     adoption,
     call_with,
     word,
@@ -53,9 +53,9 @@ def test_adopt(
     pre: Alloc,
 ) -> None:
     """Verify adoption replaces only the code hash and pushes 1."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     adopter = pre.deploy_contract(
-        SHELL_CODE,
+        ADOPT_FROM_CALLDATA,
         storage={5: 7, RESULT_SLOT: SENTINEL},
         balance=10,
         nonce=3,
@@ -63,7 +63,7 @@ def test_adopt(
     tx = Transaction(sender=pre.fund_eoa(), to=adopter, data=word(template))
     post = {
         adopter: Account(
-            code=TEMPLATE_CODE,
+            code=SSTORE_MARKER_A,
             storage={5: 7, RESULT_SLOT: 1},
             balance=10,
             nonce=3,
@@ -76,7 +76,7 @@ def test_adopt(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 adopter: BalAccountExpectation(
-                    code_changes=adoption(1, TEMPLATE_CODE)
+                    code_changes=adoption(1, SSTORE_MARKER_A)
                 ),
                 template: BalAccountExpectation.empty(),
             }
@@ -89,8 +89,10 @@ def test_later_call_runs_adopted_code(
     pre: Alloc,
 ) -> None:
     """Verify other frames observe and run the adopted code."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     driver = pre.deploy_contract(
         Op.POP(call_with(shell, template))
         + Op.SSTORE(1, Op.EXTCODEHASH(shell))
@@ -103,14 +105,14 @@ def test_later_call_runs_adopted_code(
     tx = Transaction(sender=pre.fund_eoa(), to=driver)
     post = {
         shell: Account(
-            code=TEMPLATE_CODE,
-            storage={RESULT_SLOT: 1, MARKER_SLOT: TEMPLATE_MARKER},
+            code=SSTORE_MARKER_A,
+            storage={RESULT_SLOT: 1, MARKER_SLOT: MARKER_A},
         ),
         driver: Account(
             storage={
-                1: TEMPLATE_CODE.keccak256(),
-                2: len(TEMPLATE_CODE),
-                3: Hash(bytes(TEMPLATE_CODE)[:32], right_padding=True),
+                1: SSTORE_MARKER_A.keccak256(),
+                2: len(SSTORE_MARKER_A),
+                3: Hash(bytes(SSTORE_MARKER_A)[:32], right_padding=True),
             }
         ),
     }
@@ -125,7 +127,7 @@ def test_self_inspection_after_adopt(
     Verify `EXTCODE*` of the current account see the adopted code, while
     `CODESIZE` and `CODECOPY` see the frame's loaded code.
     """
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     code = (
         Op.SSTORE(RESULT_SLOT, Op.SETCODEFROM(template))
         + Op.SSTORE(1, Op.EXTCODEHASH(Op.ADDRESS))
@@ -141,12 +143,12 @@ def test_self_inspection_after_adopt(
     tx = Transaction(sender=pre.fund_eoa(), to=adopter)
     post = {
         adopter: Account(
-            code=TEMPLATE_CODE,
+            code=SSTORE_MARKER_A,
             storage={
                 RESULT_SLOT: 1,
-                1: TEMPLATE_CODE.keccak256(),
-                2: len(TEMPLATE_CODE),
-                3: Hash(bytes(TEMPLATE_CODE)[:32], right_padding=True),
+                1: SSTORE_MARKER_A.keccak256(),
+                2: len(SSTORE_MARKER_A),
+                3: Hash(bytes(SSTORE_MARKER_A)[:32], right_padding=True),
                 4: len(code),
                 5: Hash(bytes(code)[:32], right_padding=True),
             },
@@ -167,11 +169,11 @@ def test_reentrant_adoption(
     Verify an inner frame's adoption leaves the outer frame on its loaded
     code, while a later call into the account runs the adopted code.
     """
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     adopter = pre.deploy_contract(
         Conditional(
             condition=Op.CALLDATASIZE,
-            if_true=SHELL_CODE,
+            if_true=ADOPT_FROM_CALLDATA,
             if_false=Op.POP(
                 call_with(Op.ADDRESS, template, call_opcode=call_opcode)
             )
@@ -184,8 +186,8 @@ def test_reentrant_adoption(
     tx = Transaction(sender=pre.fund_eoa(), to=adopter)
     post = {
         adopter: Account(
-            code=TEMPLATE_CODE,
-            storage={RESULT_SLOT: 1, 1: 1, MARKER_SLOT: TEMPLATE_MARKER},
+            code=SSTORE_MARKER_A,
+            storage={RESULT_SLOT: 1, 1: 1, MARKER_SLOT: MARKER_A},
         ),
     }
     state_test(pre=pre, post=post, tx=tx)
@@ -212,14 +214,14 @@ def test_source_high_bits_ignored(
     high_bits: int,
 ) -> None:
     """Verify only the low 160 bits of the stack input select the source."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     source = high_bits | int.from_bytes(template, "big")
     adopter = pre.deploy_contract(
         Op.SSTORE(RESULT_SLOT, Op.SETCODEFROM(source)) + Op.STOP,
         storage={RESULT_SLOT: SENTINEL},
     )
     tx = Transaction(sender=pre.fund_eoa(), to=adopter)
-    post = {adopter: Account(code=TEMPLATE_CODE, storage={RESULT_SLOT: 1})}
+    post = {adopter: Account(code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1})}
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -233,8 +235,8 @@ def test_two_adoptions_same_frame(
     Verify a second adoption in one frame replaces the first, and that
     restoring the original code hash leaves no code change.
     """
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    template_b = pre.deploy_contract(TEMPLATE_B_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    template_b = pre.deploy_contract(SSTORE_MARKER_B)
     code = (
         Op.SSTORE(RESULT_SLOT, Op.SETCODEFROM(Op.CALLDATALOAD(0)))
         + Op.SSTORE(1, Op.EXTCODEHASH(Op.ADDRESS))
@@ -245,8 +247,8 @@ def test_two_adoptions_same_frame(
     final_code: Bytecode
     if second == "other_source":
         second_source = template_b
-        final_code = TEMPLATE_B_CODE
-        code_changes = adoption(1, TEMPLATE_B_CODE)
+        final_code = SSTORE_MARKER_B
+        code_changes = adoption(1, SSTORE_MARKER_B)
     elif second == "restore":
         second_source = pre.deploy_contract(code)
         final_code = code
@@ -261,7 +263,7 @@ def test_two_adoptions_same_frame(
     post = {
         adopter: Account(
             code=final_code,
-            storage={RESULT_SLOT: 1, 1: TEMPLATE_CODE.keccak256(), 2: 1},
+            storage={RESULT_SLOT: 1, 1: SSTORE_MARKER_A.keccak256(), 2: 1},
         ),
     }
     state_test(
@@ -283,8 +285,10 @@ def test_same_hash_source(
     source: str,
 ) -> None:
     """Verify adopting the current code hash succeeds as a no-op."""
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
-    shell_twin = pre.deploy_contract(SHELL_CODE)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
+    shell_twin = pre.deploy_contract(ADOPT_FROM_CALLDATA)
     if source == "twin":
         source_address = shell_twin
     elif source == "self":
@@ -294,7 +298,7 @@ def test_same_hash_source(
     tx = Transaction(
         sender=pre.fund_eoa(), to=shell, data=word(source_address)
     )
-    post = {shell: Account(code=SHELL_CODE, storage={RESULT_SLOT: 1})}
+    post = {shell: Account(code=ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: 1})}
     state_test(
         pre=pre,
         post=post,
@@ -312,9 +316,11 @@ def test_transitive_adopt_same_tx(
     pre: Alloc,
 ) -> None:
     """Verify a source that adopted earlier in the tx hands over its hash."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
-    shell_twin = pre.deploy_contract(SHELL_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
+    shell_twin = pre.deploy_contract(ADOPT_FROM_CALLDATA)
     driver = pre.deploy_contract(
         Op.POP(call_with(shell_twin, template))
         + Op.POP(call_with(shell, shell_twin))
@@ -322,8 +328,8 @@ def test_transitive_adopt_same_tx(
     )
     tx = Transaction(sender=pre.fund_eoa(), to=driver)
     post = {
-        shell_twin: Account(code=TEMPLATE_CODE, storage={RESULT_SLOT: 1}),
-        shell: Account(code=TEMPLATE_CODE, storage={RESULT_SLOT: 1}),
+        shell_twin: Account(code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}),
+        shell: Account(code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}),
     }
     state_test(pre=pre, post=post, tx=tx)
 
@@ -336,8 +342,10 @@ def test_source_created_earlier_in_block(
     Verify a source deployed earlier in the block is valid, and that its
     bytecode outlives its own replacement.
     """
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     sender = pre.fund_eoa()
     source = compute_create_address(address=sender, nonce=0)
     block_1 = Block(
@@ -345,7 +353,7 @@ def test_source_created_earlier_in_block(
             Transaction(
                 sender=sender,
                 to=None,
-                data=Initcode(deploy_code=MARKED_SHELL_CODE),
+                data=Initcode(deploy_code=SSTORE_MARKER_C_THEN_ADOPT),
             ),
             Transaction(sender=sender, to=shell, data=word(source)),
             Transaction(sender=sender, to=source, data=word(template)),
@@ -355,13 +363,14 @@ def test_source_created_earlier_in_block(
                 source: BalAccountExpectation(
                     code_changes=[
                         BalCodeChange(
-                            block_access_index=1, new_code=MARKED_SHELL_CODE
+                            block_access_index=1,
+                            new_code=SSTORE_MARKER_C_THEN_ADOPT,
                         )
                     ]
-                    + adoption(3, TEMPLATE_CODE)
+                    + adoption(3, SSTORE_MARKER_A)
                 ),
                 shell: BalAccountExpectation(
-                    code_changes=adoption(2, MARKED_SHELL_CODE)
+                    code_changes=adoption(2, SSTORE_MARKER_C_THEN_ADOPT)
                 ),
             }
         ),
@@ -374,12 +383,12 @@ def test_source_created_earlier_in_block(
     )
     post = {
         shell: Account(
-            code=MARKED_SHELL_CODE,
-            storage={RESULT_SLOT: 0, MARKER_SLOT: MARKED_SHELL_MARKER},
+            code=SSTORE_MARKER_C_THEN_ADOPT,
+            storage={RESULT_SLOT: 0, MARKER_SLOT: MARKER_C},
         ),
         source: Account(
-            code=TEMPLATE_CODE,
-            storage={RESULT_SLOT: 1, MARKER_SLOT: TEMPLATE_MARKER},
+            code=SSTORE_MARKER_A,
+            storage={RESULT_SLOT: 1, MARKER_SLOT: MARKER_A},
         ),
     }
     blockchain_test(pre=pre, blocks=[block_1, block_2], post=post)
@@ -390,10 +399,12 @@ def test_adoptions_across_txs(
     pre: Alloc,
 ) -> None:
     """Verify each tx's adoption is recorded at its own BAL index."""
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
-    shell_twin = pre.deploy_contract(SHELL_CODE)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
+    shell_twin = pre.deploy_contract(ADOPT_FROM_CALLDATA)
     sender = pre.fund_eoa()
-    source = pre.deploy_contract(MARKED_SHELL_CODE)
+    source = pre.deploy_contract(SSTORE_MARKER_C_THEN_ADOPT)
     block = Block(
         txs=[
             Transaction(sender=sender, to=shell, data=word(source)),
@@ -402,8 +413,8 @@ def test_adoptions_across_txs(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 shell: BalAccountExpectation(
-                    code_changes=adoption(1, MARKED_SHELL_CODE)
-                    + adoption(2, SHELL_CODE)
+                    code_changes=adoption(1, SSTORE_MARKER_C_THEN_ADOPT)
+                    + adoption(2, ADOPT_FROM_CALLDATA)
                 ),
                 shell_twin: BalAccountExpectation.empty(),
             }
@@ -411,8 +422,8 @@ def test_adoptions_across_txs(
     )
     post = {
         shell: Account(
-            code=SHELL_CODE,
-            storage={RESULT_SLOT: 1, MARKER_SLOT: MARKED_SHELL_MARKER},
+            code=ADOPT_FROM_CALLDATA,
+            storage={RESULT_SLOT: 1, MARKER_SLOT: MARKER_C},
         ),
     }
     blockchain_test(pre=pre, blocks=[block], post=post)
@@ -425,8 +436,8 @@ def test_adopt_into_account_created_same_tx(
     create_opcode: Op,
 ) -> None:
     """Verify an account created earlier in the tx can adopt code."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    initcode = Initcode(deploy_code=SHELL_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    initcode = Initcode(deploy_code=ADOPT_FROM_CALLDATA)
     factory = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
         + Op.MSTORE(32, create_opcode(offset=0, size=Op.CALLDATASIZE))
@@ -439,7 +450,7 @@ def test_adopt_into_account_created_same_tx(
     tx = Transaction(sender=pre.fund_eoa(), to=factory, data=initcode)
     post = {
         created: Account(
-            code=TEMPLATE_CODE, nonce=1, storage={RESULT_SLOT: 1}
+            code=SSTORE_MARKER_A, nonce=1, storage={RESULT_SLOT: 1}
         ),
     }
     state_test(
@@ -452,7 +463,7 @@ def test_adopt_into_account_created_same_tx(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=1)
                     ],
-                    code_changes=adoption(1, TEMPLATE_CODE),
+                    code_changes=adoption(1, SSTORE_MARKER_A),
                 ),
                 template: BalAccountExpectation.empty(),
             }
@@ -465,8 +476,10 @@ def test_adopted_account_as_delegation_target(
     pre: Alloc,
 ) -> None:
     """Verify a delegation to an adopter resolves to its adopted code."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     delegating_eoa = pre.fund_eoa(delegation=shell)
     driver = pre.deploy_contract(
         Op.POP(call_with(shell, template))
@@ -475,8 +488,8 @@ def test_adopted_account_as_delegation_target(
     )
     tx = Transaction(sender=pre.fund_eoa(), to=driver)
     post = {
-        shell: Account(code=TEMPLATE_CODE, storage={RESULT_SLOT: 1}),
-        delegating_eoa: Account(storage={MARKER_SLOT: TEMPLATE_MARKER}),
+        shell: Account(code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}),
+        delegating_eoa: Account(storage={MARKER_SLOT: MARKER_A}),
     }
     state_test(pre=pre, post=post, tx=tx)
 
@@ -486,7 +499,9 @@ def test_selfdestructed_source_stays_valid(
     pre: Alloc,
 ) -> None:
     """Verify a source that self-destructed earlier in the tx stays valid."""
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     # Not created in this tx: post-Cancun its code stays.
     source_code = Op.SELFDESTRUCT(Op.ORIGIN)
     source = pre.deploy_contract(source_code)
@@ -540,8 +555,10 @@ def test_invalid_source(
     source_kind: str,
 ) -> None:
     """Verify an invalid source pushes 0 and leaves the adopter unchanged."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     bal: dict[Address, BalAccountExpectation | None] = {}
     if source_kind == "nonexistent":
         source = pre.nonexistent_account()
@@ -560,7 +577,9 @@ def test_invalid_source(
     tx = Transaction(sender=pre.fund_eoa(), to=shell, data=word(source))
     state_test(
         pre=pre,
-        post={shell: Account(code=SHELL_CODE, storage={RESULT_SLOT: 0})},
+        post={
+            shell: Account(code=ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: 0})
+        },
         tx=tx,
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations=bal
@@ -573,7 +592,9 @@ def test_source_created_same_tx(
     pre: Alloc,
 ) -> None:
     """Verify a source created earlier in the same tx is invalid."""
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     # `call_with` writes memory 0, so the new address is kept at 32.
     driver = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
@@ -584,12 +605,12 @@ def test_source_created_same_tx(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=driver,
-        data=Initcode(deploy_code=TEMPLATE_CODE),
+        data=Initcode(deploy_code=SSTORE_MARKER_A),
     )
     post = {
-        shell: Account(code=SHELL_CODE, storage={RESULT_SLOT: 0}),
+        shell: Account(code=ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: 0}),
         compute_create_address(address=driver, nonce=1): Account(
-            code=TEMPLATE_CODE
+            code=SSTORE_MARKER_A
         ),
     }
     state_test(pre=pre, post=post, tx=tx)
@@ -620,7 +641,7 @@ def test_revert_after_adopt(
     pre: Alloc,
 ) -> None:
     """Verify a revert discards an adoption the frame observed."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     adopter_code = Op.POP(Op.SETCODEFROM(template)) + REVERT_WITH_CODE_HASH
     adopter = pre.deploy_contract(adopter_code)
     driver = pre.deploy_contract(
@@ -632,7 +653,7 @@ def test_revert_after_adopt(
     tx = Transaction(sender=pre.fund_eoa(), to=driver)
     post = {
         driver: Account(
-            storage={RESULT_SLOT: 0, 1: TEMPLATE_CODE.keccak256()}
+            storage={RESULT_SLOT: 0, 1: SSTORE_MARKER_A.keccak256()}
         ),
         adopter: Account(code=adopter_code),
     }
@@ -654,8 +675,10 @@ def test_parent_revert(
     pre: Alloc,
 ) -> None:
     """Verify a parent frame's revert discards its callee's adoption."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     parent = pre.deploy_contract(
         Op.POP(call_with(shell, template))
         + Op.MSTORE(0, Op.EXTCODEHASH(shell))
@@ -671,10 +694,10 @@ def test_parent_revert(
     tx = Transaction(sender=pre.fund_eoa(), to=wrapper)
     post = {
         wrapper: Account(
-            storage={RESULT_SLOT: 0, 1: TEMPLATE_CODE.keccak256()}
+            storage={RESULT_SLOT: 0, 1: SSTORE_MARKER_A.keccak256()}
         ),
         # The post-revert call ran the original code.
-        shell: Account(code=SHELL_CODE, storage={RESULT_SLOT: 0}),
+        shell: Account(code=ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: 0}),
     }
     state_test(pre=pre, post=post, tx=tx)
 
@@ -684,8 +707,8 @@ def test_inner_adoption_reverts_outer_kept(
     pre: Alloc,
 ) -> None:
     """Verify a reverted inner adoption restores the outer frame's one."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    template_b = pre.deploy_contract(TEMPLATE_B_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    template_b = pre.deploy_contract(SSTORE_MARKER_B)
     library = pre.deploy_contract(
         Op.POP(Op.SETCODEFROM(template_b)) + REVERT_WITH_CODE_HASH
     )
@@ -700,12 +723,12 @@ def test_inner_adoption_reverts_outer_kept(
     tx = Transaction(sender=pre.fund_eoa(), to=adopter)
     post = {
         adopter: Account(
-            code=TEMPLATE_CODE,
+            code=SSTORE_MARKER_A,
             storage={
                 RESULT_SLOT: 1,
                 1: 0,
-                2: TEMPLATE_B_CODE.keccak256(),
-                MARKER_SLOT: TEMPLATE_MARKER,
+                2: SSTORE_MARKER_B.keccak256(),
+                MARKER_SLOT: MARKER_A,
             },
         ),
     }
@@ -717,7 +740,7 @@ def test_revert_restores_same_tx_delegation(
     pre: Alloc,
 ) -> None:
     """Verify a reverted adoption restores a delegation set in the same tx."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     impl = pre.deploy_contract(
         Op.POP(Op.SETCODEFROM(template)) + REVERT_WITH_CODE_HASH
     )
@@ -739,7 +762,7 @@ def test_revert_restores_same_tx_delegation(
     post = {
         eoa: Account(code=designator, nonce=1),
         driver: Account(
-            storage={RESULT_SLOT: 0, 1: TEMPLATE_CODE.keccak256()}
+            storage={RESULT_SLOT: 0, 1: SSTORE_MARKER_A.keccak256()}
         ),
     }
     state_test(
@@ -774,7 +797,7 @@ def test_created_adopter_selfdestructed(
     source_code = Op.SELFDESTRUCT(Op.ORIGIN)
     source = pre.deploy_contract(source_code)
     if created_same_tx:
-        initcode = Initcode(deploy_code=SHELL_CODE)
+        initcode = Initcode(deploy_code=ADOPT_FROM_CALLDATA)
         factory = pre.deploy_contract(
             Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
             + Op.MSTORE(32, Op.CREATE2(0, 0, Op.CALLDATASIZE, 0))
@@ -798,7 +821,7 @@ def test_created_adopter_selfdestructed(
         )
     elif not created_same_tx:
         adopter = pre.deploy_contract(
-            SHELL_CODE, storage={RESULT_SLOT: SENTINEL}, balance=1
+            ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}, balance=1
         )
         driver = pre.deploy_contract(
             Op.POP(call_with(adopter, source))

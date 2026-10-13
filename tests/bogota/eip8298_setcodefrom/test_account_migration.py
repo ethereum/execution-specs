@@ -19,12 +19,12 @@ from execution_testing import (
 )
 
 from .helpers import (
+    ADOPT_FROM_CALLDATA,
+    MARKER_A,
     MARKER_SLOT,
     RESULT_SLOT,
     SENTINEL,
-    SHELL_CODE,
-    TEMPLATE_CODE,
-    TEMPLATE_MARKER,
+    SSTORE_MARKER_A,
     word,
 )
 from .spec import ref_spec_8298
@@ -80,8 +80,10 @@ def test_eoa_sends_before_migration(
     self_sponsored: bool,
 ) -> None:
     """Verify an EOA can send a tx placed before its migration in a block."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     eoa = pre.fund_eoa()
     relayer = pre.fund_eoa()
     send = Transaction(sender=eoa, to=relayer, value=1)
@@ -93,7 +95,7 @@ def test_eoa_sends_before_migration(
         blocks=[Block(txs=[send, migration])],
         post={
             eoa: Account(
-                code=TEMPLATE_CODE, nonce=nonce, storage={RESULT_SLOT: 1}
+                code=SSTORE_MARKER_A, nonce=nonce, storage={RESULT_SLOT: 1}
             )
         },
     )
@@ -110,8 +112,10 @@ def test_migrated_eoa_cannot_send(
     send: str,
 ) -> None:
     """Verify an EOA that adopted code is rejected as a tx sender."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     eoa = pre.fund_eoa()
     relayer = pre.fund_eoa()
     migration, nonce = migrate(
@@ -140,7 +144,7 @@ def test_migrated_eoa_cannot_send(
         ]
         post = {
             eoa: Account(
-                code=TEMPLATE_CODE, nonce=nonce, storage={RESULT_SLOT: 1}
+                code=SSTORE_MARKER_A, nonce=nonce, storage={RESULT_SLOT: 1}
             )
         }
     else:
@@ -153,8 +157,10 @@ def test_migrated_eoa_redelegation_skipped(
     pre: Alloc,
 ) -> None:
     """Verify a later authorization from a migrated EOA is skipped."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     eoa = pre.fund_eoa()
     relayer = pre.fund_eoa()
     other_impl = pre.deploy_contract(Op.STOP)
@@ -186,7 +192,7 @@ def test_migrated_eoa_redelegation_skipped(
         ],
         post={
             eoa: Account(
-                code=TEMPLATE_CODE, nonce=nonce, storage={RESULT_SLOT: 1}
+                code=SSTORE_MARKER_A, nonce=nonce, storage={RESULT_SLOT: 1}
             ),
             recipient: Account(balance=10),
         },
@@ -198,8 +204,10 @@ def test_migrated_eoa_runs_adopted_code(
     pre: Alloc,
 ) -> None:
     """Verify a call to a migrated EOA runs its adopted code."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     eoa = pre.fund_eoa(amount=1)
     relayer = pre.fund_eoa()
     migration, nonce = migrate(eoa, 0, relayer, shell, template, False)
@@ -209,10 +217,10 @@ def test_migrated_eoa_runs_adopted_code(
         blocks=[Block(txs=[migration]), Block(txs=[call])],
         post={
             eoa: Account(
-                code=TEMPLATE_CODE,
+                code=SSTORE_MARKER_A,
                 nonce=nonce,
                 balance=2,
-                storage={RESULT_SLOT: 1, MARKER_SLOT: TEMPLATE_MARKER},
+                storage={RESULT_SLOT: 1, MARKER_SLOT: MARKER_A},
             )
         },
     )
