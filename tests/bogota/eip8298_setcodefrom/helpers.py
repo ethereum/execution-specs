@@ -6,19 +6,21 @@ from execution_testing import Address, BalCodeChange, Bytecode, Hash, Op
 
 RESULT_SLOT = 0
 MARKER_SLOT = 0x7E
-TEMPLATE_MARKER = 0x7E3A
-TEMPLATE_B_MARKER = 0x7E3B
-MARKED_SHELL_MARKER = 0x7E3C
+MARKER_A = 0x7E3A
+MARKER_B = 0x7E3B
+MARKER_C = 0x7E3C
 SENTINEL = 0xDEAD  # pre-set so an expected 0 proves a write
 
-TEMPLATE_CODE = Op.SSTORE(MARKER_SLOT, TEMPLATE_MARKER) + Op.STOP
-TEMPLATE_B_CODE = Op.SSTORE(MARKER_SLOT, TEMPLATE_B_MARKER) + Op.STOP
+SSTORE_MARKER_A = Op.SSTORE(MARKER_SLOT, MARKER_A) + Op.STOP
+SSTORE_MARKER_B = Op.SSTORE(MARKER_SLOT, MARKER_B) + Op.STOP
 # Adopt the source in the first calldata word and store the result.
-SHELL_CODE = (
+ADOPT_FROM_CALLDATA = (
     Op.SSTORE(RESULT_SLOT, Op.SETCODEFROM(Op.CALLDATALOAD(0))) + Op.STOP
 )
-# A shell with its own marker, so its bytes differ from SHELL_CODE.
-MARKED_SHELL_CODE = Op.SSTORE(MARKER_SLOT, MARKED_SHELL_MARKER) + SHELL_CODE
+# Like ADOPT_FROM_CALLDATA, with a marker first so its bytes differ.
+SSTORE_MARKER_C_THEN_ADOPT = (
+    Op.SSTORE(MARKER_SLOT, MARKER_C) + ADOPT_FROM_CALLDATA
+)
 # Revert with the current account's code hash as the revert data.
 REVERT_WITH_CODE_HASH = Op.MSTORE(0, Op.EXTCODEHASH(Op.ADDRESS)) + Op.REVERT(
     0, 32

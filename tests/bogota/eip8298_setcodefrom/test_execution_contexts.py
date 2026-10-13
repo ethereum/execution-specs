@@ -30,15 +30,15 @@ from execution_testing import (
 
 from ...cancun.eip4788_beacon_root.spec import Spec as BeaconSpec
 from .helpers import (
+    ADOPT_FROM_CALLDATA,
+    MARKER_A,
+    MARKER_B,
     MARKER_SLOT,
     RESULT_SLOT,
     REVERT_WITH_CODE_HASH,
     SENTINEL,
-    SHELL_CODE,
-    TEMPLATE_B_CODE,
-    TEMPLATE_B_MARKER,
-    TEMPLATE_CODE,
-    TEMPLATE_MARKER,
+    SSTORE_MARKER_A,
+    SSTORE_MARKER_B,
     adopt_code,
     adoption,
     call_with,
@@ -64,7 +64,7 @@ def test_call_opcodes(
     call_opcode: Op,
 ) -> None:
     """Verify the current account, not the code owner, adopts the source."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     callee_code = adopt_code()
     callee = pre.deploy_contract(callee_code)
     caller_code = (
@@ -78,12 +78,12 @@ def test_call_opcodes(
         adopter = callee
         post = {
             caller: Account(code=caller_code, storage={RESULT_SLOT: 1}),
-            callee: Account(code=TEMPLATE_CODE),
+            callee: Account(code=SSTORE_MARKER_A),
         }
     elif call_opcode in (Op.CALLCODE, Op.DELEGATECALL):
         adopter = caller
         post = {
-            caller: Account(code=TEMPLATE_CODE, storage={RESULT_SLOT: 1}),
+            caller: Account(code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}),
             callee: Account(code=callee_code),
         }
     else:
@@ -96,7 +96,7 @@ def test_call_opcodes(
             account_expectations={
                 template: BalAccountExpectation.empty(),
                 adopter: BalAccountExpectation(
-                    code_changes=adoption(1, TEMPLATE_CODE)
+                    code_changes=adoption(1, SSTORE_MARKER_A)
                 ),
             }
         ),
@@ -122,7 +122,7 @@ def test_static_halts(
     source_kind: str,
 ) -> None:
     """Verify `SETCODEFROM` halts in a static context before reading source."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     adopter_code = adopt_code()
     if source_kind == "valid":
         source = template
@@ -160,7 +160,7 @@ def test_static_propagates_through_delegatecall(
     pre: Alloc,
 ) -> None:
     """Verify a DELEGATECALL under STATICCALL still cannot adopt."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     lib = pre.deploy_contract(adopt_code())
     middle_code = (
         Op.CALLDATACOPY(0, 0, 32)
@@ -201,7 +201,7 @@ def test_initcode_creation_tx(
     tx_type: int,
 ) -> None:
     """Verify a creation tx's initcode adopts instead of depositing code."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     tx = Transaction(
         ty=tx_type,
         sender=pre.fund_eoa(),
@@ -211,7 +211,7 @@ def test_initcode_creation_tx(
     created = tx.created_contract
     state_test(
         pre=pre,
-        post={created: Account(code=TEMPLATE_CODE, storage={0: 1}, nonce=1)},
+        post={created: Account(code=SSTORE_MARKER_A, storage={0: 1}, nonce=1)},
         tx=tx,
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
@@ -219,7 +219,7 @@ def test_initcode_creation_tx(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=1)
                     ],
-                    code_changes=adoption(1, TEMPLATE_CODE),
+                    code_changes=adoption(1, SSTORE_MARKER_A),
                 ),
                 template: BalAccountExpectation.empty(),
             }
@@ -235,7 +235,7 @@ def test_initcode_create_opcodes(
     create_opcode: Op,
 ) -> None:
     """Verify CREATE/CREATE2 initcode adopts instead of depositing code."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     initcode = Op.SSTORE(0, Op.SETCODEFROM(template)) + Op.STOP
     factory = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
@@ -253,7 +253,7 @@ def test_initcode_create_opcodes(
         pre=pre,
         post={
             factory: Account(storage={0: created}, nonce=2),
-            created: Account(code=TEMPLATE_CODE, storage={0: 1}, nonce=1),
+            created: Account(code=SSTORE_MARKER_A, storage={0: 1}, nonce=1),
         },
         tx=Transaction(sender=pre.fund_eoa(), to=factory, data=initcode),
     )
@@ -265,7 +265,7 @@ def test_initcode_self_inspection(
     pre: Alloc,
 ) -> None:
     """Verify EXTCODE* see adopted code and CODE* see the initcode."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     initcode = (
         Op.POP(Op.SETCODEFROM(template))
         + Op.SSTORE(0, Op.EXTCODEHASH(Op.ADDRESS))
@@ -282,11 +282,11 @@ def test_initcode_self_inspection(
         pre=pre,
         post={
             tx.created_contract: Account(
-                code=TEMPLATE_CODE,
+                code=SSTORE_MARKER_A,
                 storage={
-                    0: TEMPLATE_CODE.keccak256(),
-                    1: len(TEMPLATE_CODE),
-                    2: Hash(bytes(TEMPLATE_CODE)[:32], right_padding=True),
+                    0: SSTORE_MARKER_A.keccak256(),
+                    1: len(SSTORE_MARKER_A),
+                    2: Hash(bytes(SSTORE_MARKER_A)[:32], right_padding=True),
                     3: len(initcode),
                     4: Hash(bytes(initcode)[:32], right_padding=True),
                 },
@@ -306,7 +306,7 @@ def test_initcode_return_data_ignored(
     payload: str,
 ) -> None:
     """Verify return data is ignored once initcode has adopted code."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     adopt = Op.SSTORE(0, Op.SETCODEFROM(template))
     initcode: Bytecode
     if payload == "ef_prefixed":
@@ -316,7 +316,7 @@ def test_initcode_return_data_ignored(
     elif payload == "over_max_code_size":
         initcode = adopt + Op.RETURN(0, fork.max_code_size() + 1)
     elif payload == "template_b_code":
-        initcode = Initcode(initcode_prefix=adopt, deploy_code=TEMPLATE_B_CODE)
+        initcode = Initcode(initcode_prefix=adopt, deploy_code=SSTORE_MARKER_B)
     else:
         raise ValueError(f"unexpected payload: {payload}")
     tx = Transaction(sender=pre.fund_eoa(), to=None, data=initcode)
@@ -324,7 +324,7 @@ def test_initcode_return_data_ignored(
         pre=pre,
         post={
             tx.created_contract: Account(
-                code=TEMPLATE_CODE, storage={0: 1}, nonce=1
+                code=SSTORE_MARKER_A, storage={0: 1}, nonce=1
             )
         },
         tx=tx,
@@ -336,7 +336,7 @@ def test_initcode_self_as_source(
     pre: Alloc,
 ) -> None:
     """Verify an account created in the tx is not a valid source to itself."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     initcode = (
         Op.SSTORE(0, Op.SETCODEFROM(template))
         + Op.SSTORE(1, Op.SETCODEFROM(Op.ADDRESS))
@@ -347,7 +347,7 @@ def test_initcode_self_as_source(
         pre=pre,
         post={
             tx.created_contract: Account(
-                code=TEMPLATE_CODE, storage={0: 1, 1: 0}
+                code=SSTORE_MARKER_A, storage={0: 1, 1: 0}
             )
         },
         tx=tx,
@@ -360,7 +360,7 @@ def test_initcode_reentrant_call_sees_adopted_code(
     pre: Alloc,
 ) -> None:
     """Verify a call back into the new account runs the adopted code."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     helper = pre.deploy_contract(Op.POP(Op.CALL(address=Op.CALLER)) + Op.STOP)
     initcode = (
         Op.POP(Op.SETCODEFROM(template))
@@ -372,8 +372,8 @@ def test_initcode_reentrant_call_sees_adopted_code(
         pre=pre,
         post={
             tx.created_contract: Account(
-                code=TEMPLATE_CODE,
-                storage={MARKER_SLOT: TEMPLATE_MARKER},
+                code=SSTORE_MARKER_A,
+                storage={MARKER_SLOT: MARKER_A},
             )
         },
         tx=tx,
@@ -387,7 +387,7 @@ def test_initcode_revert_after_adopt(
     create_opcode: Op,
 ) -> None:
     """Verify initcode that adopts and then reverts creates no account."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     initcode = Op.POP(Op.SETCODEFROM(template)) + REVERT_WITH_CODE_HASH
     factory = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
@@ -408,7 +408,7 @@ def test_initcode_revert_after_adopt(
         pre=pre,
         post={
             factory: Account(
-                storage={RESULT_SLOT: 0, 1: TEMPLATE_CODE.keccak256()},
+                storage={RESULT_SLOT: 0, 1: SSTORE_MARKER_A.keccak256()},
                 nonce=2,
             ),
             created: Account.NONEXISTENT,
@@ -423,8 +423,10 @@ def test_delegated_eoa_adopts(
     pre: Alloc,
 ) -> None:
     """Verify an EOA delegated to shell code in the same tx adopts itself."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     eoa = pre.fund_eoa(amount=0)
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -438,9 +440,11 @@ def test_delegated_eoa_adopts(
         pre=pre,
         post={
             eoa: Account(
-                code=TEMPLATE_CODE, storage={RESULT_SLOT: 1}, nonce=1
+                code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}, nonce=1
             ),
-            shell: Account(code=SHELL_CODE, storage={RESULT_SLOT: SENTINEL}),
+            shell: Account(
+                code=ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+            ),
         },
         tx=tx,
         expected_block_access_list=BlockAccessListExpectation(
@@ -449,7 +453,7 @@ def test_delegated_eoa_adopts(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=1)
                     ],
-                    code_changes=adoption(1, TEMPLATE_CODE),
+                    code_changes=adoption(1, SSTORE_MARKER_A),
                 ),
                 shell: BalAccountExpectation.empty(),
             }
@@ -467,7 +471,9 @@ def test_adopt_code_owner(
     Verify the current account adopts the account whose code it runs, as
     its own code hash differs from the source's.
     """
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     if context == "delegatecall":
         adopter = pre.deploy_contract(
             Op.SSTORE(1, call_with(shell, shell, call_opcode=Op.DELEGATECALL))
@@ -475,18 +481,24 @@ def test_adopt_code_owner(
             storage={RESULT_SLOT: SENTINEL, 1: SENTINEL},
         )
         tx = Transaction(sender=pre.fund_eoa(), to=adopter)
-        adopter_post = Account(code=SHELL_CODE, storage={RESULT_SLOT: 1, 1: 1})
+        adopter_post = Account(
+            code=ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: 1, 1: 1}
+        )
     elif context == "set_code":
         adopter = pre.fund_eoa(delegation=shell)
         tx = Transaction(sender=pre.fund_eoa(), to=adopter, data=word(shell))
-        adopter_post = Account(code=SHELL_CODE, storage={RESULT_SLOT: 1})
+        adopter_post = Account(
+            code=ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: 1}
+        )
     else:
         raise ValueError(f"unexpected context: {context}")
     state_test(
         pre=pre,
         post={
             adopter: adopter_post,
-            shell: Account(code=SHELL_CODE, storage={RESULT_SLOT: SENTINEL}),
+            shell: Account(
+                code=ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+            ),
         },
         tx=tx,
     )
@@ -525,7 +537,7 @@ def test_system_call_cannot_adopt(
     system_contract: Address,
 ) -> None:
     """Verify `SETCODEFROM` halts when run by a block's system call."""
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     override = Op.POP(Op.SETCODEFROM(template)) + Op.STOP
     pre[system_contract] = Account(code=override)
     if system_contract in request_predeploys(fork):
@@ -573,23 +585,25 @@ def test_adoption_across_system_calls(
     adopter adopted last, as a code hash, including when later calls write
     the adopter without changing its code.
     """
-    template = pre.deploy_contract(TEMPLATE_CODE)
-    template_b = pre.deploy_contract(TEMPLATE_B_CODE)
-    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    template_b = pre.deploy_contract(SSTORE_MARKER_B)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
     if later_calls == "touch":
         # The adopted code only writes the marker.
         source = template
-        final_code = TEMPLATE_CODE
-        marker = TEMPLATE_MARKER
+        final_code = SSTORE_MARKER_A
+        marker = MARKER_A
     elif later_calls == "readopt":
         # The adopted code adopts `template_b` when the next call runs it.
         source = pre.deploy_contract(
-            Op.SSTORE(MARKER_SLOT, TEMPLATE_B_MARKER)
+            Op.SSTORE(MARKER_SLOT, MARKER_B)
             + Op.POP(Op.SETCODEFROM(template_b))
             + Op.STOP
         )
-        final_code = TEMPLATE_B_CODE
-        marker = TEMPLATE_B_MARKER
+        final_code = SSTORE_MARKER_B
+        marker = MARKER_B
     else:
         raise ValueError(f"unexpected later_calls: {later_calls}")
     callers = [
@@ -647,7 +661,7 @@ def test_system_contract_as_current_account(
     Verify `SETCODEFROM` halts when a system contract the block calls is the
     current account, whoever called it.
     """
-    template = pre.deploy_contract(TEMPLATE_CODE)
+    template = pre.deploy_contract(SSTORE_MARKER_A)
     address = Address(system_contract)
     adopt = Op.POP(Op.SETCODEFROM(template))
     storage: dict[int, int]
@@ -698,14 +712,14 @@ def test_system_contract_as_current_account(
     elif context == "delegatecall_in":
         adopter = driver
         post = {
-            driver: Account(code=TEMPLATE_CODE, storage={0: 1, 1: 1}),
+            driver: Account(code=SSTORE_MARKER_A, storage={0: 1, 1: 1}),
             address: Account(code=override, storage={}),
         }
     elif context in ("call", "delegatecall_out"):
         adopter = address
         post = {
             driver: Account(storage={1: 1}),
-            address: Account(code=TEMPLATE_CODE, storage={0: 1}),
+            address: Account(code=SSTORE_MARKER_A, storage={0: 1}),
         }
     else:
         raise ValueError(f"unexpected context: {context}")
@@ -715,7 +729,7 @@ def test_system_contract_as_current_account(
     else:
         bal = {
             adopter: BalAccountExpectation(
-                code_changes=adoption(1, TEMPLATE_CODE)
+                code_changes=adoption(1, SSTORE_MARKER_A)
             ),
             template: BalAccountExpectation.empty(),
         }
