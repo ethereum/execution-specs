@@ -296,6 +296,14 @@ def test_storage_refund_settlement(
     # The premise of the test: the refund applies uncapped.
     assert 0 < refund <= gas_used_before_refund // fork.max_refund_quotient()
     gas_used_after_refund = gas_used_before_refund - refund
+    # The premise of each case: the floor sits below the post-refund
+    # gas, above the pre-refund gas, or between the two.
+    if (boundary, floor_side) == ("post_refund", "below"):
+        assert calldata_floor < gas_used_after_refund
+    elif (boundary, floor_side) == ("pre_refund", "above"):
+        assert gas_used_before_refund < calldata_floor
+    else:
+        assert gas_used_after_refund < calldata_floor < gas_used_before_refund
 
     payer_gas_used = max(gas_used_after_refund, calldata_floor)
     block_gas_used = max(gas_used_before_refund, calldata_floor)
