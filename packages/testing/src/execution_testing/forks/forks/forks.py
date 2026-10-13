@@ -814,6 +814,13 @@ class Frontier(BaseFork):
         return 0
 
     @classmethod
+    def base_fee_max_change_numerator(cls) -> int:
+        """Return the base fee max change numerator at a given fork."""
+        raise NotImplementedError(
+            f"Base fee max change numerator is not supported in {cls.name()}"
+        )
+
+    @classmethod
     def base_fee_max_change_denominator(cls) -> int:
         """Return the base fee max change denominator at a given fork."""
         raise NotImplementedError(

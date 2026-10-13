@@ -22,6 +22,7 @@ from execution_testing import (
     Header,
     Op,
     ParameterSet,
+    RecipientType,
     Transaction,
     TransitionFork,
     add_kzg_version,
@@ -212,7 +213,9 @@ def pre_fork_blocks(
         while remaining_blobs > 0:
             tx_blobs = min(remaining_blobs, max_blobs_per_tx)
             blob_tx_gas_limit = (
-                pre_fork.transaction_intrinsic_cost_calculator()()
+                pre_fork.transaction_intrinsic_cost_calculator()(
+                    sends_value=True, recipient_type=RecipientType.EOA
+                )
             )
             txs.append(
                 Transaction(
