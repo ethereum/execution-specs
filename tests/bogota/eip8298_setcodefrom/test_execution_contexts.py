@@ -331,6 +331,64 @@ def test_initcode_return_data_ignored(
     )
 
 
+@pytest.mark.with_all_create_opcodes
+@pytest.mark.parametrize("probe", ["returndatasize", "returndatacopy"])
+def test_initcode_return_data_not_in_caller_buffer(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    create_opcode: Op,
+    probe: str,
+) -> None:
+    """
+    Verify a creation whose initcode adopted and then returned data leaves
+    the creator's return data buffer empty.
+    """
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    initcode = Initcode(
+        initcode_prefix=Op.POP(Op.SETCODEFROM(template)),
+        deploy_code=SSTORE_MARKER_B,
+    )
+    if probe == "returndatasize":
+        probe_code = Op.SSTORE(1, Op.RETURNDATASIZE)
+        halts = False
+    elif probe == "returndatacopy":
+        # Copying one byte out of an empty buffer halts the whole tx.
+        probe_code = Op.RETURNDATACOPY(0, 0, 1) + Op.SSTORE(1, 1)
+        halts = True
+    else:
+        raise ValueError(f"unexpected probe: {probe}")
+    factory = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(0, create_opcode(offset=0, size=Op.CALLDATASIZE))
+        + probe_code
+        + Op.STOP,
+        storage={0: SENTINEL, 1: SENTINEL},
+    )
+    created = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode,
+        opcode=create_opcode,
+    )
+    post: dict[Address, Account | None]
+    if halts:
+        post = {
+            factory: Account(storage={0: SENTINEL, 1: SENTINEL}, nonce=1),
+            created: Account.NONEXISTENT,
+        }
+    else:
+        post = {
+            factory: Account(storage={0: created, 1: 0}, nonce=2),
+            created: Account(code=SSTORE_MARKER_A, nonce=1),
+        }
+    state_test(
+        pre=pre,
+        post=post,
+        tx=Transaction(sender=pre.fund_eoa(), to=factory, data=initcode),
+    )
+
+
 def test_initcode_self_as_source(
     state_test: StateTestFiller,
     pre: Alloc,
