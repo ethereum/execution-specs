@@ -151,3 +151,13 @@ class TestSetConstantCommand(CodemodTest):
                 qualified_name="pkg.mod.X",
                 value="2",
             )
+
+    def test_unpacking_assignment_raises(self) -> None:
+        """Tuple unpacking is not supported."""
+        with self.assertRaises(NotImplementedError):
+            self.assert_constant(
+                "X, Y = 1, 2\n",
+                "X, Y = 1, 2\n",
+                qualified_name="pkg.mod.X",
+                value="3",
+            )
