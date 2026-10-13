@@ -18,7 +18,6 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
-    EIPChecklist,
     Fork,
     Hash,
     Initcode,
@@ -70,8 +69,6 @@ def remove_factory_contract(pre: Alloc) -> None:
 
 @pytest.mark.valid_at_transition_to("Amsterdam")
 @pytest.mark.pre_alloc_mutable
-@EIPChecklist.SystemContract.Test.Deployment.Address()
-@EIPChecklist.SystemContract.Test.ForkTransition.CallBeforeFork()
 def test_keyless_deployment_before_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

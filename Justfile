@@ -133,11 +133,6 @@ lint-actions:
 coverage:
     uv run coverage html -d "{{ output_dir }}/fill/coverage-html"
 
-# Generate EIP test checklists from eip_checklist markers                                                                         
-[group('consensus tests')] 
-checklist *args:
-    uv run checklist --output tmp/checklist "$@"
-
 # Fill the consensus tests using EELS (with Python)
 [group('consensus tests')]
 fill *args: (_tmp-logs "fill")

@@ -26,7 +26,6 @@ from execution_testing import (
     Transaction,
     TransitionFork,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8282
 
@@ -54,8 +53,6 @@ def slot_changes(slot: int, *changes: Tuple[int, int]) -> BalStorageSlot:
 
 @pytest.mark.valid_at_transition_to("Amsterdam")
 @pytest.mark.pre_alloc_mutable
-@EIPChecklist.SystemContract.Test.ForkTransition.CallBeforeFork()
-@EIPChecklist.SystemContract.Test.Deployment.Address()
 def test_builder_requests_during_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

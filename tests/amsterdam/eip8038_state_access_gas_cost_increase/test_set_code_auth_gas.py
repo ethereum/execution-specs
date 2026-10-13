@@ -43,7 +43,6 @@ from execution_testing import (
     TransactionException,
     TransactionReceipt,
 )
-from execution_testing.checklists import EIPChecklist
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_8038
@@ -94,7 +93,6 @@ def _execution_intrinsic(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("n", [1, 2, 3])
 @pytest.mark.parametrize(
     "authority_exists",
@@ -174,7 +172,6 @@ def test_auth_execution_intrinsic_magnitude(
 
 
 @pytest.mark.inclusion_test
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 @pytest.mark.parametrize("n", [1, 3])
 def test_auth_intrinsic_oog_boundary(
@@ -212,7 +209,6 @@ def test_auth_intrinsic_oog_boundary(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "invalidity",
     [
@@ -311,7 +307,6 @@ def test_invalid_auth_charged_intrinsic(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "invalidity",
     [
@@ -467,7 +462,6 @@ def test_mixed_validity_multi_auth_receipt_gas(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "self_sponsored",
     [
@@ -569,7 +563,6 @@ def test_auth_account_warming(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_many_auths_block_limit(
     state_test: StateTestFiller,
     env: Environment,
@@ -635,7 +628,6 @@ def test_many_auths_block_limit(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "delegate_warm", [False, True], ids=["cold_delegate", "warm_delegate"]
 )

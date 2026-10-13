@@ -29,7 +29,6 @@ from execution_testing import (
     TransactionReceipt,
 )
 from execution_testing import Macros as Om
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8038
 
@@ -37,11 +36,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8038.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
-
-# Alias for the deep checklist path so decorator lines stay within
-# the line limit; the marks are applied at runtime, so the checklist
-# scanner resolves them identically.
-_REVERTABLE = EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable
 
 DATA_SLOT = 0x42
 
@@ -72,10 +66,6 @@ def _clear_refund(fork: Fork) -> int:
     ).refund(fork)
 
 
-@_REVERTABLE()
-@_REVERTABLE.Revert()
-@_REVERTABLE.OutOfGas()
-@_REVERTABLE.InvalidOpcode()
 @pytest.mark.parametrize(
     "failure,returns_unused_gas",
     [
@@ -132,8 +122,6 @@ def test_sstore_clear_refund_discarded_on_frame_failure(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@_REVERTABLE()
-@_REVERTABLE.UpperRevert()
 def test_sstore_clear_refund_discarded_on_upper_frame_revert(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -180,8 +168,6 @@ def test_sstore_clear_refund_discarded_on_upper_frame_revert(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@_REVERTABLE()
-@_REVERTABLE.Revert()
 def test_sstore_restore_refund_discarded_on_revert(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -242,8 +228,6 @@ def test_sstore_restore_refund_discarded_on_revert(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
-@_REVERTABLE.InvalidOpcode()
 def test_sstore_write_recharged_after_frame_rollback(
     state_test: StateTestFiller,
     pre: Alloc,

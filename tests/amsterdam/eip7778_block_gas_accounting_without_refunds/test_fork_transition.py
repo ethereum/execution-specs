@@ -19,7 +19,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     BlockException,
-    EIPChecklist,
     Environment,
     RefundTypes,
     Transaction,
@@ -44,9 +43,6 @@ INITIAL_FUND = 10**18
 REFUNDS_COUNT = 10
 
 
-@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedBeforeFork()
-@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedAfterFork()
-@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.RejectedAfterFork()
 @pytest.mark.parametrize(
     "timestamp,block_gas_limit_delta,block_is_invalid",
     [
@@ -138,8 +134,6 @@ def test_trailing_tx_admission_at_fork_transition(
     )
 
 
-@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedBeforeFork()
-@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedAfterFork()
 def test_block_gas_used_at_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

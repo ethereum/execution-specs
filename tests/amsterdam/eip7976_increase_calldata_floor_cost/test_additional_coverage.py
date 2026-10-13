@@ -21,7 +21,6 @@ from execution_testing import (
     AuthorizationTuple,
     Bytecode,
     Bytes,
-    EIPChecklist,
     Fork,
     Op,
     StateTestFiller,
@@ -91,7 +90,6 @@ class TestTokenCalculation:
             ),
         ],
     )
-    @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
     def test_token_calculation_verification(
         self,
         state_test: StateTestFiller,

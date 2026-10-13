@@ -28,7 +28,6 @@ Run `--help` on referenced commands and confirm mentioned flags still exist:
 - `uv run fill --help`
 - `uv run ethereum-spec-new-fork --help`
 - `uv run ethereum-spec-lint --help`
-- `uv run checklist --help`
 
 ### 3. Verify Code Patterns
 

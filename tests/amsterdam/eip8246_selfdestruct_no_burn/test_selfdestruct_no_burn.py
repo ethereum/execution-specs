@@ -35,7 +35,6 @@ from execution_testing import (
 from execution_testing import (
     Macros as Om,
 )
-from execution_testing.checklists import EIPChecklist
 
 from ..eip7708_eth_transfer_logs.spec import transfer_log
 from ..eip7997_deterministic_factory_contract.spec import Spec
@@ -82,10 +81,6 @@ FACTORY = Address(Spec.FACTORY_ADDRESS)
         pytest.param(Op.MSTORE(2**32, 0), False, id="oog"),
     ],
 )
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior()
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Opcode()
-@EIPChecklist.Opcode.Test.Terminating.Scenarios.Initcode()
-@EIPChecklist.Opcode.Test.Terminating.Rollback.Balance()
 def test_selfdestructing_initcode_preserves_balance(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -255,8 +250,6 @@ def test_selfdestructing_initcode_preserves_balance(
     "value",
     [pytest.param(1, id="kept"), pytest.param(0, id="removed")],
 )
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Tx()
-@EIPChecklist.Opcode.Test.Terminating.Scenarios.TopLevel()
 def test_create_transaction_initcode_selfdestruct(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -430,8 +423,6 @@ def test_created_coinbase_selfdestruct_keeps_priority_fee(
         pytest.param(True, id="sweep_to_origin"),
     ],
 )
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Reentry()
-@EIPChecklist.Opcode.Test.Terminating.Scenarios.Initcode()
 def test_create2_redeploy_over_remnant(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -539,7 +530,6 @@ def test_create2_redeploy_over_remnant(
     )
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Reentry()
 def test_deterministic_factory_redeploy_takes_balance(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

@@ -1,3 +1,0 @@
-general/code_coverage/eels = Test coverage should be verified in EELS implementation
-general/code_coverage/test_coverage = Run tests with --cov flag to verify test coverage
-general/code_coverage/second_client = Tests marked with verify_sync marker verify block syncing to other clients

@@ -38,7 +38,6 @@ from execution_testing import (
 from execution_testing import (
     Macros as Om,
 )
-from execution_testing.checklists import EIPChecklist
 
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 
@@ -109,9 +108,6 @@ def finalized_bal(
         pytest.param((SD_SELF, SEND, SD_SELF), id="case12_self_send_self"),
     ],
 )
-@EIPChecklist.Opcode.Test.ExecutionContext.Call(eip=[8246])
-@EIPChecklist.Opcode.Test.GasUsage.ExtraGas(eip=[8246])
-@EIPChecklist.Opcode.Test.Terminating.Scenarios.SubLevel(eip=[8246])
 def test_selfdestruct_sequences(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -441,11 +437,6 @@ def test_reinvoked_selfdestruct_create_nonce(
     "initial_balance",
     [pytest.param(0, id="zero_balance"), pytest.param(3, id="funded")],
 )
-@EIPChecklist.Opcode.Test.ExecutionContext.Delegatecall(eip=[8246])
-@EIPChecklist.Opcode.Test.ExecutionContext.Delegatecall.Balance(eip=[8246])
-@EIPChecklist.Opcode.Test.ExecutionContext.Delegatecall.Code(eip=[8246])
-@EIPChecklist.Opcode.Test.ExecutionContext.Delegatecall.Storage(eip=[8246])
-@EIPChecklist.Opcode.Test.ExecutionContext.Callcode(eip=[8246])
 def test_selfdestruct_in_delegate_context(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -534,13 +525,6 @@ def test_selfdestruct_in_delegate_context(
     "initial_balance",
     [pytest.param(0, id="zero_balance"), pytest.param(3, id="funded")],
 )
-@EIPChecklist.Opcode.Test.ExecutionContext.Staticcall(eip=[8246])
-@EIPChecklist.Opcode.Test.ExecutionContext.Staticcall.BanCheck(eip=[8246])
-@EIPChecklist.Opcode.Test.ExecutionContext.Staticcall.BanNoModification(
-    eip=[8246]
-)
-@EIPChecklist.Opcode.Test.ExecutionContext.Staticcall.SubCalls(eip=[8246])
-@EIPChecklist.Opcode.Test.ExceptionalAbort(eip=[8246])
 def test_selfdestruct_static_context_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -647,7 +631,6 @@ def test_selfdestruct_static_context_same_tx(
     "endowment",
     [pytest.param(0, id="zero_balance"), pytest.param(3, id="funded")],
 )
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Reentry(eip=[8246])
 def test_recreate_in_later_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

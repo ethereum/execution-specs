@@ -186,13 +186,6 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "eip_checklist(item_id, eip=None): Mark a test as implementing a "
-        "specific checklist item. The first positional parameter is the "
-        "checklist item ID. The optional 'eip' keyword parameter specifies "
-        "additional EIPs covered by the test.",
-    )
-    config.addinivalue_line(
-        "markers",
         "primary_format: Mark the first fixture format generated for a test. "
         "Select with `-m primary_format` to fill every test exactly once.",
     )

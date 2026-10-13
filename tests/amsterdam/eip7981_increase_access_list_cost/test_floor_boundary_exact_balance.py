@@ -10,7 +10,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    EIPChecklist,
     Fork,
     Hash,
     StateTestFiller,
@@ -28,7 +27,6 @@ pytestmark = pytest.mark.valid_at("EIP7981")
 
 
 @pytest.mark.inclusion_test
-@EIPChecklist.TransactionType.Test.IntrinsicValidity.DataFloorAboveIntrinsicGasCost()
 @pytest.mark.parametrize(
     "gas_delta",
     [
