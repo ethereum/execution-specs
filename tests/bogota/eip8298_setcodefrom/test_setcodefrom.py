@@ -589,7 +589,7 @@ def test_invalid_source(
     )
 
 
-@pytest.mark.parametrize("creation", ["committed", "reverted"])
+@pytest.mark.parametrize("creation", ["committed", "reverted", "failed"])
 def test_source_created_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -597,7 +597,7 @@ def test_source_created_same_tx(
 ) -> None:
     """
     Verify a source created earlier in the same tx is invalid, as is the
-    address of a creation whose frame reverted.
+    address of a creation whose frame reverted or whose deployment failed.
     """
     shell = pre.deploy_contract(
         ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
@@ -606,6 +606,7 @@ def test_source_created_same_tx(
     post: dict[Address, Account | None] = {
         shell: Account(code=ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: 0}),
     }
+    initcode = Initcode(deploy_code=SSTORE_MARKER_A)
     if creation == "committed":
         driver = pre.deploy_contract(
             Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
@@ -639,13 +640,36 @@ def test_source_created_same_tx(
         source = compute_create_address(address=creator, nonce=1)
         post[source] = Account.NONEXISTENT
         post[driver] = Account(storage={0: source})
+    elif creation == "failed":
+        # EIP-3541 rejects the deposit, so CREATE returns 0.
+        initcode = Initcode(deploy_code=Bytes("0xef"))
+        creator = pre.deploy_contract(
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            + Op.MSTORE(0, Op.CREATE(0, 0, Op.CALLDATASIZE))
+            + Op.RETURN(0, 32)
+        )
+        source = compute_create_address(address=creator, nonce=1)
+        driver = pre.deploy_contract(
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            + Op.POP(
+                Op.CALL(
+                    address=creator,
+                    args_size=Op.CALLDATASIZE,
+                    ret_offset=32,
+                    ret_size=32,
+                )
+            )
+            + Op.SSTORE(0, Op.MLOAD(32))
+            + Op.MSTORE(32, source)
+            + adopt
+            + Op.STOP,
+            storage={0: SENTINEL},
+        )
+        post[source] = Account.NONEXISTENT
+        post[driver] = Account(storage={0: 0})
     else:
         raise ValueError(f"Unknown creation: {creation}")
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=driver,
-        data=Initcode(deploy_code=SSTORE_MARKER_A),
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=driver, data=initcode)
     state_test(pre=pre, post=post, tx=tx)
 
 
