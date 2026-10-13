@@ -189,20 +189,24 @@ def test_calldata_floor_with_state_gas(
 
 
 @pytest.mark.parametrize(
-    "against_post_refund,one_byte_short",
+    "boundary,floor_side",
     [
-        pytest.param(True, True, id="post_refund_above_floor"),
-        pytest.param(True, False, id="floor_between_pre_and_post_refund"),
-        pytest.param(False, True, id="floor_just_below_pre_refund"),
-        pytest.param(False, False, id="floor_above_pre_refund"),
+        pytest.param(
+            "post_refund", "below", id="floor_just_below_post_refund"
+        ),
+        pytest.param(
+            "post_refund", "above", id="floor_just_above_post_refund"
+        ),
+        pytest.param("pre_refund", "below", id="floor_just_below_pre_refund"),
+        pytest.param("pre_refund", "above", id="floor_just_above_pre_refund"),
     ],
 )
 def test_storage_refund_settlement(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    against_post_refund: bool,
-    one_byte_short: bool,
+    boundary: str,
+    floor_side: str,
 ) -> None:
     """
     Settle a frame transaction that clears a pre-existing storage slot.
@@ -281,12 +285,12 @@ def test_storage_refund_settlement(
 
     def floor_binds(data_length: int) -> bool:
         _, gas_used_before_refund, calldata_floor = build(data_length)
-        if against_post_refund:
+        if boundary == "post_refund":
             return calldata_floor > gas_used_before_refund - refund
         return calldata_floor > gas_used_before_refund
 
     data_length = floor_binding_padding(floor_binds)
-    if one_byte_short:
+    if floor_side == "below":
         data_length -= 1
     tx, gas_used_before_refund, calldata_floor = build(data_length)
     # The premise of the test: the refund applies uncapped.
