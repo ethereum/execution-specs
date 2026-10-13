@@ -59,7 +59,7 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     for field, dest in (
         ("inclusionListTransactions", "inclusion_list_txs"),
         ("inclusionListMembership", "inclusion_list_membership"),
-        ("inclusionListClaims", "inclusion_list_claims"),
+        ("omissionClaims", "omission_claims"),
     ):
         t8n_parser.add_argument(f"--input.{field}", dest=dest, default=None)
     t8n_parser.add_argument(
@@ -328,7 +328,7 @@ def build_t8n_from_cli_options(
         Environment as TestingEnvironment,
     )
     from execution_testing.test_types import (
-        InclusionListClaim,
+        OmissionClaim,
     )
     from execution_testing.test_types import (
         Transaction as TestingTransaction,
@@ -337,7 +337,7 @@ def build_t8n_from_cli_options(
     inclusion_fields = (
         ("inclusionListTransactions", "inclusion_list_txs"),
         ("inclusionListMembership", "inclusion_list_membership"),
-        ("inclusionListClaims", "inclusion_list_claims"),
+        ("omissionClaims", "omission_claims"),
     )
     forks = Hardfork.discover()
 
@@ -407,12 +407,12 @@ def build_t8n_from_cli_options(
             if "inclusionListMembership" in inclusion_data
             else None
         ),
-        inclusion_list_claims=(
+        omission_claims=(
             [
-                InclusionListClaim.model_validate(value)
-                for value in inclusion_data["inclusionListClaims"]
+                OmissionClaim.model_validate(value)
+                for value in inclusion_data["omissionClaims"]
             ]
-            if "inclusionListClaims" in inclusion_data
+            if "omissionClaims" in inclusion_data
             else None
         ),
     )

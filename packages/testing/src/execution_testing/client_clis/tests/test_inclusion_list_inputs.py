@@ -9,7 +9,7 @@ from execution_testing.forks import Bogota
 from execution_testing.test_types import (
     Alloc,
     Environment,
-    InclusionListClaim,
+    OmissionClaim,
     Transaction,
 )
 
@@ -17,7 +17,7 @@ from execution_testing.test_types import (
 def test_inclusion_list_input_serialization(tmp_path: Path) -> None:
     """Keep ordering and duplicate claims in every path."""
     tx = Transaction(gas_limit=21_000).with_signature_and_sender()
-    claim = InclusionListClaim(transaction_hash=tx.hash, evaluation_index=1)
+    claim = OmissionClaim(transaction_hash=tx.hash, evaluation_index=1)
     data = TransitionTool.TransitionToolData(
         alloc=Alloc(),
         txs=[],
@@ -28,7 +28,7 @@ def test_inclusion_list_input_serialization(tmp_path: Path) -> None:
         blob_schedule=Bogota.blob_schedule(),
         inclusion_list_txs=[tx],
         inclusion_list_membership=[Bytes("0x0102")],
-        inclusion_list_claims=[claim, claim],
+        omission_claims=[claim, claim],
     )
     inputs = data.to_input()
     encoded = inputs.model_dump(mode="json", by_alias=True, exclude_none=True)
@@ -37,7 +37,7 @@ def test_inclusion_list_input_serialization(tmp_path: Path) -> None:
         == encoded
     )
     assert encoded["inclusionListMembership"] == ["0x0102"]
-    assert encoded["inclusionListClaims"] == [
+    assert encoded["omissionClaims"] == [
         {"transactionHash": tx.hash.hex(), "evaluationIndex": "0x1"},
         {"transactionHash": tx.hash.hex(), "evaluationIndex": "0x1"},
     ]
@@ -45,7 +45,7 @@ def test_inclusion_list_input_serialization(tmp_path: Path) -> None:
     for field in (
         "inclusionListTransactions",
         "inclusionListMembership",
-        "inclusionListClaims",
+        "omissionClaims",
     ):
         assert json.loads(Path(paths[field]).read_text()) == encoded[field]
 

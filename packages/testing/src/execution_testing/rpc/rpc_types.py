@@ -31,7 +31,7 @@ from execution_testing.fixtures.blockchain import (
 from execution_testing.forks import Fork
 from execution_testing.test_types import EOA, Transaction, Withdrawal
 from execution_testing.test_types.inclusion_list import (
-    InclusionListClaim,
+    OmissionClaim,
     validate_inclusion_list_metadata,
 )
 
@@ -268,7 +268,7 @@ class PayloadAttributes(CamelModel):
             attributes_slot_number = HexNumber(
                 1 if slot_number is None else slot_number
             )
-        if fork.engine_new_payload_inclusion_list_claims():
+        if fork.engine_new_payload_omission_claims():
             if inclusion_list_transactions is None:
                 inclusion_list_transactions = []
             if inclusion_list_membership is None:
@@ -361,7 +361,7 @@ class GetPayloadResponse(CamelModel):
     execution_payload: FixtureExecutionPayload
     blobs_bundle: BlobsBundle | None = None
     execution_requests: List[Bytes] | None = None
-    inclusion_list_claims: List[InclusionListClaim] | None = Field(
+    omission_claims: List[OmissionClaim] | None = Field(
         default=None, max_length=4096
     )
 

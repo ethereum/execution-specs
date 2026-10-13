@@ -18,7 +18,7 @@ from execution_testing.forks import Bogota
 from execution_testing.test_types import (
     Alloc,
     Environment,
-    InclusionListClaim,
+    OmissionClaim,
     Transaction,
 )
 
@@ -31,7 +31,7 @@ def test_cli_preserves_inclusion_context(
 ) -> None:
     """Preserve raw envelopes, duplicate claims and bitvectors."""
     transaction = Transaction(gas_limit=21_000).with_signature_and_sender()
-    claim = InclusionListClaim(
+    claim = OmissionClaim(
         transaction_hash=transaction.hash, evaluation_index=2**64 - 1
     )
     data = TransitionTool.TransitionToolData(
@@ -44,7 +44,7 @@ def test_cli_preserves_inclusion_context(
         blob_schedule=None,
         inclusion_list_txs=[transaction],
         inclusion_list_membership=[Bytes("0x0002")],
-        inclusion_list_claims=[claim, claim],
+        omission_claims=[claim, claim],
     ).to_input()
     parser = argparse.ArgumentParser()
     t8n_arguments(parser.add_subparsers())

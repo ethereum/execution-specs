@@ -213,7 +213,7 @@ class ForkLoad:
         return self._module("fork").check_inclusion_list_transactions
 
     @property
-    def has_inclusion_list_claims(self) -> bool:
+    def has_omission_claims(self) -> bool:
         """Check whether the fork supports indexed inclusion-list replay."""
         return hasattr(self._module("fork"), "check_inclusion_list")
 
@@ -223,9 +223,9 @@ class ForkLoad:
         return self._module("inclusion_lists").InclusionListInputs
 
     @property
-    def InclusionClaim(self) -> Any:
-        """Return the fork's `InclusionClaim` inclusion-list helper."""
-        return self._module("inclusion_lists").InclusionClaim
+    def OmissionClaim(self) -> Any:
+        """Return the fork's `OmissionClaim` inclusion-list helper."""
+        return self._module("inclusion_lists").OmissionClaim
 
     @property
     def validate_inclusion_list_inputs(self) -> Any:

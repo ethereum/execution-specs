@@ -12,8 +12,8 @@ from execution_testing import (
     Environment,
     Fork,
     Frame,
-    InclusionListClaim,
     Initcode,
+    OmissionClaim,
     Op,
     Transaction,
     compute_create2_address,
@@ -184,7 +184,7 @@ def test_claim_fits_gas_used_before_index(
         for _ in range(20)
     ]
     claims = (
-        [InclusionListClaim(transaction_hash=omitted.hash, evaluation_index=0)]
+        [OmissionClaim(transaction_hash=omitted.hash, evaluation_index=0)]
         if claimed
         else []
     )
@@ -199,7 +199,7 @@ def test_claim_fits_gas_used_before_index(
                 txs=transfers,
                 inclusion_list_txs=[omitted],
                 inclusion_list_membership=[b"\x01\x00"],
-                inclusion_list_claims=claims,
+                omission_claims=claims,
                 expected_inclusion_list_satisfied=not claimed,
             )
         ],
@@ -238,7 +238,7 @@ def test_claim_uses_payer_balance_at_index(
         sender=pre.fund_eoa(), to=sender, data=b"\x01", gas_limit=100_000
     )
     claims = (
-        [InclusionListClaim(transaction_hash=omitted.hash, evaluation_index=0)]
+        [OmissionClaim(transaction_hash=omitted.hash, evaluation_index=0)]
         if claimed
         else []
     )
@@ -253,7 +253,7 @@ def test_claim_uses_payer_balance_at_index(
                 txs=[drain],
                 inclusion_list_txs=[omitted],
                 inclusion_list_membership=[b"\x01\x00"],
-                inclusion_list_claims=claims,
+                omission_claims=claims,
                 expected_inclusion_list_satisfied=not claimed,
             )
         ],

@@ -49,7 +49,7 @@ INCLUSION_LIST_COMMITTEE_SIZE = 16
 MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST = 8192
 """Maximum total envelope bytes selected by one membership position."""
 
-MAX_INCLUSION_LIST_CLAIMS = 2**12
+MAX_OMISSION_CLAIMS = 2**12
 """Maximum number of claims in the revealed ordered list."""
 
 MAX_VERIFY_GAS_PER_IL = Uint(2**20)
@@ -58,7 +58,7 @@ MAX_VERIFY_GAS_PER_IL = Uint(2**20)
 
 @final
 @dataclass(frozen=True)
-class InclusionClaim:
+class OmissionClaim:
     """Identify a transaction and its claimed insertion index."""
 
     transaction_hash: Bytes32
@@ -78,7 +78,7 @@ class InclusionListInputs:
 
     transactions: Tuple[LegacyTransaction | Bytes, ...] = ()
     membership: Tuple[Bytes, ...] = ()
-    claims: Tuple[InclusionClaim, ...] = ()
+    claims: Tuple[OmissionClaim, ...] = ()
 
 
 @final
@@ -120,13 +120,13 @@ def validate_inclusion_list_inputs(inputs: InclusionListInputs) -> None:
     are container errors. Invalid transaction contents remain omission
     candidates to classify, rather than invalid payloads or RPC requests.
     """
-    if len(inputs.claims) > MAX_INCLUSION_LIST_CLAIMS:
-        raise ValueError("Too many inclusion claims")
+    if len(inputs.claims) > MAX_OMISSION_CLAIMS:
+        raise ValueError("Too many omission claims")
     for claim in inputs.claims:
         if len(claim.transaction_hash) != 32 or not 0 <= int(
             claim.evaluation_index
         ) <= int(U64.MAX_VALUE):
-            raise ValueError("Invalid inclusion claim")
+            raise ValueError("Invalid omission claim")
     if not inputs.membership:
         if inputs.claims and inputs.transactions:
             raise ValueError("Profile 2 requires explicit membership")

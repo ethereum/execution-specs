@@ -44,7 +44,7 @@ from execution_testing.forks.helpers import (
 from execution_testing.test_types import (
     Alloc,
     Environment,
-    InclusionListClaim,
+    OmissionClaim,
     Transaction,
 )
 
@@ -337,7 +337,7 @@ class TransitionTool(EthereumCLI):
         state_test: bool = False
         inclusion_list_txs: List[Transaction] | None = None
         inclusion_list_membership: List[Bytes] | None = None
-        inclusion_list_claims: List[InclusionListClaim] | None = None
+        omission_claims: List[OmissionClaim] | None = None
 
         @property
         def fork_name(self) -> str:
@@ -380,7 +380,7 @@ class TransitionTool(EthereumCLI):
                 blob_params=self.blob_params,
                 inclusion_list_txs=self.inclusion_list_txs,
                 inclusion_list_membership=self.inclusion_list_membership,
-                inclusion_list_claims=self.inclusion_list_claims,
+                omission_claims=self.omission_claims,
             )
 
         def get_request_data(self) -> TransitionToolRequest:

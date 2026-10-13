@@ -101,7 +101,7 @@ from execution_testing.test_types.block_access_list import (
 )
 from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 from execution_testing.test_types.inclusion_list import (
-    InclusionListClaim,
+    OmissionClaim,
 )
 
 from .base import BaseTest, FillResult, OpMode, verify_result
@@ -366,7 +366,7 @@ class Block(Header):
     """Transactions supplied as the block's inclusion list."""
     inclusion_list_membership: List[Bytes] | None = None
     """Per-transaction committee bitvectors, in inclusion-list order."""
-    inclusion_list_claims: List[InclusionListClaim] | None = None
+    omission_claims: List[OmissionClaim] | None = None
     """Committed omission claims, preserving their order and duplicates."""
     expected_inclusion_list_satisfied: bool | None = None
     """Expected outcome of the inclusion list verification for this block."""
@@ -505,7 +505,7 @@ class BuiltBlock(CamelModel):
     inclusion_list_txs: List[Transaction] | None
     inclusion_list_satisfied: bool | None
     inclusion_list_membership: List[Bytes] | None = None
-    inclusion_list_claims: List[InclusionListClaim] | None = None
+    omission_claims: List[OmissionClaim] | None = None
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
 
@@ -637,7 +637,7 @@ class BuiltBlock(CamelModel):
             else None,
             inclusion_list_transactions=self.inclusion_list_txs,
             inclusion_list_membership=self.inclusion_list_membership,
-            inclusion_list_claims=self.inclusion_list_claims,
+            omission_claims=self.omission_claims,
             inclusion_list_satisfied=(
                 self.inclusion_list_satisfied
                 if self.expected_exception is None
@@ -1138,16 +1138,16 @@ class BlockchainTest(BaseTest):
             else None
         )
         inclusion_list_membership = block.inclusion_list_membership
-        inclusion_list_claims = block.inclusion_list_claims
-        if fork.engine_new_payload_inclusion_list_claims():
+        omission_claims = block.omission_claims
+        if fork.engine_new_payload_omission_claims():
             if inclusion_list_membership is None:
                 # A legacy test describes one synthetic committee member's
                 # list. Supply that provenance here, never infer it in EELS.
                 inclusion_list_membership = [
                     Bytes(b"\x01\x00") for _ in inclusion_list_txs or []
                 ]
-            if inclusion_list_claims is None:
-                inclusion_list_claims = []
+            if omission_claims is None:
+                omission_claims = []
         il_size_limit = fork.inclusion_list_transactions_size_limit()
         for il_tx in inclusion_list_txs or []:
             il_tx_size = len(il_tx.rlp())
@@ -1189,7 +1189,7 @@ class BlockchainTest(BaseTest):
                 blob_schedule=fork.blob_schedule(),
                 inclusion_list_txs=inclusion_list_txs,
                 inclusion_list_membership=inclusion_list_membership,
-                inclusion_list_claims=inclusion_list_claims,
+                omission_claims=omission_claims,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -1410,7 +1410,7 @@ class BlockchainTest(BaseTest):
             inclusion_list_txs=inclusion_list_txs,
             inclusion_list_satisfied=actual_inclusion_list_satisfied,
             inclusion_list_membership=inclusion_list_membership,
-            inclusion_list_claims=inclusion_list_claims,
+            omission_claims=omission_claims,
             engine_new_payload_block_access_list=(
                 block.engine_new_payload_block_access_list
                 if block.engine_new_payload_block_access_list is not None

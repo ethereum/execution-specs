@@ -36,7 +36,7 @@ from execution_testing.rpc.rpc_types import (
 from execution_testing.test_types import (
     Alloc,
     Environment,
-    InclusionListClaim,
+    OmissionClaim,
     Transaction,
     Withdrawal,
 )
@@ -285,7 +285,7 @@ class ClientBackend:
             inclusion_list_membership=(
                 transition_tool_data.inclusion_list_membership
             ),
-            inclusion_list_claims=transition_tool_data.inclusion_list_claims,
+            omission_claims=transition_tool_data.omission_claims,
         )
         np_version = block_fork.engine_new_payload_version()
         fcu_version = block_fork.engine_forkchoice_updated_version()
@@ -391,7 +391,7 @@ class ClientBackend:
             slot_number=slot_number,
             inclusion_list_transactions=(
                 inclusion_list_transactions
-                if block_fork.engine_new_payload_inclusion_list_claims()
+                if block_fork.engine_new_payload_omission_claims()
                 else None
             ),
             inclusion_list_membership=inclusion_list_membership,
@@ -405,7 +405,7 @@ class ClientBackend:
         block_fork: Fork,
         inclusion_list_transactions: List[Bytes] | None = None,
         inclusion_list_membership: List[Bytes] | None = None,
-        inclusion_list_claims: List[InclusionListClaim] | None = None,
+        omission_claims: List[OmissionClaim] | None = None,
     ) -> bool | None:
         """
         Advance the chain with engine_newPayload + forkchoiceUpdated.
@@ -430,26 +430,26 @@ class ClientBackend:
             new_payload_args.append(payload_response.execution_requests)
         if block_fork.engine_new_payload_inclusion_list_transactions():
             new_payload_args.append(inclusion_list_transactions or [])
-        if block_fork.engine_new_payload_inclusion_list_claims():
+        if block_fork.engine_new_payload_omission_claims():
             if inclusion_list_membership is None:
                 raise ValueError("Inclusion-list membership is required")
-            if payload_response.inclusion_list_claims is None:
-                raise ValueError("getPayloadV7 must return inclusion claims")
-            if inclusion_list_claims is None:
-                inclusion_list_claims = payload_response.inclusion_list_claims
+            if payload_response.omission_claims is None:
+                raise ValueError("getPayloadV7 must return omission claims")
+            if omission_claims is None:
+                omission_claims = payload_response.omission_claims
             validate_inclusion_list_metadata(
                 inclusion_list_transactions or [],
                 inclusion_list_membership,
-                inclusion_list_claims,
+                omission_claims,
             )
             new_payload_args.extend(
-                [inclusion_list_membership, inclusion_list_claims]
+                [inclusion_list_membership, omission_claims]
             )
 
         new_payload_response = self.engine_rpc.new_payload_with_retry(
             *new_payload_args, version=new_payload_version
         )
-        if block_fork.engine_new_payload_inclusion_list_claims():
+        if block_fork.engine_new_payload_omission_claims():
             new_payload_response = self.engine_rpc.wait_for_inclusion_list(
                 new_payload_response,
                 *new_payload_args,

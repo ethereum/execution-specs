@@ -242,7 +242,7 @@ class T8N(Load):
         self.inclusion_list_inputs: Any = None
         self.inclusion_list_snapshots: Dict[Uint, Any] = {}
         self.inclusion_list_snapshot_indices: set[Uint] = set()
-        if self.fork.has_inclusion_list_claims and not self.state_test:
+        if self.fork.has_omission_claims and not self.state_test:
             if self.inclusion_list_txs is None:
                 raise ValueError(
                     "Inclusion list transactions must be supplied"
@@ -256,11 +256,11 @@ class T8N(Load):
                     for value in t8n_data.inclusion_list_membership or []
                 ),
                 claims=tuple(
-                    self.fork.InclusionClaim(
+                    self.fork.OmissionClaim(
                         transaction_hash=Bytes32(claim.transaction_hash),
                         evaluation_index=U64(claim.evaluation_index),
                     )
-                    for claim in t8n_data.inclusion_list_claims or []
+                    for claim in t8n_data.omission_claims or []
                 ),
             )
             self.fork.validate_inclusion_list_inputs(
@@ -457,7 +457,7 @@ class T8N(Load):
         self._capture_inclusion_list_state(block_env, block_output, Uint(0))
         self._process_txs(block_env, block_output)
 
-        if not self.fork.has_inclusion_list_claims:
+        if not self.fork.has_omission_claims:
             # Report a verdict only when the check runs, never a default;
             # `BlockchainTest` fails the fill when a fork with lists gets none.
             if self.fork.has_inclusion_list_satisfied:
@@ -523,7 +523,7 @@ class T8N(Load):
         # Replay must not change block validity or contaminate block outputs.
         # Capture points precede post-execution operations; evaluate only
         # after those operations and block-level constraints have succeeded.
-        if self.fork.has_inclusion_list_claims:
+        if self.fork.has_omission_claims:
             if not self.rejected_transactions:
                 self.inclusion_list_satisfied = self.fork.check_inclusion_list(
                     block_env,

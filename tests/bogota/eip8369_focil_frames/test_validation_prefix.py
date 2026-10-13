@@ -10,7 +10,7 @@ from execution_testing import (
     Conditional,
     Frame,
     Hash,
-    InclusionListClaim,
+    OmissionClaim,
     Op,
     Transaction,
     Withdrawal,
@@ -187,14 +187,12 @@ def test_claim_selects_transaction_boundary(
     ).with_signature_and_sender()
     mutate = Transaction(sender=pre.fund_eoa(), to=sender, data=b"\x01")
     claim_list = [
-        InclusionListClaim(
-            transaction_hash=omitted.hash, evaluation_index=index
-        )
+        OmissionClaim(transaction_hash=omitted.hash, evaluation_index=index)
         for index in claims
     ]
     # An unrelated claim must not alter the omitted transaction's default.
     claim_list.append(
-        InclusionListClaim(transaction_hash=Hash(123), evaluation_index=0)
+        OmissionClaim(transaction_hash=Hash(123), evaluation_index=0)
     )
     blockchain_test(
         pre=pre,
@@ -204,7 +202,7 @@ def test_claim_selects_transaction_boundary(
                 txs=[mutate],
                 inclusion_list_txs=[omitted],
                 inclusion_list_membership=[b"\x01\x00"],
-                inclusion_list_claims=claim_list,
+                omission_claims=claim_list,
                 expected_inclusion_list_satisfied=satisfied,
             )
         ],

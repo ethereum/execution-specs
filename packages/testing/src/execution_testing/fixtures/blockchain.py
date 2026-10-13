@@ -85,7 +85,7 @@ from execution_testing.test_types import (
 )
 from execution_testing.test_types.block_types import WithdrawalGeneric
 from execution_testing.test_types.inclusion_list import (
-    InclusionListClaim,
+    OmissionClaim,
     validate_inclusion_list_metadata,
 )
 from execution_testing.test_types.transaction_types import (
@@ -612,7 +612,7 @@ EngineNewPayloadV6Parameters = Tuple[
     List[Bytes],
     List[Bytes],
     List[Bytes],
-    List[InclusionListClaim],
+    List[OmissionClaim],
 ]
 
 # Important: We check EngineNewPayloadV6Parameters first as it has more fields,
@@ -741,7 +741,7 @@ class FixtureEngineNewPayload(CamelModel):
         block_access_list: Bytes | None = None,
         inclusion_list_transactions: List[Transaction] | None = None,
         inclusion_list_membership: List[Bytes] | None = None,
-        inclusion_list_claims: List[InclusionListClaim] | None = None,
+        omission_claims: List[OmissionClaim] | None = None,
         execution_payload_modifier: (
             "FixtureExecutionPayloadModifier | None"
         ) = None,
@@ -814,19 +814,16 @@ class FixtureEngineNewPayload(CamelModel):
                     f"Inclusion list satisfied is required for ${fork}."
                 )
 
-        if fork.engine_new_payload_inclusion_list_claims():
-            if (
-                inclusion_list_membership is None
-                or inclusion_list_claims is None
-            ):
+        if fork.engine_new_payload_omission_claims():
+            if inclusion_list_membership is None or omission_claims is None:
                 raise ValueError(
                     "Inclusion list membership and claims are required "
                     f"for {fork}."
                 )
             validate_inclusion_list_metadata(
-                params[4], inclusion_list_membership, inclusion_list_claims
+                params[4], inclusion_list_membership, omission_claims
             )
-            params.extend([inclusion_list_membership, inclusion_list_claims])
+            params.extend([inclusion_list_membership, omission_claims])
 
         payload_params: EngineNewPayloadParameters = cast(
             EngineNewPayloadParameters,

@@ -21,7 +21,7 @@ from execution_testing.rpc.rpc_types import (
     PayloadStatusEnum,
 )
 from execution_testing.specs.blockchain import GENESIS_ENVIRONMENT_DEFAULTS
-from execution_testing.test_types import Environment, InclusionListClaim
+from execution_testing.test_types import Environment, OmissionClaim
 
 
 def built_payload() -> GetPayloadResponse:
@@ -30,14 +30,14 @@ def built_payload() -> GetPayloadResponse:
         **GENESIS_ENVIRONMENT_DEFAULTS
     ).set_fork_requirements(Bogota)
     header = FixtureHeader.genesis(Bogota, environment, Hash(0))
-    claim = InclusionListClaim(transaction_hash=Hash(1), evaluation_index=7)
+    claim = OmissionClaim(transaction_hash=Hash(1), evaluation_index=7)
     return GetPayloadResponse(
         execution_payload=FixtureExecutionPayload.from_fixture_header(
             header=header, transactions=[], withdrawals=[]
         ),
         blobs_bundle=BlobsBundle(commitments=[], proofs=[], blobs=[]),
         execution_requests=[],
-        inclusion_list_claims=[claim, claim],
+        omission_claims=[claim, claim],
     )
 
 
@@ -85,7 +85,7 @@ def test_live_finalize_preserves_context(client_backend: bool) -> None:
         assert call.args[4:6] == ([], [])
     assert call.kwargs["version"] == 6
     assert len(call.args) == 7
-    assert call.args[6] == payload.inclusion_list_claims
+    assert call.args[6] == payload.omission_claims
     rpc.wait_for_inclusion_list.assert_called_once_with(
         status, *call.args, version=6
     )
@@ -94,7 +94,7 @@ def test_live_finalize_preserves_context(client_backend: bool) -> None:
 def test_live_finalize_requires_get_payload_claims() -> None:
     """A missing required V7 field cannot be mistaken for no omissions."""
     payload = built_payload()
-    payload.inclusion_list_claims = None
+    payload.omission_claims = None
     backend = ClientBackend.__new__(ClientBackend)
     rpc = MagicMock()
     backend.engine_rpc = rpc
@@ -104,6 +104,6 @@ def test_live_finalize_requires_get_payload_claims() -> None:
             parent_beacon_block_root=Hash(0),
             block_fork=Bogota,
             inclusion_list_membership=[],
-            inclusion_list_claims=[],
+            omission_claims=[],
         )
     rpc.new_payload_with_retry.assert_not_called()

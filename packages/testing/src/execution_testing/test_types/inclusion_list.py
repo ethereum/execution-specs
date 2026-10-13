@@ -7,7 +7,7 @@ from pydantic import Field
 from execution_testing.base_types import Bytes, CamelModel, Hash, HexNumber
 
 
-class InclusionListClaim(CamelModel):
+class OmissionClaim(CamelModel):
     """Identify an omitted transaction and its claimed evaluation index."""
 
     transaction_hash: Hash
@@ -17,11 +17,11 @@ class InclusionListClaim(CamelModel):
 def validate_inclusion_list_metadata(
     transactions: Sequence[Bytes],
     membership: Sequence[Bytes],
-    claims: Sequence[InclusionListClaim] = (),
+    claims: Sequence[OmissionClaim] = (),
 ) -> None:
     """Validate the Engine API container without executing transactions."""
     if len(claims) > 4096:
-        raise ValueError("Too many inclusion-list claims")
+        raise ValueError("Too many omission claims")
     if len(transactions) != len(membership):
         raise ValueError("Membership length differs from transaction count")
     if any(not transaction for transaction in transactions):

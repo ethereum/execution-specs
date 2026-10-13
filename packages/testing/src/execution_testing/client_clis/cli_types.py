@@ -48,7 +48,7 @@ from execution_testing.test_types import (
     Account,
     Alloc,
     Environment,
-    InclusionListClaim,
+    OmissionClaim,
     Transaction,
     TransactionReceipt,
 )
@@ -664,7 +664,7 @@ class TransitionToolInput:
     blob_params: ForkBlobSchedule | None = None
     inclusion_list_txs: List[Transaction] | None = None
     inclusion_list_membership: List[Bytes] | None = None
-    inclusion_list_claims: List[InclusionListClaim] | None = None
+    omission_claims: List[OmissionClaim] | None = None
 
     def inclusion_list_data(self) -> Dict[str, Any]:
         """Serialize supplied inclusion inputs without inventing policy."""
@@ -678,10 +678,10 @@ class TransitionToolInput:
             data["inclusionListMembership"] = [
                 value.hex() for value in self.inclusion_list_membership
             ]
-        if self.inclusion_list_claims is not None:
-            data["inclusionListClaims"] = [
+        if self.omission_claims is not None:
+            data["omissionClaims"] = [
                 claim.model_dump(mode="json", by_alias=True)
-                for claim in self.inclusion_list_claims
+                for claim in self.omission_claims
             ]
         return data
 

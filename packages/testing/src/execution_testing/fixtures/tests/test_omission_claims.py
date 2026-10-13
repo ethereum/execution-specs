@@ -13,7 +13,7 @@ from execution_testing.specs.blockchain import GENESIS_ENVIRONMENT_DEFAULTS
 from execution_testing.test_types import (
     BlockAccessList,
     Environment,
-    InclusionListClaim,
+    OmissionClaim,
     Transaction,
 )
 from execution_testing.test_types.inclusion_list import (
@@ -28,11 +28,11 @@ def test_claims_and_membership_reach_engine_fixture() -> None:
     )
     header = FixtureHeader.genesis(Bogota, env, Hash(0))
     tx = Transaction(gas_limit=21_000).with_signature_and_sender()
-    claim = InclusionListClaim(transaction_hash=tx.hash, evaluation_index=7)
+    claim = OmissionClaim(transaction_hash=tx.hash, evaluation_index=7)
     claims = [
         claim,
         claim,
-        InclusionListClaim(transaction_hash=tx.hash, evaluation_index=0),
+        OmissionClaim(transaction_hash=tx.hash, evaluation_index=0),
     ]
     membership = [Bytes("0x0102")]
     payload = FixtureEngineNewPayload.from_fixture_header(
@@ -44,7 +44,7 @@ def test_claims_and_membership_reach_engine_fixture() -> None:
         block_access_list=BlockAccessList().rlp,
         inclusion_list_transactions=[tx],
         inclusion_list_membership=membership,
-        inclusion_list_claims=claims,
+        omission_claims=claims,
         inclusion_list_satisfied=False,
     )
 
@@ -63,7 +63,7 @@ def test_claims_and_membership_reach_engine_fixture() -> None:
     attributes = payload.get_payload_attributes()
     assert attributes.inclusion_list_transactions == [tx.rlp()]
     assert attributes.inclusion_list_membership == membership
-    assert "inclusionListClaims" not in attributes.model_dump(by_alias=True)
+    assert "omissionClaims" not in attributes.model_dump(by_alias=True)
 
 
 def test_payload_attributes_require_explicit_membership() -> None:
@@ -82,14 +82,12 @@ def test_payload_attributes_require_explicit_membership() -> None:
 def test_claim_index_is_uint64(index: int) -> None:
     """Reject negative and overflowing insertion indices."""
     with pytest.raises(ValueError):
-        InclusionListClaim(transaction_hash=Hash(1), evaluation_index=index)
+        OmissionClaim(transaction_hash=Hash(1), evaluation_index=index)
 
 
 def test_claim_index_uint64_boundary() -> None:
     """Preserve an in-range index for EIP-7805's end-of-payload clamp."""
-    claim = InclusionListClaim(
-        transaction_hash=Hash(1), evaluation_index=2**64 - 1
-    )
+    claim = OmissionClaim(transaction_hash=Hash(1), evaluation_index=2**64 - 1)
     assert claim.model_dump(mode="json")["evaluation_index"] == (
         "0xffffffffffffffff"
     )
@@ -121,7 +119,7 @@ def test_inclusion_metadata_bounds_per_committee_member() -> None:
         [Bytes(b"a" * 8191), Bytes("0xc0"), Bytes(b"b" * 8191)],
         [Bytes("0x0100"), Bytes("0x0102"), Bytes("0x0002")],
     )
-    claims = [InclusionListClaim(transaction_hash=Hash(0), evaluation_index=0)]
+    claims = [OmissionClaim(transaction_hash=Hash(0), evaluation_index=0)]
     validate_inclusion_list_metadata([], [], claims * 4096)
     with pytest.raises(ValueError, match="Too many"):
         validate_inclusion_list_metadata([], [], claims * 4097)

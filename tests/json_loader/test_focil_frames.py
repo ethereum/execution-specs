@@ -36,8 +36,8 @@ from ethereum.forks.bogota.inclusion_list_frames import (
 )
 from ethereum.forks.bogota.inclusion_lists import (
     MAX_VERIFY_GAS_PER_IL,
-    InclusionClaim,
     InclusionListInputs,
+    OmissionClaim,
     admitted_frame_candidates,
     capture_inclusion_list_state,
     check_inclusion_list,
@@ -88,7 +88,7 @@ def inclusion_inputs(
     envelopes: tuple[Bytes, ...],
     *,
     membership: tuple[Bytes, ...] | None = None,
-    claims: tuple[InclusionClaim, ...] = (),
+    claims: tuple[OmissionClaim, ...] = (),
 ) -> InclusionListInputs:
     """Supply explicit membership for every envelope unless given."""
     return InclusionListInputs(
@@ -249,7 +249,7 @@ def test_duplicate_claim_hashes_default_to_end(
     inputs = inclusion_inputs(
         (envelope,),
         claims=tuple(
-            InclusionClaim(tx_hash, U64(index)) for index in duplicate_indices
+            OmissionClaim(tx_hash, U64(index)) for index in duplicate_indices
         ),
     )
     assert tx_hash not in evaluation_indices(inputs, Uint(1))
@@ -261,7 +261,7 @@ def test_claim_max_uint64_clamps_without_overflow() -> None:
     envelope = frame_envelope()
     tx_hash = keccak256(envelope)
     inputs = inclusion_inputs(
-        (envelope,), claims=(InclusionClaim(tx_hash, U64.MAX_VALUE),)
+        (envelope,), claims=(OmissionClaim(tx_hash, U64.MAX_VALUE),)
     )
     assert evaluation_indices(inputs, Uint(2)) == {tx_hash: Uint(2)}
 
@@ -277,7 +277,7 @@ def test_irrelevant_claims_do_not_require_early_snapshots() -> None:
     inputs = inclusion_inputs(
         (frame, ordinary),
         claims=tuple(
-            InclusionClaim(tx_hash, U64(0))
+            OmissionClaim(tx_hash, U64(0))
             for tx_hash in (
                 keccak256(frame),
                 keccak256(ordinary),
@@ -319,7 +319,7 @@ def test_per_position_byte_limit(over_limit: bool) -> None:
 def test_claim_count_bound_preserves_duplicates(over_limit: bool) -> None:
     """Count ordered claims before duplicate hashes are ignored."""
     envelope = frame_envelope()
-    claim = InclusionClaim(keccak256(envelope), U64(0))
+    claim = OmissionClaim(keccak256(envelope), U64(0))
     inputs = inclusion_inputs(
         (envelope,), claims=(claim,) * (4096 + int(over_limit))
     )
