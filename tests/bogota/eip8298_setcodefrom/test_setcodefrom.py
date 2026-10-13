@@ -51,9 +51,9 @@ pytestmark = pytest.mark.valid_from("EIP8298")
 def test_adopt(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
 ) -> None:
     """Verify adoption replaces only the code hash and pushes 1."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     adopter = pre.deploy_contract(
         SHELL_CODE,
         storage={5: 7, RESULT_SLOT: SENTINEL},
@@ -87,10 +87,10 @@ def test_adopt(
 def test_later_call_runs_adopted_code(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
-    shell: Address,
 ) -> None:
     """Verify other frames observe and run the adopted code."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     driver = pre.deploy_contract(
         Op.POP(call_with(shell, template))
         + Op.SSTORE(1, Op.EXTCODEHASH(shell))
@@ -120,12 +120,12 @@ def test_later_call_runs_adopted_code(
 def test_self_inspection_after_adopt(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
 ) -> None:
     """
     Verify `EXTCODE*` of the current account see the adopted code, while
     `CODESIZE` and `CODECOPY` see the frame's loaded code.
     """
+    template = pre.deploy_contract(TEMPLATE_CODE)
     code = (
         Op.SSTORE(RESULT_SLOT, Op.SETCODEFROM(template))
         + Op.SSTORE(1, Op.EXTCODEHASH(Op.ADDRESS))
@@ -161,13 +161,13 @@ def test_self_inspection_after_adopt(
 def test_reentrant_adoption(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
     call_opcode: Op,
 ) -> None:
     """
     Verify an inner frame's adoption leaves the outer frame on its loaded
     code, while a later call into the account runs the adopted code.
     """
+    template = pre.deploy_contract(TEMPLATE_CODE)
     adopter = pre.deploy_contract(
         Conditional(
             condition=Op.CALLDATASIZE,
@@ -209,10 +209,10 @@ def test_reentrant_adoption(
 def test_source_high_bits_ignored(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
     high_bits: int,
 ) -> None:
     """Verify only the low 160 bits of the stack input select the source."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     source = high_bits | int.from_bytes(template, "big")
     adopter = pre.deploy_contract(
         Op.SSTORE(RESULT_SLOT, Op.SETCODEFROM(source)) + Op.STOP,
@@ -227,14 +227,14 @@ def test_source_high_bits_ignored(
 def test_two_adoptions_same_frame(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
-    template_b: Address,
     second: str,
 ) -> None:
     """
     Verify a second adoption in one frame replaces the first, and that
     restoring the original code hash leaves no code change.
     """
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    template_b = pre.deploy_contract(TEMPLATE_B_CODE)
     code = (
         Op.SSTORE(RESULT_SLOT, Op.SETCODEFROM(Op.CALLDATALOAD(0)))
         + Op.SSTORE(1, Op.EXTCODEHASH(Op.ADDRESS))
@@ -280,11 +280,11 @@ def test_two_adoptions_same_frame(
 def test_same_hash_source(
     state_test: StateTestFiller,
     pre: Alloc,
-    shell: Address,
-    shell_twin: Address,
     source: str,
 ) -> None:
     """Verify adopting the current code hash succeeds as a no-op."""
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    shell_twin = pre.deploy_contract(SHELL_CODE)
     if source == "twin":
         source_address = shell_twin
     elif source == "self":
@@ -310,11 +310,11 @@ def test_same_hash_source(
 def test_transitive_adopt_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
-    shell: Address,
-    shell_twin: Address,
 ) -> None:
     """Verify a source that adopted earlier in the tx hands over its hash."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    shell_twin = pre.deploy_contract(SHELL_CODE)
     driver = pre.deploy_contract(
         Op.POP(call_with(shell_twin, template))
         + Op.POP(call_with(shell, shell_twin))
@@ -331,13 +331,13 @@ def test_transitive_adopt_same_tx(
 def test_source_created_earlier_in_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    template: Address,
-    shell: Address,
 ) -> None:
     """
     Verify a source deployed earlier in the block is valid, and that its
     bytecode outlives its own replacement.
     """
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     sender = pre.fund_eoa()
     source = compute_create_address(address=sender, nonce=0)
     block_1 = Block(
@@ -388,10 +388,10 @@ def test_source_created_earlier_in_block(
 def test_adoptions_across_txs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    shell: Address,
-    shell_twin: Address,
 ) -> None:
     """Verify each tx's adoption is recorded at its own BAL index."""
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
+    shell_twin = pre.deploy_contract(SHELL_CODE)
     sender = pre.fund_eoa()
     source = pre.deploy_contract(MARKED_SHELL_CODE)
     block = Block(
@@ -422,10 +422,10 @@ def test_adoptions_across_txs(
 def test_adopt_into_account_created_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
     create_opcode: Op,
 ) -> None:
     """Verify an account created earlier in the tx can adopt code."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     initcode = Initcode(deploy_code=SHELL_CODE)
     factory = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
@@ -463,10 +463,10 @@ def test_adopt_into_account_created_same_tx(
 def test_adopted_account_as_delegation_target(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
-    shell: Address,
 ) -> None:
     """Verify a delegation to an adopter resolves to its adopted code."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     delegating_eoa = pre.fund_eoa(delegation=shell)
     driver = pre.deploy_contract(
         Op.POP(call_with(shell, template))
@@ -484,9 +484,9 @@ def test_adopted_account_as_delegation_target(
 def test_selfdestructed_source_stays_valid(
     state_test: StateTestFiller,
     pre: Alloc,
-    shell: Address,
 ) -> None:
     """Verify a source that self-destructed earlier in the tx stays valid."""
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     # Not created in this tx: post-Cancun its code stays.
     source_code = Op.SELFDESTRUCT(Op.ORIGIN)
     source = pre.deploy_contract(source_code)
@@ -537,11 +537,11 @@ def test_system_contract_source(
 def test_invalid_source(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
-    shell: Address,
     source_kind: str,
 ) -> None:
     """Verify an invalid source pushes 0 and leaves the adopter unchanged."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     bal: dict[Address, BalAccountExpectation | None] = {}
     if source_kind == "nonexistent":
         source = pre.nonexistent_account()
@@ -571,9 +571,9 @@ def test_invalid_source(
 def test_source_created_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,
-    shell: Address,
 ) -> None:
     """Verify a source created earlier in the same tx is invalid."""
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     # `call_with` writes memory 0, so the new address is kept at 32.
     driver = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
@@ -618,9 +618,9 @@ def test_stack_underflow(
 def test_revert_after_adopt(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
 ) -> None:
     """Verify a revert discards an adoption the frame observed."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     adopter_code = Op.POP(Op.SETCODEFROM(template)) + REVERT_WITH_CODE_HASH
     adopter = pre.deploy_contract(adopter_code)
     driver = pre.deploy_contract(
@@ -652,10 +652,10 @@ def test_revert_after_adopt(
 def test_parent_revert(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
-    shell: Address,
 ) -> None:
     """Verify a parent frame's revert discards its callee's adoption."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     parent = pre.deploy_contract(
         Op.POP(call_with(shell, template))
         + Op.MSTORE(0, Op.EXTCODEHASH(shell))
@@ -682,10 +682,10 @@ def test_parent_revert(
 def test_inner_adoption_reverts_outer_kept(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
-    template_b: Address,
 ) -> None:
     """Verify a reverted inner adoption restores the outer frame's one."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    template_b = pre.deploy_contract(TEMPLATE_B_CODE)
     library = pre.deploy_contract(
         Op.POP(Op.SETCODEFROM(template_b)) + REVERT_WITH_CODE_HASH
     )
@@ -715,9 +715,9 @@ def test_inner_adoption_reverts_outer_kept(
 def test_revert_restores_same_tx_delegation(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
 ) -> None:
     """Verify a reverted adoption restores a delegation set in the same tx."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     impl = pre.deploy_contract(
         Op.POP(Op.SETCODEFROM(template)) + REVERT_WITH_CODE_HASH
     )
