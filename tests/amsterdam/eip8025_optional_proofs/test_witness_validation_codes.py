@@ -118,10 +118,14 @@ def test_validation_codes_missing_7702_delegation_code(
     removed_code: str,
 ) -> None:
     """
-    Removing a pre-state 7702 delegation marker, or the delegated target
-    code, should fail.
+    Reject a witness that lacks the delegation marker or the delegate's
+    code.
+
+    The delegate's code is a single STOP. Running empty code in its place
+    uses the same gas and leaves the same state, so when that code is
+    missing, only the witness check can reject the block.
     """
-    delegate_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
+    delegate_code = Op.STOP
     delegate = pre.deploy_contract(code=delegate_code)
 
     delegated_eoa = pre.fund_eoa(delegation=delegate)
@@ -148,59 +152,6 @@ def test_validation_codes_missing_7702_delegation_code(
                     ).modify(remove_code(codes[removed_code]))
                 ),
                 expected_stateless_validation_success=False,
-            )
-        ],
-        post={sender: Account(nonce=1)},
-    )
-
-
-@pytest.mark.parametrize(
-    "witness_complete",
-    [
-        pytest.param(True, id="complete_witness"),
-        pytest.param(False, id="missing_delegate_code"),
-    ],
-)
-def test_validation_codes_missing_stop_delegate_code(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-    witness_complete: bool,
-) -> None:
-    """
-    Require the delegate's code when a transaction calls a delegated EOA,
-    even if that code is a single STOP.
-
-    Running empty code in place of a lone STOP uses the same gas and leaves
-    the same state, so only the witness check can reject the block when the
-    delegate's code is missing.
-    """
-    delegate_code = Op.STOP
-    delegate = pre.deploy_contract(code=delegate_code)
-
-    delegated_eoa = pre.fund_eoa(delegation=delegate)
-    sender = pre.fund_eoa()
-    tx = Transaction(
-        sender=sender,
-        to=delegated_eoa,
-        gas_limit=500_000,
-    )
-
-    expectation = ExecutionWitnessCodesExpectation(
-        codes_present=[
-            Bytes(Spec7702.delegation_designation(delegate)),
-            Bytes(delegate_code),
-        ],
-    )
-    if not witness_complete:
-        expectation = expectation.modify(remove_code(Bytes(delegate_code)))
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_execution_witness_codes=expectation,
-                expected_stateless_validation_success=witness_complete,
             )
         ],
         post={sender: Account(nonce=1)},
