@@ -4,14 +4,6 @@ Out-of-gas consolidation request tests.
 Tests that consolidation requests whose triggering call runs out of gas are
 not included in the block, for
 [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethereum.org/EIPS/eip-7251).
-
-The relay contract measures, at runtime, the gas its call to the predeploy
-consumes and forwards one gas less than that to the request marked invalid,
-so that request runs out of gas on every fork without a hard-coded gas value.
-This is not the exact boundary: the SSTORE sentry needs more than the call
-stipend left, so the requirement is above the measured consumption.
-The coarse starvation cases still pass their limits per request via the
-interaction's `gas_limits` list.
 """
 
 from typing import List
@@ -23,8 +15,12 @@ from execution_testing import (
     BlockchainTestFiller,
     ConsolidationRequest,
     Environment,
+    Fork,
+    Op,
+    ParameterSet,
     SystemContractInteractionContract,
     SystemContractInteractionMeasuredOutOfGasContract,
+    SystemContractInteractionTransaction,
 )
 
 from .spec import ref_spec_7251
@@ -35,36 +31,69 @@ REFERENCE_SPEC_VERSION = ref_spec_7251.version
 pytestmark = pytest.mark.valid_from("Prague")
 
 
-@pytest.mark.parametrize(
-    "system_contract_interactions_per_block",
-    [
+def out_of_gas_cases(fork: Fork) -> List[ParameterSet]:
+    """Return the out-of-gas cases, deriving the starved gas from `fork`."""
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+
+    def transactions_starving(
+        index: int,
+    ) -> List[List[SystemContractInteractionTransaction]]:
+        requests = [
+            ConsolidationRequest(
+                source_pubkey=i * 2 + 1, target_pubkey=i * 2 + 2
+            )
+            for i in range(2)
+        ]
+        requests[index].valid = False
+        # The intrinsic cost alone leaves the predeploy too little gas to
+        # enqueue anything. The transaction pays the request fee as value.
+        gas_limits: List[int | None] = [None, None]
+        gas_limits[index] = intrinsic_cost(
+            calldata=requests[index].calldata, sends_value=True
+        )
+        return [
+            [
+                SystemContractInteractionTransaction(
+                    requests=requests, gas_limits=gas_limits
+                )
+            ]
+        ]
+
+    # The predeploy ends with a warm SSTORE, which EIP-2200 rejects unless
+    # more than the call stipend remains, so the requirement exceeds the
+    # measured consumption by that sentry.
+    warm_sstore = Op.SSTORE(
+        key_warm=True, original_value=0, current_value=1, new_value=2
+    ).gas_cost(fork)
+    sentry_margin = fork.call_value_stipend() - warm_sstore + 1
+    # The relay measures the requirement on the second request, then forwards
+    # one gas less to the third and exactly the requirement to the fourth.
+    boundary_requests = [
+        ConsolidationRequest(source_pubkey=i * 2 + 1, target_pubkey=i * 2 + 2)
+        for i in range(4)
+    ]
+    boundary_requests[2].valid = False
+
+    return [
+        pytest.param(
+            transactions_starving(0),
+            id="single_block_multiple_consolidation_request_first_oog",
+        ),
+        pytest.param(
+            transactions_starving(1),
+            id="single_block_multiple_consolidation_request_last_oog",
+        ),
         pytest.param(
             [
                 [
                     SystemContractInteractionMeasuredOutOfGasContract(
-                        requests=[
-                            ConsolidationRequest(
-                                source_pubkey=0x01,
-                                target_pubkey=0x02,
-                                fee=ConsolidationRequest.get_fee(0),
-                            ),
-                            ConsolidationRequest(
-                                source_pubkey=0x03,
-                                target_pubkey=0x04,
-                                fee=ConsolidationRequest.get_fee(0),
-                            ),
-                            ConsolidationRequest(
-                                source_pubkey=0x05,
-                                target_pubkey=0x06,
-                                fee=ConsolidationRequest.get_fee(0),
-                                # Starved of gas by the relay contract.
-                                valid=False,
-                            ),
-                        ],
+                        requests=boundary_requests,
+                        exact_gas_indices=[3],
+                        exact_gas_margin=sentry_margin,
                     ),
                 ],
             ],
-            id="single_block_multiple_consolidation_requests_measured_oog",
+            id="single_block_multiple_consolidation_requests_from_contract_gas_boundary",
         ),
         pytest.param(
             [
@@ -127,7 +156,11 @@ pytestmark = pytest.mark.valid_from("Prague")
             ],
             id="single_block_multiple_consolidation_requests_from_contract_last_oog",
         ),
-    ],
+    ]
+
+
+@pytest.mark.parametrize_by_fork(
+    "system_contract_interactions_per_block", out_of_gas_cases
 )
 def test_consolidation_requests_out_of_gas(
     blockchain_test: BlockchainTestFiller,
