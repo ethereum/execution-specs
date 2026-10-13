@@ -201,6 +201,7 @@ class BalAccountAbsentValues(CamelModel):
             lambda a, f: (
                 a.block_access_index == f.block_access_index
                 and a.new_code == f.new_code
+                and a.new_code_hash == f.new_code_hash
             ),
             lambda a: (
                 f"Unexpected code change found at tx {a.block_access_index}"

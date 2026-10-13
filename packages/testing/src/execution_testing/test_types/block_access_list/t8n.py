@@ -1,7 +1,7 @@
 """Block Access List (BAL) for t8n tool communication and fixtures."""
 
 from functools import cached_property
-from typing import Any, Callable, List, Self, Sequence, Union
+from typing import Any, List, Self, Sequence, Union
 
 import ethereum_rlp as eth_rlp
 from ethereum_rlp import Simple
@@ -11,6 +11,7 @@ from execution_testing.base_types import (
     Address,
     Bytes,
     EthereumTestRootModel,
+    Hash,
     ZeroPaddedHexNumber,
 )
 from execution_testing.base_types.serialization import (
@@ -48,9 +49,7 @@ def _seq_from_rlp(data: Simple) -> Sequence[Simple]:
     return data
 
 
-IndexedChange = Union[
-    BalBalanceChange, BalCodeChange, BalNonceChange, BalStorageChange
-]
+IndexedChange = Union[BalBalanceChange, BalNonceChange, BalStorageChange]
 
 
 def _hex_from_rlp(data: Simple) -> ZeroPaddedHexNumber:
@@ -62,7 +61,6 @@ def _decode_indexed_changes(
     rlp_list: Simple,
     cls: type[IndexedChange],
     value_field: str,
-    value_fn: Callable[[Simple], Any] = _hex_from_rlp,
 ) -> list[IndexedChange]:
     """Decode a list of [block_access_index, value] RLP pairs."""
     result: list[IndexedChange] = []
@@ -71,7 +69,26 @@ def _decode_indexed_changes(
         result.append(
             cls(
                 block_access_index=_hex_from_rlp(idx),
-                **{value_field: value_fn(val)},
+                **{value_field: _hex_from_rlp(val)},
+            )
+        )
+    return result
+
+
+def _decode_code_changes(rlp_list: Simple) -> list[BalCodeChange]:
+    """Decode `[index, code]` or `[index, b"", code_hash]` entries."""
+    result: list[BalCodeChange] = []
+    for item in _seq_from_rlp(rlp_list):
+        idx, code, *code_hash = _seq_from_rlp(item)
+        if len(code_hash) > 1:
+            raise ValueError(f"code change has {len(code_hash) + 2} elements")
+        result.append(
+            BalCodeChange(
+                block_access_index=_hex_from_rlp(idx),
+                new_code=Bytes(_bytes_from_rlp(code)),
+                new_code_hash=(
+                    Hash(_bytes_from_rlp(code_hash[0])) if code_hash else None
+                ),
             )
         )
     return result
@@ -145,12 +162,7 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
                     nonce_changes=_decode_indexed_changes(
                         fields[4], BalNonceChange, "post_nonce"
                     ),
-                    code_changes=_decode_indexed_changes(
-                        fields[5],
-                        BalCodeChange,
-                        "new_code",
-                        value_fn=lambda v: Bytes(_bytes_from_rlp(v)),
-                    ),
+                    code_changes=_decode_code_changes(fields[5]),
                 )
             )
 

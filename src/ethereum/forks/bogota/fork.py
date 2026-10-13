@@ -63,6 +63,15 @@ from .state_tracker import (
     increment_nonce,
     set_account_balance,
 )
+from .system_contracts import (
+    BEACON_ROOTS_ADDRESS,
+    BUILDER_DEPOSIT_CONTRACT_ADDRESS,
+    BUILDER_EXIT_CONTRACT_ADDRESS,
+    CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+    HISTORY_STORAGE_ADDRESS,
+    SYSTEM_ADDRESS,
+    WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+)
 from .transactions import (
     BlobTransaction,
     LegacyTransaction,
@@ -80,7 +89,6 @@ from .transactions import (
     validate_transaction,
 )
 from .utils.address import compute_contract_address
-from .utils.hexadecimal import hex_to_address
 from .vm.eoa_delegation import is_valid_delegation
 from .vm.gas import MAX_BLOB_GAS_PER_BLOCK as MAX_BLOB_GAS_PER_BLOCK
 from .vm.gas import (
@@ -100,10 +108,6 @@ from .vm.interpreter import TransactionOutput, process_top_level
 BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
 ELASTICITY_MULTIPLIER = Uint(2)
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
-SYSTEM_ADDRESS = hex_to_address("0xfffffffffffffffffffffffffffffffffffffffe")
-BEACON_ROOTS_ADDRESS = hex_to_address(
-    "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
-)
 SYSTEM_TRANSACTION_GAS = ExecutionGas(Uint(30000000))
 SYSTEM_MAX_SSTORES_PER_CALL = Uint(16)
 """
@@ -112,21 +116,6 @@ expected to write.
 """
 GWEI_TO_WEI = U256(10**9)
 
-WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
-    "0x00000961Ef480Eb55e80D19ad83579A64c007002"
-)
-CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
-    "0x0000BBdDc7CE488642fb579F8B00f3a590007251"
-)
-BUILDER_DEPOSIT_CONTRACT_ADDRESS = hex_to_address(
-    "0x0000BFF46984E3725691FA540A8C7589300D8282"
-)
-BUILDER_EXIT_CONTRACT_ADDRESS = hex_to_address(
-    "0x000064D678505AD48F8CCB093BC65613800E8282"
-)
-HISTORY_STORAGE_ADDRESS = hex_to_address(
-    "0x0000F90827F1C53a10cb7A02335B175320002935"
-)
 MAX_BLOCK_SIZE = 10_485_760
 SAFETY_MARGIN = 2_097_152
 MAX_RLP_BLOCK_SIZE = MAX_BLOCK_SIZE - SAFETY_MARGIN

@@ -209,6 +209,7 @@ class Ops(enum.Enum):
     LOG4 = 0xA4
 
     # System Operations
+    SETCODEFROM = 0xA7
     CREATE = 0xF0
     CALL = 0xF1
     CALLCODE = 0xF2
@@ -374,4 +375,5 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.STATICCALL: system_instructions.staticcall,
     Ops.REVERT: system_instructions.revert,
     Ops.CREATE2: system_instructions.create2,
+    Ops.SETCODEFROM: system_instructions.setcodefrom,
 }
