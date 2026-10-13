@@ -336,6 +336,44 @@ def test_transitive_adopt_same_tx(
     state_test(pre=pre, post=post, tx=tx)
 
 
+def test_transitive_adopt_across_txs(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """Verify a source that adopted in an earlier tx hands over its hash."""
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    first_adopter = pre.deploy_contract(ADOPT_FROM_CALLDATA)
+    second_adopter = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
+    sender = pre.fund_eoa()
+    block = Block(
+        txs=[
+            Transaction(sender=sender, to=first_adopter, data=word(template)),
+            Transaction(
+                sender=sender, to=second_adopter, data=word(first_adopter)
+            ),
+        ],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                first_adopter: BalAccountExpectation(
+                    code_changes=adoption(1, SSTORE_MARKER_A)
+                ),
+                second_adopter: BalAccountExpectation(
+                    code_changes=adoption(2, SSTORE_MARKER_A)
+                ),
+            }
+        ),
+    )
+    post = {
+        first_adopter: Account(code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}),
+        second_adopter: Account(
+            code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}
+        ),
+    }
+    blockchain_test(pre=pre, blocks=[block], post=post)
+
+
 def test_source_created_earlier_in_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
