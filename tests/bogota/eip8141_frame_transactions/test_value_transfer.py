@@ -11,7 +11,7 @@ is exempt and emits no log.
 [EIP-7708]: https://eips.ethereum.org/EIPS/eip-7708
 """
 
-from typing import Dict
+from typing import Dict, Tuple
 
 import pytest
 from execution_testing import (
@@ -53,9 +53,6 @@ TRANSFER_TOPIC = Hash(keccak256(b"Transfer(address,address,uint256)"))
 
 TRANSFER_VALUE = 10**15
 """Value the frame under test transfers."""
-
-IDENTITY = Address(0x04)
-"""The `IDENTITY` precompile, a delegate that is always warm."""
 
 
 def transfer_log(
@@ -170,46 +167,15 @@ def test_value_transfer(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@pytest.mark.parametrize(
-    "delegate_kind",
-    [
-        pytest.param("none", id="recipient_eoa"),
-        pytest.param("contract", id="recipient_delegated_to_contract"),
-        pytest.param("precompile", id="recipient_delegated_to_precompile"),
-    ],
-)
-def test_value_transfer_exceeding_balance(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    delegate_kind: str,
-) -> None:
+def transfer_exceeding_balance(
+    pre: Alloc, fork: Fork, recipient: Address
+) -> Tuple[Transaction, Dict[Address, Account]]:
     """
-    Transfer more value than the sender holds, with a sponsor paying.
-
-    The balance check happens after the target's access is charged, so
-    the reverting frame's receipt reports that access rather than
-    nothing. A delegated recipient's designation is resolved only when
-    the frame is dispatched, after the balance check, so the failed
-    frame neither pays for nor reads the delegate. A precompile delegate
-    is always warm, so reading it would show only in the block access
-    list. A sponsor pays the
-    gas, keeping the shortfall a property of the sender's balance
-    alone, and a `SENDER` frame's failure leaves the transaction valid.
+    Return a transaction whose `SENDER` frame sends `recipient` one wei
+    more than the sender holds, with a sponsor paying, and its post-state.
     """
     sender = pre.fund_eoa(amount=TRANSFER_VALUE)
     payer = pre.fund_eoa()
-    delegate: Address | None
-    if delegate_kind == "none":
-        delegate = None
-    elif delegate_kind == "contract":
-        delegate = pre.deploy_contract(code=Op.STOP)
-    elif delegate_kind == "precompile":
-        delegate = IDENTITY
-    else:
-        raise ValueError(f"unknown delegate kind {delegate_kind!r}")
-    recipient = pre.fund_eoa(amount=1, delegation=delegate)
-
     tx = Transaction(
         sender=sender,
         frames=[
@@ -245,21 +211,81 @@ def test_value_transfer_exceeding_balance(
             ],
         ),
     )
-
-    post: Dict[Address, Account] = {
+    post = {
         sender: Account(nonce=1, balance=TRANSFER_VALUE),
         recipient: Account(balance=1),
     }
-    bal_accounts: Dict[Address, BalAccountExpectation | None] = {
-        recipient: BalAccountExpectation.empty()
-    }
-    if delegate is not None:
+    return tx, post
+
+
+@pytest.mark.parametrize(
+    "recipient_delegated",
+    [
+        pytest.param(False, id="recipient_eoa"),
+        pytest.param(True, id="recipient_delegated_eoa"),
+    ],
+)
+def test_value_transfer_exceeding_balance(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    recipient_delegated: bool,
+) -> None:
+    """
+    Transfer more value than the sender holds, with a sponsor paying.
+
+    The balance check happens after the target's access is charged, so
+    the reverting frame's receipt reports that access rather than
+    nothing. A delegated recipient's designation is resolved only when
+    the frame is dispatched, after the balance check, so the failed
+    frame neither pays for nor reads the delegate. A sponsor pays the
+    gas, keeping the shortfall a property of the sender's balance
+    alone, and a `SENDER` frame's failure leaves the transaction valid.
+    """
+    bal_accounts: Dict[Address, BalAccountExpectation | None] = {}
+    if recipient_delegated:
+        delegate = pre.deploy_contract(code=Op.STOP)
+        recipient = pre.fund_eoa(amount=1, delegation=delegate)
         bal_accounts[delegate] = None
+    else:
+        recipient = pre.fund_eoa(amount=1)
+    bal_accounts[recipient] = BalAccountExpectation.empty()
+    tx, post = transfer_exceeding_balance(pre, fork, recipient)
     state_test(
         pre=pre,
         tx=tx,
         post=post,
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations=bal_accounts
+        ),
+    )
+
+
+@pytest.mark.with_all_precompiles
+def test_value_transfer_exceeding_balance_to_precompile_delegate(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    precompile: int,
+) -> None:
+    """
+    Transfer more value than the sender holds to an account delegated to
+    a precompile.
+
+    A precompile is always warm, so a client that reads the delegate on
+    the failed transfer pays nothing for it, and only the block access
+    list, which must not list the precompile, shows the read.
+    """
+    recipient = pre.fund_eoa(amount=1, delegation=Address(precompile))
+    tx, post = transfer_exceeding_balance(pre, fork, recipient)
+    state_test(
+        pre=pre,
+        tx=tx,
+        post=post,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                recipient: BalAccountExpectation.empty(),
+                Address(precompile): None,
+            }
         ),
     )
