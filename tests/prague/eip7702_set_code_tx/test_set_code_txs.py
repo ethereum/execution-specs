@@ -11,7 +11,6 @@ from itertools import count
 from typing import List
 
 import pytest
-from _pytest.mark import ParameterSet
 from execution_testing import (
     AccessList,
     Account,
@@ -40,6 +39,7 @@ from execution_testing import (
     Header,
     Initcode,
     Op,
+    ParameterSet,
     RecipientType,
     Requests,
     StateTestFiller,

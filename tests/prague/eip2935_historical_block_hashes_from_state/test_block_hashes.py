@@ -121,10 +121,9 @@ def test_block_hashes_history_at_transition(
     blocks_after_fork: int,
 ) -> None:
     """
-    Tests that block hashes are stored correctly at the system contract address
-    after the fork transition. Block hashes are stored incrementally at the
-    transition until the `HISTORY_SERVE_WINDOW` ring buffer is full. Afterwards
-    the oldest block hash is replaced by the new one.
+    Test that block hashes are stored correctly at the system contract address
+    after the fork transition, while the `HISTORY_SERVE_WINDOW` ring buffer is
+    still filling.
 
     Note: The block hashes before the fork are no longer stored in the contract
     at the moment of the transition.
@@ -236,7 +235,7 @@ def test_block_hashes_history(
     check_contract_first: bool,
 ) -> None:
     """
-    Tests that block hashes are stored correctly at the system contract
+    Test that block hashes are stored correctly at the system contract
     address after the fork transition, while the `HISTORY_SERVE_WINDOW` ring
     buffer is still filling.
     """
