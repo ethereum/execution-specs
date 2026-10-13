@@ -88,12 +88,12 @@ def test_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    template: Address,
     tier: str,
     warm: bool,
     delta: int,
 ) -> None:
     """Verify the exact gas cost of each `SETCODEFROM` cost tier."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     code = adopt_code(
         address_warm=warm,
         source_valid=tier.startswith("valid"),
@@ -138,10 +138,10 @@ def test_source_in_bal_once_source_gas_paid(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    template: Address,
     delta: int,
 ) -> None:
     """Verify a valid source enters the BAL once the first charge is paid."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     # Priced as an invalid source, so the budget only covers the first
     # charge: one short skips the access, exact fails right after it.
     code = adopt_code(
@@ -210,10 +210,10 @@ def test_source_warm_after_attempt(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    template: Address,
     source_kind: str,
 ) -> None:
     """Verify `source` is warm after any `SETCODEFROM` attempt."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     if source_kind == "valid":
         source = template
     elif source_kind == "nonexistent":
@@ -245,9 +245,9 @@ def test_delegated_source_target_stays_cold(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    template: Address,
 ) -> None:
     """Verify a delegated source's target is neither resolved nor warmed."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     delegated = pre.fund_eoa(delegation=template)
     adopter = pre.deploy_contract(
         Op.SSTORE(RESULT_SLOT, Op.SETCODEFROM(delegated))
@@ -279,11 +279,11 @@ def test_account_write_per_operation(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    template: Address,
-    template_b: Address,
     delta: int,
 ) -> None:
     """Verify each code-changing adoption in a frame pays `ACCOUNT_WRITE`."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    template_b = pre.deploy_contract(TEMPLATE_B_CODE)
     adopter = pre.deploy_contract(multi_code())
     twin = pre.deploy_contract(multi_code())
     gas = (
@@ -322,10 +322,10 @@ def test_warmth_reverts_with_frame(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    template: Address,
     inner_reverts: bool,
 ) -> None:
     """Verify source warming is discarded with a reverted frame."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     inner_code = Op.POP(Op.SETCODEFROM(template)) + (
         Op.REVERT(0, 0) if inner_reverts else Op.STOP
     )
@@ -355,9 +355,9 @@ def test_initcode_adoption_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    template: Address,
 ) -> None:
     """Verify an adopting creation pays account creation but no deposit."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     initcode = Op.POP(
         Op.SETCODEFROM(
             template, address_warm=False, source_valid=True, code_changed=True
@@ -471,10 +471,10 @@ def test_account_write_on_written_account(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    template: Address,
     delta: int,
 ) -> None:
     """Verify adopting into an account the tx already wrote pays in full."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     code = adopt_code(address_warm=False, source_valid=True, code_changed=True)
     adopter = pre.deploy_contract(code)
     calldata = word(template)

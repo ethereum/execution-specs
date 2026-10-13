@@ -3,7 +3,6 @@
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -26,9 +25,9 @@ FORK_TIMESTAMP = 15_000
 def test_setcodefrom_at_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    template: Address,
 ) -> None:
     """Verify `SETCODEFROM` halts before the fork and adopts from it on."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     sender = pre.fund_eoa()
     shells = [
         pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})

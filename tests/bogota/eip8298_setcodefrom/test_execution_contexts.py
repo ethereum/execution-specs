@@ -62,9 +62,9 @@ def test_call_opcodes(
     state_test: StateTestFiller,
     pre: Alloc,
     call_opcode: Op,
-    template: Address,
 ) -> None:
     """Verify the current account, not the code owner, adopts the source."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     callee_code = adopt_code()
     callee = pre.deploy_contract(callee_code)
     caller_code = (
@@ -120,9 +120,9 @@ def test_static_halts(
     state_test: StateTestFiller,
     pre: Alloc,
     source_kind: str,
-    template: Address,
 ) -> None:
     """Verify `SETCODEFROM` halts in a static context before reading source."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     adopter_code = adopt_code()
     if source_kind == "valid":
         source = template
@@ -158,9 +158,9 @@ def test_static_halts(
 def test_static_propagates_through_delegatecall(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
 ) -> None:
     """Verify a DELEGATECALL under STATICCALL still cannot adopt."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     lib = pre.deploy_contract(adopt_code())
     middle_code = (
         Op.CALLDATACOPY(0, 0, 32)
@@ -199,9 +199,9 @@ def test_initcode_creation_tx(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_type: int,
-    template: Address,
 ) -> None:
     """Verify a creation tx's initcode adopts instead of depositing code."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     tx = Transaction(
         ty=tx_type,
         sender=pre.fund_eoa(),
@@ -233,9 +233,9 @@ def test_initcode_create_opcodes(
     state_test: StateTestFiller,
     pre: Alloc,
     create_opcode: Op,
-    template: Address,
 ) -> None:
     """Verify CREATE/CREATE2 initcode adopts instead of depositing code."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     initcode = Op.SSTORE(0, Op.SETCODEFROM(template)) + Op.STOP
     factory = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
@@ -263,9 +263,9 @@ def test_initcode_create_opcodes(
 def test_initcode_self_inspection(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
 ) -> None:
     """Verify EXTCODE* see adopted code and CODE* see the initcode."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     initcode = (
         Op.POP(Op.SETCODEFROM(template))
         + Op.SSTORE(0, Op.EXTCODEHASH(Op.ADDRESS))
@@ -304,9 +304,9 @@ def test_initcode_return_data_ignored(
     pre: Alloc,
     fork: Fork,
     payload: str,
-    template: Address,
 ) -> None:
     """Verify return data is ignored once initcode has adopted code."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     adopt = Op.SSTORE(0, Op.SETCODEFROM(template))
     initcode: Bytecode
     if payload == "ef_prefixed":
@@ -334,9 +334,9 @@ def test_initcode_return_data_ignored(
 def test_initcode_self_as_source(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
 ) -> None:
     """Verify an account created in the tx is not a valid source to itself."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     initcode = (
         Op.SSTORE(0, Op.SETCODEFROM(template))
         + Op.SSTORE(1, Op.SETCODEFROM(Op.ADDRESS))
@@ -358,9 +358,9 @@ def test_initcode_self_as_source(
 def test_initcode_reentrant_call_sees_adopted_code(
     state_test: StateTestFiller,
     pre: Alloc,
-    template: Address,
 ) -> None:
     """Verify a call back into the new account runs the adopted code."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     helper = pre.deploy_contract(Op.POP(Op.CALL(address=Op.CALLER)) + Op.STOP)
     initcode = (
         Op.POP(Op.SETCODEFROM(template))
@@ -385,9 +385,9 @@ def test_initcode_revert_after_adopt(
     state_test: StateTestFiller,
     pre: Alloc,
     create_opcode: Op,
-    template: Address,
 ) -> None:
     """Verify initcode that adopts and then reverts creates no account."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     initcode = Op.POP(Op.SETCODEFROM(template)) + REVERT_WITH_CODE_HASH
     factory = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
@@ -421,10 +421,10 @@ def test_initcode_revert_after_adopt(
 def test_delegated_eoa_adopts(
     state_test: StateTestFiller,
     pre: Alloc,
-    shell: Address,
-    template: Address,
 ) -> None:
     """Verify an EOA delegated to shell code in the same tx adopts itself."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     eoa = pre.fund_eoa(amount=0)
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -462,12 +462,12 @@ def test_adopt_code_owner(
     state_test: StateTestFiller,
     pre: Alloc,
     context: str,
-    shell: Address,
 ) -> None:
     """
     Verify the current account adopts the account whose code it runs, as
     its own code hash differs from the source's.
     """
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     if context == "delegatecall":
         adopter = pre.deploy_contract(
             Op.SSTORE(1, call_with(shell, shell, call_opcode=Op.DELEGATECALL))
@@ -523,9 +523,9 @@ def test_system_call_cannot_adopt(
     pre: Alloc,
     fork: Fork,
     system_contract: Address,
-    template: Address,
 ) -> None:
     """Verify `SETCODEFROM` halts when run by a block's system call."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
     override = Op.POP(Op.SETCODEFROM(template)) + Op.STOP
     pre[system_contract] = Account(code=override)
     if system_contract in request_predeploys(fork):
@@ -567,15 +567,15 @@ def test_adoption_across_system_calls(
     phase: SystemCallPhase,
     block_access_index: int,
     later_calls: str,
-    shell: Address,
-    template: Address,
-    template_b: Address,
 ) -> None:
     """
     Verify system calls sharing a block access index record the code the
     adopter adopted last, as a code hash, including when later calls write
     the adopter without changing its code.
     """
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    template_b = pre.deploy_contract(TEMPLATE_B_CODE)
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     if later_calls == "touch":
         # The adopted code only writes the marker.
         source = template
@@ -642,12 +642,12 @@ def test_system_contract_as_current_account(
     fork: Fork,
     context: str,
     system_contract: int,
-    template: Address,
 ) -> None:
     """
     Verify `SETCODEFROM` halts when a system contract the block calls is the
     current account, whoever called it.
     """
+    template = pre.deploy_contract(TEMPLATE_CODE)
     address = Address(system_contract)
     adopt = Op.POP(Op.SETCODEFROM(template))
     storage: dict[int, int]

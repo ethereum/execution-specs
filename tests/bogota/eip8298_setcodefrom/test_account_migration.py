@@ -21,6 +21,8 @@ from execution_testing import (
 from .helpers import (
     MARKER_SLOT,
     RESULT_SLOT,
+    SENTINEL,
+    SHELL_CODE,
     TEMPLATE_CODE,
     TEMPLATE_MARKER,
     word,
@@ -75,11 +77,11 @@ def migrate(
 def test_eoa_sends_before_migration(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    shell: Address,
-    template: Address,
     self_sponsored: bool,
 ) -> None:
     """Verify an EOA can send a tx placed before its migration in a block."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     eoa = pre.fund_eoa()
     relayer = pre.fund_eoa()
     send = Transaction(sender=eoa, to=relayer, value=1)
@@ -104,12 +106,12 @@ def test_eoa_sends_before_migration(
 def test_migrated_eoa_cannot_send(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    shell: Address,
-    template: Address,
     self_sponsored: bool,
     send: str,
 ) -> None:
     """Verify an EOA that adopted code is rejected as a tx sender."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     eoa = pre.fund_eoa()
     relayer = pre.fund_eoa()
     migration, nonce = migrate(
@@ -149,10 +151,10 @@ def test_migrated_eoa_cannot_send(
 def test_migrated_eoa_redelegation_skipped(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    shell: Address,
-    template: Address,
 ) -> None:
     """Verify a later authorization from a migrated EOA is skipped."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     eoa = pre.fund_eoa()
     relayer = pre.fund_eoa()
     other_impl = pre.deploy_contract(Op.STOP)
@@ -194,10 +196,10 @@ def test_migrated_eoa_redelegation_skipped(
 def test_migrated_eoa_runs_adopted_code(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    shell: Address,
-    template: Address,
 ) -> None:
     """Verify a call to a migrated EOA runs its adopted code."""
+    template = pre.deploy_contract(TEMPLATE_CODE)
+    shell = pre.deploy_contract(SHELL_CODE, storage={RESULT_SLOT: SENTINEL})
     eoa = pre.fund_eoa(amount=1)
     relayer = pre.fund_eoa()
     migration, nonce = migrate(eoa, 0, relayer, shell, template, False)
