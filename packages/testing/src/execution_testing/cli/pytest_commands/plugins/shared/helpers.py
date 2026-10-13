@@ -8,6 +8,8 @@ import pytest
 
 from execution_testing.specs import BaseTest
 
+BENCHMARK_DIR = Path("tests") / "benchmark"
+
 
 def option_was_explicitly_set(config: pytest.Config, option_name: str) -> bool:
     """Return whether a long CLI option was passed explicitly."""
@@ -72,10 +74,7 @@ def get_spec_format_for_item(
     raise ValueError("No spec type format found in the test item.")
 
 
-BENCHMARK_DIR = Path("tests") / "benchmark"
-
-
 def is_benchmark_test(request: pytest.FixtureRequest) -> bool:
     """Check if the test is under the benchmark directory."""
     benchmark_path = Path(request.config.rootpath) / BENCHMARK_DIR
-    return benchmark_path in Path(request.node.fspath).parents
+    return benchmark_path in request.node.path.parents

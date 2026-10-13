@@ -2,7 +2,6 @@
 Shared pytest fixtures and hooks for EEST generation modes (fill and execute).
 """
 
-from pathlib import Path
 from typing import Dict, List, Tuple
 
 import pytest
@@ -18,7 +17,7 @@ from execution_testing.specs.base import OpMode
 from execution_testing.test_types import EOA, Account, Alloc, ChainConfig
 
 from ..shared.address_stubs import AddressStubs, StubEOA
-from ..shared.helpers import get_rpc_endpoint
+from ..shared.helpers import get_rpc_endpoint, is_benchmark_test
 from ..shared.pre_alloc import AllocFlags
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 
@@ -407,9 +406,7 @@ def is_tx_gas_heavy_test(request: pytest.FixtureRequest) -> bool:
     for transaction execution.
     """
     has_slow_marker = request.node.get_closest_marker("slow") is not None
-    benchmark_dir = Path(request.config.rootpath) / "tests" / "benchmark"
-    is_benchmark = benchmark_dir in Path(request.node.fspath).parents
-    return has_slow_marker or is_benchmark
+    return has_slow_marker or is_benchmark_test(request)
 
 
 @pytest.fixture(scope="function")
