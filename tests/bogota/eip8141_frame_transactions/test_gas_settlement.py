@@ -14,8 +14,6 @@ state-dimension halves of those rollback scenarios are pinned in
 `test_state_gas.py`.
 """
 
-from typing import List, Tuple
-
 import pytest
 from execution_testing import (
     Account,
@@ -23,7 +21,6 @@ from execution_testing import (
     Bytecode,
     Conditional,
     Fork,
-    Frame,
     FrameReceipt,
     Header,
     Op,
@@ -35,7 +32,7 @@ from execution_testing import (
 from .helpers import (
     default_code_frame_gas,
     default_frame,
-    floor_binding_padding,
+    floor_charged_data_length,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -96,14 +93,18 @@ def _spent_gas(fork: Fork, tx: Transaction, receipts: list) -> int:
     ],
 )
 @pytest.mark.parametrize(
-    "floor_bound", [True, False], ids=["floor", "below_floor"]
+    "data_length_offset",
+    [
+        pytest.param(0, id="floor_charged"),
+        pytest.param(-1, id="execution_charged"),
+    ],
 )
 def test_calldata_floor_with_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     with_state_write: bool,
-    floor_bound: bool,
+    data_length_offset: int,
 ) -> None:
     """
     Bind the calldata floor on a transaction that also grows state.
@@ -112,7 +113,7 @@ def test_calldata_floor_with_state_gas(
     floor-bound transaction pays the floor plus its state gas in full:
     state growth never rides free under the data floor. The frame data
     is the fewest bytes that bind the floor, or one byte less in
-    `below_floor`, where the execution dimension binds again.
+    `execution_charged`, where the execution dimension binds again.
     """
     approve = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
     # A contract sender carries no signature entries, so the charged data
@@ -131,46 +132,35 @@ def test_calldata_floor_with_state_gas(
     worker_gas = entry_gas(target_warm=False) + worker_code.execution_cost(
         fork
     )
-    intrinsic_calculator = fork.frame_transaction_intrinsic_cost_calculator()
-    floor_calculator = fork.frame_transaction_data_floor_cost_calculator()
-
-    def frames(padding: int) -> List[Frame]:
-        """Return the frames with `padding` bytes of worker frame data."""
-        return [
-            verify_frame(gas_limit=verify_gas, state_gas_limit=0),
-            default_frame(
-                target=worker,
-                gas_limit=worker_gas,
-                state_gas_limit=state_used,
-                data=bytes(padding),
-            ),
-        ]
-
-    def execution_used(padding: int) -> int:
-        return (
-            intrinsic_calculator(
-                frames=frames(padding),
-                return_cost_deducted_prior_execution=True,
-            )
-            + verify_gas
-            + worker_gas
-        )
-
-    def floor_binds(padding: int) -> bool:
-        return floor_calculator(frames=frames(padding)) > execution_used(
-            padding
-        )
-
-    padding = floor_binding_padding(floor_binds)
-    if not floor_bound:
-        padding -= 1
-    gas_used = max(
-        execution_used(padding), floor_calculator(frames=frames(padding))
+    data_length = (
+        floor_charged_data_length(fork, verify_gas + worker_gas)
+        + data_length_offset
     )
+    frames = [
+        verify_frame(gas_limit=verify_gas, state_gas_limit=0),
+        default_frame(
+            target=worker,
+            gas_limit=worker_gas,
+            state_gas_limit=state_used,
+            data=bytes(data_length),
+        ),
+    ]
+    execution_gas = (
+        fork.frame_transaction_intrinsic_cost_calculator()(
+            frames=frames, return_cost_deducted_prior_execution=True
+        )
+        + verify_gas
+        + worker_gas
+    )
+    calldata_floor = fork.frame_transaction_data_floor_cost_calculator()(
+        frames=frames
+    )
+    assert (calldata_floor > execution_gas) == (data_length_offset == 0)
+    gas_used = max(execution_gas, calldata_floor)
     tx = Transaction(
         sender=sender,
         nonce=1,
-        frames=frames(padding),
+        frames=frames,
         expected_receipt=TransactionReceipt(
             payer=sender, cumulative_gas_used=gas_used + state_used
         ),
@@ -189,12 +179,12 @@ def test_calldata_floor_with_state_gas(
 
 
 @pytest.mark.parametrize(
-    "against_post_refund,one_byte_short",
+    "against_post_refund,data_length_offset",
     [
-        pytest.param(True, True, id="post_refund_above_floor"),
-        pytest.param(True, False, id="floor_between_pre_and_post_refund"),
-        pytest.param(False, True, id="floor_just_below_pre_refund"),
-        pytest.param(False, False, id="floor_above_pre_refund"),
+        pytest.param(True, -1, id="post_refund_above_floor"),
+        pytest.param(True, 0, id="floor_between_pre_and_post_refund"),
+        pytest.param(False, -1, id="floor_just_below_pre_refund"),
+        pytest.param(False, 0, id="floor_above_pre_refund"),
     ],
 )
 def test_storage_refund_settlement(
@@ -202,7 +192,7 @@ def test_storage_refund_settlement(
     pre: Alloc,
     fork: Fork,
     against_post_refund: bool,
-    one_byte_short: bool,
+    data_length_offset: int,
 ) -> None:
     """
     Settle a frame transaction that clears a pre-existing storage slot.
@@ -214,7 +204,10 @@ def test_storage_refund_settlement(
     gas, or one byte less. Clearing durable state consumes no state gas,
     so the frame declares none.
     """
-    sender = pre.fund_eoa()
+    approve = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
+    # A contract sender carries no signature entries, so the charged data
+    # is the frame data alone.
+    sender = pre.deploy_contract(code=approve, balance=10**18)
     clear = Op.SSTORE(
         SLOT_CREATED,
         0,
@@ -231,10 +224,9 @@ def test_storage_refund_settlement(
     worker_code = padding + clear + Op.STOP
     worker = pre.deploy_contract(code=worker_code, storage={SLOT_CREATED: 1})
 
-    verify_gas = default_code_frame_gas(fork, target_warm=True)
-    frame_execution_gas = fork.frame_entry_gas_calculator()() + (
-        worker_code.execution_cost(fork)
-    )
+    entry_gas = fork.frame_entry_gas_calculator()
+    verify_gas = entry_gas(target_warm=True) + approve.execution_cost(fork)
+    frame_execution_gas = entry_gas() + worker_code.execution_cost(fork)
     receipts = [
         FrameReceipt(
             status=Spec.STATUS_SUCCESS,
@@ -251,47 +243,41 @@ def test_storage_refund_settlement(
     ]
 
     refund = worker_code.refund(fork)
-
-    def build(data_length: int) -> Tuple[Transaction, int, int]:
-        """
-        Return the signed transaction, its spent gas before the refund
-        and its calldata floor.
-        """
-        tx = Transaction(
-            sender=sender,
-            nonce=0,
-            frames=[
-                verify_frame(),
-                default_frame(
-                    target=worker,
-                    gas_limit=WORKER_FRAME_GAS,
-                    state_gas_limit=0,
-                    data=bytes(data_length),
-                ),
-            ],
-        )
-        # Materialize the signature bytes the intrinsic cost and calldata
-        # floor charge for.
-        tx.sign()
-        assert tx.frames is not None and tx.signatures is not None
-        calldata_floor = fork.frame_transaction_data_floor_cost_calculator()(
-            frames=tx.frames, signatures=tx.signatures
-        )
-        return tx, _spent_gas(fork, tx, receipts), calldata_floor
-
-    def floor_binds(data_length: int) -> bool:
-        _, gas_used_before_refund, calldata_floor = build(data_length)
-        if against_post_refund:
-            return calldata_floor > gas_used_before_refund - refund
-        return calldata_floor > gas_used_before_refund
-
-    data_length = floor_binding_padding(floor_binds)
-    if one_byte_short:
-        data_length -= 1
-    tx, gas_used_before_refund, calldata_floor = build(data_length)
+    floor_target = verify_gas + frame_execution_gas
+    if against_post_refund:
+        floor_target -= refund
+    data_length = (
+        floor_charged_data_length(fork, floor_target) + data_length_offset
+    )
+    tx = Transaction(
+        sender=sender,
+        nonce=1,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=worker,
+                gas_limit=WORKER_FRAME_GAS,
+                state_gas_limit=0,
+                data=bytes(data_length),
+            ),
+        ],
+    )
+    # Resolve the signature entries, none for a contract sender, that the
+    # intrinsic cost and calldata floor read.
+    tx.sign()
+    assert tx.frames is not None and tx.signatures is not None
+    gas_used_before_refund = _spent_gas(fork, tx, receipts)
+    calldata_floor = fork.frame_transaction_data_floor_cost_calculator()(
+        frames=tx.frames, signatures=tx.signatures
+    )
     # The premise of the test: the refund applies uncapped.
     assert 0 < refund <= gas_used_before_refund // 5
     gas_used_after_refund = gas_used_before_refund - refund
+    if against_post_refund:
+        floor_compared_to = gas_used_after_refund
+    else:
+        floor_compared_to = gas_used_before_refund
+    assert (calldata_floor > floor_compared_to) == (data_length_offset == 0)
 
     payer_gas_used = max(gas_used_after_refund, calldata_floor)
     block_gas_used = max(gas_used_before_refund, calldata_floor)
@@ -306,7 +292,7 @@ def test_storage_refund_settlement(
         pre=pre,
         tx=tx,
         post={
-            sender: Account(nonce=1),
+            sender: Account(nonce=2),
             worker: Account(storage={SLOT_CREATED: 0}),
         },
         blockchain_test_header_verify=Header(gas_used=block_gas_used),

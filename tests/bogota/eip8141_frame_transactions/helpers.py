@@ -1,32 +1,32 @@
 """Helpers for EIP-8141 frame transaction tests."""
 
-from typing import Any, Callable, Dict
+from typing import Any, Dict
 
 from execution_testing import Fork, Frame
 
 from .spec import Spec
 
-MAX_FLOOR_PADDING = 1 << 16
-"""Upper bound of the floor-binding padding search, far above any case."""
 
-
-def floor_binding_padding(floor_binds: Callable[[int], bool]) -> int:
+def floor_charged_data_length(fork: Fork, execution_gas: int) -> int:
     """
-    Return the fewest bytes of frame data for which `floor_binds` holds.
-
-    With that padding the calldata floor binds by the smallest margin the
-    data allows, and one byte less leaves it unbound, so a client that
-    miscounts the charged data by a single byte charges the wrong side.
+    Return the fewest zero bytes of frame data at which the calldata
+    floor exceeds the intrinsic cost plus `execution_gas`, assuming the
+    padding is the only charged data.
     """
-    low, high = 0, MAX_FLOOR_PADDING
-    assert not floor_binds(low) and floor_binds(high)
-    while high - low > 1:
-        middle = (low + high) // 2
-        if floor_binds(middle):
-            high = middle
-        else:
-            low = middle
-    return high
+    floor_calculator = fork.frame_transaction_data_floor_cost_calculator()
+    intrinsic_calculator = fork.frame_transaction_intrinsic_cost_calculator()
+
+    def floor_excess(data_length: int) -> int:
+        """Return the floor's excess over the intrinsic cost."""
+        frames = [default_frame(data=bytes(data_length))]
+        return floor_calculator(frames=frames) - intrinsic_calculator(
+            frames=frames, return_cost_deducted_prior_execution=True
+        )
+
+    length = execution_gas // floor_excess(1)
+    assert floor_excess(length) <= execution_gas
+    assert floor_excess(length + 1) > execution_gas
+    return length + 1
 
 
 def default_code_frame_gas(fork: Fork, *, target_warm: bool) -> int:
