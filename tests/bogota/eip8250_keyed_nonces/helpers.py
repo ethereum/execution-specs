@@ -34,14 +34,16 @@ def nonce_field_calldata(nonce_keys: Sequence[int], nonce_seq: int) -> bytes:
     )
 
 
-def keyed_nonce_access_cost(nonce_keys: Sequence[int]) -> int:
+def keyed_nonce_access_cost(fork: Fork, nonce_keys: Sequence[int]) -> int:
     """
-    Return the EIP's `keyed_nonce_access_cost`: `KEYED_NONCE_ACCESS_COST`
-    per key, and nothing for the legacy key set.
+    Return the EIP's `keyed_nonce_access_cost`, which prices each
+    non-zero key as an `SSTORE` changing a cold slot. The legacy key set
+    pays nothing.
     """
     if list(nonce_keys) == [0]:
         return 0
-    return len(nonce_keys) * Spec.KEYED_NONCE_ACCESS_COST
+    per_key = Op.SSTORE(key_warm=False, original_value=1, new_value=2)
+    return len(nonce_keys) * per_key.execution_cost(fork)
 
 
 def nonce_fields(tx: Transaction) -> tuple[Sequence[int], int]:
