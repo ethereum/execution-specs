@@ -14,7 +14,12 @@ import ethereum.state as spec_state
 import ethereum.state_mpt as spec_state_mpt
 import pytest
 from ethereum.crypto.hash import keccak256
-from ethereum.merkle_patricia_trie import Trie, root, trie_set
+from ethereum.merkle_patricia_trie import (
+    Trie,
+    bytes_to_nibble_list,
+    root,
+    trie_set,
+)
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U256, Uint
@@ -259,12 +264,12 @@ def test_structural_copies_across_blocks(seed: int) -> None:
     alloc = genesis
     for _ in range(5):
         copied = alloc.structural_copy()
-        assert copied._phase is _Phase.LIVE
         # The copy shares the trie its source built or advanced.
         assert copied._state_trie is alloc._state_trie is not None
         diff = _diff_for(rng, copied)
         expected = copied._materialize_state().compute_state_root(diff)
         assert copied.compute_state_root(diff) == expected
+        assert copied._phase is _Phase.LIVE
         copied.apply_diff(diff)
         advanced = copied._state_trie
         assert copied.state_root() == expected
@@ -332,7 +337,8 @@ def test_deleted_account_storage_is_dropped() -> None:
         copied.compute_state_root(diff)
         copied.apply_diff(diff)
         assert copied.state_root() == _spec_root_of(copied)
-    assert copied.root[address].storage.root == {}  # type: ignore[union-attr]
+    recreated = copied.root[address]
+    assert recreated is not None and recreated.storage.root == {}
 
 
 def _set_based_diff(post: Alloc, base: Alloc) -> Dict[Address, object]:
@@ -387,12 +393,47 @@ def test_apply_diff_drops_zero_storage_from_every_account() -> None:
     )
     copied.compute_state_root(diff)
     copied.apply_diff(diff)
-    assert copied.root[holder].storage.root == {2: 5}  # type: ignore[union-attr]
-    assert alloc.root[holder].storage.root == {1: 0, 2: 5}  # type: ignore[union-attr]
+    after, before = copied.root[holder], alloc.root[holder]
+    assert after is not None and after.storage.root == {2: 5}
+    assert before is not None and before.storage.root == {1: 0, 2: 5}
     assert all(
         int(value) != 0
         for account in copied.root.values()
         if account is not None
         for value in account.storage.root.values()
     )
+    assert copied.state_root() == _spec_root_of(copied)
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_unsecured_trie_matches_spec(seed: int) -> None:
+    """
+    Short, variable-length keys exercise what secured tries almost never
+    reach: embedded nodes, an embedded root and branch values.
+    """
+    rng = random.Random(seed)
+    spec: Trie[Bytes, Bytes] = Trie(secured=False, default=Bytes(b""))
+    trie = IncrementalTrie.build({})
+    for _ in range(30):
+        key = Bytes(rng.randbytes(rng.randrange(4)))
+        value = Bytes(rng.randbytes(rng.choice([0, 1, 4, 40])))
+        trie_set(spec, key, value)
+        trie = trie.with_changes(
+            {bytes(bytes_to_nibble_list(key)): bytes(value) or None}
+        )
+        assert trie.root() == root(spec)
+
+
+def test_apply_diff_ignores_a_pending_trie_from_before_a_rebuild() -> None:
+    """
+    A trie computed for a diff is not reused once `root` changes and the
+    caches are rebuilt, even when the same diff is applied.
+    """
+    rng = random.Random(0)
+    copied = _alloc(rng, 10).structural_copy()
+    diff = _diff_for(rng, copied)
+    copied.compute_state_root(diff)
+    copied.root[Address(rng.randbytes(20))] = Account(balance=3)
+    copied.state_root()
+    copied.apply_diff(diff)
     assert copied.state_root() == _spec_root_of(copied)
