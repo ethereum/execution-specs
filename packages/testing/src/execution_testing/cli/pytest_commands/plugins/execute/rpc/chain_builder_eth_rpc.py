@@ -306,6 +306,15 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         new_payload_response = self.engine_rpc.new_payload(
             *new_payload_args, version=new_payload_version
         )
+        if payload_fork.engine_new_payload_inclusion_list_claims():
+            new_payload_response = self.engine_rpc.wait_for_inclusion_list(
+                new_payload_response,
+                *new_payload_args,
+                version=new_payload_version,
+            )
+            assert new_payload_response.inclusion_list_satisfied is True, (
+                "Built payload did not satisfy its inclusion list"
+            )
         assert new_payload_response.status == PayloadStatusEnum.VALID, (
             "Payload was invalid"
         )

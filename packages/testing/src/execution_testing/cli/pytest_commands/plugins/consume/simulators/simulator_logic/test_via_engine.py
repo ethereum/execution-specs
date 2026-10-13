@@ -152,6 +152,17 @@ def test_blockchain_via_engine(
                             *payload.params,
                             version=payload.new_payload_version,
                         )
+                        if (
+                            payload.new_payload_version >= 6
+                            and payload.inclusion_list_satisfied is not None
+                        ):
+                            payload_response = (
+                                engine_rpc.wait_for_inclusion_list(
+                                    payload_response,
+                                    *payload.params,
+                                    version=payload.new_payload_version,
+                                )
+                            )
                         status = payload_response.status
                         logger.info(f"Payload response status: {status}")
                         expected_validity = (

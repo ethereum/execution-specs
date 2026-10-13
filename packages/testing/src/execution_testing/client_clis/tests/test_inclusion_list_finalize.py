@@ -43,15 +43,20 @@ def built_payload() -> GetPayloadResponse:
 
 @pytest.mark.parametrize("client_backend", [True, False])
 def test_live_finalize_preserves_context(client_backend: bool) -> None:
-    """Keep membership and claims in the newPayload call, not the FCU."""
+    """Keep exact inputs available while waiting for a deferred verdict."""
     payload = built_payload()
     rpc = MagicMock()
     status = PayloadStatus(
         status=PayloadStatusEnum.VALID,
         latest_valid_hash=payload.execution_payload.block_hash,
         validation_error=None,
-        inclusion_list_satisfied=False,
+        inclusion_list_satisfied=None,
+        inclusion_list_context_id=Hash(7),
     )
+    completed = status.model_copy(
+        update={"inclusion_list_satisfied": not client_backend}
+    )
+    rpc.wait_for_inclusion_list.return_value = completed
     rpc.new_payload.return_value = status
     rpc.new_payload_with_retry.return_value = status
     rpc.forkchoice_updated.return_value.payload_status = status
@@ -81,6 +86,9 @@ def test_live_finalize_preserves_context(client_backend: bool) -> None:
     assert call.kwargs["version"] == 6
     assert len(call.args) == 7
     assert call.args[6] == payload.inclusion_list_claims
+    rpc.wait_for_inclusion_list.assert_called_once_with(
+        status, *call.args, version=6
+    )
 
 
 def test_live_finalize_requires_get_payload_claims() -> None:

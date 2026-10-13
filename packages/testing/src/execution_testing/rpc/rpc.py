@@ -1445,6 +1445,61 @@ class EngineRPC(BaseJwtRPC):
         ).result_or_raise()
         return [Bytes(tx) for tx in response]
 
+    def get_inclusion_list_status(self, context_id: Hash) -> PayloadStatus:
+        """Query execution and inclusion status without changing forkchoice."""
+        response = PayloadStatus.model_validate(
+            self.post_request(
+                request=RPCCall(
+                    method="getInclusionListStatusV1",
+                    params=[to_json(context_id)],
+                )
+            ).result_or_raise(),
+            context=self.response_validation_context,
+        )
+        if response.inclusion_list_context_id != context_id:
+            raise ValueError("Inclusion response has a different context ID")
+        return response
+
+    def wait_for_inclusion_list(
+        self,
+        response: PayloadStatus,
+        *params: Any,
+        version: int,
+        max_attempts: int = 30,
+        wait_fixed: float = 1.0,
+    ) -> PayloadStatus:
+        """
+        Resolve a deferred verdict, resubmitting exact inputs on eviction.
+
+        Return invalid execution responses without an inclusion verdict.
+        Raise on missing context IDs or an exhausted polling budget.
+        """
+        for attempt in range(max_attempts + 1):
+            if response.status in (
+                PayloadStatusEnum.INVALID,
+                PayloadStatusEnum.INVALID_BLOCK_HASH,
+            ):
+                return response
+            context_id = response.inclusion_list_context_id
+            if context_id is None:
+                raise ValueError("Missing inclusion context ID")
+            if response.status == PayloadStatusEnum.VALID:
+                if response.inclusion_list_satisfied is not None:
+                    return response
+            elif response.inclusion_list_satisfied is not None:
+                raise ValueError("Inclusion verdict precedes valid execution")
+            if attempt == max_attempts:
+                break
+            if attempt:
+                time.sleep(wait_fixed)
+            try:
+                response = self.get_inclusion_list_status(context_id)
+            except JSONRPCError as error:
+                if error.code != -38007:
+                    raise
+                response = self.new_payload(*params, version=version)
+        raise TimeoutError("Inclusion check remained pending")
+
     def new_payload_with_retry(
         self,
         *params: Any,
@@ -1500,6 +1555,7 @@ class EngineRPC(BaseJwtRPC):
         version: int,
         custody_columns: bytes | None = None,
         custody_columns_null: bool = False,
+        inclusion_list_context_id: Hash | None = None,
     ) -> ForkchoiceUpdateResponse:
         """
         `engine_forkchoiceUpdatedVX`: Updates the forkchoice state of the
@@ -1528,12 +1584,25 @@ class EngineRPC(BaseJwtRPC):
             assert version >= 4, "custodyColumns requires forkchoiceUpdatedV4."
             params.append(None)
 
-        return ForkchoiceUpdateResponse.model_validate(
+        if inclusion_list_context_id is not None:
+            assert version >= 5, "Inclusion context requires FCU V5."
+            if len(params) == 2:
+                params.append(None)
+            params.append(to_json(inclusion_list_context_id))
+
+        response = ForkchoiceUpdateResponse.model_validate(
             self.post_request(
                 request=RPCCall(method=method, params=params),
             ).result_or_raise(),
             context=self.response_validation_context,
         )
+        if (
+            inclusion_list_context_id is not None
+            and response.payload_status.inclusion_list_context_id
+            != inclusion_list_context_id
+        ):
+            raise ValueError("Inclusion response has a different context ID")
+        return response
 
     def get_payload(
         self,

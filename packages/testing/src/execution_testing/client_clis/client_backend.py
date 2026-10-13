@@ -449,6 +449,12 @@ class ClientBackend:
         new_payload_response = self.engine_rpc.new_payload_with_retry(
             *new_payload_args, version=new_payload_version
         )
+        if block_fork.engine_new_payload_inclusion_list_claims():
+            new_payload_response = self.engine_rpc.wait_for_inclusion_list(
+                new_payload_response,
+                *new_payload_args,
+                version=new_payload_version,
+            )
         assert new_payload_response.status == PayloadStatusEnum.VALID, (
             f"Block was rejected by engine_newPayloadV{new_payload_version}: "
             f"{new_payload_response.status}"
