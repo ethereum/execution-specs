@@ -11,6 +11,7 @@ from itertools import count
 from typing import List
 
 import pytest
+from _pytest.mark import ParameterSet
 from execution_testing import (
     AccessList,
     Account,
@@ -53,6 +54,7 @@ from execution_testing import (
 )
 from execution_testing import Macros as Om
 from execution_testing.base_types import HexNumber
+from execution_testing.test_types import ChainConfigDefaults
 
 from ...amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
@@ -2779,9 +2781,15 @@ class InvalidChainID(StrEnum):
     CORRECT_CHAIN_ID_MINUS_ONE = "correct_chain_id-1"
 
 
-@pytest.mark.parametrize(
-    "invalid_chain_id_case",
-    [
+def invalid_chain_id_cases() -> List[ParameterSet]:
+    """
+    Return the invalid chain id cases that apply to the current chain.
+
+    One less than the correct chain id is only invalid when the correct
+    chain id is greater than one: zero is the wildcard that authorizes the
+    tuple on any chain, so the case cannot be generated on mainnet.
+    """
+    cases = [
         pytest.param(
             InvalidChainID.MAX_AUTH_CHAIN_ID, id="auth_chain_id=2**256-1"
         ),
@@ -2789,12 +2797,18 @@ class InvalidChainID(StrEnum):
             InvalidChainID.CORRECT_CHAIN_ID_PLUS_ONE,
             id="auth_chain_id=correct_chain_id+1",
         ),
-        pytest.param(
-            InvalidChainID.CORRECT_CHAIN_ID_MINUS_ONE,
-            id="auth_chain_id=correct_chain_id-1",
-        ),
-    ],
-)
+    ]
+    if ChainConfigDefaults.chain_id > 1:
+        cases.append(
+            pytest.param(
+                InvalidChainID.CORRECT_CHAIN_ID_MINUS_ONE,
+                id="auth_chain_id=correct_chain_id-1",
+            )
+        )
+    return cases
+
+
+@pytest.mark.parametrize("invalid_chain_id_case", invalid_chain_id_cases())
 def test_valid_tx_invalid_chain_id(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2819,8 +2833,10 @@ def test_valid_tx_invalid_chain_id(
         auth_chain_id = chain_config.chain_id + 1
     elif invalid_chain_id_case == InvalidChainID.CORRECT_CHAIN_ID_MINUS_ONE:
         auth_chain_id = chain_config.chain_id - 1
-        if auth_chain_id == 0:
-            pytest.skip("Cannot use correct_chain_id-1 as invalid chain ID")
+        assert auth_chain_id != 0, (
+            "zero authorizes the tuple on any chain, so the test would pass "
+            "for the wrong reason"
+        )
     else:
         raise ValueError(f"Invalid chain ID case: {invalid_chain_id_case}")
 
