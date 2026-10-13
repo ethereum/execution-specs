@@ -308,25 +308,7 @@ class SpecHelpers:
         blob_base_fee = fork.blob_gas_price_calculator()(
             excess_blob_gas=parent_excess_blob_gas
         )
-        boundary_base_fee = gas_per_blob * blob_base_fee // blob_base_cost
-        assert (
-            blob_base_cost * boundary_base_fee <= gas_per_blob * blob_base_fee
-        ), (
-            "Reserve price should be inactive at boundary: "
-            f"parent_excess_blob_gas={parent_excess_blob_gas} "
-            f"blob_base_fee={blob_base_fee} "
-            f"boundary_base_fee={boundary_base_fee}"
-        )
-        assert (
-            blob_base_cost * (boundary_base_fee + 1)
-            > gas_per_blob * blob_base_fee
-        ), (
-            "Reserve price should be active after boundary: "
-            f"parent_excess_blob_gas={parent_excess_blob_gas} "
-            f"blob_base_fee={blob_base_fee} "
-            f"boundary_base_fee={boundary_base_fee + 1}"
-        )
-        return boundary_base_fee
+        return gas_per_blob * blob_base_fee // blob_base_cost
 
     @classmethod
     def get_blob_combinations(
