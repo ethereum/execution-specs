@@ -21,6 +21,7 @@ from execution_testing.test_types.execution_witness.modifiers import (
     reverse_codes,
     reverse_headers,
     reverse_state_nodes,
+    swap_headers_at,
 )
 
 
@@ -131,6 +132,9 @@ def test_execution_witness_header_modifiers() -> None:
 
     reversed_headers = reverse_headers()(witness)
     assert reversed_headers.headers == [Bytes(b"bb"), Bytes(b"aa")]
+
+    swapped = swap_headers_at(0, -1)(witness)
+    assert swapped.headers == [Bytes(b"bb"), Bytes(b"aa")]
 
     cleared = clear_headers()(witness)
     assert cleared.headers == []

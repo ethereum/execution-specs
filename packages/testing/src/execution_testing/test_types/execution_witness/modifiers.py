@@ -185,6 +185,31 @@ def reverse_headers() -> Callable[[ExecutionWitness], ExecutionWitness]:
     return transform
 
 
+def swap_headers_at(
+    first: int,
+    second: int,
+) -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Swap the header entries at `first` and `second`."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        new_headers = list(witness.headers)
+        try:
+            new_headers[first], new_headers[second] = (
+                new_headers[second],
+                new_headers[first],
+            )
+        except IndexError as exc:
+            raise IndexError(
+                f"Header index {first} or {second} out of range for witness "
+                "headers"
+            ) from exc
+        return witness.model_copy(update={"headers": new_headers})
+
+    return transform
+
+
 def replace_header_at(
     index: int,
     header: Bytes,
@@ -218,5 +243,6 @@ __all__ = [
     "prepend_header",
     "remove_header_at",
     "reverse_headers",
+    "swap_headers_at",
     "replace_header_at",
 ]

@@ -19,6 +19,7 @@ from execution_testing.test_types.execution_witness.modifiers import (
     remove_header_at,
     replace_header_at,
     reverse_headers,
+    swap_headers_at,
 )
 
 from .spec import ref_spec_8025
@@ -47,6 +48,9 @@ def prepend_copy_of_parent(witness: ExecutionWitness) -> ExecutionWitness:
         ),
         pytest.param(5, reverse_headers(), id="non_contiguous_chain"),
         pytest.param(5, remove_header_at(2), id="gap_in_chain"),
+        # The oldest header keeps its slot, so BLOCKHASH still finds it
+        # whether the guest looks it up by position or by number.
+        pytest.param(5, swap_headers_at(1, 2), id="swapped_middle_headers"),
         pytest.param(
             5,
             prepend_copy_of_parent,
