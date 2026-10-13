@@ -351,12 +351,17 @@ def test_warmth_reverts_with_frame(
     )
 
 
+@pytest.mark.parametrize("delta", [-1, 0, 1], ids=["oog", "exact", "extra"])
 def test_initcode_adoption_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    delta: int,
 ) -> None:
-    """Verify an adopting creation pays account creation but no deposit."""
+    """
+    Verify an adopting creation pays account creation and the `RETURN`
+    memory expansion but no deposit, and fails one gas short.
+    """
     template = pre.deploy_contract(SSTORE_MARKER_A)
     initcode = Op.POP(
         Op.SETCODEFROM(
@@ -376,18 +381,29 @@ def test_initcode_adoption_gas(
         data=initcode, contract_creation=True
     )
     assert floor < gas_used, "the calldata floor must not bind"
+    created = delta >= 0
+    gas_limit = gas_used + delta
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=None,
         data=initcode,
-        gas_limit=2 * gas_used,
+        gas_limit=gas_limit,
         state_gas_reservoir=0,
-        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
+        # Running out of gas consumes the whole limit.
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_used if created else gas_limit
+        ),
     )
 
     state_test(
         pre=pre,
-        post={tx.created_contract: Account(code=SSTORE_MARKER_A, nonce=1)},
+        post={
+            tx.created_contract: (
+                Account(code=SSTORE_MARKER_A, nonce=1)
+                if created
+                else Account.NONEXISTENT
+            )
+        },
         tx=tx,
     )
 
