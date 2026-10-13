@@ -24,14 +24,13 @@ from execution_testing import (
     Fork,
     FrameReceipt,
     FrameSignature,
-    Hash,
     Op,
     StateTestFiller,
     Transaction,
-    TransactionLog,
     TransactionReceipt,
-    keccak256,
 )
+
+from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 
 from .helpers import (
     default_code_frame_gas,
@@ -45,29 +44,8 @@ REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
 
-TRANSFER_LOG_ADDRESS = Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE)
-"""System address EIP-7708 transfer logs are emitted from."""
-
-TRANSFER_TOPIC = Hash(keccak256(b"Transfer(address,address,uint256)"))
-"""Topic of an EIP-7708 transfer log."""
-
 TRANSFER_VALUE = 10**15
 """Value the frame under test transfers."""
-
-
-def transfer_log(
-    sender: Address, recipient: Address, amount: int
-) -> TransactionLog:
-    """Create an expected EIP-7708 transfer log."""
-    return TransactionLog(
-        address=TRANSFER_LOG_ADDRESS,
-        topics=[
-            TRANSFER_TOPIC,
-            Hash(bytes(sender).rjust(32, b"\x00")),
-            Hash(bytes(recipient).rjust(32, b"\x00")),
-        ],
-        data=Bytes(amount.to_bytes(32, "big")),
-    )
 
 
 @pytest.mark.parametrize(
