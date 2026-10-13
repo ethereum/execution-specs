@@ -11,10 +11,14 @@ A charge exceeding the pool halts exceptionally, and `APPROVE` charges
 the sender's account creation to the approving frame's pool.
 """
 
+from typing import Dict, List, Tuple
+
 import pytest
 from execution_testing import (
     DEFAULT_FRAME_STATE_GAS_LIMIT,
+    EOA,
     Account,
+    Address,
     Alloc,
     Bytes,
     Conditional,
@@ -29,7 +33,12 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from .helpers import default_code_frame_gas, default_frame, verify_frame
+from .helpers import (
+    default_code_frame_gas,
+    default_frame,
+    sender_frame,
+    verify_frame,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -71,6 +80,40 @@ SLOT_SECOND = 0x09
 
 WORKER_FRAME_GAS = 100_000
 """Execution gas budget of the frames running the worker contracts."""
+
+SPENT_SENDER_BALANCE = 10**15
+"""Balance a sender transfers away before its payment is approved."""
+
+UNFUNDED_SENDERS = pytest.mark.parametrize(
+    "sender_state",
+    [
+        pytest.param("absent", id="sender_absent"),
+        pytest.param("emptied", id="sender_emptied_by_earlier_frame"),
+    ],
+)
+"""
+The two ways a sender has no account when its payment is approved:
+none in the pre-state, or one an earlier frame spent down to empty —
+present in the state but empty, so `APPROVE` still creates it.
+"""
+
+
+def unfunded_sender(
+    pre: Alloc, sender_state: str
+) -> Tuple[EOA, List[Frame], Address | None]:
+    """
+    Return the sender, the frames that run between its execution and
+    payment approvals, and the account those frames pay, if any.
+    """
+    if sender_state == "absent":
+        return pre.fund_eoa(amount=0), [], None
+    elif sender_state == "emptied":
+        sender = pre.fund_eoa(amount=SPENT_SENDER_BALANCE)
+        recipient = pre.fund_eoa(amount=1)
+        spend = sender_frame(target=recipient, value=SPENT_SENDER_BALANCE)
+        return sender, [spend], recipient
+    else:
+        raise ValueError(f"unknown sender state: {sender_state}")
 
 
 def test_same_frame_refill(
@@ -316,10 +359,12 @@ def test_state_gas_exhaustion(
     )
 
 
+@UNFUNDED_SENDERS
 def test_approve_creates_sender(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    sender_state: str,
 ) -> None:
     """
     Approve payment for a sender whose account does not exist.
@@ -327,16 +372,24 @@ def test_approve_creates_sender(
     Incrementing the nonce creates the sender account, and `APPROVE`
     charges the account creation to the approving frame's state gas
     pool — here inside the payer's protocol default code, whose only
-    execution charge is the payer's cold access at frame entry.
+    execution charge is the payer's cold access at frame entry. The
+    pool holds exactly the charge; the unaffordable test below is the
+    same transaction one unit short.
     """
-    sender = pre.fund_eoa(amount=0)
+    sender, spend_frames, recipient = unfunded_sender(pre, sender_state)
     payer = pre.fund_eoa()
+    sender_creation = fork.gas_costs().NEW_ACCOUNT
 
     tx = Transaction(
         sender=sender,
         frames=[
             verify_frame(flags=Spec.APPROVE_EXECUTION),
-            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
+            *spend_frames,
+            verify_frame(
+                flags=Spec.APPROVE_PAYMENT,
+                target=payer,
+                state_gas_limit=sender_creation,
+            ),
         ],
         signatures=[
             FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
@@ -354,47 +407,59 @@ def test_approve_creates_sender(
                     gas_used=default_code_frame_gas(fork, target_warm=True),
                     state_gas_used=0,
                 ),
+                *(
+                    FrameReceipt(
+                        status=Spec.STATUS_SUCCESS,
+                        gas_used=fork.frame_entry_gas_calculator()(),
+                        state_gas_used=0,
+                    )
+                    for _ in spend_frames
+                ),
                 FrameReceipt(
                     status=Spec.STATUS_SUCCESS,
                     gas_used=default_code_frame_gas(fork, target_warm=False),
-                    state_gas_used=fork.gas_costs().NEW_ACCOUNT,
+                    state_gas_used=sender_creation,
                 ),
             ],
         ),
     )
 
-    state_test(
-        pre=pre,
-        tx=tx,
-        post={sender: Account(nonce=1)},
-    )
+    post: Dict[Address, Account] = {sender: Account(nonce=1, balance=0)}
+    if recipient is not None:
+        post[recipient] = Account(balance=1 + SPENT_SENDER_BALANCE)
+    state_test(pre=pre, tx=tx, post=post)
 
 
+@UNFUNDED_SENDERS
 @pytest.mark.exception_test
 def test_approve_sender_creation_unaffordable(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
+    sender_state: str,
 ) -> None:
     """
     Reject a frame transaction whose payment approval cannot cover the
     sender's account creation.
 
-    The approving `VERIFY` frame declares no state gas, so the
-    `APPROVE` inside the payer's protocol default code halts the frame
-    exceptionally, with no approval effects — and a failing `VERIFY`
-    frame invalidates the transaction.
+    The approving `VERIFY` frame declares one unit of state gas less
+    than the account creation, so the `APPROVE` inside the payer's
+    protocol default code halts the frame exceptionally, with no
+    approval effects — and a failing `VERIFY` frame invalidates the
+    transaction.
     """
-    sender = pre.fund_eoa(amount=0)
+    sender, spend_frames, recipient = unfunded_sender(pre, sender_state)
     payer = pre.fund_eoa()
 
     tx = Transaction(
         sender=sender,
         frames=[
             verify_frame(flags=Spec.APPROVE_EXECUTION),
+            *spend_frames,
             verify_frame(
                 flags=Spec.APPROVE_PAYMENT,
                 target=payer,
-                state_gas_limit=0,
+                state_gas_limit=fork.gas_costs().NEW_ACCOUNT - 1,
             ),
         ],
         signatures=[
@@ -408,7 +473,13 @@ def test_approve_sender_creation_unaffordable(
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )
 
-    state_test(pre=pre, tx=tx, post={})
+    post: Dict[Address, Account] = {}
+    if recipient is not None:
+        post = {
+            sender: Account(nonce=0, balance=SPENT_SENDER_BALANCE),
+            recipient: Account(balance=1),
+        }
+    state_test(pre=pre, tx=tx, post=post)
 
 
 def test_refill_after_intermediate_modification(

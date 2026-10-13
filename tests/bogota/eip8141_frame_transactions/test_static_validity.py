@@ -231,6 +231,42 @@ def test_invalid_tx_fields_transaction(
     transaction_test(pre=pre, tx=Transaction(**tx_kwargs))
 
 
+ZERO_ADDRESS = Address(0)
+"""A sender the static rules accept: they only check its length."""
+
+
+# Placing code at a fixed address mutates the shared pre-alloc.
+@pytest.mark.pre_alloc_mutable
+def test_zero_address_sender(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Accept a frame transaction sent from the zero address, whose code
+    approves execution and payment.
+    """
+    pre[ZERO_ADDRESS] = Account(
+        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        balance=10**18,
+    )
+    tx = Transaction(sender=ZERO_ADDRESS, frames=[verify_frame()])
+
+    state_test(pre=pre, tx=tx, post={ZERO_ADDRESS: Account(nonce=1)})
+
+
+def test_zero_address_sender_transaction(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Accept the zero-address sender of `test_zero_address_sender` on the
+    transaction itself.
+    """
+    tx = Transaction(sender=ZERO_ADDRESS, frames=[verify_frame()])
+
+    transaction_test(pre=pre, tx=tx)
+
+
 FOREIGN_TARGET = Address(0x1234)
 """An address that is never the transaction sender."""
 
