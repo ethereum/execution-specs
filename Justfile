@@ -21,6 +21,11 @@ latest_fork := "Bogota"
 # Use the faster sys.monitoring coverage core (default on 3.14, opt-in below).
 export COVERAGE_CORE := "sysmon"
 
+# Test files that use the `eels_base_coverage` marker. Recipes that select
+# the marker collect only these, which takes a third of the time and a
+# quarter of the memory of collecting all of `tests`.
+eels_base_coverage_files := "$(grep -rlI --include='test_*.py' --exclude-dir=ported_static eels_base_coverage tests)"
+
 # --- Helpers ---
 
 # Create a recipe's --basetemp scratch directory
@@ -191,7 +196,6 @@ fill-release *args:
 # --- Integration Tests ---
 
 # Fill the base coverage consensus tests using EELS with PyPy
-# Four workers leave room for the CI job's 3G heap per worker.
 [group('integration tests')]
 fill-pypy *args: (_tmp-logs "fill-pypy")
     uv run --python pypy3.11 --no-dev --group test fill \
@@ -203,36 +207,32 @@ fill-pypy *args: (_tmp-logs "fill-pypy")
         --show-capture=no \
         --disable-warnings \
         -m "eels_base_coverage and primary_format" \
-        -n auto --maxprocesses 4 \
+        -n auto --maxprocesses 8 \
         --dist=loadgroup \
         --basetemp="{{ output_dir }}/fill-pypy/tmp" \
         --log-to "{{ output_dir }}/fill-pypy/logs" \
         --clean \
         --until "{{ latest_fork }}" \
-        --ignore=tests/ported_static \
         "$@" \
-        tests
+        {{ eels_base_coverage_files }}
 
 # Fill the base coverage consensus tests and run EELS against the fixtures
-# Eight fill workers: collecting through Bogota with sixteen exhausts the
-# CI runner's memory (workers die during collection, then xdist's
-# scheduler fails on the replacements).
 [group('integration tests')]
 json-loader *args: (_tmp "json-loader")
     uv run fill \
         -m "eels_base_coverage and primary_format" \
         --until "{{ latest_fork }}" \
-        -n auto --maxprocesses 8 --dist=loadgroup \
+        -n {{ xdist_workers }} --dist=loadgroup \
         --skip-index \
         --clean \
-        --ignore=tests/ported_static \
         --output="tests/json_loader/fixtures" \
         --cov-config=pyproject.toml \
         --cov=ethereum \
         --cov-branch \
         --cov-report=term \
         --durations=50 \
-        --cov-fail-under=85
+        --cov-fail-under=85 \
+        {{ eels_base_coverage_files }}
     uv run pytest \
         -m "not slow" \
         -n {{ xdist_workers }} --dist=loadfile \
