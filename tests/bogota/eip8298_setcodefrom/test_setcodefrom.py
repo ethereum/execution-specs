@@ -595,11 +595,10 @@ def test_source_created_same_tx(
     shell = pre.deploy_contract(
         ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
     )
-    # `call_with` writes memory 0, so the new address is kept at 32.
     driver = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
         + Op.MSTORE(32, Op.CREATE(0, 0, Op.CALLDATASIZE))
-        + Op.POP(call_with(shell, Op.MLOAD(32)))
+        + Op.POP(Op.CALL(address=shell, args_offset=32, args_size=32))
         + Op.STOP
     )
     tx = Transaction(
