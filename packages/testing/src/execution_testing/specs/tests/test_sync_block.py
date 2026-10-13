@@ -9,17 +9,19 @@ above. The payloads themselves are built against a real backend and are
 covered by the filler plugin's pytester tests.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 import pytest
 
 from execution_testing.base_types import Address, Hash
+from execution_testing.client_clis import FillerBackend
 from execution_testing.exceptions import BlockException, EngineAPIError
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.forks import (
     BPO2ToAmsterdamAtTime15k,
     Cancun,
     Fork,
+    Shanghai,
     TransitionFork,
 )
 from execution_testing.specs.benchmark import BenchmarkTest
@@ -27,6 +29,7 @@ from execution_testing.specs.blockchain import (
     DEFAULT_BLOCK_TIMESTAMP_INCREMENT,
     Block,
     BlockchainTest,
+    BuiltBlock,
     sync_block_context_unavailable,
 )
 from execution_testing.test_types import Alloc, Environment
@@ -47,6 +50,7 @@ def make_test(
     blocks: List[Block],
     sync_block: bool = True,
     fork: Fork | TransitionFork = Cancun,
+    test_id: str = SALT,
 ) -> BlockchainTest:
     """Create a blockchain test over the given blocks."""
     return BlockchainTest(
@@ -55,7 +59,7 @@ def make_test(
         post=Alloc(),
         blocks=blocks,
         sync_block=sync_block,
-        test_id=SALT,
+        test_id=test_id,
     )
 
 
@@ -180,54 +184,71 @@ def head_with(**fields: Any) -> FixtureHeader:
     return FixtureHeader(**{**defaults, **fields})
 
 
+# A distinguishing substring of each clause's reason, so every refused
+# case also pins which clause refused it.
+NUMBER_CEILING = "block number has no successor"
+GAS_LIMIT_CEILING = "gas limit does not fit"
+TIMESTAMP_CEILING = "timestamp leaves no uint64 room"
+SLOT_CEILING = "slot number has no successor"
+GAS_LIMIT_FLOOR = "below the fork's minimum"
+BLOB_GAS_SUM = "do not sum within uint64"
+BLOB_PRICE = "no evaluable blob price"
+
+
+def assert_refusal(reason: str | None, refusal: str | None) -> None:
+    """Assert that ``refusal``'s clause declined the head, or none did."""
+    if refusal is None:
+        assert reason is None
+    else:
+        assert reason is not None and refusal in reason, reason
+
+
 @pytest.mark.parametrize(
-    "head_number,available",
+    "head_number,refusal",
     [
-        pytest.param(2**64 - 2, True, id="child_fits_exactly"),
-        pytest.param(2**64 - 1, False, id="max"),
-        pytest.param(2**64, False, id="already_overflowing"),
+        pytest.param(2**64 - 2, None, id="child_fits_exactly"),
+        pytest.param(2**64 - 1, NUMBER_CEILING, id="max"),
     ],
 )
-def test_block_number_ceiling(head_number: int, available: bool) -> None:
+def test_block_number_ceiling(head_number: int, refusal: str | None) -> None:
     """The appended block's number must have a uint64 representation."""
     reason = sync_block_context_unavailable(
         head_with(number=head_number), Cancun
     )
-    assert (reason is None) is available
+    assert_refusal(reason, refusal)
 
 
 @pytest.mark.parametrize(
-    "gas_limit,available",
+    "gas_limit,refusal",
     [
-        pytest.param(2**64 - 1, True, id="max"),
-        pytest.param(2**64, False, id="one_over_max"),
+        pytest.param(2**64 - 1, None, id="max"),
+        pytest.param(2**64, GAS_LIMIT_CEILING, id="one_over_max"),
     ],
 )
-def test_gas_limit_ceiling(gas_limit: int, available: bool) -> None:
+def test_gas_limit_ceiling(gas_limit: int, refusal: str | None) -> None:
     """The appended block's inherited gas limit must fit uint64."""
     reason = sync_block_context_unavailable(
         head_with(gas_limit=gas_limit), Cancun
     )
-    assert (reason is None) is available
+    assert_refusal(reason, refusal)
 
 
 @pytest.mark.parametrize(
-    "head_timestamp,available",
+    "head_timestamp,refusal",
     [
-        pytest.param(2**64 - 1, False, id="max"),
         pytest.param(
             2**64 - DEFAULT_BLOCK_TIMESTAMP_INCREMENT,
-            False,
+            TIMESTAMP_CEILING,
             id="one_short_of_room",
         ),
         pytest.param(
             2**64 - 1 - DEFAULT_BLOCK_TIMESTAMP_INCREMENT,
-            True,
+            None,
             id="exactly_enough_room",
         ),
     ],
 )
-def test_timestamp_ceiling(head_timestamp: int, available: bool) -> None:
+def test_timestamp_ceiling(head_timestamp: int, refusal: str | None) -> None:
     """
     A head pinned so close to the uint64 ceiling that no child
     timestamp fits carries no sync block: nothing downstream notices
@@ -236,18 +257,18 @@ def test_timestamp_ceiling(head_timestamp: int, available: bool) -> None:
     reason = sync_block_context_unavailable(
         head_with(timestamp=head_timestamp), Cancun
     )
-    assert (reason is None) is available
+    assert_refusal(reason, refusal)
 
 
 @pytest.mark.parametrize(
-    "slot_number,available",
+    "slot_number,refusal",
     [
-        pytest.param(2**64 - 1, False, id="max_slot"),
-        pytest.param(2**64 - 2, True, id="one_below_max"),
-        pytest.param(None, True, id="no_slot_field"),
+        pytest.param(2**64 - 1, SLOT_CEILING, id="max_slot"),
+        pytest.param(2**64 - 2, None, id="one_below_max"),
+        pytest.param(None, None, id="no_slot_field"),
     ],
 )
-def test_slot_ceiling(slot_number: int | None, available: bool) -> None:
+def test_slot_ceiling(slot_number: int | None, refusal: str | None) -> None:
     """
     The appended block's slot number is its parent's plus one, so the
     maximum uint64 slot number admits no child.
@@ -255,35 +276,36 @@ def test_slot_ceiling(slot_number: int | None, available: bool) -> None:
     reason = sync_block_context_unavailable(
         head_with(slot_number=slot_number), Cancun
     )
-    assert (reason is None) is available
+    assert_refusal(reason, refusal)
 
 
 @pytest.mark.parametrize(
-    "excess_blob_gas,blob_gas_used,available",
+    "excess_blob_gas,blob_gas_used,refusal",
     [
-        pytest.param(0, 0, True, id="empty_head"),
+        pytest.param(0, 0, None, id="empty_head"),
         pytest.param(
             60 * Cancun.blob_base_fee_update_fraction(),
             Cancun.blob_gas_per_blob(),
-            True,
+            None,
             id="expensive_but_representable_price",
         ),
+        pytest.param(0, 2**64 - 1, None, id="blob_gas_fields_sum_to_max"),
         pytest.param(
-            2**64 - Cancun.blob_gas_per_blob(),
-            Cancun.blob_gas_per_blob(),
-            False,
+            1,
+            2**64 - 1,
+            BLOB_GAS_SUM,
             id="blob_gas_fields_overflow_uint64",
         ),
         pytest.param(
             2**64 - 2 * Cancun.blob_gas_per_blob(),
             0,
-            False,
+            BLOB_PRICE,
             id="price_needs_unbounded_taylor_steps",
         ),
     ],
 )
 def test_blob_fields_the_fork_cannot_build_above(
-    excess_blob_gas: int, blob_gas_used: int, available: bool
+    excess_blob_gas: int, blob_gas_used: int, refusal: str | None
 ) -> None:
     """
     A head pinning blob fields whose child fee context cannot be
@@ -297,21 +319,33 @@ def test_blob_fields_the_fork_cannot_build_above(
         ),
         Cancun,
     )
-    assert (reason is None) is available
+    assert_refusal(reason, refusal)
+
+
+def test_pre_cancun_head_has_no_blob_context_to_check() -> None:
+    """A head from before Cancun has no blob fields to derive from."""
+    head = head_with(
+        fork=Shanghai,
+        blob_gas_used=None,
+        excess_blob_gas=None,
+        parent_beacon_block_root=None,
+    )
+    assert sync_block_context_unavailable(head, Shanghai) is None
 
 
 @pytest.mark.parametrize(
-    "gas_limit,available",
+    "gas_limit,refusal",
     [
-        pytest.param(Cancun.minimum_block_gas_limit(), True, id="minimum"),
+        pytest.param(Cancun.minimum_block_gas_limit(), None, id="minimum"),
         pytest.param(
-            Cancun.minimum_block_gas_limit() - 1, False, id="one_below"
+            Cancun.minimum_block_gas_limit() - 1,
+            GAS_LIMIT_FLOOR,
+            id="one_below",
         ),
-        pytest.param(0, False, id="zero"),
     ],
 )
 def test_gas_limit_the_fork_cannot_build_above(
-    gas_limit: int, available: bool
+    gas_limit: int, refusal: str | None
 ) -> None:
     """
     The appended block inherits its parent's gas limit, so a head below
@@ -323,43 +357,67 @@ def test_gas_limit_the_fork_cannot_build_above(
     reason = sync_block_context_unavailable(
         head_with(gas_limit=gas_limit), Cancun
     )
-    assert (reason is None) is available
+    assert_refusal(reason, refusal)
 
 
 @pytest.mark.parametrize(
-    "head_timestamp,available",
+    "head_timestamp,refusal",
     [
-        pytest.param(14_000, True, id="appended_block_lands_before_the_fork"),
-        pytest.param(15_000, False, id="appended_block_lands_after_the_fork"),
+        pytest.param(
+            15_000 - 1 - DEFAULT_BLOCK_TIMESTAMP_INCREMENT,
+            None,
+            id="pre_fork_head_appended_block_lands_before_the_fork",
+        ),
+        pytest.param(
+            15_000 - DEFAULT_BLOCK_TIMESTAMP_INCREMENT,
+            GAS_LIMIT_FLOOR,
+            id="pre_fork_head_appended_block_lands_at_the_fork",
+        ),
     ],
 )
 def test_head_is_judged_under_the_appended_block_s_own_fork(
-    head_timestamp: int, available: bool
+    head_timestamp: int, refusal: str | None
 ) -> None:
     """
     A transition chain's head is judged against the fork the appended
-    block itself lands in, not the chain's final fork.
+    block itself lands in, not the head's own fork or the chain's
+    final fork.
 
     The gas limit here is legal before Amsterdam and below the floor
     Amsterdam raises it to, so the two forks disagree about this head.
-    Judging by the chain's final fork would refuse the appended block
-    on a chain that never reaches that fork.
+    Both heads are built before the fork. Judging by the head's fork
+    would build the block that lands at the fork; judging by the
+    chain's final fork would refuse the one that lands before it.
     """
     reason = sync_block_context_unavailable(
         head_with(gas_limit=10_000, timestamp=head_timestamp),
         BPO2ToAmsterdamAtTime15k,
     )
-    assert (reason is None) is available
+    assert_refusal(reason, refusal)
 
 
-def test_benchmark_chains_take_sync_payloads() -> None:
+def test_sync_block_needs_a_test_id() -> None:
     """
-    A benchmark chain carries the appended block like any other: the
-    benchmark's gas and opcode values are recorded before the block is
-    built, and the block is what makes a mostly single-block benchmark
-    chain servable by a sync-based consumer at all. The conversion to
-    a blockchain test propagates the fill context unchanged, so
-    ``--no-sync-block`` remains the release-level opt-out.
+    The sync block is salted with the test's id, so building one for a
+    spec the fill plugin did not set an id on fails rather than
+    silently sharing one salt across every test.
+    """
+    test = make_test(blocks=[VALID], test_id="")
+    # Only the header and environment are read before the assert.
+    reached: Dict[str, Any] = dict(header=head_with(), env=Environment())
+    head = BuiltBlock.model_construct(**reached)
+    with pytest.raises(AssertionError, match="salted"):
+        test.build_sync_payload(
+            cast(FillerBackend, None), head=head, alloc=Alloc()
+        )
+
+
+@pytest.mark.parametrize("sync_block", [True, False])
+def test_benchmark_chains_take_sync_payloads(sync_block: bool) -> None:
+    """
+    The conversion to a blockchain test carries the fill context
+    unchanged, so a benchmark chain takes the appended block like any
+    other and ``--no-sync-block`` still withholds it.
     """
     benchmark_test = BenchmarkTest(
         fork=Cancun,
@@ -368,9 +426,10 @@ def test_benchmark_chains_take_sync_payloads() -> None:
         env=Environment(),
         gas_benchmark_value=1_000_000,
         blocks=[Block()],
-        sync_block=True,
+        sync_block=sync_block,
         test_id=SALT,
     )
     blockchain_test = benchmark_test.generate_blockchain_test()
-    assert blockchain_test.sync_block
-    assert blockchain_test.sync_payload_eligible()
+    assert blockchain_test.sync_block is sync_block
+    assert blockchain_test.test_id == SALT
+    assert blockchain_test.sync_payload_eligible() is sync_block
