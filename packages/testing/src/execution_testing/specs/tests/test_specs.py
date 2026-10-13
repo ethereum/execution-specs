@@ -180,6 +180,10 @@ def test_state_test_labels_every_blockchain_test_format() -> None:
         fixture_format
         for fixture_format in BlockchainTest.supported_fixture_formats
         if "Sync" not in fixture_format.format_class().__name__
+        and (
+            not isinstance(fixture_format, LabeledFixtureFormat)
+            or fixture_format.variant is None
+        )
     ]
 
     assert len(derived) == len(expected), (
