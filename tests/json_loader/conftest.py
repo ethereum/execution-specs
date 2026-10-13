@@ -211,8 +211,9 @@ def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
 
 def pytest_unconfigure(config: Config) -> None:
     """Clean up the fork cache."""
-    config.stash[fork_cache_key].__exit__()
-    del config.stash[fork_cache_key]
+    if fork_cache_key in config.stash:
+        config.stash[fork_cache_key].__exit__()
+        del config.stash[fork_cache_key]
 
 
 def pytest_collect_file(
