@@ -973,6 +973,13 @@ class Frontier(BaseFork):
         return False
 
     @classmethod
+    def engine_new_payload_inclusion_list_transactions(cls) -> bool:
+        """
+        At genesis, payloads do not have inclusion lists.
+        """
+        return False
+
+    @classmethod
     def engine_execution_payload_block_access_list(cls) -> bool:
         """At genesis, payloads do not have block access list."""
         return False
@@ -1071,6 +1078,11 @@ class Frontier(BaseFork):
     @classmethod
     def block_rlp_size_limit(cls) -> int | None:
         """At Genesis, no RLP block size limit is imposed."""
+        return None
+
+    @classmethod
+    def inclusion_list_transactions_size_limit(cls) -> int | None:
+        """At Genesis, there are no inclusion lists."""
         return None
 
     @classmethod

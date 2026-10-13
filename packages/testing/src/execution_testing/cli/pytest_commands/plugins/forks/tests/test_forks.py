@@ -5,10 +5,7 @@ import pytest
 from execution_testing.client_clis.clis.execution_specs import (
     ExecutionSpecsTransitionTool,
 )
-from execution_testing.fixtures import (
-    FixtureFillingPhase,
-    LabeledFixtureFormat,
-)
+from execution_testing.fixtures import FixtureFillingPhase
 from execution_testing.forks import (
     BPO1,
     BPO2,
@@ -67,15 +64,10 @@ def test_no_options_no_validity_marker(pytester: pytest.Pytester) -> None:
     stdout = "\n".join(result.stdout.lines)
     for test_fork in forks_under_test:
         for fixture_format in STATE_TEST_FILL_FORMATS:
-            if isinstance(fixture_format, LabeledFixtureFormat):
-                # Keep the label: its `supports_fork` may veto forks the
-                # wrapped format supports, and the filler honors the label.
-                fixture_format_label = fixture_format.label
-            else:
-                fixture_format_label = fixture_format.format_name.lower()
+            fixture_format_label = fixture_format.format_id()
             if (
                 not fixture_format.supports_fork(test_fork)
-                or "blockchain_test_engine_x" in fixture_format_label
+                or FixtureFillingPhase.FILL not in fixture_format.format_phases
             ):
                 expected_passed -= 1
                 assert (
@@ -124,15 +116,10 @@ def test_from_london_option_no_validity_marker(
     stdout = "\n".join(result.stdout.lines)
     for test_fork in forks_under_test:
         for fixture_format in STATE_TEST_FILL_FORMATS:
-            if isinstance(fixture_format, LabeledFixtureFormat):
-                # Keep the label: its `supports_fork` may veto forks the
-                # wrapped format supports, and the filler honors the label.
-                fixture_format_label = fixture_format.label
-            else:
-                fixture_format_label = fixture_format.format_name.lower()
+            fixture_format_label = fixture_format.format_id()
             if (
                 not fixture_format.supports_fork(test_fork)
-                or "blockchain_test_engine_x" in fixture_format_label
+                or FixtureFillingPhase.FILL not in fixture_format.format_phases
             ):
                 expected_passed -= 1
                 assert (
@@ -191,15 +178,10 @@ def test_from_london_until_shanghai_option_no_validity_marker(
         expected_passed -= len(STATE_TEST_FILL_FORMATS)
     for test_fork in forks_under_test:
         for fixture_format in STATE_TEST_FILL_FORMATS:
-            if isinstance(fixture_format, LabeledFixtureFormat):
-                # Keep the label: its `supports_fork` may veto forks the
-                # wrapped format supports, and the filler honors the label.
-                fixture_format_label = fixture_format.label
-            else:
-                fixture_format_label = fixture_format.format_name.lower()
+            fixture_format_label = fixture_format.format_id()
             if (
                 not fixture_format.supports_fork(test_fork)
-                or "blockchain_test_engine_x" in fixture_format_label
+                or FixtureFillingPhase.FILL not in fixture_format.format_phases
             ):
                 expected_passed -= 1
                 assert (
@@ -249,15 +231,10 @@ def test_from_paris_until_paris_option_no_validity_marker(
 
     for test_fork in forks_under_test:
         for fixture_format in STATE_TEST_FILL_FORMATS:
-            if isinstance(fixture_format, LabeledFixtureFormat):
-                # Keep the label: its `supports_fork` may veto forks the
-                # wrapped format supports, and the filler honors the label.
-                fixture_format_label = fixture_format.label
-            else:
-                fixture_format_label = fixture_format.format_name.lower()
+            fixture_format_label = fixture_format.format_id()
             if (
                 not fixture_format.supports_fork(test_fork)
-                or "blockchain_test_engine_x" in fixture_format_label
+                or FixtureFillingPhase.FILL not in fixture_format.format_phases
             ):
                 expected_passed -= 1
                 assert (
