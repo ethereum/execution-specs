@@ -23,30 +23,38 @@ import warnings
 from pathlib import Path
 
 
+def add_fixture_files(tar: tarfile.TarFile, source_dir: Path) -> None:
+    """Add the fixture files under `source_dir` to `tar`, sorted."""
+    for file in sorted(source_dir.rglob("*")):
+        if file.is_file() and file.suffix in {".json", ".ini"}:
+            arcname = Path("fixtures") / file.relative_to(source_dir)
+            tar.add(file, arcname=str(arcname))
+
+
 def create_tarball_with_pigz(source_dir: Path, output_path: Path) -> None:
-    """Create tarball using Python tarfile + pigz for parallel compression."""
-    temp_tar = output_path.with_suffix("")  # strip .gz
-
-    with tarfile.open(temp_tar, "w") as tar:
-        for file in sorted(source_dir.rglob("*")):
-            if file.is_file() and file.suffix in {".json", ".ini"}:
-                arcname = Path("fixtures") / file.relative_to(source_dir)
-                tar.add(file, arcname=str(arcname))
-
-    subprocess.run(
-        ["pigz", "-f", str(temp_tar)],
-        check=True,
-        capture_output=True,
-    )
+    """
+    Create tarball by streaming Python tarfile into pigz, which compresses
+    in parallel while files are still being added.
+    """
+    with output_path.open("wb") as out:
+        pigz = subprocess.Popen(
+            ["pigz", "-c"], stdin=subprocess.PIPE, stdout=out
+        )
+        assert pigz.stdin is not None
+        try:
+            with tarfile.open(fileobj=pigz.stdin, mode="w|") as tar:
+                add_fixture_files(tar, source_dir)
+        finally:
+            pigz.stdin.close()
+            returncode = pigz.wait()
+    if returncode != 0:
+        raise subprocess.CalledProcessError(returncode, "pigz")
 
 
 def create_tarball_standard(source_dir: Path, output_path: Path) -> None:
     """Create tarball using Python's tarfile module (single-threaded)."""
     with tarfile.open(output_path, "w:gz") as tar:
-        for file in sorted(source_dir.rglob("*")):
-            if file.is_file() and file.suffix in {".json", ".ini"}:
-                arcname = Path("fixtures") / file.relative_to(source_dir)
-                tar.add(file, arcname=str(arcname))
+        add_fixture_files(tar, source_dir)
 
 
 def main() -> None:
