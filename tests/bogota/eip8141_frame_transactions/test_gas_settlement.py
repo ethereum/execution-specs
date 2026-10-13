@@ -164,10 +164,12 @@ def test_calldata_floor_with_state_gas(
     data_length = floor_binding_padding(floor_binds)
     if not floor_bound:
         data_length -= 1
-    gas_used = max(
-        execution_used(data_length),
-        floor_calculator(frames=frames(data_length)),
-    )
+    execution_gas = execution_used(data_length)
+    calldata_floor = floor_calculator(frames=frames(data_length))
+    # The premise of the test: the floor binds, or in `below_floor`
+    # falls short by the last byte.
+    assert (calldata_floor > execution_gas) == floor_bound
+    gas_used = calldata_floor if floor_bound else execution_gas
     tx = Transaction(
         sender=sender,
         nonce=1,
