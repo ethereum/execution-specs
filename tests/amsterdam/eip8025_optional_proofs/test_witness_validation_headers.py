@@ -41,7 +41,7 @@ REFERENCE_SPEC_VERSION = ref_spec_8025.version
             id="missing_oldest_blockhash_ancestor",
         ),
         pytest.param(5, reverse_headers(), id="non_contiguous_chain"),
-        pytest.param(5, remove_header_at(2), id="gap_in_chain"),
+        pytest.param(5, remove_header_at(2), id="missing_middle_header"),
         # Both keep the oldest header in its slot, so BLOCKHASH still finds
         # it whether the guest looks it up by position or by number.
         pytest.param(5, swap_headers_at(1, 2), id="swapped_middle_headers"),
@@ -60,7 +60,8 @@ def test_validation_headers_invalid_ancestor_chain(
     modifier: Callable[[ExecutionWitness], ExecutionWitness],
 ) -> None:
     """
-    Removing, reordering or corrupting a required header should fail.
+    Reject witness headers that are missing, out of order, unlinked or
+    malformed.
     """
     contract = pre.deploy_contract(
         code=Op.BLOCKHASH(Op.SUB(Op.NUMBER, offset)) + Op.POP + Op.STOP
