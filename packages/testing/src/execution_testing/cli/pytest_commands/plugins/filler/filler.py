@@ -21,7 +21,17 @@ import time
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Generator, List, Self, Set, Type
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Self,
+    Set,
+    Type,
+)
 
 import pytest
 import xdist
@@ -1539,6 +1549,21 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
     cls_fixture_parameters = [
         p for p in ALL_FIXTURE_PARAMETERS if p in cls.model_fields
     ]
+    init_current_test: Callable[..., None] | None = None
+
+    class BaseTestWrapper(cls):  # type: ignore
+        """
+        Spec type with the current test's setup injected into `__init__`.
+
+        Defined once per spec type: building a pydantic subclass per test
+        regenerates its schema every time.
+        """
+
+        __is_base_test_wrapper__ = True
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            assert init_current_test is not None
+            init_current_test(self, *args, **kwargs)
 
     @pytest.fixture(
         scope="function",
@@ -1561,7 +1586,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         is_exception_test: bool,
         is_inclusion_test: bool,
         invalid_tx_not_last: bool,
-    ) -> Any:
+    ) -> Generator[Any, None, None]:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
         within a test function.
@@ -1582,206 +1607,205 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
             fixture_format, BaseFixture
         )
 
+        nonlocal init_current_test
         spec_called = False
 
-        class BaseTestWrapper(cls):  # type: ignore
-            __is_base_test_wrapper__ = True
+        def init_wrapper(
+            self: BaseTestWrapper, *args: Any, **kwargs: Any
+        ) -> None:
+            # Every call writes its fixture under the same test ID, so a
+            # second call would silently replace the first.
+            nonlocal spec_called
+            if spec_called:
+                pytest.fail(
+                    f"`{cls.pytest_parameter_name()}` can only be called "
+                    "once per test; use `pytest.mark.parametrize` for "
+                    "multiple cases."
+                )
+            spec_called = True
 
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                # Every call writes its fixture under the same test ID, so a
-                # second call would silently replace the first.
-                nonlocal spec_called
-                if spec_called:
-                    pytest.fail(
-                        f"`{cls.pytest_parameter_name()}` can only be called "
-                        "once per test; use `pytest.mark.parametrize` for "
-                        "multiple cases."
+            if "pre" not in kwargs:
+                kwargs["pre"] = pre
+            if "expected_benchmark_gas_used" not in kwargs:
+                kwargs["expected_benchmark_gas_used"] = gas_benchmark_value
+            kwargs["fork"] = fork
+            op_mode: OpMode = request.config.op_mode  # type: ignore
+            kwargs["operation_mode"] = op_mode
+            kwargs["is_tx_gas_heavy_test"] = is_tx_gas_heavy_test
+            kwargs["is_exception_test"] = is_exception_test
+            kwargs["is_inclusion_test"] = is_inclusion_test
+            kwargs["invalid_tx_not_last"] = invalid_tx_not_last
+            if (
+                op_mode == OpMode.OPTIMIZE_GAS
+                or op_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
+            ):
+                kwargs["gas_optimization_max_gas_limit"] = (
+                    request.config.getoption(
+                        "optimize_gas_max_gas_limit", None
                     )
-                spec_called = True
+                )
+            kwargs |= {
+                p: request.getfixturevalue(p)
+                for p in cls_fixture_parameters
+                if p not in kwargs
+            }
 
-                if "pre" not in kwargs:
-                    kwargs["pre"] = pre
-                if "expected_benchmark_gas_used" not in kwargs:
-                    kwargs["expected_benchmark_gas_used"] = gas_benchmark_value
-                kwargs["fork"] = fork
-                op_mode: OpMode = request.config.op_mode  # type: ignore
-                kwargs["operation_mode"] = op_mode
-                kwargs["is_tx_gas_heavy_test"] = is_tx_gas_heavy_test
-                kwargs["is_exception_test"] = is_exception_test
-                kwargs["is_inclusion_test"] = is_inclusion_test
-                kwargs["invalid_tx_not_last"] = invalid_tx_not_last
+            super(BaseTestWrapper, self).__init__(*args, **kwargs)
+
+            # Get the filling session from config
+            session: FillingSession = request.config.filling_session  # type: ignore
+            assert isinstance(session, FillingSession)
+
+            group_salt: str | None = None
+            if pre_alloc_group_marker := request.node.get_closest_marker(
+                "pre_alloc_group"
+            ):
+                # Get the group name/salt from marker args
                 if (
-                    op_mode == OpMode.OPTIMIZE_GAS
-                    or op_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
+                    pre_alloc_group_marker.args
+                    and pre_alloc_group_marker.args[0] != "separate"
                 ):
-                    kwargs["gas_optimization_max_gas_limit"] = (
-                        request.config.getoption(
-                            "optimize_gas_max_gas_limit", None
-                        )
+                    group_salt = str(pre_alloc_group_marker.args[0])
+                else:
+                    # "separate" (or a bare marker): salt with the
+                    # test's node id so the test gets its own genesis
+                    # instead of a group named literally "separate".
+                    group_salt = _strip_xdist_group_suffix(request.node.nodeid)
+
+            pre_alloc_hash: AllocGroupHash | None = None
+            # Phase 1: Generate pre-allocation groups
+            test_id = _strip_xdist_group_suffix(request.node.nodeid)
+            if (
+                session.filling_phase
+                == FixtureFillingPhase.PRE_ALLOC_GENERATION
+            ):
+                # Use the original update_pre_alloc_groups method which
+                # returns the groups
+                assert session.pre_alloc_group_builders is not None
+                genesis_environment = self.get_genesis_environment()
+                pre_alloc_hash = pre.compute_pre_alloc_group_hash(
+                    fork=fork,
+                    genesis_environment=genesis_environment,
+                    group_salt=group_salt,
+                )
+                session.pre_alloc_group_builders.add_test_pre(
+                    pre_alloc_hash=pre_alloc_hash,
+                    test_id=test_id,
+                    fork=fork,
+                    chain_id=ChainConfigDefaults.chain_id,
+                    environment=genesis_environment,
+                    pre=pre,
+                    group_salt=group_salt,
+                )
+                return  # Skip fixture generation in phase 1
+
+            # Phase 2: Use pre-allocation groups (only for
+            # BlockchainEngineXFixture)
+            if (
+                FixtureFillingPhase.PRE_ALLOC_GENERATION
+                in fixture_format.format_phases
+            ):
+                pre_alloc_hash = pre.compute_pre_alloc_group_hash(
+                    fork=fork,
+                    genesis_environment=self.get_genesis_environment(),
+                    group_salt=group_salt,
+                )
+                if not optimistic_pre_alloc_grouping_disabled:
+                    # Groups are packed after phase 1, so a test's group
+                    # hash can no longer be recomputed from its own pre;
+                    # look it up by test id instead, fingerprinted by the
+                    # recomputed phase 1 hash so a stale group folder fails
+                    # loudly.
+                    pre_alloc_hash = session.group_hash_for_test(
+                        test_id,
+                        phase1_hash=pre_alloc_hash,
                     )
-                kwargs |= {
-                    p: request.getfixturevalue(p)
-                    for p in cls_fixture_parameters
-                    if p not in kwargs
-                }
-
-                super(BaseTestWrapper, self).__init__(*args, **kwargs)
-
-                # Get the filling session from config
-                session: FillingSession = request.config.filling_session  # type: ignore
-                assert isinstance(session, FillingSession)
-
-                group_salt: str | None = None
-                if pre_alloc_group_marker := request.node.get_closest_marker(
-                    "pre_alloc_group"
-                ):
-                    # Get the group name/salt from marker args
-                    if (
-                        pre_alloc_group_marker.args
-                        and pre_alloc_group_marker.args[0] != "separate"
-                    ):
-                        group_salt = str(pre_alloc_group_marker.args[0])
-                    else:
-                        # "separate" (or a bare marker): salt with the
-                        # test's node id so the test gets its own genesis
-                        # instead of a group named literally "separate".
-                        group_salt = _strip_xdist_group_suffix(
-                            request.node.nodeid
-                        )
-
-                pre_alloc_hash: AllocGroupHash | None = None
-                # Phase 1: Generate pre-allocation groups
-                test_id = _strip_xdist_group_suffix(request.node.nodeid)
+                group = session.get_pre_alloc_group(pre_alloc_hash)
+                self.pre = group.pre
+            fill_result: FillResult | None = None
+            try:
+                t8n.reset_opcode_count()
+                fill_result = self.generate(
+                    t8n=t8n,
+                    fixture_format=fixture_format,
+                )
+            finally:
                 if (
-                    session.filling_phase
-                    == FixtureFillingPhase.PRE_ALLOC_GENERATION
+                    self.operation_mode == OpMode.OPTIMIZE_GAS
+                    or self.operation_mode
+                    == OpMode.OPTIMIZE_GAS_POST_PROCESSING
                 ):
-                    # Use the original update_pre_alloc_groups method which
-                    # returns the groups
-                    assert session.pre_alloc_group_builders is not None
-                    genesis_environment = self.get_genesis_environment()
-                    pre_alloc_hash = pre.compute_pre_alloc_group_hash(
-                        fork=fork,
-                        genesis_environment=genesis_environment,
-                        group_salt=group_salt,
+                    gas_optimized_tests = (
+                        request.config.gas_optimized_tests  # type: ignore
                     )
-                    session.pre_alloc_group_builders.add_test_pre(
-                        pre_alloc_hash=pre_alloc_hash,
-                        test_id=test_id,
-                        fork=fork,
-                        chain_id=ChainConfigDefaults.chain_id,
-                        environment=genesis_environment,
-                        pre=pre,
-                        group_salt=group_salt,
+                    assert gas_optimized_tests is not None
+                    # Force adding something to the list, even if it's
+                    # None, to keep track of failed tests in the output
+                    # file.
+                    gas_optimized_tests[request.node.nodeid] = (
+                        fill_result.gas_optimization
+                        if fill_result is not None
+                        else None
                     )
-                    return  # Skip fixture generation in phase 1
+            assert fill_result is not None
+            fixture = fill_result.fixture
+            if (
+                request.config.getoption("post_verifications")
+                and fill_result.post_verifications is not None
+            ):
+                fixture.post_verifications = fill_result.post_verifications
+            # If operation mode is benchmarking, check the gas used.
+            self.validate_benchmark_gas(
+                benchmark_gas_used=fill_result.benchmark_gas_used,
+                benchmark_block_gas_used=(
+                    fill_result.benchmark_block_gas_used
+                ),
+                gas_benchmark_value=gas_benchmark_value,
+            )
 
-                # Phase 2: Use pre-allocation groups (only for
-                # BlockchainEngineXFixture)
-                if (
-                    FixtureFillingPhase.PRE_ALLOC_GENERATION
-                    in fixture_format.format_phases
-                ):
-                    pre_alloc_hash = pre.compute_pre_alloc_group_hash(
-                        fork=fork,
-                        genesis_environment=self.get_genesis_environment(),
-                        group_salt=group_salt,
-                    )
-                    if not optimistic_pre_alloc_grouping_disabled:
-                        # Groups are packed after phase 1, so a test's group
-                        # hash can no longer be recomputed from its own pre;
-                        # look it up by test id instead, fingerprinted by the
-                        # recomputed phase 1 hash so a stale group folder fails
-                        # loudly.
-                        pre_alloc_hash = session.group_hash_for_test(
-                            test_id,
-                            phase1_hash=pre_alloc_hash,
-                        )
-                    group = session.get_pre_alloc_group(pre_alloc_hash)
-                    self.pre = group.pre
-                fill_result: FillResult | None = None
-                try:
-                    t8n.reset_opcode_count()
-                    fill_result = self.generate(
-                        t8n=t8n,
-                        fixture_format=fixture_format,
-                    )
-                finally:
-                    if (
-                        self.operation_mode == OpMode.OPTIMIZE_GAS
-                        or self.operation_mode
-                        == OpMode.OPTIMIZE_GAS_POST_PROCESSING
-                    ):
-                        gas_optimized_tests = (
-                            request.config.gas_optimized_tests  # type: ignore
-                        )
-                        assert gas_optimized_tests is not None
-                        # Force adding something to the list, even if it's
-                        # None, to keep track of failed tests in the output
-                        # file.
-                        gas_optimized_tests[request.node.nodeid] = (
-                            fill_result.gas_optimization
-                            if fill_result is not None
-                            else None
-                        )
-                assert fill_result is not None
-                fixture = fill_result.fixture
-                if (
-                    request.config.getoption("post_verifications")
-                    and fill_result.post_verifications is not None
-                ):
-                    fixture.post_verifications = fill_result.post_verifications
-                # If operation mode is benchmarking, check the gas used.
-                self.validate_benchmark_gas(
-                    benchmark_gas_used=fill_result.benchmark_gas_used,
-                    benchmark_block_gas_used=(
-                        fill_result.benchmark_block_gas_used
-                    ),
-                    gas_benchmark_value=gas_benchmark_value,
-                )
+            fill_metadata: Dict[str, Any] = {}
+            if t8n.opcode_count is not None:
+                fill_metadata["opcode_count"] = t8n.opcode_count.model_dump()
+            if t8n.opcode_count_per_block:
+                fill_metadata["opcode_count_per_block"] = [
+                    block_opcode_count.model_dump()
+                    for block_opcode_count in t8n.opcode_count_per_block
+                ]
+            if fill_result.metadata:
+                fill_metadata.update(fill_result.metadata)
 
-                fill_metadata: Dict[str, Any] = {}
-                if t8n.opcode_count is not None:
-                    fill_metadata["opcode_count"] = (
-                        t8n.opcode_count.model_dump()
-                    )
-                if t8n.opcode_count_per_block:
-                    fill_metadata["opcode_count_per_block"] = [
-                        block_opcode_count.model_dump()
-                        for block_opcode_count in t8n.opcode_count_per_block
-                    ]
-                if fill_result.metadata:
-                    fill_metadata.update(fill_result.metadata)
+            fixture.fill_info(
+                t8n.version(),
+                test_case_description,
+                fixture_source_url=fixture_source_url,
+                ref_spec=reference_spec,
+                _info_metadata=t8n._info_metadata,
+                metadata=fill_metadata,
+            )
 
-                fixture.fill_info(
-                    t8n.version(),
-                    test_case_description,
-                    fixture_source_url=fixture_source_url,
-                    ref_spec=reference_spec,
-                    _info_metadata=t8n._info_metadata,
-                    metadata=fill_metadata,
-                )
+            output_subdir = resolve_fixture_subfolder(
+                list(request.node.iter_markers("fixture_subfolder"))
+            )
 
-                output_subdir = resolve_fixture_subfolder(
-                    list(request.node.iter_markers("fixture_subfolder"))
-                )
+            fixture_path = fixture_collector.add_fixture(
+                node_to_test_info(request.node),
+                fixture,
+                output_subdir=output_subdir,
+            )
 
-                fixture_path = fixture_collector.add_fixture(
-                    node_to_test_info(request.node),
-                    fixture,
-                    output_subdir=output_subdir,
-                )
+            # NOTE: Use str for compatibility with pytest-dist
+            request.node.config.fixture_path_absolute = str(
+                fixture_path.absolute()
+            )
+            request.node.config.fixture_path_relative = str(
+                fixture_path.relative_to(output_dir)
+            )
+            request.node.config.fixture_format = fixture_format.format_name
 
-                # NOTE: Use str for compatibility with pytest-dist
-                request.node.config.fixture_path_absolute = str(
-                    fixture_path.absolute()
-                )
-                request.node.config.fixture_path_relative = str(
-                    fixture_path.relative_to(output_dir)
-                )
-                request.node.config.fixture_format = fixture_format.format_name
-
-        return BaseTestWrapper
+        init_current_test = init_wrapper
+        yield BaseTestWrapper
+        # Drop the test's setup, so the shared class keeps nothing alive.
+        init_current_test = None
 
     return base_test_parametrizer_func
 
@@ -1900,8 +1924,9 @@ def pytest_collection_modifyitems(
                     f"fork_{base_fork.name()}",
                 )
 
-    for i in reversed(items_for_removal):
-        items.pop(i)
+    # Rebuild in one pass since popping by index is quadratic
+    removed = set(items_for_removal)
+    items[:] = [item for i, item in enumerate(items) if i not in removed]
 
     # Warn users if tests were removed because they have no fixture formats
     if specs_without_fixture_formats:

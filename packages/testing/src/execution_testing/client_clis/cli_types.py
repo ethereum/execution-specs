@@ -1,5 +1,6 @@
 """Types used in the transition tool interactions."""
 
+import functools
 import json
 import re
 import shutil
@@ -341,6 +342,15 @@ class UndefinedOpcode(HexNumber):
     pass
 
 
+@functools.cache
+def _opcodes_by_name() -> Dict[str, Opcodes]:
+    """Map each opcode name to the first opcode with that name."""
+    by_name: Dict[str, Opcodes] = {}
+    for op in Opcodes:
+        by_name.setdefault(str(op), op)
+    return by_name
+
+
 def validate_opcode(obj: Any) -> Opcodes | Opcode | UndefinedOpcode:
     """Validate an opcode from a string."""
     if isinstance(obj, (Opcode, Opcodes, UndefinedOpcode)):
@@ -350,9 +360,9 @@ def validate_opcode(obj: Any) -> Opcodes | Opcode | UndefinedOpcode:
             return UndefinedOpcode(obj)
         if obj in _opcode_synonyms:
             obj = _opcode_synonyms[obj]
-        for op in Opcodes:
-            if str(op) == obj:
-                return op
+        op = _opcodes_by_name().get(obj)
+        if op is not None:
+            return op
     raise Exception(f"Unable to validate {obj} (type={type(obj)})")
 
 

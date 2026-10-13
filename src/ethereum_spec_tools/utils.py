@@ -2,6 +2,7 @@
 Utilities for the EVM tools.
 """
 
+import functools
 import json
 import logging
 import re
@@ -143,6 +144,7 @@ _SPEC_SHORT_NAME_OVERRIDES: Dict[str, str] = {
 }
 
 
+@functools.cache
 def resolve_fork(fork_name: str) -> Hardfork:
     """
     Resolve a testing ``Fork.transition_tool_name()`` to its matching
