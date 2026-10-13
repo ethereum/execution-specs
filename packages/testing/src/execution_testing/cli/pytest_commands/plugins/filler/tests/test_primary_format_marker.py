@@ -18,6 +18,8 @@ import textwrap
 
 import pytest
 
+from ..filler import marker_expression_requires_primary_format
+
 # A post-Paris fork is required: pre-Paris hive/engine fixtures are removed
 # during collection (see `pytest_collection_modifyitems` in filler.py), which
 # would empty a `blockchain_test_engine_only` test regardless of this marker.
@@ -167,3 +169,61 @@ def test_pre_alloc_group_session_generates_one_format_per_test(
     result.stdout.fnmatch_lines(
         ["*-blockchain_test_engine_x_from_state_test]"]
     )
+
+
+@pytest.mark.parametrize(
+    "markexpr,expected",
+    [
+        pytest.param("primary_format", True, id="alone"),
+        pytest.param("not slow and primary_format", True, id="last_term"),
+        pytest.param("primary_format and not slow", True, id="first_term"),
+        pytest.param("", False, id="empty"),
+        pytest.param("not slow", False, id="absent"),
+        pytest.param("not primary_format", False, id="negated"),
+        pytest.param("primary_format or slow", False, id="disjunction"),
+        pytest.param("(primary_format and slow)", False, id="parentheses"),
+    ],
+)
+def test_marker_expression_requires_primary_format(
+    markexpr: str, expected: bool
+) -> None:
+    """
+    Recognize only a plain conjunction with a `primary_format` term.
+    """
+    assert marker_expression_requires_primary_format(markexpr) is expected
+
+
+@pytest.mark.parametrize(
+    "markexpr,deselects",
+    [
+        pytest.param("primary_format", False, id="primary_only"),
+        pytest.param("primary_format or slow", True, id="disjunction"),
+    ],
+)
+def test_primary_format_selection_skips_other_formats(
+    pytester: pytest.Pytester, markexpr: str, deselects: bool
+) -> None:
+    """
+    Collect with `-m` and assert the other formats are generated, and then
+    deselected, only when the expression can select them.
+    """
+    write_test_module(pytester, NORMAL_STATE_MODULE)
+
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--fork",
+        FORK,
+        "-m",
+        markexpr,
+        TEST_MODULE_DIR,
+        "--collect-only",
+        "-q",
+    )
+
+    assert result.ret == 0, f"Collection failed:\n{result.outlines}"
+    result.stdout.fnmatch_lines(["*-state_test]"])
+    if deselects:
+        result.stdout.fnmatch_lines(["*deselected*"])
+    else:
+        result.stdout.no_fnmatch_line("*deselected*")
