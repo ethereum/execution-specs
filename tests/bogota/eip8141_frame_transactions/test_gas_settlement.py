@@ -134,43 +134,44 @@ def test_calldata_floor_with_state_gas(
     intrinsic_calculator = fork.frame_transaction_intrinsic_cost_calculator()
     floor_calculator = fork.frame_transaction_data_floor_cost_calculator()
 
-    def frames(padding: int) -> List[Frame]:
-        """Return the frames with `padding` bytes of worker frame data."""
+    def frames(data_length: int) -> List[Frame]:
+        """Return the frames with `data_length` bytes of worker data."""
         return [
             verify_frame(gas_limit=verify_gas, state_gas_limit=0),
             default_frame(
                 target=worker,
                 gas_limit=worker_gas,
                 state_gas_limit=state_used,
-                data=bytes(padding),
+                data=bytes(data_length),
             ),
         ]
 
-    def execution_used(padding: int) -> int:
+    def execution_used(data_length: int) -> int:
         return (
             intrinsic_calculator(
-                frames=frames(padding),
+                frames=frames(data_length),
                 return_cost_deducted_prior_execution=True,
             )
             + verify_gas
             + worker_gas
         )
 
-    def floor_binds(padding: int) -> bool:
-        return floor_calculator(frames=frames(padding)) > execution_used(
-            padding
+    def floor_binds(data_length: int) -> bool:
+        return floor_calculator(frames=frames(data_length)) > execution_used(
+            data_length
         )
 
-    padding = floor_binding_padding(floor_binds)
+    data_length = floor_binding_padding(floor_binds)
     if not floor_bound:
-        padding -= 1
+        data_length -= 1
     gas_used = max(
-        execution_used(padding), floor_calculator(frames=frames(padding))
+        execution_used(data_length),
+        floor_calculator(frames=frames(data_length)),
     )
     tx = Transaction(
         sender=sender,
         nonce=1,
-        frames=frames(padding),
+        frames=frames(data_length),
         expected_receipt=TransactionReceipt(
             payer=sender, cumulative_gas_used=gas_used + state_used
         ),
