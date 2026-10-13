@@ -6,8 +6,10 @@ not included in the block, for
 [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethereum.org/EIPS/eip-7251).
 
 The relay contract measures, at runtime, the gas its call to the predeploy
-consumes and then forwards that measurement minus one to the request marked
-invalid, so the out-of-gas holds across forks without a hard-coded gas value.
+consumes and forwards one gas less than that to the request marked invalid,
+so that request runs out of gas on every fork without a hard-coded gas value.
+This is not the exact boundary: the SSTORE sentry needs more than the call
+stipend left, so the requirement is above the measured consumption.
 The coarse starvation cases still pass their limits per request via the
 interaction's `gas_limits` list.
 """
@@ -135,10 +137,6 @@ def test_consolidation_requests_out_of_gas(
     """
     Test that a consolidation request whose triggering call runs out of gas is
     not included, while the other requests in the block are.
-
-    The relay contract measures the gas the call consumes and forwards that
-    measurement minus one to the invalid request, so the out-of-gas holds
-    across forks without any hard-coded gas value.
     """
     blockchain_test(
         genesis_environment=Environment(),
