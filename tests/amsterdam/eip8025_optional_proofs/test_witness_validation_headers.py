@@ -29,6 +29,13 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
+def prepend_copy_of_parent(witness: ExecutionWitness) -> ExecutionWitness:
+    """Prepend a copy of the parent header, which links to no header."""
+    return witness.model_copy(
+        update={"headers": [witness.headers[-1], *witness.headers]}
+    )
+
+
 @pytest.mark.parametrize(
     "offset,modifier",
     [
@@ -39,6 +46,12 @@ REFERENCE_SPEC_VERSION = ref_spec_8025.version
             id="missing_oldest_blockhash_ancestor",
         ),
         pytest.param(5, reverse_headers(), id="non_contiguous_chain"),
+        pytest.param(5, remove_header_at(2), id="gap_in_chain"),
+        pytest.param(
+            5,
+            prepend_copy_of_parent,
+            id="unlinked_header_prepended",
+        ),
         pytest.param(
             5,
             replace_header_at(-1, Bytes(b"\xff")),
