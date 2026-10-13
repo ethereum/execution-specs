@@ -309,32 +309,29 @@ class BesuExceptionMapper(ExceptionMapper):
     mapping_substring: ClassVar[Dict[ExceptionBase, str]] = {
         TransactionException.NONCE_IS_MAX: "invalid Nonce must be less than",
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
-            "transaction invalid tx max fee per blob gas less than "
-            "block blob gas fee"
+            "tx max fee per blob gas less than block blob gas fee"
         ),
         TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
             "invalid Upfront gas cost cannot exceed 2^256 Wei"
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
-            "transaction invalid gasPrice is less than the current BaseFee"
+            "gasPrice is less than the current BaseFee"
         ),
         BlockException.GAS_USED_OVERFLOW: "provided gas insufficient",
         TransactionException.GAS_ALLOWANCE_EXCEEDED: (
             "provided gas insufficient"
         ),
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
-            "transaction invalid max priority fee per gas cannot be greater "
-            "than max fee per gas"
+            "max priority fee per gas cannot be greater than max fee per gas"
         ),
         TransactionException.INVALID_CHAINID: (
-            "transaction invalid transaction was meant for chain id"
+            "transaction was meant for chain id"
         ),
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
             "Invalid versionedHash"
         ),
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
-            "transaction invalid transaction blob transactions must have "
-            "a to address"
+            "transaction blob transactions must have a to address"
         ),
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: (
             "Failed to decode transactions from block parameter"
@@ -346,15 +343,14 @@ class BesuExceptionMapper(ExceptionMapper):
             "Transaction type BLOB is invalid, accepted transaction types are"
         ),
         TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
-            "transaction invalid transaction code delegation transactions "
+            "transaction code delegation transactions "
             "must have a non-empty code delegation list"
         ),
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
-            "transaction invalid transaction code delegation transactions "
-            "must have a to address"
+            "transaction code delegation transactions must have a to address"
         ),
         TransactionException.TYPE_4_TX_PRE_FORK: (
-            "transaction invalid Transaction type DELEGATE_CODE is invalid"
+            "Transaction type DELEGATE_CODE is invalid"
         ),
         BlockException.RLP_STRUCTURES_ENCODING: (
             "Failed to decode transactions from block parameter"
@@ -419,47 +415,47 @@ class BesuExceptionMapper(ExceptionMapper):
             r"Block size of \d+ bytes exceeds limit of \d+ bytes"
         ),
         TransactionException.INITCODE_SIZE_EXCEEDED: (
-            r"transaction invalid Initcode size of \d+ exceeds "
+            r"(?:transaction invalid )?Initcode size of \d+ exceeds "
             r"maximum size of \d+"
         ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             # Besu PR 11272 renamed `up-front cost` to `up-front gas cost`
             # and split the value transfer off into its own check.
-            r"transaction invalid transaction up-front (?:gas )?cost "
+            r"(?:transaction invalid )?transaction up-front (?:gas )?cost "
             r"0x[0-9a-f]+ exceeds transaction sender account balance "
             r"0x[0-9a-f]+"
-            r"|transaction invalid transfer value 0x[0-9a-f]+ exceeds "
+            r"|(?:transaction invalid )?transfer value 0x[0-9a-f]+ exceeds "
             r"transaction sender account balance 0x[0-9a-f]+"
         ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
-            r"transaction invalid intrinsic gas cost \d+"
+            r"(?:transaction invalid )?intrinsic gas cost \d+"
             r"(?: \(regular \d+ \+ state \d+\))? "
             r"exceeds gas limit \d+"
         ),
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
-            r"transaction invalid intrinsic gas cost \d+"
+            r"(?:transaction invalid )?intrinsic gas cost \d+"
             r"(?: \(regular \d+ \+ state \d+\))? "
             r"exceeds gas limit \d+"
         ),
         TransactionException.SENDER_NOT_EOA: (
-            r"transaction invalid Sender 0x[0-9a-f]+ has deployed code "
+            r"(?:transaction invalid )?Sender 0x[0-9a-f]+ has deployed code "
             r"and so is not authorized to send transactions"
         ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: (
-            r"transaction invalid transaction nonce \d+ "
+            r"(?:transaction invalid )?transaction nonce \d+ "
             r"below sender account nonce \d+"
         ),
         TransactionException.NONCE_MISMATCH_TOO_HIGH: (
-            r"transaction invalid transaction nonce \d+ "
+            r"(?:transaction invalid )?transaction nonce \d+ "
             r"does not match sender account nonce \d+"
         ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
-            r"transaction invalid Transaction gas limit "
+            r"(?:transaction invalid )?Transaction gas limit "
             r"must be at most \d+"
         ),
         TransactionException.INVALID_SIGNATURE_VRS: (
             r"Failed to decode transactions from block parameter|"
-            r"transaction invalid Signature s value should be less "
+            r"(?:transaction invalid )?Signature s value should be less "
             r"than \d+, but got \d+|"
             # In-range r that is not an x-coordinate on the curve.
             r"Cannot recover public key from signature"
