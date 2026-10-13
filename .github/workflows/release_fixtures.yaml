@@ -191,22 +191,27 @@ jobs:
           # the release instead of silently dropping that fork range.
           # Re-run the failed job to retry.
           SPLIT_DIRS=()
+          DOWNLOADS=()
           for label in $COMBINE_LABELS; do
             dir="split_artifacts/fixtures__${label}"
             echo "Downloading: fixtures__${label}"
-            gh run download ${{ github.run_id }} -n "fixtures__${label}" --dir "$dir"
+            gh run download ${{ github.run_id }} -n "fixtures__${label}" --dir "$dir" &
+            DOWNLOADS+=($!)
             SPLIT_DIRS+=("$dir")
+          done
+          # The splits download in parallel: fail if any of them failed.
+          for pid in "${DOWNLOADS[@]}"; do
+            wait "$pid"
           done
           # Fails on a split without an index.
           uv run python .github/scripts/merge_index_files.py combined/.meta/index.json "${SPLIT_DIRS[@]}"
           for dir in "${SPLIT_DIRS[@]}"; do
             # `.meta` is excluded: the merged index replaces the split ones.
-            find "$dir" -mindepth 1 -maxdepth 1 ! -name .meta -exec cp -r {} combined/ \;
+            # Hard links rather than copies: the splits are not used again.
+            find "$dir" -mindepth 1 -maxdepth 1 ! -name .meta -exec cp -al {} combined/ \;
           done
           echo "Combined directory contents:"
           find combined -maxdepth 3 -type d | head -30 || true
-      - name: Free disk space
-        run: rm -rf split_artifacts/
       - name: Create release tarball
         id: tarball
         shell: bash
