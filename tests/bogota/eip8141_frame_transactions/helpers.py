@@ -1,10 +1,32 @@
 """Helpers for EIP-8141 frame transaction tests."""
 
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
 from execution_testing import Fork, Frame
 
 from .spec import Spec
+
+MAX_FLOOR_PADDING = 1 << 16
+"""Upper bound of the floor-binding padding search, far above any case."""
+
+
+def floor_binding_padding(floor_binds: Callable[[int], bool]) -> int:
+    """
+    Return the fewest bytes of frame data for which `floor_binds` holds.
+
+    With that padding the calldata floor binds by the smallest margin the
+    data allows, and one byte less leaves it unbound, so a client that
+    miscounts the charged data by a single byte charges the wrong side.
+    """
+    low, high = 0, MAX_FLOOR_PADDING
+    assert not floor_binds(low) and floor_binds(high)
+    while high - low > 1:
+        middle = (low + high) // 2
+        if floor_binds(middle):
+            high = middle
+        else:
+            low = middle
+    return high
 
 
 def default_code_frame_gas(fork: Fork, *, target_warm: bool) -> int:
