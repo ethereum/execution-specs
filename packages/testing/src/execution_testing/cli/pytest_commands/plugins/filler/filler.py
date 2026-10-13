@@ -1610,7 +1610,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         nonlocal init_current_test
         spec_called = False
 
-        def init_wrapper(self: Any, *args: Any, **kwargs: Any) -> None:
+        def init_wrapper(
+            self: BaseTestWrapper, *args: Any, **kwargs: Any
+        ) -> None:
             # Every call writes its fixture under the same test ID, so a
             # second call would silently replace the first.
             nonlocal spec_called
