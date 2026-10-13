@@ -54,6 +54,9 @@ TRANSFER_TOPIC = Hash(keccak256(b"Transfer(address,address,uint256)"))
 TRANSFER_VALUE = 10**15
 """Value the frame under test transfers."""
 
+IDENTITY = Address(0x04)
+"""The `IDENTITY` precompile, a delegate that is always warm."""
+
 
 def transfer_log(
     sender: Address, recipient: Address, amount: int
@@ -168,17 +171,18 @@ def test_value_transfer(
 
 
 @pytest.mark.parametrize(
-    "recipient_delegated",
+    "delegate_kind",
     [
-        pytest.param(False, id="recipient_eoa"),
-        pytest.param(True, id="recipient_delegated_eoa"),
+        pytest.param("none", id="recipient_eoa"),
+        pytest.param("contract", id="recipient_delegated_to_contract"),
+        pytest.param("precompile", id="recipient_delegated_to_precompile"),
     ],
 )
 def test_value_transfer_exceeding_balance(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    recipient_delegated: bool,
+    delegate_kind: str,
 ) -> None:
     """
     Transfer more value than the sender holds, with a sponsor paying.
@@ -187,17 +191,24 @@ def test_value_transfer_exceeding_balance(
     the reverting frame's receipt reports that access rather than
     nothing. A delegated recipient's designation is resolved only when
     the frame is dispatched, after the balance check, so the failed
-    frame neither pays for nor reads the delegate. A sponsor pays the
+    frame neither pays for nor reads the delegate. A precompile delegate
+    is always warm, so reading it would show only in the block access
+    list. A sponsor pays the
     gas, keeping the shortfall a property of the sender's balance
     alone, and a `SENDER` frame's failure leaves the transaction valid.
     """
     sender = pre.fund_eoa(amount=TRANSFER_VALUE)
     payer = pre.fund_eoa()
-    if recipient_delegated:
+    delegate: Address | None
+    if delegate_kind == "none":
+        delegate = None
+    elif delegate_kind == "contract":
         delegate = pre.deploy_contract(code=Op.STOP)
-        recipient = pre.fund_eoa(amount=1, delegation=delegate)
+    elif delegate_kind == "precompile":
+        delegate = IDENTITY
     else:
-        recipient = pre.fund_eoa(amount=1)
+        raise ValueError(f"unknown delegate kind {delegate_kind!r}")
+    recipient = pre.fund_eoa(amount=1, delegation=delegate)
 
     tx = Transaction(
         sender=sender,
@@ -242,7 +253,7 @@ def test_value_transfer_exceeding_balance(
     bal_accounts: Dict[Address, BalAccountExpectation | None] = {
         recipient: BalAccountExpectation.empty()
     }
-    if recipient_delegated:
+    if delegate is not None:
         bal_accounts[delegate] = None
     state_test(
         pre=pre,
