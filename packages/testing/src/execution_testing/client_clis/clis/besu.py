@@ -66,8 +66,6 @@ class BesuEvmTool(EthereumCLI):
                 stderr=subprocess.PIPE,
                 text=True,
             )
-        except subprocess.CalledProcessError as e:
-            raise Exception("Command failed with non-zero status.") from e
         except Exception as e:
             raise Exception("Unexpected exception calling evmtool.") from e
 
@@ -134,11 +132,13 @@ class BesuTransitionTool(TransitionTool):
         )
         args = [str(self.binary), "t8n", "--help"]
         try:
-            result = subprocess.run(args, capture_output=True, text=True)
+            result = subprocess.run(
+                args, capture_output=True, text=True, check=True
+            )
         except subprocess.CalledProcessError as e:
             raise Exception(
                 "evm process unexpectedly returned a non-zero status "
-                f"code: {e}."
+                f"code: {e}. Stderr: {e.stderr}"
             ) from e
         except Exception as e:
             raise Exception(
