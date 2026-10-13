@@ -286,6 +286,14 @@ def test_valid_multi_inf(
             Spec.INF_G1 + Spec.P2_NOT_IN_SUBGROUP,
             id="p2_not_in_subgroup",
         ),
+        pytest.param(
+            Spec.G1 + Spec.G2 + Spec.P1_NOT_IN_SUBGROUP + Spec.G2,
+            id="p1_not_in_subgroup_pos_1",
+        ),
+        pytest.param(
+            Spec.G1 + Spec.G2 + Spec.G1 + Spec.P2_NOT_IN_SUBGROUP,
+            id="p2_not_in_subgroup_pos_1",
+        ),
         # Points not in the subgroup or not on the curve randomly generated.
         pytest.param(
             G1_POINTS_NOT_ON_CURVE[0] + Spec.INF_G2,

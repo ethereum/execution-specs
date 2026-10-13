@@ -85,6 +85,15 @@ pytestmark = [
             None,
             id="multiple_points_zero_scalar",
         ),
+        pytest.param(  # Scalar above Q with bit 255 set on the multi-pair path
+            Spec.G1
+            + Scalar(2**256 - 1)
+            + Spec.G1
+            + Scalar(Spec.Q - (2**256 - 1) % Spec.Q),
+            Spec.INF_G1,
+            None,
+            id="max_scalar_sum_to_identity",
+        ),
         # Cases with maximum discount table (test vector for gas cost
         # calculation)
         pytest.param(
@@ -224,6 +233,13 @@ def test_valid(
             + PointG1(Spec.P1.x, Spec.P1.y + Spec.P)
             + Scalar(0),
             id="y_above_p_pos_1",
+        ),
+        pytest.param(
+            Spec.G1
+            + Scalar(1)
+            + PointG1(Spec.P1.x | Spec.MAX_FP_BIT_SET, Spec.P1.y)
+            + Scalar(0),
+            id="non_zero_byte_16_boundary_violation_x_pos_1",
         ),
         # BLS serialization flag byte in coordinate: values >= p whose first
         # coordinate byte has BLS flag bits set. Implementations that parse
