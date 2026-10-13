@@ -51,18 +51,18 @@ def word(address: Address) -> Hash:
 
 def call_with(
     target: Address | Bytecode,
-    source: Address | Bytecode | None = None,
+    call_arg: Address | Bytecode | None = None,
     *,
     call_opcode: Op = Op.CALL,
     **kwargs: Any,
 ) -> Bytecode:
     """
-    Call `target` with `source` as its only calldata word, leaving the
-    call result on the stack.
+    Call `target` with `call_arg` as its only calldata word, written to
+    memory 0, leaving the call result on the stack.
     """
-    if source is None:
+    if call_arg is None:
         return call_opcode(address=target, **kwargs)
-    return Op.MSTORE(0, source) + call_opcode(
+    return Op.MSTORE(0, call_arg) + call_opcode(
         address=target, args_size=32, **kwargs
     )
 
