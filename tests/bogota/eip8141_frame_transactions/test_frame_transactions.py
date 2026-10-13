@@ -654,3 +654,104 @@ def test_refused_approval_reverts_only_its_call_frame(
             ),
         },
     )
+
+
+REFUSED_RETURN_DATA_SIZE = 1024
+"""Size of the return-data region a refused `APPROVE` expands memory to."""
+
+
+@pytest.mark.parametrize(
+    "call_opcode,scope",
+    [
+        pytest.param(Op.CALL, Spec.APPROVE_PAYMENT, id="caller_not_target"),
+        pytest.param(
+            Op.DELEGATECALL, Spec.ATOMIC_BATCH_FLAG, id="scope_beyond_mask"
+        ),
+        pytest.param(
+            Op.DELEGATECALL, Spec.APPROVE_EXECUTION, id="scope_not_allowed"
+        ),
+        pytest.param(
+            Op.DELEGATECALL, Spec.APPROVE_PAYMENT, id="payer_already_set"
+        ),
+    ],
+)
+def test_refused_approval_charges_memory_expansion(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    call_opcode: Op,
+    scope: int,
+) -> None:
+    """
+    A refused `APPROVE` still pays the memory expansion of its
+    return-data region: the expansion is the instruction's gas cost,
+    charged before any of the checks that refuse it.
+
+    The frame allows only payment approval and the sender has already
+    approved payment, so each case fails one check: `CALL` runs the
+    inner code at its own address rather than the frame's target, and
+    `DELEGATECALL` keeps the target's address but asks for a scope
+    outside the approval mask, outside the frame's flags, or already
+    granted.
+    """
+    sender = pre.fund_eoa()
+
+    inner_code = Op.APPROVE(
+        0,
+        REFUSED_RETURN_DATA_SIZE,
+        scope,
+        new_memory_size=REFUSED_RETURN_DATA_SIZE,
+    )
+    inner = pre.deploy_contract(code=inner_code)
+    target_code = Op.SSTORE(
+        SLOT_CALL_OUTCOME,
+        call_opcode(gas=Op.GAS, address=inner),
+        new_value=0,
+    ) + Op.SSTORE(SLOT_EXECUTED, 1)
+    target = pre.deploy_contract(code=target_code)
+
+    frame_gas = (
+        fork.frame_entry_gas_calculator()()
+        + target_code.execution_cost(fork)
+        + inner_code.execution_cost(fork)
+    )
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            Frame(
+                mode=Spec.MODE_VERIFY,
+                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
+            ),
+            Frame(
+                mode=Spec.MODE_DEFAULT,
+                flags=Spec.APPROVE_PAYMENT,
+                target=target,
+            ),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=frame_gas,
+                    state_gas_used=Op.SSTORE(SLOT_EXECUTED, 1).state_cost(
+                        fork
+                    ),
+                ),
+            ],
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            target: Account(storage={SLOT_CALL_OUTCOME: 0, SLOT_EXECUTED: 1}),
+        },
+    )
