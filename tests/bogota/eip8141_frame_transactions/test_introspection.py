@@ -27,6 +27,8 @@ from execution_testing import (
     Transaction,
 )
 
+from ..eip8250_keyed_nonces.helpers import keyed_nonce_first_use
+from ..eip8250_keyed_nonces.spec import Spec as Spec8250
 from .helpers import verify_frame
 from .spec import Spec, ref_spec_8141
 
@@ -121,38 +123,81 @@ def test_txparam(
     )
 
 
+@pytest.mark.parametrize(
+    "nonce_keys",
+    [
+        pytest.param([0], id="legacy_key_set"),
+        pytest.param(
+            list(range(1, Spec8250.MAX_NONCE_KEYS + 1)), id="max_key_set"
+        ),
+    ],
+)
 def test_txparam_max_cost(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
+    nonce_keys: List[int],
 ) -> None:
     """
-    Check `TXPARAM`'s max cost selector against the payer's escrow.
+    Check `TXPARAM`'s max cost selector against the payer's escrow and
+    the transaction's maximum gas.
 
     The maximum cost is charged to the payer in full when payment is
     approved and the surplus is only refunded at settlement, so during
     frame execution the sender's balance is short of its funding by
-    exactly the value the selector reports.
+    exactly the value the selector reports. That value is the maximum
+    gas, any EIP-8250 keyed nonce access cost included, times the fee
+    cap.
     """
     sender_funds = 10**18
     sender = pre.fund_eoa(amount=sender_funds)
     probe = pre.deploy_contract(
-        code=Op.SSTORE(
-            SLOT_RESULT,
-            Op.EQ(
-                Op.TXPARAM(Spec.TXPARAM_MAX_COST),
-                Op.SUB(
-                    sender_funds,
-                    Op.BALANCE(Op.TXPARAM(Spec.TXPARAM_SENDER)),
-                ),
-            ),
+        code=Op.SSTORE(SLOT_RESULT, Op.TXPARAM(Spec.TXPARAM_MAX_COST))
+        + Op.SSTORE(
+            SLOT_RESULT + 1,
+            Op.SUB(sender_funds, Op.BALANCE(Op.TXPARAM(Spec.TXPARAM_SENDER))),
         )
         + Op.STOP
     )
+    keyed = [key for key in nonce_keys if key != 0]
+    if keyed:
+        verify = verify_frame(
+            state_gas_limit=len(keyed) * keyed_nonce_first_use(fork)
+        )
+    else:
+        verify = verify_frame()
+    tx = Transaction(
+        sender=sender,
+        max_priority_fee_per_gas=MAX_PRIORITY_FEE,
+        max_fee_per_gas=MAX_FEE,
+        nonce_keys=nonce_keys,
+        frames=[
+            verify,
+            Frame(
+                mode=Spec.MODE_DEFAULT,
+                target=probe,
+                gas_limit=PROBE_FRAME_GAS,
+                state_gas_limit=PROBE_FRAME_STATE_GAS,
+                data=PROBE_FRAME_DATA,
+            ),
+        ],
+    )
+    # Materialize the signature bytes the maximum gas charges for.
+    tx.sign()
+    assert tx.frames is not None and tx.signatures is not None
+    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=tx.frames, signatures=tx.signatures, nonce_keys=nonce_keys
+    )
+    max_cost = max_gas * MAX_FEE
 
     state_test(
         pre=pre,
-        tx=probe_transaction(sender, probe),
-        post={probe: Account(storage={SLOT_RESULT: 1})},
+        tx=tx,
+        post={
+            probe: Account(
+                storage={SLOT_RESULT: max_cost, SLOT_RESULT + 1: max_cost}
+            )
+        },
     )
 
 
