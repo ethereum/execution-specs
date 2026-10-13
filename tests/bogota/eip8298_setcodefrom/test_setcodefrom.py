@@ -16,6 +16,8 @@ from execution_testing import (
     Bytes,
     Conditional,
     EIPChecklist,
+    Fork,
+    GasConsumer,
     Hash,
     Initcode,
     Op,
@@ -765,20 +767,39 @@ def test_revert_after_adopt(
     )
 
 
+@pytest.mark.parametrize("ending", ["revert", "invalid", "out_of_gas"])
 def test_parent_revert(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
+    ending: str,
 ) -> None:
-    """Verify a parent frame's revert discards its callee's adoption."""
+    """
+    Verify a parent frame's revert or exceptional halt discards its
+    callee's adoption.
+    """
     template = pre.deploy_contract(SSTORE_MARKER_A)
     shell = pre.deploy_contract(
         ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
     )
-    parent = pre.deploy_contract(
-        Op.POP(call_with(shell, template))
-        + Op.MSTORE(0, Op.EXTCODEHASH(shell))
-        + Op.REVERT(0, 32)
-    )
+    adopt = Op.POP(call_with(shell, template))
+    if ending == "revert":
+        parent_code = (
+            adopt + Op.MSTORE(0, Op.EXTCODEHASH(shell)) + Op.REVERT(0, 32)
+        )
+        returned = SSTORE_MARKER_A.keccak256()
+    elif ending == "invalid":
+        parent_code = adopt + Op.INVALID
+        returned = Hash(0)
+    elif ending == "out_of_gas":
+        # `call_with` has already expanded the memory to one word.
+        parent_code = adopt + GasConsumer.out_of_gas(
+            fork, previous_memory_size=32
+        )
+        returned = Hash(0)
+    else:
+        raise ValueError(f"Unknown ending: {ending}")
+    parent = pre.deploy_contract(parent_code)
     wrapper = pre.deploy_contract(
         Op.SSTORE(RESULT_SLOT, call_with(parent, ret_size=32))
         + Op.SSTORE(1, Op.MLOAD(0))
@@ -788,9 +809,7 @@ def test_parent_revert(
     )
     tx = Transaction(sender=pre.fund_eoa(), to=wrapper)
     post = {
-        wrapper: Account(
-            storage={RESULT_SLOT: 0, 1: SSTORE_MARKER_A.keccak256()}
-        ),
+        wrapper: Account(storage={RESULT_SLOT: 0, 1: returned}),
         # The post-revert call ran the original code.
         shell: Account(code=ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: 0}),
     }
