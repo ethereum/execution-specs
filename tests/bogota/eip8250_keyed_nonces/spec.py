@@ -32,10 +32,6 @@ class Spec:
     MAX_NONCE_KEYS = 16
     MAX_NONCE_SEQ = 2**64 - 1
 
-    # EIP-8038's `COLD_STORAGE_ACCESS + STORAGE_WRITE`, charged per
-    # non-zero key in the intrinsic cost and the calldata floor.
-    KEYED_NONCE_ACCESS_COST = 2_100 + 10_000
-
     # `0x11` is the first selector after the four this EIP adds.
     TXPARAM_NONCE_SEQ = 0x01
     TXPARAM_LEGACY_NONCE = 0x0D
