@@ -39,9 +39,9 @@ def gas_used_cases(fork: Fork) -> List[ParameterSet]:
         pytest.param(gas_target, id="at_target"),
         pytest.param(gas_target + 1, id="target_plus_one"),
         pytest.param(BLOCK_GAS_LIMIT, id="full"),
-        # At the first larger rise after a full block (20 wei at 5/48) these
-        # differ from a single division by the combined denominator, which
-        # flooring once more would round up.
+        # At `first_larger_rise_after_full_block` these differ from a single
+        # division by the combined denominator, which flooring once more
+        # would round up.
         pytest.param(100_000, id="near_empty"),
         pytest.param(BLOCK_GAS_LIMIT - 100_000, id="near_full"),
     ]
