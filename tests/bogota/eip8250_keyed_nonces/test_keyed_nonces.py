@@ -1081,6 +1081,55 @@ def test_payer_max_cost_counts_keyed_nonce_access(
     )
 
 
+def test_txparam_max_cost_counts_keyed_nonce_access(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Read `TXPARAM`'s max cost for the maximum key set as the maximum gas,
+    its `KEYED_NONCE_ACCESS_COST` included, times the fee cap.
+    """
+    nonce_keys = list(range(1, Spec.MAX_NONCE_KEYS + 1))
+    fee_per_gas = 10**9
+    # A contract sender carries no signature entries, so the calculator
+    # prices the maximum gas exactly.
+    sender = pre.deploy_contract(
+        code=Op.APPROVE(0, 0, Spec8141.APPROVE_EXECUTION_AND_PAYMENT),
+        balance=10**18,
+    )
+    probe_store = Op.SSTORE(SLOT_RESULT, Op.TXPARAM(Spec8141.TXPARAM_MAX_COST))
+    probe_frame = default_frame(
+        target=pre.deploy_contract(code=probe_store),
+        state_gas_limit=probe_store.state_cost(fork),
+    )
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(
+                state_gas_limit=len(nonce_keys) * keyed_nonce_first_use(fork)
+            ),
+            probe_frame,
+        ],
+        nonce_keys=nonce_keys,
+        nonce=0,
+        max_fee_per_gas=fee_per_gas,
+    )
+    assert tx.frames is not None
+    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=tx.frames, nonce_keys=nonce_keys, nonce_seq=tx.nonce
+    )
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            probe_frame.target: Account(
+                storage={SLOT_RESULT: max_gas * fee_per_gas}
+            )
+        },
+    )
+
+
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.parametrize(
     "nonce_keys,nonce_seq",
