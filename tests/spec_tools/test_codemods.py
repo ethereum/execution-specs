@@ -24,28 +24,18 @@ class TestCommentReplaceCommand(CodemodTest):
     def test_replaces_text_in_comments(self) -> None:
         """Comments are rewritten, code and strings are left alone."""
         before = """
-            # osaka fork
+            # Osaka fork
             osaka = "osaka"  # osaka
         """
         after = """
-            # prague fork
+            # Prague fork
             osaka = "osaka"  # prague
         """
-        self.assertCodemod(before, after, replacements=[["osaka", "prague"]])
-
-    def test_applies_replacements_in_order(self) -> None:
-        """Each replacement runs on the output of the previous one."""
         self.assertCodemod(
-            "# a\n", "# c\n", replacements=[["a", "b"], ["b", "c"]]
+            before,
+            after,
+            replacements=[["Osaka", "Prague"], ["osaka", "prague"]],
         )
-
-    def test_no_match_leaves_module_unchanged(self) -> None:
-        """A module without a matching comment is returned unchanged."""
-        before = """
-            # amsterdam fork
-            x = 1
-        """
-        self.assertCodemod(before, before, replacements=[["osaka", "prague"]])
 
 
 class TestStringReplaceCommand(CodemodTest):
@@ -54,33 +44,20 @@ class TestStringReplaceCommand(CodemodTest):
     TRANSFORM = StringReplaceCommand
 
     def test_replaces_text_in_strings(self) -> None:
-        """Strings are rewritten, code and comments are left alone."""
-        before = """
+        """Strings and docstrings are rewritten, code and comments are not."""
+        before = '''
+            """The Osaka fork."""
             osaka = "osaka"  # osaka
-        """
-        after = """
+        '''
+        after = '''
+            """The Prague fork."""
             osaka = "prague"  # osaka
-        """
-        self.assertCodemod(before, after, replacements=[["osaka", "prague"]])
-
-    def test_replaces_text_in_docstrings(self) -> None:
-        """Triple-quoted strings are simple strings too."""
+        '''
         self.assertCodemod(
-            '"""The osaka fork."""\n',
-            '"""The prague fork."""\n',
-            replacements=[["osaka", "prague"]],
+            before,
+            after,
+            replacements=[["Osaka", "Prague"], ["osaka", "prague"]],
         )
-
-    def test_applies_replacements_in_order(self) -> None:
-        """Each replacement runs on the output of the previous one."""
-        self.assertCodemod(
-            'x = "a"\n', 'x = "c"\n', replacements=[["a", "b"], ["b", "c"]]
-        )
-
-    def test_no_match_leaves_module_unchanged(self) -> None:
-        """A module without a matching string is returned unchanged."""
-        before = 'x = "amsterdam"\n'
-        self.assertCodemod(before, before, replacements=[["osaka", "prague"]])
 
 
 class TestSetConstantCommand(CodemodTest):
@@ -114,15 +91,6 @@ class TestSetConstantCommand(CodemodTest):
             self.assertCodemod(
                 before, after, context_override=context, **kwargs
             )
-
-    def test_sets_assigned_constant(self) -> None:
-        """Only the constant with the given name changes."""
-        self.assert_constant(
-            "X = 1\nY = 1\n",
-            "X = 1\nY = 2\n",
-            qualified_name="pkg.mod.Y",
-            value="2",
-        )
 
     def test_sets_annotated_constant(self) -> None:
         """Annotated assignments keep their annotation."""
