@@ -9,6 +9,7 @@ from execution_testing import (
     Fork,
     GasConsumer,
     Header,
+    RecipientType,
     Transaction,
 )
 
@@ -131,21 +132,35 @@ def test_pending_il_appendability_above_tx_gas_cap(
     A pending IL tx with a gas limit above the transaction gas cap fits only
     if the capped amount fits the remaining execution gas and the full gas
     limit fits the remaining state gas.
-
-    The block body burns execution gas only, so the two rooms differ by the
-    gas it burned and each scenario puts the pending tx at one room's edge.
     """
     tx_gas_cap = fork.transaction_gas_limit_cap()
     assert tx_gas_cap is not None
-    # Any execution-only burn separates the two rooms.
     burn_gas = 1_000_000
     burn_tx = Transaction(
         sender=pre.fund_eoa(),
         to=pre.deploy_contract(GasConsumer.out_of_gas(fork)),
         gas_limit=burn_gas,
     )
-    # The execution room left after the burn is exactly the cap.
-    block_gas_limit = tx_gas_cap + burn_gas
+    # Creating an account spends state gas, so each room is measured from
+    # its own dimension's gas used.
+    new_account_execution_gas = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True
+    )
+    new_account_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True, recipient_type=RecipientType.EMPTY_ACCOUNT
+    )
+    new_account_tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=pre.nonexistent_account(),
+        value=1,
+        gas_limit=new_account_execution_gas + new_account_state_gas,
+    )
+    execution_gas_used = burn_gas + new_account_execution_gas
+    state_gas_used = new_account_state_gas
+    # The rooms must differ for the pending tx to sit at one edge only.
+    assert execution_gas_used > state_gas_used
+    # The execution room left after the block's txs is exactly the cap.
+    block_gas_limit = tx_gas_cap + execution_gas_used
 
     match scenario:
         case "fits_execution_room":
@@ -156,10 +171,10 @@ def test_pending_il_appendability_above_tx_gas_cap(
             block_gas_limit -= 1
             expected_satisfied = True
         case "fits_state_room":
-            pending_gas_limit = block_gas_limit
+            pending_gas_limit = block_gas_limit - state_gas_used
             expected_satisfied = False
         case "one_over_state_room":
-            pending_gas_limit = block_gas_limit + 1
+            pending_gas_limit = block_gas_limit - state_gas_used + 1
             expected_satisfied = True
         case _:
             raise ValueError(f"unknown scenario: {scenario}")
@@ -176,10 +191,10 @@ def test_pending_il_appendability_above_tx_gas_cap(
         post={},
         blocks=[
             Block(
-                txs=[burn_tx],
+                txs=[burn_tx, new_account_tx],
                 inclusion_list_txs=[pending_tx],
                 expected_inclusion_list_satisfied=expected_satisfied,
-                header_verify=Header(gas_used=burn_gas),
+                header_verify=Header(gas_used=execution_gas_used),
             )
         ],
     )
