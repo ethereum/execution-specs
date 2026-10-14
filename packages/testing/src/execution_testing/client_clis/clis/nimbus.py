@@ -118,6 +118,11 @@ class NimbusExceptionMapper(ExceptionMapper):
         TransactionException.INITCODE_SIZE_EXCEEDED: (
             "max initcode size exceeded"
         ),
+        # Nimbus decodes a legacy v as a 64-bit integer, so a v past that
+        # fails decoding the payload.
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            "Failed to decode block in payload: integer out of bounds"
+        ),
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
             # TODO:
             "ExceededBlockSizeLimit: Exceeded block size limit"
