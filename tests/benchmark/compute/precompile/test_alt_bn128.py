@@ -19,6 +19,7 @@ from execution_testing import (
     While,
     WhileGas,
 )
+from py_ecc import bn128
 from py_ecc.bn128 import G1, G2, multiply
 from py_ecc.fields import bn128_FQ2
 
@@ -36,6 +37,37 @@ from tests.byzantium.eip197_ec_pairing.spec import (
 from tests.byzantium.eip197_ec_pairing.spec import (
     Spec as EIP197Spec,
 )
+
+# Well-formed points ECPAIRING must reject, one per failing check. The G2
+# point outside the subgroup is the first test_invalid_g2_subgroup input.
+G1_OFF_CURVE = PointG1(EIP197Spec.G1.x, EIP197Spec.G1.y + 1)
+G2_OFF_CURVE = PointG2(
+    EIP197Spec.G2.x, (EIP197Spec.G2.y[0], EIP197Spec.G2.y[1] + 1)
+)
+G2_NOT_IN_SUBGROUP = PointG2(
+    (0x0, 0x800),
+    (
+        0x104E75A20B641566A0C71C9069A5256391AA31E22021D36C037C108DFB79C662,
+        0x00BF257AE3D66A589214F980A2AE34F9544BE2FCBCC13B21F4C1642F31AA4D20,
+    ),
+)
+
+
+def _is_valid_point(point: PointG1 | PointG2) -> bool:
+    """Return whether a point is on the curve and in the subgroup."""
+    if isinstance(point, PointG1):
+        return bn128.is_on_curve(
+            (bn128.FQ(point.x), bn128.FQ(point.y)), bn128.b
+        )
+    # PointG2 stores each coordinate as (imaginary, real).
+    g2 = (
+        bn128.FQ2([point.x[1], point.x[0]]),
+        bn128.FQ2([point.y[1], point.y[0]]),
+    )
+    return (
+        bn128.is_on_curve(g2, bn128.b2)
+        and bn128.multiply(g2, bn128.curve_order) is None
+    )
 
 
 @pytest.mark.parametrize(
@@ -689,6 +721,59 @@ def test_alt_bn128_benchmark(
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,
+            tx_kwargs={"data": calldata},
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "invalid_point",
+    [
+        pytest.param(G1_OFF_CURVE, id="g1_off_curve"),
+        pytest.param(G2_OFF_CURVE, id="g2_off_curve"),
+        pytest.param(G2_NOT_IN_SUBGROUP, id="g2_not_in_subgroup"),
+    ],
+)
+@pytest.mark.parametrize("num_pairs", [1, 3, 6, 12, 24])
+def test_alt_bn128_pairing_invalid_last_pair(
+    benchmark_test: BenchmarkTestFiller,
+    fork: Fork,
+    num_pairs: int,
+    invalid_point: PointG1 | PointG2,
+) -> None:
+    """
+    Benchmark ECPAIRING calls that fail on their last pair.
+
+    A client that checks pairs in order validates every earlier one first.
+    A failing call consumes all the gas it is given, so each call is given
+    exactly its price.
+    """
+    assert not _is_valid_point(invalid_point)
+
+    if isinstance(invalid_point, PointG1):
+        invalid_pair = invalid_point + EIP197Spec.G2
+    else:
+        invalid_pair = EIP197Spec.G1 + invalid_point
+    calldata = Bytes(
+        _generate_bn128_pairs(num_pairs - 1, seed=42) + invalid_pair
+    )
+    gsc = fork.gas_costs()
+    precompile_cost = (
+        gsc.PRECOMPILE_ECPAIRING_BASE
+        + gsc.PRECOMPILE_ECPAIRING_PER_POINT * num_pairs
+    )
+
+    benchmark_test(
+        target_opcode=Precompile.BN128_PAIRING,
+        code_generator=JumpLoopGenerator(
+            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
+            attack_block=Op.POP(
+                Op.STATICCALL(
+                    gas=precompile_cost,
+                    address=EIP197Spec.ECPAIRING,
+                    args_size=Op.CALLDATASIZE,
+                ),
+            ),
             tx_kwargs={"data": calldata},
         ),
     )
