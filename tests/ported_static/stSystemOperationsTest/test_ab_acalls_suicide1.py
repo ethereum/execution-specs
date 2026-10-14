@@ -84,7 +84,7 @@ def test_ab_acalls_suicide1(
             key=Op.PC,
             value=Op.CALL(
                 gas=Op.CALLDATALOAD(offset=0x0),
-                address=contract_1,
+                address=Op.PUSH20[contract_1],
                 value=0x18,
                 args_offset=0x0,
                 args_size=0x20,
