@@ -189,6 +189,7 @@ def test_shared_lists_verify_and_replay_once(
             replay_environment, BlockOutput()
         )
     }
+    assert snapshot_indices(inputs, Uint(0)) == {Uint(0)}
     assert check_inclusion_list(replay_environment, (), inputs, snapshots)
     assert counts == {"signatures": 1, "replays": 1}
 
@@ -816,3 +817,39 @@ def test_deploy_prefix_must_install_sender_code(
     assert state.get_account_optional(Address(sender)) == sender_account
     assert env.state.account_writes == {}
     assert env.state.storage_writes == {}
+
+
+def test_unadmitted_claim_does_not_allocate_snapshot() -> None:
+    """Do not copy an insertion state for an over-budget candidate."""
+    envelopes = tuple(
+        sorted(
+            (
+                frame_envelope(sender=0x1000 + i, execution=2**18)
+                for i in range(5)
+            ),
+            key=lambda envelope: (keccak256(envelope), envelope),
+        )
+    )
+    inputs = inclusion_inputs(
+        envelopes,
+        claims=(OmissionClaim(keccak256(envelopes[-1]), U64(0)),),
+    )
+    assert len(inputs.admitted_candidates) == 4
+    assert snapshot_indices(inputs, Uint(2)) == {Uint(2)}
+
+
+def test_repeated_code_at_body_limit_does_not_consume_capacity() -> None:
+    """Allow a repeat at the body cap, then reject one new body."""
+    tx = decode_inclusion_transaction(frame_envelope())
+    assert isinstance(tx, FrameTransaction)
+    candidate = classify_frame_candidate(tx)
+    assert candidate is not None
+    trace = inclusion_list_frames.ValidationAccessTrace(candidate)
+    for index in range(MAX_REPLAY_CODE_BODIES):
+        trace.load_code(Bytes(bytes([index])))
+    trace.load_code(Bytes(bytes([MAX_REPLAY_CODE_BODIES - 1])))
+    assert len(trace.code_sizes) == MAX_REPLAY_CODE_BODIES
+    with pytest.raises(
+        inclusion_list_frames.InvalidFrameError, match="body count exceeded"
+    ):
+        trace.load_code(Bytes(bytes([MAX_REPLAY_CODE_BODIES])))

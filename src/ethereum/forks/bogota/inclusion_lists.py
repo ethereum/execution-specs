@@ -13,6 +13,7 @@ execution and state gas counters, and exclude post-execution operations.
 
 from collections import Counter
 from dataclasses import dataclass, replace
+from functools import cached_property
 from typing import Dict, Set, Tuple, final
 
 from ethereum_rlp import exceptions as rlp_exceptions
@@ -80,6 +81,11 @@ class InclusionListInputs:
         Tuple[Tuple[LegacyTransaction | Bytes, ...], ...] | None
     ) = None
     claims: Tuple[OmissionClaim, ...] = ()
+
+    @cached_property
+    def admitted_candidates(self) -> Dict[Bytes, FrameCandidate]:
+        """Reuse the static fill for snapshot selection and later replay."""
+        return admitted_frame_candidates(self)
 
     @property
     def all_transactions(self) -> Tuple[LegacyTransaction | Bytes, ...]:
@@ -173,27 +179,15 @@ def snapshot_indices(
     transaction_count: Uint,
     transactions: Tuple[LegacyTransaction | Bytes, ...] = (),
 ) -> Set[Uint]:
-    """Retain only states named by claims for omitted frame candidates."""
+    """Retain only states needed by omitted, admitted frame candidates."""
     indices = {transaction_count}
     if inputs.inclusion_lists is None:
         return indices
     claims = evaluation_indices(inputs, transaction_count)
     included = set(map(transaction_envelope, transactions))
-    for envelope in map(transaction_envelope, inputs.all_transactions):
-        if envelope in included:
-            continue
-        index = claims.get(keccak256(envelope), transaction_count)
-        if index in indices:
-            continue
-        try:
-            tx = decode_inclusion_transaction(envelope)
-            if (
-                isinstance(tx, FrameTransaction)
-                and classify_frame_candidate(tx) is not None
-            ):
-                indices.add(index)
-        except (EthereumException, rlp_exceptions.DecodingError):
-            continue
+    for envelope in inputs.admitted_candidates:
+        if envelope not in included:
+            indices.add(claims.get(keccak256(envelope), transaction_count))
     return indices
 
 
@@ -288,7 +282,7 @@ def check_inclusion_list(
     included = set(map(transaction_envelope, transactions))
     end = ulen(transactions)
     claims = evaluation_indices(inputs, end)
-    admitted = admitted_frame_candidates(inputs)
+    admitted = inputs.admitted_candidates
 
     for envelope in dict.fromkeys(
         map(transaction_envelope, inputs.all_transactions)

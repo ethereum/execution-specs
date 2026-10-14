@@ -1445,6 +1445,20 @@ class EngineRPC(BaseJwtRPC):
         ).result_or_raise()
         return [Bytes(tx) for tx in response]
 
+    def get_inclusion_list_verdict(
+        self, inclusion_check_id: Hash
+    ) -> bool | None:
+        """Query an existing inclusion check without resending its payload."""
+        response = self.post_request(
+            request=RPCCall(
+                method="getInclusionListVerdictV1",
+                params=[str(inclusion_check_id)],
+            )
+        ).result_or_raise()
+        if response is not None and not isinstance(response, bool):
+            raise ValueError("Invalid inclusion verdict")
+        return response
+
     def wait_for_inclusion_list(
         self,
         response: PayloadStatus,
@@ -1454,10 +1468,10 @@ class EngineRPC(BaseJwtRPC):
         wait_fixed: float = 1.0,
     ) -> PayloadStatus:
         """
-        Resolve a deferred verdict by resubmitting the exact original inputs.
+        Poll a deferred inclusion check through its identifier.
 
-        Return invalid execution responses without an inclusion verdict.
-        Raise on an inconsistent response or an exhausted polling budget.
+        Resubmit the original inputs only while execution is pending or to
+        recover an unknown check. Raise on inconsistent responses or timeout.
         """
         for attempt in range(max_attempts + 1):
             if response.status in (
@@ -1466,15 +1480,34 @@ class EngineRPC(BaseJwtRPC):
             ):
                 return response
             if response.status == PayloadStatusEnum.VALID:
+                if response.inclusion_check_id is None:
+                    raise ValueError("VALID response lacks inclusion check ID")
                 if response.inclusion_list_satisfied is not None:
                     return response
-            elif response.inclusion_list_satisfied is not None:
-                raise ValueError("Inclusion verdict precedes valid execution")
+            elif (
+                response.inclusion_list_satisfied is not None
+                or response.inclusion_check_id is not None
+            ):
+                raise ValueError("Inclusion result precedes valid execution")
             if attempt == max_attempts:
                 break
             if attempt:
                 time.sleep(wait_fixed)
-            response = self.new_payload(*params, version=version)
+            if response.inclusion_check_id is None:
+                response = self.new_payload(*params, version=version)
+                continue
+            try:
+                verdict = self.get_inclusion_list_verdict(
+                    response.inclusion_check_id
+                )
+            except JSONRPCError as error:
+                if error.code != -38007:
+                    raise
+                response = self.new_payload(*params, version=version)
+            else:
+                response = response.model_copy(
+                    update={"inclusion_list_satisfied": verdict}
+                )
         raise TimeoutError("Inclusion check remained pending")
 
     def new_payload_with_retry(
