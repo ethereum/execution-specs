@@ -31,3 +31,11 @@ class EIP7805(
     def inclusion_list_transactions_size_limit(cls) -> int | None:
         """A committee member's list carries at most 8 KiB of transactions."""
         return 8192
+
+    @classmethod
+    def inclusion_list_merged_transactions_size_limit(cls) -> int | None:
+        """The merged list holds one full list per IL committee member."""
+        inclusion_list_committee_size = 16  # INCLUSION_LIST_COMMITTEE_SIZE
+        list_limit = cls.inclusion_list_transactions_size_limit()
+        assert list_limit is not None
+        return inclusion_list_committee_size * list_limit

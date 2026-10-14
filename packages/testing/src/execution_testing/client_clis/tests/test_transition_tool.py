@@ -586,8 +586,8 @@ def test_an_opcode_count_accepts_every_name_geth_reports() -> None:
 
 
 def test_transition_tool_data_inclusion_list_transactions() -> None:
-    """Test that inclusion list txs are serialized into the transition env."""
-    il_tx = Transaction(gas_limit=21_000).with_signature_and_sender()
+    """Test that inclusion list entries are passed to the transition tool."""
+    il_tx = Transaction(gas_limit=21_000).with_signature_and_sender().rlp()
 
     transition_tool_data = TransitionTool.TransitionToolData(
         alloc=TEST_ALLOC,
