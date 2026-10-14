@@ -766,6 +766,7 @@ def test_block_with_pending_blob_il_tx_is_valid(
         pytest.param(0, "this_chain", id="legacy_this_chain"),
         pytest.param(0, "other_chain", id="legacy_other_chain"),
         pytest.param(0, "unprotected", id="legacy_unprotected"),
+        pytest.param(0, "chain_id_plus_2_64", id="legacy_chain_id_plus_2_64"),
         pytest.param(2, "this_chain", id="type_2_this_chain"),
         pytest.param(2, "other_chain", id="type_2_other_chain"),
     ],
@@ -780,14 +781,16 @@ def test_block_with_pending_blob_il_tx_is_valid(
 def test_pending_il_appendability_by_chain_id(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     chain_config: ChainConfig,
     tx_type: int,
     chain: str,
     appendable_tx_follows: bool,
 ) -> None:
     """
-    A pending IL tx signed for another chain is skipped, and the check goes
-    on to the entries after it. A legacy tx without a chain id counts.
+    A pending IL tx signed for another chain, or a legacy tx whose v encodes
+    a chain id too large for 64 bits, is skipped, and the check goes on to
+    the entries after it. A legacy tx without a chain id counts.
     """
     pending_tx = Transaction(
         ty=tx_type, sender=pre.fund_eoa(), to=pre.nonexistent_account()
@@ -802,6 +805,16 @@ def test_pending_il_appendability_by_chain_id(
         case "unprotected":
             pending_tx = pending_tx.copy(protected=False)
             entry_counts = True
+        case "chain_id_plus_2_64":
+            signed_tx = pending_tx.copy(
+                chain_id=chain_config.chain_id,
+                # Signing up front needs the final gas limit.
+                gas_limit=fork.transaction_intrinsic_cost_calculator()(),
+            ).with_signature_and_sender()
+            # EIP-155: v = 35 + 2 * chain_id + parity. The chain id's low 64
+            # bits are still this chain's, so truncating it counts the entry.
+            pending_tx = signed_tx.copy(v=signed_tx.v + 2 * 2**64)
+            entry_counts = False
         case _:
             raise ValueError(f"unknown chain: {chain}")
 
