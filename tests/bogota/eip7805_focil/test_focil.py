@@ -221,8 +221,11 @@ def transfer_of_size(pre: Alloc, fork: Fork, size: int) -> Transaction:
     sender = pre.fund_eoa()
     recipient = pre.nonexistent_account()
     calldata_size = size
-    while True:
-        calldata = b"\x01" * calldata_size
+    # Re-signing can shorten r or s by a leading zero byte, which can leave
+    # the length search one byte either side of `size` for good, so a miss
+    # also changes the calldata byte to draw a new signature.
+    for calldata_byte in range(1, 256):
+        calldata = bytes([calldata_byte]) * calldata_size
         tx = Transaction(
             sender=sender,
             nonce=0,
@@ -236,6 +239,7 @@ def transfer_of_size(pre: Alloc, fork: Fork, size: int) -> Transaction:
         if encoded_size == size:
             return tx
         calldata_size += size - encoded_size
+    raise AssertionError(f"no transfer encodes to {size} bytes")
 
 
 @pytest.mark.parametrize("merged_lists", ["two_lists", "merged_list_limit"])
