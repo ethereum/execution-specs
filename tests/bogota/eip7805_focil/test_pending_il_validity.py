@@ -693,53 +693,112 @@ def test_unsatisfied_with_typed_pending_il_tx(
     )
 
 
+@pytest.mark.parametrize(
+    "blob_tx_in_block", [False, True], ids=["omitted", "included"]
+)
+@pytest.mark.parametrize(
+    "appendable_tx_follows",
+    [
+        pytest.param(False, id="alone"),
+        pytest.param(True, id="before_appendable_tx"),
+    ],
+)
 def test_block_with_pending_blob_il_tx_is_valid(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
+    blob_tx_in_block: bool,
+    appendable_tx_follows: bool,
 ) -> None:
     """
     The IL check skips blob transactions, so a payload that leaves out an
-    otherwise appendable one stays satisfied.
+    otherwise appendable one stays satisfied, and the check goes on to the
+    entries after it.
     """
-    sender = pre.fund_eoa()
-    recipient = pre.nonexistent_account()
     blob_tx = Transaction(
-        sender=sender,
-        to=recipient,
+        sender=pre.fund_eoa(),
+        to=pre.nonexistent_account(),
         max_fee_per_blob_gas=fork.min_base_fee_per_blob_gas(),
         blob_versioned_hashes=add_kzg_version(
             [Hash(1)],
             VERSIONED_HASH_VERSION_KZG[0],
         ),
     )
+    inclusion_list = [blob_tx]
+    if appendable_tx_follows:
+        inclusion_list.append(
+            Transaction(sender=pre.fund_eoa(), to=pre.nonexistent_account())
+        )
+
+    # The included case is the control: the block accepts the blob tx, so
+    # the omitted one would have been appendable.
+    if blob_tx_in_block:
+        block_txs = [blob_tx]
+    else:
+        block_txs = []
 
     blockchain_test(
         pre=pre,
         post={},
         blocks=[
             Block(
-                txs=[],
-                inclusion_list_txs=[blob_tx],
-                expected_inclusion_list_satisfied=True,
+                txs=block_txs,
+                inclusion_list_txs=inclusion_list,
+                expected_inclusion_list_satisfied=not appendable_tx_follows,
             )
         ],
     )
 
 
-@pytest.mark.parametrize("chain_id_offset", [0, 1])
+@pytest.mark.parametrize(
+    "tx_type,chain",
+    [
+        pytest.param(0, "this_chain", id="legacy_this_chain"),
+        pytest.param(0, "other_chain", id="legacy_other_chain"),
+        pytest.param(0, "unprotected", id="legacy_unprotected"),
+        pytest.param(2, "this_chain", id="type_2_this_chain"),
+        pytest.param(2, "other_chain", id="type_2_other_chain"),
+    ],
+)
+@pytest.mark.parametrize(
+    "appendable_tx_follows",
+    [
+        pytest.param(False, id="alone"),
+        pytest.param(True, id="before_appendable_tx"),
+    ],
+)
 def test_pending_il_appendability_by_chain_id(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     chain_config: ChainConfig,
-    chain_id_offset: int,
+    tx_type: int,
+    chain: str,
+    appendable_tx_follows: bool,
 ) -> None:
-    """A pending IL tx signed for another chain may be omitted."""
+    """
+    A pending IL tx signed for another chain is skipped, and the check goes
+    on to the entries after it. A legacy tx without a chain id counts.
+    """
     pending_tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=pre.nonexistent_account(),
-        chain_id=chain_config.chain_id + chain_id_offset,
+        ty=tx_type, sender=pre.fund_eoa(), to=pre.nonexistent_account()
     )
+    if chain == "this_chain":
+        pending_tx = pending_tx.copy(chain_id=chain_config.chain_id)
+        entry_counts = True
+    elif chain == "other_chain":
+        pending_tx = pending_tx.copy(chain_id=chain_config.chain_id + 1)
+        entry_counts = False
+    elif chain == "unprotected":
+        pending_tx = pending_tx.copy(protected=False)
+        entry_counts = True
+    else:
+        raise ValueError(f"unknown chain: {chain}")
+
+    inclusion_list = [pending_tx]
+    if appendable_tx_follows:
+        inclusion_list.append(
+            Transaction(sender=pre.fund_eoa(), to=pre.nonexistent_account())
+        )
 
     blockchain_test(
         pre=pre,
@@ -747,8 +806,10 @@ def test_pending_il_appendability_by_chain_id(
         blocks=[
             Block(
                 txs=[],
-                inclusion_list_txs=[pending_tx],
-                expected_inclusion_list_satisfied=chain_id_offset != 0,
+                inclusion_list_txs=inclusion_list,
+                expected_inclusion_list_satisfied=not (
+                    entry_counts or appendable_tx_follows
+                ),
             )
         ],
     )
