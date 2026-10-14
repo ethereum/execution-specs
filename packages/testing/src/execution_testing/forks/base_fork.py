@@ -1243,15 +1243,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def inclusion_list_counts_blob_entries(cls) -> bool:
-        """
-        Return true if an appendable blob transaction in the inclusion list
-        makes a payload that leaves it out unsatisfied.
-        """
-        pass
-
-    @classmethod
-    @abstractmethod
     def engine_new_payload_target_blobs_per_block(cls) -> bool:
         """
         Return true if the engine api version requires new payload calls to

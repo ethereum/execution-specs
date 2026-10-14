@@ -1660,17 +1660,13 @@ class BlockchainTest(BaseTest):
                     block.inclusion_list_txs = []
                 moved_tx = block.txs.pop()
                 block.inclusion_list_txs.append(moved_tx)
-                last_fork = self.fork.transitions_to()
-                moved_tx_counts = (
-                    moved_tx.ty != TransactionType.BLOB_TRANSACTION
-                    or last_fork.inclusion_list_counts_blob_entries()
-                )
                 if block.exception:
                     block.exception = None
                     block.expected_inclusion_list_satisfied = True
                 else:
+                    # The inclusion list check skips blob transactions.
                     block.expected_inclusion_list_satisfied = (
-                        not moved_tx_counts
+                        moved_tx.ty == TransactionType.BLOB_TRANSACTION
                     )
                 if block.header_verify:
                     block.header_verify = None

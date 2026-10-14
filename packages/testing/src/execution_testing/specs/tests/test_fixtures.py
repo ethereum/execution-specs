@@ -382,53 +382,53 @@ def test_inclusion_list_verdict_uses_payload_bytes(
     )
 
 
-@pytest.mark.parametrize("blob_entries_count", [True, False])
-def test_inclusion_list_variant_reads_blob_entry_predicate(
+@pytest.mark.parametrize(
+    "tx_type,inclusion_list_satisfied",
+    [
+        pytest.param(TransactionType.BLOB_TRANSACTION, True, id="blob"),
+        pytest.param(TransactionType.BASE_FEE, False, id="base_fee"),
+    ],
+)
+def test_inclusion_list_variant_skips_blob_entries(
     default_t8n: TransitionTool,
-    monkeypatch: pytest.MonkeyPatch,
-    blob_entries_count: bool,
+    tx_type: TransactionType,
+    inclusion_list_satisfied: bool,
 ) -> None:
     """
-    The variant's expected verdict for a moved blob transaction follows
-    `inclusion_list_counts_blob_entries`.
+    The variant moves the block's last transaction into the inclusion list
+    and expects an unsatisfied payload, unless the moved transaction is a
+    blob transaction, which the inclusion list check skips.
     """
-    monkeypatch.setattr(
-        Bogota,
-        "inclusion_list_counts_blob_entries",
-        staticmethod(lambda: blob_entries_count),
-    )
     sender = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    blob_tx = Transaction(
-        ty=TransactionType.BLOB_TRANSACTION,
+    tx = Transaction(
+        ty=tx_type,
         nonce=0,
         to=Address(0x1234),
         gas_limit=21_000,
         max_fee_per_gas=10,
         max_priority_fee_per_gas=0,
-        max_fee_per_blob_gas=10,
-        blob_versioned_hashes=[Hash(1 << 248)],
     )
+    if tx_type == TransactionType.BLOB_TRANSACTION:
+        tx = tx.copy(
+            max_fee_per_blob_gas=10, blob_versioned_hashes=[Hash(1 << 248)]
+        )
     test = BlockchainTest(
         fork=Bogota,
         pre=Alloc({sender: Account(balance=10**18)}),
         post={},
-        blocks=[Block(txs=[blob_tx])],
+        blocks=[Block(txs=[tx])],
         genesis_environment=Environment(),
     )
     variant_format = BLOCKCHAIN_ENGINE_IL_FIXTURE_FORMATS[0]
 
-    # The spec skips blob entries, so only the predicate's false side fills.
-    if blob_entries_count:
-        with pytest.raises(
-            AssertionError, match="expected inclusion_list_satisfied==False"
-        ):
-            test.generate(t8n=default_t8n, fixture_format=variant_format)
-    else:
-        fixture = test.generate(
-            t8n=default_t8n, fixture_format=variant_format
-        ).fixture
-        assert isinstance(fixture, BlockchainEngineFixture)
-        assert fixture.payloads[0].inclusion_list_satisfied is True
+    fixture = test.generate(
+        t8n=default_t8n, fixture_format=variant_format
+    ).fixture
+    assert isinstance(fixture, BlockchainEngineFixture)
+    assert (
+        fixture.payloads[0].inclusion_list_satisfied
+        == inclusion_list_satisfied
+    )
 
 
 @pytest.mark.parametrize(

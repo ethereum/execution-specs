@@ -721,9 +721,7 @@ def test_block_with_pending_blob_il_tx_is_valid(
             Block(
                 txs=[],
                 inclusion_list_txs=[blob_tx],
-                expected_inclusion_list_satisfied=(
-                    not fork.inclusion_list_counts_blob_entries()
-                ),
+                expected_inclusion_list_satisfied=True,
             )
         ],
     )
