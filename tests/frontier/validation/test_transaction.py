@@ -8,6 +8,8 @@ from execution_testing import (
     BalBalanceChange,
     BalNonceChange,
     BlockAccessListExpectation,
+    ChainConfig,
+    Fork,
     Op,
     StateTestFiller,
     Storage,
@@ -390,6 +392,64 @@ def test_unrecoverable_signature(
     state_test(
         pre=pre,
         # Transaction rejected: the recipient keeps exactly its funded balance.
+        post={to: Account(balance=0xDEADBEEE)},
+        tx=tx,
+    )
+
+
+@pytest.mark.inclusion_test
+@pytest.mark.valid_from("SpuriousDragon")
+@pytest.mark.exception_test
+@pytest.mark.eels_base_coverage
+@pytest.mark.parametrize(
+    "case",
+    [
+        "largest_64_bit_chain_id",
+        "smallest_65_bit_chain_id",
+        "chain_id_plus_2_64",
+    ],
+)
+def test_legacy_chain_id_over_64_bits(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    chain_config: ChainConfig,
+    case: str,
+) -> None:
+    """
+    A legacy transaction whose v encodes a chain ID too large for 64 bits has
+    an invalid v, while one that fits is only a chain ID mismatch.
+    """
+    if case == "largest_64_bit_chain_id":
+        signed_for = encoded_in_v = 2**64 - 1
+        error = TransactionException.INVALID_CHAINID
+    elif case == "smallest_65_bit_chain_id":
+        signed_for = encoded_in_v = 2**64
+        error = TransactionException.INVALID_SIGNATURE_VRS
+    elif case == "chain_id_plus_2_64":
+        signed_for = chain_config.chain_id
+        encoded_in_v = chain_config.chain_id + 2**64
+        error = TransactionException.INVALID_SIGNATURE_VRS
+    else:
+        raise ValueError(f"Unknown case: {case}")
+
+    to = pre.fund_eoa(0xDEADBEEE)
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=to,
+        value=1,
+        chain_id=signed_for,
+        # Signing up front needs the final gas limit.
+        gas_limit=fork.transaction_intrinsic_cost_calculator()(),
+    ).with_signature_and_sender()
+    tx = tx.copy(
+        # EIP-155: v = 35 + 2 * chain_id + parity.
+        v=tx.v + 2 * (encoded_in_v - signed_for),
+        error=error,
+    )
+
+    state_test(
+        pre=pre,
         post={to: Account(balance=0xDEADBEEE)},
         tx=tx,
     )
