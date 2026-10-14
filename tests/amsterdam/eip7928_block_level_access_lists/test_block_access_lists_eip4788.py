@@ -569,7 +569,7 @@ def test_bal_4788_absent_contract(
     with an empty AccountChanges. Unreachable on mainnet,
     consensus-relevant on custom or test chains.
     """
-    pre[BEACON_ROOTS_ADDRESS] = Account(code=b"", nonce=0, balance=0)
+    del pre[BEACON_ROOTS_ADDRESS]
     blockchain_test(
         pre=pre,
         blocks=[

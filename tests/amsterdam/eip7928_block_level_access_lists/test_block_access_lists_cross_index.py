@@ -565,14 +565,18 @@ def test_bal_post_execution_calls_net_storage_at_last_index(
     # Requests are made in ascending request type, so the withdrawal
     # contract runs first and calls the consolidation contract, whose
     # own system call then runs the same code a second time.
-    pre[CONSOLIDATION_REQUEST_ADDRESS] = Account(
+    consolidation_contract = pre[CONSOLIDATION_REQUEST_ADDRESS]
+    assert consolidation_contract is not None
+    pre[CONSOLIDATION_REQUEST_ADDRESS] = consolidation_contract.copy(
         nonce=1,
         code=Op.SSTORE(toggle_slot, Op.ISZERO(Op.SLOAD(toggle_slot)))
         + Op.SSTORE(counter_slot, Op.ADD(Op.SLOAD(counter_slot), 1))
         + Op.SSTORE(last_caller_slot, Op.CALLER)
         + Op.POP(Op.CREATE(0, 0, 0)),
     )
-    pre[WITHDRAWAL_REQUEST_ADDRESS] = Account(
+    withdrawal_contract = pre[WITHDRAWAL_REQUEST_ADDRESS]
+    assert withdrawal_contract is not None
+    pre[WITHDRAWAL_REQUEST_ADDRESS] = withdrawal_contract.copy(
         code=Op.POP(Op.CALL(address=CONSOLIDATION_REQUEST_ADDRESS)),
     )
     created = [
@@ -676,7 +680,9 @@ def test_bal_same_index_call_keeps_one_nonce_and_code_change(
     endowment = 1
     deploy_code = Op.STOP
     initcode = Initcode(deploy_code=deploy_code)
-    pre[WITHDRAWAL_REQUEST_ADDRESS] = Account(
+    withdrawal_contract = pre[WITHDRAWAL_REQUEST_ADDRESS]
+    assert withdrawal_contract is not None
+    pre[WITHDRAWAL_REQUEST_ADDRESS] = withdrawal_contract.copy(
         nonce=1,
         code=Om.MSTORE(initcode, 0)
         + Op.POP(Op.CREATE(offset=0, size=len(initcode))),
@@ -688,7 +694,9 @@ def test_bal_same_index_call_keeps_one_nonce_and_code_change(
     # create; in the other order the test would pass without reaching the
     # branches. A zero-value call would not write the contract at all.
     code_size_slot = 0
-    pre[CONSOLIDATION_REQUEST_ADDRESS] = Account(
+    consolidation_contract = pre[CONSOLIDATION_REQUEST_ADDRESS]
+    assert consolidation_contract is not None
+    pre[CONSOLIDATION_REQUEST_ADDRESS] = consolidation_contract.copy(
         balance=endowment,
         code=Op.SSTORE(code_size_slot, Op.EXTCODESIZE(created))
         + Op.POP(Op.CALL(address=created, value=endowment)),
@@ -778,7 +786,9 @@ def test_bal_tx_change_kept_when_system_call_restores_slot(
     # address is the caller slot's starting value, so Alice's transaction
     # moves it and the system call puts it back; the counter reaching two
     # is what separates that round trip from neither call running.
-    pre[CONSOLIDATION_REQUEST_ADDRESS] = Account(
+    consolidation_contract = pre[CONSOLIDATION_REQUEST_ADDRESS]
+    assert consolidation_contract is not None
+    pre[CONSOLIDATION_REQUEST_ADDRESS] = consolidation_contract.copy(
         nonce=1,
         code=Op.SSTORE(caller_slot, Op.CALLER)
         + Op.SSTORE(counter_slot, Op.ADD(Op.SLOAD(counter_slot), 1)),
@@ -884,7 +894,9 @@ def test_bal_withdrawals_and_dequeues_net_balance_at_last_index(
     kept_wei = withdrawal_amount_wei - forwarded_wei
 
     for predeploy in predeploys:
-        pre[predeploy] = Account(
+        predeploy_account = pre[predeploy]
+        assert predeploy_account is not None
+        pre[predeploy] = predeploy_account.copy(
             code=Op.POP(Op.CALL(address=sink, value=forwarded_value)),
         )
 
@@ -966,7 +978,9 @@ def test_bal_pre_execution_call_failure_keeps_read_drops_write(
     reverted_slot = 1
     # The slot it reaches for is the only evidence the code ran, since
     # the failure throws the write itself away.
-    pre[BEACON_ROOTS_ADDRESS] = Account(
+    beacon_roots_contract = pre[BEACON_ROOTS_ADDRESS]
+    assert beacon_roots_contract is not None
+    pre[BEACON_ROOTS_ADDRESS] = beacon_roots_contract.copy(
         code=Op.SSTORE(reverted_slot, 1) + failure,
     )
 
