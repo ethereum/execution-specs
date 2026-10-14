@@ -15,7 +15,7 @@ from execution_testing import (
 )
 
 from .helpers import vectors_from_file
-from .spec import FP2, PointG2, Spec, ref_spec_2537
+from .spec import FP, FP2, PointG2, Spec, ref_spec_2537
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_2537.git_path
 REFERENCE_SPEC_VERSION = ref_spec_2537.version
@@ -127,6 +127,67 @@ def test_valid(
         pytest.param(
             FP2((Spec.P - 1, (Spec.P - 1) | Spec.MAX_FP_BIT_SET)),
             id="non_zero_byte_16_boundary_violation_c1",
+        ),
+        # Boundary validation for top-16 zero padding on c0
+        pytest.param(
+            b"\x00" * 15 + b"\x01" + bytes(FP2((0, 0)))[16:],
+            id="non_zero_byte_15_padding_violation_c0",
+        ),
+        pytest.param(
+            b"\x00" * 15 + b"\x80" + bytes(FP2((0, 0)))[16:],
+            id="non_zero_byte_15_high_bit_padding_violation_c0",
+        ),
+        # Boundary validation for top-16 zero padding on c1 (bytes 64..79)
+        pytest.param(
+            bytes(FP(0)) + b"\x01" + bytes(FP(0))[1:],
+            id="non_zero_byte_0_padding_violation_c1",
+        ),
+        pytest.param(
+            bytes(FP(0)) + b"\x80" + bytes(FP(0))[1:],
+            id="non_zero_byte_0_high_bit_padding_violation_c1",
+        ),
+        pytest.param(
+            bytes(FP(0)) + b"\x00" * 15 + b"\x01" + bytes(FP(0))[16:],
+            id="non_zero_byte_15_padding_violation_c1",
+        ),
+        pytest.param(
+            bytes(FP(0)) + b"\x00" * 15 + b"\x80" + bytes(FP(0))[16:],
+            id="non_zero_byte_15_high_bit_padding_violation_c1",
+        ),
+        # Both c0 and c1 dirty padding
+        pytest.param(
+            (b"\x00" * 15 + b"\x01" + bytes(FP(0))[16:]) * 2,
+            id="non_zero_byte_15_padding_violation_both_c0_c1",
+        ),
+        # Both c0 and c1 exceeding modulus
+        pytest.param(
+            FP2((Spec.P, Spec.P)),
+            id="both_c0_c1_eq_p",
+        ),
+        pytest.param(
+            FP2((Spec.P + 1, Spec.P + 1)),
+            id="both_c0_c1_above_modulus",
+        ),
+        pytest.param(
+            FP2((2**381 - 1, 2**381 - 1)),
+            id="both_c0_c1_max_381_bit_above_modulus",
+        ),
+        pytest.param(
+            FP2((2**384 - 1, 2**384 - 1)),
+            id="both_c0_c1_max_384_bit_above_modulus",
+        ),
+        pytest.param(
+            FP2((Spec.P + 2**128, Spec.P + 2**128)),
+            id="both_c0_c1_modulus_plus_2_128",
+        ),
+        # Calldata length boundary tests
+        pytest.param(
+            bytes(FP(0)),
+            id="single_fp_64_bytes_input",
+        ),
+        pytest.param(
+            b"\x00" * 32,
+            id="single_word_32_bytes_input",
         ),
     ],
 )
