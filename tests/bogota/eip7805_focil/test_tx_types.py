@@ -268,10 +268,10 @@ def test_undecodable_il_entry_is_skipped(
 
     entry_appendable = False
     if entry == "type_2_control":
-        il_entry = Bytes(type_2_tx.rlp())
+        il_entry = type_2_tx.rlp()
         entry_appendable = True
     elif entry == "legacy_control":
-        il_entry = Bytes(legacy_tx.rlp())
+        il_entry = legacy_tx.rlp()
         entry_appendable = True
     elif entry == "empty":
         il_entry = Bytes(b"")
@@ -308,7 +308,9 @@ def test_undecodable_il_entry_is_skipped(
     else:
         raise ValueError(f"unknown entry: {entry}")
 
-    inclusion_list: list[Transaction | Bytes] = [il_entry]
+    # The entry carries the type-2 transaction's gas limit, so it takes no
+    # share of the gas the framework splits among unset limits.
+    inclusion_list = [type_2_tx.copy(rlp_override=il_entry)]
     if appendable_tx_follows:
         inclusion_list.append(
             Transaction(sender=pre.fund_eoa(), to=pre.nonexistent_account())

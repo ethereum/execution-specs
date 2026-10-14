@@ -304,8 +304,11 @@ def test_inclusion_list_merged_size_limit(
     merged_limit = Bogota.inclusion_list_merged_transactions_size_limit()
     assert entry_limit is not None and merged_limit is not None
     # Undecodable entries keep the list cheap to build; only sizes matter.
-    entries = [Bytes(bytes(entry_limit))] * (merged_limit // entry_limit)
-    entries += [Bytes(bytes(1))] * bytes_over_limit
+    tx = Transaction(gas_limit=21_000)
+    entries = [tx.copy(rlp_override=Bytes(bytes(entry_limit)))] * (
+        merged_limit // entry_limit
+    )
+    entries += [tx.copy(rlp_override=Bytes(bytes(1)))] * bytes_over_limit
     test = BlockchainTest(
         fork=Bogota,
         pre=Alloc(),
@@ -333,9 +336,7 @@ def test_inclusion_list_merged_size_limit(
     "entry_kind,inclusion_list_satisfied",
     [
         pytest.param("transaction", False, id="transaction"),
-        pytest.param("bytes", False, id="bytes"),
         pytest.param("rlp_override", True, id="rlp_override"),
-        pytest.param("malformed_bytes", True, id="malformed_bytes"),
     ],
 )
 def test_inclusion_list_verdict_uses_payload_bytes(
@@ -351,22 +352,14 @@ def test_inclusion_list_verdict_uses_payload_bytes(
         gas_price=10,
     )
     sender = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    entry: Transaction | Bytes
     if entry_kind == "transaction":
         entry = tx
         sent_bytes = tx.with_signature_and_sender().rlp()
-    elif entry_kind == "bytes":
-        entry = tx.with_signature_and_sender().rlp()
-        sent_bytes = entry
     elif entry_kind == "rlp_override":
         # The fields describe an appendable transaction, but the bytes
         # sent decode as an unknown transaction type.
         sent_bytes = Bytes(bytes([max(Bogota.tx_types()) + 1]) + b"\xc0")
         entry = tx.copy(rlp_override=sent_bytes)
-    elif entry_kind == "malformed_bytes":
-        # A known type byte followed by an empty RLP list.
-        entry = Bytes("0x02c0")
-        sent_bytes = entry
     else:
         raise ValueError(f"unknown entry kind: {entry_kind}")
 

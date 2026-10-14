@@ -360,10 +360,10 @@ class Block(Header):
     """EIP-7843: override only the engine payload slotNumber field."""
     expected_gas_used: int | None = None
     """Expected gas used for the block."""
-    inclusion_list_txs: List[Transaction | Bytes] | None = None
+    inclusion_list_txs: List[Transaction] | None = None
     """
-    The block's inclusion list. A `Bytes` entry is sent exactly as given,
-    so an entry can be malformed.
+    Transactions supplied as the block's inclusion list. Each entry is sent
+    as its `rlp()`, so `rlp_override` can make an entry malformed.
     """
     expected_inclusion_list_satisfied: bool | None = None
     """Expected outcome of the inclusion list verification for this block."""
@@ -1072,7 +1072,7 @@ class BlockchainTest(BaseTest):
         env = env.set_fork_requirements(fork)
         env.check_fork_fields(fork)
         txs = block.txs[:]
-        inclusion_list_txs: List[Transaction | Bytes] | None = None
+        inclusion_list_txs: List[Transaction] | None = None
         if block.inclusion_list_txs is not None:
             inclusion_list_txs = block.inclusion_list_txs[:]
         elif fork.engine_new_payload_inclusion_list_transactions():
@@ -1084,9 +1084,7 @@ class BlockchainTest(BaseTest):
         if inclusion_list_txs is not None:
             seen = {id(tx) for tx in txs}
             all_txs += [
-                il_tx
-                for il_tx in inclusion_list_txs
-                if isinstance(il_tx, Transaction) and id(il_tx) not in seen
+                il_tx for il_tx in inclusion_list_txs if id(il_tx) not in seen
             ]
         if any("gas_limit" not in tx.model_fields_set for tx in all_txs):
             max_tx_gas_limit = Transaction.calculate_max_gas_limit(
@@ -1121,8 +1119,6 @@ class BlockchainTest(BaseTest):
                         transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
                         state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
                     )
-                    if isinstance(tx, Transaction)
-                    else tx
                     for tx in inclusion_list_txs
                 ]
                 if inclusion_list_txs is not None
@@ -1132,12 +1128,7 @@ class BlockchainTest(BaseTest):
         # The transition tool and the fixture read the same bytes, so the
         # verdict is computed on exactly what clients receive.
         inclusion_list_bytes: List[Bytes] | None = (
-            [
-                tx.with_signature_and_sender().rlp()
-                if isinstance(tx, Transaction)
-                else tx
-                for tx in inclusion_list_txs
-            ]
+            [tx.with_signature_and_sender().rlp() for tx in inclusion_list_txs]
             if inclusion_list_txs is not None
             else None
         )
