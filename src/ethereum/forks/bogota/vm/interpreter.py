@@ -471,6 +471,8 @@ def process_call(evm: Evm) -> Evm:
                 evm_trace(evm, PrecompileEnd())
         else:
             while evm.running and evm.pc < ulen(evm.code):
+                if evm.tx_env.validation_opcode_hook is not None:
+                    evm.tx_env.validation_opcode_hook(evm, evm.code[evm.pc])
                 try:
                     op = Ops(evm.code[evm.pc])
                 except ValueError as e:

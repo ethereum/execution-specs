@@ -30,6 +30,10 @@ from execution_testing.fixtures.blockchain import (
 )
 from execution_testing.forks import Fork
 from execution_testing.test_types import EOA, Transaction, Withdrawal
+from execution_testing.test_types.inclusion_list import (
+    OmissionClaim,
+    validate_inclusion_list_metadata,
+)
 
 
 class JSONRPCError(Exception):
@@ -205,6 +209,7 @@ class PayloadStatus(CamelModel):
         | None
     )
     inclusion_list_satisfied: bool | None = None
+    inclusion_check_id: Hash | None = None
 
 
 class ForkchoiceUpdateResponse(CamelModel):
@@ -226,6 +231,7 @@ class PayloadAttributes(CamelModel):
     max_blobs_per_block: HexNumber | None = None
     slot_number: HexNumber | None = None
     target_gas_limit: HexNumber | None = None
+    inclusion_lists: List[List[Bytes]] | None = None
 
     @classmethod
     def for_fork(
@@ -239,6 +245,7 @@ class PayloadAttributes(CamelModel):
         suggested_fee_recipient: Address | None = None,
         withdrawals: List[Withdrawal] | None = None,
         parent_beacon_block_root: Hash | None = None,
+        inclusion_lists: List[List[Bytes]] | None = None,
     ) -> "PayloadAttributes":
         """
         Build PayloadAttributes with fork-aware optional fields filled in.
@@ -259,7 +266,12 @@ class PayloadAttributes(CamelModel):
             attributes_slot_number = HexNumber(
                 1 if slot_number is None else slot_number
             )
+        if fork.engine_new_payload_omission_claims():
+            if inclusion_lists is None:
+                inclusion_lists = [[] for _ in range(16)]
+            validate_inclusion_list_metadata(inclusion_lists)
         return cls(
+            inclusion_lists=inclusion_lists,
             timestamp=HexNumber(timestamp),
             prev_randao=prev_randao if prev_randao is not None else Hash(0),
             suggested_fee_recipient=(
@@ -338,6 +350,9 @@ class GetPayloadResponse(CamelModel):
     execution_payload: FixtureExecutionPayload
     blobs_bundle: BlobsBundle | None = None
     execution_requests: List[Bytes] | None = None
+    omission_claims: List[OmissionClaim] | None = Field(
+        default=None, max_length=4096
+    )
 
 
 class GetBlobsResponse(

@@ -655,6 +655,7 @@ def execute_frame(
 def process_frames(
     block_env: BlockEnvironment,
     tx_env: TransactionEnvironment,
+    prefix_length: Optional[int] = None,
 ) -> TransactionOutput:
     """
     Execute the frames of a frame transaction in order.
@@ -681,7 +682,8 @@ def process_frames(
     Unlike `process_top_level`, this flow can invalidate the whole
     transaction: a `VERIFY` frame reverting, a `SENDER` frame before
     execution approval, or no frame having approved payment by the end
-    raises `FrameTransactionExecutionError`.
+    raises `FrameTransactionExecutionError`. An isolated validation replay
+    may supply `prefix_length` to stop after that many complete frames.
     """
     frame_context = tx_env.frame_context
     assert frame_context is not None
@@ -701,7 +703,8 @@ def process_frames(
     skip_batch = False
     prefix_checkpoint: Optional[ValidationPrefixCheckpoint] = None
 
-    for index, frame in enumerate(tx.frames):
+    frames = tx.frames if prefix_length is None else tx.frames[:prefix_length]
+    for index, frame in enumerate(frames):
         frame_context.current_frame_index = Uint(index)
         has_batch_flag = FrameFlag.ATOMIC_BATCH in frame.flags
 
@@ -824,7 +827,7 @@ def process_frames(
     unused_state_gas = Uint(0)
     state_gas_used = Uint(0)
     for frame, receipt in zip(
-        tx.frames, frame_context.frame_receipts, strict=True
+        frames, frame_context.frame_receipts, strict=True
     ):
         unused_execution_gas += (
             Uint(frame.gas_limits.execution) - receipt.gas_used.execution

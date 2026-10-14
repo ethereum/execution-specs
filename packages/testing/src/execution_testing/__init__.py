@@ -90,6 +90,7 @@ from .test_types import (
     FrameSignature,
     GasFee,
     NetworkWrappedTransaction,
+    OmissionClaim,
     Removable,
     SystemContractInteractionBase,
     SystemContractInteractionContract,
@@ -152,6 +153,7 @@ from .vm import (
 )
 
 __all__ = (
+    "OmissionClaim",
     "DETERMINISTIC_FACTORY_ADDRESS",
     "AccessList",
     "Account",

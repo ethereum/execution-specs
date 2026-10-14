@@ -56,6 +56,12 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
         type=str,
         default=None,
     )
+    for field, dest in (
+        ("inclusionListTransactions", "inclusion_list_txs"),
+        ("inclusionLists", "inclusion_lists"),
+        ("omissionClaims", "omission_claims"),
+    ):
+        t8n_parser.add_argument(f"--input.{field}", dest=dest, default=None)
     t8n_parser.add_argument(
         "--output.alloc", dest="output_alloc", type=str, default="alloc.json"
     )
@@ -321,9 +327,17 @@ def build_t8n_from_cli_options(
         Environment as TestingEnvironment,
     )
     from execution_testing.test_types import (
+        OmissionClaim,
+    )
+    from execution_testing.test_types import (
         Transaction as TestingTransaction,
     )
 
+    inclusion_fields = (
+        ("inclusionListTransactions", "inclusion_list_txs"),
+        ("inclusionLists", "inclusion_lists"),
+        ("omissionClaims", "omission_claims"),
+    )
     forks = Hardfork.discover()
 
     if "stdin" in (
@@ -331,6 +345,7 @@ def build_t8n_from_cli_options(
         options.input_alloc,
         options.input_txs,
         options.blob_parameters,
+        *(getattr(options, dest, None) for _, dest in inclusion_fields),
     ):
         stdin = json.load(in_file)
     else:
@@ -358,6 +373,21 @@ def build_t8n_from_cli_options(
         blob_schedule = BlobSchedule()
         blob_schedule.append(fork=testing_fork.name(), schedule=blob_params)
 
+    inclusion_data = {}
+    for field, dest in inclusion_fields:
+        path = getattr(options, dest, None)
+        if path is not None:
+            inclusion_data[field] = _read_json_input(path, stdin, field)
+        elif stdin is not None and field in stdin:
+            inclusion_data[field] = stdin[field]
+    il_txs = None
+    if "inclusionListTransactions" in inclusion_data:
+        il_txs, _ = _parse_txs_json_to_testing(
+            inclusion_data["inclusionListTransactions"],
+            fork_module,
+            TestingTransaction,
+        )
+
     t8n_data = TransitionTool.TransitionToolData(
         alloc=alloc,
         env=env,
@@ -367,6 +397,25 @@ def build_t8n_from_cli_options(
         reward=_resolve_state_reward(options.state_reward, fork_module),
         blob_schedule=blob_schedule,
         state_test=options.state_test,
+        inclusion_list_txs=il_txs,
+        inclusion_lists=(
+            [
+                _parse_txs_json_to_testing(
+                    values, fork_module, TestingTransaction
+                )[0]
+                for values in inclusion_data["inclusionLists"]
+            ]
+            if "inclusionLists" in inclusion_data
+            else None
+        ),
+        omission_claims=(
+            [
+                OmissionClaim.model_validate(value)
+                for value in inclusion_data["omissionClaims"]
+            ]
+            if "omissionClaims" in inclusion_data
+            else None
+        ),
     )
 
     # ``Ommer.address`` is parsed via the per-fork ``hex_to_address``

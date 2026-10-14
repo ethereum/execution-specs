@@ -33,7 +33,7 @@ from ethereum_spec_tools.loaders.transaction_loader import (
     UnsupportedTxError,
 )
 from ethereum_spec_tools.utils import get_stream_logger, resolve_fork
-from ethereum_types.bytes import Bytes
+from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 from typing_extensions import override
 
@@ -239,6 +239,38 @@ class T8N(Load):
             else None
         )
         self.inclusion_list_satisfied: bool | None = None
+        self.inclusion_list_inputs: Any = None
+        self.inclusion_list_snapshots: Dict[Uint, Any] = {}
+        self.inclusion_list_snapshot_indices: set[Uint] = set()
+        if self.fork.has_omission_claims and not self.state_test:
+            if t8n_data.inclusion_lists is None:
+                raise ValueError("Separate inclusion lists must be supplied")
+            self.inclusion_list_txs = [
+                tx
+                for inclusion_list in t8n_data.inclusion_lists
+                for tx in inclusion_list
+            ]
+            self.inclusion_list_inputs = self.fork.InclusionListInputs(
+                inclusion_lists=tuple(
+                    tuple(Bytes(tx.rlp()) for tx in inclusion_list)
+                    for inclusion_list in t8n_data.inclusion_lists
+                ),
+                claims=tuple(
+                    self.fork.OmissionClaim(
+                        transaction_hash=Bytes32(claim.transaction_hash),
+                        evaluation_index=U64(claim.evaluation_index),
+                    )
+                    for claim in t8n_data.omission_claims or []
+                ),
+            )
+            self.fork.validate_inclusion_list_inputs(
+                self.inclusion_list_inputs
+            )
+            self.inclusion_list_snapshot_indices = self.fork.snapshot_indices(
+                self.inclusion_list_inputs,
+                Uint(len(self.txs)),
+                tuple(Bytes(tx.rlp()) for tx in self.txs),
+            )
 
     def _tracer(self, type_: Type[T]) -> T:
         group = self.tracers
@@ -348,6 +380,15 @@ class T8N(Load):
 
         self.fork.incorporate_tx_into_block(rewards_state)
 
+    def _capture_inclusion_list_state(
+        self, block_env: Any, block_output: Any, index: Uint
+    ) -> None:
+        """Save a replay point only when the supplied claims need it."""
+        if index in self.inclusion_list_snapshot_indices:
+            self.inclusion_list_snapshots[index] = (
+                self.fork.capture_inclusion_list_state(block_env, block_output)
+            )
+
     def _process_txs(self, block_env: Any, block_output: Any) -> None:
         """Execute every transaction in ``self.txs`` against ``block_env``."""
         for tx_index, testing_tx in enumerate(self.txs):
@@ -355,6 +396,9 @@ class T8N(Load):
                 fork_tx = self.convert_transaction(testing_tx)
                 self.fork.process_transaction(
                     block_env, block_output, fork_tx, Uint(tx_index)
+                )
+                self._capture_inclusion_list_state(
+                    block_env, block_output, Uint(tx_index + 1)
                 )
             except (EthereumException, UnsupportedTxError) as e:
                 # `UnsupportedTxError` covers ``convert_transaction``
@@ -410,7 +454,28 @@ class T8N(Load):
                 data=block_env.block_hashes[-1],  # The parent hash
             )
 
+        self._capture_inclusion_list_state(block_env, block_output, Uint(0))
         self._process_txs(block_env, block_output)
+
+        if not self.fork.has_omission_claims:
+            # Report a verdict only when the check runs, never a default;
+            # `BlockchainTest` fails the fill when a fork with lists gets none.
+            if self.fork.has_inclusion_list_satisfied:
+                if self.inclusion_list_txs is None:
+                    raise Exception(
+                        f"the `{self.fork.hardfork.short_name}` fork spec "
+                        "tracks `inclusion_list_satisfied`, so inclusion list "
+                        "transactions are required; a block without an "
+                        "inclusion list must pass an empty one"
+                    )
+                self.inclusion_list_satisfied = (
+                    self.fork.check_inclusion_list_transactions(
+                        block_env,
+                        block_output,
+                        self._encode_representable(self.txs),
+                        self._encode_representable(self.inclusion_list_txs),
+                    )
+                )
 
         # EIP-7928: Post-execution operations use index N+1
         if self.fork.has_hash_block_access_list:
@@ -425,25 +490,6 @@ class T8N(Load):
             # ``--state.reward=None`` to the fork's ``BLOCK_REWARD``
             # before constructing the data).
             self.pay_block_rewards(U256(self.state_reward), block_env)
-
-        # Report a verdict only when the check runs, never a default;
-        # `BlockchainTest` fails the fill when a fork with lists gets none.
-        if self.fork.has_inclusion_list_satisfied:
-            if self.inclusion_list_txs is None:
-                raise Exception(
-                    f"the `{self.fork.hardfork.short_name}` fork spec "
-                    "tracks `inclusion_list_satisfied`, so inclusion list "
-                    "transactions are required; a block without an "
-                    "inclusion list must pass an empty one"
-                )
-            self.inclusion_list_satisfied = (
-                self.fork.check_inclusion_list_transactions(
-                    block_env,
-                    block_output,
-                    self._encode_representable(self.txs),
-                    self._encode_representable(self.inclusion_list_txs),
-                )
-            )
 
         if self.fork.has_withdrawal:
             withdrawals = self.env.withdrawals or []
@@ -473,6 +519,18 @@ class T8N(Load):
                 block_access_list=block_output.block_access_list,
                 block_gas_limit=block_env.block_gas_limit,
             )
+
+        # Replay must not change block validity or contaminate block outputs.
+        # Capture points precede post-execution operations; evaluate only
+        # after those operations and block-level constraints have succeeded.
+        if self.fork.has_omission_claims:
+            if not self.rejected_transactions:
+                self.inclusion_list_satisfied = self.fork.check_inclusion_list(
+                    block_env,
+                    tuple(Bytes(tx.rlp()) for tx in self.txs),
+                    self.inclusion_list_inputs,
+                    self.inclusion_list_snapshots,
+                )
 
     def run_blockchain_test(self) -> None:
         """

@@ -114,6 +114,12 @@ def test_fixture_payload_covers_every_engine_payload_attribute(
         inclusion_list_transactions=[]
         if fork.engine_new_payload_inclusion_list_transactions()
         else None,
+        inclusion_lists=[[] for _ in range(16)]
+        if fork.engine_new_payload_omission_claims()
+        else None,
+        omission_claims=[]
+        if fork.engine_new_payload_omission_claims()
+        else None,
         inclusion_list_satisfied=True
         if fork.engine_new_payload_inclusion_list_transactions()
         else None,
