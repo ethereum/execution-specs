@@ -167,6 +167,34 @@ def l2_typed_entry(type_byte: int, tx: Transaction) -> Bytes:
     return Bytes(bytes([type_byte]) + eth_rlp.encode(payload))
 
 
+# Positions in a signed type-2 payload.
+CHAIN_ID_FIELD = 0
+TO_FIELD = 5
+
+
+def type_2_entry(
+    tx: Transaction,
+    raw_fields: dict[int, bytes] | None = None,
+    list_length_leading_zero: bool = False,
+) -> Bytes:
+    """
+    Re-encode a signed type-2 `tx`, swapping in raw encodings for some
+    fields and optionally padding its list length with a zero byte.
+    """
+    decoded = eth_rlp.decode(tx.rlp()[1:])
+    assert isinstance(decoded, list)
+    fields = [eth_rlp.encode(item) for item in decoded]
+    for index, raw_field in (raw_fields or {}).items():
+        fields[index] = raw_field
+    body = b"".join(fields)
+    # A payload this long always takes the long-form list header.
+    assert len(body) >= 56
+    length = len(body).to_bytes((len(body).bit_length() + 7) // 8, "big")
+    if list_length_leading_zero:
+        length = b"\x00" + length
+    return Bytes(b"\x02" + bytes([0xF7 + len(length)]) + length + body)
+
+
 @pytest.mark.parametrize(
     "entry",
     [
@@ -182,6 +210,10 @@ def l2_typed_entry(type_byte: int, tx: Transaction) -> Bytes:
         "type_1_with_type_2_payload",
         "type_2_trailing_byte",
         "truncated_legacy",
+        "type_2_chain_id_leading_zero",
+        "type_2_chain_id_byte_as_string",
+        "type_2_to_long_form_length",
+        "type_2_list_length_leading_zero",
     ],
 )
 @pytest.mark.parametrize(
@@ -225,6 +257,14 @@ def test_undecodable_il_entry_is_skipped(
     assert undefined_type < 0x7F
     assert FEE_TOKEN_TX_TYPE not in fork.tx_types()
     assert PRIVILEGED_TX_TYPE not in fork.tx_types()
+    # The non-canonical entries re-encode the type-2 control field by field.
+    assert type_2_entry(type_2_tx) == type_2_tx.rlp()
+    decoded = eth_rlp.decode(type_2_payload)
+    assert isinstance(decoded, list)
+    chain_id, to = decoded[CHAIN_ID_FIELD], decoded[TO_FIELD]
+    assert isinstance(chain_id, bytes) and isinstance(to, bytes)
+    assert len(chain_id) == 1 and chain_id[0] < 0x80
+    assert len(to) == 20
 
     entry_appendable = False
     if entry == "type_2_control":
@@ -253,6 +293,18 @@ def test_undecodable_il_entry_is_skipped(
         il_entry = Bytes(type_2_tx.rlp() + b"\x00")
     elif entry == "truncated_legacy":
         il_entry = Bytes(legacy_tx.rlp()[:-1])
+    elif entry == "type_2_chain_id_leading_zero":
+        il_entry = type_2_entry(
+            type_2_tx, {CHAIN_ID_FIELD: b"\x82\x00" + chain_id}
+        )
+    elif entry == "type_2_chain_id_byte_as_string":
+        il_entry = type_2_entry(
+            type_2_tx, {CHAIN_ID_FIELD: b"\x81" + chain_id}
+        )
+    elif entry == "type_2_to_long_form_length":
+        il_entry = type_2_entry(type_2_tx, {TO_FIELD: b"\xb8\x14" + to})
+    elif entry == "type_2_list_length_leading_zero":
+        il_entry = type_2_entry(type_2_tx, list_length_leading_zero=True)
     else:
         raise ValueError(f"unknown entry: {entry}")
 

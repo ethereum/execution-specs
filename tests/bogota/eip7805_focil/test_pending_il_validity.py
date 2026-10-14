@@ -14,6 +14,7 @@ from execution_testing import (
     Hash,
     Header,
     Op,
+    SystemCallPhase,
     Transaction,
     TransactionType,
     Withdrawal,
@@ -405,6 +406,59 @@ def test_pending_il_sender_funded_by_withdrawal(
         pre=pre,
         post={bob: Account(balance=withdrawal_gwei * 10**9)},
         blocks=blocks,
+    )
+
+
+@pytest.mark.with_all_system_contracts
+@pytest.mark.pre_alloc_mutable
+def test_pending_il_sender_funded_by_system_call(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    system_contract: Address,
+) -> None:
+    """
+    The IL check runs after the system calls made before the block's
+    transactions and before those made after them, so a system contract that
+    funds a pending IL tx's sender makes it appendable only in the first case.
+    """
+    phase = fork.system_contract_call_phases()[system_contract]
+    if phase == SystemCallPhase.BEFORE_TRANSACTIONS:
+        expected_satisfied = False
+    elif phase == SystemCallPhase.AFTER_TRANSACTIONS:
+        expected_satisfied = True
+    elif phase == SystemCallPhase.NONE:
+        pytest.skip("the block never calls this system contract")
+    else:
+        raise ValueError(f"unknown system call phase: {phase}")
+
+    simple_transfer_gas = fork.transaction_intrinsic_cost_calculator()()
+    bob_il_tx_cost = simple_transfer_gas * TransactionDefaults.gas_price
+    bob = pre.fund_eoa(amount=0)
+    bob_il_tx = Transaction(
+        sender=bob,
+        to=pre.nonexistent_account(),
+        gas_limit=simple_transfer_gas,
+    )
+    # The system call sends Bob exactly what his IL tx costs.
+    pre[system_contract] = Account(
+        code=Op.CALL(address=bob, value=bob_il_tx_cost),
+        balance=bob_il_tx_cost,
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={
+            bob: Account(balance=bob_il_tx_cost),
+            system_contract: Account(balance=0),
+        },
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[bob_il_tx],
+                expected_inclusion_list_satisfied=expected_satisfied,
+            )
+        ],
     )
 
 

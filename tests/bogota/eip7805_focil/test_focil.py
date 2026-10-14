@@ -216,45 +216,65 @@ def test_block_with_failing_included_il_tx_is_valid(
     )
 
 
-@pytest.mark.parametrize(
-    "second_entry_in_block",
-    [False, True],
-    ids=["second_entry_omitted", "both_included"],
-)
-def test_inclusion_list_over_one_list_byte_limit(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    second_entry_in_block: bool,
-) -> None:
-    """
-    A payload's inclusion list may hold more bytes than one committee member
-    can send, since the consensus layer merges several lists, and an entry
-    past one list's limit still counts.
-    """
-    limit = fork.inclusion_list_transactions_size_limit()
-    assert limit is not None
-    calldata = b"\x01" * (limit // 2)
-    entries = [
-        Transaction(
-            sender=pre.fund_eoa(),
-            to=pre.nonexistent_account(),
+def transfer_of_size(pre: Alloc, fork: Fork, size: int) -> Transaction:
+    """Return a signed transfer whose RLP encoding is `size` bytes."""
+    sender = pre.fund_eoa()
+    recipient = pre.nonexistent_account()
+    calldata_size = size
+    while True:
+        calldata = b"\x01" * calldata_size
+        tx = Transaction(
+            sender=sender,
+            nonce=0,
+            to=recipient,
             data=calldata,
             gas_limit=fork.transaction_intrinsic_cost_calculator()(
                 calldata=calldata
             ),
         ).with_signature_and_sender()
-        for _ in range(2)
-    ]
-    entry_sizes = [len(entry.rlp()) for entry in entries]
-    assert all(size <= limit for size in entry_sizes)
-    # Only the second entry starts past the limit.
-    assert entry_sizes[0] <= limit < sum(entry_sizes)
+        encoded_size = len(tx.rlp())
+        if encoded_size == size:
+            return tx
+        calldata_size += size - encoded_size
 
-    if second_entry_in_block:
+
+@pytest.mark.parametrize("merged_lists", ["two_lists", "merged_list_limit"])
+@pytest.mark.parametrize(
+    "last_entry_in_block",
+    [False, True],
+    ids=["last_entry_omitted", "all_included"],
+)
+def test_inclusion_list_over_one_list_byte_limit(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    merged_lists: str,
+    last_entry_in_block: bool,
+) -> None:
+    """
+    A payload's inclusion list may hold more bytes than one committee member
+    can send, since the consensus layer merges several lists, and an entry
+    past one list's limit still counts, up to the merged list's limit.
+    """
+    limit = fork.inclusion_list_transactions_size_limit()
+    merged_limit = fork.inclusion_list_merged_transactions_size_limit()
+    assert limit is not None and merged_limit is not None
+    if merged_lists == "two_lists":
+        entry_count = 2
+    elif merged_lists == "merged_list_limit":
+        entry_count = merged_limit // limit
+        assert entry_count * limit == merged_limit
+    else:
+        raise ValueError(f"unknown merged lists: {merged_lists}")
+
+    # Each entry fills one member's list, so every entry after the first
+    # starts past one list's limit.
+    entries = [transfer_of_size(pre, fork, limit) for _ in range(entry_count)]
+
+    if last_entry_in_block:
         block_txs = entries
     else:
-        block_txs = entries[:1]
+        block_txs = entries[:-1]
 
     blockchain_test(
         pre=pre,
@@ -263,7 +283,7 @@ def test_inclusion_list_over_one_list_byte_limit(
             Block(
                 txs=block_txs,
                 inclusion_list_txs=entries,
-                expected_inclusion_list_satisfied=second_entry_in_block,
+                expected_inclusion_list_satisfied=last_entry_in_block,
             )
         ],
     )
