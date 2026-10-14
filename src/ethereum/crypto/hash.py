@@ -93,3 +93,12 @@ def keccak512(buffer: bytes | bytearray) -> Hash64:
 
     """
     return Hash64(_keccak512_digest(buffer))
+
+
+def blake2s256(buffer: bytes | bytearray) -> Hash32:
+    """
+    Compute the unkeyed [BLAKE2s] hash of `buffer`, with a 32-byte digest.
+
+    [BLAKE2s]: https://www.rfc-editor.org/rfc/rfc7693
+    """
+    return Hash32(hashlib.blake2s(buffer, digest_size=32).digest())

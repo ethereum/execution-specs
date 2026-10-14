@@ -69,6 +69,34 @@ class Withdrawal:
 @final
 @slotted_freezable
 @dataclass
+class RecursiveStark:
+    """
+    The block's aggregated proof of every claim its transactions
+    declare, introduced in [EIP-8288]. See
+    [`validate_recursive_stark`][vrs].
+
+    [EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288
+    [vrs]: ref:ethereum.forks.bogota.recursive_stark.validate_recursive_stark
+    """
+
+    stark_proof: Bytes
+    """
+    The serialized recursive STARK, empty when the block declares no
+    claims.
+    """
+
+    block_deps_hash: Hash32
+    """
+    Digest of the block's claims that the proof is verified against (see
+    [`compute_dependencies_hash`][cdh]).
+
+    [cdh]: ref:ethereum.forks.bogota.recursive_stark.compute_dependencies_hash
+    """
+
+
+@final
+@slotted_freezable
+@dataclass
 class Header:
     """
     Header portion of a block on the chain, containing metadata and
@@ -267,6 +295,14 @@ class Header:
     Introduced in [EIP-7843].
 
     [EIP-7843]: https://eips.ethereum.org/EIPS/eip-7843
+    """
+
+    recursive_stark: RecursiveStark
+    """
+    Proof that every claim declared by this block's transactions holds.
+    Introduced in [EIP-8288].
+
+    [EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288
     """
 
 

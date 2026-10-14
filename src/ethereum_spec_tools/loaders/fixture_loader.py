@@ -201,4 +201,13 @@ class Load(BaseLoad):
             slot_number = hex_to_u64(raw.get("slotNumber"))
             parameters.append(slot_number)
 
+        if "recursiveStark" in raw:
+            recursive_stark = raw.get("recursiveStark")
+            parameters.append(
+                self.fork.RecursiveStark(
+                    hex_to_bytes(recursive_stark.get("starkProof")),
+                    hex_to_bytes32(recursive_stark.get("blockDepsHash")),
+                )
+            )
+
         return self.fork.Header(*parameters)

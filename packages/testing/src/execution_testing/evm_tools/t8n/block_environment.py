@@ -164,6 +164,10 @@ def _resolve_excess_blob_gas(
         arguments["block_access_list_hash"] = Hash32(b"\0" * 32)
     if fork.has_slot_number:
         arguments["slot_number"] = U64(0)
+    if fork.has_recursive_stark:
+        arguments["recursive_stark"] = fork.RecursiveStark(
+            b"", Hash32(b"\0" * 32)
+        )
 
     parent_header = fork.Header(**arguments)
     return fork.calculate_excess_blob_gas(parent_header)

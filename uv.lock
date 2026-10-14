@@ -842,6 +842,7 @@ dependencies = [
     { name = "cryptography" },
     { name = "ethereum-rlp" },
     { name = "ethereum-types" },
+    { name = "leanvm-verifier" },
     { name = "libcst" },
     { name = "platformdirs" },
     { name = "py-ecc" },
@@ -955,6 +956,7 @@ requires-dist = [
     { name = "ethash", marker = "extra == 'optimized'", specifier = ">=1.1.0,<2" },
     { name = "ethereum-rlp", specifier = ">=0.1.6,<0.2" },
     { name = "ethereum-types", specifier = ">=0.4.1,<0.5" },
+    { name = "leanvm-verifier", git = "https://github.com/spencer-tb/leanVM?subdirectory=python-verifier&rev=46cb599c0e40b605b21d91dd78d6adb2a93f6bd7" },
     { name = "libcst", specifier = ">=1.8,<2" },
     { name = "platformdirs", specifier = ">=4.2,<5" },
     { name = "py-ecc", specifier = ">=8.0.0b2,<9" },
@@ -1442,6 +1444,11 @@ sdist = { url = "https://files.pythonhosted.org/packages/e8/5d/447af5ea094b9e4c4
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1e/e8/685f47e0d754320684db4425a0967f7d3fa70126bffd76110b7009a0090f/joblib-1.5.2-py3-none-any.whl", hash = "sha256:4e1f0bdbb987e6d843c70cf43714cb276623def372df3c22fe5266b2670bc241", size = 308396, upload-time = "2025-08-27T12:15:45.188Z" },
 ]
+
+[[package]]
+name = "leanvm-verifier"
+version = "0.1.0"
+source = { git = "https://github.com/spencer-tb/leanVM?subdirectory=python-verifier&rev=46cb599c0e40b605b21d91dd78d6adb2a93f6bd7#46cb599c0e40b605b21d91dd78d6adb2a93f6bd7" }
 
 [[package]]
 name = "libcst"

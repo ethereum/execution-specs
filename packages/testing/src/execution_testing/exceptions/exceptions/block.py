@@ -181,3 +181,14 @@ class BlockException(ExceptionBase):
     """
     Block access list exceeds the gas limit constraint (EIP-7928).
     """
+    # --- In-mempool signature and proof aggregation (EIP-8288) --- #
+    INVALID_BLOCK_DEPS_HASH = auto()
+    """
+    Block header's `block_deps_hash` does not commit to the dependencies its
+    transactions declare.
+    """
+    INVALID_RECURSIVE_STARK = auto()
+    """
+    Block header's recursive STARK proof does not verify, or is not empty
+    when the block declares no dependencies.
+    """

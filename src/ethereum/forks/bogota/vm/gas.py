@@ -233,6 +233,25 @@ class GasCosts:
     [ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
     """  # noqa: E501
 
+    LEANSPHINCS_VERIFICATION: Final[ExecutionGas] = ExecutionGas(Uint(3000))
+    """
+    Execution budget a dependency verification frame declares for each
+    leanSPHINCS claim, the expected cost of verifying it off-chain.
+    [EIP-8288] names it `LEANSPHINCS_VERIFICATION_GAS`.
+
+    [EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288
+    """
+
+    LEANSTARK_VERIFICATION: Final[ExecutionGas] = ExecutionGas(Uint(30000))
+    """
+    Intrinsic cost of each claim a [`FrameTransaction`][ftx] declares,
+    its share of the block's recursive STARK. [EIP-8288] names it
+    `LEANSTARK_VERIFICATION_GAS`.
+
+    [EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288
+    [ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
+    """  # noqa: E501
+
     # Block
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)
     LIMIT_MINIMUM: Final[Uint] = Uint(5000)

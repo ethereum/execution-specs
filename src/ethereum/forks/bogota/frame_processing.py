@@ -40,6 +40,7 @@ from .state_tracker import (
 from .transactions import encode_transaction, get_transaction_hash
 from .transactions.frame_transaction import (
     FrameTransaction,
+    transaction_dependencies,
     validate_frame_transaction,
 )
 from .vm.frame_interpreter import process_frames
@@ -316,6 +317,7 @@ def process_frame_transaction(
     block_output.block_gas_used += settlement.execution_gas_used
     block_output.block_state_gas_used += settlement.state_gas_used
     block_output.blob_gas_used += calculate_total_blob_gas(tx)
+    block_output.dependencies.extend(transaction_dependencies(tx))
 
     block_output.cumulative_gas_used += settlement.gas_used
     receipt = make_frame_receipt(

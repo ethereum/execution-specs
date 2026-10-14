@@ -132,6 +132,36 @@ Address of the recent root contract of [EIP-8272].
 [EIP-8272]: https://eips.ethereum.org/EIPS/eip-8272
 """
 
+DEPENDENCY_LENGTH: Final[int] = 96
+"""
+Length, in bytes, of one [`Dependency`][d] in a dependency verification
+frame's `data`: a 32-byte scheme word, the data hash, and the
+verification key hash.
+
+[d]: ref:ethereum.forks.bogota.transactions.frame_transaction.Dependency
+"""
+
+MAX_DEPENDENCIES_PER_FRAME: Final[Uint] = Uint(256)
+"""
+Maximum number of [`Dependency`][d] claims one dependency verification
+frame may declare.
+
+[d]: ref:ethereum.forks.bogota.transactions.frame_transaction.Dependency
+"""
+
+LEANSPHINCS_SCHEME: Final[Uint] = Uint(0x10)
+"""
+Scheme of a [`Dependency`][d] on a leanSPHINCS signature: its data hash
+is the signed message hash and its verification key hash is the
+leanSPHINCS public key itself.
+
+[EIP-8288] reserves a second scheme for leanSTARK proofs, which stays
+invalid until the EIP defines its dependency digest.
+
+[d]: ref:ethereum.forks.bogota.transactions.frame_transaction.Dependency
+[EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288
+"""
+
 
 @final
 class FrameMode(UintEnum, boundary=STRICT):
@@ -178,6 +208,18 @@ class FrameMode(UintEnum, boundary=STRICT):
     invalidating the transaction.
 
     [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
+    """
+
+    DEP_VERIFY = Uint(4)
+    """
+    Declare [`Dependency`][d] claims, as defined by [EIP-8288].
+
+    A dependency verification frame executes no code. Its `data` lists
+    claims that the block's recursive STARK must prove, and its receipt
+    reports success with its whole execution budget used.
+
+    [d]: ref:ethereum.forks.bogota.transactions.frame_transaction.Dependency
+    [EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288
     """
 
 
@@ -499,6 +541,133 @@ class FrameTransaction:
     """
 
 
+@final
+@dataclass(frozen=True, order=True)
+class Dependency:
+    """
+    A claim declared by a [`DEP_VERIFY`][dv] frame: a valid proof under
+    `scheme` exists for `data_hash` and `verification_key_hash`.
+
+    The claim is not checked during execution. The block's recursive
+    STARK proves every claim its transactions declare (see
+    [`validate_recursive_stark`][vrs]). Field order is the order in
+    which claims sort.
+
+    [dv]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameMode.DEP_VERIFY
+    [vrs]: ref:ethereum.forks.bogota.recursive_stark.validate_recursive_stark
+    """  # noqa: E501
+
+    scheme: Uint
+    """
+    Verification scheme of the claim, the last byte of its 32-byte
+    scheme word.
+    """
+
+    data_hash: Hash32
+    """
+    The signed message hash or the proof's public inputs hash.
+    """
+
+    verification_key_hash: Hash32
+    """
+    The public key, or the hash of the verification key, the proof is
+    checked against.
+    """
+
+
+def frame_data_triples(frame: Frame) -> Tuple[Dependency, ...]:
+    """
+    Parse the [`Dependency`][d] claims of a dependency verification
+    frame, in declaration order, from consecutive
+    [`DEPENDENCY_LENGTH`][dl]-byte chunks of its `data`.
+
+    [d]: ref:ethereum.forks.bogota.transactions.frame_transaction.Dependency
+    [dl]: ref:ethereum.forks.bogota.transactions.frame_transaction.DEPENDENCY_LENGTH
+    """  # noqa: E501
+    return tuple(
+        Dependency(
+            scheme=Uint(frame.data[start + 31]),
+            data_hash=Hash32(frame.data[start + 32 : start + 64]),
+            verification_key_hash=Hash32(frame.data[start + 64 : start + 96]),
+        )
+        for start in range(0, len(frame.data), DEPENDENCY_LENGTH)
+    )
+
+
+def transaction_dependency_triples(
+    tx: FrameTransaction,
+) -> Tuple[Dependency, ...]:
+    """
+    Return every claim the transaction's dependency verification frames
+    declare, duplicates included.
+    """
+    return tuple(
+        dependency
+        for frame in tx.frames
+        if frame.mode == FrameMode.DEP_VERIFY
+        for dependency in frame_data_triples(frame)
+    )
+
+
+def transaction_dependencies(tx: FrameTransaction) -> Tuple[Dependency, ...]:
+    """
+    Return the claims the transaction declares, deduplicated and sorted.
+    """
+    return tuple(sorted(set(transaction_dependency_triples(tx))))
+
+
+def validate_dependency_frame(tx: FrameTransaction, index: int) -> None:
+    """
+    Check the static validity constraints of the dependency verification
+    frame at `index`.
+
+    Its `data` must be a whole number of claims, between one and
+    [`MAX_DEPENDENCIES_PER_FRAME`][mdpf], each a zero-padded
+    [`LEANSPHINCS_SCHEME`][ls] word followed by its two hashes. The
+    frame targets the sender through an empty `to`, carries no flags,
+    and does not terminate an atomic batch, since a skipped terminator
+    would still bind the block to its claims. Its execution budget is
+    exactly the verification cost of its claims and its state budget is
+    empty. Value is covered by the rule that only `SENDER` frames carry
+    it.
+
+    [mdpf]: ref:ethereum.forks.bogota.transactions.frame_transaction.MAX_DEPENDENCIES_PER_FRAME
+    [ls]: ref:ethereum.forks.bogota.transactions.frame_transaction.LEANSPHINCS_SCHEME
+    """  # noqa: E501
+    from ..vm.gas import GasCosts
+
+    frame = tx.frames[index]
+
+    if len(frame.data) == 0 or len(frame.data) % DEPENDENCY_LENGTH != 0:
+        raise InvalidFrameError(
+            "dependency frame data is not a whole number of dependencies"
+        )
+    dependencies = frame_data_triples(frame)
+    if ulen(dependencies) > MAX_DEPENDENCIES_PER_FRAME:
+        raise InvalidFrameError("too many dependencies in frame")
+    for start in range(0, len(frame.data), DEPENDENCY_LENGTH):
+        if frame.data[start : start + 31] != b"\0" * 31:
+            raise InvalidFrameError("dependency scheme padding is not zero")
+    for dependency in dependencies:
+        if dependency.scheme != LEANSPHINCS_SCHEME:
+            raise InvalidFrameError("unsupported dependency scheme")
+
+    if not isinstance(frame.to, Bytes0):
+        raise InvalidFrameError("dependency frame target must be absent")
+    if frame.flags != FrameFlag(0):
+        raise InvalidFrameError("dependency frame with flags")
+    if index > 0 and FrameFlag.ATOMIC_BATCH in tx.frames[index - 1].flags:
+        raise InvalidFrameError("dependency frame in an atomic batch")
+
+    verification_gas = ulen(dependencies) * GasCosts.LEANSPHINCS_VERIFICATION
+    if Uint(frame.gas_limits.execution) != verification_gas:
+        raise InvalidFrameError(
+            "dependency frame execution gas is not its verification gas"
+        )
+    if frame.gas_limits.state != U64(0):
+        raise InvalidFrameError("dependency frame with state gas")
+
+
 def resolve_frame_target(tx: FrameTransaction, frame: Frame) -> Address:
     """
     Resolve the account a frame executes at: an empty `to` resolves to
@@ -805,6 +974,9 @@ def validate_frame_transaction(
                 "atomic batch frames cannot carry approval scope"
             )
 
+        if frame.mode == FrameMode.DEP_VERIFY:
+            validate_dependency_frame(tx, index)
+
         if frame.mode == FrameMode.VERIFY and frame.to == EXPIRY_VERIFIER:
             if has_expiry_verifier_frame:
                 raise InvalidFrameError("multiple expiry verifier frames")
@@ -936,16 +1108,21 @@ def calculate_frame_transaction_intrinsic_cost(
     target access is paid during frame execution from each frame's own
     execution gas budget.
 
-    The calldata floor of [EIP-7976] counts every charged byte uniformly
-    and is anchored on the costs the transaction always pays regardless
-    of execution — the base cost, the per-frame cost, the signature
-    verification cost, the value transfer cost, and the keyed nonce
-    access cost — so it never undercuts the transaction's own intrinsic
-    base.
+    [EIP-8288] adds the transaction's share of the block's recursive
+    STARK: [`LEANSTARK_VERIFICATION`][lsv] for every claim its dependency
+    verification frames declare, duplicates included.
+
+    The calldata floor of [EIP-7976] counts every charged byte uniformly.
+    Its base includes the transaction, per-frame, signature verification,
+    value transfer, and keyed nonce access costs. EIP-8288 adds its
+    recursive STARK share to the intrinsic cost only, so the floor
+    leaves it out.
 
     [EIP-7976]: https://eips.ethereum.org/EIPS/eip-7976
+    [EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288
     [nc]: ref:ethereum.forks.bogota.transactions.frame_transaction.nonce_calldata
     [kna]: ref:ethereum.forks.bogota.vm.gas.GasCosts.KEYED_NONCE_ACCESS
+    [lsv]: ref:ethereum.forks.bogota.vm.gas.GasCosts.LEANSTARK_VERIFICATION
     """  # noqa: E501
     from ..vm.gas import GasCosts
     from . import IntrinsicGasCost, count_tokens_in_data
@@ -990,9 +1167,16 @@ def calculate_frame_transaction_intrinsic_cost(
         + keyed_nonce_access_gas
     )
 
+    recursive_stark_gas = (
+        ulen(transaction_dependency_triples(tx))
+        * GasCosts.LEANSTARK_VERIFICATION
+    )
+
     return IntrinsicGasCost(
         execution=ExecutionGas(
-            base_execution_gas + tokens * GasCosts.TX_DATA_TOKEN_STANDARD
+            base_execution_gas
+            + recursive_stark_gas
+            + tokens * GasCosts.TX_DATA_TOKEN_STANDARD
         ),
         calldata_floor=ExecutionGas(
             base_execution_gas + floor_tokens * GasCosts.TX_DATA_TOKEN_FLOOR

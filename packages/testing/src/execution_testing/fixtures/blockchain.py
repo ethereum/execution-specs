@@ -66,6 +66,7 @@ from execution_testing.exceptions import (
 )
 from execution_testing.forks import (
     Amsterdam,
+    Bogota,
     Cancun,
     Fork,
     Paris,
@@ -78,6 +79,7 @@ from execution_testing.test_types import (
     AllocGroupHash,
     BlockAccessList,
     Environment,
+    RecursiveStark,
     Removable,
     TestPhase,
     Transaction,
@@ -247,6 +249,10 @@ class FixtureHeader(CamelModel):
         Annotated[ZeroPaddedHexNumber, HeaderForkRequirement("slot_number")]
         | None
     ) = Field(None)
+    recursive_stark: (
+        Annotated[RecursiveStark, HeaderForkRequirement("recursive_stark")]
+        | None
+    ) = Field(None)
 
     fork: Fork | None = Field(None, exclude=True)
 
@@ -287,12 +293,14 @@ class FixtureHeader(CamelModel):
     @cached_property
     def rlp_encode_list(self) -> List:
         """Compute the RLP of the header."""
-        header_list = []
+        header_list: List[Any] = []
         for field in self.__class__.model_fields:
             if field == "fork":
                 continue
             value = getattr(self, field)
-            if value is not None:
+            if isinstance(value, RecursiveStark):
+                header_list.append(value.to_list())
+            elif value is not None:
                 header_list.append(
                     value if isinstance(value, bytes) else Uint(value)
                 )
@@ -373,6 +381,8 @@ class FixtureHeader(CamelModel):
             return Address(0)
         elif actual_type == Bytes:
             return Bytes(b"")
+        elif actual_type == RecursiveStark:
+            return RecursiveStark()
         else:
             # Unsupported type - raise error to catch this during development
             raise TypeError(
@@ -404,6 +414,8 @@ class FixtureHeader(CamelModel):
             extras["slot_number"] = (
                 int(env.slot_number) if env.slot_number is not None else 0
             )
+        if fork.header_recursive_stark_required():
+            extras["recursive_stark"] = RecursiveStark()
         return cls(**environment_values, **extras)
 
 
@@ -423,6 +435,9 @@ MAX_WITHDRAWALS_PER_PAYLOAD = 2**4
 # lists; revisit once the value is finalized and verified.
 MAX_BLOCK_ACCESS_LIST_BYTES = 2**23
 """Placeholder cap for the RLP-encoded block access list byte list."""
+
+MAX_RECURSIVE_STARK_PROOF_BYTES = 2**23
+"""Placeholder cap for the EIP-8288 recursive STARK proof byte list."""
 
 
 class ForkScopedSSZModel(SSZModel):
@@ -494,6 +509,10 @@ class FixtureExecutionPayload(ForkScopedSSZModel):
         Annotated[Bytes, byte_list(MAX_BLOCK_ACCESS_LIST_BYTES)] | None
     ) = Field(None, description="RLP-serialized EIP-7928 Block Access List")
     slot_number: Uint64 | None = Field(None)
+    recursive_stark_proof: (
+        Annotated[Bytes, byte_list(MAX_RECURSIVE_STARK_PROOF_BYTES)] | None
+    ) = Field(None, description="EIP-8288 recursive STARK proof")
+    recursive_stark_block_deps_hash: Hash | None = Field(None)
 
     __ssz_schema__ = SSZForkSchema(
         base_fork=Paris,
@@ -517,6 +536,10 @@ class FixtureExecutionPayload(ForkScopedSSZModel):
             Shanghai: ("withdrawals",),
             Cancun: ("blob_gas_used", "excess_blob_gas"),
             Amsterdam: ("block_access_list", "slot_number"),
+            Bogota: (
+                "recursive_stark_proof",
+                "recursive_stark_block_deps_hash",
+            ),
         },
     )
 
@@ -532,8 +555,19 @@ class FixtureExecutionPayload(ForkScopedSSZModel):
         Return FixtureExecutionPayload from a FixtureHeader, a list of
         transactions, a list of withdrawals, and an optional block access list.
         """
+        recursive_stark: Dict[str, Any] = {}
+        if header.recursive_stark is not None:
+            recursive_stark = {
+                "recursive_stark_proof": header.recursive_stark.stark_proof,
+                "recursive_stark_block_deps_hash": (
+                    header.recursive_stark.block_deps_hash
+                ),
+            }
         return cls(
-            **header.model_dump(exclude_none=True),
+            **header.model_dump(
+                exclude_none=True, exclude={"recursive_stark"}
+            ),
+            **recursive_stark,
             transactions=[tx.rlp() for tx in transactions],
             withdrawals=withdrawals,
             block_access_list=block_access_list,

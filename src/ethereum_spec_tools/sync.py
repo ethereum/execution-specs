@@ -844,6 +844,9 @@ class Sync(ForkTracking):
                     "utils.hexadecimal"
                 ).hex_to_address,
                 store_code=self.active_fork.module("state").store_code,
+                RecursiveStark=getattr(
+                    self.active_fork.module("blocks"), "RecursiveStark", None
+                ),
             )
             genesis.add_genesis_block(
                 description,

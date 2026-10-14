@@ -33,6 +33,7 @@ EXPIRY_VERIFIER_BYTECODE = bytes.fromhex(
 class _DatalessFrame:
     """Stand-in for a frame carrying no data, no value, no frame gas."""
 
+    mode = 0
     data = b""
     gas_limit = 0
     state_gas_limit = 0
@@ -70,7 +71,7 @@ class EIP8141(BaseFork):
     @classmethod
     def frame_mode_count(cls) -> int:
         """The `DEFAULT`, `VERIFY` and `SENDER` frame modes are introduced."""
-        return 3
+        return max(super(EIP8141, cls).frame_mode_count(), 3)
 
     @classmethod
     def gas_costs(cls) -> GasCosts:
@@ -305,13 +306,17 @@ class EIP8141(BaseFork):
             return_cost_deducted_prior_execution: bool = False,
         ) -> int:
             frame_list = cls._frame_list(frames)
-            intrinsic_cost = cls._frame_transaction_base_cost(
-                frame_list, signatures, sender, nonce_keys
-            ) + sum(
-                calldata_gas_calculator(data=data)
-                for data in cls._frame_transaction_charged_bytes(
-                    frame_list, signatures, nonce_keys, nonce_seq
+            intrinsic_cost = (
+                cls._frame_transaction_base_cost(
+                    frame_list, signatures, sender, nonce_keys
                 )
+                + sum(
+                    calldata_gas_calculator(data=data)
+                    for data in cls._frame_transaction_charged_bytes(
+                        frame_list, signatures, nonce_keys, nonce_seq
+                    )
+                )
+                + cls._frame_transaction_dependency_cost(frame_list)
             )
 
             if return_cost_deducted_prior_execution:

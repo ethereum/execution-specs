@@ -247,6 +247,30 @@ class ForkLoad:
         return self._module("blocks").Header
 
     @property
+    def RecursiveStark(self) -> Any:
+        """RecursiveStark class of the fork."""
+        return self._module("blocks").RecursiveStark
+
+    @property
+    def has_recursive_stark(self) -> bool:
+        """Check if the fork carries a recursive STARK (EIP-8288)."""
+        try:
+            self._module("recursive_stark")
+        except ModuleNotFoundError:
+            return False
+        return True
+
+    @property
+    def block_dependencies(self) -> Any:
+        """block_dependencies function of the fork."""
+        return self._module("recursive_stark").block_dependencies
+
+    @property
+    def compute_dependencies_hash(self) -> Any:
+        """compute_dependencies_hash function of the fork."""
+        return self._module("recursive_stark").compute_dependencies_hash
+
+    @property
     def Account(self) -> Any:
         """Account class of the fork."""
         return self._module("fork_types").Account

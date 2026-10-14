@@ -23,7 +23,7 @@ from ethereum_types.bytes import Bytes, Bytes8, Bytes32, FixedBytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.crypto.hash import Hash32, blake2s256, keccak256
 from ethereum.utils import has_field
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
@@ -157,6 +157,7 @@ class GenesisFork(
     state_root: Callable[[StateT], Hash32]
     root: Callable[[TrieT], object]
     store_code: Callable[[StateT, Bytes], Hash32]
+    RecursiveStark: Callable[[Bytes, Hash32], object] | None
 
 
 def add_genesis_block(
@@ -269,6 +270,12 @@ def add_genesis_block(
 
     if has_field(hardfork.Header, "slot_number"):
         fields["slot_number"] = U64(0)
+
+    if has_field(hardfork.Header, "recursive_stark"):
+        assert hardfork.RecursiveStark is not None
+        fields["recursive_stark"] = hardfork.RecursiveStark(
+            b"", blake2s256(b"")
+        )
 
     genesis_header = hardfork.Header(**fields)
 

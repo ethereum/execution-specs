@@ -43,6 +43,7 @@ from .bloom import logs_bloom
 from .exceptions import WrongChainIdError
 from .fork_types import Authorization, BlockAccessIndex, ExecutionGas, StateGas
 from .frame_processing import process_frame_transaction
+from .recursive_stark import validate_recursive_stark
 from .requests import (
     BUILDER_DEPOSIT_REQUEST_TYPE,
     BUILDER_EXIT_REQUEST_TYPE,
@@ -356,6 +357,9 @@ def execute_block(
         raise InvalidBlock
     if computed_block_access_list_hash != block.header.block_access_list_hash:
         raise InvalidBlock("Invalid block access list hash")
+    validate_recursive_stark(
+        block.header.recursive_stark, block_output.dependencies
+    )
 
     return block_diff
 

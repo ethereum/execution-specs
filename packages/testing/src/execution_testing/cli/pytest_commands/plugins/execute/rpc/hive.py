@@ -31,6 +31,7 @@ from execution_testing.test_types import (
     BlockAccessList,
     ChainConfig,
     Environment,
+    RecursiveStark,
     Withdrawal,
 )
 
@@ -186,6 +187,9 @@ def build_genesis_header(
         if genesis_fork.header_bal_hash_required()
         else None,
         slot_number=0 if genesis_fork.header_slot_number_required() else None,
+        recursive_stark=RecursiveStark()
+        if genesis_fork.header_recursive_stark_required()
+        else None,
     )
 
     return (pre_alloc, genesis)
