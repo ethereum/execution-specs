@@ -69,7 +69,7 @@ VECTORS: List[Tuple[str, str, bool]] = [
     ("jumpdest_in_unreachable_code", "600456005B00", True),
     ("jump_not_preceded_by_push", "365B56", False),
     ("callsub_to_jumpdest", "6004BC005B", False),
-    # Constraint 4: underflow and the return stack
+    # Constraint 5: underflow and the return stack
     ("add_on_empty_stack", "01", False),
     ("pop_on_empty_stack", "50", False),
     (
@@ -79,7 +79,7 @@ VECTORS: List[Tuple[str, str, bool]] = [
     ),
     ("subroutine_underflows_caller", "6004BC00BB5050BF", False),
     ("fall_into_subroutine_then_returnsub", "BBBF", False),
-    # Constraint 5: offsets and net effects
+    # Constraint 4: offsets and net effects
     ("jumpi_arms_disagree_at_join", "366005575F5B00", False),
     ("jumpi_diamond_consistent", "366006575F005B5F00", True),
     ("two_returnsubs_disagree", "6004BC00BB36600A57BF5B5FBF", False),
