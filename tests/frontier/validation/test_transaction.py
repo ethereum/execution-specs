@@ -498,3 +498,84 @@ def test_tx_invalid_first_in_block(
             Block(txs=[trailing_tx], expected_block_access_list=replay_list),
         ],
     )
+
+
+@pytest.mark.inclusion_test
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.parametrize(
+    "gas_over_remaining",
+    [
+        pytest.param(0, id="fits"),
+        pytest.param(1, id="exceeds", marks=pytest.mark.exception_test),
+    ],
+)
+def test_tx_gas_allowance_after_larger_tx(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: BaseFork,
+    gas_over_remaining: int,
+) -> None:
+    """
+    A transaction must fit the gas the block has left after the ones before
+    it, even when it declares less gas than they do.
+
+    A client that executes transactions in parallel from the block access
+    list (EIP-7928) and checks gas allowances in another order, such as by
+    declared gas, admits the smaller transaction first, and the block's total
+    gas used then fits, so it accepts the block the `exceeds` case rejects.
+    """
+    # Well above what the block access list item cap needs (see
+    # `test_tx_gas_limit`).
+    block_gas_limit = 100_000
+    burner_gas = 60_000
+    remaining_gas = block_gas_limit - burner_gas
+    transfer_gas = remaining_gas + gas_over_remaining
+    assert transfer_gas < burner_gas
+
+    # INVALID burns the burner's whole gas limit, leaving exactly
+    # `remaining_gas` for the transfer.
+    burner_tx = Transaction(
+        to=pre.deploy_contract(code=Op.INVALID),
+        gas_limit=burner_gas,
+        sender=pre.fund_eoa(),
+        protected=False,
+    )
+    recipient_balance = 10**18
+    recipient = pre.fund_eoa(amount=recipient_balance)
+    error = (
+        TransactionException.GAS_ALLOWANCE_EXCEEDED
+        if gas_over_remaining
+        else None
+    )
+    transfer_tx = Transaction(
+        to=recipient,
+        value=1,
+        gas_limit=transfer_gas,
+        sender=pre.fund_eoa(),
+        protected=False,
+        error=error,
+    )
+
+    if error is None:
+        transfer_gas_used = fork.transaction_intrinsic_cost_calculator()(
+            sends_value=True
+        )
+        header_verify = Header(gas_used=burner_gas + transfer_gas_used)
+        post = {recipient: Account(balance=recipient_balance + 1)}
+    else:
+        header_verify = None
+        post = {recipient: Account(balance=recipient_balance)}
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        post=post,
+        blocks=[
+            Block(
+                txs=[burner_tx, transfer_tx],
+                gas_limit=block_gas_limit,
+                exception=error,
+                header_verify=header_verify,
+            )
+        ],
+    )
