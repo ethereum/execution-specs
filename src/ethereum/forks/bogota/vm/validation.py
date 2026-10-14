@@ -188,6 +188,25 @@ _TABLE: Dict[int, Tuple[int, int, bool]] = {
     Ops.CALLSUB.value: (1, 0, True),
     Ops.CALLDEST.value: (0, 0, False),
     Ops.RETURNSUB.value: (0, 0, True),
+    # EIP-9999: 64-bit instructions, the stack effects of their twins
+    **dict.fromkeys(
+        (
+            *range(0xC1, 0xC8),  # ADD64..SMOD64
+            0xCA,  # EXP64
+            0xCB,  # SIGNEXTEND64
+            *range(0xD0, 0xD5),  # LT64..EQ64
+            0xD6,  # AND64
+            0xD7,  # OR64
+            0xD8,  # XOR64
+            *range(0xDB, 0xDE),  # SHL64..SAR64
+        ),
+        (2, 1, False),
+    ),
+    0xC8: (3, 1, False),  # ADDMOD64
+    0xC9: (3, 1, False),  # MULMOD64
+    # CALLDATALOAD64, MLOAD64, ISZERO64, NOT64, CLZ64
+    **dict.fromkeys((0xCC, 0xCD, 0xD5, 0xD9, 0xDE), (1, 1, False)),
+    0xCE: (2, 0, False),  # MSTORE64
     0xF0: (3, 1, False),  # CREATE
     0xF5: (4, 1, False),  # CREATE2
     0xF1: (7, 1, False),  # CALL
@@ -340,7 +359,7 @@ def validate(code: Bytes, start: int, stack_limit: int = STACK_LIMIT) -> bool:
             e, v = settle.pop()
             if e in net_effect:
                 if net_effect[e] != v:
-                    return False  # Constraint 5: one net per entry
+                    return False  # Constraint 4: one net per entry
                 continue
             net_effect[e] = v
             for ret_pc, offset, caller in pending.pop(e, []):
@@ -373,7 +392,7 @@ def validate(code: Bytes, start: int, stack_limit: int = STACK_LIMIT) -> bool:
             offset, entry = 0, pc
 
         if pc in visited:
-            # Constraint 5: paths must agree.
+            # Constraint 4: paths must agree.
             if visited[pc] != (offset, entry):
                 return False
             continue
@@ -389,7 +408,7 @@ def validate(code: Bytes, start: int, stack_limit: int = STACK_LIMIT) -> bool:
         if requirement == _ENTRY and op != Ops.CALLDEST.value:
             return False
 
-        # Constraint 4: items used from below the subroutine's start.
+        # Constraint 5: items used from below the subroutine's start.
         need = pops - offset
         if need > inputs[entry]:
             if need > stack_limit:
@@ -441,7 +460,7 @@ def validate(code: Bytes, start: int, stack_limit: int = STACK_LIMIT) -> bool:
                 value = _push_value(code, pc)
             work_items.append((nxt, offset, entry, value))
 
-    # Constraint 4, framing: an entry reached by jump from an unframed
+    # Constraint 5, framing: an entry reached by jump from an unframed
     # entry is unframed; the top level is unframed; no unframed entry may
     # contain a RETURNSUB. Framing propagates along jump links only, since
     # a CALLSUB frames its callee. A worklist walks each link at most once:
