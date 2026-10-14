@@ -1,4 +1,4 @@
-"""Reference spec for [EIP-9999: 64-bit Opcodes for the EVM](https://eips.ethereum.org/EIPS/eip-9999)."""
+"""Reference spec for [EIP-12504: 64-bit Opcodes for the EVM](https://eips.ethereum.org/EIPS/eip-12504)."""
 
 from dataclasses import dataclass
 
@@ -11,15 +11,15 @@ class ReferenceSpec:
     version: str
 
 
-ref_spec_9999 = ReferenceSpec(
-    git_path="EIPS/eip-9999.md",
+ref_spec_12504 = ReferenceSpec(
+    git_path="EIPS/eip-12504.md",
     # To be set to the EIP file's commit hash once the EIP is merged.
     version="0000000000000000000000000000000000000000",
 )
 
 
 class Spec:
-    """Constants and parameters from EIP-9999."""
+    """Constants and parameters from EIP-12504."""
 
     # Gas tiers, each a step below the tier of the twin.
     VERY_LOW_64: int = 2

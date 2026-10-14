@@ -71,7 +71,7 @@ class GasCosts:
     LOW: Final[ExecutionGas] = ExecutionGas(Uint(5))
     MID: Final[ExecutionGas] = ExecutionGas(Uint(8))
     HIGH: Final[ExecutionGas] = ExecutionGas(Uint(10))
-    # EIP-9999: 64-bit tiers, a step below the tier of each twin
+    # EIP-12504: 64-bit tiers, a step below the tier of each twin
     VERY_LOW_64: Final[ExecutionGas] = ExecutionGas(Uint(2))
     LOW_64: Final[ExecutionGas] = ExecutionGas(Uint(3))
     MID_64: Final[ExecutionGas] = ExecutionGas(Uint(5))
@@ -205,7 +205,7 @@ class GasCosts:
     OPCODE_CALLSUB: Final[ExecutionGas] = MID
     OPCODE_CALLDEST: Final[ExecutionGas] = ExecutionGas(Uint(1))
     OPCODE_RETURNSUB: Final[ExecutionGas] = LOW
-    # EIP-9999: 64-bit opcodes
+    # EIP-12504: 64-bit opcodes
     OPCODE_ADD64: Final[ExecutionGas] = VERY_LOW_64
     OPCODE_MUL64: Final[ExecutionGas] = LOW_64
     OPCODE_SUB64: Final[ExecutionGas] = VERY_LOW_64
@@ -278,7 +278,7 @@ class GasCosts:
     OPCODE_COPY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))
     OPCODE_EXP_BASE: Final[ExecutionGas] = ExecutionGas(Uint(10))
     OPCODE_EXP_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(50))
-    # EIP-9999: 64-bit opcodes with dynamic components
+    # EIP-12504: 64-bit opcodes with dynamic components
     OPCODE_MLOAD64_BASE: Final[ExecutionGas] = VERY_LOW_64
     OPCODE_MSTORE64_BASE: Final[ExecutionGas] = VERY_LOW_64
     OPCODE_EXP64_BASE: Final[ExecutionGas] = ExecutionGas(Uint(5))
