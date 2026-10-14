@@ -1162,7 +1162,10 @@ def test_bal_invalid_extraneous_entries(
                         alice=alice,
                         oracle=oracle,
                         charlie=charlie,
-                    )
+                    ),
+                    # An appended account would otherwise break the order,
+                    # and the block would be rejected for that instead.
+                    sort_accounts_by_address(),
                 ),
             )
         ],
