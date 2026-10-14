@@ -325,6 +325,7 @@ def test_il_entry_matched_to_block_tx_by_bytes(
             ty=2, sender=pre.fund_eoa(), to=recipient, gas_limit=calc()
         ).with_signature_and_sender()
         il_entry = block_tx
+        expected_satisfied = True
     elif entry == "access_list_changed":
         block_tx = Transaction(
             ty=2,
@@ -334,6 +335,7 @@ def test_il_entry_matched_to_block_tx_by_bytes(
             gas_limit=calc(access_list=access_list),
         ).with_signature_and_sender()
         il_entry = block_tx.copy(access_list=access_list, sender=None)
+        expected_satisfied = False
     elif entry == "authorization_list_changed":
         block_tx = Transaction(
             ty=4,
@@ -347,6 +349,7 @@ def test_il_entry_matched_to_block_tx_by_bytes(
             authorization_list=[authorization, extra_authorization],
             sender=None,
         )
+        expected_satisfied = False
     else:
         raise ValueError(f"unknown entry: {entry}")
 
@@ -363,7 +366,7 @@ def test_il_entry_matched_to_block_tx_by_bytes(
             Block(
                 txs=[block_tx],
                 inclusion_list_txs=[il_entry],
-                expected_inclusion_list_satisfied=entry == "same_bytes",
+                expected_inclusion_list_satisfied=expected_satisfied,
             )
         ],
     )

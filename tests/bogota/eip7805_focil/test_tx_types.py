@@ -167,26 +167,23 @@ def l2_typed_entry(type_byte: int, tx: Transaction) -> Bytes:
     return Bytes(bytes([type_byte]) + eth_rlp.encode(payload))
 
 
-# Positions in a signed type-2 payload.
-CHAIN_ID_FIELD = 0
-TO_FIELD = 5
-
-
 def type_2_entry(
     tx: Transaction,
-    raw_fields: dict[int, bytes] | None = None,
+    raw_fields: dict[str, bytes] | None = None,
     list_length_leading_zero: bool = False,
 ) -> Bytes:
     """
     Re-encode a signed type-2 `tx`, swapping in raw encodings for some
     fields and optionally padding its list length with a zero byte.
     """
-    decoded = eth_rlp.decode(tx.rlp()[1:])
-    assert isinstance(decoded, list)
-    fields = [eth_rlp.encode(item) for item in decoded]
-    for index, raw_field in (raw_fields or {}).items():
-        fields[index] = raw_field
-    body = b"".join(fields)
+    fields = {
+        name: eth_rlp.encode(value)
+        for name, value in zip(
+            tx.get_rlp_fields(), tx.to_list(signing=False), strict=True
+        )
+    }
+    fields.update(raw_fields or {})
+    body = b"".join(fields.values())
     # A payload this long always takes the long-form list header.
     assert len(body) >= 56
     length = len(body).to_bytes((len(body).bit_length() + 7) // 8, "big")
@@ -231,11 +228,8 @@ def test_undecodable_il_entry_is_skipped(
     appendable_tx_follows: bool,
 ) -> None:
     """
-    An inclusion list entry that is not a transaction is skipped.
-
-    Alone it leaves the payload satisfied. Followed by an appendable
-    transaction, the check moves on past it and the payload is unsatisfied.
-    The control entries show the payloads the others reuse are appendable.
+    An entry that does not decode as a transaction is skipped, and the check
+    goes on to the entries after it.
     """
     # Entries built from raw bytes are signed here, before the framework
     # would set their gas limit.
@@ -259,14 +253,13 @@ def test_undecodable_il_entry_is_skipped(
     assert PRIVILEGED_TX_TYPE not in fork.tx_types()
     # The non-canonical entries re-encode the type-2 control field by field.
     assert type_2_entry(type_2_tx) == type_2_tx.rlp()
-    decoded = eth_rlp.decode(type_2_payload)
-    assert isinstance(decoded, list)
-    chain_id, to = decoded[CHAIN_ID_FIELD], decoded[TO_FIELD]
-    assert isinstance(chain_id, bytes) and isinstance(to, bytes)
-    assert len(chain_id) == 1 and chain_id[0] < 0x80
-    assert len(to) == 20
+    # A chain id below 0x80 is its own single-byte encoding.
+    assert type_2_tx.chain_id < 0x80 and type_2_tx.to is not None
+    chain_id = bytes([type_2_tx.chain_id])
+    to = bytes(type_2_tx.to)
 
     entry_appendable = False
+    # The controls show the payloads the other entries reuse are appendable.
     if entry == "type_2_control":
         il_entry = type_2_tx.rlp()
         entry_appendable = True
@@ -295,14 +288,12 @@ def test_undecodable_il_entry_is_skipped(
         il_entry = Bytes(legacy_tx.rlp()[:-1])
     elif entry == "type_2_chain_id_leading_zero":
         il_entry = type_2_entry(
-            type_2_tx, {CHAIN_ID_FIELD: b"\x82\x00" + chain_id}
+            type_2_tx, {"chain_id": b"\x82\x00" + chain_id}
         )
     elif entry == "type_2_chain_id_byte_as_string":
-        il_entry = type_2_entry(
-            type_2_tx, {CHAIN_ID_FIELD: b"\x81" + chain_id}
-        )
+        il_entry = type_2_entry(type_2_tx, {"chain_id": b"\x81" + chain_id})
     elif entry == "type_2_to_long_form_length":
-        il_entry = type_2_entry(type_2_tx, {TO_FIELD: b"\xb8\x14" + to})
+        il_entry = type_2_entry(type_2_tx, {"to": b"\xb8\x14" + to})
     elif entry == "type_2_list_length_leading_zero":
         il_entry = type_2_entry(type_2_tx, list_length_leading_zero=True)
     else:
