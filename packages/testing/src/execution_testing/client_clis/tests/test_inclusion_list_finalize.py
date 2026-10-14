@@ -42,7 +42,7 @@ def built_payload() -> GetPayloadResponse:
 
 
 @pytest.mark.parametrize("client_backend", [True, False])
-def test_live_finalize_preserves_context(client_backend: bool) -> None:
+def test_live_finalize_preserves_inputs(client_backend: bool) -> None:
     """Keep exact inputs available while waiting for a deferred verdict."""
     payload = built_payload()
     rpc = MagicMock()
@@ -51,7 +51,6 @@ def test_live_finalize_preserves_context(client_backend: bool) -> None:
         latest_valid_hash=payload.execution_payload.block_hash,
         validation_error=None,
         inclusion_list_satisfied=None,
-        inclusion_list_context_id=Hash(7),
     )
     completed = status.model_copy(
         update={"inclusion_list_satisfied": not client_backend}
@@ -69,23 +68,22 @@ def test_live_finalize_preserves_context(client_backend: bool) -> None:
                 payload,
                 parent_beacon_block_root=Hash(0),
                 block_fork=Bogota,
-                inclusion_list_transactions=[Bytes("0xc0")],
-                inclusion_list_membership=[Bytes("0x0002")],
+                inclusion_lists=[[]] * 9 + [[Bytes("0xc0")]] + [[]] * 6,
             )
             is False
         )
         call = rpc.new_payload_with_retry.call_args
-        assert call.args[4:6] == ([Bytes("0xc0")], [Bytes("0x0002")])
+        assert call.args[4] == [[]] * 9 + [[Bytes("0xc0")]] + [[]] * 6
     else:
         builder = ChainBuilderEthRPC.__new__(ChainBuilderEthRPC)
         builder.engine_rpc = rpc
         builder.fork = Bogota
         builder._finalize_payload(payload, Hash(0))
         call = rpc.new_payload.call_args
-        assert call.args[4:6] == ([], [])
+        assert call.args[4] == [[]] * 16
     assert call.kwargs["version"] == 6
-    assert len(call.args) == 7
-    assert call.args[6] == payload.omission_claims
+    assert len(call.args) == 6
+    assert call.args[5] == payload.omission_claims
     rpc.wait_for_inclusion_list.assert_called_once_with(
         status, *call.args, version=6
     )
@@ -103,7 +101,7 @@ def test_live_finalize_requires_get_payload_claims() -> None:
             payload,
             parent_beacon_block_root=Hash(0),
             block_fork=Bogota,
-            inclusion_list_membership=[],
+            inclusion_lists=[[]] * 16,
             omission_claims=[],
         )
     rpc.new_payload_with_retry.assert_not_called()

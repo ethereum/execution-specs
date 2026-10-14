@@ -74,8 +74,7 @@ def test_omitted_prefix_trace_and_isolation(
         blocks=[
             Block(
                 txs=[],
-                inclusion_list_txs=[omitted],
-                inclusion_list_membership=[b"\x01\x00"],
+                inclusion_lists=[[omitted]] + [[] for _ in range(15)],
                 expected_inclusion_list_satisfied=satisfied,
             )
         ],
@@ -105,8 +104,7 @@ def test_end_index_excludes_withdrawals(
             Block(
                 txs=[transfer] if funding == "transaction" else [],
                 withdrawals=[withdrawal] if funding == "withdrawal" else [],
-                inclusion_list_txs=[omitted],
-                inclusion_list_membership=[b"\x01\x00"],
+                inclusion_lists=[[omitted]] + [[] for _ in range(15)],
                 expected_inclusion_list_satisfied=funding == "withdrawal",
             )
         ],
@@ -142,8 +140,7 @@ def test_child_trace_survives_revert(
         blocks=[
             Block(
                 txs=[],
-                inclusion_list_txs=[omitted],
-                inclusion_list_membership=[b"\x01\x00"],
+                inclusion_lists=[[omitted]] + [[] for _ in range(15)],
                 expected_inclusion_list_satisfied=forbidden,
             )
         ],
@@ -200,8 +197,7 @@ def test_claim_selects_transaction_boundary(
         blocks=[
             Block(
                 txs=[mutate],
-                inclusion_list_txs=[omitted],
-                inclusion_list_membership=[b"\x01\x00"],
+                inclusion_lists=[[omitted]] + [[] for _ in range(15)],
                 omission_claims=claim_list,
                 expected_inclusion_list_satisfied=satisfied,
             )

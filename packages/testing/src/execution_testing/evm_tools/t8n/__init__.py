@@ -243,17 +243,17 @@ class T8N(Load):
         self.inclusion_list_snapshots: Dict[Uint, Any] = {}
         self.inclusion_list_snapshot_indices: set[Uint] = set()
         if self.fork.has_omission_claims and not self.state_test:
-            if self.inclusion_list_txs is None:
-                raise ValueError(
-                    "Inclusion list transactions must be supplied"
-                )
+            if t8n_data.inclusion_lists is None:
+                raise ValueError("Separate inclusion lists must be supplied")
+            self.inclusion_list_txs = [
+                tx
+                for inclusion_list in t8n_data.inclusion_lists
+                for tx in inclusion_list
+            ]
             self.inclusion_list_inputs = self.fork.InclusionListInputs(
-                transactions=tuple(
-                    Bytes(tx.rlp()) for tx in self.inclusion_list_txs or []
-                ),
-                membership=tuple(
-                    Bytes(value)
-                    for value in t8n_data.inclusion_list_membership or []
+                inclusion_lists=tuple(
+                    tuple(Bytes(tx.rlp()) for tx in inclusion_list)
+                    for inclusion_list in t8n_data.inclusion_lists
                 ),
                 claims=tuple(
                     self.fork.OmissionClaim(

@@ -293,12 +293,14 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         )
         # This chain builder supplies an empty selected inclusion list in
         # PayloadAttributes. Retain the builder's exact committed claims.
-        if payload_fork.engine_new_payload_inclusion_list_transactions():
-            new_payload_args.append([])
         if payload_fork.engine_new_payload_omission_claims():
             if payload.omission_claims is None:
                 raise ValueError("getPayloadV7 must return omission claims")
-            new_payload_args.extend([[], payload.omission_claims])
+            new_payload_args.extend(
+                [[[] for _ in range(16)], payload.omission_claims]
+            )
+        elif payload_fork.engine_new_payload_inclusion_list_transactions():
+            new_payload_args.append([])
         new_payload_version = payload_fork.engine_new_payload_version()
         assert new_payload_version is not None, (
             "Fork does not support engine new_payload"

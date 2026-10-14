@@ -610,13 +610,12 @@ EngineNewPayloadV6Parameters = Tuple[
     List[Hash],
     Hash,
     List[Bytes],
-    List[Bytes],
-    List[Bytes],
+    List[List[Bytes]],
     List[OmissionClaim],
 ]
 
-# Important: We check EngineNewPayloadV6Parameters first as it has more fields,
-# and pydantic has a weird behavior when the smaller tuple is checked first.
+# Check the nested-list form first and stop at the first matching shape;
+# older flat-list validators cannot interpret a list as transaction bytes.
 EngineNewPayloadParameters = Union[
     EngineNewPayloadV6Parameters,
     LegacyEngineNewPayloadV6Parameters,
@@ -633,7 +632,7 @@ class FixtureEngineNewPayload(CamelModel):
     the block information.
     """
 
-    params: EngineNewPayloadParameters
+    params: EngineNewPayloadParameters = Field(union_mode="left_to_right")
     new_payload_version: Number
     forkchoice_updated_version: Number
     validation_error: ExceptionInstanceOrList | None = None
@@ -677,11 +676,8 @@ class FixtureEngineNewPayload(CamelModel):
             else None
         )
         return PayloadAttributes(
-            inclusion_list_transactions=(
-                self.params[4] if len(self.params) == 7 else None
-            ),
-            inclusion_list_membership=(
-                self.params[5] if len(self.params) == 7 else None
+            inclusion_lists=(
+                self.params[4] if len(self.params) == 6 else None
             ),
             timestamp=execution_payload.timestamp,
             prev_randao=execution_payload.prev_randao,
@@ -740,7 +736,7 @@ class FixtureEngineNewPayload(CamelModel):
         requests: List[Bytes] | None,
         block_access_list: Bytes | None = None,
         inclusion_list_transactions: List[Transaction] | None = None,
-        inclusion_list_membership: List[Bytes] | None = None,
+        inclusion_lists: List[List[Transaction]] | None = None,
         omission_claims: List[OmissionClaim] | None = None,
         execution_payload_modifier: (
             "FixtureExecutionPayloadModifier | None"
@@ -803,27 +799,26 @@ class FixtureEngineNewPayload(CamelModel):
                 raise ValueError(f"Requests are required for ${fork}.")
             params.append(requests)
 
-        if fork.engine_new_payload_inclusion_list_transactions():
-            if inclusion_list_transactions is None:
-                raise ValueError(
-                    f"Inclusion list transactions are required for ${fork}."
-                )
-            params.append([tx.rlp() for tx in inclusion_list_transactions])
-            if "inclusion_list_satisfied" not in kwargs:
-                raise ValueError(
-                    f"Inclusion list satisfied is required for ${fork}."
-                )
-
         if fork.engine_new_payload_omission_claims():
-            if inclusion_list_membership is None or omission_claims is None:
+            if inclusion_lists is None or omission_claims is None:
                 raise ValueError(
-                    "Inclusion list membership and claims are required "
+                    "Separate ILs and omission claims are required "
                     f"for {fork}."
                 )
-            validate_inclusion_list_metadata(
-                params[4], inclusion_list_membership, omission_claims
-            )
-            params.extend([inclusion_list_membership, omission_claims])
+            encoded_lists = [[tx.rlp() for tx in il] for il in inclusion_lists]
+            validate_inclusion_list_metadata(encoded_lists, omission_claims)
+            params.extend([encoded_lists, omission_claims])
+        elif fork.engine_new_payload_inclusion_list_transactions():
+            if inclusion_list_transactions is None:
+                raise ValueError(
+                    f"Inclusion list transactions are required for {fork}."
+                )
+            params.append([tx.rlp() for tx in inclusion_list_transactions])
+        if fork.engine_new_payload_inclusion_list_transactions():
+            if "inclusion_list_satisfied" not in kwargs:
+                raise ValueError(
+                    f"Inclusion list satisfied is required for {fork}."
+                )
 
         payload_params: EngineNewPayloadParameters = cast(
             EngineNewPayloadParameters,

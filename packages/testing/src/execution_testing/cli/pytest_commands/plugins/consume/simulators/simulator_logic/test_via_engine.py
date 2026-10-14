@@ -274,7 +274,10 @@ def test_blockchain_via_engine(
                                 f"unexpected status: want "
                                 f"{PayloadStatusEnum.VALID}, got {status}"
                             )
-                        if payload.inclusion_list_satisfied is not None:
+                        if (
+                            payload.inclusion_list_satisfied is not None
+                            and len(payload.params) == 5
+                        ):
                             fcu_status = forkchoice_response.payload_status
                             fcu_ils = fcu_status.inclusion_list_satisfied
                             # The client must evaluate the retained
@@ -315,12 +318,16 @@ def test_blockchain_via_engine(
                 # The list sits after the requests; omission claims, when
                 # present, follow it. The length check is for mypy
                 # narrowing.
-                inclusion_list_param = (
-                    head_payload.params[4]
-                    if len(head_payload.params) >= 5
-                    else []
-                )
-                assert isinstance(inclusion_list_param, list)
+                if len(head_payload.params) == 6:
+                    inclusion_list_param = list(
+                        dict.fromkeys(
+                            tx for il in head_payload.params[4] for tx in il
+                        )
+                    )
+                elif len(head_payload.params) == 5:
+                    inclusion_list_param = head_payload.params[4]
+                else:
+                    inclusion_list_param = []
                 for raw_tx in inclusion_list_param:
                     try:
                         eth_rpc.send_raw_transaction(raw_tx)

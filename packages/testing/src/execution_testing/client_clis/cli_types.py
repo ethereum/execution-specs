@@ -663,20 +663,29 @@ class TransitionToolInput:
     env: Environment
     blob_params: ForkBlobSchedule | None = None
     inclusion_list_txs: List[Transaction] | None = None
-    inclusion_list_membership: List[Bytes] | None = None
+    inclusion_lists: List[List[Transaction]] | None = None
     omission_claims: List[OmissionClaim] | None = None
 
     def inclusion_list_data(self) -> Dict[str, Any]:
         """Serialize supplied inclusion inputs without inventing policy."""
         data: Dict[str, Any] = {}
-        if self.inclusion_list_txs is not None:
+        if (
+            self.inclusion_list_txs is not None
+            and self.inclusion_lists is None
+        ):
             data["inclusionListTransactions"] = [
                 tx.model_dump(mode="json", by_alias=True, exclude_none=True)
                 for tx in self.inclusion_list_txs
             ]
-        if self.inclusion_list_membership is not None:
-            data["inclusionListMembership"] = [
-                value.hex() for value in self.inclusion_list_membership
+        if self.inclusion_lists is not None:
+            data["inclusionLists"] = [
+                [
+                    tx.model_dump(
+                        mode="json", by_alias=True, exclude_none=True
+                    )
+                    for tx in transactions
+                ]
+                for transactions in self.inclusion_lists
             ]
         if self.omission_claims is not None:
             data["omissionClaims"] = [

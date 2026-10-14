@@ -58,7 +58,7 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     )
     for field, dest in (
         ("inclusionListTransactions", "inclusion_list_txs"),
-        ("inclusionListMembership", "inclusion_list_membership"),
+        ("inclusionLists", "inclusion_lists"),
         ("omissionClaims", "omission_claims"),
     ):
         t8n_parser.add_argument(f"--input.{field}", dest=dest, default=None)
@@ -318,7 +318,6 @@ def build_t8n_from_cli_options(
     testing pydantic types, bundles them into a ``TransitionToolData``,
     builds the tracer group, and hands them to ``T8N``.
     """
-    from execution_testing.base_types import Bytes as TestingBytes
     from execution_testing.base_types.composite_types import BlobSchedule
     from execution_testing.client_clis.transition_tool import TransitionTool
     from execution_testing.test_types import (
@@ -336,7 +335,7 @@ def build_t8n_from_cli_options(
 
     inclusion_fields = (
         ("inclusionListTransactions", "inclusion_list_txs"),
-        ("inclusionListMembership", "inclusion_list_membership"),
+        ("inclusionLists", "inclusion_lists"),
         ("omissionClaims", "omission_claims"),
     )
     forks = Hardfork.discover()
@@ -399,12 +398,14 @@ def build_t8n_from_cli_options(
         blob_schedule=blob_schedule,
         state_test=options.state_test,
         inclusion_list_txs=il_txs,
-        inclusion_list_membership=(
+        inclusion_lists=(
             [
-                TestingBytes(value)
-                for value in inclusion_data["inclusionListMembership"]
+                _parse_txs_json_to_testing(
+                    values, fork_module, TestingTransaction
+                )[0]
+                for values in inclusion_data["inclusionLists"]
             ]
-            if "inclusionListMembership" in inclusion_data
+            if "inclusionLists" in inclusion_data
             else None
         ),
         omission_claims=(

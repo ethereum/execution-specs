@@ -265,8 +265,12 @@ class ClientBackend:
         payload_attributes = self._payload_attributes(
             env,
             block_fork,
-            inclusion_transactions,
-            transition_tool_data.inclusion_list_membership,
+            [
+                [tx.rlp() for tx in il]
+                for il in transition_tool_data.inclusion_lists
+            ]
+            if transition_tool_data.inclusion_lists is not None
+            else None,
         )
         parent_block_hash = Hash(env.parent_hash or 0)
         get_payload_response = self.testing_rpc.build_block(
@@ -282,9 +286,7 @@ class ClientBackend:
             ),
             block_fork=block_fork,
             inclusion_list_transactions=inclusion_transactions,
-            inclusion_list_membership=(
-                transition_tool_data.inclusion_list_membership
-            ),
+            inclusion_lists=payload_attributes.inclusion_lists,
             omission_claims=transition_tool_data.omission_claims,
         )
         np_version = block_fork.engine_new_payload_version()
@@ -367,8 +369,7 @@ class ClientBackend:
         self,
         env: Environment,
         block_fork: Fork,
-        inclusion_list_transactions: List[Bytes] | None = None,
-        inclusion_list_membership: List[Bytes] | None = None,
+        inclusion_lists: List[List[Bytes]] | None = None,
     ) -> PayloadAttributes:
         """Build ``PayloadAttributes`` from the test's environment."""
         withdrawals: List[Withdrawal] | None = None
@@ -389,12 +390,7 @@ class ClientBackend:
             withdrawals=withdrawals,
             parent_beacon_block_root=parent_beacon_block_root,
             slot_number=slot_number,
-            inclusion_list_transactions=(
-                inclusion_list_transactions
-                if block_fork.engine_new_payload_omission_claims()
-                else None
-            ),
-            inclusion_list_membership=inclusion_list_membership,
+            inclusion_lists=inclusion_lists,
         )
 
     def _finalize(
@@ -404,7 +400,7 @@ class ClientBackend:
         parent_beacon_block_root: Hash | None,
         block_fork: Fork,
         inclusion_list_transactions: List[Bytes] | None = None,
-        inclusion_list_membership: List[Bytes] | None = None,
+        inclusion_lists: List[List[Bytes]] | None = None,
         omission_claims: List[OmissionClaim] | None = None,
     ) -> bool | None:
         """
@@ -428,23 +424,17 @@ class ClientBackend:
             new_payload_args.append(parent_beacon_block_root)
         if payload_response.execution_requests is not None:
             new_payload_args.append(payload_response.execution_requests)
-        if block_fork.engine_new_payload_inclusion_list_transactions():
-            new_payload_args.append(inclusion_list_transactions or [])
         if block_fork.engine_new_payload_omission_claims():
-            if inclusion_list_membership is None:
-                raise ValueError("Inclusion-list membership is required")
+            if inclusion_lists is None:
+                raise ValueError("Separate inclusion lists are required")
             if payload_response.omission_claims is None:
                 raise ValueError("getPayloadV7 must return omission claims")
             if omission_claims is None:
                 omission_claims = payload_response.omission_claims
-            validate_inclusion_list_metadata(
-                inclusion_list_transactions or [],
-                inclusion_list_membership,
-                omission_claims,
-            )
-            new_payload_args.extend(
-                [inclusion_list_membership, omission_claims]
-            )
+            validate_inclusion_list_metadata(inclusion_lists, omission_claims)
+            new_payload_args.extend([inclusion_lists, omission_claims])
+        elif block_fork.engine_new_payload_inclusion_list_transactions():
+            new_payload_args.append(inclusion_list_transactions or [])
 
         new_payload_response = self.engine_rpc.new_payload_with_retry(
             *new_payload_args, version=new_payload_version

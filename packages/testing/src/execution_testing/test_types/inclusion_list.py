@@ -15,26 +15,16 @@ class OmissionClaim(CamelModel):
 
 
 def validate_inclusion_list_metadata(
-    transactions: Sequence[Bytes],
-    membership: Sequence[Bytes],
+    inclusion_lists: Sequence[Sequence[Bytes]],
     claims: Sequence[OmissionClaim] = (),
 ) -> None:
     """Validate the Engine API container without executing transactions."""
     if len(claims) > 4096:
         raise ValueError("Too many omission claims")
-    if len(transactions) != len(membership):
-        raise ValueError("Membership length differs from transaction count")
-    if any(not transaction for transaction in transactions):
-        raise ValueError("Empty inclusion-list transaction")
-    if len(set(transactions)) != len(transactions):
-        raise ValueError("Duplicate inclusion-list transaction")
-    totals = [0] * 16
-    for transaction, members in zip(transactions, membership, strict=True):
-        if len(members) != 2 or not any(members):
-            raise ValueError("Membership must be a nonzero 2-byte bitvector")
-        bits = int.from_bytes(members, "little")
-        for position in range(16):
-            if bits & (1 << position):
-                totals[position] += len(transaction)
-                if totals[position] > 8192:
-                    raise ValueError("Inclusion list exceeds its byte limit")
+    if len(inclusion_lists) != 16:
+        raise ValueError("Expected one inclusion list per committee position")
+    for transactions in inclusion_lists:
+        if any(not transaction for transaction in transactions):
+            raise ValueError("Empty inclusion-list transaction")
+        if sum(map(len, transactions)) > 8192:
+            raise ValueError("Inclusion list exceeds its byte limit")

@@ -31,7 +31,7 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import ReadTimeout
 from requests_unixsocket import Session
 
-from execution_testing.base_types import BlobSchedule, Bytes
+from execution_testing.base_types import BlobSchedule
 from execution_testing.base_types.composite_types import (
     ForkBlobSchedule,
 )
@@ -336,7 +336,7 @@ class TransitionTool(EthereumCLI):
         blob_schedule: BlobSchedule | None
         state_test: bool = False
         inclusion_list_txs: List[Transaction] | None = None
-        inclusion_list_membership: List[Bytes] | None = None
+        inclusion_lists: List[List[Transaction]] | None = None
         omission_claims: List[OmissionClaim] | None = None
 
         @property
@@ -379,7 +379,7 @@ class TransitionTool(EthereumCLI):
                 env=self.env,
                 blob_params=self.blob_params,
                 inclusion_list_txs=self.inclusion_list_txs,
-                inclusion_list_membership=self.inclusion_list_membership,
+                inclusion_lists=self.inclusion_lists,
                 omission_claims=self.omission_claims,
             )
 

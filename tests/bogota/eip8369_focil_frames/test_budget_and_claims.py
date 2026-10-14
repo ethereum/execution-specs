@@ -139,8 +139,8 @@ def test_fill_debits_only_candidates(
         blocks=[
             Block(
                 txs=[],
-                inclusion_list_txs=[*fillers, candidate],
-                inclusion_list_membership=[b"\x01\x00"] * (FILLER_COUNT + 1),
+                inclusion_lists=[[*fillers, candidate]]
+                + [[] for _ in range(15)],
                 expected_inclusion_list_satisfied=satisfied,
             )
         ],
@@ -197,8 +197,7 @@ def test_claim_fits_gas_used_before_index(
         blocks=[
             Block(
                 txs=transfers,
-                inclusion_list_txs=[omitted],
-                inclusion_list_membership=[b"\x01\x00"],
+                inclusion_lists=[[omitted]] + [[] for _ in range(15)],
                 omission_claims=claims,
                 expected_inclusion_list_satisfied=not claimed,
             )
@@ -251,8 +250,7 @@ def test_claim_uses_payer_balance_at_index(
         blocks=[
             Block(
                 txs=[drain],
-                inclusion_list_txs=[omitted],
-                inclusion_list_membership=[b"\x01\x00"],
+                inclusion_lists=[[omitted]] + [[] for _ in range(15)],
                 omission_claims=claims,
                 expected_inclusion_list_satisfied=not claimed,
             )
@@ -302,8 +300,7 @@ def test_deploy_frame_creates_sender(
         blocks=[
             Block(
                 txs=[],
-                inclusion_list_txs=[omitted],
-                inclusion_list_membership=[b"\x01\x00"],
+                inclusion_lists=[[omitted]] + [[] for _ in range(15)],
                 expected_inclusion_list_satisfied=False,
             )
         ],
@@ -358,10 +355,10 @@ def test_transient_storage_in_prefix(
         blocks=[
             Block(
                 txs=[],
-                inclusion_list_txs=[
-                    Transaction(sender=sender, nonce=nonce, frames=frames)
-                ],
-                inclusion_list_membership=[b"\x01\x00"],
+                inclusion_lists=[
+                    [Transaction(sender=sender, nonce=nonce, frames=frames)]
+                ]
+                + [[] for _ in range(15)],
                 expected_inclusion_list_satisfied=satisfied,
             )
         ],
@@ -431,8 +428,7 @@ def test_replay_code_limits(
         blocks=[
             Block(
                 txs=[],
-                inclusion_list_txs=[omitted],
-                inclusion_list_membership=[b"\x01\x00"],
+                inclusion_lists=[[omitted]] + [[] for _ in range(15)],
                 expected_inclusion_list_satisfied=not fits,
             )
         ],
@@ -472,21 +468,23 @@ def test_call_target_must_be_undelegated(
         blocks=[
             Block(
                 txs=[],
-                inclusion_list_txs=[
-                    Transaction(
-                        sender=sender,
-                        nonce=1,
-                        frames=[
-                            Frame(
-                                mode=1,
-                                flags=3,
-                                gas_limit=50_000,
-                                state_gas_limit=0,
-                            )
-                        ],
-                    )
-                ],
-                inclusion_list_membership=[b"\x01\x00"],
+                inclusion_lists=[
+                    [
+                        Transaction(
+                            sender=sender,
+                            nonce=1,
+                            frames=[
+                                Frame(
+                                    mode=1,
+                                    flags=3,
+                                    gas_limit=50_000,
+                                    state_gas_limit=0,
+                                )
+                            ],
+                        )
+                    ]
+                ]
+                + [[] for _ in range(15)],
                 expected_inclusion_list_satisfied=satisfied,
             )
         ],
@@ -532,21 +530,23 @@ def test_deploy_frame_target_must_be_undelegated(
         blocks=[
             Block(
                 txs=[],
-                inclusion_list_txs=[
-                    Transaction(
-                        sender=sender,
-                        frames=[
-                            Frame(mode=0, target=factory),
-                            Frame(
-                                mode=1,
-                                flags=3,
-                                gas_limit=50_000,
-                                state_gas_limit=0,
-                            ),
-                        ],
-                    )
-                ],
-                inclusion_list_membership=[b"\x01\x00"],
+                inclusion_lists=[
+                    [
+                        Transaction(
+                            sender=sender,
+                            frames=[
+                                Frame(mode=0, target=factory),
+                                Frame(
+                                    mode=1,
+                                    flags=3,
+                                    gas_limit=50_000,
+                                    state_gas_limit=0,
+                                ),
+                            ],
+                        )
+                    ]
+                ]
+                + [[] for _ in range(15)],
                 expected_inclusion_list_satisfied=satisfied,
             )
         ],

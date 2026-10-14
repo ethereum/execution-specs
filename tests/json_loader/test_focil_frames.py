@@ -31,6 +31,7 @@ from ethereum.forks.bogota.fork_types import ExecutionGas, StateGas
 from ethereum.forks.bogota.inclusion_list_frames import (
     MAX_REPLAY_CODE_BODIES,
     MAX_REPLAY_CODE_BYTES,
+    FrameCandidate,
     classify_frame_candidate,
     verify_candidate_signatures,
 )
@@ -87,17 +88,11 @@ def frame_envelope(
 def inclusion_inputs(
     envelopes: tuple[Bytes, ...],
     *,
-    membership: tuple[Bytes, ...] | None = None,
     claims: tuple[OmissionClaim, ...] = (),
 ) -> InclusionListInputs:
-    """Supply explicit membership for every envelope unless given."""
+    """Supply one selected IL and empty remaining committee positions."""
     return InclusionListInputs(
-        transactions=envelopes,
-        membership=(
-            tuple(Bytes(b"\x01\x00") for _ in envelopes)
-            if membership is None
-            else membership
-        ),
+        inclusion_lists=(envelopes,) + ((),) * 15,
         claims=claims,
     )
 
@@ -144,7 +139,7 @@ def test_budget_order_is_by_hash_not_input_order() -> None:
 
 
 @pytest.mark.parametrize("duplicate_position", [False, True])
-def test_membership_positions_do_not_pool_budgets(
+def test_separate_lists_do_not_pool_budgets(
     duplicate_position: bool,
 ) -> None:
     """Repeating one list in two positions does not admit its fifth item."""
@@ -155,14 +150,47 @@ def test_membership_positions_do_not_pool_budgets(
     ordered = tuple(
         sorted(envelopes, key=lambda item: (keccak256(item), item))
     )
-    mask = Bytes(b"\x03\x00" if duplicate_position else b"\x01\x00")
-    inputs = inclusion_inputs(ordered, membership=(mask,) * 5)
+    lists = (ordered, ordered if duplicate_position else ()) + ((),) * 14
+    inputs = InclusionListInputs(inclusion_lists=lists)
     assert set(admitted_frame_candidates(inputs)) == set(ordered[:4])
     # An independent position containing only the final item protects it.
     inputs = replace(
-        inputs, membership=inputs.membership[:4] + (Bytes(b"\x05\x00"),)
+        inputs, inclusion_lists=lists[:2] + ((ordered[-1],),) + lists[3:]
     )
     assert set(admitted_frame_candidates(inputs)) == set(ordered)
+
+
+def test_shared_lists_verify_and_replay_once(
+    monkeypatch: pytest.MonkeyPatch,
+    replay_environment: BlockEnvironment,
+) -> None:
+    """Share work across ILs while retaining their separate budget fills."""
+    from ethereum.forks.bogota import inclusion_lists as module
+
+    # A failed prefix keeps checking later IL occurrences if deduplication
+    # is broken; use that case to detect both repeated signatures and replay.
+    envelope = frame_envelope()
+    inputs = InclusionListInputs(inclusion_lists=((envelope, envelope),) * 16)
+    counts = {"signatures": 0, "replays": 0}
+    original_verify = module.verify_candidate_signatures
+
+    def verify(candidate: FrameCandidate) -> bool:
+        counts["signatures"] += 1
+        return original_verify(candidate)
+
+    def replay(*args: object) -> bool:
+        counts["replays"] += 1
+        return False
+
+    monkeypatch.setattr(module, "verify_candidate_signatures", verify)
+    monkeypatch.setattr(module, "replay_frame_candidate", replay)
+    snapshots = {
+        Uint(0): capture_inclusion_list_state(
+            replay_environment, BlockOutput()
+        )
+    }
+    assert check_inclusion_list(replay_environment, (), inputs, snapshots)
+    assert counts == {"signatures": 1, "replays": 1}
 
 
 def envelope_in_hash_bucket(
@@ -290,24 +318,30 @@ def test_irrelevant_claims_do_not_require_early_snapshots() -> None:
     }
 
 
-@pytest.mark.parametrize(
-    "membership",
-    [b"", b"\x01", b"\x00\x00", b"\x01\x00\x00"],
-)
-def test_malformed_membership_is_container_error(membership: bytes) -> None:
-    """Reject metadata errors without treating them as omission grounds."""
-    inputs = inclusion_inputs(
-        (frame_envelope(),), membership=(Bytes(membership),)
-    )
-    with pytest.raises(ValueError, match="membership"):
+@pytest.mark.parametrize("count", [0, 1, 15, 17])
+def test_wrong_list_count_is_container_error(count: int) -> None:
+    """Reject missing or extra committee positions before evaluation."""
+    inputs = InclusionListInputs(inclusion_lists=((),) * count)
+    with pytest.raises(ValueError, match="committee position"):
         validate_inclusion_list_inputs(inputs)
+
+
+def test_duplicates_count_toward_bytes_but_not_verify_budget() -> None:
+    """Keep the byte cap on the original list and deduplicate the fill."""
+    envelope = frame_envelope(execution=2**18)
+    inputs = inclusion_inputs((envelope,) * 5)
+    validate_inclusion_list_inputs(inputs)
+    assert list(admitted_frame_candidates(inputs)) == [envelope]
+    oversized = inclusion_inputs((envelope,) * (8192 // len(envelope) + 1))
+    with pytest.raises(ValueError, match="byte limit"):
+        validate_inclusion_list_inputs(oversized)
 
 
 @pytest.mark.parametrize("over_limit", [False, True])
 def test_per_position_byte_limit(over_limit: bool) -> None:
     """Apply the byte bound independently, including committee position 15."""
     envelope = Bytes(b"\x06" + bytes(8191 + int(over_limit)))
-    inputs = inclusion_inputs((envelope,), membership=(Bytes(b"\x00\x80"),))
+    inputs = InclusionListInputs(inclusion_lists=((),) * 15 + ((envelope,),))
     if over_limit:
         with pytest.raises(ValueError, match="byte limit"):
             validate_inclusion_list_inputs(inputs)

@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from execution_testing.base_types import Bytes
 from execution_testing.client_clis import TransitionTool
 from execution_testing.evm_tools.t8n import ForkCache
 from execution_testing.evm_tools.t8n.cli import (
@@ -29,7 +28,7 @@ pytestmark = pytest.mark.evm_tools
 def test_cli_preserves_inclusion_context(
     tmp_path: Path, use_stdin: bool
 ) -> None:
-    """Preserve raw envelopes, duplicate claims and bitvectors."""
+    """Preserve raw envelopes, duplicate claims and separate lists."""
     transaction = Transaction(gas_limit=21_000).with_signature_and_sender()
     claim = OmissionClaim(
         transaction_hash=transaction.hash, evaluation_index=2**64 - 1
@@ -42,8 +41,7 @@ def test_cli_preserves_inclusion_context(
         chain_id=1,
         reward=0,
         blob_schedule=None,
-        inclusion_list_txs=[transaction],
-        inclusion_list_membership=[Bytes("0x0002")],
+        inclusion_lists=[[]] * 9 + [[transaction, transaction]] + [[]] * 6,
         omission_claims=[claim, claim],
     ).to_input()
     parser = argparse.ArgumentParser()
@@ -66,8 +64,10 @@ def test_cli_preserves_inclusion_context(
             parser.parse_args(arguments), in_file, cache
         )
         inputs = tool.inclusion_list_inputs
-        assert inputs.transactions == (bytes(transaction.rlp()),)
-        assert inputs.membership == (b"\x00\x02",)
+        assert (
+            inputs.inclusion_lists
+            == ((),) * 9 + ((bytes(transaction.rlp()),) * 2,) + ((),) * 6
+        )
         assert len(inputs.claims) == 2
         assert all(
             int(value.evaluation_index) == 2**64 - 1
@@ -76,7 +76,7 @@ def test_cli_preserves_inclusion_context(
         )
 
 
-def test_cli_rejects_malformed_membership() -> None:
+def test_cli_rejects_wrong_list_count() -> None:
     """Reject metadata before executing a payload or any replay."""
     transaction = Transaction(gas_limit=21_000).with_signature_and_sender()
     parser = argparse.ArgumentParser()
@@ -94,14 +94,18 @@ def test_cli_rejects_malformed_membership() -> None:
         "alloc": {},
         "env": {},
         "txs": [],
-        "inclusionListTransactions": [
-            transaction.model_dump(
-                mode="json", by_alias=True, exclude_none=True
-            )
+        "inclusionLists": [
+            [
+                transaction.model_dump(
+                    mode="json", by_alias=True, exclude_none=True
+                )
+            ]
         ],
-        "inclusionListMembership": ["0x01"],
     }
-    with ForkCache() as cache, pytest.raises(ValueError, match="membership"):
+    with (
+        ForkCache() as cache,
+        pytest.raises(ValueError, match="committee position"),
+    ):
         build_t8n_from_cli_options(
             options, StringIO(json.dumps(inputs)), cache
         )

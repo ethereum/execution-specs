@@ -1509,18 +1509,13 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         pass
 
     @classmethod
-    def engine_payload_attribute_inclusion_list_transactions(cls) -> bool:
-        """Return whether payload building accepts selected transactions."""
-        return cls.engine_new_payload_omission_claims()
-
-    @classmethod
-    def engine_payload_attribute_inclusion_list_membership(cls) -> bool:
-        """Return whether payload building accepts committee membership."""
+    def engine_payload_attribute_inclusion_lists(cls) -> bool:
+        """Return whether payload building accepts separate inclusion lists."""
         return cls.engine_new_payload_omission_claims()
 
     @classmethod
     def engine_new_payload_omission_claims(cls) -> bool:
-        """Return whether newPayload requires membership and claims."""
+        """Return whether newPayload requires separate ILs and claims."""
         return False
 
     @classmethod

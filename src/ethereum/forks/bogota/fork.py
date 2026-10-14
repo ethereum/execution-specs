@@ -915,7 +915,7 @@ def apply_body(
     validate_inclusion_list_inputs(inputs)
     indices = (
         snapshot_indices(inputs, ulen(transactions), transactions)
-        if inputs.transactions
+        if inputs.all_transactions
         else set()
     )
     block_output = vm.BlockOutput()

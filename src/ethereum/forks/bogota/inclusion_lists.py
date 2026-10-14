@@ -47,7 +47,7 @@ INCLUSION_LIST_COMMITTEE_SIZE = 16
 """Number of independently budgeted inclusion-list positions."""
 
 MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST = 8192
-"""Maximum total envelope bytes selected by one membership position."""
+"""Maximum total envelope bytes in one inclusion list."""
 
 MAX_OMISSION_CLAIMS = 2**12
 """Maximum number of claims in the revealed ordered list."""
@@ -69,16 +69,24 @@ class OmissionClaim:
 @dataclass(frozen=True)
 class InclusionListInputs:
     """
-    Carry the consensus layer's selected envelopes, membership and claims.
+    Carry separate selected ILs and the authenticated omission claims.
 
-    Missing membership denotes the original Profile-1-only interface, under
-    which omitted frame transactions are excused and claims have no effect.
-    The consensus layer authenticates the revealed claims against the bid.
+    The legacy flat transaction field supports Profile-1-only test tools.
+    Consensus callers supply exactly one list per committee position.
     """
 
     transactions: Tuple[LegacyTransaction | Bytes, ...] = ()
-    membership: Tuple[Bytes, ...] = ()
+    inclusion_lists: (
+        Tuple[Tuple[LegacyTransaction | Bytes, ...], ...] | None
+    ) = None
     claims: Tuple[OmissionClaim, ...] = ()
+
+    @property
+    def all_transactions(self) -> Tuple[LegacyTransaction | Bytes, ...]:
+        """Return all entries for deduplication by the evaluation rules."""
+        if self.inclusion_lists is None:
+            return self.transactions
+        return tuple(tx for il in self.inclusion_lists for tx in il)
 
 
 @final
@@ -116,8 +124,8 @@ def validate_inclusion_list_inputs(inputs: InclusionListInputs) -> None:
     """
     Reject malformed metadata without classifying transaction contents.
 
-    Empty or duplicate envelopes, malformed memberships and claim fields
-    are container errors. Invalid transaction contents remain omission
+    Empty envelopes, malformed lists and claim fields are container errors.
+    Invalid transaction contents remain omission
     candidates to classify, rather than invalid payloads or RPC requests.
     """
     if len(inputs.claims) > MAX_OMISSION_CLAIMS:
@@ -127,30 +135,23 @@ def validate_inclusion_list_inputs(inputs: InclusionListInputs) -> None:
             claim.evaluation_index
         ) <= int(U64.MAX_VALUE):
             raise ValueError("Invalid omission claim")
-    if not inputs.membership:
-        if inputs.claims and inputs.transactions:
-            raise ValueError("Profile 2 requires explicit membership")
+    if inputs.inclusion_lists is None:
+        if inputs.claims:
+            raise ValueError("Profile 2 requires separate inclusion lists")
         return
-    if len(inputs.membership) != len(inputs.transactions):
-        raise ValueError("Membership length differs from transaction count")
-    envelopes = tuple(map(transaction_envelope, inputs.transactions))
-    if any(not envelope for envelope in envelopes):
-        raise ValueError("Empty inclusion-list envelope")
-    if len(set(envelopes)) != len(envelopes):
-        raise ValueError("Duplicate inclusion-list envelope")
-    totals = [0] * INCLUSION_LIST_COMMITTEE_SIZE
-    for envelope, membership in zip(envelopes, inputs.membership, strict=True):
-        if len(membership) != 2 or not any(membership):
-            raise ValueError("Invalid inclusion-list membership")
-        bits = int.from_bytes(membership, "little")
-        for position in range(INCLUSION_LIST_COMMITTEE_SIZE):
-            if bits & (1 << position):
-                totals[position] += len(envelope)
-                if (
-                    totals[position]
-                    > MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST
-                ):
-                    raise ValueError("Inclusion list exceeds its byte limit")
+    if inputs.transactions:
+        raise ValueError("Cannot combine flat and separate inclusion lists")
+    if len(inputs.inclusion_lists) != INCLUSION_LIST_COMMITTEE_SIZE:
+        raise ValueError("Expected one inclusion list per committee position")
+    for inclusion_list in inputs.inclusion_lists:
+        envelopes = tuple(map(transaction_envelope, inclusion_list))
+        if any(not envelope for envelope in envelopes):
+            raise ValueError("Empty inclusion-list envelope")
+        if (
+            sum(map(len, envelopes))
+            > MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST
+        ):
+            raise ValueError("Inclusion list exceeds its byte limit")
 
 
 def evaluation_indices(
@@ -174,11 +175,11 @@ def snapshot_indices(
 ) -> Set[Uint]:
     """Retain only states named by claims for omitted frame candidates."""
     indices = {transaction_count}
-    if not inputs.membership:
+    if inputs.inclusion_lists is None:
         return indices
     claims = evaluation_indices(inputs, transaction_count)
     included = set(map(transaction_envelope, transactions))
-    for envelope in map(transaction_envelope, inputs.transactions):
+    for envelope in map(transaction_envelope, inputs.all_transactions):
         if envelope in included:
             continue
         index = claims.get(keccak256(envelope), transaction_count)
@@ -226,11 +227,10 @@ def capture_inclusion_list_state(
 def admitted_frame_candidates(
     inputs: InclusionListInputs,
 ) -> Dict[Bytes, FrameCandidate]:
-    """Fill every membership position without pooling or refunding budgets."""
-    if not inputs.membership:
+    """Fill each separate list without pooling or refunding budgets."""
+    if inputs.inclusion_lists is None:
         return {}
-    envelopes = tuple(map(transaction_envelope, inputs.transactions))
-    memberships = dict(zip(envelopes, inputs.membership, strict=True))
+    envelopes = tuple(map(transaction_envelope, inputs.all_transactions))
     candidates: Dict[Bytes, FrameCandidate] = {}
     for envelope in sorted(
         set(envelopes), key=lambda value: (keccak256(value), value)
@@ -247,12 +247,11 @@ def admitted_frame_candidates(
 
     admitted = {}
     signature_results: Dict[Bytes, bool] = {}
-    for position in range(INCLUSION_LIST_COMMITTEE_SIZE):
+    for inclusion_list in inputs.inclusion_lists:
+        members = set(map(transaction_envelope, inclusion_list))
         remaining = MAX_VERIFY_GAS_PER_IL
         for envelope, candidate in candidates.items():
-            if not int.from_bytes(memberships[envelope], "little") & (
-                1 << position
-            ):
+            if envelope not in members:
                 continue
             signature_cost = candidate.signature_cost
             prefix_cost = candidate.execution_cost
@@ -292,7 +291,7 @@ def check_inclusion_list(
     admitted = admitted_frame_candidates(inputs)
 
     for envelope in dict.fromkeys(
-        map(transaction_envelope, inputs.transactions)
+        map(transaction_envelope, inputs.all_transactions)
     ):
         if envelope in included:
             continue
