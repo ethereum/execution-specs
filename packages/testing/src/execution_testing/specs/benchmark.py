@@ -20,10 +20,6 @@ from pydantic import ConfigDict, Field
 from execution_testing.base_types import Address, HexNumber
 from execution_testing.client_clis import TransitionTool
 from execution_testing.client_clis.cli_types import OpcodeCount
-from execution_testing.exceptions import (
-    BlockException,
-    TransactionException,
-)
 from execution_testing.execution import (
     BaseExecute,
     ExecuteFormat,
@@ -43,7 +39,12 @@ from execution_testing.test_types import Alloc, Environment, Transaction
 from execution_testing.vm import Bytecode, Op
 
 from .base import BaseTest, FillResult
-from .blockchain import Block, BlockchainTest
+from .blockchain import (
+    BLOCK_EXCEPTION_TYPE,
+    Block,
+    BlockchainTest,
+    Header,
+)
 
 
 @dataclass(frozen=True)
@@ -322,12 +323,9 @@ class BenchmarkTest(BaseTest):
     tx: Transaction | None = None
     setup_blocks: List[Block] = Field(default_factory=list)
     blocks: List[Block] | None = None
-    block_exception: (
-        List[TransactionException | BlockException]
-        | TransactionException
-        | BlockException
-        | None
-    ) = None
+    block_exception: BLOCK_EXCEPTION_TYPE = None
+    benchmark_test_rlp_modifier: Header | None = None
+
     env: Environment = Field(default_factory=Environment)
     expected_benchmark_gas_used: int | None = None
     gas_benchmark_value: int = Field(
@@ -415,6 +413,10 @@ class BenchmarkTest(BaseTest):
             blocks += generated_blocks
 
         elif self.blocks is not None:
+            assert (
+                self.block_exception is None
+                and self.benchmark_test_rlp_modifier is None
+            ), "set `exception` and `rlp_modifier` on the block itself"
             blocks += self.blocks
 
         elif self.tx is not None:
@@ -427,7 +429,7 @@ class BenchmarkTest(BaseTest):
 
             transactions = self.split_transaction(self.tx, gas_limit)
 
-            blocks.append(Block(txs=transactions))
+            blocks.append(self.generate_block(transactions))
 
         else:
             raise ValueError(
@@ -436,6 +438,23 @@ class BenchmarkTest(BaseTest):
             )
 
         self.blocks = blocks
+
+    def generate_block(self, txs: List[Transaction]) -> Block:
+        """Build the block that carries the benchmark transactions."""
+        kwargs: Dict[str, Any] = {
+            "txs": txs,
+            "rlp_modifier": self.benchmark_test_rlp_modifier,
+        }
+        if "block_exception" in self.model_fields_set:
+            kwargs["exception"] = self.block_exception
+        elif self.tx is not None and "error" in self.tx.model_fields_set:
+            kwargs["exception"] = self.tx.error
+        return Block(**kwargs)
+
+    @property
+    def has_invalid_block(self) -> bool:
+        """Return whether any block is expected to be rejected."""
+        return any(block.exception is not None for block in self.blocks or [])
 
     @classmethod
     def pytest_parameter_name(cls) -> str:
@@ -513,9 +532,8 @@ class BenchmarkTest(BaseTest):
         )
 
         execution_txs = self.split_transaction(benchmark_tx, gas_limit)
-        execution_block = Block(txs=execution_txs)
 
-        return [execution_block]
+        return [self.generate_block(execution_txs)]
 
     def generate_fixed_opcode_count_transactions(self) -> List[Block]:
         """Generate transactions with a fixed opcode count."""
@@ -533,8 +551,7 @@ class BenchmarkTest(BaseTest):
         benchmark_tx = self.code_generator.generate_transaction(
             pre=self.pre, gas_benchmark_value=gas_limit
         )
-        execution_block = Block(txs=[benchmark_tx])
-        return [execution_block]
+        return [self.generate_block([benchmark_tx])]
 
     def generate_blockchain_test(self) -> BlockchainTest:
         """Create a BlockchainTest from this BenchmarkTest."""
@@ -578,9 +595,7 @@ class BenchmarkTest(BaseTest):
         fixture_format: FixtureFormat | LabeledFixtureFormat,
     ) -> FillResult:
         """Generate the blockchain test fixture."""
-        self.check_exception_test(
-            exception=self.tx.error is not None if self.tx else False
-        )
+        self.check_exception_test(exception=self.has_invalid_block)
         if fixture_format in BlockchainTest.supported_fixture_formats:
             fill_result = self.generate_blockchain_test().generate(
                 t8n=t8n, fixture_format=fixture_format
@@ -620,6 +635,12 @@ class BenchmarkTest(BaseTest):
             if self.target_opcode is not None:
                 fill_result.metadata["target_opcode"] = str(self.target_opcode)
 
+            if self.has_invalid_block:
+                # A rejected block leaves no receipt to read it back from.
+                fill_result.metadata["benchmark_gas_used"] = (
+                    fill_result.benchmark_gas_used
+                )
+
             return fill_result
         else:
             raise Exception(f"Unsupported fixture format: {fixture_format}")
@@ -632,6 +653,10 @@ class BenchmarkTest(BaseTest):
         """Execute the benchmark test by sending it to the live network."""
         if execute_format == TransactionPost:
             assert self.blocks is not None
+            assert not self.has_invalid_block, (
+                "a block the client must reject cannot be delivered over "
+                "the transaction RPC"
+            )
             return TransactionPost(
                 blocks=[block.txs for block in self.blocks],
                 post=self.post,
