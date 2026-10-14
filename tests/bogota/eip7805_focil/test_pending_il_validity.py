@@ -534,14 +534,15 @@ def test_pending_il_appendability_after_sender_drained(
     drained: bool,
 ) -> None:
     """
-    A block tx that empties a delegated sender's balance, leaving its nonce
-    alone, makes the sender's pending IL tx unaffordable.
+    A block tx that takes one wei from a delegated sender funded with exactly
+    its pending IL tx's cost, leaving its nonce alone, makes that tx
+    unaffordable.
     """
     simple_transfer_gas = fork.transaction_intrinsic_cost_calculator()()
     il_tx_cost = simple_transfer_gas * TransactionDefaults.gas_price
     sink = pre.nonexistent_account()
     drainer = pre.deploy_contract(
-        code=Op.CALL(gas=Op.GAS, address=sink, value=Op.SELFBALANCE)
+        code=Op.CALL(gas=Op.GAS, address=sink, value=1)
     )
     sender = pre.fund_eoa(amount=il_tx_cost, delegation=drainer)
     il_tx = Transaction(
@@ -553,7 +554,10 @@ def test_pending_il_appendability_after_sender_drained(
     post: dict[Address, Account | None]
     if drained:
         txs = [Transaction(sender=pre.fund_eoa(), to=sender)]
-        post = {sender: Account(balance=0), sink: Account(balance=il_tx_cost)}
+        post = {
+            sender: Account(balance=il_tx_cost - 1),
+            sink: Account(balance=1),
+        }
         expected_satisfied = True
     else:
         txs = []

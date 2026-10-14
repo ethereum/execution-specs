@@ -228,7 +228,7 @@ def transfer_of_size(pre: Alloc, fork: Fork, size: int) -> Transaction:
         calldata = bytes([calldata_byte]) * calldata_size
         tx = Transaction(
             sender=sender,
-            nonce=0,
+            nonce=sender.nonce,
             to=recipient,
             data=calldata,
             gas_limit=fork.transaction_intrinsic_cost_calculator()(
@@ -295,7 +295,12 @@ def test_inclusion_list_over_one_list_byte_limit(
 
 @pytest.mark.parametrize(
     "entry",
-    ["same_bytes", "access_list_changed", "authorization_list_changed"],
+    [
+        "same_bytes",
+        "signature_s_changed",
+        "access_list_changed",
+        "authorization_list_changed",
+    ],
 )
 def test_il_entry_matched_to_block_tx_by_bytes(
     blockchain_test: BlockchainTestFiller,
@@ -306,9 +311,9 @@ def test_il_entry_matched_to_block_tx_by_bytes(
     """
     An IL entry counts as included only when a block tx has its exact bytes.
 
-    The changed entries are a block tx with one list field changed. Its old
-    signature now recovers to a different, funded sender, so the block left
-    out an appendable transaction.
+    Each changed entry is a block tx with one field changed, so its
+    signature recovers to a different, funded sender and the block left out
+    an appendable transaction.
     """
     calc = fork.transaction_intrinsic_cost_calculator()
     recipient = pre.nonexistent_account()
@@ -328,6 +333,12 @@ def test_il_entry_matched_to_block_tx_by_bytes(
         ).with_signature_and_sender()
         il_entry = block_tx
         expected_satisfied = True
+    elif entry == "signature_s_changed":
+        block_tx = Transaction(
+            ty=2, sender=pre.fund_eoa(), to=recipient, gas_limit=calc()
+        ).with_signature_and_sender()
+        il_entry = block_tx.copy(s=block_tx.s + 1, sender=None)
+        expected_satisfied = False
     elif entry == "access_list_changed":
         block_tx = Transaction(
             ty=2,
