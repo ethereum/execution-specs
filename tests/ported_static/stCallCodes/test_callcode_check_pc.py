@@ -42,7 +42,7 @@ def test_callcode_check_pc(
         code=Op.POP(
             Op.CALL(
                 gas=0xF4240,
-                address=addr,
+                address=Op.PUSH20[addr],
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x40,

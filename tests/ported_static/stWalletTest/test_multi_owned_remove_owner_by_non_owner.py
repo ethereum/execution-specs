@@ -38,13 +38,17 @@ def test_multi_owned_remove_owner_by_non_owner(
     # Source: hex
     # 0x
     contract_1 = pre.deploy_contract(code="", balance=0xDE0B6B3A75EF08F)
+    # m_ownerIndex[contract_1] is at keccak256(contract_1 ++ 0x102).
+    owner_index_slot = Bytes(
+        Hash(contract_1, left_padding=True) + Hash(0x102)
+    ).keccak256()
     contract_0 = pre.deploy_contract(
         code=contract_0_code,
         storage={
             0: 1,
             1: 1,
             3: contract_1,
-            0x6E369836487C234B9E553EF3F787C2D8865520739D340C67B3D251A33986E58D: 1,  # noqa: E501
+            owner_index_slot: 1,
         },
         balance=100,
     )
@@ -64,7 +68,7 @@ def test_multi_owned_remove_owner_by_non_owner(
                 0: 1,
                 1: 1,
                 3: contract_1,
-                0x6E369836487C234B9E553EF3F787C2D8865520739D340C67B3D251A33986E58D: 1,  # noqa: E501
+                owner_index_slot: 1,
             },
             code=contract_0_code,
             balance=200,

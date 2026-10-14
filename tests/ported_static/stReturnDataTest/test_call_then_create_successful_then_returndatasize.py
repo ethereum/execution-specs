@@ -51,7 +51,7 @@ def test_call_then_create_successful_then_returndatasize(
         code=Op.POP(
             Op.CALL(
                 gas=0x900000000,
-                address=addr,
+                address=Op.PUSH20[addr],
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,

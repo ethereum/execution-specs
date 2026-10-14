@@ -115,10 +115,7 @@ def test_eoa_empty_paris(
 
     # Source: hex
     # 0x
-    contract_0 = pre.deploy_contract(
-        code="",
-        balance=1,
-    )
+    contract_0 = pre.fund_eoa(amount=1)
     # Source: hex
     # 0x
     contract_1 = pre.deploy_contract(

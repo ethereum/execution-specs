@@ -43,7 +43,7 @@ def test_static_callcode_check_pc(
         code=Op.POP(
             Op.STATICCALL(
                 gas=0xF4240,
-                address=addr,
+                address=Op.PUSH20[addr],
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
