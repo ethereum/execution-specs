@@ -216,16 +216,17 @@ class T8N(Load):
 
         from execution_testing.client_clis.cli_types import LazyAlloc
 
-        # Take a defensive copy of the input alloc so ``apply_diff``
-        # (and any other in-place mutation T8N does) never escapes
-        # into the caller's Python object. Without this, multi-block
-        # tests that contain an invalid block would observe a mutated
-        # pre-state — the testing framework expects ``previous_alloc``
-        # to remain unchanged when ``block.exception`` is set.
+        # Copy the input alloc so `apply_diff` never changes the caller's
+        # object: the copy has its own account map, and `apply_diff`
+        # replaces accounts in it instead of mutating the ones it shares
+        # with the input. Without this, multi-block tests that contain an
+        # invalid block would observe a mutated pre-state, while the
+        # testing framework expects `previous_alloc` to remain unchanged
+        # when `block.exception` is set.
         input_alloc = t8n_data.alloc
         if isinstance(input_alloc, LazyAlloc):
             input_alloc = input_alloc.materialize()
-        self.alloc = input_alloc.model_copy(deep=True)
+        self.alloc = input_alloc.structural_copy()
         self.alloc.migrate_state_commitment(t8n_data.fork.state_commitment())
         self.env = t8n_data.env
         self.txs = list(t8n_data.txs)
@@ -483,10 +484,10 @@ class T8N(Load):
         else:
             self.run_blockchain_test()
 
-        # Apply the block diff in place so ``self.alloc`` is the
-        # post-state when the caller reads it. Safe to do
-        # unconditionally — ``self.alloc`` is a defensive copy taken
-        # in ``__init__``, so mutating it never escapes to the caller.
+        # Apply the block diff in place so `self.alloc` is the post-state
+        # when the caller reads it. Safe to do unconditionally, as
+        # `self.alloc` is a structural copy taken in `__init__`, so the
+        # diff never reaches the caller.
         diff = self.fork.extract_block_diff(self._block_state)
         self.alloc.apply_diff(diff)
 

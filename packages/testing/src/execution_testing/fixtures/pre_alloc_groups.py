@@ -621,6 +621,17 @@ class GroupPreAlloc(Alloc):
     _model_dump_cache: ModelDumpCache | None = PrivateAttr(None)
     _pre_alloc_group_hash: AllocGroupHash | None = PrivateAttr(None)
 
+    def structural_copy(self) -> Self:
+        """
+        Return a copy to execute blocks against, without the cached state
+        root and model dump, which describe the group's genesis rather than
+        the copy.
+        """
+        copied = super().structural_copy()
+        copied._cached_state_root = None
+        copied._model_dump_cache = None
+        return copied
+
     def state_root(self) -> Hash:
         """On pre-alloc groups, which are normally very big, always cache."""
         if self._cached_state_root is not None:
