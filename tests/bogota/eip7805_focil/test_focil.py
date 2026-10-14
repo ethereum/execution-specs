@@ -321,6 +321,8 @@ def test_il_entry_matched_to_block_tx_by_bytes(
     )
 
     if entry == "same_bytes":
+        # Satisfied under any matching rule, since including the tx spends
+        # its nonce; this case shows the block tx it reuses is valid.
         block_tx = Transaction(
             ty=2, sender=pre.fund_eoa(), to=recipient, gas_limit=calc()
         ).with_signature_and_sender()

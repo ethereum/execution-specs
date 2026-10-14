@@ -382,25 +382,26 @@ def test_pending_il_sender_funded_by_withdrawal(
         gas_limit=simple_transfer_gas,
     )
 
-    if withdrawal_block == "prior_block":
-        blocks = [
-            Block(withdrawals=[withdrawal]),
-            Block(
-                txs=[],
-                inclusion_list_txs=[bob_il_tx],
-                expected_inclusion_list_satisfied=False,
-            ),
-        ]
-    elif withdrawal_block == "same_block":
-        blocks = [
-            Block(
-                withdrawals=[withdrawal],
-                inclusion_list_txs=[bob_il_tx],
-                expected_inclusion_list_satisfied=True,
-            )
-        ]
-    else:
-        raise ValueError(f"unknown withdrawal block: {withdrawal_block}")
+    match withdrawal_block:
+        case "prior_block":
+            blocks = [
+                Block(withdrawals=[withdrawal]),
+                Block(
+                    txs=[],
+                    inclusion_list_txs=[bob_il_tx],
+                    expected_inclusion_list_satisfied=False,
+                ),
+            ]
+        case "same_block":
+            blocks = [
+                Block(
+                    withdrawals=[withdrawal],
+                    inclusion_list_txs=[bob_il_tx],
+                    expected_inclusion_list_satisfied=True,
+                )
+            ]
+        case _:
+            raise ValueError(f"unknown withdrawal block: {withdrawal_block}")
 
     blockchain_test(
         pre=pre,
@@ -423,14 +424,15 @@ def test_pending_il_sender_funded_by_system_call(
     funds a pending IL tx's sender makes it appendable only in the first case.
     """
     phase = fork.system_contract_call_phases()[system_contract]
-    if phase == SystemCallPhase.BEFORE_TRANSACTIONS:
-        expected_satisfied = False
-    elif phase == SystemCallPhase.AFTER_TRANSACTIONS:
-        expected_satisfied = True
-    elif phase == SystemCallPhase.NONE:
-        pytest.skip("the block never calls this system contract")
-    else:
-        raise ValueError(f"unknown system call phase: {phase}")
+    match phase:
+        case SystemCallPhase.BEFORE_TRANSACTIONS:
+            expected_satisfied = False
+        case SystemCallPhase.AFTER_TRANSACTIONS:
+            expected_satisfied = True
+        case SystemCallPhase.NONE:
+            pytest.skip("the block never calls this system contract")
+        case _:
+            raise ValueError(f"unknown system call phase: {phase}")
 
     simple_transfer_gas = fork.transaction_intrinsic_cost_calculator()()
     bob_il_tx_cost = simple_transfer_gas * TransactionDefaults.gas_price
@@ -499,8 +501,10 @@ def test_pending_il_appendability_by_fee_recipient_earnings(
     assert affordable_value > 0
     if one_wei_short:
         il_tx_value = affordable_value + 1
+        expected_satisfied = True
     else:
         il_tx_value = affordable_value
+        expected_satisfied = False
     il_tx = Transaction(
         sender=fee_recipient,
         to=recipient,
@@ -516,7 +520,7 @@ def test_pending_il_appendability_by_fee_recipient_earnings(
                 fee_recipient=fee_recipient,
                 txs=[tipping_tx],
                 inclusion_list_txs=[il_tx],
-                expected_inclusion_list_satisfied=one_wei_short,
+                expected_inclusion_list_satisfied=expected_satisfied,
             )
         ],
     )
@@ -550,9 +554,11 @@ def test_pending_il_appendability_after_sender_drained(
     if drained:
         txs = [Transaction(sender=pre.fund_eoa(), to=sender)]
         post = {sender: Account(balance=0), sink: Account(balance=il_tx_cost)}
+        expected_satisfied = True
     else:
         txs = []
         post = {sender: Account(balance=il_tx_cost), sink: Account.NONEXISTENT}
+        expected_satisfied = False
 
     blockchain_test(
         pre=pre,
@@ -561,7 +567,7 @@ def test_pending_il_appendability_after_sender_drained(
             Block(
                 txs=txs,
                 inclusion_list_txs=[il_tx],
-                expected_inclusion_list_satisfied=drained,
+                expected_inclusion_list_satisfied=expected_satisfied,
             )
         ],
     )
@@ -782,17 +788,18 @@ def test_pending_il_appendability_by_chain_id(
     pending_tx = Transaction(
         ty=tx_type, sender=pre.fund_eoa(), to=pre.nonexistent_account()
     )
-    if chain == "this_chain":
-        pending_tx = pending_tx.copy(chain_id=chain_config.chain_id)
-        entry_counts = True
-    elif chain == "other_chain":
-        pending_tx = pending_tx.copy(chain_id=chain_config.chain_id + 1)
-        entry_counts = False
-    elif chain == "unprotected":
-        pending_tx = pending_tx.copy(protected=False)
-        entry_counts = True
-    else:
-        raise ValueError(f"unknown chain: {chain}")
+    match chain:
+        case "this_chain":
+            pending_tx = pending_tx.copy(chain_id=chain_config.chain_id)
+            entry_counts = True
+        case "other_chain":
+            pending_tx = pending_tx.copy(chain_id=chain_config.chain_id + 1)
+            entry_counts = False
+        case "unprotected":
+            pending_tx = pending_tx.copy(protected=False)
+            entry_counts = True
+        case _:
+            raise ValueError(f"unknown chain: {chain}")
 
     inclusion_list = [pending_tx]
     if appendable_tx_follows:
@@ -822,13 +829,13 @@ def test_pending_il_appendability_by_chain_id(
         pytest.param(2, id="eip1559_max_fee"),
     ],
 )
-@pytest.mark.parametrize("wei_below_base_fee", [0, 1])
+@pytest.mark.parametrize("fee_cap", ["base_fee", "one_wei_below_base_fee"])
 def test_pending_il_appendability_by_base_fee(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     tx_type: int,
-    wei_below_base_fee: int,
+    fee_cap: str,
 ) -> None:
     """A pending IL tx whose fee cap is below the base fee may be omitted."""
     # The default genesis base fee is too small to move after an empty block,
@@ -840,7 +847,15 @@ def test_pending_il_appendability_by_base_fee(
         parent_gas_used=0,
         parent_gas_limit=genesis_environment.gas_limit,
     )
-    fee_cap = base_fee_per_gas - wei_below_base_fee
+    match fee_cap:
+        case "base_fee":
+            max_fee = base_fee_per_gas
+            expected_satisfied = False
+        case "one_wei_below_base_fee":
+            max_fee = base_fee_per_gas - 1
+            expected_satisfied = True
+        case _:
+            raise ValueError(f"unknown fee cap: {fee_cap}")
 
     match tx_type:
         case 0:
@@ -848,14 +863,14 @@ def test_pending_il_appendability_by_base_fee(
                 ty=0,
                 sender=pre.fund_eoa(),
                 to=pre.nonexistent_account(),
-                gas_price=fee_cap,
+                gas_price=max_fee,
             )
         case 2:
             pending_tx = Transaction(
                 ty=2,
                 sender=pre.fund_eoa(),
                 to=pre.nonexistent_account(),
-                max_fee_per_gas=fee_cap,
+                max_fee_per_gas=max_fee,
                 max_priority_fee_per_gas=0,
             )
         case _:
@@ -869,7 +884,7 @@ def test_pending_il_appendability_by_base_fee(
             Block(
                 txs=[],
                 inclusion_list_txs=[pending_tx],
-                expected_inclusion_list_satisfied=wei_below_base_fee != 0,
+                expected_inclusion_list_satisfied=expected_satisfied,
                 header_verify=Header(base_fee_per_gas=base_fee_per_gas),
             )
         ],
