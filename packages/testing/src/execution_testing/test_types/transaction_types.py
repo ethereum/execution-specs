@@ -615,7 +615,14 @@ class Transaction(
             if self.blob_versioned_hashes is None:
                 self.blob_versioned_hashes = []
             if self.max_fee_per_blob_gas is None:
-                self.max_fee_per_blob_gas = HexNumber(0)
+                if self.blob_versioned_hashes:
+                    # A blob-carrying frame transaction defaults its blob
+                    # fee cap as a type-3 one does, so the execution
+                    # environment can set it.
+                    self.max_fee_per_blob_gas = HexNumber(1)
+                    self.model_fields_set.remove("max_fee_per_blob_gas")
+                else:
+                    self.max_fee_per_blob_gas = HexNumber(0)
         elif self.ty != 3:
             assert self.blob_versioned_hashes is None, (
                 "blob_versioned_hashes must be None"
@@ -1306,7 +1313,7 @@ class Transaction(
                 self.max_priority_fee_per_gas = HexNumber(
                     max_priority_fee_per_gas
                 )
-            if self.ty == 3:
+            if self.ty == 3 or (self.ty == 6 and self.blob_versioned_hashes):
                 if "max_fee_per_blob_gas" not in self.model_fields_set:
                     self.max_fee_per_blob_gas = HexNumber(max_fee_per_blob_gas)
 
@@ -1341,7 +1348,7 @@ class Transaction(
         assert "gas_limit" in self.model_fields_set, (
             "Impossible to calculate minimum balance without a set gas limit"
         )
-        if self.ty == 3 and self.blob_versioned_hashes is not None:
+        if self.blob_versioned_hashes and self.ty in (3, 6):
             max_fee_per_blob_gas = self.max_fee_per_blob_gas
             assert max_fee_per_blob_gas is not None, (
                 "Impossible to calculate minimum balance without "
