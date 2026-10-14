@@ -4,7 +4,7 @@ Test cases for invalid Block Access Lists.
 These tests verify that clients properly reject blocks with corrupted BALs.
 """
 
-from typing import Callable, Type
+from typing import Callable, Sequence, Type
 
 import pytest
 from execution_testing import (
@@ -20,6 +20,7 @@ from execution_testing import (
     BalStorageChange,
     BalStorageSlot,
     Block,
+    BlockAccessList,
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
@@ -91,6 +92,31 @@ from .test_block_access_lists_eip4788 import (
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7928.version
+
+
+def pad_with_untouched_accounts(
+    addresses: Sequence[Address], item_count: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Append accounts with no changes until the list holds `item_count`
+    items: one per address plus one per unique storage key.
+    """
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        items = sum(
+            1
+            + len(
+                {int(slot.slot) for slot in account.storage_changes}
+                | {int(slot) for slot in account.storage_reads}
+            )
+            for account in bal.root
+        )
+        missing = item_count - items
+        assert 0 < missing <= len(addresses), missing
+        padding = [BalAccountChange(address=a) for a in addresses[:missing]]
+        return BlockAccessList(root=[*bal.root, *padding])
+
+    return transform
 
 
 @pytest.mark.valid_from("Amsterdam")
@@ -1081,11 +1107,14 @@ def test_bal_invalid_balance_value(
         pytest.param(3, id="out_of_bounds"),
     ],
 )
+@pytest.mark.parametrize("padding", ["none", "to_cap", "past_cap"])
 def test_bal_invalid_extraneous_entries(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     modifier: Callable,
     bal_index: int,
+    padding: str,
 ) -> None:
     """
     Test that clients reject blocks where BAL contains extraneous entries.
@@ -1112,12 +1141,40 @@ def test_bal_invalid_extraneous_entries(
     - bal_index=1: current transaction
     - bal_index=2: system transaction (tx_count + 1)
     - bal_index=3: beyond system transaction (tx_count + 2)
+
+    The forged list is then padded with untouched accounts to exactly the
+    item cap, or to one item past it, where the block may also be rejected
+    for exceeding the cap.
     """
     transfer_value = 100
+    # Small enough to keep the padding short, with room for the transfer.
+    block_gas_limit = 2 * fork.minimum_block_gas_limit()
+    item_cap = block_gas_limit // fork.gas_costs().BLOCK_ACCESS_LIST_ITEM
 
     alice = pre.fund_eoa()
     oracle = pre.deploy_contract(code=Op.SLOAD(0), storage={0: 42})
     charlie = pre.fund_eoa(amount=0)
+    untouched = [pre.fund_eoa(amount=0) for _ in range(item_cap)]
+
+    if padding == "none":
+        padding_modifiers = []
+        exception: BlockException | list[BlockException] = (
+            BlockException.INVALID_BLOCK_ACCESS_LIST
+        )
+    elif padding == "to_cap":
+        padding_modifiers = [pad_with_untouched_accounts(untouched, item_cap)]
+        exception = BlockException.INVALID_BLOCK_ACCESS_LIST
+    elif padding == "past_cap":
+        padding_modifiers = [
+            pad_with_untouched_accounts(untouched, item_cap + 1)
+        ]
+        # Over the cap, a client may reject before executing.
+        exception = [
+            BlockException.INVALID_BLOCK_ACCESS_LIST,
+            BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED,
+        ]
+    else:
+        raise ValueError(f"Unknown padding: {padding}")
 
     tx = Transaction(
         sender=alice,
@@ -1129,10 +1186,11 @@ def test_bal_invalid_extraneous_entries(
         pre=pre,
         # The block reverts and the post state remains unchanged.
         post=pre,
+        genesis_environment=Environment(gas_limit=block_gas_limit),
         blocks=[
             Block(
                 txs=[tx],
-                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                exception=exception,
                 expected_block_access_list=BlockAccessListExpectation(
                     # Valid BAL expectation: nonce change for Alice,
                     # balance change and storage read for Oracle.
@@ -1163,6 +1221,7 @@ def test_bal_invalid_extraneous_entries(
                         oracle=oracle,
                         charlie=charlie,
                     ),
+                    *padding_modifiers,
                     # An appended account would otherwise break the order,
                     # and the block would be rejected for that instead.
                     sort_accounts_by_address(),
