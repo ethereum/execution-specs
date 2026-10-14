@@ -3,7 +3,7 @@
 import inspect
 from functools import cache
 from hashlib import sha256
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Type
 
 import pytest
 from pydantic import PrivateAttr
@@ -486,9 +486,26 @@ def pre(
     fork: Fork | TransitionFork,
     stub_accounts: Dict[str, Account],
     stub_eoas: Dict[str, EOA],
+    spec_type: Type[BaseTest] | None,
+    fixture_format: Any,
 ) -> Alloc:
-    """Return default pre allocation for all tests (Empty alloc)."""
+    """
+    Return the pre allocation of the test, seeded with the accounts the
+    genesis of the fixture being filled holds by default.
+
+    The spec uses the returned allocation as the genesis allocation
+    unchanged, so a test may inspect it, and may override or delete the
+    seeded accounts at its own risk.
+    """
+    seed = (
+        spec_type.genesis_pre_allocation(
+            fork=fork, fixture_format=fixture_format
+        )
+        if spec_type is not None
+        else {}
+    )
     return Alloc(
+        seed,
         flags=alloc_flags,
         fork=fork,
         stub_accounts=stub_accounts,

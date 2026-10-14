@@ -1592,6 +1592,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         fork: Fork | TransitionFork,
         reference_spec: ReferenceSpec,
         pre: Alloc,
+        fixture_format: Any,
         output_dir: Path,
         fixture_collector: FixtureCollector,
         test_case_description: str,
@@ -1616,10 +1617,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         as value.
         """
         del fixed_opcode_count
-        if hasattr(request.node, "fixture_format"):
-            fixture_format = request.node.fixture_format
-        else:
-            fixture_format = request.param
         assert isinstance(fixture_format, LabeledFixtureFormat) or issubclass(
             fixture_format, BaseFixture
         )

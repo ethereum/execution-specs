@@ -8,6 +8,7 @@ from typing import (
     Dict,
     Generator,
     List,
+    Mapping,
     Sequence,
     Tuple,
     Type,
@@ -84,7 +85,7 @@ from execution_testing.fixtures.common import (
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
-from execution_testing.forks import Fork, Requests
+from execution_testing.forks import Fork, Requests, TransitionFork
 from execution_testing.test_types import (
     Account,
     Alloc,
@@ -823,6 +824,22 @@ class BlockchainTest(BaseTest):
     }
 
     @classmethod
+    def genesis_pre_allocation(
+        cls,
+        *,
+        fork: Fork | TransitionFork,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
+    ) -> Mapping:
+        """
+        Return the fork's blockchain pre-allocation.
+
+        The allocation can only be set at genesis, so a transition fork
+        allocates the accounts of the fork it transitions to.
+        """
+        del fixture_format
+        return fork.transitions_to().pre_allocation_blockchain()
+
+    @classmethod
     def discard_fixture_format_by_marks(
         cls,
         fixture_format: FixtureFormat | LabeledFixtureFormat,
@@ -918,9 +935,7 @@ class BlockchainTest(BaseTest):
         ).model_dump(exclude_unset=True)
         return Environment(**(GENESIS_ENVIRONMENT_DEFAULTS | modified_values))
 
-    def make_genesis(
-        self, *, apply_pre_allocation_blockchain: bool
-    ) -> Tuple[Alloc, FixtureBlock]:
+    def make_genesis(self) -> Tuple[Alloc, FixtureBlock]:
         """Create a genesis block from the blockchain test definition."""
         env = self.get_genesis_environment()
         assert env.withdrawals is None or len(env.withdrawals) == 0, (
@@ -932,13 +947,6 @@ class BlockchainTest(BaseTest):
         ), "parent_beacon_block_root must be empty at genesis"
 
         pre_alloc = self.pre
-        if apply_pre_allocation_blockchain:
-            pre_alloc = Alloc.merge(
-                Alloc.model_validate(
-                    self.fork.transitions_to().pre_allocation_blockchain()
-                ),
-                pre_alloc,
-            )
         if empty_accounts := pre_alloc.empty_accounts():
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
         if pre_alloc.state_commitment() is None:
@@ -1333,7 +1341,7 @@ class BlockchainTest(BaseTest):
 
         fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
 
-        pre, genesis = self.make_genesis(apply_pre_allocation_blockchain=True)
+        pre, genesis = self.make_genesis()
 
         alloc: Alloc | LazyAlloc = pre
         state_root = genesis.header.state_root
@@ -1454,10 +1462,7 @@ class BlockchainTest(BaseTest):
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
 
-        pre, genesis = self.make_genesis(
-            apply_pre_allocation_blockchain=fixture_format
-            != BlockchainEngineXFixture,
-        )
+        pre, genesis = self.make_genesis()
         alloc: Alloc | LazyAlloc = pre
         state_root = genesis.header.state_root
         env = environment_from_parent_header(genesis.header)

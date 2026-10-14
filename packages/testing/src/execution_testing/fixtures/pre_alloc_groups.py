@@ -580,12 +580,8 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
                 environment=environment,
                 group_salt=group_salt,
                 group_hash=pre_alloc_hash,
-                pre=Alloc.merge(
-                    Alloc.model_validate(
-                        fork.transitions_to().pre_allocation_blockchain()
-                    ),
-                    pre,
-                ),
+                # Plain `Alloc` copy, so later tests can be merged into it.
+                pre=Alloc(pre.root),
             )
             self.root[pre_alloc_hash] = group
 

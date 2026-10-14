@@ -526,6 +526,16 @@ def test_block_intermediate_state(
 ) -> None:
     """Validate the state when building blockchain."""
     env = Environment()
+    # The spec uses `pre` as the genesis allocation unchanged, so seed the
+    # fork's system contracts as the `pre` fixture would.
+    pre = Alloc.merge(
+        Alloc.model_validate(
+            BlockchainTest.genesis_pre_allocation(
+                fork=fork, fixture_format=fixture_format
+            )
+        ),
+        pre,
+    )
 
     to = Address(0x01)
     tx = Transaction(

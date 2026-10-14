@@ -86,8 +86,13 @@ def test_t8n_support(fork: Fork, installed_t8n: TransitionTool) -> None:
 
     code_account_1 = Address(0x1001)
     code_account_2 = Address(0x1002)
+    # The spec uses `pre` as the genesis allocation unchanged, so seed the
+    # fork's system contracts as the `pre` fixture would.
     pre = Alloc(
         {
+            **BlockchainTest.genesis_pre_allocation(
+                fork=fork, fixture_format=BlockchainFixture
+            ),
             TestAddress: Account(balance=10_000_000),
             code_account_1: Account(
                 code=Op.SSTORE(

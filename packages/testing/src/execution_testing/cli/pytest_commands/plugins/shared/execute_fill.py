@@ -2,7 +2,7 @@
 Shared pytest fixtures and hooks for EEST generation modes (fill and execute).
 """
 
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Type
 
 import pytest
 from pytest import StashKey
@@ -17,7 +17,11 @@ from execution_testing.specs.base import OpMode
 from execution_testing.test_types import EOA, Account, Alloc, ChainConfig
 
 from ..shared.address_stubs import AddressStubs, StubEOA
-from ..shared.helpers import get_rpc_endpoint, is_benchmark_test
+from ..shared.helpers import (
+    get_rpc_endpoint,
+    get_spec_format_for_item,
+    is_benchmark_test,
+)
 from ..shared.pre_alloc import AllocFlags
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 
@@ -397,6 +401,35 @@ def alloc_flags(
     override this behavior.
     """
     return alloc_flags_from_test_markers
+
+
+def _spec_parameter(request: pytest.FixtureRequest) -> Tuple[Any, Any]:
+    """
+    Return the spec type and format the test is parametrized with, or a
+    pair of `None` when the test requests no spec.
+    """
+    callspec = getattr(request.node, "callspec", None)
+    if callspec is None:
+        return None, None
+    try:
+        return get_spec_format_for_item(callspec.params)
+    except ValueError:
+        return None, None
+
+
+@pytest.fixture(scope="function")
+def spec_type(request: pytest.FixtureRequest) -> Type[BaseTest] | None:
+    """Return the spec type that fills or executes the test."""
+    return _spec_parameter(request)[0]
+
+
+@pytest.fixture(scope="function")
+def fixture_format(request: pytest.FixtureRequest) -> Any:
+    """
+    Return the fixture format (when filling) or the execute format (when
+    executing) the test is parametrized with.
+    """
+    return _spec_parameter(request)[1]
 
 
 @pytest.fixture(scope="function")

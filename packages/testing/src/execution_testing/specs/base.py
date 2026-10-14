@@ -12,6 +12,7 @@ from typing import (
     Dict,
     Generator,
     List,
+    Mapping,
     Sequence,
     Tuple,
     Type,
@@ -293,6 +294,23 @@ class BaseTest(BaseModel):
         """
         del execute_format, fork, markers
         return False
+
+    @classmethod
+    @abstractmethod
+    def genesis_pre_allocation(
+        cls,
+        *,
+        fork: Fork | TransitionFork,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
+    ) -> Mapping:
+        """
+        Return the accounts the genesis of `fixture_format` holds by default.
+
+        The `pre` fixture is seeded with these accounts before the test runs,
+        so the test sees, and may modify, the whole genesis allocation. The
+        spec uses the test's `pre` as the genesis allocation unchanged.
+        """
+        pass
 
     @abstractmethod
     def generate(

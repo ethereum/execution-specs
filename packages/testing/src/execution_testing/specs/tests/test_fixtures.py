@@ -93,8 +93,13 @@ def test_make_genesis(  # noqa: D103
 ) -> None:
     env = Environment(gas_limit=100_000_000_000_000_000)
 
+    # The spec uses `pre` as the genesis allocation unchanged, so seed the
+    # fork's system contracts as the `pre` fixture would.
     pre = Alloc(
         {
+            **BlockchainTest.genesis_pre_allocation(
+                fork=fork, fixture_format=BlockchainFixture
+            ),
             Address(0x0BA1A9CE0BA1A9CE): Account(balance=0x0BA1A9CE0BA1A9CE),
             Address(0xC0DE): Account(
                 code=Op.SSTORE(0, Op.ADD(1, 2)) + Op.RETURN(0, 32),
@@ -152,7 +157,12 @@ def test_fill_state_test(
         timestamp=1000,
     )
     contract_code = Op.SSTORE(1, Op.CHAINID) + Op.LOG1(0, 1, 2) + Op.STOP
+    # The spec uses `pre` as the genesis allocation unchanged, so seed the
+    # fork's system contracts as the `pre` fixture would.
     pre = {
+        **StateTest.genesis_pre_allocation(
+            fork=fork, fixture_format=fixture_format
+        ),
         0x1000000000000000000000000000000000000000: Account(
             code=contract_code
         ),
