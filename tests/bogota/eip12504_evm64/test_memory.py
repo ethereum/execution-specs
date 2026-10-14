@@ -1,5 +1,5 @@
 """
-EIP-9999 loads and stores.
+EIP-12504 loads and stores.
 
 CALLDATALOAD64, MLOAD64, and MSTORE64 are their twins reduced modulo
 2**64: the same 32-byte window at the same offset, the offset read modulo
@@ -15,12 +15,12 @@ from execution_testing import (
     Transaction,
 )
 
-from .spec import ref_spec_9999
+from .spec import ref_spec_12504
 
-REFERENCE_SPEC_GIT_PATH = ref_spec_9999.git_path
-REFERENCE_SPEC_VERSION = ref_spec_9999.version
+REFERENCE_SPEC_GIT_PATH = ref_spec_12504.git_path
+REFERENCE_SPEC_VERSION = ref_spec_12504.version
 
-pytestmark = pytest.mark.valid_from("EIP9999")
+pytestmark = pytest.mark.valid_from("EIP12504")
 
 TX_GAS_LIMIT = 1_000_000
 

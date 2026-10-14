@@ -5387,13 +5387,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     MUL64 = Opcode(0xC2, popped_stack_items=2, pushed_stack_items=1)
@@ -5417,13 +5417,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     3
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     SUB64 = Opcode(0xC3, popped_stack_items=2, pushed_stack_items=1)
@@ -5447,13 +5447,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     DIV64 = Opcode(0xC4, popped_stack_items=2, pushed_stack_items=1)
@@ -5477,13 +5477,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     3
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     SDIV64 = Opcode(0xC5, popped_stack_items=2, pushed_stack_items=1)
@@ -5507,13 +5507,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     3
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     MOD64 = Opcode(0xC6, popped_stack_items=2, pushed_stack_items=1)
@@ -5537,13 +5537,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     3
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     SMOD64 = Opcode(0xC7, popped_stack_items=2, pushed_stack_items=1)
@@ -5567,13 +5567,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     3
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     ADDMOD64 = Opcode(0xC8, popped_stack_items=3, pushed_stack_items=1)
@@ -5598,13 +5598,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     5
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     MULMOD64 = Opcode(0xC9, popped_stack_items=3, pushed_stack_items=1)
@@ -5629,13 +5629,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     5
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     EXP64 = Opcode(
@@ -5664,13 +5664,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     5 + 25 per byte of the exponent
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     SIGNEXTEND64 = Opcode(0xCB, popped_stack_items=2, pushed_stack_items=1)
@@ -5694,13 +5694,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     3
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     CALLDATALOAD64 = Opcode(
@@ -5729,13 +5729,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     MLOAD64 = Opcode(
@@ -5765,13 +5765,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2 + memory expansion
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     MSTORE64 = Opcode(
@@ -5801,13 +5801,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2 + memory expansion
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     LT64 = Opcode(0xD0, popped_stack_items=2, pushed_stack_items=1)
@@ -5830,13 +5830,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     GT64 = Opcode(0xD1, popped_stack_items=2, pushed_stack_items=1)
@@ -5859,13 +5859,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     SLT64 = Opcode(0xD2, popped_stack_items=2, pushed_stack_items=1)
@@ -5889,13 +5889,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     SGT64 = Opcode(0xD3, popped_stack_items=2, pushed_stack_items=1)
@@ -5919,13 +5919,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     EQ64 = Opcode(0xD4, popped_stack_items=2, pushed_stack_items=1)
@@ -5949,13 +5949,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     ISZERO64 = Opcode(0xD5, popped_stack_items=1, pushed_stack_items=1)
@@ -5977,13 +5977,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     AND64 = Opcode(0xD6, popped_stack_items=2, pushed_stack_items=1)
@@ -6006,13 +6006,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     OR64 = Opcode(0xD7, popped_stack_items=2, pushed_stack_items=1)
@@ -6035,13 +6035,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     XOR64 = Opcode(0xD8, popped_stack_items=2, pushed_stack_items=1)
@@ -6064,13 +6064,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     NOT64 = Opcode(0xD9, popped_stack_items=1, pushed_stack_items=1)
@@ -6092,13 +6092,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     SHL64 = Opcode(0xDB, popped_stack_items=2, pushed_stack_items=1)
@@ -6122,13 +6122,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     SHR64 = Opcode(0xDC, popped_stack_items=2, pushed_stack_items=1)
@@ -6152,13 +6152,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     SAR64 = Opcode(0xDD, popped_stack_items=2, pushed_stack_items=1)
@@ -6182,13 +6182,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     2
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     CLZ64 = Opcode(0xDE, popped_stack_items=1, pushed_stack_items=1)
@@ -6210,13 +6210,13 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    EIP-9999
+    EIP-12504
 
     Gas
     ----
     3
 
-    Source: [EIP-9999](https://eips.ethereum.org/EIPS/eip-9999)
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
     """
 
     DUPN = Opcode(

@@ -188,7 +188,7 @@ _TABLE: Dict[int, Tuple[int, int, bool]] = {
     Ops.CALLSUB.value: (1, 0, True),
     Ops.CALLDEST.value: (0, 0, False),
     Ops.RETURNSUB.value: (0, 0, True),
-    # EIP-9999: 64-bit instructions, the stack effects of their twins
+    # EIP-12504: 64-bit instructions, the stack effects of their twins
     **dict.fromkeys(
         (
             *range(0xC1, 0xC8),  # ADD64..SMOD64

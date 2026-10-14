@@ -1,10 +1,10 @@
 """
-EIP-9999: 64-bit Opcodes for the EVM.
+EIP-12504: 64-bit Opcodes for the EVM.
 
 Twenty-eight single-byte instructions computing on the low 64 bits of
 their operands: the twin of each at its opcode plus 0xC0.
 
-https://eips.ethereum.org/EIPS/eip-9999
+https://eips.ethereum.org/EIPS/eip-12504
 """
 
 from typing import Callable, Dict, List
@@ -55,8 +55,8 @@ MID_64_OPCODES = [
 ]
 
 
-class EIP9999(BaseFork):
-    """EIP-9999 class."""
+class EIP12504(BaseFork):
+    """EIP-12504 class."""
 
     @classmethod
     def valid_opcodes(cls) -> List[Opcodes]:
@@ -66,7 +66,7 @@ class EIP9999(BaseFork):
             + LOW_64_OPCODES
             + MID_64_OPCODES
             + [Opcodes.EXP64, Opcodes.MLOAD64, Opcodes.MSTORE64]
-            + super(EIP9999, cls).valid_opcodes()
+            + super(EIP12504, cls).valid_opcodes()
         )
 
     @classmethod
@@ -75,7 +75,7 @@ class EIP9999(BaseFork):
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
         """Add the gas costs of the 64-bit instructions."""
         memory_expansion_calculator = cls.memory_expansion_gas_calculator()
-        base_map = super(EIP9999, cls).opcode_gas_map()
+        base_map = super(EIP12504, cls).opcode_gas_map()
         return {
             **base_map,
             **dict.fromkeys(VERY_LOW_64_OPCODES, VERY_LOW_64),
