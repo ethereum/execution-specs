@@ -1156,6 +1156,14 @@ class BlockchainTest(BaseTest):
             if inclusion_list_variant:
                 pytest.skip(reason)
             raise Exception(f"test correctness: {reason}")
+        merged_limit = fork.inclusion_list_merged_transactions_size_limit()
+        merged_size = sum(len(entry) for entry in inclusion_list_bytes or [])
+        if merged_limit is not None and merged_size > merged_limit:
+            raise Exception(
+                f"test correctness: an inclusion list of {merged_size} bytes "
+                f"exceeds the {merged_limit}-byte merged list limit, so no "
+                "consensus layer could have sent it"
+            )
 
         if (failing_tx_count := len([tx for tx in txs if tx.error])) > 0:
             if failing_tx_count > 1:

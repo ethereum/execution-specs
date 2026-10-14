@@ -33,6 +33,11 @@ class EIP7805(
         return 8192
 
     @classmethod
+    def inclusion_list_merged_transactions_size_limit(cls) -> int | None:
+        """The merged list holds at most 16 members' lists: 128 KiB."""
+        return 16 * 8192
+
+    @classmethod
     def inclusion_list_counts_blob_entries(cls) -> bool:
         """The inclusion list check skips blob entries."""
         return False

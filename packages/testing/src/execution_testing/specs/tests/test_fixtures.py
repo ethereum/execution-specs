@@ -291,6 +291,44 @@ def test_inclusion_list_entry_size_limit(
             test.generate(t8n=default_t8n, fixture_format=fixture_format)
 
 
+@pytest.mark.parametrize("bytes_over_limit", [0, 1])
+def test_inclusion_list_merged_size_limit(
+    default_t8n: TransitionTool,
+    bytes_over_limit: int,
+) -> None:
+    """
+    Test that an inclusion list above the fork's merged list limit fails the
+    test, while one at the limit fills.
+    """
+    entry_limit = Bogota.inclusion_list_transactions_size_limit()
+    merged_limit = Bogota.inclusion_list_merged_transactions_size_limit()
+    assert entry_limit is not None and merged_limit is not None
+    # Undecodable entries keep the list cheap to build; only sizes matter.
+    entries = [Bytes(bytes(entry_limit))] * (merged_limit // entry_limit)
+    entries += [Bytes(bytes(1))] * bytes_over_limit
+    test = BlockchainTest(
+        fork=Bogota,
+        pre=Alloc(),
+        post={},
+        blocks=[Block(txs=[], inclusion_list_txs=entries)],
+        genesis_environment=Environment(),
+    )
+
+    if bytes_over_limit == 0:
+        fixture = test.generate(
+            t8n=default_t8n, fixture_format=BlockchainEngineFixture
+        ).fixture
+        assert isinstance(fixture, BlockchainEngineFixture)
+        inclusion_list = fixture.payloads[0].params[-1]
+        assert isinstance(inclusion_list, list)
+        assert sum(len(entry) for entry in inclusion_list) == merged_limit
+    else:
+        with pytest.raises(Exception, match="merged list limit"):
+            test.generate(
+                t8n=default_t8n, fixture_format=BlockchainEngineFixture
+            )
+
+
 @pytest.mark.parametrize(
     "entry_kind,inclusion_list_satisfied",
     [
