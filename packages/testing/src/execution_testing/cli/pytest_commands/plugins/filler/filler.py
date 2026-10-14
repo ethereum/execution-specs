@@ -185,7 +185,7 @@ class FillingSession:
         formats_str = config.getoption("formats", None)
 
         formats = None
-        if formats_str:
+        if formats_str is not None:
             formats = [f.strip() for f in formats_str.split(",") if f.strip()]
             if not formats:
                 raise pytest.UsageError(
@@ -194,11 +194,11 @@ class FillingSession:
 
             invalid_formats = set(formats) - set(BaseFixture.formats.keys())
             if invalid_formats:
+                invalids = ", ".join(invalid_formats)
+                valids = ", ".join(BaseFixture.formats.keys())
                 raise pytest.UsageError(
-                    "Invalid fixture format(s) specified: "
-                    f"{', '.join(invalid_formats)}. "
-                    "Valid formats are: "
-                    f"{', '.join(BaseFixture.formats.keys())}"
+                    f"Invalid fixture format(s) specified: {invalids}. "
+                    f"Valid formats are: {valids}"
                 )
 
         return cls(

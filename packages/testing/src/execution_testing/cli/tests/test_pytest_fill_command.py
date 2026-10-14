@@ -80,25 +80,61 @@ class TestFillClickCli:
     def test_fill_formats_engine_x_appends_generate_all(
         self, run_fill: Callable[..., Result], tmp_path: Path
     ) -> None:
-        """Test that passing an EngineX format automatically enables two-phase generation in CLI."""
+        """
+        Test that passing an EngineX format automatically enables two-phase
+        generation in CLI.
+        """
         output_dir = tmp_path / "output"
-        
+
         result = run_fill(
             str(MINIMAL_TEST_SOURCE),
-            "--fork", "Cancun",
+            "--fork",
+            "Cancun",
             f"--output={output_dir}",
             "--formats=blockchain_test_engine_x",
             "--clean",
         )
         assert result.exit_code == pytest.ExitCode.OK, result.output
-        
+
         pre_alloc_dir = output_dir / "blockchain_tests_engine_x" / "pre_alloc"
         assert pre_alloc_dir.exists(), "Pre-allocation phase did not run."
-        
+
         fixtures_dir = output_dir / "blockchain_tests_engine_x" / "for_cancun"
-        assert fixtures_dir.exists(), "Phase 2 did not write the final EngineX fixtures."
-        
-        assert list(fixtures_dir.rglob("*.json")), "No JSON fixture files generated."
+        assert fixtures_dir.exists(), (
+            "Phase 2 did not write the final EngineX fixtures."
+        )
+        assert list(fixtures_dir.rglob("*.json")), (
+            "No JSON fixture files generated."
+        )
+
+    def test_fill_generate_pre_alloc_groups_with_engine_x(
+        self, run_fill: Callable[..., Result], tmp_path: Path
+    ) -> None:
+        """
+        Test that passing --generate-pre-alloc-groups with an EngineX format
+        only runs Phase 1.
+        """
+        output_dir = tmp_path / "output"
+
+        result = run_fill(
+            str(MINIMAL_TEST_SOURCE),
+            "--fork",
+            "Cancun",
+            f"--output={output_dir}",
+            "--generate-pre-alloc-groups",
+            "--formats=blockchain_test_engine_x",
+            "--clean",
+        )
+        assert result.exit_code == pytest.ExitCode.OK, result.output
+
+        pre_alloc_dir = output_dir / "blockchain_tests_engine_x" / "pre_alloc"
+        assert pre_alloc_dir.exists(), "Pre-allocation phase did not run."
+
+        fixtures_dir = output_dir / "blockchain_tests_engine_x" / "for_cancun"
+        assert not fixtures_dir.exists(), (
+            "Phase 2 ran unexpectedly when --generate-pre-alloc-groups "
+            "was specified."
+        )
 
 
 class TestFillPytester:
@@ -274,19 +310,24 @@ class TestFillPytester:
         assert result.ret == pytest.ExitCode.OK
 
     @pytest.mark.parametrize(
+        "empty_formats_arg",
+        ["--formats=", "--formats= , "],
+    )
+    @pytest.mark.parametrize(
         "expected_exit_code", [pytest.ExitCode.USAGE_ERROR]
     )
     def test_fill_formats_empty_strings(
-        self, run_fill: Callable[..., RunResult], fill_args: list[str]
+        self,
+        run_fill: Callable[..., RunResult],
+        fill_args: list[str],
+        empty_formats_arg: str,
     ) -> None:
         """Test invoking `fill` with empty formats raises an error."""
-        fill_args += ["--formats= , "]
+        fill_args += [empty_formats_arg]
         result = run_fill(*fill_args)
         assert result.ret == pytest.ExitCode.USAGE_ERROR
         output = "\n".join(result.errlines + result.outlines)
         assert "No valid fixture formats specified in --formats" in output
-
-
 
     def test_generate_pre_alloc_groups_preserves_chain_id_for_valid_from(
         self,
