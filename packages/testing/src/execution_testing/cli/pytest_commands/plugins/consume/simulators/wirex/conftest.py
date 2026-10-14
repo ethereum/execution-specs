@@ -64,10 +64,12 @@ pytest_plugins = (
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.exceptions",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.helpers.test_tracker",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.engine_api",
-    # Last on purpose: this module overrides the `client` fixture that
-    # `multi_test_client` (above) defines, and pytest resolves duplicate
-    # plugin fixtures in favor of the most recently registered plugin.
+    # After `multi_test_client`, whose `client` fixture this module
+    # overrides: pytest prefers the most recently registered plugin.
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.wirex.client_policy",
+    # After `multi_test_client` and this module: it extends their
+    # `environment` and `test_suite_description` fixtures.
+    "execution_testing.cli.pytest_commands.plugins.consume.simulators.wirex.sync_loop_interval",
 )
 
 DEFAULT_NETWORK_ID = 1

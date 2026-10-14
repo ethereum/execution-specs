@@ -2,36 +2,123 @@
 
 The WireX simulator (`eels/consume-wirex`) makes the client under test full sync each test's chain from a deterministic mock devp2p peer implemented inside the testing framework.
 
-The intent is to verify that clients can receive and propagate blocks over devp2p using the consensus test corpus; it is not intended to be a complete test of historical sync. WireX intends to replace [`consume rlp`](../running.md#rlp) for post-Merge forks: instead of loading RLP-encoded blocks through a client-specific offline import mode at startup, the client downloads and executes the same blocks through its production peer-to-peer ingestion path.
+The goal is to check, using the consensus test corpus, that clients can download blocks from a peer over devp2p and execute them. It does not try to test every part of historical sync. WireX intends to replace [`consume rlp`](../running.md#rlp) for post-Merge forks: instead of a client-specific offline import at startup, the same blocks travel the client's production peer-to-peer path.
 
-## Command Syntax
+WireX consumes the [Blockchain Engine X Test](../test_formats/blockchain_test_engine_x.md) fixture format and reuses one client per pre-allocation group, like [`consume enginex`](../running.md#enginex). Each test is an independent chain forking at the group's genesis. Two things differ from EngineX:
+
+- EngineX sends every block with `engine_newPayload`. WireX sends only the head it announces that way; the client downloads every block below it from the mock peer.
+- EngineX resets the client to genesis with a forkchoice update before each test. WireX never resets the client between tests (see [The Control Plane and the Data Plane](#the-control-plane-and-the-data-plane)).
+
+[Test Ordering and Client Reuse](#test-ordering-and-client-reuse) lists when WireX starts a fresh client instead of reusing the group's client.
+
+## Quick Start
+
+WireX runs against Hive in development mode, like the other consume simulators. See [Hive Development Mode](../hive/dev_mode.md) for setup.
+
+1. Start Hive in development mode with one client:
+
+    ```bash
+    ./hive --dev --client go-ethereum --client-file clients.yaml
+    ```
+
+2. In another shell, point the simulator at Hive:
+
+    ```bash
+    export HIVE_SIMULATOR=http://127.0.0.1:3000
+    ```
+
+3. Fill Blockchain Engine X fixtures. `fill` writes this format only with `--generate-all-formats` (see [Generating All Fixture Formats](../../filling_tests/filling_tests_command_line.md#generating-all-fixture-formats)). A fixture release carries it only if it was filled with that flag; see [Consume Cache and Fixture Inputs](./cache.md) for using a release as `--input`.
+
+    ```bash
+    uv run fill --generate-all-formats --output=fixtures tests/prague/
+    ```
+
+4. Run WireX against the client:
+
+    ```bash
+    uv run consume wirex --input ./fixtures -n 4
+    ```
+
+`-n` sets the number of pytest-xdist workers. Use `--sim.limit` to select tests (see [Consume Cache and Fixture Inputs](./cache.md)). Fixtures without sync targets skip their single-block tests by default; see [Skipped Sync Targets](#skipped-sync-targets).
+
+## Running WireX
 
 ```bash
 uv run consume wirex [OPTIONS]
 ```
 
-WireX consumes the [Blockchain Engine X Test](../test_formats/blockchain_test_engine_x.md) fixture format and keeps the client topology that [`consume enginex`](../running.md#enginex) established: one client per pre-allocation group, reused across all of the group's tests. Only the way blocks arrive changes. Each test is an independent chain that forks at the group's shared genesis. The exceptions are a fixture announcing several sync targets, which runs each target on its own isolated client, and the tests a reused client could not judge on the sync path, which get a fresh one (see [Test Ordering and Client Reuse](#test-ordering-and-client-reuse)).
-
-To see the WireX-specific options, run:
+To see all options, run:
 
 ```bash
 uv run consume wirex --help
 ```
 
-## The Control Plane and the Data Plane
+The WireX options are:
+
+| Option | Default | Described in |
+| ------ | ------- | ------------ |
+| `--wirex-bals` | `both` | [Block Access Lists](#block-access-lists) |
+| `--wirex-min-blocks` | `2` | [Skipped Sync Targets](#skipped-sync-targets) |
+| `--wirex-sync-timeout` | `60` (seconds) | [Tuning](#tuning) |
+| `--wirex-sync-loop-interval` | the simulator's `HIVE_SYNC_LOOP_INTERVAL_MS`, else `10` (milliseconds) | [Tuning](#tuning) |
+| `--wirex-announce-interval` | `3` (seconds) | [Process Diagram](#process-diagram) |
+| `--wirex-poll-interval` | `0.005` (seconds) | [Process Diagram](#process-diagram) |
+| `--wirex-eth-version` | `auto` | [The Mock Peer](#the-mock-peer) |
+| `--wirex-no-sort-by-chain-length` | off | [Test Ordering and Client Reuse](#test-ordering-and-client-reuse) |
+
+### Block Access Lists
+
+Block access lists (BALs, EIP-7928) are requested over eth/71 (EIP-8159). `--wirex-bals` decides how the peer answers:
+
+- `withhold` answers every entry as unavailable (the RLP empty string EIP-8159 prescribes), so a pass proves the client executed every block itself. The peer never leaves the request unanswered, since clients penalize a silent peer.
+- `serve` answers from each block's payload, so a client that uses BALs to execute transactions in parallel takes that path. A pass in this mode does not show that the client executed the block itself, unless the client is known to execute blocks whose BALs it receives.
+- `both`, the default, runs every Amsterdam-onward fixture once in each mode, each mode on its own client, so an Amsterdam-onward group boots two clients. nethermind runs `withhold` only: it requests BALs only for finalized blocks, and WireX finalizes only genesis, so its served tests would repeat the withheld ones. An explicit `--wirex-bals serve` still serves it.
+
+An Amsterdam-onward test ID ends in the mode it ran under, `-bal_withheld` or `-bal_served` (for example `...[fork_Amsterdam-blockchain_test_engine_x]-go-ethereum_default-bal_withheld`). Every mode adds the suffix, a single-mode run included, so runs in different modes never share a test ID. Earlier forks carry no BAL, run once and take no suffix. `--wirex-bals withhold` halves the Amsterdam-onward work when the served path is not of interest.
+
+### Skipped Sync Targets
+
+A path is the chain from genesis up to one sync target (see [Sync Targets and Chain Classes](#sync-targets-and-chain-classes)). WireX skips a sync target when its path, target included, has fewer blocks than `--wirex-min-blocks` (default 2). The target itself arrives over the Engine API, so a one-block path would put nothing on devp2p.
+
+A fixture without `syncPayloads` has its own last block as its only target. Each of its single-block tests is then a one-block path and is skipped by default, so a run on such fixtures can skip many tests. To run them anyway, pass `--wirex-min-blocks 1`; those tests then deliver their block over the Engine API only and check nothing on devp2p.
+
+WireX also skips invalid paths that devp2p or the fixture cannot represent (see [Rejection Tests](#rejection-tests)). A fixture is skipped only when all of its sync targets are skipped. Otherwise it runs the rest and logs each skipped target on a line starting with `Omitting one of this fixture's`.
+
+### Tuning
+
+Run time depends on the client. Much of it goes to starting and stopping clients, and most of it for clients that boot slowly. A test that times out costs the full `--wirex-sync-timeout` (default 60 s), so a class of tests a client never answers can dominate a run. A lower timeout shortens such runs, but too low a value fails valid syncs of short chains.
+
+- Parallelism: `-n 4` is a safe default. Each xdist worker and each running client needs its own memory. Groups run whole on one worker, so a run cannot finish faster than its largest group.
+- Sync loop interval: some clients advance a sync only when a loop on a timer runs. nethermind's runs once a second by default, which makes each short test take seconds.
+    - WireX asks every client for a 10 ms interval through the client environment variable `HIVE_SYNC_LOOP_INTERVAL_MS`. A client's Hive wrapper must map it to the client's own setting. nethermind's wrapper does so once [ethereum/hive#1621](https://github.com/ethereum/hive/pull/1621) is in your Hive build. Other clients ignore it.
+    - To change the value, pass `--wirex-sync-loop-interval MS` or set `HIVE_SYNC_LOOP_INTERVAL_MS` for the simulator. `0` sends no hint.
+    - A client that applies the hint runs with a non-default setting, so the run records the interval in the report header, the Hive suite description and each test's junit properties.
+    - The first client of each worker that reports its configuration is checked. If it ignored a value you set, the run stops. If it ignored the default, the run warns and continues.
+- Timing data: `--timing-data` prints each test's phase timings and records them as a `timing_data` property of each test case in the junit report, also under `-n`.
+- Leftover clients: a crashed xdist worker cannot stop its clients, and stopping Hive does not remove them, so check for leftover client containers (`docker ps`) after an interrupted run.
+
+### Reading Results
+
+- Log file: each run writes one log file per xdist worker to `./logs` (`--log-to` changes the directory). The session header and the final summary print its path. The same lines also go to stdout. `--eest-log-level` sets the level (default `INFO`).
+- Hive: each test's result in Hive holds the failure message and the test's captured output, including its log lines.
+- Peer transcript: most sync failures end with `Peer transcript:` followed by every request and response between the client and the mock peer during that test.
+- `latestValidHash check:`: every rejection logs this line with the result of the check (see [Rejection Tests](#rejection-tests)).
+- Client replacement: a warning names the reason and ends with `; replacing the client`. A multi-target fixture logs that it runs each target `on an isolated client` (see [Test Ordering and Client Reuse](#test-ordering-and-client-reuse)).
+
+## How WireX Works
+
+### The Control Plane and the Data Plane
 
 A post-Merge client does not choose its own head; something must tell it what to sync to. WireX splits this deliberately:
 
-- The control plane is the Engine API. One `engine_newPayload` carries the head block and one `engine_forkchoiceUpdated` names it as the head. That is the entire non-devp2p surface of a test.
-- The data plane is devp2p. The client downloads headers and bodies from the mock peer over RLPx and executes the blocks itself.
+- The control plane is the Engine API: one `engine_newPayload` carries the head block and one `engine_forkchoiceUpdated` names it. That is the entire non-devp2p surface of a test.
+- The data plane is devp2p: the client downloads headers and bodies from the mock peer over RLPx and executes the blocks itself.
 
-For a successfully synchronized chain of N blocks, the Engine API carries only the announced head (inside its payload); devp2p carries the remaining headers and every non-empty body; and the client's full-sync path executes all N blocks. `engine_newPayload` for a block whose parent is unknown executes nothing; it only caches the header and answers `SYNCING`. As long as the announced head's parent is unknown to the client, every block below it is fetched from the peer and processed by the sync path.
+`engine_newPayload` for a block whose parent is unknown executes nothing; the client caches the header and answers `SYNCING`. So every block below the announced head is fetched from the peer and executed by the full sync path. Which block is announced depends on the fixture's [sync targets](#sync-targets-and-chain-classes).
 
-Which block is announced is decided by the fixture's sync targets (see [Sync Targets and Chain Classes](#sync-targets-and-chain-classes)): each emitted entry of the fixture's `syncPayloads` list is announced in turn, and every authored block on that target's root-to-leaf path sits below the announced head. Most fixtures carry exactly one target, whose path is the whole authored chain; a fixture whose authored payloads fan out into siblings can carry several targets, and the simulator runs every emitted target. Only blocks *below* the announced head are guaranteed to travel devp2p: the head's payload always arrives through the Engine API, and whether a client also re-fetches the head's body from a peer is an implementation choice that measured clients answer both ways.
+There is deliberately no rewind between tests. Every chain forks at the group's genesis, so announcing the new head is all a consensus client would do; clients that honor a backward forkchoice update can enter recovery modes that bypass block execution.
 
-There is deliberately no rewind between tests. Every test's chain forks at the group's genesis, so announcing the new head is all a consensus client would ever do; a backward forkchoice update is not part of the flow because clients that honor it can enter recovery modes that bypass block execution.
-
-## Process Diagram
+### Process Diagram
 
 The common single-target valid path is:
 
@@ -74,74 +161,71 @@ sequenceDiagram
     end
 ```
 
-A sync is awaited by polling for the head block itself (`eth_getBlockByHash`), never by repeating the forkchoice update: in some clients every forkchoice update restarts the sync cycle, so polling faster than a cycle completes prevents the sync from ever finishing. The announcement is re-sent only on a slow cadence (`--wirex-announce-interval`), and its `engine_newPayload` response is read each time: an `INVALID` answer fails a valid path immediately with the client's `validationError`, while it completes a rejection path successfully. An Engine API call can block for a long time while the client works, so the head (or, for a rejection, the verdict) is always read once more after the sync timeout has passed before the test gives up.
+The simulator polls for the head block instead of repeating the forkchoice update, because in some clients every update restarts the sync cycle. It polls every `--wirex-poll-interval` (default 0.005 s), re-announces only on a slow cadence (`--wirex-announce-interval`, default 3 s) and reads each `engine_newPayload` answer: `INVALID` fails a valid path at once with the client's `validationError`. An Engine API call can block for a long time, so the head, or the verdict, is always read once more after the sync timeout before the test gives up.
 
-## The Mock Peer
+### The Mock Peer
 
-The peer is implemented in `execution_testing.devp2p`: an RLPx transport (ECIES handshake, frame MACs, Snappy compression, p2p v5) and the eth wire protocol in versions 69 through 72. The wire dialect is negotiated per the RLPx rule (highest shared version wins) and recorded in every test's transcript; `--wirex-eth-version` pins the advertised set, so an explicit version makes a client that lacks it fail the handshake loudly.
+The peer lives in `execution_testing.devp2p`: an RLPx transport (ECIES handshake, frame MACs, Snappy compression, p2p v5) and the eth wire protocol, versions 69 to 72. The highest version both sides share wins and is recorded in each test's transcript; `--wirex-eth-version` pins one (the default, `auto`, lets negotiation pick), so a client that lacks it fails the handshake loudly.
 
-The peer is deliberately honest. It never withholds, reorders or corrupts a response, so a sync failure is a finding about the client or the fixture rather than about the peer. Its behavior in detail:
+The peer is deliberately honest: it never withholds, reorders or corrupts a response, so a sync failure is a finding about the client or the fixture, not the peer.
 
-- Receipts are counted and left unanswered, never invented. A full-syncing client derives them by executing blocks, so a request for them means the client chose a path this simulator cannot honestly serve. Serving them would convert real failures into silent no-coverage passes; a nonzero unanswered-request count in the transcript is a finding, never noise.
-- Block access lists (BALs, EIP-7928; requested over eth/71 per EIP-8159) can be withheld for the same reason, so a pass proves the client executed every block on its own. Withholding means answering every requested entry as unavailable, the RLP empty string EIP-8159 prescribes for a BAL a peer does not hold, rather than leaving the request unanswered: clients penalize a silent peer, reth by banning it after about 32 unanswered requests and erigon by waiting 10 s for each block. Some clients still ask: geth fetches them on a best-effort basis and, when one arrives, uses it to execute the block's transactions in parallel rather than sequentially, checking the result against the header either way. `--wirex-bals serve` answers the requests from each block's payload, so the sync path reaches that parallel execution. `--wirex-bals both`, the default, runs every Amsterdam-onward fixture once in each mode, each on its own client, so a run covers both paths; `--wirex-bals withhold` runs the withheld mode only. Under `both`, nethermind runs the withheld mode only: it requests BALs only for blocks on its finalized chain, and WireX finalizes only genesis, so its served tests would repeat the withheld ones exactly. An explicit `--wirex-bals serve` still serves it. In every mode, an Amsterdam-onward test's ID ends in the mode it ran under, `-bal_withheld` or `-bal_served` (for example `...::test_bal_post_execution_calls_net_storage_at_last_index[fork_Amsterdam-blockchain_test_engine_x]-go-ethereum_default-bal_withheld`), so reports from runs in different modes never share a test ID; earlier forks carry no BAL, run once and take no suffix. Only rely on the served mode for a client known to execute blocks whose BALs it receives.
-- Chains already served stay served. A client's downloader does not drop the chain it was syncing when a test ends, so the peer answers each request from the chain the requested hash belongs to.
-- Responses are bounded by serialized bytes (2 MiB, matching the limit clients themselves serve under), because clients cap the size of every message they read and drop peers that exceed it.
-- The peer redials the client after a disconnect, as a real peer would; liveness is checked at each re-announcement. Redialing sooner is deliberately avoided: a client may accept a peer that reconnects within a fraction of a second of being dropped and then never sync from it (observed on ethrex).
-- Every request and response is recorded in a per-test transcript, which is what makes a stalled sync diagnosable after the fact.
+- Receipts requests are counted and left unanswered. A full syncing client derives receipts by executing blocks, so serving them would turn real failures into passes without coverage; a nonzero count is a finding.
+- BALs are withheld or served per `--wirex-bals` (see [Block Access Lists](#block-access-lists)).
+- Chains already served stay served, because a client's downloader keeps asking for the chain it was syncing when a test ended.
+- Responses are bounded by serialized bytes (2 MiB), because clients drop a peer whose message exceeds their own cap.
+- The peer redials a client that dropped it, checking at each re-announcement. It does not redial sooner: a client may accept a peer that reconnects within a fraction of a second and then never sync from it.
+- Every request and response is recorded in a per-test transcript, which makes a stalled sync diagnosable afterwards.
 
-## Rejection Tests
+### Sync Targets and Chain Classes
 
-Representable paths containing an intentionally invalid block run as rejection cases. Whether a path expects rejection is decided over that path's payloads alone — a valid target's path may coexist with an invalid sibling elsewhere in the fixture, and the valid branch must synchronize, not be misread as a rejection. The peer serves the path as-is — the author's blocks with the framework target above them, `G → T₁…Tₙᵢ → S*`, so the block under judgement is itself an ancestor the client fetches over devp2p — and once the ancestry has arrived, the client must answer `INVALID` to `engine_newPayload` for the head. Accepting an invalid chain fails the test — but only a `VALID` that holds for half a second counts as acceptance. A client answers `newPayload` from the database state of that instant, so while the chain is still arriving that answer can be an artifact rather than a judgement: geth has been observed answering a well-formed `VALID` for a block its own beacon backfill rejected fifteen milliseconds later, and `INVALID` on every ask thereafter. A verdict that outlives the sync is a real one.
+A fixture can carry an optional, ordered `syncPayloads` list: empty blocks that `fill` adds, one on top of the last block of each of the test's chains. Each of these blocks is a sync target, and a path is the chain from genesis up to one sync target. WireX runs one path for every target. Without the list, the fixture's own last block is the only target, so its path is the test's chain. This list is not the single `syncPayload` of the [Blockchain Sync Test](../test_formats/blockchain_test_sync.md) format.
 
-For a path announcing a framework target, the verdict must also have been reached on the wire: once the rejection is confirmed, the test runs the same per-hash coverage check the valid path runs, over everything below the announced head — the invalid block included (see [Wire Coverage](#wire-coverage)). A chain with no target announces its own invalid head, and a client may then answer from the announcement alone: it can validate a header field without the parent, or recall that it already refused an ancestor of that chain (nethermind answers `Block 2 … is known to be a part of an invalid chain`). Both are correct, so no wire claim is made for those chains. One downgrade applies, per declared exception class rather than per client: a path whose declared invalidity is statically checkable in the header (currently `BlockException.INCORRECT_EXCESS_BLOB_GAS`) may legitimately be rejected during header validation — geth does exactly that, fetching no bodies at all — so such paths require every header per hash but no bodies. The invalidity census behind both the downgrade and the undecodable-body skip is the selected path's, never a sibling's. Only the fact of rejection is asserted, never its cause: the Engine API's `validationError` is free-form client text and devp2p carries no error reason at all, so matching the fixture's specific exception over this path is deliberately not attempted (the client's reason text is logged for debugging). With a framework target present, the invalid block is judged through the client's sync path, which is distinct coverage from the Engine simulators judging the same fixture via `engine_newPayload`.
-
-WireX omits an invalid path in two cases. The first is a limit of devp2p: a transaction or body encoding that a conformant client cannot decode, since the client discards such a body instead of judging the block. The second is a limit of the fixture: a header that cannot be rebuilt from its Engine API payload. WireX derives each header from the payload's fields and recomputes the commitments the payload does not carry (the transactions and withdrawals roots, the requests and BAL hashes) from its content, so a commitment modified at fill (via `rlp_modifier`) leaves no trace in the payload and the rebuilt header hashes differently from the declared block hash. Omissions are decided per path, and a fixture skips only when every resolved path is omitted; a fixture that loses some paths runs the rest and logs each omission.
-
-A rejection target strictly below a reused client's head cannot be judged over devp2p on that client at all: such a client refuses to walk its head backwards — geth's sync declines the announcement outright (`chain reorged, tail: 3, head: 3, newHead: 2`) and never concludes — and handing the ancestry over the Engine API instead would take the verdict off the sync path, which is exactly the coverage this simulator exists to state. The simulator therefore replaces the group's client with a fresh one for such a test: at genesis the whole chain, the invalid block included, is above the head again and travels the wire, and the group's remaining tests reuse the replacement. The default ordering makes the replacement rare — at most one per group, at the valid-to-invalid boundary, and only when the group's tallest valid chain outgrows its shortest invalid one; equal-height targets sync fine and keep the reused client.
-
-If the fixture declares an Engine API error code for the head payload, the client refusing `engine_newPayload` at the RPC layer is itself the expected rejection.
-
-## Test Ordering and Client Reuse
-
-Tests inside each pre-allocation group are ordered by default: valid chains before invalid ones, each by ascending chain length. This exists because a reused client's head number must never decrease (some clients stall permanently when asked to sync a chain shorter than one they already synced) and because serving a bad block can leave a client's sync machinery in a failure state that a following valid sync collides with. The length is each fixture's longest resolved path; `--wirex-no-sort-by-chain-length` disables the ordering, which is useful for reproducing those stalls and for comparison runs.
-
-A fixture announcing several sync targets never touches the group's reused client: each of its targets runs on its own isolated, freshly booted client with its own peer connection, torn down when the target completes. A client that has synced a chain with a bad block has been observed to back off in ways that starve the next sync, so isolation prevents one target from affecting another. The fixture still counts toward its group's completion, so the group's client is torn down on time for the group's other tests. The authored ancestry is never delivered over the Engine API to make client reuse work; that would take the coverage off the wire this simulator exists to state.
-
-A reused client syncs each test's chain by reorging from its head down to the block where the new chain forks from its own, usually genesis. Clients keep state for only their most recent blocks and cannot reorg below that from full sync alone (nethermind's beacon sync stops 64 blocks below its head, ethrex keeps 128 blocks of state, and reth takes minutes). The simulator therefore also boots a fresh client for a test whose chain would reorg the reused client more than 64 blocks; the depth is measured against the served chain holding the client's head, so a chain that extends the head's ancestry is not counted as a reorg. In `tests@v0.0.918` this replaces the client five times per full run, each time for a test that follows the longest chain of its group.
-
-## Sync Targets and Chain Classes
-
-`syncPayloads` is an optional ordered list of framework targets above authored leaves. WireX resolves and runs one path for every target present; if the list is absent, it falls back to the authored payloads and announces their head. In the sequences below, `G` is genesis, `T₁…Tₙ` the test's own blocks, `S` a framework target, `*` marks a block this simulator announces, and `ᵢ` an intentionally invalid block:
+Below, `G` is genesis, `T₁…Tₙ` the test's own blocks, `S` a sync target from `syncPayloads`, `*` the announced block, and `ᵢ` an intentionally invalid block:
 
 | Fixture shape | Sequence | Targets | WireX behavior |
 | ------------- | -------- | ------- | -------------- |
-| Valid linear path | `G → T₁…Tₙ → S*` | one | all authored blocks are below `S` and covered by the per-hash wire assertion |
+| Valid linear path | `G → T₁…Tₙ → S*` | one | all of the test's blocks are below `S` and covered by the per-hash wire assertion |
 | Invalid linear path | `G → T₁…Tₙᵢ → S*` | one | the invalid block is below `S`; the rejection and per-hash wire coverage are asserted |
-| Fanned-out payload graph | `G → (T₁ᵢ → S₁*) ⧸ (T₂ → S₂*)` and deeper shapes | several | every emitted target selects one root-to-leaf path and runs independently |
-| Partial target list | one or more target paths | fewer targets than leaves | emitted targets run; a leaf without a target has no separate WireX path |
-| Engine API error code | `G → T₁…Tₙ*` | none | the authored head is announced and the declared RPC-layer refusal is asserted; no wire coverage is required |
-| No targets | `G → T₁…Tₙ*` | none | the authored chain is the fallback path; valid paths assert below-head coverage, while rejection paths make no wire claim |
+| Several chains | `G → (T₁ᵢ → S₁*) ⧸ (T₂ → S₂*)` and deeper shapes | several | each target selects one path from genesis and runs independently |
+| Partial target list | one or more target paths | fewer targets than chains | listed targets run; a chain without a target has no WireX path of its own |
+| Engine API error code | `G → T₁…Tₙ*` | none | the test's last block is announced and the declared RPC-layer refusal is asserted; no wire coverage is required |
+| No targets | `G → T₁…Tₙ*` | none | the test's chain is the only path; valid paths assert wire coverage below the head, rejection paths do not |
 
-`S` is framework scaffolding, not authored test content. When present, it is included in the served chain and announced as the head. Without a target, WireX announces the authored head instead.
+Each target selects its path by hash alone: its `parentHash` names the last block of one of the test's chains, and the `parentHash` links of the test's blocks lead back to genesis. List position, timestamps and `lastblockhash` are never consulted. The target counts toward its path's length, so a single-block test plus its target is a two-block chain.
 
-Each target selects its path by hash alone — its `parentHash` names the leaf, and authored `parentHash` links walk back to genesis; list position, timestamps and `lastblockhash` are never consulted. A target counts toward its own path's length: a single-block test plus its target is a two-block chain, both for the skip accounting and for the chain-length ordering. Resolved paths shorter than `--wirex-min-blocks` (default 2) are omitted, and a fixture skips only when every resolved path is omitted.
+### Rejection Tests
 
-## Wire Coverage
+A path containing an intentionally invalid block runs as a rejection case. Validity is decided over the path's own payloads, so a valid path beside an invalid sibling must still synchronize. The peer serves the path as is (`G → T₁…Tₙᵢ → S*`), so the invalid block is an ancestor the client fetches over devp2p, and once it has arrived the client must answer `INVALID` for the head. Only a `VALID` that holds for half a second counts as acceptance: a client answers from its state of that instant, so an early answer can be an artifact.
 
-A correct outcome is necessary but not sufficient: every valid sync, and every rejection path announcing a framework target, also asserts that the blocks got there over devp2p. Every block below the announced head must have had its header served by this peer, and every such block whose body cannot be derived from the header alone (an empty transactions trie and an empty withdrawals root leave nothing to download) its body too, block by block — the failure names the blocks that never traveled and includes the peer transcript. The announced head is exempt by protocol, and head service stays visible in the per-test transcript without being asserted, so a client changing its fetch shape shows up in logs rather than as a false failure. A targetless rejection makes no wire claim because the client may judge the announced authored head without fetching its ancestry. A multi-target fixture makes the coverage claim once per path, each against the isolated client and peer connection that served it, so a sibling's service can never vouch for another branch's blocks.
+With a framework target, the verdict must also have been reached on the wire: the test runs the [wire coverage](#wire-coverage) check over everything below the head, the invalid block included. A chain without a target announces its own invalid head, which a client may judge from the announcement alone (from a header field, or because it already refused an ancestor), so such chains make no wire claim. A path whose declared invalidity is checkable in the header (currently `BlockException.INCORRECT_EXCESS_BLOB_GAS`) may be rejected during header validation (geth does), so it requires every header but no bodies. This is decided per exception class, never per client.
 
-The serving evidence is cumulative per client, not per test. Two tests of one pre-allocation group may declare byte-identical authored blocks; the reused client downloads those blocks only once. A block that traveled this client's wire connection once satisfies the requirement for every later test of the group, and the run logs when a test was satisfied by earlier service.
+Only the fact of rejection is asserted, never its cause: `validationError` is free-form client text and devp2p carries no reason at all. The client's reason is logged. A fixture that declares an Engine API error code for its head passes when the client refuses `engine_newPayload` with that code.
 
-Because the peer records a response as served only after its socket write succeeds — a failed send must never read as service — a fast client can briefly be ahead of the evidence: it can import the chain and answer the head poll moments before the serving thread records what it sent. A missing block is therefore re-read once after a short grace period before it fails the test; blocks that arrived some other way stay caught, because evidence that was never going to appear does not appear a quarter second later either. This check is sharp in practice: it is what exposed stale same-genesis clients left on the hive network serving blocks to the client under test.
+WireX omits an invalid path in two cases. A body that no conformant client can decode is a limit of devp2p: the client discards it instead of judging the block. A header that cannot be rebuilt from its payload is a limit of the fixture: WireX recomputes the commitments the payload does not carry (the transactions and withdrawals roots, the requests and BAL hashes), so a commitment modified at fill (via `rlp_modifier`) leaves no trace and the rebuilt header hashes differently.
 
-## Performance and Tuning
+A rejection below a reused client's head cannot be judged over devp2p, because the client refuses to walk its head backwards (geth declines the announcement and never concludes), and handing the ancestry over the Engine API would take the verdict off the sync path. Such a test gets a fresh client, for which the whole chain is above the head; the group's remaining tests reuse the replacement.
 
-Where a run's time goes depends on the client more than on the simulator. For clients that boot in about a second (geth, reth, erigon, ethrex), roughly half of the worker time is spent booting, connecting to and stopping the per-group clients, and a typical test takes 20 to 40 ms. Clients that boot slowly spend most of their time booting (besu takes 18 to 20 s per client), and a client whose sync is paced by its own timers spends most of its time in the tests themselves (nethermind takes about 2 s per valid test). The simulator's own share is small: the mock peer costs about a millisecond per test, and a connection's handshake a few milliseconds. Tests that time out cost the full `--wirex-sync-timeout` each, so a client with a class of tests it never answers can dominate a run's wall time; the default is 60 s, suited to smokes and debugging; full runs have used 30 s, below which legitimate syncs of short chains start to fail.
+### Test Ordering and Client Reuse
 
-- Parallelism: `-n 4` is a safe default. Each xdist worker takes about 1.3 GB of memory, and each running client its own (about 0.4 to 1.5 GB for nethermind, about 0.7 GB for besu), so more workers need the memory for both. Groups run whole on one worker, so a run cannot finish faster than its largest group.
-- BALs: the default, `--wirex-bals both`, doubles the Amsterdam-onward tests on every client except nethermind, which never requests BALs here and runs the withheld mode only. Use `--wirex-bals withhold` to halve the Amsterdam-onward work when the served path is not of interest.
-- Timing data: `--timing-data` prints each test's phase timings (client start, peer connection, announcement, sync, verdict) and records them as a `timing_data` property of each test case in the junit report, also under `-n`.
-- Leftover clients: a crashed xdist worker cannot stop its clients, and stopping Hive does not remove them, so check for leftover client containers after an interrupted run.
+Tests inside each group run valid chains before invalid ones, each by ascending length of the longest path. Some clients stall when asked to sync a chain shorter than one they already synced, and serving a bad block can leave a client's sync machinery backing off and starve the next valid sync. The ordering also limits below-head rejection replacements to at most one per group. `--wirex-no-sort-by-chain-length` disables it, to reproduce those stalls or compare runs.
+
+A group normally shares one client. WireX starts a fresh client instead in these cases:
+
+- Several sync targets: each target of the fixture runs on its own fresh client and mock peer, torn down when the target completes, so one target's rejected branch cannot starve another. The group's client is not used, but the fixture still counts toward the group's completion, so the group's client stops on time.
+- Rejection below the head: the invalid chain's head is below the reused client's head (see [Rejection Tests](#rejection-tests)).
+- Deep reorg: the chain would reorg the reused client more than 64 blocks. A reused client syncs each new chain by reorging down to where it forks from the client's chain, usually genesis, but clients keep state only for their most recent blocks and cannot reorg below that from full sync alone. A chain that extends the head's ancestry does not count as a reorg.
+- Head lookup failure: WireX cannot read the reused client's head.
+- `--wirex-bals both`: each BAL mode has its own client (see [Block Access Lists](#block-access-lists)).
+
+In the rejection, reorg and head lookup cases, the fresh client replaces the group's client for the rest of the group, and a warning names the reason (see [Reading Results](#reading-results)).
+
+### Wire Coverage
+
+A correct outcome is not enough: every valid sync, and every rejection path with a sync target from `syncPayloads`, also asserts per block hash that the blocks below the announced head arrived over devp2p. Each needs its header served by this peer, and its body too unless the body is empty (no transactions, no withdrawals). A failure names the missing blocks and includes the peer transcript. The head is exempt, since its payload arrives over the Engine API. A multi-target fixture is checked per path, against the client and peer that served it, so a sibling cannot vouch for another branch.
+
+The evidence is cumulative per client: tests of one group may declare byte-identical blocks, which the reused client downloads only once, and the run logs when earlier service satisfied a test.
+
+The peer records a response only after writing it, so a failed send never reads as service. A fast client can import the chain moments before the evidence lands, so a missing block is re-read once after a short grace period before it fails the test.
 
 ## Relationship to Other Simulators
 
