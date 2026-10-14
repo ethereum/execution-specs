@@ -2,16 +2,22 @@
 
 import pytest
 from execution_testing import (
-    AccessList,
     Account,
+    Address,
     Alloc,
     AuthorizationTuple,
     Block,
     BlockchainTestFiller,
+    ChainConfig,
+    Environment,
     Fork,
     Hash,
+    Header,
     Op,
+    SystemCallPhase,
     Transaction,
+    TransactionType,
+    Withdrawal,
     add_kzg_version,
 )
 from execution_testing.base_types import HexNumber
@@ -128,6 +134,8 @@ def test_pending_il_appendability_by_nonce(
         "exactly_affordable",
         "one_wei_short",
         "unaffordable_due_to_calldata",
+        "fee_cap_exactly_affordable",
+        "fee_cap_one_wei_short",
     ],
 )
 def test_pending_il_appendability_by_affordability(
@@ -140,9 +148,9 @@ def test_pending_il_appendability_by_affordability(
     A pending IL tx is appendable only if its sender can afford it.
 
     With ample block gas the pending tx always fits, so appendability depends
-    only on whether the sender's balance covers ``gas_limit * gas_price``.
-    The explicit gas limit fixes that cost; the calldata case shows a single
-    non-zero byte lifting the cost just past an otherwise-sufficient balance.
+    only on whether the sender's balance covers the gas limit at the fee cap
+    plus the value. The calldata case shows a single non-zero byte lifting the
+    cost just past an otherwise-sufficient balance.
     """
     calc = fork.transaction_intrinsic_cost_calculator()
     simple_transfer_gas = calc()
@@ -163,6 +171,26 @@ def test_pending_il_appendability_by_affordability(
             to=recipient,
             gas_limit=gas_limit,
             data=data,
+        )
+
+    # The balance must cover the fee cap, not the lower price the block would
+    # charge. The one-wei-short side tells the two apart only because the
+    # block's base fee is below the cap: the affordable case shows a legacy
+    # transaction at a tenth of the cap is valid in this block.
+    fee_cap = 10 * gas_price
+    fee_cap_value = 1
+    value_transfer_gas = calc(sends_value=True)
+    fee_cap_cost = value_transfer_gas * fee_cap + fee_cap_value
+
+    def fee_cap_tx(*, balance: int) -> Transaction:
+        return Transaction(
+            ty=2,
+            sender=pre.fund_eoa(amount=balance),
+            to=recipient,
+            gas_limit=value_transfer_gas,
+            max_fee_per_gas=fee_cap,
+            max_priority_fee_per_gas=0,
+            value=fee_cap_value,
         )
 
     match scenario:
@@ -186,6 +214,12 @@ def test_pending_il_appendability_by_affordability(
                     data=b"\x01",
                 )
             ]
+            expected_satisfied = True
+        case "fee_cap_exactly_affordable":
+            pending = [fee_cap_tx(balance=fee_cap_cost)]
+            expected_satisfied = False
+        case "fee_cap_one_wei_short":
+            pending = [fee_cap_tx(balance=fee_cap_cost - 1)]
             expected_satisfied = True
         case _:
             raise ValueError(f"unknown scenario: {scenario}")
@@ -321,6 +355,228 @@ def test_unsatisfied_when_block_tx_funds_pending_il_sender(
     )
 
 
+@pytest.mark.parametrize("withdrawal_block", ["prior_block", "same_block"])
+def test_pending_il_sender_funded_by_withdrawal(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    withdrawal_block: str,
+) -> None:
+    """
+    The IL check runs before the block's withdrawals, so a withdrawal funds a
+    pending IL tx's sender only from the next block on.
+    """
+    simple_transfer_gas = fork.transaction_intrinsic_cost_calculator()()
+    bob = pre.fund_eoa(amount=0)
+    withdrawal_gwei = 1
+    assert (
+        simple_transfer_gas * TransactionDefaults.gas_price
+        <= withdrawal_gwei * 10**9
+    )
+    withdrawal = Withdrawal(
+        index=0, validator_index=0, address=bob, amount=withdrawal_gwei
+    )
+    bob_il_tx = Transaction(
+        sender=bob,
+        to=pre.nonexistent_account(),
+        gas_limit=simple_transfer_gas,
+    )
+
+    match withdrawal_block:
+        case "prior_block":
+            blocks = [
+                Block(withdrawals=[withdrawal]),
+                Block(
+                    txs=[],
+                    inclusion_list_txs=[bob_il_tx],
+                    expected_inclusion_list_satisfied=False,
+                ),
+            ]
+        case "same_block":
+            blocks = [
+                Block(
+                    withdrawals=[withdrawal],
+                    inclusion_list_txs=[bob_il_tx],
+                    expected_inclusion_list_satisfied=True,
+                )
+            ]
+        case _:
+            raise ValueError(f"unknown withdrawal block: {withdrawal_block}")
+
+    blockchain_test(
+        pre=pre,
+        post={bob: Account(balance=withdrawal_gwei * 10**9)},
+        blocks=blocks,
+    )
+
+
+@pytest.mark.with_all_system_contracts
+@pytest.mark.pre_alloc_mutable
+def test_pending_il_sender_funded_by_system_call(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    system_contract: Address,
+) -> None:
+    """
+    The IL check runs after the system calls made before the block's
+    transactions and before those made after them, so a system contract that
+    funds a pending IL tx's sender makes it appendable only in the first case.
+    """
+    phase = fork.system_contract_call_phases()[system_contract]
+    match phase:
+        case SystemCallPhase.BEFORE_TRANSACTIONS:
+            expected_satisfied = False
+        case SystemCallPhase.AFTER_TRANSACTIONS:
+            expected_satisfied = True
+        case SystemCallPhase.NONE:
+            pytest.skip("the block never calls this system contract")
+        case _:
+            raise ValueError(f"unknown system call phase: {phase}")
+
+    simple_transfer_gas = fork.transaction_intrinsic_cost_calculator()()
+    bob_il_tx_cost = simple_transfer_gas * TransactionDefaults.gas_price
+    bob = pre.fund_eoa(amount=0)
+    bob_il_tx = Transaction(
+        sender=bob,
+        to=pre.nonexistent_account(),
+        gas_limit=simple_transfer_gas,
+    )
+    # The system call sends Bob exactly what his IL tx costs.
+    pre[system_contract] = Account(
+        code=Op.CALL(address=bob, value=bob_il_tx_cost),
+        balance=bob_il_tx_cost,
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={
+            bob: Account(balance=bob_il_tx_cost),
+            system_contract: Account(balance=0),
+        },
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[bob_il_tx],
+                expected_inclusion_list_satisfied=expected_satisfied,
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "one_wei_short", [False, True], ids=["exact", "one_wei_short"]
+)
+def test_pending_il_appendability_by_fee_recipient_earnings(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    one_wei_short: bool,
+) -> None:
+    """
+    Priority fees from the block's transactions fund the fee recipient's
+    pending IL tx, since the check runs after they are paid.
+    """
+    calc = fork.transaction_intrinsic_cost_calculator()
+    simple_transfer_gas = calc()
+    value_transfer_gas = calc(sends_value=True)
+    gas_price = TransactionDefaults.gas_price
+    fee_recipient = pre.fund_eoa(amount=0)
+    recipient = pre.nonexistent_account()
+
+    # The base fee is at most the default gas price, so the tip is paid in
+    # full and the fee recipient earns exactly this.
+    tip = 2 * gas_price
+    earnings = simple_transfer_gas * tip
+    tipping_tx = Transaction(
+        ty=2,
+        sender=pre.fund_eoa(),
+        to=recipient,
+        gas_limit=simple_transfer_gas,
+        max_fee_per_gas=gas_price + tip,
+        max_priority_fee_per_gas=tip,
+    )
+    # The pending tx's value takes whatever its gas leaves of the earnings.
+    affordable_value = earnings - value_transfer_gas * gas_price
+    assert affordable_value > 0
+    if one_wei_short:
+        il_tx_value = affordable_value + 1
+        expected_satisfied = True
+    else:
+        il_tx_value = affordable_value
+        expected_satisfied = False
+    il_tx = Transaction(
+        sender=fee_recipient,
+        to=recipient,
+        gas_limit=value_transfer_gas,
+        value=il_tx_value,
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={fee_recipient: Account(balance=earnings)},
+        blocks=[
+            Block(
+                fee_recipient=fee_recipient,
+                txs=[tipping_tx],
+                inclusion_list_txs=[il_tx],
+                expected_inclusion_list_satisfied=expected_satisfied,
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize("drained", [False, True], ids=["funded", "drained"])
+def test_pending_il_appendability_after_sender_drained(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    drained: bool,
+) -> None:
+    """
+    A block tx that takes one wei from a delegated sender funded with exactly
+    its pending IL tx's cost, leaving its nonce alone, makes that tx
+    unaffordable.
+    """
+    simple_transfer_gas = fork.transaction_intrinsic_cost_calculator()()
+    il_tx_cost = simple_transfer_gas * TransactionDefaults.gas_price
+    sink = pre.nonexistent_account()
+    drainer = pre.deploy_contract(
+        code=Op.CALL(gas=Op.GAS, address=sink, value=1)
+    )
+    sender = pre.fund_eoa(amount=il_tx_cost, delegation=drainer)
+    il_tx = Transaction(
+        sender=sender,
+        to=pre.nonexistent_account(),
+        gas_limit=simple_transfer_gas,
+    )
+
+    post: dict[Address, Account | None]
+    if drained:
+        txs = [Transaction(sender=pre.fund_eoa(), to=sender)]
+        post = {
+            sender: Account(balance=il_tx_cost - 1),
+            sink: Account(balance=1),
+        }
+        expected_satisfied = True
+    else:
+        txs = []
+        post = {sender: Account(balance=il_tx_cost), sink: Account.NONEXISTENT}
+        expected_satisfied = False
+
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=[
+            Block(
+                txs=txs,
+                inclusion_list_txs=[il_tx],
+                expected_inclusion_list_satisfied=expected_satisfied,
+            )
+        ],
+    )
+
+
 @pytest.mark.parametrize(
     ("authorization_nonce", "pending_il_nonce"),
     [
@@ -425,76 +681,148 @@ def test_unsatisfied_with_contract_creating_pending_il_tx(
     )
 
 
-@pytest.mark.parametrize(
-    "tx_type",
-    [
-        pytest.param(0, id="legacy"),
-        pytest.param(1, id="access_list_2930"),
-        pytest.param(2, id="eip1559"),
-    ],
+@pytest.mark.with_all_typed_transactions(
+    selector=lambda tx_type: tx_type != TransactionType.BLOB_TRANSACTION
 )
 def test_unsatisfied_with_typed_pending_il_tx(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    tx_type: int,
+    typed_transaction: Transaction,
 ) -> None:
-    """
-    An appendable pending IL tx of any non-blob type is unsatisfied.
-
-    The EL re-validates missing IL transactions using normal transaction
-    validation, so a valid, appendable transaction makes the block
-    INCLUSION_LIST_UNSATISFIED regardless of its type. Blob (type 3) and
-    set-code (type 4) transactions have their own dedicated tests.
-    """
-    sender = pre.fund_eoa()
-    recipient = pre.nonexistent_account()
-
-    match tx_type:
-        case 1:
-            il_tx = Transaction(
-                ty=1,
-                sender=sender,
-                to=recipient,
-                value=1,
-                access_list=[
-                    AccessList(address=recipient, storage_keys=[0x01])
-                ],
-            )
-        case 2:
-            il_tx = Transaction(ty=2, sender=sender, to=recipient, value=1)
-        case _:
-            il_tx = Transaction(ty=0, sender=sender, to=recipient, value=1)
-
+    """An appendable pending IL tx of any non-blob type is unsatisfied."""
     blockchain_test(
         pre=pre,
         post={},
         blocks=[
             Block(
                 txs=[],
-                inclusion_list_txs=[il_tx],
+                inclusion_list_txs=[typed_transaction],
                 expected_inclusion_list_satisfied=False,
             )
         ],
     )
 
 
+@pytest.mark.parametrize(
+    "blob_tx_in_block", [False, True], ids=["omitted", "included"]
+)
+@pytest.mark.parametrize(
+    "appendable_tx_follows",
+    [
+        pytest.param(False, id="alone"),
+        pytest.param(True, id="before_appendable_tx"),
+    ],
+)
 def test_block_with_pending_blob_il_tx_is_valid(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
+    blob_tx_in_block: bool,
+    appendable_tx_follows: bool,
 ) -> None:
-    """Blob transactions in the IL."""
-    sender = pre.fund_eoa()
-    recipient = pre.nonexistent_account()
+    """
+    The IL check skips blob transactions, so a payload that leaves out an
+    otherwise appendable one stays satisfied, and the check goes on to the
+    entries after it.
+    """
     blob_tx = Transaction(
-        sender=sender,
-        to=recipient,
+        sender=pre.fund_eoa(),
+        to=pre.nonexistent_account(),
         max_fee_per_blob_gas=fork.min_base_fee_per_blob_gas(),
         blob_versioned_hashes=add_kzg_version(
             [Hash(1)],
             VERSIONED_HASH_VERSION_KZG[0],
         ),
     )
+    inclusion_list = [blob_tx]
+    if appendable_tx_follows:
+        inclusion_list.append(
+            Transaction(sender=pre.fund_eoa(), to=pre.nonexistent_account())
+        )
+
+    # The included case is the control: the block accepts the blob tx, so
+    # the omitted one would have been appendable.
+    if blob_tx_in_block:
+        block_txs = [blob_tx]
+    else:
+        block_txs = []
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=block_txs,
+                inclusion_list_txs=inclusion_list,
+                expected_inclusion_list_satisfied=not appendable_tx_follows,
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "tx_type,chain",
+    [
+        pytest.param(0, "this_chain", id="legacy_this_chain"),
+        pytest.param(0, "other_chain", id="legacy_other_chain"),
+        pytest.param(0, "unprotected", id="legacy_unprotected"),
+        pytest.param(0, "chain_id_plus_2_64", id="legacy_chain_id_plus_2_64"),
+        pytest.param(2, "this_chain", id="type_2_this_chain"),
+        pytest.param(2, "other_chain", id="type_2_other_chain"),
+    ],
+)
+@pytest.mark.parametrize(
+    "appendable_tx_follows",
+    [
+        pytest.param(False, id="alone"),
+        pytest.param(True, id="before_appendable_tx"),
+    ],
+)
+def test_pending_il_appendability_by_chain_id(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    chain_config: ChainConfig,
+    tx_type: int,
+    chain: str,
+    appendable_tx_follows: bool,
+) -> None:
+    """
+    A pending IL tx signed for another chain, or a legacy tx whose v encodes
+    a chain id too large for 64 bits, is skipped, and the check goes on to
+    the entries after it. A legacy tx without a chain id counts.
+    """
+    pending_tx = Transaction(
+        ty=tx_type, sender=pre.fund_eoa(), to=pre.nonexistent_account()
+    )
+    match chain:
+        case "this_chain":
+            pending_tx = pending_tx.copy(chain_id=chain_config.chain_id)
+            entry_counts = True
+        case "other_chain":
+            pending_tx = pending_tx.copy(chain_id=chain_config.chain_id + 1)
+            entry_counts = False
+        case "unprotected":
+            pending_tx = pending_tx.copy(protected=False)
+            entry_counts = True
+        case "chain_id_plus_2_64":
+            signed_tx = pending_tx.copy(
+                chain_id=chain_config.chain_id,
+                # Signing up front needs the final gas limit.
+                gas_limit=fork.transaction_intrinsic_cost_calculator()(),
+            ).with_signature_and_sender()
+            # EIP-155: v = 35 + 2 * chain_id + parity. The chain id's low 64
+            # bits are still this chain's, so truncating it counts the entry.
+            pending_tx = signed_tx.copy(v=signed_tx.v + 2 * 2**64)
+            entry_counts = False
+        case _:
+            raise ValueError(f"unknown chain: {chain}")
+
+    inclusion_list = [pending_tx]
+    if appendable_tx_follows:
+        inclusion_list.append(
+            Transaction(sender=pre.fund_eoa(), to=pre.nonexistent_account())
+        )
 
     blockchain_test(
         pre=pre,
@@ -502,8 +830,120 @@ def test_block_with_pending_blob_il_tx_is_valid(
         blocks=[
             Block(
                 txs=[],
-                inclusion_list_txs=[blob_tx],
-                expected_inclusion_list_satisfied=False,
+                inclusion_list_txs=inclusion_list,
+                expected_inclusion_list_satisfied=not (
+                    entry_counts or appendable_tx_follows
+                ),
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "tx_type",
+    [
+        pytest.param(0, id="legacy_gas_price"),
+        pytest.param(2, id="eip1559_max_fee"),
+    ],
+)
+@pytest.mark.parametrize("fee_cap", ["base_fee", "one_wei_below_base_fee"])
+def test_pending_il_appendability_by_base_fee(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_type: int,
+    fee_cap: str,
+) -> None:
+    """A pending IL tx whose fee cap is below the base fee may be omitted."""
+    # The default genesis base fee is too small to move after an empty block,
+    # so clients that update it under EIP-8198 agree on it too.
+    genesis_environment = Environment().set_fork_requirements(fork)
+    assert genesis_environment.base_fee_per_gas is not None
+    base_fee_per_gas = fork.base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=int(genesis_environment.base_fee_per_gas),
+        parent_gas_used=0,
+        parent_gas_limit=genesis_environment.gas_limit,
+    )
+    match fee_cap:
+        case "base_fee":
+            max_fee = base_fee_per_gas
+            expected_satisfied = False
+        case "one_wei_below_base_fee":
+            max_fee = base_fee_per_gas - 1
+            expected_satisfied = True
+        case _:
+            raise ValueError(f"unknown fee cap: {fee_cap}")
+
+    match tx_type:
+        case 0:
+            pending_tx = Transaction(
+                ty=0,
+                sender=pre.fund_eoa(),
+                to=pre.nonexistent_account(),
+                gas_price=max_fee,
+            )
+        case 2:
+            pending_tx = Transaction(
+                ty=2,
+                sender=pre.fund_eoa(),
+                to=pre.nonexistent_account(),
+                max_fee_per_gas=max_fee,
+                max_priority_fee_per_gas=0,
+            )
+        case _:
+            raise ValueError(f"unknown tx type: {tx_type}")
+
+    blockchain_test(
+        genesis_environment=genesis_environment,
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[pending_tx],
+                expected_inclusion_list_satisfied=expected_satisfied,
+                header_verify=Header(base_fee_per_gas=base_fee_per_gas),
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "sender_code",
+    [
+        "delegation",
+        pytest.param("contract", marks=pytest.mark.pre_alloc_mutable),
+    ],
+)
+def test_pending_il_appendability_by_sender_code(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    sender_code: str,
+) -> None:
+    """
+    A pending IL tx from a sender with code may be omitted unless the code
+    is an EIP-7702 delegation.
+    """
+    match sender_code:
+        case "delegation":
+            sender = pre.fund_eoa(delegation=pre.deploy_contract(Op.STOP))
+            expected_satisfied = False
+        case "contract":
+            sender = pre.fund_eoa(code=Op.STOP)
+            expected_satisfied = True
+        case _:
+            raise ValueError(f"unknown sender code: {sender_code}")
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[
+                    Transaction(sender=sender, to=pre.nonexistent_account())
+                ],
+                expected_inclusion_list_satisfied=expected_satisfied,
             )
         ],
     )

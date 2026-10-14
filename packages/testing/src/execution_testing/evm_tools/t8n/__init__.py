@@ -141,7 +141,7 @@ class T8N(Load):
     state_test: bool
     state_reward: int
     exception_mapper: Optional["ExceptionMapper"]
-    inclusion_list_txs: Optional[List["TestingTransaction"]]
+    inclusion_list_txs: Optional[List[bytes]]
     _block_exception: Optional[str]
 
     def __init__(
@@ -470,12 +470,7 @@ class T8N(Load):
                         )
                         for tx in self.txs
                     ),
-                    tuple(
-                        self.fork.encode_transaction(
-                            self.convert_transaction(tx)
-                        )
-                        for tx in self.inclusion_list_txs
-                    ),
+                    tuple(Bytes(entry) for entry in self.inclusion_list_txs),
                 )
             )
 
