@@ -7,12 +7,9 @@ state_tests/stPreCompiledContracts/modexpFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -950,7 +947,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_modexp(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -960,24 +956,11 @@ def test_modexp(
     v: int,
 ) -> None:
     """Test_modexp."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x897B12D02D588D8A4FE16FF831CBD4459C6F62F8C845B0CCDD31CAF068C84A26
-    )
+    sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000000,
-    )
-
-    pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
     # Source: lll
     # { (CALLDATACOPY 0 0 (CALLDATASIZE)) [[1]] (CALLCODE (GAS) 5 0 0 (CALLDATASIZE) 1000 32) [[2]](MLOAD 1000) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALLDATACOPY(dest_offset=0x0, offset=0x0, size=Op.CALLDATASIZE)
         + Op.SSTORE(
             key=0x1,
@@ -993,8 +976,6 @@ def test_modexp(
         )
         + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x3E8))
         + Op.STOP,
-        nonce=0,
-        address=Address(0x2D06AD61919840E4E00F80782DEDCE12ADA1E859),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -1302,4 +1283,4 @@ def test_modexp(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

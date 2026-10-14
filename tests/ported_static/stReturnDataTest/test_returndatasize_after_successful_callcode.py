@@ -8,10 +8,8 @@ state_tests/stReturnDataTest/returndatasize_after_successful_callcodeFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -27,26 +25,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_returndatasize_after_successful_callcode(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_returndatasize_after_successful_callcode."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x6400000000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # { (MSTORE 0x0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (RETURN 0 6) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0,
             value=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
@@ -54,11 +42,10 @@ def test_returndatasize_after_successful_callcode(
         + Op.RETURN(offset=0x0, size=0x6)
         + Op.STOP,
         balance=0x6400000000,
-        nonce=0,
     )
     # Source: lll
     # { (seq (CALLCODE 60000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0 0) (SSTORE 0 (RETURNDATASIZE)))}  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.POP(
             Op.CALLCODE(
                 gas=0xEA60,
@@ -73,7 +60,6 @@ def test_returndatasize_after_successful_callcode(
         + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE)
         + Op.STOP,
         storage={0: 0},
-        nonce=0,
     )
 
     tx = Transaction(
@@ -84,4 +70,4 @@ def test_returndatasize_after_successful_callcode(
 
     post = {target: Account(storage={0: 6})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

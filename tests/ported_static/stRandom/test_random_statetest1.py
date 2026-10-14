@@ -8,7 +8,6 @@ state_tests/stRandom/randomStatetest1Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -25,28 +24,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom/randomStatetest1Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest1(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_random_statetest1."""
-    coinbase = Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5)
-    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
     # Source: raw
     # 0x454543414341444259f2
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.GASLIMIT * 2
         + Op.CALLCODE(
             gas=Op.MSIZE,
@@ -58,11 +45,10 @@ def test_random_statetest1(
             ret_size=Op.NUMBER,
         ),
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
+    coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,
             condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
@@ -73,9 +59,9 @@ def test_random_statetest1(
             key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
         ),
         balance=46,
-        nonce=0,
-        address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
@@ -86,8 +72,8 @@ def test_random_statetest1(
     )
 
     post = {
-        contract_0: Account(storage={}, balance=0xDE0B6B3A7640000, nonce=0),
-        coinbase: Account(storage={}, nonce=0),
+        contract_0: Account(storage={}, balance=0xDE0B6B3A7640000, nonce=1),
+        coinbase: Account(storage={}, nonce=1),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 

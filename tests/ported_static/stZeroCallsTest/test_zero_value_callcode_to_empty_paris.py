@@ -17,10 +17,8 @@ non-value txs. Do not hardcode the gas_limit.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     StateTestFiller,
     Transaction,
@@ -37,29 +35,18 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_zero_value_callcode_to_empty_paris(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """Test_zero_value_callcode_to_empty_paris."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
-
-    addr = pre.fund_eoa(amount=10)  # noqa: F841
+    addr = pre.fund_eoa(amount=10)
     # Source: lll
     # { [[0]](GAS) [[1]] (CALLCODE 60000 <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[100]] 1 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.GAS)
         + Op.SSTORE(
             key=0x1,
@@ -75,7 +62,6 @@ def test_zero_value_callcode_to_empty_paris(
         )
         + Op.SSTORE(key=0x64, value=0x1)
         + Op.STOP,
-        nonce=0,
     )
 
     # Preserve Cancun's post-intrinsic execution budget across
@@ -97,4 +83,4 @@ def test_zero_value_callcode_to_empty_paris(
         target: Account(storage={0: 0x8D5B6, 1: 1, 100: 1}),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

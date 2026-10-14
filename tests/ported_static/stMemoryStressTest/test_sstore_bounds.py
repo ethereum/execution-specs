@@ -7,12 +7,9 @@ state_tests/stMemoryStressTest/SSTORE_BoundsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -48,7 +45,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_sstore_bounds(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -58,23 +54,11 @@ def test_sstore_bounds(
     v: int,
 ) -> None:
     """Test_sstore_bounds."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xFE5BE118AD5955E30E0FFC4E1F1BBDCAA7F5A67CB1426C4AC19E32C80ECCDC06
-    )
+    sender = pre.fund_eoa(amount=0x7FFFFFFFFFFFFFFFFFF)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
-    pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFFFFF)
     # Source: lll
     # { (SSTORE 0xffffffff 1) (SSTORE 0xffffffffffffffff 1) (SSTORE 0xffffffffffffffffffffffffffffffff 1) (SSTORE 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 1) (SSTORE 32 0xffffffff) (SSTORE 64 0xffffffffffffffff) (SSTORE 128 0xffffffffffffffffffffffffffffffff) (SSTORE 256 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0xFFFFFFFF, value=0x1)
         + Op.SSTORE(key=0xFFFFFFFFFFFFFFFF, value=0x1)
         + Op.SSTORE(key=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, value=0x1)
@@ -90,8 +74,6 @@ def test_sstore_bounds(
             value=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
         )
         + Op.STOP,
-        nonce=0,
-        address=Address(0x1F2AEE312C3C47BDEB27FF5275FDDB33C543E394),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -138,4 +120,4 @@ def test_sstore_bounds(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

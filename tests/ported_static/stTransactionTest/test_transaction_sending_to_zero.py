@@ -15,12 +15,10 @@ not collapse the lift back to a hardcoded gas_limit.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     RecipientType,
     StateTestFiller,
@@ -35,28 +33,13 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stTransactionTest/TransactionSendingToZeroFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_transaction_sending_to_zero(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """Test_transaction_sending_to_zero."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
-    pre[sender] = Account(balance=0x5F5E100)
+    sender = pre.fund_eoa(amount=0x5F5E100)
 
     # EIP-2780 charges ``NEW_ACCOUNT`` state gas at the top frame when
     # value is sent to an empty recipient; with the default zero
@@ -81,4 +64,4 @@ def test_transaction_sending_to_zero(
         sender: Account(nonce=1),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

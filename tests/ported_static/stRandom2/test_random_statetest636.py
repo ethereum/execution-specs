@@ -7,9 +7,7 @@ state_tests/stRandom2/randomStatetest636Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -17,6 +15,8 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+
+from tests.ported_static.constants import HIGH_GAS_LIMIT
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -27,30 +27,16 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest636(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_random_statetest636."""
-    coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
+    coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,
             condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
@@ -61,12 +47,10 @@ def test_random_statetest636(
             key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
         ),
         balance=46,
-        nonce=0,
-        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
     # Source: raw
     # 0x74619921c0750ac3268e7a6703ca2bf6c43308e6fc36607561af1ca16db843f7a2e05bfc2e46afc179930b7a8724a04f9f561bdc65bba0ad5797dde0a28d5e8aca56e1510b724f676a6d33dee473d74664561e49e3d86338c8dcf260f06cbfa6283966d2d0f2591f54088e6f36545c0d90fcdea10d5629629ffb1b16626c339f6490829f1b1675f0f2f62b0b7c9d3f070fafd53f99f90f31e19e81d3db688929213e34affc41116e6ae6f54ad5c2062b27a9fbec78a52f7a26c6347408631a6c0efcf33fe576953a4043e846b686471403f38a615a0a8e601d600a600e60146301019a5173<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>63314bc0fef1600c7eb69785d3593d3a8552018a4faba5b591975e8b8056ebc01f5ce5f5f7c04eca9062b458a835649be8fbaa906f3c4d8f92f8c27517f0addd45e050bfcf55792d8bf87c39d39ed9b1ef6c8c070d8da4a624ce548b37d03ae8107ca6da49be4adffc9f5ae896c52b936a18bed4bd9fcbae531274706e9e9b9030619a40714bb4b22e7bef8cf7b01551327188ee4bb6247118d0e95549a92f7dd9305484cc054e5f206d70d008699a85896061427b05ae2a7f16230f66ab4dd548e03b0972010f5afff39a4f9a90e55e91584e86629f3e8775f53da16fceedd834103a50dbe72a6634e4dbf374c70e6bd041628dc8b30de3c3d7aa0e7bb48df927c78ed30b286e249c2cbe79fb55956f492e413e771d0cd63f7357ab1e9a38026a4ba9278427812728699a2c747189  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.LOG1(
             offset=0xAF1C,
             size=0x75,
@@ -90,7 +74,7 @@ def test_random_statetest636(
         + Op.DUP15
         + Op.CALL(
             gas=0x314BC0FE,
-            address=0xBDC4B8AF0F40B0EC2256166F7145B81CD824A868,
+            address=Op.ADDRESS,
             value=0x1019A51,
             args_offset=0x14,
             args_size=0xE,
@@ -121,8 +105,10 @@ def test_random_statetest636(
         + Op.PUSH28[0xB48DF927C78ED30B286E249C2CBE79FB55956F492E413E771D0CD63F]
         + Op.PUSH20[0x57AB1E9A38026A4BA9278427812728699A2C7471]
         + Op.DUP10,
-        nonce=0,
-        address=Address(0xBDC4B8AF0F40B0EC2256166F7145B81CD824A868),  # noqa: E501
+    )
+
+    env = Environment(
+        fee_recipient=coinbase, prev_randao=0x20000, gas_limit=HIGH_GAS_LIMIT
     )
 
     tx = Transaction(
@@ -138,9 +124,9 @@ def test_random_statetest636(
     post = {
         target: Account(
             storage={0x3C4D8F92F8C27517F0ADDD45E050BFCF: 0x9BE8FBAA90},
-            nonce=0,
+            nonce=1,
         ),
-        coinbase: Account(storage={}, nonce=0),
+        coinbase: Account(storage={}, nonce=1),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 

@@ -8,10 +8,8 @@ state_tests/stReturnDataTest/returndatasize_initial_zero_readFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -45,7 +43,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_returndatasize_initial_zero_read(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -55,27 +52,16 @@ def test_returndatasize_initial_zero_read(
     v: int,
 ) -> None:
     """Test_returndatasize_initial_zero_read."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x6400000000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=111669149696,
-    )
 
     # Source: lll
     # { (RETURNDATACOPY 0 0 0) (SSTORE 0 (MLOAD 0)) }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.RETURNDATACOPY(dest_offset=0x0, offset=0x0, size=0x0)
         + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
         + Op.STOP,
         storage={0: 1},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx_data = [
@@ -93,4 +79,4 @@ def test_returndatasize_initial_zero_read(
 
     post = {target: Account(storage={0: 0})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

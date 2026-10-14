@@ -8,10 +8,8 @@ state_tests/stRevertTest/RevertInCallCodeFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     StateTestFiller,
     Transaction,
@@ -27,36 +25,24 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRevertTest/RevertInCallCodeFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_revert_in_call_code(
     state_test: StateTestFiller,
     fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_revert_in_call_code."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x5F5E100)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=3000000 if fork >= Amsterdam else 1000000,
-    )
 
     # Source: lll
     # { (MSTORE 0 0x2232) (REVERT 0 32) }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0x2232)
         + Op.REVERT(offset=0x0, size=0x20)
         + Op.STOP,
-        nonce=0,
     )
     # Source: lll
     # { [[ 0 ]] (CALLCODE 50000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 1000 0 64 0 64 ) [[ 1 ]] (RETURNDATASIZE) (RETURNDATACOPY 64 0 32) [[ 2 ]] (MLOAD 64) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALLCODE(
@@ -74,7 +60,6 @@ def test_revert_in_call_code(
         + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x40))
         + Op.STOP,
         balance=1000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -86,4 +71,4 @@ def test_revert_in_call_code(
 
     post = {target: Account(storage={1: 32, 2: 8754})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

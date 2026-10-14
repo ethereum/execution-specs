@@ -8,7 +8,6 @@ state_tests/stStaticCall/static_Call1024BalanceTooLowFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Environment,
     Hash,
@@ -18,6 +17,7 @@ from execution_testing import (
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
+from tests.ported_static.constants import HIGH_GAS_LIMIT
 from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
@@ -49,7 +49,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_call1024_balance_too_low(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -59,22 +58,14 @@ def test_static_call1024_balance_too_low(
     v: int,
 ) -> None:
     """Test_static_call1024_balance_too_low."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     addr = pre.fund_eoa(amount=7000)  # noqa: F841
     # Source: lll
     # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
@@ -89,18 +80,16 @@ def test_static_call1024_balance_too_low(
         )
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
-        nonce=0,
-        address=Address(0xC0E4183389EB57F779A986D8C878F89B9401DC8E),  # noqa: E501
     )
     # Source: lll
     # { [[ 0 ]] (ADD @@0 1) [[ 1 ]] (STATICCALL 0xfffffffffff <contract:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> @@0 0 0 0) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
         + Op.SSTORE(
             key=0x1,
             value=Op.STATICCALL(
                 gas=0xFFFFFFFFFFF,
-                address=0xD395A2CB1CB7EF1B90E2EDB71FC0A390ECC84FE8,
+                address=Op.ADDRESS,
                 args_offset=Op.SLOAD(key=0x0),
                 args_size=0x0,
                 ret_offset=0x0,
@@ -109,18 +98,16 @@ def test_static_call1024_balance_too_low(
         )
         + Op.STOP,
         balance=1024,
-        nonce=0,
-        address=Address(0xD395A2CB1CB7EF1B90E2EDB71FC0A390ECC84FE8),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 (ADD (MLOAD 0) 1)) (MSTORE 32 (STATICCALL 0xfffffffffff <contract:0xcbbf5374fce5edbc8e2a8697c15331677e6ebf0b> (MLOAD 0) 0 0 0)) }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.ADD(Op.MLOAD(offset=0x0), 0x1))
         + Op.MSTORE(
             offset=0x20,
             value=Op.STATICCALL(
                 gas=0xFFFFFFFFFFF,
-                address=0xE8F28EE50521B0388CF0A623B1A89E43D022C039,
+                address=Op.ADDRESS,
                 args_offset=Op.MLOAD(offset=0x0),
                 args_size=0x0,
                 ret_offset=0x0,
@@ -129,8 +116,6 @@ def test_static_call1024_balance_too_low(
         )
         + Op.STOP,
         balance=1024,
-        nonce=0,
-        address=Address(0xE8F28EE50521B0388CF0A623B1A89E43D022C039),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [

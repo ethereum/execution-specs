@@ -7,12 +7,10 @@ state_tests/stZeroCallsRevert/ZeroValue_SUICIDE_ToOneStorageKey_OOGRevert_ParisF
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -34,40 +32,26 @@ def test_zero_value_suicide_to_one_storage_key_oog_revert_paris(
     pre: Alloc,
 ) -> None:
     """Test_zero_value_suicide_to_one_storage_key_oog_revert_paris."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     addr_2 = Address(0x4757608F18B70777AE788DD4056EEED52F7AA68F)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
-    pre[sender] = Account(balance=0xE8D4A51000)
     pre[addr_2] = Account(balance=10, storage={0: 1})
     # Source: lll
     # { (SELFDESTRUCT <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.SELFDESTRUCT(
             address=0x4757608F18B70777AE788DD4056EEED52F7AA68F
         )
         + Op.STOP,
         storage={0: 1},
-        nonce=0,
-        address=Address(0x8D444744833C9B79FDFE630F155CF1F3BBEB92E3),  # noqa: E501
     )
     # Source: lll
     # { (CALL 50000 <contract:0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]]12 [[3]]12 [[4]]12 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.POP(
             Op.CALL(
                 gas=0xC350,
-                address=0x8D444744833C9B79FDFE630F155CF1F3BBEB92E3,
+                address=addr,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -80,8 +64,6 @@ def test_zero_value_suicide_to_one_storage_key_oog_revert_paris(
         + Op.SSTORE(key=0x4, value=0xC)
         + Op.STOP,
         storage={0: 1},
-        nonce=0,
-        address=Address(0x1D63510FCD4F3069306EBAE45EC6910C0BC944C8),  # noqa: E501
     )
 
     tx = Transaction(
@@ -97,4 +79,4 @@ def test_zero_value_suicide_to_one_storage_key_oog_revert_paris(
         addr_2: Account(storage={0: 1}, balance=10),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

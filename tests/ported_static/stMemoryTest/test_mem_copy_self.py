@@ -7,12 +7,9 @@ state_tests/stMemoryTest/memCopySelfFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -26,27 +23,13 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stMemoryTest/memCopySelfFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_mem_copy_self(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -73,7 +56,7 @@ def test_mem_copy_self(
     #    returndatacopy(0x20, 0, 10)
     #    sstore(2, mload(0x20))
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.PUSH1[0x4]
         + Op.PUSH1[0x0]
         + Op.JUMPDEST
@@ -104,7 +87,6 @@ def test_mem_copy_self(
         storage={0: 24743},
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0xB595300AC049B84C5277C7CA68A96D74AE377B85),  # noqa: E501
     )
 
     tx = Transaction(
@@ -112,7 +94,6 @@ def test_mem_copy_self(
         to=target,
         data=Bytes(""),
         gas_limit=16777216,
-        nonce=1,
     )
 
     post = {
@@ -125,4 +106,4 @@ def test_mem_copy_self(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

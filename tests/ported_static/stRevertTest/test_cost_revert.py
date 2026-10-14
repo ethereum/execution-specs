@@ -7,12 +7,9 @@ state_tests/stRevertTest/costRevertFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -206,7 +203,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_cost_revert(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -216,44 +212,21 @@ def test_cost_revert(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x0000000000000000000000000000000000001000)
-    contract_1 = Address(0x0000000000000000000000000000000000001001)
-    contract_2 = Address(0x0000000000000000000000000000000000001002)
-    contract_3 = Address(0x0000000000000000000000000000000000001003)
-    contract_4 = Address(0x0000000000000000000000000000000000001004)
-    contract_5 = Address(0x0000000000000000000000000000000000001005)
-    contract_6 = Address(0x0000000000000000000000000000000000001006)
-    contract_7 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x100000000000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
-    pre[sender] = Account(balance=0x100000000000)
     # Source: lll
     # {
     #     (revert 0 0x10)
     # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.REVERT(offset=0x0, size=0x10) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: lll
     # {
     #     (while 1 (sha3 0 0x1000000))
     # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.JUMPDEST
         + Op.JUMPI(pc=0x13, condition=Op.ISZERO(0x1))
         + Op.POP(Op.SHA3(offset=0x0, size=0x1000000))
@@ -261,32 +234,26 @@ def test_cost_revert(
         + Op.JUMPDEST
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
     )
     # Source: lll
     # {
     #     (sha3 0 (- 0 1))
     # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.SHA3(offset=0x0, size=Op.SUB(0x0, 0x1)) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
     # Source: raw
     # 0x610103600155600060006000600061dead6175305a03f450BA
-    contract_3 = pre.deploy_contract(  # noqa: F841
+    contract_3 = pre.deploy_contract(
         code=bytes.fromhex(
             "610103600155600060006000600061dead6175305a03f450ba"
         ),
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001003),  # noqa: E501
     )
     # Source: raw
     # 0x610104600155600060006000600061dead6175305a03f450600056
-    contract_4 = pre.deploy_contract(  # noqa: F841
+    contract_4 = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x104)
         + Op.POP(
             Op.DELEGATECALL(
@@ -300,24 +267,18 @@ def test_cost_revert(
         )
         + Op.JUMP(pc=0x0),
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001004),  # noqa: E501
     )
     # Source: raw
     # 0x1000
-    contract_5 = pre.deploy_contract(  # noqa: F841
+    contract_5 = pre.deploy_contract(
         code=Op.LT + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001005),  # noqa: E501
     )
     # Source: raw
     # 0x5b586004580356
-    contract_6 = pre.deploy_contract(  # noqa: F841
+    contract_6 = pre.deploy_contract(
         code=Op.JUMPDEST + Op.PC + Op.JUMP(pc=Op.SUB(Op.PC, 0x4)),
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001006),  # noqa: E501
     )
     # Source: lll
     # {
@@ -351,7 +312,7 @@ def test_cost_revert(
     #       ; 17-1            POP         2     24761  79954047
     #
     # ... (59 more lines)
-    contract_7 = pre.deploy_contract(  # noqa: F841
+    contract_7 = pre.deploy_contract(
         code=Op.JUMPI(
             pc=Op.PUSH2[0x11],
             condition=Op.EQ(Op.CALLDATALOAD(offset=0x24), 0x0),
@@ -468,8 +429,6 @@ def test_cost_revert(
         + Op.SSTORE
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -558,4 +517,4 @@ def test_cost_revert(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

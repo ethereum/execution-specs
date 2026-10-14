@@ -8,10 +8,8 @@ state_tests/stMemoryTest/bufferSrcOffsetFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -756,7 +754,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_buffer_src_offset(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -766,29 +763,15 @@ def test_buffer_src_offset(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x000000000000000000000000000000000000C0DE)
-    contract_1 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: lll
     # {
     #       (return 0 0x120)
     # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.RETURN(offset=0x0, size=0x120) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
     # Source: lll
     # {
@@ -822,7 +805,7 @@ def test_buffer_src_offset(
     #    (if (= bufferType 3)  [srcOffset] (- 0 0x10) NOP)
     #    (if (= bufferType 4)  [srcOffset] 0x7FFFFFFF NOP)
     # ... (40 more lines)
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x2040, value=0x0)
         + Op.JUMPI(
             pc=Op.PUSH2[0x17],
@@ -989,20 +972,20 @@ def test_buffer_src_offset(
             pc=0x219, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3C)
         )
         + Op.POP(0x0)
-        + Op.JUMP(pc=0x22A)
+        + Op.JUMP(pc=0x23C)
         + Op.JUMPDEST
         + Op.EXTCODECOPY(
-            address=contract_0,
+            address=Op.PUSH20[contract_0],
             dest_offset=Op.MLOAD(offset=0x2040),
             offset=Op.MLOAD(offset=0x2020),
             size=Op.MLOAD(offset=0x2060),
         )
         + Op.JUMPDEST
         + Op.JUMPI(
-            pc=0x23C, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3E)
+            pc=0x24E, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3E)
         )
         + Op.POP(0x0)
-        + Op.JUMP(pc=0x24A)
+        + Op.JUMP(pc=0x25C)
         + Op.JUMPDEST
         + Op.RETURNDATACOPY(
             dest_offset=Op.MLOAD(offset=0x2040),
@@ -1011,15 +994,15 @@ def test_buffer_src_offset(
         )
         + Op.JUMPDEST
         + Op.JUMPI(
-            pc=0x25D, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x13E)
+            pc=0x26F, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x13E)
         )
         + Op.POP(0x0)
-        + Op.JUMP(pc=0x27F)
+        + Op.JUMP(pc=0x2A3)
         + Op.JUMPDEST
         + Op.POP(
             Op.CALL(
                 gas=0x1000,
-                address=contract_0,
+                address=Op.PUSH20[contract_0],
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -1035,11 +1018,11 @@ def test_buffer_src_offset(
         + Op.JUMPDEST
         + Op.SSTORE(key=0x100, value=0x0)
         + Op.JUMPI(
-            pc=0x298,
+            pc=0x2BC,
             condition=Op.ISZERO(Op.LT(Op.CALLDATALOAD(offset=0x24), 0x3)),
         )
         + Op.POP(0x0)
-        + Op.JUMP(pc=0x2A5)
+        + Op.JUMP(pc=0x2C9)
         + Op.JUMPDEST
         + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20))
@@ -1047,7 +1030,6 @@ def test_buffer_src_offset(
         + Op.STOP,
         storage={256: 24743},
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
@@ -1329,4 +1311,4 @@ def test_buffer_src_offset(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
