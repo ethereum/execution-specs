@@ -8,8 +8,11 @@ from execution_testing import (
     AuthorizationTuple,
     Block,
     BlockchainTestFiller,
+    ChainConfig,
+    Environment,
     Fork,
     Hash,
+    Header,
     Op,
     Transaction,
     TransactionType,
@@ -664,6 +667,135 @@ def test_block_with_pending_blob_il_tx_is_valid(
                 expected_inclusion_list_satisfied=(
                     not fork.inclusion_list_counts_blob_entries()
                 ),
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize("chain_id_offset", [0, 1])
+def test_pending_il_appendability_by_chain_id(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    chain_config: ChainConfig,
+    chain_id_offset: int,
+) -> None:
+    """A pending IL tx signed for another chain may be omitted."""
+    pending_tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=pre.nonexistent_account(),
+        chain_id=chain_config.chain_id + chain_id_offset,
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[pending_tx],
+                expected_inclusion_list_satisfied=chain_id_offset != 0,
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "tx_type",
+    [
+        pytest.param(0, id="legacy_gas_price"),
+        pytest.param(2, id="eip1559_max_fee"),
+    ],
+)
+@pytest.mark.parametrize("wei_below_base_fee", [0, 1])
+def test_pending_il_appendability_by_base_fee(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_type: int,
+    wei_below_base_fee: int,
+) -> None:
+    """A pending IL tx whose fee cap is below the base fee may be omitted."""
+    # The default genesis base fee is too small to move after an empty block,
+    # so clients that update it under EIP-8198 agree on it too.
+    genesis_environment = Environment().set_fork_requirements(fork)
+    assert genesis_environment.base_fee_per_gas is not None
+    base_fee_per_gas = fork.base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=int(genesis_environment.base_fee_per_gas),
+        parent_gas_used=0,
+        parent_gas_limit=genesis_environment.gas_limit,
+    )
+    fee_cap = base_fee_per_gas - wei_below_base_fee
+
+    match tx_type:
+        case 0:
+            pending_tx = Transaction(
+                ty=0,
+                sender=pre.fund_eoa(),
+                to=pre.nonexistent_account(),
+                gas_price=fee_cap,
+            )
+        case 2:
+            pending_tx = Transaction(
+                ty=2,
+                sender=pre.fund_eoa(),
+                to=pre.nonexistent_account(),
+                max_fee_per_gas=fee_cap,
+                max_priority_fee_per_gas=0,
+            )
+        case _:
+            raise ValueError(f"unknown tx type: {tx_type}")
+
+    blockchain_test(
+        genesis_environment=genesis_environment,
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[pending_tx],
+                expected_inclusion_list_satisfied=wei_below_base_fee != 0,
+                header_verify=Header(base_fee_per_gas=base_fee_per_gas),
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "sender_code",
+    [
+        "delegation",
+        pytest.param("contract", marks=pytest.mark.pre_alloc_mutable),
+    ],
+)
+def test_pending_il_appendability_by_sender_code(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    sender_code: str,
+) -> None:
+    """
+    A pending IL tx from a sender with code may be omitted unless the code
+    is an EIP-7702 delegation.
+    """
+    match sender_code:
+        case "delegation":
+            sender = pre.fund_eoa(delegation=pre.deploy_contract(Op.STOP))
+            expected_satisfied = False
+        case "contract":
+            sender = pre.fund_eoa(code=Op.STOP)
+            expected_satisfied = True
+        case _:
+            raise ValueError(f"unknown sender code: {sender_code}")
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[
+                    Transaction(sender=sender, to=pre.nonexistent_account())
+                ],
+                expected_inclusion_list_satisfied=expected_satisfied,
             )
         ],
     )

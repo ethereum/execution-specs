@@ -7,6 +7,8 @@ from execution_testing import (
     BlockchainTestFiller,
     Environment,
     Fork,
+    GasConsumer,
+    Header,
     Transaction,
 )
 
@@ -105,6 +107,79 @@ def test_pending_il_appendability_by_remaining_execution_gas(
                 txs=block_txs,
                 inclusion_list_txs=inclusion_list_txs,
                 expected_inclusion_list_satisfied=expected_satisfied,
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "fits_execution_room",
+        "one_over_execution_room",
+        "fits_state_room",
+        "one_over_state_room",
+    ],
+)
+def test_pending_il_appendability_above_tx_gas_cap(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    scenario: str,
+) -> None:
+    """
+    A pending IL tx with a gas limit above the transaction gas cap fits only
+    if the capped amount fits the remaining execution gas and the full gas
+    limit fits the remaining state gas.
+
+    The block body burns execution gas only, so the two rooms differ by the
+    gas it burned and each scenario puts the pending tx at one room's edge.
+    """
+    tx_gas_cap = fork.transaction_gas_limit_cap()
+    assert tx_gas_cap is not None
+    # Any execution-only burn separates the two rooms.
+    burn_gas = 1_000_000
+    burn_tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=pre.deploy_contract(GasConsumer.out_of_gas(fork)),
+        gas_limit=burn_gas,
+    )
+    # The execution room left after the burn is exactly the cap.
+    block_gas_limit = tx_gas_cap + burn_gas
+
+    match scenario:
+        case "fits_execution_room":
+            pending_gas_limit = tx_gas_cap + 1
+            expected_satisfied = False
+        case "one_over_execution_room":
+            pending_gas_limit = tx_gas_cap + 1
+            block_gas_limit -= 1
+            expected_satisfied = True
+        case "fits_state_room":
+            pending_gas_limit = block_gas_limit
+            expected_satisfied = False
+        case "one_over_state_room":
+            pending_gas_limit = block_gas_limit + 1
+            expected_satisfied = True
+        case _:
+            raise ValueError(f"unknown scenario: {scenario}")
+
+    pending_tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=pre.nonexistent_account(),
+        gas_limit=pending_gas_limit,
+    )
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[burn_tx],
+                inclusion_list_txs=[pending_tx],
+                expected_inclusion_list_satisfied=expected_satisfied,
+                header_verify=Header(gas_used=burn_gas),
             )
         ],
     )

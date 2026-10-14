@@ -1,9 +1,12 @@
 """Tests EIP-7805 FOCIL inclusion-list handling across transaction types."""
 
+import ethereum_rlp as eth_rlp
 import pytest
+from ethereum_types.numeric import Uint
 from execution_testing import (
     AccessList,
     Account,
+    Address,
     Alloc,
     AuthorizationTuple,
     Block,
@@ -13,6 +16,7 @@ from execution_testing import (
     Op,
     Transaction,
 )
+from spec256k1 import PrivateKey
 
 from .spec import ref_spec_7805
 
@@ -131,6 +135,38 @@ def test_included_il_tx_of_each_type_is_readable(
     )
 
 
+# L2 transaction types, whose type bytes Bogota does not define.
+FEE_TOKEN_TX_TYPE = 0x7D
+PRIVILEGED_TX_TYPE = 0x7E
+
+
+def l2_typed_entry(type_byte: int, tx: Transaction) -> Bytes:
+    """
+    Re-encode a type-2 `tx` as an L2 transaction type: 0x7e carries its
+    sender in place of a signature, 0x7d adds a fee token and is signed.
+    """
+    fields = tx.to_list(signing=True)
+    if type_byte == PRIVILEGED_TX_TYPE:
+        payload = [*fields, tx.sender]
+    elif type_byte == FEE_TOKEN_TX_TYPE:
+        assert tx.sender is not None and tx.sender.key is not None
+        # No check reads the fee token, so any address will do.
+        unsigned = [*fields, Address(0)]
+        signing_hash = Bytes(
+            bytes([type_byte]) + eth_rlp.encode(unsigned)
+        ).keccak256()
+        signature = PrivateKey(tx.sender.key).sign_recoverable(signing_hash)
+        payload = [
+            *unsigned,
+            Uint(signature[64]),
+            Uint(int.from_bytes(signature[0:32], "big")),
+            Uint(int.from_bytes(signature[32:64], "big")),
+        ]
+    else:
+        raise ValueError(f"unknown type byte: {type_byte:#x}")
+    return Bytes(bytes([type_byte]) + eth_rlp.encode(payload))
+
+
 @pytest.mark.parametrize(
     "entry",
     [
@@ -141,6 +177,8 @@ def test_included_il_tx_of_each_type_is_readable(
         "undefined_type",
         "type_0x7f",
         "type_0xff",
+        "l2_fee_token_0x7d",
+        "l2_privileged_0x7e",
         "type_1_with_type_2_payload",
         "type_2_trailing_byte",
         "truncated_legacy",
@@ -185,6 +223,8 @@ def test_undecodable_il_entry_is_skipped(
     ).with_signature_and_sender()
     undefined_type = max(fork.tx_types()) + 1
     assert undefined_type < 0x7F
+    assert FEE_TOKEN_TX_TYPE not in fork.tx_types()
+    assert PRIVILEGED_TX_TYPE not in fork.tx_types()
 
     entry_appendable = False
     if entry == "type_2_control":
@@ -203,6 +243,10 @@ def test_undecodable_il_entry_is_skipped(
         il_entry = Bytes(b"\x7f" + type_2_payload)
     elif entry == "type_0xff":
         il_entry = Bytes(b"\xff" + type_2_payload)
+    elif entry == "l2_fee_token_0x7d":
+        il_entry = l2_typed_entry(FEE_TOKEN_TX_TYPE, type_2_tx)
+    elif entry == "l2_privileged_0x7e":
+        il_entry = l2_typed_entry(PRIVILEGED_TX_TYPE, type_2_tx)
     elif entry == "type_1_with_type_2_payload":
         il_entry = Bytes(b"\x01" + type_2_payload)
     elif entry == "type_2_trailing_byte":
