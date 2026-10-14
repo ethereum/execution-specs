@@ -34,5 +34,5 @@ class EIP7805(
 
     @classmethod
     def inclusion_list_counts_blob_entries(cls) -> bool:
-        """An appendable blob entry counts like any other transaction."""
-        return True
+        """The inclusion list check skips blob entries."""
+        return False

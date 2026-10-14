@@ -644,7 +644,10 @@ def test_block_with_pending_blob_il_tx_is_valid(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """Blob transactions in the IL."""
+    """
+    The IL check skips blob transactions, so a payload that leaves out an
+    otherwise appendable one stays satisfied.
+    """
     sender = pre.fund_eoa()
     recipient = pre.nonexistent_account()
     blob_tx = Transaction(

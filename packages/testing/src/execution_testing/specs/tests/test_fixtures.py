@@ -386,17 +386,18 @@ def test_inclusion_list_variant_reads_blob_entry_predicate(
     )
     variant_format = BLOCKCHAIN_ENGINE_IL_FIXTURE_FORMATS[0]
 
+    # The spec skips blob entries, so only the predicate's false side fills.
     if blob_entries_count:
+        with pytest.raises(
+            AssertionError, match="expected inclusion_list_satisfied==False"
+        ):
+            test.generate(t8n=default_t8n, fixture_format=variant_format)
+    else:
         fixture = test.generate(
             t8n=default_t8n, fixture_format=variant_format
         ).fixture
         assert isinstance(fixture, BlockchainEngineFixture)
-        assert fixture.payloads[0].inclusion_list_satisfied is False
-    else:
-        with pytest.raises(
-            AssertionError, match="expected inclusion_list_satisfied==True"
-        ):
-            test.generate(t8n=default_t8n, fixture_format=variant_format)
+        assert fixture.payloads[0].inclusion_list_satisfied is True
 
 
 @pytest.mark.parametrize(

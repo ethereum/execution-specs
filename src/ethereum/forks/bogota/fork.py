@@ -1190,8 +1190,8 @@ def check_inclusion_list_transactions(
 
     For each inclusion list transaction not present in the block,
     check whether it could have been validly appended to the end of the block.
-    If any such transaction could have been appended, the block fails the
-    inclusion list check.
+    Blob transactions are skipped. If any other such transaction could have
+    been appended, the block fails the inclusion list check.
 
     The inclusion list compliance does not affect any other block outputs.
 
@@ -1223,6 +1223,9 @@ def check_inclusion_list_transactions(
         except EthereumException:
             continue
         except rlp_exceptions.DecodingError:
+            continue
+
+        if isinstance(tx, BlobTransaction):
             continue
 
         try:
