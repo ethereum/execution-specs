@@ -1,5 +1,5 @@
 """
-Test_eoa_empty_paris.
+Test that code-less accounts, including a zero-balance origin, are not empty.
 
 Ported from:
 state_tests/stSpecialTest/eoaEmptyParisFiller.yml
@@ -60,7 +60,14 @@ def test_origin_empty_paris(
     gas_limit_reduction: int,
     tx_value: int,
 ) -> None:
-    """Test_eoa_empty_paris."""
+    """
+    Verify the origin as seen from the call it sends, including when the
+    gas and value drain its balance to zero.
+
+    The target stores the origin's address, balance, code size and code
+    hash, and the gas of a `CALL` to it and of a `CALL` to a contract that
+    self-destructs to it. Neither is charged for a new account.
+    """
     # Reducing the gas limit by one unit leaves the sender one gas price
     # of balance. Matching the gas price to the value lets that leftover
     # pay the value exactly, draining the origin to a zero balance.
@@ -75,7 +82,7 @@ def test_origin_empty_paris(
         sender_amount - (tx_gas * tx_gas_price) - tx_value
     )
 
-    # The origin is warm, and alive despite its zero balance, so no new
+    # The origin is warm, and alive even at a zero balance, so no new
     # account is charged for.
     selfdestruct_code = Op.SELFDESTRUCT(
         address=Op.ORIGIN, address_warm=True, account_new=False
@@ -91,7 +98,7 @@ def test_origin_empty_paris(
     slot_origin_code_hash = 0x3F
     slot_call_origin_gas = 0xF1
     slot_call_selfdestruct_gas = 0xFF
-    # The origin is warm, and alive despite its zero balance, so a value
+    # The origin is warm, and alive even at a zero balance, so a value
     # transfer to it charges no new account.
     call_origin = Op.CALL(
         address=Op.ORIGIN,
