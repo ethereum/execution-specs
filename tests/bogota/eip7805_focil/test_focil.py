@@ -2,6 +2,7 @@
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Alloc,
     AuthorizationTuple,
@@ -210,6 +211,175 @@ def test_block_with_failing_included_il_tx_is_valid(
                 txs=[failing_il_tx],
                 inclusion_list_txs=[failing_il_tx],
                 expected_inclusion_list_satisfied=True,
+            )
+        ],
+    )
+
+
+def transfer_of_size(pre: Alloc, fork: Fork, size: int) -> Transaction:
+    """Return a signed transfer whose RLP encoding is `size` bytes."""
+    sender = pre.fund_eoa()
+    recipient = pre.nonexistent_account()
+    calldata_size = size
+    # Re-signing can shorten r or s by a leading zero byte, which can leave
+    # the length search one byte either side of `size` for good, so a miss
+    # also changes the calldata byte to draw a new signature.
+    for calldata_byte in range(1, 256):
+        calldata = bytes([calldata_byte]) * calldata_size
+        tx = Transaction(
+            sender=sender,
+            nonce=sender.nonce,
+            to=recipient,
+            data=calldata,
+            gas_limit=fork.transaction_intrinsic_cost_calculator()(
+                calldata=calldata
+            ),
+        ).with_signature_and_sender()
+        encoded_size = len(tx.rlp())
+        if encoded_size == size:
+            return tx
+        calldata_size += size - encoded_size
+    raise AssertionError(f"no transfer encodes to {size} bytes")
+
+
+@pytest.mark.parametrize("merged_lists", ["two_lists", "merged_list_limit"])
+@pytest.mark.parametrize(
+    "last_entry_in_block",
+    [False, True],
+    ids=["last_entry_omitted", "all_included"],
+)
+def test_inclusion_list_over_one_list_byte_limit(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    merged_lists: str,
+    last_entry_in_block: bool,
+) -> None:
+    """
+    A payload's inclusion list may hold more bytes than one committee member
+    can send, since the consensus layer merges several lists, and an entry
+    past one list's limit still counts, up to the merged list's limit.
+    """
+    limit = fork.inclusion_list_transactions_size_limit()
+    merged_limit = fork.inclusion_list_merged_transactions_size_limit()
+    assert limit is not None and merged_limit is not None
+    if merged_lists == "two_lists":
+        entry_count = 2
+    elif merged_lists == "merged_list_limit":
+        entry_count = merged_limit // limit
+        assert entry_count * limit == merged_limit
+    else:
+        raise ValueError(f"unknown merged lists: {merged_lists}")
+
+    # Each entry fills one member's list, so every entry after the first
+    # starts past one list's limit.
+    entries = [transfer_of_size(pre, fork, limit) for _ in range(entry_count)]
+
+    if last_entry_in_block:
+        block_txs = entries
+    else:
+        block_txs = entries[:-1]
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=block_txs,
+                inclusion_list_txs=entries,
+                expected_inclusion_list_satisfied=last_entry_in_block,
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "same_bytes",
+        "signature_s_changed",
+        "access_list_changed",
+        "authorization_list_changed",
+    ],
+)
+def test_il_entry_matched_to_block_tx_by_bytes(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    entry: str,
+) -> None:
+    """
+    An IL entry counts as included only when a block tx has its exact bytes.
+
+    Each changed entry is a block tx with one field changed, so its
+    signature recovers to a different, funded sender and the block left out
+    an appendable transaction.
+    """
+    calc = fork.transaction_intrinsic_cost_calculator()
+    recipient = pre.nonexistent_account()
+    access_list = [AccessList(address=recipient, storage_keys=[])]
+    authorization = AuthorizationTuple(
+        address=recipient, signer=pre.fund_eoa()
+    )
+    extra_authorization = AuthorizationTuple(
+        address=recipient, signer=pre.fund_eoa()
+    )
+
+    if entry == "same_bytes":
+        # Satisfied under any matching rule, since including the tx spends
+        # its nonce; this case shows the block tx it reuses is valid.
+        block_tx = Transaction(
+            ty=2, sender=pre.fund_eoa(), to=recipient, gas_limit=calc()
+        ).with_signature_and_sender()
+        il_entry = block_tx
+        expected_satisfied = True
+    elif entry == "signature_s_changed":
+        block_tx = Transaction(
+            ty=2, sender=pre.fund_eoa(), to=recipient, gas_limit=calc()
+        ).with_signature_and_sender()
+        il_entry = block_tx.copy(s=block_tx.s + 1, sender=None)
+        expected_satisfied = False
+    elif entry == "access_list_changed":
+        block_tx = Transaction(
+            ty=2,
+            sender=pre.fund_eoa(),
+            to=recipient,
+            # Room for the access list the IL entry adds.
+            gas_limit=calc(access_list=access_list),
+        ).with_signature_and_sender()
+        il_entry = block_tx.copy(access_list=access_list, sender=None)
+        expected_satisfied = False
+    elif entry == "authorization_list_changed":
+        block_tx = Transaction(
+            ty=4,
+            sender=pre.fund_eoa(),
+            to=recipient,
+            authorization_list=[authorization],
+            # Room for the authorization the IL entry adds.
+            gas_limit=calc(authorization_list_or_count=2),
+        ).with_signature_and_sender()
+        il_entry = block_tx.copy(
+            authorization_list=[authorization, extra_authorization],
+            sender=None,
+        )
+        expected_satisfied = False
+    else:
+        raise ValueError(f"unknown entry: {entry}")
+
+    if il_entry is not block_tx:
+        il_entry = il_entry.with_signature_and_sender()
+        assert il_entry.sender is not None
+        assert il_entry.sender != block_tx.sender
+        pre.fund_address(il_entry.sender, 10**18)
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[block_tx],
+                inclusion_list_txs=[il_entry],
+                expected_inclusion_list_satisfied=expected_satisfied,
             )
         ],
     )

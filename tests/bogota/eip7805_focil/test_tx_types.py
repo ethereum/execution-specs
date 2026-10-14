@@ -1,16 +1,22 @@
 """Tests EIP-7805 FOCIL inclusion-list handling across transaction types."""
 
+import ethereum_rlp as eth_rlp
 import pytest
+from ethereum_types.numeric import Uint
 from execution_testing import (
     AccessList,
     Account,
+    Address,
     Alloc,
     AuthorizationTuple,
     Block,
     BlockchainTestFiller,
+    Bytes,
+    Fork,
     Op,
     Transaction,
 )
+from spec256k1 import PrivateKey
 
 from .spec import ref_spec_7805
 
@@ -124,6 +130,193 @@ def test_included_il_tx_of_each_type_is_readable(
                 txs=[il_tx],
                 inclusion_list_txs=[il_tx],
                 expected_inclusion_list_satisfied=True,
+            )
+        ],
+    )
+
+
+# L2 transaction types, whose type bytes Bogota does not define.
+FEE_TOKEN_TX_TYPE = 0x7D
+PRIVILEGED_TX_TYPE = 0x7E
+
+
+def l2_typed_entry(type_byte: int, tx: Transaction) -> Bytes:
+    """
+    Re-encode a type-2 `tx` as an L2 transaction type: 0x7e carries its
+    sender in place of a signature, 0x7d adds a fee token and is signed.
+    """
+    fields = tx.to_list(signing=True)
+    if type_byte == PRIVILEGED_TX_TYPE:
+        payload = [*fields, tx.sender]
+    elif type_byte == FEE_TOKEN_TX_TYPE:
+        assert tx.sender is not None and tx.sender.key is not None
+        # No check reads the fee token, so any address will do.
+        unsigned = [*fields, Address(0)]
+        signing_hash = Bytes(
+            bytes([type_byte]) + eth_rlp.encode(unsigned)
+        ).keccak256()
+        signature = PrivateKey(tx.sender.key).sign_recoverable(signing_hash)
+        payload = [
+            *unsigned,
+            Uint(signature[64]),
+            Uint(int.from_bytes(signature[0:32], "big")),
+            Uint(int.from_bytes(signature[32:64], "big")),
+        ]
+    else:
+        raise ValueError(f"unknown type byte: {type_byte:#x}")
+    return Bytes(bytes([type_byte]) + eth_rlp.encode(payload))
+
+
+def type_2_entry(
+    tx: Transaction,
+    raw_fields: dict[str, bytes] | None = None,
+    list_length_leading_zero: bool = False,
+) -> Bytes:
+    """
+    Re-encode a signed type-2 `tx`, swapping in raw encodings for some
+    fields and optionally padding its list length with a zero byte.
+    """
+    fields = {
+        name: eth_rlp.encode(value)
+        for name, value in zip(
+            tx.get_rlp_fields(), tx.to_list(signing=False), strict=True
+        )
+    }
+    fields.update(raw_fields or {})
+    body = b"".join(fields.values())
+    # A payload this long always takes the long-form list header.
+    assert len(body) >= 56
+    length = len(body).to_bytes((len(body).bit_length() + 7) // 8, "big")
+    if list_length_leading_zero:
+        length = b"\x00" + length
+    return Bytes(b"\x02" + bytes([0xF7 + len(length)]) + length + body)
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "type_2_control",
+        "legacy_control",
+        "empty",
+        "type_0x00_with_legacy_payload",
+        "undefined_type",
+        "type_0x7f",
+        "type_0xff",
+        "l2_fee_token_0x7d",
+        "l2_privileged_0x7e",
+        "type_1_with_type_2_payload",
+        "type_2_trailing_byte",
+        "truncated_legacy",
+        "type_2_chain_id_leading_zero",
+        "type_2_chain_id_byte_as_string",
+        "type_2_to_long_form_length",
+        "type_2_list_length_leading_zero",
+    ],
+)
+@pytest.mark.parametrize(
+    "appendable_tx_follows",
+    [
+        pytest.param(False, id="alone"),
+        pytest.param(True, id="before_appendable_tx"),
+    ],
+)
+def test_undecodable_il_entry_is_skipped(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    entry: str,
+    appendable_tx_follows: bool,
+) -> None:
+    """
+    An entry that does not decode as a transaction is skipped, and the check
+    goes on to the entries after it.
+    """
+    # Entries built from raw bytes are signed here, before the framework
+    # would set their gas limit.
+    transfer_gas = fork.transaction_intrinsic_cost_calculator()()
+    type_2_tx = Transaction(
+        ty=2,
+        sender=pre.fund_eoa(),
+        to=pre.nonexistent_account(),
+        gas_limit=transfer_gas,
+    ).with_signature_and_sender()
+    type_2_payload = type_2_tx.rlp()[1:]
+    legacy_tx = Transaction(
+        ty=0,
+        sender=pre.fund_eoa(),
+        to=pre.nonexistent_account(),
+        gas_limit=transfer_gas,
+    ).with_signature_and_sender()
+    undefined_type = max(fork.tx_types()) + 1
+    assert undefined_type < 0x7F
+    assert FEE_TOKEN_TX_TYPE not in fork.tx_types()
+    assert PRIVILEGED_TX_TYPE not in fork.tx_types()
+    # The non-canonical entries re-encode the type-2 control field by field.
+    assert type_2_entry(type_2_tx) == type_2_tx.rlp()
+    # A chain id below 0x80 is its own single-byte encoding.
+    assert type_2_tx.chain_id < 0x80 and type_2_tx.to is not None
+    chain_id = bytes([type_2_tx.chain_id])
+    to = bytes(type_2_tx.to)
+
+    entry_appendable = False
+    # The controls show the payloads the other entries reuse are appendable.
+    if entry == "type_2_control":
+        il_entry = type_2_tx.rlp()
+        entry_appendable = True
+    elif entry == "legacy_control":
+        il_entry = legacy_tx.rlp()
+        entry_appendable = True
+    elif entry == "empty":
+        il_entry = Bytes(b"")
+    elif entry == "type_0x00_with_legacy_payload":
+        il_entry = Bytes(b"\x00" + legacy_tx.rlp())
+    elif entry == "undefined_type":
+        il_entry = Bytes(bytes([undefined_type]) + type_2_payload)
+    elif entry == "type_0x7f":
+        il_entry = Bytes(b"\x7f" + type_2_payload)
+    elif entry == "type_0xff":
+        il_entry = Bytes(b"\xff" + type_2_payload)
+    elif entry == "l2_fee_token_0x7d":
+        il_entry = l2_typed_entry(FEE_TOKEN_TX_TYPE, type_2_tx)
+    elif entry == "l2_privileged_0x7e":
+        il_entry = l2_typed_entry(PRIVILEGED_TX_TYPE, type_2_tx)
+    elif entry == "type_1_with_type_2_payload":
+        il_entry = Bytes(b"\x01" + type_2_payload)
+    elif entry == "type_2_trailing_byte":
+        il_entry = Bytes(type_2_tx.rlp() + b"\x00")
+    elif entry == "truncated_legacy":
+        il_entry = Bytes(legacy_tx.rlp()[:-1])
+    elif entry == "type_2_chain_id_leading_zero":
+        il_entry = type_2_entry(
+            type_2_tx, {"chain_id": b"\x82\x00" + chain_id}
+        )
+    elif entry == "type_2_chain_id_byte_as_string":
+        il_entry = type_2_entry(type_2_tx, {"chain_id": b"\x81" + chain_id})
+    elif entry == "type_2_to_long_form_length":
+        il_entry = type_2_entry(type_2_tx, {"to": b"\xb8\x14" + to})
+    elif entry == "type_2_list_length_leading_zero":
+        il_entry = type_2_entry(type_2_tx, list_length_leading_zero=True)
+    else:
+        raise ValueError(f"unknown entry: {entry}")
+
+    # The entry carries the type-2 transaction's gas limit, so it takes no
+    # share of the gas the framework splits among unset limits.
+    inclusion_list = [type_2_tx.copy(rlp_override=il_entry)]
+    if appendable_tx_follows:
+        inclusion_list.append(
+            Transaction(sender=pre.fund_eoa(), to=pre.nonexistent_account())
+        )
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=inclusion_list,
+                expected_inclusion_list_satisfied=not (
+                    entry_appendable or appendable_tx_follows
+                ),
             )
         ],
     )
