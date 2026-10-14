@@ -645,12 +645,10 @@ def gas_test(
         ),
     )
 
-    harness_storage = Storage(
-        {
-            slot_warm_gas: warm_gas,
-            slot_cold_gas: cold_gas,
-        }
-    )
+    harness_storage: Storage.StorageDictType = {
+        slot_warm_gas: warm_gas,
+        slot_cold_gas: cold_gas,
+    }
     if out_of_gas_testing:
         harness_storage[slot_oog_call_result] = LEGACY_CALL_FAILURE
         harness_storage[slot_sanity_call_result] = LEGACY_CALL_SUCCESS

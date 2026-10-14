@@ -80,7 +80,7 @@ def test_storage_outside_account_is_writable(
     write: Callable[[Storage], object],
 ) -> None:
     """Allow every write to a storage no account holds."""
-    write(Storage({0: 1}))
+    write(Storage({0: 1}))  # type: ignore[dict-item]
 
 
 @pytest.mark.parametrize("write", STORAGE_WRITES.values(), ids=STORAGE_WRITES)
@@ -89,12 +89,12 @@ def test_storage_frozen_by_account(write: Callable[[Storage], object]) -> None:
     Reject every write to a storage once an account holds it, including
     through the caller's reference.
     """
-    storage = Storage({0: 1})
+    storage = Storage({0: 1})  # type: ignore[dict-item]
     account = Account(storage=storage)
     assert account.storage is storage
     with pytest.raises(TypeError, match="Storage is frozen"):
         write(storage)
-    assert storage == Storage({0: 1})
+    assert storage == Storage({0: 1})  # type: ignore[dict-item]
 
 
 @pytest.mark.parametrize(
