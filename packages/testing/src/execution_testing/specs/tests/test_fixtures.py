@@ -9,7 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 import execution_testing.cli.check_fixtures
-from execution_testing.base_types import AccessList, Address, Hash
+from execution_testing.base_types import AccessList, Address, Bytes, Hash
 from execution_testing.client_clis import TransitionTool
 from execution_testing.exceptions import (
     EngineAPIError,
@@ -289,6 +289,148 @@ def test_inclusion_list_entry_size_limit(
     else:
         with pytest.raises(pytest.skip.Exception, match="list limit"):
             test.generate(t8n=default_t8n, fixture_format=fixture_format)
+
+
+@pytest.mark.parametrize("bytes_over_limit", [0, 1])
+def test_inclusion_list_merged_size_limit(
+    default_t8n: TransitionTool,
+    bytes_over_limit: int,
+) -> None:
+    """
+    Test that an inclusion list above the fork's merged list limit fails the
+    test, while one at the limit fills.
+    """
+    entry_limit = Bogota.inclusion_list_transactions_size_limit()
+    merged_limit = Bogota.inclusion_list_merged_transactions_size_limit()
+    assert entry_limit is not None and merged_limit is not None
+    # Undecodable entries keep the list cheap to build; only sizes matter.
+    tx = Transaction(gas_limit=21_000)
+    entries = [tx.copy(rlp_override=Bytes(bytes(entry_limit)))] * (
+        merged_limit // entry_limit
+    )
+    entries += [tx.copy(rlp_override=Bytes(bytes(1)))] * bytes_over_limit
+    test = BlockchainTest(
+        fork=Bogota,
+        pre=Alloc(),
+        post={},
+        blocks=[Block(txs=[], inclusion_list_txs=entries)],
+        genesis_environment=Environment(),
+    )
+
+    if bytes_over_limit == 0:
+        fixture = test.generate(
+            t8n=default_t8n, fixture_format=BlockchainEngineFixture
+        ).fixture
+        assert isinstance(fixture, BlockchainEngineFixture)
+        inclusion_list = fixture.payloads[0].params[-1]
+        assert isinstance(inclusion_list, list)
+        assert sum(len(entry) for entry in inclusion_list) == merged_limit
+    else:
+        with pytest.raises(Exception, match="merged list limit"):
+            test.generate(
+                t8n=default_t8n, fixture_format=BlockchainEngineFixture
+            )
+
+
+@pytest.mark.parametrize(
+    "entry_kind,inclusion_list_satisfied",
+    [
+        pytest.param("transaction", False, id="transaction"),
+        pytest.param("rlp_override", True, id="rlp_override"),
+    ],
+)
+def test_inclusion_list_verdict_uses_payload_bytes(
+    default_t8n: TransitionTool,
+    entry_kind: str,
+    inclusion_list_satisfied: bool,
+) -> None:
+    """The transition tool judges the entry bytes the payload carries."""
+    tx = Transaction(
+        nonce=0,
+        to=Address(0x1234),
+        gas_limit=21_000,
+        gas_price=10,
+    )
+    # Fund whichever sender the default key signs for.
+    signed_tx = tx.with_signature_and_sender()
+    assert signed_tx.sender is not None
+    if entry_kind == "transaction":
+        entry = tx
+        sent_bytes = signed_tx.rlp()
+    elif entry_kind == "rlp_override":
+        # The fields describe an appendable transaction, but the bytes
+        # sent decode as an unknown transaction type.
+        sent_bytes = Bytes(bytes([max(Bogota.tx_types()) + 1]) + b"\xc0")
+        entry = tx.copy(rlp_override=sent_bytes)
+    else:
+        raise ValueError(f"unknown entry kind: {entry_kind}")
+
+    engine_fixture = (
+        BlockchainTest(
+            fork=Bogota,
+            pre=Alloc({signed_tx.sender: Account(balance=10**18)}),
+            post={},
+            blocks=[Block(txs=[], inclusion_list_txs=[entry])],
+            genesis_environment=Environment(),
+        )
+        .generate(t8n=default_t8n, fixture_format=BlockchainEngineFixture)
+        .fixture
+    )
+    assert isinstance(engine_fixture, BlockchainEngineFixture)
+    assert engine_fixture.payloads[0].params[-1] == [sent_bytes]
+    assert (
+        engine_fixture.payloads[0].inclusion_list_satisfied
+        == inclusion_list_satisfied
+    )
+
+
+@pytest.mark.parametrize(
+    "tx_type,inclusion_list_satisfied",
+    [
+        pytest.param(TransactionType.BLOB_TRANSACTION, True, id="blob"),
+        pytest.param(TransactionType.BASE_FEE, False, id="base_fee"),
+    ],
+)
+def test_inclusion_list_variant_skips_blob_entries(
+    default_t8n: TransitionTool,
+    tx_type: TransactionType,
+    inclusion_list_satisfied: bool,
+) -> None:
+    """
+    The variant moves the block's last transaction into the inclusion list
+    and expects an unsatisfied payload, unless the moved transaction is a
+    blob transaction, which the inclusion list check skips.
+    """
+    sender = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    tx = Transaction(
+        ty=tx_type,
+        nonce=0,
+        to=Address(0x1234),
+        gas_limit=21_000,
+        max_fee_per_gas=10,
+        max_priority_fee_per_gas=0,
+    )
+    if tx_type == TransactionType.BLOB_TRANSACTION:
+        tx = tx.copy(
+            max_fee_per_blob_gas=10, blob_versioned_hashes=[Hash(1 << 248)]
+        )
+    test = BlockchainTest(
+        fork=Bogota,
+        pre=Alloc({sender: Account(balance=10**18)}),
+        post={},
+        blocks=[Block(txs=[tx])],
+        genesis_environment=Environment(),
+    )
+    variant_format = BLOCKCHAIN_ENGINE_IL_FIXTURE_FORMATS[0]
+
+    fixture = test.generate(
+        t8n=default_t8n, fixture_format=variant_format
+    ).fixture
+    assert isinstance(fixture, BlockchainEngineFixture)
+    assert (
+        fixture.payloads[0].inclusion_list_satisfied
+        == inclusion_list_satisfied
+    )
 
 
 @pytest.mark.parametrize(

@@ -96,6 +96,7 @@ from execution_testing.test_types import (
     Removable,
     TestPhase,
     Transaction,
+    TransactionType,
     Withdrawal,
 )
 from execution_testing.test_types.block_access_list import (
@@ -462,7 +463,10 @@ class Block(Header):
     expected_gas_used: int | None = None
     """Expected gas used for the block."""
     inclusion_list_txs: List[Transaction] | None = None
-    """Transactions supplied as the block's inclusion list."""
+    """
+    Transactions supplied as the block's inclusion list. Each entry is sent
+    as its `rlp()`, so `rlp_override` can make an entry malformed.
+    """
     expected_inclusion_list_satisfied: bool | None = None
     """Expected outcome of the inclusion list verification for this block."""
 
@@ -598,7 +602,7 @@ class BuiltBlock(CamelModel):
     rlp_modifier: Header | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
-    inclusion_list_txs: List[Transaction] | None
+    inclusion_list_txs: List[Bytes] | None
     inclusion_list_satisfied: bool | None
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
@@ -1238,26 +1242,36 @@ class BlockchainTest(BaseTest):
                 else None
             )
         txs = [tx.with_signature_and_sender() for tx in txs]
-        inclusion_list_txs = (
-            [tx.with_signature_and_sender() for tx in inclusion_list_txs]
+        # The transition tool and the fixture read the same bytes, so the
+        # verdict is computed on exactly what clients receive.
+        inclusion_list_bytes: List[Bytes] | None = (
+            [tx.with_signature_and_sender().rlp() for tx in inclusion_list_txs]
             if inclusion_list_txs is not None
             else None
         )
         il_size_limit = fork.inclusion_list_transactions_size_limit()
-        for il_tx in inclusion_list_txs or []:
-            il_tx_size = len(il_tx.rlp())
-            if il_size_limit is None or il_tx_size <= il_size_limit:
+        for il_entry in inclusion_list_bytes or []:
+            il_entry_size = len(il_entry)
+            if il_size_limit is None or il_entry_size <= il_size_limit:
                 continue
             reason = (
-                f"an inclusion list entry of {il_tx_size} bytes exceeds the "
-                f"{il_size_limit}-byte list limit, so no committee member "
-                "could have sent it"
+                f"an inclusion list entry of {il_entry_size} bytes exceeds "
+                f"the {il_size_limit}-byte list limit, so no committee "
+                "member could have sent it"
             )
             # A variant moves the test's own transaction into the list, which
             # some tests make larger than any list can carry.
             if inclusion_list_variant:
                 pytest.skip(reason)
             raise Exception(f"test correctness: {reason}")
+        merged_limit = fork.inclusion_list_merged_transactions_size_limit()
+        merged_size = sum(len(entry) for entry in inclusion_list_bytes or [])
+        if merged_limit is not None and merged_size > merged_limit:
+            raise Exception(
+                f"test correctness: an inclusion list of {merged_size} bytes "
+                f"exceeds the {merged_limit}-byte merged list limit, so no "
+                "consensus layer could have sent it"
+            )
 
         if (failing_tx_count := len([tx for tx in txs if tx.error])) > 0:
             if failing_tx_count > 1:
@@ -1282,7 +1296,7 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
-                inclusion_list_txs=inclusion_list_txs,
+                inclusion_list_txs=inclusion_list_bytes,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -1499,7 +1513,7 @@ class BlockchainTest(BaseTest):
             rlp_modifier=block.rlp_modifier,
             fork=fork,
             block_access_list=bal,
-            inclusion_list_txs=inclusion_list_txs,
+            inclusion_list_txs=inclusion_list_bytes,
             inclusion_list_satisfied=actual_inclusion_list_satisfied,
             engine_new_payload_block_access_list=(
                 block.engine_new_payload_block_access_list
@@ -1895,12 +1909,16 @@ class BlockchainTest(BaseTest):
             if is_last_block and is_inclusion_list_variant:
                 if block.inclusion_list_txs is None:
                     block.inclusion_list_txs = []
-                block.inclusion_list_txs.append(block.txs.pop())
+                moved_tx = block.txs.pop()
+                block.inclusion_list_txs.append(moved_tx)
                 if block.exception:
                     block.exception = None
                     block.expected_inclusion_list_satisfied = True
                 else:
-                    block.expected_inclusion_list_satisfied = False
+                    # The inclusion list check skips blob transactions.
+                    block.expected_inclusion_list_satisfied = (
+                        moved_tx.ty == TransactionType.BLOB_TRANSACTION
+                    )
                 if block.header_verify:
                     block.header_verify = None
                 if block.rlp_modifier:
