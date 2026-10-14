@@ -429,9 +429,12 @@ class NethermindExceptionMapper(ExceptionMapper):
     }
     mapping_regex = {
         # In-range r that is not an x-coordinate on the curve leaves the
-        # transaction without a recovered sender.
+        # transaction without a recovered sender. Nethermind decodes a legacy
+        # v as a 64-bit integer, so a v past that fails RLP decoding.
         TransactionException.INVALID_SIGNATURE_VRS: (
             r"failed with error sender not specified"
+            r"|Transaction \d+ is not valid: "
+            r"Unexpected length of integer value"
         ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             r"insufficient sender balance|"
