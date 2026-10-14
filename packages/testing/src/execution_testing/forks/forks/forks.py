@@ -1093,6 +1093,11 @@ class Frontier(BaseFork):
         return None
 
     @classmethod
+    def inclusion_list_merged_transactions_size_limit(cls) -> int | None:
+        """At Genesis, there are no inclusion lists."""
+        return None
+
+    @classmethod
     def precompiles(cls) -> List[Address]:
         """
         At Genesis, EC-recover, SHA256, RIPEMD160, and Identity precompiles

@@ -747,7 +747,7 @@ class TransitionToolInput:
     txs: List[Transaction]
     env: Environment
     blob_params: ForkBlobSchedule | None = None
-    inclusion_list_txs: List[Transaction] | None = None
+    inclusion_list_txs: List[Bytes] | None = None
 
     def to_files(
         self, directory_path: Path, **model_dump_config: Any

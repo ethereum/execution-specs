@@ -1136,6 +1136,16 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def inclusion_list_merged_transactions_size_limit(cls) -> int | None:
+        """
+        Return the maximum total size in bytes of the transactions in the
+        merged inclusion list the consensus layer sends with a payload, or
+        None if the fork has no inclusion lists.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def precompiles(cls) -> List[Address]:
         """Return list of precompiles supported by the fork."""
         pass
