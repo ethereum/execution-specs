@@ -13,6 +13,7 @@ from execution_testing.base_types import (
     Bytes,
     CamelModel,
     Hash,
+    Storage,
 )
 from execution_testing.exceptions import BlockException
 from execution_testing.forks import Berlin, Fork, TransitionFork
@@ -644,22 +645,16 @@ def gas_test(
         ),
     )
 
-    post = {
-        address_legacy_harness: Account(
-            storage={
-                slot_warm_gas: warm_gas,
-                slot_cold_gas: cold_gas,
-            },
-        ),
-    }
-
+    harness_storage = Storage(
+        {
+            slot_warm_gas: warm_gas,
+            slot_cold_gas: cold_gas,
+        }
+    )
     if out_of_gas_testing:
-        post[address_legacy_harness].storage[slot_oog_call_result] = (
-            LEGACY_CALL_FAILURE
-        )
-        post[address_legacy_harness].storage[slot_sanity_call_result] = (
-            LEGACY_CALL_SUCCESS
-        )
+        harness_storage[slot_oog_call_result] = LEGACY_CALL_FAILURE
+        harness_storage[slot_sanity_call_result] = LEGACY_CALL_SUCCESS
+    post = {address_legacy_harness: Account(storage=harness_storage)}
 
     tx = Transaction(
         to=address_legacy_harness, gas_limit=tx_gas, sender=sender

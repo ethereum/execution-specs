@@ -1033,12 +1033,14 @@ class Alloc(BaseAlloc):
         for code_hash, code in diff.code_changes.items():
             self._code_store[Hash32(code_hash)] = Bytes(code)
 
+        # `model_copy` skips the validator that freezes an `Account`'s
+        # storage, so each storage swapped in below is frozen explicitly.
         for address in diff.storage_clears:
             addr = Address(address)
             current = self.root.get(addr)
             if current is not None and current.storage.root:
                 self.root[addr] = current.model_copy(
-                    update={"storage": Storage(root={})}
+                    update={"storage": Storage(root={}).freeze()}
                 )
 
         for address, spec_account in diff.account_changes.items():
@@ -1076,7 +1078,7 @@ class Alloc(BaseAlloc):
                 else:
                     merged[key_int] = HashInt(value_int)
             self.root[addr] = account.model_copy(
-                update={"storage": Storage(root=merged)}
+                update={"storage": Storage(root=merged).freeze()}
             )
 
         # Drop zero-valued storage entries carried over from the
@@ -1097,7 +1099,7 @@ class Alloc(BaseAlloc):
             }
             if len(cleaned) != len(account.storage.root):
                 self.root[addr] = account.model_copy(
-                    update={"storage": Storage(root=cleaned)}
+                    update={"storage": Storage(root=cleaned).freeze()}
                 )
 
         self._derived_from = dict(self.root)
