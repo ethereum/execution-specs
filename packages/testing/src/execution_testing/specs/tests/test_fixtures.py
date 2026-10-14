@@ -351,10 +351,12 @@ def test_inclusion_list_verdict_uses_payload_bytes(
         gas_limit=21_000,
         gas_price=10,
     )
-    sender = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    # Fund whichever sender the default key signs for.
+    signed_tx = tx.with_signature_and_sender()
+    assert signed_tx.sender is not None
     if entry_kind == "transaction":
         entry = tx
-        sent_bytes = tx.with_signature_and_sender().rlp()
+        sent_bytes = signed_tx.rlp()
     elif entry_kind == "rlp_override":
         # The fields describe an appendable transaction, but the bytes
         # sent decode as an unknown transaction type.
@@ -366,7 +368,7 @@ def test_inclusion_list_verdict_uses_payload_bytes(
     engine_fixture = (
         BlockchainTest(
             fork=Bogota,
-            pre=Alloc({sender: Account(balance=10**18)}),
+            pre=Alloc({signed_tx.sender: Account(balance=10**18)}),
             post={},
             blocks=[Block(txs=[], inclusion_list_txs=[entry])],
             genesis_environment=Environment(),
