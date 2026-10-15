@@ -60,7 +60,7 @@ jobs:
           # backport PR. The action excludes labels matching `label_pattern`,
           # so the `backport …` trigger label is never copied (no re-backport
           # loop).
-          copy_labels_pattern: '^(spec|tests|benchmark|framework|ci|zkEVM|bug|perf)$'
+          copy_labels_pattern: '^(spec|tests|benchmark|framework|ci|zkevm|bug|perf)$'
           # A PAT or GitHub App token stored as the `BACKPORT_TOKEN` secret
           # lets CI run on the backport PR; the default GITHUB_TOKEN cannot
           # trigger downstream workflows. Falls back to GITHUB_TOKEN when the

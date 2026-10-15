@@ -251,7 +251,7 @@ def test_validate_claude_title_rejects_bad_output(data: Any) -> None:
     "touched,base,kind,expected",
     [
         (["spec", "ci"], "forks/bogota", "feat", {"spec", "ci"}),
-        (["tests"], "projects/zkevm", "fix", {"tests", "zkEVM", "bug"}),
+        (["tests"], "projects/zkevm", "fix", {"tests", "zkevm", "bug"}),
         (["framework"], "forks/bogota", "perf", {"framework", "perf"}),
         ([], "forks/bogota", "docs", set()),
     ],

@@ -18,7 +18,7 @@ rewritten by Claude when `ANTHROPIC_API_KEY` is set, and by simple rules
 otherwise.
 
 Labels in `MANAGED_LABELS` are then synced: an area label for each area
-the changed files touch, `zkEVM` for pull requests into
+the changed files touch, `zkevm` for pull requests into
 `projects/zkevm`, and `bug` or `perf` from the title type. Other labels
 are never touched.
 
@@ -90,7 +90,7 @@ IGNORED_FILES = ("whitelist.txt", "vulture_whitelist.py")
 
 LABEL_FOR_TYPE = {"fix": "bug", "perf": "perf"}
 ZKEVM_BRANCH = "projects/zkevm"
-ZKEVM_LABEL = "zkEVM"
+ZKEVM_LABEL = "zkevm"
 MANAGED_LABELS = {*AREAS, ZKEVM_LABEL, *LABEL_FOR_TYPE.values()}
 
 TITLE_PATTERN = re.compile(
