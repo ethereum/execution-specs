@@ -10,7 +10,15 @@ chain data. Every other message is ignored.
 import zlib
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import List, Mapping, Sequence, Tuple, Type, TypeVar
+from typing import (
+    List,
+    Mapping,
+    NamedTuple,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+)
 
 import ethereum_rlp as eth_rlp
 from ethereum_rlp.exceptions import DecodingError
@@ -133,20 +141,65 @@ def encode_transactions(transactions: Sequence[bytes]) -> bytes:
     return encode_list(items)
 
 
-def fork_id(
-    genesis_hash: bytes, fork_activations: Sequence[int]
-) -> List[bytes | Uint]:
+@dataclass(frozen=True)
+class ForkSchedule:
     """
-    Return the EIP-2124 fork identifier `[fork-hash, fork-next]`.
+    When a network's forks activate: by block number, then by timestamp.
 
-    `fork_activations` holds the block numbers and timestamps at which
-    forks activate after genesis, in order. Activations at genesis are
-    part of the genesis rule set and must already be excluded.
+    The order and repetition of the activations do not matter, and one
+    at or before genesis is part of the genesis rule set, so a network
+    that runs one fork from genesis has the empty schedule.
     """
+
+    block_numbers: Tuple[int, ...] = ()
+    timestamps: Tuple[int, ...] = ()
+
+
+GENESIS_FORK_ONLY = ForkSchedule()
+"""The schedule of a network that runs one fork from genesis."""
+
+
+class ForkId(NamedTuple):
+    """The EIP-2124 fork identifier, `[fork-hash, fork-next]` on the wire."""
+
+    fork_hash: bytes
+    """The CRC32 of the genesis hash and every fork activation passed."""
+    fork_next: Uint
+    """The first fork activation not yet passed, or 0 if there is none."""
+
+
+def fork_id(
+    genesis_hash: bytes,
+    schedule: ForkSchedule,
+    *,
+    genesis_timestamp: int,
+    head_number: int,
+    head_timestamp: int,
+) -> ForkId:
+    """
+    Return the EIP-2124 fork identifier of a chain at its head.
+
+    The identifier is computed as go-ethereum's `forkid.NewID` computes
+    it: the block forks past genesis and then the time forks past the
+    genesis timestamp, each sorted without repeats, are folded into the
+    checksum while the head has passed them (reached them, inclusive);
+    the first one it has not passed is the next fork.
+    """
+    block_forks = sorted(
+        {number for number in schedule.block_numbers if number > 0}
+    )
+    time_forks = sorted(
+        {time for time in schedule.timestamps if time > genesis_timestamp}
+    )
     checksum = zlib.crc32(genesis_hash)
-    for activation in fork_activations:
+    for activation, head in [
+        *((number, head_number) for number in block_forks),
+        *((time, head_timestamp) for time in time_forks),
+    ]:
+        if activation > head:
+            return ForkId(checksum.to_bytes(4, "big"), Uint(activation))
         checksum = zlib.crc32(activation.to_bytes(8, "big"), checksum)
-    return [checksum.to_bytes(4, "big"), Uint(0)]
+    return ForkId(checksum.to_bytes(4, "big"), Uint(0))
 
 
 def encode_hello(
@@ -257,7 +310,7 @@ class Status:
 
     network_id: int
     genesis_hash: Hash
-    fork_activations: Sequence[int]
+    fork_id: ForkId
     earliest_block: int
     latest_block: int
     latest_block_hash: Hash
@@ -310,7 +363,7 @@ class EthProtocol:
                 Uint(self.version),
                 Uint(status.network_id),
                 status.genesis_hash,
-                fork_id(status.genesis_hash, status.fork_activations),
+                status.fork_id,
                 Uint(status.earliest_block),
                 Uint(status.latest_block),
                 status.latest_block_hash,

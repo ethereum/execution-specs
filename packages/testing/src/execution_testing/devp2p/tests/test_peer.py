@@ -1,6 +1,7 @@
 """Tests for what the peer serves and what it records as served."""
 
 from dataclasses import dataclass, field
+from itertools import takewhile
 from typing import Any, Callable, Dict, List, Tuple, cast
 
 import ethereum_rlp as eth_rlp
@@ -22,7 +23,9 @@ from ..protocol import (
     ETH_PROTOCOLS,
     BlockHeadersRequest,
     EthVersion,
+    ForkSchedule,
     MessageCode,
+    encode_response,
 )
 from ..rlpx import RLPxSession
 
@@ -139,9 +142,9 @@ def _serve(bodies: Dict[Hash, bytes], hashes: List[Hash]) -> int:
     ((code, payload),) = session.messages
     assert code == MessageCode.BLOCK_BODIES
     served = peer.statistics.bodies_served
-    # Unknown hashes are skipped, so the served bodies are the first
-    # `served` known hashes, and the response carries nothing else.
-    known = [block_hash for block_hash in hashes if block_hash in bodies]
+    # The response ends at the first unknown hash, so the served bodies
+    # are the first `served` hashes, and it carries nothing else.
+    known = list(takewhile(lambda block_hash: block_hash in bodies, hashes))
     expected = sum(len(bodies[block_hash]) for block_hash in known[:served])
     assert expected <= len(payload) <= expected + 16
     assert peer.statistics.body_hashes_served == set(known[:served])
@@ -170,10 +173,23 @@ class TestBodyResponseSize:
         bodies = {_hash(index): bytes([index]) for index in range(1, 33)}
         assert _serve(bodies, sorted(bodies)) == 32
 
-    def test_unknown_hash_is_skipped(self) -> None:
-        """An unheld hash is skipped; held bodies after it still serve."""
-        bodies = {_hash(1): b"\x01", _hash(3): b"\x03"}
-        assert _serve(bodies, [_hash(1), _hash(2), _hash(3)]) == 2
+    def test_an_unknown_hash_ends_the_response(self) -> None:
+        """
+        The response stops at an unheld hash, as geth and reth stop:
+        a body served after it would sit at the unheld hash's position.
+        """
+        bodies = {_hash(1): b"\xc1\x01", _hash(3): b"\xc1\x03"}
+        peer = _stub_peer(bodies)
+        session = _RecordingSession()
+        peer._serve_bodies(
+            cast(RLPxSession, session), 7, [_hash(1), _hash(2), _hash(3)]
+        )
+        assert session.messages == [
+            (MessageCode.BLOCK_BODIES, encode_response(7, [b"\xc1\x01"]))
+        ]
+        assert peer.statistics.bodies_served == 1
+        assert peer.body_hashes_ever_served == {_hash(1)}
+        assert "stopped at unknown" in peer.statistics.transcript[-1]
 
     def test_item_cap_still_applies(self) -> None:
         """The count cap bounds a request for many tiny bodies."""
@@ -538,6 +554,70 @@ class TestChainSwitchDuringALookup:
 
         assert peer._chains.current is new
         assert asking.body_hashes_served == {held}
+
+
+@dataclass
+class _TimedHeader:
+    """The header fields the Status message reads."""
+
+    number: int
+    block_hash: Hash
+    timestamp: int
+
+
+def _status_chain(head_timestamp: int) -> Chain:
+    """Return genesis `0x11..` (t=0) and head #5 `0x22..` at a time."""
+    genesis = _TimedHeader(0, Hash(b"\x11" * 32), 0)
+    head = _TimedHeader(5, Hash(b"\x22" * 32), head_timestamp)
+    block = Block(header=cast(Any, head), transactions=[], withdrawals=None)
+    return Chain(cast(Any, genesis), [block])
+
+
+def _eth69_status(peer: MockPeer, head_timestamp: int) -> str:
+    """Return the eth/69 Status `peer` sends for `_status_chain`, as hex."""
+    status = peer._status(_status_chain(head_timestamp))
+    return ETH_PROTOCOLS[EthVersion.ETH_69].encode_status(status).hex()
+
+
+GENESIS_11 = "a0" + "11" * 32
+HEAD_22 = "a0" + "22" * 32
+
+
+class TestStatusForkId:
+    """The Status fork identifier follows the client's fork schedule."""
+
+    def test_a_single_fork_network_is_unchanged(self) -> None:
+        """
+        A network running one fork from genesis sends the bytes it
+        always has: the genesis checksum and no next fork.
+        """
+        expected = f"f84d4501{GENESIS_11}c684bc4920d8808005{HEAD_22}"
+        assert _eth69_status(_peer(), head_timestamp=30000) == expected
+
+    @pytest.mark.parametrize(
+        "head_timestamp, expected",
+        [
+            pytest.param(
+                14999,
+                f"f84f4501{GENESIS_11}c884bc4920d8823a988005{HEAD_22}",
+                id="before-the-fork",
+            ),
+            pytest.param(
+                15000,
+                f"f84d4501{GENESIS_11}c684597af0e2808005{HEAD_22}",
+                id="past-the-fork",
+            ),
+        ],
+    )
+    def test_a_transition_network_names_its_fork(
+        self, head_timestamp: int, expected: str
+    ) -> None:
+        """
+        A fork at t=15000 is announced as the next fork before the
+        served head reaches it, and folded into the hash after.
+        """
+        peer = _peer(fork_schedule=ForkSchedule(timestamps=(15000,)))
+        assert _eth69_status(peer, head_timestamp) == expected
 
 
 class TestEvidenceSeparation:

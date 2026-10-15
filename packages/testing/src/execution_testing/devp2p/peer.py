@@ -22,10 +22,12 @@ from execution_testing.base_types import Bytes, Hash
 from .chain import Chain, ServedChains
 from .protocol import (
     ETH_PROTOCOLS,
+    GENESIS_FORK_ONLY,
     P2P_VERSION,
     BlockHeadersRequest,
     EthProtocol,
     EthVersion,
+    ForkSchedule,
     MessageCode,
     ProtocolError,
     Status,
@@ -37,6 +39,7 @@ from .protocol import (
     encode_block_range_update,
     encode_hello,
     encode_response,
+    fork_id,
     highest_common_eth_version,
 )
 from .rlpx import RLPxError, RLPxSession, connect
@@ -127,6 +130,7 @@ class MockPeer:
         network_id: int,
         eth_versions: Sequence[EthVersion] | None = None,
         serve_bals: bool = False,
+        fork_schedule: ForkSchedule = GENESIS_FORK_ONLY,
     ) -> None:
         """
         Record where to dial and under which network identity.
@@ -137,6 +141,10 @@ class MockPeer:
         `serve_bals` answers GetBlockAccessLists with the BALs, which a
         client may use to execute a block's transactions in parallel; by
         default every entry is answered as unavailable.
+
+        `fork_schedule` is when the network the client runs forks after
+        genesis; the Status fork identifier is computed from it, so a
+        client past a fork accepts the peer (EIP-2124).
         """
         self.host = host
         self.port = port
@@ -144,6 +152,7 @@ class MockPeer:
         self.private_key = private_key
         self.network_id = network_id
         self.serve_bals = serve_bals
+        self.fork_schedule = fork_schedule
         if eth_versions is None:
             eth_versions = tuple(ETH_PROTOCOLS)
         unknown = set(eth_versions).difference(ETH_PROTOCOLS)
@@ -280,11 +289,22 @@ class MockPeer:
         session.set_timeout(1.0)
 
     def _status(self, chain: Chain) -> Status:
-        """Return the Status message describing `chain`."""
+        """
+        Return the Status message describing `chain`.
+
+        The fork identifier is the one of `chain`'s head, so each
+        redial describes the chain served at that moment.
+        """
         return Status(
             network_id=self.network_id,
             genesis_hash=chain.genesis.block_hash,
-            fork_activations=[],
+            fork_id=fork_id(
+                chain.genesis.block_hash,
+                self.fork_schedule,
+                genesis_timestamp=int(chain.genesis.timestamp),
+                head_number=chain.head.number,
+                head_timestamp=int(chain.head.header.timestamp),
+            ),
             earliest_block=0,
             latest_block=chain.head.number,
             latest_block_hash=chain.head.block_hash,
@@ -502,12 +522,12 @@ class MockPeer:
         """
         Answer a GetBlockBodies request from the served chains.
 
-        A hash this peer does not hold is skipped, as the eth wire
-        protocol allows and real peers do; every held body in the
-        request is still served, up to the response bounds. Ending
-        the response at the first unknown hash instead would withhold
-        held bodies whenever a client mixes hashes from an abandoned
-        chain into a request, and starve its sync.
+        The response ends at the first hash this peer does not hold, as
+        geth and reth end theirs: a client matches bodies to its request
+        by position, so skipping a hash would shift every later body
+        onto the wrong header and make the whole response invalid. Every
+        chain served by this peer stays held (see `ServedChains`), even
+        across redials, so an unknown hash is one this peer never had.
         """
         with self._lock:
             statistics = self.statistics
@@ -516,15 +536,15 @@ class MockPeer:
 
         bodies: List[bytes] = []
         served_hashes: List[Hash] = []
-        unknown: List[Hash] = []
+        unknown: Hash | None = None
         served_bytes = 0
         for block_hash in hashes[:MAX_BODIES_PER_RESPONSE]:
             if served_bytes >= SOFT_RESPONSE_LIMIT:
                 break
             body = self._chains.body_rlp_by_hash(block_hash)
             if body is None:
-                unknown.append(block_hash)
-                continue
+                unknown = block_hash
+                break
             bodies.append(body)
             served_hashes.append(block_hash)
             served_bytes += len(body)
@@ -540,10 +560,10 @@ class MockPeer:
             self.body_hashes_ever_served.update(served_hashes)
             detail = (
                 ""
-                if not unknown
-                else f", {len(unknown)} unknown, first "
-                f"{unknown[0].hex()[:18]} (chain head "
-                f"#{chain.head.number} {chain.head.block_hash.hex()[:18]})"
+                if unknown is None
+                else f", stopped at unknown {unknown.hex()[:18]} (chain "
+                f"head #{chain.head.number} "
+                f"{chain.head.block_hash.hex()[:18]})"
             )
             statistics.record(
                 f"bodies for {len(hashes)} hashes -> "

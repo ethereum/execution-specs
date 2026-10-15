@@ -16,7 +16,10 @@ from execution_testing.base_types import Hash
 
 from ..protocol import (
     ETH_PROTOCOLS,
+    GENESIS_FORK_ONLY,
     EthVersion,
+    ForkId,
+    ForkSchedule,
     ProtocolError,
     Status,
     decode_get_block_access_lists,
@@ -24,6 +27,7 @@ from ..protocol import (
     decode_get_block_headers,
     decode_hello,
     encode_hello,
+    fork_id,
     highest_common_eth_version,
 )
 from .handshake_vectors import HELLO_WITH_EXTRA_ELEMENTS
@@ -123,6 +127,188 @@ class TestHello:
         )
 
 
+MAINNET_GENESIS_HASH = bytes.fromhex(
+    "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
+)
+
+MAINNET_SCHEDULE = ForkSchedule(
+    # Homestead, DAO, Tangerine Whistle, Spurious Dragon, Byzantium,
+    # Constantinople and Petersburg (together), Istanbul, Muir Glacier,
+    # Berlin, London, Arrow Glacier, Gray Glacier.
+    block_numbers=(
+        1150000,
+        1920000,
+        2463000,
+        2675000,
+        4370000,
+        7280000,
+        7280000,
+        9069000,
+        9200000,
+        12244000,
+        12965000,
+        13773000,
+        15050000,
+    ),
+    # Shanghai, Cancun, Prague, Osaka, BPO1, BPO2.
+    timestamps=(
+        1681338455,
+        1710338135,
+        1746612311,
+        1764798551,
+        1765290071,
+        1767747671,
+    ),
+)
+
+MAINNET_FORK_IDS = [
+    (0, 0, "fc64ec04", 1150000),  # Unsynced
+    (1149999, 0, "fc64ec04", 1150000),  # Last Frontier block
+    (1150000, 0, "97c2c34c", 1920000),  # First Homestead block
+    (1919999, 0, "97c2c34c", 1920000),  # Last Homestead block
+    (1920000, 0, "91d1f948", 2463000),  # First DAO block
+    (2462999, 0, "91d1f948", 2463000),  # Last DAO block
+    (2463000, 0, "7a64da13", 2675000),  # First Tangerine block
+    (2674999, 0, "7a64da13", 2675000),  # Last Tangerine block
+    (2675000, 0, "3edd5b10", 4370000),  # First Spurious block
+    (4369999, 0, "3edd5b10", 4370000),  # Last Spurious block
+    (4370000, 0, "a00bc324", 7280000),  # First Byzantium block
+    (7279999, 0, "a00bc324", 7280000),  # Last Byzantium block
+    (
+        7280000,
+        0,
+        "668db0af",
+        9069000,
+    ),  # Constantinople, Petersburg
+    (9068999, 0, "668db0af", 9069000),  # Last Petersburg block
+    (
+        9069000,
+        0,
+        "879d6e30",
+        9200000,
+    ),  # First Istanbul block
+    (
+        9199999,
+        0,
+        "879d6e30",
+        9200000,
+    ),  # Last Istanbul block
+    (9200000, 0, "e029e991", 12244000),  # First Muir Glacier block
+    (12243999, 0, "e029e991", 12244000),  # Last Muir Glacier block
+    (12244000, 0, "0eb440f6", 12965000),  # First Berlin block
+    (12964999, 0, "0eb440f6", 12965000),  # Last Berlin block
+    (12965000, 0, "b715077d", 13773000),  # First London block
+    (13772999, 0, "b715077d", 13773000),  # Last London block
+    (13773000, 0, "20c327fc", 15050000),  # First Arrow Glacier block
+    (15049999, 0, "20c327fc", 15050000),  # Last Arrow Glacier block
+    (15050000, 0, "f0afd0e3", 1681338455),  # First Gray Glacier block
+    (20000000, 1681338454, "f0afd0e3", 1681338455),  # Last Gray Glacier block
+    (20000000, 1681338455, "dce96c2d", 1710338135),  # First Shanghai block
+    (30000000, 1710338134, "dce96c2d", 1710338135),  # Last Shanghai block
+    (30000000, 1710338135, "9f3d2254", 1746612311),  # First Cancun block
+    (30000000, 1746022486, "9f3d2254", 1746612311),  # Last Cancun block
+    (30000000, 1746612311, "c376cf8b", 1764798551),  # First Prague block
+    (30000000, 1764798550, "c376cf8b", 1764798551),  # Last Prague block
+    (30000000, 1764798551, "5167e2a6", 1765290071),  # First Osaka block
+    (30000000, 1765290070, "5167e2a6", 1765290071),  # Last Osaka block
+    (30000000, 1765290071, "cba2a1c0", 1767747671),  # First BPO1 block
+    (30000000, 1767747670, "cba2a1c0", 1767747671),  # Last BPO1 block
+    (30000000, 1767747671, "07c9462e", 0),  # First BPO2 block
+    (50000000, 2000000000, "07c9462e", 0),  # Future BPO2 block
+]
+"""
+`(head number, head timestamp, fork hash, fork next)` for mainnet, from
+go-ethereum's `core/forkid/forkid_test.go` (EIP-2124's own table, carried
+on to BPO2).
+"""
+
+TRANSITION_GENESIS_HASH = b"\x11" * 32
+"""The genesis of a transition fixture whose fork activates at t=15000."""
+
+
+class TestForkId:
+    """The Status fork identifier is EIP-2124's, as geth computes it."""
+
+    @pytest.mark.parametrize(
+        "head_number, head_timestamp, fork_hash, fork_next", MAINNET_FORK_IDS
+    )
+    def test_mainnet_fork_ids(
+        self,
+        head_number: int,
+        head_timestamp: int,
+        fork_hash: str,
+        fork_next: int,
+    ) -> None:
+        """Every passed fork is folded in, and the next one is named."""
+        assert fork_id(
+            MAINNET_GENESIS_HASH,
+            MAINNET_SCHEDULE,
+            genesis_timestamp=0,
+            head_number=head_number,
+            head_timestamp=head_timestamp,
+        ) == ForkId(bytes.fromhex(fork_hash), Uint(fork_next))
+
+    @pytest.mark.parametrize(
+        "identifier, encoded",
+        [
+            (ForkId(bytes(4), Uint(0)), "c6840000000080"),
+            (
+                ForkId(bytes.fromhex("deadbeef"), Uint(0xBADDCAFE)),
+                "ca84deadbeef84baddcafe",
+            ),
+            (
+                ForkId(b"\xff" * 4, Uint(2**64 - 1)),
+                "ce84ffffffff88ffffffffffffffff",
+            ),
+        ],
+    )
+    def test_rlp_encoding(self, identifier: ForkId, encoded: str) -> None:
+        """The EIP-2124 encoding vectors."""
+        assert eth_rlp.encode(identifier).hex() == encoded
+
+    @pytest.mark.parametrize(
+        "head_timestamp, encoded",
+        [
+            pytest.param(14999, "c884bc4920d8823a98", id="before-the-fork"),
+            pytest.param(15000, "c684597af0e280", id="at-the-fork"),
+            pytest.param(30000, "c684597af0e280", id="after-the-fork"),
+        ],
+    )
+    def test_a_transition_fixture(
+        self, head_timestamp: int, encoded: str
+    ) -> None:
+        """
+        A fork at t=15000 is the next fork until the head reaches it,
+        and part of the fork hash from then on.
+        """
+        identifier = fork_id(
+            TRANSITION_GENESIS_HASH,
+            ForkSchedule(timestamps=(15000,)),
+            genesis_timestamp=0,
+            head_number=5,
+            head_timestamp=head_timestamp,
+        )
+        assert eth_rlp.encode(identifier).hex() == encoded
+
+    def test_activations_at_genesis_are_the_genesis_rule_set(self) -> None:
+        """A fork at block 0 or at the genesis timestamp is no fork."""
+        at_genesis = fork_id(
+            TRANSITION_GENESIS_HASH,
+            ForkSchedule(block_numbers=(0,), timestamps=(0, 12)),
+            genesis_timestamp=12,
+            head_number=5,
+            head_timestamp=60,
+        )
+        assert at_genesis == fork_id(
+            TRANSITION_GENESIS_HASH,
+            GENESIS_FORK_ONLY,
+            genesis_timestamp=12,
+            head_number=5,
+            head_timestamp=60,
+        )
+        assert eth_rlp.encode(at_genesis).hex() == "c684bc4920d880"
+
+
 class TestStatus:
     """One Status layout since eth/69; only the declared version moves."""
 
@@ -134,7 +320,7 @@ class TestStatus:
         status = Status(
             network_id=1,
             genesis_hash=Hash(b"\xaa" * 32),
-            fork_activations=[],
+            fork_id=ForkId(b"\x00" * 4, Uint(0)),
             earliest_block=0,
             latest_block=7,
             latest_block_hash=Hash(b"\xbb" * 32),

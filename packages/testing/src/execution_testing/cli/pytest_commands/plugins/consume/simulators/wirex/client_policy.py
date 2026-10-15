@@ -31,7 +31,7 @@ from hive.testing import HiveTest
 from execution_testing.base_types import Hash, HexNumber
 from execution_testing.devp2p.chain import Chain
 from execution_testing.devp2p.peer import MockPeer
-from execution_testing.devp2p.protocol import EthVersion
+from execution_testing.devp2p.protocol import EthVersion, ForkSchedule
 from execution_testing.exceptions import ExceptionMapper
 from execution_testing.rpc import EngineRPC, EthRPC
 
@@ -259,6 +259,7 @@ def target_context_factory(
     total_timing_data: "TimingData",
     wirex_eth_versions: tuple[EthVersion, ...],
     wirex_serve_bals: bool,
+    wirex_fork_schedule: ForkSchedule,
     client_exception_mapper: ExceptionMapper | None,
     request: pytest.FixtureRequest,
 ) -> TargetContextFactory:
@@ -305,6 +306,7 @@ def target_context_factory(
                     case.chain,
                     wirex_eth_versions,
                     wirex_serve_bals,
+                    wirex_fork_schedule,
                     total_timing_data,
                 )
                 yield TargetContext(
