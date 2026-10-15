@@ -685,6 +685,18 @@ class Alloc(BaseAlloc):
             return None
         return account
 
+    def update_account(
+        self, address: Address | FixedSizeBytesConvertible, **fields: Any
+    ) -> None:
+        """
+        Replace the given fields of an account already in the allocation,
+        keeping the rest unchanged.
+        """
+        account = self.get(Address(address))
+        if account is None:
+            raise ValueError(f"No account at {Address(address)} to update.")
+        self[address] = account.copy(**fields)
+
     @property
     def genesis_accounts(self) -> Literal["absent", "seeded", "deferred"]:
         """Return where the fork's genesis accounts come from."""

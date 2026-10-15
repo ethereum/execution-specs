@@ -114,6 +114,27 @@ def test_account_storage_is_frozen(account: Account) -> None:
         account.storage[1] = 2
 
 
+def test_update_account_keeps_other_fields() -> None:
+    """Replace only the fields given, keeping the rest of the account."""
+    alloc = Alloc(
+        {
+            Address(0x1000): Account(
+                nonce=1, balance=2, code="0x00", storage={0: 1}
+            )
+        }
+    )
+    alloc.update_account(0x1000, code="0x5f", storage={1: 2})
+    assert alloc[0x1000] == Account(
+        nonce=1, balance=2, code="0x5f", storage={1: 2}
+    )
+
+
+def test_update_account_requires_account() -> None:
+    """Refuse to update an account the allocation does not hold."""
+    with pytest.raises(ValueError, match="No account"):
+        Alloc().update_account(0x1000, code="0x5f")
+
+
 def test_apply_diff_storages_are_frozen() -> None:
     """
     Freeze the storages `apply_diff` swaps in, which skip the account's

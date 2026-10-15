@@ -13,7 +13,6 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
-    Fork,
     Hash,
     Op,
     Transaction,
@@ -590,7 +589,6 @@ def test_bal_4788_absent_contract(
 def test_bal_4788_noop_writes_are_reads(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """
     The beacon roots system call writes both ring-buffer slots with the
@@ -604,13 +602,8 @@ def test_bal_4788_noop_writes_are_reads(
 
     # EIP-4788 lets a client write these slots without running the
     # contract; either way an unchanged value must surface as a read.
-    predeploy = Alloc.model_validate(fork.pre_allocation_blockchain())[
-        BEACON_ROOTS_ADDRESS
-    ]
-    assert predeploy is not None
-    pre[BEACON_ROOTS_ADDRESS] = Account(
-        nonce=predeploy.nonce,
-        code=predeploy.code,
+    pre.update_account(
+        BEACON_ROOTS_ADDRESS,
         storage={timestamp_slot: block_timestamp, root_slot: beacon_root},
     )
 

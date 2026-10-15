@@ -147,13 +147,7 @@ def test_extra_logs(
         requests = Requests(DEFAULT_DEPOSIT_REQUEST)
     bytecode += Op.STOP
 
-    deposit_contract = pre[DepositRequest.system_contract_address]
-    assert deposit_contract is not None
-    pre[DepositRequest.system_contract_address] = deposit_contract.copy(
-        code=bytecode,
-        nonce=1,
-        balance=0,
-    )
+    pre.update_account(DepositRequest.system_contract_address, code=bytecode)
     sender = pre.fund_eoa()
 
     tx = Transaction(
@@ -207,13 +201,7 @@ def test_invalid_layout(
     )
     bytecode += Op.STOP
 
-    deposit_contract = pre[DepositRequest.system_contract_address]
-    assert deposit_contract is not None
-    pre[DepositRequest.system_contract_address] = deposit_contract.copy(
-        code=bytecode,
-        nonce=1,
-        balance=0,
-    )
+    pre.update_account(DepositRequest.system_contract_address, code=bytecode)
     sender = pre.fund_eoa()
 
     tx = Transaction(
@@ -253,13 +241,7 @@ def test_invalid_layout_with_swapped_decodable_offsets(
     )
     bytecode += Op.STOP
 
-    deposit_contract = pre[DepositRequest.system_contract_address]
-    assert deposit_contract is not None
-    pre[DepositRequest.system_contract_address] = deposit_contract.copy(
-        code=bytecode,
-        nonce=1,
-        balance=0,
-    )
+    pre.update_account(DepositRequest.system_contract_address, code=bytecode)
     sender = pre.fund_eoa()
 
     tx = Transaction(
@@ -364,13 +346,7 @@ def test_invalid_log_length(
     )
     bytecode += Op.STOP
 
-    deposit_contract = pre[DepositRequest.system_contract_address]
-    assert deposit_contract is not None
-    pre[DepositRequest.system_contract_address] = deposit_contract.copy(
-        code=bytecode,
-        nonce=1,
-        balance=0,
-    )
+    pre.update_account(DepositRequest.system_contract_address, code=bytecode)
     sender = pre.fund_eoa()
 
     tx = Transaction(

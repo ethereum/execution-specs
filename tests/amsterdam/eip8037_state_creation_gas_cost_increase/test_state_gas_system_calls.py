@@ -68,9 +68,7 @@ def test_system_call_execution_grant(
     address = Address(system_contract)
     # GAS executes first, before the key is pushed for SSTORE.
     code = Op.SSTORE(0, Op.GAS)
-    system_contract_account = pre[address]
-    assert system_contract_account is not None
-    pre[address] = system_contract_account.copy(code=code)
+    pre.update_account(address, code=code)
     expected = system_call_execution_grant(fork) - Op.GAS.gas_cost(fork)
     blockchain_test(
         pre=pre,
@@ -105,10 +103,8 @@ def test_system_call_reservoir_boundary(
         post[probe] = Account(storage={0: int(succeeds)})
     address = Address(system_contract)
     # Pre-existing result slots keep instrumentation out of the state budget.
-    system_contract_account = pre[address]
-    assert system_contract_account is not None
-    pre[address] = system_contract_account.copy(
-        code=code, storage=dict.fromkeys(range(count + 1), 2)
+    pre.update_account(
+        address, code=code, storage=dict.fromkeys(range(count + 1), 2)
     )
     post[address] = Account(
         storage={i: int(i < count or allow_spill) for i in range(count + 1)}
@@ -174,9 +170,7 @@ def test_system_call_execution_boundary(
     """Exhaust execution gas without borrowing the unspent reservoir."""
     code = execution_boundary_code + Op.JUMPDEST * extra_execution
     address = Address(system_contract)
-    system_contract_account = pre[address]
-    assert system_contract_account is not None
-    pre[address] = system_contract_account.copy(code=code)
+    pre.update_account(address, code=code)
     fails_block = checked and extra_execution > 0
     blockchain_test(
         pre=pre,
