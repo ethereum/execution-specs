@@ -22,7 +22,10 @@ from execution_testing.devp2p.chain import Block, Chain
 from execution_testing.devp2p.peer import MockPeer, PeerStatistics
 from execution_testing.devp2p.rlpx import RLPxError
 from execution_testing.exceptions import BlockException
-from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.fixtures.blockchain import (
+    FixtureEngineNewPayload,
+    FixtureHeader,
+)
 from execution_testing.rpc import (
     EngineRPC,
     EthRPC,
@@ -98,6 +101,13 @@ def _chain(length: int) -> Chain:
     return Chain(genesis=cast(FixtureHeader, genesis), blocks=blocks)
 
 
+FIRST_INVALID_PARENT = Hash(1)
+"""
+The hash a rejection of a stub chain owes by default: the chain's head
+is a sync target and the block below it is the first invalid one.
+"""
+
+
 def _case(
     chain: Chain,
     *,
@@ -105,10 +115,16 @@ def _case(
     announces_scaffolding: bool = True,
     invalidities: frozenset[Any] = frozenset(),
     error_code: int | None = None,
+    expected_latest_valid_hash: Hash | None = FIRST_INVALID_PARENT,
     index: int = 0,
     total: int = 1,
 ) -> SyncTargetCase:
-    """Return a case announcing the head of `chain`."""
+    """
+    Return a case announcing the head of `chain`.
+
+    A rejection owes `expected_latest_valid_hash` as its
+    `latestValidHash`.
+    """
     target = SimpleNamespace(
         params=[SimpleNamespace(block_hash=chain.head.block_hash)],
         new_payload_version=4,
@@ -120,6 +136,7 @@ def _case(
         expects_rejection=expects_rejection,
         announces_scaffolding=announces_scaffolding,
         invalidities=set(invalidities),
+        expected_latest_valid_hash=expected_latest_valid_hash,
         total=total,
         name=f"target {index}",
         label=f"target {index}",
@@ -127,10 +144,14 @@ def _case(
     return SyncTargetCase(path=cast(SyncPath, path), chain=chain)
 
 
-def _status(status: PayloadStatusEnum) -> PayloadStatus:
-    """Return a payload status carrying only `status`."""
+def _status(
+    status: PayloadStatusEnum, latest_valid_hash: Hash | None = None
+) -> PayloadStatus:
+    """Return a payload status carrying `status` and no reason."""
     return PayloadStatus(
-        status=status, latest_valid_hash=None, validation_error=None
+        status=status,
+        latest_valid_hash=latest_valid_hash,
+        validation_error=None,
     )
 
 
@@ -151,6 +172,7 @@ class FakeEngine:
     long the n-th `forkchoiceUpdated` of an announcement blocks and
     `forkchoice_refusal` the error code it raises; `confirmation` is
     the answer, or the exception, of the confirming update.
+    `latest_valid_hash` comes with every `newPayload` answer.
     """
 
     clock: FakeClock
@@ -159,6 +181,7 @@ class FakeEngine:
     refusal: Callable[[float], int | None] = lambda _now: None
     forkchoice_refusal: Callable[[int], int | None] = lambda _call: None
     confirmation: PayloadStatusEnum | Exception = PayloadStatusEnum.VALID
+    latest_valid_hash: Hash | None = None
     forkchoice_calls: int = 0
 
     def new_payload(self, *params: Any, version: int) -> PayloadStatus:
@@ -167,7 +190,7 @@ class FakeEngine:
         code = self.refusal(self.clock.now)
         if code is not None:
             raise JSONRPCError(code, "refused")
-        return _status(self.verdict(self.clock.now))
+        return _status(self.verdict(self.clock.now), self.latest_valid_hash)
 
     def forkchoice_updated(
         self,
@@ -543,6 +566,181 @@ class TestWireCoverage:
                 CHAIN, unserved_headers={1, 2}, unserved_bodies={1, 2}
             ),
         )
+
+
+INVALID_BLOCK_HASH = PayloadStatusEnum.INVALID_BLOCK_HASH
+
+
+class TestLatestValidHash:
+    """A rejection that names a latest valid hash must name the right one."""
+
+    def test_the_expected_hash_passes(self, clock: FakeClock) -> None:
+        """INVALID naming the first invalid block's parent passes."""
+        _run(
+            clock,
+            _engine(clock, INVALID, latest_valid_hash=Hash(1)),
+            expects_rejection=True,
+        )
+
+    def test_another_hash_fails(self, clock: FakeClock) -> None:
+        """INVALID naming another block blamed the wrong block."""
+        with pytest.raises(
+            LoggedError,
+            match=r"latestValidHash check: mismatch: .* "
+            rf"{Hash(2)} \(block 2\), expected {Hash(1)} \(block 1\)",
+        ):
+            _run(
+                clock,
+                _engine(clock, INVALID, latest_valid_hash=Hash(2)),
+                expects_rejection=True,
+            )
+
+    def test_a_hash_off_the_served_chain_fails(self, clock: FakeClock) -> None:
+        """A hash the peer never served is named as off the chain."""
+        with pytest.raises(
+            LoggedError,
+            match=rf"{Hash(9)} \(not on the served chain\), expected",
+        ):
+            _run(
+                clock,
+                _engine(clock, INVALID, latest_valid_hash=Hash(9)),
+                expects_rejection=True,
+            )
+
+    @pytest.mark.parametrize(
+        "verdict,latest_valid_hash",
+        [
+            (INVALID, None),
+            (INVALID, Hash(0)),
+            (INVALID_BLOCK_HASH, None),
+        ],
+        ids=["invalid-null", "invalid-zero", "invalid-block-hash-null"],
+    )
+    def test_no_hash_passes(
+        self,
+        clock: FakeClock,
+        verdict: PayloadStatusEnum,
+        latest_valid_hash: Hash | None,
+    ) -> None:
+        """A rejection naming no latest valid hash is not held against it."""
+        _run(
+            clock,
+            _engine(clock, verdict, latest_valid_hash=latest_valid_hash),
+            expects_rejection=True,
+            expected_latest_valid_hash=Hash(2),
+        )
+
+    def test_a_path_with_no_invalid_block_is_unchecked(
+        self, clock: FakeClock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """
+        A hash given for a path that owes none (an error-code-only
+        rejection) is logged as unchecked, not failed.
+        """
+        with caplog.at_level(logging.INFO):
+            _run(
+                clock,
+                _engine(clock, INVALID, latest_valid_hash=Hash(2)),
+                expects_rejection=True,
+                expected_latest_valid_hash=None,
+            )
+        assert "latestValidHash check: unchecked" in caplog.text
+
+    def test_a_rejection_without_scaffolding_is_checked(
+        self, clock: FakeClock
+    ) -> None:
+        """
+        The check runs even when no wire coverage is asserted, because
+        the chain announced its own head.
+        """
+        with pytest.raises(
+            LoggedError, match="latestValidHash check: mismatch"
+        ):
+            _run(
+                clock,
+                _engine(clock, INVALID, latest_valid_hash=Hash(2)),
+                expects_rejection=True,
+                announces_scaffolding=False,
+            )
+
+
+def _path_payload(
+    block_hash: int, parent_hash: int, *, invalid: bool = False
+) -> FixtureEngineNewPayload:
+    """Return a stub payload linking `block_hash` to `parent_hash`."""
+    validation_error = BlockException.INVALID_STATE_ROOT if invalid else None
+    return cast(
+        FixtureEngineNewPayload,
+        SimpleNamespace(
+            params=[
+                SimpleNamespace(
+                    block_hash=Hash(block_hash),
+                    parent_hash=Hash(parent_hash),
+                )
+            ],
+            validation_error=validation_error,
+            valid=lambda: validation_error is None,
+        ),
+    )
+
+
+class TestExpectedLatestValidHash:
+    """The owed hash is the parent of the first invalid block served."""
+
+    def test_a_scaffolded_path_owes_the_parent_of_its_first_invalid_block(
+        self,
+    ) -> None:
+        """The sync target and the blocks above the invalid one are moot."""
+        path = SyncPath(
+            index=0,
+            total=1,
+            target=_path_payload(5, 4),
+            authored=(
+                _path_payload(1, 0),
+                _path_payload(2, 1),
+                _path_payload(3, 2, invalid=True),
+                _path_payload(4, 3, invalid=True),
+            ),
+            announces_scaffolding=True,
+        )
+        assert path.expected_latest_valid_hash == Hash(2)
+
+    def test_each_target_owes_the_parent_on_its_own_path(self) -> None:
+        """Siblings sharing a trunk each owe their own invalid block's."""
+        trunk = (_path_payload(1, 0), _path_payload(2, 1))
+        invalid_leaf = _path_payload(3, 2, invalid=True)
+        invalid_branch = (_path_payload(4, 1, invalid=True),)
+        valid_leaf = _path_payload(5, 2)
+        first, second, third = (
+            SyncPath(
+                index=index,
+                total=3,
+                target=_path_payload(10 + index, leaf),
+                authored=authored,
+                announces_scaffolding=True,
+            )
+            for index, (leaf, authored) in enumerate(
+                [
+                    (3, (*trunk, invalid_leaf)),
+                    (4, (trunk[0], *invalid_branch)),
+                    (5, (*trunk, valid_leaf)),
+                ]
+            )
+        )
+        assert first.expected_latest_valid_hash == Hash(2)
+        assert second.expected_latest_valid_hash == Hash(1)
+        assert third.expected_latest_valid_hash is None
+
+    def test_an_invalid_first_block_owes_genesis(self) -> None:
+        """A path invalid from its first block owes the genesis hash."""
+        path = SyncPath(
+            index=0,
+            total=1,
+            target=_path_payload(2, 1),
+            authored=(_path_payload(1, 0, invalid=True),),
+            announces_scaffolding=True,
+        )
+        assert path.expected_latest_valid_hash == GENESIS_HASH
 
 
 class RefusingPeer(FakePeer):

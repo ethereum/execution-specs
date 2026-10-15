@@ -40,6 +40,7 @@ from ..helpers.exceptions import (
 from ..helpers.timing import TimingData
 from ..wirex.sync_targets import (
     HEADER_JUDGEABLE_INVALIDITIES,
+    SyncPath,
     SyncTargetCase,
     TargetContext,
     TargetContextFactory,
@@ -190,6 +191,75 @@ def assert_wire_coverage(
             "request(s), which this peer does not serve; the client "
             "may not be executing the blocks it downloads."
         )
+
+
+LATEST_VALID_HASH_CHECK = "latestValidHash check:"
+"""
+The prefix of every log line and failure of the `latestValidHash` check.
+
+Each is followed by `match`, `null`, `mismatch` or `unchecked`, so a
+Hive run's logs can be grepped for how each client answers.
+"""
+
+
+def check_latest_valid_hash(
+    path: SyncPath,
+    chain: Chain,
+    payload_status: PayloadStatus,
+    prefix: str,
+) -> None:
+    """
+    Check the `latestValidHash` of a rejection of `path`'s head.
+
+    An INVALID answer that names a latest valid hash must name the
+    parent of the first invalid block on the path (see
+    `SyncPath.expected_latest_valid_hash`); any other hash means the
+    client blamed the wrong block, perhaps a valid ancestor. A null or
+    all-zero hash, which the Engine API allows when the client cannot
+    determine one, passes and is logged, as does INVALID_BLOCK_HASH,
+    which carries none.
+    """
+    expected = path.expected_latest_valid_hash
+    got = payload_status.latest_valid_hash
+    status = payload_status.status
+
+    def describe(block_hash: Hash) -> str:
+        """Return `block_hash` with its block number on `chain`, if any."""
+        if block_hash == chain.genesis.block_hash:
+            return f"{block_hash} (block 0)"
+        for block in chain.blocks:
+            if block.block_hash == block_hash:
+                return f"{block_hash} (block {block.number})"
+        return f"{block_hash} (not on the served chain)"
+
+    if (
+        status == PayloadStatusEnum.INVALID_BLOCK_HASH
+        or got is None
+        or got == Hash(0)
+    ):
+        logger.info(
+            f"{prefix}{LATEST_VALID_HASH_CHECK} null: the client gave no "
+            f"latest valid hash with {status} (latestValidHash {got})"
+        )
+        return
+    if expected is None:
+        logger.info(
+            f"{prefix}{LATEST_VALID_HASH_CHECK} unchecked: no block on "
+            f"the path is invalid, so the client's {describe(got)} has "
+            "nothing to match"
+        )
+        return
+    if got != expected:
+        raise LoggedError(
+            f"{prefix}{LATEST_VALID_HASH_CHECK} mismatch: the client "
+            f"answered {status} with latestValidHash {describe(got)}, "
+            f"expected {describe(expected)}, the parent of the first "
+            "invalid block; the client blamed the wrong block"
+        )
+    logger.info(
+        f"{prefix}{LATEST_VALID_HASH_CHECK} match: {describe(got)}, the "
+        "parent of the first invalid block"
+    )
 
 
 def _run_sync_target(
@@ -403,6 +473,7 @@ def _run_sync_target(
             f"the peer served {statistics.headers_served} header(s) and "
             f"{statistics.bodies_served} body/bodies"
         )
+        check_latest_valid_hash(path, chain, payload_status, prefix)
         if not path.announces_scaffolding:
             logger.info(
                 f"{prefix}Not asserting wire coverage: this chain "
