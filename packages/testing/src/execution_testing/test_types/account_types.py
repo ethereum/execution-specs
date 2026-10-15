@@ -502,6 +502,14 @@ class Alloc(BaseAlloc):
     """Trie computed by `compute_state_root`, for `apply_diff` to reuse."""
     _zero_storage_addresses: List[Address] = PrivateAttr(default_factory=list)
     """Accounts in `root` holding zero storage values, for `apply_diff`."""
+    _genesis_accounts: Literal["absent", "seeded", "deferred"] = PrivateAttr(
+        default="absent"
+    )
+    """
+    Where the accounts the fork allocates at genesis come from: already in
+    the allocation (`seeded`), added by the spec when it builds the genesis
+    (`deferred`), or nowhere (`absent`).
+    """
 
     @dataclass(kw_only=True)
     class UnexpectedAccountError(Exception):
@@ -676,6 +684,31 @@ class Alloc(BaseAlloc):
         if not account:
             return None
         return account
+
+    def update_account(
+        self, address: Address | FixedSizeBytesConvertible, **fields: Any
+    ) -> None:
+        """
+        Replace the given fields of an account already in the allocation,
+        keeping the rest unchanged.
+        """
+        account = self.get(Address(address))
+        if account is None:
+            raise ValueError(f"No account at {Address(address)} to update.")
+        self[address] = account.copy(**fields)
+
+    @property
+    def genesis_accounts(self) -> Literal["absent", "seeded", "deferred"]:
+        """Return where the fork's genesis accounts come from."""
+        return self._genesis_accounts
+
+    def with_genesis_accounts(self) -> Self:
+        """
+        Have the spec add the accounts the fork allocates at genesis beneath
+        this allocation, for one built outside the `pre` fixture.
+        """
+        self._genesis_accounts = "deferred"
+        return self
 
     def empty_accounts(self) -> List[Address]:
         """Return list of addresses of empty accounts."""

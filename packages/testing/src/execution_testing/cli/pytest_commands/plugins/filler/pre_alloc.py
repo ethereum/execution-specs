@@ -3,7 +3,7 @@
 import inspect
 from functools import cache
 from hashlib import sha256
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Type
 
 import pytest
 from pydantic import PrivateAttr
@@ -76,9 +76,13 @@ class Alloc(SharedAlloc):
         flags: AllocFlags,
         stub_accounts: Dict[str, Account] | None = None,
         stub_eoas: Dict[str, EOA] | None = None,
+        genesis_seeded: bool = False,
         **kwargs: Any,
     ) -> None:
-        """Initialize the pre-alloc."""
+        """
+        Initialize the pre-alloc, `genesis_seeded` when it starts out holding
+        the accounts the fork allocates at genesis.
+        """
         super().__init__(
             *args,
             fork=fork,
@@ -88,6 +92,8 @@ class Alloc(SharedAlloc):
         )
         if stub_accounts is not None:
             self._stub_accounts = stub_accounts
+        if genesis_seeded:
+            self._genesis_accounts = "seeded"
 
     def get_next_account_salt(self, account_hash: Hash) -> int:
         """Retrieve the next salt for this account."""
@@ -486,11 +492,29 @@ def pre(
     fork: Fork | TransitionFork,
     stub_accounts: Dict[str, Account],
     stub_eoas: Dict[str, EOA],
+    spec_type: Type[BaseTest] | None,
+    fixture_format: Any,
 ) -> Alloc:
-    """Return default pre allocation for all tests (Empty alloc)."""
+    """
+    Return the pre allocation of the test, seeded with the accounts the
+    genesis of the fixture being filled holds by default.
+
+    The spec uses the returned allocation as the genesis allocation
+    unchanged, so a test may inspect it, and may override or delete the
+    seeded accounts at its own risk.
+    """
+    seed = (
+        spec_type.genesis_pre_allocation(
+            fork=fork, fixture_format=fixture_format
+        )
+        if spec_type is not None
+        else {}
+    )
     return Alloc(
+        seed,
         flags=alloc_flags,
         fork=fork,
         stub_accounts=stub_accounts,
         stub_eoas=stub_eoas,
+        genesis_seeded=spec_type is not None,
     )

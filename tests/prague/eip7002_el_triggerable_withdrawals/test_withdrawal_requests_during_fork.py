@@ -8,7 +8,6 @@ from typing import List
 
 import pytest
 from execution_testing import (
-    Account,
     Address,
     Alloc,
     Block,
@@ -93,12 +92,7 @@ def test_withdrawal_requests_during_fork(
     """
     # We need to delete the deployed contract that comes by default in the pre
     # state.
-    pre[WithdrawalRequest.system_contract_address] = Account(
-        balance=0,
-        code=bytes(),
-        nonce=0,
-        storage={},
-    )
+    del pre[WithdrawalRequest.system_contract_address]
 
     with open(
         Path(realpath(__file__)).parent / "contract_deploy_tx.json", mode="r"

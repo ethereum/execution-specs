@@ -580,12 +580,8 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
                 environment=environment,
                 group_salt=group_salt,
                 group_hash=pre_alloc_hash,
-                pre=Alloc.merge(
-                    Alloc.model_validate(
-                        fork.transitions_to().pre_allocation_blockchain()
-                    ),
-                    pre,
-                ),
+                # Plain `Alloc` copy, so later tests can be merged into it.
+                pre=Alloc(pre.root),
             )
             self.root[pre_alloc_hash] = group
 
@@ -620,6 +616,10 @@ class GroupPreAlloc(Alloc):
     _cached_state_root: Hash | None = PrivateAttr(None)
     _model_dump_cache: ModelDumpCache | None = PrivateAttr(None)
     _pre_alloc_group_hash: AllocGroupHash | None = PrivateAttr(None)
+    _genesis_accounts: Literal["absent", "seeded", "deferred"] = PrivateAttr(
+        "seeded"
+    )
+    """Built from the seeded `pre` of every test in the group."""
 
     def structural_copy(self) -> Self:
         """

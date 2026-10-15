@@ -302,12 +302,12 @@ def generate_system_contract_deploy_test(
                 if has_balance == ContractAddressHasBalance.NONZERO_BALANCE
                 else 0
             )
-            pre[expected_deploy_address] = Account(
-                code=b"",  # Remove the code that is automatically allocated on
-                # the fork
-                nonce=0,
-                balance=balance,
-            )
+            # Replace the contract the fork allocates at genesis with a
+            # plain balance, or remove it when there is no balance to keep.
+            if balance:
+                pre[expected_deploy_address] = Account(balance=balance)
+            else:
+                del pre[expected_deploy_address]
 
             expected_deploy_address_int = int.from_bytes(
                 expected_deploy_address, "big"

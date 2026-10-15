@@ -486,12 +486,7 @@ def test_system_contract_deployed_and_called_in_same_block(
 
     # Drop the pre-allocated contract so the deployment transaction creates
     # it.
-    pre[request_type.system_contract_address] = Account(
-        balance=0,
-        code=b"",
-        nonce=0,
-        storage={},
-    )
+    del pre[request_type.system_contract_address]
 
     request_sender = pre.fund_eoa()
     # The fee once the inhibitor is cleared; the same-block request pays it

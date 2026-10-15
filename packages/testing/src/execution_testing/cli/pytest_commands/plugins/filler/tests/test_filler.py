@@ -1037,12 +1037,12 @@ def test_fill_chain_id_reaches_state_test_fixtures(
 
 test_module_benchmark = textwrap.dedent(
     """\
-    from execution_testing import Account, Environment, TestAddress, Transaction
+    from execution_testing import Environment, TestAddress, Transaction
 
-    def test_benchmark_one(state_test) -> None:
+    def test_benchmark_one(state_test, pre) -> None:
+        pre.fund_address(TestAddress, 1_000_000)
         state_test(
             env=Environment(),
-            pre={TestAddress: Account(balance=1_000_000)},
             post={},
             tx=Transaction(gas_limit=0x5208),
         )

@@ -5,7 +5,6 @@ in EIP-6110.
 
 import pytest
 from execution_testing import (
-    Account,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -148,11 +147,7 @@ def test_extra_logs(
         requests = Requests(DEFAULT_DEPOSIT_REQUEST)
     bytecode += Op.STOP
 
-    pre[DepositRequest.system_contract_address] = Account(
-        code=bytecode,
-        nonce=1,
-        balance=0,
-    )
+    pre.update_account(DepositRequest.system_contract_address, code=bytecode)
     sender = pre.fund_eoa()
 
     tx = Transaction(
@@ -206,11 +201,7 @@ def test_invalid_layout(
     )
     bytecode += Op.STOP
 
-    pre[DepositRequest.system_contract_address] = Account(
-        code=bytecode,
-        nonce=1,
-        balance=0,
-    )
+    pre.update_account(DepositRequest.system_contract_address, code=bytecode)
     sender = pre.fund_eoa()
 
     tx = Transaction(
@@ -250,11 +241,7 @@ def test_invalid_layout_with_swapped_decodable_offsets(
     )
     bytecode += Op.STOP
 
-    pre[DepositRequest.system_contract_address] = Account(
-        code=bytecode,
-        nonce=1,
-        balance=0,
-    )
+    pre.update_account(DepositRequest.system_contract_address, code=bytecode)
     sender = pre.fund_eoa()
 
     tx = Transaction(
@@ -359,11 +346,7 @@ def test_invalid_log_length(
     )
     bytecode += Op.STOP
 
-    pre[DepositRequest.system_contract_address] = Account(
-        code=bytecode,
-        nonce=1,
-        balance=0,
-    )
+    pre.update_account(DepositRequest.system_contract_address, code=bytecode)
     sender = pre.fund_eoa()
 
     tx = Transaction(

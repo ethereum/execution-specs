@@ -108,7 +108,7 @@ def test_make_genesis(  # noqa: D103
         BlockchainTest(
             fork=fork,
             genesis_environment=env,
-            pre=pre,
+            pre=pre.with_genesis_accounts(),
             post={},
             blocks=[],
         )
@@ -196,7 +196,7 @@ def test_fill_state_test(
         StateTest(
             fork=fork,
             env=env,
-            pre=pre,
+            pre=Alloc.model_validate(pre).with_genesis_accounts(),
             post=post,
             tx=tx,
         )
