@@ -18,9 +18,9 @@ rewritten by Claude when `ANTHROPIC_API_KEY` is set, and by simple rules
 otherwise.
 
 Labels in `MANAGED_LABELS` are then synced: an area label for each area
-the changed files touch, `zkevm` for pull requests into
-`projects/zkevm`, and `bug` or `perf` from the title type. Other labels
-are never touched.
+the changed files touch, a project label for pull requests into a
+branch in `PROJECT_LABELS`, and `bug` or `perf` from the title type.
+Other labels are never touched.
 
 Read the pull request number from `GITHUB_EVENT_PATH` (or `--pr`) and
 the repository from `GITHUB_REPOSITORY`, and query GitHub via the `gh`
@@ -89,9 +89,18 @@ SPEC_PATHS = ("src/", "tests/json_loader/", "tests/spec_tools/")
 IGNORED_FILES = ("whitelist.txt", "vulture_whitelist.py")
 
 LABEL_FOR_TYPE = {"fix": "bug", "perf": "perf"}
-ZKEVM_BRANCH = "projects/zkevm"
-ZKEVM_LABEL = "zkevm"
-MANAGED_LABELS = {*AREAS, ZKEVM_LABEL, *LABEL_FOR_TYPE.values()}
+# Project label for pull requests into a base branch with this prefix, so
+# `projects/zkevm-releases` is labeled `zkevm` too.
+PROJECT_LABELS = {
+    "projects/zkevm": "zkevm",
+    "projects/binary-trie": "binary-trie",
+    "projects/ubt": "binary-trie",
+}
+MANAGED_LABELS = {
+    *AREAS,
+    *PROJECT_LABELS.values(),
+    *LABEL_FOR_TYPE.values(),
+}
 
 TITLE_PATTERN = re.compile(
     r"^(?P<type>[\w-]+)(?:\((?P<areas>[^)]*)\))?(?P<breaking>!)?:\s*"
@@ -298,8 +307,11 @@ def validate_claude_title(data: Any, touched: list[str]) -> Title | None:
 def desired_labels(touched: list[str], base: str, kind: str) -> set[str]:
     """Return the managed labels a pull request should carry."""
     labels = set(touched)
-    if base == ZKEVM_BRANCH:
-        labels.add(ZKEVM_LABEL)
+    labels.update(
+        label
+        for prefix, label in PROJECT_LABELS.items()
+        if base.startswith(prefix)
+    )
     if kind in LABEL_FOR_TYPE:
         labels.add(LABEL_FOR_TYPE[kind])
     return labels
