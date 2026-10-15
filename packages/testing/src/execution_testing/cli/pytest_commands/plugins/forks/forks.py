@@ -1528,12 +1528,13 @@ def blob_params_changed_at_transition(fork: Fork | TransitionFork) -> bool:
     """
     Check if BPO-relevant blob parameters change at a fork transition.
 
-    For transition forks, compares the 3 blob parameters that BPO forks modify
-    between the from_fork and to_fork:
+    For transition forks, compares these blob parameters between the
+    from_fork and to_fork:
 
     - target_blobs_per_block
     - max_blobs_per_block
     - blob_base_fee_update_fraction
+    - blob_reserve_price_active (EIP-7918, enabled at Osaka)
 
     Returns True if any parameter changed, False otherwise.
 
@@ -1546,11 +1547,13 @@ def blob_params_changed_at_transition(fork: Fork | TransitionFork) -> bool:
     from_fork = fork.transitions_from()
     to_fork = fork.transitions_to()
 
-    # Compare the 3 blob parameters that BPO forks modify
+    # Compare the 3 blob parameters that BPO forks modify, plus the reserve
+    # price flag so that Prague -> Osaka is not dropped
     bpo_blob_params = [
         "target_blobs_per_block",
         "max_blobs_per_block",
         "blob_base_fee_update_fraction",
+        "blob_reserve_price_active",
     ]
 
     for param in bpo_blob_params:
