@@ -251,7 +251,7 @@ def test_validate_claude_title_rejects_bad_output(data: Any) -> None:
     "touched,base,kind,expected",
     [
         (["spec", "ci"], "forks/bogota", "feat", {"spec", "ci"}),
-        (["tests"], "projects/zkevm", "fix", {"tests", "zkevm", "bug"}),
+        (["tests"], "projects/zkevm", "fix", {"tests", "zkevm", "fix"}),
         (["tests"], "projects/zkevm-releases", "feat", {"tests", "zkevm"}),
         (["spec"], "projects/binary-trie", "feat", {"spec", "binary-trie"}),
         (["spec"], "projects/ubt", "feat", {"spec", "binary-trie"}),
@@ -336,8 +336,8 @@ def test_claude_prompt_marks_truncated_diff() -> None:
 def test_label_changes_leave_unmanaged_labels_alone() -> None:
     """Add and remove only managed labels, never `stale` or `backport`."""
     current = {"ci", "stale", "backport forks/amsterdam", "tests"}
-    add, remove = m.label_changes(current, {"tests", "spec", "bug"})
-    assert add == ["bug", "spec"]
+    add, remove = m.label_changes(current, {"tests", "spec", "fix"})
+    assert add == ["fix", "spec"]
     assert remove == ["ci"]
 
 
@@ -411,7 +411,7 @@ def test_main_fixes_title_and_syncs_labels(
             "POST",
             "repos/o/r/issues/7/labels",
             "-f",
-            "labels[]=bug",
+            "labels[]=fix",
             "-f",
             "labels[]=spec",
         ),

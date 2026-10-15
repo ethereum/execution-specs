@@ -19,7 +19,7 @@ otherwise.
 
 Labels in `MANAGED_LABELS` are then synced: an area label for each area
 the changed files touch, a project label for pull requests into a
-branch in `PROJECT_LABELS`, and `bug` or `perf` from the title type.
+branch in `PROJECT_LABELS`, and `fix` or `perf` from the title type.
 Other labels are never touched.
 
 Read the pull request number from `GITHUB_EVENT_PATH` (or `--pr`) and
@@ -88,7 +88,8 @@ BENCHMARK_PATHS = (
 SPEC_PATHS = ("src/", "tests/json_loader/", "tests/spec_tools/")
 IGNORED_FILES = ("whitelist.txt", "vulture_whitelist.py")
 
-LABEL_FOR_TYPE = {"fix": "bug", "perf": "perf"}
+# Title types that are also labels.
+TYPE_LABELS = {"fix", "perf"}
 # Project label for pull requests into a base branch with this prefix, so
 # `projects/zkevm-releases` is labeled `zkevm` too.
 PROJECT_LABELS = {
@@ -99,7 +100,7 @@ PROJECT_LABELS = {
 MANAGED_LABELS = {
     *AREAS,
     *PROJECT_LABELS.values(),
-    *LABEL_FOR_TYPE.values(),
+    *TYPE_LABELS,
 }
 
 TITLE_PATTERN = re.compile(
@@ -341,8 +342,8 @@ def desired_labels(touched: list[str], base: str, kind: str) -> set[str]:
         for prefix, label in PROJECT_LABELS.items()
         if base.startswith(prefix)
     )
-    if kind in LABEL_FOR_TYPE:
-        labels.add(LABEL_FOR_TYPE[kind])
+    if kind in TYPE_LABELS:
+        labels.add(kind)
     return labels
 
 
