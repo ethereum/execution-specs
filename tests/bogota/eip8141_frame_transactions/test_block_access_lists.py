@@ -25,18 +25,20 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytes,
     Fork,
-    FrameReceipt,
     FrameSignature,
     Op,
-    Transaction,
-    TransactionReceipt,
     keccak256,
 )
 
 from tests.frontier.precompiles.spec import Spec as EcrecoverSpec
 from tests.osaka.eip7951_p256verify_precompiles.spec import Spec as Spec7951
 
-from .helpers import default_code_frame_gas, sender_frame, verify_frame
+from .helpers import (
+    FrameTransaction,
+    Outcome,
+    sender_frame,
+    verify_frame,
+)
 from .signature_helpers import P256_SIGNATURE, p256_entry
 from .spec import Spec, ref_spec_8141
 
@@ -73,6 +75,7 @@ WRITE_FRAME_GAS = 200_000
 def test_bal_atomic_batch_write(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     committed: bool,
 ) -> None:
     """
@@ -81,35 +84,30 @@ def test_bal_atomic_batch_write(
     access (EIP-8141 atomic batch behavior; EIP-7928 exceptional halts).
     """
     sender = pre.fund_eoa()
-    target = pre.deploy_contract(code=Op.SSTORE(SLOT, WRITTEN_VALUE) + Op.STOP)
-    terminator = pre.deploy_contract(
-        code=Op.STOP if committed else Op.REVERT(0, 0)
-    )
+    target_code = Op.SSTORE(SLOT, WRITTEN_VALUE) + Op.STOP
+    target = pre.deploy_contract(code=target_code)
+    terminator_code = Op.STOP if committed else Op.REVERT(0, 0)
+    terminator = pre.deploy_contract(code=terminator_code)
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
             verify_frame(),
+            # Succeeds either way; an unrolled batch keeps the status.
             sender_frame(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=target,
+                code=target_code,
                 gas_limit=WRITE_FRAME_GAS,
+                outcome=Outcome.SUCCESS if committed else Outcome.UNROLLED,
             ),
-            sender_frame(target=terminator),
+            sender_frame(
+                target=terminator,
+                code=terminator_code,
+                outcome=Outcome.SUCCESS if committed else Outcome.REVERT,
+            ),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-                # Succeeds either way; an unrolled batch keeps the status.
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS
-                    if committed
-                    else Spec.STATUS_FAILURE
-                ),
-            ],
-        ),
     )
 
     if committed:
@@ -163,6 +161,7 @@ def test_bal_atomic_batch_write(
 def test_bal_atomic_batch_skipped_frame_absent(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Keep a skipped atomic-batch frame's target out of the BAL: the
@@ -170,32 +169,29 @@ def test_bal_atomic_batch_skipped_frame_absent(
     and never accesses its target (EIP-8141 atomic batch behavior).
     """
     sender = pre.fund_eoa()
-    reverter = pre.deploy_contract(code=Op.REVERT(0, 0))
+    reverter_code = Op.REVERT(0, 0)
+    reverter = pre.deploy_contract(code=reverter_code)
     skipped_target = pre.deploy_contract(
         code=Op.SSTORE(SLOT, WRITTEN_VALUE) + Op.STOP
     )
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
             verify_frame(),
             sender_frame(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=reverter,
+                code=reverter_code,
+                outcome=Outcome.REVERT,
             ),
             sender_frame(
                 target=skipped_target,
                 gas_limit=WRITE_FRAME_GAS,
+                outcome=Outcome.SKIPPED,
             ),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-                FrameReceipt(status=Spec.STATUS_FAILURE),
-                FrameReceipt(status=Spec.STATUS_SKIPPED, gas_used=0),
-            ],
-        ),
     )
 
     block = Block(
@@ -218,29 +214,28 @@ def test_bal_atomic_batch_skipped_frame_absent(
 def test_bal_frame_revert_write_dropped(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Drop a reverting (non-batch) frame's storage write from the BAL,
     re-filing the slot as a bare access (EIP-7928 exceptional halts).
     """
     sender = pre.fund_eoa()
-    target = pre.deploy_contract(
-        code=Op.SSTORE(SLOT, WRITTEN_VALUE) + Op.REVERT(0, 0)
-    )
+    target_code = Op.SSTORE(SLOT, WRITTEN_VALUE) + Op.REVERT(0, 0)
+    target = pre.deploy_contract(code=target_code)
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
             verify_frame(),
-            sender_frame(target=target, gas_limit=WRITE_FRAME_GAS),
+            sender_frame(
+                target=target,
+                code=target_code,
+                gas_limit=WRITE_FRAME_GAS,
+                outcome=Outcome.REVERT,
+            ),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-                FrameReceipt(status=Spec.STATUS_FAILURE),
-            ],
-        ),
     )
 
     block = Block(
@@ -280,30 +275,24 @@ def test_bal_unaffordable_designation_absent(
     resolved code, since either forfeits the whole frame gas limit — the
     BAL is what distinguishes them.
     """
-    entry_gas = fork.frame_entry_gas_calculator()
     sender = pre.fund_eoa()
     delegate = pre.deploy_contract(code=Op.SSTORE(SLOT, WRITTEN_VALUE))
     authority = pre.fund_eoa(delegation=delegate)
 
     # The most gas that still cannot afford the designation's access.
-    frame_gas = entry_gas(delegated=True) - 1
+    frame_gas = fork.frame_entry_gas_calculator()(delegated=True) - 1
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
             verify_frame(),
-            sender_frame(target=authority, gas_limit=frame_gas),
+            sender_frame(
+                target=authority,
+                gas_limit=frame_gas,
+                outcome=Outcome.HALT,
+            ),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=True),
-                ),
-                FrameReceipt(status=Spec.STATUS_FAILURE, gas_used=frame_gas),
-            ],
-        ),
     )
 
     block = Block(
@@ -356,13 +345,21 @@ def test_bal_sponsored_payer_and_sender(
     )
     target = pre.deploy_contract(code=target_code)
 
-    tx = Transaction(
+    # The gas is pinned so a gas change fails on the receipt rather than
+    # as an opaque payer balance mismatch.
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
+        payer=payer,
         max_fee_per_gas=fee_per_gas,
         frames=[
             verify_frame(flags=Spec.APPROVE_EXECUTION),
             verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
-            sender_frame(target=target, gas_limit=WRITE_FRAME_GAS),
+            sender_frame(
+                target=target,
+                code=target_code,
+                gas_limit=WRITE_FRAME_GAS,
+            ),
         ],
         signatures=[
             FrameSignature(
@@ -376,39 +373,7 @@ def test_bal_sponsored_payer_and_sender(
             ),
         ],
     )
-    # Materialize the signature bytes the intrinsic cost charges for.
-    tx.sign()
-    assert tx.frames is not None and tx.signatures is not None
-
-    # The two VERIFY frames run the protocol default code, whose only
-    # execution charge is their target's access at entry: warm for the
-    # sender the first frame resolves to, cold for the sponsor the
-    # second one names. The SENDER frame charges its cold target's
-    # access at entry and then runs the storage write.
-    sponsored_gas_used = (
-        fork.frame_transaction_intrinsic_cost_calculator()(
-            frames=tx.frames,
-            signatures=tx.signatures,
-            return_cost_deducted_prior_execution=True,
-        )
-        + default_code_frame_gas(fork, target_warm=True)
-        + default_code_frame_gas(fork, target_warm=False)
-        + fork.frame_entry_gas_calculator()()
-        + target_code.gas_cost(fork)
-    )
-    payer_post_balance = start_balance - sponsored_gas_used * fee_per_gas
-
-    tx.expected_receipt = TransactionReceipt(
-        payer=payer,
-        # Pinned so a gas change fails here rather than as an
-        # opaque payer balance mismatch.
-        cumulative_gas_used=sponsored_gas_used,
-        frame_receipts=[
-            FrameReceipt(status=Spec.STATUS_SUCCESS),
-            FrameReceipt(status=Spec.STATUS_SUCCESS),
-            FrameReceipt(status=Spec.STATUS_SUCCESS),
-        ],
-    )
+    payer_post_balance = start_balance - tx.payer_gas_used() * fee_per_gas
 
     block = Block(
         txs=[tx],
@@ -462,6 +427,7 @@ def test_bal_sponsored_payer_and_sender(
 def test_bal_omits_signature_validation_precompiles(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Signature validation must leave no trace in the block access list.
@@ -486,10 +452,11 @@ def test_bal_omits_signature_validation_precompiles(
     sender = pre.fund_eoa()
     target = pre.deploy_contract(code=Op.STOP)
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION_AND_PAYMENT),
+            verify_frame(),
             sender_frame(target=target),
         ],
         signatures=[
@@ -510,7 +477,6 @@ def test_bal_omits_signature_validation_precompiles(
             ),
         ],
     )
-    tx.sign()
 
     block = Block(
         txs=[tx],

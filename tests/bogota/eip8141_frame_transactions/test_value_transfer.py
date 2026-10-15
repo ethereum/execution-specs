@@ -22,18 +22,17 @@ from execution_testing import (
     BlockAccessListExpectation,
     Bytes,
     Fork,
-    FrameReceipt,
     FrameSignature,
     Op,
     StateTestFiller,
     Transaction,
-    TransactionReceipt,
 )
 
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 
 from .helpers import (
-    default_code_frame_gas,
+    FrameTransaction,
+    Outcome,
     sender_frame,
     verify_frame,
 )
@@ -76,66 +75,27 @@ def test_value_transfer(
     recipient = pre.fund_eoa(amount=1)
 
     if target_kind == "other":
-        value_frame = sender_frame(target=recipient, value=TRANSFER_VALUE)
-        entry_gas = fork.frame_entry_gas_calculator()()
-        logs = [transfer_log(sender, recipient, TRANSFER_VALUE)]
+        value_frame = sender_frame(
+            target=recipient,
+            value=TRANSFER_VALUE,
+            logs=[transfer_log(sender, recipient, TRANSFER_VALUE)],
+        )
     elif target_kind == "self_explicit":
         # The sender seeds the warm set, so its own entry access is
         # warm.
-        value_frame = sender_frame(target=sender, value=TRANSFER_VALUE)
-        entry_gas = fork.frame_entry_gas_calculator()(target_warm=True)
-        logs = []
+        value_frame = sender_frame(
+            target=sender, value=TRANSFER_VALUE, warm=True, logs=[]
+        )
     else:
-        value_frame = sender_frame(value=TRANSFER_VALUE)
-        entry_gas = fork.frame_entry_gas_calculator()(target_warm=True)
-        logs = []
-    verify_gas = default_code_frame_gas(fork, target_warm=True)
+        value_frame = sender_frame(value=TRANSFER_VALUE, warm=True, logs=[])
 
-    tx = Transaction(
-        sender=sender,
-        frames=[
-            # Frame 0: approve execution and payment.
-            verify_frame(),
-            # Frame 1: transfer the value to the resolved target.
-            value_frame,
-        ],
-    )
-    # Materialize the signature bytes the intrinsic cost charges for.
-    tx.sign()
-    assert tx.frames is not None and tx.signatures is not None
-
-    intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=tx.frames,
-        signatures=tx.signatures,
-        sender=sender,
-        return_cost_deducted_prior_execution=True,
-    )
-    calldata_floor = fork.frame_transaction_data_floor_cost_calculator()(
-        frames=tx.frames,
-        signatures=tx.signatures,
-        sender=sender,
-    )
     # Neither frame runs code beyond its target's entry access, so the
     # floor may bind; both anchors carry the value transfer cost, so
     # the pin exercises it either way.
-    gas_used = max(intrinsic + verify_gas + entry_gas, calldata_floor)
-
-    tx.expected_receipt = TransactionReceipt(
-        payer=sender,
-        cumulative_gas_used=gas_used,
-        frame_receipts=[
-            FrameReceipt(
-                status=Spec.STATUS_SUCCESS,
-                gas_used=verify_gas,
-                state_gas_used=0,
-            ),
-            FrameReceipt(
-                status=Spec.STATUS_SUCCESS,
-                gas_used=entry_gas,
-                state_gas_used=0,
-                logs=logs,
-            ),
-        ],
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[verify_frame(), value_frame],
     )
 
     post = {sender: Account(nonce=1)}
@@ -154,12 +114,19 @@ def transfer_exceeding_balance(
     """
     sender = pre.fund_eoa(amount=TRANSFER_VALUE)
     payer = pre.fund_eoa()
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
+        payer=payer,
         frames=[
             verify_frame(flags=Spec.APPROVE_EXECUTION),
             verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
-            sender_frame(target=recipient, value=TRANSFER_VALUE + 1),
+            sender_frame(
+                target=recipient,
+                value=TRANSFER_VALUE + 1,
+                outcome=Outcome.REVERT,
+                logs=[],
+            ),
         ],
         signatures=[
             FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
@@ -169,25 +136,6 @@ def transfer_exceeding_balance(
                 secret_key=payer.key,
             ),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=payer,
-            frame_receipts=[
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=True),
-                ),
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=False),
-                ),
-                FrameReceipt(
-                    status=Spec.STATUS_FAILURE,
-                    gas_used=fork.frame_entry_gas_calculator()(),
-                    state_gas_used=0,
-                    logs=[],
-                ),
-            ],
-        ),
     )
     post = {
         sender: Account(nonce=1, balance=TRANSFER_VALUE),

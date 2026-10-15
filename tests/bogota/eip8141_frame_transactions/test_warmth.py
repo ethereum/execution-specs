@@ -10,13 +10,13 @@ journal shared across frames; a reverting or halting frame discards
 its accesses, so nothing it touched stays warm.
 
 The tests observe warmth in two ways: by measuring the gas of a
-`BALANCE` on a subject address inside a frame, and by pinning a
-frame receipt's `gas_used` to the target access charged at frame
-entry.
+`BALANCE` on a subject address inside a frame, and by declaring a
+frame's target warm or cold, which the frame receipt's `gas_used`
+then pins.
 """
 
 from dataclasses import dataclass
-from enum import Enum, auto, unique
+from typing import Any
 
 import pytest
 from execution_testing import (
@@ -28,16 +28,18 @@ from execution_testing import (
     CodeGasMeasure,
     Environment,
     Fork,
-    Frame,
-    FrameReceipt,
     FrameSignature,
     Op,
     StateTestFiller,
-    Transaction,
-    TransactionReceipt,
 )
 
-from .helpers import default_code_frame_gas, verify_frame
+from .helpers import (
+    FrameCase,
+    FrameTransaction,
+    Outcome,
+    default_frame,
+    verify_frame,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -63,18 +65,10 @@ TOUCH_FRAME_GAS = 200_000
 
 @dataclass(frozen=True)
 class AccessGasProbe:
-    """
-    A deployable gas probe and the expectations pinning its behavior.
-    """
+    """A deployable gas probe and the post account pinning its result."""
 
     code: Bytecode
     """Code measuring the gas of an account access."""
-
-    frame_gas: int
-    """Execution gas a frame running the probe uses."""
-
-    frame_state_gas: int
-    """State gas a frame running the probe uses: its measurement write."""
 
     post_account: Account
     """Post account pinning the measured access cost."""
@@ -89,12 +83,8 @@ def balance_probe(
     The measurement lands in storage slot `SLOT_MEASURED_GAS`, and the
     probe's post account expects the warm or cold access cost there,
     per `warm` — the access the probe is expected to perform. `warm`
-    also tags the measured `BALANCE`'s metadata, so `frame_gas`
-    reflects the frame's actual execution: the cold access for the
-    probe contract itself — always a fresh, untouched frame target —
-    charged at frame entry, plus the probe code's execution gas. The
-    measurement write's state gas lands in `frame_state_gas`,
-    mirroring the two dimensions of the frame's receipt.
+    also tags the measured `BALANCE`'s metadata, so the probe's code
+    prices the frame's actual execution.
     """
     access_gas = Op.BALANCE(address_warm=warm).gas_cost(fork)
     measured = Op.BALANCE(address=subject, address_warm=warm)
@@ -106,38 +96,27 @@ def balance_probe(
     )
     return AccessGasProbe(
         code=code,
-        frame_gas=fork.gas_costs().COLD_ACCOUNT_ACCESS
-        + code.execution_cost(fork),
-        frame_state_gas=code.state_cost(fork),
         post_account=Account(storage={SLOT_MEASURED_GAS: access_gas}),
     )
 
 
-def probe_frame(probe: Address) -> Frame:
+def probe_frame(target: Address, probe: AccessGasProbe) -> FrameCase:
     """
     Return a `DEFAULT` frame calling the probe contract.
+
+    The probe is always a fresh, untouched frame target, so its entry
+    access is cold.
     """
-    return Frame(
-        mode=Spec.MODE_DEFAULT,
-        target=probe,
+    return default_frame(
+        target=target,
+        code=probe.code,
         gas_limit=PROBE_FRAME_GAS,
         state_gas_limit=PROBE_FRAME_STATE_GAS,
     )
 
 
-@unique
-class Outcome(Enum):
-    """How a frame's or a call's code ends."""
-
-    SUCCESS = auto()
-    REVERT = auto()
-    HALT = auto()
-
-
 def outcome_tail(outcome: Outcome) -> Bytecode:
-    """
-    Return the code ending a contract with the given outcome.
-    """
+    """Return the code ending a contract with the given outcome."""
     match outcome:
         case Outcome.SUCCESS:
             return Op.STOP
@@ -145,7 +124,8 @@ def outcome_tail(outcome: Outcome) -> Bytecode:
             return Op.REVERT(0, 0)
         case Outcome.HALT:
             return Op.INVALID
-    raise ValueError(f"unhandled outcome: {outcome}")
+        case _:
+            raise ValueError(f"no code ends a frame as {outcome}")
 
 
 def test_sender_is_warm(
@@ -165,28 +145,13 @@ def test_sender_is_warm(
     probe = balance_probe(sender, fork, warm=True)
     probe_address = pre.deploy_contract(code=probe.code)
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
             verify_frame(),
-            probe_frame(probe_address),
+            probe_frame(probe_address, probe),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                # The verifying frame resolves to the sender, so its
-                # entry charge is the warm access.
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=True),
-                ),
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=probe.frame_gas,
-                    state_gas_used=probe.frame_state_gas,
-                ),
-            ],
-        ),
     )
 
     state_test(
@@ -215,26 +180,13 @@ def test_coinbase_is_warm(
     probe = balance_probe(env.fee_recipient, fork, warm=True)
     probe_address = pre.deploy_contract(code=probe.code)
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
             verify_frame(),
-            probe_frame(probe_address),
+            probe_frame(probe_address, probe),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=True),
-                ),
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=probe.frame_gas,
-                    state_gas_used=probe.frame_state_gas,
-                ),
-            ],
-        ),
     )
 
     state_test(
@@ -281,86 +233,44 @@ def test_frame_target_entry_charge(
     """
     sender = pre.fund_eoa()
 
-    cold_access = fork.gas_costs().COLD_ACCOUNT_ACCESS
-    warm_access = fork.gas_costs().WARM_ACCESS
+    if outcome is Outcome.HALT:
+        # Halt on empty call data, return cleanly otherwise: a zero
+        # `CALLDATASIZE` falls through the `JUMPI` into `INVALID`;
+        # non-empty data jumps to the `JUMPDEST` at offset 5.
+        target_code = (
+            Op.JUMPI(5, Op.CALLDATASIZE) + Op.INVALID + Op.JUMPDEST + Op.STOP
+        )
+    else:
+        target_code = outcome_tail(outcome)
+    target = pre.deploy_contract(code=target_code)
+
+    def touch(**facts: Any) -> FrameCase:
+        return default_frame(
+            target=target,
+            code=target_code,
+            gas_limit=TOUCH_FRAME_GAS,
+            **facts,
+        )
 
     match outcome:
         case Outcome.SUCCESS:
-            target_code = outcome_tail(outcome)
-            code_cost = target_code.gas_cost(fork)
-            frame_data = [b"", b""]
-            expected = [
-                (Spec.STATUS_SUCCESS, cold_access + code_cost),
-                (Spec.STATUS_SUCCESS, warm_access + code_cost),
-            ]
+            # The first frame's success leaves the target warm.
+            touches = [touch(), touch(warm=True)]
         case Outcome.REVERT:
-            target_code = outcome_tail(outcome)
-            code_cost = target_code.gas_cost(fork)
-            frame_data = [b"", b""]
-            expected = [
-                (Spec.STATUS_FAILURE, cold_access + code_cost),
-                (Spec.STATUS_FAILURE, cold_access + code_cost),
-            ]
+            # The revert discards the warmth it charged for.
+            touches = [touch(outcome=outcome), touch(outcome=outcome)]
         case Outcome.HALT:
-            # Halt on empty call data, return cleanly otherwise: a
-            # zero `CALLDATASIZE` falls through the `JUMPI` into
-            # `INVALID`; non-empty data jumps to the `JUMPDEST` at
-            # offset 5.
-            target_code = (
-                Op.JUMPI(5, Op.CALLDATASIZE)
-                + Op.INVALID
-                + Op.JUMPDEST
-                + Op.STOP
-            )
-            # The whole listing's cost equals the executed path's:
-            # the one skipped opcode, `INVALID`, costs nothing.
-            code_cost = target_code.gas_cost(fork)
-            frame_data = [b"", b"\x01"]
-            expected = [
-                # The halting frame forfeits its entire gas limit.
-                (Spec.STATUS_FAILURE, TOUCH_FRAME_GAS),
-                (Spec.STATUS_SUCCESS, cold_access + code_cost),
-            ]
+            touches = [touch(outcome=outcome, data=b""), touch(data=b"\x01")]
         case _:
             raise ValueError(f"unhandled outcome: {outcome}")
 
-    target = pre.deploy_contract(code=target_code)
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
-        frames=[
-            verify_frame(),
-            *[
-                Frame(
-                    mode=Spec.MODE_DEFAULT,
-                    target=target,
-                    gas_limit=TOUCH_FRAME_GAS,
-                    data=data,
-                )
-                for data in frame_data
-            ],
-        ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=True),
-                ),
-                *[
-                    FrameReceipt(status=status, gas_used=gas)
-                    for status, gas in expected
-                ],
-            ],
-        ),
+        frames=[verify_frame(), *touches],
     )
 
-    state_test(
-        pre=pre,
-        tx=tx,
-        post={
-            sender: Account(nonce=1),
-        },
-    )
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
 
 @pytest.mark.parametrize(
@@ -394,48 +304,19 @@ def test_warmth_carry_to_next_frame(
     probe = balance_probe(subject, fork, warm=carries)
     probe_address = pre.deploy_contract(code=probe.code)
 
-    executed_gas = fork.gas_costs().COLD_ACCOUNT_ACCESS + warmer_code.gas_cost(
-        fork
-    )
-    match outcome:
-        case Outcome.SUCCESS:
-            warmer_status = Spec.STATUS_SUCCESS
-            warmer_gas = executed_gas
-        case Outcome.REVERT:
-            warmer_status = Spec.STATUS_FAILURE
-            warmer_gas = executed_gas
-        case Outcome.HALT:
-            # A halting frame forfeits its entire gas limit.
-            warmer_status = Spec.STATUS_FAILURE
-            warmer_gas = TOUCH_FRAME_GAS
-        case _:
-            raise ValueError(f"unhandled outcome: {outcome}")
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
             verify_frame(),
-            Frame(
-                mode=Spec.MODE_DEFAULT,
+            default_frame(
                 target=warmer,
+                code=warmer_code,
                 gas_limit=TOUCH_FRAME_GAS,
+                outcome=outcome,
             ),
-            probe_frame(probe_address),
+            probe_frame(probe_address, probe),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=True),
-                ),
-                FrameReceipt(status=warmer_status, gas_used=warmer_gas),
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=probe.frame_gas,
-                    state_gas_used=probe.frame_state_gas,
-                ),
-            ],
-        ),
     )
 
     state_test(
@@ -468,12 +349,14 @@ def test_payer_warm_after_default_code_payment_approval(
     probe = balance_probe(payer, fork, warm=True)
     probe_address = pre.deploy_contract(code=probe.code)
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
+        payer=payer,
         frames=[
             verify_frame(flags=Spec.APPROVE_EXECUTION),
             verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
-            probe_frame(probe_address),
+            probe_frame(probe_address, probe),
         ],
         signatures=[
             FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
@@ -483,24 +366,6 @@ def test_payer_warm_after_default_code_payment_approval(
                 secret_key=payer.key,
             ),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=payer,
-            frame_receipts=[
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=True),
-                ),
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=False),
-                ),
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=probe.frame_gas,
-                    state_gas_used=probe.frame_state_gas,
-                ),
-            ],
-        ),
     )
 
     state_test(
@@ -543,33 +408,21 @@ def test_origin_warmth_by_frame_mode(
     code = Op.POP(Op.BALANCE(Op.ORIGIN, address_warm=origin_warm)) + Op.STOP
     prober = pre.deploy_contract(code=code)
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
             verify_frame(),
-            Frame(mode=mode, target=prober, gas_limit=TOUCH_FRAME_GAS),
+            default_frame(
+                target=prober,
+                mode=mode,
+                code=code,
+                gas_limit=TOUCH_FRAME_GAS,
+            ),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=True),
-                ),
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=fork.gas_costs().COLD_ACCOUNT_ACCESS
-                    + code.gas_cost(fork),
-                ),
-            ],
-        ),
     )
 
-    state_test(
-        pre=pre,
-        tx=tx,
-        post={sender: Account(nonce=1)},
-    )
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
 
 @pytest.mark.parametrize(
@@ -620,61 +473,26 @@ def test_warmth_from_inner_call(
     probe = balance_probe(subject, fork, warm=carries)
     probe_address = pre.deploy_contract(code=probe.code)
 
-    outer_gas: int | None
-    match child_outcome, frame_outcome:
-        case (_, Outcome.HALT):
-            # A halting frame forfeits its entire gas limit.
-            outer_gas = TOUCH_FRAME_GAS
-        case (Outcome.HALT, _):
-            # The halting child consumes all the gas forwarded to it,
-            # an amount set by the 63/64 retention rule rather than by
-            # the code under test, so the frame's gas is not pinned.
-            outer_gas = None
-        case (
-            Outcome.SUCCESS | Outcome.REVERT,
-            Outcome.SUCCESS | Outcome.REVERT,
-        ):
-            outer_gas = (
-                fork.gas_costs().COLD_ACCOUNT_ACCESS
-                + outer_code.gas_cost(fork)
-                + child_code.gas_cost(fork)
-            )
-        case _:
-            raise ValueError(
-                f"unhandled outcomes: {child_outcome}, {frame_outcome}"
-            )
-
-    outer_status = (
-        Spec.STATUS_SUCCESS
-        if frame_outcome is Outcome.SUCCESS
-        else Spec.STATUS_FAILURE
-    )
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
             verify_frame(),
-            Frame(
-                mode=Spec.MODE_DEFAULT,
+            default_frame(
                 target=outer,
                 gas_limit=TOUCH_FRAME_GAS,
+                outcome=frame_outcome,
+                execution_gas=(
+                    outer_code.execution_cost(fork)
+                    + child_code.execution_cost(fork)
+                ),
+                # A halting child consumes all the gas forwarded to it,
+                # an amount the 63/64 retention rule sets rather than
+                # the code under test.
+                pin_gas=child_outcome is not Outcome.HALT,
             ),
-            probe_frame(probe_address),
+            probe_frame(probe_address, probe),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=True),
-                ),
-                FrameReceipt(status=outer_status, gas_used=outer_gas),
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=probe.frame_gas,
-                    state_gas_used=probe.frame_state_gas,
-                ),
-            ],
-        ),
     )
 
     state_test(
