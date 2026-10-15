@@ -86,66 +86,46 @@ def blob_txs(
     return txs
 
 
-def test_frame_and_blob_txs_fill_the_block_blob_limit(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Accept a block whose frame and EIP-4844 transactions together carry
-    exactly the fork's maximum blob count, with `blob_gas_used` counting
-    the blobs of both kinds.
-    """
-    max_blobs = fork.max_blobs_per_block()
-    blockchain_test(
-        pre=pre,
-        post={},
-        blocks=[
-            Block(
-                txs=blob_txs(pre, fork, max_blobs, last_is_frame_tx=True),
-                header_verify=Header(
-                    blob_gas_used=max_blobs * fork.blob_gas_per_blob()
-                ),
-            )
-        ],
-    )
-
-
+@pytest.mark.parametrize(
+    "extra_blobs",
+    [
+        pytest.param(0, id="at_limit"),
+        pytest.param(1, id="above_limit", marks=pytest.mark.exception_test),
+    ],
+)
 @pytest.mark.parametrize(
     "last_is_frame_tx",
     [True, False],
-    ids=["frame_tx_crosses", "blob_tx_crosses"],
+    ids=["frame_tx_last", "blob_tx_last"],
 )
-@pytest.mark.exception_test
-def test_frame_and_blob_txs_exceed_the_block_blob_limit(
+def test_frame_and_blob_txs_against_the_block_blob_limit(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     last_is_frame_tx: bool,
+    extra_blobs: int,
 ) -> None:
     """
-    Reject a block whose frame and EIP-4844 transactions together carry one
-    blob more than the fork's maximum: whichever kind crosses the limit, the
-    blobs of the other kind count against it.
+    Accept a block whose frame and EIP-4844 transactions together carry
+    exactly the fork's maximum blob count, with `blob_gas_used` counting
+    the blobs of both kinds, and reject one carrying one blob more:
+    whichever kind crosses the limit, the blobs of the other kind count
+    against it.
     """
-    max_blobs = fork.max_blobs_per_block()
-    error = TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
-    blockchain_test(
-        pre=pre,
-        post={},
-        blocks=[
-            Block(
-                txs=blob_txs(
-                    pre,
-                    fork,
-                    max_blobs + 1,
-                    last_is_frame_tx,
-                    last_tx_error=error,
-                ),
-                exception=error,
-                rlp_modifier=Header(
-                    blob_gas_used=(max_blobs + 1) * fork.blob_gas_per_blob()
-                ),
-            )
-        ],
-    )
+    total_blobs = fork.max_blobs_per_block() + extra_blobs
+    header = Header(blob_gas_used=total_blobs * fork.blob_gas_per_blob())
+    if extra_blobs:
+        error = TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
+        block = Block(
+            txs=blob_txs(
+                pre, fork, total_blobs, last_is_frame_tx, last_tx_error=error
+            ),
+            exception=error,
+            rlp_modifier=header,
+        )
+    else:
+        block = Block(
+            txs=blob_txs(pre, fork, total_blobs, last_is_frame_tx),
+            header_verify=header,
+        )
+    blockchain_test(pre=pre, post={}, blocks=[block])
