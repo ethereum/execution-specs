@@ -100,6 +100,7 @@ from ..shared.fixture_output import (
 )
 from ..shared.helpers import (
     get_spec_format_for_item,
+    is_benchmark_test,
     is_help_or_collectonly_mode,
     option_was_explicitly_set,
 )
@@ -517,6 +518,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="clean",
         default=False,
         help="Clean (remove) the output directory before filling fixtures.",
+    )
+    test_group.addoption(
+        "--count-opcodes",
+        action="store_true",
+        dest="count_opcodes",
+        default=False,
+        help=(
+            "Record opcode counts in the `_info.metadata` of every fixture. "
+            "By default only benchmark tests record them."
+        ),
     )
     test_group.addoption(
         "--single-fixture-per-file",
@@ -1214,7 +1225,13 @@ def t8n(
     session_t8n.reset_traces()
     session_t8n.call_counter = 0
     session_t8n.debug_dump_dir = dump_dir_parameter_level
-    # TODO: Configure the transition tool to count opcodes only when required.
+    # Only benchmark tests report opcode counts, unless asked for all.
+    session_t8n.count_opcodes = (
+        request.config.getoption("count_opcodes")
+        or getattr(request.config, "op_mode", None) == OpMode.BENCHMARKING
+        or "benchmark_test" in request.fixturenames
+        or is_benchmark_test(request)
+    )
     session_t8n.reset_opcode_count()
     yield session_t8n
     # Only collect subkey stats for cacheable tests (non-cacheable tests

@@ -202,8 +202,15 @@ class T8N(Load):
             blob_base_fee_update_fraction=base_fee_update_fraction,
         )
 
+        # The tracer active before this transition, put back by `run`.
+        self._previous_tracer: trace.EvmTracer | None = None
         if tracers is not None:
-            trace.set_evm_trace(tracers)
+            if len(tracers.tracers) == 1:
+                # A group of one would add a call to every trace event.
+                (tracer,) = tracers.tracers
+                self._previous_tracer = trace.set_evm_trace(tracer)
+            else:
+                self._previous_tracer = trace.set_evm_trace(tracers)
         self.tracers = tracers
 
         self.logger = get_stream_logger("T8N")
@@ -479,10 +486,15 @@ class T8N(Load):
             TransitionToolOutput,
         )
 
-        if self.state_test:
-            self.run_state_test()
-        else:
-            self.run_blockchain_test()
+        try:
+            if self.state_test:
+                self.run_state_test()
+            else:
+                self.run_blockchain_test()
+        finally:
+            if self._previous_tracer is not None:
+                trace.set_evm_trace(self._previous_tracer)
+                self._previous_tracer = None
 
         # Apply the block diff in place so `self.alloc` is the post-state
         # when the caller reads it. Safe to do unconditionally, as
