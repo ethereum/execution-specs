@@ -540,7 +540,7 @@ def test_tx_gas_allowance_after_larger_tx(
         sender=pre.fund_eoa(),
         protected=False,
     )
-    recipient_balance = 10**18
+    recipient_balance = 1
     recipient = pre.fund_eoa(amount=recipient_balance)
     error = (
         TransactionException.GAS_ALLOWANCE_EXCEEDED
