@@ -26,6 +26,7 @@ from execution_testing import (
     Header,
     NetworkWrappedTransaction,
     Transaction,
+    TransactionException,
 )
 
 from .spec import Spec, ref_spec_8141
@@ -151,8 +152,14 @@ def test_reject_frame_tx_network_wrapper_in_block(
             Block(
                 txs=[tx],
                 # The transition tool executes the plain transaction; only
-                # the block's RLP carries the wrapper.
-                exception=BlockException.RLP_STRUCTURES_ENCODING,
+                # the block's RLP carries the wrapper. A client rejects it
+                # while decoding the body or, as for an EIP-4844
+                # transaction, once it finds blobs attached to the decoded
+                # transaction.
+                exception=[
+                    BlockException.RLP_STRUCTURES_ENCODING,
+                    TransactionException.TYPE_3_TX_WITH_FULL_BLOBS,
+                ],
                 rlp_modifier=Header(
                     blob_gas_used=len(blobs) * fork.blob_gas_per_blob()
                 ),
