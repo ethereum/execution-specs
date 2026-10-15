@@ -40,8 +40,9 @@ BLOB_COMMITMENT_VERSION_KZG = 1
 MAX_FEE_PER_BLOB_GAS = 11
 """A blob fee cap above the blob base fee, distinct from other fields."""
 
-MAX_PRIORITY_FEE = 7
 MAX_FEE = 1_000_000_000
+"""A fee cap above the base fee, so a max cost computed at the effective
+gas price instead of the cap is caught."""
 
 PROBE_FRAME_GAS = 500_000
 PROBE_FRAME_STATE_GAS = 1_000_000
@@ -70,6 +71,7 @@ def max_cost(fork: Fork, tx: Transaction) -> int:
     """
     tx.sign()
     assert tx.frames is not None and tx.signatures is not None
+    assert tx.max_fee_per_gas is not None
     max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
         frames=tx.frames, signatures=tx.signatures
     )
@@ -78,7 +80,7 @@ def max_cost(fork: Fork, tx: Transaction) -> int:
     ) + sum(int(frame.state_gas_limit) for frame in tx.frames)
     blob_gas = fork.blob_gas_per_blob() * BLOB_COUNT
     blob_base_fee = fork.blob_gas_price_calculator()(excess_blob_gas=0)
-    return max(max_gas, floor) * MAX_FEE + blob_gas * blob_base_fee
+    return max(max_gas, floor) * tx.max_fee_per_gas + blob_gas * blob_base_fee
 
 
 @pytest.mark.parametrize(
@@ -116,7 +118,6 @@ def test_blob_introspection(
     probe = pre.deploy_contract(code=probe_code)
     tx = Transaction(
         sender=pre.fund_eoa(),
-        max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee_per_gas=MAX_FEE,
         max_fee_per_blob_gas=MAX_FEE_PER_BLOB_GAS,
         blob_versioned_hashes=hashes,
@@ -178,7 +179,6 @@ def test_blob_introspection_in_verify_frame(
     tx = Transaction(
         sender=sender,
         nonce=1,
-        max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee_per_gas=MAX_FEE,
         max_fee_per_blob_gas=MAX_FEE_PER_BLOB_GAS,
         blob_versioned_hashes=hashes,
