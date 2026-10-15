@@ -146,6 +146,20 @@ class BaseTest(BaseModel):
         # instead of each test having to set it
     )
     operation_mode: OpMode | None = None
+    sync_block: bool = True
+    """
+    Append an empty block above each of the test's leaf blocks, stored
+    in the fixture's sync payloads for formats that carry them. A test
+    opts out by passing ``sync_block=False``. See "Sync Payloads" in
+    the filling-tests docs.
+    """
+    test_id: str = ""
+    """
+    The test's pytest node id, with any xdist group suffix stripped.
+
+    Set by the test framework; a consumer asserts that it is set
+    rather than trusting the default.
+    """
     gas_optimization_max_gas_limit: int | None = None
     expected_benchmark_gas_used: int | None = None
     skip_gas_used_validation: bool = False
