@@ -119,3 +119,16 @@ def test_address_stubs_is_eoa() -> None:
     assert not stubs.is_eoa("contract")
     assert stubs.is_eoa("eoa")
     assert not stubs.is_eoa("nonexistent")
+
+
+@pytest.mark.parametrize("value", ["16", "0x10"])
+def test_eoa_start_accepts_decimal_and_hex(
+    pytester: pytest.Pytester, value: str
+) -> None:
+    """Verify --eoa-start accepts the hex value the report header prints."""
+    config = pytester.parseconfig(
+        "-p",
+        "execution_testing.cli.pytest_commands.plugins.execute.pre_alloc",
+        f"--eoa-start={value}",
+    )
+    assert config.getoption("eoa_iterator_start") == 16
