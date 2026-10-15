@@ -17,10 +17,18 @@ import pytest
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.devp2p.chain import Block, Chain
 from execution_testing.devp2p.peer import MockPeer, PeerStatistics
+from execution_testing.devp2p.protocol import ForkSchedule
 from execution_testing.devp2p.rlpx import RLPxError
 from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.forks import (
+    ALL_FORKS_WITH_TRANSITIONS,
+    Cancun,
+    Paris,
+    ParisToShanghaiAtTime15k,
+)
 
 from ..simulators.helpers.exceptions import LoggedError
+from ..simulators.helpers.ruleset import ruleset
 from ..simulators.helpers.timing import TimingData
 from ..simulators.simulator_logic import test_via_wirex
 from ..simulators.simulator_logic.test_via_wirex import (
@@ -359,6 +367,7 @@ def _mock_peer_for_next_test(peer: _DroppedPeer) -> Any:
         mock_peers={"client": peer},
         wirex_eth_versions=(),
         wirex_serve_bals=False,
+        wirex_fork_schedule=ForkSchedule(),
         total_timing_data=TimingData("Total"),
     )
 
@@ -387,3 +396,91 @@ class TestRedialBetweenTests:
         peer = _DroppedPeer(refusal)
         assert _mock_peer_for_next_test(peer) is peer
         assert peer.calls == ["reset", "redial"]
+
+
+POST_MERGE_FORKS = sorted(
+    (fork for fork in ALL_FORKS_WITH_TRANSITIONS if fork >= Paris), key=str
+)
+"""Sorted, so every xdist worker collects the same parameters."""
+
+
+def _ruleset_activations(fork: Any) -> tuple[set[int], set[int]]:
+    """Return the block and time activations Hive configures past 0."""
+    entries = ruleset[fork]
+    blocks = {
+        value
+        for key, value in entries.items()
+        if key.startswith("HIVE_FORK_") and value
+    }
+    times = {
+        value
+        for key, value in entries.items()
+        if key.endswith("_TIMESTAMP") and value
+    }
+    return blocks, times
+
+
+class TestForkSchedule:
+    """The peer's fork schedule is the one the client is configured with."""
+
+    def test_a_transition_fork_activates_its_second_fork_later(
+        self,
+    ) -> None:
+        """ParisToShanghaiAtTime15k forks to Shanghai at t=15000."""
+        assert wirex.fork_schedule_of(
+            ParisToShanghaiAtTime15k
+        ) == ForkSchedule(block_numbers=(0,), timestamps=(15000,))
+
+    def test_a_single_fork_runs_from_genesis(self) -> None:
+        """A fork that is no transition schedules nothing past genesis."""
+        assert wirex.fork_schedule_of(Cancun) == ForkSchedule()
+
+    @pytest.mark.parametrize("fork", POST_MERGE_FORKS, ids=str)
+    def test_the_schedule_matches_the_hive_ruleset(self, fork: Any) -> None:
+        """Every activation past genesis the client gets, and no other."""
+        schedule = wirex.fork_schedule_of(fork)
+        blocks, times = _ruleset_activations(fork)
+        assert {n for n in schedule.block_numbers if n} == blocks
+        assert {t for t in schedule.timestamps if t} == times
+
+    def test_the_fixture_reads_the_groups_fork(self) -> None:
+        """The schedule comes from the pre-allocation group's network."""
+        group = SimpleNamespace(fork=ParisToShanghaiAtTime15k)
+        schedule = fixture_body(wirex.wirex_fork_schedule)(group)
+        assert schedule.timestamps == (15000,)
+
+    def test_the_peer_is_dialed_with_the_schedule(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The dialed peer computes its Status from the group's schedule."""
+        made: dict[str, Any] = {}
+
+        class _DialedPeer:
+            """Keep the peer's arguments instead of dialing."""
+
+            remote_name = "client"
+
+            def __init__(self, **arguments: Any) -> None:
+                made.update(arguments)
+
+            def connect(self, chain: Chain) -> None:
+                del chain
+
+            def start(self) -> None:
+                pass
+
+        monkeypatch.setattr(wirex, "MockPeer", _DialedPeer)
+        client = SimpleNamespace(
+            ip="127.0.0.1",
+            enode=lambda: SimpleNamespace(port=30303, id="00" * 64),
+        )
+        schedule = wirex.fork_schedule_of(ParisToShanghaiAtTime15k)
+        wirex.dial_mock_peer(
+            cast(Any, client),
+            _chain([_block(1, empty=False)]),
+            (),
+            False,
+            schedule,
+            TimingData("Total"),
+        )
+        assert made["fork_schedule"] is schedule

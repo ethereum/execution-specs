@@ -25,15 +25,21 @@ from execution_testing.devp2p.chain import (
     chain_from_payloads,
 )
 from execution_testing.devp2p.peer import MockPeer
-from execution_testing.devp2p.protocol import ETH_PROTOCOLS, EthVersion
+from execution_testing.devp2p.protocol import (
+    ETH_PROTOCOLS,
+    EthVersion,
+    ForkSchedule,
+)
 from execution_testing.devp2p.rlpx import RLPxError
-from execution_testing.fixtures import BlockchainEngineXFixture
+from execution_testing.fixtures import BlockchainEngineXFixture, PreAllocGroup
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.fixtures.consume import (
     TestCaseBase,
     TestCaseIndexFile,
     TestCaseStream,
 )
+from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks.transition_base_fork import TransitionBaseClass
 
 from ..helpers.test_tracker import (
     GroupVariants,
@@ -482,11 +488,34 @@ def mock_peers(
         peer.close()
 
 
+def fork_schedule_of(fork: Fork | TransitionFork) -> ForkSchedule:
+    """
+    Return when the network a client runs for `fork` forks after genesis.
+
+    The client is configured from the Hive ruleset of the group's fork
+    (see `multi_test_client`), which activates every fork of a post-merge
+    network at genesis except the second fork of a transition fork:
+    Shanghai at timestamp 15000 for `ParisToShanghaiAtTime15k`, say.
+    """
+    if not issubclass(fork, TransitionBaseClass):
+        return ForkSchedule()
+    return ForkSchedule(
+        block_numbers=(fork.at_block,), timestamps=(fork.at_timestamp,)
+    )
+
+
+@pytest.fixture(scope="function")
+def wirex_fork_schedule(pre_alloc_group: PreAllocGroup) -> ForkSchedule:
+    """Return the fork schedule of the network the group's client runs."""
+    return fork_schedule_of(pre_alloc_group.fork)
+
+
 def dial_mock_peer(
     client: Client,
     chain: Chain,
     eth_versions: tuple[EthVersion, ...],
     serve_bals: bool,
+    fork_schedule: ForkSchedule,
     total_timing_data: "TimingData",
 ) -> MockPeer:
     """
@@ -505,6 +534,7 @@ def dial_mock_peer(
         network_id=DEFAULT_NETWORK_ID,
         eth_versions=eth_versions,
         serve_bals=serve_bals,
+        fork_schedule=fork_schedule,
     )
     with total_timing_data.time("Connect mock peer"):
         # The client readiness gate waits on the Engine API port only;
@@ -532,6 +562,7 @@ def mock_peer(
     mock_peers: Dict[str, MockPeer],
     wirex_eth_versions: tuple[EthVersion, ...],
     wirex_serve_bals: bool,
+    wirex_fork_schedule: ForkSchedule,
     total_timing_data: "TimingData",
 ) -> MockPeer:
     """
@@ -549,6 +580,7 @@ def mock_peer(
             chain,
             wirex_eth_versions,
             wirex_serve_bals,
+            wirex_fork_schedule,
             total_timing_data,
         )
         mock_peers[client.id] = peer
