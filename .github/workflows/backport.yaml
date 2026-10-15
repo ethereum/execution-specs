@@ -56,10 +56,11 @@ jobs:
           # Assign the original author so they shepherd the backport (best
           # effort — a non-assignable external author is simply skipped).
           add_author_as_assignee: true
-          # Carry the repo's `A-<area>`/`C-<type>` labels over to the backport
-          # PR. The action excludes labels matching `label_pattern`, so the
-          # `backport …` trigger label is never copied (no re-backport loop).
-          copy_labels_pattern: '^[AC]-'
+          # Carry the labels `pr-title-and-labels.yaml` manages over to the
+          # backport PR. The action excludes labels matching `label_pattern`,
+          # so the `backport …` trigger label is never copied (no re-backport
+          # loop).
+          copy_labels_pattern: '^(spec|tests|benchmark|framework|ci|zkEVM|bug|perf)$'
           # A PAT or GitHub App token stored as the `BACKPORT_TOKEN` secret
           # lets CI run on the backport PR; the default GITHUB_TOKEN cannot
           # trigger downstream workflows. Falls back to GITHUB_TOKEN when the

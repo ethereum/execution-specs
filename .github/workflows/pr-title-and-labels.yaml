@@ -1,0 +1,42 @@
+name: PR title and labels
+
+# Labels every pull request from the files it changes and fixes its title to
+# the `<type>(<areas>): <description>` form described in CONTRIBUTING.md.
+# Titles with an unknown type are rewritten by Claude when the
+# `ANTHROPIC_API_KEY` secret is set, otherwise by simple rules.
+#
+# Runs from the base branch via `pull_request_target`, so fork pull requests
+# get a write token. The pull request's code is never checked out, and its
+# title only reaches the script through the event payload, never a `run:`
+# expression. Title edits made with the workflow token do not re-trigger it.
+
+on:
+  pull_request_target:
+    types: [ opened, reopened, edited, synchronize, ready_for_review ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  title-and-labels:
+    name: Title and labels
+    # A description-only edit cannot change the title or the labels.
+    if: github.event.action != 'edited' || github.event.changes.title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-uv
+        with:
+          enable-cache: "false"
+      - name: Fix title and sync labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run -q .github/scripts/pr_title_and_labels.py
