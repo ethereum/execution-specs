@@ -56,10 +56,10 @@ SLOT_FIRST_BLOBHASH = 0x10
 the last blob included."""
 
 
-def blob_versioned_hashes() -> List[Hash]:
-    """Return the versioned hashes of the probed transaction."""
+def blob_versioned_hashes(count: int) -> List[Hash]:
+    """Return `count` versioned hashes for the probed transaction."""
     return add_kzg_version(
-        list(range(1, BLOB_COUNT + 1)), BLOB_COMMITMENT_VERSION_KZG
+        list(range(1, count + 1)), BLOB_COMMITMENT_VERSION_KZG
     )
 
 
@@ -72,13 +72,14 @@ def max_cost(fork: Fork, tx: Transaction) -> int:
     tx.sign()
     assert tx.frames is not None and tx.signatures is not None
     assert tx.max_fee_per_gas is not None
+    assert tx.blob_versioned_hashes is not None
     max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
         frames=tx.frames, signatures=tx.signatures
     )
     floor = fork.frame_transaction_data_floor_cost_calculator()(
         frames=tx.frames, signatures=tx.signatures
     ) + sum(int(frame.state_gas_limit) for frame in tx.frames)
-    blob_gas = fork.blob_gas_per_blob() * BLOB_COUNT
+    blob_gas = fork.blob_gas_per_blob() * len(tx.blob_versioned_hashes)
     blob_base_fee = fork.blob_gas_price_calculator()(excess_blob_gas=0)
     return max(max_gas, floor) * tx.max_fee_per_gas + blob_gas * blob_base_fee
 
@@ -100,9 +101,9 @@ def test_blob_introspection(
     and `TXPARAM` reports the blob count, the blob fee cap and a maximum
     cost that includes the blob gas.
     """
-    hashes = blob_versioned_hashes()
+    hashes = blob_versioned_hashes(BLOB_COUNT)
     probe_code = Bytecode()
-    for index in range(BLOB_COUNT + 1):
+    for index in range(len(hashes) + 1):
         probe_code += Op.SSTORE(
             SLOT_FIRST_BLOBHASH + index, Op.BLOBHASH(index)
         )
@@ -135,8 +136,8 @@ def test_blob_introspection(
         SLOT_FIRST_BLOBHASH + index: blob_hash
         for index, blob_hash in enumerate(hashes)
     }
-    storage[SLOT_FIRST_BLOBHASH + BLOB_COUNT] = 0
-    storage[SLOT_BLOB_COUNT] = BLOB_COUNT
+    storage[SLOT_FIRST_BLOBHASH + len(hashes)] = 0
+    storage[SLOT_BLOB_COUNT] = len(hashes)
     storage[SLOT_MAX_FEE_PER_BLOB_GAS] = MAX_FEE_PER_BLOB_GAS
     storage[SLOT_MAX_COST] = max_cost(fork, tx)
     state_test(pre=pre, tx=tx, post={probe: Account(storage=storage)})
@@ -153,14 +154,14 @@ def test_blob_introspection_in_verify_frame(
     `TXPARAM` reports the blob count and the blob fee cap. The
     transaction is valid only if every read matches.
     """
-    hashes = blob_versioned_hashes()
-    reads_match = Op.ISZERO(Op.BLOBHASH(BLOB_COUNT))
+    hashes = blob_versioned_hashes(BLOB_COUNT)
+    reads_match = Op.ISZERO(Op.BLOBHASH(len(hashes)))
     for index, blob_hash in enumerate(hashes):
         reads_match = Op.AND(reads_match, Op.EQ(Op.BLOBHASH(index), blob_hash))
     reads_match = Op.AND(
         Op.AND(
             reads_match,
-            Op.EQ(Op.TXPARAM(Spec.TXPARAM_BLOB_COUNT), BLOB_COUNT),
+            Op.EQ(Op.TXPARAM(Spec.TXPARAM_BLOB_COUNT), len(hashes)),
         ),
         Op.EQ(
             Op.TXPARAM(Spec.TXPARAM_MAX_FEE_PER_BLOB_GAS),
