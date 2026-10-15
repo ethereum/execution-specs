@@ -577,8 +577,8 @@ def test_withdrawals_credited_before_request_system_call(
     else:
         raise ValueError(f"unhandled share: {forwarded_share}")
 
-    pre[predeploy] = Account(
-        code=Op.CALL(address=sink, value=forwarded_value),
+    pre.update_account(
+        predeploy, code=Op.CALL(address=sink, value=forwarded_value)
     )
 
     blockchain_test(
