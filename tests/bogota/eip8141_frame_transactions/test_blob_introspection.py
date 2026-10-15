@@ -7,6 +7,7 @@ Blob introspection in frame transactions, for
 which includes the blob gas at the blob base fee.
 """
 
+from functools import reduce
 from typing import Dict, List
 
 import pytest
@@ -155,19 +156,22 @@ def test_blob_introspection_in_verify_frame(
     transaction is valid only if every read matches.
     """
     hashes = blob_versioned_hashes(BLOB_COUNT)
-    reads_match = Op.ISZERO(Op.BLOBHASH(len(hashes)))
-    for index, blob_hash in enumerate(hashes):
-        reads_match = Op.AND(reads_match, Op.EQ(Op.BLOBHASH(index), blob_hash))
-    reads_match = Op.AND(
-        Op.AND(
-            reads_match,
-            Op.EQ(Op.TXPARAM(Spec.TXPARAM_BLOB_COUNT), len(hashes)),
-        ),
+    checks = [
+        # The index past the last blob reads zero.
+        Op.ISZERO(Op.BLOBHASH(len(hashes))),
+        # Each index reads its versioned hash.
+        *[
+            Op.EQ(Op.BLOBHASH(i), blob_hash)
+            for i, blob_hash in enumerate(hashes)
+        ],
+        # The blob count and the blob fee cap read back as sent.
+        Op.EQ(Op.TXPARAM(Spec.TXPARAM_BLOB_COUNT), len(hashes)),
         Op.EQ(
             Op.TXPARAM(Spec.TXPARAM_MAX_FEE_PER_BLOB_GAS),
             MAX_FEE_PER_BLOB_GAS,
         ),
-    )
+    ]
+    reads_match = reduce(Op.AND, checks)
     sender = pre.deploy_contract(
         code=Conditional(
             condition=reads_match,
