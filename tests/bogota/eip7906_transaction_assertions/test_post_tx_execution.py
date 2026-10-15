@@ -19,6 +19,7 @@ from execution_testing import (
     Transaction,
     TransactionException,
     TransactionReceipt,
+    add_kzg_version,
 )
 
 from tests.bogota.eip8141_frame_transactions.helpers import (
@@ -372,6 +373,42 @@ def test_frameparam_reads_post_tx_mode(
         post={
             sender: Account(nonce=1),
             recorder: Account(storage={SLOT_A: Spec.MODE_POST_TX}),
+        },
+    )
+
+
+def test_blobhash_in_post_tx_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Return the transaction's blob versioned hashes through `BLOBHASH` in
+    a `POST_TX` frame, as EIP-8141 does in every frame: the assertion
+    accepts the body only when each index returns its hash and the index
+    past the last one returns zero.
+    """
+    sender = pre.fund_eoa()
+    blob_versioned_hashes = add_kzg_version([1, 2], 1)
+    writer = pre.deploy_contract(code=Op.SSTORE(SLOT_A, 1) + Op.STOP)
+    assertion_code = expect_eq(Op.BLOBHASH(len(blob_versioned_hashes)), 0)
+    for index, blob_hash in enumerate(blob_versioned_hashes):
+        assertion_code += expect_eq(Op.BLOBHASH(index), blob_hash)
+    assertion = pre.deploy_contract(code=assertion_code + Op.STOP)
+
+    state_test(
+        pre=pre,
+        tx=assertion_transaction(
+            fork,
+            sender,
+            body=[body_frame(fork, target=writer)],
+            assertion=assertion,
+            frame_receipts=success_receipts(3),
+            blob_versioned_hashes=blob_versioned_hashes,
+        ),
+        post={
+            sender: Account(nonce=1),
+            writer: Account(storage={SLOT_A: 1}),
         },
     )
 
