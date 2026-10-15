@@ -11,9 +11,10 @@ carry a lot of boilerplate, hardcoded values, and weak/incomplete post-state
 checks. This skill is the ordered methodology for turning one into idiomatic,
 robust Python.
 
-This skill is a **living document**: it captures the cases we have validated so
-far. Real tests will hit shapes not covered here — that is expected. When you
-find one, solve it, then add the new case/step to this file.
+This skill captures the cases validated so far. Real tests will hit shapes not
+covered here — that is expected. When you solve one whose lesson generalizes
+beyond the test at hand, propose an addition to this file, folded into the
+step it belongs to rather than appended as a one-off case.
 
 ## Goal
 
@@ -44,15 +45,13 @@ so a failure is attributable.
 ## Verification cadence
 
 - **Iterating:** `--fork=<baseline>` (usually Cancun) — fast.
-- **Checkpoint / done:** fill the whole `valid_from` range (omit `--fork`) so all
+- **Checkpoint:** fill the whole `valid_from` range (omit `--fork`) so all
   deployed forks are exercised.
-- **Probe the future fork:** explicitly `--fork Amsterdam` (or the latest fork
-  that enables new EIPs). A gas/state-cost change there is the most likely
-  future breakage. (Historical note: broken tests used to be parked in a
-  `tests/ported_static/amsterdam_skip_list.txt` consumed by a local conftest;
-  the list was emptied and both were removed. If a future fork's repricing
-  breaks tests en masse, the same parking pattern — a substring-matched skip
-  list plus a `pytest_collection_modifyitems` hook — is in git history.)
+- **Probe the forks under development:** `--fork <fork>` for each fork a plain
+  run skips (the unscheduled forks, up to the `Justfile`'s `latest_fork`). A
+  gas/state-cost change there is the most likely future breakage. If a
+  repricing breaks tests en masse, a substring-matched skip list plus a
+  `pytest_collection_modifyitems` hook can park them.
 - **`fill` output:** writes to `./fixtures` (`--clean` resets it), or pass
   `--output <dir>` for a scratch location. Do **not** use `-o` — that is
   pytest's `--override-ini`, not the output dir.
@@ -140,7 +139,7 @@ gas the tx receives, so the body executes fully. See the [Transactions section]
 - **Gas-snapshot tests are gas-sensitive.** If the post asserts a stored `GAS`
   reading or a `SUB(@gas_before, GAS)` delta (legacy slots `0` / `0x64`), the
   test *measures gas* — handle it under step 10 (preserve via `CodeGasMeasure`),
-  do not just strip `gas_limit`. This was the dominant skip-list shape:
+  do not just strip `gas_limit`. It is the most common Amsterdam breakage:
   the stored gas value is exactly what EIP-8037 re-prices and breaks.
 - **EIP-8037 caveat:** when you omit `gas_limit` on a test that *measures* an
   operation incurring **state gas** (account creation, storage writes), add
@@ -194,7 +193,7 @@ under test.
   (`gas=0xEA60`, `gas=0x186A0`) that was sized for the *old* gas schedule; once
   EIP-8037 inflates the callee's state gas (e.g. a zero→non-zero SSTORE jumps to
   ~97920), that fixed budget no longer covers the callee and the subcall OOGs on
-  Amsterdam — a common reason a pure-behavior test lands on the skip list. Omit
+  Amsterdam — a common reason a pure-behavior test fails there. Omit
   the operand so it forwards everything. **Caveat:** forwarding all gas via
   `Op.GAS` misbehaves on **pre-EIP-150 (Homestead)** — the sweep (step 11) fails
   only there, so such tests floor at **TangerineWhistle**. Keep an explicit `gas`
@@ -257,8 +256,9 @@ pure function of the discriminating index.
 - **Optionally merge** the data-generator and the post-list into **one
   `if/elif/else` on `d`** that sets both `initcode` and `post` per case. This
   co-locates each case's bytecode with its expected state — the strongest
-  readability win, and it tends to *reveal* incomplete verification. Use a final
-  `else` so every branch binds both vars; declare `initcode: Bytecode` and
+  readability win, and it tends to *reveal* incomplete verification. Give
+  every real case its own branch and end with `else: raise ValueError(...)`
+  (as `/write-test` requires); declare `initcode: Bytecode` and
   `post: dict` above the switch. Prefer the array form when cases are many or
   the switch would be unwieldy; this is a judgment call.
 - **Clean up the `parametrize` signature.** The ported `"d, g, v"` triple is
@@ -439,9 +439,9 @@ not drop it.**
 
 **CALL value-transfer stipend.** A value-bearing `CALL` whose callee consumes
 nothing (empty account / EOA) measures `gas_cost(fork) -
-fork.gas_costs().CALL_STIPEND`: `gas_cost` counts the full value cost, but the
-2300 stipend is forwarded to the callee and returned unused. Confirm the
-`- CALL_STIPEND` holds on *every* fork (it is a fork-stable relationship, not a
+fork.call_value_stipend()`: `gas_cost` counts the full value cost, but the
+stipend is forwarded to the callee and returned unused. Confirm the
+subtraction holds on *every* fork (it is a fork-stable relationship, not a
 coincidence).
 
 **EIP-8037 state-gas reservoir — critical.** Omitting `gas_limit` (step 2) on an
@@ -484,8 +484,8 @@ script against the fork): pin each term to the known-good number, then assemble.
 Map terms to fork-derived helpers: opcode base+pushes → `bytecode.gas_cost(fork)`;
 memory growth → `fork.memory_expansion_gas_calculator()(new_bytes=,
 previous_bytes=)`; EIP-3860 init-code words → `fork.gas_costs().CODE_INIT_PER_WORD
-* ceil(size/32)`. You can also call `.gas_cost` / `.regular_cost` / `.state_cost`
-on exactly the measured bytecode.
+* ceil(size/32)`. You can also call `.gas_cost` / `.execution_cost` /
+`.state_cost` on exactly the measured bytecode.
 
 **Reservoir-less sub-calls pay state gas from their regular grant.** With
 the tx reservoir at 0, a sub-frame's state charges spill from its own
@@ -570,9 +570,8 @@ shift explained (±1 frame ≈ 64·ln(cost ratio)). Validated on
 `Op.SSTORE(key_warm=True, original_value=0, current_value=0xFF,
 new_value=1).gas_cost(fork)` prices 5,006 on ConstantinopleFix, 806 on
 Istanbul and 106 from Berlin, so a derived budget needs no extra
-headroom constant for those forks (an earlier note here claimed
-otherwise; the padding it prescribed also masked a wrongful new-account
-charge on Amsterdam). Checked on
+headroom constant for those forks; padding it anyway can mask a wrongful
+new-account charge on Amsterdam. Checked on
 `test_revert_depth_create_address_collision`'s ConstantinopleFix sweep.
 
 **A starved arm must still reach the opcode under test.** When a
@@ -621,8 +620,8 @@ budget, the intrinsic calculator does not include the created account's
 state gas — add
 `fork.transaction_top_frame_state_gas(contract_creation=True)` (183,600 on
 Amsterdam, 0 before) or the whole creation silently OOGs only on the
-future fork. Exception: `prepare_dispatch` charges it only when the
-target's *pre-state* account is `EMPTY_ACCOUNT` — a prefunded create
+future fork. Exception: `create_evm` (`vm/interpreter.py`) charges it only
+when the target's *pre-state* account is `EMPTY_ACCOUNT` — a prefunded create
 address pays nothing (validated on
 `test_out_of_gas_prefunded_contract_creation`, whose budgets omit the
 term). A nested CREATE's new-account state is charged to the parent
@@ -646,19 +645,20 @@ available    = CALLER_GAS - caller_call_code.gas_cost(fork)
 forwarded    = available - available // 64      # NOT available * 63 // 64
 expected_gas = forwarded + stipend - Op.GAS.gas_cost(fork)
 ```
-where `stipend = fork.gas_costs().CALL_STIPEND` for a value-bearing call (0
+where `stipend = fork.call_value_stipend()` for a value-bearing call (0
 otherwise). **The `// 64` form is the trap:** `available - available // 64` and
 `available * 63 // 64` differ by exactly 1 whenever `available % 64 != 0` (the
 EVM uses the former). One parametrize over `(opcode, value, memory)` covers the
 whole CALL/CALLCODE/DELEGATECALL family; floor **Berlin** (the call metadata).
 Validated on `test_raw_call_gas_ask` (10 RawCall*GasAsk fillers).
 
-**Error paths charge regular gas only — assert `regular_cost(fork)`.** A failed
-`CREATE`/`CALL` still charges its regular costs (base, memory, init-code words)
-but creates no account, so **no state gas is charged** under EIP-8037. For a
-success/failure parametrize, that is exactly the `gas_cost(fork)` vs
-`regular_cost(fork)` split: success measures `code.gas_cost(fork)` (regular +
-state), failure measures `code.regular_cost(fork)` (regular only). On pre-8037
+**Error paths charge execution gas only — assert `execution_cost(fork)`.** A
+failed `CREATE`/`CALL` still charges its execution costs (base, memory,
+init-code words) but creates no account, so **no state gas is charged** under
+EIP-8037. For a success/failure parametrize, that is exactly the
+`gas_cost(fork)` vs `execution_cost(fork)` split: success measures
+`code.gas_cost(fork)` (execution + state), failure measures
+`code.execution_cost(fork)` (execution only). On pre-8037
 forks `state_cost` is 0 so the two coincide — one expression, correct on every
 fork. Drive a `CREATE` down the balance-failure path by funding the creator one
 wei short of the transferred `value` (`balance = value - 1`); the created
@@ -727,10 +727,9 @@ Not yet covered by a validated walkthrough; figure out and append when hit:
 
 ## Finishing
 
-**Confirm with a full-range fill** (`--fork` omitted) — every deployed fork
-green is the definition of done. (If a skip list is ever reintroduced for a
-future fork, also delete the test's entry and keep its count headers
-accurate.)
+**Confirm with a full-range fill** (`--until <latest_fork>`, the `Justfile`'s
+value) — every fork from `valid_from` through the forks under development
+green is the definition of done, as the Goal above states.
 
 **Final sweep checklist** — each of these has been missed in practice; check
 them one by one before calling the test done:

@@ -9,10 +9,11 @@ GitHub Actions conventions. Run this skill before modifying workflow files in `.
 
 ## Action Version Pinning (Required)
 
-All actions must be pinned to commit SHA with version comment:
+All actions must be pinned to commit SHA with version comment. Reuse the pin
+the other workflows already use for the same action:
 
 ```yaml
-uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 ```
 
 - Never use version tags alone (`@v4` is wrong)
