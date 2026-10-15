@@ -128,13 +128,19 @@ class GasCosts:
     )
 
     # Blobs
+    #
+    # The target, maximum, and update fraction are provisional pending a
+    # joint decision with the consensus layer. They keep both the fastest
+    # rise and the fastest fall of the blob base fee, per unit of
+    # wall-clock time, and the ratio of maximum to target unchanged under
+    # more frequent blocks.
     PER_BLOB: Final[U64] = U64(2**17)
-    BLOB_SCHEDULE_TARGET: Final[U64] = U64(14)
+    BLOB_SCHEDULE_TARGET: Final[U64] = U64(12)
     BLOB_TARGET_GAS_PER_BLOCK: Final[U64] = PER_BLOB * BLOB_SCHEDULE_TARGET
     BLOB_BASE_COST: Final[Uint] = Uint(2**13)
-    BLOB_SCHEDULE_MAX: Final[U64] = U64(21)
+    BLOB_SCHEDULE_MAX: Final[U64] = U64(18)
     BLOB_MIN_GASPRICE: Final[Uint] = Uint(1)
-    BLOB_BASE_FEE_UPDATE_FRACTION: Final[Uint] = Uint(11684671)
+    BLOB_BASE_FEE_UPDATE_FRACTION: Final[Uint] = Uint(12018519)
 
     # Block Access Lists
     BLOCK_ACCESS_LIST_ITEM: Final[ExecutionGas] = ExecutionGas(Uint(2000))
