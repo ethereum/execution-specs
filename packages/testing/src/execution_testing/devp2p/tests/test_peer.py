@@ -509,6 +509,37 @@ class TestStragglerAttribution:
         assert peer.header_hashes_ever_served == served
 
 
+class TestChainSwitchDuringALookup:
+    """A chain switch on the test thread cannot hide a held block."""
+
+    def test_a_switch_between_reads_still_serves_a_held_body(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        The next test installs its chain in the middle of a body lookup
+        on the serving thread; the body the old chain holds is served.
+        """
+        old = _chain([b"\x01", b"\x02"])
+        new = _chain([b"\x03"])
+        peer = _serving(old)
+        held = Hash(_hash_at(old, 2))
+        real_number_of = old.number_of
+
+        def number_of_then_switch(block_hash: Hash) -> int | None:
+            """Answer, then let the next test take over the peer."""
+            number = real_number_of(block_hash)
+            if peer._chains.current is old:
+                peer.set_chain(new)
+            return number
+
+        monkeypatch.setattr(old, "number_of", number_of_then_switch)
+        asking = peer.statistics
+        peer._serve_bodies(cast(RLPxSession, _RecordingSession()), 1, [held])
+
+        assert peer._chains.current is new
+        assert asking.body_hashes_served == {held}
+
+
 class TestEvidenceSeparation:
     """Header service and body service are separate evidence."""
 

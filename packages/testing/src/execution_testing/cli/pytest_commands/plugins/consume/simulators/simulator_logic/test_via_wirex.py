@@ -18,6 +18,7 @@ from hive.client import Client
 from execution_testing.base_types import Hash
 from execution_testing.devp2p.chain import Block, Chain
 from execution_testing.devp2p.peer import MockPeer
+from execution_testing.devp2p.rlpx import RLPxError
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.logging import get_logger
 from execution_testing.rpc import (
@@ -81,16 +82,21 @@ def required_wire_headers(chain: Chain) -> list[Block]:
     return chain.blocks[:-1]
 
 
-EVIDENCE_GRACE_TIME = 0.25
+EVIDENCE_GRACE_TIME = 2.0
 """
-Seconds to let the peer's serving evidence catch up before a missing
-block fails the coverage check.
+Seconds the peer's serving evidence may lag the client's verdict before
+a missing block fails the coverage check.
 
 The peer records a response only after writing it, so a fast client
 can import the chain and answer the head poll before the evidence
-lands. A miss is re-read once after this grace; a block that arrived
-some other way stays missing.
+lands, the more so on a loaded host that holds the peer's thread back.
+A miss is re-read every `EVIDENCE_POLL_INTERVAL` until this grace has
+passed; a block that arrived some other way stays missing, and a
+complete record costs no wait at all.
 """
+
+EVIDENCE_POLL_INTERVAL = 0.01
+"""Seconds between re-reads of the serving evidence during its grace."""
 
 
 def assert_wire_coverage(
@@ -138,9 +144,12 @@ def assert_wire_coverage(
             missing_blocks(required_bodies, mock_peer.body_hashes_ever_served),
         )
 
+    grace_ends = time.monotonic() + EVIDENCE_GRACE_TIME
     missing_headers, missing_bodies = missing()
-    if missing_headers or missing_bodies:
-        time.sleep(EVIDENCE_GRACE_TIME)
+    while (missing_headers or missing_bodies) and (
+        time.monotonic() < grace_ends
+    ):
+        time.sleep(EVIDENCE_POLL_INTERVAL)
         missing_headers, missing_bodies = missing()
 
     statistics = mock_peer.statistics
@@ -258,6 +267,27 @@ def _run_sync_target(
         )
         return payload_status
 
+    def redial(event: str) -> None:
+        """
+        Redial the client after it dropped the peer during `event`.
+
+        A failed redial is logged, not raised: the client may refuse the
+        new session for a moment (it has not reaped the old one, say),
+        and the loop redials again at its next announcement, never
+        sooner, since redialing faster has broken a client before.
+        """
+        logger.warning(
+            f"{prefix}Peer dropped {event} (Disconnect reason "
+            f"{mock_peer.disconnect_reason}); redialing"
+        )
+        try:
+            mock_peer.reconnect(chain)
+        except (OSError, RLPxError) as error:
+            logger.warning(
+                f"{prefix}Redial failed ({error}); retrying at the next "
+                "announcement"
+            )
+
     def ask(call: Callable[[], PayloadStatus]) -> PayloadStatus | None:
         """
         Return `call()`'s status, or `None` for the declared RPC refusal.
@@ -347,10 +377,7 @@ def _run_sync_target(
                     if not mock_peer.alive:
                         # A client may drop a peer that served it a bad
                         # chain; a real peer would simply redial.
-                        logger.warning(
-                            f"{prefix}Peer dropped mid-rejection; redialing"
-                        )
-                        mock_peer.reconnect(chain)
+                        redial("mid-rejection")
                     logger.info(
                         f"{prefix}Re-announcing the invalid sync target"
                     )
@@ -434,8 +461,7 @@ def _run_sync_target(
                 break
             if time.monotonic() >= next_announcement:
                 if not mock_peer.alive:
-                    logger.warning(f"{prefix}Peer dropped mid-sync; redialing")
-                    mock_peer.reconnect(chain)
+                    redial("mid-sync")
                 logger.info(f"{prefix}Re-announcing the sync target")
                 raise_if_rejected(announce())
                 next_announcement = time.monotonic() + announce_interval

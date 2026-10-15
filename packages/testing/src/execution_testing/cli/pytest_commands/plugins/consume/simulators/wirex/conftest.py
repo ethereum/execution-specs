@@ -26,6 +26,7 @@ from execution_testing.devp2p.chain import (
 )
 from execution_testing.devp2p.peer import MockPeer
 from execution_testing.devp2p.protocol import ETH_PROTOCOLS, EthVersion
+from execution_testing.devp2p.rlpx import RLPxError
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.fixtures.consume import (
@@ -561,11 +562,19 @@ def mock_peer(
             pass
     # A client may hang up mid-group (nethermind drops peers it deems
     # idle); a dead connection would otherwise fail every remaining test
-    # in the group, so redial exactly as a real peer would, and start
-    # the test's own statistics so its transcript holds only its own
-    # traffic.
+    # in the group, so redial exactly as a real peer would. The test's
+    # own statistics start before the redial, since a client asks for
+    # headers as soon as the session is up, and those requests belong
+    # to this test's transcript.
     logger.warning("Peer connection lost; redialing the client")
-    with total_timing_data.time("Reconnect mock peer"):
-        peer.reconnect(chain)
     peer.reset_statistics()
+    with total_timing_data.time("Reconnect mock peer"):
+        try:
+            peer.reconnect(chain)
+        except (OSError, RLPxError) as error:
+            # The test's sync loop redials at its next announcement.
+            logger.warning(
+                f"Redial failed ({error}); the test retries it at its "
+                "next announcement"
+            )
     return peer

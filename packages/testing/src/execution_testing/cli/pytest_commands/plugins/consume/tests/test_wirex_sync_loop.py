@@ -7,8 +7,10 @@ for minutes, or drops the peer mid-sync, is simulated in microseconds.
 """
 
 import inspect
+import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from itertools import pairwise
 from types import SimpleNamespace
 from typing import Any, Callable, Collection, Iterator, cast
 
@@ -18,6 +20,7 @@ from tenacity import RetryCallState
 from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.devp2p.chain import Block, Chain
 from execution_testing.devp2p.peer import MockPeer, PeerStatistics
+from execution_testing.devp2p.rlpx import RLPxError
 from execution_testing.exceptions import BlockException
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.rpc import (
@@ -252,6 +255,7 @@ class FakePeer:
     unserved_bodies: Collection[int] = ()
     alive: bool = True
     redials: int = 0
+    disconnect_reason: int | None = None
     statistics: PeerStatistics = field(default_factory=PeerStatistics)
 
     def __post_init__(self) -> None:
@@ -539,6 +543,135 @@ class TestWireCoverage:
                 CHAIN, unserved_headers={1, 2}, unserved_bodies={1, 2}
             ),
         )
+
+
+class RefusingPeer(FakePeer):
+    """
+    A dropped peer whose first `refusals` redials raise `error`.
+
+    `redial_times` records the fake time of every redial.
+    """
+
+    def __init__(
+        self, clock: FakeClock, refusals: int, error: Exception
+    ) -> None:
+        """Start dropped."""
+        super().__init__(CHAIN, alive=False)
+        self.clock = clock
+        self.refusals = refusals
+        self.error = error
+        self.redial_times: list[float] = []
+
+    def reconnect(self, chain: Chain, timeout: float = 30.0) -> None:
+        """Refuse the first redials, then reconnect."""
+        del chain, timeout
+        self.redial_times.append(self.clock.now)
+        if len(self.redial_times) <= self.refusals:
+            raise self.error
+        self.alive = True
+
+
+REDIAL_REFUSALS = {
+    "connection-refused": ConnectionRefusedError("client refused"),
+    "handshake-timeout": TimeoutError("no Hello"),
+    "disconnect-on-hello": RLPxError("client refused the connection: 5"),
+}
+
+
+@pytest.mark.parametrize(
+    "error", REDIAL_REFUSALS.values(), ids=REDIAL_REFUSALS.keys()
+)
+@pytest.mark.parametrize(
+    "verdict,expects_rejection",
+    [(VALID, False), (INVALID, True)],
+    ids=["sync", "rejection"],
+)
+def test_a_refused_redial_is_retried_at_the_next_announcement(
+    clock: FakeClock,
+    verdict: PayloadStatusEnum,
+    expects_rejection: bool,
+    error: Exception,
+) -> None:
+    """
+    A redial the client refuses does not end the test: it is retried at
+    each later announcement, never sooner, until one succeeds.
+    """
+    peer = RefusingPeer(clock, refusals=2, error=error)
+    _run(
+        clock,
+        _engine(clock, lambda now: verdict if now >= 10.0 else SYNCING),
+        expects_rejection=expects_rejection,
+        imported_at=10.0,
+        peer=peer,
+    )
+    assert len(peer.redial_times) == 3
+    assert all(
+        later - earlier >= ANNOUNCE_INTERVAL - 1e-9
+        for earlier, later in pairwise(peer.redial_times)
+    )
+
+
+def test_the_redial_warning_names_the_disconnect_reason(
+    clock: FakeClock, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The reason the client gave for the drop is logged with the redial."""
+    peer = FakePeer(CHAIN, alive=False, disconnect_reason=4)
+    with caplog.at_level(logging.WARNING):
+        _run(
+            clock,
+            _engine(clock, lambda now: VALID if now >= 10.0 else SYNCING),
+            imported_at=10.0,
+            peer=peer,
+        )
+    assert peer.redials == 1
+    assert "Peer dropped mid-sync (Disconnect reason 4); redialing" in (
+        caplog.text
+    )
+
+
+class _LandingAt(set[Hash]):
+    """Served hashes whose record lands only at a fake time."""
+
+    def __init__(self, clock: FakeClock, lands_at: float, hashes: Any) -> None:
+        """Hold `hashes`, readable from `lands_at` on."""
+        super().__init__(hashes)
+        self.clock = clock
+        self.lands_at = lands_at
+
+    def __contains__(self, item: object) -> bool:
+        """Report a hash as served only once its record has landed."""
+        return self.clock.now >= self.lands_at and super().__contains__(item)
+
+
+def test_evidence_landing_late_within_the_grace_still_counts(
+    clock: FakeClock,
+) -> None:
+    """
+    A held-back peer thread records the bodies after the verdict but
+    within the grace, which the check waits out by re-reading.
+    """
+    peer = FakePeer(CHAIN)
+    lands_at = 0.3
+    peer.body_hashes_ever_served = _LandingAt(
+        clock, lands_at, peer.body_hashes_ever_served
+    )
+    test_via_wirex.assert_wire_coverage(
+        CHAIN, cast(MockPeer, peer), "reached the expected head"
+    )
+    assert lands_at <= clock.now < lands_at + 0.1
+
+
+def test_evidence_that_never_lands_fails_after_the_grace(
+    clock: FakeClock,
+) -> None:
+    """A body never served fails once the grace has passed, not sooner."""
+    with pytest.raises(LoggedError, match=r"block\(s\) 2 never traveled"):
+        test_via_wirex.assert_wire_coverage(
+            CHAIN,
+            cast(MockPeer, FakePeer(CHAIN, unserved_bodies={2})),
+            "reached the expected head",
+        )
+    assert clock.now >= test_via_wirex.EVIDENCE_GRACE_TIME
 
 
 CONFIRMATION_FAILURES = {
