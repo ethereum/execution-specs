@@ -205,9 +205,7 @@ class TestReplacementReason:
         monkeypatch.setattr(
             client_policy,
             "client_head",
-            lambda _client: ClientHead(
-                head.head.number, Hash(head.head.block_hash)
-            ),
+            lambda _client: ClientHead(head.head.number, head.head.block_hash),
         )
         peer = SimpleNamespace(
             served_chain_holding=lambda block_hash: (

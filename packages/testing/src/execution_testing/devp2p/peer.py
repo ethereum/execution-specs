@@ -15,26 +15,16 @@ import threading
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence, Set
 
+from execution_testing.base_types import Bytes, Hash
+
 from .chain import Chain, ServedChains
-from .keccak import keccak256
 from .protocol import (
-    BLOCK_ACCESS_LISTS,
-    BLOCK_BODIES,
-    BLOCK_HEADERS,
-    BLOCK_RANGE_UPDATE,
-    DISCONNECT,
     ETH_PROTOCOLS,
-    GET_BLOCK_ACCESS_LISTS,
-    GET_BLOCK_BODIES,
-    GET_BLOCK_HEADERS,
-    GET_RECEIPTS,
-    HELLO,
     P2P_VERSION,
-    PING,
-    PONG,
-    STATUS,
     BlockHeadersRequest,
     EthProtocol,
+    EthVersion,
+    MessageCode,
     ProtocolError,
     Status,
     decode_disconnect,
@@ -88,11 +78,11 @@ class PeerStatistics:
 
     header_requests: int = 0
     headers_served: int = 0
-    header_hashes_served: Set[bytes] = field(default_factory=set)
+    header_hashes_served: Set[Hash] = field(default_factory=set)
     """Block hashes whose headers were served."""
     body_requests: int = 0
     bodies_served: int = 0
-    body_hashes_served: Set[bytes] = field(default_factory=set)
+    body_hashes_served: Set[Hash] = field(default_factory=set)
     """Block hashes whose bodies were served."""
     bal_requests: int = 0
     bals_served: int = 0
@@ -123,7 +113,7 @@ class MockPeer:
         remote_public_key: bytes,
         private_key: bytes,
         network_id: int,
-        eth_versions: Sequence[int] | None = None,
+        eth_versions: Sequence[EthVersion] | None = None,
         serve_bals: bool = False,
     ) -> None:
         """
@@ -148,9 +138,9 @@ class MockPeer:
         if unknown:
             raise ValueError(
                 f"unimplemented eth version(s) {sorted(unknown)}; "
-                f"implemented: {sorted(ETH_PROTOCOLS)}"
+                f"implemented: {sorted(map(int, ETH_PROTOCOLS))}"
             )
-        self.eth_versions = tuple(sorted(eth_versions))
+        self.eth_versions = tuple(sorted(EthVersion(v) for v in eth_versions))
         self.protocol: Optional[EthProtocol] = None
 
         self._session: Optional[RLPxSession] = None
@@ -160,7 +150,7 @@ class MockPeer:
         self._dead = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self.statistics = PeerStatistics()
-        self.body_hashes_ever_served: Set[bytes] = set()
+        self.body_hashes_ever_served: Set[Hash] = set()
         """
         Every body hash served over the peer's lifetime.
 
@@ -169,7 +159,7 @@ class MockPeer:
         nothing: a block has to cross the wire once per client, not
         once per test.
         """
-        self.header_hashes_ever_served: Set[bytes] = set()
+        self.header_hashes_ever_served: Set[Hash] = set()
         """Every header hash served over the peer's lifetime (as above)."""
         self.remote_name = ""
         self.disconnect_reason: Optional[int] = None
@@ -208,7 +198,7 @@ class MockPeer:
     ) -> None:
         """Complete the base protocol Hello and the eth Status exchange."""
         session.write_message(
-            HELLO,
+            MessageCode.HELLO,
             encode_hello(
                 CLIENT_IDENTIFIER,
                 public_key_bytes(self.private_key),
@@ -216,12 +206,12 @@ class MockPeer:
             ),
         )
         code, payload = session.read_message()
-        if code == DISCONNECT:
+        if code == MessageCode.DISCONNECT:
             raise RLPxError(
                 f"client refused the connection: reason "
                 f"{decode_disconnect(payload)}"
             )
-        if code != HELLO:
+        if code != MessageCode.HELLO:
             raise RLPxError(f"expected Hello, got message {code}")
         remote_version, self.remote_name, capabilities = decode_hello(payload)
         logger.info(
@@ -236,7 +226,8 @@ class MockPeer:
         if negotiated is None:
             raise RLPxError(
                 f"no common eth version: this peer advertises "
-                f"{list(self.eth_versions)}, {self.remote_name or 'client'} "
+                f"{list(map(int, self.eth_versions))}, "
+                f"{self.remote_name or 'client'} "
                 f"advertises {capabilities}"
             )
         self.protocol = ETH_PROTOCOLS[negotiated]
@@ -247,7 +238,8 @@ class MockPeer:
             session.enable_snappy()
 
         session.write_message(
-            STATUS, self.protocol.encode_status(self._status(chain))
+            MessageCode.STATUS,
+            self.protocol.encode_status(self._status(chain)),
         )
         session.set_timeout(1.0)
 
@@ -255,7 +247,7 @@ class MockPeer:
         """Return the Status message describing `chain`."""
         return Status(
             network_id=self.network_id,
-            genesis_hash=bytes(chain.genesis.block_hash),
+            genesis_hash=chain.genesis.block_hash,
             fork_activations=[],
             earliest_block=0,
             latest_block=chain.head.number,
@@ -288,13 +280,13 @@ class MockPeer:
             session = self._session
         if session is not None:
             session.write_message(
-                BLOCK_RANGE_UPDATE,
+                MessageCode.BLOCK_RANGE_UPDATE,
                 encode_block_range_update(
                     0, chain.head.number, chain.head.block_hash
                 ),
             )
 
-    def served_chain_holding(self, block_hash: bytes) -> Optional[Chain]:
+    def served_chain_holding(self, block_hash: Hash) -> Optional[Chain]:
         """
         Return a chain this peer served that holds `block_hash`, if any.
 
@@ -387,15 +379,15 @@ class MockPeer:
         """Answer one message from the client."""
         protocol = self.protocol
         assert protocol is not None, "message received before negotiation"
-        if code == PING:
-            session.write_message(PONG, EMPTY_LIST_PAYLOAD)
-        elif code == GET_BLOCK_HEADERS:
+        if code == MessageCode.PING:
+            session.write_message(MessageCode.PONG, EMPTY_LIST_PAYLOAD)
+        elif code == MessageCode.GET_BLOCK_HEADERS:
             self._serve_headers(session, decode_get_block_headers(payload))
-        elif code == GET_BLOCK_BODIES:
+        elif code == MessageCode.GET_BLOCK_BODIES:
             self._serve_bodies(session, *decode_get_block_bodies(payload))
-        elif code == GET_BLOCK_ACCESS_LISTS and protocol.has_bals:
+        elif code == MessageCode.GET_BLOCK_ACCESS_LISTS and protocol.has_bals:
             self._answer_bals(session, *decode_get_block_access_lists(payload))
-        elif code == GET_RECEIPTS:
+        elif code == MessageCode.GET_RECEIPTS:
             # A full syncing client derives receipts by executing the
             # block; serving them would let a failing test pass with no
             # coverage. Leave the request unanswered and make it visible.
@@ -404,7 +396,7 @@ class MockPeer:
                 self.statistics.receipt_requests += 1
                 self.statistics.record(f"{request.describe()} (unanswered)")
             logger.warning("Client requested GetReceipts; not served")
-        elif code == DISCONNECT:
+        elif code == MessageCode.DISCONNECT:
             self.disconnect_reason = decode_disconnect(payload)
             logger.info(
                 "Client disconnected: reason %d", self.disconnect_reason
@@ -447,12 +439,13 @@ class MockPeer:
                     break
 
         session.write_message(
-            BLOCK_HEADERS, encode_response(request.request_id, headers)
+            MessageCode.BLOCK_HEADERS,
+            encode_response(request.request_id, headers),
         )
 
         # A block's hash is the keccak of its header, so the recorded
         # evidence is computed from the exact bytes that traveled.
-        served_hashes = [keccak256(header) for header in headers]
+        served_hashes = [Bytes(header).keccak256() for header in headers]
 
         with self._lock:
             statistics.headers_served += len(headers)
@@ -463,7 +456,7 @@ class MockPeer:
             )
 
     def _serve_bodies(
-        self, session: RLPxSession, request_id: int, hashes: List[bytes]
+        self, session: RLPxSession, request_id: int, hashes: List[Hash]
     ) -> None:
         """
         Answer a GetBlockBodies request from the served chains.
@@ -481,8 +474,8 @@ class MockPeer:
             chain = self._chains.current
 
         bodies: List[bytes] = []
-        served_hashes: List[bytes] = []
-        unknown: List[bytes] = []
+        served_hashes: List[Hash] = []
+        unknown: List[Hash] = []
         served_bytes = 0
         for block_hash in hashes[:MAX_BODIES_PER_RESPONSE]:
             if served_bytes >= SOFT_RESPONSE_LIMIT:
@@ -497,7 +490,7 @@ class MockPeer:
 
         # Recorded only after the write succeeds (see `PeerStatistics`).
         session.write_message(
-            BLOCK_BODIES, encode_response(request_id, bodies)
+            MessageCode.BLOCK_BODIES, encode_response(request_id, bodies)
         )
 
         with self._lock:
@@ -508,8 +501,8 @@ class MockPeer:
                 ""
                 if not unknown
                 else f", {len(unknown)} unknown, first "
-                f"0x{unknown[0].hex()[:16]} (chain head "
-                f"#{chain.head.number} 0x{chain.head.block_hash.hex()[:16]})"
+                f"{unknown[0].hex()[:18]} (chain head "
+                f"#{chain.head.number} {chain.head.block_hash.hex()[:18]})"
             )
             statistics.record(
                 f"bodies for {len(hashes)} hashes -> "
@@ -517,7 +510,7 @@ class MockPeer:
             )
 
     def _answer_bals(
-        self, session: RLPxSession, request_id: int, hashes: List[bytes]
+        self, session: RLPxSession, request_id: int, hashes: List[Hash]
     ) -> None:
         """
         Answer a GetBlockAccessLists request from the served chains.
@@ -552,7 +545,8 @@ class MockPeer:
             served_bytes += len(bal)
 
         session.write_message(
-            BLOCK_ACCESS_LISTS, encode_response(request_id, entries)
+            MessageCode.BLOCK_ACCESS_LISTS,
+            encode_response(request_id, entries),
         )
 
         with self._lock:

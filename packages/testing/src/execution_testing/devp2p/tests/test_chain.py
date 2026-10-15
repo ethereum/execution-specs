@@ -185,4 +185,4 @@ class TestBodyShape:
             )
         )
         chain = Chain(genesis, [])
-        assert chain.body_rlp_by_hash(bytes(genesis.block_hash)) == expected
+        assert chain.body_rlp_by_hash(genesis.block_hash) == expected
