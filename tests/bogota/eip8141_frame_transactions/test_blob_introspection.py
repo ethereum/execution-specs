@@ -44,9 +44,9 @@ MAX_FEE = 1_000_000_000
 """A fee cap above the base fee, so a max cost computed at the effective
 gas price instead of the cap is caught."""
 
-PROBE_FRAME_GAS = 500_000
 PROBE_FRAME_STATE_GAS = 1_000_000
-"""Budgets of the probe frame, which creates a storage slot per read."""
+"""State budget of the probe frame, above the framework default, which
+the storage slot the probe creates per read would exhaust."""
 
 SLOT_BLOB_COUNT = 0x01
 SLOT_MAX_FEE_PER_BLOB_GAS = 0x02
@@ -126,7 +126,6 @@ def test_blob_introspection(
             Frame(
                 mode=mode,
                 target=probe,
-                gas_limit=PROBE_FRAME_GAS,
                 state_gas_limit=PROBE_FRAME_STATE_GAS,
             ),
         ],
