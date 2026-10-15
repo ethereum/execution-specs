@@ -9,9 +9,9 @@ the fork intrinsic to be rejected. EIP-2780 decomposes and lowers the
 intrinsic, so the original hardcoded `20000` is no longer below it;
 instead derive `intrinsic - 1` from the fork's
 `transaction_intrinsic_cost_calculator()` for the single zero-byte
-calldata so the boundary stays correct across the repricing, and expect
-the exception for whichever threshold, standard cost or calldata floor,
-the limit misses.
+calldata so the boundary stays correct across the repricing. The
+expected exception names the threshold the limit misses: the standard
+cost, or from EIP-7623 the calldata floor.
 """
 
 import pytest
@@ -105,19 +105,21 @@ def test_low_gas_limit(
         nonce=0,
     )
 
-    # From Prague the calldata floor can exceed the standard cost, so the
-    # -g3 limit may miss only the floor.
     intrinsic_cost_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic = intrinsic_cost_calculator(calldata=Bytes("00"))
     standard_cost = intrinsic_cost_calculator(
         calldata=Bytes("00"), return_cost_deducted_prior_execution=True
     )
-    if intrinsic - 1 < standard_cost:
-        below_intrinsic_exception = TransactionException.INTRINSIC_GAS_TOO_LOW
-    else:
+    if fork.is_eip_enabled(7623):
+        # The calldata floor of one zero byte exceeds its standard cost, so
+        # the -g3 limit misses only the floor.
+        assert standard_cost < intrinsic
         below_intrinsic_exception = (
             TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
         )
+    else:
+        assert standard_cost == intrinsic
+        below_intrinsic_exception = TransactionException.INTRINSIC_GAS_TOO_LOW
 
     expect_entries_: list[dict] = [
         {

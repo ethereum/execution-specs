@@ -346,9 +346,10 @@ def tx_gas_limit(
 def tx_error(
     data_test_type: DataTestType,
     tx_intrinsic_gas_cost_before_execution: int,
+    tx_floor_data_cost: int,
     tx_gas_limit: int,
     tx_gas_delta: int,
-) -> TransactionException | None:
+) -> List[TransactionException] | TransactionException | None:
     """Transaction error, only expected if the gas delta is negative."""
     if tx_gas_delta >= 0:
         return None
@@ -359,7 +360,14 @@ def tx_error(
         == DataTestType.FLOOR_GAS_COST_LESS_THAN_OR_EQUAL_TO_INTRINSIC_GAS
     ):
         assert below_standard_cost
-        return TransactionException.INTRINSIC_GAS_TOO_LOW
+        if tx_gas_limit >= tx_floor_data_cost:
+            return TransactionException.INTRINSIC_GAS_TOO_LOW
+        # The limit misses the floor too, and the spec checks
+        # max(standard cost, floor), so either is valid.
+        return [
+            TransactionException.INTRINSIC_GAS_TOO_LOW,
+            TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST,
+        ]
     elif (
         data_test_type
         == DataTestType.FLOOR_GAS_COST_GREATER_THAN_INTRINSIC_GAS
