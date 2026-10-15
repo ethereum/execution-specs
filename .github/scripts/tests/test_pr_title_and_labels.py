@@ -331,3 +331,135 @@ def test_claude_prompt_marks_truncated_diff() -> None:
     assert '<diff truncated="true">' in prompt
     assert "src/a.py (+1 -2)" in prompt
     assert "Candidate areas: spec" in prompt
+
+
+def test_label_changes_leave_unmanaged_labels_alone() -> None:
+    """Add and remove only managed labels, never `stale` or `backport`."""
+    current = {"ci", "stale", "backport forks/amsterdam", "tests"}
+    add, remove = m.label_changes(current, {"tests", "spec", "bug"})
+    assert add == ["bug", "spec"]
+    assert remove == ["ci"]
+
+
+class FakeGh:
+    """Stand in for the `gh` CLI, serving one pull request."""
+
+    def __init__(self, title: str, labels: list[str], files: list[str]):
+        """Serve a pull request with these fields."""
+        self.pr = {
+            "number": 7,
+            "title": title,
+            "body": "",
+            "labels": [{"name": label} for label in labels],
+            "base": {"ref": "forks/bogota"},
+        }
+        self.files = files
+        self.writes: list[tuple[str, ...]] = []
+
+    def __call__(self, *args: str, **_: bool) -> str:
+        """Answer reads from the fixture and record writes."""
+        if "--method" in args:
+            self.writes.append(args)
+            return ""
+        if "--paginate" in args:
+            return "\n".join(
+                json.dumps(
+                    {
+                        "filename": path,
+                        "previous_filename": None,
+                        "additions": 1,
+                        "deletions": 0,
+                    }
+                )
+                for path in self.files
+            )
+        assert args == ("api", "repos/o/r/pulls/7")
+        return json.dumps(self.pr)
+
+
+def run_main(
+    monkeypatch: pytest.MonkeyPatch, fake: FakeGh, *flags: str
+) -> None:
+    """Run the script's `main` against `fake` without a Claude key."""
+    monkeypatch.setattr(m, "gh", fake)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(sys, "argv", ["pr_title_and_labels.py", *flags])
+    m.main()
+
+
+def test_main_fixes_title_and_syncs_labels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Rename the title, add touched areas and drop stale managed labels."""
+    fake = FakeGh(
+        "fix(specs): keep gas in range", ["ci", "stale"], ["src/a.py"]
+    )
+    run_main(monkeypatch, fake, "--pr", "7")
+    assert fake.writes == [
+        (
+            "api",
+            "--method",
+            "PATCH",
+            "repos/o/r/pulls/7",
+            "-f",
+            "title=fix(spec): keep gas in range",
+        ),
+        (
+            "api",
+            "--method",
+            "POST",
+            "repos/o/r/issues/7/labels",
+            "-f",
+            "labels[]=bug",
+            "-f",
+            "labels[]=spec",
+        ),
+        ("api", "--method", "DELETE", "repos/o/r/issues/7/labels/ci"),
+    ]
+
+
+def test_main_leaves_a_correct_pull_request_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Make no writes when the title and labels are already right."""
+    fake = FakeGh(
+        "feat(tests): add a test", ["tests", "stale"], ["tests/a.py"]
+    )
+    run_main(monkeypatch, fake, "--pr", "7")
+    assert fake.writes == []
+
+
+def test_main_dry_run_makes_no_writes(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Print the planned changes without writing them."""
+    fake = FakeGh("Eth", [], ["src/a.py"])
+    run_main(monkeypatch, fake, "--pr", "7", "--dry-run")
+    assert fake.writes == []
+    assert "title -> feat(spec): eth" in capsys.readouterr().out
+
+
+def test_main_reads_the_pull_request_from_the_event(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Take the pull request number from `GITHUB_EVENT_PATH`."""
+    event = tmp_path / "event.json"
+    event.write_text(json.dumps({"pull_request": {"number": 7}}))
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event))
+    fake = FakeGh("feat(tests): add a test", [], ["tests/a.py"])
+    run_main(monkeypatch, fake)
+    assert fake.writes[0][-2:] == ("-f", "labels[]=tests")
+
+
+def test_main_quotes_label_names_when_removing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """URL-encode a removed label name."""
+    monkeypatch.setattr(m, "PROJECT_LABELS", {"projects/x": "a b"})
+    monkeypatch.setattr(m, "MANAGED_LABELS", {*m.MANAGED_LABELS, "a b"})
+    fake = FakeGh("feat(tests): add a test", ["tests", "a b"], ["tests/a.py"])
+    run_main(monkeypatch, fake, "--pr", "7")
+    assert fake.writes == [
+        ("api", "--method", "DELETE", "repos/o/r/issues/7/labels/a%20b")
+    ]
