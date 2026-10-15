@@ -253,3 +253,4 @@ def test_evm_t8n_restores_the_active_tracer(
     finally:
         trace.set_evm_trace(previous)
         default_t8n.count_opcodes = True
+        default_t8n.reset_opcode_count()
