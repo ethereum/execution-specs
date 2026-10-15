@@ -107,6 +107,7 @@ class RethExceptionMapper(ExceptionMapper):
         ),
         BlockException.INVALID_GASLIMIT: (
             r"child gas_limit \d+ max .* is .*|"
+            r"child gas_limit \d+ exceeds the max allowed increase .*|"
             r"child gas_limit \d+ is below the max allowed decrease .*|"
             r"child gas limit \d+ is below the minimum allowed limit"
         ),
