@@ -135,6 +135,22 @@ class SyncPath:
         )
 
     @property
+    def expected_latest_valid_hash(self) -> Hash | None:
+        """
+        Return the `latestValidHash` an INVALID verdict on this path owes.
+
+        It is the parent of the first invalid payload on the served
+        chain, the newest block the client should still hold valid, even
+        when a framework sync target sits above the invalid block. Return
+        `None` when no served payload is invalid (a path rejected only by
+        its declared Engine API error code).
+        """
+        for payload in self.served_payloads:
+            if not payload.valid():
+                return _parent_hash(payload)
+        return None
+
+    @property
     def invalidities(self) -> set[BlockException | TransactionException]:
         """Return every exception this path's payloads declare."""
         invalidities: set[BlockException | TransactionException] = set()
