@@ -74,6 +74,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureBlockBase,
     FixtureConfig,
     FixtureEngineNewPayload,
+    FixtureExecutionPayload,
     FixtureExecutionPayloadModifier,
     FixtureHeader,
     FixtureTransaction,
@@ -918,6 +919,107 @@ def _split_blocks_by_phase(blocks: List[Block]) -> List[Block]:
     return out
 
 
+PAYLOAD_HEADER_FIELDS = frozenset(FixtureHeader.model_fields) & frozenset(
+    FixtureExecutionPayload.model_fields
+)
+"""Header fields that the engine ``ExecutionPayload`` carries by name."""
+
+
+def check_stateful_invalid_block(block: Block) -> None:
+    """
+    Reject an invalid block that ``fill-stateful`` cannot produce.
+
+    The client builds every block, so it only ever seals a valid one. The
+    invalid block is that block with header fields overridden by
+    ``rlp_modifier``; anything that must change the block body, or that
+    the execution payload cannot carry, is out of reach.
+    """
+    reasons: List[str] = []
+    if block.rlp_modifier is None:
+        reasons.append(
+            "it has no `rlp_modifier` (a transaction-level exception "
+            "needs the client to build an invalid block)"
+        )
+    else:
+        overrides = block.rlp_modifier.model_dump(exclude_none=True)
+        not_in_payload = sorted(overrides.keys() - PAYLOAD_HEADER_FIELDS)
+        if not_in_payload:
+            reasons.append(
+                f"`rlp_modifier` sets {not_in_payload}, which the "
+                "execution payload does not carry"
+            )
+        removed = sorted(
+            k for k, v in overrides.items() if isinstance(v, Removable)
+        )
+        if removed:
+            reasons.append(f"`rlp_modifier` removes {removed}")
+    if block.requests is not None:
+        reasons.append("it overrides `requests`")
+    payload_only = block.engine_payload_only_overrides()
+    if payload_only:
+        reasons.append(f"it sets {payload_only}")
+    if (
+        block.expected_block_access_list is not None
+        and block.expected_block_access_list.has_modifier
+    ):
+        reasons.append("it modifies the block access list")
+    if block.phase == TestPhase.SETUP:
+        reasons.append("it is a setup-phase block")
+    if reasons:
+        raise NotImplementedError(
+            "fill-stateful cannot fill this invalid block: "
+            + "; ".join(reasons)
+        )
+
+
+def invalid_payload_to_fixture(
+    built_block: TestingBuildBlock,
+    *,
+    phase: TestPhase | None = None,
+) -> FixtureEngineNewPayload:
+    """
+    Turn a client-built block into the invalid payload the test describes.
+
+    The header is rebuilt from the client's payload and checked against
+    the client's hash. ``rlp_modifier`` then applies to it, and the payload
+    gets the modified fields and a ``block_hash`` recomputed over them. The
+    payload passes the hash check, so a client must reach the corrupted
+    field before it can reject the block.
+    """
+    modifier = built_block.rlp_modifier
+    assert modifier is not None, "check_stateful_invalid_block() first"
+    built = built_block.engine_payload.payload_response.execution_payload
+    # ``built_block.header`` takes client-chosen fields (gas_limit, ...)
+    # from the test environment and already has the modifier applied; the
+    # client's payload holds the values it sealed.
+    header = built_block.header.copy(
+        **{field: getattr(built, field) for field in PAYLOAD_HEADER_FIELDS}
+    )
+    if header.block_hash != built.block_hash:
+        raise ValueError(
+            f"header rebuilt from the client payload hashes to "
+            f"{header.block_hash}, but the client sealed {built.block_hash}; "
+            "a header field outside the payload differs from the client's"
+        )
+    modified = modifier.apply(header)
+    payload = built.copy(
+        **{
+            field: getattr(modified, field)
+            for field in modifier.model_dump(exclude_none=True)
+        },
+        block_hash=modified.block_hash,
+    )
+    valid = payload_metadata_to_fixture(built_block.engine_payload)
+    return FixtureEngineNewPayload(
+        params=(payload, *valid.params[1:]),
+        new_payload_version=valid.new_payload_version,
+        forkchoice_updated_version=valid.forkchoice_updated_version,
+        validation_error=built_block.expected_exception,
+        error_code=built_block.engine_api_error_code,
+        phase=phase,
+    )
+
+
 class BlockchainTest(BaseTest):
     """Filler type that tests multiple blocks (valid or invalid) in a chain."""
 
@@ -1186,6 +1288,7 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
+                expect_invalid=block.exception is not None,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -1426,9 +1529,16 @@ class BlockchainTest(BaseTest):
             built_block = BuiltBlock(**built_block_kwargs)
 
         try:
-            rejected_txs = built_block.verify_transactions(
-                transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
-            )
+            rejected_txs: List[int] = []
+            # A client backend leaves an expected-invalid block out of its
+            # chain, so it has no receipts to check the transactions against.
+            if not (
+                isinstance(built_block, TestingBuildBlock)
+                and block.exception is not None
+            ):
+                rejected_txs = built_block.verify_transactions(
+                    transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
+                )
             if (
                 not rejected_txs
                 and block.rlp_modifier is None
@@ -2050,6 +2160,11 @@ class BlockchainTest(BaseTest):
         # split into contiguous phase runs so benchmark gas isn't
         # swallowed into ``setupEngineNewPayloads``.
         blocks_to_process.extend(_split_blocks_by_phase(self.blocks))
+        # Before any block reaches the client: a rejection halfway through
+        # would leave the client on a half-built test chain.
+        for block in blocks_to_process:
+            if block.exception is not None:
+                check_stateful_invalid_block(block)
 
         # Chain off the session start_block. We pull parent_* from a
         # FixtureHeader-validated copy of the client's block dict, but
@@ -2101,10 +2216,17 @@ class BlockchainTest(BaseTest):
                 "ClientBackend must return TestingBuildBlock; got "
                 f"{type(built_block).__name__}"
             )
-            built_block.record_landings(context)
-            payload = payload_metadata_to_fixture(
-                built_block.engine_payload, phase=block.phase
-            )
+            invalid = block.exception is not None
+            if invalid:
+                # A rejected block's transactions do not land.
+                payload = invalid_payload_to_fixture(
+                    built_block, phase=block.phase
+                )
+            else:
+                built_block.record_landings(context)
+                payload = payload_metadata_to_fixture(
+                    built_block.engine_payload, phase=block.phase
+                )
             # The client's authoritative block hash (the FixtureHeader RLP
             # hash diverges — the client picks fields like gas_limit).
             client_hash = Hash(
@@ -2116,8 +2238,12 @@ class BlockchainTest(BaseTest):
                     pre_state_block_number = int(built_block.header.number)
             else:
                 execution_payloads.append(payload)
-                block_opcode_count = t8n.extract_block_opcode_count(
-                    client_hash
+                # The client never imports an invalid block, so there is
+                # nothing to trace.
+                block_opcode_count = (
+                    None
+                    if invalid
+                    else t8n.extract_block_opcode_count(client_hash)
                 )
                 execution_opcode_counts.append(
                     block_opcode_count.model_dump()
@@ -2137,6 +2263,10 @@ class BlockchainTest(BaseTest):
                     benchmark_block_gas_used = built_block.block_gas_used()
                     # Consumed by BenchmarkTest's opcode-count verification.
                     benchmark_opcode_count = block_opcode_count
+            if invalid:
+                # A rejected block is not a parent: the next block, and
+                # ``last_block_hash``, stay on the last valid one.
+                continue
             # apply_new_parent records the RLP hash; the next block's
             # parent_hash must point at what the client actually built.
             env = apply_new_parent(built_block.env, built_block.header)
