@@ -11,16 +11,15 @@ Fix a pull request's title and sync its labels.
 
 Usage: `pr_title_and_labels.py [--pr N] [--dry-run]`.
 
-Titles follow `<type>(<areas>): <description>` (see CONTRIBUTING.md). A
-title with a known type keeps its type and description, and only its
-areas are mapped to the canonical names. A title without a known type is
-rewritten by Claude when `ANTHROPIC_API_KEY` is set, and by simple rules
-otherwise.
+Titles follow `<type>(<areas>): <description>` (see CONTRIBUTING.md),
+and the labels match the title one to one. The areas always come from
+the files the pull request changes. A title with a known type keeps its
+type and description. A title without one is rewritten by Claude when
+`ANTHROPIC_API_KEY` is set, and by simple rules otherwise.
 
-Labels in `MANAGED_LABELS` are then synced: an area label for each area
-the changed files touch, a project label for pull requests into a
-branch in `PROJECT_LABELS`, and `fix` or `perf` from the title type.
-Other labels are never touched.
+Labels in `MANAGED_LABELS` are then synced to the title's type and
+areas, plus a project label for pull requests into a branch in
+`PROJECT_LABELS`. Other labels are never touched.
 
 Read the pull request number from `GITHUB_EVENT_PATH` (or `--pr`) and
 the repository from `GITHUB_REPOSITORY`, and query GitHub via the `gh`
@@ -49,38 +48,6 @@ TYPE_ALIASES = {
 AREAS = ("spec", "tests", "benchmark", "framework", "ci")
 CODE_AREAS = ("spec", "tests", "benchmark", "framework")
 
-# Area spellings seen in past titles. Docs carry no area. Anything not
-# listed here is replaced by the areas the changed files touch.
-_AREA_SPELLINGS = {
-    "spec": (
-        "spec specs spec-specs spec-spec specs-spec spec-tools spec-tool "
-        "spec-tests spec-rpc"
-    ),
-    "tests": "tests test ported-static",
-    "benchmark": "benchmark benchmarks bench test-benchmark tests-benchmark",
-    "framework": (
-        "framework fill fill-stateful stateful-filler consume execute "
-        "tests-execute forks client-clis evm-tools rpc cli checklists "
-        "test-base-types test-cli test-client-cli test-client-clis "
-        "test-clients-cli test-clis test-config test-consume test-devp2p "
-        "test-eest test-evm-tools test-exceptions test-execute "
-        "test-execution test-fill test-fixtures test-formats test-forks "
-        "test-gentest test-logging test-make test-plugins-filler "
-        "test-plugins-forks test-rpc test-specs test-tests test-tools "
-        "test-type test-types test-vm"
-    ),
-    "ci": (
-        "ci test-ci github tooling deps packaging scripts skill skills "
-        "releases"
-    ),
-}
-AREA_ALIASES: dict[str, str | None] = {
-    spelling: area
-    for area, spellings in _AREA_SPELLINGS.items()
-    for spelling in spellings.split()
-}
-AREA_ALIASES.update(doc=None, docs=None)
-
 BENCHMARK_PATHS = (
     "tests/benchmark/",
     "packages/testing/src/execution_testing/benchmark/",
@@ -88,8 +55,6 @@ BENCHMARK_PATHS = (
 SPEC_PATHS = ("src/", "tests/json_loader/", "tests/spec_tools/")
 IGNORED_FILES = ("whitelist.txt", "vulture_whitelist.py")
 
-# Title types that are also labels.
-TYPE_LABELS = {"fix", "perf"}
 # Project label for pull requests into a base branch with this prefix, so
 # `projects/zkevm-releases` is labeled `zkevm` too.
 PROJECT_LABELS = {
@@ -100,7 +65,7 @@ PROJECT_LABELS = {
 MANAGED_LABELS = {
     *AREAS,
     *PROJECT_LABELS.values(),
-    *TYPE_LABELS,
+    *TYPES,
 }
 
 TITLE_PATTERN = re.compile(
@@ -120,7 +85,9 @@ framework that fills them. The title becomes the squash commit message, so \
 describe what the diff does. The author's title may be wrong or empty, so \
 never just reword it.
 
-Format: <type>(<areas>): <description>
+Format: <type>(<areas>): <description>. The areas are already set from the \
+files the pull request changes, so choose only the type and the \
+description.
 
 type, by what the change is for:
 - feat: new behavior, or new or extended consensus test cases. New tests \
@@ -133,14 +100,6 @@ under tests/ are feat, not test.
 framework or the spec tooling.
 - chore: maintenance, such as CI, dependency bumps, linting or agent and \
 tooling configuration.
-
-areas: the candidate areas the change is about. Leave out an area that is \
-only touched in passing, such as a spelling whitelist, a docs line or a CI \
-tweak next to a code change. spec is the specification under src/, tests is \
-the consensus tests under tests/, benchmark is the benchmark tests, \
-framework is the test framework under packages/ (fill, consume, execute, \
-forks, fixtures and test types), and ci is CI, tooling and repository \
-configuration.
 
 description: in the imperative mood ("add", not "added" or "adds"), \
 lowercase except for names, at most 60 characters and no trailing period. \
@@ -168,13 +127,9 @@ TITLE_SCHEMA = {
     "type": "object",
     "properties": {
         "type": {"type": "string", "enum": list(TYPES)},
-        "areas": {
-            "type": "array",
-            "items": {"type": "string", "enum": list(AREAS)},
-        },
         "description": {"type": "string"},
     },
-    "required": ["type", "areas", "description"],
+    "required": ["type", "description"],
     "additionalProperties": False,
 }
 
@@ -233,33 +188,9 @@ def strip_noise(title: str) -> str:
     return re.sub(r"^[^\w`]+", "", title).strip()
 
 
-def written_areas(scope: str | None) -> list[str]:
-    """Split a title scope such as `spec-specs, tests` into spellings."""
-    parts = re.split(r"[,/|]", scope or "")
-    return [
-        re.sub(r"[\s_]+", "-", part.strip().lower())
-        for part in parts
-        if part.strip()
-    ]
-
-
-def canonical_areas(scope: str | None, touched: list[str]) -> list[str]:
-    """
-    Return the canonical areas for a title scope.
-
-    Keep the author's areas when every spelling is known. Otherwise, or
-    when nothing is left after dropping docs, use the touched areas.
-    """
-    spellings = written_areas(scope)
-    if not all(spelling in AREA_ALIASES for spelling in spellings):
-        return title_areas(touched)
-    mapped = {AREA_ALIASES[spelling] for spelling in spellings}
-    return [area for area in AREAS if area in mapped] or title_areas(touched)
-
-
 def normalize_title(title: str, touched: list[str]) -> Title | None:
     """
-    Return `title` with canonical type and areas.
+    Return `title` with a canonical type and the touched areas.
 
     Return `None` when the title has no known type or no description, so
     that it has to be rewritten. The description is kept as written.
@@ -274,7 +205,7 @@ def normalize_title(title: str, touched: list[str]) -> Title | None:
         return None
     return Title(
         type=kind,
-        areas=tuple(canonical_areas(match["areas"], touched)),
+        areas=tuple(title_areas(touched)),
         description=description,
         breaking=match["breaking"] is not None,
     )
@@ -320,31 +251,25 @@ def validate_claude_title(data: Any, touched: list[str]) -> Title | None:
     if not isinstance(data, dict):
         return None
     kind = data.get("type")
-    areas = data.get("areas")
     description = data.get("description")
-    if kind not in TYPES or not isinstance(areas, list):
+    if kind not in TYPES:
         return None
     if not isinstance(description, str) or "\n" in description:
         return None
     description = clean_description(description)
     if not description or len(description) > MAX_DESCRIPTION:
         return None
-    candidates = title_areas(touched)
-    picked = [area for area in candidates if area in areas] or candidates
-    return Title(kind, tuple(picked), description)
+    return Title(kind, tuple(title_areas(touched)), description)
 
 
-def desired_labels(touched: list[str], base: str, kind: str) -> set[str]:
-    """Return the managed labels a pull request should carry."""
-    labels = set(touched)
-    labels.update(
+def desired_labels(title: Title, base: str) -> set[str]:
+    """Return the title's type and areas, plus the base branch's project."""
+    projects = {
         label
         for prefix, label in PROJECT_LABELS.items()
         if base.startswith(prefix)
-    )
-    if kind in TYPE_LABELS:
-        labels.add(kind)
-    return labels
+    }
+    return {title.type, *title.areas, *projects}
 
 
 def label_changes(
@@ -396,9 +321,9 @@ def claude_prompt(
         f"{f['filename']} (+{f['additions']} -{f['deletions']})" for f in files
     )
     truncated = len(diff) > MAX_DIFF_CHARS
-    candidates = ", ".join(title_areas(touched)) or "none (docs only)"
+    areas = ", ".join(title_areas(touched)) or "none (docs only)"
     return (
-        f"Candidate areas: {candidates}\n\n<pr>\n"
+        f"Areas: {areas}\n\n<pr>\n"
         f"<title>{pr['title']}</title>\n"
         f"<body>{(pr['body'] or '')[:MAX_BODY_CHARS]}</body>\n"
         f"<files>\n{listing}\n</files>\n"
@@ -484,7 +409,7 @@ def main() -> None:
     title = str(fixed)
 
     current = {label["name"] for label in pr["labels"]}
-    wanted = desired_labels(touched, pr["base"]["ref"], fixed.type)
+    wanted = desired_labels(fixed, pr["base"]["ref"])
     add, remove = label_changes(current, wanted)
 
     print(f"#{number}: {pr['title']}")

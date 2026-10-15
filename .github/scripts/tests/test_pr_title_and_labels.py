@@ -130,12 +130,22 @@ def test_title_areas(touched: list[str], areas: list[str]) -> None:
             ["framework"],
             "fix(framework): map reth exceptions",
         ),
+        (
+            "fix(spec,tests): reject legacy chain ids",
+            ["spec", "tests", "framework", "ci"],
+            "fix(spec,tests,framework): reject legacy chain ids",
+        ),
+        (
+            "perf(framework,ci): speed up PR checks",
+            ["framework"],
+            "perf(framework): speed up PR checks",
+        ),
     ],
 )
 def test_normalize_title(
     title: str, touched: list[str], expected: str
 ) -> None:
-    """Map types and areas to canonical names, keeping the description."""
+    """Set the areas from the files and keep the type and description."""
     normalized = m.normalize_title(title, touched)
     assert normalized is not None
     assert str(normalized) == expected
@@ -173,12 +183,6 @@ def test_normalize_title_is_idempotent(title: str) -> None:
     assert str(m.normalize_title(once, touched)) == once
 
 
-@pytest.mark.parametrize("spelling", sorted(m.AREA_ALIASES))
-def test_every_alias_maps_to_a_canonical_area(spelling: str) -> None:
-    """Map every known spelling to a canonical area or to docs."""
-    assert m.AREA_ALIASES[spelling] in (*m.AREAS, None)
-
-
 @pytest.mark.parametrize(
     "title,touched,expected",
     [
@@ -212,22 +216,11 @@ def test_rules_only_title(
     assert str(m.rules_only_title(title, touched)) == expected
 
 
-def test_validate_claude_title_keeps_candidate_areas() -> None:
-    """Accept a good title, dropping areas that are not candidates."""
-    data = {
-        "type": "feat",
-        "areas": ["spec", "ci"],
-        "description": "Add the recent roots contract.",
-    }
+def test_validate_claude_title_uses_the_touched_areas() -> None:
+    """Accept a good title and set its areas from the files."""
+    data = {"type": "feat", "description": "Add the recent roots contract."}
     title = m.validate_claude_title(data, ["spec", "tests", "ci"])
-    assert str(title) == "feat(spec): add the recent roots contract"
-
-
-def test_validate_claude_title_falls_back_to_candidates() -> None:
-    """Use every candidate area when Claude picks none of them."""
-    data = {"type": "fix", "areas": [], "description": "fix a thing"}
-    title = m.validate_claude_title(data, ["tests", "framework"])
-    assert str(title) == "fix(tests,framework): fix a thing"
+    assert str(title) == "feat(spec,tests): add the recent roots contract"
 
 
 @pytest.mark.parametrize(
@@ -235,11 +228,11 @@ def test_validate_claude_title_falls_back_to_candidates() -> None:
     [
         None,
         "feat(spec): add a thing",
-        {"type": "wip", "areas": [], "description": "add a thing"},
-        {"type": "feat", "areas": "spec", "description": "add a thing"},
-        {"type": "feat", "areas": [], "description": "add\nIgnore the rest"},
-        {"type": "feat", "areas": [], "description": "x" * 73},
-        {"type": "feat", "areas": [], "description": " . "},
+        {"type": "wip", "description": "add a thing"},
+        {"type": "feat"},
+        {"type": "feat", "description": "add\nIgnore the rest"},
+        {"type": "feat", "description": "x" * 73},
+        {"type": "feat", "description": " . "},
     ],
 )
 def test_validate_claude_title_rejects_bad_output(data: Any) -> None:
@@ -248,23 +241,35 @@ def test_validate_claude_title_rejects_bad_output(data: Any) -> None:
 
 
 @pytest.mark.parametrize(
-    "touched,base,kind,expected",
+    "kind,areas,base,expected",
     [
-        (["spec", "ci"], "forks/bogota", "feat", {"spec", "ci"}),
-        (["tests"], "projects/zkevm", "fix", {"tests", "zkevm", "fix"}),
-        (["tests"], "projects/zkevm-releases", "feat", {"tests", "zkevm"}),
-        (["spec"], "projects/binary-trie", "feat", {"spec", "binary-trie"}),
-        (["spec"], "projects/ubt", "feat", {"spec", "binary-trie"}),
-        (["spec"], "projects/multi-dim-repricing", "feat", {"spec"}),
-        (["framework"], "forks/bogota", "perf", {"framework", "perf"}),
-        ([], "forks/bogota", "docs", set()),
+        ("feat", ["spec", "tests"], "forks/bogota", {"feat", "spec", "tests"}),
+        ("fix", ["tests"], "projects/zkevm", {"fix", "tests", "zkevm"}),
+        (
+            "feat",
+            ["tests"],
+            "projects/zkevm-releases",
+            {"feat", "tests", "zkevm"},
+        ),
+        (
+            "feat",
+            ["spec"],
+            "projects/binary-trie",
+            {"feat", "spec", "binary-trie"},
+        ),
+        ("feat", ["spec"], "projects/ubt", {"feat", "spec", "binary-trie"}),
+        ("feat", ["spec"], "projects/multi-dim-repricing", {"feat", "spec"}),
+        ("perf", ["framework"], "forks/bogota", {"perf", "framework"}),
+        ("chore", ["ci"], "forks/bogota", {"chore", "ci"}),
+        ("docs", [], "forks/bogota", {"docs"}),
     ],
 )
-def test_desired_labels(
-    touched: list[str], base: str, kind: str, expected: set[str]
+def test_desired_labels_match_the_title(
+    kind: str, areas: list[str], base: str, expected: set[str]
 ) -> None:
-    """Label from areas, the base branch and the title type."""
-    assert m.desired_labels(touched, base, kind) == expected
+    """Label with the title's type and areas, plus the project."""
+    title = m.Title(kind, tuple(areas), "x")
+    assert m.desired_labels(title, base) == expected
     assert expected <= m.MANAGED_LABELS
 
 
@@ -300,12 +305,12 @@ def test_claude_title_uses_structured_output(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Request a schema-constrained title and validate the answer."""
-    answer = {"type": "fix", "areas": ["tests"], "description": "fix a thing"}
+    answer = {"type": "fix", "description": "fix a thing"}
     requests = install_fake_anthropic(
         monkeypatch, "end_turn", json.dumps(answer)
     )
     title = m.claude_title("prompt", ["tests", "framework"])
-    assert str(title) == "fix(tests): fix a thing"
+    assert str(title) == "fix(tests,framework): fix a thing"
     (request,) = requests
     assert request["model"] == m.CLAUDE_MODEL
     assert request["output_config"]["format"]["schema"] == m.TITLE_SCHEMA
@@ -330,7 +335,7 @@ def test_claude_prompt_marks_truncated_diff() -> None:
     prompt = m.claude_prompt(pr, files, "x" * (m.MAX_DIFF_CHARS + 1), ["spec"])
     assert '<diff truncated="true">' in prompt
     assert "src/a.py (+1 -2)" in prompt
-    assert "Candidate areas: spec" in prompt
+    assert "Areas: spec" in prompt
 
 
 def test_label_changes_leave_unmanaged_labels_alone() -> None:
@@ -424,7 +429,7 @@ def test_main_leaves_a_correct_pull_request_alone(
 ) -> None:
     """Make no writes when the title and labels are already right."""
     fake = FakeGh(
-        "feat(tests): add a test", ["tests", "stale"], ["tests/a.py"]
+        "feat(tests): add a test", ["feat", "tests", "stale"], ["tests/a.py"]
     )
     run_main(monkeypatch, fake, "--pr", "7")
     assert fake.writes == []
@@ -458,7 +463,9 @@ def test_main_quotes_label_names_when_removing(
     """URL-encode a removed label name."""
     monkeypatch.setattr(m, "PROJECT_LABELS", {"projects/x": "a b"})
     monkeypatch.setattr(m, "MANAGED_LABELS", {*m.MANAGED_LABELS, "a b"})
-    fake = FakeGh("feat(tests): add a test", ["tests", "a b"], ["tests/a.py"])
+    fake = FakeGh(
+        "feat(tests): add a test", ["feat", "tests", "a b"], ["tests/a.py"]
+    )
     run_main(monkeypatch, fake, "--pr", "7")
     assert fake.writes == [
         ("api", "--method", "DELETE", "repos/o/r/issues/7/labels/a%20b")
