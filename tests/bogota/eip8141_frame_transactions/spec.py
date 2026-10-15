@@ -89,3 +89,6 @@ class Spec:
     SIGPARAM_SCHEME = 0x01
     SIGPARAM_MSG = 0x02
     SIGPARAM_SIGNATURE_LENGTH = 0x03
+
+    # Public mempool
+    MAX_VERIFY_GAS = 100_000
