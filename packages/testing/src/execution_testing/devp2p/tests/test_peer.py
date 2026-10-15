@@ -7,11 +7,11 @@ import ethereum_rlp as eth_rlp
 import pytest
 from ethereum_types.numeric import Uint
 
+from execution_testing.base_types import Hash
+
 from ..chain import Block, Chain
 from ..keccak import keccak256
 from ..peer import (
-    BLOCK_BODIES,
-    BLOCK_HEADERS,
     MAX_BODIES_PER_RESPONSE,
     MAX_HEADERS_PER_RESPONSE,
     SOFT_RESPONSE_LIMIT,
@@ -19,11 +19,10 @@ from ..peer import (
     MockPeer,
 )
 from ..protocol import (
-    BLOCK_ACCESS_LISTS,
     ETH_PROTOCOLS,
-    GET_BLOCK_ACCESS_LISTS,
-    GET_RECEIPTS,
     BlockHeadersRequest,
+    EthVersion,
+    MessageCode,
 )
 from ..rlpx import RLPxSession
 
@@ -31,9 +30,9 @@ LARGE_BODY_SIZE = 8 * 1024 * 1024
 """A body the size EIP-7934 allows a block to reach."""
 
 
-def _hash(index: int) -> bytes:
+def _hash(index: int) -> Hash:
     """Return a distinct block hash for `index`."""
-    return index.to_bytes(32, "big")
+    return Hash(index.to_bytes(32, "big"))
 
 
 @dataclass
@@ -61,9 +60,9 @@ class _StubChains:
 
     def __init__(
         self,
-        bodies: Dict[bytes, bytes] | None = None,
+        bodies: Dict[Hash, bytes] | None = None,
         headers: Dict[int, bytes] | None = None,
-        bals: Dict[bytes, bytes | None] | None = None,
+        bals: Dict[Hash, bytes | None] | None = None,
     ) -> None:
         """Hold the given items; a `None` BAL is a pre-Amsterdam block."""
         self._bodies = bodies or {}
@@ -74,11 +73,11 @@ class _StubChains:
         """Accept a new chain without changing what is held."""
         del chain
 
-    def body_rlp_by_hash(self, block_hash: bytes) -> bytes | None:
+    def body_rlp_by_hash(self, block_hash: Hash) -> bytes | None:
         """Return the body held under `block_hash`, if any."""
         return self._bodies.get(block_hash)
 
-    def bal_rlp_by_hash(self, block_hash: bytes) -> bytes | None:
+    def bal_rlp_by_hash(self, block_hash: Hash) -> bytes | None:
         """Return the BAL held under `block_hash`, if any."""
         return self._bals.get(block_hash)
 
@@ -96,7 +95,7 @@ def _peer(**overrides: Any) -> MockPeer:
 
 
 def _stub_peer(
-    bodies: Dict[bytes, bytes] | None = None,
+    bodies: Dict[Hash, bytes] | None = None,
     headers: Dict[int, bytes] | None = None,
 ) -> MockPeer:
     """Return a peer holding stub `bodies` and current `headers`."""
@@ -126,7 +125,7 @@ class _FailingSession:
         raise OSError(32, "Broken pipe")
 
 
-def _serve(bodies: Dict[bytes, bytes], hashes: List[bytes]) -> int:
+def _serve(bodies: Dict[Hash, bytes], hashes: List[Hash]) -> int:
     """
     Ask a peer holding `bodies` for `hashes`; return how many it sent.
 
@@ -138,7 +137,7 @@ def _serve(bodies: Dict[bytes, bytes], hashes: List[bytes]) -> int:
     peer._serve_bodies(cast(RLPxSession, session), 1, hashes)
 
     ((code, payload),) = session.messages
-    assert code == BLOCK_BODIES
+    assert code == MessageCode.BLOCK_BODIES
     served = peer.statistics.bodies_served
     # Unknown hashes are skipped, so the served bodies are the first
     # `served` known hashes, and the response carries nothing else.
@@ -328,7 +327,7 @@ def _walk(
     session = _RecordingSession()
     request = BlockHeadersRequest(
         request_id=9,
-        origin_hash=origin if isinstance(origin, bytes) else None,
+        origin_hash=Hash(origin) if isinstance(origin, bytes) else None,
         origin_number=origin if isinstance(origin, int) else None,
         amount=amount,
         skip=skip,
@@ -337,7 +336,7 @@ def _walk(
     peer._serve_headers(cast(RLPxSession, session), request)
     assert len(session.messages) == 1
     code, payload = session.messages[0]
-    assert code == BLOCK_HEADERS
+    assert code == MessageCode.BLOCK_HEADERS
     request_id, headers = cast(
         Tuple[bytes, List[Any]], eth_rlp.decode(payload)
     )
@@ -536,10 +535,10 @@ class TestEvidenceSeparation:
         assert peer.header_hashes_ever_served == set()
 
 
-def _bal_peer(bals: Dict[bytes, bytes | None], serve: bool) -> MockPeer:
+def _bal_peer(bals: Dict[Hash, bytes | None], serve: bool) -> MockPeer:
     """Return an eth/71 peer holding `bals`."""
     peer = _peer(serve_bals=serve)
-    peer.protocol = ETH_PROTOCOLS[71]
+    peer.protocol = ETH_PROTOCOLS[EthVersion.ETH_71]
     peer._chains = cast(Any, _StubChains(bals=bals))
     return peer
 
@@ -550,9 +549,11 @@ def _request_bals(
     """Ask `peer` for the BALs of `hashes`; return the id and entries."""
     session = _RecordingSession()
     payload = eth_rlp.encode([Uint(5), hashes])
-    peer._handle(cast(RLPxSession, session), GET_BLOCK_ACCESS_LISTS, payload)
+    peer._handle(
+        cast(RLPxSession, session), MessageCode.GET_BLOCK_ACCESS_LISTS, payload
+    )
     ((code, response),) = session.messages
-    assert code == BLOCK_ACCESS_LISTS
+    assert code == MessageCode.BLOCK_ACCESS_LISTS
     request_id, entries = cast(
         Tuple[bytes, List[Any]], eth_rlp.decode(response)
     )
@@ -592,14 +593,18 @@ class TestBalService:
         assert peer.statistics.receipt_requests == 0
 
     @pytest.mark.parametrize("version", sorted(ETH_PROTOCOLS))
-    def test_receipts_stay_unanswered_when_serving(self, version: int) -> None:
+    def test_receipts_stay_unanswered_when_serving(
+        self, version: EthVersion
+    ) -> None:
         """No version answers receipts, even with BALs served."""
         peer = _bal_peer({}, serve=True)
         peer.protocol = ETH_PROTOCOLS[version]
         session = _RecordingSession()
         offset = [] if version == 69 else [Uint(0)]
         payload = eth_rlp.encode([Uint(5), *offset, [_hash(1)]])
-        peer._handle(cast(RLPxSession, session), GET_RECEIPTS, payload)
+        peer._handle(
+            cast(RLPxSession, session), MessageCode.GET_RECEIPTS, payload
+        )
         assert session.messages == []
         assert peer.statistics.receipt_requests == 1
         assert "receipts for 1 hashes" in peer.statistics.transcript[-1]

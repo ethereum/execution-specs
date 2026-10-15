@@ -15,6 +15,7 @@ from typing import Callable
 
 from hive.client import Client
 
+from execution_testing.base_types import Hash
 from execution_testing.devp2p.chain import Block, Chain
 from execution_testing.devp2p.peer import MockPeer
 from execution_testing.fixtures.blockchain import FixtureHeader
@@ -116,7 +117,7 @@ def assert_wire_coverage(
     """
 
     def missing_blocks(
-        required: list[Block], ever_served: set[bytes]
+        required: list[Block], ever_served: set[Hash]
     ) -> list[int]:
         """Return the numbers of `required` blocks never served."""
         return [
@@ -228,7 +229,7 @@ def _run_sync_target(
                 )
             genesis_verified_clients.add(client.id)
 
-    expected_head = "0x" + chain.head.block_hash.hex()
+    expected_head = chain.head.block_hash
 
     head_state = ForkchoiceState(
         head_block_hash=head_hash,
@@ -470,7 +471,7 @@ def _run_sync_target(
         head_block = eth_rpc.get_block_by_number("latest")
         if head_block is None:
             raise LoggedError(f"{prefix}Client returned no head block")
-        if head_block["hash"] != expected_head:
+        if head_block["hash"] != str(expected_head):
             raise LoggedError(
                 f"{prefix}Client head is {head_block['hash']}, expected "
                 f"{expected_head}"

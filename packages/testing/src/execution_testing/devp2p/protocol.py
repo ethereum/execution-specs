@@ -9,10 +9,15 @@ chain data. Every other message is ignored.
 
 import zlib
 from dataclasses import dataclass
-from typing import Dict, List, Sequence, Tuple
+from enum import IntEnum
+from typing import List, Mapping, Sequence, Tuple, Type, TypeVar
 
 import ethereum_rlp as eth_rlp
+from ethereum_rlp.exceptions import DecodingError
+from ethereum_rlp.rlp import RLP, decode_to
 from ethereum_types.numeric import Uint
+
+from execution_testing.base_types import Hash
 
 P2P_VERSION = 5
 """
@@ -25,26 +30,76 @@ advertise it; a version 4 remote gets an uncompressed connection.
 ETH_OFFSET = 16
 """Message code offset of the first capability after the base protocol."""
 
-# Base protocol message codes.
-HELLO = 0x00
-DISCONNECT = 0x01
-PING = 0x02
-PONG = 0x03
 
-# eth capability message codes, already offset onto the wire.
-STATUS = ETH_OFFSET + 0x00
-GET_BLOCK_HEADERS = ETH_OFFSET + 0x03
-BLOCK_HEADERS = ETH_OFFSET + 0x04
-GET_BLOCK_BODIES = ETH_OFFSET + 0x05
-BLOCK_BODIES = ETH_OFFSET + 0x06
-GET_RECEIPTS = ETH_OFFSET + 0x0F
-BLOCK_RANGE_UPDATE = ETH_OFFSET + 0x11
-GET_BLOCK_ACCESS_LISTS = ETH_OFFSET + 0x12
-BLOCK_ACCESS_LISTS = ETH_OFFSET + 0x13
+class MessageCode(IntEnum):
+    """
+    The message codes this peer sends or answers.
+
+    Base protocol codes come first; eth capability codes are already
+    offset onto the wire by `ETH_OFFSET`. A code read from a peer stays
+    an `int`, since a client may send any other code.
+    """
+
+    HELLO = 0x00
+    DISCONNECT = 0x01
+    PING = 0x02
+    PONG = 0x03
+    STATUS = ETH_OFFSET + 0x00
+    GET_BLOCK_HEADERS = ETH_OFFSET + 0x03
+    BLOCK_HEADERS = ETH_OFFSET + 0x04
+    GET_BLOCK_BODIES = ETH_OFFSET + 0x05
+    BLOCK_BODIES = ETH_OFFSET + 0x06
+    GET_RECEIPTS = ETH_OFFSET + 0x0F
+    BLOCK_RANGE_UPDATE = ETH_OFFSET + 0x11
+    GET_BLOCK_ACCESS_LISTS = ETH_OFFSET + 0x12
+    BLOCK_ACCESS_LISTS = ETH_OFFSET + 0x13
+
+
+class EthVersion(IntEnum):
+    """An implemented version of the eth capability."""
+
+    ETH_69 = 69
+    ETH_70 = 70
+    ETH_71 = 71
+    ETH_72 = 72
 
 
 class ProtocolError(Exception):
     """Raised when a peer message cannot be decoded as expected."""
+
+
+Shape = TypeVar("Shape", bound=RLP)
+
+
+def _decode_shaped(shape: Type[Shape], payload: bytes, message: str) -> Shape:
+    """
+    Decode `payload` into the dataclass `shape`, or raise `ProtocolError`.
+
+    The decoding is exact: a field of the wrong kind or length, a list
+    of the wrong length, a non-canonical integer or trailing bytes are
+    all refused with `message`.
+    """
+    try:
+        return decode_to(shape, payload)
+    except DecodingError as error:
+        raise ProtocolError(message) from error
+
+
+@dataclass
+class _HashListRequest:
+    """The `[request-id, [hash, ...]]` shape of a by-hash request."""
+
+    request_id: Uint
+    hashes: Tuple[Hash, ...]
+
+
+@dataclass
+class _OffsetHashListRequest:
+    """The eth/70 GetReceipts shape, with the first block's offset."""
+
+    request_id: Uint
+    first_block_receipt_index: Uint
+    hashes: Tuple[Hash, ...]
 
 
 def encode_list(encoded_items: Sequence[bytes]) -> bytes:
@@ -118,9 +173,9 @@ def encode_hello(
 
 
 def highest_common_eth_version(
-    local_versions: Sequence[int],
+    local_versions: Sequence[EthVersion],
     remote_capabilities: Sequence[Tuple[str, int]],
-) -> int | None:
+) -> EthVersion | None:
     """
     Return the eth version RLPx negotiation selects, if any.
 
@@ -132,7 +187,9 @@ def highest_common_eth_version(
     remote_versions = {
         version for name, version in remote_capabilities if name == "eth"
     }
-    common = remote_versions.intersection(local_versions)
+    common = [
+        version for version in local_versions if version in remote_versions
+    ]
     return max(common) if common else None
 
 
@@ -143,20 +200,41 @@ def decode_hello(
     Return the remote base protocol version, client identifier and
     capabilities.
     """
-    fields = eth_rlp.decode(payload)
+    try:
+        fields = eth_rlp.decode(payload)
+    except DecodingError as error:
+        raise ProtocolError("malformed Hello message") from error
+    # EIP-8: elements past the ones read here are ignored, so the list is
+    # checked field by field rather than decoded to an exact shape.
     if not isinstance(fields, list) or len(fields) < 3:
         raise ProtocolError("malformed Hello message")
-    version = int.from_bytes(bytes(fields[0]), "big")
-    name = bytes(fields[1]).decode(errors="replace")
+    version, name, advertised = fields[0], fields[1], fields[2]
+    if (
+        not isinstance(version, bytes)
+        or not isinstance(name, bytes)
+        or not isinstance(advertised, list)
+    ):
+        raise ProtocolError("malformed Hello message")
     capabilities = []
-    for capability in fields[2]:
+    for capability in advertised:
+        if (
+            not isinstance(capability, list)
+            or len(capability) < 2
+            or not isinstance(capability[0], bytes)
+            or not isinstance(capability[1], bytes)
+        ):
+            raise ProtocolError("malformed Hello capability")
         capabilities.append(
             (
-                bytes(capability[0]).decode(errors="replace"),
-                int.from_bytes(bytes(capability[1]), "big"),
+                capability[0].decode(errors="replace"),
+                int.from_bytes(capability[1], "big"),
             )
         )
-    return version, name, capabilities
+    return (
+        int.from_bytes(version, "big"),
+        name.decode(errors="replace"),
+        capabilities,
+    )
 
 
 def decode_disconnect(payload: bytes) -> int:
@@ -174,11 +252,11 @@ class Status:
     """The content of the eth capability handshake message."""
 
     network_id: int
-    genesis_hash: bytes
+    genesis_hash: Hash
     fork_activations: Sequence[int]
     earliest_block: int
     latest_block: int
-    latest_block_hash: bytes
+    latest_block_hash: Hash
 
 
 @dataclass
@@ -186,7 +264,7 @@ class GetReceiptsRequest:
     """A decoded GetReceipts request."""
 
     request_id: int
-    block_hashes: List[bytes]
+    block_hashes: List[Hash]
     first_block_receipt_index: int | None
     """
     Receipt offset into the first block, letting a response continue a
@@ -213,7 +291,7 @@ class EthProtocol:
     independent stays at module level.
     """
 
-    version: int
+    version: EthVersion
 
     receipts_request_has_offset: bool
     """Whether GetReceipts carries the eth/70 receipt offset."""
@@ -237,44 +315,44 @@ class EthProtocol:
 
     def decode_get_receipts(self, payload: bytes) -> GetReceiptsRequest:
         """Decode a GetReceipts request as this version shapes it."""
-        fields = eth_rlp.decode(payload)
-        expected = 3 if self.receipts_request_has_offset else 2
-        if not isinstance(fields, list) or len(fields) != expected:
-            raise ProtocolError(
-                f"malformed GetReceipts message for eth/{self.version}"
-            )
-        request_id = int.from_bytes(bytes(fields[0]), "big")
+        message = f"malformed GetReceipts message for eth/{self.version}"
         if self.receipts_request_has_offset:
-            first_index = int.from_bytes(bytes(fields[1]), "big")
-            hashes = fields[2]
-        else:
-            first_index = None
-            hashes = fields[1]
+            with_offset = _decode_shaped(
+                _OffsetHashListRequest, payload, message
+            )
+            return GetReceiptsRequest(
+                request_id=int(with_offset.request_id),
+                block_hashes=list(with_offset.hashes),
+                first_block_receipt_index=int(
+                    with_offset.first_block_receipt_index
+                ),
+            )
+        request = _decode_shaped(_HashListRequest, payload, message)
         return GetReceiptsRequest(
-            request_id=request_id,
-            block_hashes=[bytes(item) for item in hashes],
-            first_block_receipt_index=first_index,
+            request_id=int(request.request_id),
+            block_hashes=list(request.hashes),
+            first_block_receipt_index=None,
         )
 
 
-ETH_PROTOCOLS: Dict[int, EthProtocol] = {
-    69: EthProtocol(
-        version=69,
+ETH_PROTOCOLS: Mapping[EthVersion, EthProtocol] = {
+    EthVersion.ETH_69: EthProtocol(
+        version=EthVersion.ETH_69,
         receipts_request_has_offset=False,
         has_bals=False,
     ),
-    70: EthProtocol(
-        version=70,
+    EthVersion.ETH_70: EthProtocol(
+        version=EthVersion.ETH_70,
         receipts_request_has_offset=True,
         has_bals=False,
     ),
-    71: EthProtocol(
-        version=71,
+    EthVersion.ETH_71: EthProtocol(
+        version=EthVersion.ETH_71,
         receipts_request_has_offset=True,
         has_bals=True,
     ),
-    72: EthProtocol(
-        version=72,
+    EthVersion.ETH_72: EthProtocol(
+        version=EthVersion.ETH_72,
         receipts_request_has_offset=True,
         has_bals=True,
     ),
@@ -290,7 +368,7 @@ propagation, which this peer takes no part in.
 
 
 def encode_block_range_update(
-    earliest_block: int, latest_block: int, latest_block_hash: bytes
+    earliest_block: int, latest_block: int, latest_block_hash: Hash
 ) -> bytes:
     """Encode the range of blocks whose bodies this peer can serve."""
     return eth_rlp.encode(
@@ -303,7 +381,7 @@ class BlockHeadersRequest:
     """A decoded GetBlockHeaders request."""
 
     request_id: int
-    origin_hash: bytes | None
+    origin_hash: Hash | None
     origin_number: int | None
     amount: int
     skip: int
@@ -314,7 +392,7 @@ class BlockHeadersRequest:
         origin = (
             f"#{self.origin_number}"
             if self.origin_hash is None
-            else f"0x{self.origin_hash.hex()[:12]}"
+            else self.origin_hash.hex()[:14]
         )
         direction = "reverse" if self.reverse else "forward"
         return (
@@ -325,45 +403,84 @@ class BlockHeadersRequest:
 
 def decode_get_block_headers(payload: bytes) -> BlockHeadersRequest:
     """Decode a GetBlockHeaders request."""
-    fields = eth_rlp.decode(payload)
-    if not isinstance(fields, list) or len(fields) != 2:
+    # Not decoded to an exact shape: the origin is a hash or a number,
+    # which only its length tells apart.
+    try:
+        fields = eth_rlp.decode(payload)
+    except DecodingError as error:
+        raise ProtocolError("malformed GetBlockHeaders message") from error
+    if (
+        not isinstance(fields, list)
+        or len(fields) != 2
+        or not isinstance(fields[0], bytes)
+        or fields[0][:1] == b"\x00"
+    ):
         raise ProtocolError("malformed GetBlockHeaders message")
-    request_id = int.from_bytes(bytes(fields[0]), "big")
-    query = fields[1]
-    if not isinstance(query, list) or len(query) != 4:
+    request_id, query = fields
+    if (
+        not isinstance(query, list)
+        or len(query) != 4
+        or not all(isinstance(field, bytes) for field in query)
+    ):
         raise ProtocolError("malformed GetBlockHeaders query")
 
-    origin = bytes(query[0])
+    origin, amount, skip, reverse = query
+    by_hash = len(origin) == 32
+    # Integers are canonical (no leading zero) and `reverse` is 0 or 1,
+    # as geth's decoder requires. A hash may start with a zero byte.
+    if (
+        (not by_hash and origin[:1] == b"\x00")
+        or amount[:1] == b"\x00"
+        or skip[:1] == b"\x00"
+        or (reverse != b"" and reverse != b"\x01")
+    ):
+        raise ProtocolError("malformed GetBlockHeaders query")
     return BlockHeadersRequest(
-        request_id=request_id,
-        origin_hash=origin if len(origin) == 32 else None,
-        origin_number=(
-            None if len(origin) == 32 else int.from_bytes(origin, "big")
-        ),
-        amount=int.from_bytes(bytes(query[1]), "big"),
-        skip=int.from_bytes(bytes(query[2]), "big"),
-        reverse=bool(int.from_bytes(bytes(query[3]), "big")),
+        request_id=int.from_bytes(request_id, "big"),
+        origin_hash=Hash(origin) if by_hash else None,
+        origin_number=None if by_hash else int.from_bytes(origin, "big"),
+        amount=int.from_bytes(amount, "big"),
+        skip=int.from_bytes(skip, "big"),
+        reverse=reverse == b"\x01",
     )
 
 
 def _decode_hash_list_request(
     payload: bytes, name: str
-) -> Tuple[int, List[bytes]]:
-    """Decode a `[request-id, [hash, ...]]` shaped request."""
-    fields = eth_rlp.decode(payload)
-    if not isinstance(fields, list) or len(fields) != 2:
-        raise ProtocolError(f"malformed {name} message")
-    request_id = int.from_bytes(bytes(fields[0]), "big")
-    hashes = [bytes(item) for item in fields[1]]
-    return request_id, hashes
+) -> Tuple[int, List[Hash]]:
+    """
+    Decode a `[request-id, [hash, ...]]` shaped request.
+
+    Decoded by hand, not with `decode_to`, because `decode_to` resolves
+    type hints on every call and this runs for every body and BAL
+    request.
+    """
+    message = f"malformed {name} message"
+    try:
+        decoded = eth_rlp.decode(payload)
+    except DecodingError as error:
+        raise ProtocolError(message) from error
+    if not isinstance(decoded, (list, tuple)) or len(decoded) != 2:
+        raise ProtocolError(message)
+    request_id, hashes = decoded
+    if not isinstance(request_id, bytes) or request_id[:1] == b"\x00":
+        raise ProtocolError(message)
+    if not isinstance(hashes, (list, tuple)):
+        raise ProtocolError(message)
+    block_hashes = []
+    for block_hash in hashes:
+        if not isinstance(block_hash, bytes) or len(block_hash) != 32:
+            raise ProtocolError(message)
+        block_hashes.append(Hash(block_hash))
+    return int.from_bytes(request_id, "big"), block_hashes
 
 
-def decode_get_block_bodies(payload: bytes) -> Tuple[int, List[bytes]]:
+def decode_get_block_bodies(payload: bytes) -> Tuple[int, List[Hash]]:
     """Decode a GetBlockBodies request into its identifier and hashes."""
     return _decode_hash_list_request(payload, "GetBlockBodies")
 
 
-def decode_get_block_access_lists(payload: bytes) -> Tuple[int, List[bytes]]:
+def decode_get_block_access_lists(payload: bytes) -> Tuple[int, List[Hash]]:
     """Decode a GetBlockAccessLists request (eth/71)."""
     return _decode_hash_list_request(payload, "GetBlockAccessLists")
 

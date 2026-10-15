@@ -25,7 +25,7 @@ from execution_testing.devp2p.chain import (
     chain_from_payloads,
 )
 from execution_testing.devp2p.peer import MockPeer
-from execution_testing.devp2p.protocol import ETH_PROTOCOLS
+from execution_testing.devp2p.protocol import ETH_PROTOCOLS, EthVersion
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.fixtures.consume import (
@@ -140,7 +140,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--wirex-eth-version",
         action="store",
         dest="wirex_eth_version",
-        choices=["auto"] + [str(v) for v in sorted(ETH_PROTOCOLS)],
+        choices=["auto"] + [str(int(v)) for v in sorted(ETH_PROTOCOLS)],
         default="auto",
         help=(
             "eth protocol version the mock peer advertises. 'auto' "
@@ -362,12 +362,14 @@ def wirex_min_blocks(request: pytest.FixtureRequest) -> int:
 
 
 @pytest.fixture(scope="session")
-def wirex_eth_versions(request: pytest.FixtureRequest) -> tuple[int, ...]:
+def wirex_eth_versions(
+    request: pytest.FixtureRequest,
+) -> tuple[EthVersion, ...]:
     """Return the eth capability versions the mock peer advertises."""
     option = str(request.config.getoption("wirex_eth_version"))
     if option == "auto":
         return tuple(sorted(ETH_PROTOCOLS))
-    return (int(option),)
+    return (EthVersion(int(option)),)
 
 
 @pytest.fixture(scope="function")
@@ -482,7 +484,7 @@ def mock_peers(
 def dial_mock_peer(
     client: Client,
     chain: Chain,
-    eth_versions: tuple[int, ...],
+    eth_versions: tuple[EthVersion, ...],
     serve_bals: bool,
     total_timing_data: "TimingData",
 ) -> MockPeer:
@@ -527,7 +529,7 @@ def mock_peer(
     client: Client,
     sync_target_cases: list[SyncTargetCase],
     mock_peers: Dict[str, MockPeer],
-    wirex_eth_versions: tuple[int, ...],
+    wirex_eth_versions: tuple[EthVersion, ...],
     wirex_serve_bals: bool,
     total_timing_data: "TimingData",
 ) -> MockPeer:

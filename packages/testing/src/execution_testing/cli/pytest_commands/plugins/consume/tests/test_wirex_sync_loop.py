@@ -277,7 +277,7 @@ class FakePeer:
 
 def _head(chain: Chain) -> str:
     """Return the hex hash `eth` answers for the head of `chain`."""
-    return "0x" + chain.head.block_hash.hex()
+    return str(chain.head.block_hash)
 
 
 CHAIN = _chain(3)

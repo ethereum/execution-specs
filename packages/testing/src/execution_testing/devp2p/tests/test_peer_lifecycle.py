@@ -10,9 +10,11 @@ import ethereum_rlp as eth_rlp
 import pytest
 from ethereum_types.numeric import Uint
 
+from execution_testing.base_types import Hash
+
 from ..chain import Chain
 from ..peer import MockPeer, PeerStatistics
-from ..protocol import BLOCK_HEADERS, ETH_PROTOCOLS, GET_BLOCK_HEADERS
+from ..protocol import ETH_PROTOCOLS, MessageCode
 from ..rlpx import RLPxSession
 
 
@@ -263,7 +265,7 @@ class TestMalformedRequest:
         """No uncaught exception escapes, and no socket is left open."""
         crashes: List[threading.ExceptHookArgs] = []
         monkeypatch.setattr(threading, "excepthook", crashes.append)
-        session = _AnsweringSession((GET_BLOCK_HEADERS, payload))
+        session = _AnsweringSession((MessageCode.GET_BLOCK_HEADERS, payload))
         peer = _serving_peer(session)
         assert _wait_until(lambda: not peer.alive)
         assert session.closed.is_set()
@@ -276,11 +278,13 @@ class TestMalformedRequest:
         request = eth_rlp.encode(
             [Uint(1), [Uint(0), Uint(1), Uint(0), Uint(0)]]
         )
-        session = _AnsweringSession((GET_BLOCK_HEADERS, request))
+        session = _AnsweringSession((MessageCode.GET_BLOCK_HEADERS, request))
         peer = _serving_peer(session)
         # Service is recorded after the write, so wait for the record.
         assert _wait_until(lambda: peer.statistics.headers_served == 1)
-        assert [code for code, _ in session.written] == [BLOCK_HEADERS]
+        assert [code for code, _ in session.written] == [
+            MessageCode.BLOCK_HEADERS
+        ]
         assert peer.alive
         peer.close()
 
@@ -314,16 +318,16 @@ class TestStatisticsAcrossRedials:
         previous.record("the previous test's headers")
         previous.header_requests = 1
         previous.headers_served = 7
-        previous.header_hashes_served.add(b"\x01" * 32)
+        previous.header_hashes_served.add(Hash(b"\x01" * 32))
         previous.body_requests = 2
         previous.bodies_served = 3
-        previous.body_hashes_served.add(b"\x02" * 32)
+        previous.body_hashes_served.add(Hash(b"\x02" * 32))
         previous.bal_requests = 4
         previous.bals_served = 5
         previous.bals_withheld = 6
         previous.receipt_requests = 7
-        peer.header_hashes_ever_served.add(b"\x01" * 32)
-        peer.body_hashes_ever_served.add(b"\x02" * 32)
+        peer.header_hashes_ever_served.add(Hash(b"\x01" * 32))
+        peer.body_hashes_ever_served.add(Hash(b"\x02" * 32))
 
         peer.reset_statistics()
 

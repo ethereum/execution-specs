@@ -67,9 +67,9 @@ class Block:
         return int(self.header.number)
 
     @property
-    def block_hash(self) -> bytes:
+    def block_hash(self) -> Hash:
         """Return the block hash."""
-        return bytes(self.header.block_hash)
+        return self.header.block_hash
 
     def header_rlp(self) -> bytes:
         """Return the RLP encoded header."""
@@ -181,7 +181,7 @@ class Chain:
         self._by_number: Dict[int, Block] = {
             block.number: block for block in self.blocks
         }
-        self._by_hash: Dict[bytes, Block] = {
+        self._by_hash: Dict[Hash, Block] = {
             block.block_hash: block for block in self.blocks
         }
 
@@ -197,14 +197,14 @@ class Chain:
         block = self._by_number.get(number)
         return None if block is None else block.header_rlp()
 
-    def number_of(self, block_hash: bytes) -> int | None:
+    def number_of(self, block_hash: Hash) -> int | None:
         """Return the number of the block with `block_hash`, if held."""
-        if block_hash == bytes(self.genesis.block_hash):
+        if block_hash == self.genesis.block_hash:
             return int(self.genesis.number)
         block = self._by_hash.get(block_hash)
         return None if block is None else block.number
 
-    def body_rlp_by_hash(self, block_hash: bytes) -> bytes | None:
+    def body_rlp_by_hash(self, block_hash: Hash) -> bytes | None:
         """
         Return the RLP of the body with `block_hash`, if held.
 
@@ -213,7 +213,7 @@ class Chain:
         root must serve the empty withdrawals list too, or the body
         cannot validate against the header.
         """
-        if block_hash == bytes(self.genesis.block_hash):
+        if block_hash == self.genesis.block_hash:
             items = [encode_list([]), EMPTY_OMMERS_RLP]
             if self.genesis.withdrawals_root is not None:
                 items.append(encode_list([]))
@@ -221,7 +221,7 @@ class Chain:
         block = self._by_hash.get(block_hash)
         return None if block is None else block.body_rlp()
 
-    def bal_rlp_by_hash(self, block_hash: bytes) -> bytes | None:
+    def bal_rlp_by_hash(self, block_hash: Hash) -> bytes | None:
         """Return the BAL RLP of the block with `block_hash`."""
         block = self._by_hash.get(block_hash)
         return None if block is None else block.bal_rlp
@@ -244,7 +244,7 @@ class ServedChains:
 
     def __init__(self) -> None:
         """Start with no chain installed."""
-        self._chain_by_hash: Dict[bytes, Chain] = {}
+        self._chain_by_hash: Dict[Hash, Chain] = {}
         self._current: Chain | None = None
 
     def install(self, chain: Chain) -> None:
@@ -259,7 +259,7 @@ class ServedChains:
         assert self._current is not None, "no chain installed"
         return self._current
 
-    def chain_for_hash(self, block_hash: bytes) -> Chain | None:
+    def chain_for_hash(self, block_hash: Hash) -> Chain | None:
         """
         Return the chain holding `block_hash`, if any.
 
@@ -275,12 +275,12 @@ class ServedChains:
             return self._current
         return self._chain_by_hash.get(block_hash)
 
-    def body_rlp_by_hash(self, block_hash: bytes) -> bytes | None:
+    def body_rlp_by_hash(self, block_hash: Hash) -> bytes | None:
         """Return the RLP of the body with `block_hash`, if held."""
         chain = self.chain_for_hash(block_hash)
         return None if chain is None else chain.body_rlp_by_hash(block_hash)
 
-    def bal_rlp_by_hash(self, block_hash: bytes) -> bytes | None:
+    def bal_rlp_by_hash(self, block_hash: Hash) -> bytes | None:
         """Return the BAL RLP of the block with `block_hash`."""
         chain = self.chain_for_hash(block_hash)
         return None if chain is None else chain.bal_rlp_by_hash(block_hash)
@@ -298,9 +298,9 @@ def chain_from_payloads(
     """
     blocks = [block_from_payload(payload) for payload in payloads]
 
-    parent_hash = bytes(genesis.block_hash)
+    parent_hash = genesis.block_hash
     for block in blocks:
-        if bytes(block.header.parent_hash) != parent_hash:
+        if block.header.parent_hash != parent_hash:
             raise ChainReconstructionError(
                 f"block {block.number} does not extend its predecessor"
             )
