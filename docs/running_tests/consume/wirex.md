@@ -225,7 +225,7 @@ A correct outcome is not enough: every valid sync, and every rejection path with
 
 The evidence is cumulative per client: tests of one group may declare byte-identical blocks, which the reused client downloads only once, and the run logs when earlier service satisfied a test.
 
-The peer records a response only after writing it, so a failed send never reads as service. A fast client can import the chain moments before the evidence lands, so a missing block is re-read once after a short grace period before it fails the test.
+The peer records a response only after writing it, so a failed send never reads as service. A fast client can import the chain moments before the evidence lands, so a missing block is re-read until a short grace period has passed before it fails the test.
 
 ## Relationship to Other Simulators
 

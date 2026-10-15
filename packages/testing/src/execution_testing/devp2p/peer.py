@@ -15,6 +15,8 @@ import threading
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence, Set
 
+from ethereum_rlp.exceptions import DecodingError
+
 from execution_testing.base_types import Bytes, Hash
 
 from .chain import Chain, ServedChains
@@ -58,6 +60,16 @@ Target ceiling on the serialized bytes of one response.
 Clients cap the size of every message they read (geth drops a peer over
 10 MiB) and two EIP-7934 blocks reach about 16 MiB, so a count of items
 is no bound. A target, not a cap: a single body is always served.
+"""
+
+HANDSHAKE_TIMEOUT = 10.0
+"""
+Seconds each handshake step may take: the TCP dial, each read of the
+RLPx ack, and the client's Hello.
+
+A client answers these in milliseconds (geth gives a peer 5 s for its
+whole handshake), so a silent client fails a dial in seconds rather than
+holding a redial for the whole sync timeout.
 """
 
 EMPTY_LIST_PAYLOAD = b"\xc0"
@@ -169,14 +181,20 @@ class MockPeer:
         """Whether the connection's message loop is still running."""
         return self._thread is not None and not self._dead.is_set()
 
-    def connect(self, chain: Chain, timeout: float = 30.0) -> None:
+    def connect(
+        self, chain: Chain, timeout: float = HANDSHAKE_TIMEOUT
+    ) -> None:
         """
         Dial the client and complete both handshakes.
 
         `chain` is the chain advertised in the eth Status message and the
-        one served until `set_chain` replaces it.
+        one served until `set_chain` replaces it. `timeout` bounds each
+        handshake step, the client's Hello included.
         """
-        self._chains.install(chain)
+        with self._lock:
+            # A straggling loop from the previous session may still be
+            # reading the served chains.
+            self._chains.install(chain)
         session = connect(
             self.host,
             self.port,
@@ -186,7 +204,7 @@ class MockPeer:
         )
         self._session = session
         try:
-            self._complete_protocol_handshakes(session, chain)
+            self._complete_protocol_handshakes(session, chain, timeout)
         except Exception:
             # A session that fails its devp2p handshakes is closed at
             # once rather than left open until the next redial.
@@ -194,9 +212,27 @@ class MockPeer:
             raise
 
     def _complete_protocol_handshakes(
-        self, session: RLPxSession, chain: Chain
+        self, session: RLPxSession, chain: Chain, timeout: float
     ) -> None:
-        """Complete the base protocol Hello and the eth Status exchange."""
+        """
+        Complete the base protocol Hello and the eth Status exchange.
+
+        A Hello (or Disconnect) that does not decode raises `RLPxError`,
+        as a malformed RLPx handshake does, so a caller handles it like
+        any other refused dial.
+        """
+        try:
+            self._exchange_hello_and_status(session, chain, timeout)
+        except (ProtocolError, DecodingError) as error:
+            raise RLPxError(
+                f"malformed devp2p handshake: {error!r}"
+            ) from error
+
+    def _exchange_hello_and_status(
+        self, session: RLPxSession, chain: Chain, timeout: float
+    ) -> None:
+        """Send Hello, read the client's Hello, then send Status."""
+        session.set_timeout(timeout)
         session.write_message(
             MessageCode.HELLO,
             encode_hello(
@@ -313,7 +349,9 @@ class MockPeer:
             statistics.record(f"eth/{self.protocol.version} negotiated")
         return statistics
 
-    def reconnect(self, chain: Chain, timeout: float = 30.0) -> None:
+    def reconnect(
+        self, chain: Chain, timeout: float = HANDSHAKE_TIMEOUT
+    ) -> None:
         """
         Dial the client again after it dropped the previous session.
 
@@ -369,7 +407,7 @@ class MockPeer:
                     # A request the decoders could not make sense of.
                     logger.exception("Failed to answer message %d", code)
                     return
-                if self.disconnect_reason is not None:
+                if code == MessageCode.DISCONNECT:
                     return
         finally:
             session.close()
@@ -397,10 +435,13 @@ class MockPeer:
                 self.statistics.record(f"{request.describe()} (unanswered)")
             logger.warning("Client requested GetReceipts; not served")
         elif code == MessageCode.DISCONNECT:
-            self.disconnect_reason = decode_disconnect(payload)
-            logger.info(
-                "Client disconnected: reason %d", self.disconnect_reason
-            )
+            reason = decode_disconnect(payload)
+            logger.info("Client disconnected: reason %s", reason)
+            # Only the current session's loop speaks for the peer: a
+            # loop that outlived its session (see `start`) must not
+            # report its reason for the redialed one.
+            if session is self._session:
+                self.disconnect_reason = reason
         else:
             logger.debug("Ignoring message %d", code)
 

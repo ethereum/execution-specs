@@ -267,12 +267,14 @@ class ServedChains:
         block shared by several chains has the same ancestors on each,
         but only the current chain leads from it to the head the client
         was told to reach, so a forward walk must follow that one.
+
+        The current chain is read once: the serving thread looks up
+        bodies and BALs without the peer's lock, and a chain installed
+        between two reads would be returned for a block it lacks.
         """
-        if (
-            self._current is not None
-            and self._current.number_of(block_hash) is not None
-        ):
-            return self._current
+        current = self._current
+        if current is not None and current.number_of(block_hash) is not None:
+            return current
         return self._chain_by_hash.get(block_hash)
 
     def body_rlp_by_hash(self, block_hash: Hash) -> bytes | None:

@@ -237,14 +237,18 @@ def decode_hello(
     )
 
 
-def decode_disconnect(payload: bytes) -> int:
-    """Return the reason code of a Disconnect message."""
+def decode_disconnect(payload: bytes) -> int | None:
+    """
+    Return the reason code of a Disconnect message.
+
+    `None` means the message carries no reason (an empty list).
+    """
     fields = eth_rlp.decode(payload)
     if isinstance(fields, bytes):
         return int.from_bytes(fields, "big")
     if isinstance(fields, list) and fields:
         return int.from_bytes(bytes(fields[0]), "big")
-    return -1
+    return None
 
 
 @dataclass

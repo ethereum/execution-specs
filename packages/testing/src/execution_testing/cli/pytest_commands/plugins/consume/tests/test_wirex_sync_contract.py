@@ -17,9 +17,11 @@ import pytest
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.devp2p.chain import Block, Chain
 from execution_testing.devp2p.peer import MockPeer, PeerStatistics
+from execution_testing.devp2p.rlpx import RLPxError
 from execution_testing.fixtures.blockchain import FixtureHeader
 
 from ..simulators.helpers.exceptions import LoggedError
+from ..simulators.helpers.timing import TimingData
 from ..simulators.simulator_logic import test_via_wirex
 from ..simulators.simulator_logic.test_via_wirex import (
     assert_wire_coverage,
@@ -27,6 +29,7 @@ from ..simulators.simulator_logic.test_via_wirex import (
     required_wire_headers,
 )
 from ..simulators.wirex import client_policy
+from ..simulators.wirex import conftest as wirex
 from ..simulators.wirex.client_policy import (
     HEAD_LOOKUP_TIMEOUT,
     MAX_REORG_DEPTH,
@@ -35,6 +38,7 @@ from ..simulators.wirex.client_policy import (
     reorg_depth,
     replacement_reason,
 )
+from .direct_calls import fixture_body
 
 
 @dataclass
@@ -89,8 +93,16 @@ class TestRequiredWireBodies:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """An ancestor body that never traveled fails, by number."""
+        now = [0.0]
+
+        def sleep(seconds: float) -> None:
+            """Let the evidence grace pass at once."""
+            now[0] += seconds
+
         monkeypatch.setattr(
-            test_via_wirex, "time", SimpleNamespace(sleep=lambda _s: None)
+            test_via_wirex,
+            "time",
+            SimpleNamespace(sleep=sleep, monotonic=lambda: now[0]),
         )
         chain = _chain(
             [
@@ -315,3 +327,63 @@ class TestClientHeadLookup:
         )
         assert reason is not None
         assert "lookup failed" in reason and cause in reason
+
+
+class _DroppedPeer:
+    """A group's peer whose client hung up after the previous test."""
+
+    def __init__(self, refusal: Exception | None = None) -> None:
+        """Start dead; a redial raises `refusal`, if given."""
+        self.alive = False
+        self.refusal = refusal
+        self.calls: list[str] = []
+
+    def reset_statistics(self) -> None:
+        """Record the reset."""
+        self.calls.append("reset")
+
+    def reconnect(self, chain: Chain, timeout: float = 30.0) -> None:
+        """Record the redial, then refuse it if told to."""
+        del chain, timeout
+        self.calls.append("redial")
+        if self.refusal is not None:
+            raise self.refusal
+
+
+def _mock_peer_for_next_test(peer: _DroppedPeer) -> Any:
+    """Run the `mock_peer` fixture for a test of `peer`'s group."""
+    case = SimpleNamespace(chain=_chain([_block(1, empty=False)]))
+    return fixture_body(wirex.mock_peer)(
+        client=SimpleNamespace(id="client"),
+        sync_target_cases=[case],
+        mock_peers={"client": peer},
+        wirex_eth_versions=(),
+        wirex_serve_bals=False,
+        total_timing_data=TimingData("Total"),
+    )
+
+
+class TestRedialBetweenTests:
+    """The next test of a group redials a peer its client dropped."""
+
+    def test_the_test_statistics_start_before_the_redial(self) -> None:
+        """The redialed session's first requests are this test's."""
+        peer = _DroppedPeer()
+        assert _mock_peer_for_next_test(peer) is peer
+        assert peer.calls == ["reset", "redial"]
+
+    @pytest.mark.parametrize(
+        "refusal",
+        [ConnectionRefusedError("refused"), RLPxError("Disconnect 5")],
+        ids=["connection-refused", "disconnect-on-hello"],
+    )
+    def test_a_refused_redial_is_left_to_the_test(
+        self, refusal: Exception
+    ) -> None:
+        """
+        A refused redial does not error the test's setup: the dead peer
+        is handed to the test, whose sync loop redials it again.
+        """
+        peer = _DroppedPeer(refusal)
+        assert _mock_peer_for_next_test(peer) is peer
+        assert peer.calls == ["reset", "redial"]

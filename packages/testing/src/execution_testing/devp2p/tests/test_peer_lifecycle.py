@@ -1,9 +1,11 @@
 """Tests for how the peer's connection starts, ends and is redialed."""
 
+import select
 import socket
 import threading
 import time
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any, Callable, List, Tuple, cast
 
 import ethereum_rlp as eth_rlp
@@ -12,10 +14,23 @@ from ethereum_types.numeric import Uint
 
 from execution_testing.base_types import Hash
 
+from .. import peer as peer_module
+from .. import rlpx
 from ..chain import Chain
-from ..peer import MockPeer, PeerStatistics
+from ..peer import HANDSHAKE_TIMEOUT, MockPeer, PeerStatistics
 from ..protocol import ETH_PROTOCOLS, MessageCode
-from ..rlpx import RLPxSession
+from ..rlpx import RLPxError, RLPxSession
+
+OUTLASTS_CLOSE = 20.0
+"""
+A read timeout longer than `MockPeer.close` waits to join the loop (5 s).
+
+A loop or reader still alive after such a join is one the close did not
+wake, so the lifecycle tests need no wall clock.
+"""
+
+WAKE_TIMEOUT = 5.0
+"""How long a test waits for a thread it expects to wake at once."""
 
 
 class _BlockingSession:
@@ -97,8 +112,13 @@ def _dialing(peer: MockPeer, session: _BlockingSession) -> Callable[..., None]:
     return connect
 
 
-def _wait_until(condition: Callable[[], bool], timeout: float = 2.0) -> bool:
-    """Return whether `condition` became true within `timeout`."""
+def _wait_until(condition: Callable[[], bool], timeout: float = 10.0) -> bool:
+    """
+    Return whether `condition` became true within `timeout`.
+
+    The timeout only bounds a failing test, so it is generous: a loaded
+    runner may not schedule the peer's thread for a while.
+    """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if condition():
@@ -113,13 +133,17 @@ class TestClose:
     def test_close_wakes_the_loop_at_once(self) -> None:
         """A loop blocked on a read ends as soon as the peer closes."""
         peer = _peer()
-        _start_on(peer, _BlockingSession(read_timeout=5.0))
-        started = time.monotonic()
+        _start_on(peer, _BlockingSession(read_timeout=OUTLASTS_CLOSE))
+        loop = peer._thread
         peer.close()
-        assert time.monotonic() - started < 1.0
+        # The read outlasts close's join, so a finished loop is one the
+        # close woke rather than one that waited out its read.
+        assert loop is not None and not loop.is_alive()
         assert not peer.alive
 
-    def test_session_close_wakes_a_blocked_reader(self) -> None:
+    def test_session_close_wakes_a_blocked_reader(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Closing a real session wakes a thread waiting to read from it."""
         local, remote = socket.socketpair()
         session = RLPxSession(
@@ -129,8 +153,18 @@ class TestClose:
             egress_seed=b"\x04" * 32,
             ingress_seed=b"\x05" * 32,
         )
-        session.set_timeout(5.0)
+        session.set_timeout(OUTLASTS_CLOSE)
         errors: List[BaseException] = []
+        waiting = threading.Event()
+
+        def select_and_signal(*args: Any) -> Any:
+            """Signal that the reader is about to wait, then wait."""
+            waiting.set()
+            return select.select(*args)
+
+        monkeypatch.setattr(
+            rlpx, "select", SimpleNamespace(select=select_and_signal)
+        )
 
         def read() -> None:
             try:
@@ -140,29 +174,75 @@ class TestClose:
 
         reader = threading.Thread(target=read)
         reader.start()
-        time.sleep(0.05)
-        started = time.monotonic()
+        assert waiting.wait(WAKE_TIMEOUT)
         session.close()
-        reader.join(5.0)
+        # The read outlasts this join, so a finished reader is one the
+        # close woke rather than one that waited out its read.
+        reader.join(WAKE_TIMEOUT)
         remote.close()
-        assert time.monotonic() - started < 1.0
+        assert not reader.is_alive()
         assert errors and not isinstance(errors[0], TimeoutError)
 
 
+class _DisconnectingWhenReleased(_BlockingSession):
+    """
+    A stuck session whose loop, once released, reads a client Disconnect.
+
+    It models a loop that outlived its close and then drains a
+    Disconnect frame the client had already sent.
+    """
+
+    def __init__(self) -> None:
+        """Start stuck, as `_start_stuck` needs."""
+        super().__init__(read_timeout=10.0, ignore_close=True)
+
+    def read_message(self) -> Tuple[int, bytes]:
+        """Deliver a Disconnect with reason 4 once released."""
+        if self.released.wait(self.read_timeout):
+            return MessageCode.DISCONNECT, eth_rlp.encode([Uint(4)])
+        raise TimeoutError("no message within the read timeout")
+
+
+class _GatedSession(_BlockingSession):
+    """A session that delivers a Ping once its gate opens, then blocks."""
+
+    def __init__(self) -> None:
+        """Start with the gate closed and nothing written."""
+        super().__init__(read_timeout=0.01)
+        self.gate = threading.Event()
+        self.pinged = False
+        self.written: List[int] = []
+
+    def read_message(self) -> Tuple[int, bytes]:
+        """Deliver one Ping after the gate opens."""
+        if self.gate.is_set() and not self.pinged:
+            self.pinged = True
+            return MessageCode.PING, eth_rlp.encode([])
+        return super().read_message()
+
+    def write_message(self, code: int, payload: bytes) -> None:
+        """Record the code of one message."""
+        del payload
+        self.written.append(code)
+
+
 def _start_stuck(
-    peer: MockPeer, monkeypatch: pytest.MonkeyPatch
+    peer: MockPeer,
+    monkeypatch: pytest.MonkeyPatch,
+    stuck: _BlockingSession | None = None,
 ) -> Tuple[_BlockingSession, threading.Thread]:
     """
     Start `peer` on a loop stuck in a write; return it and its thread.
 
-    Joins give up at once, as the redial's join gives up on such a loop.
+    Its join gives up at once, as the redial's join gives up on such a
+    loop; only this thread's join is patched, so every other thread in
+    the process still joins for real.
     """
-    stuck = _BlockingSession(read_timeout=10.0, ignore_close=True)
+    if stuck is None:
+        stuck = _BlockingSession(read_timeout=10.0, ignore_close=True)
     _start_on(peer, stuck)
     assert peer._thread is not None
-    monkeypatch.setattr(
-        threading.Thread, "join", lambda _self, *_args, **_kwargs: None
-    )
+    monkeypatch.setattr(peer._thread, "join", lambda *_args, **_kwargs: None)
     return stuck, peer._thread
 
 
@@ -207,10 +287,131 @@ class TestRedial:
         stuck.release()
         assert _wait_until(lambda: not straggler.is_alive())
         assert peer.alive
-        # Restore the real join so the fresh loop is joined, not left
-        # logging after the test.
-        monkeypatch.undo()
         peer.close()
+
+    def test_a_straggler_disconnect_stays_with_its_own_session(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        A Disconnect read by a loop that outlived its session is not
+        reported for the redialed session, which keeps serving.
+        """
+        peer = _peer()
+        stuck, straggler = _start_stuck(
+            peer, monkeypatch, _DisconnectingWhenReleased()
+        )
+        fresh = _GatedSession()
+        monkeypatch.setattr(peer, "connect", _dialing(peer, fresh))
+        peer.reconnect(cast(Any, None))
+        stuck.release()
+        assert _wait_until(lambda: not straggler.is_alive())
+        assert peer.disconnect_reason is None
+        fresh.gate.set()
+        assert _wait_until(lambda: fresh.written == [MessageCode.PONG])
+        assert peer.alive
+        peer.close()
+
+
+class _SilentClientSession:
+    """A session to a client that completes RLPx but never says Hello."""
+
+    def __init__(self) -> None:
+        """Start with the transport's own read timeout."""
+        self.read_timeout = rlpx.FRAME_READ_TIMEOUT
+        self.waited: List[float] = []
+        self.closed = False
+
+    def set_timeout(self, timeout: float) -> None:
+        """Change how long a read waits."""
+        self.read_timeout = timeout
+
+    def write_message(self, code: int, payload: bytes) -> None:
+        """Accept our Hello."""
+        del code, payload
+
+    def read_message(self) -> Tuple[int, bytes]:
+        """Wait out the read timeout, recording it, as a silent client."""
+        self.waited.append(self.read_timeout)
+        raise TimeoutError("no message within the read timeout")
+
+    def close(self) -> None:
+        """Record the close."""
+        self.closed = True
+
+
+class TestHandshakeTimeout:
+    """A silent client fails a dial within the handshake timeout."""
+
+    def test_a_missing_hello_fails_within_the_handshake_timeout(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The wait for Hello is bounded by the dial's timeout."""
+        session = _SilentClientSession()
+        monkeypatch.setattr(
+            peer_module, "connect", lambda *_args, **_kwargs: session
+        )
+        peer = _peer()
+        with pytest.raises(TimeoutError):
+            peer.reconnect(Chain(cast(Any, _StubGenesis()), []))
+        assert session.waited == [HANDSHAKE_TIMEOUT]
+        assert HANDSHAKE_TIMEOUT < rlpx.FRAME_READ_TIMEOUT
+        assert session.closed
+        assert not peer.alive
+
+
+class _MalformedHelloSession(_SilentClientSession):
+    """A session to a client that answers our Hello with `payload`."""
+
+    def __init__(self, code: int, payload: bytes) -> None:
+        """Hold the one message the client sends."""
+        super().__init__()
+        self.message = (code, payload)
+
+    def read_message(self) -> Tuple[int, bytes]:
+        """Deliver the client's message."""
+        return self.message
+
+
+class TestMalformedHello:
+    """
+    A Hello (or Disconnect) that does not decode fails the dial with
+    `RLPxError`, which the consumer's redial handling catches.
+    """
+
+    @pytest.mark.parametrize(
+        "code, payload",
+        [
+            pytest.param(MessageCode.HELLO, b"\xff\x00", id="undecodable"),
+            pytest.param(
+                MessageCode.HELLO,
+                eth_rlp.encode([Uint(5), b"client", []]) + b"\x00",
+                id="trailing-bytes",
+            ),
+            pytest.param(
+                MessageCode.HELLO,
+                eth_rlp.encode([Uint(5), b"client", b"\x03\x02"]),
+                id="capabilities-not-a-list",
+            ),
+            pytest.param(
+                MessageCode.DISCONNECT,
+                b"\xff\x00",
+                id="undecodable-disconnect",
+            ),
+        ],
+    )
+    def test_the_dial_fails_with_an_rlpx_error(
+        self, monkeypatch: pytest.MonkeyPatch, code: int, payload: bytes
+    ) -> None:
+        """The session is closed and the peer is left dead."""
+        session = _MalformedHelloSession(code, payload)
+        monkeypatch.setattr(
+            peer_module, "connect", lambda *_args, **_kwargs: session
+        )
+        peer = _peer()
+        with pytest.raises(RLPxError, match="malformed devp2p"):
+            peer.reconnect(Chain(cast(Any, _StubGenesis()), []))
+        assert session.closed
+        assert not peer.alive
 
 
 class _AnsweringSession(_ScriptedSession):
@@ -286,6 +487,29 @@ class TestMalformedRequest:
             MessageCode.BLOCK_HEADERS
         ]
         assert peer.alive
+        peer.close()
+
+
+class TestDisconnect:
+    """A Disconnect from the client ends the loop, with or without a reason."""
+
+    @pytest.mark.parametrize(
+        "payload, reason",
+        [
+            pytest.param(eth_rlp.encode([Uint(4)]), 4, id="with-reason"),
+            pytest.param(eth_rlp.encode([]), None, id="without-reason"),
+        ],
+    )
+    def test_the_loop_ends_and_keeps_the_reason(
+        self, payload: bytes, reason: int | None
+    ) -> None:
+        """The reason is recorded, `None` when the message has none."""
+        session = _ScriptedSession((MessageCode.DISCONNECT, payload))
+        peer = _peer()
+        _start_on(peer, session)
+        assert _wait_until(lambda: not peer.alive)
+        assert session.closed.is_set()
+        assert peer.disconnect_reason == reason
         peer.close()
 
 
