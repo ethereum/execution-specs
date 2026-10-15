@@ -87,7 +87,6 @@ def frame_blob_cases(fork: Fork) -> List:
 
 
 @pytest.mark.parametrize_by_fork("txs_blobs", frame_blob_cases)
-@pytest.mark.exception_test
 def test_get_blobs_of_frame_txs(
     blobs_test: BlobsTestFiller,
     pre: Alloc,
@@ -105,7 +104,6 @@ def test_get_blobs_of_frame_txs(
     blobs_test(pre=pre, txs=txs)
 
 
-@pytest.mark.exception_test
 def test_get_blobs_of_frame_and_blob_txs(
     blobs_test: BlobsTestFiller,
     pre: Alloc,
