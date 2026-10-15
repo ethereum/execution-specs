@@ -1,6 +1,6 @@
 """Test suite for transaction signing and serialization."""
 
-from typing import Any, Tuple
+from typing import Any, List, Tuple
 
 import pytest
 from spec256k1 import PublicKey
@@ -9,7 +9,7 @@ from execution_testing.base_types import AccessList, Address, Hash
 
 from .. import transaction_types
 from ..account_types import EOA
-from ..transaction_types import Transaction
+from ..transaction_types import Frame, Transaction
 from ..utils import keccak256
 
 SIGNING_KEY = Hash(bytes(range(1, 33)))
@@ -322,6 +322,39 @@ def test_gas_limit_none_alias_is_unset(alias: str) -> None:
     tx = Transaction.model_validate({alias: None})
     assert "gas_limit" not in tx.model_fields_set
     assert tx.gas_limit == 21_000
+
+
+@pytest.mark.parametrize(
+    ["blob_versioned_hashes", "default_cap", "cap_after_env"],
+    [
+        pytest.param([Hash(b"\x01" + bytes(31))], 1, 5, id="with_blobs"),
+        pytest.param([], 0, 0, id="without_blobs"),
+    ],
+)
+def test_frame_tx_blob_fee_cap_default(
+    blob_versioned_hashes: List[Hash], default_cap: int, cap_after_env: int
+) -> None:
+    """
+    A blob-carrying frame transaction leaves its blob fee cap unset, as
+    a type-3 one does, so the execution environment fills it in. One
+    without blobs keeps the zero cap its empty hash list requires.
+    """
+    tx = Transaction(
+        sender=EOA(key=SIGNING_KEY),
+        frames=[Frame()],
+        blob_versioned_hashes=blob_versioned_hashes,
+    )
+    assert tx.max_fee_per_blob_gas == default_cap
+    assert ("max_fee_per_blob_gas" in tx.model_fields_set) == (
+        not blob_versioned_hashes
+    )
+    tx.set_gas_price(
+        gas_price=10,
+        max_fee_per_gas=10,
+        max_priority_fee_per_gas=1,
+        max_fee_per_blob_gas=5,
+    )
+    assert tx.max_fee_per_blob_gas == cap_after_env
 
 
 def test_derived_sender_matches_recovery() -> None:
