@@ -935,7 +935,9 @@ class BlockchainTest(BaseTest):
         ).model_dump(exclude_unset=True)
         return Environment(**(GENESIS_ENVIRONMENT_DEFAULTS | modified_values))
 
-    def make_genesis(self) -> Tuple[Alloc, FixtureBlock]:
+    def make_genesis(
+        self, fixture_format: FixtureFormat | LabeledFixtureFormat
+    ) -> Tuple[Alloc, FixtureBlock]:
         """Create a genesis block from the blockchain test definition."""
         env = self.get_genesis_environment()
         assert env.withdrawals is None or len(env.withdrawals) == 0, (
@@ -946,7 +948,9 @@ class BlockchainTest(BaseTest):
             or env.parent_beacon_block_root == Hash(0)
         ), "parent_beacon_block_root must be empty at genesis"
 
-        pre_alloc = self.pre
+        pre_alloc = self.genesis_alloc(
+            self.pre, fork=self.fork, fixture_format=fixture_format
+        )
         if empty_accounts := pre_alloc.empty_accounts():
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
         if pre_alloc.state_commitment() is None:
@@ -1341,7 +1345,7 @@ class BlockchainTest(BaseTest):
 
         fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
 
-        pre, genesis = self.make_genesis()
+        pre, genesis = self.make_genesis(BlockchainFixture)
 
         alloc: Alloc | LazyAlloc = pre
         state_root = genesis.header.state_root
@@ -1462,7 +1466,7 @@ class BlockchainTest(BaseTest):
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
 
-        pre, genesis = self.make_genesis()
+        pre, genesis = self.make_genesis(fixture_format)
         alloc: Alloc | LazyAlloc = pre
         state_root = genesis.header.state_root
         env = environment_from_parent_header(genesis.header)

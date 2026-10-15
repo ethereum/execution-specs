@@ -421,7 +421,9 @@ class StateTest(BaseTest):
                 fork.transaction_total_gas_limit_cap()
             ),
         ).with_signature_and_sender(keep_secret_key=True)
-        pre_alloc = self.pre
+        pre_alloc = self.genesis_alloc(
+            self.pre, fork=self.fork, fixture_format=StateFixture
+        )
         if empty_accounts := pre_alloc.empty_accounts():
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
 

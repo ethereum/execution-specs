@@ -76,9 +76,13 @@ class Alloc(SharedAlloc):
         flags: AllocFlags,
         stub_accounts: Dict[str, Account] | None = None,
         stub_eoas: Dict[str, EOA] | None = None,
+        genesis_seeded: bool = False,
         **kwargs: Any,
     ) -> None:
-        """Initialize the pre-alloc."""
+        """
+        Initialize the pre-alloc, `genesis_seeded` when it starts out holding
+        the accounts the fork allocates at genesis.
+        """
         super().__init__(
             *args,
             fork=fork,
@@ -88,6 +92,8 @@ class Alloc(SharedAlloc):
         )
         if stub_accounts is not None:
             self._stub_accounts = stub_accounts
+        if genesis_seeded:
+            self._genesis_accounts = "seeded"
 
     def get_next_account_salt(self, account_hash: Hash) -> int:
         """Retrieve the next salt for this account."""
@@ -510,4 +516,5 @@ def pre(
         fork=fork,
         stub_accounts=stub_accounts,
         stub_eoas=stub_eoas,
+        genesis_seeded=spec_type is not None,
     )

@@ -39,7 +39,7 @@ from execution_testing.fixtures import (
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.forks.base_fork import BaseFork
-from execution_testing.test_types import Environment, Withdrawal
+from execution_testing.test_types import Alloc, Environment, Withdrawal
 from execution_testing.test_types.receipt_types import (
     TransactionReceipt,
 )
@@ -311,6 +311,36 @@ class BaseTest(BaseModel):
         spec uses the test's `pre` as the genesis allocation unchanged.
         """
         pass
+
+    @classmethod
+    def genesis_alloc(
+        cls,
+        pre: Alloc,
+        *,
+        fork: Fork | TransitionFork,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
+    ) -> Alloc:
+        """
+        Return the allocation the genesis of `fixture_format` starts from.
+
+        A `pre` built outside the `pre` fixture must opt into the genesis
+        accounts with `Alloc.with_genesis_accounts()`, so that a genesis
+        never silently lacks them.
+        """
+        if pre.genesis_accounts == "seeded":
+            return pre
+        genesis_accounts = cls.genesis_pre_allocation(
+            fork=fork, fixture_format=fixture_format
+        )
+        if pre.genesis_accounts == "deferred":
+            return Alloc.merge(Alloc.model_validate(genesis_accounts), pre)
+        if genesis_accounts:
+            raise ValueError(
+                f"`pre` lacks the accounts {fork} allocates at genesis: use "
+                "the `pre` fixture, or call `with_genesis_accounts()` on an "
+                "allocation built outside it."
+            )
+        return pre
 
     @abstractmethod
     def generate(

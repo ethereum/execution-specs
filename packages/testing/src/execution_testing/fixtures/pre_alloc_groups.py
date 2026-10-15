@@ -616,6 +616,10 @@ class GroupPreAlloc(Alloc):
     _cached_state_root: Hash | None = PrivateAttr(None)
     _model_dump_cache: ModelDumpCache | None = PrivateAttr(None)
     _pre_alloc_group_hash: AllocGroupHash | None = PrivateAttr(None)
+    _genesis_accounts: Literal["absent", "seeded", "deferred"] = PrivateAttr(
+        "seeded"
+    )
+    """Built from the seeded `pre` of every test in the group."""
 
     def structural_copy(self) -> Self:
         """
