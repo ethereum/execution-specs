@@ -1371,9 +1371,9 @@ class BlockchainTest(BaseTest):
                 benchmark_gas_used = built_block.cumulative_gas_used()
                 benchmark_block_gas_used = built_block.block_gas_used()
                 benchmark_opcode_count = built_block.result.opcode_count
-            if built_block.result.receipts:
-                self.validate_receipt_status(
-                    receipts=built_block.result.receipts,
+            if self.verifications:
+                self.run_block_verifications(
+                    result=built_block.result,
                     block_number=block_number,
                 )
             include_receipts = (
@@ -1480,9 +1480,9 @@ class BlockchainTest(BaseTest):
                 benchmark_gas_used = built_block.cumulative_gas_used()
                 benchmark_block_gas_used = built_block.block_gas_used()
                 benchmark_opcode_count = built_block.result.opcode_count
-            if built_block.result.receipts:
-                self.validate_receipt_status(
-                    receipts=built_block.result.receipts,
+            if self.verifications:
+                self.run_block_verifications(
+                    result=built_block.result,
                     block_number=block_number,
                 )
             fixture_payloads.append(
@@ -1780,11 +1780,11 @@ class BlockchainTest(BaseTest):
                     else None
                 )
                 # Setup blocks (pre-alloc funding/deploys) are exempt:
-                # ``expected_receipt_status`` describes the test's own
-                # transactions, and setup txs always succeed.
-                if built_block.result.receipts:
-                    self.validate_receipt_status(
-                        receipts=built_block.result.receipts,
+                # ``verifications`` describe the test's own transactions,
+                # and setup txs always succeed.
+                if self.verifications:
+                    self.run_block_verifications(
+                        result=built_block.result,
                         block_number=int(built_block.header.number),
                     )
                 if self.operation_mode == OpMode.BENCHMARKING:

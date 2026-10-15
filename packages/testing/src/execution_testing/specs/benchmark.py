@@ -42,7 +42,10 @@ from execution_testing.forks import Fork
 from execution_testing.test_types import Alloc, Environment, Transaction
 from execution_testing.vm import Bytecode, Op
 
-from .base import BaseTest, FillResult
+from .base import (
+    BaseTest,
+    FillResult,
+)
 from .blockchain import Block, BlockchainTest
 
 
