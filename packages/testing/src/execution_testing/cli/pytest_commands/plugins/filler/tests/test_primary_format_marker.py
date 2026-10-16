@@ -167,3 +167,69 @@ def test_pre_alloc_group_session_generates_one_format_per_test(
     result.stdout.fnmatch_lines(
         ["*-blockchain_test_engine_x_from_state_test]"]
     )
+
+
+@pytest.mark.parametrize(
+    "primary_format_only",
+    [
+        pytest.param(True, id="flag"),
+        pytest.param(False, id="no_flag"),
+    ],
+)
+def test_primary_format_only_skips_other_formats(
+    pytester: pytest.Pytester, primary_format_only: bool
+) -> None:
+    """
+    Collect with and without ``--primary-format-only`` and assert the other
+    formats are generated only without it.
+    """
+    write_test_module(pytester, NORMAL_STATE_MODULE)
+
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--fork",
+        FORK,
+        *(["--primary-format-only"] if primary_format_only else []),
+        TEST_MODULE_DIR,
+        "--collect-only",
+        "-q",
+    )
+
+    assert result.ret == 0, f"Collection failed:\n{result.outlines}"
+    result.stdout.fnmatch_lines(["*-state_test]"])
+    if primary_format_only:
+        result.stdout.no_fnmatch_line("*-blockchain_test_from_state_test]")
+    else:
+        result.stdout.fnmatch_lines(["*-blockchain_test_from_state_test]"])
+
+
+def test_primary_format_marker_selection_warns(
+    pytester: pytest.Pytester,
+) -> None:
+    """
+    Collect with ``-m primary_format`` and assert it still selects the primary
+    format but warns that the selection is deprecated.
+    """
+    write_test_module(pytester, NORMAL_STATE_MODULE)
+
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--fork",
+        FORK,
+        "-m",
+        "primary_format",
+        TEST_MODULE_DIR,
+        "--collect-only",
+        "-q",
+    )
+
+    assert result.ret == 0, f"Collection failed:\n{result.outlines}"
+    result.stdout.fnmatch_lines(
+        [
+            "*-state_test]",
+            "*FutureWarning: Selecting `primary_format` with `-m` is "
+            "deprecated*",
+        ]
+    )

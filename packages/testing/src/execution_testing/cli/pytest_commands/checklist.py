@@ -98,8 +98,9 @@ def checklist(
     """
     del kwargs
 
-    # Add output directory to pytest args
-    args = ["--checklist-output", output]
+    # Add output directory to pytest args. Only primary formats are counted
+    # in the checklist, so the other formats need not be generated.
+    args = ["--checklist-output", output, "--primary-format-only"]
 
     # Add EIP filter if specified
     for eip_num in eip:

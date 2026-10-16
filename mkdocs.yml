@@ -55,6 +55,7 @@ theme:
     - content.tabs.link
     - navigation.indexes
     - navigation.instant
+    - navigation.prune
     - navigation.tabs
     - navigation.footer
   palette:

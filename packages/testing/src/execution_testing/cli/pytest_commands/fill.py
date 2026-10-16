@@ -80,6 +80,15 @@ class FillCommand(PytestCommand):
         Reject contradictory flag combinations up front so phase 2 never
         runs against a missing pre-alloc folder.
         """
+        if (
+            "--primary-format-only" in args
+            and "--generate-all-formats" in args
+        ):
+            raise click.UsageError(
+                "--primary-format-only and --generate-all-formats are "
+                "mutually exclusive: the first fills each test in one "
+                "format, the second in every format."
+            )
         if "--use-pre-alloc-groups" not in args:
             return
         if "--generate-pre-alloc-groups" in args:

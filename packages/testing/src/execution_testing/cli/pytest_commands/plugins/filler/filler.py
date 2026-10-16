@@ -16,6 +16,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import signal
 import time
 import warnings
@@ -169,6 +170,8 @@ class FillingSession:
 
     fixture_output: FixtureOutput
     filling_phase: FixtureFillingPhase
+    # Generate only each test's primary fixture format.
+    primary_format_only: bool = False
     pre_alloc_groups: PreAllocGroups | None = None
     pre_alloc_group_builders: PreAllocGroupBuilders | None = None
     # Phase 2 reverse index: test id -> packed pre-alloc group. Packing
@@ -195,6 +198,7 @@ class FillingSession:
         return cls(
             fixture_output=FixtureOutput.from_config(config),
             filling_phase=cls.filling_phase_from_config(config),
+            primary_format_only=config.getoption("primary_format_only", False),
             pre_alloc_groups=None,
         )
 
@@ -603,6 +607,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     test_group.addoption(
+        "--primary-format-only",
+        action="store_true",
+        dest="primary_format_only",
+        default=False,
+        help=(
+            "Fill each test once, in its primary fixture format only. The "
+            "other formats are not generated. Replaces the deprecated "
+            "`-m primary_format`. Mutually exclusive with "
+            "--generate-all-formats."
+        ),
+    )
+    test_group.addoption(
         "--disable-optimistic-pre-alloc-grouping",
         action="store_true",
         dest="optimistic_pre_alloc_grouping_disabled",
@@ -727,6 +743,19 @@ def pytest_configure(config: pytest.Config) -> None:
 
     # Initialize filling session
     config.filling_session = FillingSession.from_config(config)  # type: ignore[attr-defined]
+
+    markexpr = config.getoption("markexpr", "") or ""
+    if not hasattr(config, "workerinput") and re.search(
+        r"\bprimary_format\b", markexpr
+    ):
+        config.issue_config_time_warning(
+            FutureWarning(
+                "Selecting `primary_format` with `-m` is deprecated: every "
+                "other format is still generated before being deselected. "
+                "Use --primary-format-only instead."
+            ),
+            stacklevel=2,
+        )
 
     if is_help_or_collectonly_mode(config):
         return
@@ -1849,7 +1878,10 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                 [
                     parameter
                     for fixture_format, parameter in (
-                        test_type.fixture_format_parameters(markers=markers)
+                        test_type.fixture_format_parameters(
+                            markers=markers,
+                            primary_format_only=session.primary_format_only,
+                        )
                     )
                     if session.should_generate_format(fixture_format)
                 ],

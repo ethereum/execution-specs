@@ -137,6 +137,23 @@ def test_use_and_generate_pre_alloc_groups_together_is_rejected() -> None:
             command.create_executions(pytest_args)
 
 
+def test_primary_format_only_and_generate_all_formats_is_rejected() -> None:
+    """
+    --primary-format-only + --generate-all-formats is contradictory: the
+    first fills each test in one format, the second in every format.
+    """
+    command = FillCommand()
+
+    with patch.object(command, "process_arguments", side_effect=lambda x: x):
+        pytest_args = [
+            "--primary-format-only",
+            "--generate-all-formats",
+            "tests/somedir/",
+        ]
+        with pytest.raises(click.UsageError, match="mutually exclusive"):
+            command.create_executions(pytest_args)
+
+
 def test_use_pre_alloc_groups_with_clean_is_rejected() -> None:
     """
     --use-pre-alloc-groups + --clean is contradictory: --clean wipes the
