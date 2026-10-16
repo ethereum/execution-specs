@@ -157,6 +157,27 @@ def count_blobs(txs: List[Transaction]) -> int:
     )
 
 
+def rejected_transactions_accessed_addresses(
+    txs: List[Transaction], rejected_indices: List[int]
+) -> List[Address]:
+    """
+    Return the sender, recipient and authorization authorities of each
+    rejected transaction, skipping authorities whose signer cannot be
+    recovered.
+    """
+    addresses: List[Address] = []
+    for index in rejected_indices:
+        tx = txs[index]
+        if tx.sender is not None:
+            addresses.append(Address(tx.sender))
+        if tx.to is not None:
+            addresses.append(Address(tx.to))
+        for authorization in tx.authorization_list or []:
+            if authorization.signer is not None:
+                addresses.append(Address(authorization.signer))
+    return addresses
+
+
 def payload_metadata_to_fixture(
     meta: EnginePayloadMetadata,
     *,
@@ -1209,6 +1230,35 @@ class BlockchainTest(BaseTest):
                     "`engine_new_payload_block_access_list` delivers "
                     "arbitrary bytes."
                 )
+
+        if (
+            bal is not None
+            and transition_tool_output.engine_payload is None
+            and transition_tool_output.result.rejected_transactions
+            and not (
+                block.expected_block_access_list is not None
+                and block.expected_block_access_list.has_modifier
+            )
+            and block.engine_new_payload_block_access_list is None
+            and (
+                block.rlp_modifier is None
+                or block.rlp_modifier.block_access_list_hash is None
+            )
+        ):
+            # The transition tool leaves rejected transactions out of the
+            # BAL, so add the accounts they touch.
+            bal = bal.with_accounts(
+                rejected_transactions_accessed_addresses(
+                    txs,
+                    [
+                        int(rejected_tx.index)
+                        for rejected_tx in (
+                            transition_tool_output.result.rejected_transactions
+                        )
+                    ],
+                )
+            )
+            header.block_access_list_hash = Hash(bal.rlp.keccak256())
 
         built_block_kwargs: Dict[str, Any] = dict(
             header=header,
