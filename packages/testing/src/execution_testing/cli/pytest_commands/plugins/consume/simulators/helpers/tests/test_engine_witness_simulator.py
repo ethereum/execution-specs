@@ -41,32 +41,90 @@ def test_mutated_execution_witness_fixture_is_skipped() -> None:
 
 
 @pytest.mark.parametrize(
-    "use_ssz,expected_error,bal,skip",
+    "use_ssz,expected_error,fields,skip_match",
     [
-        (True, True, None, True),
-        (False, True, None, False),
-        (True, False, None, False),
-        (True, True, b"", False),
+        pytest.param(
+            True,
+            True,
+            {"block_access_list": None},
+            "JSON-only missing block_access_list",
+            id="missing-bal",
+        ),
+        pytest.param(
+            True,
+            True,
+            {"slot_number": None},
+            "JSON-only missing slot_number",
+            id="missing-slot-number",
+        ),
+        pytest.param(
+            False,
+            True,
+            {"block_access_list": None},
+            None,
+            id="missing-bal-json-rpc",
+        ),
+        pytest.param(
+            True,
+            False,
+            {"block_access_list": None},
+            None,
+            id="missing-bal-without-expected-error",
+        ),
+        pytest.param(
+            True, True, {"block_access_list": b""}, None, id="empty-bal"
+        ),
+        pytest.param(
+            True,
+            False,
+            {"withdrawals": [None] * 17},
+            "17 withdrawals",
+            id="withdrawals-over-bound",
+        ),
+        pytest.param(
+            True,
+            False,
+            {"withdrawals": [None] * 16},
+            None,
+            id="withdrawals-at-bound",
+        ),
+        pytest.param(
+            False,
+            False,
+            {"withdrawals": [None] * 17},
+            None,
+            id="withdrawals-over-bound-json-rpc",
+        ),
     ],
 )
-def test_json_only_missing_bal_is_skipped_before_rest_discovery(
-    use_ssz: bool, expected_error: bool, bal: bytes | None, skip: bool
+def test_ssz_unencodable_fixture_is_skipped_before_rest_discovery(
+    use_ssz: bool,
+    expected_error: bool,
+    fields: dict[str, Any],
+    skip_match: str | None,
 ) -> None:
-    """Skip only intentional JSON-only BAL omissions in REST mode."""
+    """Skip only fixtures that the REST+SSZ request cannot encode."""
     from unittest.mock import Mock
 
+    from execution_testing.base_types.ssz import ssz_fields
     from execution_testing.exceptions import EngineAPIError
+    from execution_testing.fixtures.blockchain import FixtureExecutionPayload
     from execution_testing.forks import Amsterdam
 
     from ..timing import TimingData
 
+    execution_payload = {
+        **dict.fromkeys(ssz_fields(FixtureExecutionPayload, Amsterdam), b""),
+        "number": 1,
+        "timestamp": 12,
+        "withdrawals": [],
+        **fields,
+    }
     payload = SimpleNamespace(
         execution_witness=object(),
         execution_witness_mutated=False,
         error_code=EngineAPIError.InvalidParams if expected_error else None,
-        params=[
-            SimpleNamespace(number=1, timestamp=12, block_access_list=bal)
-        ],
+        params=[SimpleNamespace(**execution_payload)],
     )
     client = Mock()
     client.post_witness_request.return_value = SimpleNamespace(
@@ -95,8 +153,8 @@ def test_json_only_missing_bal_is_skipped_before_rest_discovery(
             use_ssz_transport=use_ssz,
         )
 
-    if skip:
-        with pytest.raises(pytest.skip.Exception, match="JSON-only.*BAL"):
+    if skip_match is not None:
+        with pytest.raises(pytest.skip.Exception, match=skip_match):
             run()
         assert not client.mock_calls
     else:
@@ -193,7 +251,9 @@ def test_rest_checks_already_known_payload(
         valid=lambda: True,
         forkchoice_updated_version=4,
         params=[
-            SimpleNamespace(number=2, timestamp=15000, block_hash=Hash(1))
+            SimpleNamespace(
+                number=2, timestamp=15000, block_hash=Hash(1), withdrawals=[]
+            )
         ],
     )
     setup_payload = SimpleNamespace(
