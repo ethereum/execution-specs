@@ -74,7 +74,12 @@ from .trie_shape import account_shape, covering, node_at
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
-pytestmark = pytest.mark.valid_from("Osaka")
+pytestmark = [
+    pytest.mark.valid_from("Osaka"),
+    pytest.mark.pre_alloc_group(
+        "separate", reason="Asserts the shape of the whole account trie."
+    ),
+]
 
 FUNDING = 10**18
 
