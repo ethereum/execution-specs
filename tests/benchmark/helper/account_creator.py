@@ -146,6 +146,9 @@ class JochemnetPredeployContractInitcode(ContractInitcode):
     """
     Initcode whose deployed runtime embeds its own contract ADDRESS.
 
+    If `code_size` is not supplied, Osaka max code size will be used,
+    resulting in:
+
         offset    size   contents
         ------    ----   --------------------------------
         0x0000       4   PUSH2 0x5FFF; JUMP   <- entry

@@ -17,6 +17,7 @@ from execution_testing import (
     Transaction,
     While,
 )
+from execution_testing.forks import Amsterdam, Osaka
 
 from tests.benchmark.helper.account_creator import (
     AccountCreator,
@@ -143,6 +144,9 @@ def account_access_params() -> list:
 @pytest.mark.parametrize(
     "opcode,value_sent,account_mode,overhead_baseline", account_access_params()
 )
+@pytest.mark.parametrize(
+    "code_size", [Osaka.max_code_size(), Amsterdam.max_code_size()]
+)
 def test_account_access(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -154,10 +158,11 @@ def test_account_access(
     account_mode: AccountMode,
     overhead_baseline: bool,
     cache_strategy: CacheStrategy,
+    code_size: int,
     verified_accounts: dict,
 ) -> None:
     """Benchmark account access with caching strategies."""
-    account_creator = AccountCreator(account_mode)
+    account_creator = AccountCreator(account_mode, code_size=code_size)
     address_source = account_creator.address_source(Op.CALLDATALOAD(0))
     increment_op = address_source.next_op()
 
