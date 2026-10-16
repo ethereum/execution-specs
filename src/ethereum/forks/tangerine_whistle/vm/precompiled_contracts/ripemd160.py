@@ -19,10 +19,7 @@ from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.numeric import ceil32
 
 from ...vm import Evm
-from ...vm.gas import (
-    GasCosts,
-    charge_gas,
-)
+from ...vm.gas import GasCosts, charge_gas
 
 
 def ripemd160(evm: Evm) -> None:

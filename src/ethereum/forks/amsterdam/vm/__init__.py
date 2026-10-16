@@ -26,12 +26,7 @@ from ethereum.utils.byte import left_pad_zero_bytes
 
 from ..block_access_lists import BlockAccessList, BlockAccessListBuilder
 from ..blocks import Log, Receipt, Withdrawal
-from ..fork_types import (
-    Authorization,
-    ExecutionGas,
-    StateGas,
-    VersionedHash,
-)
+from ..fork_types import Authorization, ExecutionGas, StateGas, VersionedHash
 from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
 from .gas import GasMeter, repay_state_gas_spill

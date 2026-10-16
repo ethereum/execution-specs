@@ -8,13 +8,13 @@ state_tests/VMTests/vmTests/suicideFiller.yml
 asserts the sender balance, which equals its start minus
 `gas_used * gas_price`. The transaction calls a contract that CALLs a
 cold, existing account (slot 0x1000) before it self-destructs; EIP-8038
-raises the cold account-access surcharge on that CALL from 2600 to 3000.
-The SELFDESTRUCT itself is to a warm, non-empty beneficiary (the caller),
-so its charge is unchanged, and there is no refund. Derive the
-account-access delta from the fork gas model (0 pre-EIP-8037) and
-subtract `gas_price * delta` from the Cancun balance; do not hardcode the
-Amsterdam value. The `random` and `myself` cases assert only
-non-gas-dependent balances and need no adjustment.
+raises `COLD_ACCOUNT_ACCESS` on that CALL. The SELFDESTRUCT itself is to
+a warm, non-empty beneficiary (the caller), so its charge is unchanged,
+and there is no refund. Derive the account-access delta from the fork
+gas model (0 pre-EIP-8037) and subtract `gas_price * delta` from the
+Cancun balance; do not hardcode the Amsterdam value. The `random` and
+`myself` cases assert only non-gas-dependent balances and need no
+adjustment.
 """
 
 import pytest
@@ -29,7 +29,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 from tests.ported_static.post_state_resolution import (
@@ -148,12 +148,18 @@ def test_suicide(
 
     # The CALL into the self-destructing contract touches a cold, already
     # existing account; EIP-8038 raises that cold account-access surcharge
-    # from 2600 to 3000. The SELFDESTRUCT beneficiary is warm and
+    # (`COLD_ACCOUNT_ACCESS`). The SELFDESTRUCT beneficiary is warm and
     # non-empty, so its charge is unchanged. EIP-2780 separately reshapes
     # the tx intrinsic for this non-self non-value call. The sender pays
     # the combined delta at the base fee (no priority fee).
-    cold_account_access_delta = fork.gas_costs().COLD_ACCOUNT_ACCESS - 2600
-    intrinsic_delta = fork.transaction_intrinsic_cost_calculator()() - 21_000
+    cold_account_access_delta = (
+        fork.gas_costs().COLD_ACCOUNT_ACCESS
+        - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
+    )
+    intrinsic_delta = (
+        fork.transaction_intrinsic_cost_calculator()()
+        - Cancun.transaction_intrinsic_cost_calculator()()
+    )
     caller_balance = (
         0x5AF31075D9DE - 10 * cold_account_access_delta - 10 * intrinsic_delta
     )

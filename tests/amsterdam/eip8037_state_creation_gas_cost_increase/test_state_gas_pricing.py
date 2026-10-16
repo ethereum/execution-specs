@@ -27,12 +27,14 @@ from execution_testing import (
     Fork,
     Header,
     Op,
+    RecipientType,
     StateTestFiller,
     Storage,
     Transaction,
     TransactionException,
     TransactionReceipt,
     compute_create_address,
+    max_count_with_gas_limit,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -425,134 +427,101 @@ def test_refund_with_reservoir_state_gas(
     state_test(pre=pre, post=post, tx=tx)
 
 
-def _access_list_over_execution_cap(
-    fork: Fork, cap: int, *, margin_num: int = 1, margin_den: int = 1
-) -> list[AccessList]:
-    """
-    Build an access list whose intrinsic *execution* gas exceeds ``cap`` by
-    roughly the factor ``margin_num / margin_den``.
-
-    Each access-list address adds a fixed amount to the execution intrinsic
-    (the EIP-2930 address cost plus the EIP-7981 floor-token surcharge) and
-    a much smaller amount to the calldata floor, so the list raises the
-    execution operand of ``max(intrinsic_execution, calldata_floor)`` over the
-    cap while the floor stays below it. No state gas is incurred.
-    """
-    intrinsic = fork.transaction_intrinsic_cost_calculator()
-    base_execution = intrinsic(return_cost_deducted_prior_execution=True)
-    per_address_execution = (
-        intrinsic(
-            access_list=[AccessList(address=Address(0x100), storage_keys=[])],
-            return_cost_deducted_prior_execution=True,
-        )
-        - base_execution
-    )
-    assert per_address_execution > 0
-    num_entries = (cap * margin_num) // (
-        per_address_execution * margin_den
-    ) + 1
-    return [
-        AccessList(address=Address(0x10000 + i), storage_keys=[])
-        for i in range(num_entries)
-    ]
-
-
 @pytest.mark.inclusion_test
-@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "exceeds_cap",
+    [
+        pytest.param(False, id="at_cap"),
+        pytest.param(True, id="exceeds_cap", marks=pytest.mark.exception_test),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_intrinsic_execution_gas_exceeds_cap(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    exceeds_cap: bool,
 ) -> None:
     """
-    Reject a transaction whose intrinsic *execution* gas exceeds the cap.
+    Accept intrinsic execution gas exactly at the cap and reject one step
+    over it, with the calldata floor below the cap.
 
-    EIP-8037 enforces ``max(intrinsic_execution, calldata_floor) <=
-    TX_MAX_GAS_LIMIT`` after the separate sufficiency check
-    ``max(intrinsic_total, calldata_floor) <= tx.gas``. A large access list
-    raises the execution intrinsic over the cap while adding no state gas and
-    keeping the calldata floor below the cap. ``gas_limit`` is set above the
-    total intrinsic so the sufficiency check passes and the cap is the only
-    reason the transaction is rejected; a client that compares the intrinsic
-    against ``tx.gas`` but never against the cap would wrongly accept it.
+    Every execution intrinsic term of this transaction is a multiple of the
+    zero-byte calldata cost, so access-list entries plus zero-byte padding
+    land exactly on the cap, and one more zero byte is the smallest
+    rejected step. ``gas_limit`` is above the cap so only the cap check,
+    not the sufficiency check, can reject.
     """
     cap = fork.transaction_gas_limit_cap()
     assert cap is not None
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
     floor_cost = fork.transaction_data_floor_cost_calculator()
-    intrinsic = fork.transaction_intrinsic_cost_calculator()
 
-    access_list = _access_list_over_execution_cap(fork, cap)
-    execution = intrinsic(
-        access_list=access_list,
-        return_cost_deducted_prior_execution=True,
+    def execution_intrinsic(
+        access_list: list[AccessList], calldata: bytes = b""
+    ) -> int:
+        return intrinsic_cost(
+            calldata=calldata,
+            access_list=access_list,
+            sends_value=True,
+            recipient_type=RecipientType.EOA,
+            return_cost_deducted_prior_execution=True,
+        )
+
+    def access_list_of(count: int) -> list[AccessList]:
+        return [
+            AccessList(address=Address(0x10000 + i), storage_keys=[])
+            for i in range(count)
+        ]
+
+    access_list = access_list_of(
+        max_count_with_gas_limit(
+            lambda count: execution_intrinsic(access_list_of(count)), cap
+        )
     )
-    floor = floor_cost(data=b"", access_list=access_list)
-    tx_gas = execution + 1_000_000
+    padding = max_count_with_gas_limit(
+        lambda count: execution_intrinsic(access_list, bytes(count)), cap
+    )
+    calldata = bytes(padding + 1 if exceeds_cap else padding)
 
-    assert max(execution, floor) > cap, "cap check must fire"
-    assert execution <= tx_gas, "sufficiency check must not fire"
-    assert floor <= tx_gas
+    execution = execution_intrinsic(access_list, calldata)
+    floor = floor_cost(data=calldata, access_list=access_list)
+    assert floor < cap, "only the execution operand may reach the cap"
+    gas_limit = 2 * cap
+
+    sender = pre.fund_eoa()
+    recipient = pre.fund_eoa(amount=1)
+    if exceeds_cap:
+        assert execution > cap
+        error = TransactionException.INTRINSIC_GAS_TOO_LOW
+        expected_receipt = None
+        post = {
+            sender: Account(nonce=0),
+            recipient: Account(balance=1),
+        }
+    else:
+        assert execution == cap
+        error = None
+        # No execution gas is left once the intrinsic fills the cap; the
+        # value transfer needs none.
+        expected_receipt = TransactionReceipt(gas_used=cap)
+        post = {
+            sender: Account(nonce=1),
+            recipient: Account(balance=2),
+        }
 
     tx = Transaction(
         ty=1,
-        to=pre.deploy_contract(code=Op.STOP),
-        gas_limit=tx_gas,
+        to=recipient,
+        value=1,
+        data=calldata,
+        gas_limit=gas_limit,
         access_list=access_list,
-        sender=pre.fund_eoa(),
-        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+        sender=sender,
+        error=error,
+        expected_receipt=expected_receipt,
     )
-    state_test(pre=pre, post={}, tx=tx)
-
-
-@pytest.mark.inclusion_test
-@pytest.mark.exception_test
-@pytest.mark.valid_from("EIP8037")
-def test_intrinsic_execution_gas_exceeds_cap_with_floor_below_cap(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Reject when intrinsic *execution* gas exceeds the cap while the calldata
-    floor stays below it, isolating the execution operand of
-    ``max(intrinsic_execution, calldata_floor)``.
-
-    A large access list with no calldata pushes the execution intrinsic over
-    the cap while the floor stays well below it, and ``gas_limit`` covers
-    the total intrinsic so the sufficiency check passes. The explicit
-    ``floor < cap`` assertion guarantees the rejection comes from the
-    execution operand, so a client that compares only the calldata floor
-    against the cap would wrongly accept the transaction.
-    """
-    cap = fork.transaction_gas_limit_cap()
-    assert cap is not None
-    floor_cost = fork.transaction_data_floor_cost_calculator()
-    intrinsic = fork.transaction_intrinsic_cost_calculator()
-
-    access_list = _access_list_over_execution_cap(
-        fork, cap, margin_num=5, margin_den=4
-    )
-    execution = intrinsic(
-        access_list=access_list,
-        return_cost_deducted_prior_execution=True,
-    )
-    floor = floor_cost(data=b"", access_list=access_list)
-    tx_gas = execution + 1_000_000
-
-    assert execution > cap, "execution operand must exceed the cap"
-    assert floor < cap, "calldata floor must stay below the cap"
-    assert execution <= tx_gas, "sufficiency check must not fire"
-
-    tx = Transaction(
-        ty=1,
-        to=pre.deploy_contract(code=Op.STOP),
-        gas_limit=tx_gas,
-        access_list=access_list,
-        sender=pre.fund_eoa(),
-        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
-    )
-    state_test(pre=pre, post={}, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -568,8 +537,7 @@ def test_intrinsic_within_cap_gas_limit_above_cap(
     EIP-8037 relaxes the EIP-7825 cap on ``tx.gas`` itself; only
     ``max(intrinsic_execution, calldata_floor)`` is capped. This positive
     control sets ``gas_limit`` above the cap with a small access list so
-    both operands are far below it, and the transaction must execute. It is
-    the accepting counterpart to the cap-rejection tests above.
+    both operands are far below it, and the transaction must execute.
     """
     cap = fork.transaction_gas_limit_cap()
     assert cap is not None

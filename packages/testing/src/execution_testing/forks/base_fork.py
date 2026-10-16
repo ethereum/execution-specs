@@ -40,6 +40,7 @@ from execution_testing.vm import (
 
 from ..recipient_type import RecipientType
 from .gas_costs import GasCosts
+from .requests import SystemContractRequest
 
 
 class MemoryExpansionGasCalculator(Protocol):
@@ -260,6 +261,14 @@ class RefundTypes(Enum):
 
     STORAGE_CLEAR = auto()
     AUTHORIZATION_EXISTING_AUTHORITY = auto()
+
+
+class SystemCallPhase(Enum):
+    """When a block calls a system contract, if at all."""
+
+    NONE = "none"
+    BEFORE_TRANSACTIONS = "before_transactions"
+    AFTER_TRANSACTIONS = "after_transactions"
 
 
 class BaseForkMeta(ABCMeta):
@@ -1043,6 +1052,19 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def transaction_total_gas_limit_cap(cls) -> int | None:
+        """
+        Return the cap on a transaction's total gas limit, or None if no
+        such cap is imposed.
+
+        Where `transaction_gas_limit_cap` bounds only execution gas (from
+        EIP-8037 onwards), this cap bounds `tx.gas` as a whole, including
+        any state gas reservoir.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def state_gas_reservoir_enabled(cls) -> bool:
         """
         Return True if the fork enables a state gas reservoir.
@@ -1104,9 +1126,23 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def deterministic_factory_predeploy_address(cls) -> Address | None:
+    def system_contract_call_phases(cls) -> Mapping[Address, SystemCallPhase]:
+        """Return when the block calls each of its system contracts."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def system_contract_request_types(
+        cls,
+    ) -> List[Type[SystemContractRequest]]:
+        """Return the request classes triggered through a system contract."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def deterministic_factory_contract_address(cls) -> Address | None:
         """
-        Return the address of the deterministic factory predeploy at a
+        Return the address of the deterministic factory contract at a
         given fork. Return `None` if the fork does not support deterministic
         deployment.
         """

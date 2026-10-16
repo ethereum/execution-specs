@@ -7,6 +7,8 @@ Tests for the Transfer(address,address,uint256) log emitted when:
 - Nonzero-value-transferring SELFDESTRUCT to a different account
 """
 
+from typing import List
+
 import pytest
 from execution_testing import (
     EOA,
@@ -19,15 +21,17 @@ from execution_testing import (
     Bytes,
     Environment,
     Fork,
+    GasConsumer,
     Initcode,
     Op,
+    ParameterSet,
     StateTestFiller,
     Storage,
     Transaction,
     TransactionLog,
     TransactionReceipt,
-    compute_create2_address,
     compute_create_address,
+    create_op,
 )
 from execution_testing.base_types import ZeroPaddedHexNumber
 
@@ -37,6 +41,8 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7708.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7708.version
 
 pytestmark = pytest.mark.valid_from("EIP7708")
+
+ENDOWMENT = 1
 
 
 def test_simple_transfer_emits_log(
@@ -417,38 +423,26 @@ def test_initcode_calls_with_value(
     initcode = Op.CALL(address=recipient, value=1) + Op.RETURN(0, 0)
     initcode_bytes = bytes(initcode)
 
-    # Use Initcode helper or direct memory setup for longer initcode
-    if create_opcode == Op.CREATE:
-        # Store initcode in memory using code copy approach
-        factory_code = (
-            Op.CODECOPY(
-                0,
-                Op.SUB(Op.CODESIZE, len(initcode_bytes)),
-                len(initcode_bytes),
-            )
-            + Op.CREATE(value=1, offset=0, size=len(initcode_bytes))
-            + Op.STOP
-        ) + initcode
-    else:
-        factory_code = (
-            Op.CODECOPY(
-                0,
-                Op.SUB(Op.CODESIZE, len(initcode_bytes)),
-                len(initcode_bytes),
-            )
-            + Op.CREATE2(value=1, offset=0, size=len(initcode_bytes), salt=0)
-            + Op.STOP
-        ) + initcode
+    # Store initcode in memory using code copy approach
+    factory_code = (
+        Op.CODECOPY(
+            0,
+            Op.SUB(Op.CODESIZE, len(initcode_bytes)),
+            len(initcode_bytes),
+        )
+        + create_op(create_opcode, value=1, size=len(initcode_bytes))
+        + Op.STOP
+    ) + initcode
 
     factory = pre.deploy_contract(factory_code, balance=2)
 
-    # Compute created address
-    if create_opcode == Op.CREATE:
-        created_address = compute_create_address(address=factory, nonce=1)
-    else:
-        created_address = compute_create2_address(
-            address=factory, salt=0, initcode=initcode_bytes
-        )
+    created_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode_bytes,
+        opcode=create_opcode,
+    )
 
     tx = Transaction(
         sender=sender,
@@ -569,12 +563,17 @@ def test_create_insufficient_balance_no_log(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.parametrize(
-    "initcode",
-    [
+def failing_initcodes(fork: Fork) -> List[ParameterSet]:
+    """
+    Return init codes that fail, one way per case.
+
+    The out-of-gas case is sized against the fork's memory pricing, so the
+    cases cannot be built before the fork is known.
+    """
+    return [
         pytest.param(
             # OOG before return
-            Op.MSTORE(offset=0xFFFFFF, value=0) + Op.RETURN(0, 0),
+            GasConsumer.out_of_gas(fork) + Op.RETURN(0, 0),
             id="create_out_of_gas_memory_expansion",
         ),
         pytest.param(
@@ -588,8 +587,10 @@ def test_create_insufficient_balance_no_log(
             Op.RETURN(0, 1000),
             id="create_out_of_gas_code_deposit",
         ),
-    ],
-)
+    ]
+
+
+@pytest.mark.parametrize_by_fork("initcode", failing_initcodes)
 def test_create_out_of_gas_no_log(
     state_test: StateTestFiller,
     env: Environment,
@@ -685,26 +686,22 @@ def test_create_collision_no_log(
     initcode_len = len(initcode_bytes)
 
     # Deploy factory first to compute created address
-    if create_opcode == Op.CREATE:
-        factory_code = Op.MSTORE(
-            0, Op.PUSH32(initcode_bytes.rjust(32, b"\x00"))
-        ) + Op.CREATE(value=1, offset=32 - initcode_len, size=initcode_len)
-    else:
-        factory_code = Op.MSTORE(
-            0, Op.PUSH32(initcode_bytes.rjust(32, b"\x00"))
-        ) + Op.CREATE2(
-            value=1, offset=32 - initcode_len, size=initcode_len, salt=0
-        )
+    factory_code = Op.MSTORE(
+        0, Op.PUSH32(initcode_bytes.rjust(32, b"\x00"))
+    ) + create_op(
+        create_opcode, value=1, offset=32 - initcode_len, size=initcode_len
+    )
 
     factory = pre.deploy_contract(factory_code, balance=1)
 
     # Compute and pre-populate the collision address
-    if create_opcode == Op.CREATE:
-        collision_address = compute_create_address(address=factory, nonce=1)
-    else:
-        collision_address = compute_create2_address(
-            address=factory, salt=0, initcode=initcode_bytes
-        )
+    collision_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode_bytes,
+        opcode=create_opcode,
+    )
 
     # Pre-deploy contract at collision address to cause collision
     pre.deploy_contract(Op.STOP, address=collision_address)
@@ -853,14 +850,19 @@ def test_call_to_self_no_log(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.parametrize(
-    "recipient_code,call_gas,call_value,recipient_balance,contract_balance",
-    [
+def failing_inner_operations(fork: Fork) -> List[ParameterSet]:
+    """
+    Return inner operations that fail, one way per case.
+
+    The out-of-gas memory case is sized against the fork's memory pricing,
+    so the cases cannot be built before the fork is known.
+    """
+    return [
         pytest.param(Op.REVERT(0, 0), Op.GAS, 500, 0, 500, id="call_reverted"),
         pytest.param(Op.JUMP(0), 100, 500, 0, 500, id="call_out_of_gas"),
         pytest.param(
-            # OOG with memory expansion - tries to access large memory offset
-            Op.MSTORE(0xFFFFFF, 0) + Op.STOP,
+            # OOG on an unpayable memory expansion
+            GasConsumer.out_of_gas(fork) + Op.STOP,
             1000,
             500,
             0,
@@ -883,7 +885,12 @@ def test_call_to_self_no_log(
             0,
             id="call_insufficient_balance",
         ),
-    ],
+    ]
+
+
+@pytest.mark.parametrize_by_fork(
+    "recipient_code,call_gas,call_value,recipient_balance,contract_balance",
+    failing_inner_operations,
 )
 def test_failed_inner_operation_no_log(
     state_test: StateTestFiller,
@@ -1132,15 +1139,22 @@ def test_contract_log_and_transfer_ordering(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.parametrize(
-    "reverting_code",
-    [
+def reverting_codes(fork: Fork) -> List[ParameterSet]:
+    """
+    Return codes that fail the transaction, one way per case.
+
+    The out-of-gas case is sized against the fork's memory pricing, so the
+    cases cannot be built before the fork is known.
+    """
+    return [
         pytest.param(Op.REVERT(0, 0), id="revert"),
         pytest.param(Op.INVALID, id="invalid_opcode"),
         pytest.param(Op.ADD, id="stack_underflow"),
-        pytest.param(Op.MSTORE(2**256 - 1, 0), id="out_of_gas"),
-    ],
-)
+        pytest.param(GasConsumer.out_of_gas(fork), id="out_of_gas"),
+    ]
+
+
+@pytest.mark.parametrize_by_fork("reverting_code", reverting_codes)
 def test_reverted_transaction_no_log(
     state_test: StateTestFiller,
     env: Environment,
@@ -1206,6 +1220,81 @@ def test_transfer_to_special_address(
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        pytest.param("identity_success", id="identity_success"),
+        pytest.param("sha256_out_of_gas", id="sha256_out_of_gas"),
+        pytest.param("ecadd_invalid_point", id="ecadd_invalid_point"),
+    ],
+)
+def test_call_with_value_to_precompile(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    case: str,
+) -> None:
+    """
+    Test that CALL with value into a precompile logs the transfer only if
+    the precompile succeeds.
+    """
+    storage = Storage()
+    if case == "identity_success":
+        precompile = Address(0x04)
+        call = Op.CALL(
+            gas=Op.GAS, address=precompile, value=ENDOWMENT, args_size=32
+        )
+        succeeds = True
+    elif case == "sha256_out_of_gas":
+        precompile = Address(0x02)
+        # Only the value stipend is forwarded, which cannot pay for hashing
+        # this many words.
+        call = Op.CALL(
+            gas=0, address=precompile, value=ENDOWMENT, args_size=32 * 400
+        )
+        succeeds = False
+    elif case == "ecadd_invalid_point":
+        precompile = Address(0x06)
+        # (1, 3) is not on alt_bn128 (y^2 = x^3 + 3), so ECADD fails.
+        call = (
+            Op.MSTORE(0, 1)
+            + Op.MSTORE(32, 3)
+            + Op.CALL(
+                gas=Op.GAS,
+                address=precompile,
+                value=ENDOWMENT,
+                args_size=128,
+            )
+        )
+        succeeds = False
+    else:
+        raise ValueError(f"unhandled case {case}")
+
+    caller_code = Op.SSTORE(storage.store_next(succeeds, "call_result"), call)
+    caller = pre.deploy_contract(
+        caller_code, balance=ENDOWMENT, storage=storage.canary()
+    )
+
+    logs = []
+    if succeeds:
+        logs = [transfer_log(caller, precompile, ENDOWMENT)]
+        post: dict[Address, Account | None] = {
+            caller: Account(balance=0, storage=storage),
+            precompile: Account(balance=ENDOWMENT),
+        }
+    else:
+        post = {
+            caller: Account(balance=ENDOWMENT, storage=storage),
+            precompile: Account.NONEXISTENT,
+        }
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=caller,
+        expected_receipt=TransactionReceipt(logs=logs),
+    )
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.with_all_typed_transactions
@@ -1432,6 +1521,35 @@ def test_call_to_delegated_account_with_value(
 
     post = {delegated_eoa: Account(balance=100)}
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+def test_delegated_eoa_sends_value(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that CALL with value from an EIP-7702 delegated EOA's code logs
+    the EOA, not its delegation target, as sender.
+    """
+    recipient = pre.fund_eoa(amount=0)
+    delegate = pre.deploy_contract(
+        Op.CALL(gas=Op.GAS, address=recipient, value=ENDOWMENT)
+    )
+    delegated_eoa = pre.fund_eoa(amount=ENDOWMENT, delegation=delegate)
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=delegated_eoa,
+        expected_receipt=TransactionReceipt(
+            logs=[transfer_log(delegated_eoa, recipient, ENDOWMENT)]
+        ),
+    )
+    post = {
+        delegated_eoa: Account(balance=0),
+        recipient: Account(balance=ENDOWMENT),
+        delegate: Account(balance=0),
+    }
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.execute(pytest.mark.skip("Requires specific base fee"))

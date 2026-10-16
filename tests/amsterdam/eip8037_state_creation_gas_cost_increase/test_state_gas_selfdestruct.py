@@ -17,15 +17,18 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Environment,
     Fork,
     Header,
     Initcode,
     Op,
     StateTestFiller,
     Storage,
+    Tip,
     Transaction,
     TransactionReceipt,
     compute_create_address,
+    create_op,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -84,13 +87,27 @@ def test_selfdestruct_new_beneficiary_state_gas(
     "gas_delta",
     [pytest.param(0, id="exact_fit"), pytest.param(-1, id="one_short")],
 )
+@pytest.mark.parametrize(
+    "recipient_is_coinbase",
+    [
+        False,
+        pytest.param(
+            True,
+            marks=pytest.mark.execute(
+                pytest.mark.skip(reason="requires an empty fee recipient")
+            ),
+        ),
+    ],
+)
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_new_beneficiary_state_gas_boundary(
     state_test: StateTestFiller,
     pre: Alloc,
+    env: Environment,
     fork: Fork,
     gas_delta: int,
+    recipient_is_coinbase: bool,
 ) -> None:
     """
     Pin the SELFDESTRUCT beneficiary charge at its exact-fit boundary.
@@ -99,9 +116,17 @@ def test_selfdestruct_new_beneficiary_state_gas_boundary(
     the charge spills from `gas_left` and the limit is the whole budget.
     At `exact_fit` the beneficiary is created and the balance moves; one
     gas short the frame runs out and both are rolled back.
+
+    An absent coinbase is still charged: it is warm, but receives its
+    priority fee only after execution.
     """
-    beneficiary = pre.nonexistent_account()
-    code = Op.SELFDESTRUCT(beneficiary, account_new=True)
+    if recipient_is_coinbase:
+        beneficiary = env.fee_recipient
+    else:
+        beneficiary = pre.nonexistent_account()
+    code = Op.SELFDESTRUCT(
+        beneficiary, address_warm=recipient_is_coinbase, account_new=True
+    )
     state_gas = code.state_cost(fork)
     execution_only = (
         fork.transaction_intrinsic_cost_calculator()()
@@ -130,7 +155,15 @@ def test_selfdestruct_new_beneficiary_state_gas_boundary(
             contract: Account(balance=1),
         }
 
-    state_test(pre=pre, post=post, tx=tx)
+    if recipient_is_coinbase:
+        # The coinbase also receives the priority fee on the gas used.
+        transferred = 1 if gas_delta == 0 else 0
+        gas_used = execution_only + state_gas + gas_delta
+        post[beneficiary] = Account(
+            balance_change=transferred + Tip(tx, gas=gas_used)
+        )
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -448,12 +481,7 @@ def test_create_selfdestruct_no_refund_account_and_storage(
     mstore = Op.MSTORE.with_metadata(new_memory_size=32, old_memory_size=0)(
         0, mstore_value
     )
-    create_metadata = create_opcode.with_metadata(init_code_size=size)
-    create_call = (
-        create_metadata(value=0, offset=0, size=size, salt=0)
-        if create_opcode == Op.CREATE2
-        else create_metadata(value=0, offset=0, size=size)
-    )
+    create_call = create_op(create_opcode, size=size, init_code_size=size)
     factory_code = mstore + Op.POP(create_call)
     factory = pre.deploy_contract(code=factory_code)
 

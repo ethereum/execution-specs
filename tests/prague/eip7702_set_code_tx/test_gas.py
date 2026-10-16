@@ -24,19 +24,20 @@ from execution_testing import (
     Bytecode,
     ChainConfig,
     CodeGasMeasure,
+    Environment,
     Fork,
+    Header,
     Op,
+    RecipientType,
     StateTestFiller,
     Storage,
     Transaction,
     TransactionException,
     TransactionReceipt,
     extend_with_defaults,
+    max_count_with_gas_limit,
 )
 
-from ...amsterdam.eip8037_state_creation_gas_cost_increase.spec import (
-    Spec as Spec8037,
-)
 from .helpers import AddressType, ChainIDType
 from .spec import Spec, ref_spec_7702
 
@@ -94,6 +95,58 @@ class AccessListType(Enum):
             AccessListType.CONTAINS_SET_CODE_ADDRESS,
             AccessListType.CONTAINS_AUTHORITY_AND_SET_CODE_ADDRESS,
         }
+
+
+@pytest.fixture
+def authorizations_count(request: pytest.FixtureRequest, fork: Fork) -> int:
+    """Size authorization lists using the active fork's intrinsic gas cost."""
+    if isinstance(request.param, int):
+        return request.param
+    max_gas = fork.transaction_gas_limit_cap() or Environment().gas_limit
+    code_reserve = 0
+    if request.param == "many_with_execution":
+        # Reserve gas for the execution assertions in test_gas_cost.
+        # On EIP-8037 the measurement SSTOREs also carry state gas that
+        # spills into gas_left when the reservoir is empty.
+        if fork.is_eip_enabled(8037):
+            sstore_opcode_count = 10
+            push_opcode_count = (2 * sstore_opcode_count) - 1
+            code_reserve = (
+                Op.GAS
+                + Op.PUSH1(0) * push_opcode_count
+                + Op.SSTORE(key_warm=False) * sstore_opcode_count
+            ).gas_cost(fork)
+        else:
+            code_reserve = 1_000_000
+    max_gas -= code_reserve
+
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    if fork.is_eip_enabled(8037):
+        gas_costs = fork.gas_costs()
+        # Worst-case top-frame charge per auth: empty authority creating a
+        # leaf and writing a net-new delegation indicator.
+        per_auth_top_frame = (
+            gas_costs.ACCOUNT_WRITE
+            + gas_costs.NEW_ACCOUNT
+            + gas_costs.AUTH_BASE
+        )
+
+        def cost_fn(count: int) -> int:
+            return (
+                intrinsic_cost(
+                    authorization_list_or_count=count,
+                    recipient_type=RecipientType.CONTRACT,
+                    return_cost_deducted_prior_execution=True,
+                )
+                + count * per_auth_top_frame
+            )
+
+        return max_count_with_gas_limit(cost_fn, max_gas)
+
+    return max_count_with_gas_limit(
+        lambda count: intrinsic_cost(authorization_list_or_count=count),
+        max_gas,
+    )
 
 
 # Fixtures used to parametrize the tests
@@ -798,26 +851,8 @@ def gas_test_parameter_args(
         ]
 
     if include_many:
-        # Fit as many authorizations as possible within the
-        # transaction gas limit cap. Under EIP-8037 the per-auth
-        # intrinsic grows with cpsb; on older forks it is
-        # `Spec.AUTH_PER_EMPTY_ACCOUNT`. Divide by the larger so the
-        # count fits at any fork — older forks simply exercise fewer
-        # authorizations than the cap allows.
-        eip_8037_auth_cost = (
-            Spec8037.PER_AUTH_BASE_COST
-            + (
-                Spec8037.STATE_BYTES_PER_NEW_ACCOUNT
-                + Spec8037.STATE_BYTES_PER_AUTH_BASE
-            )
-            * Spec8037.COST_PER_STATE_BYTE
-        )
-        max_gas = Spec8037.TX_MAX_GAS_LIMIT - 21_000  # TX_BASE
-        if execution_gas_allowance:
-            # Leave some gas for the execution of the test code.
-            max_gas -= 1_000_000
-        many_authorizations_count = max_gas // max(
-            Spec.AUTH_PER_EMPTY_ACCOUNT, eip_8037_auth_cost
+        many_authorizations_count = (
+            "many_with_execution" if execution_gas_allowance else "many"
         )
         cases += [
             pytest.param(
@@ -846,11 +881,83 @@ def gas_test_parameter_args(
             ),
         ]
     return extend_with_defaults(
-        cases=cases, defaults=defaults, indirect=["authorize_to_address"]
+        cases=cases,
+        defaults=defaults,
+        indirect=["authorize_to_address", "authorizations_count"],
     )
 
 
 # Tests
+
+
+def _annotate_authorizations_for_top_frame(
+    authorization_list_with_properties: List[AuthorizationWithProperties],
+    *,
+    self_sponsored: bool,
+    sender: EOA,
+) -> List[AuthorizationTuple]:
+    """
+    Attach EIP-2780 top-frame charge annotations to each non-skipped
+    authorization.
+
+    Annotations are derived from the authority's pre-transaction type and
+    from earlier authorizations in the same list (same-tx create /
+    first-write / net-new-delegation once-per-authority rules).
+    """
+    annotated: List[AuthorizationTuple] = []
+    written_authorities: set[Address] = set()
+    delegated_in_tx: set[Address] = set()
+
+    for awp in authorization_list_with_properties:
+        if awp.skip:
+            continue
+
+        auth = awp.tuple
+        authority = auth.signer
+        assert authority is not None
+        valid = awp.invalidity_type is None
+
+        had_delegation_pre = (
+            awp.authority_type == AddressType.EOA_WITH_SET_CODE
+        )
+        already_delegated = had_delegation_pre or authority in delegated_in_tx
+        sets_delegation = auth.address != Spec.RESET_DELEGATION_ADDRESS
+
+        creates_account = (
+            valid and awp.empty and authority not in written_authorities
+        )
+        # A clear never pays AUTH_BASE, and a set after a same-tx clear
+        # does not pay it again: the charge is once per authority.
+        writes_delegation = valid and sets_delegation and not already_delegated
+
+        if not valid:
+            first_write = False
+        elif self_sponsored and authority == sender:
+            # Sender leaf is written at inclusion (priced into TX_BASE).
+            first_write = False
+        elif authority in written_authorities:
+            first_write = False
+        else:
+            first_write = True
+
+        if valid:
+            written_authorities.add(authority)
+            if sets_delegation:
+                delegated_in_tx.add(authority)
+
+        annotated.append(
+            AuthorizationTuple(
+                chain_id=auth.chain_id,
+                address=auth.address,
+                nonce=auth.nonce,
+                signer=authority,
+                creates_account=creates_account,
+                writes_delegation=writes_delegation,
+                first_write=first_write,
+            )
+        )
+
+    return annotated
 
 
 @pytest.mark.parametrize(
@@ -859,11 +966,6 @@ def gas_test_parameter_args(
     )
 )
 @pytest.mark.slow()
-# TODO[EIP-8037]: discount accounting here uses Prague refund_counter
-# mechanics (with the EIP-3529 1/5 cap). On Amsterdam the existing-authority
-# refund flows through state_gas_reservoir / state_refund and is not capped
-# the same way. Needs a fork-aware rewrite before this can run on Amsterdam.
-@pytest.mark.valid_before("EIP8037")
 def test_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -873,51 +975,135 @@ def test_gas_cost(
     data: bytes,
     access_list: List[AccessList],
     sender: EOA,
+    self_sponsored: bool,
 ) -> None:
     """
     Test gas at the execution start of a set-code transaction in multiple
     scenarios.
+
+    Pre-EIP-8037: intrinsic over-charges empty-account auth cost and refunds
+    existing authorities via ``refund_counter`` (EIP-3529 1/5 cap).
+
+    EIP-8037 / EIP-2780: intrinsic is execution-only; state-dependent auth
+    charges land at the top frame with no existing-authority refund. With
+    ``gas_limit`` under the EIP-7825 cap the reservoir is empty, so state
+    charges spill into ``gas_left`` and ``GAS`` at code entry reports the
+    execution gas left after both top-frame charges.
     """
-    # Calculate the intrinsic gas cost of the authorizations, by default the
-    # full empty account cost is charged for each authorization.
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
-        calldata=data,
-        access_list=access_list,
-        authorization_list_or_count=authorization_list,
-    )
-
-    discounted_authorizations = 0
-    seen_authority = set()
-    for authorization_with_properties in authorization_list_with_properties:
-        if authorization_with_properties.invalidity_type is None:
-            authority = authorization_with_properties.tuple.signer
-            if not authorization_with_properties.empty:
-                seen_authority.add(authority)
-            if authority in seen_authority:
-                discounted_authorizations += 1
-            else:
-                seen_authority.add(authority)
-
-    discount_gas = (
-        Spec.AUTH_PER_EMPTY_ACCOUNT - Spec.REFUND_AUTH_PER_EXISTING_ACCOUNT
-    ) * discounted_authorizations
-
-    # We calculate the exact gas required to execute the test code. We add
-    # SSTORE opcodes in order to make sure that the refund is less than one
-    # fifth (EIP-3529) of the total gas used, so we can see the full discount
-    # being reflected in most of the tests.
     gas_opcode_cost = Op.GAS.gas_cost(fork)
     sstore_opcode_count = 10
-    push_opcode_count = (2 * (sstore_opcode_count)) - 1
-    execution_gas = (
+    push_opcode_count = (2 * sstore_opcode_count) - 1
+    measurement_bytecode = (
         Op.GAS
         + Op.PUSH1(0) * push_opcode_count
         + Op.SSTORE(key_warm=False) * sstore_opcode_count
-    ).gas_cost(fork)
+    )
 
-    # The first opcode that executes in the code is the GAS opcode, which costs
-    # 2 gas, so we subtract that from the expected gas measure.
-    expected_gas_measure = execution_gas - gas_opcode_cost
+    header_gas_used: int | None = None
+
+    if fork.is_eip_enabled(8037):
+        annotated_auths = _annotate_authorizations_for_top_frame(
+            authorization_list_with_properties,
+            self_sponsored=self_sponsored,
+            sender=sender,
+        )
+        # Match ``allocate_evm_gas``: only the execution intrinsic is
+        # removed before the top frame; calldata floor is settled later.
+        intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
+            calldata=data,
+            access_list=access_list,
+            authorization_list_or_count=annotated_auths,
+            recipient_type=RecipientType.CONTRACT,
+            return_cost_deducted_prior_execution=True,
+        )
+        top_frame_execution = fork.transaction_top_frame_execution_gas(
+            recipient_type=RecipientType.CONTRACT,
+            authorizations=annotated_auths,
+        )
+        top_frame_state = fork.transaction_top_frame_state_gas(
+            recipient_type=RecipientType.CONTRACT,
+            authorizations=annotated_auths,
+        )
+        # Combined execution+state bytecode cost: with an empty reservoir
+        # the SSTORE state gas also spills into gas_left.
+        code_gas = measurement_bytecode.gas_cost(fork)
+        expected_gas_measure = code_gas - gas_opcode_cost
+
+        tx_gas_limit = (
+            intrinsic_execution
+            + top_frame_execution
+            + top_frame_state
+            + code_gas
+        )
+        gas_limit_cap = fork.transaction_gas_limit_cap()
+        assert gas_limit_cap is None or tx_gas_limit <= gas_limit_cap
+
+        # The calldata floor never binds here: the per-authorization
+        # intrinsic charge alone exceeds the floor of the tiny calldata.
+        # If it did, the top frame would enter with the floor excess as
+        # extra gas_left and the GAS measure below would be wrong.
+        intrinsic_with_floor = fork.transaction_intrinsic_cost_calculator()(
+            calldata=data,
+            access_list=access_list,
+            authorization_list_or_count=annotated_auths,
+            recipient_type=RecipientType.CONTRACT,
+        )
+        assert tx_gas_limit >= intrinsic_with_floor
+
+        # No existing-authority refund.
+        gas_used = (
+            intrinsic_execution
+            + top_frame_execution
+            + top_frame_state
+            + code_gas
+        )
+        header_gas_used = max(
+            intrinsic_execution
+            + top_frame_execution
+            + measurement_bytecode.execution_cost(fork),
+            top_frame_state + measurement_bytecode.state_cost(fork),
+        )
+        authorization_list = annotated_auths
+    else:
+        # Prague / Osaka: charge full empty-account auth cost in intrinsic,
+        # refund existing authorities via refund_counter (EIP-3529 cap).
+        intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+            calldata=data,
+            access_list=access_list,
+            authorization_list_or_count=authorization_list,
+        )
+
+        discounted_authorizations = 0
+        seen_authority: set[Address] = set()
+        for (
+            authorization_with_properties
+        ) in authorization_list_with_properties:
+            if authorization_with_properties.invalidity_type is None:
+                authority = authorization_with_properties.tuple.signer
+                assert authority is not None
+                if not authorization_with_properties.empty:
+                    seen_authority.add(authority)
+                if authority in seen_authority:
+                    discounted_authorizations += 1
+                else:
+                    seen_authority.add(authority)
+
+        discount_gas = (
+            Spec.AUTH_PER_EMPTY_ACCOUNT - Spec.REFUND_AUTH_PER_EXISTING_ACCOUNT
+        ) * discounted_authorizations
+
+        code_gas = measurement_bytecode.gas_cost(fork)
+        expected_gas_measure = code_gas - gas_opcode_cost
+        tx_gas_limit = intrinsic_gas + code_gas
+
+        # EIP-3529
+        max_discount = tx_gas_limit // 5
+        if discount_gas > max_discount:
+            # Only one test hits this condition, but it's ok to also test this
+            # case.
+            discount_gas = max_discount
+
+        gas_used = tx_gas_limit - discount_gas
 
     test_code_storage = Storage()
     test_code = (
@@ -929,18 +1115,6 @@ def test_gas_cost(
         + Op.STOP
     )
     test_code_address = pre.deploy_contract(test_code)
-
-    tx_gas_limit = intrinsic_gas + execution_gas
-
-    # EIP-3529
-    max_discount = tx_gas_limit // 5
-
-    if discount_gas > max_discount:
-        # Only one test hits this condition, but it's ok to also test this
-        # case.
-        discount_gas = max_discount
-
-    gas_used = tx_gas_limit - discount_gas
 
     sender_account = pre[sender]
     assert sender_account is not None
@@ -956,13 +1130,18 @@ def test_gas_cost(
         expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
     )
 
-    state_test(
-        pre=pre,
-        tx=tx,
-        post={
+    state_test_kwargs: dict = {
+        "pre": pre,
+        "tx": tx,
+        "post": {
             test_code_address: Account(storage=test_code_storage),
         },
-    )
+    }
+    if header_gas_used is not None:
+        state_test_kwargs["blockchain_test_header_verify"] = Header(
+            gas_used=header_gas_used
+        )
+    state_test(**state_test_kwargs)
 
 
 @pytest.mark.parametrize("check_delegated_account_first", [True, False])

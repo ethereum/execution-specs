@@ -89,5 +89,4 @@ def compute_create2_contract_address(
     computed_address = keccak256(preimage)
     canonical_address = computed_address[-20:]
     padded_address = left_pad_zero_bytes(canonical_address, 20)
-
     return Address(padded_address)

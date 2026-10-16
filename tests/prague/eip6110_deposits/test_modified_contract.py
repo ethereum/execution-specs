@@ -10,14 +10,15 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     BlockException,
+    DepositRequest,
     Header,
     Op,
     Requests,
     Transaction,
+    create_deposit_log_bytes,
 )
 from execution_testing import Macros as Om
 
-from .helpers import DepositRequest, create_deposit_log_bytes
 from .spec import Spec, ref_spec_6110
 
 pytestmark = [
@@ -147,7 +148,7 @@ def test_extra_logs(
         requests = Requests(DEFAULT_DEPOSIT_REQUEST)
     bytecode += Op.STOP
 
-    pre[Spec.DEPOSIT_CONTRACT_ADDRESS] = Account(
+    pre[DepositRequest.system_contract_address] = Account(
         code=bytecode,
         nonce=1,
         balance=0,
@@ -155,7 +156,7 @@ def test_extra_logs(
     sender = pre.fund_eoa()
 
     tx = Transaction(
-        to=Spec.DEPOSIT_CONTRACT_ADDRESS,
+        to=DepositRequest.system_contract_address,
         sender=sender,
         gas_limit=100_000,
     )
@@ -205,7 +206,7 @@ def test_invalid_layout(
     )
     bytecode += Op.STOP
 
-    pre[Spec.DEPOSIT_CONTRACT_ADDRESS] = Account(
+    pre[DepositRequest.system_contract_address] = Account(
         code=bytecode,
         nonce=1,
         balance=0,
@@ -213,7 +214,7 @@ def test_invalid_layout(
     sender = pre.fund_eoa()
 
     tx = Transaction(
-        to=Spec.DEPOSIT_CONTRACT_ADDRESS,
+        to=DepositRequest.system_contract_address,
         sender=sender,
         gas_limit=100_000,
     )
@@ -249,7 +250,7 @@ def test_invalid_layout_with_swapped_decodable_offsets(
     )
     bytecode += Op.STOP
 
-    pre[Spec.DEPOSIT_CONTRACT_ADDRESS] = Account(
+    pre[DepositRequest.system_contract_address] = Account(
         code=bytecode,
         nonce=1,
         balance=0,
@@ -257,7 +258,7 @@ def test_invalid_layout_with_swapped_decodable_offsets(
     sender = pre.fund_eoa()
 
     tx = Transaction(
-        to=Spec.DEPOSIT_CONTRACT_ADDRESS,
+        to=DepositRequest.system_contract_address,
         sender=sender,
         gas_limit=100_000,
     )
@@ -358,7 +359,7 @@ def test_invalid_log_length(
     )
     bytecode += Op.STOP
 
-    pre[Spec.DEPOSIT_CONTRACT_ADDRESS] = Account(
+    pre[DepositRequest.system_contract_address] = Account(
         code=bytecode,
         nonce=1,
         balance=0,
@@ -366,7 +367,7 @@ def test_invalid_log_length(
     sender = pre.fund_eoa()
 
     tx = Transaction(
-        to=Spec.DEPOSIT_CONTRACT_ADDRESS,
+        to=DepositRequest.system_contract_address,
         sender=sender,
         gas_limit=100_000,
     )

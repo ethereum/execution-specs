@@ -8,7 +8,7 @@ state_tests/stEIP2930/addressOpcodesFiller.yml
 `Op.GAS`, the regular gas of each account-touching opcode (`BALANCE`,
 `EXTCODESIZE`, `EXTCODEHASH`, `EXTCODECOPY`) on both a first (cold or
 pre-warmed) and a second (warm) access. EIP-8038 reprices these: cold
-`BALANCE`/`EXTCODEHASH` by +`COLD_ACCOUNT_ACCESS - 2600`, while
+`BALANCE`/`EXTCODEHASH` by the `COLD_ACCOUNT_ACCESS` raise, while
 `EXTCODESIZE`/`EXTCODECOPY` carry an extra flat surcharge on both their
 warm and cold forms. The single Cancun-era literals are therefore split
 per opcode and per access, each adjusted by that opcode's own warm or
@@ -29,7 +29,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op, Opcode
 
 from tests.ported_static.post_state_resolution import (
@@ -568,21 +568,21 @@ def test_address_opcodes(
         data_size=0x20, new_memory_size=0x120, old_memory_size=0x120
     )
 
-    def _account_delta(op: Opcode, warm: bool, base: int, **meta: int) -> int:
-        cost = op.with_metadata(address_warm=warm, **meta).gas_cost(fork)
-        return cost - base
+    def _account_delta(op: Opcode, warm: bool, **meta: int) -> int:
+        priced = op.with_metadata(address_warm=warm, **meta)
+        return priced.gas_cost(fork) - priced.gas_cost(Cancun)
 
-    balance_warm_d = _account_delta(Op.BALANCE, True, 100)
-    balance_cold_d = _account_delta(Op.BALANCE, False, 2600)
-    extcodesize_warm_d = _account_delta(Op.EXTCODESIZE, True, 100)
-    extcodesize_cold_d = _account_delta(Op.EXTCODESIZE, False, 2600)
-    extcodehash_warm_d = _account_delta(Op.EXTCODEHASH, True, 100)
-    extcodehash_cold_d = _account_delta(Op.EXTCODEHASH, False, 2600)
+    balance_warm_d = _account_delta(Op.BALANCE, True)
+    balance_cold_d = _account_delta(Op.BALANCE, False)
+    extcodesize_warm_d = _account_delta(Op.EXTCODESIZE, True)
+    extcodesize_cold_d = _account_delta(Op.EXTCODESIZE, False)
+    extcodehash_warm_d = _account_delta(Op.EXTCODEHASH, True)
+    extcodehash_cold_d = _account_delta(Op.EXTCODEHASH, False)
     extcodecopy_warm_d = _account_delta(
-        Op.EXTCODECOPY, True, 103, **extcodecopy_meta
+        Op.EXTCODECOPY, True, **extcodecopy_meta
     )
     extcodecopy_cold_d = _account_delta(
-        Op.EXTCODECOPY, False, 2603, **extcodecopy_meta
+        Op.EXTCODECOPY, False, **extcodecopy_meta
     )
 
     # Slot 0 holds the first access (pre-warmed in the valid cases, cold

@@ -243,6 +243,7 @@ def run_bal_benchmark(
                     pre=pre,
                     fork=fork,
                     tx_gas_limit=tx_gas_limit,
+                    block_gas_budget=sum(plan.gas_limits),
                     authority=authority,
                     storage_init_ranges=storage_init_ranges,
                 )

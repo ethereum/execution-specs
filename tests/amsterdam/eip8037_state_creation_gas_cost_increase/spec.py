@@ -23,7 +23,7 @@ class ReferenceSpec:
 
 
 ref_spec_8037 = ReferenceSpec(
-    "EIPS/eip-8037.md", "5a8c80897aeb0952322cd0dfff767c541002b8c3"
+    "EIPS/eip-8037.md", "19bdfb4f97064dfbeb3d41d31efac211265b49a6"
 )
 
 
@@ -32,6 +32,9 @@ class Spec:
     Constants and helpers for the EIP-8037 State Creation Gas Cost
     Increase tests.
     """
+
+    # State reservoir sizing for each protocol system call.
+    SYSTEM_MAX_SSTORES_PER_CALL = 16
 
     # EIP-7825 transaction gas limit cap
     TX_MAX_GAS_LIMIT = 2**24  # 16,777,216

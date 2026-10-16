@@ -29,7 +29,6 @@ SET_CODE_TX_MAGIC = b"\x05"
 EOA_DELEGATION_MARKER = b"\xef\x01\x00"
 EOA_DELEGATION_MARKER_LENGTH = len(EOA_DELEGATION_MARKER)
 EOA_DELEGATED_CODE_LENGTH = 23
-REFUND_AUTH_PER_EXISTING_ACCOUNT = 12500
 NULL_ADDRESS = hex_to_address("0x0000000000000000000000000000000000000000")
 
 
@@ -217,7 +216,7 @@ def set_delegation(message: Message) -> U256:
         if account_exists(tx_state, authority):
             refund_counter += U256(
                 GasCosts.AUTH_PER_EMPTY_ACCOUNT
-                - REFUND_AUTH_PER_EXISTING_ACCOUNT
+                - GasCosts.REFUND_AUTH_PER_EXISTING_ACCOUNT
             )
 
         if auth.address == NULL_ADDRESS:

@@ -55,7 +55,12 @@ def test_transaction_gas(
     recipient_type: RecipientType,
     value: int,
 ) -> None:
-    """Gas for a non-create transaction, per recipient type and value."""
+    """
+    Gas for a non-create transaction, per recipient type and value.
+
+    Leave one spare gas so a runtime halt cannot satisfy the expected
+    gas usage when a zero-value transaction otherwise changes no state.
+    """
     sender = pre.fund_eoa()
     target = setup_target(pre, recipient_type, sender)
 
@@ -77,7 +82,7 @@ def test_transaction_gas(
     tx = Transaction(
         to=target,
         value=value,
-        gas_limit=gas_used,
+        gas_limit=gas_used + 1,
         sender=sender,
         expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
     )
@@ -129,7 +134,7 @@ def test_contract_creation_gas(
         to=None,
         value=value,
         data=init_code,
-        gas_limit=gas_used,
+        gas_limit=gas_used + 1,
         sender=sender,
         expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
     )
@@ -163,7 +168,7 @@ def test_authorization_gas(
     tx = Transaction(
         to=pre.deploy_contract(code=Op.STOP),
         authorization_list=authorization_list,
-        gas_limit=gas_used,
+        gas_limit=gas_used + 1,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
     )

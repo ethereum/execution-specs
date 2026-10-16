@@ -350,6 +350,47 @@ def test_transaction_validity_type_4(
 
 
 @pytest.mark.parametrize(
+    "data_byte",
+    [pytest.param(b"\x00", id="zero_bytes")],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "authorization_list",
+    [
+        pytest.param(
+            [Address(1)],
+            id="single_authorization",
+        ),
+        pytest.param(
+            [Address(i + 1) for i in range(10)],
+            id="multiple_authorizations",
+        ),
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "ty",
+    [pytest.param(4, id="type_4")],
+)
+def test_transaction_validity_zero_byte_data(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx: Transaction,
+) -> None:
+    """
+    Pin the standard zero-byte weight at both validity boundaries.
+
+    Use authorizations to lift the standard cost above the floor for
+    short calldata, then cross into floor-dominated pricing.
+    """
+    state_test(
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@pytest.mark.parametrize(
     "ty",
     [pytest.param(0, id="type_0"), pytest.param(2, id="type_2")],
 )

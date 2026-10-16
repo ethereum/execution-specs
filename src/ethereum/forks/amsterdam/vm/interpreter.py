@@ -62,12 +62,7 @@ from ..vm.gas import (
     tx_state_gas_used,
 )
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import (
-    BlockEnvironment,
-    Evm,
-    TransactionEnvironment,
-    emit_transfer_log,
-)
+from . import BlockEnvironment, Evm, TransactionEnvironment, emit_transfer_log
 from .eoa_delegation import resolve_delegated_code_address, set_delegation
 from .exceptions import (
     AddressCollision,

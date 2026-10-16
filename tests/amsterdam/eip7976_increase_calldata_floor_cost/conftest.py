@@ -108,6 +108,12 @@ def contract_creating_tx(to: Address | None) -> bool:
 
 
 @pytest.fixture
+def data_byte(request: pytest.FixtureRequest) -> bytes:
+    """Return the byte repeated to build the transaction data."""
+    return getattr(request, "param", b"\x01")
+
+
+@pytest.fixture
 def intrinsic_gas_data_floor_minimum_delta() -> int:
     """
     Induce a minimum delta between the transaction intrinsic gas cost and the
@@ -124,6 +130,7 @@ def tx_data(
     authorization_list: List[AuthorizationTuple] | None,
     contract_creating_tx: bool,
     intrinsic_gas_data_floor_minimum_delta: int,
+    data_byte: bytes,
 ) -> Bytes:
     """
     All tests in this file use data that is generated dynamically depending on
@@ -168,7 +175,7 @@ def tx_data(
     """
 
     def bytes_to_data(byte_count: int) -> Bytes:
-        return Bytes(b"\x01" * byte_count)
+        return Bytes(data_byte * byte_count)
 
     fork_intrinsic_cost_calculator = (
         fork.transaction_intrinsic_cost_calculator()

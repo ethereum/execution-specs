@@ -70,9 +70,9 @@ class EIP2780(BaseFork):
             floor = super_fn(data=data, access_list=access_list)
             is_self_transfer = recipient_type == RecipientType.SELF
             if contract_creation:
-                # CREATE_ACCESS execution gas; TX_CREATE folds in the
-                # NEW_ACCOUNT state gas, which the floor excludes.
-                floor += gas_costs.TX_CREATE - gas_costs.NEW_ACCOUNT
+                # CREATE_ACCESS execution gas only; the floor excludes
+                # the NEW_ACCOUNT state gas.
+                floor += gas_costs.CREATE_ACCESS
             elif not is_self_transfer:
                 floor += gas_costs.COLD_ACCOUNT_ACCESS
                 if sends_value:

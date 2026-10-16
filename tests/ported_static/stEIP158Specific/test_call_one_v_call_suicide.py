@@ -6,11 +6,11 @@ state_tests/stEIP158Specific/CALL_OneVCallSuicideFiller.json
 
 @manually-enhanced: Do not overwrite. The measured slot captures the
 regular gas of a CALL with value to a not-yet-accessed contract that
-SELFDESTRUCTs to the (alive) caller. EIP-8038 reprices the cold account
-access (2600 -> 3000) and the CALL value transfer (9000 -> 10300); the
-beneficiary stays alive so there is no new-account write. The delta is
-`(COLD_ACCOUNT_ACCESS - 2600) + (CALL_VALUE - 9000)`, exactly 0 before
-EIP-8037 and tracks parameter changes; do not hardcode the Amsterdam
+SELFDESTRUCTs to the (alive) caller. EIP-8038 raises the cold account
+access (`COLD_ACCOUNT_ACCESS`) and the CALL value transfer
+(`CALL_VALUE`). The beneficiary stays alive so there is no new-account
+write. The delta is each fork constant less Cancun's, exactly 0 before
+EIP-8037 and tracks parameter changes. Do not hardcode the Amsterdam
 value.
 """
 
@@ -24,7 +24,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -45,8 +45,10 @@ def test_call_one_v_call_suicide(
     # EIP-8038 deltas, each 0 before EIP-8037. The CALL pays a cold
     # account access plus a value transfer; the beneficiary stays alive.
     gas_costs = fork.gas_costs()
-    cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
-    call_value_delta = gas_costs.CALL_VALUE - 9000
+    cold_account_delta = (
+        gas_costs.COLD_ACCOUNT_ACCESS - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
+    )
+    call_value_delta = gas_costs.CALL_VALUE - Cancun.gas_costs().CALL_VALUE
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 

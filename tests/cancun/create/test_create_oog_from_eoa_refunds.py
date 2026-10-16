@@ -22,6 +22,7 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Fork,
+    GasFee,
     Op,
     Transaction,
     compute_create2_address,
@@ -265,7 +266,7 @@ def test_create_oog_from_eoa_refunds(
     extra_gas = (
         fork.is_eip_enabled(8037) and oog_scenario == OogScenario.NO_OOG
     )
-    sender = pre.fund_eoa(amount=500_000_000 if extra_gas else 4_000_000)
+    sender = pre.fund_eoa()
     init_code = build_init_code(refund_type, oog_scenario, helpers)
     created_address = compute_create_address(address=sender, nonce=0)
 
@@ -328,14 +329,11 @@ def test_create_oog_from_eoa_refunds(
     else:
         # OOG case: contract not created
         post[created_address] = Account.NONEXISTENT
-        if fork.is_eip_enabled(8037):
-            # EIP-8037: execution state gas is returned to the
-            # reservoir on top-level failure, so the sender retains
-            # some balance (the refunded state gas × gas_price).
-            post[sender] = Account(nonce=1)
-        else:
-            # Pre-EIP-8037: sender balance is fully consumed
-            post[sender] = Account(nonce=1, balance=0)
+        # The out-of-gas creation consumes its whole gas limit and
+        # earns no refund.
+        post[sender] = Account(
+            nonce=1, balance_change=-GasFee(tx, gas=tx.gas_limit)
+        )
 
     if refund_type == RefundType.SELFDESTRUCT:
         selfdestruct_code = Op.SELFDESTRUCT(Op.ORIGIN) + Op.STOP

@@ -34,15 +34,8 @@ from ...utils.address import (
     compute_create2_contract_address,
     to_address_masked,
 )
-from ...vm.eoa_delegation import (
-    calculate_delegation_cost,
-)
-from .. import (
-    CALL_SUCCESS,
-    Evm,
-    emit_transfer_log,
-    incorporate_child,
-)
+from ...vm.eoa_delegation import calculate_delegation_cost
+from .. import CALL_SUCCESS, Evm, emit_transfer_log, incorporate_child
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
     GasCosts,
@@ -219,6 +212,7 @@ def create(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
     init_code_gas = init_code_cost(Uint(memory_size))
+
     charge_gas(
         evm,
         GasCosts.CREATE_ACCESS + extend_memory.cost + init_code_gas,
@@ -567,7 +561,6 @@ def call(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-
     sender_balance = get_account(tx_state, evm.current_target).balance
 
     generic_call(
@@ -682,7 +675,6 @@ def callcode(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-
     sender_balance = get_account(tx_state, evm.current_target).balance
 
     generic_call(
@@ -863,7 +855,6 @@ def delegatecall(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-
     generic_call(
         evm,
         GenericCall(
@@ -966,7 +957,6 @@ def staticcall(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-
     generic_call(
         evm,
         GenericCall(

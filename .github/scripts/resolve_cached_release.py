@@ -11,8 +11,8 @@ environment).
 
 Dispatching `release_fixtures.yaml` with the `cached` flag drafts a
 `tests@` release from the newest nightly artifact instead of
-refilling: the scheduled nightly runs already build the mainnet
-`tests` feature into a release-shaped `fixtures_<commit>` artifact.
+refilling: the scheduled nightly runs already build the `tests`
+feature into a release-shaped `fixtures_<commit>` artifact.
 The `commit` input picks the nightly built at that commit instead of
 the newest one. This script validates the request, picks the nightly
 run whose artifact the release job downloads, and pins the exact
@@ -118,7 +118,7 @@ def newest_tests_tag(repository: str) -> str:
 
     The `tests@` ref prefix cannot match any other feature's tags
     (those are namespaced `tests-<feature>@`), so every match is a
-    mainnet tests release.
+    `tests` release.
 
     The listing is paginated in ref-name order, not version order
     (`tests@v9...` sorts after `tests@v20...`), so every page must be

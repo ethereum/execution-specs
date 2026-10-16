@@ -120,10 +120,11 @@ class NethtestFixtureConsumer(
         assert fixture_name, "Fixture name must be provided for nethtest."
         command = [str(self.binary)]
         if fixture_format is BlockchainFixture:
+            # nethtest matches the filter against the key after `.py::`.
             command += [
                 "--blockTest",
                 "--filter",
-                f"{re.escape(fixture_name)}",
+                re.escape(fixture_name.split(".py::", 1)[-1]) + "$",
             ]
         elif fixture_format is StateFixture:
             # TODO: consider using `--filter` here to readily access traces
@@ -245,7 +246,6 @@ class NethtestFixtureConsumer(
     ) -> None:
         """Execute the the fixture at `fixture_path` via `nethtest`."""
         del fixture_path
-        del fixture_name
         result = subprocess.run(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
@@ -260,6 +260,27 @@ class NethtestFixtureConsumer(
                 f"stdout:\n{result.stdout}\n"
                 f"stderr:\n{result.stderr}\n"
                 f"{' '.join(command)}"
+            )
+
+        # nethtest exits 0 even when a test fails; the verdict is in the JSON
+        # array on stdout, and an empty one means the filter matched nothing.
+        try:
+            results = json.loads(result.stdout)
+        except json.JSONDecodeError as e:
+            raise Exception(
+                f"Failed to parse JSON output on stdout from nethtest:\n"
+                f"{result.stdout}"
+            ) from e
+        if not isinstance(results, list) or not results:
+            raise Exception(
+                f"nethtest ran no test matching '{fixture_name}':\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+        failures = [r for r in results if not r["pass"]]
+        if failures:
+            raise Exception(
+                "Blockchain test failed:\n"
+                + "\n".join(f"{r['name']}: {r.get('error')}" for r in failures)
             )
 
     def consume_fixture(
@@ -405,6 +426,11 @@ class NethermindExceptionMapper(ExceptionMapper):
         ),
     }
     mapping_regex = {
+        # In-range r that is not an x-coordinate on the curve leaves the
+        # transaction without a recovered sender.
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            r"failed with error sender not specified"
+        ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             r"insufficient sender balance|"
             r"insufficient MaxFeePerGas for sender balance"

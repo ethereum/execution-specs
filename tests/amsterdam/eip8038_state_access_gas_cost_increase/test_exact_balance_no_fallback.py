@@ -1,6 +1,6 @@
 """
 No-silent-fallback exact-balance tests for
-[EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+[EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 Each test funds the sender with *exactly* ``gas_limit * gas_price`` and
 sets ``gas_limit`` one gas below the spec-correct Amsterdam intrinsic for

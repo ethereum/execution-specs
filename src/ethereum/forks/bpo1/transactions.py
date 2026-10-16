@@ -39,10 +39,11 @@ class IntrinsicGasCost:
     """Regular execution gas (calldata, base cost, access list, etc.)."""
 
     calldata_floor: Uint
-    """Minimum gas cost based on calldata size per [EIP-7623]."""
+    """
+    Minimum gas cost based on calldata size per [EIP-7623].
 
-
-TX_MAX_GAS_LIMIT = Uint(16_777_216)
+    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+    """
 
 
 @final
@@ -570,6 +571,7 @@ def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     """
+    from .vm.gas import GasCosts
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
     intrinsic = calculate_intrinsic_cost(tx)
@@ -577,7 +579,7 @@ def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
         raise InsufficientTransactionGasError("Insufficient gas")
     if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
         raise InitCodeTooLargeError("Code size too large")
-    if tx.gas > TX_MAX_GAS_LIMIT:
+    if tx.gas > GasCosts.TX_MAX_GAS_LIMIT:
         raise TransactionGasLimitExceededError("Gas limit too high")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")

@@ -28,6 +28,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     EIPChecklist,
+    GasFee,
     Hash,
     Transaction,
     TransactionException,
@@ -35,7 +36,7 @@ from execution_testing import (
     TransitionFork,
 )
 
-from .helpers import calculate_access_list_floor_tokens
+from .helpers import calculate_access_list_data_cost
 from .spec import ref_spec_7981
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7981.git_path
@@ -59,6 +60,7 @@ def access_list_shape(addresses: int, keys_per_address: int) -> list:
     ]
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
 @EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 @pytest.mark.parametrize(
@@ -92,7 +94,6 @@ def test_access_list_intrinsic_across_amsterdam_transition(
     regression fails here with a clear message rather than only as a
     downstream balance mismatch.
     """
-    gas_price = 1_000_000_000
     access_list = access_list_shape(addresses, keys_per_address)
     total_keys = addresses * keys_per_address
 
@@ -110,10 +111,7 @@ def test_access_list_intrinsic_across_amsterdam_transition(
     )
     # Post-fork: EIP-2780 decomposed base and recipient charge, EIP-8038
     # repriced entry charges, and the EIP-7981 byte surcharge.
-    surcharge = (
-        calculate_access_list_floor_tokens(access_list)
-        * post_costs.TX_DATA_TOKEN_FLOOR
-    )
+    surcharge = calculate_access_list_data_cost(access_list, post_fork)
     expected_post = (
         post_costs.TX_BASE
         + post_costs.COLD_ACCOUNT_ACCESS
@@ -145,22 +143,19 @@ def test_access_list_intrinsic_across_amsterdam_transition(
         )
         assert floor_gas <= intrinsic_gas
 
-        sender_initial_balance = 10**18
-        sender = pre.fund_eoa(sender_initial_balance)
+        sender = pre.fund_eoa()
         target = pre.fund_eoa(amount=0)
 
         tx = Transaction(
             sender=sender,
             to=target,
             gas_limit=intrinsic_gas,
-            gas_price=gas_price,
             access_list=access_list,
         )
         blocks.append(Block(timestamp=timestamp, txs=[tx]))
 
         post[sender] = Account(
-            nonce=1,
-            balance=sender_initial_balance - intrinsic_gas * gas_price,
+            nonce=1, balance_change=-GasFee(tx, gas=intrinsic_gas)
         )
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
@@ -276,6 +271,7 @@ def test_access_list_validity_across_amsterdam_transition(
     blockchain_test(pre=pre, blocks=blocks, post={})
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
 @EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_access_list_floor_across_amsterdam_transition(
@@ -289,12 +285,11 @@ def test_access_list_floor_across_amsterdam_transition(
     A calldata-heavy access-list transaction binds the floor on both
     sides of the transition: pre-fork the floor counts calldata bytes
     only (access list bytes contribute nothing), post-fork the EIP-7981
-    tokens raise it. Each block's gas limit is pinned to its fork's
+    data surcharge raises it. Each block's gas limit is pinned to its fork's
     floor, so the billed gas equals the floor exactly and an
     implementation that mistimes the floor change fails the receipt and
     balance pins.
     """
-    gas_price = 1_000_000_000
     # Sized so the floor dominates the intrinsic on both sides
     # (asserted below): each non-zero byte adds 40 - 16 = 24 gas of
     # floor headroom pre-fork and 64 - 16 = 48 post-fork, outgrowing
@@ -316,15 +311,14 @@ def test_access_list_floor_across_amsterdam_transition(
     assert pre_fork.transaction_data_floor_cost_calculator()(
         data=data, access_list=access_list
     ) == pre_fork.transaction_data_floor_cost_calculator()(data=data)
-    # Post-fork: uniform calldata tokens plus the EIP-7981 access list
-    # tokens, anchored on the EIP-2780 decomposed base.
-    post_tokens = len(data) * int(
-        post_costs.TX_DATA_TOKEN_STANDARD
-    ) + calculate_access_list_floor_tokens(access_list)
+    # Post-fork: uniform calldata tokens and the access list surcharge,
+    # anchored on the EIP-2780 decomposed base.
+    post_tokens = len(data) * int(post_costs.TX_DATA_TOKEN_STANDARD)
     expected_post = int(
         post_costs.TX_BASE
         + post_costs.COLD_ACCOUNT_ACCESS
         + post_tokens * post_costs.TX_DATA_TOKEN_FLOOR
+        + calculate_access_list_data_cost(access_list, post_fork)
     )
 
     timestamps = [PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP]
@@ -355,23 +349,20 @@ def test_access_list_floor_across_amsterdam_transition(
             f"{intrinsic_gas} at timestamp {timestamp} ({sub_fork})"
         )
 
-        sender_initial_balance = 10**18
-        sender = pre.fund_eoa(sender_initial_balance)
+        sender = pre.fund_eoa()
 
         tx = Transaction(
             sender=sender,
             to=pre.fund_eoa(amount=0),
             data=data,
             gas_limit=floor_gas,
-            gas_price=gas_price,
             access_list=access_list,
             expected_receipt=TransactionReceipt(cumulative_gas_used=floor_gas),
         )
         blocks.append(Block(timestamp=timestamp, txs=[tx]))
 
         post[sender] = Account(
-            nonce=1,
-            balance=sender_initial_balance - floor_gas * gas_price,
+            nonce=1, balance_change=-GasFee(tx, gas=floor_gas)
         )
 
     blockchain_test(pre=pre, blocks=blocks, post=post)

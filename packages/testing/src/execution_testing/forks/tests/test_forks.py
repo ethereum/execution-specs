@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from execution_testing.base_types import BlobSchedule
 from execution_testing.vm import Opcodes
 
-from ..base_fork import BaseFork, BaseForkMeta
+from ..base_fork import BaseFork, BaseForkMeta, SystemCallPhase
 from ..forks.eips.paris.eip_3675 import EIP3675
 from ..forks.forks import (
     BPO1,
@@ -19,6 +19,7 @@ from ..forks.forks import (
     BPO5,
     Amsterdam,
     Berlin,
+    Bogota,
     Cancun,
     Frontier,
     Homestead,
@@ -30,6 +31,7 @@ from ..forks.forks import (
     Shanghai,
 )
 from ..forks.transition import (
+    AmsterdamToBogotaAtTime15k,
     BerlinToLondonAt5,
     BPO1ToBPO2AtTime15k,
     BPO2ToAmsterdamAtTime15k,
@@ -42,6 +44,7 @@ from ..forks.transition import (
     ShanghaiToCancunAtTime15k,
 )
 from ..helpers import (
+    ALL_FORKS,
     Fork,
     ForkAdapter,
     ForkOrNoneAdapter,
@@ -55,12 +58,13 @@ from ..helpers import (
     transition_fork_from_to,
     transition_fork_to,
 )
+from ..requests import FeeSystemContractRequest
 from ..transition_base_fork import TransitionBaseClass, transition_fork
 
 FIRST_DEPLOYED = Frontier
 LAST_DEPLOYED = Osaka
-LAST_DEVELOPMENT = Amsterdam
-DEVELOPMENT_FORKS = [Amsterdam]
+LAST_DEVELOPMENT = Bogota
+DEVELOPMENT_FORKS = [Amsterdam, Bogota]
 
 
 def test_transition_forks() -> None:
@@ -68,6 +72,10 @@ def test_transition_forks() -> None:
     assert transition_fork_from_to(Berlin, London) == BerlinToLondonAt5
     assert transition_fork_from_to(Berlin, Paris) is None
     assert transition_fork_to(Shanghai) == {ParisToShanghaiAtTime15k}
+    assert (
+        transition_fork_from_to(Amsterdam, Bogota)
+        == AmsterdamToBogotaAtTime15k
+    )
 
     # Test forks transitioned to and from
     assert BerlinToLondonAt5.transitions_to() == London
@@ -397,6 +405,37 @@ def test_precompiles() -> None:  # noqa: D103
     assert sorted(Cancun.precompiles()) == list(range(1, 11))
 
 
+@pytest.mark.parametrize("fork", sorted(ALL_FORKS, key=str), ids=str)
+def test_system_contract_request_types(fork: Fork) -> None:
+    """
+    Every request type is a request class whose system contract is one of
+    the fork's system contracts.
+    """
+    request_classes = fork.system_contract_request_types()
+    assert sorted(cls.type for cls in request_classes) == list(
+        range(0, fork.max_request_type() + 1)
+    )
+    assert {cls.system_contract_address for cls in request_classes} <= set(
+        fork.system_contracts()
+    )
+
+
+@pytest.mark.parametrize("fork", sorted(ALL_FORKS, key=str), ids=str)
+def test_system_contract_call_phases(fork: Fork) -> None:
+    """
+    Every system contract declares when the block calls it, and every
+    queued request predeploy is called after the transactions.
+    """
+    phases = fork.system_contract_call_phases()
+    assert set(phases) == set(fork.system_contracts())
+    for request_class in fork.system_contract_request_types():
+        if issubclass(request_class, FeeSystemContractRequest):
+            assert (
+                phases[request_class.system_contract_address]
+                is SystemCallPhase.AFTER_TRANSACTIONS
+            )
+
+
 def test_tx_types() -> None:  # noqa: D103
     assert Cancun.tx_types() == list(reversed(range(4)))
 
@@ -586,6 +625,41 @@ def test_blob_schedules(
     else:
         assert fork.transitions_to().blob_schedule() == BlobSchedule(
             **expected_schedule
+        )
+
+
+@pytest.mark.parametrize("fork", [London, Amsterdam])
+@pytest.mark.parametrize(
+    "parent_base_fee_per_gas", [20, 7 * 10**8, 10**9, 10**9 + 7]
+)
+def test_base_fee_change_calculator_round_trip(
+    fork: Fork, parent_base_fee_per_gas: int
+) -> None:
+    """
+    Test that the gas returned for a reachable base fee yields that base
+    fee, for increases and decreases, including exact divisions.
+    """
+    gas_limit = 30_000_000
+    base_fee_per_gas = fork.base_fee_per_gas_calculator()
+    gas_for_base_fee = fork.base_fee_change_calculator()
+    for parent_gas_used in range(0, gas_limit + 1, 250_000):
+        required = base_fee_per_gas(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_used=parent_gas_used,
+            parent_gas_limit=gas_limit,
+        )
+        gas_used = gas_for_base_fee(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_limit=gas_limit,
+            required_base_fee_per_gas=required,
+        )
+        assert (
+            base_fee_per_gas(
+                parent_base_fee_per_gas=parent_base_fee_per_gas,
+                parent_gas_used=gas_used,
+                parent_gas_limit=gas_limit,
+            )
+            == required
         )
 
 
@@ -787,6 +861,9 @@ def test_method_versions() -> None:  # noqa: D103
 
     assert Amsterdam.engine_get_payload_version() == 6
     assert Amsterdam.engine_new_payload_version() == 5
+
+    assert Bogota.engine_get_payload_version() == 6
+    assert Bogota.engine_new_payload_version() == 5
 
 
 def test_eips() -> None:  # noqa: D103

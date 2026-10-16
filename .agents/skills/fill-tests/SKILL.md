@@ -9,7 +9,7 @@ CLI reference for the `fill` command. Run this skill before filling test fixture
 
 ## Basic Usage
 
-```
+```bash
 uv run fill tests/                                    # Fill all tests
 uv run fill tests/cancun/ --fork Cancun               # Specific fork
 uv run fill tests/path/to/test.py -k "test_name"      # Specific test
@@ -19,13 +19,13 @@ uv run fill --collect-only tests/                      # Dry run: list tests wit
 
 ## Key Flags
 
-- `--fork FORK` / `--until FORK` — target specific fork or range
+- `--fork FORK` / `--until FORK` — target specific fork or range. The default set stops at the last deployed fork, so a fork under development needs one of these.
 - `--output DIR` + `--clean` — output directory; `--clean` required when re-filling
 - `-k "pattern"` — filter tests by name pattern
 - `-m "marker"` — filter by pytest marker (e.g. `-m state_test`, `-m blockchain_test`)
 - `-n auto --maxprocesses N` — parallel execution (use `--dist=loadgroup`)
 - `--evm-bin PATH` — t8n tool; defaults to the in-repo EELS Python spec (`src/ethereum/`)
-- `--verify-fixtures` — verify generated fixtures against geth blocktest
+- `--verify-fixtures` — run geth's `evm blocktest` over the generated fixtures. The default EELS t8n has no blocktest, so pass a geth binary with `--verify-fixtures-bin`. For an EELS-side check use `just validate-blocks <fixtures_dir>`, which is what CI runs.
 - `--generate-all-formats` — generate all fixture formats (2-phase)
 
 ## Debugging
@@ -45,10 +45,11 @@ uv run fill --collect-only tests/                      # Dry run: list tests wit
 - Excluded from a broad `tests/` run: include them by targeting a `tests/benchmark/...` path, or add `--include-benchmark` when also collecting `tests/`.
 - Pick a mode (mutually exclusive): `--gas-benchmark-values 1,10,100` (millions of gas) or `--fixed-opcode-count 1,10,100` (thousands). These parametrize the tests, e.g. `...[fork_Prague-blockchain_test-benchmark-gas-value_1M]`.
 - Backend is optional: omitting `--evm-bin` runs the slow in-repo EELS Python spec; `--evm-bin=evmone` or `--evm-bin=evm` (geth, used by `just bench-gas`) are faster.
+- Stateful benchmarks (`tests/benchmark/stateful/`) are filled by the separate `fill-stateful` command against a live client snapshot and produce `BlockchainEngineStatefulFixture`; see `docs/filling_tests/fill_stateful.md`.
 
 ## Fixture Formats
 
-One test function auto-generates multiple formats: `StateFixture`, `BlockchainFixture`, `BlockchainEngineFixture`. Use `--generate-all-formats` for additional formats via 2-phase execution.
+One test function auto-generates multiple formats: `StateFixture`, `BlockchainFixture`, `BlockchainEngineFixture`. `--generate-all-formats` adds the pre-alloc-group format `BlockchainEngineXFixture` through a 2-phase run (`--generate-pre-alloc-groups`, then `--use-pre-alloc-groups`); `--single-fixture-per-file` writes each fixture to its own JSON file.
 
 ## References
 

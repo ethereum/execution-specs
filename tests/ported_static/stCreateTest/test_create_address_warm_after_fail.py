@@ -12,11 +12,10 @@ state_tests/stCreateTest/CreateAddressWarmAfterFailFiller.yml
 
 @manually-enhanced: Do not overwrite. The post-state records the
 measured cost of accessing the create address after a failed CREATE,
-which is a cold account access. EIP-8038 reprices a cold account
-access from 2 600 to 3 000, so each such measurement gains 400 at
-Amsterdam. Derive that delta from the fork's gas model so it is
-exactly 0 pre-EIP-8037 and tracks parameter changes; do not hardcode
-the Amsterdam value.
+which is a cold account access. EIP-8038 raises `COLD_ACCOUNT_ACCESS`,
+so each such measurement gains that delta at Amsterdam. Derive that
+delta from the fork's gas model so it is exactly 0 pre-EIP-8037 and
+tracks parameter changes; do not hardcode the Amsterdam value.
 """
 
 from typing import NamedTuple
@@ -27,6 +26,7 @@ from execution_testing import (
     Address,
     Alloc,
     CodeGasMeasure,
+    GasConsumer,
     Hash,
     StateTestFiller,
     Transaction,
@@ -218,20 +218,12 @@ def test_create_address_warm_after_fail(
             outcome = CONSTRUCTOR_OUT_OF_GAS
 
         elif initcode_outcome == "oog-post-constr":
-            # Run OOG at the JUMPDEST
+            # Run OOG after the constructor has returned. The sink is
+            # unpayable at any gas limit, so it does not have to be sized
+            # against the memory prices of a particular fork.
             gas = initcode_success_gas
             callee_code_suffix = (
-                Op.MSTORE(
-                    2**12,
-                    1,
-                    old_memory_size=32,
-                    new_memory_size=2**12,
-                )
-                + Op.STOP
-            )
-            assert callee_code_suffix.gas_cost(fork) > (
-                gas
-                - (pre_create_code.gas_cost(fork) + initcode.gas_cost(fork))
+                GasConsumer.out_of_gas(fork, previous_memory_size=32) + Op.STOP
             )
             # Callee runs out of gas, the created contract warming is reverted.
             outcome = CALLEE_OUT_OF_GAS

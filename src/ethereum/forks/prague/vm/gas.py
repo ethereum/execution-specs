@@ -67,6 +67,7 @@ class GasCosts:
 
     # Refunds
     REFUND_STORAGE_CLEAR: Final[int] = 4800
+    REFUND_AUTH_PER_EXISTING_ACCOUNT: Final[int] = 12500
 
     # Precompiles
     PRECOMPILE_ECRECOVER: Final[Uint] = Uint(3000)
@@ -155,6 +156,7 @@ class GasCosts:
     OPCODE_PREVRANDAO: Final[Uint] = BASE
     OPCODE_RETURNDATASIZE: Final[Uint] = BASE
     OPCODE_CHAINID: Final[Uint] = BASE
+    OPCODE_SELFBALANCE: Final[Uint] = FAST_STEP
     OPCODE_BASEFEE: Final[Uint] = BASE
     OPCODE_BLOBBASEFEE: Final[Uint] = BASE
     OPCODE_BLOBHASH: Final[Uint] = Uint(3)
@@ -162,6 +164,8 @@ class GasCosts:
     OPCODE_PUSH0: Final[Uint] = BASE
     OPCODE_DUP: Final[Uint] = VERY_LOW
     OPCODE_SWAP: Final[Uint] = VERY_LOW
+    OPCODE_TLOAD: Final[Uint] = WARM_ACCESS
+    OPCODE_TSTORE: Final[Uint] = WARM_ACCESS
 
     # Dynamic Opcodes
     OPCODE_RETURNDATACOPY_BASE: Final[Uint] = VERY_LOW
@@ -261,10 +265,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
     linear_cost = size_in_words * GasCosts.MEMORY_PER_WORD
     quadratic_cost = size_in_words ** Uint(2) // Uint(512)
     total_gas_cost = linear_cost + quadratic_cost
-    try:
-        return total_gas_cost
-    except ValueError as e:
-        raise OutOfGasError from e
+    return total_gas_cost
 
 
 def calculate_gas_extend_memory(

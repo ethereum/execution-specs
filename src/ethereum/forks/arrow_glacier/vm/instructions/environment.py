@@ -21,11 +21,7 @@ from ...utils.address import to_address_masked
 from ...vm.memory import buffer_read, memory_write
 from .. import Evm
 from ..exceptions import OutOfBoundsRead
-from ..gas import (
-    GasCosts,
-    calculate_gas_extend_memory,
-    charge_gas,
-)
+from ..gas import GasCosts, calculate_gas_extend_memory, charge_gas
 from ..stack import pop, push
 
 
@@ -515,7 +511,7 @@ def self_balance(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.FAST_STEP)
+    charge_gas(evm, GasCosts.OPCODE_SELFBALANCE)
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.

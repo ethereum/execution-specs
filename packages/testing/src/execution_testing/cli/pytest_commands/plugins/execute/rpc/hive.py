@@ -14,24 +14,23 @@ from hive.simulation import Simulation
 from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
 
 from execution_testing.base_types import (
-    Account,
     EmptyOmmersRoot,
     EmptyTrieRoot,
     Hash,
     to_json,
 )
 from execution_testing.fixtures.blockchain import FixtureHeader
-from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks import Fork, Requests, TransitionFork
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
     DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
+    Account,
     Alloc,
     BlockAccessList,
     ChainConfig,
     Environment,
-    Requests,
     Withdrawal,
 )
 

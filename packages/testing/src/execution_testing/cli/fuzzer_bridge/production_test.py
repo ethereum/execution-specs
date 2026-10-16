@@ -19,12 +19,17 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from execution_testing.base_types import Account, Address
+from execution_testing.base_types import Address
 from execution_testing.client_clis import GethTransitionTool
 from execution_testing.fixtures.blockchain import BlockchainFixture
 from execution_testing.specs import Block
 from execution_testing.specs.blockchain import BlockchainTest
-from execution_testing.test_types import Alloc, Environment, Transaction
+from execution_testing.test_types import (
+    Account,
+    Alloc,
+    Environment,
+    Transaction,
+)
 
 
 class FuzzerBridge:

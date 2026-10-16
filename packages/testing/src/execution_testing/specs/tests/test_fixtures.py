@@ -9,12 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 import execution_testing.cli.check_fixtures
-from execution_testing.base_types import (
-    AccessList,
-    Account,
-    Address,
-    Hash,
-)
+from execution_testing.base_types import AccessList, Address, Hash
 from execution_testing.client_clis import TransitionTool
 from execution_testing.exceptions import TransactionException
 from execution_testing.fixtures import (
@@ -35,6 +30,7 @@ from execution_testing.forks import (
     Shanghai,
 )
 from execution_testing.test_types import (
+    Account,
     Alloc,
     Environment,
     Transaction,

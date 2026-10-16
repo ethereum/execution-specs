@@ -1,5 +1,5 @@
 """
-Tests for [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+Tests for [EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 Covers the EIP-8038 ``EXT*`` "double-read" surcharge: ``EXTCODESIZE`` and
 ``EXTCODECOPY`` perform two database reads (the account leaf and then the
@@ -39,34 +39,29 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 #   - executable: builds the runnable opcode targeting ``target``
 #   - cost_metadata: builds the metadata-only opcode for gas computation
 #   - extra_stack_items: stack items left by the opcode (for CodeGasMeasure)
-#   - code_read_surcharge: whether EIP-8038 adds the extra WARM_ACCESS read
 EXT_OPCODES = [
     pytest.param(
         lambda target: Op.EXTCODESIZE(target),
         lambda warm: Op.EXTCODESIZE(address_warm=warm),
         1,
-        True,
         id="EXTCODESIZE",
     ),
     pytest.param(
         lambda target: Op.EXTCODECOPY(target, 0, 0, 0),
         lambda warm: Op.EXTCODECOPY(address_warm=warm),
         0,
-        True,
         id="EXTCODECOPY",
     ),
     pytest.param(
         lambda target: Op.EXTCODEHASH(target),
         lambda warm: Op.EXTCODEHASH(address_warm=warm),
         1,
-        False,
         id="EXTCODEHASH",
     ),
     pytest.param(
         lambda target: Op.BALANCE(target),
         lambda warm: Op.BALANCE(address_warm=warm),
         1,
-        False,
         id="BALANCE",
     ),
 ]
@@ -75,7 +70,7 @@ EXT_OPCODES = [
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 @pytest.mark.parametrize(
-    "executable,cost_metadata,extra_stack_items,code_read_surcharge",
+    "executable,cost_metadata,extra_stack_items",
     EXT_OPCODES,
 )
 def test_ext_code_opcode_gas(
@@ -87,7 +82,6 @@ def test_ext_code_opcode_gas(
     executable: Callable[[object], Bytecode],
     cost_metadata: Callable[[bool], Bytecode],
     extra_stack_items: int,
-    code_read_surcharge: bool,
 ) -> None:
     """
     Measure the exact gas of an external-code/account-access opcode and
@@ -97,8 +91,6 @@ def test_ext_code_opcode_gas(
     more than ``BALANCE``/``EXTCODEHASH`` at equal warmth (the second,
     code-reading database access).
     """
-    del code_read_surcharge  # encoded in `cost_metadata`
-
     target = pre.deploy_contract(Op.STOP)
 
     measured_code = executable(target)
@@ -134,6 +126,118 @@ def test_ext_code_opcode_gas(
 
     post = {measure_address: Account(storage={0: expected_gas})}
 
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
+@pytest.mark.parametrize(
+    "target_kind", ["funded_eoa", "delegated"], ids=["funded_eoa", "delegated"]
+)
+@pytest.mark.parametrize(
+    "executable,cost_metadata,extra_stack_items",
+    EXT_OPCODES,
+)
+def test_ext_code_opcode_gas_by_target_kind(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+    warm: bool,
+    target_kind: str,
+    executable: Callable[[object], Bytecode],
+    cost_metadata: Callable[[bool], Bytecode],
+    extra_stack_items: int,
+) -> None:
+    """
+    The ``EXT*`` charge does not depend on what occupies the target.
+
+    A funded but codeless EOA and an EIP-7702 delegated account cost the
+    same as a code-bearing contract at equal warmth. The delegated case
+    is the load-bearing one: these opcodes read the account's own code,
+    which for a delegated account is the designator itself, so they
+    resolve no delegation and pay a *single* account access — unlike the
+    call opcodes, which pay one for the target leaf and another for the
+    delegation leaf.
+    """
+    if target_kind == "funded_eoa":
+        # Exists and has a balance, but holds no code — distinct from the
+        # non-existent target the empty-account tests cover.
+        target = pre.fund_eoa(amount=1)
+    else:
+        delegate = pre.deploy_contract(Op.STOP)
+        target = pre.fund_eoa(amount=0, delegation=delegate)
+
+    measured_code = executable(target)
+    overhead_cost = measured_code.gas_cost(fork) - cost_metadata(
+        False
+    ).gas_cost(fork)
+
+    code_gas_measure = CodeGasMeasure(
+        code=measured_code,
+        overhead_cost=overhead_cost,
+        extra_stack_items=extra_stack_items,
+    )
+    measure_address = pre.deploy_contract(code=code_gas_measure)
+
+    # One access at the target's warmth plus, for the code-reading
+    # opcodes, the surcharge. No second access for the delegation.
+    expected_gas = cost_metadata(warm).gas_cost(fork)
+
+    tx = Transaction(
+        to=measure_address,
+        sender=pre.fund_eoa(),
+        access_list=[AccessList(address=target, storage_keys=[])]
+        if warm
+        else None,
+    )
+
+    post = {measure_address: Account(storage={0: expected_gas})}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize(
+    "executable,cost_metadata,extra_stack_items",
+    EXT_OPCODES,
+)
+def test_ext_code_opcode_gas_precompile_target(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+    executable: Callable[[object], Bytecode],
+    cost_metadata: Callable[[bool], Bytecode],
+    extra_stack_items: int,
+) -> None:
+    """
+    An ``EXT*`` read of a precompile pays the warm access cost.
+
+    Precompiles are in the accessed set from the start of the
+    transaction, so no access list is needed and no cold surcharge
+    applies. The code-read surcharge still does, even though a precompile
+    holds no code to read — it is unconditional.
+    """
+    identity_precompile = Address(4)
+
+    measured_code = executable(identity_precompile)
+    overhead_cost = measured_code.gas_cost(fork) - cost_metadata(
+        False
+    ).gas_cost(fork)
+
+    code_gas_measure = CodeGasMeasure(
+        code=measured_code,
+        overhead_cost=overhead_cost,
+        extra_stack_items=extra_stack_items,
+    )
+    measure_address = pre.deploy_contract(code=code_gas_measure)
+
+    # Pre-warmed on entry, so the warm arm is the only reachable one.
+    expected_gas = cost_metadata(True).gas_cost(fork)
+
+    tx = Transaction(to=measure_address, sender=pre.fund_eoa())
+
+    post = {measure_address: Account(storage={0: expected_gas})}
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 

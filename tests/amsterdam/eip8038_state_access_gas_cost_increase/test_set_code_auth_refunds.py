@@ -1,6 +1,6 @@
 """
 Tests for the EIP-7702 authorization charge on an *existing* authority
-leaf under [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+leaf under [EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 EIP-8038 originally over-charged every authorization as if it created a
 new account and *refunded* the difference (``ACCOUNT_WRITE`` on the

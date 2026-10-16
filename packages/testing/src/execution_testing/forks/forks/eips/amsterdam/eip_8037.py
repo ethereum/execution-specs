@@ -32,6 +32,8 @@ STATE_BYTES_PER_AUTH_BASE = 23
 
 SYSTEM_MAX_SSTORES_PER_CALL = 16
 
+TX_MAX_TOTAL_GAS_LIMIT = 2**32 - 1
+
 
 class EIP8037(BaseFork):
     """EIP-8037 class."""
@@ -49,6 +51,17 @@ class EIP8037(BaseFork):
         State gas reservoir becomes enabled.
         """
         return True
+
+    @classmethod
+    def transaction_total_gas_limit_cap(cls) -> int | None:
+        """
+        Cap `tx.gas` as a whole at `TX_MAX_TOTAL_GAS_LIMIT`.
+
+        From EIP-8037 onwards the EIP-7825 `transaction_gas_limit_cap`
+        bounds execution gas only, so this is the cap that keeps the
+        state gas reservoir, and with it the whole gas limit, bounded.
+        """
+        return TX_MAX_TOTAL_GAS_LIMIT
 
     @classmethod
     def system_call_gas_limit(cls) -> int:

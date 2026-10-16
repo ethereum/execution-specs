@@ -18,6 +18,7 @@ from execution_testing import (
     Alloc,
     AuthorizationTuple,
     BalAccountExpectation,
+    BalBalanceChange,
     BalCodeChange,
     BalNonceChange,
     BalStorageChange,
@@ -35,6 +36,7 @@ from execution_testing import (
     FeeSystemContractRequest,
     Fork,
     Hash,
+    Header,
     Initcode,
     Op,
     RecipientType,
@@ -47,10 +49,12 @@ from execution_testing import (
     add_kzg_version,
     call_return_code,
     compute_create_address,
+    max_count_with_gas_limit,
 )
 from execution_testing import Macros as Om
 from execution_testing.base_types import HexNumber
 
+from ...amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
 from ..eip7685_general_purpose_el_requests.test_multi_type_requests import (
     REQUEST_TYPE_BY_ADDRESS,
@@ -493,13 +497,18 @@ def test_set_code_to_tstore_available_at_correct_address(
     "balance",
     [0, 1],
 )
+@pytest.mark.parametrize("tx_value", [0, 1])
 def test_set_code_to_self_destruct(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     external_sendall_recipient: bool,
     balance: int,
+    tx_value: int,
 ) -> None:
     """Test the executing self-destruct opcode in a set-code transaction."""
+    # With balance 0 the authority does not exist until the authorization
+    # creates it.
     auth_signer = pre.fund_eoa(balance)
     if external_sendall_recipient:
         recipient = pre.fund_eoa(0)
@@ -510,9 +519,10 @@ def test_set_code_to_self_destruct(
         Op.SSTORE(1, 1) + Op.SELFDESTRUCT(recipient)
     )
 
+    sender = pre.fund_eoa()
     tx = Transaction(
         to=auth_signer,
-        value=0,
+        value=tx_value,
         authorization_list=[
             AuthorizationTuple(
                 address=set_code_to_address,
@@ -520,26 +530,95 @@ def test_set_code_to_self_destruct(
                 signer=auth_signer,
             ),
         ],
-        sender=pre.fund_eoa(),
+        sender=sender,
     )
 
-    post = {
+    # The authorization does not make the authority a contract created in
+    # this transaction, so SELFDESTRUCT only moves its balance.
+    total_balance = balance + tx_value
+    final_balance = 0 if external_sendall_recipient else total_balance
+    post: dict[Address, Account | None] = {
         auth_signer: Account(
             nonce=1,
             code=Spec.delegation_designation(set_code_to_address),
             storage={1: 1},
-            balance=balance if not external_sendall_recipient else 0,
+            balance=final_balance,
         ),
     }
 
-    if external_sendall_recipient and balance > 0:
-        post[recipient] = Account(balance=balance)
+    if external_sendall_recipient:
+        if total_balance > 0:
+            post[recipient] = Account(balance=total_balance)
+        else:
+            post[recipient] = Account.NONEXISTENT
+
+    if fork.is_eip_enabled(7708):
+        # SELFDESTRUCT logs nothing when it sends to itself or moves zero.
+        logs = []
+        if tx_value > 0:
+            logs.append(transfer_log(sender, auth_signer, tx_value))
+        if external_sendall_recipient and total_balance > 0:
+            logs.append(transfer_log(auth_signer, recipient, total_balance))
+        tx.expected_receipt = TransactionReceipt(logs=logs)
+
+    expected_block_access_list = None
+    if fork.is_eip_enabled(7928):
+        # A balance that ends the transaction where it started, such as
+        # value received and sent on, records no balance change.
+        authority_balance_changes = []
+        if final_balance != balance:
+            authority_balance_changes.append(
+                BalBalanceChange(
+                    block_access_index=1, post_balance=final_balance
+                )
+            )
+        account_expectations = {
+            auth_signer: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+                code_changes=[
+                    BalCodeChange(
+                        block_access_index=1,
+                        new_code=Spec.delegation_designation(
+                            set_code_to_address
+                        ),
+                    )
+                ],
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=1
+                            )
+                        ],
+                    )
+                ],
+                balance_changes=authority_balance_changes,
+            ),
+        }
+        if external_sendall_recipient:
+            recipient_balance_changes = []
+            if total_balance > 0:
+                recipient_balance_changes.append(
+                    BalBalanceChange(
+                        block_access_index=1, post_balance=total_balance
+                    )
+                )
+            account_expectations[recipient] = BalAccountExpectation(
+                balance_changes=recipient_balance_changes,
+            )
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations=account_expectations
+        )
 
     state_test(
         env=Environment(),
         pre=pre,
         tx=tx,
         post=post,
+        expected_block_access_list=expected_block_access_list,
     )
 
 
@@ -1397,6 +1476,28 @@ def test_ext_code_on_set_code(
             ),
             callee_address: Account(storage=callee_storage),
         },
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                auth_signer: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=Spec.delegation_designation(
+                                set_code_to_address
+                            ),
+                        )
+                    ],
+                    balance_changes=[],
+                ),
+                # Code-reading opcodes return the designation itself
+                # rather than resolving it, so the address it points at
+                # is never accessed.
+                set_code_to_address: None,
+            }
+        ),
     )
 
 
@@ -1633,19 +1734,39 @@ def test_set_code_address_and_authority_warm_state_call_types(
 
 
 @pytest.mark.parametrize(
-    "balance",
-    [0, 1],
+    "balance,self_sponsored",
+    [
+        pytest.param(0, False, id="zero_balance_authority"),
+        pytest.param(1, False, id="one_wei_balance_authority"),
+        pytest.param(None, True, id="self_sponsored_tx"),
+    ],
 )
 def test_ext_code_on_self_delegating_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
-    balance: int,
+    balance: int | None,
+    self_sponsored: bool,
 ) -> None:
     """
     Test different ext*code operations on a set-code address that delegates to
     itself.
     """
-    auth_signer = pre.fund_eoa(balance)
+    # Pin gas so BALANCE(auth_signer) is deterministic when the authority
+    # is also the sender (up-front max-fee hold).
+    gas_limit = 1_000_000
+    max_fee_per_gas = 7
+
+    if self_sponsored:
+        auth_balance = 10**18
+        auth_signer = pre.fund_eoa(auth_balance)
+        sender = auth_signer
+        expected_ext_balance = auth_balance - gas_limit * max_fee_per_gas
+    else:
+        assert balance is not None
+        auth_balance = balance
+        auth_signer = pre.fund_eoa(auth_balance)
+        sender = pre.fund_eoa()
+        expected_ext_balance = auth_balance
 
     slot = count(1)
     slot_ext_code_size_result = next(slot)
@@ -1673,47 +1794,82 @@ def test_ext_code_on_self_delegating_set_code(
     callee_storage[slot_ext_code_copy_result] = Hash(
         Spec.delegation_designation(auth_signer), right_padding=True
     )
-    callee_storage[slot_ext_balance_result] = balance
+    callee_storage[slot_ext_balance_result] = expected_ext_balance
 
+    tx_kwargs: dict[str, int] = {}
+    if self_sponsored:
+        tx_kwargs = {
+            "gas_limit": gas_limit,
+            "max_fee_per_gas": max_fee_per_gas,
+            "max_priority_fee_per_gas": 0,
+        }
     tx = Transaction(
         to=callee_address,
         authorization_list=[
             AuthorizationTuple(
                 address=auth_signer,
-                nonce=0,
+                nonce=1 if self_sponsored else 0,
                 signer=auth_signer,
             ),
         ],
-        sender=pre.fund_eoa(),  # TODO: Test with sender as auth_signer
+        sender=sender,
+        **tx_kwargs,
     )
+
+    post_auth: dict = {
+        "nonce": 2 if self_sponsored else 1,
+        "code": Spec.delegation_designation(auth_signer),
+    }
+    if not self_sponsored:
+        # Self-sponsored post balance depends on exact gas_used refunds;
+        # the EXT* BALANCE slot already covers the mid-tx hold.
+        post_auth["balance"] = auth_balance
 
     state_test(
         env=Environment(),
         pre=pre,
         tx=tx,
         post={
-            auth_signer: Account(
-                nonce=1,
-                code=Spec.delegation_designation(auth_signer),
-                balance=balance,
-            ),
+            auth_signer: Account(**post_auth),
             callee_address: Account(storage=callee_storage),
         },
     )
 
 
+@pytest.mark.parametrize(
+    "self_sponsored",
+    [
+        pytest.param(False, id="not_self_sponsored"),
+        pytest.param(True, id="self_sponsored"),
+    ],
+)
 def test_ext_code_on_chain_delegating_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    self_sponsored: bool,
 ) -> None:
     """
     Test different ext*code operations on a set-code address that references
     another delegated address.
     """
-    auth_signer_1_balance = 1
-    auth_signer_2_balance = 0
+    # Pin gas so BALANCE(auth_signer_1) is deterministic when that authority
+    # is also the sender (up-front max-fee hold).
+    gas_limit = 2_000_000
+    max_fee_per_gas = 7
 
-    auth_signer_1 = pre.fund_eoa(auth_signer_1_balance)
+    auth_signer_2_balance = 0
+    if self_sponsored:
+        auth_signer_1_balance = 10**18
+        auth_signer_1 = pre.fund_eoa(auth_signer_1_balance)
+        sender = auth_signer_1
+        expected_ext_balance_1 = (
+            auth_signer_1_balance - gas_limit * max_fee_per_gas
+        )
+    else:
+        auth_signer_1_balance = 1
+        auth_signer_1 = pre.fund_eoa(auth_signer_1_balance)
+        sender = pre.fund_eoa()
+        expected_ext_balance_1 = auth_signer_1_balance
     auth_signer_2 = pre.fund_eoa(auth_signer_2_balance)
 
     slot = count(1)
@@ -1755,7 +1911,7 @@ def test_ext_code_on_chain_delegating_set_code(
     callee_storage[slot_ext_code_copy_result_1] = Hash(
         Spec.delegation_designation(auth_signer_2), right_padding=True
     )
-    callee_storage[slot_ext_balance_result_1] = auth_signer_1_balance
+    callee_storage[slot_ext_balance_result_1] = expected_ext_balance_1
 
     callee_storage[slot_ext_code_size_result_2] = len(
         Spec.delegation_designation(auth_signer_1)
@@ -1768,12 +1924,19 @@ def test_ext_code_on_chain_delegating_set_code(
     )
     callee_storage[slot_ext_balance_result_2] = auth_signer_2_balance
 
+    tx_kwargs: dict[str, int] = {}
+    if self_sponsored:
+        tx_kwargs = {
+            "gas_limit": gas_limit,
+            "max_fee_per_gas": max_fee_per_gas,
+            "max_priority_fee_per_gas": 0,
+        }
     tx = Transaction(
         to=callee_address,
         authorization_list=[
             AuthorizationTuple(
                 address=auth_signer_2,
-                nonce=0,
+                nonce=1 if self_sponsored else 0,
                 signer=auth_signer_1,
             ),
             AuthorizationTuple(
@@ -1782,19 +1945,23 @@ def test_ext_code_on_chain_delegating_set_code(
                 signer=auth_signer_2,
             ),
         ],
-        sender=pre.fund_eoa(),  # TODO: Test with sender as auth_signer
+        sender=sender,
+        **tx_kwargs,
     )
+
+    post_auth_1: dict = {
+        "nonce": 2 if self_sponsored else 1,
+        "code": Spec.delegation_designation(auth_signer_2),
+    }
+    if not self_sponsored:
+        post_auth_1["balance"] = auth_signer_1_balance
 
     state_test(
         env=Environment(),
         pre=pre,
         tx=tx,
         post={
-            auth_signer_1: Account(
-                nonce=1,
-                code=Spec.delegation_designation(auth_signer_2),
-                balance=auth_signer_1_balance,
-            ),
+            auth_signer_1: Account(**post_auth_1),
             auth_signer_2: Account(
                 nonce=1,
                 code=Spec.delegation_designation(auth_signer_1),
@@ -2452,6 +2619,11 @@ def test_set_code_using_valid_synthetic_signatures(
         pytest.param(2**8 - 1, 1, 1, id="v=2**8-1"),
         # R
         pytest.param(1, 0, 1, id="r=0"),
+        # In range but not the x-coordinate of any curve point: 5 is the
+        # smallest such value, as 5**3 + 7 is a quadratic non-residue mod p.
+        # Recovery has no solution, so the authorization is skipped.
+        pytest.param(0, 5, 1, id="r=5_not_on_curve"),
+        # SECP256K1N - 1 is in range and, by chance, also off the curve.
         pytest.param(0, SECP256K1N - 1, 1, id="r=SECP256K1N-1"),
         pytest.param(0, SECP256K1N, 1, id="r=SECP256K1N"),
         pytest.param(0, SECP256K1N + 1, 1, id="r=SECP256K1N+1"),
@@ -3106,8 +3278,12 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
     making the discount calculation (PER_EMPTY_ACCOUNT_COST -
     PER_AUTH_BASE_COST) and receipt gas expectation invalid.
 
-    TODO: Add EIP-8037-specific variant in tests/amsterdam/ that
-    verifies receipt gas and auth refund under EIP-8037's 2D model.
+    From EIP-8037 the equivalent coverage is
+    ``test_value_moving_with_tx_delegation.py`` under
+    ``tests/amsterdam/eip2780_reduce_intrinsic_tx_gas/`` (value to a
+    same-tx authority at exact gas) and the existing-authority receipt
+    tests in ``test_state_gas_set_code.py``. A precompile delegation
+    target adds no new path there because its body never runs.
     """
     auth_signer = pre.fund_eoa(amount=1)
     auth = AuthorizationTuple(
@@ -3300,8 +3476,8 @@ def test_set_code_to_system_contract(
         blocks=[
             Block(
                 txs=txs,
-                requests_hash=Requests(),  # Verify nothing slipped into the
-                # requests trie
+                # Verify nothing slipped into the requests trie.
+                header_verify=Header(requests_hash=Requests()),
             )
         ],
         post={
@@ -4180,18 +4356,7 @@ def test_many_delegations(
     pre: Alloc,
     signer_balance: int,
 ) -> None:
-    """
-    Perform as many delegations as possible in a transaction using the entire
-    block gas limit.
-
-    Every delegation comes from a different signer.
-
-    The account of can be empty or not depending on the `signer_balance`
-    parameter.
-
-    The transaction is expected to succeed and the state after the transaction
-    is expected to have the code of the entry contract set to 1.
-    """
+    """Fill the gas budget with distinct delegations and execute a write."""
     env = Environment()
     tx_gas_limit_cap = fork.transaction_gas_limit_cap()
     if tx_gas_limit_cap is not None:
@@ -4201,16 +4366,31 @@ def test_many_delegations(
 
     success_slot = 1
     entry_code = Op.SSTORE(success_slot, 1) + Op.STOP
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    top_frame_cost = fork.transaction_top_frame_gas_calculator()
     entry_code_gas = entry_code.gas_cost(fork)
-    gas_for_delegations = max_gas - intrinsic_gas - entry_code_gas
-
-    gas_costs = fork.gas_costs()
-    delegation_count = gas_for_delegations // gas_costs.AUTH_PER_EMPTY_ACCOUNT
+    first_signer = pre.fund_eoa(signer_balance)
+    authorization = AuthorizationTuple(
+        address=Address(1),
+        nonce=0,
+        signer=first_signer,
+        creates_account=signer_balance == 0,
+        writes_delegation=True,
+        first_write=True,
+    )
+    delegation_count = max_count_with_gas_limit(
+        lambda count: intrinsic_cost(authorization_list_or_count=count)
+        + top_frame_cost(authorizations=[authorization] * count)
+        + entry_code_gas,
+        max_gas,
+    )
 
     entry_address = pre.deploy_contract(entry_code)
 
-    signers = [pre.fund_eoa(signer_balance) for _ in range(delegation_count)]
+    assert delegation_count > 0
+    signers = [first_signer] + [
+        pre.fund_eoa(signer_balance) for _ in range(delegation_count - 1)
+    ]
 
     tx = Transaction(
         gas_limit=max_gas,
@@ -4221,6 +4401,9 @@ def test_many_delegations(
                 address=Address(i + 1),
                 nonce=0,
                 signer=signer,
+                creates_account=signer_balance == 0,
+                writes_delegation=True,
+                first_write=True,
             )
             for (i, signer) in enumerate(signers)
         ],

@@ -81,9 +81,6 @@ class NimbusExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
             "set code transaction must not be a create transaction"
         ),
-        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
-            "invalid tx: not enough cash to send"
-        ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             "would exceed maximum allowance"
         ),
@@ -139,4 +136,35 @@ class NimbusExceptionMapper(ExceptionMapper):
         BlockException.INVALID_RECEIPTS_ROOT: "receiptRoot mismatch",
         BlockException.INVALID_LOG_BLOOM: "bloom mismatch",
     }
-    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {}
+    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
+        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
+            r"not enough cash to send|not enough cash for gas"
+        ),
+        # The message carries both nonces but never says which way the
+        # comparison went, so it stands for either direction.
+        TransactionException.NONCE_MISMATCH_TOO_LOW: (
+            r"account nonce mismatch\. txNonce=\d+, accNonce=\d+"
+        ),
+        TransactionException.NONCE_MISMATCH_TOO_HIGH: (
+            r"account nonce mismatch\. txNonce=\d+, accNonce=\d+"
+        ),
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: (
+            r"execution gas used exceeds limit, want: \d+, available: \d+"
+        ),
+        BlockException.GAS_USED_OVERFLOW: (
+            r"execution gas used exceeds limit, want: \d+, available: \d+"
+        ),
+        BlockException.INVALID_BLOCK_ACCESS_LIST: (
+            r"blockAccessListHash mismatch|"
+            r"Computed block access list hash does not match|"
+            r"should be unique and sorted|"
+            r"A slot should not be in both changes and reads|"
+            r"Each slot in storage changes must have at least"
+        ),
+        BlockException.INCORRECT_BLOCK_FORMAT: (
+            r"should be unique and sorted"
+        ),
+        BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
+            r"BAL exceeds max items cap"
+        ),
+    }

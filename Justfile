@@ -16,7 +16,7 @@ xdist_workers := env("PYTEST_XDIST_AUTO_NUM_WORKERS", "6")
 # `-n auto` mode, does not warn on non-numeric values such as "auto".
 export PYTEST_XDIST_AUTO_NUM_WORKERS := ""
 evm_bin := env("EVM_BIN", "evm")
-latest_fork := "Amsterdam"
+latest_fork := "Bogota"
 
 # Use the faster sys.monitoring coverage core (default on 3.14, opt-in below).
 export COVERAGE_CORE := "sysmon"
@@ -160,6 +160,22 @@ fill *args: (_tmp-logs "fill")
         "$@" \
         tests
 
+# Run blockchain_tests fixtures through EELS block validation with coverage
+[group('consensus tests')]
+validate-blocks fixtures_dir *args: (_tmp "validate-blocks")
+    COVERAGE_FILE="{{ output_dir }}/validate-blocks/.coverage" uv run python -m pytest \
+        -p tests.json_loader.conftest --noconftest \
+        -c pyproject.toml \
+        --allow-post-state-hash \
+        -n {{ xdist_workers }} --dist=loadfile \
+        --cov-config=pyproject.toml \
+        --cov=ethereum \
+        --cov-report=term \
+        --cov-report "xml:{{ output_dir }}/validate-blocks/coverage.xml" \
+        --cov-branch \
+        --basetemp="{{ output_dir }}/validate-blocks/tmp" \
+        "$@"
+
 # Callers append the feature params, fork range and output; last flag wins.
 # Fill fixtures with the flags shared by all fixture releases
 [group('consensus tests')]
@@ -175,6 +191,7 @@ fill-release *args:
 # --- Integration Tests ---
 
 # Fill the base coverage consensus tests using EELS with PyPy
+# Four workers leave room for the CI job's 3G heap per worker.
 [group('integration tests')]
 fill-pypy *args: (_tmp-logs "fill-pypy")
     uv run --python pypy3.11 --no-dev --group test fill \
@@ -186,7 +203,7 @@ fill-pypy *args: (_tmp-logs "fill-pypy")
         --show-capture=no \
         --disable-warnings \
         -m "eels_base_coverage and primary_format" \
-        -n auto --maxprocesses 7 \
+        -n auto --maxprocesses 4 \
         --dist=loadgroup \
         --basetemp="{{ output_dir }}/fill-pypy/tmp" \
         --log-to "{{ output_dir }}/fill-pypy/logs" \
@@ -197,12 +214,15 @@ fill-pypy *args: (_tmp-logs "fill-pypy")
         tests
 
 # Fill the base coverage consensus tests and run EELS against the fixtures
+# Eight fill workers: collecting through Bogota with sixteen exhausts the
+# CI runner's memory (workers die during collection, then xdist's
+# scheduler fails on the replacements).
 [group('integration tests')]
 json-loader *args: (_tmp "json-loader")
     uv run fill \
         -m "eels_base_coverage and primary_format" \
         --until "{{ latest_fork }}" \
-        -n {{ xdist_workers }} --dist=loadgroup \
+        -n auto --maxprocesses 8 --dist=loadgroup \
         --skip-index \
         --clean \
         --ignore=tests/ported_static \
@@ -225,6 +245,56 @@ json-loader *args: (_tmp "json-loader")
         --basetemp="{{ output_dir }}/json-loader/tmp" \
         "$@" \
         tests/json_loader
+
+# Collect (without running) the full test tree via the execute remote and execute hive plugin stacks
+[group('integration tests')]
+execute-collect:
+    #!/usr/bin/env bash
+    # Assert a sane collected-test floor: guards against a silent pass if
+    # collection shrinks drastically or yields only placeholder items.
+    set -euo pipefail
+    summary_floor='^[0-9]{4,}(/[0-9]+)? tests collected'
+    uv run execute remote \
+        --collect-only -q \
+        --fork "{{ latest_fork }}" \
+        | tee /dev/stderr | tail -n 3 | grep -qE "$summary_floor"
+    uv run execute hive \
+        --collect-only -q \
+        --fork "{{ latest_fork }}" \
+        | tee /dev/stderr | tail -n 3 | grep -qE "$summary_floor"
+
+# Collect (without running) the EIP version checks over the full test tree
+[group('integration tests')]
+check-eip-versions-collect:
+    #!/usr/bin/env bash
+    # Assert a sane collected-test floor: guards against a silent pass if
+    # collection shrinks drastically or yields only placeholder items.
+    set -euo pipefail
+    export GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token)}"
+    uv run check_eip_versions \
+        --collect-only -q \
+        | tee /dev/stderr | tail -n 3 \
+        | grep -qE '^[0-9]{4,}(/[0-9]+)? tests collected'
+
+# Collect (without running) the consume test cases of a freshly filled mini fixture set
+[group('integration tests')]
+consume-collect: (_tmp "consume-collect")
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fixtures="{{ output_dir }}/consume-collect/fixtures"
+    uv run fill \
+        --fork "{{ latest_fork }}" \
+        --generate-all-formats \
+        --output="$fixtures" \
+        --clean \
+        -q \
+        tests/frontier/opcodes/test_dup.py
+    for consume_command in engine rlp enginex direct; do
+        uv run consume "$consume_command" \
+            --collect-only -q \
+            -o empty_parameter_set_mark=fail_at_collect \
+            --input "$fixtures"
+    done
 
 # Run the spec-tools tests (lint and new-fork tooling)
 [group('integration tests')]

@@ -18,10 +18,7 @@ from ethereum_types.numeric import Uint, ulen
 from ethereum.utils.numeric import ceil32
 
 from ...vm import Evm
-from ...vm.gas import (
-    GasCosts,
-    charge_gas,
-)
+from ...vm.gas import GasCosts, charge_gas
 
 
 def sha256(evm: Evm) -> None:

@@ -2,6 +2,7 @@
 
 import logging
 import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import Dict, Generator, Literal
 
@@ -75,44 +76,97 @@ def check_live_port(test_suite_name: str) -> Literal[8545, 8551]:
     )
 
 
-class FixturesDict(Dict[Path, Fixtures]):
+FIXTURE_FILE_CACHE_MAX_BYTES = 256 * 1024 * 1024
+"""
+Default bound of the per-worker fixture file cache, in bytes of fixture JSON
+on disk.
+
+Parsed fixtures take about twice their JSON size in memory for typical
+files, and every pytest-xdist worker holds its own cache for the whole
+session, so the bound must stay well below the memory of the host per
+worker.
+"""
+
+
+class FixtureFileCache:
     """
-    A dictionary that caches loaded fixture files to avoid reloading the same
-    file multiple times.
+    Cache parsed fixture files with least-recently-used eviction.
+
+    Consume groups test cases by fixture file to improve cache reuse, except
+    in EngineX, which groups by pre-allocation. A cached file can serve
+    multiple tests without being read and validated again. Scheduling can
+    still split a file's tests across workers or cause later revisits.
+
+    Each xdist worker owns a cache for the whole session. Retaining every
+    loaded file can contribute to memory pressure during long runs. The
+    bound counts JSON bytes on disk, not process memory. The most recently
+    loaded file is always kept, even when it exceeds the bound on its own.
     """
 
-    def __init__(self) -> None:
-        """Initialize the dictionary that caches loaded fixture files."""
-        self._fixtures: Dict[Path, Fixtures] = {}
+    def __init__(self, max_bytes: int = FIXTURE_FILE_CACHE_MAX_BYTES) -> None:
+        """Initialize an empty cache with a `max_bytes` JSON size budget."""
+        self._max_bytes = max_bytes
+        self._fixtures: OrderedDict[Path, Fixtures] = OrderedDict()
+        self._sizes: Dict[Path, int] = {}
+        self._total_bytes = 0
 
     def __getitem__(self, key: Path) -> Fixtures:
         """
-        Return the fixtures from the index file, if not found, load from disk.
+        Return the fixtures of a fixture file, loading it from disk if it is
+        not cached, and evict the least recently used files over the bound.
         """
         assert key.is_file(), f"Expected a file path, got '{key}'"
-        if key not in self._fixtures:
-            start = time.perf_counter()
-            self._fixtures[key] = Fixtures.model_validate_json(key.read_text())
-            logger.info(
-                f"⏱ phase=fixture_load file={key.name} "
-                f"ms={(time.perf_counter() - start) * 1000:.1f}"
+        if key in self._fixtures:
+            self._fixtures.move_to_end(key)
+            return self._fixtures[key]
+        start = time.perf_counter()
+        fixtures = Fixtures.model_validate_json(key.read_text())
+        logger.info(
+            f"⏱ phase=fixture_load file={key.name} "
+            f"ms={(time.perf_counter() - start) * 1000:.1f}"
+        )
+        self._fixtures[key] = fixtures
+        self._sizes[key] = key.stat().st_size
+        self._total_bytes += self._sizes[key]
+        self._evict()
+        return fixtures
+
+    def __contains__(self, key: object) -> bool:
+        """Return whether the fixture file is currently cached."""
+        return key in self._fixtures
+
+    def __len__(self) -> int:
+        """Return the number of cached fixture files."""
+        return len(self._fixtures)
+
+    @property
+    def cached_bytes(self) -> int:
+        """Return the on-disk size of all cached fixture files."""
+        return self._total_bytes
+
+    def _evict(self) -> None:
+        """Drop least recently used files until within the bound."""
+        while self._total_bytes > self._max_bytes and len(self._fixtures) > 1:
+            path, _ = self._fixtures.popitem(last=False)
+            self._total_bytes -= self._sizes.pop(path)
+            logger.debug(
+                f"evicted fixture file {path.name} from the cache "
+                f"(cached_bytes={self._total_bytes})"
             )
-        return self._fixtures[key]
 
 
 @pytest.fixture(scope="session")
-def fixture_file_loader() -> Dict[Path, Fixtures]:
+def fixture_file_loader() -> FixtureFileCache:
     """
-    Return a singleton dictionary that caches loaded fixture files used in all
-    tests.
+    Return the per-worker cache of parsed fixture files used by all tests.
     """
-    return FixturesDict()
+    return FixtureFileCache()
 
 
 @pytest.fixture(scope="function")
 def fixture(
     fixtures_source: FixturesSource,
-    fixture_file_loader: Dict[Path, Fixtures],
+    fixture_file_loader: FixtureFileCache,
     test_case: TestCaseIndexFile | TestCaseStream,
 ) -> BaseFixture:
     """

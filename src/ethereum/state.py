@@ -16,13 +16,7 @@ There is a distinction between an account that does not exist and
 """
 
 from dataclasses import dataclass, field
-from typing import (
-    Dict,
-    Optional,
-    Protocol,
-    Set,
-    final,
-)
+from typing import Dict, Optional, Protocol, Set, final
 
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.frozen import slotted_freezable
@@ -79,9 +73,11 @@ class BlockDiff:
     storage_clears: Set[Address] = field(default_factory=set)
     """
     Addresses whose pre-existing storage was wiped during block
-    execution (via a pre-EIP-6780 `SELFDESTRUCT`). Their storage
-    tries are dropped before [`storage_changes`][sc] is applied, so any
-    post-wipe writes begin from empty storage.
+    execution: a pre-EIP-6780 `SELFDESTRUCT`, a contract creation
+    over a storage-only account, or the deletion of an empty account
+    that still held storage. Their storage tries are dropped before
+    [`storage_changes`][sc] is applied, so any post-wipe writes begin
+    from empty storage.
 
     [sc]: ref:ethereum.state.BlockDiff.storage_changes
     """

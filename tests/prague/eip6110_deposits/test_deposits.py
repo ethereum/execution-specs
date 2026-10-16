@@ -14,6 +14,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     BlockException,
+    DepositRequest,
     Environment,
     Fork,
     Hash,
@@ -27,7 +28,7 @@ from execution_testing import (
     While,
 )
 
-from .helpers import DepositRequest, deposit_contract_execution_gas
+from .helpers import deposit_contract_execution_gas
 from .spec import Spec, ref_spec_6110
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_6110.git_path
@@ -579,8 +580,10 @@ pytestmark = pytest.mark.valid_from("Prague")
             ],
             id="single_deposit_from_contract_call_depth_3",
         ),
-        # TODO: Provide a higher transaction gas limit for EIP-8037 state
-        # creation gas costs to extend this test past EIP8037.
+        # High depth under Amsterdam: EIP-7825 caps execution gas at 2^24, and
+        # EIP-8037/8038 raise intrinsic + cold-account costs, so a 271-frame
+        # 63/64 chain OOGs before the deposit lands (270 still passes). Use
+        # 256 so the case stays deep with margin past EIP-8037.
         pytest.param(
             [
                 SystemContractInteractionContract(
@@ -593,11 +596,10 @@ pytestmark = pytest.mark.valid_from("Prague")
                             index=0x0,
                         )
                     ],
-                    call_depth=271,
+                    call_depth=256,
                 ),
             ],
             id="single_deposit_from_contract_call_depth_high",
-            marks=pytest.mark.valid_before("EIP8037"),
         ),
         pytest.param(
             [
@@ -1107,7 +1109,7 @@ def test_deposit_high_count(
     relay_loop_code = While(
         body=Op.POP(
             Op.CALL(
-                address=deposit.interaction_contract_address,
+                address=deposit.system_contract_address,
                 value=deposit.value,
                 args_offset=0,
                 args_size=len(deposit.calldata),

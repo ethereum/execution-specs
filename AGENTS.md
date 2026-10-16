@@ -26,7 +26,7 @@ When done with changes, ask the user if they'd like to run `/lint` before commit
 
 ## Branches
 
-- **There is no `main` branch.** Default branch = most active fork (currently `forks/amsterdam`). Run `git remote show origin | grep HEAD` to check.
+- **There is no `main` branch.** Default branch = most active fork (currently `forks/bogota`). Run `git remote show origin | grep HEAD` to check.
 - `mainnet` = stable specs for forks live on mainnet
 - PRs target the default branch
 - PRs strictly follow the template in `.github/PULL_REQUEST_TEMPLATE.md`.
@@ -53,6 +53,7 @@ skills as `/name` commands through symlinked folders in `.claude/skills/`.
 - Cleaning up or future-proofing a `tests/ported_static/` test → run `/enhance-ported-test` first
 - Writing or modifying pytester-based plugin tests → run `/pytester` first
 - Filling test fixtures → run `/fill-tests` first
+- Running local fixtures against clients in Hive → run `/consume-hive`
 - Implementing an EIP or modifying fork code in `src/` → run `/implement-eip` first
 - Modifying GitHub Actions workflows → run `/edit-workflow` first
 - Assessing EIP complexity or scope → run `/assess-eip`
@@ -67,6 +68,7 @@ skills as `/name` commands through symlinked folders in `.claude/skills/`.
 - `/enhance-ported-test` — ordered methodology to clean up & future-proof `tests/ported_static/` tests
 - `/pytester` — pytester execution modes, isolation, output handling for plugin tests
 - `/fill-tests` — `fill` CLI reference, flags, debugging, benchmark tests
+- `/consume-hive` — run local fixtures against client images for the specified network
 - `/implement-eip` — fork structure, import rules, adding opcodes/precompiles/tx types
 - `/edit-workflow` — GitHub Actions conventions and version pinning
 - `/assess-eip` — structured EIP complexity assessment

@@ -1,0 +1,13 @@
+general/code_coverage/second_client = Optional
+opcode = EIP reprices existing opcodes without altering their semantics, stack behaviour or memory behaviour; the repricing itself is covered under gas_cost_changes
+precompile = EIP does not introduce a precompile
+removed_precompile = EIP does not remove a precompile
+system_contract = EIP does not introduce a system contract
+transaction_type = EIP does not introduce a new transaction type
+block_header_field = EIP does not add any new block header fields
+block_body_field = EIP does not add any new block body fields
+blob_count_changes = EIP does not introduce any blob count changes
+execution_layer_request = EIP does not introduce an execution layer request
+new_transaction_validity_constraint = EIP modifies the existing intrinsic gas validity constraint rather than introducing a new one; the modified constraint is covered under modified_transaction_validity_constraint
+block_level_constraint = EIP introduces no block-level validation constraint; the two-dimensional block gas accounting its state-gas charges feed belongs to EIP-8037
+gas_refunds_changes/test/exceptional_abort/non_revertable = Every EIP-8038 refund is journalled and rolls back with the frame that earned it, so there is no non-revertable refund operation to test; the revertable cases are covered in test_sstore_refunds_revert.py

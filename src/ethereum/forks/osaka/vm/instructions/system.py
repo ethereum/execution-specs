@@ -495,8 +495,7 @@ def callcode(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     sender_balance = get_account(
-        evm.message.tx_env.state,
-        evm.message.current_target,
+        evm.message.tx_env.state, evm.message.current_target
     ).balance
     if sender_balance < value:
         push(evm.stack, U256(0))
@@ -548,8 +547,7 @@ def selfdestruct(evm: Evm) -> None:
     if (
         not is_account_alive(evm.message.tx_env.state, beneficiary)
         and get_account(
-            evm.message.tx_env.state,
-            evm.message.current_target,
+            evm.message.tx_env.state, evm.message.current_target
         ).balance
         != 0
     ):

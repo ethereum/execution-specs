@@ -272,6 +272,20 @@ import pytest
         pytest.param(
             """
             import pytest
+            @pytest.mark.with_all_system_contract_request_types()
+            @pytest.mark.valid_from("Prague")
+            @pytest.mark.valid_until("Prague")
+            @pytest.mark.state_test_only
+            def test_case(state_test, request_class):
+                pass
+            """,
+            {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
+            None,
+            id="with_all_system_contract_request_types",
+        ),
+        pytest.param(
+            """
+            import pytest
             from execution_testing import  Transaction
             @pytest.mark.with_all_typed_transactions
             @pytest.mark.valid_from("Berlin")

@@ -28,6 +28,7 @@ from execution_testing import (
     Fork,
     Op,
     Storage,
+    Tip,
     Transaction,
     TransactionReceipt,
 )
@@ -124,7 +125,6 @@ def test_multi_block_mixed_state_operations(
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
-    priority_fee = 1
     child_gas = 500_000
 
     reverting_child_code = Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)
@@ -134,8 +134,8 @@ def test_multi_block_mixed_state_operations(
         code=(Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.INVALID),
     )
     # Every transaction spends its whole bill on gas, and the coinbase
-    # takes `priority_fee` per unit of it.
-    block_gas_used = [0, 0, 0]
+    # takes the priority fee per unit of it.
+    txs_gas_used: list[tuple[Transaction, int]] = []
 
     all_contracts = []
     all_storages = []
@@ -147,21 +147,18 @@ def test_multi_block_mixed_state_operations(
         contract_code = Op.SSTORE(storage.store_next(1), 1)
         contract = pre.deploy_contract(code=contract_code)
         tx_gas_used = intrinsic_gas + contract_code.gas_cost(fork)
-        block_gas_used[0] += tx_gas_used
         all_contracts.append(contract)
         all_storages.append(storage)
-        block1_txs.append(
-            Transaction(
-                to=contract,
-                state_gas_reservoir=contract_code.state_cost(fork),
-                max_priority_fee_per_gas=1,
-                max_fee_per_gas=8,
-                sender=pre.fund_eoa(),
-                expected_receipt=TransactionReceipt(
-                    cumulative_gas_used=(i + 1) * tx_gas_used,
-                ),
-            )
+        tx = Transaction(
+            to=contract,
+            state_gas_reservoir=contract_code.state_cost(fork),
+            sender=pre.fund_eoa(),
+            expected_receipt=TransactionReceipt(
+                cumulative_gas_used=(i + 1) * tx_gas_used,
+            ),
         )
+        block1_txs.append(tx)
+        txs_gas_used.append((tx, tx_gas_used))
 
     # Child spill + revert
     block2_txs = []
@@ -178,21 +175,18 @@ def test_multi_block_mixed_state_operations(
             + parent_code.gas_cost(fork)
             + reverting_child_code.execution_cost(fork)
         )
-        block_gas_used[1] += tx_gas_used
         all_contracts.append(parent)
         all_storages.append(storage)
-        block2_txs.append(
-            Transaction(
-                to=parent,
-                state_gas_reservoir=parent_code.state_cost(fork),
-                max_priority_fee_per_gas=1,
-                max_fee_per_gas=8,
-                sender=pre.fund_eoa(),
-                expected_receipt=TransactionReceipt(
-                    cumulative_gas_used=(i + 1) * tx_gas_used,
-                ),
-            )
+        tx = Transaction(
+            to=parent,
+            state_gas_reservoir=parent_code.state_cost(fork),
+            sender=pre.fund_eoa(),
+            expected_receipt=TransactionReceipt(
+                cumulative_gas_used=(i + 1) * tx_gas_used,
+            ),
         )
+        block2_txs.append(tx)
+        txs_gas_used.append((tx, tx_gas_used))
 
     # Child spill + exceptional halt
     block3_txs = []
@@ -204,21 +198,18 @@ def test_multi_block_mixed_state_operations(
         parent = pre.deploy_contract(code=parent_code)
         # The halted child burns its whole budget, spill included.
         tx_gas_used = intrinsic_gas + parent_code.gas_cost(fork) + child_gas
-        block_gas_used[2] += tx_gas_used
         all_contracts.append(parent)
         all_storages.append(storage)
-        block3_txs.append(
-            Transaction(
-                to=parent,
-                state_gas_reservoir=sstore_state_gas,
-                max_priority_fee_per_gas=1,
-                max_fee_per_gas=8,
-                sender=pre.fund_eoa(),
-                expected_receipt=TransactionReceipt(
-                    cumulative_gas_used=(i + 1) * tx_gas_used,
-                ),
-            )
+        tx = Transaction(
+            to=parent,
+            state_gas_reservoir=sstore_state_gas,
+            sender=pre.fund_eoa(),
+            expected_receipt=TransactionReceipt(
+                cumulative_gas_used=(i + 1) * tx_gas_used,
+            ),
         )
+        block3_txs.append(tx)
+        txs_gas_used.append((tx, tx_gas_used))
 
     blocks = [
         Block(txs=block1_txs),
@@ -230,7 +221,9 @@ def test_multi_block_mixed_state_operations(
         for c, s in zip(all_contracts, all_storages, strict=False)
     }
     fee_recipient = Environment().fee_recipient
-    post[fee_recipient] = Account(balance=sum(block_gas_used) * priority_fee)
+    post[fee_recipient] = Account(
+        balance_change=sum(Tip(tx, gas=gas) for tx, gas in txs_gas_used)
+    )
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 

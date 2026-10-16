@@ -400,18 +400,19 @@ class T8N(Load):
         if self.fork.has_zero_nonce_storage_accounts and self.is_fork_block:
             self.fork.bump_zero_nonce_storage_accounts(block_env)
 
-        if self.fork.has_compute_requests_hash:
-            self.fork.process_unchecked_system_transaction(
-                block_env=block_env,
-                target_address=self.fork.HISTORY_STORAGE_ADDRESS,
-                data=block_env.block_hashes[-1],  # The parent hash
-            )
-
+        # Same order as the fork's `apply_body`: beacon roots, then history.
         if self.fork.has_beacon_roots_address:
             self.fork.process_unchecked_system_transaction(
                 block_env=block_env,
                 target_address=self.fork.BEACON_ROOTS_ADDRESS,
                 data=block_env.parent_beacon_block_root,
+            )
+
+        if self.fork.has_compute_requests_hash:
+            self.fork.process_unchecked_system_transaction(
+                block_env=block_env,
+                target_address=self.fork.HISTORY_STORAGE_ADDRESS,
+                data=block_env.block_hashes[-1],  # The parent hash
             )
 
         self._process_txs(block_env, block_output)
@@ -471,6 +472,16 @@ class T8N(Load):
             self._run_blockchain_test(self._block_env, self._block_output)
         except InvalidBlock as e:
             self._block_exception = f"{e}"
+            if self.fork.has_hash_block_access_list:
+                # Build the access list from what ran before the failure.
+                # Left empty, the header would commit to a wrong list, a
+                # second defect next to the one the test expects.
+                self._block_output.block_access_list = (
+                    self.fork.build_block_access_list(
+                        self._block_env.block_access_list_builder,
+                        self._block_env.state,
+                    )
+                )
 
         self.result = build_result(
             self,

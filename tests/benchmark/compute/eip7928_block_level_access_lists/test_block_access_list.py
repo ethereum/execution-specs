@@ -35,7 +35,7 @@ from execution_testing import (
 from ethereum.crypto.hash import keccak256
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7928.md"
-REFERENCE_SPEC_VERSION = "aca88aa0932580c29d0233f902cb4390e88b8c41"
+REFERENCE_SPEC_VERSION = "f834f0004aa5110a5f1ac0d6b80e3dc4b842d040"
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 

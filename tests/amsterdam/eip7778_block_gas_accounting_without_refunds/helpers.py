@@ -6,12 +6,16 @@ from typing import Any, Dict, List, Self, Set
 import pytest
 from execution_testing import (
     EOA,
+    AccessList,
     Account,
     Address,
     Alloc,
     AuthorizationTuple,
+    BalanceExpression,
+    BlobFee,
     Bytecode,
     Fork,
+    GasFee,
     RecipientType,
     RefundTypes,
     Transaction,
@@ -60,7 +64,7 @@ class RefundTransaction(Transaction):
     storage_slots: List[HashInt] = Field(exclude=True)
     tx_failure: TransactionFailure | None = Field(exclude=True)
     empty_storage_on_success: bool = Field(exclude=True)
-    blob_gas_fee: int = Field(exclude=True)
+    blob_gas: int = Field(exclude=True)
     inner_code: Bytecode | None = Field(None, exclude=True)
     inner_address: Address | None = Field(None, exclude=True)
 
@@ -77,6 +81,7 @@ class RefundTransaction(Transaction):
         refund_tx_has_gas_limit_slack: bool = False,
         ty: int = 0,
         authorization_list: List[AuthorizationTuple] | None = None,
+        access_list: List[AccessList] | None = None,
         emit_log: bool = False,
     ) -> Self:
         """Build a transaction that has different refund types from a fork."""
@@ -98,16 +103,9 @@ class RefundTransaction(Transaction):
         blob_versioned_hashes = (
             add_kzg_version([0x01], 0x01) if ty == 3 else None
         )
-        blob_gas_fee = 0
+        blob_gas = 0
         if blob_versioned_hashes is not None:
-            blob_gas_price = fork.blob_gas_price_calculator()(
-                excess_blob_gas=0
-            )
-            blob_gas_fee = (
-                len(blob_versioned_hashes)
-                * fork.blob_gas_per_blob()
-                * blob_gas_price
-            )
+            blob_gas = len(blob_versioned_hashes) * fork.blob_gas_per_blob()
 
         # Expectations are recorded here as each one is established.
         expected_receipt: Dict[str, Any] = {}
@@ -192,6 +190,7 @@ class RefundTransaction(Transaction):
         gas_used_pre_refund = (
             intrinsic_cost_calc(
                 calldata=call_data,
+                access_list=access_list,
                 return_cost_deducted_prior_execution=True,
                 authorization_list_or_count=authorization_list,
             )
@@ -217,7 +216,9 @@ class RefundTransaction(Transaction):
             refund_counter, combined_before_refund // max_refund_quotient
         )
         receipt_gas_used = combined_before_refund - effective_refund
-        call_data_floor_cost = data_floor_calc(data=call_data)
+        call_data_floor_cost = data_floor_calc(
+            data=call_data, access_list=access_list
+        )
 
         # gas_used_post_refund is the "combined after refund" value used for
         # calldata floor comparisons and balance computation
@@ -253,6 +254,7 @@ class RefundTransaction(Transaction):
             gas_limit=refund_tx_gas_limit,
             sender=sender,
             authorization_list=authorization_list,
+            access_list=access_list,
             blob_versioned_hashes=blob_versioned_hashes,
             expected_receipt=expected_receipt,
             receipt_gas_used=receipt_gas_used,
@@ -263,7 +265,7 @@ class RefundTransaction(Transaction):
             storage_slots=storage_slots,
             tx_failure=tx_failure,
             empty_storage_on_success=empty_storage_on_success,
-            blob_gas_fee=blob_gas_fee,
+            blob_gas=blob_gas,
             inner_code=inner_code,
         )
 
@@ -305,12 +307,26 @@ class RefundTransaction(Transaction):
         for log in self.expected_receipt.logs or []:
             log.address = emitter
 
+    def sender_balance_change(self) -> BalanceExpression:
+        """
+        Return the change of the sender's balance: the fee on the
+        post-refund (floor-inclusive) gas used, plus any blob fee.
+        """
+        receipt_gas_used = self.expected_receipt.gas_used
+        assert receipt_gas_used is not None
+        balance_change = -GasFee(self, gas=receipt_gas_used)
+        if self.blob_gas > 0:
+            balance_change -= BlobFee(self, blob_gas=self.blob_gas)
+        return balance_change
+
     def post(self, pre: Alloc, block_is_invalid: bool = False) -> Alloc:
-        """Set transaction post expectations."""
+        """
+        Set transaction post expectations.
+
+        The sender's balance is expected as a change relative to `pre`.
+        """
+        assert Address(self.sender) in pre, "sender must be funded in pre"
         post = Alloc()
-        refund_tx_gas_price = (
-            self.gas_price if self.gas_price else self.max_fee_per_gas
-        )
         contract_address = (
             self.to if self.inner_address is None else self.inner_address
         )
@@ -328,21 +344,8 @@ class RefundTransaction(Transaction):
                 storage=dict.fromkeys(self.storage_slots, 0),
             )
 
-        assert refund_tx_gas_price is not None, (
-            "refund_tx_gas_price should not be None"
-        )
-        pre_sender = pre[Address(self.sender)]
-        assert pre_sender is not None
-        initial_fund = pre_sender.balance
-        assert initial_fund is not None
-        receipt_gas_used = self.expected_receipt.gas_used
-        assert receipt_gas_used is not None
-        expected_balance = (
-            initial_fund
-            - (receipt_gas_used * refund_tx_gas_price)
-            - self.blob_gas_fee
-        )
-
         if not block_is_invalid:
-            post[self.sender] = Account(balance=expected_balance)
+            post[self.sender] = Account(
+                balance_change=self.sender_balance_change()
+            )
         return post

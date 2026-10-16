@@ -10,24 +10,43 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BalBalanceChange,
     Block,
+    BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
+    Conditional,
+    Environment,
+    Fork,
     Hash,
+    Initcode,
     Op,
     StateTestFiller,
     Storage,
+    Tip,
     Transaction,
+    TransactionReceipt,
+    compute_create2_address,
     compute_create_address,
+    create_op,
     keccak256,
 )
+from execution_testing import (
+    Macros as Om,
+)
+from execution_testing.checklists import EIPChecklist
 
+from ..eip7708_eth_transfer_logs.spec import transfer_log
+from ..eip7997_deterministic_factory_contract.spec import Spec
 from .spec import ref_spec_8246
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8246.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8246.version
 
 pytestmark = pytest.mark.valid_from("EIP8246")
+
+FACTORY = Address(Spec.FACTORY_ADDRESS)
 
 
 @pytest.mark.parametrize("initial_balance", [0, 1])
@@ -63,6 +82,10 @@ pytestmark = pytest.mark.valid_from("EIP8246")
         pytest.param(Op.MSTORE(2**32, 0), False, id="oog"),
     ],
 )
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior()
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Opcode()
+@EIPChecklist.Opcode.Test.Terminating.Scenarios.Initcode()
+@EIPChecklist.Opcode.Test.Terminating.Rollback.Balance()
 def test_selfdestructing_initcode_preserves_balance(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -109,17 +132,12 @@ def test_selfdestructing_initcode_preserves_balance(
 
     # Build selfdestruct target contract via CREATE/CREATE2
     salt = 0
-    if create_opcode == Op.CREATE2:
-        create_call = create_opcode(
-            value=initial_balance,
-            size=len(selfdestruct_initcode),
-            salt=salt,
-        )
-    else:
-        create_call = create_opcode(
-            value=initial_balance,
-            size=len(selfdestruct_initcode),
-        )
+    create_call = create_op(
+        create_opcode,
+        value=initial_balance,
+        size=len(selfdestruct_initcode),
+        salt=salt,
+    )
 
     # Selfdestruct target contract factory
     # Exits via STOP/REVERT/OOG for different scenario
@@ -237,6 +255,8 @@ def test_selfdestructing_initcode_preserves_balance(
     "value",
     [pytest.param(1, id="kept"), pytest.param(0, id="removed")],
 )
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Tx()
+@EIPChecklist.Opcode.Test.Terminating.Scenarios.TopLevel()
 def test_create_transaction_initcode_selfdestruct(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -266,4 +286,368 @@ def test_create_transaction_initcode_selfdestruct(
             else Account.NONEXISTENT
         )
     }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("value", [0, 1])
+def test_created_coinbase_initcode_selfdestruct_keeps_priority_fee(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    value: int,
+) -> None:
+    """
+    Test a creation tx whose created address is the coinbase and whose
+    initcode self-destructs.
+
+    The priority fee is credited before the account is cleared, so the
+    coinbase keeps endowment plus fee as a balance-only account.
+    """
+    sender = pre.fund_eoa()
+    created = compute_create_address(address=sender, nonce=sender.nonce)
+    initcode = Op.SELFDESTRUCT(Op.ADDRESS, address_warm=True)
+
+    standard = fork.transaction_intrinsic_cost_calculator()(
+        calldata=initcode,
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor = fork.transaction_data_floor_cost_calculator()(
+        data=initcode, contract_creation=True
+    )
+    executed = (
+        standard
+        + fork.transaction_top_frame_state_gas(contract_creation=True)
+        + initcode.gas_cost(fork)
+    )
+    # No refund accrues; the sender pays the larger of use and floor.
+    gas_used = max(executed, floor)
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        value=value,
+        data=initcode,
+    )
+    state_test(
+        env=Environment(fee_recipient=created),
+        pre=pre,
+        post={
+            created: Account(
+                balance_change=value + Tip(tx, gas=gas_used),
+                nonce=0,
+                code=b"",
+                storage={},
+            ),
+        },
+        tx=tx,
+    )
+
+
+@pytest.mark.with_all_create_opcodes
+@pytest.mark.parametrize("value", [0, 1])
+def test_created_coinbase_selfdestruct_keeps_priority_fee(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+    value: int,
+) -> None:
+    """
+    Test a selfdestructing contract created in the same transaction and whose
+    created address is the coinbase.
+
+    The priority fee is credited before the account is cleared, so the
+    coinbase keeps endowment plus fee as a balance-only account.
+    """
+    sender = pre.fund_eoa()
+    deploy_code = Op.SELFDESTRUCT(Op.ADDRESS, address_warm=True)
+    initcode = Initcode(deploy_code=deploy_code)
+    storage = Storage()
+    factory_code = Op.MSTORE(
+        offset=0,
+        value=Hash(initcode, left_padding=True),
+        new_memory_size=32,
+    ) + Op.CALL(
+        address=create_opcode(
+            value=value,
+            offset=32 - len(initcode),
+            size=len(initcode),
+            # Gas accounting
+            init_code_size=len(initcode),
+        ),
+        # Gas accounting
+        address_warm=True,
+    )
+    factory = pre.deploy_contract(factory_code)
+    created = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode,
+        opcode=create_opcode,
+    )
+
+    gas_used = (
+        fork.transaction_intrinsic_cost_calculator()(
+            contract_creation=False,
+            sends_value=value > 0,
+            return_cost_deducted_prior_execution=True,
+        )
+        + fork.transaction_top_frame_state_gas(
+            contract_creation=False, sends_value=value > 0
+        )
+        + factory_code.gas_cost(fork)
+        + initcode.gas_cost(fork)
+        + deploy_code.gas_cost(fork)
+    )
+    tx = Transaction(
+        sender=sender,
+        to=factory,
+        value=value,
+    )
+    state_test(
+        env=Environment(fee_recipient=created),
+        pre=pre,
+        post={
+            created: Account(
+                balance_change=value + Tip(tx, gas=gas_used),
+                nonce=0,
+                code=b"",
+                storage={},
+            ),
+            factory: Account(
+                storage=storage,
+            ),
+        },
+        tx=tx,
+    )
+
+
+@pytest.mark.parametrize(
+    "sweep_on_redeploy",
+    [
+        pytest.param(False, id="selfdestruct_to_self"),
+        pytest.param(True, id="sweep_to_origin"),
+    ],
+)
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Reentry()
+@EIPChecklist.Opcode.Test.Terminating.Scenarios.Initcode()
+def test_create2_redeploy_over_remnant(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    sweep_on_redeploy: bool,
+) -> None:
+    """
+    Case 17 of the EIP and its third security consideration. Because the
+    account left behind has nonce zero and no storage, the same factory can
+    CREATE2 over it again in a later transaction, and that second deployment
+    can spend the balance the first one left there.
+    """
+    endowment = 5
+    deployer = pre.fund_eoa()
+    redeployer = pre.fund_eoa()
+
+    if sweep_on_redeploy:
+        # Only a redeploy sees a balance above the call value, so the same
+        # initcode bytes sweep to the redeployer the second time.
+        selfdestruct: Bytecode = Conditional(
+            condition=Op.GT(Op.BALANCE(Op.ADDRESS), Op.CALLVALUE),
+            if_true=Op.SELFDESTRUCT(Op.ORIGIN),
+            if_false=Op.SELFDESTRUCT(Op.ADDRESS),
+        )
+        redeploy_value = 0
+    else:
+        selfdestruct = Op.SELFDESTRUCT(Op.ADDRESS)
+        redeploy_value = endowment
+
+    initcode = Op.SSTORE(0, 1) + selfdestruct
+    factory = pre.deploy_contract(
+        code=Om.MSTORE(initcode, 0)
+        + Op.SSTORE(
+            Op.CALLDATALOAD(0),
+            Op.CREATE2(
+                value=Op.CALLVALUE, offset=0, size=len(initcode), salt=0
+            ),
+        )
+        + Op.STOP
+    )
+    created = compute_create_address(
+        address=factory, salt=0, initcode=initcode, opcode=Op.CREATE2
+    )
+
+    tx1 = Transaction(
+        sender=deployer, to=factory, value=endowment, data=Hash(1)
+    )
+    tx2 = Transaction(
+        sender=redeployer, to=factory, value=redeploy_value, data=Hash(2)
+    )
+
+    created_post: Account | None
+    if sweep_on_redeploy:
+        created_post = Account.NONEXISTENT
+        final_balance = 0
+        tx2_logs = [transfer_log(created, redeployer, endowment)]
+    else:
+        final_balance = 2 * endowment
+        created_post = Account(
+            balance=final_balance, nonce=0, code=b"", storage={}
+        )
+        tx2_logs = [
+            transfer_log(redeployer, factory, endowment),
+            transfer_log(factory, created, endowment),
+        ]
+    if fork.is_eip_enabled(7708):
+        tx1.expected_receipt = TransactionReceipt(
+            logs=[
+                transfer_log(deployer, factory, endowment),
+                transfer_log(factory, created, endowment),
+            ]
+        )
+        tx2.expected_receipt = TransactionReceipt(logs=tx2_logs)
+
+    expected_bal = None
+    if fork.is_eip_enabled(7928):
+        expected_bal = BlockAccessListExpectation(
+            account_expectations={
+                created: BalAccountExpectation(
+                    nonce_changes=[],
+                    code_changes=[],
+                    storage_changes=[],
+                    storage_reads=[0],
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=endowment
+                        ),
+                        BalBalanceChange(
+                            block_access_index=2, post_balance=final_balance
+                        ),
+                    ],
+                )
+            }
+        )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(txs=[tx1, tx2], expected_block_access_list=expected_bal)
+        ],
+        post={
+            factory: Account(nonce=3, storage={1: created, 2: created}),
+            created: created_post,
+        },
+    )
+
+
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Reentry()
+def test_deterministic_factory_redeploy_takes_balance(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    The EIP's third security consideration, using the permissionless
+    EIP-7997 factory. One account deploys a contract through the factory
+    that self-destructs to itself, leaving its balance behind. Anyone else
+    can then call the same factory with the same salt and initcode, land on
+    that balance, and take it.
+    """
+    endowment = 5
+    deployer = pre.fund_eoa()
+    redeployer = pre.fund_eoa()
+    salt = 0x8246
+
+    # Identical bytes both times: the first deployment only funds itself,
+    # while a redeploy finds more than it was sent and sweeps the surplus.
+    initcode = Conditional(
+        condition=Op.GT(Op.BALANCE(Op.ADDRESS), Op.CALLVALUE),
+        if_true=Op.SELFDESTRUCT(Op.ORIGIN),
+        if_false=Op.SELFDESTRUCT(Op.ADDRESS),
+    )
+    created = compute_create2_address(Spec.FACTORY_ADDRESS, salt, initcode)
+    call_data = Hash(salt) + bytes(initcode)
+
+    deploy_tx = Transaction(
+        sender=deployer,
+        to=FACTORY,
+        value=endowment,
+        data=call_data,
+    )
+    deploy_tx.expected_receipt = TransactionReceipt(
+        logs=[
+            transfer_log(deployer, FACTORY, endowment),
+            transfer_log(FACTORY, created, endowment),
+        ]
+    )
+    # The sweep log is what proves the redeployer, not the deployer, ends
+    # up with the balance.
+    redeploy_tx = Transaction(
+        sender=redeployer,
+        to=FACTORY,
+        value=0,
+        data=call_data,
+    )
+    redeploy_tx.expected_receipt = TransactionReceipt(
+        logs=[transfer_log(created, redeployer, endowment)]
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[deploy_tx, redeploy_tx])],
+        post={
+            FACTORY: Account(balance=0, code=Spec.FACTORY_BYTECODE),
+            created: Account.NONEXISTENT,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "selfdestruct_to_self",
+    [
+        pytest.param(True, id="selfdestruct_to_self"),
+        pytest.param(False, id="selfdestruct_to_other_then_refunded"),
+    ],
+)
+def test_deployed_code_selfdestruct_clears_code(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    selfdestruct_to_self: bool,
+) -> None:
+    """
+    Verify finalization clears deployed code and storage but keeps balance.
+
+    Call a contract created in the same transaction so that it holds
+    deployed code and a written storage slot when it self-destructs.
+    """
+    endowment = 5
+    sender = pre.fund_eoa()
+    if selfdestruct_to_self:
+        beneficiary = None
+        selfdestruct = Op.SELFDESTRUCT(Op.ADDRESS)
+    else:
+        beneficiary = pre.fund_eoa(amount=1)
+        selfdestruct = Op.SELFDESTRUCT(beneficiary)
+    initcode = Initcode(deploy_code=Op.SSTORE(0, 1) + selfdestruct)
+    factory_code = Om.MSTORE(initcode, 0) + Op.SSTORE(
+        0, Op.CREATE(value=endowment, offset=0, size=len(initcode))
+    )
+    factory_code += Op.POP(Op.CALL(gas=Op.GAS, address=Op.SLOAD(0)))
+    if beneficiary is not None:
+        # A donor's SELFDESTRUCT refunds the swept endowment without running
+        # the victim's code again, so EIP-161 does not remove the remnant.
+        factory_code += Op.POP(Op.CALL(gas=Op.GAS, address=Op.CALLDATALOAD(0)))
+    factory = pre.deploy_contract(code=factory_code + Op.STOP)
+    created = compute_create_address(address=factory, nonce=1)
+    tx_data = b""
+    post = {
+        factory: Account(balance=0, nonce=2, storage={0: created}),
+        created: Account(balance=endowment, nonce=0, code=b"", storage={}),
+    }
+    if beneficiary is not None:
+        donor = pre.deploy_contract(
+            code=Op.SELFDESTRUCT(created), balance=endowment
+        )
+        tx_data = Hash(donor, left_padding=True)
+        post[donor] = Account(balance=0)
+        post[beneficiary] = Account(balance=1 + endowment)
+    tx = Transaction(sender=sender, to=factory, value=endowment, data=tx_data)
     state_test(pre=pre, post=post, tx=tx)

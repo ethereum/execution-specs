@@ -3,6 +3,8 @@
 import textwrap
 from typing import Any
 
+import pytest
+
 invalid_fee_payment_test_module = textwrap.dedent(
     """\
     from execution_testing import Transaction
@@ -68,3 +70,67 @@ def test_fill_reports_conflicting_fee_fields(
     if pytestconfig.getoption("capture") == "no":
         with capsys.disabled():
             print(error_line)
+
+
+non_spec_test_module = textwrap.dedent(
+    """\
+    from execution_testing import Transaction
+
+
+    def test_fillable(state_test, pre) -> None:
+        tx = Transaction(to=0, sender=pre.fund_eoa())
+        state_test(pre=pre, post={}, tx=tx)
+
+
+    def test_plain_helper_check() -> None:
+        assert True
+    """
+)
+
+
+@pytest.mark.parametrize("workers", ["0", "2"])
+def test_fill_rejects_test_without_spec_fixture(
+    pytester: Any, capsys: Any, workers: str
+) -> None:
+    """
+    Test that fill fails collection, naming a test without a spec fixture.
+
+    The filler's collection hook used to crash on such an item with an
+    `INTERNALERROR`; under xdist no later hook can report it either.
+    """
+    tests_dir = pytester.mkdir("tests")
+    berlin_tests_dir = tests_dir / "berlin"
+    berlin_tests_dir.mkdir()
+    module_dir = berlin_tests_dir / "non_spec_module"
+    module_dir.mkdir()
+    test_module = module_dir / "test_non_spec.py"
+    test_module.write_text(non_spec_test_module)
+
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+
+    module_path = str(test_module.relative_to(pytester.path))
+    result = pytester.runpytest_subprocess(
+        "-c",
+        "pytest-fill.ini",
+        "--fork",
+        "Berlin",
+        "-n",
+        workers,
+        "--no-html",
+        "--output=stdout",
+        module_path,
+    )
+    capsys.readouterr()
+
+    output = "\n".join(result.outlines + result.errlines)
+    assert "INTERNALERROR" not in output
+    assert result.ret not in (
+        pytest.ExitCode.OK,
+        pytest.ExitCode.INTERNAL_ERROR,
+    )
+    assert (
+        f"{module_path}::test_plain_helper_check requests none of the spec "
+        "fixtures"
+    ) in output

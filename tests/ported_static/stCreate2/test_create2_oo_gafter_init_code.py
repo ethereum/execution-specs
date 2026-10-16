@@ -25,7 +25,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 from tests.ported_static.post_state_resolution import (
@@ -131,7 +131,7 @@ def test_create2_oo_gafter_init_code(
     # EIP-8037/8038 change the CREATE2 dispatch in two ways that the
     # budget must absorb before the init code RETURNs: the new
     # `create_state_gas()` spills into regular gas (empty reservoir),
-    # and `OPCODE_CREATE_BASE` drops from its Cancun value of 32000.
+    # and `OPCODE_CREATE_BASE` drops from its Cancun value.
     # Their sum is the net extra the dispatch consumes from the budget.
     # The deposit step then changes too: its regular `CODE_DEPOSIT_PER_BYTE
     # * 5` portion is now covered by the state-gas reservoir credited at
@@ -142,7 +142,7 @@ def test_create2_oo_gafter_init_code(
     # already carried in their 1000-gas gap. Every term is 0
     # pre-EIP-8037, so the original Cancun behavior is preserved.
     gas_costs = fork.gas_costs()
-    _cancun_create_base = 32000
+    _cancun_create_base = Cancun.gas_costs().OPCODE_CREATE_BASE
     _deploy_size = 5
     _oog_lift = 0
     if fork.is_eip_enabled(8037):
@@ -154,13 +154,12 @@ def test_create2_oo_gafter_init_code(
             - gas_costs.CODE_DEPOSIT_PER_BYTE * _deploy_size
         )
     # EIP-2780 reshapes the tx intrinsic for non-self non-value txs:
-    # ``TX_BASE`` drops to 12_000 and an explicit
-    # ``COLD_ACCOUNT_ACCESS`` (3_000) recipient charge is added. The
-    # original test was built against Cancun's flat ``TX_BASE`` of
-    # 21_000, so shift the budget by the intrinsic delta to keep the
-    # straddle landing at the same RETURN point.
+    # ``TX_BASE`` drops and an explicit ``COLD_ACCOUNT_ACCESS``
+    # recipient charge is added. The original test was built against
+    # Cancun's flat ``TX_BASE``, so shift the budget by the intrinsic
+    # delta to keep the straddle landing at the same RETURN point.
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
-    _oog_lift += intrinsic - 21_000
+    _oog_lift += intrinsic - Cancun.transaction_intrinsic_cost_calculator()()
     tx_gas = [54000 + _oog_lift, 55000 + _oog_lift]
 
     tx = Transaction(

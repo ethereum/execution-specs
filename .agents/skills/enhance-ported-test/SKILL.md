@@ -331,6 +331,14 @@ verifies anything. Improve coupling and observability:
   init code of step 0 is the same family, one level down: there the *bytecode*
   stopped matching the scenario its own Yul comment describes.
 
+**Engine X packing can introduce an intentional collision into another test.**
+Two tests that deploy identical creator bytecode derive the same CREATE address.
+If one predeploys a collider there and the other requires it absent, their
+pre-allocations must not share a packed genesis. Give the collision test a named
+`@pytest.mark.pre_alloc_group(...)`, then fill both with
+`--generate-all-formats` and verify Engine X matches its ordinary engine sibling.
+Validated on the `stRevertTest` CREATE collision and CREATE-OOG pair.
+
 ### 9. Introduce variables that encode relationships
 Whenever a literal carries intent or two literals are logically linked, lift them
 into named variables that express the *relationship*, not just the value. E.g.
@@ -539,10 +547,17 @@ calculator whenever the tx has calldata, or the derived `executed` (and
 the cap) overstate. Validated on `test_refund_suicide50procent_cap`.
 
 **A CREATE address collision burns the child's gas allowance** (the
-EIP-684 path): the withheld child grant is consumed, nothing is created,
-and under EIP-8037 the new-account state charge is refunded. Useful to
-build always-failing creator frames with predictable consumption.
-Validated on `test_revert_depth_create_address_collision`.
+EIP-684 path): the withheld child grant is consumed and nothing is
+created. Under EIP-8037 a colliding target is alive (it has code or a
+nonce), so no new-account state gas is charged there in the first place.
+**The burn is only observable if some arm lets the creator survive it**:
+size the creator's post-collision slack so that its 1/64 retention cannot
+pay the next store but the whole slack could (starved arm), or so the
+retention clears the EIP-2200 gate and pays it (covered arm). A creator
+that dies in every arm rolls the burn back with itself and the test
+passes even when the grant is returned. Validated on both
+`test_revert_depth_create_address_collision` files (mutation: returning
+the grant on collision flips the starved arms).
 
 **Loop-to-depth-1024 cannot replace loop-to-OOG.** With 63/64
 attenuation, reaching depth 1024 needs ~e^16 × the terminal gas — no
@@ -551,11 +566,35 @@ fixed named budget with per-gas-schedule-era pinned depth counts, each
 shift explained (±1 frame ≈ 64·ln(cost ratio)). Validated on
 `test_loop_calls_depth_then_revert`.
 
-**Framework wart: the SSTORE dirty-rewrite composite prices 100 on every
-fork**, but Constantinople/Petersburg charge 5,000 for a dirty re-store —
-a derived budget that must survive pre-Istanbul forks needs an explicit
-headroom constant for it (named, commented). Observed on
+**The SSTORE dirty-rewrite composite tracks the pre-Berlin schedules.**
+`Op.SSTORE(key_warm=True, original_value=0, current_value=0xFF,
+new_value=1).gas_cost(fork)` prices 5,006 on ConstantinopleFix, 806 on
+Istanbul and 106 from Berlin, so a derived budget needs no extra
+headroom constant for those forks (an earlier note here claimed
+otherwise; the padding it prescribed also masked a wrongful new-account
+charge on Amsterdam). Checked on
 `test_revert_depth_create_address_collision`'s ConstantinopleFix sweep.
+
+**A starved arm must still reach the opcode under test.** When a
+"RevertDepth" style filler proves that a completed nested CREATE is
+rolled back by a later OOG, the starved grant has to cover the CREATE
+(and whatever stores precede it) and fall short only on the frame's
+last store. A grant of "half the creator's needs" dies at the CREATE's
+own charge, so the arm's `NONEXISTENT`/`nonce=1` expectations hold
+without anything having been created. Prove the arm reaches the opcode
+with a throwaway `raise` at the top of the fork's `generic_create` (or
+`generic_call`): every arm must hit it. Validated on
+`test_revert_depth_create2_oog` and `test_revert_depth_create_oog`.
+
+**A "must OOG" budget has to fund the counterfactual.** A test whose
+observable is "the frame ran out of gas because of X" (a collision burn,
+a failed sub-call) only pins X if the same budget would have *completed*
+without X. Size the slack as `victims + what X would have cost had it
+gone through + margin`, then guard that X's leavings (the 1/64
+retention) cannot pay the victims. Check it by disabling X in a spec
+copy (e.g. `account_deployable` returning True): the test must fail.
+Validated on `test_create2collision_selfdestructed_oog`, whose 30k
+slack had been below its victims on every fork.
 
 **EIP-8037 repriced the code deposit's regular part — boundaries beware.**
 On 8037 forks the deposit charges only the keccak word cost

@@ -130,6 +130,9 @@ class GethExceptionMapper(ExceptionMapper):
         BlockException.GAS_USED_OVERFLOW: "bal validation failure",
     }
     mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
+        # In-range r that is not an x-coordinate on the curve: the range
+        # check passes and recovery itself fails.
+        TransactionException.INVALID_SIGNATURE_VRS: r"recovery failed",
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"blob gas used \d+ exceeds maximum allowance \d+"
         ),
