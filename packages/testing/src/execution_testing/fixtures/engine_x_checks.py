@@ -4,9 +4,9 @@ Fill-time execution-consistency check for Engine X fixtures.
 An Engine X fixture is filled against its packed pre-allocation group's
 merged genesis, while the test's `blockchain_test_engine` sibling is
 filled against the test's own pre-allocation. Their per-payload
-execution outputs must be identical; `verify_engine_x_execution`
-compares the two fixture trees after a fill and raises a classified,
-per-cause report when they are not.
+execution outputs and state changes must be identical;
+`verify_engine_x_execution` compares the two fixture trees after a fill
+and raises a classified, per-cause report when they are not.
 
 The check runs post-fill on the fixture files because the two formats of
 a test are separate pytest items that may fill on different xdist
@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Tuple, Type, TypeVar
 from pydantic import ValidationError
 
 from execution_testing.base_types import Address, Bytes, Hash
+from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.forks.forks.eips.prague.eip_2935 import (
     HISTORY_STORAGE_ADDRESS,
 )
@@ -526,6 +527,65 @@ def _diagnose(
     return ExecutionDrift(test_id, "payloads differ", "")
 
 
+def _comparable_state_diff(
+    diff: BaseAlloc, payloads: List[FixtureEngineNewPayload]
+) -> Dict[str, Any]:
+    """Return state changes with history-contract parent hashes masked."""
+    dumped = diff.model_dump(mode="json", by_alias=True)
+    history = dumped.get(str(Address(HISTORY_STORAGE_ADDRESS)))
+    if history is not None:
+        parent_hashes = {
+            int.from_bytes(payload.params[0].parent_hash, "big")
+            for payload in payloads
+            if payload.valid()
+        }
+        for slot, value in history["storage"].items():
+            if _hex_int(value) in parent_hashes:
+                history["storage"][slot] = _PARENT_HASH_PLACEHOLDER
+    return dumped
+
+
+def _post_state_drift(
+    test_id: str,
+    engine_x: BlockchainEngineXFixture,
+    sibling: BlockchainEngineFixture,
+) -> ExecutionDrift | None:
+    """Compare state changes, ignoring untouched packed-group accounts."""
+    if sibling.post_state is None:
+        raise EngineXCheckError(
+            f"cannot compare post-state for {test_id!r}: sibling has "
+            "only a state root; fill with full post-state output"
+        )
+    own_changes = BaseAlloc(
+        {
+            address: sibling.post_state.root.get(address)
+            for address in sibling.pre.root.keys()
+            | sibling.post_state.root.keys()
+            if sibling.pre.root.get(address)
+            != sibling.post_state.root.get(address)
+        }
+    )
+    base = _comparable_state_diff(own_changes, sibling.payloads)
+    packed = _comparable_state_diff(
+        engine_x.post_state_diff, engine_x.payloads
+    )
+    for address in sorted(set(base) | set(packed)):
+        # An absent entry means unchanged; None means account deletion.
+        if (address in base) == (address in packed) and base.get(
+            address
+        ) == packed.get(address):
+            continue
+        return ExecutionDrift(
+            test_id,
+            signature=f"post-state differs for account {address}",
+            detail=(
+                f"own:    {_short(base.get(address, '<unchanged>'))}\n"
+                f"packed: {_short(packed.get(address, '<unchanged>'))}"
+            ),
+        )
+    return None
+
+
 def verify_engine_x_execution(output_dir: Path) -> EngineXCheckResult:
     """
     Verify that pre-alloc group packing did not change any test's
@@ -540,6 +600,13 @@ def verify_engine_x_execution(output_dir: Path) -> EngineXCheckResult:
     match exactly; each payload's block access list is compared with the
     EIP-2935 history write of its own parent hash masked out, see
     `_comparable_bal`.
+
+    Compare the sibling's changes from its own genesis with the packed
+    fixture's `postStateDiff` as well. This catches state-only leaks on
+    forks without block access lists. Mask history-contract parent hash
+    values on both sides, as for the payload comparison. A sibling that
+    contains only a post-state root cannot support this check and raises
+    `EngineXCheckError`.
 
     Return the comparison counts; `skip_reason` is set when Engine X
     fixtures exist but nothing could be compared (e.g. when filling with
@@ -592,6 +659,10 @@ def verify_engine_x_execution(output_dir: Path) -> EngineXCheckResult:
                 drifts.append(
                     _diagnose(test_id, fixture, sibling, base, packed, groups)
                 )
+            else:
+                drift = _post_state_drift(test_id, fixture, sibling)
+                if drift is not None:
+                    drifts.append(drift)
 
     if drifts:
         raise EngineXExecutionDriftError(drifts, compared)
