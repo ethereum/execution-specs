@@ -26,7 +26,7 @@ from pydantic import (
 from execution_testing.base_types.ssz import SSZForkSchema
 
 from .base_fork import BaseFork
-from .forks import eips, forks, transition
+from .forks import eips, forks, transition, unscheduled
 from .transition_base_fork import TransitionBaseClass
 
 
@@ -53,21 +53,35 @@ for fork_name in forks.__dict__:
     ):
         all_forks.append(fork)
 
+# Unscheduled feature forks stay out of the chronological fork list, so they
+# are never picked up by fork ranges or defaults, only by name.
+unscheduled_forks: List[Type[BaseFork]] = [
+    fork
+    for fork in unscheduled.__dict__.values()
+    if isinstance(fork, type)
+    and issubclass(fork, BaseFork)
+    and fork.__module__ == unscheduled.__name__
+]
+
 all_eips: List[Type[BaseFork]] = eips.ALL_EIPS
 
 transition_forks: List[Type[TransitionBaseClass]] = []
 
-for fork_name in transition.__dict__:
-    fork = transition.__dict__[fork_name]
-    if not isinstance(fork, type):
-        continue
-    if (
-        issubclass(fork, TransitionBaseClass)
-        and fork is not TransitionBaseClass
-    ):
-        transition_forks.append(fork)
+for module in (transition, unscheduled):
+    for fork_name in module.__dict__:
+        fork = module.__dict__[fork_name]
+        if not isinstance(fork, type):
+            continue
+        if (
+            issubclass(fork, TransitionBaseClass)
+            and fork is not TransitionBaseClass
+            and fork not in transition_forks
+        ):
+            transition_forks.append(fork)
 
-ALL_FORKS = frozenset(fork for fork in all_forks if not fork.ignore())
+ALL_FORKS = frozenset(
+    fork for fork in all_forks + unscheduled_forks if not fork.ignore()
+)
 
 ALL_TRANSITION_FORKS = frozenset(transition_forks)
 ALL_FORKS_WITH_TRANSITIONS = frozenset(
@@ -82,6 +96,15 @@ def get_forks() -> List[Type[BaseFork]]:
     Ordered chronologically by deployment.
     """
     return all_forks[:]
+
+
+def get_unscheduled_forks() -> List[Type[BaseFork]]:
+    """
+    Return the forks of unscheduled features.
+
+    They are not part of `get_forks()`, and can only be selected by name.
+    """
+    return unscheduled_forks[:]
 
 
 def get_deployed_forks() -> List[Type[BaseFork]]:
@@ -363,7 +386,11 @@ def get_relative_fork_markers(
     is not found, otherwise, simply return the provided (str) `fork_identifier`
     (this is required to run `consume` with forks that are unknown to EEST).
     """
-    all_forks = set(get_forks()) | set(get_transition_forks())
+    all_forks = (
+        set(get_forks())
+        | set(get_unscheduled_forks())
+        | set(get_transition_forks())
+    )
     if isinstance(fork_identifier, str):
         fork_class = None
         for candidate in all_forks:
@@ -384,7 +411,7 @@ def get_relative_fork_markers(
 
 def get_fork_by_name(fork_name: str) -> Type[BaseFork] | None:
     """Get a fork by name."""
-    for fork in get_forks():
+    for fork in get_forks() + get_unscheduled_forks():
         if fork.name() == fork_name:
             return fork
     return None
@@ -509,7 +536,9 @@ Fork = Annotated[
     Type[BaseFork],
     PlainSerializer(str),
     PlainValidator(
-        fork_validator_generator(BaseFork, all_forks + transition_forks)
+        fork_validator_generator(
+            BaseFork, all_forks + unscheduled_forks + transition_forks
+        )
     ),
 ]
 ForkAdapter: TypeAdapter = TypeAdapter(Fork)
@@ -525,7 +554,8 @@ ForkEIP = Annotated[
     PlainSerializer(str),
     PlainValidator(
         fork_validator_generator(
-            BaseFork, all_forks + all_eips + transition_forks
+            BaseFork,
+            all_forks + unscheduled_forks + all_eips + transition_forks,
         )
     ),
 ]

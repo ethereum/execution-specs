@@ -537,6 +537,15 @@ class ForkBuilder:
                         if exit_code != 0:
                             sys.exit(exit_code)
 
+    def _transform(self, package: Path) -> None:
+        """
+        Edit the new fork's `package` after the codemods have run.
+
+        Does nothing here. Subclasses override it to change the fork's
+        contents beyond what the codemods do.
+        """
+        del package
+
     def build(self) -> None:
         """
         Duplicate and transform the template fork into the new fork.
@@ -550,6 +559,7 @@ class ForkBuilder:
 
             self._copy(package)
             self._modify(working_directory)
+            self._transform(package)
             self._commit(package)
 
     def modify_target_blob_gas_per_block(

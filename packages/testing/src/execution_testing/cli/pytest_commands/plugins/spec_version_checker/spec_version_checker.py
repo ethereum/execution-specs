@@ -20,6 +20,7 @@ from execution_testing.base_types.reference_spec import (
 from execution_testing.forks import (
     ALL_FORKS,
     get_forks_with_no_descendants,
+    get_unscheduled_forks,
 )
 
 GITHUB_TOKEN_HELP = textwrap.dedent(
@@ -80,7 +81,10 @@ def pytest_configure(config: pytest.Config) -> None:
     if not (
         config.getoption("single_fork") or config.getoption("forks_until")
     ):
-        newest_forks = get_forks_with_no_descendants(set(ALL_FORKS))
+        # Unscheduled feature forks only run with `--fork`.
+        newest_forks = get_forks_with_no_descendants(
+            set(ALL_FORKS) - set(get_unscheduled_forks())
+        )
         config.option.forks_until = ",".join(
             sorted(fork.name() for fork in newest_forks)
         )
