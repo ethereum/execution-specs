@@ -114,13 +114,15 @@ Maximum number of nonce keys a [`FrameTransaction`][ftx] may select.
 
 MAX_NONCE_SEQ: Final[U64] = U64.MAX_VALUE
 """
-The exhausted nonce sequence: a key at this sequence cannot advance.
+The single-use nonce sequence. A keyed transaction at this sequence
+requires every selected key to be unused and exhausts each of them; a
+key holding this sequence can never be selected again.
 """
 
-LEGACY_NONCE_KEYS: Final[Tuple[U256, ...]] = (U256(0),)
+LEGACY_NONCE_KEYS: Final[Tuple[U256, ...]] = ()
 """
-The nonce key set selecting the sender's account nonce rather than a
-keyed nonce sequence held by the nonce manager.
+The empty nonce key set, selecting the sender's account nonce rather
+than keyed nonce sequences held by the nonce manager.
 """
 
 
@@ -682,7 +684,7 @@ def validate_frame_transaction(
     from ..vm.gas import GasCosts
     from . import BLOB_COUNT_LIMIT, VERSIONED_HASH_VERSION_KZG
 
-    if tx.nonce_seq >= MAX_NONCE_SEQ:
+    if tx.nonce_keys == LEGACY_NONCE_KEYS and tx.nonce_seq == MAX_NONCE_SEQ:
         raise NonceOverflowError("Nonce too high")
     validate_nonce_keys(tx.nonce_keys)
 
@@ -817,22 +819,19 @@ def validate_nonce_keys(nonce_keys: Tuple[U256, ...]) -> None:
     """
     Check that a transaction selects a well-formed set of nonce keys.
 
-    The set holds between one and [`MAX_NONCE_KEYS`][mnk] keys in
-    strictly increasing order, so each set has one canonical encoding.
-    The zero key aliases the sender's account nonce and may only appear
-    alone, as [`LEGACY_NONCE_KEYS`][lnk].
+    The set holds at most [`MAX_NONCE_KEYS`][mnk] keys in strictly
+    increasing order, so each set has one canonical encoding. The empty
+    set, [`LEGACY_NONCE_KEYS`][lnk], selects the sender's account nonce;
+    the zero key is an ordinary keyed nonce.
 
     [mnk]: ref:ethereum.forks.bogota.transactions.frame_transaction.MAX_NONCE_KEYS
     [lnk]: ref:ethereum.forks.bogota.transactions.frame_transaction.LEGACY_NONCE_KEYS
     """  # noqa: E501
-    key_count = ulen(nonce_keys)
-    if key_count < Uint(1) or key_count > MAX_NONCE_KEYS:
+    if ulen(nonce_keys) > MAX_NONCE_KEYS:
         raise InvalidFrameError("invalid nonce key count")
     for previous, key in zip(nonce_keys, nonce_keys[1:], strict=False):
         if key <= previous:
             raise InvalidFrameError("nonce keys not strictly increasing")
-    if U256(0) in nonce_keys and nonce_keys != LEGACY_NONCE_KEYS:
-        raise InvalidFrameError("zero nonce key alongside other keys")
 
 
 def nonce_keys_hash(tx: FrameTransaction) -> Hash32:
@@ -933,12 +932,7 @@ def calculate_frame_transaction_intrinsic_cost(
     # EIP-7976 floor tokens: all charged bytes count uniformly.
     floor_tokens = data_length * GasCosts.TX_DATA_TOKEN_STANDARD
 
-    # The legacy key set reads and writes the account nonce instead.
-    keyed_nonce_access_gas = Uint(0)
-    if tx.nonce_keys != LEGACY_NONCE_KEYS:
-        keyed_nonce_access_gas = (
-            ulen(tx.nonce_keys) * GasCosts.KEYED_NONCE_ACCESS
-        )
+    keyed_nonce_access_gas = ulen(tx.nonce_keys) * GasCosts.KEYED_NONCE_ACCESS
 
     base_execution_gas = (
         GasCosts.TX_FRAME_INTRINSIC

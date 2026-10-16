@@ -610,7 +610,7 @@ class Transaction(
         if self.frames is not None:
             # EIP-8250: https://eips.ethereum.org/EIPS/eip-8250
             if self.nonce_keys is None:
-                self.nonce_keys = [HexNumber(0)]
+                self.nonce_keys = []
             # EIP-8141: Frame transactions always carry blob fields.
             if self.blob_versioned_hashes is None:
                 self.blob_versioned_hashes = []

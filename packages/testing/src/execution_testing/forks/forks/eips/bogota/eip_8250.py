@@ -41,11 +41,9 @@ class EIP8250(BaseFork):
         cls, nonce_keys: Sequence[int]
     ) -> int:
         """
-        Charge the read and write of each non-zero key's nonce manager
-        slot. The legacy key set uses the account nonce instead.
+        Charge the read and write of each key's nonce manager slot. The
+        empty key set uses the account nonce instead.
         """
-        if list(nonce_keys) == [0]:
-            return 0
         return len(nonce_keys) * cls.gas_costs().KEYED_NONCE_ACCESS
 
     @classmethod
