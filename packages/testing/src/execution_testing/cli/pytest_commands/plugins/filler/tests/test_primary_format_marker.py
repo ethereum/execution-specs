@@ -18,8 +18,6 @@ import textwrap
 
 import pytest
 
-from ..filler import marker_expression_requires_primary_format
-
 # A post-Paris fork is required: pre-Paris hive/engine fixtures are removed
 # during collection (see `pytest_collection_modifyitems` in filler.py), which
 # would empty a `blockchain_test_engine_only` test regardless of this marker.
@@ -172,40 +170,46 @@ def test_pre_alloc_group_session_generates_one_format_per_test(
 
 
 @pytest.mark.parametrize(
-    "markexpr,expected",
+    "primary_format_only",
     [
-        pytest.param("primary_format", True, id="alone"),
-        pytest.param("not slow and primary_format", True, id="last_term"),
-        pytest.param("primary_format and not slow", True, id="first_term"),
-        pytest.param("", False, id="empty"),
-        pytest.param("not slow", False, id="absent"),
-        pytest.param("not primary_format", False, id="negated"),
-        pytest.param("primary_format or slow", False, id="disjunction"),
-        pytest.param("(primary_format and slow)", False, id="parentheses"),
+        pytest.param(True, id="flag"),
+        pytest.param(False, id="no_flag"),
     ],
 )
-def test_marker_expression_requires_primary_format(
-    markexpr: str, expected: bool
+def test_primary_format_only_skips_other_formats(
+    pytester: pytest.Pytester, primary_format_only: bool
 ) -> None:
     """
-    Recognize only a plain conjunction with a `primary_format` term.
+    Collect with and without ``--primary-format-only`` and assert the other
+    formats are generated only without it.
     """
-    assert marker_expression_requires_primary_format(markexpr) is expected
+    write_test_module(pytester, NORMAL_STATE_MODULE)
+
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--fork",
+        FORK,
+        *(["--primary-format-only"] if primary_format_only else []),
+        TEST_MODULE_DIR,
+        "--collect-only",
+        "-q",
+    )
+
+    assert result.ret == 0, f"Collection failed:\n{result.outlines}"
+    result.stdout.fnmatch_lines(["*-state_test]"])
+    if primary_format_only:
+        result.stdout.no_fnmatch_line("*-blockchain_test_from_state_test]")
+    else:
+        result.stdout.fnmatch_lines(["*-blockchain_test_from_state_test]"])
 
 
-@pytest.mark.parametrize(
-    "markexpr,deselects",
-    [
-        pytest.param("primary_format", False, id="primary_only"),
-        pytest.param("primary_format or slow", True, id="disjunction"),
-    ],
-)
-def test_primary_format_selection_skips_other_formats(
-    pytester: pytest.Pytester, markexpr: str, deselects: bool
+def test_primary_format_marker_selection_warns(
+    pytester: pytest.Pytester,
 ) -> None:
     """
-    Collect with `-m` and assert the other formats are generated, and then
-    deselected, only when the expression can select them.
+    Collect with ``-m primary_format`` and assert it still selects the primary
+    format but warns that the selection is deprecated.
     """
     write_test_module(pytester, NORMAL_STATE_MODULE)
 
@@ -215,15 +219,17 @@ def test_primary_format_selection_skips_other_formats(
         "--fork",
         FORK,
         "-m",
-        markexpr,
+        "primary_format",
         TEST_MODULE_DIR,
         "--collect-only",
         "-q",
     )
 
     assert result.ret == 0, f"Collection failed:\n{result.outlines}"
-    result.stdout.fnmatch_lines(["*-state_test]"])
-    if deselects:
-        result.stdout.fnmatch_lines(["*deselected*"])
-    else:
-        result.stdout.no_fnmatch_line("*deselected*")
+    result.stdout.fnmatch_lines(
+        [
+            "*-state_test]",
+            "*FutureWarning: Selecting `primary_format` with `-m` is "
+            "deprecated*",
+        ]
+    )

@@ -16,6 +16,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import signal
 import time
 import warnings
@@ -152,24 +153,6 @@ def _merge_on_exit() -> None:
             merge_partial_indexes(_fixture_output_dir, quiet_mode=True)
 
 
-def marker_expression_requires_primary_format(markexpr: str) -> bool:
-    """
-    Return whether every test that `markexpr` selects carries the
-    `primary_format` mark.
-
-    Only a plain conjunction with a `primary_format` term, such as
-    `not slow and primary_format`, counts. Any `or` or parentheses keep every
-    format.
-    """
-    tokens = markexpr.split()
-    if "or" in tokens or "(" in markexpr:
-        return False
-    return any(
-        token == "primary_format" and (i == 0 or tokens[i - 1] != "not")
-        for i, token in enumerate(tokens)
-    )
-
-
 @dataclass(kw_only=True)
 class FillingSession:
     """
@@ -186,8 +169,7 @@ class FillingSession:
 
     fixture_output: FixtureOutput
     filling_phase: FixtureFillingPhase
-    # The `-m` expression keeps only primary formats, so the others need
-    # not be generated.
+    # Generate only each test's primary fixture format.
     primary_format_only: bool = False
     pre_alloc_groups: PreAllocGroups | None = None
     pre_alloc_group_builders: PreAllocGroupBuilders | None = None
@@ -215,9 +197,7 @@ class FillingSession:
         return cls(
             fixture_output=FixtureOutput.from_config(config),
             filling_phase=cls.filling_phase_from_config(config),
-            primary_format_only=marker_expression_requires_primary_format(
-                config.getoption("markexpr", "") or ""
-            ),
+            primary_format_only=config.getoption("primary_format_only", False),
             pre_alloc_groups=None,
         )
 
@@ -616,6 +596,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     test_group.addoption(
+        "--primary-format-only",
+        action="store_true",
+        dest="primary_format_only",
+        default=False,
+        help=(
+            "Fill each test once, in its primary fixture format only. The "
+            "other formats are not generated. Replaces the deprecated "
+            "`-m primary_format`. Mutually exclusive with "
+            "--generate-all-formats."
+        ),
+    )
+    test_group.addoption(
         "--disable-optimistic-pre-alloc-grouping",
         action="store_true",
         dest="optimistic_pre_alloc_grouping_disabled",
@@ -740,6 +732,19 @@ def pytest_configure(config: pytest.Config) -> None:
 
     # Initialize filling session
     config.filling_session = FillingSession.from_config(config)  # type: ignore[attr-defined]
+
+    markexpr = config.getoption("markexpr", "") or ""
+    if not hasattr(config, "workerinput") and re.search(
+        r"\bprimary_format\b", markexpr
+    ):
+        config.issue_config_time_warning(
+            FutureWarning(
+                "Selecting `primary_format` with `-m` is deprecated: every "
+                "other format is still generated before being deselected. "
+                "Use --primary-format-only instead."
+            ),
+            stacklevel=2,
+        )
 
     if is_help_or_collectonly_mode(config):
         return
@@ -1854,27 +1859,18 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     markers = list(metafunc.definition.iter_markers())
     for test_type in BaseTest.spec_types.values():
         if test_type.pytest_parameter_name() in metafunc.fixturenames:
-            parameters = [
-                parameter
-                for fixture_format, parameter in (
-                    test_type.fixture_format_parameters(markers=markers)
-                )
-                if session.should_generate_format(fixture_format)
-            ]
-            if session.primary_format_only:
-                primary = [
-                    parameter
-                    for parameter in parameters
-                    if any(
-                        mark.name == "primary_format"
-                        for mark in parameter.marks
-                    )
-                ]
-                if primary:
-                    parameters = primary
             metafunc.parametrize(
                 [test_type.pytest_parameter_name()],
-                parameters,
+                [
+                    parameter
+                    for fixture_format, parameter in (
+                        test_type.fixture_format_parameters(
+                            markers=markers,
+                            primary_format_only=session.primary_format_only,
+                        )
+                    )
+                    if session.should_generate_format(fixture_format)
+                ],
                 scope="function",
                 indirect=True,
             )
