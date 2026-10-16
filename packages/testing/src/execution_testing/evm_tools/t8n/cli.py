@@ -24,7 +24,13 @@ from typing import Any, Dict, List, Optional, TextIO, Tuple
 from ethereum_rlp import rlp
 from ethereum_spec_tools.forks import Hardfork
 from ethereum_spec_tools.loaders.fork_loader import ForkLoad
-from ethereum_spec_tools.utils import FatalError, find_fork, parse_hex_or_int
+from ethereum_spec_tools.utils import (
+    EXCEPTION_MAPS,
+    FatalError,
+    find_fork,
+    parse_hex_or_int,
+    resolve_fork,
+)
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64
 
@@ -314,6 +320,7 @@ def build_t8n_from_cli_options(
     """
     from execution_testing.base_types.composite_types import BlobSchedule
     from execution_testing.client_clis.transition_tool import TransitionTool
+    from execution_testing.forks import get_transition_forks
     from execution_testing.test_types import (
         Alloc as TestingAlloc,
     )
@@ -336,9 +343,6 @@ def build_t8n_from_cli_options(
     else:
         stdin = None
 
-    fork_module, fork_block = find_fork(forks, options, stdin)
-    testing_fork = _testing_fork_from_spec_hardfork(fork_module)
-
     raw_alloc_json = _read_json_input(options.input_alloc, stdin, "alloc")
     raw_env_json = _read_json_input(options.input_env, stdin, "env")
     raw_txs_json = _read_json_input(options.input_txs, stdin, "txs")
@@ -346,6 +350,34 @@ def build_t8n_from_cli_options(
 
     alloc = TestingAlloc.model_validate(raw_alloc_json)
     env = TestingEnvironment.model_validate(raw_env_json)
+    # Legacy aliases such as ``HomesteadToDaoAt5`` keep their
+    # ``find_fork`` unfolding; any other transition fork name resolves
+    # through the testing framework's schedule.
+    transition = (
+        None
+        if options.state_fork in EXCEPTION_MAPS
+        else next(
+            (
+                fork
+                for fork in get_transition_forks()
+                if fork.name() == options.state_fork
+            ),
+            None,
+        )
+    )
+    if transition is not None:
+        testing_fork = transition
+        active_fork = transition.fork_at(
+            block_number=int(env.number), timestamp=int(env.timestamp)
+        )
+        fork_module = resolve_fork(active_fork.transition_tool_name())
+        # ``T8N`` derives the activation criteria from the transition
+        # fork itself; ``fork_block`` only serves the legacy aliases.
+        fork_block = None
+    else:
+        fork_module, fork_block = find_fork(forks, options, stdin)
+        testing_fork = _testing_fork_from_spec_hardfork(fork_module)
+        active_fork = testing_fork
     txs, _body = _parse_txs_json_to_testing(
         raw_txs_json, fork_module, TestingTransaction
     )
@@ -356,7 +388,7 @@ def build_t8n_from_cli_options(
     blob_schedule: Any = None
     if blob_params is not None:
         blob_schedule = BlobSchedule()
-        blob_schedule.append(fork=testing_fork.name(), schedule=blob_params)
+        blob_schedule.append(fork=active_fork.name(), schedule=blob_params)
 
     t8n_data = TransitionTool.TransitionToolData(
         alloc=alloc,
