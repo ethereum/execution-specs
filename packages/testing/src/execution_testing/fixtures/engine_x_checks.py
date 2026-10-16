@@ -16,7 +16,11 @@ failed fill's artifacts without re-filling.
 """
 
 import json
+import os
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
+from itertools import repeat
+from multiprocessing import get_context
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Type, TypeVar
 
@@ -57,6 +61,12 @@ STATE_ROOT_DERIVED_FIELDS = frozenset(
 _PARENT_HASH_PLACEHOLDER = "<parent-hash>"
 
 _VALUE_DISPLAY_LIMIT = 96
+
+FILES_PER_PROCESS = 64
+"""
+Engine X files per worker process when `verify_engine_x_execution` picks
+the process count: fewer files do not repay starting a process.
+"""
 
 _FixtureT = TypeVar(
     "_FixtureT", BlockchainEngineFixture, BlockchainEngineXFixture
@@ -526,7 +536,48 @@ def _diagnose(
     return ExecutionDrift(test_id, "payloads differ", "")
 
 
-def verify_engine_x_execution(output_dir: Path) -> EngineXCheckResult:
+def _check_file(
+    engine_x_file: Path,
+    engine_x_dir: Path,
+    sibling_dir: Path,
+    groups: _GroupLookup | None = None,
+) -> Tuple[int, int, List[ExecutionDrift]]:
+    """
+    Compare the fixtures of an Engine X file against their siblings.
+
+    Return how many fixtures were compared and skipped, and the drifts.
+    """
+    if groups is None:
+        groups = _GroupLookup(engine_x_dir)
+    sibling_file = _sibling_file(engine_x_file, engine_x_dir, sibling_dir)
+    siblings = (
+        _load_fixture_file(sibling_file, BlockchainEngineFixture)
+        if sibling_file.exists()
+        else {}
+    )
+    compared = 0
+    skipped = 0
+    drifts: List[ExecutionDrift] = []
+    for test_id, fixture in _load_fixture_file(
+        engine_x_file, BlockchainEngineXFixture
+    ).items():
+        sibling = siblings.get(_sibling_test_id(test_id))
+        if sibling is None:
+            skipped += 1
+            continue
+        compared += 1
+        base = [_comparable_payload(p) for p in sibling.payloads]
+        packed = [_comparable_payload(p) for p in fixture.payloads]
+        if base != packed:
+            drifts.append(
+                _diagnose(test_id, fixture, sibling, base, packed, groups)
+            )
+    return compared, skipped, drifts
+
+
+def verify_engine_x_execution(
+    output_dir: Path, processes: int | None = None
+) -> EngineXCheckResult:
     """
     Verify that pre-alloc group packing did not change any test's
     execution.
@@ -544,6 +595,10 @@ def verify_engine_x_execution(output_dir: Path) -> EngineXCheckResult:
     Return the comparison counts; `skip_reason` is set when Engine X
     fixtures exist but nothing could be compared (e.g. when filling with
     `-m blockchain_test_engine_x`, which produces no siblings).
+
+    Files are checked in `processes` worker processes, by default one per
+    `FILES_PER_PROCESS` Engine X files and at most one per CPU. With fewer
+    than two, they are checked in this process.
 
     Raise `EngineXExecutionDriftError` if any test executed differently,
     or `EngineXCheckError` if a fixture file cannot be parsed.
@@ -564,34 +619,41 @@ def verify_engine_x_execution(output_dir: Path) -> EngineXCheckResult:
             )
         )
 
-    groups = _GroupLookup(engine_x_dir)
-    compared = 0
-    skipped = 0
-    drifts: List[ExecutionDrift] = []
-    for engine_x_file in sorted(engine_x_dir.rglob("*.json")):
-        relative_parts = engine_x_file.relative_to(engine_x_dir).parts
-        if _NON_FIXTURE_PATH_PARTS.intersection(relative_parts):
-            continue
-        sibling_file = _sibling_file(engine_x_file, engine_x_dir, sibling_dir)
-        siblings = (
-            _load_fixture_file(sibling_file, BlockchainEngineFixture)
-            if sibling_file.exists()
-            else {}
+    engine_x_files = [
+        engine_x_file
+        for engine_x_file in sorted(engine_x_dir.rglob("*.json"))
+        if not _NON_FIXTURE_PATH_PARTS.intersection(
+            engine_x_file.relative_to(engine_x_dir).parts
         )
-        for test_id, fixture in _load_fixture_file(
-            engine_x_file, BlockchainEngineXFixture
-        ).items():
-            sibling = siblings.get(_sibling_test_id(test_id))
-            if sibling is None:
-                skipped += 1
-                continue
-            compared += 1
-            base = [_comparable_payload(p) for p in sibling.payloads]
-            packed = [_comparable_payload(p) for p in fixture.payloads]
-            if base != packed:
-                drifts.append(
-                    _diagnose(test_id, fixture, sibling, base, packed, groups)
+    ]
+    if processes is None:
+        processes = min(
+            os.cpu_count() or 1, len(engine_x_files) // FILES_PER_PROCESS
+        )
+    processes = min(processes, len(engine_x_files))
+    if processes > 1:
+        # Spawn rather than fork: the fill's master process runs threads.
+        with ProcessPoolExecutor(
+            max_workers=processes, mp_context=get_context("spawn")
+        ) as pool:
+            results = list(
+                pool.map(
+                    _check_file,
+                    engine_x_files,
+                    repeat(engine_x_dir),
+                    repeat(sibling_dir),
+                    chunksize=len(engine_x_files) // (processes * 4) + 1,
                 )
+            )
+    else:
+        groups = _GroupLookup(engine_x_dir)
+        results = [
+            _check_file(engine_x_file, engine_x_dir, sibling_dir, groups)
+            for engine_x_file in engine_x_files
+        ]
+    compared = sum(result[0] for result in results)
+    skipped = sum(result[1] for result in results)
+    drifts = [drift for result in results for drift in result[2]]
 
     if drifts:
         raise EngineXExecutionDriftError(drifts, compared)

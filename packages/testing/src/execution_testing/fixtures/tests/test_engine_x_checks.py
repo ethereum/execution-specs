@@ -483,7 +483,11 @@ def test_payload_count_drift_raises(tmp_path: Path) -> None:
     assert "payload count differs" in str(exc_info.value)
 
 
-def test_same_cause_drifts_aggregate(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "processes",
+    [pytest.param(1, id="in_process"), pytest.param(2, id="worker_processes")],
+)
+def test_same_cause_drifts_aggregate(tmp_path: Path, processes: int) -> None:
     """Drifts with the same cause collapse into one diagnosis."""
     _write_sibling(tmp_path, [_sibling_payload()])
     _write_sibling(
@@ -501,7 +505,7 @@ def test_same_cause_drifts_aggregate(tmp_path: Path) -> None:
     )
 
     with pytest.raises(EngineXExecutionDriftError) as exc_info:
-        verify_engine_x_execution(tmp_path)
+        verify_engine_x_execution(tmp_path, processes=processes)
 
     message = str(exc_info.value)
     assert "2 of 2" in message
@@ -598,17 +602,22 @@ def test_no_matching_siblings_sets_skip_reason(tmp_path: Path) -> None:
     assert "none of the 1" in result.skip_reason
 
 
-def test_unparseable_fixture_raises(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "processes",
+    [pytest.param(1, id="in_process"), pytest.param(2, id="worker_processes")],
+)
+def test_unparseable_fixture_raises(tmp_path: Path, processes: int) -> None:
     """A fixture that fails typed validation is a loud error."""
     _write_sibling(tmp_path, [_sibling_payload()])
+    _write_engine_x(tmp_path, [_engine_x_payload()])
     file = (
-        tmp_path / ENGINE_X_FIXTURES_DIR / "prague" / "module" / "test_a.json"
+        tmp_path / ENGINE_X_FIXTURES_DIR / "prague" / "module" / "test_b.json"
     )
     file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_text(json.dumps({ENGINE_X_ID: {"engineNewPayloads": []}}))
+    file.write_text(json.dumps({ENGINE_X_ID_B: {"engineNewPayloads": []}}))
 
     with pytest.raises(EngineXCheckError, match="cannot parse"):
-        verify_engine_x_execution(tmp_path)
+        verify_engine_x_execution(tmp_path, processes=processes)
 
 
 def test_non_fixture_files_are_ignored(tmp_path: Path) -> None:

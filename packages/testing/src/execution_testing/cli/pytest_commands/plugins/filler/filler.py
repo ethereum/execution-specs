@@ -19,6 +19,7 @@ import os
 import signal
 import time
 import warnings
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
@@ -1497,6 +1498,13 @@ def _strip_xdist_group_suffix(s: str) -> str:
     return s
 
 
+def _xdist_group_name(marker: pytest.Mark) -> str:
+    """Return the group name of an `xdist_group` marker, as xdist reads it."""
+    if marker.args:
+        return str(marker.args[0])
+    return str(marker.kwargs.get("name", "default"))
+
+
 def node_to_test_info(node: pytest.Item) -> TestInfo:
     """Return test info of the current node item."""
     # Strip xdist group suffix (@groupname) that may be added during execution.
@@ -1986,24 +1994,6 @@ def pytest_collection_modifyitems(
         if item.get_closest_marker("slow") is not None:
             slow_base_nodeids.add(base_nodeid)
 
-    # Sort items for optimal execution order:
-    # 1. Slow groups first (LPT scheduling for xdist load balance)
-    # 2. Related fixture formats together (cache locality)
-    # 3. Cacheable formats first within a group (so non-cacheable formats
-    #    don't clear the cache between two cacheable ones; e.g., for
-    #    StateTest the _from_state_test labels sort engine_x between the
-    #    two cacheable formats alphabetically, breaking cache hits)
-    # 4. Deterministic order within groups (alphabetical by nodeid)
-    def sort_key(item: pytest.Item) -> tuple[bool, str, bool, str]:
-        base = item_base_nodeids[id(item)]
-        is_slow = base in slow_base_nodeids
-        has_cache_key = (
-            item.get_closest_marker("transition_tool_cache_key") is not None
-        )
-        return (not is_slow, base, not has_cache_key, item.nodeid)
-
-    items.sort(key=sort_key)
-
     # Group related fixture formats for cache locality with xdist.
     # Detect xdist: check for -n in original args (collection happens before
     # xdist initializes, so config.option.numprocesses is None).
@@ -2014,6 +2004,8 @@ def pytest_collection_modifyitems(
     )
     is_xdist = any(arg == "-n" or arg.startswith("-n") for arg in orig_args)
 
+    # The xdist group of each item, named as `--dist=loadgroup` names it.
+    item_groups: Dict[int, str] = {}
     if is_xdist:
         # Add xdist_group markers for --dist=loadgroup.
         # Skip if test already has an xdist_group marker (e.g., bigmem).
@@ -2023,13 +2015,41 @@ def pytest_collection_modifyitems(
         # uses rfind("]") to detect group suffix, and our base_nodeid contains
         # "]" characters which would break the detection.
         for item in items:
-            if not item.get_closest_marker("xdist_group"):
+            group_names = {
+                _xdist_group_name(marker)
+                for marker in item.iter_markers("xdist_group")
+            }
+            if not group_names:
                 base_nodeid = item_base_nodeids[id(item)]
                 h = hashlib.md5(
                     base_nodeid.encode(), usedforsecurity=False
                 ).hexdigest()[:8]
                 group_name = f"t8n-cache-{h}"
                 item.add_marker(pytest.mark.xdist_group(name=group_name))
+                group_names = {group_name}
+            item_groups[id(item)] = "_".join(sorted(group_names))
+    group_sizes = Counter(item_groups.values())
+
+    # Sort items for optimal execution order, which xdist follows because
+    # pytest-fill.ini disables its own reordering by group size:
+    # 1. Slow groups first, then larger groups first under xdist (LPT
+    #    scheduling for xdist load balance)
+    # 2. Related fixture formats together (cache locality)
+    # 3. Cacheable formats first within a group (so non-cacheable formats
+    #    don't clear the cache between two cacheable ones; e.g., for
+    #    StateTest the _from_state_test labels sort engine_x between the
+    #    two cacheable formats alphabetically, breaking cache hits)
+    # 4. Deterministic order within groups (alphabetical by nodeid)
+    def sort_key(item: pytest.Item) -> tuple[bool, int, str, bool, str]:
+        base = item_base_nodeids[id(item)]
+        is_slow = base in slow_base_nodeids
+        group_size = group_sizes[item_groups.get(id(item), "")]
+        has_cache_key = (
+            item.get_closest_marker("transition_tool_cache_key") is not None
+        )
+        return (not is_slow, -group_size, base, not has_cache_key, item.nodeid)
+
+    items.sort(key=sort_key)
 
 
 def _verify_fixtures_post_merge(
