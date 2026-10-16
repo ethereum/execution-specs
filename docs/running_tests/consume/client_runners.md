@@ -9,9 +9,17 @@ MUST, SHOULD and MAY are as in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119
 - `blocktest` runs [Blockchain Tests](../test_formats/blockchain_test.md): each block is imported as the client's sync would import it.
 - `enginetest` runs [Blockchain Engine Tests](../test_formats/blockchain_test_engine.md): each payload goes through the client's Engine API handler.
 
-Both MUST take any number of fixture paths, files or directories mixed, and run all of them in one process with one set of results, so a large fixture set pays the client's startup once. A path that does not exist or cannot be read MUST be reported on stderr with a non-zero exit before any fixture runs, so a typo never silently drops fixtures.
+Both MUST take any number of fixture paths, files or directories mixed, and run all of them in one process with one set of results, so a large fixture set pays the client's startup once. A path that does not exist or cannot be read MUST be reported on stderr with exit code `2` before any fixture runs, so a typo never silently drops fixtures.
 
-A runner SHOULD exit non-zero when any fixture fails; [Clients](#clients) lists each client's exit code.
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Every fixture ran and passed. |
+| `1` | Every fixture ran, and at least one failed. |
+| `2` | The runner could not run every fixture: a path that does not exist or cannot be read (reported before any fixture runs), or a fixture file it cannot parse (the other files still run and are reported). |
+
+A harness trusts the [results](#results) only after `0` or `1`; any other code, a crash's included, means results may be missing. A runner whose CI relies on exit `0` for failing fixtures MAY keep it, as [Clients](#clients) lists, since `pass` still carries every verdict; it MUST still exit `2` in the cases above.
 
 ## Flags
 
@@ -97,14 +105,14 @@ Genesis and blocks rejected before execution print nothing. Clients MAY add keys
 
 ## Clients
 
-| Client | Block tests | Engine tests | JSON results | Exit code on a failing fixture |
+| Client | Block tests | Engine tests | JSON results | Exit code when a fixture fails |
 |---|---|---|---|---|
-| go-ethereum | `evm blocktest` | `evm enginetest` | always | non-zero |
-| Besu | `evmtool block-test` | `evmtool engine-test` | `--json-array` | non-zero |
-| Nethermind | `nethtest blocktest` | `nethtest enginetest` | always | 0, which its CI relies on |
-| Erigon | `evm blocktest` | `evm enginetest` | `--jsonout` | 0, which its CI relies on |
-| Reth | `ef-test-runner blocktest` | `ef-test-runner enginetest` | always | non-zero |
-| ethrex | `blocktest` (package `ef_tests-runners`) | `enginetest` (package `ef_tests-runners`) | `--json` | non-zero |
+| go-ethereum | `evm blocktest` | `evm enginetest` | always | `1` |
+| Besu | `evmtool block-test` | `evmtool engine-test` | `--json-array` | `1` |
+| Nethermind | `nethtest blocktest` | `nethtest enginetest` | always | `0`, which its CI relies on |
+| Erigon | `evm blocktest` | `evm enginetest` | `--jsonout` | `0`, which its CI relies on |
+| Reth | `ef-test-runner blocktest` | `ef-test-runner enginetest` | always | `1` |
+| ethrex | `blocktest` (package `ef_tests-runners`) | `enginetest` (package `ef_tests-runners`) | `--json` | `1` |
 
 - Reth's block import has only a sequential executor, so its `blocktest` reports `sequential` with reason `block-import`.
 - Erigon's `--bal-withhold` delivers the list and sets the same switch as its `IGNORE_BAL` environment variable, so execution ignores the list.
