@@ -26,7 +26,7 @@ class OpcodeWithOperands:
     """Simple opcode with its operands."""
 
     opcode: Op
-    operands: List[int] = field(default_factory=list)
+    operands: List[int | bytes] = field(default_factory=list)
     args: List["OpcodeWithOperands | HexNumber | str"] = field(
         default_factory=list
     )
@@ -38,7 +38,10 @@ class OpcodeWithOperands:
         """Format into a string."""
         output = ""
         if self.operands:
-            operands = ", ".join(hex(operand) for operand in self.operands)
+            operands = ", ".join(
+                _format_operand(self.opcode, operand)
+                for operand in self.operands
+            )
             output = f"Op.{self.opcode._name_}[{operands}]"
         else:
             output = f"Op.{self.opcode._name_}"
@@ -71,6 +74,7 @@ class OpcodeWithOperands:
             and len(self.operands) == 1
         ):
             value = self.operands[0]
+            assert isinstance(value, int)
             min_bytes = max(1, (value.bit_length() + 7) // 8)
             if self.opcode.data_portion_length == min_bytes:
                 if int_definitions and value in int_definitions:
@@ -108,6 +112,30 @@ class OpcodeWithOperandsAssembly(OpcodeWithOperands):
             return f"{opcode_name} {operands}"
 
 
+def _format_operand(opcode: Op, operand: int | bytes) -> str:
+    """Format an opcode operand as Python source."""
+    if isinstance(operand, bytes):
+        return 'b"' + "".join(f"\\x{byte:02x}" for byte in operand) + '"'
+    if opcode in {Op.DUPN, Op.SWAPN}:
+        # Print stack indices in decimal, as the EIP-8024 tests do.
+        return str(operand)
+    return hex(operand)
+
+
+def _decode_dupn_swapn_immediate(immediate: int) -> int | bytes:
+    """
+    Return the operand `Op.DUPN`/`Op.SWAPN` need to re-encode `immediate`.
+
+    `Op` encodes these opcodes from the EIP-8024 stack index rather than the
+    raw immediate byte, so decode valid immediates the same way as the
+    spec's `decode_single`. Bytes the spec rejects are returned as `bytes`,
+    which `Op` emits verbatim.
+    """
+    if 90 < immediate < 128:
+        return immediate.to_bytes(1, "big")
+    return (immediate + 145) % 256
+
+
 def process_evm_bytes(  # noqa: D103
     evm_bytes: bytes,
     assembly: bool = False,
@@ -129,14 +157,17 @@ def process_evm_bytes(  # noqa: D103
             raise ValueError(f"Unknown opcode: {opcode_byte}")
         opcode_with_operands: OpcodeWithOperands
         if opcode.data_portion_length > 0:
+            # Like the EVM, treat immediate bytes past the end of the code
+            # as zeros, which right-pads a truncated immediate.
+            data = bytes(evm_bytes_array[: opcode.data_portion_length])
+            immediate = int.from_bytes(
+                data.ljust(opcode.data_portion_length, b"\x00"), "big"
+            )
+            operand: int | bytes = immediate
+            if not assembly and opcode in {Op.DUPN, Op.SWAPN}:
+                operand = _decode_dupn_swapn_immediate(immediate)
             opcode_with_operands = OpcodeWithOperands(
-                opcode=opcode,
-                operands=[
-                    int.from_bytes(
-                        evm_bytes_array[: opcode.data_portion_length],
-                        "big",
-                    )
-                ],
+                opcode=opcode, operands=[operand]
             )
             evm_bytes_array = evm_bytes_array[opcode.data_portion_length :]
         else:
