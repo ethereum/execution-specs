@@ -11,16 +11,18 @@ import io
 import json
 import logging
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Generator, cast
 
 import pytest
 from hive.client import Client, ClientType
-from hive.testing import HiveTest
+from hive.testing import HiveTest, HiveTestSuite
 
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.fixtures.pre_alloc_groups import PreAllocGroup
 
+from ....pytest_hive.reporting import write_reported_test_count
 from ..helpers.test_tracker import (
     PreAllocGroupTestTracker,
     enginex_group_counts_key,
@@ -48,6 +50,13 @@ pytest_plugins = (
 def pytest_configure(config: pytest.Config) -> None:
     """Set the supported fixture formats for the enginex simulator."""
     config.supported_fixture_formats = [BlockchainEngineXFixture]  # type: ignore[attr-defined]
+    # Detect silent test loss: after the run, assert that every collected
+    # test reported its result to hive (see `_verify_reported_test_count`
+    # in the pytest_hive plugin).
+    config.assert_reported_test_count = True  # type: ignore[attr-defined]
+    # The count check covers the whole pytest session, so keep one shared hive
+    # suite alive until every module and xdist worker has finished.
+    config.test_suite_scope = "session"  # type: ignore[attr-defined]
 
 
 @pytest.hookimpl(trylast=True)
@@ -155,13 +164,13 @@ def _configure_client_manager(
     multi_test_client_manager.set_test_tracker(pre_alloc_group_test_tracker)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def test_suite_name() -> str:
     """The name of the hive test suite used in this simulator."""
     return "eels/consume-enginex"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def test_suite_description() -> str:
     """The description of the hive test suite used in this simulator."""
     return (
@@ -188,6 +197,27 @@ def _per_test_reporting(
     `mark_test_completed` / `client.stop()`.
     """
     hive_test.register_multi_test_client(client)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _reported_test_count_flush(
+    test_suite: HiveTestSuite,
+    session_temp_folder: Path,
+    request: pytest.FixtureRequest,
+) -> Generator[None, None, None]:
+    """
+    Persist this worker's reported-test counts before suite teardown.
+
+    Depending on `test_suite` guarantees this fixture's teardown runs
+    before the suite teardown, in which the last-finishing xdist worker
+    aggregates all workers' counts and asserts that no test results
+    were silently lost (never started or never reported to hive).
+    """
+    del test_suite
+    yield
+    write_reported_test_count(
+        request.config, request.session, session_temp_folder
+    )
 
 
 @pytest.fixture(scope="function")
