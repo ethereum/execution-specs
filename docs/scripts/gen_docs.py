@@ -8,6 +8,8 @@ support, by writing real Markdown files into `docs/` (all gitignored):
 - `getting_started/contributing.md`, `getting_started/security.md`: copies of
   the repository's CONTRIBUTING.md and SECURITY.md.
 - `filling_tests/filling_tests_command_line_options.md`: `fill --help`.
+- `running_tests/consume/client_runner_schemas.md`: the JSON schemas of the
+  client runner output models.
 - `tests/**`: the "Test Case Reference", including `tests/navigation.md`,
   a nested literate-nav file linked from `docs/navigation.md`.
 
@@ -35,6 +37,7 @@ from pathlib import Path
 from typing import List
 
 from copy_repo_docs import copy_repo_docs
+from gen_runner_interface_schemas import generate_runner_interface_schemas
 from gen_test_case_reference import generate_test_case_reference
 from generate_fill_help import generate_command_line_options_docs
 
@@ -115,6 +118,7 @@ def main() -> int:
     start = time.perf_counter()
     copy_repo_docs(DOCS_DIR)
     generate_command_line_options_docs(DOCS_DIR)
+    generate_runner_interface_schemas(DOCS_DIR)
 
     exit_code = 0
     if not args.skip_test_reference:
