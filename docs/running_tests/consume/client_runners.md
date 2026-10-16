@@ -97,16 +97,14 @@ Genesis and blocks rejected before execution print nothing. Clients MAY add keys
 
 ## Clients
 
-The commands are being added to each client; the last column links each client's change until it merges.
-
-| Client | Block tests | Engine tests | JSON results | Exit code on a failing fixture | Status |
-|---|---|---|---|---|---|
-| go-ethereum | `evm blocktest` | `evm enginetest` | always | non-zero | proposed <!-- LINK: geth PR --> |
-| Besu | `evmtool block-test` | `evmtool engine-test` | `--json-array` | non-zero | proposed <!-- LINK: besu PR --> |
-| Nethermind | `nethtest blocktest` | `nethtest enginetest` | always | 0, which its CI relies on | proposed <!-- LINK: nethermind PR --> |
-| Erigon | `evm blocktest` | `evm enginetest` | `--jsonout` | 0, which its CI relies on | proposed <!-- LINK: erigon PR --> |
-| Reth | `ef-test-runner blocktest` | `ef-test-runner enginetest` | always | non-zero | proposed <!-- LINK: reth PR --> |
-| ethrex | `blocktest` (package `ef_tests-runners`) | `enginetest` (package `ef_tests-runners`) | `--json` | non-zero | proposed <!-- LINK: ethrex PR --> |
+| Client | Block tests | Engine tests | JSON results | Exit code on a failing fixture |
+|---|---|---|---|---|
+| go-ethereum | `evm blocktest` | `evm enginetest` | always | non-zero |
+| Besu | `evmtool block-test` | `evmtool engine-test` | `--json-array` | non-zero |
+| Nethermind | `nethtest blocktest` | `nethtest enginetest` | always | 0, which its CI relies on |
+| Erigon | `evm blocktest` | `evm enginetest` | `--jsonout` | 0, which its CI relies on |
+| Reth | `ef-test-runner blocktest` | `ef-test-runner enginetest` | always | non-zero |
+| ethrex | `blocktest` (package `ef_tests-runners`) | `enginetest` (package `ef_tests-runners`) | `--json` | non-zero |
 
 - Reth's block import has only a sequential executor, so its `blocktest` reports `sequential` with reason `block-import`.
 - Erigon's `--bal-withhold` delivers the list and sets the same switch as its `IGNORE_BAL` environment variable, so execution ignores the list.
