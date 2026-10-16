@@ -2,10 +2,13 @@
 
 import pytest
 
+from execution_testing.base_types.ssz import ssz_fields
 from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures import BlockchainEngineFixture
 from execution_testing.fixtures.blockchain import (
+    MAX_WITHDRAWALS_PER_PAYLOAD,
     FixtureEngineNewPayload,
+    FixtureExecutionPayload,
     FixtureHeader,
 )
 from execution_testing.forks import Amsterdam, Fork
@@ -51,6 +54,37 @@ def _witness_endpoint_label(
             return f"engine_newPayloadV{payload.new_payload_version}"
         return "POST /engine/v1/payloads/witness"
     return f"engine_newPayloadWithWitnessV{payload.new_payload_version}"
+
+
+def _ssz_unencodable_reason(
+    payload: FixtureEngineNewPayload, fork: Fork
+) -> str | None:
+    """
+    Return why the REST+SSZ transport cannot carry a payload, or ``None``.
+
+    JSON-RPC fixtures can express payloads that the SSZ request cannot:
+    SSZ has no way to omit a field, and it bounds the withdrawals list.
+    """
+    execution_payload = payload.params[0]
+    if payload.error_code == EngineAPIError.InvalidParams:
+        missing = [
+            name
+            for name in ssz_fields(FixtureExecutionPayload, fork)
+            if getattr(execution_payload, name) is None
+        ]
+        if missing:
+            return (
+                f"JSON-only missing {', '.join(missing)} field test cannot "
+                f"be encoded as an SSZ payload at {fork.name()}; malformed "
+                "SSZ requests are tested separately"
+            )
+    withdrawals = execution_payload.withdrawals or []
+    if len(withdrawals) > MAX_WITHDRAWALS_PER_PAYLOAD:
+        return (
+            f"{len(withdrawals)} withdrawals cannot be encoded as an SSZ "
+            f"payload, which holds at most {MAX_WITHDRAWALS_PER_PAYLOAD}"
+        )
+    return None
 
 
 def _send_payload_with_witness(
@@ -248,16 +282,11 @@ def test_blockchain_via_engine_witness(
     ]
     if use_ssz_transport:
         for payload, fork in zip(fixture.payloads, payload_forks, strict=True):
-            if (
-                fork >= Amsterdam
-                and payload.error_code == EngineAPIError.InvalidParams
-                and payload.params[0].block_access_list is None
-            ):
-                pytest.skip(
-                    "JSON-only missing BAL field test cannot be encoded "
-                    "as an Amsterdam SSZ payload; malformed SSZ requests "
-                    "are tested separately"
-                )
+            if fork < Amsterdam:
+                continue
+            reason = _ssz_unencodable_reason(payload, fork)
+            if reason is not None:
+                pytest.skip(reason)
         witness_forks = {fork for fork in payload_forks if fork >= Amsterdam}
         if not witness_forks:
             pytest.skip("fixture has no Amsterdam or later payloads")
