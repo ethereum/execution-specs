@@ -806,22 +806,23 @@ def calculate_block_difficulty(
         Computed difficulty for a block.
 
     """
-    offset = (
-        int(parent_difficulty)
-        // 2048
-        * max(1 - int(block_timestamp - parent_timestamp) // 10, -99)
-    )
-    difficulty = int(parent_difficulty) + offset
+    adjustment = parent_difficulty // Uint(2048)
+    time_delta = block_timestamp - parent_timestamp
+    if time_delta < U256(10):
+        difficulty = parent_difficulty + adjustment
+    else:
+        steps = min(Uint(time_delta // U256(10)) - Uint(1), Uint(99))
+        difficulty = parent_difficulty - adjustment * steps
     # Historical Note: The difficulty bomb was not present in Ethereum at the
     # start of Frontier, but was added shortly after launch. However since the
     # bomb has no effect prior to block 200000 we pretend it existed from
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588
-    num_bomb_periods = (int(block_number) // 100000) - 2
-    if num_bomb_periods >= 0:
-        difficulty += 2**num_bomb_periods
+    if block_number >= Uint(200000):
+        num_bomb_periods = block_number // Uint(100000) - Uint(2)
+        difficulty += Uint(2) ** num_bomb_periods
 
     # Some clients raise the difficulty to `MINIMUM_DIFFICULTY` prior to adding
     # the bomb. This bug does not matter because the difficulty is always much
     # greater than `MINIMUM_DIFFICULTY` on Mainnet.
-    return Uint(max(difficulty, int(MINIMUM_DIFFICULTY)))
+    return max(difficulty, MINIMUM_DIFFICULTY)
