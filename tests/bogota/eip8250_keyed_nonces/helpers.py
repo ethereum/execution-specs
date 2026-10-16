@@ -10,10 +10,10 @@ from ..eip8141_frame_transactions.helpers import default_code_frame_gas
 from .spec import Spec, keyed_nonce_slot
 
 NONCE_KEY = 0xBEEF
-"""A non-zero nonce key selecting a keyed domain."""
+"""A nonce key selecting a keyed domain."""
 
 OTHER_KEY = 0xCAFE
-"""A second non-zero nonce key, disjoint from `NONCE_KEY`."""
+"""A second nonce key, disjoint from `NONCE_KEY`."""
 
 
 def keyed_nonce_first_use(fork: Fork) -> int:
@@ -36,12 +36,9 @@ def nonce_field_calldata(nonce_keys: Sequence[int], nonce_seq: int) -> bytes:
 
 def keyed_nonce_access_cost(fork: Fork, nonce_keys: Sequence[int]) -> int:
     """
-    Return the EIP's `keyed_nonce_access_cost`, which prices each
-    non-zero key as an `SSTORE` changing a cold slot. The legacy key set
-    pays nothing.
+    Return the EIP's `keyed_nonce_access_cost`, which prices each key as
+    an `SSTORE` changing a cold slot. The empty key set pays nothing.
     """
-    if list(nonce_keys) == [0]:
-        return 0
     per_key = Op.SSTORE(key_warm=False, original_value=1, new_value=2)
     return len(nonce_keys) * per_key.execution_cost(fork)
 
