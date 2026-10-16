@@ -43,6 +43,8 @@ stdout MUST carry only the results: a JSON array with one object per fixture. Ev
 [{"name": "tests/amsterdam/eip7928_block_level_access_lists/test_x.py::test_y[fork_Amsterdam-blockchain_test]", "pass": true, "rejections": [{"index": 1, "hash": "0x…", "error": "<client error>"}]}]
 ```
 
+<!-- schema: RunnerResults -->
+
 - `name` is the fixture's key in the fixture file, verbatim. Short names repeat across modules, so a harness looks results up by the full ID.
 - `pass` is true when the fixture's expected outcome (valid, or rejected) was met, whatever the reason given.
 - `rejections` has one entry per block or payload the client rejected, in fixture order, and is `[]` when none was.
@@ -79,6 +81,8 @@ With `--bal-report`, both runners MUST print one single-line JSON object on stde
 {"event": "balExecution", "block": 12, "hash": "0x…", "path": "sequential", "reason": "disabled"}
 ```
 
+<!-- schema: BalExecution -->
+
 `path` is the executor that ran the block, `parallel` or `sequential`, and `reason` says why:
 
 | `reason` | When | `path` |
@@ -98,6 +102,8 @@ A client that re-runs a block sequentially after its parallel executor fails MUS
 ```json
 {"event": "balFallback", "block": 12, "hash": "0x…", "parallelError": "…", "sequentialResult": "invalid", "sequentialError": "…"}
 ```
+
+<!-- schema: BalFallback -->
 
 `sequentialResult` is `valid` or `invalid`, and `sequentialError` is empty when valid. The block's verdict stays the sequential one.
 
