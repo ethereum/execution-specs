@@ -108,18 +108,3 @@ Genesis and blocks rejected before execution print nothing. Clients MAY add keys
 
 - Reth's block import has only a sequential executor, so its `blocktest` reports `sequential` with reason `block-import`.
 - Erigon's `--bal-withhold` delivers the list and sets the same switch as its `IGNORE_BAL` environment variable, so execution ignores the list.
-
-## Conformance checklist
-
-- [ ] `--version` prints one line naming the tool and its version, and exits 0.
-- [ ] A file and a directory in one call give one results array covering both.
-- [ ] A missing path: an error on stderr, a non-zero exit, nothing run.
-- [ ] A failing fixture gives the exit code listed in [Clients](#clients).
-- [ ] Results are the same with `--workers 1` and `--workers 4`.
-- [ ] Every result's `name` is its full fixture ID.
-- [ ] A rejected block shows the client's raw error at the right `index`; a clean fixture shows `[]`.
-- [ ] A block rejected for a different reason than expected still has `pass: true` (the consumer checks reasons through the exception mapper).
-- [ ] `blocktest`: a list matching the header is attached, a mismatched list is dropped, and the verdict follows the header, with and without `--bal-sequential`.
-- [ ] `enginetest` reaches the client's own handler in-process at the fixture's method versions.
-- [ ] `enginetest`: a payload with a corrupted access list is INVALID, with and without `--bal-sequential`.
-- [ ] `--bal-report` prints `parallel` lines by default (where the client's code path has a parallel executor), `sequential` with `disabled` under `--bal-sequential`, `withheld` under `--bal-withhold`, and `bad-access-list` on a dropped list; without the flag, stderr is unchanged.
