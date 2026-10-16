@@ -3,6 +3,7 @@
 from .base_types import (
     AccessList,
     Address,
+    Bloom,
     Bytes,
     BytesConcatenation,
     CoerceBytes,
@@ -177,6 +178,7 @@ __all__ = (
     "BlockchainTest",
     "BlockchainTestFiller",
     "BlockException",
+    "Bloom",
     "BuilderDepositRequest",
     "BuilderExitRequest",
     "Bytecode",

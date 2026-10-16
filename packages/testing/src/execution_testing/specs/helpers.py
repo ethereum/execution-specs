@@ -404,6 +404,16 @@ def verify_transaction_receipt(
             zip(expected_logs, actual_logs, strict=True)
         ):
             verify_log(transaction_index, log_idx, expected, actual)
+    if (
+        expected_receipt.bloom is not None
+        and actual_receipt.bloom != expected_receipt.bloom
+    ):
+        raise TransactionReceiptMismatchError(
+            index=transaction_index,
+            field_name="bloom",
+            expected_value=expected_receipt.bloom,
+            actual_value=actual_receipt.bloom,
+        )
     if expected_receipt.status is not None:
         if actual_receipt.status is None:
             raise TransactionReceiptIncompleteError(

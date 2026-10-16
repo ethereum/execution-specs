@@ -161,7 +161,7 @@ def build_genesis_header(
         state_root=state_root,
         transactions_trie=EmptyTrieRoot,
         receipts_root=EmptyTrieRoot,
-        logs_bloom=0,
+        logs_bloom=genesis_fork.empty_logs_bloom(),
         difficulty=0x20000 if env.difficulty is None else env.difficulty,
         number=block_number,
         gas_limit=env.gas_limit,
