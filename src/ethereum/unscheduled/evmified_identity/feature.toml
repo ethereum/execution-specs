@@ -1,0 +1,14 @@
+# EIP-7666: EVM-ify the identity precompile.
+eips = [7666]
+owners = ["spencer-tb"]
+
+# Files (relative to the fork package) and definitions (dotted, within the
+# fork package) that the feature deletes from the fork.
+remove = [
+    "vm/precompiled_contracts/identity.py",
+    "vm.precompiled_contracts.IDENTITY_ADDRESS",
+    "vm.precompiled_contracts.mapping.IDENTITY_ADDRESS",
+    "vm.precompiled_contracts.mapping.identity",
+    "vm.gas.GasCosts.PRECOMPILE_IDENTITY_BASE",
+    "vm.gas.GasCosts.PRECOMPILE_IDENTITY_PER_WORD",
+]

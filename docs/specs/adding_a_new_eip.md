@@ -43,6 +43,7 @@ At any given time there is exactly one fork under active development. The branch
 
 - `forks/<FORK_NAME>`: The main branch for the fork under development. For example, `forks/amsterdam` is the branch for the Amsterdam fork. This branch will be merged into `mainnet` after the fork has gone live.
 - `eips/<FORK_NAME>/<EIP_NUMBER>`: Branches for each EIP within the fork under development. For example, `eips/amsterdam/eip-7928` is the branch for EIP-7928 for the Amsterdam fork. This branch will be merged into `forks/amsterdam` after the EIP has been confirmed for release in the fork.
+- `projects/<FEATURE>`: Branches for features that are not scheduled for any fork. For example, `projects/zkevm`. A feature moves onto the fork branch once acknowledged on ACDT, see [Unscheduled features](#unscheduled-features).
 
 ## Writing a new EIP
 
@@ -56,6 +57,30 @@ Implementing a new EIP in this repository involves the following steps:
 An EIP can only be CFI'd (Considered For Inclusion) if it has a reference EELS implementation. The EIP author is responsible for keeping their EIP up to date with the latest changes. For example, if an author had written their EIP for Prague under `eips/prague/eip-x`, but for some reason it didn't make it into Prague, they would need to rebase their EIP to reflect the changes in Amsterdam under `eips/amsterdam/eip-x`.
 
 A sample tutorial that walks through adding a new opcode to the specification is available on YouTube: [EELS tutorial](https://www.youtube.com/watch?v=QIcw_DGSy3s).
+
+## Unscheduled features
+
+A *feature* is a single EIP, or a set of EIPs, that is not scheduled for any fork. It can live on the fork branch instead of on a long-running branch. A feature holds only what it changes, and is rebuilt on top of the newest fork whenever it runs. It never needs a rebase, and the fork never has to accommodate it.
+
+A feature gets onto the fork branch in three steps:
+
+1. **Develop it on a project branch.** Work on a feature starts on a `projects/<FEATURE>` branch.
+2. **Get it acknowledged on ACDT.** Adding a feature to the fork branch requires acknowledgement on ACDT, including who owns the feature and keeps it working.
+3. **Move it into the fork branch.** Raise a PR against the fork branch that adds the feature in the layout below.
+
+The layout of a feature:
+
+- **Spec:** `src/ethereum/unscheduled/<feature>/` holds a `feature.toml` (the EIPs, the owners, and the files and definitions the feature removes), plus Python files that mirror the fork package. A file that the fork lacks is added. A file that the fork has is an overlay: its definitions replace the fork's definitions of the same name, and its imports are added where missing.
+- **Fork:** a feature fork in `packages/testing/src/execution_testing/forks/forks/unscheduled.py` that enables the feature's EIPs on top of its base fork.
+- **Tests:** `tests/unscheduled/<feature>/eip<N>_<name>/`, marked `valid_from("EIP<N>")` and filled with `uv run fill tests/unscheduled/<feature> --fork <Feature>`.
+
+Unscheduled features are automatically based on the most recent fork. As SFI'd EIPs are merged into the development fork branch, every feature picks them up and is built on top of them. If its owners prefer a stable base, a feature can instead be pinned to a fork that is no longer under development, by setting `base` in its `feature.toml` (for example `base = "osaka"`) and building its feature fork on that fork.
+
+When its base fork changes a definition that a feature replaces, the feature refuses to build until its owners review the change and run `uv run ethereum-spec-unscheduled <feature> --update-lock`. To read a feature's full specification, run `uv run ethereum-spec-unscheduled <feature> --output <directory>`, and to lint and type check it, run `uv run ethereum-spec-unscheduled <feature> --check`. The step by step guide lives in `src/ethereum/unscheduled/README.md`.
+
+Features are left out of the default fill and of the fork's checks, and pull requests to the fork never need to update them. Keeping a feature working is up to its owners. Once its EIPs are scheduled, they are implemented in the fork like any other EIP and the feature is deleted.
+
+To keep the maintenance of this repository manageable, a feature with no traction or updates in the past 365 days is deleted. If its owners still want to keep it alive, they can recreate it on a `projects/<FEATURE>` branch and bring it back through the steps above.
 
 ## Writing tests for an EIP
 
