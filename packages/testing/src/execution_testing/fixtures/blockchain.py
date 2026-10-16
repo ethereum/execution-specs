@@ -1071,6 +1071,22 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
     )
     """Engine API payloads for blockchain execution."""
 
+    sync_payloads: List[FixtureEngineNewPayload] | None = None
+    """
+    Framework-built empty payloads, one above each authored leaf, for
+    consumers that sync instead of replaying ``payloads``.
+
+    A target's ancestry is found by following ``parent_hash`` through
+    ``payloads``. A target above an invalid leaf is announcement
+    scaffolding, never an executable block, and invalid-leaf targets
+    precede the final valid one. ``payloads``, ``last_block_hash`` and
+    the post state describe only what the author wrote, so Engine API
+    consumers can ignore this field. ``None`` when the fixture has no
+    target: it expects an Engine API error code, its leaves admit no
+    child block, it set ``sync_block=False``, or the fill used
+    ``--no-sync-block``.
+    """
+
 
 class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
     """

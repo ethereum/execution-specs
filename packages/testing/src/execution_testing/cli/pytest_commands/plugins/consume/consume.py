@@ -20,6 +20,7 @@ from execution_testing.cli.gen_index import (
     generate_fixtures_index,
 )
 from execution_testing.cli.pytest_commands.plugins.consume.simulators.helpers.test_tracker import (  # noqa: E501
+    group_variants_key,
     make_group_identifier,
 )
 from execution_testing.fixtures import (
@@ -518,6 +519,11 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     index = IndexFile.model_validate_json(index_file.read_text())
     config.test_cases = index.test_cases  # type: ignore[attr-defined]
 
+    config.addinivalue_line(
+        "markers",
+        "group_variant(name): the client configuration a test runs under, "
+        "when a simulator runs one fixture under several",
+    )
     for fixture_format in BaseFixture.formats.values():
         config.addinivalue_line(
             "markers",
@@ -660,24 +666,38 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         return
 
     clients = metafunc.config.hive_execution_clients  # type: ignore[attr-defined]
+    # A simulator may stash `group_variants_key` to run a fixture under
+    # several client configurations (see `make_group_identifier`).
+    group_variants = metafunc.config.stash.get(group_variants_key, None)
     combined = []
     for param in param_list:
         tc = cast(TestCaseBase, param.values[0])
         for ct in clients:
-            marks = list(param.marks)
-            if is_enginex:
-                assert tc.pre_hash is not None
-                marks.append(
-                    pytest.mark.xdist_group(
-                        name=make_group_identifier(tc.pre_hash, ct.name)
+            variants = (
+                group_variants(tc, ct)
+                if is_enginex and group_variants
+                else ("",)
+            )
+            for variant in variants:
+                marks = list(param.marks)
+                if is_enginex:
+                    assert tc.pre_hash is not None
+                    marks.append(
+                        pytest.mark.xdist_group(
+                            name=make_group_identifier(
+                                tc.pre_hash, ct.name, variant
+                            )
+                        )
+                    )
+                if variant:
+                    marks.append(pytest.mark.group_variant(variant))
+                combined.append(
+                    pytest.param(
+                        tc,
+                        ct,
+                        id=f"{tc.id}-{ct.name}"
+                        + (f"-{variant}" if variant else ""),
+                        marks=marks,
                     )
                 )
-            combined.append(
-                pytest.param(
-                    tc,
-                    ct,
-                    id=f"{tc.id}-{ct.name}",
-                    marks=marks,
-                )
-            )
     metafunc.parametrize("test_case,client_type", combined)
