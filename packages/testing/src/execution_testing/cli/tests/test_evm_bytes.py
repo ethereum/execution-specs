@@ -230,7 +230,9 @@ def test_evm_bytes_round_trip(opcode: Op) -> None:
     for immediate in _immediates(opcode):
         bytecode = opcode.int().to_bytes(1, "big") + immediate
         expected = bytecode + b"\x00" * (length - len(immediate))
-        assert _round_trip(bytecode) == expected, bytecode.hex()
+        assert _round_trip(bytecode) == expected, (
+            f"Bytecode does not round-trip via evm_bytes: {bytecode.hex()}"
+        )
 
 
 def test_evm_bytes_round_trip_random_code() -> None:
@@ -244,7 +246,9 @@ def test_evm_bytes_round_trip_random_code() -> None:
             bytecode += opcode.int().to_bytes(1, "big") + rng.randbytes(
                 opcode.data_portion_length
             )
-        assert _round_trip(bytecode) == bytecode, bytecode.hex()
+        assert _round_trip(bytecode) == bytecode, (
+            f"Bytecode does not round-trip via evm_bytes: {bytecode.hex()}"
+        )
 
 
 @pytest.mark.parametrize("evm_bytes", malformed_hex_strings)
