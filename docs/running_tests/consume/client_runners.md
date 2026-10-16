@@ -44,7 +44,7 @@ stdout MUST carry only the results: a JSON array with one object per fixture. Ev
 
 Clients MAY add keys to a result, such as `fork`, and consumers ignore keys they do not know.
 
-A runner MUST NOT map errors to exception names or compare them with the fixture's expected exception. The consumer checks reasons through the client's [exception mapper](exceptions.md), which keeps every client free of a copied table to sync.
+A runner MUST NOT map errors to exception names or compare them with the fixture's expected exception. The consumer checks reasons through the client's [exception mapper](exceptions.md).
 
 ## Block tests deliver the access list
 
@@ -109,7 +109,7 @@ The commands are being added to each client; the last column links each client's
 | ethrex | `blocktest` (package `ef_tests-runners`) | `enginetest` (package `ef_tests-runners`) | `--json` | non-zero | proposed <!-- LINK: ethrex PR --> |
 
 - Reth's block import has only a sequential executor, so its `blocktest` reports `sequential` with reason `block-import`.
-- Erigon's `--bal-withhold` delivers the list and sets the switch its `IGNORE_BAL` environment variable sets, so execution ignores the list.
+- Erigon's `--bal-withhold` delivers the list and sets the same switch as its `IGNORE_BAL` environment variable, so execution ignores the list.
 
 ## Conformance checklist
 
