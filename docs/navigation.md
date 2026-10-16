@@ -45,6 +45,7 @@
           * [Transition Tool Support](filling_tests/transition_tool_support.md)
           * [Debugging Transition Tools](filling_tests/debugging_t8n_tools.md)
           * [Filling Stateful Benchmark Fixtures](filling_tests/fill_stateful.md)
+          * [Stateful Environment Stub Accounts Configuration](filling_tests/stateful_environment.md)
       * [Running Tests](running_tests/index.md)
           * [Methods of Running Tests](running_tests/running.md)
           * [EELS Fixture Releases](running_tests/releases.md)
