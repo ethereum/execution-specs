@@ -41,6 +41,7 @@ from execution_testing import (
     Bytecode,
     Environment,
     Hash,
+    Initcode,
     Op,
     StateTestFiller,
     Transaction,
@@ -81,10 +82,10 @@ pytestmark = [
 FUNDING = 10**18
 
 
-def _create2_address(salt: int) -> Address:
-    """Return the address the factory creates for `DELETE_INITCODE`."""
+def _create2_address(salt: int, initcode: bytes = DELETE_INITCODE) -> Address:
+    """Return the address the factory creates for `initcode` under `salt`."""
     return compute_create2_address(
-        DETERMINISTIC_FACTORY_ADDRESS, salt, DELETE_INITCODE
+        DETERMINISTIC_FACTORY_ADDRESS, salt, initcode
     )
 
 
@@ -319,6 +320,42 @@ def test_storage_root_flip_with_account_shape_change(
                         sender=sender,
                         to=survivor,
                         data=Hash(SINGLE_SLOT) + Hash(value),
+                    ),
+                ]
+            )
+        ],
+    )
+
+
+def test_code_hash_flip_with_account_shape_change(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Code is deployed onto the collapse survivor, a balance-only account.
+
+    pre:  .. -> ext -> branch@4 -> {survivor, doomed}
+    post: .. -> leaf whose value carries the survivor's new code hash
+    The survivor's code hash and its path change in the same block.
+    """
+    initcode = bytes(Initcode(deploy_code=SLOT_WRITER))
+    survivor = _create2_address(SURVIVOR_SALT, initcode)
+    sender = pre.fund_eoa()
+    doomed = _fund_collapse(pre, [survivor], COLLAPSE_SALT, 4, "ext", "leaf")
+
+    blockchain_test(
+        pre=pre,
+        post={
+            survivor: Account(nonce=1, balance=1, code=SLOT_WRITER),
+            doomed: Account.NONEXISTENT,
+        },
+        blocks=[
+            Block(
+                txs=[
+                    _delete_tx(sender, COLLAPSE_SALT),
+                    Transaction(
+                        sender=sender,
+                        to=DETERMINISTIC_FACTORY_ADDRESS,
+                        data=Hash(SURVIVOR_SALT) + initcode,
                     ),
                 ]
             )
