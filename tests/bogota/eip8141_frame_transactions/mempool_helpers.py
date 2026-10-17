@@ -114,7 +114,43 @@ def frame_gas(fork: Fork, code: Bytecode, *, target_warm: bool) -> int:
     ) + code.gas_cost(fork)
 
 
-def frame_max_cost(fork: Fork, tx: Transaction) -> int:
+PINNED_MAX_FEE_PER_GAS = 10**10
+"""Maximum fee per gas of transactions whose fees a test pins."""
+
+PINNED_MAX_PRIORITY_FEE_PER_GAS = 10**9
+"""Maximum priority fee per gas of transactions whose fees a test pins."""
+
+
+def frame_max_cost_bounds(fork: Fork, tx: Transaction) -> Tuple[int, int]:
+    """
+    Return the least and greatest maximum cost a frame transaction
+    shaped like `tx` can have, over every value of its signature
+    entries' signer and signature bytes, which zero bytes price lower.
+    """
+    tx.sign()
+    assert tx.frames is not None and tx.signatures is not None
+
+    def cost(fill: bytes) -> int:
+        assert tx.signatures is not None
+        stand_ins = [
+            signature.model_copy(
+                update={
+                    "signer": Bytes(fill * len(signature.signer)),
+                    "signature": Bytes(fill * len(signature.signature)),
+                }
+            )
+            for signature in tx.signatures
+        ]
+        return frame_max_cost(fork, tx, signatures=stand_ins)
+
+    return cost(b"\x00"), cost(b"\xff")
+
+
+def frame_max_cost(
+    fork: Fork,
+    tx: Transaction,
+    signatures: Sequence[FrameSignature] | None = None,
+) -> int:
     """
     Return the maximum cost a frame transaction's payer is charged when
     payment is approved: its derived gas limit at the maximum fee per
@@ -124,7 +160,7 @@ def frame_max_cost(fork: Fork, tx: Transaction) -> int:
     assert tx.frames is not None and tx.signatures is not None
     max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
         frames=tx.frames,
-        signatures=tx.signatures,
+        signatures=tx.signatures if signatures is None else signatures,
         sender=tx.sender,
         nonce_keys=[int(key) for key in tx.nonce_keys or (0,)],
         nonce_seq=int(tx.nonce),
@@ -221,6 +257,7 @@ def sender_part(
     sender_code: Bytecode | None,
     factory: Address | None = None,
     initcode_prefix: Bytecode | None = None,
+    sender: EOA | None = None,
 ) -> Prefix:
     """
     Return the frames approving the sender's execution, and payment for
@@ -238,7 +275,7 @@ def sender_part(
     )
     if shape.deploys:
         runtime = (sender_code or Bytecode()) + Op.APPROVE(0, 0, scope)
-        deploy, sender = deploy_frame(
+        deploy, deployed = deploy_frame(
             pre,
             fork,
             runtime,
@@ -246,16 +283,16 @@ def sender_part(
             initcode_prefix=initcode_prefix,
         )
         if not shape.sponsored:
-            pre.fund_address(sender, CONTRACT_ACCOUNT_BALANCE)
+            pre.fund_address(deployed, CONTRACT_ACCOUNT_BALANCE)
         verify = verify_frame(
             flags=scope,
             gas_limit=frame_gas(fork, runtime, target_warm=True),
             state_gas_limit=0,
         )
-        return Prefix(sender, [deploy, verify], [], work_frame=0, nonce=0)
+        return Prefix(deployed, [deploy, verify], [], work_frame=0, nonce=0)
     if sender_code is not None:
         code = sender_code + Op.APPROVE(0, 0, scope)
-        sender = pre.deploy_contract(
+        contract = pre.deploy_contract(
             code=code,
             balance=0 if shape.sponsored else CONTRACT_ACCOUNT_BALANCE,
         )
@@ -265,16 +302,41 @@ def sender_part(
             state_gas_limit=0,
         )
         # A deployed contract starts at nonce one.
-        return Prefix(sender, [verify], [], work_frame=0, nonce=1)
-    # A sponsored sender must exist, or the payment approval would charge
-    # its account creation to the `pay` frame's state budget.
-    eoa = pre.fund_eoa(amount=1) if shape.sponsored else pre.fund_eoa()
+        return Prefix(contract, [verify], [], work_frame=0, nonce=1)
+    if sender is not None:
+        eoa = sender
+    elif shape.sponsored:
+        # A sponsored sender must exist, or the payment approval would
+        # charge its account creation to the `pay` frame's state budget.
+        eoa = pre.fund_eoa(amount=1)
+    else:
+        eoa = pre.fund_eoa()
     verify = verify_frame(
         flags=scope,
         gas_limit=frame_gas(fork, Bytecode(), target_warm=True),
         state_gas_limit=0,
     )
     return Prefix(eoa, [verify], [default_code_signature(eoa)], work_frame=0)
+
+
+@dataclass(frozen=True)
+class Paymaster:
+    """A non-canonical paymaster contract and the code it runs."""
+
+    address: Address
+    code: Bytecode
+
+
+def deploy_paymaster(
+    pre: Alloc,
+    code: Bytecode | None = None,
+    balance: int = CONTRACT_ACCOUNT_BALANCE,
+) -> Paymaster:
+    """Deploy a paymaster running `code` before approving payment."""
+    approving = (code or Bytecode()) + Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT)
+    return Paymaster(
+        pre.deploy_contract(code=approving, balance=balance), approving
+    )
 
 
 def prefix(
@@ -284,6 +346,8 @@ def prefix(
     *,
     sender_code: Bytecode | None = None,
     paymaster_code: Bytecode | None = None,
+    payer: EOA | Paymaster | None = None,
+    sender: EOA | None = None,
     expiry: bool = False,
     factory: Address | None = None,
     initcode_prefix: Bytecode | None = None,
@@ -292,46 +356,47 @@ def prefix(
     Return the validation prefix of `shape` with each frame's execution
     budget just covering its work.
 
-    A sponsored shape pays from an EOA validated by its default code,
-    unless `paymaster_code` is given or the sender has no signature
-    entry to precede the sponsor's: then a contract paymaster runs
-    `paymaster_code` before approving. With `expiry`, the prefix opens
-    with an expiry verifier frame. A `deploy` frame calls `factory`,
-    the deterministic factory by default, with `initcode_prefix` run
-    before the sender's code is returned.
+    A sponsored shape pays from `payer`, an EOA sponsor validated by its
+    default code or a paymaster contract. Unset, the payer is a new
+    sponsor, or a new paymaster running `paymaster_code` when that is
+    given or the sender has no signature entry to precede the
+    sponsor's. An EOA `sender` validated by its default code is reused
+    instead of a new one. With `expiry`, the prefix opens with an expiry
+    verifier frame. A `deploy` frame calls `factory`, the deterministic factory
+    by default, with `initcode_prefix` run before the sender's code is
+    returned.
     """
     built = sender_part(
-        pre, fork, shape, sender_code, factory, initcode_prefix
+        pre, fork, shape, sender_code, factory, initcode_prefix, sender
     )
     if shape.sponsored:
-        if paymaster_code is None and built.signatures:
-            sponsor = pre.fund_eoa()
+        if payer is None:
+            if paymaster_code is None and built.signatures:
+                payer = pre.fund_eoa()
+            else:
+                payer = deploy_paymaster(pre, paymaster_code)
+                if paymaster_code is not None and not shape.deploys:
+                    built.work_frame = len(built.frames)
+        if isinstance(payer, Paymaster):
             built.frames.append(
                 verify_frame(
-                    target=sponsor,
+                    target=payer.address,
+                    flags=Spec.APPROVE_PAYMENT,
+                    gas_limit=frame_gas(fork, payer.code, target_warm=False),
+                    state_gas_limit=0,
+                )
+            )
+        else:
+            assert built.signatures, "a sponsor's entry must not be first"
+            built.frames.append(
+                verify_frame(
+                    target=payer,
                     flags=Spec.APPROVE_PAYMENT,
                     gas_limit=frame_gas(fork, Bytecode(), target_warm=False),
                     state_gas_limit=0,
                 )
             )
-            built.signatures.append(default_code_signature(sponsor))
-        else:
-            code = (paymaster_code or Bytecode()) + Op.APPROVE(
-                0, 0, Spec.APPROVE_PAYMENT
-            )
-            paymaster = pre.deploy_contract(
-                code=code, balance=CONTRACT_ACCOUNT_BALANCE
-            )
-            built.frames.append(
-                verify_frame(
-                    target=paymaster,
-                    flags=Spec.APPROVE_PAYMENT,
-                    gas_limit=frame_gas(fork, code, target_warm=False),
-                    state_gas_limit=0,
-                )
-            )
-            if paymaster_code is not None and not shape.deploys:
-                built.work_frame = len(built.frames) - 1
+            built.signatures.append(default_code_signature(payer))
     if expiry:
         built.insert(0, priced_expiry_frame(fork))
     return built
@@ -397,6 +462,8 @@ def prefix_transaction(
     extra_signatures: Sequence[FrameSignature] = (),
     sender_code: Bytecode | None = None,
     paymaster_code: Bytecode | None = None,
+    payer: EOA | Paymaster | None = None,
+    sender: EOA | None = None,
     expiry: bool = False,
     after: Sequence[Frame] = (),
     **tx_kwargs: Any,
@@ -412,6 +479,8 @@ def prefix_transaction(
         shape,
         sender_code=sender_code,
         paymaster_code=paymaster_code,
+        payer=payer,
+        sender=sender,
         expiry=expiry,
     )
     built.signatures += list(extra_signatures)
