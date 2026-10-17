@@ -186,6 +186,11 @@ def _write_sibling(
         folder / SIBLING_FIXTURES_DIR / "prague" / "module" / file_name,
         {test_id: fixture},
     )
+    _write_group(
+        folder,
+        accounts=pre.root if pre is not None else {SENDER: Account(balance=1)},
+        test_ids=[test_id],
+    )
 
 
 def _write_engine_x(
@@ -641,9 +646,8 @@ def test_non_fixture_files_are_ignored(tmp_path: Path) -> None:
         Account(storage={0: 1}, balance=2),
         Account(storage={0: 1}, nonce=2),
         Account(storage={0: 1}, code="0x00"),
-        None,
     ],
-    ids=["storage-value", "balance", "nonce", "code", "account-deleted"],
+    ids=["storage-value", "balance", "nonce", "code"],
 )
 def test_post_state_drift_with_identical_payloads(
     tmp_path: Path, packed_account: Account | None
@@ -729,6 +733,43 @@ def test_post_state_deletion_is_not_an_omitted_change(
     )
 
     with pytest.raises(EngineXExecutionDriftError, match="post-state"):
+        verify_engine_x_execution(tmp_path)
+
+
+def test_packed_only_account_deleted_in_both_executions_passes(
+    tmp_path: Path,
+) -> None:
+    """Accept equal final absence despite different genesis states."""
+    _write_sibling(tmp_path, [_sibling_payload()])
+    _write_engine_x(
+        tmp_path,
+        [_engine_x_payload()],
+        post_diff=Alloc({UNDECLARED_ACCOUNT: None}),
+    )
+    _write_group(
+        tmp_path,
+        accounts={
+            SENDER: Account(balance=1),
+            UNDECLARED_ACCOUNT: Account(balance=3),
+        },
+        test_ids=[ENGINE_X_ID],
+    )
+
+    assert verify_engine_x_execution(tmp_path).compared == 1
+
+
+def test_missing_pre_alloc_group_raises(tmp_path: Path) -> None:
+    """Report missing genesis data needed to reconstruct packed state."""
+    _write_sibling(tmp_path, [_sibling_payload()])
+    _write_engine_x(tmp_path, [_engine_x_payload()])
+    group_file = (
+        tmp_path / ENGINE_X_FIXTURES_DIR / "pre_alloc" / f"{PRE_HASH}.json"
+    )
+    group_file.unlink()
+
+    with pytest.raises(
+        EngineXCheckError, match="pre-alloc group.*unavailable"
+    ):
         verify_engine_x_execution(tmp_path)
 
 
