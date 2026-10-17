@@ -560,7 +560,10 @@ def recover_sender(tx: Transaction) -> Address:
             )
         else:
             assert v >= U256(35), "call chain_id before recover_sender"
-            tx_chain_id = U64((v - U256(35)) >> U256(1))
+            tx_chain_id_u256 = (v - U256(35)) >> U256(1)
+            if tx_chain_id_u256 > U256(U64.MAX_VALUE):
+                raise InvalidSignatureError("bad v")
+            tx_chain_id = U64(tx_chain_id_u256)
             v = (v - U256(35)) & U256(1)
             public_key = secp256k1_recover(
                 r,
