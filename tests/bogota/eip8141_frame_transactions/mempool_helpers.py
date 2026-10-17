@@ -138,6 +138,7 @@ def deploy_frame(
     runtime: Bytecode,
     *,
     factory: Address | None = None,
+    initcode_prefix: Bytecode | None = None,
 ) -> Tuple[Frame, Address]:
     """
     Return a `deploy` frame installing `runtime` at a counterfactual
@@ -151,7 +152,7 @@ def deploy_frame(
         factory = fork.deterministic_factory_contract_address()
     assert factory is not None
     salt = Hash(bytes(pre.nonexistent_account()).rjust(32, b"\x00"))
-    initcode = Initcode(deploy_code=runtime)
+    initcode = Initcode(deploy_code=runtime, initcode_prefix=initcode_prefix)
     sender = compute_create2_address(
         address=factory, salt=salt, initcode=initcode
     )
@@ -218,6 +219,8 @@ def sender_part(
     fork: Fork,
     shape: PrefixShape,
     sender_code: Bytecode | None,
+    factory: Address | None = None,
+    initcode_prefix: Bytecode | None = None,
 ) -> Prefix:
     """
     Return the frames approving the sender's execution, and payment for
@@ -235,7 +238,13 @@ def sender_part(
     )
     if shape.deploys:
         runtime = (sender_code or Bytecode()) + Op.APPROVE(0, 0, scope)
-        deploy, sender = deploy_frame(pre, fork, runtime)
+        deploy, sender = deploy_frame(
+            pre,
+            fork,
+            runtime,
+            factory=factory,
+            initcode_prefix=initcode_prefix,
+        )
         if not shape.sponsored:
             pre.fund_address(sender, CONTRACT_ACCOUNT_BALANCE)
         verify = verify_frame(
@@ -276,6 +285,8 @@ def prefix(
     sender_code: Bytecode | None = None,
     paymaster_code: Bytecode | None = None,
     expiry: bool = False,
+    factory: Address | None = None,
+    initcode_prefix: Bytecode | None = None,
 ) -> Prefix:
     """
     Return the validation prefix of `shape` with each frame's execution
@@ -285,9 +296,13 @@ def prefix(
     unless `paymaster_code` is given or the sender has no signature
     entry to precede the sponsor's: then a contract paymaster runs
     `paymaster_code` before approving. With `expiry`, the prefix opens
-    with an expiry verifier frame.
+    with an expiry verifier frame. A `deploy` frame calls `factory`,
+    the deterministic factory by default, with `initcode_prefix` run
+    before the sender's code is returned.
     """
-    built = sender_part(pre, fork, shape, sender_code)
+    built = sender_part(
+        pre, fork, shape, sender_code, factory, initcode_prefix
+    )
     if shape.sponsored:
         if paymaster_code is None and built.signatures:
             sponsor = pre.fund_eoa()
