@@ -20,6 +20,18 @@ Tests can be run using:
 
 See [Hive](../hive/index.md) for help installing and configuring Hive.
 
+## The `eels/execute-mempool` Simulator
+
+The `mempool_test` execute test spec sends transactions in order to a running client via `eth_sendRawTransaction` and checks that its public mempool admits or rejects each one. Admitted transactions are then waited on until a block includes them.
+
+Tests can be run using:
+
+```bash
+./hive --client go-ethereum --sim ethereum/eels/execute-mempool --sim.buildarg fork=Bogota
+```
+
+Against a live network, the same tests run with `uv run execute remote ... -m mempool_test`.
+
 ## Running `execute` tests with Hive in Dev Mode
 
 This command requires hive to be running in `--dev` mode:

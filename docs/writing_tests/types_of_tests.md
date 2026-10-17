@@ -73,6 +73,19 @@ Test correct transaction rejection/acceptance of a serialized transaction (curre
 
     Using the `execute` command, transaction tests can be sent to clients in a live network using the `eth_sendRawTransaction` endpoint.
 
+## Mempool Tests
+
+### Purpose
+
+Test that a client's public mempool admits or rejects transactions that are valid in a block, where the rule is mempool policy and not consensus.
+
+### Use cases
+
+- Verify that a client rejects a transaction its public mempool must not hold, for example an EIP-8141 frame transaction exceeding the validation budget.
+- Verify that a block including the same transaction is still valid.
+
+Each `MempoolTransaction` passed to `mempool_test` states whether the mempool must admit it. The `fill` command places the transactions in a single block that must be valid and generates blockchain fixtures from it. The `execute` command sends them in order via `eth_sendRawTransaction` and checks the client's answer to each.
+
 ## Deciding on a test type
 
 ### Prefer `state_test` for single transactions

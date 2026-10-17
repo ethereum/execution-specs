@@ -49,6 +49,10 @@ EOAs are funded after gas prices are determined, enabling accurate balance calcu
 
 Blob transactions are fully supported in execute mode, including automatic gas pricing for blob gas fees and validation via `engine_getBlobsVX` endpoints when the Engine RPC is available.
 
+### Mempool Admission Tests
+
+Mempool tests (`-m mempool_test`) send each transaction via `eth_sendRawTransaction` and check that the client's public mempool admits or rejects it. They send directly to the mempool even with `--use-testing-build-block`, which only reroutes setup transactions.
+
 ### Transaction Batching
 
 When executing tests with many transactions (e.g., benchmark tests), the `execute` plugin automatically batches transactions to avoid overloading the RPC service (The experiment transaction limit for RPC is 1000 requests.). This is particularly important for large-scale tests that may generate hundreds or thousands of transactions.
