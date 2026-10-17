@@ -370,9 +370,9 @@ class Receipt:
     Whether the transaction execution was successful.
     """
 
-    cumulative_gas_used: Uint
+    gas_used: Uint
     """
-    Total gas used in the block up to and including this transaction.
+    Gas used by this transaction.
     This is the gas used after refunds, paid by the user.
     """
 

@@ -34,6 +34,7 @@ def get_receipts_from_output(t8n: "T8N", block_output: Any) -> List[Any]:
     )
 
     receipts: List[Any] = []
+    cumulative_gas_used = 0
     for key in block_output.receipt_keys:
         tx = trie_get(block_output.transactions_trie, key)
         receipt = trie_get(block_output.receipts_trie, key)
@@ -47,19 +48,29 @@ def get_receipts_from_output(t8n: "T8N", block_output: Any) -> List[Any]:
         else:
             decoded_receipt = receipt
 
+        individual_gas = hasattr(decoded_receipt, "gas_used")
+        if individual_gas:
+            gas_used = int(decoded_receipt.gas_used)
+            cumulative_gas_used += gas_used
+        else:
+            cumulative_gas_used = int(decoded_receipt.cumulative_gas_used)
+
         receipt_kwargs: Dict[str, Any] = {
             "transaction_hash": tx_hash,
-            "cumulative_gas_used": int(decoded_receipt.cumulative_gas_used),
+            "cumulative_gas_used": cumulative_gas_used,
             "bloom": decoded_receipt.bloom,
             "logs": [
                 TransactionLog(
                     address=log.address,
                     topics=list(log.topics),
                     data=log.data,
+                    log_index=index if individual_gas else None,
                 )
-                for log in decoded_receipt.logs
+                for index, log in enumerate(decoded_receipt.logs)
             ],
         }
+        if individual_gas:
+            receipt_kwargs["gas_used"] = gas_used
         if hasattr(decoded_receipt, "succeeded"):
             receipt_kwargs["status"] = int(decoded_receipt.succeeded)
         elif hasattr(decoded_receipt, "post_state"):

@@ -301,6 +301,17 @@ def verify_log(
     actual: TransactionLog,
 ) -> None:
     """Verify a single log matches expected values (only specified fields)."""
+    if (
+        expected.log_index is not None
+        and expected.log_index != actual.log_index
+    ):
+        raise LogMismatchError(
+            index=tx_index,
+            log_index=log_index,
+            field_name="log_index",
+            expected_value=expected.log_index,
+            actual_value=actual.log_index,
+        )
     if expected.address is not None and expected.address != actual.address:
         raise LogMismatchError(
             index=tx_index,

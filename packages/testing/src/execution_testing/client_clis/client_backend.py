@@ -14,7 +14,7 @@ info, block boundaries, and pre-alloc declarations flow unchanged.
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional
 
-from execution_testing.base_types import Bytes, Hash
+from execution_testing.base_types import Bytes, Hash, HexNumber
 from execution_testing.exceptions import ExceptionBase, ExceptionMapper
 from execution_testing.forks import Fork, Requests, TransitionFork
 from execution_testing.logging import get_logger
@@ -479,6 +479,26 @@ class ClientBackend:
         block_fork: Fork,
     ) -> Result:
         """Assemble a ``Result`` from the client-built payload + receipts."""
+        if block_fork.is_eip_enabled(8116):
+            # RPC may expose the stored per-transaction gas in
+            # cumulativeGasUsed. Result consumers require a running total.
+            cumulative_gas_used = 0
+            normalized_receipts = []
+            for receipt in receipts:
+                if receipt.gas_used is None:
+                    raise ValueError("EIP-8116 receipt is missing gasUsed")
+                cumulative_gas_used += receipt.gas_used
+                normalized_receipts.append(
+                    receipt.model_copy(
+                        update={
+                            "cumulative_gas_used": HexNumber(
+                                cumulative_gas_used
+                            )
+                        }
+                    )
+                )
+            receipts = normalized_receipts
+
         withdrawals_root: Hash | None = None
         if block_fork.header_withdrawals_required():
             withdrawals_root = Hash(Withdrawal.list_root(withdrawals or []))
