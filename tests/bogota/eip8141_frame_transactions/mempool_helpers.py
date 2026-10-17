@@ -1,7 +1,8 @@
 """Helpers for EIP-8141 public mempool tests."""
 
+from dataclasses import dataclass
 from enum import Enum, unique
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, List, Sequence, Tuple
 
 from execution_testing import (
     EOA,
@@ -16,21 +17,40 @@ from execution_testing import (
     Initcode,
     Op,
     Transaction,
-    compute_deterministic_create2_address,
+    compute_create2_address,
 )
 
-from .helpers import verify_frame
+from .helpers import expiry_frame, verify_frame
 from .spec import Spec
 
-DEPLOYED_SENDER_BALANCE = 10**16
+CONTRACT_ACCOUNT_BALANCE = 10**16
 """
-Balance of a sender deployed by a deploy frame, which pays for its own
-transaction. A counterfactual address cannot be funded on demand, so
-the amount is fixed with headroom for live network fees.
+Balance of a contract sender or paymaster that pays for a transaction.
+Execute funds a contract or a counterfactual address with a fixed
+amount only, so it carries headroom for live network fees.
 """
 
-PAYMASTER_BALANCE = 10**16
-"""Balance of a paymaster contract, fixed for the same reason."""
+EXPIRY_VERIFIER_PATH = (
+    Op.PUSH1(Spec.EXPIRY_DATA_LENGTH)
+    + Op.CALLDATASIZE
+    + Op.EQ
+    + Op.PUSH1(0x0A)
+    + Op.JUMPI
+    + Op.JUMPDEST
+    + Op.PUSH0
+    + Op.CALLDATALOAD
+    + Op.PUSH1(0xC0)
+    + Op.SHR
+    + Op.TIMESTAMP
+    + Op.GT
+    + Op.PUSH1(0x16)
+    + Op.JUMPI
+    + Op.STOP
+)
+"""
+The instructions the expiry verifier executes for a deadline that has
+not passed, which price an expiry verifier frame.
+"""
 
 
 def validation_prefix(frames: Sequence[Frame]) -> Sequence[Frame]:
@@ -94,24 +114,50 @@ def frame_gas(fork: Fork, code: Bytecode, *, target_warm: bool) -> int:
     ) + code.gas_cost(fork)
 
 
+def frame_max_cost(fork: Fork, tx: Transaction) -> int:
+    """
+    Return the maximum cost a frame transaction's payer is charged when
+    payment is approved: its derived gas limit at the maximum fee per
+    gas.
+    """
+    tx.sign()
+    assert tx.frames is not None and tx.signatures is not None
+    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=tx.frames,
+        signatures=tx.signatures,
+        sender=tx.sender,
+        nonce_keys=[int(key) for key in tx.nonce_keys or (0,)],
+        nonce_seq=int(tx.nonce),
+    )
+    return max_gas * int(tx.max_fee_per_gas or 0)
+
+
 def deploy_frame(
-    pre: Alloc, fork: Fork, runtime: Bytecode
+    pre: Alloc,
+    fork: Fork,
+    runtime: Bytecode,
+    *,
+    factory: Address | None = None,
 ) -> Tuple[Frame, Address]:
     """
     Return a `deploy` frame installing `runtime` at a counterfactual
-    sender through the deterministic factory, and that sender.
+    sender, and that sender.
 
-    The salt is a fresh address, so every run deploys a new sender on
-    a live network.
+    The frame calls the deterministic factory, or a `factory` sharing
+    its calldata layout. The salt is a fresh address, so every run
+    deploys a new sender on a live network.
     """
+    if factory is None:
+        factory = fork.deterministic_factory_contract_address()
+    assert factory is not None
     salt = Hash(bytes(pre.nonexistent_account()).rjust(32, b"\x00"))
     initcode = Initcode(deploy_code=runtime)
-    sender = compute_deterministic_create2_address(
-        salt=salt, initcode=initcode, fork=fork
+    sender = compute_create2_address(
+        address=factory, salt=salt, initcode=initcode
     )
     frame = Frame(
         mode=Spec.MODE_DEFAULT,
-        target=fork.deterministic_factory_contract_address(),
+        target=factory,
         gas_limit=0,
         data=Bytes(salt) + Bytes(initcode),
     )
@@ -139,91 +185,143 @@ class PrefixShape(Enum):
             PrefixShape.DEPLOY_ONLY_VERIFY_PAY,
         )
 
-
-def prefix_frames(
-    pre: Alloc, fork: Fork, shape: PrefixShape
-) -> Tuple[Address | EOA, List[Frame], List[FrameSignature]]:
-    """
-    Return a sender, the validation prefix of `shape` with each frame's
-    execution budget just covering its work, and the signature entries
-    its default code checks.
-
-    A `deploy` frame starts with no execution budget, as its work is
-    left to the remainder of the validation budget.
-    """
-    if shape == PrefixShape.SELF_VERIFY:
-        sender = pre.fund_eoa()
-        return (
-            sender,
-            [
-                verify_frame(
-                    gas_limit=frame_gas(fork, Bytecode(), target_warm=True),
-                    state_gas_limit=0,
-                )
-            ],
-            [default_code_signature(sender)],
+    @property
+    def sponsored(self) -> bool:
+        """Return whether a `pay` frame approves the payment."""
+        return self in (
+            PrefixShape.ONLY_VERIFY_PAY,
+            PrefixShape.DEPLOY_ONLY_VERIFY_PAY,
         )
-    if shape == PrefixShape.ONLY_VERIFY_PAY:
-        # The sender must exist, or the payment approval would charge
-        # its account creation to the `pay` frame's state budget.
-        sender = pre.fund_eoa(amount=1)
-        sponsor = pre.fund_eoa()
-        return (
-            sender,
-            [
-                verify_frame(
-                    flags=Spec.APPROVE_EXECUTION,
-                    gas_limit=frame_gas(fork, Bytecode(), target_warm=True),
-                    state_gas_limit=0,
-                ),
+
+
+@dataclass
+class Prefix:
+    """A validation prefix and the accounts it validates."""
+
+    sender: Address
+    frames: List[Frame]
+    signatures: List[FrameSignature]
+    work_frame: int
+    """Frame absorbing the rest of the validation budget."""
+    nonce: int | None = None
+    """Nonce of a sender that is not a funded EOA."""
+
+
+def sender_part(
+    pre: Alloc,
+    fork: Fork,
+    shape: PrefixShape,
+    sender_code: Bytecode | None,
+) -> Prefix:
+    """
+    Return the frames approving the sender's execution, and payment for
+    a shape without a `pay` frame.
+
+    A sender without `sender_code` is an EOA validated by its default
+    code; otherwise it is a contract running `sender_code` before
+    approving. A `deploy` frame starts with no execution budget, as its
+    work is left to the rest of the validation budget.
+    """
+    scope = (
+        Spec.APPROVE_EXECUTION
+        if shape.sponsored
+        else Spec.APPROVE_EXECUTION_AND_PAYMENT
+    )
+    if shape.deploys:
+        runtime = (sender_code or Bytecode()) + Op.APPROVE(0, 0, scope)
+        deploy, sender = deploy_frame(pre, fork, runtime)
+        if not shape.sponsored:
+            pre.fund_address(sender, CONTRACT_ACCOUNT_BALANCE)
+        verify = verify_frame(
+            flags=scope,
+            gas_limit=frame_gas(fork, runtime, target_warm=True),
+            state_gas_limit=0,
+        )
+        return Prefix(sender, [deploy, verify], [], work_frame=0, nonce=0)
+    if sender_code is not None:
+        code = sender_code + Op.APPROVE(0, 0, scope)
+        sender = pre.deploy_contract(
+            code=code,
+            balance=0 if shape.sponsored else CONTRACT_ACCOUNT_BALANCE,
+        )
+        verify = verify_frame(
+            flags=scope,
+            gas_limit=frame_gas(fork, code, target_warm=True),
+            state_gas_limit=0,
+        )
+        # A deployed contract starts at nonce one.
+        return Prefix(sender, [verify], [], work_frame=0, nonce=1)
+    # A sponsored sender must exist, or the payment approval would charge
+    # its account creation to the `pay` frame's state budget.
+    eoa = pre.fund_eoa(amount=1) if shape.sponsored else pre.fund_eoa()
+    verify = verify_frame(
+        flags=scope,
+        gas_limit=frame_gas(fork, Bytecode(), target_warm=True),
+        state_gas_limit=0,
+    )
+    return Prefix(eoa, [verify], [default_code_signature(eoa)], work_frame=0)
+
+
+def prefix(
+    pre: Alloc,
+    fork: Fork,
+    shape: PrefixShape,
+    *,
+    sender_code: Bytecode | None = None,
+    paymaster_code: Bytecode | None = None,
+    expiry: bool = False,
+) -> Prefix:
+    """
+    Return the validation prefix of `shape` with each frame's execution
+    budget just covering its work.
+
+    A sponsored shape pays from an EOA validated by its default code,
+    unless `paymaster_code` is given or the sender has no signature
+    entry to precede the sponsor's: then a contract paymaster runs
+    `paymaster_code` before approving. With `expiry`, the prefix opens
+    with an expiry verifier frame.
+    """
+    built = sender_part(pre, fork, shape, sender_code)
+    if shape.sponsored:
+        if paymaster_code is None and built.signatures:
+            sponsor = pre.fund_eoa()
+            built.frames.append(
                 verify_frame(
                     target=sponsor,
                     flags=Spec.APPROVE_PAYMENT,
                     gas_limit=frame_gas(fork, Bytecode(), target_warm=False),
                     state_gas_limit=0,
-                ),
-            ],
-            [default_code_signature(sender), default_code_signature(sponsor)],
-        )
-    if shape == PrefixShape.DEPLOY_SELF_VERIFY:
-        runtime = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
-        deploy, deployed = deploy_frame(pre, fork, runtime)
-        pre.fund_address(deployed, DEPLOYED_SENDER_BALANCE)
-        return (
-            deployed,
-            [
-                deploy,
+                )
+            )
+            built.signatures.append(default_code_signature(sponsor))
+        else:
+            code = (paymaster_code or Bytecode()) + Op.APPROVE(
+                0, 0, Spec.APPROVE_PAYMENT
+            )
+            paymaster = pre.deploy_contract(
+                code=code, balance=CONTRACT_ACCOUNT_BALANCE
+            )
+            built.frames.append(
                 verify_frame(
-                    gas_limit=frame_gas(fork, runtime, target_warm=True),
+                    target=paymaster,
+                    flags=Spec.APPROVE_PAYMENT,
+                    gas_limit=frame_gas(fork, code, target_warm=False),
                     state_gas_limit=0,
-                ),
-            ],
-            [],
+                )
+            )
+            if paymaster_code is not None and not shape.deploys:
+                built.work_frame = len(built.frames) - 1
+    if expiry:
+        built.frames.insert(
+            0,
+            expiry_frame(
+                gas_limit=frame_gas(
+                    fork, EXPIRY_VERIFIER_PATH, target_warm=False
+                )
+            ),
         )
-    runtime = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION)
-    deploy, deployed = deploy_frame(pre, fork, runtime)
-    paymaster_code = Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT)
-    paymaster = pre.deploy_contract(
-        code=paymaster_code, balance=PAYMASTER_BALANCE
-    )
-    return (
-        deployed,
-        [
-            deploy,
-            verify_frame(
-                flags=Spec.APPROVE_EXECUTION,
-                gas_limit=frame_gas(fork, runtime, target_warm=True),
-                state_gas_limit=0,
-            ),
-            verify_frame(
-                target=paymaster,
-                flags=Spec.APPROVE_PAYMENT,
-                gas_limit=frame_gas(fork, paymaster_code, target_warm=False),
-                state_gas_limit=0,
-            ),
-        ],
-        [],
-    )
+        built.work_frame += 1
+    return built
 
 
 def prefix_transaction(
@@ -234,38 +332,51 @@ def prefix_transaction(
     total_verify_gas: int = Spec.MAX_VERIFY_GAS,
     total_verify_state_gas: int | None = None,
     extra_signatures: Sequence[FrameSignature] = (),
+    sender_code: Bytecode | None = None,
+    paymaster_code: Bytecode | None = None,
+    expiry: bool = False,
     after: Sequence[Frame] = (),
+    **tx_kwargs: Any,
 ) -> Transaction:
     """
     Return a frame transaction opening with the validation prefix of
     `shape`, followed by the frames in `after`.
 
-    The prefix's first frame absorbs the remainder of
-    `total_verify_gas` and the payment-approving frame the remainder of
+    The work frame (the `deploy` frame, else the frame running custom
+    code, else the first frame) absorbs the rest of `total_verify_gas`,
+    and the payment-approving frame the rest of
     `total_verify_state_gas`, so the prefix totals exactly those
     amounts. An unset state total leaves each frame's state budget as
     built.
     """
-    sender, frames, signatures = prefix_frames(pre, fork, shape)
+    built = prefix(
+        pre,
+        fork,
+        shape,
+        sender_code=sender_code,
+        paymaster_code=paymaster_code,
+        expiry=expiry,
+    )
+    frames, signatures = built.frames, built.signatures
     signatures += list(extra_signatures)
     slack = total_verify_gas - verify_gas(fork, frames, signatures)
     assert slack >= 0, "validation budget below the prefix's work"
-    frames[0] = frames[0].model_copy(
-        update={"gas_limit": int(frames[0].gas_limit) + slack}
+    work = frames[built.work_frame]
+    frames[built.work_frame] = work.model_copy(
+        update={"gas_limit": int(work.gas_limit) + slack}
     )
     if total_verify_state_gas is not None:
         slack = total_verify_state_gas - verify_state_gas(frames)
         assert slack >= 0, "state budget below the prefix's needs"
-        frames[-1] = frames[-1].model_copy(
-            update={"state_gas_limit": int(frames[-1].state_gas_limit) + slack}
+        payer = frames[len(validation_prefix(frames)) - 1]
+        frames[len(validation_prefix(frames)) - 1] = payer.model_copy(
+            update={"state_gas_limit": int(payer.state_gas_limit) + slack}
         )
-    kwargs: Dict[str, Any] = {}
-    if shape.deploys:
-        # A counterfactual sender does not exist before the deploy.
-        kwargs["nonce"] = 0
+    if built.nonce is not None:
+        tx_kwargs.setdefault("nonce", built.nonce)
     return Transaction(
-        sender=sender,
+        sender=built.sender,
         frames=frames + list(after),
         signatures=signatures,
-        **kwargs,
+        **tx_kwargs,
     )
