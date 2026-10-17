@@ -14,10 +14,6 @@ on:
   pull_request_target:
     types: [ opened, reopened, edited, synchronize, ready_for_review ]
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
   pull-requests: write
@@ -25,8 +21,17 @@ permissions:
 jobs:
   title-and-labels:
     name: Title and labels
-    # A description-only edit cannot change the title or the labels.
-    if: github.event.action != 'edited' || github.event.changes.title
+    # Of all edits, only a new title or base branch can change the title or
+    # the labels.
+    if: >-
+      github.event.action != 'edited'
+      || github.event.changes.title
+      || github.event.changes.base
+    # Set on the job, not the workflow, so that a skipped description edit
+    # does not cancel a run in progress.
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

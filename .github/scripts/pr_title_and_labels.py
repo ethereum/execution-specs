@@ -3,7 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "anthropic>=1.14",
+#     "anthropic>=1.14,<2",
 # ]
 # ///
 """
@@ -32,7 +32,7 @@ import os
 import re
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -73,11 +73,13 @@ TITLE_PATTERN = re.compile(
     r"(?P<description>.*)$"
 )
 MAX_DESCRIPTION = 72
+MAX_TITLE = 256  # GitHub rejects longer titles
 
 CLAUDE_MODEL = "claude-opus-5-5"
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 MAX_BODY_CHARS = 4_000
 MAX_DIFF_CHARS = 30_000
+MAX_LISTED_FILES = 300
 CLAUDE_SYSTEM_PROMPT = """\
 You write pull request titles for ethereum/execution-specs: the Python \
 specification of the Ethereum execution layer, its consensus tests and the \
@@ -173,6 +175,26 @@ def areas_for_files(paths: list[str]) -> list[str]:
     return [area for area in AREAS if area in touched]
 
 
+def touched_areas(
+    pr: dict[str, Any], files: list[dict[str, Any]]
+) -> list[str]:
+    """
+    Return every area a pull request touches, in canonical order.
+
+    GitHub lists at most 3000 changed files. When the list is cut short,
+    also keep the areas the title or labels already name, so that a file
+    past the cut does not lose its area.
+    """
+    touched = set(areas_for_files(file_paths(files)))
+    if len(files) < pr["changed_files"]:
+        named = {label["name"] for label in pr["labels"]}
+        match = TITLE_PATTERN.match(strip_noise(pr["title"]))
+        if match is not None and match["areas"]:
+            named |= {area.strip() for area in match["areas"].split(",")}
+        touched |= named & set(AREAS)
+    return [area for area in AREAS if area in touched]
+
+
 def title_areas(touched: list[str]) -> list[str]:
     """
     Return the areas a title names for the touched areas.
@@ -262,6 +284,17 @@ def validate_claude_title(data: Any, touched: list[str]) -> Title | None:
     return Title(kind, tuple(title_areas(touched)), description)
 
 
+def fit_title(title: Title) -> Title:
+    """Shorten the description at a word break to fit `MAX_TITLE`."""
+    overflow = len(str(title)) - MAX_TITLE
+    if overflow <= 0:
+        return title
+    description = title.description[:-overflow]
+    if " " in description:
+        description = description.rsplit(" ", 1)[0]
+    return replace(title, description=description.rstrip())
+
+
 def desired_labels(title: Title, base: str) -> set[str]:
     """Return the title's type and areas, plus the base branch's project."""
     projects = {
@@ -318,8 +351,11 @@ def claude_prompt(
 ) -> str:
     """Return the user message asking Claude for a title."""
     listing = "\n".join(
-        f"{f['filename']} (+{f['additions']} -{f['deletions']})" for f in files
+        f"{f['filename']} (+{f['additions']} -{f['deletions']})"
+        for f in files[:MAX_LISTED_FILES]
     )
+    if len(files) > MAX_LISTED_FILES:
+        listing += f"\n... and {len(files) - MAX_LISTED_FILES} more files"
     truncated = len(diff) > MAX_DIFF_CHARS
     areas = ", ".join(title_areas(touched)) or "none (docs only)"
     return (
@@ -382,7 +418,7 @@ def new_title(
             check=False,
         )
         title = claude_title(claude_prompt(pr, files, diff, touched), touched)
-    return title or rules_only_title(pr["title"], touched)
+    return fit_title(title or rules_only_title(pr["title"], touched))
 
 
 def pr_number(args: argparse.Namespace) -> int:
@@ -404,7 +440,7 @@ def main() -> None:
     number = pr_number(args)
     pr = json.loads(gh("api", f"repos/{repo}/pulls/{number}"))
     files = changed_files(repo, number)
-    touched = areas_for_files(file_paths(files))
+    touched = touched_areas(pr, files)
     fixed = new_title(repo, pr, files, touched)
     title = str(fixed)
 

@@ -64,6 +64,36 @@ def test_areas_for_files_are_ordered_and_skip_docs() -> None:
     assert m.areas_for_files(paths) == ["spec", "framework", "ci"]
 
 
+def listed(*paths: str) -> list[dict[str, Any]]:
+    """Return changed-file entries for `paths`."""
+    return [
+        {
+            "filename": path,
+            "previous_filename": None,
+            "additions": 1,
+            "deletions": 0,
+        }
+        for path in paths
+    ]
+
+
+@pytest.mark.parametrize(
+    "changed_files,areas",
+    [(1, ["spec", "ci"]), (3001, ["spec", "tests", "benchmark", "ci"])],
+)
+def test_touched_areas_keep_named_areas_past_the_file_cap(
+    changed_files: int, areas: list[str]
+) -> None:
+    """Keep title and label areas only when GitHub cut the list short."""
+    pr = {
+        "title": "feat(tests,zkevm): add tests",
+        "labels": [{"name": "benchmark"}, {"name": "stale"}],
+        "changed_files": changed_files,
+    }
+    files = listed("src/a.py", ".github/b.yaml")
+    assert m.touched_areas(pr, files) == areas
+
+
 @pytest.mark.parametrize(
     "touched,areas",
     [
@@ -216,6 +246,17 @@ def test_rules_only_title(
     assert str(m.rules_only_title(title, touched)) == expected
 
 
+def test_fit_title_cuts_the_description_at_a_word_break() -> None:
+    """Keep the rendered title within GitHub's limit, idempotently."""
+    areas = ["spec", "tests", "benchmark", "framework"]
+    title = m.Title("fix", tuple(areas), "word " * 60 + "end")
+    fitted = m.fit_title(title)
+    assert len(str(fitted)) <= m.MAX_TITLE
+    assert fitted.description.endswith("word")
+    assert m.normalize_title(str(fitted), areas) == fitted
+    assert m.fit_title(fitted) == fitted
+
+
 def test_validate_claude_title_uses_the_touched_areas() -> None:
     """Accept a good title and set its areas from the files."""
     data = {"type": "feat", "description": "Add the recent roots contract."}
@@ -338,6 +379,16 @@ def test_claude_prompt_marks_truncated_diff() -> None:
     assert "Areas: spec" in prompt
 
 
+def test_claude_prompt_caps_the_file_listing() -> None:
+    """List at most `MAX_LISTED_FILES` files and count the rest."""
+    pr = {"title": "Eth", "body": None}
+    files = listed(*(f"src/{i}.py" for i in range(m.MAX_LISTED_FILES + 2)))
+    prompt = m.claude_prompt(pr, files, "", ["spec"])
+    assert f"src/{m.MAX_LISTED_FILES - 1}.py" in prompt
+    assert f"src/{m.MAX_LISTED_FILES}.py" not in prompt
+    assert "... and 2 more files" in prompt
+
+
 def test_label_changes_leave_unmanaged_labels_alone() -> None:
     """Add and remove only managed labels, never `stale` or `backport`."""
     current = {"ci", "stale", "backport forks/amsterdam", "tests"}
@@ -349,7 +400,13 @@ def test_label_changes_leave_unmanaged_labels_alone() -> None:
 class FakeGh:
     """Stand in for the `gh` CLI, serving one pull request."""
 
-    def __init__(self, title: str, labels: list[str], files: list[str]):
+    def __init__(
+        self,
+        title: str,
+        labels: list[str],
+        files: list[str],
+        changed_files: int | None = None,
+    ):
         """Serve a pull request with these fields."""
         self.pr = {
             "number": 7,
@@ -357,6 +414,9 @@ class FakeGh:
             "body": "",
             "labels": [{"name": label} for label in labels],
             "base": {"ref": "forks/bogota"},
+            "changed_files": len(files)
+            if changed_files is None
+            else changed_files,
         }
         self.files = files
         self.writes: list[tuple[str, ...]] = []
@@ -367,17 +427,7 @@ class FakeGh:
             self.writes.append(args)
             return ""
         if "--paginate" in args:
-            return "\n".join(
-                json.dumps(
-                    {
-                        "filename": path,
-                        "previous_filename": None,
-                        "additions": 1,
-                        "deletions": 0,
-                    }
-                )
-                for path in self.files
-            )
+            return "\n".join(json.dumps(f) for f in listed(*self.files))
         assert args == ("api", "repos/o/r/pulls/7")
         return json.dumps(self.pr)
 
@@ -470,3 +520,28 @@ def test_main_quotes_label_names_when_removing(
     assert fake.writes == [
         ("api", "--method", "DELETE", "repos/o/r/issues/7/labels/a%20b")
     ]
+
+
+def test_main_keeps_areas_past_the_file_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Remove no area when GitHub lists only part of the changed files."""
+    fake = FakeGh(
+        "feat(spec,tests): add a test",
+        ["feat", "spec", "tests"],
+        ["src/a.py"],
+        changed_files=3001,
+    )
+    run_main(monkeypatch, fake, "--pr", "7")
+    assert fake.writes == []
+
+
+def test_main_fits_an_expanded_title(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Shorten a title that the touched areas would push past the limit."""
+    title = "fix: " + "x" * (m.MAX_TITLE - len("fix: "))
+    paths = ["src/a.py", "tests/b.py", "tests/benchmark/c.py", "packages/d"]
+    fake = FakeGh(title, [], paths)
+    run_main(monkeypatch, fake, "--pr", "7")
+    new = fake.writes[0][-1].removeprefix("title=")
+    assert new.startswith("fix(spec,tests,benchmark,framework): xxx")
+    assert len(new) == m.MAX_TITLE
