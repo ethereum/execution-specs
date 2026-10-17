@@ -206,6 +206,12 @@ class Prefix:
     nonce: int | None = None
     """Nonce of a sender that is not a funded EOA."""
 
+    def insert(self, index: int, frame: Frame) -> None:
+        """Insert `frame` at `index`, keeping the work frame in place."""
+        self.frames.insert(index, frame)
+        if index <= self.work_frame:
+            self.work_frame += 1
+
 
 def sender_part(
     pre: Alloc,
@@ -312,16 +318,58 @@ def prefix(
             if paymaster_code is not None and not shape.deploys:
                 built.work_frame = len(built.frames) - 1
     if expiry:
-        built.frames.insert(
-            0,
-            expiry_frame(
-                gas_limit=frame_gas(
-                    fork, EXPIRY_VERIFIER_PATH, target_warm=False
-                )
-            ),
-        )
-        built.work_frame += 1
+        built.insert(0, priced_expiry_frame(fork))
     return built
+
+
+def priced_expiry_frame(fork: Fork) -> Frame:
+    """Return an expiry verifier frame budgeted to its execution."""
+    return expiry_frame(
+        gas_limit=frame_gas(fork, EXPIRY_VERIFIER_PATH, target_warm=False)
+    )
+
+
+def budgeted_transaction(
+    fork: Fork,
+    built: Prefix,
+    *,
+    total_verify_gas: int = Spec.MAX_VERIFY_GAS,
+    total_verify_state_gas: int | None = None,
+    after: Sequence[Frame] = (),
+    **tx_kwargs: Any,
+) -> Transaction:
+    """
+    Return a frame transaction opening with the validation prefix
+    `built`, followed by the frames in `after`.
+
+    The work frame absorbs the rest of `total_verify_gas` and the
+    payment-approving frame the rest of `total_verify_state_gas`, so
+    the prefix totals exactly those amounts. An unset state total
+    leaves each frame's state budget as built.
+    """
+    frames, signatures = list(built.frames), built.signatures
+    slack = total_verify_gas - verify_gas(fork, frames, signatures)
+    assert slack >= 0, "validation budget below the prefix's work"
+    work = frames[built.work_frame]
+    frames[built.work_frame] = work.model_copy(
+        update={"gas_limit": int(work.gas_limit) + slack}
+    )
+    if total_verify_state_gas is not None:
+        slack = total_verify_state_gas - verify_state_gas(frames)
+        assert slack >= 0, "state budget below the prefix's needs"
+        payer_index = len(validation_prefix(frames)) - 1
+        payer = frames[payer_index]
+        frames[payer_index] = payer.model_copy(
+            update={"state_gas_limit": int(payer.state_gas_limit) + slack}
+        )
+    if built.nonce is not None:
+        tx_kwargs.setdefault("nonce", built.nonce)
+    return Transaction(
+        sender=built.sender,
+        frames=frames + list(after),
+        signatures=signatures,
+        **tx_kwargs,
+    )
 
 
 def prefix_transaction(
@@ -340,14 +388,8 @@ def prefix_transaction(
 ) -> Transaction:
     """
     Return a frame transaction opening with the validation prefix of
-    `shape`, followed by the frames in `after`.
-
-    The work frame (the `deploy` frame, else the frame running custom
-    code, else the first frame) absorbs the rest of `total_verify_gas`,
-    and the payment-approving frame the rest of
-    `total_verify_state_gas`, so the prefix totals exactly those
-    amounts. An unset state total leaves each frame's state budget as
-    built.
+    `shape` budgeted to the given totals, followed by the frames in
+    `after`.
     """
     built = prefix(
         pre,
@@ -357,26 +399,12 @@ def prefix_transaction(
         paymaster_code=paymaster_code,
         expiry=expiry,
     )
-    frames, signatures = built.frames, built.signatures
-    signatures += list(extra_signatures)
-    slack = total_verify_gas - verify_gas(fork, frames, signatures)
-    assert slack >= 0, "validation budget below the prefix's work"
-    work = frames[built.work_frame]
-    frames[built.work_frame] = work.model_copy(
-        update={"gas_limit": int(work.gas_limit) + slack}
-    )
-    if total_verify_state_gas is not None:
-        slack = total_verify_state_gas - verify_state_gas(frames)
-        assert slack >= 0, "state budget below the prefix's needs"
-        payer = frames[len(validation_prefix(frames)) - 1]
-        frames[len(validation_prefix(frames)) - 1] = payer.model_copy(
-            update={"state_gas_limit": int(payer.state_gas_limit) + slack}
-        )
-    if built.nonce is not None:
-        tx_kwargs.setdefault("nonce", built.nonce)
-    return Transaction(
-        sender=built.sender,
-        frames=frames + list(after),
-        signatures=signatures,
+    built.signatures += list(extra_signatures)
+    return budgeted_transaction(
+        fork,
+        built,
+        total_verify_gas=total_verify_gas,
+        total_verify_state_gas=total_verify_state_gas,
+        after=after,
         **tx_kwargs,
     )
