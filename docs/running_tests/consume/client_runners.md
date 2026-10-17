@@ -9,7 +9,7 @@ MUST, SHOULD and MAY are as in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119
 - `blocktest` runs [Blockchain Tests](../test_formats/blockchain_test.md): each block is imported as the client's sync would import it.
 - `enginetest` runs [Blockchain Engine Tests](../test_formats/blockchain_test_engine.md): each payload goes through the client's Engine API handler.
 
-Both MUST take any number of fixture paths, files or directories mixed, and run all of them in one process with one set of results, so a large fixture set pays the client's startup once. A path that does not exist or cannot be read MUST be reported on stderr with exit code `2` before any fixture runs, so a typo never silently drops fixtures.
+Both MUST take any number of fixture paths, files or directories mixed, and run all of them in one process with one set of results, so a large fixture set pays the client's startup once. A path that does not exist or cannot be read, whether named or found inside a directory, MUST be reported on stderr with exit code `2` before any fixture runs, so a typo never silently drops fixtures.
 
 ## Exit codes
 
@@ -17,17 +17,17 @@ Both MUST take any number of fixture paths, files or directories mixed, and run 
 |---|---|
 | `0` | Every fixture ran and passed. |
 | `1` | Every fixture ran, and at least one failed. |
-| `2` | The runner could not run every fixture: a path that does not exist or cannot be read (reported before any fixture runs), or a fixture file it cannot parse (the other files still run and are reported). |
+| `2` | The runner could not run every fixture: a path that does not exist or cannot be read (reported before any fixture runs), or a fixture file it cannot parse (reported on stderr, never in the results; the other files still run and are reported). |
 
 A harness trusts the [results](#results) only after `0` or `1`; any other code, a crash's included, means results may be missing. A runner whose CI relies on exit `0` for failing fixtures MAY keep it, as [Clients](#clients) lists, since `pass` still carries every verdict; it MUST still exit `2` in the cases above.
 
 ## Flags
 
-Runners MUST support every flag below, spelled as shown; `--bal-withhold` applies to `blocktest` only.
+Runners MUST support every flag below, spelled as shown; `--version` is answered by the binary itself, and `--bal-withhold` applies to `blocktest` only.
 
 | Flag | Runner | What it does | Why it matters for testing |
 |---|---|---|---|
-| `--version` | both | Prints one line naming the tool and its version, then exits 0. | A harness records exactly which build produced a result. |
+| `--version` | the binary | Prints one line naming the tool and its version, then exits 0. | A harness records exactly which build produced a result. |
 | `--workers N` | both | Runs fixtures on `N` workers in one process; results do not depend on `N`. | Large fixture sets finish in reasonable time. |
 | `--bal-sequential` | both | Runs every block on the client's sequential executor instead of its block-level access list (BAL) parallel executor. | The same fixtures check both executors against the same expectations. |
 | `--bal-withhold` | `blocktest` | Executes every block without using the fixture's access list. | Tests the path a node takes for a block received without a list, where it must build the list itself. |
@@ -54,7 +54,7 @@ stdout MUST carry only the results: a JSON array with one object per fixture. Ev
 
 Clients MAY add keys to a result, such as `fork`, and consumers ignore keys they do not know.
 
-A runner MUST NOT map errors to exception names or compare them with the fixture's expected exception. The consumer checks reasons through the client's [exception mapper](exceptions.md).
+A runner MUST NOT map errors to exception names or compare them with the fixture's expected exception. The consumer checks reasons through the client's [exception mapper](exceptions.md). An engine runner MAY compare a JSON-RPC error's code with the payload's `errorCode`, since that code belongs to the Engine API, not to the client.
 
 ## Block tests deliver the access list
 
@@ -87,7 +87,7 @@ With `--bal-report`, both runners MUST print one single-line JSON object on stde
 
 | `reason` | When | `path` |
 |---|---|---|
-| `withheld` | `--bal-withhold` is set | any |
+| `withheld` | `--bal-withhold` is set and the block has a list | any |
 | `bad-access-list` | the runner dropped the block's delivered list | any |
 | `disabled` | `--bal-sequential` | `sequential` |
 | `no-access-list` | the block has no list | `sequential` |
