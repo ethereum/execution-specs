@@ -706,7 +706,16 @@ def test_recreate_in_later_block(
 
 @pytest.mark.parametrize(
     "existing_balance",
-    [pytest.param(0, id="zero_balance"), pytest.param(3, id="funded")],
+    [
+        # The CREATE destination must be absent at genesis. Packing with
+        # the funded case would introduce its balance into this case.
+        pytest.param(
+            0,
+            id="zero_balance",
+            marks=pytest.mark.pre_alloc_group("separate"),
+        ),
+        pytest.param(3, id="funded"),
+    ],
 )
 def test_selfdestruct_to_self_keeps_existing_balance(
     state_test: StateTestFiller,
