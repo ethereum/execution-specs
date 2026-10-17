@@ -71,6 +71,10 @@ class GasCosts:
     LOW: Final[ExecutionGas] = ExecutionGas(Uint(5))
     MID: Final[ExecutionGas] = ExecutionGas(Uint(8))
     HIGH: Final[ExecutionGas] = ExecutionGas(Uint(10))
+    # EIP-12504: 64-bit tiers, a step below the tier of each twin
+    VERY_LOW_64: Final[ExecutionGas] = ExecutionGas(Uint(2))
+    LOW_64: Final[ExecutionGas] = ExecutionGas(Uint(3))
+    MID_64: Final[ExecutionGas] = ExecutionGas(Uint(5))
 
     # Access
     WARM_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(100))
@@ -195,6 +199,38 @@ class GasCosts:
     OPCODE_JUMP: Final[ExecutionGas] = MID
     OPCODE_JUMPI: Final[ExecutionGas] = HIGH
     OPCODE_JUMPDEST: Final[ExecutionGas] = ExecutionGas(Uint(1))
+    # EIP-8337: validation of MAGIC code at CREATE, per byte of code
+    VALIDATION_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(64))
+    # EIP-7979: Call and return opcodes
+    OPCODE_CALLSUB: Final[ExecutionGas] = MID
+    OPCODE_CALLDEST: Final[ExecutionGas] = ExecutionGas(Uint(1))
+    OPCODE_RETURNSUB: Final[ExecutionGas] = LOW
+    # EIP-12504: 64-bit opcodes
+    OPCODE_ADD64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_MUL64: Final[ExecutionGas] = LOW_64
+    OPCODE_SUB64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_DIV64: Final[ExecutionGas] = LOW_64
+    OPCODE_SDIV64: Final[ExecutionGas] = LOW_64
+    OPCODE_MOD64: Final[ExecutionGas] = LOW_64
+    OPCODE_SMOD64: Final[ExecutionGas] = LOW_64
+    OPCODE_ADDMOD64: Final[ExecutionGas] = MID_64
+    OPCODE_MULMOD64: Final[ExecutionGas] = MID_64
+    OPCODE_SIGNEXTEND64: Final[ExecutionGas] = LOW_64
+    OPCODE_CALLDATALOAD64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_LT64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_GT64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_SLT64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_SGT64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_EQ64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_ISZERO64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_AND64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_OR64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_XOR64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_NOT64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_SHL64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_SHR64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_SAR64: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_CLZ64: Final[ExecutionGas] = LOW_64
     OPCODE_CALLDATALOAD: Final[ExecutionGas] = VERY_LOW
     OPCODE_BLOCKHASH: Final[ExecutionGas] = ExecutionGas(Uint(20))
     OPCODE_COINBASE: Final[ExecutionGas] = BASE
@@ -242,6 +278,11 @@ class GasCosts:
     OPCODE_COPY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))
     OPCODE_EXP_BASE: Final[ExecutionGas] = ExecutionGas(Uint(10))
     OPCODE_EXP_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(50))
+    # EIP-12504: 64-bit opcodes with dynamic components
+    OPCODE_MLOAD64_BASE: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_MSTORE64_BASE: Final[ExecutionGas] = VERY_LOW_64
+    OPCODE_EXP64_BASE: Final[ExecutionGas] = ExecutionGas(Uint(5))
+    OPCODE_EXP64_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(25))
     OPCODE_KECCAK256_BASE: Final[ExecutionGas] = ExecutionGas(Uint(30))
     OPCODE_KECCAK256_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(6))
     OPCODE_LOG_BASE: Final[ExecutionGas] = ExecutionGas(Uint(375))

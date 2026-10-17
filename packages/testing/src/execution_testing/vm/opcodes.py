@@ -5274,6 +5274,951 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#A4](https://www.evm.codes/#A4)
     """
 
+    CALLSUB = Opcode(0xBC, popped_stack_items=1, kwargs=["pc"])
+    """
+    CALLSUB(pc)
+    ----
+
+    Description
+    ----
+    Transfer control to a subroutine (EIP-7979): push the position of the
+    next instruction onto the return stack and jump to `pc`, which must be a
+    CALLDEST instruction. Halts if `pc` is not a CALLDEST or the return stack
+    already holds 1024 items.
+
+    Inputs
+    ----
+    - pc: byte offset in the deployed code of the subroutine entry.
+          Must be a CALLDEST instruction
+
+    Outputs
+    ----
+    - None
+
+    Fork
+    ----
+    EIP-7979
+
+    Gas
+    ----
+    8
+
+    Source: [EIP-7979](https://eips.ethereum.org/EIPS/eip-7979)
+    """
+
+    CALLDEST = Opcode(0xBB)
+    """
+    CALLDEST()
+    ----
+
+    Description
+    ----
+    Mark a subroutine entry (EIP-7979). Like JUMPDEST it is otherwise a
+    no-op. It is the only valid CALLSUB destination, and also a valid JUMP
+    and JUMPI destination, so a jump may enter a subroutine without pushing
+    a return address.
+
+    Inputs
+    ----
+    - None
+
+    Outputs
+    ----
+    - None
+
+    Fork
+    ----
+    EIP-7979
+
+    Gas
+    ----
+    1
+
+    Source: [EIP-7979](https://eips.ethereum.org/EIPS/eip-7979)
+    """
+
+    RETURNSUB = Opcode(0xBF)
+    """
+    RETURNSUB()
+    ----
+
+    Description
+    ----
+    Return control to the most recent caller (EIP-7979): pop the return
+    stack into the program counter. Halts if the return stack is empty.
+
+    Inputs
+    ----
+    - None
+
+    Outputs
+    ----
+    - None
+
+    Fork
+    ----
+    EIP-7979
+
+    Gas
+    ----
+    5
+
+    Source: [EIP-7979](https://eips.ethereum.org/EIPS/eip-7979)
+    """
+
+    ADD64 = Opcode(0xC1, popped_stack_items=2, pushed_stack_items=1)
+    """
+    ADD64(a, b) = c
+    ----
+
+    Description
+    ----
+    64-bit addition: the sum of the low 64 bits of a and b, modulo 2**64,
+    zero-extended.
+
+    Inputs
+    ----
+    - a: first integer value to add
+    - b: second integer value to add
+
+    Outputs
+    ----
+    - c: integer result of the addition modulo 2**64
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    MUL64 = Opcode(0xC2, popped_stack_items=2, pushed_stack_items=1)
+    """
+    MUL64(a, b) = c
+    ----
+
+    Description
+    ----
+    64-bit multiplication: the product of the low 64 bits of a and b, modulo
+    2**64, zero-extended.
+
+    Inputs
+    ----
+    - a: first integer value to multiply
+    - b: second integer value to multiply
+
+    Outputs
+    ----
+    - c: integer result of the multiplication modulo 2**64
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    3
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    SUB64 = Opcode(0xC3, popped_stack_items=2, pushed_stack_items=1)
+    """
+    SUB64(a, b) = c
+    ----
+
+    Description
+    ----
+    64-bit subtraction: the low 64 bits of a less those of b, modulo 2**64,
+    zero-extended.
+
+    Inputs
+    ----
+    - a: first integer value
+    - b: second integer value
+
+    Outputs
+    ----
+    - c: integer result of the subtraction modulo 2**64
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    DIV64 = Opcode(0xC4, popped_stack_items=2, pushed_stack_items=1)
+    """
+    DIV64(a, b) = c
+    ----
+
+    Description
+    ----
+    64-bit integer division of the low 64 bits of a by those of b; zero for a
+    zero divisor.
+
+    Inputs
+    ----
+    - a: integer numerator
+    - b: integer denominator
+
+    Outputs
+    ----
+    - c: integer quotient, or 0 if b is 0
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    3
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    SDIV64 = Opcode(0xC5, popped_stack_items=2, pushed_stack_items=1)
+    """
+    SDIV64(a, b) = c
+    ----
+
+    Description
+    ----
+    64-bit signed integer division of the low 64 bits of a by those of b, as
+    two's-complement integers, truncating toward zero; zero for a zero divisor.
+
+    Inputs
+    ----
+    - a: signed integer numerator
+    - b: signed integer denominator
+
+    Outputs
+    ----
+    - c: signed integer quotient modulo 2**64, or 0 if b is 0
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    3
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    MOD64 = Opcode(0xC6, popped_stack_items=2, pushed_stack_items=1)
+    """
+    MOD64(a, b) = c
+    ----
+
+    Description
+    ----
+    64-bit modulo remainder of the low 64 bits of a by those of b; zero for a
+    zero divisor.
+
+    Inputs
+    ----
+    - a: integer numerator
+    - b: integer denominator
+
+    Outputs
+    ----
+    - c: integer remainder, or 0 if b is 0
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    3
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    SMOD64 = Opcode(0xC7, popped_stack_items=2, pushed_stack_items=1)
+    """
+    SMOD64(a, b) = c
+    ----
+
+    Description
+    ----
+    64-bit signed modulo remainder of the low 64 bits of a by those of b, as
+    two's-complement integers, with the sign of a; zero for a zero divisor.
+
+    Inputs
+    ----
+    - a: signed integer numerator
+    - b: signed integer denominator
+
+    Outputs
+    ----
+    - c: signed integer remainder modulo 2**64, or 0 if b is 0
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    3
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    ADDMOD64 = Opcode(0xC8, popped_stack_items=3, pushed_stack_items=1)
+    """
+    ADDMOD64(a, b, N) = c
+    ----
+
+    Description
+    ----
+    64-bit modulo addition: the sum of the low 64 bits of a and b, not reduced,
+    modulo the low 64 bits of N; zero for a zero modulus.
+
+    Inputs
+    ----
+    - a: first integer value to add
+    - b: second integer value to add
+    - N: integer denominator
+
+    Outputs
+    ----
+    - c: (a + b) % N, or 0 if N is 0
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    5
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    MULMOD64 = Opcode(0xC9, popped_stack_items=3, pushed_stack_items=1)
+    """
+    MULMOD64(a, b, N) = c
+    ----
+
+    Description
+    ----
+    64-bit modulo multiplication: the product of the low 64 bits of a and b,
+    not reduced, modulo the low 64 bits of N; zero for a zero modulus.
+
+    Inputs
+    ----
+    - a: first integer value to multiply
+    - b: second integer value to multiply
+    - N: integer denominator
+
+    Outputs
+    ----
+    - c: (a * b) % N, or 0 if N is 0
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    5
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    EXP64 = Opcode(
+        0xCA,
+        popped_stack_items=2,
+        pushed_stack_items=1,
+        metadata={"exponent": 0},
+    )
+    """
+    EXP64(a, exponent) = a ** exponent
+    ----
+
+    Description
+    ----
+    64-bit exponentiation: the low 64 bits of a to the power of the low 64 bits
+    of exponent, modulo 2**64.
+
+    Inputs
+    ----
+    - a: integer base
+    - exponent: integer exponent, read modulo 2**64
+
+    Outputs
+    ----
+    - a ** exponent modulo 2**64
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    5 + 25 per byte of the exponent
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    SIGNEXTEND64 = Opcode(0xCB, popped_stack_items=2, pushed_stack_items=1)
+    """
+    SIGNEXTEND64(b, x) = y
+    ----
+
+    Description
+    ----
+    Sign-extends the low 64 bits of x from the byte indexed by b: bit 8 * b + 7
+    is copied upward through bit 63. An index above 6 leaves x unchanged.
+
+    Inputs
+    ----
+    - b: size in bytes, less one, of the integer to sign extend
+    - x: integer value to sign extend
+
+    Outputs
+    ----
+    - y: x sign-extended within 64 bits
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    3
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    CALLDATALOAD64 = Opcode(
+        0xCC,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["offset"],
+    )
+    """
+    CALLDATALOAD64(offset) = data64[offset]
+    ----
+
+    Description
+    ----
+    Pushes the low eight bytes of the 32-byte word of calldata at offset: what
+    CALLDATALOAD would push, modulo 2**64. The offset is read modulo 2**64.
+
+    Inputs
+    ----
+    - offset: byte offset in the calldata
+
+    Outputs
+    ----
+    - data64[offset]: the low 64 bits of the 32-byte word at offset,
+      zero-padded past the end
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    MLOAD64 = Opcode(
+        0xCD,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["offset"],
+        metadata={"new_memory_size": 0, "old_memory_size": 0},
+    )
+    """
+    MLOAD64(offset) = value
+    ----
+
+    Description
+    ----
+    Pushes the low eight bytes of the 32-byte word of memory at offset: what
+    MLOAD would push, modulo 2**64. The offset is read modulo 2**64; memory
+    expands as for MLOAD.
+
+    Inputs
+    ----
+    - offset: byte offset in memory
+
+    Outputs
+    ----
+    - value: the low 64 bits of the 32-byte word at offset
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2 + memory expansion
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    MSTORE64 = Opcode(
+        0xCE,
+        popped_stack_items=2,
+        kwargs=["offset", "value"],
+        metadata={"new_memory_size": 0, "old_memory_size": 0},
+    )
+    """
+    MSTORE64(offset, value)
+    ----
+
+    Description
+    ----
+    Stores the low 64 bits of value to memory at offset, as the 32-byte word
+    MSTORE would store of that value: 24 zero bytes, then the eight bytes of
+    the value. The offset is read modulo 2**64; memory expands as for MSTORE.
+
+    Inputs
+    ----
+    - offset: byte offset in memory
+    - value: 64-bit value to write
+
+    Outputs
+    ----
+    - None
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2 + memory expansion
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    LT64 = Opcode(0xD0, popped_stack_items=2, pushed_stack_items=1)
+    """
+    LT64(a, b) = a < b
+    ----
+
+    Description
+    ----
+    64-bit less-than comparison of the low 64 bits of a and b.
+
+    Inputs
+    ----
+    - a: left side integer
+    - b: right side integer
+
+    Outputs
+    ----
+    - a < b: 1 if the left side is smaller, 0 otherwise
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    GT64 = Opcode(0xD1, popped_stack_items=2, pushed_stack_items=1)
+    """
+    GT64(a, b) = a > b
+    ----
+
+    Description
+    ----
+    64-bit greater-than comparison of the low 64 bits of a and b.
+
+    Inputs
+    ----
+    - a: left side integer
+    - b: right side integer
+
+    Outputs
+    ----
+    - a > b: 1 if the left side is bigger, 0 otherwise
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    SLT64 = Opcode(0xD2, popped_stack_items=2, pushed_stack_items=1)
+    """
+    SLT64(a, b) = a < b
+    ----
+
+    Description
+    ----
+    64-bit signed less-than comparison of the low 64 bits of a and b, as
+    two's-complement integers.
+
+    Inputs
+    ----
+    - a: left side signed integer
+    - b: right side signed integer
+
+    Outputs
+    ----
+    - a < b: 1 if the left side is smaller, 0 otherwise
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    SGT64 = Opcode(0xD3, popped_stack_items=2, pushed_stack_items=1)
+    """
+    SGT64(a, b) = a > b
+    ----
+
+    Description
+    ----
+    64-bit signed greater-than comparison of the low 64 bits of a and b, as
+    two's-complement integers.
+
+    Inputs
+    ----
+    - a: left side signed integer
+    - b: right side signed integer
+
+    Outputs
+    ----
+    - a > b: 1 if the left side is bigger, 0 otherwise
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    EQ64 = Opcode(0xD4, popped_stack_items=2, pushed_stack_items=1)
+    """
+    EQ64(a, b) = a == b
+    ----
+
+    Description
+    ----
+    64-bit equality comparison of the low 64 bits of a and b; words that differ
+    only above bit 63 are equal.
+
+    Inputs
+    ----
+    - a: left side integer
+    - b: right side integer
+
+    Outputs
+    ----
+    - a == b: 1 if the low 64 bits are equal, 0 otherwise
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    ISZERO64 = Opcode(0xD5, popped_stack_items=1, pushed_stack_items=1)
+    """
+    ISZERO64(a) = a == 0
+    ----
+
+    Description
+    ----
+    Checks whether the low 64 bits of a are zero.
+
+    Inputs
+    ----
+    - a: integer
+
+    Outputs
+    ----
+    - a == 0: 1 if the low 64 bits are zero, 0 otherwise
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    AND64 = Opcode(0xD6, popped_stack_items=2, pushed_stack_items=1)
+    """
+    AND64(a, b) = a & b
+    ----
+
+    Description
+    ----
+    Bitwise AND of the low 64 bits of a and b.
+
+    Inputs
+    ----
+    - a: first binary value
+    - b: second binary value
+
+    Outputs
+    ----
+    - a & b: the bitwise AND of the low 64 bits
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    OR64 = Opcode(0xD7, popped_stack_items=2, pushed_stack_items=1)
+    """
+    OR64(a, b) = a | b
+    ----
+
+    Description
+    ----
+    Bitwise OR of the low 64 bits of a and b.
+
+    Inputs
+    ----
+    - a: first binary value
+    - b: second binary value
+
+    Outputs
+    ----
+    - a | b: the bitwise OR of the low 64 bits
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    XOR64 = Opcode(0xD8, popped_stack_items=2, pushed_stack_items=1)
+    """
+    XOR64(a, b) = a ^ b
+    ----
+
+    Description
+    ----
+    Bitwise XOR of the low 64 bits of a and b.
+
+    Inputs
+    ----
+    - a: first binary value
+    - b: second binary value
+
+    Outputs
+    ----
+    - a ^ b: the bitwise XOR of the low 64 bits
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    NOT64 = Opcode(0xD9, popped_stack_items=1, pushed_stack_items=1)
+    """
+    NOT64(a) = ~a
+    ----
+
+    Description
+    ----
+    Bitwise NOT of the low 64 bits of a.
+
+    Inputs
+    ----
+    - a: binary value
+
+    Outputs
+    ----
+    - ~a: the bitwise NOT of the low 64 bits
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    SHL64 = Opcode(0xDB, popped_stack_items=2, pushed_stack_items=1)
+    """
+    SHL64(shift, value) = value << shift
+    ----
+
+    Description
+    ----
+    Shifts the low 64 bits of value left by shift bits, modulo 2**64; zero for
+    a shift of 64 or more.
+
+    Inputs
+    ----
+    - shift: number of bits to shift to the left
+    - value: 64-bit value to shift
+
+    Outputs
+    ----
+    - value << shift: the shifted value modulo 2**64
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    SHR64 = Opcode(0xDC, popped_stack_items=2, pushed_stack_items=1)
+    """
+    SHR64(shift, value) = value >> shift
+    ----
+
+    Description
+    ----
+    Shifts the low 64 bits of value right by shift bits, filling with zeros;
+    zero for a shift of 64 or more.
+
+    Inputs
+    ----
+    - shift: number of bits to shift to the right
+    - value: 64-bit value to shift
+
+    Outputs
+    ----
+    - value >> shift: the shifted value
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    SAR64 = Opcode(0xDD, popped_stack_items=2, pushed_stack_items=1)
+    """
+    SAR64(shift, value) = value >> shift
+    ----
+
+    Description
+    ----
+    Shifts the low 64 bits of value right by shift bits, filling with the sign
+    bit; zero or all ones, by the sign, for a shift of 64 or more.
+
+    Inputs
+    ----
+    - shift: number of bits to shift to the right
+    - value: signed 64-bit value to shift
+
+    Outputs
+    ----
+    - value >> shift: the shifted value, sign-filled, modulo 2**64
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    2
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
+    CLZ64 = Opcode(0xDE, popped_stack_items=1, pushed_stack_items=1)
+    """
+    CLZ64(a) = c
+    ----
+
+    Description
+    ----
+    Counts the leading zero bits of the low 64 bits of a; 64 for zero.
+
+    Inputs
+    ----
+    - a: integer
+
+    Outputs
+    ----
+    - c: the number of leading zero bits of the low 64 bits of a
+
+    Fork
+    ----
+    EIP-12504
+
+    Gas
+    ----
+    3
+
+    Source: [EIP-12504](https://eips.ethereum.org/EIPS/eip-12504)
+    """
+
     DUPN = Opcode(
         0xE6,
         pushed_stack_items=1,
