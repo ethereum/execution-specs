@@ -344,6 +344,7 @@ class T8N(Load):
         Return the number of accepted transactions.
         """
         accepted = 0
+        accepted_txs = []
         for tx_index, testing_tx in enumerate(self.txs):
             try:
                 fork_tx = self.convert_transaction(testing_tx)
@@ -369,6 +370,8 @@ class T8N(Load):
                 self.logger.warning(f"Transaction {tx_index} failed: {e!r}")
             else:
                 accepted += 1
+                accepted_txs.append(testing_tx)
+        self.body = Bytes(rlp.encode([tx.rlp() for tx in accepted_txs]))
         return accepted
 
     def run_state_test(self) -> None:
@@ -390,6 +393,12 @@ class T8N(Load):
                     index=Uint(0),
                 )
             except (EthereumException, UnsupportedTxError) as e:
+                trie_set(
+                    self._block_output.transactions_trie,
+                    rlp.encode(Uint(0)),
+                    None,
+                )
+                self.body = Bytes(rlp.encode([]))
                 record_rejected_tx(self, 0, e)
                 self.logger.warning(f"Transaction 0 failed: {e!r}")
 
