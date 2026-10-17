@@ -168,6 +168,7 @@ def _write_sibling(
     test_id: str = SIBLING_ID,
     file_name: str = "test_a.json",
     pre: Alloc | None = None,
+    post: Alloc | None = None,
 ) -> None:
     """Write a sibling engine fixture into its format tree."""
     fixture = BlockchainEngineFixture(
@@ -175,13 +176,20 @@ def _write_sibling(
         last_block_hash=Hash(0),
         config=FixtureConfig(fork=Prague),
         pre=pre if pre is not None else Alloc({SENDER: Account(balance=1)}),
-        post_state=Alloc({SENDER: Account(balance=1)}),
+        post_state=post
+        if post is not None
+        else Alloc({SENDER: Account(balance=1)}),
         genesis=_genesis_header(),
         payloads=payloads,
     )
     _write_fixture_file(
         folder / SIBLING_FIXTURES_DIR / "prague" / "module" / file_name,
         {test_id: fixture},
+    )
+    _write_group(
+        folder,
+        accounts=pre.root if pre is not None else {SENDER: Account(balance=1)},
+        test_ids=[test_id],
     )
 
 
@@ -192,6 +200,7 @@ def _write_engine_x(
     test_id: str = ENGINE_X_ID,
     file_name: str = "test_a.json",
     pre_hash: str = PRE_HASH,
+    post_diff: Alloc | None = None,
 ) -> None:
     """Write an Engine X fixture into its format tree."""
     fixture = BlockchainEngineXFixture(
@@ -199,7 +208,7 @@ def _write_engine_x(
         last_block_hash=Hash(0),
         config=FixtureConfig(fork=Prague),
         pre_hash=pre_hash,
-        post_state_diff=Alloc({}),
+        post_state_diff=post_diff if post_diff is not None else Alloc({}),
         payloads=payloads,
     )
     _write_fixture_file(
@@ -628,6 +637,185 @@ def test_non_fixture_files_are_ignored(tmp_path: Path) -> None:
 
     assert result.compared == 1
     assert result.skipped == 0
+
+
+@pytest.mark.parametrize(
+    "packed_account",
+    [
+        Account(storage={0: 2}),
+        Account(storage={0: 1}, balance=2),
+        Account(storage={0: 1}, nonce=2),
+        Account(storage={0: 1}, code="0x00"),
+    ],
+    ids=["storage-value", "balance", "nonce", "code"],
+)
+def test_post_state_drift_with_identical_payloads(
+    tmp_path: Path, packed_account: Account | None
+) -> None:
+    """Reject state drift even when gas and receipts are identical."""
+    _write_sibling(
+        tmp_path,
+        [_sibling_payload()],
+        post=Alloc(
+            {
+                SENDER: Account(balance=1),
+                TEST_CONTRACT: Account(storage={0: 1}),
+            }
+        ),
+    )
+    _write_engine_x(
+        tmp_path,
+        [_engine_x_payload()],
+        post_diff=Alloc({TEST_CONTRACT: packed_account}),
+    )
+
+    with pytest.raises(EngineXExecutionDriftError, match="post-state"):
+        verify_engine_x_execution(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "post_account",
+    [Account(storage={0: 2}), None],
+    ids=["modified", "deleted"],
+)
+def test_matching_post_state_changes_pass(
+    tmp_path: Path, post_account: Account | None
+) -> None:
+    """Compare changes rather than the packed group's extra accounts."""
+    pre = Alloc(
+        {SENDER: Account(balance=1), TEST_CONTRACT: Account(storage={0: 1})}
+    )
+    post = Alloc({SENDER: Account(balance=1), TEST_CONTRACT: post_account})
+    _write_sibling(tmp_path, [_sibling_payload()], pre=pre, post=post)
+    _write_engine_x(
+        tmp_path,
+        [_engine_x_payload()],
+        post_diff=post.calculate_diff(pre),
+    )
+    _write_group(
+        tmp_path,
+        accounts={**pre.root, UNDECLARED_ACCOUNT: Account(balance=100)},
+        test_ids=[ENGINE_X_ID],
+    )
+
+    assert verify_engine_x_execution(tmp_path).compared == 1
+
+
+def test_packed_only_post_state_change_raises(tmp_path: Path) -> None:
+    """Reject mutations of accounts absent from the test's own genesis."""
+    _write_sibling(tmp_path, [_sibling_payload()])
+    _write_engine_x(
+        tmp_path,
+        [_engine_x_payload()],
+        post_diff=Alloc({UNDECLARED_ACCOUNT: Account(balance=2)}),
+    )
+
+    with pytest.raises(EngineXExecutionDriftError, match="post-state"):
+        verify_engine_x_execution(tmp_path)
+
+
+@pytest.mark.parametrize("deleted_in_packed", [False, True])
+def test_post_state_deletion_is_not_an_omitted_change(
+    tmp_path: Path, deleted_in_packed: bool
+) -> None:
+    """Distinguish a deleted account from an unchanged account."""
+    pre = Alloc({SENDER: Account(balance=1)})
+    _write_sibling(
+        tmp_path,
+        [_sibling_payload()],
+        pre=pre,
+        post=pre if deleted_in_packed else Alloc({}),
+    )
+    _write_engine_x(
+        tmp_path,
+        [_engine_x_payload()],
+        post_diff=Alloc({SENDER: None}) if deleted_in_packed else Alloc({}),
+    )
+
+    with pytest.raises(EngineXExecutionDriftError, match="post-state"):
+        verify_engine_x_execution(tmp_path)
+
+
+def test_packed_only_account_deleted_in_both_executions_passes(
+    tmp_path: Path,
+) -> None:
+    """Accept equal final absence despite different genesis states."""
+    _write_sibling(tmp_path, [_sibling_payload()])
+    _write_engine_x(
+        tmp_path,
+        [_engine_x_payload()],
+        post_diff=Alloc({UNDECLARED_ACCOUNT: None}),
+    )
+    _write_group(
+        tmp_path,
+        accounts={
+            SENDER: Account(balance=1),
+            UNDECLARED_ACCOUNT: Account(balance=3),
+        },
+        test_ids=[ENGINE_X_ID],
+    )
+
+    assert verify_engine_x_execution(tmp_path).compared == 1
+
+
+def test_missing_pre_alloc_group_raises(tmp_path: Path) -> None:
+    """Report missing genesis data needed to reconstruct packed state."""
+    _write_sibling(tmp_path, [_sibling_payload()])
+    _write_engine_x(tmp_path, [_engine_x_payload()])
+    group_file = (
+        tmp_path / ENGINE_X_FIXTURES_DIR / "pre_alloc" / f"{PRE_HASH}.json"
+    )
+    group_file.unlink()
+
+    with pytest.raises(
+        EngineXCheckError, match="pre-alloc group.*unavailable"
+    ):
+        verify_engine_x_execution(tmp_path)
+
+
+def test_missing_full_post_state_raises(tmp_path: Path) -> None:
+    """Report when a sibling's state root cannot verify state changes."""
+    _write_sibling(tmp_path, [_sibling_payload()])
+    _write_engine_x(tmp_path, [_engine_x_payload()])
+    file = tmp_path / SIBLING_FIXTURES_DIR / "prague/module/test_a.json"
+    data = json.loads(file.read_text())
+    data[SIBLING_ID].pop("postState")
+    data[SIBLING_ID]["postStateHash"] = str(Hash(1))
+    file.write_text(json.dumps(data))
+
+    with pytest.raises(EngineXCheckError, match="only a state root"):
+        verify_engine_x_execution(tmp_path)
+
+
+@pytest.mark.parametrize("history_drift", [False, True])
+def test_post_state_history_parent_hash(
+    tmp_path: Path, history_drift: bool
+) -> None:
+    """Mask history hashes while retaining unrelated history changes."""
+    address = Address(HISTORY_STORAGE_ADDRESS)
+    pre = Alloc({address: Account(nonce=1)})
+    own_post = Alloc(
+        {address: Account(nonce=1, storage={0: SIBLING_PARENT_HASH, 1: 7})}
+    )
+    packed_diff = Alloc(
+        {
+            address: Account(
+                nonce=1,
+                storage={
+                    0: ENGINE_X_PARENT_HASH,
+                    1: 8 if history_drift else 7,
+                },
+            )
+        }
+    )
+    _write_sibling(tmp_path, [_sibling_payload()], pre=pre, post=own_post)
+    _write_engine_x(tmp_path, [_engine_x_payload()], post_diff=packed_diff)
+
+    if history_drift:
+        with pytest.raises(EngineXExecutionDriftError, match="post-state"):
+            verify_engine_x_execution(tmp_path)
+    else:
+        assert verify_engine_x_execution(tmp_path).compared == 1
 
 
 def test_state_root_derived_fields_exist_on_the_payload_model() -> None:
