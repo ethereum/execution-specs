@@ -39,9 +39,10 @@ import os
 import warnings
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Generator, List
+from typing import Any, Generator, List, cast
 
 import pytest
+from _pytest.capture import CaptureManager
 from filelock import FileLock
 from hive.client import ClientRole, ClientType
 from hive.simulation import Simulation
@@ -367,6 +368,25 @@ def hive_test(
                     f"# Captured Output from Test {phase.capitalize()}\n\n"
                     f"## stdout:\n{stdout}\n"
                     f"## stderr:\n{stderr}\n"
+                )
+
+        # Pytest creates the teardown report only after fixture finalizers
+        # finish. Read the output already produced by dependent fixtures
+        # now, before Hive closes this test. Restore it as report sections
+        # so reading the capture does not hide it from pytest's own report.
+        capture_manager = cast(
+            CaptureManager | None,
+            request.config.pluginmanager.getplugin("capturemanager"),
+        )
+        if capture_manager is not None:
+            stdout, stderr = capture_manager.read_global_capture()
+            request.node.add_report_section("teardown", "stdout", stdout)
+            request.node.add_report_section("teardown", "stderr", stderr)
+            if stdout or stderr:
+                captured.append(
+                    "# Captured Output from Test Teardown\n\n"
+                    f"## stdout:\n{stdout or 'None'}\n"
+                    f"## stderr:\n{stderr or 'None'}\n"
                 )
 
         captured_output = "\n".join(captured)
