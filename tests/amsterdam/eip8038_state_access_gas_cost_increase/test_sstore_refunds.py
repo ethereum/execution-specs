@@ -49,7 +49,6 @@ from execution_testing import (
     Transaction,
     TransactionReceipt,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8038
 
@@ -77,8 +76,6 @@ def _cumulative_gas_used(code: Bytecode, fork: Fork) -> int:
     return gross - applied_refund
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Under()
 def test_sstore_clear_grants_refund(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -128,7 +125,6 @@ def test_sstore_clear_grants_refund(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
 def test_sstore_clear_then_reset_nets_zero(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -200,8 +196,6 @@ def test_sstore_clear_then_reset_nets_zero(
     )
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Under()
 def test_sstore_clear_then_rewrite_zero_grants_refund_once(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -263,8 +257,6 @@ def test_sstore_clear_then_rewrite_zero_grants_refund_once(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Under()
 def test_sstore_restore_nonzero_refunds_write(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -316,8 +308,6 @@ def test_sstore_restore_nonzero_refunds_write(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Under()
 def test_sstore_clear_then_restore_original(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -378,8 +368,6 @@ def test_sstore_clear_then_restore_original(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Under()
 def test_sstore_write_charged_each_move_away(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -448,8 +436,6 @@ def test_sstore_write_charged_each_move_away(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Under()
 def test_sstore_clear_refund_granted_twice(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -517,8 +503,6 @@ def test_sstore_clear_refund_granted_twice(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Over()
 @pytest.mark.parametrize("num_clears", [1, 8, 32])
 def test_sstore_refund_quotient_cap(
     state_test: StateTestFiller,
@@ -574,8 +558,6 @@ def test_sstore_refund_quotient_cap(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation.Exact()
 def test_sstore_refund_cap_exact_equality(
     state_test: StateTestFiller,
     pre: Alloc,

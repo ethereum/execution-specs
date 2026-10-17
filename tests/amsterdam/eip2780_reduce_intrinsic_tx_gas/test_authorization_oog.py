@@ -56,7 +56,6 @@ from execution_testing import (
     TransactionException,
     TransactionReceipt,
 )
-from execution_testing.checklists import EIPChecklist
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .helpers import (
@@ -183,8 +182,6 @@ def _applied_delegation_bal(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "outcome", ["new_account", "account_write", "auth_base", "succeeds"]
 )
@@ -317,7 +314,6 @@ def test_set_delegation_oog_charge_point(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.parametrize(
     "first_action",
     [
@@ -411,8 +407,6 @@ def test_set_delegation_oog_rolls_back_first_auth(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "succeeds",
     [
@@ -588,7 +582,6 @@ def _starved_recipient_post(
     return {recipient: Account(balance=value) if succeeds else None}
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.parametrize(
     "succeeds",
     [
@@ -675,7 +668,6 @@ def test_repeated_authority_rolled_back(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.parametrize(
     "succeeds",
     [
@@ -779,8 +771,6 @@ def test_self_sponsored_authorization_rolled_back(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "failure_point",
     [
@@ -1027,8 +1017,6 @@ def test_reservoir_settlement_by_failure_point(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "failure_point",
     ["set_delegation_oog", "dispatch_charge_oog", "execution_halt"],
@@ -1236,7 +1224,6 @@ def test_reservoir_settlement_with_value_to_empty_recipient(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.parametrize(
     "value",
     [pytest.param(0, id="no_value"), pytest.param(1, id="with_value")],
@@ -1328,7 +1315,6 @@ def test_delegation_persists_on_execution_oog(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "auth_action",
     [
@@ -1414,7 +1400,6 @@ def test_auth_state_charges_survive_dispatch_revert(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_auth_state_charges_survive_dispatch_halt_with_reservoir(
     fork: Fork,
     pre: Alloc,
@@ -1486,7 +1471,6 @@ def test_auth_state_charges_survive_dispatch_halt_with_reservoir(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_auth_state_gas_in_header_on_dispatch_revert(
     fork: Fork,
     pre: Alloc,
@@ -1559,7 +1543,6 @@ def test_auth_state_gas_in_header_on_dispatch_revert(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "delta",
@@ -1668,7 +1651,6 @@ def test_reverted_dispatch_state_gas_counts_toward_block_limit(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.inclusion_test
 @pytest.mark.parametrize("failure_point", ["authorization", "dispatch_access"])
 @pytest.mark.parametrize(
@@ -1827,7 +1809,6 @@ def test_preparation_rollback_restores_block_state_budget(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_recipient_new_account_refilled_on_dispatch_halt_with_reservoir(
     fork: Fork,
     pre: Alloc,
@@ -1894,7 +1875,6 @@ def test_recipient_new_account_refilled_on_dispatch_halt_with_reservoir(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_dispatched_frame_state_gas_still_refills_on_revert(
     fork: Fork,
     pre: Alloc,

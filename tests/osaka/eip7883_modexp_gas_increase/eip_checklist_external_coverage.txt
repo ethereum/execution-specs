@@ -1,3 +1,0 @@
-precompile/test/call_contexts/set_code = Covered in EIP-7702 cases
-precompile/test/inputs/max_values = Covered in osaka/eip7823_modexp_upper_bounds
-precompile/test/out_of_bounds/max = Covered in osaka/eip7823_modexp_upper_bounds

@@ -152,7 +152,7 @@ IDs of the tests added that now cover the missed scenario and link to the docume
 
 *Example:*
 
-- [`tests/prague/eip2537_bls_12_381_precompiles/test_bls12_g1msm.py::test_invalid\[fork_Prague-state_test---bls_g1_truncated_input-\]`](../tests/prague/eip2537_bls_12_381_precompiles/test_bls12_g1msm/test_invalid.md)
+- [`tests/prague/eip2537_bls_12_381_precompiles/test_bls12_g1msm.py::test_invalid\[fork_Prague-state_test---bls_g1_truncated_input-\]`](https://github.com/ethereum/execution-specs/blob/HEAD/tests/prague/eip2537_bls_12_381_precompiles/test_bls12_g1msm.py)
 
 ### Framework/Documentation Changes
 

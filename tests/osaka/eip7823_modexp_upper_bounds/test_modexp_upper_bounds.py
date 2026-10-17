@@ -11,7 +11,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytes,
-    EIPChecklist,
     Fork,
     Op,
     StateTestFiller,
@@ -253,8 +252,6 @@ REFERENCE_SPEC_VERSION = ref_spec_7823.version
         ),
     ],
 )
-@EIPChecklist.Precompile.Test.Inputs.MaxValues
-@EIPChecklist.Precompile.Test.OutOfBounds.Max
 def test_modexp_upper_bounds(
     state_test: StateTestFiller,
     modexp_input: ModExpInput,

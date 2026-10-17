@@ -8,11 +8,11 @@ To test for an exception, the test can use either of the following types from `e
 
 1. [`TransactionException`](../library/execution_testing_exceptions.md#execution_testing.exceptions.TransactionException): To be added to the `error` field of the `Transaction` object, and to the `exception` field of the `Block` object that includes the transaction; this exception type is used when a transaction is invalid, and therefore when included in a block, the block is expected to be invalid too. This is different from valid transactions where an exception during EVM execution is expected (e.g. a revert, or out-of-gas), which can be included in valid blocks.
 
-    For an example, see [`eip3860_initcode.test_initcode.test_contract_creating_tx`](../tests/shanghai/eip3860_initcode/test_initcode/test_contract_creating_tx.md) which raises `TransactionException.INITCODE_SIZE_EXCEEDED` in the case that the initcode size exceeds the maximum allowed size.
+    For an example, see [`eip3860_initcode.test_initcode.test_contract_creating_tx`](https://github.com/ethereum/execution-specs/blob/HEAD/tests/shanghai/eip3860_initcode/test_initcode.py) which raises `TransactionException.INITCODE_SIZE_EXCEEDED` in the case that the initcode size exceeds the maximum allowed size.
 
 2. [`BlockException`](../library/execution_testing_exceptions.md#execution_testing.exceptions.BlockException): To be added to the `exception` field of the `Block` object; this exception type is used when a block is expected to be invalid, but the exception is related to a block property, e.g. an invalid value of the block header.
 
-    For an example, see [`eip4844_blobs.test_excess_blob_gas.test_invalid_static_excess_blob_gas`](../tests/cancun/eip4844_blobs/test_excess_blob_gas/test_invalid_static_excess_blob_gas.md) which raises `BlockException.INCORRECT_EXCESS_BLOB_GAS` in the case that the `excessBlobGas` remains unchanged
+    For an example, see [`eip4844_blobs.test_excess_blob_gas.test_invalid_static_excess_blob_gas`](https://github.com/ethereum/execution-specs/blob/HEAD/tests/cancun/eip4844_blobs/test_excess_blob_gas.py) which raises `BlockException.INCORRECT_EXCESS_BLOB_GAS` in the case that the `excessBlobGas` remains unchanged
     but the parent blobs included are not `TARGET_BLOBS_PER_BLOCK`.
 
 Although exceptions can be combined with the `|` operator to indicate that a test vector can throw either one of multiple exceptions, ideally the tester should aim to use only one exception per test vector, and only use multiple exceptions on the rare instance when it is not possible to know which exception will be thrown because it depends on client implementation.

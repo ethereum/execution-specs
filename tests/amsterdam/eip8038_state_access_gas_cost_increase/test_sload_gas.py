@@ -21,7 +21,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8038
 
@@ -52,7 +51,6 @@ def _measure_sload(slot: int, fork: Fork) -> CodeGasMeasure:
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_sload_gas(
     state_test: StateTestFiller,
@@ -94,7 +92,6 @@ def test_sload_gas(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_sload_warm_after_prior_touch(
     state_test: StateTestFiller,
     env: Environment,
@@ -141,7 +138,6 @@ def test_sload_warm_after_prior_touch(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_sload_warmth_reverts_on_subcall_revert(
     state_test: StateTestFiller,
     env: Environment,

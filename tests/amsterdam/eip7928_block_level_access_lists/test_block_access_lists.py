@@ -24,7 +24,6 @@ from execution_testing import (
     Bytecode,
     CodeGasMeasure,
     Conditional,
-    EIPChecklist,
     Environment,
     Fork,
     GasConsumer,
@@ -56,8 +55,6 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 SYSTEM_ADDRESS = Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE)
 
 
-@EIPChecklist.BlockHeaderField.Test.ValueBehavior.Accept()
-@EIPChecklist.BlockHeaderField.Test.Genesis()
 def test_bal_nonce_changes(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -4493,7 +4490,6 @@ def test_bal_insufficient_balance_call_to_touched_precompile(
     )
 
 
-@EIPChecklist.BlockLevelConstraint.Test.Content.TransactionTypes()
 def test_bal_all_transaction_types(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -4959,9 +4955,6 @@ def test_bal_storage_slot_numeric_ordering(
     )
 
 
-@EIPChecklist.BlockLevelConstraint.Test.Boundary.Under()
-@EIPChecklist.BlockLevelConstraint.Test.Boundary.Exact()
-@EIPChecklist.BlockLevelConstraint.Test.Boundary.Over()
 @pytest.mark.parametrize(
     "with_cl_withdrawal",
     [

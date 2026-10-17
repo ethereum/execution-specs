@@ -27,7 +27,7 @@ Structured assessment of EIP implementation complexity. When invoked with an EIP
 
 ## 3. Identify Required Test Categories
 
-Map the change types to the relevant `EIPChecklist` categories (from `execution_testing.checklists.eip_checklist`). List the checklist items that need to be covered.
+Map the change types to the relevant sections of the EIP testing checklist template (`docs/writing_tests/checklist_templates/eip_testing_checklist_template.md`). List the checklist items that need to be covered.
 
 ## 4. Identify Prior Art
 
@@ -46,5 +46,5 @@ Produce a summary with:
 - Estimated scope (Small / Medium / Large / XL)
 - Spec files to modify (with paths)
 - Test files to create
-- EIPChecklist categories to cover
+- Checklist template sections to cover
 - Reference implementations to follow

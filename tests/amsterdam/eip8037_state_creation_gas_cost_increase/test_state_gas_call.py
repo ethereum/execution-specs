@@ -42,7 +42,6 @@ from execution_testing import (
     compute_create_address,
     create_op,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import init_code_at_high_bytes, ref_spec_8037
 
@@ -724,7 +723,6 @@ def test_nested_calls_reservoir_passing(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value_is_affordable",
     [
@@ -2006,7 +2004,6 @@ def test_call_new_account_no_execution_account_creation_cost(
         ),
     ],
 )
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_call_new_account_state_gas_boundary(
     state_test: StateTestFiller,

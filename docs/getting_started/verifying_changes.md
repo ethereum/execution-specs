@@ -16,7 +16,7 @@ Some CI jobs are slow. Only run the checks relevant to your change.
 | Benchmark test changes (`tests/benchmark/`)       | `just fill-benchmark`                                                  | Fills `tests/benchmark/compute` at 1M gas with EELS. Mirrors the `fill-benchmark` CI job.              |
 | Benchmark framework changes                       | `just test-tests`, `just bench-gas`, `just bench-opcode`, `just bench-opcode-config` | Benchmark plugin unit tests now run within `test-tests`; the `bench-*` recipes fill/verify the suite (geth-backed on `benchmarks/**`).                  |
 | Markdown touched                                  | `just lint-md`                                                         | Requires `markdownlint-cli2`; see [Linting Markdown](#linting-markdown).                               |
-| Docs touched                                      | `just docs` or `just docs-fast`                                        | `docs-fast` skips the Test Case Reference section for faster iteration.                                |
+| Docs touched                                      | `just docs`                                                            |                                                                                                        |
 
 ## `just fix` and `just static`
 

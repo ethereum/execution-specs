@@ -16,7 +16,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     BlockException,
-    EIPChecklist,
     Environment,
     Fork,
     RefundTypes,
@@ -65,7 +64,6 @@ def authorization_list(
     ]
 
 
-@EIPChecklist.BlockLevelConstraint.Test.Content.TransactionTypes()
 @TransactionFailure.with_all_tx_failures()
 @pytest.mark.with_all_tx_types()
 @pytest.mark.with_all_refund_types()
@@ -102,7 +100,6 @@ def test_block_gas_accounting_all_transaction_types(
     )
 
 
-@EIPChecklist.BlockLevelConstraint.Test.Content.TransactionTypes()
 @pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "typed_tx_position",
@@ -236,7 +233,6 @@ def test_trailing_tx_admission_all_transaction_types(
     )
 
 
-@EIPChecklist.BlockLevelConstraint.Test.Content.Logs()
 @pytest.mark.with_all_refund_types()
 def test_block_gas_accounting_with_logs(
     blockchain_test: BlockchainTestFiller,

@@ -13,7 +13,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    EIPChecklist,
     Transaction,
     TransitionFork,
 )
@@ -64,8 +63,6 @@ def precompile_gas(vector_gas_value: int | None, fork: TransitionFork) -> int:
     "expected_output,call_succeeds",
     [pytest.param(Spec.INVALID_RETURN_VALUE, True, id=pytest.HIDDEN_PARAM)],
 )
-@EIPChecklist.Precompile.Test.ForkTransition.Before.InvalidInput()
-@EIPChecklist.Precompile.Test.ForkTransition.Before.ZeroGas()
 def test_precompile_before_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

@@ -9,7 +9,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    EIPChecklist,
     Fork,
     Op,
     Transaction,
@@ -33,11 +32,6 @@ pytestmark = pytest.mark.valid_at_transition_to("Osaka")
     ],
     ids=[""],
 )
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
-@EIPChecklist.Precompile.Test.ForkTransition.After.Warm()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_modexp_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

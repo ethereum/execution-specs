@@ -9,7 +9,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     BlockException,
-    EIPChecklist,
     EngineAPIError,
     Header,
     Op,
@@ -24,9 +23,6 @@ REFERENCE_SPEC_VERSION = ref_spec_7843.version
 FORK_TIMESTAMP = 15_000
 
 
-@EIPChecklist.Opcode.Test.ForkTransition.Invalid()
-@EIPChecklist.Opcode.Test.ForkTransition.At()
-@EIPChecklist.BlockHeaderField.Test.ForkTransition.Initial()
 @pytest.mark.valid_at_transition_to("EIP7843")
 def test_slotnum_at_fork_transition(
     blockchain_test: BlockchainTestFiller,
@@ -80,7 +76,6 @@ def test_slotnum_at_fork_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.BlockHeaderField.Test.ForkTransition.Before()
 @pytest.mark.valid_at_transition_to("EIP7843")
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
@@ -131,7 +126,6 @@ def test_invalid_pre_fork_block_with_slot_number(
     )
 
 
-@EIPChecklist.BlockHeaderField.Test.ForkTransition.After()
 @pytest.mark.valid_at_transition_to("EIP7843")
 @pytest.mark.exception_test
 def test_invalid_post_fork_block_without_slot_number(

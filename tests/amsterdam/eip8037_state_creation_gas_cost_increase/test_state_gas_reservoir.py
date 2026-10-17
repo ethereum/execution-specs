@@ -39,7 +39,6 @@ from execution_testing import (
 from execution_testing import (
     Macros as Om,
 )
-from execution_testing.checklists import EIPChecklist
 
 from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
@@ -57,7 +56,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
         pytest.param(1, id="above_cap"),
     ],
 )
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test()
 @pytest.mark.valid_from("EIP8037")
 def test_reservoir_allocation_boundary(
     state_test: StateTestFiller,
@@ -162,7 +160,6 @@ def test_sstore_state_gas_entirely_from_gas_left(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_insufficient_gas_for_sstore_state_cost(
     state_test: StateTestFiller,
