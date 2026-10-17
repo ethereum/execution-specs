@@ -25,6 +25,7 @@ def test_spec_types() -> None:
     assert len(BaseTest.spec_types.items()) > 0
     assert "state_test" in BaseTest.spec_types
     assert "blockchain_test" in BaseTest.spec_types
+    assert "mempool_test" in BaseTest.spec_types
 
 
 class SpecType(Protocol):

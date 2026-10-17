@@ -15,6 +15,7 @@ from .blockchain import (
     BlockchainTestSpec,
     Header,
 )
+from .mempool import MempoolTest, MempoolTestFiller, MempoolTestSpec
 from .state import StateTest, StateTestFiller, StateTestSpec
 from .transaction import (
     TransactionTest,
@@ -37,6 +38,9 @@ __all__ = (
     "BlockchainTestSpec",
     "Block",
     "Header",
+    "MempoolTest",
+    "MempoolTestFiller",
+    "MempoolTestSpec",
     "OpcodeTarget",
     "StateTest",
     "StateTestFiller",
