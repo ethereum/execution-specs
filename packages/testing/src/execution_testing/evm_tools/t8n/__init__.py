@@ -21,6 +21,7 @@ from typing import (
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
+from ethereum.merkle_patricia_trie import trie_set
 from ethereum_rlp import rlp
 from ethereum_spec_tools.forks import (
     ForkOverrides,
@@ -331,20 +332,44 @@ class T8N(Load):
 
         self.fork.incorporate_tx_into_block(rewards_state)
 
-    def _process_txs(self, block_env: Any, block_output: Any) -> None:
-        """Execute every transaction in ``self.txs`` against ``block_env``."""
+    def _process_txs(self, block_env: Any, block_output: Any) -> int:
+        """
+        Execute every transaction in ``self.txs`` against ``block_env``.
+
+        Rejected transactions are skipped. They are reported under their
+        position in the input, but they leave no trace in the block: the
+        transactions that follow take the position the rejected one would
+        have had, as if it had never been supplied.
+
+        Return the number of accepted transactions.
+        """
+        accepted = 0
         for tx_index, testing_tx in enumerate(self.txs):
             try:
                 fork_tx = self.convert_transaction(testing_tx)
                 self.fork.process_transaction(
-                    block_env, block_output, fork_tx, Uint(tx_index)
+                    block_env, block_output, fork_tx, Uint(accepted)
                 )
             except (EthereumException, UnsupportedTxError) as e:
                 # `UnsupportedTxError` covers ``convert_transaction``
                 # failures when a typed tx is structurally malformed for
                 # this fork (e.g. a contract-creating BlobTransaction).
+                #
+                # ``process_transaction`` adds the transaction to the
+                # transactions trie before it checks it is admissible, so
+                # take it out again. An error after that point, which
+                # would also have added a receipt, cannot happen: the
+                # fork raises only while admitting the transaction.
+                trie_set(
+                    block_output.transactions_trie,
+                    rlp.encode(Uint(accepted)),
+                    None,
+                )
                 record_rejected_tx(self, tx_index, e)
                 self.logger.warning(f"Transaction {tx_index} failed: {e!r}")
+            else:
+                accepted += 1
+        return accepted
 
     def run_state_test(self) -> None:
         """
@@ -393,12 +418,12 @@ class T8N(Load):
                 data=block_env.block_hashes[-1],  # The parent hash
             )
 
-        self._process_txs(block_env, block_output)
+        accepted_txs = self._process_txs(block_env, block_output)
 
         # EIP-7928: Post-execution operations use index N+1
         if self.fork.has_hash_block_access_list:
             block_env.block_access_list_builder.block_access_index = (
-                self.fork.BlockAccessIndex(Uint(len(self.txs)) + Uint(1))
+                self.fork.BlockAccessIndex(Uint(accepted_txs) + Uint(1))
             )
 
         if not self.fork.proof_of_stake and self.state_reward != -1:
