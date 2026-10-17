@@ -15,7 +15,6 @@ from execution_testing import (
     TransactionReceipt,
     compute_create_address,
 )
-from execution_testing.checklists import EIPChecklist
 
 from ...prague.eip7623_increase_calldata_cost.helpers import (
     find_floor_cost_threshold,
@@ -70,8 +69,6 @@ def _floor_dominating_calldata(fork: Fork) -> Bytes:
     return Bytes(b"\x00" * byte_count)
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "outcome",
@@ -235,8 +232,6 @@ def _floor_dominating_initcode(fork: Fork) -> Bytes:
     return Bytes(b"\x00" * byte_count)
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "outcome",
@@ -337,8 +332,6 @@ def test_calldata_floor_contract_creation(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "outcome",

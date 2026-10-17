@@ -10,7 +10,6 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
-    EIPChecklist,
     Fork,
     Op,
     StateTestFiller,
@@ -25,8 +24,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8024.version
 pytestmark = pytest.mark.valid_from("EIP8024")
 
 
-@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Odd()
-@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Even()
 @pytest.mark.parametrize(
     "n,m",
     [
@@ -97,8 +94,6 @@ def test_exchange_basic(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.DataPortion.AllZeros()
-@EIPChecklist.Opcode.Test.DataPortion.MaxValue()
 @pytest.mark.parametrize(
     "immediate",
     [0, 1, 15, 78, 79, 80, 81, 128, 129, 200, 255],
@@ -213,7 +208,6 @@ def test_exchange_preserves_other_items(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.StackUnderflow()
 @pytest.mark.parametrize(
     "immediate",
     # Boundaries of both valid ranges (0x00, 0x51, 0x80, 0xFF)
@@ -251,8 +245,6 @@ def test_exchange_stack_underflow(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Zero()
-@EIPChecklist.Opcode.Test.StackUnderflow()
 def test_exchange_empty_stack(
     pre: Alloc,
     state_test: StateTestFiller,
@@ -276,9 +268,6 @@ def test_exchange_empty_stack(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.GasUsage.Normal()
-@EIPChecklist.Opcode.Test.GasUsage.OutOfGasExecution()
-@EIPChecklist.Opcode.Test.GasUsage.ExtraGas()
 @pytest.mark.parametrize("gas_cost_delta", [-2, -1, 0, 1, 2])
 def test_exchange_gas_cost_boundary(
     gas_cost_delta: int,
@@ -371,7 +360,6 @@ def test_endofcode_behavior(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.DataPortion.Jump()
 @pytest.mark.parametrize(
     "immediate",
     [
@@ -546,7 +534,6 @@ def test_exchange_full_stack(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.ExceptionalAbort()
 @pytest.mark.parametrize(
     "immediate",
     range(82, 128),  # Forbidden range: 0x52-0x7F

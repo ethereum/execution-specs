@@ -43,7 +43,6 @@ from execution_testing import (
     Transaction,
     TransactionReceipt,
 )
-from execution_testing.checklists import EIPChecklist
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_8038
@@ -54,7 +53,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8038.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
 @pytest.mark.parametrize("n", [1, 2])
 def test_existing_authority_no_new_account_charge(
     state_test: StateTestFiller,
@@ -124,7 +122,6 @@ def test_existing_authority_no_new_account_charge(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
 @pytest.mark.parametrize("n", [1, 3])
 def test_clearing_delegation_no_state_charge(
     state_test: StateTestFiller,

@@ -149,32 +149,6 @@ class PagePropsBase:
 
 
 @dataclass
-class EipChecklistPageProps(PagePropsBase):
-    """Properties used to generate the EIP checklist page."""
-
-    eip: int = 0
-    lines: List[str] = field(default_factory=list)
-
-    @property
-    def template(self) -> str:
-        """Get the jinja2 template used to render this page."""
-        raise Exception("EipChecklistPageProps does not have a template")
-
-    @property
-    def target_output_file(self) -> Path:
-        """Get the target output file for this page."""
-        return self.path
-
-    def write_page(
-        self, file_opener: FileOpener, jinja2_env: Environment
-    ) -> None:
-        """Write the page to the target directory."""
-        del jinja2_env
-        with file_opener.open(self.target_output_file, "w") as destination:
-            destination.write("\n".join(self.lines))
-
-
-@dataclass
 class TestCase:
     """
     Properties used to define a single test case in test function parameter
@@ -336,7 +310,6 @@ PageProps = (
     | ModulePageProps
     | FunctionPageProps
     | MarkdownPageProps
-    | EipChecklistPageProps
 )
 PagePropsLookup = Dict[str, PageProps]
 ModulePagePropsLookup = Dict[str, ModulePageProps]

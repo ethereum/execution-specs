@@ -39,7 +39,6 @@ from execution_testing import (
     TransitionFork,
     compute_create_address,
 )
-from execution_testing.checklists import EIPChecklist
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_2780
@@ -54,8 +53,6 @@ PRE_FORK_TIMESTAMP = 14_999
 POST_FORK_TIMESTAMP = 15_000
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 @pytest.mark.parametrize(
     "self_transfer",
     [
@@ -155,8 +152,6 @@ def test_intrinsic_reduction_across_amsterdam_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 @pytest.mark.parametrize(
     "value",
     [
@@ -262,8 +257,6 @@ def test_creation_tx_intrinsic_across_amsterdam_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_setcode_tx_across_amsterdam_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -354,10 +347,6 @@ def test_setcode_tx_across_amsterdam_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedBeforeFork()
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork()
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork()
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork()
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
     "recipient_type",

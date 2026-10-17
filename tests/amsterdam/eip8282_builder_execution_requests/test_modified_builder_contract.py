@@ -26,7 +26,6 @@ from execution_testing import (
 )
 from execution_testing import Macros as Om
 from execution_testing.base_types import Bloom
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8282
 
@@ -142,7 +141,6 @@ def run_modified_requests_test(
         ),
     ],
 )
-@EIPChecklist.SystemContract.Test.ContractSubstitution.ReturnLengths()
 def test_extra_builder_deposits(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -194,7 +192,6 @@ def test_extra_builder_deposits(
         ),
     ],
 )
-@EIPChecklist.SystemContract.Test.ContractSubstitution.ReturnLengths()
 def test_extra_builder_exits(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -225,10 +222,6 @@ def test_extra_builder_exits(
         ),
     ],
 )
-@EIPChecklist.SystemContract.Test.ContractSubstitution.RaisesException()
-@EIPChecklist.SystemContract.Test.ContractSubstitution.GasLimitSuccess()
-@EIPChecklist.SystemContract.Test.ContractSubstitution.GasLimitFailure()
-@EIPChecklist.SystemContract.Test.ExcessiveGas.SystemCall()
 @generate_system_contract_error_test()  # type: ignore[arg-type]
 @pytest.mark.eels_base_coverage
 def test_system_contract_errors() -> None:
@@ -245,7 +238,6 @@ def test_system_contract_errors() -> None:
 @pytest.mark.with_all_system_contract_request_types(
     selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
 )
-@EIPChecklist.SystemContract.Test.ContractSubstitution.Logs()
 def test_system_contract_logs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -297,7 +289,6 @@ def test_system_contract_logs(
     [None, -1, 1],
     ids=["one_byte", "record_minus_one", "record_plus_one"],
 )
-@EIPChecklist.SystemContract.Test.ContractSubstitution.ReturnLengths()
 def test_partial_request_records(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

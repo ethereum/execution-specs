@@ -24,7 +24,6 @@ from execution_testing import (
     Storage,
     Transaction,
 )
-from execution_testing.checklists import EIPChecklist
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_8038
@@ -35,7 +34,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8038.version
 pytestmark = [pytest.mark.valid_at("Amsterdam"), pytest.mark.mainnet]
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_sstore_zero_to_nonzero(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -57,7 +55,6 @@ def test_sstore_zero_to_nonzero(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_cold_call_with_value(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -93,7 +90,6 @@ def test_cold_call_with_value(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_extcodesize(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -119,7 +115,6 @@ def test_extcodesize(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_create_deploys_contract(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -158,7 +153,6 @@ def test_create_deploys_contract(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_selfdestruct_funds_new_account(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -188,7 +182,6 @@ def test_selfdestruct_funds_new_account(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_auth_installs_delegation(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -224,7 +217,6 @@ def test_auth_installs_delegation(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_existing_authority_refund(
     state_test: StateTestFiller,
     pre: Alloc,

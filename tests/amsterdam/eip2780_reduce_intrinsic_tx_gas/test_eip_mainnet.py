@@ -21,7 +21,6 @@ from execution_testing import (
     TransactionReceipt,
     compute_create_address,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .helpers import (
     EOA_INITIAL_BALANCE,
@@ -39,7 +38,6 @@ REFERENCE_SPEC_VERSION = ref_spec_2780.version
 pytestmark = [pytest.mark.valid_at("EIP2780"), pytest.mark.mainnet]
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("recipient_type", RECIPIENT_TYPES_NON_CREATE)
 @pytest.mark.parametrize(
     "value",
@@ -100,7 +98,6 @@ def test_transaction_gas(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -144,7 +141,6 @@ def test_contract_creation_gas(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "action",
     [

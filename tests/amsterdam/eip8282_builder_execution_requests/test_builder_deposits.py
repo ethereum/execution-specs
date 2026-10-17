@@ -22,7 +22,6 @@ from execution_testing import (
     fee_increment_blocks,
 )
 from execution_testing import Macros as Om
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8282
 
@@ -71,12 +70,6 @@ def minimum_deposit(
     )
 
 
-@EIPChecklist.SystemContract.Test.CallContexts.Normal()
-@EIPChecklist.SystemContract.Test.CallContexts.TxEntry()
-@EIPChecklist.SystemContract.Test.Inputs.Valid()
-@EIPChecklist.SystemContract.Test.Inputs.Invalid()
-@EIPChecklist.SystemContract.Test.InputLengths.Static.Correct()
-@EIPChecklist.SystemContract.Test.ValueTransfer.Fee.Exact()
 @pytest.mark.parametrize(
     "system_contract_interactions_per_block",
     [
@@ -96,7 +89,6 @@ def minimum_deposit(
                 ],
             ],
             id="single_block_single_builder_deposit_from_eoa",
-            marks=EIPChecklist.SystemContract.Test.Inputs.Boundary(),
         ),
         pytest.param(
             [
@@ -239,10 +231,6 @@ def minimum_deposit(
                 ],
             ],
             id="single_block_single_builder_deposit_below_minimum",
-            marks=[
-                EIPChecklist.SystemContract.Test.Inputs.Boundary(),
-                EIPChecklist.SystemContract.Test.Inputs.Invalid.Checks(),
-            ],
         ),
         pytest.param(
             [
@@ -263,7 +251,6 @@ def minimum_deposit(
                 ],
             ],
             id="single_block_single_builder_deposit_insufficient_value",
-            marks=EIPChecklist.SystemContract.Test.ValueTransfer.Fee.Under(),
         ),
         pytest.param(
             [
@@ -283,10 +270,6 @@ def minimum_deposit(
                 ],
             ],
             id="single_block_single_builder_deposit_input_too_short",
-            marks=[
-                EIPChecklist.SystemContract.Test.Inputs.Invalid.Corrupted(),
-                EIPChecklist.SystemContract.Test.InputLengths.Static.TooShort(),
-            ],
         ),
         pytest.param(
             [
@@ -306,10 +289,6 @@ def minimum_deposit(
                 ],
             ],
             id="single_block_single_builder_deposit_input_too_long",
-            marks=[
-                EIPChecklist.SystemContract.Test.Inputs.Invalid.Corrupted(),
-                EIPChecklist.SystemContract.Test.InputLengths.Static.TooLong(),
-            ],
         ),
         pytest.param(
             [
@@ -359,10 +338,6 @@ def minimum_deposit(
                 ],
             ],
             id="single_block_single_builder_deposit_all_zeros",
-            marks=[
-                EIPChecklist.SystemContract.Test.Inputs.AllZeros(),
-                EIPChecklist.SystemContract.Test.Inputs.Invalid.Checks(),
-            ],
         ),
         pytest.param(
             [
@@ -384,7 +359,6 @@ def minimum_deposit(
                 pytest.mark.execute(
                     pytest.mark.skip(reason="Stakes 2**64 - 1 gwei")
                 ),
-                EIPChecklist.SystemContract.Test.Inputs.MaxValues(),
             ],
         ),
         pytest.param(
@@ -591,7 +565,6 @@ def test_builder_deposit_requests(
     ],
 )
 @pytest.mark.execute(pytest.mark.skip(reason="Stakes over one hundred ETH"))
-@EIPChecklist.SystemContract.Test.Inputs.Valid()
 def test_builder_deposit_backlog_with_new_requests(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

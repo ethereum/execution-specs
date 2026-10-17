@@ -14,7 +14,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    EIPChecklist,
     Header,
     Initcode,
     Op,
@@ -180,18 +179,12 @@ def test_max_code_size_via_create_fork_transition(
         pytest.param(
             lambda f: f.transitions_from().max_initcode_size(),
             id="at_parent_max",
-            marks=[
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedBeforeFork(),
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork(),
-            ],
         ),
         pytest.param(
             lambda f: f.transitions_from().max_initcode_size() + 1,
             id="over_parent_max",
             marks=[
                 pytest.mark.exception_test,
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork(),
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork(),
             ],
         ),
         pytest.param(
@@ -204,7 +197,6 @@ def test_max_code_size_via_create_fork_transition(
             id="over_max",
             marks=[
                 pytest.mark.exception_test,
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork(),
             ],
         ),
     ],

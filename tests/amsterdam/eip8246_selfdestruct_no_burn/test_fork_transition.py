@@ -16,7 +16,6 @@ from execution_testing import (
 from execution_testing import (
     Macros as Om,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8246
 
@@ -25,7 +24,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8246.version
 
 
 @pytest.mark.valid_at_transition_to("EIP8246")
-@EIPChecklist.Opcode.Test.ForkTransition.At()
 def test_selfdestruct_to_self_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

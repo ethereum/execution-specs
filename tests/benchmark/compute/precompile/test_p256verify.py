@@ -31,9 +31,6 @@ from tests.osaka.eip7951_p256verify_precompiles.spec import H, R, S, X, Y
             + p256verify_spec.Spec.Y0,
             id="p256verify",
             marks=[
-                pytest.mark.eip_checklist(
-                    "precompile/test/excessive_gas_usage", eip=[7951]
-                ),
                 pytest.mark.repricing,
             ],
         ),

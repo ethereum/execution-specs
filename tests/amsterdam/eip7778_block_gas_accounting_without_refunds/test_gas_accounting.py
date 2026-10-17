@@ -17,7 +17,6 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
-    EIPChecklist,
     Environment,
     Fork,
     GasFee,
@@ -39,11 +38,6 @@ INITIAL_FUND = 10**18
 pytestmark = [pytest.mark.valid_from("EIP7778")]
 
 
-@EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable()
-@EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable.Revert()
-@EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable.UpperRevert()
-@EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable.OutOfGas()
-@EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable.InvalidOpcode()
 @TransactionFailure.with_all_tx_failures()
 @pytest.mark.with_all_refund_types()
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
@@ -105,8 +99,6 @@ def test_simple_gas_accounting(
     )
 
 
-@EIPChecklist.BlockLevelConstraint.Test.Boundary.Exact()
-@EIPChecklist.BlockLevelConstraint.Test.Boundary.Over()
 @pytest.mark.inclusion_test
 @TransactionFailure.with_all_tx_failures()
 @pytest.mark.parametrize(
@@ -255,7 +247,6 @@ class CallDataTestType(Enum):
     """calldata_floor > tx_gas_before_refund."""
 
 
-@EIPChecklist.GasRefundsChanges.Test.CrossFunctional.CalldataCost()
 @pytest.mark.parametrize(
     "access_list",
     [
@@ -395,9 +386,6 @@ def test_varying_calldata_costs(
     )
 
 
-@EIPChecklist.BlockLevelConstraint.Test.Boundary.Under()
-@EIPChecklist.BlockLevelConstraint.Test.Boundary.Exact()
-@EIPChecklist.BlockLevelConstraint.Test.Boundary.Over()
 @pytest.mark.inclusion_test
 @TransactionFailure.with_all_tx_failures()
 @pytest.mark.with_all_refund_types()

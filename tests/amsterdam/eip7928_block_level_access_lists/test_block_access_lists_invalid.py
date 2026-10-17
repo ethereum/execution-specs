@@ -24,7 +24,6 @@ from execution_testing import (
     BlockchainTestFiller,
     BlockException,
     Bytes,
-    EIPChecklist,
     Environment,
     FeeSystemContractRequest,
     Fork,
@@ -1519,7 +1518,6 @@ def test_bal_invalid_ordering(
     )
 
 
-@EIPChecklist.BlockHeaderField.Test.ValueBehavior.Reject()
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.exception_test
 def test_bal_invalid_hash_mismatch(

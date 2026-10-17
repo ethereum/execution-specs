@@ -22,7 +22,6 @@ from .benchmark import (
     ExtCallGenerator,
     JumpLoopGenerator,
 )
-from .checklists import EIPChecklist
 from .exceptions import (
     BlockException,
     EngineAPIError,
@@ -191,7 +190,6 @@ __all__ = (
     "ExtCallGenerator",
     "DeploymentTestType",
     "DepositRequest",
-    "EIPChecklist",
     "EngineAPIError",
     "Environment",
     "GasFee",

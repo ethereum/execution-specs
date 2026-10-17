@@ -43,7 +43,6 @@ from execution_testing import (
     relay_contract_code,
 )
 from execution_testing import Macros as Om
-from execution_testing.checklists import EIPChecklist
 
 from .spec import Spec, ref_spec_8282
 
@@ -92,7 +91,6 @@ def queued_count_changes(
         pytest.param(True, id="queued_beyond_target"),
     ],
 )
-@EIPChecklist.SystemContract.Test.InputLengths.Zero()
 def test_fee_getter(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -343,7 +341,6 @@ def test_fee_decays_to_minimum(
 
 
 @pytest.mark.pre_alloc_mutable
-@EIPChecklist.SystemContract.Test.InputLengths.Zero()
 def test_fee_getter_inhibited(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -432,7 +429,6 @@ def test_fee_getter_inhibited(
     )
 
 
-@EIPChecklist.SystemContract.Test.CallContexts.SetCode()
 def test_request_from_set_code_delegated_account(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -503,8 +499,6 @@ def test_request_from_set_code_delegated_account(
         pytest.param(Op.CREATE2, id="create2"),
     ],
 )
-@EIPChecklist.SystemContract.Test.CallContexts.Initcode.Tx()
-@EIPChecklist.SystemContract.Test.CallContexts.Initcode.CREATE()
 def test_request_from_initcode(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -610,7 +604,6 @@ def test_request_from_initcode(
     )
 
 
-@EIPChecklist.SystemContract.Test.ValueTransfer.Fee.Over()
 def test_request_overpayment(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -664,17 +657,14 @@ def test_request_overpayment(
         pytest.param(
             Op.DELEGATECALL,
             id="delegatecall",
-            marks=EIPChecklist.SystemContract.Test.CallContexts.Delegate(),
         ),
         pytest.param(
             Op.STATICCALL,
             id="staticcall",
-            marks=EIPChecklist.SystemContract.Test.CallContexts.Static(),
         ),
         pytest.param(
             Op.CALLCODE,
             id="callcode",
-            marks=EIPChecklist.SystemContract.Test.CallContexts.Callcode(),
         ),
     ],
 )
@@ -776,9 +766,6 @@ def test_request_via_delegatecall_staticcall_callcode(
     )
 
 
-@EIPChecklist.SystemContract.Test.CallContexts.TxEntry()
-@EIPChecklist.SystemContract.Test.InputLengths.Zero()
-@EIPChecklist.SystemContract.Test.ValueTransfer.NoFee()
 def test_value_without_calldata_from_transaction(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -816,8 +803,6 @@ def test_value_without_calldata_from_transaction(
     )
 
 
-@EIPChecklist.SystemContract.Test.GasUsage.Dynamic.Oog()
-@EIPChecklist.SystemContract.Test.GasUsage.Dynamic.Exact()
 def test_request_gas_boundary(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -932,7 +917,6 @@ def test_request_gas_boundary(
         ),
     ],
 )
-@EIPChecklist.SystemContract.Test.ExcessiveGas.BlockGas()
 def test_requests_exhaust_block_gas(
     extra_transaction: bool,
     blockchain_test: BlockchainTestFiller,

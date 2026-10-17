@@ -284,7 +284,7 @@ class TestDocsGenerator:
 
     @pytest.hookimpl(hookwrapper=True, trylast=True)
     def pytest_collection_modifyitems(
-        self, config: pytest.Config, items: List[pytest.Item]
+        self, items: List[pytest.Item]
     ) -> object:
         """Generate html doc for each test item that pytest has collected."""
         yield
@@ -294,10 +294,6 @@ class TestDocsGenerator:
         functions = defaultdict(list)
         for item in items:  # group test case by test function
             functions[get_test_function_id(item)].append(item)
-
-        if hasattr(config, "checklist_props"):
-            checklist_props = config.checklist_props
-            self.page_props = {**self.page_props, **checklist_props}
 
         # the heavy work
         self.create_function_page_props(functions)

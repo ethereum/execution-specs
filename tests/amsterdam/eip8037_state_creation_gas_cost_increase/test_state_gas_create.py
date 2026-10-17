@@ -29,7 +29,6 @@ from execution_testing import (
     compute_create_address,
     create_op,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import init_code_at_high_bytes, ref_spec_8037
 
@@ -37,7 +36,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.valid_from("EIP8037")
 def test_create_charges_state_gas(
     state_test: StateTestFiller,
@@ -321,8 +319,6 @@ def test_code_deposit_state_gas_scales_with_size(
         pytest.param("spill", -1, id="spill_oog"),
     ],
 )
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_code_deposit_state_gas_exact_fit_boundary(
     state_test: StateTestFiller,
@@ -566,7 +562,6 @@ def test_create_revert_no_code_deposit_state_gas(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.with_all_create_opcodes
 @pytest.mark.parametrize("enough_gas", [False, True])
 @pytest.mark.valid_from("EIP8037")
@@ -997,7 +992,6 @@ def test_code_deposit_oog_preserves_parent_reservoir(
 
 
 @pytest.mark.parametrize("enough_regular_gas", [False, True])
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_code_deposit_regular_gas_with_covering_reservoir(
     state_test: StateTestFiller,
@@ -1718,7 +1712,6 @@ def test_code_deposit_halt_discards_initcode_state_gas(
     ],
 )
 @pytest.mark.pre_alloc_mutable()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.valid_from("EIP8037")
 def test_create_tx_header_gas_used(
     blockchain_test: BlockchainTestFiller,
@@ -3418,7 +3411,6 @@ def test_create_collision_burned_gas_counted_in_block_execution(
     ],
 )
 @pytest.mark.with_all_create_opcodes()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.valid_from("EIP8037")
 def test_create_account_creation_charge(
     state_test: StateTestFiller,

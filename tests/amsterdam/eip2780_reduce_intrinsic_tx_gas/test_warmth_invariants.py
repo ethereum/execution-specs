@@ -42,7 +42,6 @@ from execution_testing import (
     Transaction,
     TransactionReceipt,
 )
-from execution_testing.checklists import EIPChecklist
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .helpers import (
@@ -58,7 +57,6 @@ REFERENCE_SPEC_VERSION = ref_spec_2780.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -107,7 +105,6 @@ def test_intrinsic_charges_recipient_in_access_list(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.execute(
     pytest.mark.skip(reason="requires env.fee_recipient as block coinbase")
 )
@@ -160,7 +157,6 @@ def test_intrinsic_charges_recipient_is_coinbase(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_intrinsic_charges_authority_in_access_list(
     fork: Fork,
     pre: Alloc,
@@ -204,8 +200,6 @@ def test_intrinsic_charges_authority_in_access_list(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("outcome", ["oog", "success"])
 @pytest.mark.parametrize(
     "value",
@@ -322,7 +316,6 @@ def test_top_frame_charges_delegation_in_access_list(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.execute(
     pytest.mark.skip(reason="requires env.fee_recipient as block coinbase")
 )
@@ -379,7 +372,6 @@ def test_top_frame_charges_delegation_is_coinbase(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -475,7 +467,6 @@ def test_sender_is_coinbase(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -527,7 +518,6 @@ def test_top_frame_charges_delegation_is_sender(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -592,7 +582,6 @@ def test_top_frame_charges_delegation_is_recipient(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.parametrize(
     "value",
     [
@@ -675,7 +664,6 @@ def test_top_frame_charges_self_delegation_oog(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -730,7 +718,6 @@ def test_top_frame_charges_delegation_is_precompile(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -833,7 +820,6 @@ def test_top_frame_charges_delegation_is_authority(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_intrinsic_accounts_warm_for_execution(
     fork: Fork,
     pre: Alloc,
