@@ -1,0 +1,47 @@
+# Hive simulator image for an execute simulator: the repository image at the
+# branch head with the tests/ tree replaced by the test sources of the selected
+# release. Published as ghcr.io/ethereum/execution-specs/hive/<simulator>. This
+# is the execute counterpart of Dockerfile, which pairs a release's fixtures
+# with the branch head: in both, the tag selects the version of the tests and
+# the framework follows the branch. See docs/running_tests/hive/images/.
+#
+# Build with packages/testing/docker/hive/build.sh, or directly:
+#
+#   docker build -f packages/testing/docker/hive/Dockerfile.execute \
+#       --build-arg BASE_REF=ghcr.io/ethereum/execution-specs:sha-abc1234 \
+#       --build-arg TESTS_REF=ghcr.io/ethereum/execution-specs/tests:v20.0.2 \
+#       --build-arg EEST_SIMULATOR=execute-blobs \
+#       -t hive/execute-blobs:local packages/testing/docker/hive
+ARG BASE_REF=ghcr.io/ethereum/execution-specs:latest
+ARG TESTS_REF=ghcr.io/ethereum/execution-specs/tests:latest
+
+FROM ${TESTS_REF} AS tests
+
+FROM ${BASE_REF}
+COPY entrypoint.sh /usr/local/bin/eels-simulator
+
+# The head's tests are removed first, so that tests renamed or deleted after
+# the release do not linger next to the snapshot.
+RUN rm -rf /execution-specs/tests
+COPY --from=tests /execution-specs/tests /execution-specs/tests
+
+ARG EEST_SIMULATOR
+ARG EEST_GIT_SHA=""
+ARG EEST_GIT_REF=""
+ARG EEST_TESTS_RELEASE=""
+ARG EEST_TESTS_GIT_SHA=""
+ARG EEST_REPOSITORY="ethereum/execution-specs"
+
+ENV EEST_SIMULATOR=${EEST_SIMULATOR} \
+    EEST_TESTS_RELEASE=${EEST_TESTS_RELEASE} \
+    EEST_TESTS_GIT_SHA=${EEST_TESTS_GIT_SHA}
+
+LABEL org.opencontainers.image.source="https://github.com/${EEST_REPOSITORY}" \
+      org.opencontainers.image.revision="${EEST_GIT_SHA}" \
+      org.opencontainers.image.version="${EEST_GIT_REF}" \
+      org.ethereum.eest.simulator="${EEST_SIMULATOR}" \
+      org.ethereum.eest.tests-release="${EEST_TESTS_RELEASE}" \
+      org.ethereum.eest.tests-revision="${EEST_TESTS_GIT_SHA}"
+
+WORKDIR /execution-specs/packages/testing
+ENTRYPOINT ["eels-simulator"]

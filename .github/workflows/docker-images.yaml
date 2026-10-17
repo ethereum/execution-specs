@@ -1,0 +1,404 @@
+# Publishes the images the eels simulators in ethereum/hive run from. See
+# docs/running_tests/hive/images/ for the images and their tags, and
+# docs/dev/publishing_images.md for how this workflow is operated.
+#
+# Simulator tags select the tests. Current releases receive framework
+# updates; older releases keep their last build. Three kinds of run:
+#   push      a fork or devnet branch moved: the repository image of the head,
+#             and the simulator images of the branch's channel owner (its
+#             highest release) rebuilt with the head, so that `latest` or
+#             `<name>-devnet-<n>` follows the branch
+#   release   a fixture release was published: its fixture images and tests
+#             image, and the simulator images pairing it with the head of the
+#             branch it was cut from
+#   nightly   the scheduled fill finished: every image at the fill commit under
+#             `nightly` and `nightly-<sha7>`, called from release_fixtures.yaml
+#
+# Jobs: `plan` computes every name, tag and build with `eest images plan`; the
+# other jobs only consume its output. Runs of one line (mainnet or devnets)
+# queue behind each other so that channel tags move in order, and a run whose
+# branch moved on while it was building leaves the channel tags to the newer
+# run.
+name: Hive simulator images
+
+on:
+  push:
+    branches: ["forks/**", "devnets/**"]
+  release:
+    types: [published]
+  workflow_call:
+    inputs:
+      nightly_sha:
+        description: "Commit the nightly fill built; its fixtures_<sha7> artifact is in the calling run"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release to build fixture, tests and simulator images for, e.g. tests-glamsterdam-devnet@v8.1.4 (branch inferred)"
+        required: false
+        default: ""
+      nightly_sha:
+        description: "Commit of a nightly fill to publish as `nightly`; its artifact must still be live in this repository"
+        required: false
+        default: ""
+      branch:
+        description: "Branch whose channel owner to rebuild when neither of the above is given (empty: the default branch)"
+        required: false
+        default: ""
+      release_repo:
+        description: "Repository that holds the releases (releases are not forked; use ethereum/execution-specs when testing on a fork)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  packages: write
+  actions: read
+
+# One queue per line: the mainnet line and the devnets. Push and release runs
+# of a line write the same channel tags, so they must not overlap. Retain
+# pending runs: a release must publish the fixture and tests images that later
+# pushes need. Superseded pushes skip their builds in the plan job instead of
+# being cancelled. Nightly publication shares the mainnet queue because it
+# also writes the repository image at sha-<commit>.
+concurrency:
+  group: >-
+    docker-images-${{
+      (
+        (github.event_name == 'push' && startsWith(github.ref_name, 'devnets/'))
+        || (github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'tests@'))
+        || (github.event_name == 'workflow_dispatch' && (
+              startsWith(inputs.branch, 'devnets/')
+              || (inputs.release_tag != '' && !startsWith(inputs.release_tag, 'tests@'))))
+      ) && 'devnets' || 'mainnet' }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+      mode: ${{ steps.plan.outputs.mode }}
+      has_images: ${{ steps.plan.outputs.has_images }}
+      artifact_run_id: ${{ steps.nightly.outputs.run_id || github.run_id }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Check whether the push is current
+        id: current
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          build=true
+          if [ "$EVENT" = push ]; then
+            head=$(git ls-remote --exit-code origin "refs/heads/$GITHUB_REF_NAME" | cut -f1)
+            if [ "$head" != "$GITHUB_SHA" ]; then
+              build=false
+              echo "::notice::$GITHUB_REF_NAME has moved; skipping this superseded push"
+              echo "Superseded push: skipped image builds because $GITHUB_REF_NAME has moved." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/setup-uv
+        if: steps.current.outputs.build == 'true'
+
+      - name: Resolve the nightly artifact
+        id: nightly
+        if: github.event_name == 'workflow_dispatch' && inputs.nightly_sha != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_COMMIT: ${{ inputs.nightly_sha }}
+        run: uv run -q .github/scripts/resolve_image_nightly.py >> "$GITHUB_OUTPUT"
+
+      - name: Install the testing package
+        if: steps.current.outputs.build == 'true'
+        run: uv sync --frozen --directory packages/testing
+
+      - name: Plan the images
+        if: steps.current.outputs.build == 'true'
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT: ${{ github.event_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
+          NIGHTLY_SHA: ${{ steps.nightly.outputs.target_sha || inputs.nightly_sha }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+          RELEASE_REPO: ${{ inputs.release_repo || github.repository }}
+        run: |
+          eest() { uv run --directory packages/testing eest "$@"; }
+          branch="" sha="" nightly=""
+          if [ -n "$NIGHTLY_SHA" ]; then
+            mode=nightly nightly=--nightly sha=$NIGHTLY_SHA branch=$DEFAULT_BRANCH
+          elif [ -n "$RELEASE_TAG" ]; then
+            mode=release
+            branch=$(eest images release-branch "$RELEASE_TAG" --default-branch "$DEFAULT_BRANCH")
+          elif [ "$EVENT" = push ]; then
+            mode=push branch=$GITHUB_REF_NAME sha=$GITHUB_SHA
+          else
+            mode=push branch=${INPUT_BRANCH:-$DEFAULT_BRANCH}
+          fi
+          if [ -z "$sha" ]; then
+            # The head of the branch the images are paired with.
+            sha=$(git ls-remote --exit-code origin "refs/heads/$branch" | cut -f1)
+          fi
+          plan=$(eest images plan --github --resolve-commits \
+              --repository "$GITHUB_REPOSITORY" --release-repository "$RELEASE_REPO" \
+              --branch "$branch" --default-branch "$DEFAULT_BRANCH" --sha "$sha" \
+              ${RELEASE_TAG:+--release "$RELEASE_TAG"} $nightly)
+          jq . <<<"$plan"
+          {
+            echo "plan=$plan"
+            echo "mode=$mode"
+            echo "has_images=$(jq -r '.images | length > 0' <<<"$plan")"
+          } >> "$GITHUB_OUTPUT"
+
+  base:
+    name: repository image
+    needs: plan
+    if: needs.plan.outputs.plan != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ fromJSON(needs.plan.outputs.plan).sha }}
+
+      - name: Image tags
+        id: tags
+        env:
+          IMAGE: ${{ fromJSON(needs.plan.outputs.plan).base.image }}
+          TAGS: ${{ fromJSON(needs.plan.outputs.plan).base.tags }}
+        run: |
+          tags=""
+          for tag in $TAGS; do tags="${tags:+$tags,}${IMAGE}:${tag}"; done
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        id: build
+        with:
+          context: .
+          file: packages/testing/docker/base/Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            EEST_GIT_SHA=${{ fromJSON(needs.plan.outputs.plan).sha }}
+            EEST_GIT_REF=${{ fromJSON(needs.plan.outputs.plan).branch }}
+            EEST_REPOSITORY=${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Record the digest
+        env:
+          IMAGE: ${{ fromJSON(needs.plan.outputs.plan).base.image }}
+          TAGS: ${{ fromJSON(needs.plan.outputs.plan).base.tags }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          COMMIT: ${{ fromJSON(needs.plan.outputs.plan).sha }}
+        run: |
+          .github/scripts/record_image_digest.sh "$IMAGE" "$TAGS" "$DIGEST" "$COMMIT" ""
+
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: digests-base
+          path: digests/
+
+  fixtures:
+    name: fixtures ${{ matrix.format }}
+    needs: plan
+    if: needs.plan.outputs.plan != '' && needs.plan.outputs.mode != 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        format: ${{ fromJSON(needs.plan.outputs.plan).fixtures.formats }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ fromJSON(needs.plan.outputs.plan).sha }}
+
+      # The nightly's tarball is an artifact of the calling run rather than a
+      # release asset.
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        if: needs.plan.outputs.mode == 'nightly'
+        with:
+          name: ${{ fromJSON(needs.plan.outputs.plan).fixtures.artifact }}
+          path: nightly
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.plan.outputs.artifact_run_id }}
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        env:
+          MODE: ${{ needs.plan.outputs.mode }}
+          URL: ${{ fromJSON(needs.plan.outputs.plan).fixtures.url }}
+          IMAGE: ${{ fromJSON(needs.plan.outputs.plan).fixtures.image }}
+          TAGS: ${{ fromJSON(needs.plan.outputs.plan).fixtures.tags }}
+          RELEASE: ${{ fromJSON(needs.plan.outputs.plan).fixtures.release }}
+          COMMIT: ${{ fromJSON(needs.plan.outputs.plan).fixtures.commit }}
+          FORMAT: ${{ matrix.format }}
+        run: |
+          if [ "$MODE" = nightly ]; then
+            source=$(ls nightly/*.tar.gz)
+          else
+            source=$URL
+          fi
+          first=${TAGS%% *}
+          EEST_FIXTURES_RELEASE="$RELEASE" EEST_FIXTURES_GIT_SHA="$COMMIT" EEST_REPOSITORY="$GITHUB_REPOSITORY" \
+            packages/testing/docker/fixtures/build.sh "$source" "$FORMAT" "${IMAGE}/${FORMAT}:${first}"
+          for tag in $TAGS; do
+            docker tag "${IMAGE}/${FORMAT}:${first}" "${IMAGE}/${FORMAT}:${tag}"
+            docker push "${IMAGE}/${FORMAT}:${tag}"
+          done
+          digest=$(docker buildx imagetools inspect "${IMAGE}/${FORMAT}:${first}" --format '{{.Manifest.Digest}}')
+          .github/scripts/record_image_digest.sh "${IMAGE}/${FORMAT}" "$TAGS" "$digest" "$COMMIT" "$RELEASE"
+
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: digests-fixtures-${{ matrix.format }}
+          path: digests/
+
+  tests:
+    name: tests image
+    needs: plan
+    if: needs.plan.outputs.plan != '' && needs.plan.outputs.mode != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      # The build helpers come from the planned commit; the test sources from
+      # the release tag, or the fill commit for a nightly, checked out beside
+      # them.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ fromJSON(needs.plan.outputs.plan).sha }}
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ needs.plan.outputs.mode == 'release' && fromJSON(needs.plan.outputs.plan).release_repository || github.repository }}
+          ref: ${{ needs.plan.outputs.mode == 'release' && format('refs/tags/{0}', fromJSON(needs.plan.outputs.plan).tests.release) || fromJSON(needs.plan.outputs.plan).tests.commit }}
+          path: release
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        env:
+          IMAGE: ${{ fromJSON(needs.plan.outputs.plan).tests.image }}
+          TAGS: ${{ fromJSON(needs.plan.outputs.plan).tests.tags }}
+          RELEASE: ${{ fromJSON(needs.plan.outputs.plan).tests.release }}
+        run: |
+          first=${TAGS%% *}
+          commit=$(git -C release rev-parse HEAD)
+          EEST_TESTS_RELEASE="$RELEASE" EEST_TESTS_GIT_SHA="$commit" EEST_REPOSITORY="$GITHUB_REPOSITORY" \
+            packages/testing/docker/tests/build.sh release/tests "${IMAGE}:${first}"
+          for tag in $TAGS; do
+            docker tag "${IMAGE}:${first}" "${IMAGE}:${tag}"
+            docker push "${IMAGE}:${tag}"
+          done
+          digest=$(docker buildx imagetools inspect "${IMAGE}:${first}" --format '{{.Manifest.Digest}}')
+          .github/scripts/record_image_digest.sh "$IMAGE" "$TAGS" "$digest" "$commit" "$RELEASE"
+
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: digests-tests
+          path: digests/
+
+  images:
+    name: ${{ matrix.name }} ${{ matrix.slug }}
+    needs: [plan, base, fixtures, tests]
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.has_images == 'true' && needs.base.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.fixtures.result) && contains(fromJSON('["success", "skipped"]'), needs.tests.result)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.plan).images }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ fromJSON(needs.plan.outputs.plan).sha }}
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and check
+        env:
+          NAME: ${{ matrix.name }}
+          FAMILY: ${{ matrix.family }}
+          IMAGE: ${{ matrix.image }}
+          RELEASE: ${{ matrix.release }}
+          SLUG: ${{ matrix.slug }}
+          RELEASE_COMMIT: ${{ matrix.commit }}
+          TAGS: ${{ matrix.tags }}
+          REGISTRY: ${{ fromJSON(needs.plan.outputs.plan).repository }}
+          BASE_REF: ${{ fromJSON(needs.plan.outputs.plan).base.ref }}
+          EEST_GIT_SHA: ${{ fromJSON(needs.plan.outputs.plan).sha }}
+          EEST_GIT_REF: ${{ fromJSON(needs.plan.outputs.plan).branch }}
+          EEST_REPOSITORY: ${{ github.repository }}
+        run: |
+          first=${TAGS%% *}
+          EEST_FIXTURES_RELEASE="$RELEASE" EEST_TESTS_RELEASE="$RELEASE" EEST_TESTS_GIT_SHA="$RELEASE_COMMIT" \
+            "packages/testing/docker/${FAMILY}/build.sh" "$NAME" "$BASE_REF" "$REGISTRY" "$SLUG" "${IMAGE}:${first}"
+          "packages/testing/docker/${FAMILY}/check.sh" "$NAME" "${IMAGE}:${first}"
+
+      - name: Push
+        env:
+          MODE: ${{ needs.plan.outputs.mode }}
+          BRANCH: ${{ fromJSON(needs.plan.outputs.plan).branch }}
+          IMAGE: ${{ matrix.image }}
+          RELEASE: ${{ matrix.release }}
+          SLUG: ${{ matrix.slug }}
+          TAGS: ${{ matrix.tags }}
+          EEST_GIT_SHA: ${{ fromJSON(needs.plan.outputs.plan).sha }}
+        run: |
+          first=${TAGS%% *}
+          # The channel tags belong to the head of the branch. If the branch
+          # moved on while this run was building, a newer run owns them: a
+          # push run then publishes nothing, a release run only its release tag.
+          if [ "$MODE" != nightly ]; then
+            head=$(git ls-remote --exit-code origin "refs/heads/$BRANCH" | cut -f1)
+            if [ "$head" != "$EEST_GIT_SHA" ]; then
+              echo "::notice::$BRANCH moved from ${EEST_GIT_SHA:0:7} to ${head:0:7} during this run; leaving the channel tags to the newer run"
+              if [ "$MODE" = push ]; then
+                exit 0
+              fi
+              TAGS=$SLUG
+            fi
+          fi
+          for tag in $TAGS; do
+            docker tag "${IMAGE}:${first}" "${IMAGE}:${tag}"
+            docker push "${IMAGE}:${tag}"
+          done
+          digest=$(docker buildx imagetools inspect "${IMAGE}:${first}" --format '{{.Manifest.Digest}}')
+          .github/scripts/record_image_digest.sh "$IMAGE" "$TAGS" "$digest" "$EEST_GIT_SHA" "$RELEASE"
+
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: hashFiles('digests/*.json') != ''
+        with:
+          name: digests-${{ matrix.name }}-${{ matrix.slug }}
+          path: digests/
