@@ -32,6 +32,39 @@ By default, the execution-testing framework only generates fixtures for forks th
      uv run fill --fork=Cancun --evm-bin=/opt/bin/evm -v
      ```
 
+## Synthetic blob schedules
+
+`BPOIncrease` and `BPODecrease` exercise blob schedule changes under Amsterdam
+execution rules. They form the chain `Amsterdam → BPOIncrease → BPODecrease`:
+the increased schedule has target/max 21/32 and update fraction 20609697; the
+decreased schedule has target/max 14/21 and update fraction 13739630. These are
+test scenarios, not scheduled network upgrades.
+
+Select them explicitly, for example:
+
+```console
+uv run fill tests/osaka/eip7918_blob_reserve_price/ --from=BPOIncrease --until=BPODecrease
+```
+
+Tests marked `valid_for_bpo_forks` can cover either a standalone schedule active
+at genesis or a transition. The transitions activate at timestamp 15,000.
+`--until=Amsterdam` stops before these scenarios and excludes the historical
+parallel BPO3–BPO5 branch. Numbered fork and transition definitions remain
+available for older fixtures and genesis files.
+
+Hive needs the descriptive `HIVE_BPO_INCREASE_*` and `HIVE_BPO_DECREASE_*`
+mappings. Clients must also permit their BPO3/BPO4 configuration slots to
+activate after Amsterdam; mapper aliases alone cannot bypass fork-order checks.
+These scenarios are therefore excluded from automatic fixture releases pending
+client support. Successful filling does not establish client compatibility.
+
+The Python Specification workflow fills from Amsterdam through BPODecrease
+in its existing Amsterdam matrix entry. The `not slow and primary_format`
+filter includes standalone reserve-price and excess-blob-gas cases, but excludes
+the synthetic transition tests marked `slow`. These CI fixtures are not
+published. Release splitting uses `.github/configs/fork-ranges.yaml`; the
+internal fill jobs are configured separately in `.github/workflows/test.yaml`.
+
 ## Further Help
 
 1. [`geth`/`evm` build documentation](https://geth.ethereum.org/docs/getting-started/installing-geth#build-from-source).
