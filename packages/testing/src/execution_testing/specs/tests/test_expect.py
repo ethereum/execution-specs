@@ -657,6 +657,23 @@ def test_verify_log(
         verify_log(0, 0, expected_log, actual_log)
 
 
+@pytest.mark.parametrize("actual_index", [0, 2, None])
+def test_verify_log_index(actual_index: int | None) -> None:
+    """Enforce an expected log index, including a missing RPC field."""
+    expected = TransactionLog(log_index=0)
+    actual = TransactionLog(log_index=actual_index)
+    if actual_index == 0:
+        verify_log(0, 0, expected, actual)
+    else:
+        with pytest.raises(LogMismatchError, match="log_index"):
+            verify_log(0, 0, expected, actual)
+
+
+def test_verify_log_unspecified_index() -> None:
+    """Keep log-index verification optional for existing expectations."""
+    verify_log(0, 0, TransactionLog(), TransactionLog(log_index=2))
+
+
 # Log mismatch integration tests using Amsterdam fork (EIP-7708)
 @pytest.mark.parametrize(
     "mismatch_type",

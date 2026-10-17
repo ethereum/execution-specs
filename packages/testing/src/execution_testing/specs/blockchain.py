@@ -543,7 +543,7 @@ class BuiltBlock(CamelModel):
             receipts=(
                 [
                     FixtureTransactionReceipt.from_transaction_receipt(
-                        r, self.txs[i]
+                        r, self.txs[i], fork=self.fork
                     )
                     for i, r in enumerate(self.result.receipts)
                 ]

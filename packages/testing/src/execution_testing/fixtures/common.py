@@ -20,6 +20,7 @@ from execution_testing.base_types import (
     SignableRLPSerializable,
     ZeroPaddedHexNumber,
 )
+from execution_testing.forks import Fork
 from execution_testing.test_types.account_types import Address
 from execution_testing.test_types.receipt_types import (
     ReceiptDelegation,
@@ -131,7 +132,8 @@ class FixtureTransactionReceipt(CamelModel, RLPSerializable):
 
     transaction_hash: Hash
     ty: ZeroPaddedHexNumber = Field(..., alias="type")
-    cumulative_gas_used: ZeroPaddedHexNumber
+    cumulative_gas_used: ZeroPaddedHexNumber | None = None
+    gas_used: ZeroPaddedHexNumber | None = None
     bloom: Bloom
     logs: List[FixtureTransactionLog]
     post_state: Hash | None = None
@@ -141,10 +143,18 @@ class FixtureTransactionReceipt(CamelModel, RLPSerializable):
         "post_state",
         "status",
         "cumulative_gas_used",
+        "gas_used",
         "bloom",
         "logs",
     ]
     rlp_exclude_none: ClassVar[bool] = True
+
+    @model_validator(mode="after")
+    def validate_gas_field(self) -> "FixtureTransactionReceipt":
+        """Require exactly one on-chain gas field."""
+        if (self.cumulative_gas_used is None) == (self.gas_used is None):
+            raise ValueError("A receipt must have exactly one gas field")
+        return self
 
     @model_validator(mode="before")
     @classmethod
@@ -175,11 +185,17 @@ class FixtureTransactionReceipt(CamelModel, RLPSerializable):
         cls,
         receipt: TransactionReceipt,
         tx: Transaction,
+        *,
+        fork: Fork | None = None,
     ) -> "FixtureTransactionReceipt":
         """Return FixtureTransactionReceipt from a TransactionReceipt."""
         model_as_dict = receipt.model_dump(
             exclude_none=True, include=set(cls.model_fields.keys())
         ) | {"ty": tx.ty, "transaction_hash": tx.hash}
+        if fork is not None and fork.is_eip_enabled(8116):
+            model_as_dict.pop("cumulative_gas_used", None)
+        else:
+            model_as_dict.pop("gas_used", None)
         # t8n tools such as Besu's report a receipt without logs as
         # `"logs": null`.
         model_as_dict.setdefault("logs", [])

@@ -545,7 +545,7 @@ class StateTest(BaseTest):
 
         if len(transition_tool_output.result.receipts) == 1:
             receipt = FixtureTransactionReceipt.from_transaction_receipt(
-                transition_tool_output.result.receipts[0], tx
+                transition_tool_output.result.receipts[0], tx, fork=fork
             )
             receipt_root = FixtureTransactionReceipt.list_root([receipt])
             assert (

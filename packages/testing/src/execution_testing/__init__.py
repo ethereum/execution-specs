@@ -29,6 +29,7 @@ from .exceptions import (
     TransactionException,
 )
 from .fixtures import BaseFixture, FixtureCollector
+from .fixtures.common import FixtureTransactionReceipt
 from .forks import (
     BuilderDepositRequest,
     BuilderExitRequest,
@@ -202,6 +203,7 @@ __all__ = (
     "create_deposit_log_bytes",
     "FixedIterationsBytecode",
     "FixtureCollector",
+    "FixtureTransactionReceipt",
     "Fork",
     "GasConsumer",
     "GasCosts",
