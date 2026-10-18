@@ -46,6 +46,23 @@ transition fork's timestamp or block number.
 """
 
 
+def spec_fork_name(network: str) -> str:
+    """
+    Return the JSON test name of the spec fork that validates fixtures
+    filled for the testing fork `network`.
+
+    A blob parameter only (BPO) fork of the testing framework without a
+    spec fork of its own, such as `BPOIncrease`, runs on the spec fork of
+    its nearest non-BPO ancestor with its blob schedule patched in.
+    """
+    if network in FORKS:
+        return network
+    testing_fork = TESTING_FORKS.get(network)
+    if testing_fork is None or not testing_fork.bpo_fork():
+        return network
+    return testing_fork.non_bpo_ancestor().name()
+
+
 class NoTestsFoundError(Exception):
     """
     An exception thrown when the test for a particular fork isn't
@@ -157,9 +174,10 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
         self.add_marker("json_blockchain_tests")
         self.transition = ForkTransition.parse(self.fork_name)
         if self.transition is None:
-            self.eels_fork = FORKS[self.fork_name].short_name
+            spec_fork = spec_fork_name(self.fork_name)
         else:
-            self.eels_fork = FORKS[self.transition.to_fork].short_name
+            spec_fork = spec_fork_name(self.transition.to_fork)
+        self.eels_fork = FORKS[spec_fork].short_name
 
         # Mark tests with exceptional markers
         test_patterns = exceptional_blockchain_test_patterns(
@@ -223,7 +241,14 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
         if self.transition is None:
             current = load
         else:
-            current = Load(FORKS[self.transition.from_fork].short_name)
+            from_fork = spec_fork_name(self.transition.from_fork)
+            current = Load(FORKS[from_fork].short_name)
+        # Both ends of a transition between two BPO forks of the testing
+        # framework, such as `BPOIncreaseToBPODecreaseAtTime15k`, may run
+        # on the same spec fork; only their blob schedules differ.
+        same_spec_fork = (
+            current.fork.hardfork.short_name == load.fork.hardfork.short_name
+        )
 
         genesis_header = current.json_to_header(
             json_data["genesisBlockHeader"]
@@ -266,25 +291,33 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
             )
 
         with ExitStack() as stack:
+            # The blob schedule of the fork the chain starts on, undone
+            # when the transition's second fork activates.
+            before_activation = stack.enter_context(ExitStack())
             if self.transition is None:
                 self._schedule_blob_params(stack, load, self.fork_name)
             else:
-                self._schedule_fork(stack, load, self.transition.criteria)
+                if not same_spec_fork:
+                    self._schedule_fork(stack, load, self.transition.criteria)
                 self._schedule_blob_params(
-                    stack, current, self.transition.from_fork
+                    before_activation, current, self.transition.from_fork
                 )
-                self._schedule_blob_params(
-                    stack, load, self.transition.to_fork
-                )
+            activated = self.transition is None
 
             for json_block in json_data["blocks"]:
                 if (
                     self.transition is not None
-                    and current is not load
+                    and not activated
                     and self.transition.activates(json_block)
                 ):
-                    chain = load.fork.apply_fork(chain)
+                    before_activation.close()
+                    self._schedule_blob_params(
+                        stack, load, self.transition.to_fork
+                    )
+                    if not same_spec_fork:
+                        chain = load.fork.apply_fork(chain)
                     current = load
+                    activated = True
 
                 block_exception = None
                 for key, value in json_block.items():
@@ -356,31 +389,42 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
 
         A BPO fork of the spec is a copy of its predecessor whose blob
         schedule is a placeholder; the schedule lives in the testing
-        framework's fork of the same name. The fill's `T8N` clones the spec
-        fork with that schedule, but a clone cannot validate a chain across
-        a fork transition: `calculate_excess_blob_gas` recognises the
-        parent header by the previous fork's `Header` class, which the
-        clone refers to under another name. The constants are patched in
-        place instead. `GasCosts.BLOB_TARGET_GAS_PER_BLOCK` and the `fork`
-        module's `MAX_BLOB_GAS_PER_BLOCK` are derived from the schedule at
-        import time, so they are patched along with it.
+        framework's fork of the same name. A BPO fork of the testing
+        framework without a spec fork of its own runs on the spec fork of
+        its nearest non-BPO ancestor (see `spec_fork_name`). The fill's
+        `T8N` clones the spec fork with that schedule, but a clone cannot
+        validate a chain across a fork transition:
+        `calculate_excess_blob_gas` recognises the parent header by the
+        previous fork's `Header` class, which the clone refers to under
+        another name. The constants are patched in place instead.
+        `GasCosts.BLOB_TARGET_GAS_PER_BLOCK` and `MAX_BLOB_GAS_PER_BLOCK`
+        are derived from the schedule at import time, so they are patched
+        along with it. Up to Osaka's BPO forks, `MAX_BLOB_GAS_PER_BLOCK` is
+        defined in the `fork` module; from Amsterdam on, it is defined in
+        `vm.gas`, where the block's blob gas capacity is checked, and
+        imported into `fork`. Every binding is patched.
         """
         testing_fork = TESTING_FORKS.get(fork_name)
         if testing_fork is None or not testing_fork.bpo_fork():
             return
-        gas_costs = load.fork.hardfork.module("vm.gas").GasCosts
+        gas_module = load.fork.hardfork.module("vm.gas")
+        gas_costs = gas_module.GasCosts
         fork_module = load.fork.hardfork.module("fork")
         per_blob: U64 = gas_costs.PER_BLOB
         target = U64(testing_fork.target_blobs_per_block())
         maximum = U64(testing_fork.max_blobs_per_block())
         update_fraction = Uint(testing_fork.blob_base_fee_update_fraction())
-        patches = (
+        patches = [
             (gas_costs, "BLOB_SCHEDULE_TARGET", target),
             (gas_costs, "BLOB_SCHEDULE_MAX", maximum),
             (gas_costs, "BLOB_TARGET_GAS_PER_BLOCK", per_blob * target),
             (gas_costs, "BLOB_BASE_FEE_UPDATE_FRACTION", update_fraction),
-            (fork_module, "MAX_BLOB_GAS_PER_BLOCK", per_blob * maximum),
-        )
+        ]
+        for module in (fork_module, gas_module):
+            if hasattr(module, "MAX_BLOB_GAS_PER_BLOCK"):
+                patches.append(
+                    (module, "MAX_BLOB_GAS_PER_BLOCK", per_blob * maximum)
+                )
         for owner, name, value in patches:
             stack.enter_context(patch.object(owner, name, value))
 
@@ -417,11 +461,11 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
         if desired_forks is None:
             return True
         network = test_dict["network"]
-        if network in desired_forks:
+        if spec_fork_name(network) in desired_forks:
             return True
         transition = ForkTransition.parse(network)
         return (
             transition is not None
-            and transition.from_fork in FORKS
-            and transition.to_fork in desired_forks
+            and spec_fork_name(transition.from_fork) in FORKS
+            and spec_fork_name(transition.to_fork) in desired_forks
         )
