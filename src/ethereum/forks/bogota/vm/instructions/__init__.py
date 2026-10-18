@@ -200,7 +200,7 @@ class Ops(enum.Enum):
     CALLSUB = 0xBC
     RETURNSUB = 0xBF
 
-    # EIP-12504: 64-bit instructions, the twin of each at its opcode + 0xC0
+    # EIP-8442: 64-bit instructions, the twin of each at its opcode + 0xC0
     ADD64 = 0xC1
     MUL64 = 0xC2
     SUB64 = 0xC3
