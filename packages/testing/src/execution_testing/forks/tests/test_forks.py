@@ -875,6 +875,45 @@ def test_eips() -> None:  # noqa: D103
     assert not Paris.is_eip_enabled(3675, 3855)
     assert not Paris.is_eip_enabled(3855, 3675)
     assert Shanghai.is_eip_enabled(3855)
+    assert not Amsterdam.is_eip_enabled(7709)
+    assert Bogota.is_eip_enabled(7709)
+
+
+def test_eip_7709_blockhash_gas_cost() -> None:
+    """
+    `Opcodes.BLOCKHASH` charges flat 20 gas pre-EIP-7709 and adds storage
+    access cost (`COLD_STORAGE_ACCESS` or `WARM_SLOAD_COST`) for in-bounds
+    queries on Bogota.
+    """
+    assert (
+        Opcodes.BLOCKHASH(key_warm=False, in_bounds=True).gas_cost(Amsterdam)
+        == 20
+    )
+    assert (
+        Opcodes.BLOCKHASH(key_warm=True, in_bounds=True).gas_cost(Amsterdam)
+        == 20
+    )
+    assert (
+        Opcodes.BLOCKHASH(key_warm=False, in_bounds=False).gas_cost(Amsterdam)
+        == 20
+    )
+
+    assert (
+        Opcodes.BLOCKHASH(key_warm=False, in_bounds=True).gas_cost(Bogota)
+        == 2120
+    )
+    assert (
+        Opcodes.BLOCKHASH(key_warm=True, in_bounds=True).gas_cost(Bogota)
+        == 120
+    )
+    assert (
+        Opcodes.BLOCKHASH(key_warm=False, in_bounds=False).gas_cost(Bogota)
+        == 20
+    )
+    assert (
+        Opcodes.BLOCKHASH(key_warm=True, in_bounds=False).gas_cost(Bogota)
+        == 20
+    )
 
 
 def test_oog_budget_lift() -> None:

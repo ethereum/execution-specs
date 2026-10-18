@@ -13,6 +13,7 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    Fork,
     Hash,
     Op,
     Transaction,
@@ -487,16 +488,18 @@ def test_bal_2935_absent_contract(
 
 def test_bal_2935_blockhash_does_not_read_history(
     pre: Alloc,
+    fork: Fork,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
-    Ensure `BLOCKHASH` leaves no read on the history contract.
+    Ensure `BLOCKHASH` leaves no read on the history contract before EIP-7709,
+    and records the queried ancestor's slot once EIP-7709 is active.
 
     EIP-2935 lets a client answer `BLOCKHASH` out of this contract's
     storage, but the block access list commits to the reads a block
-    makes, so taking that route would add an entry the spec does not
-    produce. The ancestor queried here is not the parent, whose slot the
-    pre-execution system call writes anyway.
+    makes, so taking that route before EIP-7709 would add an entry the
+    spec does not produce. The ancestor queried here is not the parent,
+    whose slot the pre-execution system call writes anyway.
     """
     alice = pre.fund_eoa()
 
@@ -525,8 +528,11 @@ def test_bal_2935_blockhash_does_not_read_history(
                                     validate_any_change=True,
                                 )
                             ],
-                            # The queried ancestor's slot would land here.
-                            storage_reads=[],
+                            # The queried ancestor's slot lands here once
+                            # EIP-7709 serves BLOCKHASH from storage.
+                            storage_reads=(
+                                [0] if fork.is_eip_enabled(7709) else []
+                            ),
                         ),
                         querier: BalAccountExpectation(
                             storage_changes=[

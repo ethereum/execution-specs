@@ -1,0 +1,3 @@
+general/code_coverage/eels = Measured with --cov=ethereum.forks.bogota.vm.instructions.block --cov-branch while filling tests/bogota/eip7709_blockhash_storage: block_hash (lines 43-77) has 100% statement and 100% branch coverage
+general/code_coverage/test_coverage = Measured with --cov=tests.bogota.eip7709_blockhash_storage --cov-branch: 100% statement coverage (247/247 statements) and 100% branch coverage (2/2 branches)
+general/code_coverage/missed_lines = No missed lines in tests/bogota/eip7709_blockhash_storage or in block_hash; the only unexecuted lines in src/ethereum/forks/bogota/vm/instructions/block.py belong to unrelated block instructions (coinbase, prev_randao, gas_limit, chain_id, slot_number)

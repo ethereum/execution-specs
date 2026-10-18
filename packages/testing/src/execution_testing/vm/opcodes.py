@@ -2079,6 +2079,7 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=1,
         pushed_stack_items=1,
         kwargs=["block_number"],
+        metadata={"key_warm": False, "in_bounds": True},
     )
     """
     BLOCKHASH(block_number) = hash
@@ -2105,7 +2106,16 @@ class Opcodes(Opcode, Enum):
 
     Gas
     ----
-    20
+    - static_gas = 20
+    - dynamic_gas = 0 before EIP-7709 or out of bounds; 100 if key_warm,
+                    2100 if cold under EIP-7709
+
+    Metadata
+    ----
+    - key_warm: whether the history storage slot is already warm
+                (default: False)
+    - in_bounds: whether block_number is within the 256-block serve window
+                 (default: True)
 
     Source: [evm.codes/#40](https://www.evm.codes/#40)
     """

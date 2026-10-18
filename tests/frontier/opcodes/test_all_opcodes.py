@@ -266,13 +266,13 @@ def test_max_stack(
     )
 
 
-def prepare_stack_constant_gas_oog(opcode: Opcode) -> Bytecode:
+def prepare_stack_constant_gas_oog(opcode: Opcode, fork: Fork) -> Bytecode:
     """Prepare valid stack for opcode."""
     if opcode == Op.JUMPI:
         return Op.PUSH1(1) + Op.PUSH1(3) + Op.PC + Op.ADD
     if opcode == Op.JUMP:
         return Op.PUSH1(3) + Op.PC + Op.ADD
-    if opcode == Op.BLOCKHASH:
+    if opcode == Op.BLOCKHASH and not fork.is_eip_enabled(7709):
         return Op.PUSH1(0x01)
     return Op.PUSH1(0x00) * opcode.min_stack_height
 
@@ -324,7 +324,7 @@ def test_constant_gas(
     setup_code = (
         Op.MLOAD(0)
         + Op.POP
-        + prepare_stack_constant_gas_oog(opcode)
+        + prepare_stack_constant_gas_oog(opcode, fork)
         + create2_salt
     )
     warm_opcode_metadata = {}
