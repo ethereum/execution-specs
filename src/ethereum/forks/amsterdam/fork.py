@@ -28,12 +28,7 @@ from ethereum.exceptions import (
 )
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.merkle_patricia_trie import root, trie_set
-from ethereum.state import (
-    EMPTY_CODE_HASH,
-    Address,
-    BlockDiff,
-    PreState,
-)
+from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff, PreState
 from ethereum.state_mpt import State, apply_changes_to_state
 
 from . import vm

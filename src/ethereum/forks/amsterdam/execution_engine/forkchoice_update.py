@@ -6,11 +6,7 @@ from typing import Optional
 
 from ethereum.crypto.hash import Hash32
 
-from .types import (
-    ExecutionEngine,
-    PayloadAttributes,
-    PayloadId,
-)
+from .types import ExecutionEngine, PayloadAttributes, PayloadId
 
 
 def notify_forkchoice_updated(
