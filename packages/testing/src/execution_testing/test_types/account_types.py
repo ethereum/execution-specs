@@ -122,6 +122,22 @@ class EOA(Address):
         """Return copy of the EOA."""
         return self.__class__(Address(self), key=self.key, nonce=self.nonce)
 
+    def sign_digest(
+        self, digest: FixedSizeBytesConvertible
+    ) -> Tuple[int, int, int]:
+        """
+        Sign a 32-byte digest as is, without hashing it again, and return
+        the `(v, r, s)` that the ecrecover precompile takes, with `v` being
+        the recovery id plus 27.
+        """
+        if self.key is None:
+            raise ValueError("cannot sign a digest without a private key")
+        signature = PrivateKey(self.key).sign_recoverable(Hash(digest))
+        v = signature[64] + 27
+        r = int.from_bytes(signature[0:32], byteorder="big")
+        s = int.from_bytes(signature[32:64], byteorder="big")
+        return v, r, s
+
 
 class AllocGroupHash(FixedSizeBytes[8]):  # type: ignore
     """Class that helps represent hashes used to group allocs."""
