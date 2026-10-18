@@ -384,6 +384,14 @@ def test_validation_codes_missing_second_marker_in_delegation_chain(
     )
 
 
+# TODO: Must a guest reject a witness that lacks code the block wrote
+# and then rolled back? A guest that serves the rolled-back bytes still
+# computes the right post-state. Once we decide, unskip this test to
+# require rejection, delete it to let guests choose, or delete it and
+# change the spec so the witness omits such code. A reverted CREATE
+# followed by a read of the same code hash raises the same question.
+# See PR #3820.
+@pytest.mark.skip(reason="Undecided whether guests must reject, see PR #3820")
 def test_validation_codes_missing_marker_after_rolled_back_delegation(
     fork: Fork,
     pre: Alloc,
