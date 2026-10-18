@@ -11,7 +11,9 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytes,
     ExecutionWitnessCodesExpectation,
+    Fork,
     Op,
+    RecipientType,
     Transaction,
 )
 from execution_testing.test_types.execution_witness import ExecutionWitness
@@ -379,6 +381,78 @@ def test_validation_codes_missing_second_marker_in_delegation_chain(
             )
         ],
         post={sender: Account(nonce=1)},
+    )
+
+
+# TODO: Must a guest reject a witness that lacks code the block wrote
+# and then rolled back? A guest that serves the rolled-back bytes still
+# computes the right post-state. Once we decide, unskip this test to
+# require rejection, delete it to let guests choose, or delete it and
+# change the spec so the witness omits such code. A reverted CREATE
+# followed by a read of the same code hash raises the same question.
+# See PR #3820.
+@pytest.mark.skip(reason="Undecided whether guests must reject, see PR #3820")
+def test_validation_codes_missing_marker_after_rolled_back_delegation(
+    fork: Fork,
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Require a delegation marker that the block wrote but rolled back.
+
+    tx1's authorization delegates alice to bob's delegate, which writes
+    bob's marker. tx1 then runs out of gas in the top-frame preparation,
+    and the rollback drops the delegation. tx2 reads bob's marker as its
+    sender. Only a code write the block keeps serves that read, so the
+    marker must come from the witness, and removing it must fail.
+    """
+    delegate = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.STOP)
+    marker = Bytes(Spec7702.delegation_designation(delegate))
+    # alice exists, so her authorization charges no NEW_ACCOUNT.
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa(delegation=delegate)
+    alice_auth = AuthorizationTuple(address=delegate, nonce=0, signer=alice)
+
+    # set_delegation applies alice's authorization, then the value transfer
+    # to an empty recipient charges NEW_ACCOUNT. One gas short, that charge
+    # runs out and the preparation rollback drops the delegation.
+    recipient = pre.fund_eoa(amount=0)
+    gas_limit = fork.transaction_intrinsic_cost_calculator()(
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
+        authorization_list_or_count=[alice_auth],
+        return_cost_deducted_prior_execution=True,
+    ) + fork.transaction_top_frame_gas_calculator()(
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
+        authorizations=[alice_auth],
+    )
+    tx1 = Transaction(
+        sender=pre.fund_eoa(),
+        to=recipient,
+        value=1,
+        gas_limit=gas_limit - 1,
+        authorization_list=[alice_auth],
+    )
+    tx2 = Transaction(sender=bob, to=pre.fund_eoa())
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx1, tx2],
+                expected_execution_witness_codes=(
+                    ExecutionWitnessCodesExpectation(
+                        codes_present=[marker],
+                    ).modify(remove_code(marker))
+                ),
+                expected_stateless_validation_success=False,
+            )
+        ],
+        post={
+            alice: Account(nonce=0, code=b""),
+            bob: Account(nonce=2, code=marker),
+        },
     )
 
 
