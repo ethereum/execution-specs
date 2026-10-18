@@ -124,6 +124,7 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
             "enginex",
             "sync",
             "rlp",
+            "reorg",
             "build_block",
         }
         if self.command_name in simulator_commands:
