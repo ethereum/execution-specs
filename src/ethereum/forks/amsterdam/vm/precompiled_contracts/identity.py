@@ -17,10 +17,7 @@ from ethereum.utils.numeric import ceil32
 
 from ...fork_types import ExecutionGas
 from ...vm import Evm
-from ...vm.gas import (
-    GasCosts,
-    charge_gas,
-)
+from ...vm.gas import GasCosts, charge_gas
 
 
 def identity(evm: Evm) -> None:

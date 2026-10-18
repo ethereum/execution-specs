@@ -93,15 +93,15 @@ jobs:
           - label: shanghai-cancun
             from_fork: Shanghai
             until_fork: Cancun
-          - label: prague
+          - label: prague-osaka
             from_fork: Prague
-            until_fork: Prague
-          - label: osaka
-            from_fork: Osaka
             until_fork: Osaka
           - label: amsterdam
             from_fork: Amsterdam
             until_fork: Amsterdam
+          - label: bogota
+            from_fork: Bogota
+            until_fork: Bogota
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-uv
@@ -149,7 +149,10 @@ jobs:
       - name: Run fill-pypy tests
         run: just fill-pypy
         env:
-          PYPY_GC_MAX: "2G"
+          # Collection through Bogota with the EIP-8141 frame variants
+          # exceeds a 3G heap in each worker. Keep this paired with
+          # fill-pypy's four-worker limit.
+          PYPY_GC_MAX: "4G"
           PYPY_GC_MIN: "1G"
 
   json-loader:

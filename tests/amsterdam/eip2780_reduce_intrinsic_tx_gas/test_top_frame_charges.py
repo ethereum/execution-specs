@@ -30,6 +30,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Environment,
     Fork,
     GasConsumer,
     Header,
@@ -54,12 +55,14 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize("recipient_is_coinbase", [False, True])
 @pytest.mark.parametrize("outcome", ["oog", "success"])
 def test_top_frame_state_charge(
     fork: Fork,
     pre: Alloc,
     state_test: StateTestFiller,
     outcome: str,
+    recipient_is_coinbase: bool,
 ) -> None:
     """
     Recipient is empty and the transaction transfers a non-zero value,
@@ -74,6 +77,9 @@ def test_top_frame_state_charge(
     - ``success``: gas limit covers the state charge. The value
       transfer brings the recipient into existence and the recipient
       ends the transaction holding the transferred balance.
+
+    An absent coinbase is still charged: it is warm, but receives its
+    priority fee only after execution.
     """
     sender_initial_balance = 10**18
     sender = pre.fund_eoa(sender_initial_balance)
@@ -119,7 +125,19 @@ def test_top_frame_state_charge(
         target: expected_target,
     }
 
-    state_test(pre=pre, tx=tx, post=post)
+    env = Environment()
+    if recipient_is_coinbase:
+        base_fee = 7
+        env = Environment(fee_recipient=target, base_fee_per_gas=base_fee)
+        # The coinbase also receives the priority fee on the gas used.
+        if outcome == "oog":
+            transferred, gas_used = 0, gas_limit
+        else:
+            transferred, gas_used = value, total_gas_cost
+        priority_fee = gas_price - base_fee
+        post[target] = Account(balance=transferred + gas_used * priority_fee)
+
+    state_test(env=env, pre=pre, tx=tx, post=post)
 
 
 @EIPChecklist.GasCostChanges.Test.OutOfGas()

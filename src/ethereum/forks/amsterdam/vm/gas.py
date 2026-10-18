@@ -26,17 +26,8 @@ from ..exceptions import (
     BlobGasLimitExceededError,
     InsufficientMaxFeePerBlobGasError,
 )
-from ..fork_types import (
-    ExecutionGas,
-    StateGas,
-    StateGasPerByte,
-    VersionedHash,
-)
-from ..transactions import (
-    BlobTransaction,
-    IntrinsicGasCost,
-    Transaction,
-)
+from ..fork_types import ExecutionGas, StateGas, StateGasPerByte, VersionedHash
+from ..transactions import BlobTransaction, IntrinsicGasCost, Transaction
 from .exceptions import OutOfGasError
 
 if TYPE_CHECKING:
@@ -764,10 +755,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> ExecutionGas:
     linear_cost = size_in_words * GasCosts.MEMORY_PER_WORD
     quadratic_cost = size_in_words ** Uint(2) // Uint(512)
     total_gas_cost = linear_cost + quadratic_cost
-    try:
-        return ExecutionGas(total_gas_cost)
-    except ValueError as e:
-        raise OutOfGasError from e
+    return ExecutionGas(total_gas_cost)
 
 
 def calculate_gas_extend_memory(

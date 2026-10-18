@@ -584,25 +584,44 @@ def test_bal_invalid_complex_corruption(
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
     "scenario",
-    ["balance_change", "access_only"],
+    [
+        "balance_change",
+        "access_only",
+        "zero_value_call",
+        "staticcall",
+        "precompile",
+        "delegate_target",
+        "failed_auth_authority",
+        "reverted_frame_read",
+    ],
 )
 def test_bal_invalid_missing_account(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     scenario: str,
 ) -> None:
     """
     Test that clients reject blocks where BAL omits an account that was
     touched during block execution.
 
-    Covers both the case where the omitted account has a balance change
-    (value transfer recipient) and the access-only case (account read via
-    ``BALANCE`` with no state change).
+    Covers an omitted account with a balance change (value transfer
+    recipient) and six access-only presences, each a different client
+    path to the same empty entry: a ``BALANCE`` read, a zero-value
+    ``CALL`` and a ``STATICCALL`` to an EOA, a precompile, the code
+    source behind a delegated EOA, the authority of a failed
+    authorization, and a read inside a frame that reverts. The presences
+    themselves are pinned by the positive tests (for the authority,
+    `test_bal_7702_nonce_authorization`); this test is the
+    rejection when one is left out.
     """
     sender = pre.fund_eoa(amount=10**18)
     sender_expectation = BalAccountExpectation(
         nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
     )
+    account_expectations: dict
+    post: dict
+    omitted: Address
 
     if scenario == "balance_change":
         omitted = pre.fund_eoa(amount=0)
@@ -611,11 +630,11 @@ def test_bal_invalid_missing_account(
             to=omitted,
             value=10**15,
         )
-        post: dict = {
+        post = {
             sender: Account(balance=10**18, nonce=0),
             omitted: None,
         }
-        account_expectations: dict = {
+        account_expectations = {
             sender: sender_expectation,
             omitted: BalAccountExpectation(
                 balance_changes=[
@@ -623,9 +642,17 @@ def test_bal_invalid_missing_account(
                 ],
             ),
         }
-    elif scenario == "access_only":
+    elif scenario in ("access_only", "zero_value_call", "staticcall"):
         omitted = pre.fund_eoa(amount=1)
-        checker = pre.deploy_contract(code=Op.BALANCE(omitted))
+        if scenario == "access_only":
+            checker_code = Op.BALANCE(omitted)
+        elif scenario == "zero_value_call":
+            checker_code = Op.CALL(Op.GAS, omitted, 0, 0, 0, 0, 0)
+        elif scenario == "staticcall":
+            checker_code = Op.STATICCALL(Op.GAS, omitted, 0, 0, 0, 0)
+        else:
+            raise ValueError(f"Unknown scenario: {scenario}")
+        checker = pre.deploy_contract(code=checker_code)
         tx = Transaction(sender=sender, to=checker)
         post = {
             sender: Account(balance=10**18, nonce=0),
@@ -635,6 +662,78 @@ def test_bal_invalid_missing_account(
         account_expectations = {
             sender: sender_expectation,
             checker: BalAccountExpectation.empty(),
+            omitted: BalAccountExpectation.empty(),
+        }
+    elif scenario == "precompile":
+        omitted = fork.precompiles()[0]
+        checker = pre.deploy_contract(
+            code=Op.CALL(Op.GAS, omitted, 0, 0, 0, 0, 0)
+        )
+        tx = Transaction(sender=sender, to=checker)
+        post = {
+            sender: Account(balance=10**18, nonce=0),
+            checker: Account(),
+        }
+        account_expectations = {
+            sender: sender_expectation,
+            checker: BalAccountExpectation.empty(),
+            omitted: BalAccountExpectation.empty(),
+        }
+    elif scenario == "delegate_target":
+        # Calling the delegated EOA loads the code source, and only that.
+        omitted = pre.deploy_contract(code=Op.STOP)
+        delegated = pre.fund_eoa(amount=0, delegation=omitted)
+        tx = Transaction(sender=sender, to=delegated)
+        post = {
+            sender: Account(balance=10**18, nonce=0),
+            delegated: Account(code=Spec7702.delegation_designation(omitted)),
+            omitted: Account(),
+        }
+        account_expectations = {
+            sender: sender_expectation,
+            delegated: BalAccountExpectation.empty(),
+            omitted: BalAccountExpectation.empty(),
+        }
+    elif scenario == "failed_auth_authority":
+        # A wrong nonce leaves the authority read but unchanged.
+        omitted = pre.fund_eoa()
+        oracle = pre.deploy_contract(code=Op.STOP)
+        recipient = pre.fund_eoa(amount=0)
+        tx = Transaction(
+            sender=sender,
+            to=recipient,
+            authorization_list=[
+                AuthorizationTuple(address=oracle, nonce=5, signer=omitted)
+            ],
+        )
+        post = {
+            sender: Account(balance=10**18, nonce=0),
+            omitted: Account(nonce=0, code=b""),
+        }
+        account_expectations = {
+            sender: sender_expectation,
+            omitted: BalAccountExpectation.empty(),
+            oracle: None,
+        }
+    elif scenario == "reverted_frame_read":
+        # Reads survive the frame's revert (EIP-7928 § Reverted frames).
+        omitted = pre.fund_eoa(amount=1)
+        reverter = pre.deploy_contract(
+            code=Op.BALANCE(omitted) + Op.REVERT(0, 0)
+        )
+        checker = pre.deploy_contract(
+            code=Op.CALL(Op.GAS, reverter, 0, 0, 0, 0, 0)
+        )
+        tx = Transaction(sender=sender, to=checker)
+        post = {
+            sender: Account(balance=10**18, nonce=0),
+            omitted: Account(balance=1),
+            checker: Account(),
+        }
+        account_expectations = {
+            sender: sender_expectation,
+            checker: BalAccountExpectation.empty(),
+            reverter: BalAccountExpectation.empty(),
             omitted: BalAccountExpectation.empty(),
         }
     else:

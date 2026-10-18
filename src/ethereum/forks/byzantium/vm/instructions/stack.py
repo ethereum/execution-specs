@@ -18,10 +18,7 @@ from ethereum_types.numeric import U256, Uint
 
 from .. import Evm, stack
 from ..exceptions import StackUnderflowError
-from ..gas import (
-    GasCosts,
-    charge_gas,
-)
+from ..gas import GasCosts, charge_gas
 from ..memory import buffer_read
 
 

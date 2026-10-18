@@ -211,3 +211,45 @@ def test_execute_remote_accepts_address_stubs_with_env_rpc_endpoint(
         )
 
     assert result.exit_code == 0, result.output
+
+
+def test_execute_remote_collect_only_without_rpc_flags(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """Verify `--collect-only` works without chain ID or RPC settings."""
+    inner_test = tmp_path / "test_collect_only.py"
+    inner_test.write_text(
+        "\n".join(
+            [
+                "from execution_testing import (",
+                "    Account,",
+                "    Environment,",
+                "    TestAddress,",
+                "    Transaction,",
+                ")",
+                "",
+                "def test_noop(state_test) -> None:",
+                "    state_test(",
+                "        env=Environment(),",
+                "        pre={TestAddress: Account(balance=1_000_000)},",
+                "        post={},",
+                "        tx=Transaction(),",
+                "    )",
+            ]
+        )
+    )
+
+    result = runner.invoke(
+        execute,
+        ["remote", "--collect-only", "-q", str(inner_test)],
+        env={
+            "CHAIN_ID": None,
+            "RPC_CHAIN_ID": None,
+            "RPC_ENDPOINT": None,
+            "RPC_SEED_KEY": None,
+        },
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "::test_noop[" in result.output
+    assert ChainConfigDefaults.chain_id == DEFAULT_CHAIN_ID

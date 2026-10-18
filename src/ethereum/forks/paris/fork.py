@@ -34,10 +34,7 @@ from ethereum.state_mpt import State, apply_changes_to_state
 from . import vm
 from .blocks import Block, Header, Log, Receipt, encode_receipt
 from .bloom import logs_bloom
-from .exceptions import (
-    InsufficientMaxFeePerGasError,
-    WrongChainIdError,
-)
+from .exceptions import InsufficientMaxFeePerGasError, WrongChainIdError
 from .state_tracker import (
     BlockState,
     TransactionState,

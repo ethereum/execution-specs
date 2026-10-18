@@ -3,7 +3,7 @@ Tests for [EIP-4895: Beacon chain withdrawals](https://eips.ethereum.org/EIPS/ei
 """
 
 from enum import Enum, unique
-from typing import Dict, List, Mapping
+from typing import Dict, List
 
 import pytest
 from execution_testing import (
@@ -660,7 +660,7 @@ def test_zero_amount(
             amount=2**64 - 1,
         ),
     ]
-    all_post = {
+    all_post: Dict[Address, Account | None] = {
         empty_accounts[0]: Account.NONEXISTENT,
         zero_balance_contract: Account(code=Op.STOP, balance=0),
         empty_accounts[1]: Account(balance=ONE_GWEI),
@@ -668,7 +668,7 @@ def test_zero_amount(
     }
 
     withdrawals: List[Withdrawal] = []
-    post: Mapping[Address, Account | object] = {}
+    post: Dict[Address, Account | None]
     if test_case == ZeroAmountTestCases.TWO_ZERO:
         withdrawals = all_withdrawals[0:2]
         post = {
@@ -702,8 +702,6 @@ def test_zero_amount(
 
     blockchain_test(
         pre=pre,
-        # TODO: Fix in BlockchainTest? post: Mapping[str, Account | object]
-        # to allow for Account.NONEXISTENT
         post=post,
         blocks=[Block(withdrawals=withdrawals)],
     )

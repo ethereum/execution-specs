@@ -25,6 +25,7 @@ class RethExceptionMapper(ExceptionMapper):
             "priority fee is greater than max fee"
         ),
         TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: "overflow",
+        TransactionException.NONCE_IS_MAX: "nonce overflow in transaction",
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: "unexpected length",
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: "unexpected list",
         TransactionException.INVALID_CHAINID: "invalid chain ID",

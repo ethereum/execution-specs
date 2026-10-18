@@ -186,30 +186,86 @@ def build_authorization(
     )
 
 
+@dataclass
+class RepeatedAuthorityScenario:
+    """
+    Two authorizations applied in sequence to one third-party authority.
+
+    ``applied_account`` is the authority's post-state once both have
+    applied; ``original_account`` is its pre-transaction state (``None``
+    when the leaf does not yet exist).
+    """
+
+    authority: EOA
+    authorizations: list[AuthorizationTuple]
+    applied_account: Account
+    original_account: Account | None
+
+
+def build_repeated_authority(
+    pre: Alloc, first_action: AuthorizationAction
+) -> RepeatedAuthorityScenario:
+    """
+    Build ``first_action`` on a fresh authority, followed by a second
+    authorization re-pointing it with the next nonce.
+
+    The first authorization already wrote the authority's leaf and either
+    set a delegation in this transaction or found one from before it, so
+    the second one is neither a first write nor a net-new indicator.
+    """
+    first = build_authorization(pre, first_action)
+    new_target = pre.deploy_contract(code=Op.STOP)
+    applied_nonce = int(first.applied_account.nonce)
+    second = AuthorizationTuple(
+        address=new_target,
+        nonce=applied_nonce,
+        signer=first.authority,
+        creates_account=False,
+        writes_delegation=False,
+        first_write=False,
+    )
+    return RepeatedAuthorityScenario(
+        authority=first.authority,
+        authorizations=[first.authorization, second],
+        applied_account=Account(
+            nonce=applied_nonce + 1,
+            balance=int(first.applied_account.balance),
+            code=Spec7702.delegation_designation(new_target),
+        ),
+        original_account=first.original_account,
+    )
+
+
 def authorization_transaction_cost(
     fork: Fork,
     authorization_list: list[AuthorizationTuple],
     *,
     access_list: list[AccessList] | None = None,
+    recipient_type: RecipientType = RecipientType.CONTRACT,
+    sends_value: bool = False,
 ) -> int:
     """
-    Return the exact gas a value-free type-4 transaction to a plain
-    contract recipient consumes for the given authorizations.
+    Return the exact gas a type-4 transaction consumes for the given
+    authorizations and recipient.
 
-    The recipient is a ``CONTRACT`` that runs no code, so no recipient
-    top-frame charge applies and the cost reduces to the intrinsic plus
-    the authorizations' own top-frame execution and state charges. Each
-    authorization's charge is driven by its ``creates_account`` /
-    ``writes_delegation`` / ``first_write`` annotations.
+    By default the recipient is a ``CONTRACT`` that runs no code, so no
+    recipient top-frame charge applies and the cost reduces to the
+    intrinsic plus the authorizations' own top-frame execution and state
+    charges. Each authorization's charge is driven by its
+    ``creates_account`` / ``writes_delegation`` / ``first_write``
+    annotations; another ``recipient_type`` adds that recipient's own
+    top-frame charge.
     """
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
         access_list=access_list,
-        recipient_type=RecipientType.CONTRACT,
+        recipient_type=recipient_type,
+        sends_value=sends_value,
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
     return intrinsic_gas + fork.transaction_top_frame_gas_calculator()(
-        recipient_type=RecipientType.CONTRACT,
+        recipient_type=recipient_type,
+        sends_value=sends_value,
         authorizations=authorization_list,
     )
 

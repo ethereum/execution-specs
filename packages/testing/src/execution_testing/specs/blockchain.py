@@ -930,6 +930,15 @@ class BlockchainTest(BaseTest):
                         "last transaction of the last block, but block "
                         f"{i} contains an invalid transaction elsewhere"
                     )
+        if self.invalid_tx_not_last and not any(
+            tx.error is not None
+            for block in self.blocks
+            for tx in block.txs[:-1]
+        ):
+            raise Exception(
+                "test correctness: the test is marked `invalid_tx_not_last` "
+                "but no block has an invalid transaction before its last one"
+            )
         for i, block in enumerate(self.blocks):
             expectation = block.expected_block_access_list
             if (
@@ -1069,10 +1078,12 @@ class BlockchainTest(BaseTest):
                     "test correctness: only one transaction can produce "
                     "an exception in a block"
                 )
-            if not txs[-1].error:
+            if not txs[-1].error and not self.invalid_tx_not_last:
                 raise Exception(
                     "test correctness: the transaction that produces an "
-                    "exception must be the last transaction in the block"
+                    "exception must be the last transaction in the block; "
+                    "mark the test `invalid_tx_not_last` when the trailing "
+                    "transactions are the point"
                 )
 
         stateless_options = stateless_options_for_block(
@@ -1342,6 +1353,22 @@ class BlockchainTest(BaseTest):
                 + "`block.exception`"
             )
 
+        block_exception = transition_tool_output.result.block_exception
+        if (
+            rejected_txs
+            and block_exception is not None
+            and not block.skip_exception_verification
+        ):
+            # The block exception is not verified when a transaction is
+            # rejected, so without this check it would go unnoticed.
+            raise Exception(
+                f"test correctness: block number {int(env.number)} rejects "
+                f"transaction(s) {rejected_txs}, and the transition tool "
+                f"also rejects the block itself ({block_exception}). The "
+                "fixture would carry two defects and name one. Change the "
+                "block so that only the transaction is invalid."
+            )
+
         execution_witness = transition_tool_output.result.execution_witness
         verify_execution_witness_expectations(
             block=block,
@@ -1379,6 +1406,7 @@ class BlockchainTest(BaseTest):
         built_block.stateless_output_bytes = (
             stateless_artifacts.stateless_output_bytes
         )
+
         return built_block
 
     def verify_post_state(
