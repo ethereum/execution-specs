@@ -1,5 +1,5 @@
 """
-EIP-12504 gas costs.
+EIP-8442 gas costs.
 
 Each instruction is metered between two GAS instructions, and the
 difference, less the known costs of the PUSHes, the POP, and the second
@@ -16,13 +16,13 @@ from execution_testing import (
     Transaction,
 )
 
-from .spec import Spec, ref_spec_12504
+from .spec import Spec, ref_spec_8442
 from .vectors import EXP64_GAS, POPS, STATIC_GAS
 
-REFERENCE_SPEC_GIT_PATH = ref_spec_12504.git_path
-REFERENCE_SPEC_VERSION = ref_spec_12504.version
+REFERENCE_SPEC_GIT_PATH = ref_spec_8442.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8442.version
 
-pytestmark = pytest.mark.valid_from("EIP12504")
+pytestmark = pytest.mark.valid_from("EIP8442")
 
 SLOT_RESULT = 0
 TX_GAS_LIMIT = 1_000_000

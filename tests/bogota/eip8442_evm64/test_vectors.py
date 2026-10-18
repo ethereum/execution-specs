@@ -1,5 +1,5 @@
 """
-EIP-12504 test vectors.
+EIP-8442 test vectors.
 
 Every row of the EIP's Test Cases table: the instruction is given its
 inputs with PUSHes, top of stack last, and its output is stored at slot 0.
@@ -17,13 +17,13 @@ from execution_testing import (
     Transaction,
 )
 
-from .spec import ref_spec_12504
+from .spec import ref_spec_8442
 from .vectors import VECTORS
 
-REFERENCE_SPEC_GIT_PATH = ref_spec_12504.git_path
-REFERENCE_SPEC_VERSION = ref_spec_12504.version
+REFERENCE_SPEC_GIT_PATH = ref_spec_8442.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8442.version
 
-pytestmark = pytest.mark.valid_from("EIP12504")
+pytestmark = pytest.mark.valid_from("EIP8442")
 
 SLOT_RESULT = 0
 TX_GAS_LIMIT = 1_000_000
