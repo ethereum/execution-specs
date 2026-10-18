@@ -3,6 +3,8 @@ Test_call_ecrecover0_complete_return_value.
 
 Ported from:
 state_tests/stPreCompiledContracts2/CallEcrecover0_completeReturnValueFiller.json
+
+@manually-enhanced: Do not overwrite. Call gas from fork.ecrecover_gas.
 """
 
 import pytest
@@ -16,6 +18,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_ecrecover0_complete_return_value(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_call_ecrecover0_complete_return_value."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -69,7 +73,8 @@ def test_call_ecrecover0_complete_return_value(
         + Op.SSTORE(
             key=0x2,
             value=Op.CALL(
-                gas=0xBB8,
+                # The recovered address 0xa94f... is tx.origin, so it is warm.
+                gas=fork.ecrecover_gas(recovered=True, address_warm=True),
                 address=0x1,
                 value=0x0,
                 args_offset=0x0,
