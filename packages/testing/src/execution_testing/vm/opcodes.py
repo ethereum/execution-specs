@@ -5857,6 +5857,55 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#FA](https://www.evm.codes/#FA)
     """
 
+    PAY = Opcode(
+        0xFC,
+        popped_stack_items=2,
+        pushed_stack_items=1,
+        kwargs=["address", "value"],
+        metadata={
+            "address_warm": False,
+            "value_transfer": False,
+            "account_new": False,
+        },
+    )
+    """
+    PAY(address, value) = success
+    ----
+
+    Description
+    ----
+    Transfers `value` wei from the executing account to `address` without
+    executing any code at `address`.
+
+    Inputs
+    ----
+    - address: the recipient account to transfer value to (20 bytes)
+    - value: value in wei to send to the account
+
+    Outputs
+    ----
+    - success: return 0 if the executing account has insufficient balance, 1
+               otherwise
+
+    Fork
+    ----
+    Bogota
+
+    Gas
+    ----
+    - static_gas = 0
+    - dynamic_gas = address_access_cost + positive_value_cost +
+                    empty_account_cost
+
+    Metadata
+    ----
+    - address_warm: whether the address is already warm (default: False)
+    - value_transfer: whether value is being transferred (default: False)
+    - account_new: whether creating a new account (default: False)
+
+    Source: [EIP-5920](https://eips.ethereum.org/EIPS/eip-5920)
+    """
+
     REVERT = Opcode(
         0xFD,
         popped_stack_items=2,

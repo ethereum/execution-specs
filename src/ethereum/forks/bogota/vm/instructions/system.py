@@ -33,6 +33,7 @@ from ...utils.address import (
     compute_contract_address,
     compute_create2_contract_address,
     to_address_masked,
+    to_address_unmasked,
 )
 from ...vm.eoa_delegation import calculate_delegation_cost
 from .. import CALL_SUCCESS, Evm, emit_transfer_log, incorporate_child
@@ -1011,3 +1012,63 @@ def revert(evm: Evm) -> None:
 
     # PROGRAM COUNTER
     # no-op
+
+
+def pay(evm: Evm) -> None:
+    """
+    Transfer ether to an account without executing its code.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    if evm.is_static:
+        raise WriteInStaticContext
+
+    # STACK
+    to = to_address_unmasked(pop(evm.stack))
+    value = pop(evm.stack)
+
+    # GAS (STATE-INDEPENDENT)
+    # Price what is computable without touching state, and check it is
+    # affordable before any state access is performed.
+    is_cold_access = to not in evm.accessed_addresses
+    if is_cold_access:
+        access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
+    else:
+        access_gas_cost = GasCosts.WARM_ACCESS
+
+    transfer_gas_cost = GasCosts.ZERO if value == 0 else GasCosts.ACCOUNT_WRITE
+
+    charge_gas(evm, access_gas_cost + transfer_gas_cost)
+
+    # STATE ACCESS (STATE-DEPENDENT GAS)
+    tx_state = evm.tx_env.state
+    if is_cold_access:
+        evm.accessed_addresses.add(to)
+
+    # STATE GAS
+    # A value transfer that will create the recipient is charged by
+    # the frame whose opcode causes it; refilled below if the transfer
+    # does not happen because the sender's balance is insufficient.
+    new_account_charged = not is_account_alive(tx_state, to) and value != 0
+    if new_account_charged:
+        charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
+
+    # OPERATION
+    sender_balance = get_account(tx_state, evm.current_target).balance
+    if sender_balance < value:
+        if new_account_charged:
+            credit_state_gas_refund(evm.gas_meter, StateGasCosts.NEW_ACCOUNT)
+        push(evm.stack, U256(0))
+    else:
+        if value != 0:
+            move_ether(tx_state, evm.current_target, to, value)
+            if evm.current_target != to:
+                emit_transfer_log(evm, evm.current_target, to, value)
+        push(evm.stack, CALL_SUCCESS)
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)

@@ -1002,3 +1002,39 @@ def test_abstract_memoized_declarations_are_left_alone() -> None:
         declaration = BaseFork.__dict__[method_name]
         assert getattr(declaration, "__isabstractmethod__", False)
         assert not hasattr(declaration.__func__, "cache_info")
+
+
+def test_eip_5920_pay_gas_calculation() -> None:
+    """Verify EIP-5920 PAY opcode presence and gas calculation on Bogota."""
+    assert Opcodes.PAY not in Amsterdam.valid_opcodes()
+    assert Opcodes.PAY in Bogota.valid_opcodes()
+
+    gas_costs = Bogota.gas_costs()
+
+    # Cold, zero value -> COLD_ACCOUNT_ACCESS execution gas, 0 state gas
+    op_cold_zero = Opcodes.PAY
+    assert op_cold_zero.execution_cost(Bogota) == gas_costs.COLD_ACCOUNT_ACCESS
+    assert op_cold_zero.state_cost(Bogota) == 0
+
+    # Warm, zero value -> WARM_ACCESS execution gas, 0 state gas
+    op_warm_zero = Opcodes.PAY(address_warm=True)
+    assert op_warm_zero.execution_cost(Bogota) == gas_costs.WARM_ACCESS
+    assert op_warm_zero.state_cost(Bogota) == 0
+
+    # Cold, value > 0, existing account -> COLD_ACCOUNT_ACCESS + ACCOUNT_WRITE
+    op_cold_val = Opcodes.PAY(value_transfer=True)
+    assert (
+        op_cold_val.execution_cost(Bogota)
+        == gas_costs.COLD_ACCOUNT_ACCESS + gas_costs.ACCOUNT_WRITE
+    )
+    assert op_cold_val.state_cost(Bogota) == 0
+
+    # Warm, value > 0, new account -> WARM_ACCESS + ACCOUNT_WRITE + NEW_ACCOUNT
+    op_warm_new = Opcodes.PAY(
+        address_warm=True, value_transfer=True, account_new=True
+    )
+    assert op_warm_new.state_cost(Bogota) == gas_costs.NEW_ACCOUNT
+    assert (
+        op_warm_new.execution_cost(Bogota)
+        == gas_costs.WARM_ACCESS + gas_costs.ACCOUNT_WRITE
+    )

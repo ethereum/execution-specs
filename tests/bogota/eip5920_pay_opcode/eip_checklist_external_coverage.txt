@@ -1,0 +1,3 @@
+general/code_coverage/eels = EIP-5920 adds pay (vm/instructions/system.py) and to_address_unmasked (utils/address.py) in Bogota; 100% statement and branch coverage is verified via fill --cov
+general/code_coverage/test_coverage = 100% statement and branch coverage across tests/bogota/eip5920_pay_opcode/ verified via fill --cov
+general/code_coverage/missed_lines = No missed lines or branches in the EIP-5920 implementation or test suite
