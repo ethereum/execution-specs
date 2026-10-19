@@ -94,6 +94,11 @@ class MempoolTest(BaseTest):
         next_pool_nonce: Dict[Tuple, int] = {}
         for index, entry in enumerate(self.txs):
             tx = entry.unwrapped
+            if entry.accepted is None:
+                raise ValueError(
+                    f"tx {index} leaves its verdict to mempool policy; a "
+                    "mempool test states the verdict of every transaction."
+                )
             if tx.error is not None:
                 raise ValueError(
                     f"tx {index} expects a consensus error; a mempool test "

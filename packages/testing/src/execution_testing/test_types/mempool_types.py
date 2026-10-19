@@ -14,7 +14,12 @@ class MempoolTransaction(CamelModel):
     """
 
     tx: Transaction | NetworkWrappedTransaction
-    accepted: bool
+    accepted: bool | None
+    """
+    Whether the mempool must admit the transaction. `None` leaves the
+    verdict to mempool policy, for a transaction valid in a block that
+    the policy may still refuse.
+    """
     in_block: bool | None = None
     """
     Whether the transaction is placed in the block filled from the

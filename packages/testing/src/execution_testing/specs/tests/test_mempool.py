@@ -141,3 +141,9 @@ def test_block_holds_the_payload_of_a_wrapped_tx() -> None:
     )
     test = mempool_test([MempoolTransaction(tx=wrapped, accepted=True)])
     assert test.block_transactions() == [payload]
+
+
+def test_rejects_policy_verdicts() -> None:
+    """Test that a mempool test states the verdict of every transaction."""
+    with pytest.raises(ValueError, match="mempool policy"):
+        mempool_test([MempoolTransaction(tx=tx(ALICE, 0), accepted=None)])
