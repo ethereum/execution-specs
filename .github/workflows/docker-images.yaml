@@ -146,7 +146,11 @@ jobs:
             mode=nightly nightly=--nightly sha=$NIGHTLY_SHA branch=$DEFAULT_BRANCH
           elif [ -n "$RELEASE_TAG" ]; then
             mode=release
-            branch=$(eest images release-branch "$RELEASE_TAG" --default-branch "$DEFAULT_BRANCH")
+            if ! branch=$(eest images release-branch "$RELEASE_TAG" --default-branch "$DEFAULT_BRANCH"); then
+              [ "$EVENT" = release ] || exit 1
+              echo "::notice::$RELEASE_TAG is not tied to a branch, no images"
+              exit 0
+            fi
           elif [ "$EVENT" = push ]; then
             mode=push branch=$GITHUB_REF_NAME sha=$GITHUB_SHA
           else

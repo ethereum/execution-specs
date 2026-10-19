@@ -11,7 +11,7 @@ The workflow `.github/workflows/docker-images.yaml` publishes the images describ
 | nightly | the scheduled fill in `release_fixtures.yaml` completes, which calls this workflow | every image at the fill commit, from the fill's `fixtures_<sha>` artifact; test-carrying images get `nightly` and `nightly-<sha>`, the repository image gets `nightly` and `sha-<sha>` |
 | by hand | the Actions tab or `gh workflow run` | any of the above, and testing on a fork |
 
-The branch a release belongs to is inferred from its tag, `tests@` for the default branch and `tests-<name>-devnet@v<n>.` for `devnets/<name>/<n>`, so the release trigger needs no input. A release whose series is not tied to a branch, such as a benchmark release, is rejected by the planner.
+The branch a release belongs to is inferred from its tag, `tests@` for the default branch and `tests-<name>-devnet@v<n>.` for `devnets/<name>/<n>`, so the release trigger needs no input. A published release whose series is not tied to a branch, such as a zkevm or benchmark release, publishes no images: the run ends after planning with a notice. A manual run for such a release fails.
 
 The workflow authenticates to ghcr with the job token and needs no secrets. Publishing requires `packages: write`, which the workflow requests; the nightly call additionally needs `actions: read` to download the fill's artifact.
 
