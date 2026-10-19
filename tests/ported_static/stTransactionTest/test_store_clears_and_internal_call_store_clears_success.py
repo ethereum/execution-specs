@@ -7,15 +7,14 @@ state_tests/stTransactionTest/StoreClearsAndInternalCallStoreClearsSuccessFiller
 @manually-enhanced: Do not overwrite. The outer contract `target` clears 4
 cold storage slots then `CALL`s the inner contract `addr`, which clears 10
 cold storage slots; the value transfer and clears must all succeed.
-EIP-8037/8038 raise the cold SSTORE-clear charge from 5000 to 13000 at
-Amsterdam, so both gas budgets must rise by that charge delta or the inner
-frame runs out of gas (clearing only 4 of its 10 slots) and the value
-transfer rolls back. The inner `CALL` only forwards a fixed gas amount, so
-its budget is bumped by the 10 inner clears; the transaction gas limit is
-bumped by all 14 clears (10 inner plus 4 outer) so the outer frame can both
-pay its own clears and forward the larger amount. Both bumps are derived
-from the fork gas model and are exactly 0 pre-EIP-8037; do not hardcode the
-Amsterdam values.
+EIP-8037/8038 raise the cold SSTORE-clear charge at Amsterdam, so both gas
+budgets must rise by that charge delta or the inner frame runs out of gas
+(clearing only 4 of its 10 slots) and the value transfer rolls back. The
+inner `CALL` only forwards a fixed gas amount, so its budget is bumped by
+the 10 inner clears; the transaction gas limit is bumped by all 14 clears
+(10 inner plus 4 outer) so the outer frame can both pay its own clears and
+forward the larger amount. Both bumps are derived from the fork gas model
+and are exactly 0 pre-EIP-8037; do not hardcode the Amsterdam values.
 """
 
 import pytest
@@ -28,7 +27,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -53,10 +52,10 @@ def test_store_clears_and_internal_call_store_clears_success(
 
     # EIP-8037/8038 raise the cold SSTORE-clear charge; derive the per-clear
     # delta (0 pre-EIP-8037) so both gas budgets keep every clear landing.
-    sstore_charge = Op.SSTORE.with_metadata(
+    cold_clear = Op.SSTORE.with_metadata(
         key_warm=False, original_value=1, current_value=1, new_value=0
-    ).gas_cost(fork)
-    cold_clear_delta = sstore_charge - 5000
+    )
+    cold_clear_delta = cold_clear.gas_cost(fork) - cold_clear.gas_cost(Cancun)
 
     env = Environment(
         fee_recipient=coinbase,

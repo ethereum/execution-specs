@@ -1,17 +1,18 @@
 """
-Test_push0_gas.
+Measure the gas cost of the PUSH0 instruction.
 
 Ported from:
 state_tests/Shanghai/stEIP3855_push0/push0GasFiller.yml
+
+@manually-enhanced: Do not overwrite. PUSH0 gas via CodeGasMeasure.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    CodeGasMeasure,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -24,42 +25,29 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.ported_from(
     ["state_tests/Shanghai/stEIP3855_push0/push0GasFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Shanghai")
 def test_push0_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Test_push0_gas."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0x989680)
+    """Measure PUSH0's gas cost against the fork-derived expectation."""
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=89128960,
-    )
-
-    # Source: raw
-    # 0x5a6000555f5a6000540360015500
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.GAS)
-        + Op.PUSH0
-        + Op.SSTORE(key=0x1, value=Op.SUB(Op.SLOAD(key=0x0), Op.GAS))
-        + Op.STOP,
-        nonce=0,
+    push0_code = Op.PUSH0
+    target = pre.deploy_contract(
+        code=CodeGasMeasure(
+            code=push0_code,
+            extra_stack_items=1,
+            sstore_key=0x1,
+        ),
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
-        gas_limit=100000,
     )
 
-    post = {target: Account(storage={0: 0x13496, 1: 22107})}
+    post = {target: Account(storage={0x1: push0_code.gas_cost(fork)})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

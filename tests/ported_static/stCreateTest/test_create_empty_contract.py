@@ -1,17 +1,20 @@
 """
-Test_create_empty_contract.
+Test CREATE of an empty contract and measure the CREATE gas cost.
 
 Ported from:
 state_tests/stCreateTest/CREATE_EmptyContractFiller.json
+state_tests/stCreateTest/CREATE_EmptyContractWithBalanceFiller.json
+
+@manually-enhanced: Do not overwrite. CREATE gas via CodeGasMeasure; dynamic
+address + fork-derived cost; empty/with-balance folded into one parametrize.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    CodeGasMeasure,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -21,56 +24,61 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+GAS_SLOT = 0x64
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stCreateTest/CREATE_EmptyContractFiller.json"],
+    [
+        "state_tests/stCreateTest/CREATE_EmptyContractFiller.json",
+        "state_tests/stCreateTest/CREATE_EmptyContractWithBalanceFiller.json",
+    ],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("SpuriousDragon")
+@pytest.mark.parametrize(
+    "create_value",
+    [
+        pytest.param(0, id="empty_contract"),
+        pytest.param(1, id="with_balance"),
+    ],
+)
 def test_create_empty_contract(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
+    create_value: int,
 ) -> None:
-    """Test_create_empty_contract."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
+    """CREATE an empty contract (empty init code) and measure its gas."""
+    # CREATE with size=0x20 over never-written memory runs 32 zero bytes as
+    # init code (STOP on the first byte), depositing no code -> an empty
+    # account with nonce 1 (and the transferred value as balance).
+    create_code = Op.CREATE(
+        value=create_value,
+        offset=0x0,
+        size=0x20,
+        new_memory_size=0x20,
+        init_code_size=0x20,
     )
-
-    # Source: lll
-    # { [[0]](GAS) [[1]] (CREATE 0 0 32) [[100]] (GAS) }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.GAS)
-        + Op.SSTORE(key=0x1, value=Op.CREATE(value=0x0, offset=0x0, size=0x20))
-        + Op.SSTORE(key=0x64, value=Op.GAS)
-        + Op.STOP,
-        nonce=0,
+    contract = pre.deploy_contract(
+        code=CodeGasMeasure(
+            code=create_code,
+            extra_stack_items=1,
+            sstore_key=GAS_SLOT,
+        ),
+        balance=create_value,
     )
 
     tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=Bytes(""),
-        gas_limit=600000,
+        sender=pre.fund_eoa(),
+        to=contract,
+        state_gas_reservoir=0,
     )
 
+    created = compute_create_address(address=contract, nonce=1)
     post = {
-        compute_create_address(address=contract_0, nonce=0): Account(nonce=1),
-        contract_0: Account(
-            storage={
-                0: 0x8D5B6,
-                1: compute_create_address(address=contract_0, nonce=0),
-                100: 0x7ABF8,
-            },
+        contract: Account(
+            storage={GAS_SLOT: create_code.gas_cost(fork)}, balance=0
         ),
+        created: Account(nonce=1, balance=create_value),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

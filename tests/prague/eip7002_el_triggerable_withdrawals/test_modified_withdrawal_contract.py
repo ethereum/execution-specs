@@ -7,21 +7,20 @@ from typing import List
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Header,
     Op,
     Requests,
     SystemContractInteractionTransaction,
     Transaction,
+    WithdrawalRequest,
     generate_system_contract_error_test,
 )
 from execution_testing import Macros as Om
 
-from .helpers import WithdrawalRequest
-from .spec import Spec as Spec_EIP7002
 from .spec import ref_spec_7002
 
 REFERENCE_SPEC_GIT_PATH: str = ref_spec_7002.git_path
@@ -38,7 +37,7 @@ def withdrawal_list_with_custom_fee(n: int) -> List[WithdrawalRequest]:  # noqa:
         WithdrawalRequest(
             validator_pubkey=i + 1,
             amount=0,
-            fee=Spec_EIP7002.get_fee(0),
+            fee=WithdrawalRequest.get_fee(0),
         )
         for i in range(n)
     ]
@@ -94,23 +93,21 @@ def test_extra_withdrawals(
     """
     modified_code: Bytecode = Bytecode()
     memory_offset: int = 0
-    amount_of_requests: int = 0
 
     for withdrawal_request in requests_list:
-        # update memory_offset with the correct value
-        withdrawal_request_bytes_amount: int = len(bytes(withdrawal_request))
-        assert withdrawal_request_bytes_amount == 76, (
+        record = bytes(withdrawal_request)
+        assert len(record) == 76, (
             "Expected withdrawal request to be of size 76 but got size "
-            f"{withdrawal_request_bytes_amount}"
+            f"{len(record)}"
         )
-        memory_offset += withdrawal_request_bytes_amount
+        # Store records contiguously from offset 0 so the returned data is
+        # exactly the concatenated records (no gap, no trailing padding).
+        modified_code += Om.MSTORE(record, memory_offset)
+        memory_offset += len(record)
 
-        modified_code += Om.MSTORE(bytes(withdrawal_request), memory_offset)
-        amount_of_requests += 1
+    modified_code += Op.RETURN(0, memory_offset)
 
-    modified_code += Op.RETURN(0, Op.MSIZE())
-
-    pre[Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS] = Account(
+    pre[WithdrawalRequest.system_contract_address] = Account(
         code=modified_code,
         nonce=1,
         balance=0,
@@ -131,7 +128,7 @@ def test_extra_withdrawals(
         blocks=[
             Block(
                 txs=txs,
-                requests_hash=Requests(*requests_list),
+                header_verify=Header(requests_hash=Requests(*requests_list)),
             ),
         ],
         post={},
@@ -140,11 +137,9 @@ def test_extra_withdrawals(
 
 @pytest.mark.parametrize(
     "system_contract",
-    [Address(Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS)],
+    [WithdrawalRequest.system_contract_address],
 )
-@generate_system_contract_error_test(  # type: ignore[arg-type]
-    max_gas_limit=Spec_EIP7002.SYSTEM_CALL_GAS_LIMIT,
-)
+@generate_system_contract_error_test()  # type: ignore[arg-type]
 @pytest.mark.eels_base_coverage
 def test_system_contract_errors() -> None:
     """

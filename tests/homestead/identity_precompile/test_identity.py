@@ -1,4 +1,4 @@
-"""abstract: EIP-2: Homestead Identity Precompile Test Cases."""
+"""EIP-2: Homestead Identity Precompile Test Cases."""
 
 import pytest
 from execution_testing import (

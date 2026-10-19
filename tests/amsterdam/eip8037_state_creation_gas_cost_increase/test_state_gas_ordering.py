@@ -1,8 +1,8 @@
 """
 Test state gas consumption ordering under EIP-8037.
 
-When an opcode charges both regular gas and state gas, regular gas MUST
-be charged first. If regular gas OOGs, state gas is not consumed. This
+When an opcode charges both execution gas and state gas, execution gas MUST
+be charged first. If execution gas OOGs, state gas is not consumed. This
 prevents the parent's reservoir from being inflated on frame failure.
 
 Each test gives a child frame exactly 1 gas less than needed, then uses
@@ -15,17 +15,14 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 
 import pytest
 from execution_testing import (
-    Account,
     Alloc,
     Block,
     BlockchainTestFiller,
     Fork,
     Header,
-    Initcode,
     Op,
-    StateTestFiller,
-    Storage,
     Transaction,
+    create_op,
 )
 
 from .spec import ref_spec_8037
@@ -34,308 +31,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 WORD_SIZE = 32
-
-
-def _single_sstore_probe_gas(fork: Fork) -> int:
-    """
-    Return the gas for a single-SSTORE probe that OOGs by 1 when the
-    reservoir is 0 but succeeds when the reservoir holds any state gas.
-
-    The probe bytecode is Op.SSTORE(0, 1): two pushes + SSTORE.
-    """
-    gas_costs = fork.gas_costs()
-    sstore_regular = gas_costs.COLD_STORAGE_WRITE
-    sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
-    push_gas = 2 * gas_costs.VERY_LOW
-    return push_gas + sstore_regular + sstore_state - 1
-
-
-@pytest.mark.valid_from("EIP8037")
-def test_sstore_oog_reservoir_inflation_detection(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Detect SSTORE state gas ordering via reservoir inflation.
-
-    A factory does CREATE + SSTORE where SSTORE OOGs (1 gas short).
-    After factory failure, the parent's reservoir should contain only
-    CREATE's state gas. A probe contract tests this by doing 4 SSTOREs
-    that need more total state gas than the correct reservoir but less
-    than the inflated one.
-
-    With correct ordering (regular gas first): probe OOGs on 4th SSTORE.
-    With wrong ordering (state gas first): reservoir is inflated,
-    probe succeeds.
-    """
-    gas_costs = fork.gas_costs()
-    initcode = Initcode(deploy_code=Op.STOP)
-    initcode_len = len(initcode)
-
-    factory_code = Op.CALLDATACOPY(
-        0,
-        0,
-        Op.CALLDATASIZE,
-        data_size=initcode_len,
-        new_memory_size=initcode_len,
-    ) + Op.SSTORE(
-        0,
-        Op.CREATE(
-            value=0,
-            offset=0,
-            size=Op.CALLDATASIZE,
-            init_code_size=initcode_len,
-        ),
-    )
-    factory = pre.deploy_contract(factory_code)
-
-    factory_gas = (
-        factory_code.gas_cost(fork)
-        + initcode.execution_gas(fork)
-        + initcode.deployment_gas(fork)
-    )
-
-    # Probe: 4 SSTOREs to cold slots. Total state gas exceeds the
-    # correct reservoir (CREATE state gas only) but fits within the
-    # inflated reservoir (CREATE + SSTORE state gas).
-    probe = pre.deploy_contract(
-        Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.SSTORE(2, 1) + Op.SSTORE(3, 1)
-    )
-
-    # Compute probe gas: enough for 4 SSTOREs' regular gas + pushes,
-    # but after 4th regular charge, gas_left < the state gas spill.
-    sstore_regular = gas_costs.COLD_STORAGE_WRITE
-    sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
-    push_per_sstore = 2 * gas_costs.VERY_LOW
-    create_state_gas = fork.create_state_gas(
-        code_size=len(initcode.deploy_code)
-    )
-    spill = 4 * sstore_state - create_state_gas
-    probe_gas = 4 * (push_per_sstore + sstore_regular) + spill // 2
-
-    caller_storage = Storage()
-    caller = pre.deploy_contract(
-        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.POP(
-            Op.CALL(
-                gas=factory_gas - 1,
-                address=factory,
-                value=0,
-                args_offset=0,
-                args_size=Op.CALLDATASIZE,
-                ret_offset=0,
-                ret_size=0,
-            )
-        )
-        + Op.SSTORE(
-            caller_storage.store_next(0, "probe_must_fail"),
-            Op.CALL(gas=probe_gas, address=probe),
-        )
-    )
-
-    sender = pre.fund_eoa()
-    tx = Transaction(
-        sender=sender,
-        to=caller,
-        data=bytes(initcode),
-        state_gas_reservoir=0,
-    )
-
-    post = {
-        caller: Account(storage=caller_storage),
-    }
-
-    state_test(pre=pre, tx=tx, post=post)
-
-
-@pytest.mark.valid_from("EIP8037")
-def test_call_oog_reservoir_inflation_detection(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Detect CALL state gas ordering via reservoir inflation.
-
-    A child does CALL(value=1) to a dead address with gas tuned so
-    the regular gas charge OOGs by 1. If state gas (new account) is
-    incorrectly charged first, the parent's reservoir is inflated.
-
-    A single-SSTORE probe detects the inflation: with correct reservoir
-    (0) it OOGs; with inflated reservoir it succeeds.
-    """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
-    dead_address = 0xDEAD
-    child_code = Op.CALL(
-        gas=0,
-        address=dead_address,
-        value=1,
-        args_offset=0,
-        args_size=0,
-        ret_offset=0,
-        ret_size=0,
-    )
-    pushes_gas = 7 * gas_costs.VERY_LOW
-    call_regular_gas = gas_costs.COLD_ACCOUNT_ACCESS + gas_costs.CALL_VALUE
-    child_gas = pushes_gas + call_regular_gas + new_account_state_gas - 1
-    child = pre.deploy_contract(child_code)
-
-    probe = pre.deploy_contract(Op.SSTORE(0, 1))
-    probe_gas = _single_sstore_probe_gas(fork)
-
-    caller_storage = Storage()
-    caller = pre.deploy_contract(
-        Op.POP(Op.CALL(gas=child_gas, address=child))
-        + Op.SSTORE(
-            caller_storage.store_next(0, "probe_must_fail"),
-            Op.CALL(gas=probe_gas, address=probe),
-        )
-    )
-
-    sender = pre.fund_eoa()
-    tx = Transaction(
-        sender=sender,
-        to=caller,
-        state_gas_reservoir=0,
-    )
-
-    post = {caller: Account(storage=caller_storage)}
-    state_test(pre=pre, tx=tx, post=post)
-
-
-@pytest.mark.valid_from("EIP8037")
-def test_selfdestruct_oog_reservoir_inflation_detection(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Detect SELFDESTRUCT state gas ordering via reservoir inflation.
-
-    A child with non-zero balance does SELFDESTRUCT(dead_beneficiary)
-    with gas tuned so the regular gas charge OOGs by 1. If state gas
-    is incorrectly charged first, the parent's reservoir is inflated.
-
-    Single-SSTORE probe detects the inflation.
-    """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
-    dead_beneficiary = 0xBEEF
-    child_code = Op.SELFDESTRUCT(dead_beneficiary)
-    pushes_gas = gas_costs.VERY_LOW
-    selfdestruct_regular_gas = (
-        gas_costs.OPCODE_SELFDESTRUCT_BASE + gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    child_gas = (
-        pushes_gas + selfdestruct_regular_gas + new_account_state_gas - 1
-    )
-    child = pre.deploy_contract(child_code, balance=1)
-
-    probe = pre.deploy_contract(Op.SSTORE(0, 1))
-    probe_gas = _single_sstore_probe_gas(fork)
-
-    caller_storage = Storage()
-    caller = pre.deploy_contract(
-        Op.POP(Op.CALL(gas=child_gas, address=child))
-        + Op.SSTORE(
-            caller_storage.store_next(0, "probe_must_fail"),
-            Op.CALL(gas=probe_gas, address=probe),
-        )
-    )
-
-    sender = pre.fund_eoa()
-    tx = Transaction(
-        sender=sender,
-        to=caller,
-        state_gas_reservoir=0,
-    )
-
-    post = {caller: Account(storage=caller_storage)}
-    state_test(pre=pre, tx=tx, post=post)
-
-
-@pytest.mark.parametrize(
-    "oog_step",
-    [
-        pytest.param("create_base", id="oog_on_create_base"),
-        pytest.param("init_code_word_cost", id="oog_on_init_code_word_cost"),
-    ],
-)
-@pytest.mark.with_all_create_opcodes()
-@pytest.mark.valid_from("EIP8037")
-def test_create_oog_reservoir_inflation_detection(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    create_opcode: Op,
-    oog_step: str,
-) -> None:
-    """
-    Detect CREATE/CREATE2 state-gas ordering via parent-reservoir
-    inflation. Two OOG boundaries are exercised: `oog_on_create_base`
-    (empty initcode) and `oog_on_init_code_word_cost` (32-byte
-    initcode).
-    """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
-    if oog_step == "create_base":
-        initcode_size = 0
-        setup_gas = 0
-        init_code_word_cost = 0
-    else:
-        initcode_size = WORD_SIZE
-        setup_gas = (
-            Op.MSTORE.popped_stack_items * gas_costs.VERY_LOW
-            + gas_costs.OPCODE_MSTORE_BASE
-            + gas_costs.MEMORY_PER_WORD
-        )
-        init_code_word_cost = gas_costs.CODE_INIT_PER_WORD
-
-    if create_opcode == Op.CREATE:
-        create_op = create_opcode(value=0, offset=0, size=initcode_size)
-    else:
-        create_op = create_opcode(
-            value=0, offset=0, size=initcode_size, salt=0
-        )
-    pushes_gas = create_opcode.popped_stack_items * gas_costs.VERY_LOW
-
-    if oog_step == "create_base":
-        child_code = create_op
-    else:
-        child_code = Op.MSTORE(0, 0) + create_op
-
-    create_regular_gas = gas_costs.OPCODE_CREATE_BASE + init_code_word_cost
-    child_gas = (
-        setup_gas + pushes_gas + create_regular_gas + new_account_state_gas - 1
-    )
-    child = pre.deploy_contract(child_code)
-
-    probe = pre.deploy_contract(Op.SSTORE(0, 1))
-    probe_gas = _single_sstore_probe_gas(fork)
-
-    caller_storage = Storage()
-    caller = pre.deploy_contract(
-        Op.POP(Op.CALL(gas=child_gas, address=child))
-        + Op.SSTORE(
-            caller_storage.store_next(0, "probe_must_fail"),
-            Op.CALL(gas=probe_gas, address=probe),
-        )
-    )
-
-    sender = pre.fund_eoa()
-    tx = Transaction(
-        sender=sender,
-        to=caller,
-        state_gas_reservoir=0,
-    )
-
-    post = {caller: Account(storage=caller_storage)}
-    state_test(pre=pre, tx=tx, post=post)
 
 
 @pytest.mark.parametrize(
@@ -358,40 +53,24 @@ def test_create_oog_full_burn_no_state_credit(
     Verify a CREATE OOG inside a non-creation tx burns the whole
     tx gas_limit — no state-gas leftover is credited at tx-end.
     """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
     if oog_step == "create_base":
         initcode_size = 0
-        setup_gas = 0
-        init_code_word_cost = 0
     else:
         initcode_size = WORD_SIZE
-        setup_gas = (
-            2 * gas_costs.VERY_LOW
-            + gas_costs.OPCODE_MSTORE_BASE
-            + gas_costs.MEMORY_PER_WORD
-        )
-        init_code_word_cost = gas_costs.CODE_INIT_PER_WORD
 
-    if create_opcode == Op.CREATE:
-        create_op = create_opcode(value=0, offset=0, size=initcode_size)
-    else:
-        create_op = create_opcode(
-            value=0, offset=0, size=initcode_size, salt=0
-        )
-    pushes_gas = create_opcode.popped_stack_items * gas_costs.VERY_LOW
+    create_call = create_op(
+        create_opcode, size=initcode_size, init_code_size=initcode_size
+    )
 
     if oog_step == "create_base":
-        factory_code = create_op
+        factory_code = create_call
     else:
-        factory_code = Op.MSTORE(0, 0) + create_op
+        factory_code = Op.MSTORE(0, 0, new_memory_size=WORD_SIZE) + create_call
     factory = pre.deploy_contract(factory_code)
 
-    create_regular_gas = gas_costs.OPCODE_CREATE_BASE + init_code_word_cost
-    body_gas = (
-        setup_gas + pushes_gas + create_regular_gas + new_account_state_gas - 1
-    )
+    # One gas short of the CREATE's full cost (execution plus the NEW_ACCOUNT
+    # state charge), so it OOGs on the account-creation charge.
+    body_gas = factory_code.gas_cost(fork) - 1
 
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     tx_gas_limit = intrinsic_calc() + body_gas
@@ -410,5 +89,76 @@ def test_create_oog_full_burn_no_state_credit(
                 header_verify=Header(gas_used=tx_gas_limit),
             ),
         ],
+        post={},
+    )
+
+
+@pytest.mark.parametrize(
+    "state_op_kind",
+    [
+        pytest.param("sstore", id="sstore_set"),
+        pytest.param("call_new_account", id="call_new_account"),
+        pytest.param("selfdestruct", id="selfdestruct_beneficiary"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_state_charge_oog_full_burn_no_state_credit(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    state_op_kind: str,
+) -> None:
+    """
+    Verify every state charge burns the whole tx gas_limit when it OOGs.
+
+    The CREATE path is covered by
+    ``test_create_oog_full_burn_no_state_credit``; the same tx-end rule
+    has to hold for the other three charges. Each frame is handed one gas
+    less than its charge needs, so it runs out mid-charge and no
+    state-gas leftover may be credited back at settlement.
+    """
+    if state_op_kind == "sstore":
+        body = Op.SSTORE(0, 1)
+        contract = pre.deploy_contract(body)
+    elif state_op_kind == "call_new_account":
+        body = Op.POP(
+            Op.CALL(
+                gas=0,
+                address=pre.nonexistent_account(),
+                value=1,
+                value_transfer=True,
+                account_new=True,
+            )
+        )
+        contract = pre.deploy_contract(body, balance=1)
+    else:
+        body = Op.SELFDESTRUCT(pre.nonexistent_account(), account_new=True)
+        contract = pre.deploy_contract(body, balance=1)
+
+    assert body.state_cost(fork) > 0, "the op must carry a state charge"
+
+    # One gas short of the full two-dimension cost, so the charge itself
+    # is what runs out. The value call forwards a stipend the codeless
+    # recipient returns unused, so that part is never needed.
+    unused_stipend = (
+        fork.call_value_stipend() if state_op_kind == "call_new_account" else 0
+    )
+    tx_gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + body.gas_cost(fork)
+        - unused_stipend
+        - 1
+    )
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=contract,
+        gas_limit=tx_gas_limit,
+        state_gas_reservoir=0,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx], header_verify=Header(gas_used=tx_gas_limit))],
         post={},
     )

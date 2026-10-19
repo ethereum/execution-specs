@@ -12,10 +12,12 @@ from execution_testing import (
     Transaction,
 )
 
+from .spec import ref_spec_8025
+
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
 @pytest.mark.parametrize(
@@ -59,8 +61,8 @@ def test_witness_codes_call_existing_contract(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
-                            Bytes(bytes(caller_code)),
-                            Bytes(bytes(target_code)),
+                            Bytes(caller_code),
+                            Bytes(target_code),
                         ],
                     )
                 ),
@@ -102,9 +104,9 @@ def test_witness_codes_nested_calls(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
-                            Bytes(bytes(code_a)),
-                            Bytes(bytes(code_b)),
-                            Bytes(bytes(code_c)),
+                            Bytes(code_a),
+                            Bytes(code_b),
+                            Bytes(code_c),
                         ],
                     )
                 ),
@@ -150,8 +152,8 @@ def test_witness_codes_dedup_identical_bytecode(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
-                            Bytes(bytes(caller_code)),
-                            Bytes(bytes(shared_code)),
+                            Bytes(caller_code),
+                            Bytes(shared_code),
                         ],
                     )
                 ),
@@ -185,7 +187,7 @@ def test_witness_codes_reverted_transaction(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=[Bytes(bytes(target_code))],
+                        codes_present=[Bytes(target_code)],
                     )
                 ),
             )
@@ -228,8 +230,8 @@ def test_witness_codes_reverted_inner_call(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
-                            Bytes(bytes(caller_code)),
-                            Bytes(bytes(callee_code)),
+                            Bytes(caller_code),
+                            Bytes(callee_code),
                         ],
                     )
                 ),

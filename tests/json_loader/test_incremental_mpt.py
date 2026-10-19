@@ -117,7 +117,6 @@ class TestHashedNode:
             secured=False,
             default=b"",
             root_node=branch,
-            _data={},
         )
         # Should not raise — hashed node's hash is used directly
         result = mpt_root(mpt)
@@ -131,7 +130,6 @@ class TestHashedNode:
             secured=False,
             default=b"",
             root_node=hashed_node,
-            _data={},
         )
         with pytest.raises(AssertionError, match="cannot be invalidated"):
             mpt_set(mpt, b"\x01", b"value")
@@ -143,7 +141,6 @@ class TestHashedNode:
             secured=False,
             default=b"",
             root_node=hashed_node,
-            _data={},
         )
         with pytest.raises(AssertionError, match="cannot be invalidated"):
             mpt_set(mpt, b"\x01", b"")
@@ -155,9 +152,11 @@ class TestHashedNode:
             secured=False,
             default=b"",
             root_node=hashed_node,
-            _data={},
         )
-        with pytest.raises(AssertionError, match="cannot be witnessed"):
+        with pytest.raises(
+            AssertionError,
+            match="Encountered unresolved HashedNode during witness lookup",
+        ):
             mpt_get(mpt, b"\x01")
 
 
@@ -235,6 +234,32 @@ class TestDecodeWitnessToMpt:
             node_db, expected_root, secured=False, default=b""
         )
         assert mpt_root(mpt) == expected_root
+
+
+class TestMptGet:
+    """Test the leaf values returned by mpt_get."""
+
+    @pytest.mark.parametrize("secured", [False, True])
+    def test_built_and_decoded_tries_agree(self, secured: bool) -> None:
+        """Built and decoded tries return the same leaves and absences."""
+        data = {
+            b"do": b"verb",
+            b"dog": b"puppy",
+            b"doge": b"coin",
+            b"horse": b"stallion",
+        }
+        expected_root, node_db = _build_trie_and_collect_nodes(
+            data, secured=secured
+        )
+        built = build_mpt(data, secured=secured, default=b"")
+        decoded: IncrementalMPT[Bytes, Bytes] = decode_witness_to_mpt(
+            node_db, expected_root, secured=secured, default=b""
+        )
+
+        for mpt in (built, decoded):
+            for key, value in data.items():
+                assert mpt_get(mpt, key) == value
+            assert mpt_get(mpt, b"cat") is None
 
 
 class TestMalformedWitnessNodes:
@@ -608,7 +633,6 @@ class TestPartialWitness:
             secured=False,
             default=b"",
             root_node=branch,
-            _data={Bytes(b"\x01"): b"hello"},
         )
 
         # Deleting the leaf at nibble 0 leaves only the HashedNode,

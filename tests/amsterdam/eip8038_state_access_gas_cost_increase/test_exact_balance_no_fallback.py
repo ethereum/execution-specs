@@ -1,6 +1,6 @@
 """
 No-silent-fallback exact-balance tests for
-[EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+[EIP-8038: State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038).
 
 Each test funds the sender with *exactly* ``gas_limit * gas_price`` and
 sets ``gas_limit`` one gas below the spec-correct Amsterdam intrinsic for
@@ -18,12 +18,15 @@ gap is asserted to be positive so the construction is only emitted when
 the dimension genuinely got more expensive.
 """
 
+from typing import Callable, Tuple
+
 import pytest
 from execution_testing import (
     AccessList,
     Alloc,
     AuthorizationTuple,
     Fork,
+    GasCosts,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -40,6 +43,25 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 GAS_PRICE = 10
 
 
+def gas_costs_before_increase(
+    fork: Fork, costs: Callable[[GasCosts], Tuple[int, ...]]
+) -> GasCosts:
+    """
+    Return the gas cost schedule of the closest ancestor fork whose
+    constants selected by ``costs`` differ from ``fork``'s.
+
+    Raises if no ancestor differs. When ``costs`` selects several
+    constants, the walk stops at the first fork where any of them
+    changed.
+    """
+    current = costs(fork.gas_costs())
+    ancestor = fork.parent_or_fail()
+    while costs(ancestor.gas_costs()) == current:
+        ancestor = ancestor.parent_or_fail()
+    return ancestor.gas_costs()
+
+
+@pytest.mark.inclusion_test
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
@@ -61,14 +83,17 @@ def test_access_list_no_fallback(
     Reject an access-list transaction whose ``gas_limit`` is one gas
     below the Amsterdam intrinsic.
 
-    EIP-8038 raises ``TX_ACCESS_LIST_ADDRESS`` (2400 -> 3000) and
-    ``TX_ACCESS_LIST_STORAGE_KEY`` (1900 -> 3000). A client reusing the
+    EIP-8038 raises ``TX_ACCESS_LIST_ADDRESS`` and
+    ``TX_ACCESS_LIST_STORAGE_KEY``. A client reusing the
     old per-address/per-key constants would compute an intrinsic smaller
     by ``num_addresses * addr_delta + num_keys * key_delta``; with the
     sender funded to the wei, that fallback must not slip through.
     """
     new_costs = fork.gas_costs()
-    old_costs = fork.parent_or_fail().gas_costs()
+    old_costs = gas_costs_before_increase(
+        fork,
+        lambda c: (c.TX_ACCESS_LIST_ADDRESS, c.TX_ACCESS_LIST_STORAGE_KEY),
+    )
     addr_delta = (
         new_costs.TX_ACCESS_LIST_ADDRESS - old_costs.TX_ACCESS_LIST_ADDRESS
     )
@@ -112,6 +137,7 @@ def test_access_list_no_fallback(
     state_test(pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
@@ -138,7 +164,9 @@ def test_authorization_no_fallback(
     for that fallback.
     """
     new_costs = fork.gas_costs()
-    old_costs = fork.parent_or_fail().gas_costs()
+    old_costs = gas_costs_before_increase(
+        fork, lambda c: (c.AUTH_PER_EMPTY_ACCOUNT,)
+    )
     auth_delta = (
         new_costs.AUTH_PER_EMPTY_ACCOUNT - old_costs.AUTH_PER_EMPTY_ACCOUNT
     )
@@ -179,6 +207,7 @@ def test_authorization_no_fallback(
     state_test(pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 def test_cold_account_access_no_fallback(
@@ -192,13 +221,15 @@ def test_cold_account_access_no_fallback(
 
     Under EIP-2780 every non-create, non-self transaction pays one
     ``COLD_ACCOUNT_ACCESS`` in its intrinsic for touching the recipient;
-    EIP-8038 raises that constant (2600 -> 3000). A client reusing the
+    EIP-8038 raises that constant. A client reusing the
     old ``COLD_ACCOUNT_ACCESS`` would compute an intrinsic smaller by the
     per-access delta, and with the sender funded to the wei that fallback
     must not execute.
     """
     new_costs = fork.gas_costs()
-    old_costs = fork.parent_or_fail().gas_costs()
+    old_costs = gas_costs_before_increase(
+        fork, lambda c: (c.COLD_ACCOUNT_ACCESS,)
+    )
     fallback_delta = (
         new_costs.COLD_ACCOUNT_ACCESS - old_costs.COLD_ACCOUNT_ACCESS
     )

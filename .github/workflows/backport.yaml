@@ -1,0 +1,67 @@
+name: Backport merged PR
+
+# Cherry-picks a merged PR onto another long-lived branch when it carries a
+# `backport <branch>` label (e.g. `backport benchmarks/amsterdam`). On a clean
+# cherry-pick it opens a PR against the target branch; on conflict it aborts
+# and comments on the source PR with manual steps — it never force-pushes nor
+# leaves a partially-applied branch behind.
+#
+# The label may be added before or after merge; backporting only happens once
+# the PR is actually merged.
+
+on:
+  pull_request_target:
+    types: [ closed, labeled ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  backport:
+    name: Backport
+    # Early-exit before the (full-history) checkout unless the PR is merged
+    # AND carries a `backport …` label; otherwise this ran on every merged PR.
+    # Matches the guard recommended in the action's README — the leading quote
+    # in '"backport ' anchors the match to a label-name prefix.
+    if: >-
+      github.event.pull_request.merged == true &&
+      contains(toJSON(github.event.pull_request.labels.*.name), '"backport ')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.BACKPORT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Create backport PR
+        uses: korthout/backport-action@2e830a1d0b8269505846ddd407a70876913ad1f8 # v4.6.0
+        with:
+          # `backport <target-branch>`, e.g. `backport benchmarks/amsterdam`.
+          label_pattern: '^backport ([^ ]+)$'
+          # Only single-commit (squash-merged) PRs cherry-pick cleanly; skip
+          # PRs that landed as merge commits rather than failing the run.
+          merge_commits: skip
+          # Create the working branch under `backports/**`: it is exempt from
+          # the `branch-only-forks` creation rule.
+          branch_name: 'backports/${pull_number}-to-${target_branch}'
+          pull_title: '${pull_title} [backport ${target_branch}]'
+          pull_description: |
+            Automated backport of #${pull_number} to `${target_branch}`.
+          # Assign the original author so they shepherd the backport (best
+          # effort — a non-assignable external author is simply skipped).
+          add_author_as_assignee: true
+          # Carry the repo's `A-<area>`/`C-<type>` labels over to the backport
+          # PR. The action excludes labels matching `label_pattern`, so the
+          # `backport …` trigger label is never copied (no re-backport loop).
+          copy_labels_pattern: '^[AC]-'
+          # A PAT or GitHub App token stored as the `BACKPORT_TOKEN` secret
+          # lets CI run on the backport PR; the default GITHUB_TOKEN cannot
+          # trigger downstream workflows. Falls back to GITHUB_TOKEN when the
+          # secret is absent (PR is still created, CI must be re-triggered).
+          github_token: ${{ secrets.BACKPORT_TOKEN || secrets.GITHUB_TOKEN }}

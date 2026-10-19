@@ -220,7 +220,6 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && needs.check-should-publish.outputs.commit_sha || '' }}
           fetch-depth: 0
-          submodules: recursive
 
       - uses: ./.github/actions/setup-uv
 
@@ -253,7 +252,6 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && needs.check-should-publish.outputs.commit_sha || '' }}
           fetch-depth: 0
-          submodules: recursive
 
       - uses: ./.github/actions/setup-uv
 

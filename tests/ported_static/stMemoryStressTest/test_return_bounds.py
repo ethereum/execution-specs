@@ -16,10 +16,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -63,9 +64,7 @@ def test_return_bounds(
 ) -> None:
     """Test_return_bounds."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(
-        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-    )
+    sender = pre.fund_eoa(amount=2**128 - 1)
 
     env = Environment(
         fee_recipient=coinbase,

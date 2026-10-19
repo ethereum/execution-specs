@@ -46,6 +46,7 @@ class FixtureTransaction(TransactionFixtureConverter):
     # via model_dump(), which includes many fields not in this model.
     model_config = CamelModel.model_config | {"extra": "ignore"}
 
+    chain_id: ZeroPaddedHexNumber | None = None
     nonce: ZeroPaddedHexNumber
     gas_price: ZeroPaddedHexNumber | None = None
     max_priority_fee_per_gas: ZeroPaddedHexNumber | None = None
@@ -69,6 +70,9 @@ class FixtureTransaction(TransactionFixtureConverter):
             exclude={"gas_limit", "value", "data", "access_list"},
             exclude_none=True,
         )
+        if tx.ty == 0 and not tx.protected:
+            # Unprotected legacy transactions encode no chain id.
+            model_as_dict.pop("chain_id", None)
         model_as_dict["gas_limit"] = [tx.gas_limit]
         model_as_dict["value"] = [tx.value]
         model_as_dict["data"] = [tx.data]

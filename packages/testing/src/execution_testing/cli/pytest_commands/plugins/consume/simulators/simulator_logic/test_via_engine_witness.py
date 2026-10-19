@@ -2,15 +2,20 @@
 
 import pytest
 
+from execution_testing.base_types.ssz import ssz_fields
+from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures import BlockchainEngineFixture
 from execution_testing.fixtures.blockchain import (
+    MAX_WITHDRAWALS_PER_PAYLOAD,
     FixtureEngineNewPayload,
+    FixtureExecutionPayload,
     FixtureHeader,
 )
+from execution_testing.forks import Amsterdam, Fork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import (
     EngineRPC,
-    EngineSszRPC,
+    EngineSSZRPC,
     EngineWitnessEndpointNotImplementedError,
     EthRPC,
     ForkchoiceUpdateTimeoutError,
@@ -41,19 +46,54 @@ def _witness_endpoint_label(
     payload: FixtureEngineNewPayload,
     *,
     use_ssz_transport: bool,
+    fork: Fork = Amsterdam,
 ) -> str:
     """Return the timing label for the selected witness endpoint."""
     if use_ssz_transport:
-        return "POST /new-payload-with-witness"
+        if fork < Amsterdam:
+            return f"engine_newPayloadV{payload.new_payload_version}"
+        return "POST /engine/v1/payloads/witness"
     return f"engine_newPayloadWithWitnessV{payload.new_payload_version}"
+
+
+def _ssz_unencodable_reason(
+    payload: FixtureEngineNewPayload, fork: Fork
+) -> str | None:
+    """
+    Return why the REST+SSZ transport cannot carry a payload, or ``None``.
+
+    JSON-RPC fixtures can express payloads that the SSZ request cannot:
+    SSZ has no way to omit a field, and it bounds the withdrawals list.
+    """
+    execution_payload = payload.params[0]
+    if payload.error_code == EngineAPIError.InvalidParams:
+        missing = [
+            name
+            for name in ssz_fields(FixtureExecutionPayload, fork)
+            if getattr(execution_payload, name) is None
+        ]
+        if missing:
+            return (
+                f"JSON-only missing {', '.join(missing)} field test cannot "
+                f"be encoded as an SSZ payload at {fork.name()}; malformed "
+                "SSZ requests are tested separately"
+            )
+    withdrawals = execution_payload.withdrawals or []
+    if len(withdrawals) > MAX_WITHDRAWALS_PER_PAYLOAD:
+        return (
+            f"{len(withdrawals)} withdrawals cannot be encoded as an SSZ "
+            f"payload, which holds at most {MAX_WITHDRAWALS_PER_PAYLOAD}"
+        )
+    return None
 
 
 def _send_payload_with_witness(
     *,
     use_ssz_transport: bool,
     engine_rpc: EngineRPC,
-    engine_ssz_rpc: EngineSszRPC,
+    engine_ssz_rpc: EngineSSZRPC,
     payload: FixtureEngineNewPayload,
+    fork: Fork = Amsterdam,
 ) -> NewPayloadWithWitnessResponse | JSONRPCError:
     """
     Execute one payload through the configured witness endpoint.
@@ -63,7 +103,24 @@ def _send_payload_with_witness(
     """
     try:
         if use_ssz_transport:
-            return engine_ssz_rpc.new_payload_with_witness(*payload.params)
+            if fork < Amsterdam:
+                # Import transition setup blocks through the ordinary API:
+                # the witness endpoint is only available from Amsterdam.
+                result = engine_rpc.new_payload(
+                    *payload.params, version=payload.new_payload_version
+                )
+                return NewPayloadWithWitnessResponse(
+                    status=result.status,
+                    latest_valid_hash=result.latest_valid_hash,
+                    validation_error=(
+                        str(result.validation_error)
+                        if result.validation_error is not None
+                        else None
+                    ),
+                )
+            return engine_ssz_rpc.new_payload_with_witness(
+                *payload.params, fork=fork
+            )
         return engine_rpc.new_payload_with_witness(
             *payload.params,
             version=payload.new_payload_version,
@@ -73,7 +130,11 @@ def _send_payload_with_witness(
     except JSONRPCError as e:
         # An unimplemented endpoint is a transport skip, but only when no
         # error was expected; otherwise the error is a result to assert.
-        if payload.error_code is None and e.code == _JSONRPC_METHOD_NOT_FOUND:
+        if (
+            not use_ssz_transport
+            and payload.error_code is None
+            and e.code == _JSONRPC_METHOD_NOT_FOUND
+        ):
             pytest.skip(
                 "client does not support "
                 f"engine_newPayloadWithWitnessV"
@@ -89,6 +150,7 @@ def _assert_witness_response(
     result: NewPayloadWithWitnessResponse | JSONRPCError,
     payload_timing: TimingData,
     use_ssz_transport: bool,
+    expect_witness: bool = True,
 ) -> None:
     """Assert one witness result (response or error) matches the fixture."""
     if isinstance(result, JSONRPCError):
@@ -130,6 +192,20 @@ def _assert_witness_response(
                 "client returned a non-empty witness; the REST+SSZ endpoint "
                 "requires an empty witness when not VALID"
             )
+        return
+
+    expected_hash = payload.params[0].block_hash
+    if response.latest_valid_hash != expected_hash:
+        raise LoggedError(
+            f"Payload {payload_number}: unexpected latest valid hash: "
+            f"got {response.latest_valid_hash}, expected {expected_hash}"
+        )
+    if response.validation_error is not None:
+        raise LoggedError(
+            f"Payload {payload_number}: VALID status with a validation error: "
+            f"{response.validation_error!r}"
+        )
+    if not expect_witness:
         return
 
     expected_witness = payload.execution_witness
@@ -182,7 +258,7 @@ def test_blockchain_via_engine_witness(
     timing_data: TimingData,
     eth_rpc: EthRPC,
     engine_rpc: EngineRPC,
-    engine_ssz_rpc: EngineSszRPC,
+    engine_ssz_rpc: EngineSSZRPC,
     fixture: BlockchainEngineFixture,
     genesis_header: FixtureHeader,
     use_ssz_transport: bool,
@@ -196,6 +272,33 @@ def test_blockchain_via_engine_witness(
 
     transport_label = "REST+SSZ" if use_ssz_transport else "JSON-RPC+RLP"
     logger.info(f"Using {transport_label} witness transport")
+
+    payload_forks = [
+        fixture.fork.fork_at(
+            block_number=payload.params[0].number,
+            timestamp=payload.params[0].timestamp,
+        )
+        for payload in fixture.payloads
+    ]
+    if use_ssz_transport:
+        for payload, fork in zip(fixture.payloads, payload_forks, strict=True):
+            if fork < Amsterdam:
+                continue
+            reason = _ssz_unencodable_reason(payload, fork)
+            if reason is not None:
+                pytest.skip(reason)
+        witness_forks = {fork for fork in payload_forks if fork >= Amsterdam}
+        if not witness_forks:
+            pytest.skip("fixture has no Amsterdam or later payloads")
+        try:
+            for fork in witness_forks:
+                engine_ssz_rpc.check_witness_capability(fork)
+        except EngineWitnessEndpointNotImplementedError as e:
+            pytest.skip(str(e))
+
+        with timing_data.time("Malformed SSZ requests"):
+            for body in (b"", b"\x28", bytes(40)):
+                _assert_malformed_witness_request(engine_ssz_rpc, body)
 
     with timing_data.time("Initial forkchoice update"):
         logger.info("Sending initial forkchoice update to genesis block...")
@@ -233,7 +336,10 @@ def test_blockchain_via_engine_witness(
     with timing_data.time("Payloads execution") as total_payload_timing:
         payload_count = len(fixture.payloads)
         logger.info(f"Starting execution of {payload_count} payloads...")
-        for payload_number, payload in enumerate(fixture.payloads, start=1):
+        for payload_number, (payload, active_fork) in enumerate(
+            zip(fixture.payloads, payload_forks, strict=True), start=1
+        ):
+            expect_witness = not use_ssz_transport or active_fork >= Amsterdam
             logger.info(
                 f"Processing payload {payload_number}/{payload_count}..."
             )
@@ -244,6 +350,7 @@ def test_blockchain_via_engine_witness(
                     _witness_endpoint_label(
                         payload,
                         use_ssz_transport=use_ssz_transport,
+                        fork=active_fork,
                     )
                 ):
                     witness_result = _send_payload_with_witness(
@@ -251,6 +358,7 @@ def test_blockchain_via_engine_witness(
                         engine_rpc=engine_rpc,
                         engine_ssz_rpc=engine_ssz_rpc,
                         payload=payload,
+                        fork=active_fork,
                     )
 
                 _assert_witness_response(
@@ -259,7 +367,30 @@ def test_blockchain_via_engine_witness(
                     result=witness_result,
                     payload_timing=payload_timing,
                     use_ssz_transport=use_ssz_transport,
+                    expect_witness=expect_witness,
                 )
+
+                if (
+                    use_ssz_transport
+                    and expect_witness
+                    and payload.valid()
+                    and not isinstance(witness_result, JSONRPCError)
+                ):
+                    with payload_timing.time("Already-known payload witness"):
+                        repeated_result = _send_payload_with_witness(
+                            use_ssz_transport=True,
+                            engine_rpc=engine_rpc,
+                            engine_ssz_rpc=engine_ssz_rpc,
+                            payload=payload,
+                            fork=active_fork,
+                        )
+                        _assert_witness_response(
+                            payload=payload,
+                            payload_number=payload_number,
+                            result=repeated_result,
+                            payload_timing=payload_timing,
+                            use_ssz_transport=True,
+                        )
 
                 # A raised error means the block was rejected, so there is no
                 # canonical block to advance the forkchoice to.
@@ -276,3 +407,34 @@ def test_blockchain_via_engine_witness(
                             payload=payload,
                         )
         logger.info("All payloads processed successfully.")
+
+
+def _assert_malformed_witness_request(
+    engine_ssz_rpc: EngineSSZRPC,
+    body: bytes,
+) -> None:
+    """Require malformed SSZ requests to fail at the HTTP decoding layer."""
+    response = engine_ssz_rpc.post_witness_request(body, fork=Amsterdam)
+    if response.status_code != 400:
+        raise LoggedError(
+            "Malformed SSZ request: expected HTTP 400, "
+            f"got {response.status_code}"
+        )
+    content_type = response.headers.get("Content-Type", "").split(";", 1)[0]
+    if content_type != "application/problem+json":
+        raise LoggedError(
+            "Malformed SSZ request: expected application/problem+json, "
+            f"got {content_type!r}"
+        )
+    problem = response.json()
+    accepted_types = {
+        "/engine-api/errors/parse-error",
+        "/engine-api/errors/ssz-decode-error",
+    }
+    if not body:
+        # An absent body can fail HTTP request validation before SSZ decoding.
+        accepted_types.add("/engine-api/errors/invalid-request")
+    if problem.get("type") not in accepted_types:
+        raise LoggedError(
+            f"Malformed SSZ request: unexpected problem type {problem!r}"
+        )

@@ -6,11 +6,26 @@ Remove gas refunds for SELFDESTRUCT and reduce refunds for SSTORE.
 https://eips.ethereum.org/EIPS/eip-3529
 """
 
+from dataclasses import replace
+
 from ....base_fork import BaseFork
+from ....gas_costs import GasCosts
 
 
 class EIP3529(BaseFork):
     """EIP-3529 class."""
+
+    @classmethod
+    def gas_costs(cls) -> GasCosts:
+        """
+        Reduce the storage clearing refund, remove the SELFDESTRUCT
+        refund.
+        """
+        return replace(
+            super(EIP3529, cls).gas_costs(),
+            REFUND_STORAGE_CLEAR=4_800,
+            REFUND_SELF_DESTRUCT=0,
+        )
 
     @classmethod
     def max_refund_quotient(cls) -> int:

@@ -11,10 +11,12 @@ from execution_testing import (
     Transaction,
 )
 
+from .spec import ref_spec_8025
+
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
 @pytest.mark.with_all_precompiles()

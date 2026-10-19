@@ -6,6 +6,8 @@ import pytest
 
 from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 
+from ...shared.helpers import is_help_or_collectonly_mode
+
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command-line options to pytest."""
@@ -70,6 +72,9 @@ def pytest_configure(config: pytest.Config) -> None:
             chain_id = rpc_chain_id
 
     if chain_id is None:
+        if is_help_or_collectonly_mode(config):
+            # Help and collect-only modes don't need a chain ID.
+            return
         pytest.exit(
             "Chain ID must be provided with the --chain-id/--rpc-chain-id "
             "flags or the CHAIN_ID/RPC_CHAIN_ID environment variables."

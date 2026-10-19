@@ -358,6 +358,15 @@ class Genesis(CamelModel):
     base_fee_per_gas: HexNumber = HexNumber(10**9)
     number: HexNumber = HexNumber(0)
 
+    def model_post_init(self, __context: Any) -> None:
+        """
+        Seed the alloc's commitment scheme from the genesis fork.
+        """
+        super().model_post_init(__context)
+        self.alloc.migrate_state_commitment(
+            self.config.fork().state_commitment()
+        )
+
     @cached_property
     def hash(self) -> Hash:
         """Calculate the genesis hash."""

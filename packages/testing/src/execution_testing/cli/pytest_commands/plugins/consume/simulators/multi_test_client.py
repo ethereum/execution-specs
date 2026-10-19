@@ -1,14 +1,18 @@
 """Pytest fixtures for multi-test client architecture."""
 
 import logging
+import time
 from typing import Generator
 
 import pytest
 from hive.client import Client
 
 from execution_testing.base_types import to_json
-from execution_testing.fixtures import BlockchainEngineXFixture
-from execution_testing.fixtures.pre_alloc_groups import PreAllocGroup
+from execution_testing.fixtures import (
+    BlockchainEngineXFixture,
+    PreAllocGroup,
+)
+from execution_testing.test_types import AllocGroupHash
 
 from ..consume import FixturesSource
 from .helpers.ruleset import ruleset
@@ -89,7 +93,12 @@ class MultiTestClientManager:
                     logger.info(
                         f"🛑 Stopping client for group {group_identifier}"
                     )
+                    start = time.perf_counter()
                     client.stop()
+                    logger.info(
+                        f"⏱ phase=client_stop group={group_identifier} "
+                        f"ms={(time.perf_counter() - start) * 1000:.1f}"
+                    )
                 except Exception as e:
                     logger.error(
                         "Error stopping client for group "
@@ -136,19 +145,19 @@ def multi_test_client_manager() -> Generator[
 
 
 @pytest.fixture(scope="session")
-def pre_alloc_group_cache() -> dict[str, PreAllocGroup]:
+def pre_alloc_group_cache() -> dict[AllocGroupHash, PreAllocGroup]:
     """Cache for pre-allocation groups to avoid reloading from disk."""
     return {}
 
 
 @pytest.fixture(scope="session")
-def client_genesis_cache() -> dict[str, dict]:
+def client_genesis_cache() -> dict[AllocGroupHash, dict]:
     """Cache for client genesis configs to avoid redundant to_json calls."""
     return {}
 
 
 @pytest.fixture(scope="session")
-def environment_cache() -> dict[str, dict]:
+def environment_cache() -> dict[AllocGroupHash, dict]:
     """Cache for environment configs to avoid redundant computation."""
     return {}
 
@@ -157,7 +166,7 @@ def environment_cache() -> dict[str, dict]:
 def pre_alloc_group(
     fixture: BlockchainEngineXFixture,
     fixtures_source: FixturesSource,
-    pre_alloc_group_cache: dict[str, PreAllocGroup],
+    pre_alloc_group_cache: dict[AllocGroupHash, PreAllocGroup],
 ) -> PreAllocGroup:
     """Load the pre-allocation group for the current test case."""
     pre_hash = fixture.pre_hash
@@ -188,10 +197,14 @@ def pre_alloc_group(
 
     # Load and cache
     logger.debug(f"Loading pre-alloc group from {pre_alloc_path}")
+    start = time.perf_counter()
     pre_alloc_group_obj = PreAllocGroup.from_file(pre_alloc_path)
 
     pre_alloc_group_cache[pre_hash] = pre_alloc_group_obj
-    logger.info(f"Loaded pre-alloc group for {pre_hash}")
+    logger.info(
+        f"⏱ phase=pre_alloc_load group={pre_hash} "
+        f"ms={(time.perf_counter() - start) * 1000:.1f}"
+    )
 
     return pre_alloc_group_obj
 
@@ -200,7 +213,7 @@ def pre_alloc_group(
 def client_genesis(
     pre_alloc_group: PreAllocGroup,
     fixture: BlockchainEngineXFixture,
-    client_genesis_cache: dict[str, dict],
+    client_genesis_cache: dict[AllocGroupHash, dict],
 ) -> dict:
     """
     Convert pre-alloc group genesis header and pre-state to client genesis.
@@ -214,12 +227,17 @@ def client_genesis(
     if pre_hash in client_genesis_cache:
         return client_genesis_cache[pre_hash]
 
+    start = time.perf_counter()
     genesis = to_json(pre_alloc_group.genesis)
     alloc = to_json(pre_alloc_group.pre)
     # NOTE: nethermind requires account keys without '0x' prefix
     genesis["alloc"] = {k.replace("0x", ""): v for k, v in alloc.items()}
 
     client_genesis_cache[pre_hash] = genesis
+    logger.info(
+        f"⏱ phase=genesis_prep group={pre_hash} "
+        f"ms={(time.perf_counter() - start) * 1000:.1f}"
+    )
     return genesis
 
 
@@ -228,7 +246,7 @@ def environment(
     pre_alloc_group: PreAllocGroup,
     fixture: BlockchainEngineXFixture,
     check_live_port: int,
-    environment_cache: dict[str, dict],
+    environment_cache: dict[AllocGroupHash, dict],
 ) -> dict:
     """
     Define environment variables for multi-test client startup.
@@ -252,6 +270,11 @@ def environment(
         "HIVE_CHECK_LIVE_PORT": str(check_live_port),
         **{k: f"{v:d}" for k, v in ruleset[fork].items()},
         "HIVE_FORK": pre_alloc_group.fork.name(),
+        # Tell client wrapper scripts this workload performs deep reorgs:
+        # clients are reused across a group's tests with a rewind to genesis
+        # in between, so wrappers can raise client-specific limits that would
+        # otherwise reject them (e.g. geth's engine API max reorg depth).
+        "HIVE_EXPECT_DEEP_REORGS": "1",
     }
 
     environment_cache[pre_hash] = env

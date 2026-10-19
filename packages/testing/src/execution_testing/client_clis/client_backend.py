@@ -16,16 +16,29 @@ from typing import Any, ClassVar, Dict, List, Optional
 
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.exceptions import ExceptionBase, ExceptionMapper
-from execution_testing.forks import Fork, TransitionFork
-from execution_testing.rpc import EngineRPC, EthRPC, TestingRPC, Web3RPC
+from execution_testing.forks import Fork, Requests, TransitionFork
+from execution_testing.logging import get_logger
+from execution_testing.rpc import (
+    BlockNumberType,
+    DebugRPC,
+    EngineRPC,
+    EthRPC,
+    TestingRPC,
+    Web3RPC,
+)
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     GetPayloadResponse,
+    JSONRPCError,
     PayloadAttributes,
     PayloadStatusEnum,
 )
-from execution_testing.test_types import Requests, Transaction, Withdrawal
-from execution_testing.test_types.block_access_list import BlockAccessList
+from execution_testing.test_types import (
+    Alloc,
+    Environment,
+    Transaction,
+    Withdrawal,
+)
 from execution_testing.test_types.receipt_types import TransactionReceipt
 
 from .cli_types import (
@@ -35,8 +48,72 @@ from .cli_types import (
     Result,
     Traces,
     TransitionToolOutput,
+    normalize_opcode_name,
 )
 from .transition_tool import TransitionTool
+
+logger = get_logger(__name__)
+
+# Per-tx opcode tally; clients ship no built-in opcode-count tracer.
+OPCODE_COUNT_TRACER_JS = """{
+    counts: {},
+    step: function(log) {
+        var op = log.op.toString();
+        this.counts[op] = (this.counts[op] || 0) + 1;
+    },
+    fault: function() {},
+    result: function() { return this.counts; }
+}"""
+
+# Keep each struct-log step small.
+STRUCT_LOG_TRACER_CONFIG = {
+    "disableStack": True,
+    "disableMemory": True,
+    "disableStorage": True,
+}
+
+DEFAULT_OPCODE_COUNT_TRACE_TIMEOUT = "1h"
+
+
+def _opcode_count_from_js_tracer(traces: Any) -> OpcodeCount:
+    """Aggregate the per-tx ``{opcode: count}`` maps the JS tracer emits."""
+    counts: Dict[str, int] = {}
+    for entry in traces or []:
+        if not isinstance(entry, dict):
+            continue
+        tx_counts = entry.get("result")
+        # Clients that ignore the JS tracer echo struct logs.
+        if not isinstance(tx_counts, dict) or "structLogs" in tx_counts:
+            continue
+        for opcode, count in tx_counts.items():
+            key = normalize_opcode_name(opcode)
+            if key is None or not isinstance(count, int):
+                continue
+            counts[key] = counts.get(key, 0) + count
+    return OpcodeCount.model_validate(counts)
+
+
+def _opcode_count_from_struct_logs(traces: Any) -> OpcodeCount:
+    """Count ``structLogs[].op`` entries, one per executed opcode."""
+    counts: Dict[str, int] = {}
+    for entry in traces or []:
+        if not isinstance(entry, dict):
+            continue
+        # Some clients return the struct-log result unwrapped.
+        result = entry.get("result")
+        if not isinstance(result, dict):
+            result = entry
+        for step in result.get("structLogs") or []:
+            if not isinstance(step, dict):
+                continue
+            op = step.get("op")
+            if not op:
+                continue
+            key = normalize_opcode_name(op)
+            if key is None:
+                continue
+            counts[key] = counts.get(key, 0) + 1
+    return OpcodeCount.model_validate(counts)
 
 
 class ClientBackendExceptionMapper(ExceptionMapper):
@@ -68,8 +145,11 @@ class ClientBackend:
     start_block: Dict[str, Any] | None
     """Client head after global pre-run setup; per-test chains off this."""
 
+    attests_block_access_list_hash: ClassVar[bool] = False
+
     # t8n-compatibility stubs — fill's filler reads these on the backend.
     opcode_count: OpcodeCount | None = None
+    opcode_count_per_block: List[OpcodeCount] | None = None
     output_cache: Any = None
     debug_dump_dir: Path | None = None
     call_counter: int = 0
@@ -89,12 +169,20 @@ class ClientBackend:
         engine_rpc: EngineRPC,
         eth_rpc: EthRPC,
         fork: Fork | TransitionFork,
+        debug_rpc: DebugRPC | None = None,
+        extract_opcode_count: bool = False,
+        opcode_count_trace_timeout: str = DEFAULT_OPCODE_COUNT_TRACE_TIMEOUT,
     ) -> None:
         """Initialize with the RPC clients and the session fork."""
         self.testing_rpc = testing_rpc
         self.engine_rpc = engine_rpc
         self.eth_rpc = eth_rpc
         self.fork = fork
+        self.debug_rpc = debug_rpc
+        self.extract_opcode_count = extract_opcode_count
+        self.opcode_count_trace_timeout = opcode_count_trace_timeout
+        # Sticky fallback to struct logs (besu has no JS tracer).
+        self._js_tracer_unsupported = False
         self.exception_mapper = ClientBackendExceptionMapper()
         self.snapshot_block = None
         self.start_block = None
@@ -126,7 +214,7 @@ class ClientBackend:
         return
 
     def reset_opcode_count(self) -> None:
-        """No-op — opcode counting not supported."""
+        """No-op — ``opcode_count`` stays ``None`` so the filler skips it."""
         return
 
     def set_cache(self, *, key: str) -> bool:
@@ -187,7 +275,9 @@ class ClientBackend:
         assert np_version is not None
         assert fcu_version is not None
 
-        receipts = self._fetch_receipts(txs)
+        receipts = self._fetch_receipts(
+            txs, get_payload_response.execution_payload.block_hash
+        )
         result = self._build_result(
             built_payload=get_payload_response.execution_payload,
             execution_requests=get_payload_response.execution_requests,
@@ -209,9 +299,55 @@ class ClientBackend:
             ),
         )
 
+    def get_post_state_alloc(
+        self, expected: Alloc, *, block_number: BlockNumberType = "latest"
+    ) -> Alloc:
+        """Fetch the post-state that ``expected`` constrains from client."""
+        return self.eth_rpc.get_alloc(expected, block_number=block_number)
+
+    def extract_block_opcode_count(
+        self, block_hash: Hash
+    ) -> OpcodeCount | None:
+        """
+        Tally executed opcodes for a block via ``debug_traceBlockByHash``.
+
+        ``None`` when ``--extract-opcode-count`` is off or the trace
+        fails (logged, never fatal). Prefers the JS tracer; a client
+        that rejects it falls back to struct logs for the session,
+        while transient errors only skip the block.
+        """
+        if not self.extract_opcode_count or self.debug_rpc is None:
+            return None
+
+        try:
+            if not self._js_tracer_unsupported:
+                try:
+                    traces = self._trace_block(
+                        block_hash, {"tracer": OPCODE_COUNT_TRACER_JS}
+                    )
+                    return _opcode_count_from_js_tracer(traces)
+                except JSONRPCError as e:
+                    logger.info(f"JS tracer rejected ({e}); using struct logs")
+                    self._js_tracer_unsupported = True
+            traces = self._trace_block(block_hash, STRUCT_LOG_TRACER_CONFIG)
+            return _opcode_count_from_struct_logs(traces)
+        except Exception as e:
+            logger.warning(f"opcode trace failed for block {block_hash}: {e}")
+            return None
+
+    def _trace_block(
+        self, block_hash: Hash, tracer_config: Dict[str, Any]
+    ) -> Any:
+        """Raw ``debug_traceBlockByHash`` call; exceptions propagate."""
+        assert self.debug_rpc is not None
+        return self.debug_rpc.trace_block_by_hash(
+            str(block_hash),
+            {"timeout": self.opcode_count_trace_timeout, **tracer_config},
+        )
+
     def _payload_attributes(
         self,
-        env: Any,
+        env: Environment,
         block_fork: Fork,
     ) -> PayloadAttributes:
         """Build ``PayloadAttributes`` from the test's environment."""
@@ -221,13 +357,18 @@ class ClientBackend:
         parent_beacon_block_root: Hash | None = None
         if block_fork.header_beacon_root_required():
             parent_beacon_block_root = Hash(env.parent_beacon_block_root or 0)
+        slot_number: int | None = None
+        if env.slot_number is not None:
+            slot_number = int(env.slot_number)
         return PayloadAttributes.for_fork(
             block_fork,
             timestamp=int(env.timestamp),
+            target_gas_limit=int(env.gas_limit),
             prev_randao=Hash(env.prev_randao or 0),
             suggested_fee_recipient=env.fee_recipient,
             withdrawals=withdrawals,
             parent_beacon_block_root=parent_beacon_block_root,
+            slot_number=slot_number,
         )
 
     def _finalize(
@@ -279,18 +420,54 @@ class ClientBackend:
         )
 
     def _fetch_receipts(
-        self, txs: List[Transaction]
+        self,
+        txs: List[Transaction],
+        block_hash: Hash,
     ) -> List[TransactionReceipt]:
-        """Fetch receipts for each transaction. TODO: batch via JSON-RPC."""
-        receipts: List[TransactionReceipt] = []
-        for tx in txs:
-            receipt_data = self.eth_rpc.get_transaction_receipt(tx.hash)
-            if receipt_data is None:
-                raise RuntimeError(
-                    f"No receipt found for transaction {tx.hash}"
-                )
-            receipts.append(TransactionReceipt.model_validate(receipt_data))
-        return receipts
+        """
+        Fetch all transaction receipts in order.
+
+        Use `eth_getBlockReceipts` for the block, then fetch any receipt it
+        did not return with a batched `eth_getTransactionReceipt` fallback.
+        Raise an error if any receipt remains missing.
+        """
+        if not txs:
+            return []
+        block_receipts: List[dict[str, Any]] = []
+        try:
+            block_receipts = self.eth_rpc.get_block_receipts(block_hash) or []
+        except JSONRPCError as error:
+            logger.warning(
+                f"eth_getBlockReceipts failed for block {block_hash}: {error}"
+            )
+
+        receipt_data_by_hash: Dict[Hash, dict[str, Any]] = {}
+        for receipt_data in block_receipts:
+            tx_hash = receipt_data.get("transactionHash")
+            if tx_hash is not None:
+                receipt_data_by_hash[Hash(tx_hash)] = receipt_data
+
+        missing = [
+            tx.hash for tx in txs if tx.hash not in receipt_data_by_hash
+        ]
+        if missing:
+            logger.warning(
+                f"Block receipts covered {len(txs) - len(missing)} of "
+                f"{len(txs)} transactions; fetching the remaining "
+                f"{len(missing)} in a batched fallback"
+            )
+            fetched = self.eth_rpc.get_transaction_receipts(missing)
+            for tx_hash, fetched_data in zip(missing, fetched, strict=True):
+                if fetched_data is None:
+                    raise RuntimeError(
+                        f"No receipt found for transaction {tx_hash}"
+                    )
+                receipt_data_by_hash[tx_hash] = fetched_data
+
+        return [
+            TransactionReceipt.model_validate(receipt_data_by_hash[tx.hash])
+            for tx in txs
+        ]
 
     def _build_result(
         self,
@@ -315,9 +492,9 @@ class ClientBackend:
         block_access_list_hash: Hash | None = None
         bal_rlp = getattr(built_payload, "block_access_list", None)
         if bal_rlp is not None:
-            block_access_list_hash = Hash(
-                BlockAccessList.from_rlp(bal_rlp).rlp.keccak256()
-            )
+            # Hash the client's own bytes: a re-encode of the decoded BAL
+            # would diverge whenever the client's RLP is non-canonical.
+            block_access_list_hash = Hash(bal_rlp.keccak256())
 
         return Result(
             state_root=built_payload.state_root,

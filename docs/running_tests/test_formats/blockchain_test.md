@@ -188,6 +188,10 @@ Excess blob gas of the block used to calculate the blob fee per gas for this blo
 
 Root hash of the parent beacon block.
 
+#### - `blockAccessListHash`: [`Hash`](./common_types.md#hash) `(fork: Amsterdam)`
+
+Keccak hash of the RLP encoding of the block's access list ([EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)).
+
 ### `FixtureBlock`
 
 #### - `rlp`: [`Bytes`](./common_types.md#bytes)
@@ -214,6 +218,37 @@ List of uncle headers included in the block RLP. An empty list post merge.
 
 Optional list of withdrawals included in the block RLP.
 
+#### - `blockAccessList`: [`List`](./common_types.md#list)`[`[`FixtureAccountChanges`](#fixtureaccountchanges)`]` `(fork: Amsterdam)`
+
+The block's access list ([EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)). It travels beside the block, not in its RLP, so a client that executes from or validates a delivered list reads it from here; its RLP encoding hashes to the header's [`blockAccessListHash`](#-blockaccesslisthash-hash-fork-amsterdam). Its quantities are written as [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber), like the header's, so `"0x02"` and `"0x03e8"` appear where the JSON-RPC quantity rule would write `"0x2"` and `"0x3e8"`: a decoder applying that rule must accept the padding.
+
+#### - `executionWitness`: [`Optional`](./common_types.md#optional)`[`[`ExecutionWitness`](#executionwitness)`]` `(fork: Amsterdam)`
+
+Witness that a stateless client needs to validate the block.
+
+#### - `statelessInputBytes`: [`Optional`](./common_types.md#optional)`[`[`Bytes`](./common_types.md#bytes)`]` `(fork: Amsterdam)`
+
+SSZ-serialized `StatelessInput` of the block. It holds the block's `engine_newPayload` request (`new_payload_request`), its witness (`witness`), and the chain ID (`chain_id`).
+
+#### - `statelessOutputBytes`: [`Optional`](./common_types.md#optional)`[`[`Bytes`](./common_types.md#bytes)`]` `(fork: Amsterdam)`
+
+SSZ-serialized `StatelessValidationResult` that the stateless guest returns for `statelessInputBytes`. It holds `new_payload_request_root`, `successful_validation`, `chain_id`, and `schema_id`.
+
+#### Stateless validation fields
+
+These rules apply to `executionWitness`, `statelessInputBytes`, and `statelessOutputBytes`:
+
+- All three are absent from blocks before Amsterdam, even in a test that transitions to Amsterdam. They are also absent when the test sets `skip_stateless_validation` or when the transition tool emits no witness.
+- The byte fields are absent when the block lacks a field that Amsterdam requires, or when its requests don't decode into SSZ execution requests, as with a request type that has no data. A block whose access list doesn't decode keeps both fields: the input carries the list's raw bytes.
+- `statelessOutputBytes` reports `successful_validation=true` for a valid block and `false` for an invalid one, unless a mutation test expects otherwise.
+- In benchmark mode with an external transition tool, the filler skips the guest for an unmutated block and writes an output that reports success.
+
+Mutation tests change the stateless input and check the guest's result:
+
+- A witness mutation puts the mutated witness in both `executionWitness` and `statelessInputBytes`. A client would generate a different witness, and blocks have no `executionWitnessMutated` flag to mark this. `statelessOutputBytes` still gives the expected result.
+- An input byte mutation changes only `statelessInputBytes`. `executionWitness` stays the block's real witness, which the mutated input might not embed.
+- The filler runs the guest on the mutated input to produce `statelessOutputBytes`, even in benchmark mode. If that input doesn't decode, the guest returns the sentinel output, in which every field is zero or `false`.
+
 ### `InvalidFixtureBlock`
 
 #### - `expectException`: [`TransactionException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.TransactionException)` | `[`BlockException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.BlockException)
@@ -226,7 +261,95 @@ RLP serialized version of the block.
 
 #### - `rlp_decoded`: [`Optional`](./common_types.md#optional)`[`[`FixtureBlock`](#fixtureblock)`]`
 
-Decoded block attributes included in the block RLP.
+Decoded block attributes included in the block RLP. It omits `executionWitness`, `statelessInputBytes`, and `statelessOutputBytes`, which appear only at the top level of the invalid block.
+
+#### - `executionWitness`: [`Optional`](./common_types.md#optional)`[`[`ExecutionWitness`](#executionwitness)`]` `(fork: Amsterdam)`
+
+As in [`FixtureBlock`](#fixtureblock).
+
+#### - `statelessInputBytes`: [`Optional`](./common_types.md#optional)`[`[`Bytes`](./common_types.md#bytes)`]` `(fork: Amsterdam)`
+
+As in [`FixtureBlock`](#fixtureblock).
+
+#### - `statelessOutputBytes`: [`Optional`](./common_types.md#optional)`[`[`Bytes`](./common_types.md#bytes)`]` `(fork: Amsterdam)`
+
+As in [`FixtureBlock`](#fixtureblock).
+
+### `FixtureAccountChanges`
+
+#### - `address`: [`Address`](./common_types.md#address)
+
+Account the entry describes.
+
+#### - `nonceChanges`: [`List`](./common_types.md#list)`[`[`FixtureNonceChange`](#fixturenoncechange)`]`
+
+Nonces the account ends each block access index with, where it changed.
+
+#### - `balanceChanges`: [`List`](./common_types.md#list)`[`[`FixtureBalanceChange`](#fixturebalancechange)`]`
+
+Balances the account ends each block access index with, where it changed.
+
+#### - `codeChanges`: [`List`](./common_types.md#list)`[`[`FixtureCodeChange`](#fixturecodechange)`]`
+
+Code the account ends each block access index with, where it changed.
+
+#### - `storageChanges`: [`List`](./common_types.md#list)`[`[`FixtureSlotChanges`](#fixtureslotchanges)`]`
+
+Storage slots the block wrote, each with its values by block access index.
+
+#### - `storageReads`: [`List`](./common_types.md#list)`[`[`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)`]`
+
+Storage slots the block read and did not write.
+
+### `FixtureNonceChange`
+
+#### - `blockAccessIndex`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Position in the block: 0 before the first transaction, `n` for the `n`th transaction, and one past the last for the work after them.
+
+#### - `postNonce`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Nonce after that position.
+
+### `FixtureBalanceChange`
+
+#### - `blockAccessIndex`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Position in the block, as for [`FixtureNonceChange`](#fixturenoncechange).
+
+#### - `postBalance`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Balance after that position.
+
+### `FixtureCodeChange`
+
+#### - `blockAccessIndex`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Position in the block, as for [`FixtureNonceChange`](#fixturenoncechange).
+
+#### - `newCode`: [`Bytes`](./common_types.md#bytes)
+
+Code after that position.
+
+### `FixtureSlotChanges`
+
+#### - `slot`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Storage slot.
+
+#### - `slotChanges`: [`List`](./common_types.md#list)`[`[`FixtureStorageChange`](#fixturestoragechange)`]`
+
+Values the slot holds after each block access index that wrote it.
+
+### `FixtureStorageChange`
+
+#### - `blockAccessIndex`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Position in the block, as for [`FixtureNonceChange`](#fixturenoncechange).
+
+#### - `postValue`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Slot value after that position.
 
 ### `FixtureTransaction`
 
@@ -319,3 +442,19 @@ Address to withdraw to
 #### - `amount`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
 
 Amount of the withdrawal
+
+### `ExecutionWitness`
+
+Trie nodes, bytecodes, and ancestor headers that a stateless client needs to validate a block.
+
+#### - `state`: [`List`](./common_types.md#list)`[`[`Bytes`](./common_types.md#bytes)`]`
+
+Preimages of the trie nodes needed to execute the block and compute its post-state root.
+
+#### - `codes`: [`List`](./common_types.md#list)`[`[`Bytes`](./common_types.md#bytes)`]`
+
+Bytecodes that the block reads from the pre-state.
+
+#### - `headers`: [`List`](./common_types.md#list)`[`[`Bytes`](./common_types.md#bytes)`]`
+
+RLP-encoded ancestor headers in ascending block number order. They run from the oldest ancestor that the block accesses, for example through `BLOCKHASH`, up to the parent, which is always included.

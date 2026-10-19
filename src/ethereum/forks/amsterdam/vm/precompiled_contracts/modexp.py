@@ -14,6 +14,7 @@ Implementation of the `MODEXP` precompiled contract.
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
 
+from ...fork_types import ExecutionGas
 from ...vm import Evm
 from ...vm.exceptions import ExceptionalHalt
 from ...vm.gas import charge_gas
@@ -25,7 +26,7 @@ def modexp(evm: Evm) -> None:
     Calculates `(base**exp) % modulus` for arbitrary sized `base`, `exp` and
     `modulus`. The return value is the same length as the modulus.
     """
-    data = evm.message.data
+    data = evm.call_data
 
     # GAS
     base_length = U256.from_be_bytes(buffer_read(data, U256(0), U256(32)))
@@ -144,7 +145,7 @@ def gas_cost(
     modulus_length: U256,
     exponent_length: U256,
     exponent_head: U256,
-) -> Uint:
+) -> ExecutionGas:
     """
     Calculate the gas cost of performing a modular exponentiation.
 
@@ -165,11 +166,11 @@ def gas_cost(
 
     Returns
     -------
-    gas_cost : `Uint`
+    gas_cost : `ExecutionGas`
         Gas required for performing the operation.
 
     """
     multiplication_complexity = complexity(base_length, modulus_length)
     iteration_count = iterations(exponent_length, exponent_head)
     cost = multiplication_complexity * iteration_count
-    return max(Uint(500), cost)
+    return ExecutionGas(max(Uint(500), cost))

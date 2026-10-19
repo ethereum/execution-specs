@@ -1,10 +1,8 @@
 """Test suite for `ethereum_test.code` module."""
 
-from string import Template
 from typing import Mapping
 
 import pytest
-from semver import Version
 
 from execution_testing.base_types import (
     Account,
@@ -13,56 +11,16 @@ from execution_testing.base_types import (
     TestAddress,
     TestPrivateKey,
 )
-from execution_testing.cli.pytest_commands.plugins.solc.solc import (
-    SOLC_EXPECTED_MIN_VERSION,
-)
 from execution_testing.client_clis import TransitionTool
 from execution_testing.fixtures import BlockchainFixture
 from execution_testing.forks import (
     Cancun,
-    Fork,
-    Homestead,
-    Shanghai,
-    get_deployed_forks,
 )
 from execution_testing.specs import StateTest
 from execution_testing.test_types import Alloc, Environment, Transaction
 from execution_testing.vm import Bytecode, Op
 
 from ..tools_code import CalldataCase, Case, Conditional, Initcode, Switch
-
-
-@pytest.fixture(params=get_deployed_forks())
-def fork(request: pytest.FixtureRequest) -> Fork:
-    """Return the target evm-version (fork) for solc compilation."""
-    return request.param
-
-
-@pytest.fixture()
-def expected_bytes(
-    request: pytest.FixtureRequest, solc_version: Version, fork: Fork
-) -> bytes:
-    """Return the expected bytes for the test."""
-    expected_bytes = request.param
-    if isinstance(expected_bytes, Template):
-        if solc_version < SOLC_EXPECTED_MIN_VERSION or fork <= Homestead:
-            solc_padding = ""
-        else:
-            solc_padding = "00"
-        return bytes.fromhex(
-            expected_bytes.substitute(solc_padding=solc_padding)
-        )
-    if isinstance(expected_bytes, bytes):
-        if fork >= Shanghai:
-            expected_bytes = b"\x5f" + expected_bytes[2:]
-        if solc_version < SOLC_EXPECTED_MIN_VERSION or fork <= Homestead:
-            return expected_bytes
-        else:
-            return expected_bytes + b"\x00"
-
-    raise Exception(
-        "Unsupported expected_bytes type: {}".format(type(expected_bytes))
-    )
 
 
 @pytest.mark.parametrize(

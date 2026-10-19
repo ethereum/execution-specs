@@ -34,6 +34,7 @@ def tx_validity(fork: Fork) -> Generator[ParameterSet, None, None]:
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.ported_from(
     [
         "https://github.com/ethereum/legacytests/blob/master/src/LegacyTests/Cancun/GeneralStateTestsFiller/stExample/accessListExampleFiller.yml"

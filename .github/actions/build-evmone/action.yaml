@@ -66,10 +66,10 @@ runs:
       with:
         cmake-version: '3.x'
 
-    - name: Install GMP Linux
+    - name: Install build dependencies Linux
       if: runner.os == 'Linux' && steps.cache-restore.outputs.cache-hit != 'true'
       shell: bash
-      run: sudo apt-get -q update && sudo apt-get -qy install libgmp-dev
+      run: sudo apt-get -q update && sudo apt-get -qy install build-essential libgmp-dev
 
     - name: Install GMP macOS
       if: runner.os == 'macOS' && steps.cache-restore.outputs.cache-hit != 'true'

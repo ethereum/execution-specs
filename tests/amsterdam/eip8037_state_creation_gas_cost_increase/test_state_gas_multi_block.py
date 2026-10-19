@@ -16,16 +16,20 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
 """
 
+import math
+
 import pytest
 from execution_testing import (
     Account,
     Alloc,
     Block,
     BlockchainTestFiller,
+    Environment,
     Fork,
     Op,
     Storage,
     Transaction,
+    TransactionReceipt,
 )
 
 from .spec import ref_spec_8037
@@ -52,28 +56,20 @@ def test_exact_coinbase_fee_simple_sstore(
     Motivated by BAL devnet-3 ethrex/besu coinbase balance mismatch
     where clients diverged on cumulative `receipt_gas_used`.
     """
-    gas_costs = fork.gas_costs()
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-
-    # Gas breakdown for tx 1 (SSTORE zero-to-nonzero, no calldata):
-    # PUSH1(1) + PUSH1(0) + SSTORE(cold, zero-to-nonzero) + STOP
-    intrinsic_regular = gas_costs.TX_BASE
-    if fork.is_eip_enabled(2780):
-        # EIP-2780 surfaces an explicit recipient-access charge for
-        # non-self, non-create transactions on top of ``TX_BASE``.
-        intrinsic_regular += gas_costs.COLD_ACCOUNT_ACCESS
-    evm_regular = (
-        2 * gas_costs.VERY_LOW  # PUSH1 + PUSH1
-        + gas_costs.COLD_STORAGE_WRITE  # SSTORE cold zero-to-nonzero
-    )
-    tx1_gas_used = intrinsic_regular + evm_regular + sstore_state_gas
-    expected_coinbase = tx1_gas_used
-
     # Tx 1: single SSTORE zero-to-nonzero
     sstore_storage = Storage()
-    sstore_contract = pre.deploy_contract(
-        code=(Op.SSTORE(sstore_storage.store_next(1), 1)),
+    sstore_code = Op.SSTORE(sstore_storage.store_next(1), 1, new_value=1)
+    sstore_state_gas = sstore_code.state_cost(fork)
+    sstore_contract = pre.deploy_contract(code=sstore_code)
+
+    # tx 1 gas used: the intrinsic (TX_BASE plus the EIP-2780
+    # recipient-access charge) plus the SSTORE code's own execution and
+    # state cost.
+    tx1_gas_used = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + sstore_code.gas_cost(fork)
     )
+    expected_coinbase = tx1_gas_used
 
     # Tx 2: reporter reads BALANCE(COINBASE) into slot 0
     reporter = pre.deploy_contract(
@@ -123,80 +119,92 @@ def test_multi_block_mixed_state_operations(
 
     This mixed scenario tests that `receipt_gas_used` is consistent
     across different state gas paths within a multi-block chain.
+    Every receipt pins its cumulative gas, so a mis-credited spill
+    on any path breaks the fill.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    priority_fee = 1
+    child_gas = 500_000
 
-    reverting_child = pre.deploy_contract(
-        code=(Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)),
-    )
+    reverting_child_code = Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)
+    reverting_child = pre.deploy_contract(code=reverting_child_code)
+
     halting_child = pre.deploy_contract(
         code=(Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.INVALID),
     )
+    # Every transaction spends its whole bill on gas, and the coinbase
+    # takes `priority_fee` per unit of it.
+    block_gas_used = [0, 0, 0]
 
     all_contracts = []
     all_storages = []
 
     # Simple SSTOREs from reservoir
     block1_txs = []
-    for _ in range(2):
+    for i in range(2):
         storage = Storage()
-        contract = pre.deploy_contract(
-            code=(Op.SSTORE(storage.store_next(1), 1)),
-        )
+        contract_code = Op.SSTORE(storage.store_next(1), 1)
+        contract = pre.deploy_contract(code=contract_code)
+        tx_gas_used = intrinsic_gas + contract_code.gas_cost(fork)
+        block_gas_used[0] += tx_gas_used
         all_contracts.append(contract)
         all_storages.append(storage)
         block1_txs.append(
             Transaction(
                 to=contract,
-                state_gas_reservoir=sstore_state_gas,
+                state_gas_reservoir=contract_code.state_cost(fork),
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
+                expected_receipt=TransactionReceipt(
+                    cumulative_gas_used=(i + 1) * tx_gas_used,
+                ),
             )
         )
 
     # Child spill + revert
     block2_txs = []
-    for _ in range(2):
+    for i in range(2):
         storage = Storage()
-        parent = pre.deploy_contract(
-            code=(
-                Op.POP(
-                    Op.CALL(
-                        gas=500_000,
-                        address=reverting_child,
-                    )
-                )
-                + Op.SSTORE(storage.store_next(1), 1)
-            ),
+        parent_code = Op.POP(
+            Op.CALL(gas=child_gas, address=reverting_child)
+        ) + Op.SSTORE(storage.store_next(1), 1)
+        parent = pre.deploy_contract(code=parent_code)
+        # The reverted child refunds its state gas and returns its
+        # unspent budget, so only its execution gas is consumed.
+        tx_gas_used = (
+            intrinsic_gas
+            + parent_code.gas_cost(fork)
+            + reverting_child_code.execution_cost(fork)
         )
+        block_gas_used[1] += tx_gas_used
         all_contracts.append(parent)
         all_storages.append(storage)
         block2_txs.append(
             Transaction(
                 to=parent,
-                state_gas_reservoir=sstore_state_gas,
+                state_gas_reservoir=parent_code.state_cost(fork),
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
+                expected_receipt=TransactionReceipt(
+                    cumulative_gas_used=(i + 1) * tx_gas_used,
+                ),
             )
         )
 
     # Child spill + exceptional halt
     block3_txs = []
-    for _ in range(2):
+    for i in range(2):
         storage = Storage()
-        parent = pre.deploy_contract(
-            code=(
-                Op.POP(
-                    Op.CALL(
-                        gas=500_000,
-                        address=halting_child,
-                    )
-                )
-                + Op.SSTORE(storage.store_next(1), 1)
-            ),
-        )
+        parent_code = Op.POP(
+            Op.CALL(gas=child_gas, address=halting_child)
+        ) + Op.SSTORE(storage.store_next(1), 1)
+        parent = pre.deploy_contract(code=parent_code)
+        # The halted child burns its whole budget, spill included.
+        tx_gas_used = intrinsic_gas + parent_code.gas_cost(fork) + child_gas
+        block_gas_used[2] += tx_gas_used
         all_contracts.append(parent)
         all_storages.append(storage)
         block3_txs.append(
@@ -206,6 +214,9 @@ def test_multi_block_mixed_state_operations(
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
+                expected_receipt=TransactionReceipt(
+                    cumulative_gas_used=(i + 1) * tx_gas_used,
+                ),
             )
         )
 
@@ -214,10 +225,12 @@ def test_multi_block_mixed_state_operations(
         Block(txs=block2_txs),
         Block(txs=block3_txs),
     ]
-    post = {
+    post: dict = {
         c: Account(storage=s)
         for c, s in zip(all_contracts, all_storages, strict=False)
     }
+    fee_recipient = Environment().fee_recipient
+    post[fee_recipient] = Account(balance=sum(block_gas_used) * priority_fee)
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
@@ -245,31 +258,42 @@ def test_multi_block_observed_coinbase_balance(
       Tx 4: Store `BALANCE(COINBASE)` in slot 0.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    priority_fee = 1
+    child_gas = 500_000
 
-    reporter1 = pre.deploy_contract(
-        code=(Op.SSTORE(0, Op.BALANCE(Op.COINBASE))),
-    )
-    reporter2 = pre.deploy_contract(
-        code=(Op.SSTORE(0, Op.BALANCE(Op.COINBASE))),
-    )
+    reporter_code = Op.SSTORE(0, Op.BALANCE(Op.COINBASE, address_warm=True))
+    reporter1 = pre.deploy_contract(code=reporter_code)
+    reporter2 = pre.deploy_contract(code=reporter_code)
+    reporter_gas = intrinsic_gas + reporter_code.gas_cost(fork)
 
     # Block 1 tx 1: simple SSTORE
     sstore_storage = Storage()
-    sstore_contract = pre.deploy_contract(
-        code=(Op.SSTORE(sstore_storage.store_next(1), 1)),
+    sstore_code = Op.SSTORE(sstore_storage.store_next(1), 1)
+    sstore_contract = pre.deploy_contract(code=sstore_code)
+    sstore_tx_gas = (
+        intrinsic_gas + sstore_code.execution_cost(fork) + sstore_state_gas
     )
 
     # Block 2 tx 3: child spill + revert, parent SSTORE
-    reverting_child = pre.deploy_contract(
-        code=(Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)),
-    )
+    reverting_child_code = Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)
+    reverting_child = pre.deploy_contract(code=reverting_child_code)
     spill_storage = Storage()
-    spill_parent = pre.deploy_contract(
-        code=(
-            Op.POP(Op.CALL(gas=500_000, address=reverting_child))
-            + Op.SSTORE(spill_storage.store_next(1), 1)
-        ),
+    spill_code = Op.POP(
+        Op.CALL(gas=child_gas, address=reverting_child)
+    ) + Op.SSTORE(spill_storage.store_next(1), 1)
+    spill_parent = pre.deploy_contract(code=spill_code)
+
+    spill_tx_gas = (
+        intrinsic_gas
+        + spill_code.gas_cost(fork)
+        + reverting_child_code.execution_cost(fork)
     )
+
+    reporter1_observes = sstore_tx_gas * priority_fee
+    reporter2_observes = (
+        sstore_tx_gas + reporter_gas + spill_tx_gas
+    ) * priority_fee
 
     blocks = [
         Block(
@@ -309,9 +333,167 @@ def test_multi_block_observed_coinbase_balance(
             ]
         ),
     ]
-
     post = {
         sstore_contract: Account(storage=sstore_storage),
         spill_parent: Account(storage=spill_storage),
+        reporter1: Account(storage={0: reporter1_observes}),
+        reporter2: Account(storage={0: reporter2_observes}),
     }
     blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_coinbase_fee_with_state_gas_refund(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Assert the coinbase is paid on the post-refund gas, not the charge.
+
+    A 0 to x to 0 cycle refunds its state charge to the reservoir, so
+    the sender is billed execution gas alone and the miner is paid on
+    that same figure. Paying the miner on the pre-refund total would
+    hand it the whole storage set for free.
+    """
+    cycle_code = Op.SSTORE(0, 1) + Op.SSTORE(
+        0,
+        0,
+        # gas accounting
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    cycle = pre.deploy_contract(code=cycle_code)
+
+    # The cycle nets to no state growth, so only execution gas is billed,
+    # less the write-cost refund the restoration earns (capped at the
+    # usual fraction of the pre-refund total).
+    pre_refund_gas = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + cycle_code.execution_cost(fork)
+    )
+    execution_refund = cycle_code.refund(fork) - cycle_code.state_refund(fork)
+    expected_coinbase = pre_refund_gas - min(
+        pre_refund_gas // fork.max_refund_quotient(), execution_refund
+    )
+
+    reporter_storage = Storage()
+    reporter = pre.deploy_contract(
+        code=(
+            Op.SSTORE(
+                reporter_storage.store_next(expected_coinbase, "coinbase"),
+                Op.BALANCE(Op.COINBASE),
+            )
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(
+                        to=cycle,
+                        state_gas_reservoir=sstore_state_gas,
+                        max_priority_fee_per_gas=1,
+                        max_fee_per_gas=8,
+                        sender=pre.fund_eoa(),
+                    ),
+                    Transaction(
+                        to=reporter,
+                        state_gas_reservoir=0,
+                        max_priority_fee_per_gas=1,
+                        max_fee_per_gas=8,
+                        sender=pre.fund_eoa(),
+                    ),
+                ],
+            )
+        ],
+        post={
+            cycle: Account(storage={0: 0}),
+            reporter: Account(storage=reporter_storage),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "dominant_dimension",
+    [
+        pytest.param("state", id="state_dominates"),
+        pytest.param("execution", id="execution_dominates"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_coinbase_fee_paid_on_execution_and_state(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    dominant_dimension: str,
+) -> None:
+    """
+    Assert the miner is paid on execution gas plus state gas.
+
+    A reporter reads the coinbase balance after a transaction
+    bottlenecked on either dimension. The fee sums both either way;
+    `max(execution, state)` governs the header, not the sender's bill.
+    """
+    state_op = Op.SSTORE(0, 1)
+    if dominant_dimension == "state":
+        body = state_op
+    else:
+        # Memory cost grows as `words ** 2 // 512`, so this word count
+        # expands past the state charge, leading on execution while the
+        # state dimension stays nonzero.
+        words = math.isqrt(512 * state_op.state_cost(fork))
+        body = state_op + Op.MSTORE(
+            (words - 1) * 32, 0, new_memory_size=words * 32
+        )
+    contract = pre.deploy_contract(code=body)
+
+    execution = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + body.execution_cost(fork)
+    )
+    state = body.state_cost(fork)
+    expected_coinbase = execution + state
+    assert state > 0
+    if dominant_dimension == "state":
+        assert state > execution
+    else:
+        assert execution > state
+
+    reporter_storage = Storage()
+    reporter = pre.deploy_contract(
+        code=Op.SSTORE(
+            reporter_storage.store_next(expected_coinbase, "coinbase"),
+            Op.BALANCE(Op.COINBASE),
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(
+                        to=contract,
+                        state_gas_reservoir=state,
+                        max_priority_fee_per_gas=1,
+                        max_fee_per_gas=8,
+                        sender=pre.fund_eoa(),
+                    ),
+                    Transaction(
+                        to=reporter,
+                        state_gas_reservoir=0,
+                        max_priority_fee_per_gas=1,
+                        max_fee_per_gas=8,
+                        sender=pre.fund_eoa(),
+                    ),
+                ],
+            )
+        ],
+        post={reporter: Account(storage=reporter_storage)},
+    )

@@ -58,6 +58,7 @@ When executing tests with many transactions (e.g., benchmark tests), the `execut
 - Transactions are sent in batches of up to 750 transactions by default
 - Each batch is sent and confirmed before the next batch begins
 - Progress logging shows batch number and transaction ranges
+- The same limit caps every other batched JSON-RPC request (receipts, balances, code, account state)
 
 **CLI Configuration:**
 
@@ -73,7 +74,7 @@ execute --max-tx-per-batch 1000 tests/
 
 **Safety Threshold:**
 
-A warning is logged when `max_transactions_per_batch` exceeds 1000, as this may cause RPC service instability or failures depending on the RPC endpoint's capacity.
+A warning is logged when `max_batch_size` exceeds 1000, as this may cause RPC service instability or failures depending on the RPC endpoint's capacity.
 
 **Use Cases:**
 

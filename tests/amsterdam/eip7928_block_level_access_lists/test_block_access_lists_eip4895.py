@@ -27,6 +27,7 @@ from execution_testing import (
     compute_create_address,
 )
 
+from ...cancun.eip4788_beacon_root.spec import Spec as Spec4788
 from .spec import ref_spec_7928
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -35,6 +36,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 GWEI = 10**9
+SYSTEM_ADDRESS = Address(Spec4788.SYSTEM_ADDRESS)
 
 
 def test_bal_withdrawal_empty_block(
@@ -867,4 +869,51 @@ def test_bal_withdrawal_to_coinbase_empty_block(
         post={
             coinbase: Account(balance=10 * GWEI),
         },
+    )
+
+
+@pytest.mark.parametrize(
+    "amount",
+    [pytest.param(0, id="zero"), pytest.param(1, id="nonzero")],
+)
+def test_bal_withdrawal_to_system_address(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    amount: int,
+) -> None:
+    """Ensure BAL includes SYSTEM_ADDRESS as a withdrawal recipient."""
+    if amount == 0:
+        expectation = BalAccountExpectation.empty()
+        post_account = Account.NONEXISTENT
+    elif amount == 1:
+        expectation = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(
+                    block_access_index=1, post_balance=amount * GWEI
+                )
+            ]
+        )
+        post_account = Account(balance=amount * GWEI)
+    else:
+        raise ValueError(f"unknown amount: {amount}")
+
+    block = Block(
+        txs=[],
+        withdrawals=[
+            Withdrawal(
+                index=0,
+                validator_index=0,
+                address=SYSTEM_ADDRESS,
+                amount=amount,
+            )
+        ],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={SYSTEM_ADDRESS: expectation}
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={SYSTEM_ADDRESS: post_account},
     )

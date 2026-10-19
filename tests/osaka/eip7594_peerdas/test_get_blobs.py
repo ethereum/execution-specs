@@ -19,17 +19,26 @@ from execution_testing import (
     NetworkWrappedTransaction,
     Transaction,
     TransactionException,
+    add_kzg_version,
 )
 from execution_testing.logging import (  # noqa: E501
     get_logger,
 )
 
-from .spec import ref_spec_7594
+from .spec import Spec, ref_spec_7594
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7594.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7594.version
 
 logger = get_logger(__name__)
+
+
+def generate_nonexisting_blob_hashes(count: int) -> List[Hash]:
+    """Return well-formed versioned hashes that match no pooled blob."""
+    return add_kzg_version(
+        [sha256(str(i).encode()).digest() for i in range(count)],
+        Spec.BLOB_COMMITMENT_VERSION_KZG,
+    )
 
 
 @pytest.fixture
@@ -49,9 +58,11 @@ def tx_value() -> int:
 
 
 @pytest.fixture
-def tx_gas() -> int:
+def tx_gas(fork: Fork, tx_value: int) -> int:
     """Gas allocated to transactions sent during test."""
-    return 21_000
+    return fork.transaction_intrinsic_cost_calculator()(
+        sends_value=tx_value > 0
+    )
 
 
 @pytest.fixture
@@ -383,9 +394,7 @@ def test_get_blobs_nonexisting_getblobsv1(
     Test that ensures clients respond with 'null' when at least one requested
     blob is not available (getBlobsV1 behavior: all-or-nothing response).
     """
-    nonexisting_blob_hashes = [
-        Hash(sha256(str(i).encode()).digest()) for i in range(5)
-    ]
+    nonexisting_blob_hashes = generate_nonexisting_blob_hashes(5)
     blobs_test(
         pre=pre,
         txs=txs,
@@ -410,9 +419,7 @@ def test_get_blobs_nonexisting_getblobsv2(
     Test that ensures clients respond with 'null' when at least one requested
     blob is not available (getBlobsV2 behavior: all-or-nothing response).
     """
-    nonexisting_blob_hashes = [
-        Hash(sha256(str(i).encode()).digest()) for i in range(5)
-    ]
+    nonexisting_blob_hashes = generate_nonexisting_blob_hashes(5)
     print("Testing getBlobsV2 (all-or-nothing behavior)")
     for tx_idx, tx_hashes in enumerate(txs_versioned_hashes):
         for blob_idx, vh in enumerate(tx_hashes):
@@ -445,9 +452,7 @@ def test_get_blobs_nonexisting_getblobsv3(
     Test that ensures clients respond with partial results when some requested
     blobs are not available (getBlobsV3 behavior: null only for missing blobs).
     """
-    nonexisting_blob_hashes = [
-        Hash(sha256(str(i).encode()).digest()) for i in range(5)
-    ]
+    nonexisting_blob_hashes = generate_nonexisting_blob_hashes(5)
     print("Testing getBlobsV3 (partial response behavior)")
     for tx_idx, tx_hashes in enumerate(txs_versioned_hashes):
         for blob_idx, vh in enumerate(tx_hashes):
@@ -477,9 +482,7 @@ def test_get_blobs_only_nonexisting_getblobsv3(
     hash) when all requested blobs are non-existing, rather than returning a
     single null for the entire response.
     """
-    nonexisting_blob_hashes = [
-        Hash(sha256(str(i).encode()).digest()) for i in range(5)
-    ]
+    nonexisting_blob_hashes = generate_nonexisting_blob_hashes(5)
     print("Testing getBlobsV3 (only non-existing blobs)")
     for i, nh in enumerate(nonexisting_blob_hashes):
         print(f"  non-existing {i}: {nh.hex()}")

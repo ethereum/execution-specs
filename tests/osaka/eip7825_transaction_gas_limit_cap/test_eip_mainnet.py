@@ -46,6 +46,7 @@ def test_tx_gas_limit_cap_at_maximum(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 def test_tx_gas_limit_cap_exceeded(
     state_test: StateTestFiller,

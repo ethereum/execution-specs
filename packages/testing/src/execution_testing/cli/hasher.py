@@ -14,6 +14,9 @@ import click
 from rich.console import Console
 from rich.markup import escape as rich_escape
 
+from execution_testing.base_types import Hash
+from execution_testing.fixtures.pre_alloc_groups import PreAllocGroup
+
 if TYPE_CHECKING:
     from execution_testing.fixtures.consume import TestCaseIndexFile
 
@@ -35,10 +38,10 @@ class HashableItem:
 
     type: HashableItemType
     parents: List[str] = field(default_factory=list)
-    root: Optional[bytes] = None
+    root: Optional[Hash] = None
     items: Optional[Dict[str, "HashableItem"]] = None
 
-    def hash(self) -> bytes:
+    def hash(self) -> Hash:
         """Return the hash of the item."""
         if self.root is not None:
             return self.root
@@ -46,7 +49,7 @@ class HashableItem:
             raise ValueError("No items to hash")
         # Use list + join instead of += to avoid O(n²) byte concatenation
         hash_parts = [item.hash() for _, item in sorted(self.items.items())]
-        return hashlib.sha256(b"".join(hash_parts)).digest()
+        return Hash(hashlib.sha256(b"".join(hash_parts)).digest())
 
     def format_lines(
         self,
@@ -67,7 +70,7 @@ class HashableItem:
 
         if print_type is None or self.type >= print_type:
             next_level += 1
-            lines.append(f"{' ' * level}{print_name}: 0x{self.hash().hex()}")
+            lines.append(f"{' ' * level}{print_name}: {self.hash().hex()}")
 
         # Stop recursion if we've reached max_depth
         if max_depth is not None and next_level > max_depth:
@@ -92,35 +95,39 @@ class HashableItem:
     ) -> "HashableItem":
         """Create a hashable item from a JSON file."""
         items = {}
-        with file_path.open("r") as f:
-            data = json.load(f)
+        # Pre-alloc group files live under a "pre_alloc" folder
+        if file_path.parent.name == "pre_alloc":
+            return cls(
+                type=HashableItemType.FILE,
+                root=PreAllocGroup.from_file(file_path).hash(),
+                parents=parents + [file_path.name],
+            )
+        file_text = file_path.read_text()
+        data = json.loads(file_text)
         for key, item in sorted(data.items()):
             if not isinstance(item, dict):
-                raise TypeError(f"Expected dict, got {type(item)} for {key}")
+                raise TypeError(
+                    f"Expected dict, got {type(item)} for {key}, "
+                    f"json file: {file_path.name}"
+                )
             if "_info" not in item:
                 raise KeyError(
                     f"Expected '_info' in {key}, json file: {file_path.name}"
                 )
 
             # EEST uses 'hash'; ethereum/tests use 'generatedTestHash'
-            hash_value = item["_info"].get("hash") or item["_info"].get(
+            hash_str = item["_info"].get("hash") or item["_info"].get(
                 "generatedTestHash"
             )
-            if hash_value is None:
+            if hash_str is None:
                 raise KeyError(
                     f"Expected 'hash' or 'generatedTestHash' in {key}"
                 )
+            hash_value = Hash(hash_str)
 
-            if not isinstance(hash_value, str):
-                raise TypeError(
-                    f"Expected hash to be a string in {key}, "
-                    f"got {type(hash_value)}"
-                )
-
-            item_hash_bytes = bytes.fromhex(hash_value[2:])
             items[key] = cls(
                 type=HashableItemType.TEST,
-                root=item_hash_bytes,
+                root=hash_value,
                 parents=parents + [file_path.name],
             )
         return cls(type=HashableItemType.FILE, items=items, parents=parents)
@@ -165,9 +172,7 @@ class HashableItem:
             {
                 "id": e.id,
                 "json_path": str(e.json_path),
-                "fixture_hash": str(e.fixture_hash)
-                if e.fixture_hash
-                else None,
+                "fixture_hash": str(e.fixture_hash),
             }
             for e in entries
         ]
@@ -193,9 +198,7 @@ class HashableItem:
 
         # Single pass: insert all entries into trie
         for entry in entries:
-            fixture_hash = entry.get("fixture_hash")
-            if not fixture_hash:
-                continue
+            fixture_hash = entry["fixture_hash"]
 
             # Navigate/create path to file node
             path_parts = Path(entry["json_path"]).parts
@@ -259,7 +262,7 @@ def render_hash_report(
     """Return canonical output lines for a folder."""
     item = HashableItem.from_folder(folder_path=folder)
     if root:
-        return [f"0x{item.hash().hex()}"]
+        return [item.hash().hex()]
     print_type: Optional[HashableItemType] = None
     if files:
         print_type = HashableItemType.FILE
@@ -284,7 +287,7 @@ def collect_hashes(
 
     if print_type is None or item.type >= print_type:
         if path:
-            result[path] = f"0x{item.hash().hex()}"
+            result[path] = item.hash().hex()
         depth += 1
         if max_depth is not None and depth > max_depth:
             return result
@@ -462,8 +465,8 @@ def compare_cmd(
         if root:
             if left_item.hash() == right_item.hash():
                 sys.exit(0)
-            left_hashes = {"root": f"0x{left_item.hash().hex()}"}
-            right_hashes = {"root": f"0x{right_item.hash().hex()}"}
+            left_hashes = {"root": left_item.hash().hex()}
+            right_hashes = {"root": right_item.hash().hex()}
         else:
             print_type: Optional[HashableItemType] = None
             if files:

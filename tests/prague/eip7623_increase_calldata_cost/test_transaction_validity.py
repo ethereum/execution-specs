@@ -23,7 +23,10 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7623.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7623.version
 
 ENABLE_FORK = Prague
-pytestmark = [pytest.mark.valid_from(str(ENABLE_FORK))]
+pytestmark = [
+    pytest.mark.valid_from(str(ENABLE_FORK)),
+    pytest.mark.inclusion_test,
+]
 
 
 # All tests in this file are parametrized with the following parameters:
@@ -156,10 +159,6 @@ def test_transaction_validity_type_0(
     "ty",
     [pytest.param(1, id="type_1"), pytest.param(2, id="type_2")],
 )
-# TODO[EIP-8037]: Contract creation state gas
-# (G_TRANSACTION_CREATE) split affects intrinsic gas
-# calculation for Amsterdam.
-@pytest.mark.valid_before("EIP8037")
 def test_transaction_validity_type_1_type_2(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -168,6 +167,11 @@ def test_transaction_validity_type_1_type_2(
     """
     Test transaction validity for transactions with access lists and contract
     creation.
+
+    From EIP-2780 the new-account charge of a contract creation is a runtime
+    charge in the pre-execution phase, not part of intrinsic gas, so the
+    intrinsic and floor bounds from the shared fixtures apply unchanged. An
+    exact-gas creation is valid and halts before its first frame.
     """
     state_test(
         pre=pre,

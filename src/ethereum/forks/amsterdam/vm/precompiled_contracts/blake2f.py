@@ -28,7 +28,7 @@ def blake2f(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    data = evm.message.data
+    data = evm.call_data
     if len(data) != 213:
         raise InvalidParameter
 

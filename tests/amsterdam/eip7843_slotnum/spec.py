@@ -13,9 +13,5 @@ class ReferenceSpec:
 
 ref_spec_7843 = ReferenceSpec(
     git_path="EIPS/eip-7843.md",
-    version="6bc5d6b7acbc016a79fa573f98975093b5c2ca52",
+    version="c3bfd4ba41cf0fcbfe8c404f33ba89f5174971e0",
 )
-
-
-class Spec:
-    """Constants and parameters from EIP-7843."""

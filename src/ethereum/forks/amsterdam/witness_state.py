@@ -5,98 +5,34 @@ Implement the ``PreState`` protocol using execution witness data
 """
 
 from dataclasses import dataclass, field
-from typing import AbstractSet, Dict, List, Optional, Tuple, final
+from typing import Dict, Optional, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT, InternalNode
-from ethereum.state import (
-    EMPTY_CODE_HASH,
-    Account,
-    Address,
-    Root,
-)
+from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT
+from ethereum.state import EMPTY_CODE_HASH, Account, Address, BlockDiff, Root
 
 from .incremental_mpt import (
-    HashedNode,
     IncrementalMPT,
-    MutableBranchNode,
-    MutableExtensionNode,
-    MutableLeafNode,
-    MutableNode,
     decode_witness_to_mpt,
+    mpt_get,
     mpt_root,
     mpt_set,
+    mpt_set_storage_slots,
 )
 
 
 def build_node_db(state_entries: Tuple[Bytes, ...]) -> Dict[Bytes, Bytes]:
     """Build hash -> RLP mapping from witness state preimages."""
-    db: Dict[Bytes, Bytes] = {}
-    for entry in state_entries:
-        db[keccak256(entry)] = entry
-    return db
+    return {keccak256(entry): entry for entry in state_entries}
 
 
 def build_code_db(code_entries: Tuple[Bytes, ...]) -> Dict[Hash32, Bytes]:
     """Build code_hash -> bytecode mapping from witness codes."""
-    db: Dict[Hash32, Bytes] = {}
-    for code in code_entries:
-        db[keccak256(code)] = code
-    return db
-
-
-def _trie_lookup(
-    root_node: MutableNode,
-    key_hash: Hash32,
-) -> Optional[Bytes]:
-    """
-    Walk a decoded MPT from root following nibblized key_hash.
-
-    Return leaf value or ``None`` if not found.
-
-    """
-    nibbles = bytearray()
-    for byte in key_hash:
-        nibbles.append(byte >> 4)
-        nibbles.append(byte & 0x0F)
-
-    node = root_node
-    pos = 0
-
-    while node is not None:
-        if isinstance(node, HashedNode):
-            raise AssertionError(
-                "Encountered unresolved HashedNode during witness lookup"
-            )
-
-        if isinstance(node, MutableLeafNode):
-            if bytes(nibbles[pos:]) == node.rest_of_key:
-                return node.value
-            return None
-
-        if isinstance(node, MutableExtensionNode):
-            segment = node.key_segment
-            if bytes(nibbles[pos : pos + len(segment)]) != segment:
-                return None
-            pos += len(segment)
-            node = node.child
-            continue
-
-        assert isinstance(node, MutableBranchNode), (
-            f"Unexpected node type {type(node)}"
-        )
-
-        if pos == len(nibbles):
-            return node.value or None
-        idx = nibbles[pos]
-        pos += 1
-        node = node.children[idx]
-
-    return None
+    return {keccak256(code): code for code in code_entries}
 
 
 def _decode_account_from_leaf(
@@ -140,23 +76,22 @@ class WitnessState:
     _state_root: Root
     _code_db: Dict[Hash32, Bytes]
     _storage_root_cache: Dict[Address, Root] = field(default_factory=dict)
-    _decoded_secure_roots: Dict[Root, MutableNode] = field(
+    _decoded_secure_tries: Dict[Root, IncrementalMPT[Bytes, Bytes]] = field(
         default_factory=dict
     )
 
-    def _get_decoded_secure_root(self, root_hash: Root) -> MutableNode:
-        """Decode and cache a secured trie root for read-only lookups."""
-        if root_hash == EMPTY_TRIE_ROOT:
-            return None
-        if root_hash not in self._decoded_secure_roots:
-            decoded_mpt: IncrementalMPT[Bytes, Bytes] = decode_witness_to_mpt(
+    def _get_decoded_secure_trie(
+        self, root_hash: Root
+    ) -> IncrementalMPT[Bytes, Bytes]:
+        """Decode and cache a secured trie for read-only lookups."""
+        if root_hash not in self._decoded_secure_tries:
+            self._decoded_secure_tries[root_hash] = decode_witness_to_mpt(
                 self._node_db,
                 root_hash,
                 secured=True,
                 default=b"",
             )
-            self._decoded_secure_roots[root_hash] = decoded_mpt.root_node
-        return self._decoded_secure_roots[root_hash]
+        return self._decoded_secure_tries[root_hash]
 
     def get_account_optional(self, address: Address) -> Optional[Account]:
         """
@@ -164,9 +99,8 @@ class WitnessState:
 
         Return ``None`` if there is no account at the address.
         """
-        key_hash = keccak256(address)
-        leaf = _trie_lookup(
-            self._get_decoded_secure_root(self._state_root), key_hash
+        leaf = mpt_get(
+            self._get_decoded_secure_trie(self._state_root), address
         )
         if leaf is None:
             self._storage_root_cache[address] = EMPTY_TRIE_ROOT
@@ -187,19 +121,10 @@ class WitnessState:
         if storage_root == EMPTY_TRIE_ROOT:
             return U256(0)
 
-        key_hash = keccak256(key)
-        leaf = _trie_lookup(
-            self._get_decoded_secure_root(storage_root), key_hash
-        )
+        leaf = mpt_get(self._get_decoded_secure_trie(storage_root), key)
         if leaf is None:
             return U256(0)
-
-        decoded = rlp.decode(leaf)
-        if isinstance(decoded, (bytes, bytearray)):
-            if len(decoded) == 0:
-                return U256(0)
-            return U256(int.from_bytes(decoded, "big"))
-        return U256(0)
+        return rlp.decode_to(U256, leaf)
 
     def get_code(self, code_hash: Hash32) -> Bytes:
         """
@@ -211,29 +136,16 @@ class WitnessState:
             return b""
         return self._code_db[code_hash]
 
-    def account_has_storage(self, address: Address) -> bool:
+    def compute_state_root(self, block_diff: BlockDiff) -> Root:
         """
-        Check whether an account has any storage.
-
-        Only needed for EIP-7610.
-        """
-        if address not in self._storage_root_cache:
-            self.get_account_optional(address)
-        storage_root = self._storage_root_cache.get(address, EMPTY_TRIE_ROOT)
-        return storage_root != EMPTY_TRIE_ROOT
-
-    def compute_state_root_and_trie_changes(
-        self,
-        account_changes: Dict[Address, Optional[Account]],
-        storage_changes: Dict[Address, Dict[Bytes32, U256]],
-        storage_clears: AbstractSet[Address] = frozenset(),
-    ) -> Tuple[Root, List[InternalNode]]:
-        """
-        Compute the state root after applying changes.
+        Compute the state root after applying ``block_diff``.
 
         Build partial ``IncrementalMPT`` tries from the witness,
         apply diffs, and compute the new root.
         """
+        account_changes = block_diff.account_changes
+        storage_changes = block_diff.storage_changes
+        storage_clears = block_diff.storage_clears
         new_storage_roots: Dict[Address, Root] = {}
 
         for address, slots in storage_changes.items():
@@ -253,14 +165,7 @@ class WitnessState:
                 secured=True,
                 default=U256(0),
             )
-            # We must do insertions+updates before deletions to minimize branch
-            # compressions.
-            for key, value in slots.items():
-                if value != 0:
-                    mpt_set(storage_mpt, key, value)
-            for key, value in slots.items():
-                if value == 0:
-                    mpt_set(storage_mpt, key, value)
+            mpt_set_storage_slots(storage_mpt, slots)
             new_storage_roots[address] = mpt_root(storage_mpt)
 
         state_mpt: IncrementalMPT[Address, Optional[Account]] = (
@@ -277,16 +182,11 @@ class WitnessState:
             if address not in account_changes:
                 account = self.get_account_optional(address)
                 if account is not None:
-                    sr = new_storage_roots.get(address, EMPTY_TRIE_ROOT)
-
-                    def _sr_fn(_a: Address, _sr: Root = sr) -> Root:
-                        return _sr
-
                     mpt_set(
                         state_mpt,
                         address,
                         account,
-                        get_storage_root=_sr_fn,
+                        new_storage_roots.get(address, EMPTY_TRIE_ROOT),
                     )
 
         def get_storage_root(addr: Address) -> Root:
@@ -297,11 +197,6 @@ class WitnessState:
             return self._storage_root_cache.get(addr, EMPTY_TRIE_ROOT)
 
         for address, account in account_changes.items():
-            mpt_set(
-                state_mpt,
-                address,
-                account,
-                get_storage_root=get_storage_root,
-            )
+            mpt_set(state_mpt, address, account, get_storage_root(address))
 
-        return mpt_root(state_mpt), []
+        return mpt_root(state_mpt)

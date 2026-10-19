@@ -397,7 +397,7 @@ class FormattedTest:
     template: ClassVar[str]
 
     def __init__(self, **kwargs: str) -> None:  # noqa: D107
-        self.kwargs = kwargs
+        self.kwargs = {"markers": ""} | kwargs
 
     def format(self) -> str:  # noqa: D102
         return self.template.format(**self.kwargs)
@@ -418,7 +418,7 @@ class StateTest(FormattedTest):  # noqa: D101
         )
 
         @pytest.mark.valid_from("Istanbul")
-        def test_chainid(state_test: StateTestFiller, pre: Alloc) -> None:
+        {markers}def test_chainid(state_test: StateTestFiller, pre: Alloc) -> None:
             contract_address = pre.deploy_contract(Op.SSTORE(1, Op.CHAINID) + Op.STOP)
             sender = pre.fund_eoa()
 
@@ -455,7 +455,7 @@ class BlockchainTest(FormattedTest):  # noqa: D101
         )
 
         @pytest.mark.valid_from("Istanbul")
-        def test_chainid_blockchain(blockchain_test: BlockchainTestFiller, pre: Alloc) -> None:
+        {markers}def test_chainid_blockchain(blockchain_test: BlockchainTestFiller, pre: Alloc) -> None:
             contract_address = pre.deploy_contract(Op.SSTORE(1, Op.CHAINID) + Op.STOP)
             sender = pre.fund_eoa()
 
@@ -590,6 +590,53 @@ class BlockchainTest(FormattedTest):  # noqa: D101
             2,
             id="different_excess_blob_gas",
         ),
+        # The `pre_alloc_group` marker
+        pytest.param(
+            [
+                StateTest(
+                    env="Environment()",
+                    markers="@pytest.mark.pre_alloc_group("
+                    '"separate", reason="isolate")\n',
+                ),
+                StateTest(
+                    env="Environment()",
+                    markers="@pytest.mark.pre_alloc_group("
+                    '"separate", reason="isolate")\n',
+                ),
+            ],
+            2,
+            id="separate_marker_isolates_each_test",
+        ),
+        pytest.param(
+            [
+                StateTest(
+                    env="Environment()",
+                    markers='@pytest.mark.pre_alloc_group(reason="isolate")\n',
+                ),
+                StateTest(
+                    env="Environment()",
+                    markers='@pytest.mark.pre_alloc_group(reason="isolate")\n',
+                ),
+            ],
+            2,
+            id="bare_marker_isolates_each_test",
+        ),
+        pytest.param(
+            [
+                StateTest(
+                    env="Environment()",
+                    markers="@pytest.mark.pre_alloc_group("
+                    '"custom_group", reason="shared setup")\n',
+                ),
+                StateTest(
+                    env="Environment()",
+                    markers="@pytest.mark.pre_alloc_group("
+                    '"custom_group", reason="shared setup")\n',
+                ),
+            ],
+            1,
+            id="named_group_marker_shares_one_group",
+        ),
     ],
 )
 def test_pre_alloc_grouping_by_test_type(
@@ -640,71 +687,8 @@ def test_pre_alloc_grouping_by_test_type(
         for group_hash, group in groups.items():
             error_message += f"\n{group_hash}: \n"
             error_message += f"tests: {group.test_ids}\n"
-            env_json = group.environment.model_dump_json(
+            genesis_json = group.genesis.model_dump_json(
                 indent=2, exclude_none=True
             )
-            error_message += f"env: {env_json}\n"
+            error_message += f"genesis: {genesis_json}\n"
         raise AssertionError(error_message)
-
-    for group_hash, group in groups.items():
-        assert (
-            group.environment.fee_recipient == group.genesis.fee_recipient
-        ), (
-            f"Fee recipient mismatch for group {group_hash}: "
-            f"{group.environment.fee_recipient} != "
-            f"{group.genesis.fee_recipient}"
-        )
-        assert group.environment.prev_randao == group.genesis.prev_randao, (
-            f"Prev randao mismatch for group {group_hash}: "
-            f"{group.environment.prev_randao} != {group.genesis.prev_randao}"
-        )
-        assert group.environment.extra_data == group.genesis.extra_data, (
-            f"Extra data mismatch for group {group_hash}: "
-            f"{group.environment.extra_data} != {group.genesis.extra_data}"
-        )
-        assert group.environment.number == group.genesis.number, (
-            f"Number mismatch for group {group_hash}: "
-            f"{group.environment.number} != {group.genesis.number}"
-        )
-        assert group.environment.timestamp == group.genesis.timestamp, (
-            f"Timestamp mismatch for group {group_hash}: "
-            f"{group.environment.timestamp} != {group.genesis.timestamp}"
-        )
-        assert group.environment.difficulty == group.genesis.difficulty, (
-            f"Difficulty mismatch for group {group_hash}: "
-            f"{group.environment.difficulty} != {group.genesis.difficulty}"
-        )
-        assert group.environment.gas_limit == group.genesis.gas_limit, (
-            f"Gas limit mismatch for group {group_hash}: "
-            f"{group.environment.gas_limit} != {group.genesis.gas_limit}"
-        )
-        assert (
-            group.environment.base_fee_per_gas
-            == group.genesis.base_fee_per_gas
-        ), (
-            f"Base fee per gas mismatch for group {group_hash}: "
-            f"{group.environment.base_fee_per_gas} != "
-            f"{group.genesis.base_fee_per_gas}"
-        )
-        assert (
-            group.environment.excess_blob_gas == group.genesis.excess_blob_gas
-        ), (
-            f"Excess blob gas mismatch for group {group_hash}: "
-            f"{group.environment.excess_blob_gas} != "
-            f"{group.genesis.excess_blob_gas}"
-        )
-        assert (
-            group.environment.blob_gas_used == group.genesis.blob_gas_used
-        ), (
-            f"Blob gas used mismatch for group {group_hash}: "
-            f"{group.environment.blob_gas_used} != "
-            f"{group.genesis.blob_gas_used}"
-        )
-        assert (
-            group.environment.parent_beacon_block_root
-            == group.genesis.parent_beacon_block_root
-        ), (
-            f"Parent beacon block root mismatch for group {group_hash}: "
-            f"{group.environment.parent_beacon_block_root} != "
-            f"{group.genesis.parent_beacon_block_root}"
-        )

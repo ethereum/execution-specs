@@ -21,7 +21,11 @@ from ethereum.exceptions import (
 )
 from ethereum.state import Address
 
-from .exceptions import InitCodeTooLargeError, TransactionTypeError
+from .exceptions import (
+    InitCodeTooLargeError,
+    PriorityFeeGreaterThanMaxFeeError,
+    TransactionTypeError,
+)
 from .fork_types import VersionedHash
 
 
@@ -434,7 +438,9 @@ def validate_transaction(tx: Transaction) -> Uint:
     provide enough gas to cover the intrinsic cost, and a `NonceOverflowError`
     exception if the nonce is greater than `2**64 - 2`. It also raises an
     `InitCodeTooLargeError` if the code size of a contract creation transaction
-    exceeds the maximum allowed size.
+    exceeds the maximum allowed size, and a `PriorityFeeGreaterThanMaxFeeError`
+    if the maximum priority fee per gas of a fee market transaction exceeds
+    its maximum fee per gas.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     """
@@ -447,6 +453,11 @@ def validate_transaction(tx: Transaction) -> Uint:
         raise InitCodeTooLargeError("Code size too large")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
+    if isinstance(tx, FeeMarketCapableTransaction):
+        if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
+            raise PriorityFeeGreaterThanMaxFeeError(
+                "priority fee greater than max fee"
+            )
 
     return intrinsic_gas
 

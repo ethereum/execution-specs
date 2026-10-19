@@ -13,10 +13,7 @@ Implementations of the EVM control flow instructions.
 
 from ethereum_types.numeric import U256, Uint
 
-from ...vm.gas import (
-    GasCosts,
-    charge_gas,
-)
+from ...vm.gas import GasCosts, charge_gas
 from .. import Evm
 from ..exceptions import InvalidJumpDestError
 from ..stack import pop, push
@@ -143,7 +140,7 @@ def gas_left(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_GAS)
 
     # OPERATION
-    push(evm.stack, U256(evm.gas_left))
+    push(evm.stack, U256(evm.gas_meter.gas_left))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

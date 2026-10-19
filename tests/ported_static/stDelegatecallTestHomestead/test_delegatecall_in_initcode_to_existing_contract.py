@@ -1,26 +1,51 @@
 """
-Test_delegatecall_in_initcode_to_existing_contract.
+Verify a DELEGATECALL made from inside init code to an existing
+contract.
+
+The created account's init code DELEGATECALLs an already-deployed
+contract, so that contract's code runs in the freshly created account's
+context with the init frame's caller preserved: both the delegate and
+the init code itself observe the creating contract as CALLER, and every
+storage write lands in the created account, never in the delegate.
 
 Ported from:
 state_tests/stDelegatecallTestHomestead/delegatecallInInitcodeToExistingContractFiller.json
+
+@manually-enhanced: Do not overwrite. The port's unused second creator
+contract is deleted, the raw-word init code is composed, the delegate
+call forwards all gas (EIP-8037-proof), the transaction budget is
+maxed, and the post also pins the created account's code/nonce/balance
+and that the delegate's own storage stays untouched.
 """
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    Macros,
+    Op,
+    Opcodes,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+CREATE_ENDOWMENT = 1
+RUNNER_BALANCE = 10_000
+
+# Written by the init code with the DELEGATECALL's success flag.
+DELEGATE_RESULT_SLOT = 0
+# Written by the init code with the CALLER it observes (the runner).
+INITCODE_CALLER_SLOT = 1
+# Written by the delegate's code, in the created account's context.
+DELEGATE_WRITE_SLOT = 2
+# Written by the delegate with the CALLER it observes (still the
+# runner: DELEGATECALL preserves the init frame's caller).
+DELEGATE_CALLER_SLOT = 0xB
+DELEGATE_VALUE_SLOT = 0xC
 
 
 @pytest.mark.ported_from(
@@ -28,80 +53,68 @@ REFERENCE_SPEC_VERSION = "N/A"
         "state_tests/stDelegatecallTestHomestead/delegatecallInInitcodeToExistingContractFiller.json"  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.with_all_create_opcodes
+@pytest.mark.valid_from("SpuriousDragon")
 def test_delegatecall_in_initcode_to_existing_contract(
     state_test: StateTestFiller,
     pre: Alloc,
+    create_opcode: Opcodes,
 ) -> None:
-    """Test_delegatecall_in_initcode_to_existing_contract."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x1000000000000000000000000000000000000000)
-    contract_1 = Address(0x1000000000000000000000000000000000000001)
-    contract_2 = Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    """A DELEGATECALL in init code runs in the created account."""
+    existing = pre.deploy_contract(
+        code=Op.SSTORE(key=DELEGATE_WRITE_SLOT, value=1)
+        + Op.SSTORE(key=DELEGATE_CALLER_SLOT, value=Op.CALLER)
+        + Op.SSTORE(key=DELEGATE_VALUE_SLOT, value=Op.CALLVALUE)
+        + Op.STOP,
     )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
+    initcode = (
+        Op.SSTORE(
+            key=DELEGATE_RESULT_SLOT,
+            value=Op.DELEGATECALL(address=existing),
+        )
+        + Op.SSTORE(key=INITCODE_CALLER_SLOT, value=Op.CALLER)
+        + Op.STOP
     )
 
-    pre[sender] = Account(balance=0x2386F26FC10000)
-    # Source: lll
-    # { (MSTORE 0 0x604060006040600073945304eb96065b2a98b57a48a06ae28d285a71b5620186) (MSTORE 32 0xa0f4600055336001550000000000000000000000000000000000000000000000) (CREATE 1 0 64) }  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x604060006040600073945304EB96065B2A98B57A48A06AE28D285A71B5620186,  # noqa: E501
-        )
-        + Op.MSTORE(
-            offset=0x20,
-            value=0xA0F4600055336001550000000000000000000000000000000000000000000000,  # noqa: E501
-        )
-        + Op.CREATE(value=0x1, offset=0x0, size=0x40)
+    runner = pre.deploy_contract(
+        code=Macros.MSTORE(initcode)
+        + create_opcode(value=CREATE_ENDOWMENT, offset=0, size=len(initcode))
         + Op.STOP,
-        balance=10000,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
+        balance=RUNNER_BALANCE,
     )
-    # Source: lll
-    # { (MSTORE 0 0x6001600055) (CREATE 1 27 5) }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0x6001600055)
-        + Op.CREATE(value=0x1, offset=0x1B, size=0x5)
-        + Op.STOP,
-        balance=1000,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
-    )
-    # Source: lll
-    # { (SSTORE 2 1) [[ 11 ]] (CALLER) }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x2, value=0x1)
-        + Op.SSTORE(key=0xB, value=Op.CALLER)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
+
+    # Deployed contracts start at nonce 1.
+    created = compute_create_address(
+        address=runner, nonce=1, initcode=initcode, opcode=create_opcode
     )
 
     tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=Bytes(""),
-        gas_limit=453081,
+        sender=pre.fund_eoa(),
+        to=runner,
     )
 
     post = {
-        compute_create_address(address=contract_0, nonce=0): Account(
-            storage={0: 1, 1: contract_0, 2: 1, 11: contract_0},
-            balance=1,
+        created: Account(
+            # The init code deploys no code but writes its own storage.
+            code=b"",
+            nonce=1,
+            balance=CREATE_ENDOWMENT,
+            storage={
+                DELEGATE_RESULT_SLOT: 1,
+                INITCODE_CALLER_SLOT: runner,
+                DELEGATE_WRITE_SLOT: 1,
+                DELEGATE_CALLER_SLOT: runner,
+                DELEGATE_VALUE_SLOT: CREATE_ENDOWMENT,
+            },
         ),
+        runner: Account(
+            nonce=2,
+            balance=RUNNER_BALANCE - CREATE_ENDOWMENT,
+            storage={},
+        ),
+        # The delegate's own storage must stay untouched.
+        existing: Account(storage={}),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

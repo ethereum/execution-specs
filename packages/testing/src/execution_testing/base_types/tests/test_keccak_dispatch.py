@@ -162,13 +162,3 @@ def test_eest_bytes_keccak256_matches_eels() -> None:
         from_eest = bytes(Bytes(buffer).keccak256())
         from_eels = bytes(keccak256(buffer))
         assert from_eest == from_eels
-
-
-def test_eest_trie_keccak256_matches_eels() -> None:
-    """`trie.keccak256` and EELS `keccak256` return identical digests."""
-    from ethereum.crypto.hash import keccak256 as eels
-
-    from ...test_types.trie import keccak256 as trie
-
-    for buffer in (b"", b"hashme", bytes(range(256))):
-        assert bytes(trie(buffer)) == bytes(eels(buffer))

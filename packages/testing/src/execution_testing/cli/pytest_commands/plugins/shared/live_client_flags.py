@@ -144,7 +144,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=int,
         default=None,
         help=(
-            "Maximum number of transactions to send in a single batch to "
+            "Maximum number of calls to send in a single batch request to "
             "the RPC. Default=750. Higher values may cause RPC instability."
         ),
     )
@@ -200,8 +200,8 @@ def dry_run(request: pytest.FixtureRequest) -> bool:
 
 
 @pytest.fixture(scope="session")
-def max_transactions_per_batch(request: pytest.FixtureRequest) -> int | None:
-    """Return max transactions per batch, or None for default."""
+def max_batch_size(request: pytest.FixtureRequest) -> int | None:
+    """Return max calls per batch request, or None for default."""
     return request.config.getoption("max_tx_per_batch")
 
 

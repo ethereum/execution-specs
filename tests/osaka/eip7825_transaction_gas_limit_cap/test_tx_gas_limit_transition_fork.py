@@ -24,6 +24,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7825.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7825.version
 
 
+@pytest.mark.inclusion_test
 @EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedBeforeFork()
 @EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork()
 @EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork()

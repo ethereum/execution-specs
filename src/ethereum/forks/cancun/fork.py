@@ -28,12 +28,8 @@ from ethereum.exceptions import (
     NonceMismatchError,
 )
 from ethereum.merkle_patricia_trie import root, trie_set
-from ethereum.state import (
-    EMPTY_CODE_HASH,
-    Address,
-    State,
-    apply_changes_to_state,
-)
+from ethereum.state import EMPTY_CODE_HASH, Address
+from ethereum.state_mpt import State, apply_changes_to_state
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
@@ -44,7 +40,6 @@ from .exceptions import (
     InsufficientMaxFeePerGasError,
     InvalidBlobVersionedHashError,
     NoBlobDataError,
-    PriorityFeeGreaterThanMaxFeeError,
     TransactionTypeContractCreationError,
     WrongChainIdError,
 )
@@ -156,7 +151,6 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
 
     """
     recent_blocks = chain.blocks[-255:]
-    # TODO: This function has not been tested rigorously
     if len(recent_blocks) == 0:
         return []
 
@@ -224,9 +218,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         withdrawals=block.withdrawals,
     )
     block_diff = extract_block_diff(block_state)
-    block_state_root, _ = chain.state.compute_state_root_and_trie_changes(
-        block_diff.account_changes, block_diff.storage_changes
-    )
+    block_state_root = chain.state.compute_state_root(block_diff)
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
     block_logs_bloom = logs_bloom(block_output.block_logs)
@@ -420,8 +412,6 @@ def check_transaction(
         If the sender's balance is not enough to pay for the transaction.
     InvalidSenderError :
         If the transaction is from an address that does not exist anymore.
-    PriorityFeeGreaterThanMaxFeeError :
-        If the priority fee is greater than the maximum fee per gas.
     InsufficientMaxFeePerGasError :
         If the maximum fee per gas is insufficient for the transaction.
     InsufficientMaxFeePerBlobGasError :
@@ -459,10 +449,6 @@ def check_transaction(
     sender_account = get_account(tx_state, sender_address)
 
     if isinstance(tx, FeeMarketCapableTransaction):
-        if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
-            raise PriorityFeeGreaterThanMaxFeeError(
-                "priority fee greater than max fee"
-            )
         if tx.max_fee_per_gas < block_env.base_fee_per_gas:
             raise InsufficientMaxFeePerGasError(
                 tx.max_fee_per_gas, block_env.base_fee_per_gas
@@ -826,7 +812,7 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        create_ether(wd_state, wd.address, wd.amount * U256(10**9))
+        create_ether(wd_state, wd.address, U256(wd.amount) * U256(10**9))
 
     incorporate_tx_into_block(wd_state)
 

@@ -12,7 +12,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import Final, List, Optional, Tuple, final
+from typing import List, Optional, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0
@@ -22,22 +22,14 @@ from ethereum_types.numeric import U64, U256, Uint, ulen
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
     EthereumException,
-    GasUsedExceedsLimitError,
     InsufficientBalanceError,
     InvalidBlock,
     InvalidSenderError,
-    NonceMismatchError,
 )
-from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
+from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.merkle_patricia_trie import root, trie_set
-from ethereum.state import (
-    EMPTY_CODE_HASH,
-    Address,
-    BlockDiff,
-    PreState,
-    State,
-    apply_changes_to_state,
-)
+from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff, PreState
+from ethereum.state_mpt import State, apply_changes_to_state
 
 from . import vm
 from .block_access_lists import (
@@ -48,19 +40,8 @@ from .block_access_lists import (
 )
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
-from .exceptions import (
-    BlobCountExceededError,
-    BlobGasLimitExceededError,
-    EmptyAuthorizationListError,
-    InsufficientMaxFeePerBlobGasError,
-    InsufficientMaxFeePerGasError,
-    InvalidBlobVersionedHashError,
-    NoBlobDataError,
-    PriorityFeeGreaterThanMaxFeeError,
-    TransactionTypeContractCreationError,
-    WrongChainIdError,
-)
-from .fork_types import Authorization, BlockAccessIndex, VersionedHash
+from .exceptions import WrongChainIdError
+from .fork_types import Authorization, BlockAccessIndex, ExecutionGas, StateGas
 from .requests import (
     BUILDER_DEPOSIT_REQUEST_TYPE,
     BUILDER_EXIT_REQUEST_TYPE,
@@ -81,37 +62,40 @@ from .state_tracker import (
     incorporate_tx_into_block,
     increment_nonce,
     set_account_balance,
-    track_ancestor_access,
 )
 from .transactions import (
-    TX_MAX_GAS_LIMIT,
     BlobTransaction,
-    FeeMarketCapableTransaction,
     LegacyTransaction,
     SetCodeTransaction,
     Transaction,
+    calculate_effective_gas_price,
+    calculate_max_gas_fee,
     chain_id,
+    check_nonce,
     decode_transaction,
     encode_transaction,
     get_transaction_hash,
     has_access_list,
     recover_sender,
-    recover_sender_from_public_key,
     validate_transaction,
 )
+from .utils.address import compute_contract_address
 from .utils.hexadecimal import hex_to_address
-from .utils.message import prepare_message
-from .vm import Message
 from .vm.eoa_delegation import is_valid_delegation
+from .vm.gas import MAX_BLOB_GAS_PER_BLOCK as MAX_BLOB_GAS_PER_BLOCK
 from .vm.gas import (
     GasCosts,
     StateGasCosts,
-    calculate_blob_gas_price,
+    TransactionGasSettlement,
+    allocate_evm_gas,
     calculate_data_fee,
     calculate_excess_blob_gas,
     calculate_total_blob_gas,
+    check_block_gas_capacity,
+    check_max_fee_per_blob_gas,
+    settle_transaction_gas,
 )
-from .vm.interpreter import MessageCallOutput, process_message_call
+from .vm.interpreter import TransactionOutput, process_top_level
 
 BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
 ELASTICITY_MULTIPLIER = Uint(2)
@@ -120,16 +104,12 @@ SYSTEM_ADDRESS = hex_to_address("0xfffffffffffffffffffffffffffffffffffffffe")
 BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
-SYSTEM_TRANSACTION_GAS = Uint(30000000)
+SYSTEM_TRANSACTION_GAS = ExecutionGas(Uint(30000000))
 SYSTEM_MAX_SSTORES_PER_CALL = Uint(16)
 """
 Upper bound on the number of new storage slots a single system call is
 expected to write.
 """
-MAX_BLOB_GAS_PER_BLOCK: Final[U64] = (
-    GasCosts.BLOB_SCHEDULE_MAX * GasCosts.PER_BLOB
-)
-VERSIONED_HASH_VERSION_KZG = b"\x01"
 GWEI_TO_WEI = U256(10**9)
 
 WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
@@ -150,7 +130,6 @@ HISTORY_STORAGE_ADDRESS = hex_to_address(
 MAX_BLOCK_SIZE = 10_485_760
 SAFETY_MARGIN = 2_097_152
 MAX_RLP_BLOCK_SIZE = MAX_BLOCK_SIZE - SAFETY_MARGIN
-BLOB_COUNT_LIMIT = 6
 
 
 @final
@@ -167,7 +146,7 @@ class ChainContext:
     block_hashes: List[Hash32]
     """Recent ancestor hashes (up to 256) for the ``BLOCKHASH`` opcode."""
 
-    parent_header: Header | PreviousForkHeader
+    parent_header: Header | PreviousHeader
     """Parent header used for header validation and system contracts."""
 
 
@@ -228,7 +207,6 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
 
     """
     recent_blocks = chain.blocks[-255:]
-    # TODO: This function has not been tested rigorously
     if len(recent_blocks) == 0:
         return []
 
@@ -290,7 +268,6 @@ def execute_block(
     block: Block,
     pre_state: PreState,
     chain_context: ChainContext,
-    transaction_public_keys: Optional[Tuple[Bytes, ...]] = None,
 ) -> BlockDiff:
     """
     Execute a block and validate the resulting roots against the header.
@@ -305,8 +282,6 @@ def execute_block(
         Pre-execution state provider.
     chain_context :
         Chain context that the block may need during execution.
-    transaction_public_keys :
-        Optional transaction public keys in block order.
 
     Returns
     -------
@@ -316,13 +291,6 @@ def execute_block(
     """
     if len(rlp.encode(block)) > MAX_RLP_BLOCK_SIZE:
         raise InvalidBlock("Block rlp size exceeds MAX_RLP_BLOCK_SIZE")
-
-    if transaction_public_keys is not None and len(
-        transaction_public_keys
-    ) != len(block.transactions):
-        raise InvalidBlock(
-            "Transaction public key count does not match block transactions"
-        )
 
     parent_header = chain_context.parent_header
     validate_header(parent_header, block.header)
@@ -346,7 +314,6 @@ def execute_block(
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
         slot_number=block.header.slot_number,
-        transaction_public_keys=transaction_public_keys,
     )
 
     block_output = apply_body(
@@ -355,9 +322,7 @@ def execute_block(
         withdrawals=block.withdrawals,
     )
     block_diff = extract_block_diff(block_state)
-    block_state_root, _ = pre_state.compute_state_root_and_trie_changes(
-        block_diff.account_changes, block_diff.storage_changes
-    )
+    block_state_root = pre_state.compute_state_root(block_diff)
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
     block_logs_bloom = logs_bloom(block_output.block_logs)
@@ -457,7 +422,7 @@ def calculate_base_fee_per_gas(
 
 
 def validate_header(
-    parent_header: Header | PreviousForkHeader, header: Header
+    parent_header: Header | PreviousHeader, header: Header
 ) -> None:
     """
     Verify a block header against its parent.
@@ -517,11 +482,14 @@ def check_transaction(
     block_env: vm.BlockEnvironment,
     block_output: vm.BlockOutput,
     tx: Transaction,
-    sender: Address,
-    tx_state: TransactionState,
-) -> Tuple[Uint, Tuple[VersionedHash, ...], U64]:
+    index: Uint,
+) -> vm.TransactionEnvironment:
     """
-    Check if the transaction is includable in the block.
+    Admit a raw transaction and build its execution environment.
+
+    Recover the sender, statically validate the transaction, and check
+    that it is includable in the block, in that order, so that a
+    transaction invalid in several ways reports the earliest failure.
 
     Parameters
     ----------
@@ -531,24 +499,25 @@ def check_transaction(
         The block output for the current block.
     tx :
         The transaction.
-    sender :
-        The recovered sender address of the transaction.
-    tx_state :
-        The transaction state tracker.
+    index :
+        The index of the current transaction.
 
     Returns
     -------
-    effective_gas_price :
-        The price to charge for gas when the transaction is executed.
-    blob_versioned_hashes :
-        The blob versioned hashes of the transaction.
-    tx_blob_gas_used:
-        The blob gas used by the transaction.
+    tx_env :
+        The environment for executing the transaction.
 
     Raises
     ------
     InvalidBlock :
         If the transaction is not includable.
+    InvalidSignatureError :
+        If the transaction's signature is invalid.
+    InsufficientTransactionGasError :
+        If the transaction does not provide enough gas to cover its
+        intrinsic cost.
+    TransactionGasLimitExceededError :
+        If the transaction's gas limit exceeds `TX_MAX_TOTAL_GAS_LIMIT`.
     GasUsedExceedsLimitError :
         If the gas used by the transaction exceeds the block's gas limit.
     NonceMismatchError :
@@ -557,8 +526,6 @@ def check_transaction(
         If the sender's balance is not enough to pay for the transaction.
     InvalidSenderError :
         If the transaction is from an address that does not exist anymore.
-    PriorityFeeGreaterThanMaxFeeError :
-        If the priority fee is greater than the maximum fee per gas.
     InsufficientMaxFeePerGasError :
         If the maximum fee per gas is insufficient for the transaction.
     InsufficientMaxFeePerBlobGasError :
@@ -566,82 +533,29 @@ def check_transaction(
     BlobGasLimitExceededError :
         If the blob gas used by the transaction exceeds the block's blob gas
         limit.
-    InvalidBlobVersionedHashError :
-        If the transaction contains a blob versioned hash with an invalid
-        version.
-    NoBlobDataError :
-        If the transaction is a type 3 but has no blobs.
-    BlobCountExceededError :
-        If the transaction is a type 3 and has more blobs than the limit.
-    TransactionTypeContractCreationError:
-        If the transaction type is not allowed to create contracts.
-    EmptyAuthorizationListError :
-        If the transaction is a SetCodeTransaction and the authorization list
-        is empty.
 
     """
-    regular_gas_available = (
-        block_env.block_gas_limit - block_output.block_gas_used
+    sender = recover_sender(tx)
+    intrinsic = validate_transaction(tx, sender)
+    tx_state = TransactionState(parent=block_env.state)
+
+    check_block_gas_capacity(
+        block_env, block_output, tx.gas, calculate_total_blob_gas(tx)
     )
-    state_gas_available = (
-        block_env.block_gas_limit - block_output.block_state_gas_used
-    )
-    blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
-
-    # EIP-8037 per-dimension inclusion check.
-    if min(TX_MAX_GAS_LIMIT, tx.gas) > regular_gas_available:
-        raise GasUsedExceedsLimitError("regular gas used exceeds limit")
-
-    if tx.gas > state_gas_available:
-        raise GasUsedExceedsLimitError("state gas used exceeds limit")
-
-    tx_blob_gas_used = calculate_total_blob_gas(tx)
-    if tx_blob_gas_used > blob_gas_available:
-        raise BlobGasLimitExceededError("blob gas limit exceeded")
 
     sender_account = get_account(tx_state, sender)
 
-    if isinstance(tx, FeeMarketCapableTransaction):
-        if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
-            raise PriorityFeeGreaterThanMaxFeeError(
-                "priority fee greater than max fee"
-            )
-        if tx.max_fee_per_gas < block_env.base_fee_per_gas:
-            raise InsufficientMaxFeePerGasError(
-                tx.max_fee_per_gas, block_env.base_fee_per_gas
-            )
-
-        priority_fee_per_gas = min(
-            tx.max_priority_fee_per_gas,
-            tx.max_fee_per_gas - block_env.base_fee_per_gas,
-        )
-        effective_gas_price = priority_fee_per_gas + block_env.base_fee_per_gas
-        max_gas_fee = tx.gas * tx.max_fee_per_gas
-    else:
-        if tx.gas_price < block_env.base_fee_per_gas:
-            raise InvalidBlock
-        effective_gas_price = tx.gas_price
-        max_gas_fee = tx.gas * tx.gas_price
+    effective_gas_price = calculate_effective_gas_price(
+        tx, block_env.base_fee_per_gas
+    )
+    max_gas_fee = calculate_max_gas_fee(tx, tx.gas)
 
     if isinstance(tx, BlobTransaction):
-        blob_count = len(tx.blob_versioned_hashes)
-        if blob_count == 0:
-            raise NoBlobDataError("no blob data in transaction")
-        if blob_count > BLOB_COUNT_LIMIT:
-            raise BlobCountExceededError(
-                f"Tx has {blob_count} blobs. Max allowed: {BLOB_COUNT_LIMIT}"
-            )
-        for blob_versioned_hash in tx.blob_versioned_hashes:
-            if blob_versioned_hash[0:1] != VERSIONED_HASH_VERSION_KZG:
-                raise InvalidBlobVersionedHashError(
-                    "invalid blob versioned hash"
-                )
-
-        blob_gas_price = calculate_blob_gas_price(block_env.excess_blob_gas)
-        if Uint(tx.max_fee_per_blob_gas) < blob_gas_price:
-            raise InsufficientMaxFeePerBlobGasError(
-                "insufficient max fee per blob gas"
-            )
+        check_max_fee_per_blob_gas(
+            tx.blob_versioned_hashes,
+            tx.max_fee_per_blob_gas,
+            block_env.excess_blob_gas,
+        )
 
         max_gas_fee += Uint(calculate_total_blob_gas(tx)) * Uint(
             tx.max_fee_per_blob_gas
@@ -650,35 +564,64 @@ def check_transaction(
     else:
         blob_versioned_hashes = ()
 
-    if isinstance(tx, (BlobTransaction, SetCodeTransaction)):
-        if not isinstance(tx.to, Address):
-            raise TransactionTypeContractCreationError(tx)
-
-    if isinstance(tx, SetCodeTransaction):
-        if not any(tx.authorizations):
-            raise EmptyAuthorizationListError("empty authorization list")
-
-    if sender_account.nonce > Uint(tx.nonce):
-        raise NonceMismatchError("nonce too low")
-    elif sender_account.nonce < Uint(tx.nonce):
-        raise NonceMismatchError("nonce too high")
+    check_nonce(tx, sender_account.nonce)
 
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
-    sender_code = get_code(
-        tx_state,
-        sender_account.code_hash,
-        sender,
-    )
+    sender_code = get_code(tx_state, sender_account.code_hash)
     if sender_account.code_hash != EMPTY_CODE_HASH and not is_valid_delegation(
         sender_code
     ):
         raise InvalidSenderError("not EOA")
 
-    return (
-        effective_gas_price,
-        blob_versioned_hashes,
-        tx_blob_gas_used,
+    # Split the EVM gas into an execution-gas grant (capped by the
+    # remaining execution-gas budget) and a state gas reservoir.
+    allocation = allocate_evm_gas(tx.gas, intrinsic)
+
+    access_list_addresses = set()
+    access_list_storage_keys = set()
+    if has_access_list(tx):
+        for access in tx.access_list:
+            access_list_addresses.add(access.account)
+            for slot in access.slots:
+                access_list_storage_keys.add((access.account, slot))
+
+    authorizations: Tuple[Authorization, ...] = ()
+    if isinstance(tx, SetCodeTransaction):
+        authorizations = tx.authorizations
+
+    if isinstance(tx.to, Bytes0):
+        is_create = True
+        # A creation's frame runs at the address the contract
+        # deploys to.
+        recipient = compute_contract_address(sender, sender_account.nonce)
+    else:
+        is_create = False
+        recipient = tx.to
+
+    accounts_with_paid_writes = {sender}
+    if is_create or tx.value > U256(0):
+        accounts_with_paid_writes.add(recipient)
+
+    return vm.TransactionEnvironment(
+        origin=sender,
+        recipient=recipient,
+        is_create=is_create,
+        data=tx.data,
+        value=tx.value,
+        gas_limit=tx.gas,
+        effective_gas_price=effective_gas_price,
+        execution_gas_grant=allocation.execution_gas,
+        state_gas_reservoir=allocation.state_gas_reservoir,
+        calldata_floor=intrinsic.calldata_floor,
+        access_list_addresses=access_list_addresses,
+        access_list_storage_keys=access_list_storage_keys,
+        accounts_with_paid_writes=accounts_with_paid_writes,
+        state=tx_state,
+        blob_versioned_hashes=blob_versioned_hashes,
+        authorizations=authorizations,
+        index_in_block=index,
+        tx_hash=get_transaction_hash(encode_transaction(tx)),
     )
 
 
@@ -723,7 +666,7 @@ def process_checked_system_transaction(
     block_env: vm.BlockEnvironment,
     target_address: Address,
     data: Bytes,
-) -> MessageCallOutput:
+) -> TransactionOutput:
     """
     Process a system transaction and raise an error if the contract does not
     contain code or if the transaction fails.
@@ -739,8 +682,8 @@ def process_checked_system_transaction(
 
     Returns
     -------
-    system_tx_output : `MessageCallOutput`
-        Output of processing the system transaction.
+    system_tx_output : `TransactionOutput`
+        The settled output of the system transaction.
 
     """
     # Pre-check that the system contract has code. We use a throwaway
@@ -755,7 +698,6 @@ def process_checked_system_transaction(
     system_contract_code = get_code(
         untracked_state,
         get_account(untracked_state, target_address).code_hash,
-        target_address,
     )
 
     if len(system_contract_code) == 0:
@@ -783,7 +725,7 @@ def process_unchecked_system_transaction(
     block_env: vm.BlockEnvironment,
     target_address: Address,
     data: Bytes,
-) -> MessageCallOutput:
+) -> TransactionOutput:
     """
     Process a system transaction without checking if the contract contains
     code or if the transaction fails.
@@ -799,61 +741,37 @@ def process_unchecked_system_transaction(
 
     Returns
     -------
-    system_tx_output : `MessageCallOutput`
-        Output of processing the system transaction.
+    system_tx_output : `TransactionOutput`
+        The settled output of the system transaction.
 
     """
     system_tx_state = TransactionState(parent=block_env.state)
-    system_contract_code = get_code(
-        system_tx_state,
-        get_account(system_tx_state, target_address).code_hash,
-        target_address,
-    )
 
     tx_env = vm.TransactionEnvironment(
         origin=SYSTEM_ADDRESS,
         recipient=target_address,
+        is_create=False,
+        data=data,
         value=U256(0),
-        gas_price=block_env.base_fee_per_gas,
-        gas=SYSTEM_TRANSACTION_GAS,
-        state_gas_reservoir=(
+        gas_limit=SYSTEM_TRANSACTION_GAS,
+        effective_gas_price=block_env.base_fee_per_gas,
+        execution_gas_grant=SYSTEM_TRANSACTION_GAS,
+        state_gas_reservoir=StateGas(
             StateGasCosts.STORAGE_SET * SYSTEM_MAX_SSTORES_PER_CALL
         ),
+        calldata_floor=Uint(0),
         access_list_addresses=set(),
         access_list_storage_keys=set(),
+        # A system transaction charges no gas, so no write is paid for.
+        accounts_with_paid_writes=set(),
         state=system_tx_state,
         blob_versioned_hashes=(),
         authorizations=(),
         index_in_block=None,
         tx_hash=None,
-        intrinsic_regular_gas=Uint(0),
-        intrinsic_state_gas=Uint(0),
     )
 
-    system_tx_message = Message(
-        block_env=block_env,
-        tx_env=tx_env,
-        caller=SYSTEM_ADDRESS,
-        target=target_address,
-        gas=SYSTEM_TRANSACTION_GAS,
-        state_gas_reservoir=(
-            StateGasCosts.STORAGE_SET * SYSTEM_MAX_SSTORES_PER_CALL
-        ),
-        value=U256(0),
-        data=data,
-        code=system_contract_code,
-        depth=Uint(0),
-        current_target=target_address,
-        code_address=target_address,
-        should_transfer_value=False,
-        is_static=False,
-        accessed_addresses=set(),
-        accessed_storage_keys=set(),
-        disable_precompiles=False,
-        parent_evm=None,
-    )
-
-    system_tx_output = process_message_call(system_tx_message)
+    system_tx_output = process_top_level(block_env, tx_env)
 
     incorporate_tx_into_block(
         system_tx_state, block_env.block_access_list_builder
@@ -904,10 +822,6 @@ def apply_body(
         block_env=block_env,
         target_address=HISTORY_STORAGE_ADDRESS,
         data=block_env.block_hashes[-1],  # The parent hash
-    )
-    track_ancestor_access(
-        block_env.state,
-        Uint(1),
     )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
@@ -1007,6 +921,86 @@ def process_general_purpose_requests(
         )
 
 
+def update_sender_state(
+    block_env: vm.BlockEnvironment,
+    tx_env: vm.TransactionEnvironment,
+    tx: Transaction,
+) -> None:
+    """
+    Debit the sender for the transaction's maximum possible gas fee.
+
+    Increment the sender's nonce and deduct the largest fee the
+    transaction could incur -- its gas limit priced at the effective gas
+    price, plus the blob fee resolved at inclusion -- up front.
+    Execution later refunds whatever execution gas was not spent.
+
+    Parameters
+    ----------
+    block_env :
+        The block's execution environment.
+    tx_env :
+        The transaction's execution environment.
+    tx :
+        The transaction being charged.
+
+    """
+    tx_state = tx_env.state
+    sender = tx_env.origin
+    sender_account = get_account(tx_state, sender)
+
+    effective_gas_fee = tx_env.gas_limit * tx_env.effective_gas_price
+    if isinstance(tx, BlobTransaction):
+        blob_gas_fee = calculate_data_fee(block_env.excess_blob_gas, tx)
+    else:
+        blob_gas_fee = Uint(0)
+
+    increment_nonce(tx_state, sender)
+
+    sender_balance_after_gas_fee = (
+        Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
+    )
+    set_account_balance(tx_state, sender, U256(sender_balance_after_gas_fee))
+
+
+def disburse_gas_fees(
+    block_env: vm.BlockEnvironment,
+    tx_env: vm.TransactionEnvironment,
+    settlement: TransactionGasSettlement,
+    payer: Address,
+) -> None:
+    """
+    Refund the payer's unspent gas and pay the priority fee.
+
+    Return the gas the transaction did not use to the ``payer`` that
+    fronted the maximum fee at inclusion, priced at the effective gas
+    price, and credit the coinbase with the priority fee on the gas that
+    was used.
+
+    Parameters
+    ----------
+    block_env :
+        The block scoped environment.
+    tx_env :
+        The transaction's execution environment.
+    settlement :
+        The settled gas amounts.
+    payer :
+        The account that fronted the maximum gas fee and receives the
+        refund.
+
+    """
+    tx_state = tx_env.state
+    gas_refund_amount = settlement.gas_left * tx_env.effective_gas_price
+
+    priority_fee_per_gas = (
+        tx_env.effective_gas_price - block_env.base_fee_per_gas
+    )
+    transaction_fee = settlement.gas_used * priority_fee_per_gas
+
+    create_ether(tx_state, payer, U256(gas_refund_amount))
+    create_ether(tx_state, block_env.coinbase, U256(transaction_fee))
+
+
 def process_transaction(
     block_env: vm.BlockEnvironment,
     block_output: vm.BlockOutput,
@@ -1040,7 +1034,6 @@ def process_transaction(
     block_env.block_access_list_builder.block_access_index = BlockAccessIndex(
         index + Uint(1)
     )
-    tx_state = TransactionState(parent=block_env.state)
 
     trie_set(
         block_output.transactions_trie,
@@ -1055,142 +1048,28 @@ def process_transaction(
             actual=tx_chain_id,
         )
 
-    sender_public_key = None
-    if block_env.transaction_public_keys is not None:
-        sender_public_key = block_env.transaction_public_keys[int(index)]
+    tx_env = check_transaction(block_env, block_output, tx, index)
 
-    if sender_public_key is None:
-        sender = recover_sender(tx)
-    else:
-        sender = recover_sender_from_public_key(
-            block_env.chain_id,
-            tx,
-            sender_public_key,
-        )
+    update_sender_state(block_env, tx_env, tx)
 
-    intrinsic = validate_transaction(tx, sender)
+    tx_output = process_top_level(block_env, tx_env)
 
-    intrinsic_gas = Uint(intrinsic.regular) + Uint(intrinsic.state)
-
-    (
-        effective_gas_price,
-        blob_versioned_hashes,
-        tx_blob_gas_used,
-    ) = check_transaction(
-        block_env=block_env,
-        block_output=block_output,
-        tx=tx,
-        sender=sender,
-        tx_state=tx_state,
+    settlement = settle_transaction_gas(
+        tx_env.gas_limit,
+        tx_env.calldata_floor,
+        tx_output.gas_left,
+        tx_output.state_gas_left,
+        tx_output.refund_counter,
+        tx_output.state_gas_used,
     )
 
-    sender_account = get_account(tx_state, sender)
+    disburse_gas_fees(block_env, tx_env, settlement, tx_env.origin)
 
-    if isinstance(tx, BlobTransaction):
-        blob_gas_fee = calculate_data_fee(block_env.excess_blob_gas, tx)
-    else:
-        blob_gas_fee = Uint(0)
+    block_output.block_gas_used += settlement.execution_gas_used
+    block_output.block_state_gas_used += settlement.state_gas_used
+    block_output.blob_gas_used += calculate_total_blob_gas(tx)
 
-    effective_gas_fee = tx.gas * effective_gas_price
-
-    # Split execution gas into gas_left (capped by remaining regular gas
-    # budget) and state_gas_reservoir.
-    execution_gas = tx.gas - intrinsic_gas
-    regular_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.regular
-    gas = min(regular_gas_budget, execution_gas)
-    state_gas_reservoir = Uint(execution_gas - gas)
-
-    increment_nonce(tx_state, sender)
-
-    sender_balance_after_gas_fee = (
-        Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
-    )
-    set_account_balance(tx_state, sender, U256(sender_balance_after_gas_fee))
-
-    access_list_addresses = set()
-    access_list_storage_keys = set()
-    access_list_addresses.add(block_env.coinbase)
-    if has_access_list(tx):
-        for access in tx.access_list:
-            access_list_addresses.add(access.account)
-            for slot in access.slots:
-                access_list_storage_keys.add((access.account, slot))
-
-    authorizations: Tuple[Authorization, ...] = ()
-    if isinstance(tx, SetCodeTransaction):
-        authorizations = tx.authorizations
-
-    tx_env = vm.TransactionEnvironment(
-        origin=sender,
-        recipient=tx.to,
-        value=tx.value,
-        gas_price=effective_gas_price,
-        gas=gas,
-        state_gas_reservoir=state_gas_reservoir,
-        access_list_addresses=access_list_addresses,
-        access_list_storage_keys=access_list_storage_keys,
-        state=tx_state,
-        blob_versioned_hashes=blob_versioned_hashes,
-        authorizations=authorizations,
-        index_in_block=index,
-        tx_hash=get_transaction_hash(encode_transaction(tx)),
-        intrinsic_regular_gas=intrinsic.regular,
-        intrinsic_state_gas=intrinsic.state,
-    )
-
-    message = prepare_message(
-        block_env,
-        tx_env,
-        tx,
-    )
-
-    tx_output = process_message_call(message)
-
-    if isinstance(tx.to, Bytes0) and (
-        tx_output.error is not None or tx_output.created_target_alive
-    ):
-        new_account_refund = StateGasCosts.NEW_ACCOUNT
-        tx_output.state_gas_left += new_account_refund
-        tx_output.state_refund += new_account_refund
-
-    tx_gas_used_before_refund = (
-        tx.gas - tx_output.gas_left - tx_output.state_gas_left
-    )
-    tx_gas_refund = min(
-        tx_gas_used_before_refund // Uint(5), Uint(tx_output.refund_counter)
-    )
-    tx_gas_used_after_refund = tx_gas_used_before_refund - tx_gas_refund
-
-    # Transactions with less execution_gas_used than the floor pay at the
-    # floor cost.
-    tx_gas_used = max(tx_gas_used_after_refund, intrinsic.calldata_floor)
-
-    tx_gas_left = tx.gas - tx_gas_used
-    gas_refund_amount = tx_gas_left * effective_gas_price
-
-    # For non-1559 transactions effective_gas_price == tx.gas_price
-    priority_fee_per_gas = effective_gas_price - block_env.base_fee_per_gas
-    transaction_fee = tx_gas_used * priority_fee_per_gas
-
-    # refund gas
-    create_ether(tx_state, sender, U256(gas_refund_amount))
-
-    # transfer miner fees
-    create_ether(tx_state, block_env.coinbase, U256(transaction_fee))
-
-    tx_state_gas = (
-        int(tx_env.intrinsic_state_gas)
-        + tx_output.state_gas_used
-        - int(tx_output.state_refund)
-    )
-    # Defensive guard for Uint conversion: State refunds never exceed
-    # the state charges so the value is non-negative.
-    tx_regular_gas = tx_gas_used_before_refund - Uint(max(0, tx_state_gas))
-    block_output.block_gas_used += tx_regular_gas
-    block_output.block_state_gas_used += Uint(max(0, tx_state_gas))
-    block_output.blob_gas_used += tx_blob_gas_used
-
-    block_output.cumulative_gas_used += tx_gas_used
+    block_output.cumulative_gas_used += settlement.gas_used
     receipt = make_receipt(
         tx, tx_output.error, block_output.cumulative_gas_used, tx_output.logs
     )
@@ -1207,9 +1086,11 @@ def process_transaction(
     block_output.block_logs += tx_output.logs
 
     for address in tx_output.accounts_to_delete:
-        clear_account_preserving_balance(tx_state, address)
+        clear_account_preserving_balance(tx_env.state, address)
 
-    incorporate_tx_into_block(tx_state, block_env.block_access_list_builder)
+    incorporate_tx_into_block(
+        tx_env.state, block_env.block_access_list_builder
+    )
 
 
 def process_withdrawals(
@@ -1229,7 +1110,7 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        create_ether(wd_state, wd.address, wd.amount * GWEI_TO_WEI)
+        create_ether(wd_state, wd.address, U256(wd.amount) * GWEI_TO_WEI)
 
     incorporate_tx_into_block(wd_state, block_env.block_access_list_builder)
 

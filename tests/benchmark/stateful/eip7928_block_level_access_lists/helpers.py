@@ -31,7 +31,7 @@ from execution_testing import (
 )
 from execution_testing.base_types.base_types import Number
 
-from tests.benchmark.stateful.helpers import (
+from tests.benchmark.helper.storage import (
     StorageInitRange,
     build_sequential_storage_init,
 )
@@ -243,6 +243,7 @@ def run_bal_benchmark(
                     pre=pre,
                     fork=fork,
                     tx_gas_limit=tx_gas_limit,
+                    block_gas_budget=sum(plan.gas_limits),
                     authority=authority,
                     storage_init_ranges=storage_init_ranges,
                 )

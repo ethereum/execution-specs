@@ -1,11 +1,13 @@
 opcode = EIP does not introduce a new opcode
 precompile = EIP does not introduce a new precompile
 removed_precompile = EIP does not remove a precompile
-system_contract = EIP does not introduce a new system contract
+system_contract = EIP does not introduce a new system contract; it only changes gas available to calls of existing system contracts
 transaction_type = EIP does not introduce a new transaction type
 block_header_field = EIP does not add any new block header fields
 block_body_field = EIP does not add any new block body fields
+gas_refunds_changes/test/exceptional_abort/non_revertable = EIP-8037 has no non-revertable gas-refund operation; EIP-7702 authorization state charges persist and are not refunds
 blob_count_changes = EIP does not introduce any blob count changes
 execution_layer_request = EIP does not introduce an execution layer request
-new_transaction_validity_constraint = EIP does not introduce a new transaction validity constraint
-block_level_constraint = EIP does not introduce a block-level validation constraint
+new_transaction_validity_constraint = EIP replaces an existing transaction constraint instead of introducing an independent new constraint
+block_level_constraint/test/content/receipts = Receipt encoding size is not an input to the two-dimensional block gas constraint
+block_level_constraint/test/content/withdrawals = Withdrawals do not consume execution or state gas and are not an input to the two-dimensional block gas constraint

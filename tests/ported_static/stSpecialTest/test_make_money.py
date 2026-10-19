@@ -1,17 +1,21 @@
 """
-Test_make_money.
+Verify value flows tx -> caller -> callee when the CALL asks for an absurdly
+oversized gas amount (near 2^256), which the EIP-150 63/64 cap must clamp.
 
 Ported from:
 state_tests/stSpecialTest/makeMoneyFiller.json
+
+@manually-enhanced: Do not overwrite. Value flow tx->caller->callee expressed
+as a relationship; dynamic addresses. The oversized CALL gas operand is the
+original filler's point (clamping, not wrapping, of a near-2^256 ask) and
+must stay explicit.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -20,70 +24,52 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+INITIAL_BALANCE = 0xDE0B6B3A7640000
+TX_VALUE = 10
+CALL_VALUE = 0x17
+# The ported filler asks for nearly 2^256 gas: a client computing e.g.
+# `requested + stipend` in wrapping arithmetic would forward almost nothing
+# and OOG the callee, so the 63/64 clamp itself is under test.
+OVERSIZED_GAS_ASK = 2**256 - 20
+
 
 @pytest.mark.ported_from(
     ["state_tests/stSpecialTest/makeMoneyFiller.json"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("TangerineWhistle")
 def test_make_money(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Test_make_money."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0x3B9ACA00)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
-    # Source: raw
-    # 0x600160015532600255
-    addr = pre.deploy_contract(  # noqa: F841
+    """Value forwards tx -> caller -> callee; the callee records ORIGIN."""
+    # Callee stores a sentinel and the transaction origin, proving its code
+    # ran (not merely that value was transferred).
+    callee = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x1)
         + Op.SSTORE(key=0x2, value=Op.ORIGIN),
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
+        balance=INITIAL_BALANCE,
     )
-    # Source: lll
-    # { (MSTORE 0 0x601080600c6000396000f20060003554156009570060203560003555) (CALL 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffec <contract:0xaaaaaaaaace5edbc8e2a8697c15331677e6ebf0b> 23 0 0 0 0) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x601080600C6000396000F20060003554156009570060203560003555,
-        )
-        + Op.CALL(
-            gas=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEC,  # noqa: E501
-            address=addr,
-            value=0x17,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
+    caller = pre.deploy_contract(
+        code=Op.CALL(gas=OVERSIZED_GAS_ASK, address=callee, value=CALL_VALUE)
         + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
+        balance=INITIAL_BALANCE,
     )
 
+    sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=228500,
-        value=10,
+        to=caller,
+        value=TX_VALUE,
+        protected=fork.supports_protected_txs(),
     )
 
     post = {
-        target: Account(balance=0xDE0B6B3A763FFF3),
-        sender: Account(balance=0x3B8F6A16),
-        addr: Account(balance=0xDE0B6B3A7640017),
+        caller: Account(balance=INITIAL_BALANCE + TX_VALUE - CALL_VALUE),
+        callee: Account(
+            balance=INITIAL_BALANCE + CALL_VALUE,
+            storage={1: 1, 2: sender},
+        ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

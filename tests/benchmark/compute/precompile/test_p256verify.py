@@ -14,7 +14,7 @@ from execution_testing import (
     WhileGas,
 )
 
-from tests.benchmark.compute.helpers import Precompile
+from tests.benchmark.helper.precompile import Precompile
 from tests.osaka.eip7951_p256verify_precompiles import spec as p256verify_spec
 from tests.osaka.eip7951_p256verify_precompiles.spec import H, R, S, X, Y
 

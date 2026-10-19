@@ -25,7 +25,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -51,15 +51,14 @@ def test_14_revert_after_nested_staticcall(
     # cold zero -> nonzero set) and clears slot 1's cold marker; sum the
     # per-slot increases so the original budget stays sufficient. Each
     # term is exactly 0 before EIP-8037.
-    def _sstore_delta(cancun_cost: int, **metadata: int) -> int:
+    def _sstore_delta(**metadata: int) -> int:
         op = Op.SSTORE.with_metadata(**metadata)
-        return op.gas_cost(fork) - cancun_cost
+        return op.gas_cost(fork) - op.gas_cost(Cancun)
 
     cold_set_delta = _sstore_delta(
-        22100, key_warm=False, original_value=0, current_value=0, new_value=10
+        key_warm=False, original_value=0, current_value=0, new_value=10
     )
     cold_clear_delta = _sstore_delta(
-        5000,
         key_warm=False,
         original_value=65535,
         current_value=65535,

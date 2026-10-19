@@ -18,6 +18,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    DepositRequest,
     Fork,
     Header,
     Requests,
@@ -26,7 +27,6 @@ from execution_testing import (
 )
 from execution_testing.base_types import HexNumber
 
-from .helpers import DepositRequest
 from .spec import ref_spec_6110
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_6110.git_path

@@ -15,8 +15,8 @@ from ethereum.genesis import (
     get_genesis_configuration,
 )
 from ethereum.merkle_patricia_trie import Trie, root
-from ethereum.state import (
-    Address,
+from ethereum.state import Address
+from ethereum.state_mpt import (
     State,
     set_account,
     set_storage,
@@ -68,11 +68,10 @@ def fork_name(fork: Hardfork) -> str:
 def test_genesis(fork: Hardfork) -> None:
     """Tests genesis block creation for all hardforks."""
     # TODO: remove once the changes have been back-ported
-    from ethereum.merkle_patricia_trie import Trie
-    from ethereum.state import (
-        Address,
+    from ethereum.merkle_patricia_trie import Trie, root
+    from ethereum.state import Address
+    from ethereum.state_mpt import (
         State,
-        root,
         set_account,
         set_storage,
         state_root,

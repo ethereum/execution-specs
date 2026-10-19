@@ -13,23 +13,31 @@ Test gas costs with EIP-2780 for value-moving transactions to:
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Address,
     Alloc,
     Fork,
+    Hash,
     Initcode,
     Op,
     RecipientType,
     StateTestFiller,
     Transaction,
     TransactionReceipt,
+    add_kzg_version,
     compute_create_address,
 )
+from execution_testing.checklists import EIPChecklist
 
+from ...cancun.eip4844_blobs.spec import Spec as EIP4844_Spec
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from ..eip7708_eth_transfer_logs.spec import transfer_log
 from .helpers import (
     EOA_INITIAL_BALANCE,
     RECIPIENT_TYPES_NON_CREATE,
+    AuthorizationAction,
+    build_authorization,
     setup_target,
 )
 from .spec import ref_spec_2780
@@ -40,6 +48,7 @@ REFERENCE_SPEC_VERSION = ref_spec_2780.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("recipient_type", RECIPIENT_TYPES_NON_CREATE)
 @pytest.mark.parametrize(
     "value",
@@ -67,11 +76,10 @@ def test_value_moving_transactions(
     ``NEW_ACCOUNT`` state charge when value is transferred.
 
     The EIP-7708 transfer log is asserted to fire exactly when
-    ``TRANSFER_LOG_COST`` is charged: for a non-self value transfer,
+    ``TX_VALUE_COST`` is charged: for a non-self value transfer,
     and never for a self-transfer (carve-out) or a zero-value tx.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     target = setup_target(pre, recipient_type, sender)
 
     target_initial_balance = (
@@ -83,7 +91,7 @@ def test_value_moving_transactions(
         recipient_type=recipient_type,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=recipient_type,
     )
@@ -92,16 +100,15 @@ def test_value_moving_transactions(
         recipient_type=recipient_type,
     )
     # Under the default zero state-gas reservoir, top-frame state gas
-    # spills entirely into regular gas.
+    # spills entirely into execution gas.
     total_gas_cost = intrinsic_gas + top_frame_gas + top_frame_state_gas
 
-    tx_gas_limit = total_gas_cost + 1000  # add a small buffer
-    gas_price = 1_000_000_000
+    tx_gas_limit = total_gas_cost
 
     is_self_transfer = recipient_type == RecipientType.SELF
 
     # A transfer log is emitted iff value moves to a distinct account,
-    # which is exactly when the intrinsic includes ``TRANSFER_LOG_COST``.
+    # which is exactly when the intrinsic includes ``TX_VALUE_COST``.
     # ``logs=[]`` asserts no log fires for the carved-out cases.
     if value > 0 and not is_self_transfer:
         expected_logs = [transfer_log(sender, target, value)]
@@ -113,19 +120,13 @@ def test_value_moving_transactions(
         to=target,
         value=value,
         gas_limit=tx_gas_limit,
-        gas_price=gas_price,
-        expected_receipt=TransactionReceipt(logs=expected_logs),
-    )
-
-    sender_value_delta = 0 if is_self_transfer else value
-    sender_final_balance = (
-        sender_initial_balance
-        - sender_value_delta
-        - total_gas_cost * gas_price
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=tx_gas_limit, logs=expected_logs
+        ),
     )
 
     post: dict[Address, Account | None] = {
-        sender: Account(nonce=1, balance=sender_final_balance),
+        sender: Account(nonce=1),
     }
     if not is_self_transfer:
         if recipient_type == RecipientType.EMPTY_ACCOUNT and value == 0:
@@ -136,6 +137,145 @@ def test_value_moving_transactions(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize(
+    "delegation_warm",
+    [
+        pytest.param(False, id="cold_delegation_target"),
+        pytest.param(True, id="warm_delegation_target"),
+    ],
+)
+def test_self_transfer_with_delegated_sender(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+    delegation_warm: bool,
+) -> None:
+    """
+    Gas for a self-transfer whose sender already holds a delegation.
+
+    The EIP's prose skips the delegation-target access for a
+    self-transfer; its reference-case row charges it.
+    """
+    value = 1
+    delegated_to = pre.deploy_contract(code=Op.STOP)
+    sender = pre.fund_eoa(delegation=delegated_to)
+
+    access_list = (
+        [AccessList(address=delegated_to, storage_keys=[])]
+        if delegation_warm
+        else []
+    )
+
+    intrinsic_recipient_type = RecipientType.SELF
+    top_frame_recipient_type = RecipientType.DELEGATION_7702
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        access_list=access_list,
+        sends_value=True,
+        recipient_type=intrinsic_recipient_type,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
+        sends_value=True,
+        recipient_type=top_frame_recipient_type,
+        delegation_warm=delegation_warm,
+    )
+    total_gas_cost = intrinsic_gas + top_frame_gas
+
+    tx = Transaction(
+        sender=sender,
+        to=sender,
+        value=value,
+        access_list=access_list,
+        gas_limit=total_gas_cost,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=total_gas_cost, logs=[]
+        ),
+    )
+
+    post = {
+        sender: Account(
+            nonce=2, code=Spec7702.delegation_designation(delegated_to)
+        ),
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.with_all_tx_types
+def test_intrinsic_decomposition_across_tx_types(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+    tx_type: int,
+) -> None:
+    """
+    The decomposed intrinsic keys on the transaction's fields, not its
+    type: every type pays the same recipient and value primitives, with
+    type-specific costs riding on top.
+    """
+    value = 1
+    sender = pre.fund_eoa()
+    recipient = pre.fund_eoa(amount=EOA_INITIAL_BALANCE)
+
+    scenario = (
+        build_authorization(pre, AuthorizationAction.SETS_NEW_DELEGATION)
+        if tx_type == 4
+        else None
+    )
+    authorizations = [scenario.authorization] if scenario else []
+
+    blob_versioned_hashes = (
+        add_kzg_version([Hash(1)], EIP4844_Spec.BLOB_COMMITMENT_VERSION_KZG)
+        if tx_type == 3
+        else None
+    )
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True,
+        recipient_type=RecipientType.EOA,
+        authorization_list_or_count=authorizations,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EOA,
+        authorizations=authorizations,
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EOA,
+        authorizations=authorizations,
+    )
+    total_gas_cost = intrinsic_gas + top_frame_gas + top_frame_state_gas
+
+    tx = Transaction(
+        ty=tx_type,
+        sender=sender,
+        to=recipient,
+        value=value,
+        authorization_list=authorizations or None,
+        blob_versioned_hashes=blob_versioned_hashes,
+        gas_limit=total_gas_cost,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=total_gas_cost,
+            logs=[transfer_log(sender, recipient, value)],
+        ),
+    )
+
+    post: dict[Address, Account] = {
+        sender: Account(nonce=1),
+        recipient: Account(balance=EOA_INITIAL_BALANCE + value),
+    }
+    if scenario:
+        post[scenario.authority] = scenario.applied_account
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -165,12 +305,11 @@ def test_value_contract_creation_tx(
     intrinsic plus the execution gas.
 
     When the init code reverts, the deploy is rolled back: no code is
-    set, the value transfer is reversed, and the intrinsic
-    ``NEW_ACCOUNT`` state-gas charge is refilled to the reservoir.
-    Under the default zero state-gas reservoir, the refill cancels
-    the spilled-to-regular portion of the intrinsic exactly, so the
-    sender pays only the regular portion of the intrinsic plus the
-    few EVM gas units spent before the revert.
+    set, the value transfer is reversed, and the top-frame
+    ``NEW_ACCOUNT`` state-gas charge for the created account is
+    refilled. The sender therefore pays only the execution intrinsic
+    plus the few EVM gas units spent before the revert -- the
+    ``NEW_ACCOUNT`` charge does not appear on the receipt.
     """
     sender_initial_balance = 10**18
     sender = pre.fund_eoa(sender_initial_balance)
@@ -191,16 +330,19 @@ def test_value_contract_creation_tx(
         return_cost_deducted_prior_execution=True,
     )
 
+    # EIP-2780: the created account's ``NEW_ACCOUNT`` state gas is
+    # charged at the top frame (not the intrinsic). It must be covered
+    # by the gas limit; it is consumed on a successful deploy and
+    # refilled if the init code reverts.
+    new_account_state_gas = fork.transaction_top_frame_state_gas(
+        contract_creation=True,
+    )
     if tx_reverts:
-        # The ``NEW_ACCOUNT`` state portion of the intrinsic is
-        # refilled to the reservoir on revert, so it does not appear
-        # on the receipt.
-        new_account_refund = fork.transaction_intrinsic_state_gas(
-            contract_creation=True,
-        )
-        gas_used = intrinsic_gas + execution_gas - new_account_refund
+        # The deploy is rolled back, so the top-frame ``NEW_ACCOUNT``
+        # charge is refilled and does not appear on the receipt.
+        gas_used = intrinsic_gas + execution_gas
         # A tiny init code can leave the decomposed calldata floor above
-        # the regular gas actually consumed; gas_used then pins to the
+        # the execution gas actually consumed; gas_used then pins to the
         # floor, which EIP-2780 anchors on the create intrinsic base.
         gas_used = max(
             gas_used,
@@ -214,7 +356,7 @@ def test_value_contract_creation_tx(
         sender_value_delta = 0
         expected_target = None
     else:
-        gas_used = intrinsic_gas + execution_gas
+        gas_used = intrinsic_gas + new_account_state_gas + execution_gas
         sender_value_delta = value
         expected_target = Account(code=code_to_deploy, balance=value)
 
@@ -226,7 +368,7 @@ def test_value_contract_creation_tx(
         expected_logs = []
 
     gas_price = 1_000_000_000
-    gas_limit = intrinsic_gas + execution_gas + 1000
+    gas_limit = intrinsic_gas + new_account_state_gas + execution_gas + 1000
 
     tx = Transaction(
         sender=sender,
@@ -304,6 +446,7 @@ def _precompile_calldata(precompile: Address) -> bytes:
     return bytes([0x00] * input_size if input_size > 0 else [])
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [

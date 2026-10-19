@@ -1,7 +1,13 @@
 benchmark:
   impl: geth
   repo: ethereum/go-ethereum
-  ref: master
+  ref: glamsterdam-devnet-8
+  evm-bin: evm
+  xdist: auto
+zkevm-benchmark:
+  impl: geth
+  repo: jsign/go-ethereum
+  ref: 4833f2d83905456ce9837960b9feced6709ecb99
   evm-bin: evm
   xdist: auto
 eels:
@@ -17,12 +23,6 @@ evmone:
   evm-bin: evmone
   xdist: auto
   targets: ["evmone-cli"]
-benchmark:
-  impl: geth
-  repo: ethereum/go-ethereum
-  ref: master
-  evm-bin: evm
-  xdist: auto
 besu:
   impl: besu
   repo: hyperledger/besu

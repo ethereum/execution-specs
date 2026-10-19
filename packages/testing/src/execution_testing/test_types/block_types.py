@@ -1,9 +1,9 @@
 """Block-related types for Ethereum tests."""
 
-import hashlib
+import json
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Dict, Generic, List, Sequence
+from typing import Any, Callable, Dict, Generic, List, Sequence
 
 import ethereum_rlp as eth_rlp
 from ethereum_types.numeric import Uint
@@ -20,11 +20,34 @@ from execution_testing.base_types import (
     NumberBoundTypeVar,
     ZeroPaddedHexNumber,
 )
+from execution_testing.base_types.ssz import SSZModel, Uint64
 from execution_testing.forks import Fork
 
 DEFAULT_BASE_FEE = 7
 CURRENT_MAINNET_BLOCK_GAS_LIMIT = 60_000_000
 DEFAULT_BLOCK_GAS_LIMIT = CURRENT_MAINNET_BLOCK_GAS_LIMIT * 2
+
+FORK_GATED_FIELDS: Dict[str, Callable[[Fork], bool]] = {
+    "prev_randao": lambda fork: fork.header_prev_randao_required(),
+    "base_fee_per_gas": lambda fork: fork.header_base_fee_required(),
+    "parent_base_fee_per_gas": lambda fork: fork.header_base_fee_required(),
+    "withdrawals": lambda fork: fork.header_withdrawals_required(),
+    "excess_blob_gas": lambda fork: fork.header_excess_blob_gas_required(),
+    "parent_excess_blob_gas": (
+        lambda fork: fork.header_excess_blob_gas_required()
+    ),
+    "blob_gas_used": lambda fork: fork.header_blob_gas_used_required(),
+    "parent_blob_gas_used": lambda fork: fork.header_blob_gas_used_required(),
+    "parent_beacon_block_root": (
+        lambda fork: fork.header_beacon_root_required()
+    ),
+    "slot_number": lambda fork: fork.header_slot_number_required(),
+    "parent_slot_number": lambda fork: fork.header_slot_number_required(),
+}
+"""
+Environment fields, current and parent, that only some block headers
+carry, keyed by the fork predicate that admits each one.
+"""
 
 
 @dataclass
@@ -72,10 +95,12 @@ class WithdrawalGeneric(CamelModel, Generic[NumberBoundTypeVar]):
         return t.root_hash
 
 
-class Withdrawal(WithdrawalGeneric[HexNumber]):
-    """Withdrawal type."""
+class Withdrawal(WithdrawalGeneric[HexNumber], SSZModel):
+    """Withdrawal type; also the consensus-layer SSZ container."""
 
-    pass
+    index: Uint64
+    validator_index: Uint64
+    amount: Uint64
 
 
 class EnvironmentGeneric(CamelModel, Generic[NumberBoundTypeVar]):
@@ -135,6 +160,7 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     )
     parent_blob_gas_used: ZeroPaddedHexNumber | None = Field(None)
     parent_excess_blob_gas: ZeroPaddedHexNumber | None = Field(None)
+    parent_slot_number: ZeroPaddedHexNumber | None = Field(None)
     parent_beacon_block_root: Hash | None = Field(None)
 
     block_hashes: Dict[ZeroPaddedHexNumber, Hash] = Field(default_factory=dict)
@@ -205,19 +231,67 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
             updated_values["parent_beacon_block_root"] = 0
 
         if fork.header_slot_number_required() and self.slot_number is None:
-            updated_values["slot_number"] = 0
+            updated_values["slot_number"] = (
+                int(self.parent_slot_number) + 1
+                if self.parent_slot_number is not None
+                else 0
+            )
 
         return self.copy(**updated_values)
 
-    def __hash__(self) -> int:
-        """Hashes the environment object."""
-        hash_dict = self.model_dump(exclude_none=True, by_alias=True)
+    @classmethod
+    def for_fork(cls, fork: Fork, **kwargs: Any) -> "Environment":
+        """
+        Build an environment from only the fields the fork's header has.
 
-        sorted_items = sorted(hash_dict.items())
-        hash_string = str(sorted_items)
+        Use it when one pinned context spans forks whose headers differ:
+        the pins the fork lacks are dropped instead of raising in
+        `check_fork_fields`.
+        """
+        return cls(
+            **{
+                name: value
+                for name, value in kwargs.items()
+                if name not in FORK_GATED_FIELDS
+                or FORK_GATED_FIELDS[name](fork)
+            }
+        )
 
-        digest = hashlib.sha256(hash_string.encode("utf-8")).digest()
-        return int.from_bytes(digest[:8], byteorder="big")
+    def check_fork_fields(self, fork: Fork) -> None:
+        """
+        Raise if a set field is one the fork's block header lacks.
+
+        Serializing such a field into a fixture would misstate the block
+        context, so the test has to state its intent instead.
+        """
+        unsupported = [
+            name
+            for name, required in FORK_GATED_FIELDS.items()
+            if getattr(self, name) is not None and not required(fork)
+        ]
+        if not unsupported:
+            return
+        raise ValueError(
+            f"{', '.join(unsupported)} set for {fork.name()}, whose block "
+            "header has no such field. Remove the field from the test, "
+            "build the environment with Environment.for_fork(fork, ...) "
+            "to keep only the fields the fork has, or, to check that "
+            "clients reject the field, set it on the block through "
+            "Block(rlp_modifier=Header(...))."
+        )
+
+    def canonical_json(self) -> str:
+        """
+        Return the canonical JSON encoding of this model.
+
+        Keys are alias-cased and sorted, and unset fields are excluded, so
+        two equal models encode identically and the encoding is stable
+        across processes: usable as a grouping key or a hash pre-image.
+        """
+        return json.dumps(
+            self.model_dump(mode="json", by_alias=True, exclude_none=True),
+            sort_keys=True,
+        )
 
     def __eq__(self, other: object) -> bool:
         """Check if two environment objects are equal."""

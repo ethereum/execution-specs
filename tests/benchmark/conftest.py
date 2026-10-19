@@ -1,5 +1,6 @@
 """Pytest configuration for benchmark tests."""
 
+from collections.abc import Hashable
 from pathlib import Path
 from typing import Any
 
@@ -82,3 +83,9 @@ def pytest_ignore_collect(collection_path: Path, config: Any) -> bool | None:
 def tx_gas_limit(fork: Fork, gas_benchmark_value: int) -> int:
     """Return the transaction gas limit cap."""
     return fork.transaction_gas_limit_cap() or gas_benchmark_value
+
+
+@pytest.fixture(scope="session")
+def verified_accounts() -> dict[Hashable, int]:
+    """Session high-water-mark per target family, so each is verified once."""
+    return {}

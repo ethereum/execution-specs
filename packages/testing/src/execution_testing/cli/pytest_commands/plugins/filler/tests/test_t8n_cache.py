@@ -15,8 +15,8 @@ from execution_testing.fixtures import (
     StateFixture,
     strip_fixture_format_from_node,
 )
+from execution_testing.specs.base import labeled_format_parameter_set
 
-from ...shared.helpers import labeled_format_parameter_set
 from ..filler import _strip_xdist_group_suffix
 
 

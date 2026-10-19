@@ -4,14 +4,22 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    BalAccountExpectation,
+    BalBalanceChange,
+    BalNonceChange,
+    BlockAccessListExpectation,
     Op,
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionTestFiller,
     add_kzg_version,
 )
 from execution_testing.base_types.base_types import ZeroPaddedHexNumber
-from execution_testing.exceptions.exceptions import TransactionException
+from execution_testing.exceptions.exceptions import (
+    TransactionException,
+    TransactionExceptionInstanceOrList,
+)
 from execution_testing.forks.base_fork import BaseFork
 from execution_testing.specs.blockchain import (
     Block,
@@ -22,6 +30,7 @@ from execution_testing.test_types.block_types import Environment
 from execution_testing.test_types.transaction_types import TransactionDefaults
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage
 def test_tx_gas_limit(
@@ -32,12 +41,19 @@ def test_tx_gas_limit(
     """
     Tests that if a tx gas limit is higher than the block gas limit,
     an exception is raised.
+
+    The block gas limit is kept well above what an empty block's access
+    list needs under the EIP-7928 item cap (`gas_limit // 2000` items,
+    against the system-contract reads every Amsterdam block carries), so
+    the transaction's gas allowance is the only thing wrong with the
+    block and clients do not disagree on which check to report.
     """
     sender = pre.fund_eoa()
     to = pre.fund_eoa()
 
+    block_gas_limit = 100_000
     tx = Transaction(
-        gas_limit=21001,
+        gas_limit=block_gas_limit + 1,
         to=to,
         gas_price=0x10,  # Must be >= base fee to isolate gas limit validation
         sender=sender,
@@ -45,8 +61,8 @@ def test_tx_gas_limit(
         error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
     )
 
-    modified_fields = {"gas_limit": ZeroPaddedHexNumber(21000)}
-    env.gas_limit = ZeroPaddedHexNumber(21000)
+    modified_fields = {"gas_limit": ZeroPaddedHexNumber(block_gas_limit)}
+    env.gas_limit = ZeroPaddedHexNumber(block_gas_limit)
 
     block = Block(
         txs=[tx],
@@ -57,6 +73,7 @@ def test_tx_gas_limit(
     blockchain_test(pre=pre, post={}, blocks=[block], genesis_environment=env)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "nonce_diff, expected_exception",
     [
@@ -98,27 +115,58 @@ def test_tx_nonce(
     state_test(pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.inclusion_test
+@pytest.mark.pre_alloc_mutable
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage
 def test_tx_max_nonce(state_test: StateTestFiller, pre: Alloc) -> None:
     """
-    Test that a transaction that exceeds the maximum allowed value for the
-    nonce (U64.MAX_VALUE) is rejected.
+    Test that a transaction with the maximum nonce value (`2**64 - 1`) is
+    rejected, as the maximum usable nonce is `2**64 - 2`.
+
+    The sender account is funded at the same nonce so that clients which
+    check nonce equality first reach the max-nonce check instead of
+    rejecting the transaction with a nonce mismatch.
     """
-    sender = pre.fund_eoa()
+    max_nonce = 2**64 - 1
+    sender = pre.fund_eoa(nonce=max_nonce)
     to = pre.nonexistent_account()
 
     tx = Transaction(
         to=to,
-        nonce=2**64,
+        nonce=max_nonce,
         sender=sender,
         protected=False,
         error=TransactionException.NONCE_IS_MAX,
     )
 
-    state_test(pre=pre, post={sender: Account(nonce=0)}, tx=tx)
+    state_test(pre=pre, post={sender: Account(nonce=max_nonce)}, tx=tx)
 
 
+@pytest.mark.inclusion_test
+@pytest.mark.exception_test
+def test_tx_nonce_overflow(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+    fork: BaseFork,
+) -> None:
+    """
+    Test that a transaction with a nonce that does not fit in 64 bits is
+    rejected at deserialization.
+    """
+    tx = Transaction(
+        to=pre.nonexistent_account(),
+        nonce=2**64,
+        gas_limit=fork.transaction_intrinsic_cost_calculator()(),
+        sender=pre.fund_eoa(),
+        protected=False,
+        error=TransactionException.NONCE_OVERFLOW,
+    )
+
+    transaction_test(pre=pre, tx=tx)
+
+
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "balance_diff, expected_exception",
     [
@@ -173,6 +221,7 @@ def test_sender_balance(
     blockchain_test(pre=pre, post={}, blocks=[block], genesis_environment=env)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.state_test_only
 @pytest.mark.exception_test
@@ -217,6 +266,7 @@ def test_sender_balance_insufficient_state_test(
 SECP256K1N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage
@@ -252,11 +302,23 @@ def test_bad_v_r_s(
     """
     to = pre.fund_eoa(0xDEADBEEE)
 
+    error: TransactionExceptionInstanceOrList = (
+        TransactionException.INVALID_SIGNATURE_VRS
+    )
+    if tx_type == 0 and v not in (27, 28):
+        # A legacy transaction encodes its chain id within v, so a client that
+        # derives the chain id from an out-of-range v rejects the transaction
+        # with a chain id mismatch instead of an invalid signature.
+        error = [
+            TransactionException.INVALID_SIGNATURE_VRS,
+            TransactionException.INVALID_CHAINID,
+        ]
+
     blob_versioned_hashes = add_kzg_version([0], 1) if tx_type == 3 else None
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=to,
-        error=TransactionException.INVALID_SIGNATURE_VRS,
+        error=error,
         ty=tx_type,
         blob_versioned_hashes=blob_versioned_hashes,
         value=1,
@@ -269,4 +331,170 @@ def test_bad_v_r_s(
         pre=pre,
         post={to: Account(balance=0xDEADBEEE)},
         tx=tx,
+    )
+
+
+# The smallest x-coordinate that is NOT on the secp256k1 curve: x**3 + 7 is a
+# quadratic non-residue mod p, so no point (x, y) exists and public-key
+# recovery has no solution for r == 5.
+UNRECOVERABLE_R = 5
+
+
+@pytest.mark.inclusion_test
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.exception_test
+@pytest.mark.eels_base_coverage
+@pytest.mark.parametrize(
+    "tx_type",
+    [
+        pytest.param(0, id="legacy"),
+        pytest.param(1, id="eip2930", marks=pytest.mark.valid_from("Berlin")),
+        pytest.param(2, id="eip1559", marks=pytest.mark.valid_from("London")),
+    ],
+)
+def test_unrecoverable_signature(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx_type: int,
+) -> None:
+    """
+    A signature whose components are each individually in range but which
+    recovers no public key must be rejected.
+
+    `test_bad_v_r_s` covers the RANGE rules (`v` below 27/35, `r` or `s` at or
+    above secp256k1n, `s` above the EIP-2 halfway point). This is the distinct
+    failure that lies inside those ranges: `r` is read as the x-coordinate of
+    the ephemeral point R, and only about half of the values in [1, n) are
+    x-coordinates of a curve point at all. For the other half there is no R,
+    hence no public key and no sender -- with no range check violated anywhere.
+
+    A client that guards recovery by range-checking alone, or that treats the
+    two failures as different kinds of error, reaches this case through an
+    unintended path.
+    """
+    to = pre.fund_eoa(0xDEADBEEE)
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=to,
+        error=TransactionException.INVALID_SIGNATURE_VRS,
+        ty=tx_type,
+        value=1,
+        # Legacy encodes the (unprotected) recovery id in v; typed
+        # transactions carry the parity bit directly.
+        v=27 if tx_type == 0 else 0,
+        r=UNRECOVERABLE_R,
+        s=1,
+    )
+
+    state_test(
+        pre=pre,
+        # Transaction rejected: the recipient keeps exactly its funded balance.
+        post={to: Account(balance=0xDEADBEEE)},
+        tx=tx,
+    )
+
+
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.invalid_tx_not_last
+@pytest.mark.exception_test
+@pytest.mark.parametrize("cause", ["insufficient_funds", "nonce_too_high"])
+def test_tx_invalid_first_in_block(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: BaseFork,
+    cause: str,
+) -> None:
+    """
+    The first transaction of a block is invalid and the valid one after it
+    would have made it valid had it run first; the block is rejected at the
+    first transaction.
+
+    This guards clients that execute a block's transactions in parallel, as
+    block access lists (EIP-7928) allow: they must reject the block without
+    help from the transactions after the invalid one, which a sequential
+    client never looks at. `insufficient_funds`: the later transaction funds
+    the unfunded sender. `nonce_too_high`: the sender's nonce 1 arrives
+    before its nonce 0. The later transaction also puts the sender in the
+    block access list, which a client reading state through the list needs
+    before it reaches the check under test. The next block replays it at the
+    same nonce, so it must have left no trace.
+    """
+    bob_balance = 10**18
+    bob = pre.fund_eoa(amount=bob_balance)
+
+    if cause == "insufficient_funds":
+        sender = pre.fund_eoa(amount=0)
+        carol = pre.fund_eoa()
+        error = TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
+        invalid_tx = Transaction(
+            sender=sender, to=bob, value=1, protected=False, error=error
+        )
+        trailing_tx = Transaction(
+            sender=carol, to=sender, value=10**18, protected=False
+        )
+        post = {
+            sender: Account(nonce=0, balance=10**18),
+            bob: Account(balance=bob_balance),
+        }
+        rejected_entry = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=2, post_balance=10**18)
+            ]
+        )
+        replay_entry = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=10**18)
+            ]
+        )
+    elif cause == "nonce_too_high":
+        sender = pre.fund_eoa()
+        error = TransactionException.NONCE_MISMATCH_TOO_HIGH
+        invalid_tx = Transaction(
+            sender=sender,
+            nonce=1,
+            to=bob,
+            value=1,
+            protected=False,
+            error=error,
+        )
+        trailing_tx = Transaction(
+            sender=sender, nonce=0, to=bob, value=1, protected=False
+        )
+        post = {
+            sender: Account(nonce=1),
+            bob: Account(balance=bob_balance + 1),
+        }
+        rejected_entry = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=2, post_nonce=1)]
+        )
+        replay_entry = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)]
+        )
+    else:
+        raise ValueError(f"unknown cause: {cause}")
+
+    # The trailing transaction lists the sender at its own position: index
+    # 2 in the rejected block, index 1 in the replay.
+    rejected_list: BlockAccessListExpectation | None = None
+    replay_list: BlockAccessListExpectation | None = None
+    if fork.is_eip_enabled(7928):
+        rejected_list = BlockAccessListExpectation(
+            account_expectations={sender: rejected_entry}
+        )
+        replay_list = BlockAccessListExpectation(
+            account_expectations={sender: replay_entry}
+        )
+
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=[
+            Block(
+                txs=[invalid_tx, trailing_tx],
+                exception=error,
+                expected_block_access_list=rejected_list,
+            ),
+            Block(txs=[trailing_tx], expected_block_access_list=replay_list),
+        ],
     )

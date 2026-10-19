@@ -27,6 +27,7 @@ from .composite_types import (
     Alloc,
     BlobSchedule,
     ForkBlobSchedule,
+    StateCommitment,
     Storage,
     StorageRootType,
 )
@@ -43,7 +44,13 @@ from .constants import (
 from .conversions import to_bytes, to_hex
 from .pydantic import CamelModel, EthereumTestBaseModel, EthereumTestRootModel
 from .reference_spec import ReferenceSpec
-from .serialization import RLPSerializable, SignableRLPSerializable
+from .serialization import (
+    KnownEncodedSize,
+    RLPSerializable,
+    SignableRLPSerializable,
+    encoded_prefixed_size,
+    encoded_size,
+)
 from .typing_utils import unwrap_annotation
 
 __all__ = (
@@ -75,8 +82,12 @@ __all__ = (
     "Number",
     "NumberBoundTypeVar",
     "ReferenceSpec",
+    "KnownEncodedSize",
     "RLPSerializable",
     "SignableRLPSerializable",
+    "encoded_prefixed_size",
+    "encoded_size",
+    "StateCommitment",
     "Storage",
     "StorageKey",
     "StorageRootType",

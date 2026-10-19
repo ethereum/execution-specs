@@ -2,20 +2,17 @@
 
 from typing import List
 
-from execution_testing import AccessList
+from execution_testing import AccessList, Fork
 
 
-def calculate_access_list_floor_tokens(access_list: List[AccessList]) -> int:
+def calculate_access_list_data_cost(
+    access_list: List[AccessList], fork: Fork
+) -> int:
     """
-    Calculate the number of floor tokens in an access list.
+    Calculate the flat data surcharge for the access list.
 
-    According to EIP-7981 (aligned with EIP-7976), floor tokens are
-    calculated from the raw access list byte length:
-    floor_tokens = total_bytes * 4
-
-    Where bytes come from:
-    - 20 bytes per address
-    - 32 bytes per storage key
+    Each address or storage key byte contributes four floor tokens,
+    priced at the supplied fork's floor token gas rate.
     """
     total_bytes = 0
 
@@ -27,4 +24,4 @@ def calculate_access_list_floor_tokens(access_list: List[AccessList]) -> int:
         for slot in access.storage_keys:
             total_bytes += len(slot)
 
-    return total_bytes * 4
+    return total_bytes * 4 * fork.gas_costs().TX_DATA_TOKEN_FLOOR

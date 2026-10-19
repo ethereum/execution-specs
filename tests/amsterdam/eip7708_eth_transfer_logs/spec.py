@@ -14,7 +14,7 @@ class ReferenceSpec:
 
 
 ref_spec_7708 = ReferenceSpec(
-    "EIPS/eip-7708.md", "172188d7b090ed1afb876140f45e19ac00cba4bb"
+    "EIPS/eip-7708.md", "f7230c46a743313957d8f38a159bda934cc735b2"
 )
 
 
@@ -30,7 +30,6 @@ class Spec:
     TRANSFER_TOPIC: Hash = Hash(
         keccak256(b"Transfer(address,address,uint256)")
     )
-    BURN_TOPIC: Hash = Hash(keccak256(b"Burn(address,uint256)"))
 
 
 def transfer_log(

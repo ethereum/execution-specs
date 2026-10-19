@@ -1,6 +1,6 @@
 """
-abstract: Crafted tests for mainnet of [EIP-7002: Execution layer triggerable withdrawals](https://eips.ethereum.org/EIPS/eip-7002).
-"""  # noqa: E501
+Crafted tests for mainnet of [EIP-7002: Execution layer triggerable withdrawals](https://eips.ethereum.org/EIPS/eip-7002).
+"""
 
 from typing import List
 
@@ -10,9 +10,9 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     SystemContractInteractionTransaction,
+    WithdrawalRequest,
 )
 
-from .helpers import WithdrawalRequest
 from .spec import ref_spec_7002
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7002.git_path

@@ -18,7 +18,7 @@ from execution_testing import (
 )
 from execution_testing.test_types.blob_types import Blob
 
-from tests.benchmark.compute.helpers import Precompile
+from tests.benchmark.helper.precompile import Precompile
 from tests.cancun.eip4844_blobs.spec import PointEvaluationInput
 from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec
 
@@ -27,7 +27,7 @@ INPUT_SIZE = 192
 
 @pytest.mark.repricing
 @pytest.mark.parametrize(
-    "precompile_address,calldata",
+    "precompile_address,calldata,mutate_y",
     [
         pytest.param(
             BlobsSpec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
@@ -47,7 +47,33 @@ INPUT_SIZE = 192
                     "FBEAFDAD446CBC7BCDBDCD780AF2C16A"
                 ),
             ),
+            False,
             id="point_evaluation",
+        ),
+        pytest.param(
+            BlobsSpec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
+            PointEvaluationInput(
+                versioned_hash=bytes.fromhex(
+                    "01E798154708FE7789429634053CBF9F"
+                    "99B619F9F084048927333FCE637F549B"
+                ),
+                z=0x564C0A11A0F704F4FC3E8ACFE0F8245F0AD1347B378FBF96E206DA11A5D36306,
+                # y is overwritten in memory before each call with the current
+                # GAS value: unique per iteration and always < BLS_MODULUS, so
+                # every call runs a fresh pairing that no client can cache by
+                # input, while calldata stays a constant 192 bytes.
+                y=0x24D25032E67A7E6A4910DF5834B8FE70E6BCFEEAC0352434196BDF4B2485D5A1,
+                commitment=bytes.fromhex(
+                    "8F59A8D2A1A625A17F3FEA0FE5EB8C896DB3764F3185481BC22F91B4AAFFCCA2"
+                    "5F26936857BC3A7C2539EA8EC3A952B7"
+                ),
+                proof=bytes.fromhex(
+                    "873033E038326E87ED3E1276FD140253FA08E9FC25FB2D9A98527FC22A2C9612"
+                    "FBEAFDAD446CBC7BCDBDCD780AF2C16A"
+                ),
+            ),
+            True,
+            id="point_evaluation_unique_y",
         ),
     ],
 )
@@ -56,18 +82,33 @@ def test_point_evaluation(
     fork: Fork,
     precompile_address: Address,
     calldata: bytes,
+    mutate_y: bool,
 ) -> None:
     """Benchmark POINT EVALUATION precompile."""
     if precompile_address not in fork.precompiles():
         pytest.skip("Precompile not enabled")
 
-    attack_block = Op.POP(
+    # The mutated variant makes every call fail, and a failing precompile
+    # consumes all gas forwarded to it, so forwarding Op.GAS would burn the
+    # whole budget on the first call. Forward exactly the fixed precompile
+    # cost so each failure costs only that and the loop keeps issuing calls.
+    call_gas = (
+        int(fork.gas_costs().PRECOMPILE_POINT_EVALUATION)
+        if mutate_y
+        else Op.GAS
+    )
+    # y occupies bytes [64:96] of the 192-byte input.
+    y_offset = 64
+    call = Op.POP(
         Op.STATICCALL(
-            gas=Op.GAS,
+            gas=call_gas,
             address=precompile_address,
             args_size=Op.CALLDATASIZE,
         ),
     )
+    # Overwrite y with the current GAS each iteration: a distinct field
+    # element (< BLS_MODULUS) per call, defeating any input-keyed cache.
+    attack_block = Op.MSTORE(y_offset, Op.GAS) + call if mutate_y else call
 
     benchmark_test(
         target_opcode=Precompile.POINT_EVALUATION,

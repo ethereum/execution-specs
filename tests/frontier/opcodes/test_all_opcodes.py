@@ -298,6 +298,12 @@ def constant_gas_opcodes(fork: Fork) -> Generator[ParameterSet, None, None]:
         )
 
 
+@pytest.mark.ported_from(
+    [
+        "state_tests/stEIP150singleCodeGasPrices/gasCostFiller.yml",
+        "state_tests/stEIP150singleCodeGasPrices/gasCostBerlinFiller.yml",
+    ],
+)
 @pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize_by_fork("opcode", constant_gas_opcodes)
 @pytest.mark.eels_base_coverage

@@ -5,7 +5,7 @@ from typing import Any, cast
 import pytest
 from ethereum_types.numeric import U256
 
-import ethereum.state as state
+import ethereum.state_mpt as state
 from ethereum.forks.tangerine_whistle.utils.hexadecimal import hex_to_address
 from ethereum.state import EMPTY_ACCOUNT
 from ethereum_spec_tools.forks import Hardfork

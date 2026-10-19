@@ -16,6 +16,7 @@ from typing import Final, List, Tuple, final
 
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
+from ethereum.forks.bpo3.blocks import Header as PreviousHeader
 from ethereum.trace import GasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
@@ -48,8 +49,8 @@ class GasCosts:
     COLD_STORAGE_WRITE: Final[Uint] = Uint(5000)
 
     # Call
-    CALL_VALUE: Final[Uint] = Uint(9000)
     CALL_STIPEND: Final[Uint] = Uint(2300)
+    CALL_VALUE: Final[Uint] = Uint(9000)
     NEW_ACCOUNT: Final[Uint] = Uint(25000)
 
     # Contract Creation
@@ -66,6 +67,7 @@ class GasCosts:
 
     # Refunds
     REFUND_STORAGE_CLEAR: Final[int] = 4800
+    REFUND_AUTH_PER_EXISTING_ACCOUNT: Final[int] = 12500
 
     # Precompiles
     PRECOMPILE_ECRECOVER: Final[Uint] = Uint(3000)
@@ -105,6 +107,7 @@ class GasCosts:
     TX_DATA_TOKEN_FLOOR: Final[Uint] = Uint(10)
     TX_ACCESS_LIST_ADDRESS: Final[Uint] = Uint(2400)
     TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = Uint(1900)
+    TX_MAX_GAS_LIMIT: Final[Uint] = Uint(16_777_216)
 
     # Block
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)
@@ -159,6 +162,7 @@ class GasCosts:
     OPCODE_PREVRANDAO: Final[Uint] = BASE
     OPCODE_RETURNDATASIZE: Final[Uint] = BASE
     OPCODE_CHAINID: Final[Uint] = BASE
+    OPCODE_SELFBALANCE: Final[Uint] = FAST_STEP
     OPCODE_BASEFEE: Final[Uint] = BASE
     OPCODE_BLOBBASEFEE: Final[Uint] = BASE
     OPCODE_BLOBHASH: Final[Uint] = Uint(3)
@@ -166,6 +170,8 @@ class GasCosts:
     OPCODE_PUSH0: Final[Uint] = BASE
     OPCODE_DUP: Final[Uint] = VERY_LOW
     OPCODE_SWAP: Final[Uint] = VERY_LOW
+    OPCODE_TLOAD: Final[Uint] = WARM_ACCESS
+    OPCODE_TSTORE: Final[Uint] = WARM_ACCESS
 
     # Dynamic Opcodes
     OPCODE_RETURNDATACOPY_BASE: Final[Uint] = VERY_LOW
@@ -265,10 +271,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
     linear_cost = size_in_words * GasCosts.MEMORY_PER_WORD
     quadratic_cost = size_in_words ** Uint(2) // Uint(512)
     total_gas_cost = linear_cost + quadratic_cost
-    try:
-        return total_gas_cost
-    except ValueError as e:
-        raise OutOfGasError from e
+    return total_gas_cost
 
 
 def calculate_gas_extend_memory(
@@ -392,7 +395,9 @@ def init_code_cost(init_code_length: Uint) -> Uint:
     return GasCosts.CODE_INIT_PER_WORD * ceil32(init_code_length) // Uint(32)
 
 
-def calculate_excess_blob_gas(parent_header: Header) -> U64:
+def calculate_excess_blob_gas(
+    parent_header: Header | PreviousHeader,
+) -> U64:
     """
     Calculates the excess blob gas for the current block based
     on the gas used in the parent block.
@@ -408,13 +413,14 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
         The excess blob gas for the current block.
 
     """
-    # At the fork block, these are defined as zero.
+    # Defaults for a parent without blob gas fields.
     excess_blob_gas = U64(0)
     blob_gas_used = U64(0)
     base_fee_per_gas = Uint(0)
 
-    if isinstance(parent_header, Header):
-        # After the fork block, read them from the parent header.
+    if isinstance(parent_header, (Header, PreviousHeader)):
+        # Read them from any parent that carries the fields, so
+        # accumulated excess blob gas survives a fork transition.
         excess_blob_gas = parent_header.excess_blob_gas
         blob_gas_used = parent_header.blob_gas_used
         base_fee_per_gas = parent_header.base_fee_per_gas

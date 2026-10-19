@@ -12,28 +12,30 @@ from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
-from ethereum.crypto.elliptic_curve import (
-    SECP256K1N,
-    secp256k1_recover,
-)
+from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
     InsufficientTransactionGasError,
+    InvalidBlock,
     InvalidSignatureError,
+    NonceMismatchError,
     NonceOverflowError,
 )
 from ethereum.state import Address
 
 from .exceptions import (
+    BlobCountExceededError,
+    EmptyAuthorizationListError,
     InitCodeTooLargeError,
+    InsufficientMaxFeePerGasError,
+    InvalidBlobVersionedHashError,
+    NoBlobDataError,
+    PriorityFeeGreaterThanMaxFeeError,
+    TransactionGasLimitExceededError,
+    TransactionTypeContractCreationError,
     TransactionTypeError,
 )
-from .fork_types import (
-    Authorization,
-    RegularGas,
-    StateGas,
-    VersionedHash,
-)
+from .fork_types import Authorization, ExecutionGas, VersionedHash
 
 
 @final
@@ -41,27 +43,28 @@ from .fork_types import (
 class IntrinsicGasCost:
     """Intrinsic gas costs for a transaction, split by gas type."""
 
-    regular: RegularGas
-    """Regular execution gas (calldata, base cost, access list, etc.)."""
+    execution: ExecutionGas
+    """Execution gas (calldata, base cost, access list, etc.)."""
 
-    state: StateGas
+    calldata_floor: ExecutionGas
     """
-    State growth gas (account creation, storage set, authorization) per
-    [EIP-8037].
-
-    [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
-    """
-
-    calldata_floor: RegularGas
-    """
-    Minimum gas cost based on calldata size per [EIP-7623].
+    Minimum gas cost based on calldata size per [EIP-7623], including the
+    access list data surcharge per [EIP-7981].
 
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+    [EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
     """
 
 
-TX_MAX_GAS_LIMIT = Uint(16_777_216)
-SECP256K1_UNCOMPRESSED_PUBLIC_KEY_PREFIX = b"\x04"
+BLOB_COUNT_LIMIT = 6
+"""
+Maximum number of blobs a single transaction may carry.
+"""
+
+VERSIONED_HASH_VERSION_KZG = b"\x01"
+"""
+Version byte that every blob versioned hash must start with.
+"""
 
 ACCESS_LIST_ADDRESS_FLOOR_TOKENS = Uint(80)
 """
@@ -599,6 +602,11 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     Also, the code size of a contract creation transaction must be within
     limits of the protocol.
 
+    The gas limit of a transaction may not exceed [`TX_MAX_TOTAL_GAS_LIMIT`]
+    ([EIP-8037]). [`TX_MAX_GAS_LIMIT`] ([EIP-7825]) bounds only the
+    execution-gas a transaction can spend, so it is checked against the
+    intrinsic execution cost rather than against the gas limit.
+
     This function takes a transaction and gas_limit as parameters and
     returns the intrinsic gas costs for the transaction after validation.
     It throws an `InsufficientTransactionGasError` exception if the
@@ -606,31 +614,72 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     and a `NonceOverflowError` exception if the nonce overflows.
     It also raises an `InitCodeTooLargeError` if the code
     size of a contract creation transaction exceeds the maximum allowed
-    size.
+    size, a `TransactionGasLimitExceededError` if the gas limit exceeds
+    `TX_MAX_TOTAL_GAS_LIMIT`, and a `PriorityFeeGreaterThanMaxFeeError` if
+    the maximum priority fee per gas of a fee market transaction exceeds
+    its maximum fee per gas.
 
+    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.vm.gas.GasCosts.TX_MAX_GAS_LIMIT
+    [`TX_MAX_TOTAL_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.vm.gas.GasCosts.TX_MAX_TOTAL_GAS_LIMIT
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
-    """
+    [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+    """  # noqa: E501
+    from .vm.gas import GasCosts
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
+    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
+        raise NonceOverflowError("Nonce too high")
+
+    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
+        raise InitCodeTooLargeError("Code size too large")
+
+    if tx.gas > GasCosts.TX_MAX_TOTAL_GAS_LIMIT:
+        raise TransactionGasLimitExceededError("Gas limit too high")
+
+    if isinstance(tx, FeeMarketCapableTransaction):
+        if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
+            raise PriorityFeeGreaterThanMaxFeeError(
+                "priority fee greater than max fee"
+            )
+
+    if isinstance(tx, BlobTransaction):
+        blob_count = len(tx.blob_versioned_hashes)
+        if blob_count == 0:
+            raise NoBlobDataError("no blob data in transaction")
+        if blob_count > BLOB_COUNT_LIMIT:
+            raise BlobCountExceededError(
+                f"Tx has {blob_count} blobs. Max allowed: {BLOB_COUNT_LIMIT}"
+            )
+        for blob_versioned_hash in tx.blob_versioned_hashes:
+            if blob_versioned_hash[0:1] != VERSIONED_HASH_VERSION_KZG:
+                raise InvalidBlobVersionedHashError(
+                    "invalid blob versioned hash"
+                )
+
+    if isinstance(tx, (BlobTransaction, SetCodeTransaction)):
+        if not isinstance(tx.to, Address):
+            raise TransactionTypeContractCreationError(tx)
+
+    if isinstance(tx, SetCodeTransaction):
+        if not any(tx.authorizations):
+            raise EmptyAuthorizationListError("empty authorization list")
+
     intrinsic = calculate_intrinsic_cost(tx, sender)
-    intrinsic_gas = Uint(intrinsic.regular) + Uint(intrinsic.state)
+    intrinsic_gas = Uint(intrinsic.execution)
     if intrinsic_gas > tx.gas:
         raise InsufficientTransactionGasError("Insufficient intrinsic gas")
     if intrinsic.calldata_floor > tx.gas:
         raise InsufficientTransactionGasError("Insufficient calldata floor")
-    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
-        raise InitCodeTooLargeError("Code size too large")
-    if intrinsic.regular > TX_MAX_GAS_LIMIT:
+    if intrinsic.execution > GasCosts.TX_MAX_GAS_LIMIT:
         raise InsufficientTransactionGasError(
-            "Intrinsic regular gas exceeds TX_MAX_GAS_LIMIT"
+            "Intrinsic execution gas exceeds TX_MAX_GAS_LIMIT"
         )
-    if intrinsic.calldata_floor > TX_MAX_GAS_LIMIT:
+    if intrinsic.calldata_floor > GasCosts.TX_MAX_GAS_LIMIT:
         raise InsufficientTransactionGasError(
             "Intrinsic calldata floor exceeds TX_MAX_GAS_LIMIT"
         )
-    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise NonceOverflowError("Nonce too high")
 
     return intrinsic
 
@@ -639,7 +688,7 @@ def calculate_intrinsic_cost(
     tx: Transaction, sender: Address
 ) -> IntrinsicGasCost:
     """
-    Calculates the gas that is charged before execution is started.
+    Calculate the gas charged before execution starts and the data floor.
 
     The intrinsic cost of the transaction is charged before execution has
     begun. Functions/operations in the EVM cost money to execute so this
@@ -653,29 +702,30 @@ def calculate_intrinsic_cost(
     The intrinsic cost includes:
     1. Sender cost (`TX_BASE`).
     2. Recipient cost (`COLD_ACCOUNT_ACCESS` for a non-self-transfer
-       call, or `CREATE_ACCESS` plus `NEW_ACCOUNT` state gas for a
-       contract creation).
-    3. Value cost (`TRANSFER_LOG_COST`, plus `TX_VALUE_COST` for a
-       non-self-transfer call) when ``tx.value > 0``.
+       call, or `CREATE_ACCESS` for a contract creation). The created
+       account's `NEW_ACCOUNT` state gas is state-dependent and is
+       charged at the top frame, not here.
+    3. Value cost (`TX_VALUE_COST` for a non-self-transfer call) when
+       ``tx.value > 0``.
     4. Calldata cost (zero and non-zero bytes).
-    5. Access list entries (if applicable).
-    6. Authorizations (if applicable).
+    5. Access list entry charges and the data surcharge (if applicable).
+    6. Authorizations (if applicable): only the state-independent base
+       cost (`EXECUTION_PER_AUTH_BASE_COST`) per tuple. The
+       state-dependent account-creation and delegation-write costs are
+       charged at the top frame by `set_delegation`.
 
     Self-transfers (``sender == tx.to``) skip the recipient and value
     charges.
 
     This function takes a transaction and its sender as parameters and
-    returns the intrinsic regular gas cost, the intrinsic state gas cost,
-    and the minimum (floor) gas cost based on the calldata size. The floor
-    is anchored on the regular-gas portion of items 1 to 3 above rather
-    than `TX_BASE` alone, so it never undercuts the transaction's own
-    intrinsic base.
+    returns the intrinsic execution gas cost and the minimum (floor)
+    gas cost based on the calldata size and access list data surcharge.
+    The surcharge is added to both costs, so it is charged regardless of
+    which side determines the gas used. The floor is anchored on the
+    execution-gas portion of items 1 to 3 above rather than `TX_BASE`
+    alone, so it never undercuts the transaction's own intrinsic base.
     """
-    from .vm.gas import (
-        GasCosts,
-        StateGasCosts,
-        init_code_cost,
-    )
+    from .vm.gas import GasCosts, init_code_cost
 
     tokens_in_calldata = count_tokens_in_data(tx.data)
 
@@ -684,21 +734,15 @@ def calculate_intrinsic_cost(
     is_create = tx.to == Bytes0(b"")
     is_self_transfer = tx.to == sender
 
-    recipient_regular_gas = Uint(0)
-    recipient_state_gas = Uint(0)
+    recipient_execution_gas = Uint(0)
     init_code_gas = Uint(0)
     if is_create:
-        recipient_regular_gas = GasCosts.CREATE_ACCESS
+        recipient_execution_gas = GasCosts.CREATE_ACCESS
         init_code_gas = init_code_cost(ulen(tx.data))
-        recipient_state_gas = StateGasCosts.NEW_ACCOUNT
-        if tx.value > U256(0):
-            recipient_regular_gas += GasCosts.TRANSFER_LOG_COST
     elif not is_self_transfer:
-        recipient_regular_gas = GasCosts.COLD_ACCOUNT_ACCESS
+        recipient_execution_gas = GasCosts.COLD_ACCOUNT_ACCESS
         if tx.value > U256(0):
-            recipient_regular_gas += (
-                GasCosts.TRANSFER_LOG_COST + GasCosts.TX_VALUE_COST
-            )
+            recipient_execution_gas += GasCosts.TX_VALUE_COST
 
     access_list_cost = Uint(0)
     tokens_in_access_list = Uint(0)
@@ -713,48 +757,42 @@ def calculate_intrinsic_cost(
                 ulen(access.slots) * ACCESS_LIST_STORAGE_KEY_FLOOR_TOKENS
             )
 
-    # Data token floor cost for access list bytes.
-    access_list_cost += tokens_in_access_list * GasCosts.TX_DATA_TOKEN_FLOOR
+    # Charge the access list data surcharge on both sides of the gas-used
+    # maximum, independently of the existing per-entry access charges.
+    access_list_data_cost = (
+        tokens_in_access_list * GasCosts.TX_DATA_TOKEN_FLOOR
+    )
 
-    auth_regular_gas = Uint(0)
-    auth_state_gas = Uint(0)
+    auth_cost = Uint(0)
     if isinstance(tx, SetCodeTransaction):
-        auth_regular_gas = (
-            GasCosts.ACCOUNT_WRITE + GasCosts.REGULAR_PER_AUTH_BASE_COST
-        ) * ulen(tx.authorizations)
-        auth_state_gas = (
-            StateGasCosts.NEW_ACCOUNT + StateGasCosts.AUTH_BASE
-        ) * ulen(tx.authorizations)
+        auth_cost = GasCosts.EXECUTION_PER_AUTH_BASE_COST * ulen(
+            tx.authorizations
+        )
 
     # EIP-7976 floor tokens: all calldata bytes count uniformly.
     floor_tokens_in_calldata = ulen(tx.data) * GasCosts.TX_DATA_TOKEN_STANDARD
 
-    # Total floor tokens.
-    total_floor_tokens = floor_tokens_in_calldata + tokens_in_access_list
-
-    # Decomposed regular-gas intrinsic base (EIP-2780), which also anchors
-    # the calldata floor.
-    base_regular_gas = GasCosts.TX_BASE + recipient_regular_gas
+    # Decomposed execution-gas intrinsic base (EIP-2780), which also
+    # anchors the calldata floor.
+    base_execution_gas = GasCosts.TX_BASE + recipient_execution_gas
 
     # Floor gas cost (EIP-7623: minimum gas for data-heavy transactions).
     data_floor_gas_cost = (
-        total_floor_tokens * GasCosts.TX_DATA_TOKEN_FLOOR + base_regular_gas
+        base_execution_gas
+        + floor_tokens_in_calldata * GasCosts.TX_DATA_TOKEN_FLOOR
+        + access_list_data_cost
     )
-
-    intrinsic_regular_gas = (
-        base_regular_gas
-        + init_code_gas
-        + data_cost
-        + access_list_cost
-        + auth_regular_gas
-    )
-
-    intrinsic_state_gas = recipient_state_gas + auth_state_gas
 
     return IntrinsicGasCost(
-        regular=RegularGas(intrinsic_regular_gas),
-        state=StateGas(intrinsic_state_gas),
-        calldata_floor=RegularGas(data_floor_gas_cost),
+        execution=ExecutionGas(
+            base_execution_gas
+            + init_code_gas
+            + data_cost
+            + access_list_cost
+            + access_list_data_cost
+            + auth_cost
+        ),
+        calldata_floor=ExecutionGas(data_floor_gas_cost),
     )
 
 
@@ -768,6 +806,55 @@ def count_tokens_in_data(data: bytes) -> Uint:
     num_non_zeros = ulen(data) - num_zeros
 
     return num_zeros + num_non_zeros * Uint(4)
+
+
+def calculate_effective_gas_price(
+    tx: Transaction, base_fee_per_gas: Uint
+) -> Uint:
+    """
+    Calculate the price per unit of gas the transaction actually pays.
+
+    A fee-market transaction pays the base fee plus a priority fee
+    capped by both of its fee caps; its maximum fee must cover the base
+    fee, or an `InsufficientMaxFeePerGasError` is raised. A transaction
+    priced with a plain gas price pays that price outright, which must
+    likewise cover the base fee.
+    """
+    if isinstance(tx, FeeMarketCapableTransaction):
+        if tx.max_fee_per_gas < base_fee_per_gas:
+            raise InsufficientMaxFeePerGasError(
+                tx.max_fee_per_gas, base_fee_per_gas
+            )
+
+        priority_fee_per_gas = min(
+            tx.max_priority_fee_per_gas,
+            tx.max_fee_per_gas - base_fee_per_gas,
+        )
+        return priority_fee_per_gas + base_fee_per_gas
+
+    if tx.gas_price < base_fee_per_gas:
+        raise InvalidBlock
+    return tx.gas_price
+
+
+def calculate_max_gas_fee(tx: Transaction, gas_limit: Uint) -> Uint:
+    """
+    Calculate the largest execution-gas fee the transaction can incur:
+    `gas_limit` priced at the transaction's fee cap.
+    """
+    if isinstance(tx, FeeMarketCapableTransaction):
+        return gas_limit * tx.max_fee_per_gas
+    return gas_limit * tx.gas_price
+
+
+def check_nonce(tx: Transaction, sender_nonce: Uint) -> None:
+    """
+    Check that the transaction's nonce equals the sender's next nonce.
+    """
+    if sender_nonce > Uint(tx.nonce):
+        raise NonceMismatchError("nonce too low")
+    elif sender_nonce < Uint(tx.nonce):
+        raise NonceMismatchError("nonce too high")
 
 
 def chain_id(tx: Transaction) -> None | U64:
@@ -798,62 +885,9 @@ def recover_sender(tx: Transaction) -> Address:
     signing hash of the transaction. The sender's public key can be obtained
     with these two values and therefore the sender address can be retrieved.
 
-    This function takes a transaction as a parameter and returns the address
-    of the sender of the transaction. It raises an `InvalidSignatureError` if
-    the signature values (r, s, v) are invalid.
-    """
-    tx_chain_id = chain_id(tx)
-    recovery_chain_id = U64(0) if tx_chain_id is None else tx_chain_id
-    public_key = recover_transaction_public_key(recovery_chain_id, tx)
-    return _sender_address_from_public_key(public_key)
-
-
-def recover_transaction_public_key(chain_id: U64, tx: Transaction) -> Bytes:
-    """
-    Recover the canonical uncompressed SEC1 public key for a transaction.
-    """
-    r, s, recovery_id, signing_hash = _signature_recovery_parameters(
-        chain_id, tx
-    )
-    return Bytes(
-        SECP256K1_UNCOMPRESSED_PUBLIC_KEY_PREFIX
-        + secp256k1_recover(r, s, recovery_id, signing_hash)
-    )
-
-
-def recover_sender_from_public_key(
-    chain_id: U64, tx: Transaction, public_key: Bytes
-) -> Address:
-    """
-    Verify that ``public_key`` is the transaction sender's canonical
-    uncompressed SEC1 public key.
-
-    This reference implementation verifies the supplied key by recovering the
-    canonical public key from the transaction signature and comparing the two.
-    Optimized implementations may avoid full public-key recovery, but must
-    still verify that the supplied key validates the signature and is
-    consistent with the transaction's recovery id / y-parity bit. Otherwise,
-    another valid recovery candidate could derive a different sender address.
-
-    Returns the sender address derived from the verified public key.
-    """
-    if public_key != recover_transaction_public_key(chain_id, tx):
-        raise InvalidSignatureError
-    return _sender_address_from_public_key(public_key)
-
-
-def _sender_address_from_public_key(public_key: Bytes) -> Address:
-    """
-    Derive the sender address from an uncompressed SEC1 public key.
-    """
-    return Address(keccak256(bytes(public_key)[1:])[12:32])
-
-
-def _signature_recovery_parameters(
-    chain_id: U64, tx: Transaction
-) -> Tuple[U256, U256, U256, Hash32]:
-    """
-    Validate the transaction signature fields and return recovery inputs.
+    This function takes chain_id and a transaction as parameters and returns
+    the address of the sender of the transaction. It raises an
+    `InvalidSignatureError` if the signature values (r, s, v) are invalid.
     """
     r, s = tx.r, tx.s
     if U256(0) >= r or r >= SECP256K1N:
@@ -864,60 +898,45 @@ def _signature_recovery_parameters(
     if isinstance(tx, LegacyTransaction):
         v = tx.v
         if v == 27 or v == 28:
-            return (
-                r,
-                s,
-                v - U256(27),
-                signing_hash_pre155(tx),
+            public_key = secp256k1_recover(
+                r, s, v - U256(27), signing_hash_pre155(tx)
             )
         else:
-            chain_id_x2 = U256(chain_id) * U256(2)
-            if v != U256(35) + chain_id_x2 and v != U256(36) + chain_id_x2:
-                raise InvalidSignatureError("bad v")
-            return (
+            assert v >= U256(35), "call chain_id before recover_sender"
+            tx_chain_id = U64((v - U256(35)) >> U256(1))
+            v = (v - U256(35)) & U256(1)
+            public_key = secp256k1_recover(
                 r,
                 s,
-                v - U256(35) - chain_id_x2,
-                signing_hash_155(tx, chain_id),
+                v,
+                signing_hash_155(tx, tx_chain_id),
             )
     elif isinstance(tx, AccessListTransaction):
         if tx.y_parity not in (U256(0), U256(1)):
             raise InvalidSignatureError("bad y_parity")
-        return (
-            r,
-            s,
-            tx.y_parity,
-            signing_hash_2930(tx),
+        public_key = secp256k1_recover(
+            r, s, tx.y_parity, signing_hash_2930(tx)
         )
     elif isinstance(tx, FeeMarketTransaction):
         if tx.y_parity not in (U256(0), U256(1)):
             raise InvalidSignatureError("bad y_parity")
-        return (
-            r,
-            s,
-            tx.y_parity,
-            signing_hash_1559(tx),
+        public_key = secp256k1_recover(
+            r, s, tx.y_parity, signing_hash_1559(tx)
         )
     elif isinstance(tx, BlobTransaction):
         if tx.y_parity not in (U256(0), U256(1)):
             raise InvalidSignatureError("bad y_parity")
-        return (
-            r,
-            s,
-            tx.y_parity,
-            signing_hash_4844(tx),
+        public_key = secp256k1_recover(
+            r, s, tx.y_parity, signing_hash_4844(tx)
         )
     elif isinstance(tx, SetCodeTransaction):
         if tx.y_parity not in (U256(0), U256(1)):
             raise InvalidSignatureError("bad y_parity")
-        return (
-            r,
-            s,
-            tx.y_parity,
-            signing_hash_7702(tx),
+        public_key = secp256k1_recover(
+            r, s, tx.y_parity, signing_hash_7702(tx)
         )
-    else:
-        raise InvalidSignatureError("unsupported transaction type")
+
+    return Address(keccak256(public_key)[12:32])
 
 
 def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:

@@ -3,7 +3,7 @@ Tests for [EIP-4895: Beacon chain withdrawals](https://eips.ethereum.org/EIPS/ei
 """
 
 from enum import Enum, unique
-from typing import Dict, List, Mapping
+from typing import Dict, List
 
 import pytest
 from execution_testing import (
@@ -35,6 +35,7 @@ pytestmark = pytest.mark.valid_from("Shanghai")
 ONE_GWEI = 10**9
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -300,17 +301,7 @@ def test_withdrawals_root(
     blockchain_test(pre=pre, post={}, blocks=blocks)
 
 
-@pytest.mark.parametrize(
-    "test_case",
-    [
-        pytest.param(
-            "single_block",
-            marks=pytest.mark.skip_stateless_validation,
-            id="single_block",
-        ),
-        pytest.param("multiple_blocks", id="multiple_blocks"),
-    ],
-)
+@pytest.mark.parametrize("test_case", ["single_block", "multiple_blocks"])
 class TestMultipleWithdrawalsSameAddress:
     """
     Test that multiple withdrawals can be sent to the same address.
@@ -386,7 +377,6 @@ class TestMultipleWithdrawalsSameAddress:
         blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
-@pytest.mark.skip_stateless_validation
 def test_many_withdrawals(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -670,7 +660,7 @@ def test_zero_amount(
             amount=2**64 - 1,
         ),
     ]
-    all_post = {
+    all_post: Dict[Address, Account | None] = {
         empty_accounts[0]: Account.NONEXISTENT,
         zero_balance_contract: Account(code=Op.STOP, balance=0),
         empty_accounts[1]: Account(balance=ONE_GWEI),
@@ -678,21 +668,18 @@ def test_zero_amount(
     }
 
     withdrawals: List[Withdrawal] = []
-    post: Mapping[Address, Account | object] = {}
+    post: Dict[Address, Account | None]
     if test_case == ZeroAmountTestCases.TWO_ZERO:
         withdrawals = all_withdrawals[0:2]
         post = {
             account: all_post[account]
-            for account in post
-            if account in [empty_accounts[0], zero_balance_contract]
+            for account in [empty_accounts[0], zero_balance_contract]
         }
     elif test_case == ZeroAmountTestCases.THREE_ONE_WITH_VALUE:
         withdrawals = all_withdrawals[0:3]
         post = {
             account: all_post[account]
-            for account in post
-            if account
-            in [
+            for account in [
                 empty_accounts[0],
                 zero_balance_contract,
                 empty_accounts[1],
@@ -715,14 +702,11 @@ def test_zero_amount(
 
     blockchain_test(
         pre=pre,
-        # TODO: Fix in BlockchainTest? post: Mapping[str, Account | object]
-        # to allow for Account.NONEXISTENT
         post=post,
         blocks=[Block(withdrawals=withdrawals)],
     )
 
 
-@pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 def test_large_amount(
     blockchain_test: BlockchainTestFiller,
@@ -764,7 +748,6 @@ def test_large_amount(
     blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
-@pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.parametrize("amount", [0, 1])
 @pytest.mark.with_all_precompiles

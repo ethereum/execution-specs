@@ -21,16 +21,16 @@ from execution_testing.base_types import (
     to_json,
 )
 from execution_testing.fixtures.blockchain import FixtureHeader
-from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks import Fork, Requests, TransitionFork
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
     DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
     Alloc,
+    BlockAccessList,
     ChainConfig,
     Environment,
-    Requests,
     Withdrawal,
 )
 
@@ -150,6 +150,9 @@ def build_genesis_header(
         pre_alloc = Alloc.merge(pre_alloc, base_pre)
     if empty_accounts := pre_alloc.empty_accounts():
         raise Exception(f"Empty accounts in pre state: {empty_accounts}")
+    pre_alloc.migrate_state_commitment(
+        session_fork.transitions_from().state_commitment()
+    )
     state_root = pre_alloc.state_root()
     genesis = FixtureHeader(
         parent_hash=0,
@@ -179,9 +182,10 @@ def build_genesis_header(
         requests_hash=Requests()
         if genesis_fork.header_requests_required()
         else None,
-        block_access_list_hash=Hash(EmptyTrieRoot)
+        block_access_list_hash=BlockAccessList().rlp_hash
         if genesis_fork.header_bal_hash_required()
         else None,
+        slot_number=0 if genesis_fork.header_slot_number_required() else None,
     )
 
     return (pre_alloc, genesis)
@@ -282,9 +286,28 @@ def test_suite_description() -> str:
     return "Execute EEST tests using hive endpoint."
 
 
+@pytest.fixture(scope="function")
+def test_case_description(request: pytest.FixtureRequest) -> str:
+    """Return the test docstring as the hive test-case description."""
+    description = getattr(request.node.function, "__doc__", None)
+    return description or ""
+
+
+@pytest.fixture(autouse=True)
+def per_test_hive_test(client: Client, hive_test: HiveTest) -> None:
+    """
+    Report each pytest test as an individual hive test case.
+
+    The client runs under the session-scoped base hive test; register
+    it with each per-test entry so hive attaches the client and its
+    log segment to the individual test case and marks the base test
+    as the multi-test lifecycle owner.
+    """
+    hive_test.register_multi_test_client(client)
+
+
 @pytest.fixture(autouse=True, scope="session")
 def base_hive_test(
-    request: pytest.FixtureRequest,
     test_suite: HiveTestSuite,
     session_temp_folder: Path,
 ) -> Generator[HiveTest, None, None]:
@@ -324,11 +347,17 @@ def base_hive_test(
 
     yield test
 
-    test_pass = True
-    test_details = "All tests have completed"
-    if request.session.testsfailed > 0:
+    # Individual results are reported by the per-test hive test cases,
+    # and hive marks this test as the multi-test lifecycle owner, so it
+    # always passes unless the client failed to start (the client
+    # fixture leaves its error file behind on startup failure).
+    client_error_file = session_temp_folder / "hive_client.err"
+    if client_error_file.exists():
         test_pass = False
-        test_details = "One or more tests have failed"
+        test_details = "Failed to start the client."
+    else:
+        test_pass = True
+        test_details = "Multi-test client context completed."
 
     with FileLock(users_lock_file):
         with open(users_file, "r") as f:
@@ -408,6 +437,11 @@ def client(
         with open(users_file, "w") as f:
             json.dump(users, f)
 
+    # Set on every worker (the client object is shared across xdist
+    # workers via JSON serialization) so that per-test hive test cases
+    # can register with the client.
+    client.multi_test = True
+
     yield client
 
     with FileLock(users_lock_file):
@@ -435,8 +469,9 @@ def eth_rpc(
     engine_rpc: EngineRPC,
     session_fork: Fork | TransitionFork,
     session_temp_folder: Path,
-    max_transactions_per_batch: int | None,
+    max_batch_size: int | None,
     use_testing_build_block: bool,
+    base_pre_genesis: Tuple[Alloc, FixtureHeader],
 ) -> EthRPC:
     """Initialize ethereum RPC client for the execution client under test."""
     get_payload_wait_time = request.config.getoption("get_payload_wait_time")
@@ -451,6 +486,7 @@ def eth_rpc(
         session_temp_folder=session_temp_folder,
         get_payload_wait_time=get_payload_wait_time,
         transaction_wait_timeout=tx_wait_timeout,
-        max_transactions_per_batch=max_transactions_per_batch,
+        max_batch_size=max_batch_size,
         testing_rpc=testing_rpc,
+        expected_genesis_header=base_pre_genesis[1],
     )

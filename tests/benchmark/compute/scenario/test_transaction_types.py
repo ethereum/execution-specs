@@ -1,5 +1,6 @@
 """Benchmark different transaction types."""
 
+import bisect
 import math
 import random
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from execution_testing import (
     Fork,
     Hash,
     Op,
+    RecipientType,
     Transaction,
     compute_create_address,
 )
@@ -184,42 +186,83 @@ def test_ether_transfers(
     senders, receivers = ether_transfer_case
 
     balance = receiver_account_type.balance
+    sends_value = transfer_amount > 0
+    distinct_receivers = case_id in ("a_to_diff_acc", "diff_acc_to_diff_acc")
+
+    if case_id == "a_to_a":
+        recipient_type = RecipientType.SELF
+    elif receiver_account_type.delegated:
+        recipient_type = RecipientType.DELEGATION_7702
+    else:
+        recipient_type = RecipientType.CONTRACT
+
+    warm_list = (
+        [AccessList(address=Address(0x100), storage_keys=[])]
+        if warm_access
+        else None
+    )
+
+    transfer_cost = fork.transaction_intrinsic_cost_calculator()(
+        access_list=warm_list,
+        sends_value=sends_value,
+        recipient_type=recipient_type,
+    ) + fork.transaction_top_frame_execution_gas(
+        sends_value=sends_value,
+        recipient_type=recipient_type,
+    )
+
+    creates_account = (
+        sends_value
+        and balance == 0
+        and not receiver_account_type.delegated
+        and recipient_type != RecipientType.SELF
+    )
+
+    new_account_cost = (
+        fork.transaction_top_frame_state_gas(
+            sends_value=True,
+            recipient_type=RecipientType.EMPTY_ACCOUNT,
+        )
+        if creates_account
+        else 0
+    )
 
     txs = []
     token_transfers: dict[Address, int] = {}
 
-    iteration_cost = fork.transaction_intrinsic_cost_calculator()(
-        access_list=(
-            [AccessList(address=Address(0x100), storage_keys=[])]
-            if warm_access
-            else None
-        ),
-    )
-    iteration_count = gas_benchmark_value // iteration_cost
+    gas_used = 0
+    tx_index = 0
+    while True:
+        creating = creates_account and (distinct_receivers or tx_index == 0)
+        tx_cost = transfer_cost + (new_account_cost if creating else 0)
+        if gas_used + tx_cost > gas_benchmark_value:
+            break
 
-    for _ in range(iteration_count):
+        gas_used += tx_cost
+
         receiver = next(receivers)
         token_transfers[receiver] = (
             token_transfers.get(receiver, 0) + transfer_amount
         )
-        access_list = (
-            [AccessList(address=receiver, storage_keys=[])]
-            if warm_access
-            else None
-        )
+
         txs.append(
             Transaction(
                 to=receiver,
                 value=transfer_amount,
-                gas_limit=iteration_cost,
+                gas_limit=tx_cost,
                 sender=next(senders),
-                access_list=access_list,
+                access_list=(
+                    [AccessList(address=receiver, storage_keys=[])]
+                    if warm_access
+                    else None
+                ),
             )
         )
+        tx_index += 1
 
     post_state = (
         {}
-        if case_id == "a_to_a"
+        if recipient_type == RecipientType.SELF
         else {
             receiver: Account(balance=balance + transferred_amount)
             for receiver, transferred_amount in token_transfers.items()
@@ -231,7 +274,7 @@ def test_ether_transfers(
         pre=pre,
         post=post_state,
         blocks=[Block(txs=txs)],
-        expected_benchmark_gas_used=iteration_count * iteration_cost,
+        expected_benchmark_gas_used=gas_used,
     )
 
 
@@ -241,19 +284,25 @@ def test_ether_transfers_to_precompile(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     precompile: int,
+    fork: Fork,
     gas_benchmark_value: int,
     transfer_amount: int,
-    intrinsic_cost: int,
 ) -> None:
     """Test a block full of ether transfers to a precompile address."""
-    iteration_count = gas_benchmark_value // intrinsic_cost
+    # A precompile already exists, so a value transfer pays the EIP-2780
+    # value-transfer charge but never the new-account state gas.
+    iteration_cost = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=transfer_amount > 0,
+        recipient_type=RecipientType.PRECOMPILE,
+    )
+    iteration_count = gas_benchmark_value // iteration_cost
     txs = []
     for _ in range(iteration_count):
         txs.append(
             Transaction(
                 to=Address(precompile),
                 value=transfer_amount,
-                gas_limit=intrinsic_cost,
+                gas_limit=iteration_cost,
                 sender=pre.fund_eoa(),
             )
         )
@@ -261,26 +310,14 @@ def test_ether_transfers_to_precompile(
     benchmark_test(
         pre=pre,
         blocks=[Block(txs=txs)],
-        expected_benchmark_gas_used=iteration_count * intrinsic_cost,
+        expected_benchmark_gas_used=iteration_count * iteration_cost,
     )
-
-
-@pytest.fixture
-def total_cost_floor_per_token(fork: Fork) -> int:
-    """Total cost floor per token (EIP-7623)."""
-    return fork.gas_costs().TX_DATA_TOKEN_FLOOR
-
-
-@pytest.fixture
-def total_cost_standard_per_token(fork: Fork) -> int:
-    """Standard cost per token (EIP-7623)."""
-    return fork.gas_costs().TX_DATA_TOKEN_STANDARD
 
 
 def calldata_generator(
     gas_amount: int,
     zero_byte: int,
-    total_cost_floor_per_token: int,
+    fork: Fork,
 ) -> bytes:
     """Calculate the calldata based on the gas amount and zero byte."""
     # Gas cost calculation based on EIP-7683: (https://eips.ethereum.org/EIPS/eip-7683)
@@ -301,20 +338,9 @@ def calldata_generator(
     #       max(TX_DATA_TOKEN_STANDARD, TX_DATA_TOKEN_FLOOR)
     #   tx.gasUsed = 21000 + tokens_in_calldata * max_token_cost
     #
-    # Since max(TX_DATA_TOKEN_STANDARD, TX_DATA_TOKEN_FLOOR) = 10:
-    #   tx.gasUsed = 21000 + tokens_in_calldata * 10
-    #
-    # Token accounting:
-    #   tokens_in_calldata = zero_bytes + 4 * non_zero_bytes
-    #
-    # So we calculate how many bytes we can fit into calldata based on
-    # available gas.
-    max_tokens_in_calldata = gas_amount // total_cost_floor_per_token
-    num_of_bytes = (
-        max_tokens_in_calldata if zero_byte else max_tokens_in_calldata // 4
-    )
     byte_data = b"\x00" if zero_byte else b"\xff"
-    return byte_data * num_of_bytes
+    gas_per_byte = fork.calldata_gas_calculator()(data=byte_data, floor=True)
+    return byte_data * (gas_amount // gas_per_byte)
 
 
 @pytest.mark.parametrize("zero_byte", [True, False])
@@ -323,7 +349,6 @@ def test_block_full_data(
     pre: Alloc,
     zero_byte: bool,
     intrinsic_cost: int,
-    total_cost_floor_per_token: int,
     gas_benchmark_value: int,
     tx_gas_limit: int,
     fork: Fork,
@@ -339,11 +364,8 @@ def test_block_full_data(
         # Max calldata bytes at 99% of limit (Osaka: 8,388,608 * 0.99 ≈ 8.3 MB)
         safe_calldata_bytes = int(block_rlp_limit * 0.99)
 
-        # convert to gas: zero bytes = 10 gas/byte, non-zero = 40 gas/byte
-        gas_per_byte = (
-            total_cost_floor_per_token
-            if zero_byte
-            else total_cost_floor_per_token * 4
+        gas_per_byte = fork.calldata_gas_calculator()(
+            data=b"\x00" if zero_byte else b"\xff", floor=True
         )
         # For zero bytes: 8.3MB * 10 = 83M gas just for calldata
         max_calldata_gas = safe_calldata_bytes * gas_per_byte
@@ -363,7 +385,7 @@ def test_block_full_data(
         data = calldata_generator(
             gas_available,
             zero_byte,
-            total_cost_floor_per_token,
+            fork,
         )
 
         total_gas_used += fork.transaction_intrinsic_cost_calculator()(
@@ -389,120 +411,116 @@ def test_block_full_data(
 def test_block_full_access_list_and_data(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
-    intrinsic_cost: int,
-    total_cost_standard_per_token: int,
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
 ) -> None:
     """
-    Test a block with access lists (60% gas) and calldata (40% gas) using
-    random mixed bytes.
+    Test a block whose gas goes entirely into transaction payload.
+
+    Every transaction carries an access list plus calldata, and runs no
+    code, so its whole gas limit is intrinsic gas.
     """
-    # Skip if EIP-7934 block RLP size limit would be exceeded
+    access_address = pre.fund_eoa()
+    intrinsic_calculator = fork.transaction_intrinsic_cost_calculator()
+    calldata_gas_calculator = fork.calldata_gas_calculator()
+
+    def unit_gas(byte_count: int, units: int) -> int:
+        """Return the gas one more key plus its calldata bytes adds."""
+
+        def cost(count: int) -> int:
+            return intrinsic_calculator(
+                calldata=b"\xff" * byte_count * count,
+                access_list=[
+                    AccessList(
+                        address=access_address,
+                        storage_keys=[Hash(i) for i in range(count)],
+                    )
+                ],
+            )
+
+        return cost(units + 1) - cost(units)
+
+    byte_gas = calldata_gas_calculator(data=b"\xff")
+    byte_floor_gas = calldata_gas_calculator(data=b"\xff", floor=True)
+    key_gas = unit_gas(0, 1)
+
+    bytes_per_key = len(Hash(0))
+    if byte_floor_gas > byte_gas:
+        # Pairing each key with the byte count where the floor dimension
+        # overtakes the execution one carries the most calldata per gas.
+        # The key's floor share is measured over a whole transaction,
+        # below which the fixed base decides which dimension binds.
+        byte_step = byte_floor_gas - byte_gas
+        floor_bound_bytes = key_gas // byte_step + 1
+        key_floor_gas = (
+            unit_gas(floor_bound_bytes, tx_gas_limit // key_gas)
+            - floor_bound_bytes * byte_floor_gas
+        )
+        bytes_per_key = (key_gas - key_floor_gas) // byte_step
+
+    gas_per_unit = key_gas + bytes_per_key * byte_gas
+    total_units = gas_benchmark_value // gas_per_unit
     block_rlp_limit = fork.block_rlp_size_limit()
     if block_rlp_limit:
-        pytest.skip(
-            "Test skipped: EIP-7934 block RLP size limit might be exceeded"
+        # Each unit adds its calldata bytes plus its RLP-encoded storage
+        # key, which carries a one-byte length prefix.
+        bytes_per_unit = bytes_per_key + len(Hash(0)) + 1
+        total_units = min(
+            total_units, int(block_rlp_limit * 0.99) // bytes_per_unit
         )
 
-    iteration_count = math.ceil(gas_benchmark_value / tx_gas_limit)
+    keys = [Hash(i) for i in range(total_units)]
+    # A zero byte is charged the cheaper standard rate, which would make a
+    # payload's cost depend on which slice of the pool it takes.
+    pool = random.Random(42).randbytes(bytes_per_key * total_units)
+    calldata_pool = bytes(byte or 1 for byte in pool)
+    unit_counts = range(min(tx_gas_limit // gas_per_unit, total_units) + 1)
 
+    def payload_cost(units: int) -> int:
+        return intrinsic_calculator(
+            calldata=calldata_pool[: bytes_per_key * units],
+            access_list=[
+                AccessList(address=access_address, storage_keys=keys[:units])
+            ],
+        )
+
+    min_tx_gas = payload_cost(1)
     gas_remaining = gas_benchmark_value
-    total_gas_used = 0
-
+    units_used = 0
     txs = []
-    for _ in range(iteration_count):
-        gas_available = min(tx_gas_limit, gas_remaining) - intrinsic_cost
-
-        # Split available gas: 60% for access lists, 40% for calldata
-        gas_for_access_list = int(gas_available * 0.6)
-        gas_for_calldata = int(gas_available * 0.4)
-
-        # Access list gas costs from fork's gas_costs
-        gas_costs = fork.gas_costs()
-        gas_per_address = gas_costs.TX_ACCESS_LIST_ADDRESS
-        gas_per_storage_key = gas_costs.TX_ACCESS_LIST_STORAGE_KEY
-
-        # Calculate number of storage keys we can fit
-        gas_after_address = gas_for_access_list - gas_per_address
-        num_storage_keys = gas_after_address // gas_per_storage_key
-
-        # Create access list with 1 address and many storage keys
-        access_address = Address("0x1234567890123456789012345678901234567890")
-        storage_keys = []
-        for i in range(num_storage_keys):
-            # Generate random-looking storage keys
-            storage_keys.append(Hash(i))
-
-        access_list = [
-            AccessList(
-                address=access_address,
-                storage_keys=storage_keys,
+    while gas_remaining >= min_tx_gas and units_used < total_units:
+        units = min(
+            bisect.bisect_right(
+                unit_counts, min(tx_gas_limit, gas_remaining), key=payload_cost
             )
-        ]
-
-        # Calculate calldata with 29% of gas for zero bytes and 71% for
-        # non-zero bytes
-        # Token accounting: tokens_in_calldata = zero_bytes + 4 *
-        # non_zero_bytes
-        # We want to split the gas budget:
-        # - 29% of gas_for_calldata for zero bytes
-        # - 71% of gas_for_calldata for non-zero bytes
-
-        max_tokens_in_calldata = (
-            gas_for_calldata // total_cost_standard_per_token
+            - 1,
+            total_units - units_used,
         )
-
-        # Calculate how many tokens to allocate to each type
-        tokens_for_zero_bytes = int(max_tokens_in_calldata * 0.29)
-        tokens_for_non_zero_bytes = (
-            max_tokens_in_calldata - tokens_for_zero_bytes
-        )
-
-        # Convert tokens to actual byte counts
-        # Zero bytes: 1 token per byte
-        # Non-zero bytes: 4 tokens per byte
-        num_zero_bytes = tokens_for_zero_bytes  # 1 token = 1 zero byte
-        num_non_zero_bytes = (
-            tokens_for_non_zero_bytes // 4
-        )  # 4 tokens = 1 non-zero byte
-
-        # Create calldata with mixed bytes
-        calldata = bytearray()
-
-        # Add zero bytes
-        calldata.extend(b"\x00" * num_zero_bytes)
-
-        # Add non-zero bytes (random values from 0x01 to 0xff)
-        rng = random.Random(42)  # For reproducibility
-        for _ in range(num_non_zero_bytes):
-            calldata.append(rng.randint(1, 255))
-
-        # Shuffle the bytes to mix zero and non-zero bytes
-        calldata_list = list(calldata)
-        rng.shuffle(calldata_list)
-        shuffled_calldata = bytes(calldata_list)
-
+        unit_end = units_used + units
+        tx_gas = payload_cost(units)
         txs.append(
             Transaction(
                 to=pre.fund_eoa(amount=0),
-                data=shuffled_calldata,
-                gas_limit=gas_available + intrinsic_cost,
+                data=calldata_pool[
+                    bytes_per_key * units_used : bytes_per_key * unit_end
+                ],
+                gas_limit=tx_gas,
                 sender=pre.fund_eoa(),
-                access_list=access_list,
+                access_list=[
+                    AccessList(
+                        address=access_address,
+                        storage_keys=keys[units_used:unit_end],
+                    )
+                ],
             )
         )
-
-        gas_remaining -= gas_for_access_list + intrinsic_cost
-        total_gas_used += fork.transaction_intrinsic_cost_calculator()(
-            calldata=shuffled_calldata,
-            access_list=access_list,
-        )
+        gas_remaining -= tx_gas
+        units_used = unit_end
 
     benchmark_test(
         blocks=[Block(txs=txs)],
-        expected_benchmark_gas_used=total_gas_used,
+        expected_benchmark_gas_used=gas_benchmark_value - gas_remaining,
     )
 
 
@@ -522,31 +540,70 @@ def test_auth_transaction(
     tx_gas_limit: int,
 ) -> None:
     """Test an auth block."""
-    gas_costs = fork.gas_costs()
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
+    top_frame_calc = fork.transaction_top_frame_execution_gas
 
     code = Op.INVALID * fork.max_code_size()
     auth_target = (
         Address(0) if zero_delegation else pre.deploy_contract(code=code)
     )
 
+    sends_value = bool(transfer_amount)
+
+    receiver_type = (
+        RecipientType.EMPTY_ACCOUNT
+        if empty_account
+        else RecipientType.CONTRACT
+    )
+
+    auth_effects = AuthorizationTuple(
+        address=auth_target,
+        v=0,
+        r=0,
+        s=0,
+        creates_account=empty_authority,
+        writes_delegation=empty_authority and not zero_delegation,
+        first_write=True,
+    )
+
+    def auth_tx_gas(count: int) -> int:
+        """
+        Return the full gas consumed by a transaction carrying `count`
+        authorizations: intrinsic gas plus the state-conditional
+        top-frame charges, which have no refunds per EIP-2780.
+        """
+        auths = [auth_effects] * count
+        return (
+            intrinsic_cost_calc(
+                authorization_list_or_count=count,
+                sends_value=sends_value,
+                recipient_type=receiver_type,
+            )
+            + top_frame_calc(
+                sends_value=sends_value,
+                recipient_type=receiver_type,
+                authorizations=auths,
+            )
+            + fork.transaction_top_frame_state_gas(
+                sends_value=sends_value,
+                recipient_type=receiver_type,
+                authorizations=auths,
+            )
+        )
+
     remaining_gas = gas_benchmark_value
     authorizations_per_tx: List[int] = []
 
-    min_authorization_intrinsic_gas = intrinsic_cost_calc(
-        authorization_list_or_count=1
-    )
+    min_authorization_tx_gas = auth_tx_gas(1)
 
-    while remaining_gas >= min_authorization_intrinsic_gas:
+    while remaining_gas >= min_authorization_tx_gas:
         tx_max_gas = min(remaining_gas, tx_gas_limit)
 
         low = 1
         high = 2
 
         # Exponential search to find upper bound
-        while (
-            intrinsic_cost_calc(authorization_list_or_count=high) < tx_max_gas
-        ):
+        while auth_tx_gas(high) < tx_max_gas:
             low = high
             high *= 2
 
@@ -554,23 +611,22 @@ def test_auth_transaction(
         while low < high:
             mid = (low + high) // 2
 
-            if (
-                intrinsic_cost_calc(authorization_list_or_count=mid)
-                > tx_max_gas
-            ):
+            if auth_tx_gas(mid) > tx_max_gas:
                 high = mid
             else:
                 low = mid + 1
 
         best_iterations = low - 1
         authorizations_per_tx.append(best_iterations)
-        remaining_gas -= intrinsic_cost_calc(
-            authorization_list_or_count=best_iterations
-        )
+        remaining_gas -= auth_tx_gas(best_iterations)
 
-    total_gas_used = 0
-    total_refund = 0
+    delegation_code = (
+        b"" if zero_delegation else b"\xef\x01\x00" + bytes(auth_target)
+    )
+
+    expected_gas_usage = 0
     txs = []
+    post = {}
 
     for auths_in_this_tx in authorizations_per_tx:
         auth_tuples = []
@@ -581,24 +637,22 @@ def test_auth_transaction(
                 else pre.fund_eoa(amount=0, delegation=auth_target)
             )
             auth_tuple = AuthorizationTuple(
-                address=auth_target, nonce=signer.nonce, signer=signer
+                address=auth_target,
+                nonce=signer.nonce,
+                signer=signer,
+                creates_account=auth_effects.creates_account,
+                writes_delegation=auth_effects.writes_delegation,
             )
             auth_tuples.append(auth_tuple)
-
-        tx_gas_used = intrinsic_cost_calc(
-            authorization_list_or_count=auth_tuples
-        )
-        total_gas_used += tx_gas_used
-
-        if not empty_authority:
-            total_refund += min(
-                tx_gas_used // 5,
-                (
-                    gas_costs.AUTH_PER_EMPTY_ACCOUNT
-                    - gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT
-                )
-                * auths_in_this_tx,
+            post[signer] = Account(
+                nonce=signer.nonce + 1, code=delegation_code
             )
+
+        # The gas limit is exact, so an under-estimate halts the top
+        # frame (rolling back every delegation) and fails the post
+        # check.
+        tx_gas = auth_tx_gas(auths_in_this_tx)
+        expected_gas_usage += tx_gas
 
         receiver = pre.fund_eoa(0 if empty_account else 1)
 
@@ -606,22 +660,15 @@ def test_auth_transaction(
             Transaction(
                 to=receiver,
                 value=transfer_amount,
-                gas_limit=tx_gas_used,
+                gas_limit=tx_gas,
                 sender=pre.fund_eoa(),
                 authorization_list=auth_tuples,
             )
         )
 
-    # EIP-7778: refunds no longer reduce block-level gas accounting
-    expected_gas_usage = (
-        total_gas_used
-        if fork.is_eip_enabled(7778)
-        else total_gas_used - total_refund
-    )
-
     benchmark_test(
         pre=pre,
-        post={},
+        post=post,
         blocks=[Block(txs=txs)],
         expected_benchmark_gas_used=expected_gas_usage,
     )
@@ -652,19 +699,28 @@ def test_contract_creation(
         code_deposit_size=contract_size,
     )
     intrinsic_gas_calc = fork.transaction_intrinsic_cost_calculator()
+    sends_value = transfer_amount > 0
 
     # EIP-7623: actual gas used = max(standard + execution, floor)
     standard_intrinsic = intrinsic_gas_calc(
         calldata=bytes(initcode),
         contract_creation=True,
+        sends_value=sends_value,
         return_cost_deducted_prior_execution=True,
     )
     floor_intrinsic = intrinsic_gas_calc(
         calldata=bytes(initcode),
         contract_creation=True,
+        sends_value=sends_value,
     )
     execution_gas = initcode.gas_cost(fork)
-    tx_cost = max(standard_intrinsic + execution_gas, floor_intrinsic)
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        contract_creation=True
+    )
+    tx_cost = max(
+        standard_intrinsic + execution_gas + top_frame_state_gas,
+        floor_intrinsic,
+    )
 
     iteration_count = gas_benchmark_value // tx_cost
 

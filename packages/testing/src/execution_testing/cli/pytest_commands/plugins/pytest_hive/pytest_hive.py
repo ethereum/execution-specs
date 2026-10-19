@@ -43,18 +43,30 @@ from typing import Any, Generator, List
 
 import pytest
 from filelock import FileLock
-from hive.client import ClientRole
+from hive.client import ClientRole, ClientType
 from hive.simulation import Simulation
 from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
 
 from execution_testing.logging import get_logger
 
+from ..shared.helpers import is_help_or_collectonly_mode
 from .hive_info import ClientFile, HiveInfo
 
 logger = get_logger(__name__)
 
 
 def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
+    if is_help_or_collectonly_mode(config):
+        # Collection does not require a live hive simulator; provide a
+        # placeholder client so client-parametrized tests still collect.
+        config.hive_execution_clients = [  # type: ignore[attr-defined]
+            ClientType(
+                name="collect-only",
+                version="",
+                meta={"roles": [ClientRole.ExecutionClient.value]},
+            )
+        ]
+        return
     hive_simulator_url = config.getoption("hive_simulator")
     if hive_simulator_url is None:
         pytest.exit(

@@ -1,7 +1,8 @@
 """Unit tests for BAL modifier functions."""
 
-from typing import Callable
+from typing import Any, Callable
 
+import ethereum_rlp as eth_rlp
 import pytest
 
 from execution_testing.base_types import Address
@@ -15,6 +16,7 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessList,
 )
 from execution_testing.test_types.block_access_list.modifiers import (
+    BalScalarField,
     append_change,
     append_storage,
     duplicate_account,
@@ -24,13 +26,21 @@ from execution_testing.test_types.block_access_list.modifiers import (
     duplicate_slot_change,
     duplicate_storage_read,
     duplicate_storage_slot,
+    encode_scalar_non_minimally,
     insert_storage_read,
     modify_balance,
     modify_code,
     modify_nonce,
     modify_storage,
+    override_rlp,
     remove_nonces,
     reorder_accounts,
+    reverse_balance_changes,
+    reverse_code_changes,
+    reverse_nonce_changes,
+    reverse_slot_changes,
+    reverse_storage_reads,
+    reverse_storage_slots,
     swap_bal_indices,
 )
 
@@ -368,3 +378,226 @@ def test_reused_callable_does_not_carry_found_state(
     modifier(sample_bal)
     with pytest.raises(ValueError, match="not found"):
         modifier(missing_bal)
+
+
+@pytest.mark.parametrize(
+    "field, address, leaf_path, canonical_leaf",
+    [
+        pytest.param(
+            "storage_slot", CONTRACT, (1, 1, 0, 0), b"\x01", id="storage_slot"
+        ),
+        pytest.param(
+            "storage_value",
+            CONTRACT,
+            (1, 1, 0, 1, 0, 1),
+            b"\x42",
+            id="storage_value",
+        ),
+        pytest.param(
+            "storage_read", CONTRACT, (1, 2, 0), b"\x02", id="storage_read"
+        ),
+        pytest.param("balance", ALICE, (0, 3, 0, 1), b"\x64", id="balance"),
+        pytest.param(
+            "block_access_index",
+            ALICE,
+            (0, 3, 0, 0),
+            b"\x01",
+            id="block_access_index",
+        ),
+        pytest.param("nonce", ALICE, (0, 4, 0, 1), b"\x01", id="nonce"),
+    ],
+)
+def test_encode_scalar_non_minimally(
+    sample_bal: BlockAccessList,
+    field: BalScalarField,
+    address: Address,
+    leaf_path: tuple[int, ...],
+    canonical_leaf: bytes,
+) -> None:
+    """Only the targeted leaf changes, and only in its encoding."""
+    encoded = encode_scalar_non_minimally(address, field)(sample_bal)
+
+    assert encoded != sample_bal.rlp
+    assert BlockAccessList.from_rlp(encoded).rlp == sample_bal.rlp
+
+    leaf: Any = eth_rlp.decode(encoded)
+    for index in leaf_path:
+        leaf = leaf[index]
+    assert leaf == b"\x00" + canonical_leaf
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "storage_slot",
+        "storage_value",
+        "storage_read",
+        "balance",
+        "block_access_index",
+        "nonce",
+    ],
+)
+def test_encode_scalar_non_minimally_missing_entry_raises(
+    field: BalScalarField,
+) -> None:
+    """Raise when the account has no entry for the targeted field."""
+    with pytest.raises(ValueError, match=f"No {field} entry"):
+        encode_scalar_non_minimally(ALICE, field)(_ALICE_ONLY_BAL)
+
+
+def test_encode_scalar_non_minimally_missing_address_raises() -> None:
+    """Raise when the address is absent."""
+    with pytest.raises(ValueError, match="not found"):
+        encode_scalar_non_minimally(ALICE, "balance")(_EMPTY_BAL)
+
+
+def test_encode_scalar_non_minimally_unknown_field_raises(
+    sample_bal: BlockAccessList,
+) -> None:
+    """Raise when the field is not a BAL scalar."""
+    unknown_field: Any = "code"
+    with pytest.raises(ValueError, match="Unknown BAL scalar field"):
+        encode_scalar_non_minimally(ALICE, unknown_field)(sample_bal)
+
+
+def test_override_rlp_commits_encoder_output(
+    sample_bal: BlockAccessList,
+) -> None:
+    """`override_rlp` makes the encoder's bytes the BAL's serialization."""
+    encoder = encode_scalar_non_minimally(ALICE, "balance")
+    overridden = override_rlp(encoder)(sample_bal)
+
+    assert overridden.rlp == encoder(sample_bal)
+    assert overridden.rlp != sample_bal.rlp
+    assert overridden.root == sample_bal.root
+
+
+@pytest.fixture()
+def two_entry_bal() -> BlockAccessList:
+    """Build a BAL whose every list on ALICE holds two entries in order."""
+    return BlockAccessList(
+        [
+            BalAccountChange(
+                address=ALICE,
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1),
+                    BalNonceChange(block_access_index=2, post_nonce=2),
+                ],
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=100),
+                    BalBalanceChange(block_access_index=2, post_balance=90),
+                ],
+                code_changes=[
+                    BalCodeChange(block_access_index=1, new_code=b"\x60"),
+                    BalCodeChange(block_access_index=2, new_code=b"\x61"),
+                ],
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=0x42
+                            ),
+                            BalStorageChange(
+                                block_access_index=2, post_value=0x43
+                            ),
+                        ],
+                    ),
+                    BalStorageSlot(
+                        slot=2,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=0x44
+                            ),
+                        ],
+                    ),
+                ],
+                storage_reads=[3, 4],
+            ),
+        ]
+    )
+
+
+ACCOUNT_LISTS = (
+    "storage_changes",
+    "storage_reads",
+    "balance_changes",
+    "nonce_changes",
+    "code_changes",
+)
+
+
+def _alice(bal: BlockAccessList) -> BalAccountChange:
+    return [a for a in bal.root if a.address == ALICE][0]
+
+
+@pytest.mark.parametrize(
+    "modifier, field",
+    [
+        pytest.param(
+            reverse_storage_slots(ALICE), "storage_changes", id="storage_slots"
+        ),
+        pytest.param(
+            reverse_storage_reads(ALICE), "storage_reads", id="storage_reads"
+        ),
+        pytest.param(
+            reverse_balance_changes(ALICE),
+            "balance_changes",
+            id="balance_changes",
+        ),
+        pytest.param(
+            reverse_nonce_changes(ALICE), "nonce_changes", id="nonce_changes"
+        ),
+        pytest.param(
+            reverse_code_changes(ALICE), "code_changes", id="code_changes"
+        ),
+    ],
+)
+def test_reverse_account_field(
+    two_entry_bal: BlockAccessList,
+    modifier: Callable[[BlockAccessList], BlockAccessList],
+    field: str,
+) -> None:
+    """Reverse one list of the account and leave the others untouched."""
+    before = _alice(two_entry_bal)
+    after = _alice(modifier(two_entry_bal))
+    assert getattr(after, field) == list(reversed(getattr(before, field)))
+    for other in ACCOUNT_LISTS:
+        if other != field:
+            assert getattr(after, other) == getattr(before, other)
+
+
+def test_reverse_slot_changes(two_entry_bal: BlockAccessList) -> None:
+    """Reverse the change list of one slot only."""
+    result = reverse_slot_changes(ALICE, 1)(two_entry_bal)
+    slots = _alice(result).storage_changes
+    assert [c.block_access_index for c in slots[0].slot_changes] == [2, 1]
+    assert slots[1] == _alice(two_entry_bal).storage_changes[1]
+
+
+def test_reverse_single_entry_raises(sample_bal: BlockAccessList) -> None:
+    """Raise instead of silently leaving a one-entry list unchanged."""
+    with pytest.raises(ValueError, match="at least two"):
+        reverse_nonce_changes(ALICE)(sample_bal)
+
+
+def test_reverse_slot_changes_single_change_raises(
+    two_entry_bal: BlockAccessList,
+) -> None:
+    """Raise instead of silently leaving a one-change slot unchanged."""
+    with pytest.raises(ValueError, match="at least two"):
+        reverse_slot_changes(ALICE, 2)(two_entry_bal)
+
+
+def test_reverse_missing_address_raises(sample_bal: BlockAccessList) -> None:
+    """Raise when the address is absent."""
+    with pytest.raises(ValueError, match="not found"):
+        reverse_storage_reads(Address(0xB))(sample_bal)
+
+
+def test_reverse_slot_changes_missing_slot_raises(
+    two_entry_bal: BlockAccessList,
+) -> None:
+    """Raise when the slot is absent."""
+    with pytest.raises(ValueError, match="not found"):
+        reverse_slot_changes(ALICE, 99)(two_entry_bal)

@@ -45,21 +45,41 @@ from execution_testing.base_types import (
     Hash,
     HeaderNonce,
     HexNumber,
+    KnownEncodedSize,
     Number,
     ZeroPaddedHexNumber,
+    encoded_size,
+    ssz,
     unwrap_annotation,
+)
+from execution_testing.base_types.ssz import (
+    SSZForkSchema,
+    SSZModel,
+    Uint64,
+    Uint256,
+    byte_list,
+    ssz_list,
 )
 from execution_testing.exceptions import (
     EngineAPIError,
     ExceptionInstanceOrList,
 )
-from execution_testing.forks import Fork, Paris, TransitionFork
+from execution_testing.forks import (
+    Amsterdam,
+    Cancun,
+    Fork,
+    Paris,
+    Requests,
+    Shanghai,
+    TransitionFork,
+    ssz_schema_fork_key,
+)
 from execution_testing.test_types import (
+    AllocGroupHash,
     BlockAccessList,
     Environment,
     ExecutionWitness,
     Removable,
-    Requests,
     TestPhase,
     Transaction,
     Withdrawal,
@@ -371,23 +391,67 @@ class FixtureHeader(CamelModel):
                 env.withdrawals
             )
         environment_values["extra_data"] = env.extra_data
-        extras = {
+        extras: Dict[str, Any] = {
             "state_root": state_root,
-            "requests_hash": Requests()
-            if fork.header_requests_required()
-            else None,
-            "block_access_list_hash": (
-                BlockAccessList().rlp_hash
-                if fork.header_bal_hash_required()
-                else None
-            ),
-            "slot_number": 0 if fork.header_slot_number_required() else None,
             "fork": fork,
         }
+        if fork.header_requests_required():
+            extras["requests_hash"] = Requests()
+        if fork.header_bal_hash_required():
+            extras["block_access_list_hash"] = BlockAccessList().rlp_hash
+        if fork.header_slot_number_required():
+            extras["slot_number"] = (
+                int(env.slot_number) if env.slot_number is not None else 0
+            )
         return cls(**environment_values, **extras)
 
 
-class FixtureExecutionPayload(CamelModel):
+MAX_EXTRA_DATA_BYTES = 2**5
+"""Maximum ``extra_data`` length in the SSZ execution payload."""
+
+MAX_BYTES_PER_TRANSACTION = 2**30
+"""Maximum encoded size of a single transaction."""
+
+MAX_TRANSACTIONS_PER_PAYLOAD = 2**20
+"""Maximum transaction count per payload."""
+
+MAX_WITHDRAWALS_PER_PAYLOAD = 2**4
+"""Maximum withdrawal count per payload."""
+
+# TODO: EIP-8146 defines this as 2**23 for RLP-encoded block access
+# lists; revisit once the value is finalized and verified.
+MAX_BLOCK_ACCESS_LIST_BYTES = 2**23
+"""Placeholder cap for the RLP-encoded block access list byte list."""
+
+
+class ForkScopedSSZModel(SSZModel):
+    """SSZ model whose methods resolve ``Fork`` classes to schema keys."""
+
+    @classmethod
+    def ssz_fork_key(cls, fork: Fork) -> Fork:
+        """Return this model's SSZ schema key for ``fork``."""
+        schema = cls.__ssz_schema__
+        if schema is None:
+            raise TypeError(
+                f"{cls.__name__} does not declare an SSZ fork schema"
+            )
+        return ssz_schema_fork_key(schema, fork)
+
+    def ssz_encode(self, fork: Fork) -> Bytes:
+        """Return the SSZ encoding of this model at ``fork``."""
+        return Bytes(ssz.encode(self, self.ssz_fork_key(fork)))
+
+    def ssz_hash_tree_root(self, fork: Fork) -> Hash:
+        """Return the SSZ hash tree root of this model at ``fork``."""
+        return Hash(ssz.hash_tree_root(self, self.ssz_fork_key(fork)))
+
+    @classmethod
+    def ssz_decode(cls, data: bytes, fork: Fork) -> Self:
+        """Decode an SSZ-encoded instance of this model at ``fork``."""
+        return ssz.decode(cls, data, cls.ssz_fork_key(fork))
+
+
+class FixtureExecutionPayload(ForkScopedSSZModel):
     """
     Representation of an Ethereum execution payload within a test Fixture.
     """
@@ -403,26 +467,57 @@ class FixtureExecutionPayload(CamelModel):
     receipts_root: Hash
     logs_bloom: Bloom
 
-    number: HexNumber = Field(..., alias="blockNumber")
-    gas_limit: HexNumber
-    gas_used: HexNumber
-    timestamp: HexNumber
-    extra_data: Bytes
+    number: Uint64 = Field(..., alias="blockNumber")
+    gas_limit: Uint64
+    gas_used: Uint64
+    timestamp: Uint64
+    extra_data: Annotated[Bytes, byte_list(MAX_EXTRA_DATA_BYTES)]
     prev_randao: Hash
 
-    base_fee_per_gas: HexNumber
-    blob_gas_used: HexNumber | None = Field(None)
-    excess_blob_gas: HexNumber | None = Field(None)
+    base_fee_per_gas: Uint256
+    blob_gas_used: Uint64 | None = Field(None)
+    excess_blob_gas: Uint64 | None = Field(None)
 
     block_hash: Hash
 
-    transactions: List[Bytes]
-    withdrawals: List[Withdrawal] | None = None
+    transactions: Annotated[
+        List[Annotated[Bytes, byte_list(MAX_BYTES_PER_TRANSACTION)]],
+        ssz_list(MAX_TRANSACTIONS_PER_PAYLOAD),
+    ]
+    withdrawals: (
+        Annotated[List[Withdrawal], ssz_list(MAX_WITHDRAWALS_PER_PAYLOAD)]
+        | None
+    ) = None
 
-    block_access_list: Bytes | None = Field(
-        None, description="RLP-serialized EIP-7928 Block Access List"
+    block_access_list: (
+        Annotated[Bytes, byte_list(MAX_BLOCK_ACCESS_LIST_BYTES)] | None
+    ) = Field(None, description="RLP-serialized EIP-7928 Block Access List")
+    slot_number: Uint64 | None = Field(None)
+
+    __ssz_schema__ = SSZForkSchema(
+        base_fork=Paris,
+        base=(
+            "parent_hash",
+            "fee_recipient",
+            "state_root",
+            "receipts_root",
+            "logs_bloom",
+            "prev_randao",
+            "number",
+            "gas_limit",
+            "gas_used",
+            "timestamp",
+            "extra_data",
+            "base_fee_per_gas",
+            "block_hash",
+            "transactions",
+        ),
+        appended={
+            Shanghai: ("withdrawals",),
+            Cancun: ("blob_gas_used", "excess_blob_gas"),
+            Amsterdam: ("block_access_list", "slot_number"),
+        },
     )
-    slot_number: HexNumber | None = Field(None)
 
     @classmethod
     def from_fixture_header(
@@ -461,6 +556,7 @@ class FixtureExecutionPayloadModifier(CamelModel):
     )
 
     block_access_list: Removable | Bytes | None = None
+    slot_number: Removable | HexNumber | None = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """Sentinel to specify that a payload field should be removed."""
@@ -518,6 +614,8 @@ class FixtureEngineNewPayload(CamelModel):
     forkchoice_updated_version: Number
     execution_witness: ExecutionWitness | None = None
     execution_witness_mutated: bool | None = None
+    stateless_input_bytes: Bytes | None = None
+    stateless_output_bytes: Bytes | None = None
     validation_error: ExceptionInstanceOrList | None = None
     error_code: (
         Annotated[
@@ -564,6 +662,13 @@ class FixtureEngineNewPayload(CamelModel):
             withdrawals=execution_payload.withdrawals,
             parent_beacon_block_root=parent_beacon_block_root,
             slot_number=execution_payload.slot_number,
+            # targetGasLimit exists from V4 onwards; earlier versions must
+            # not carry the field even though every payload has a gas limit.
+            target_gas_limit=(
+                execution_payload.gas_limit
+                if self.forkchoice_updated_version >= 4
+                else None
+            ),
         )
 
     @staticmethod
@@ -609,6 +714,8 @@ class FixtureEngineNewPayload(CamelModel):
         block_access_list: Bytes | None = None,
         execution_witness: ExecutionWitness | None = None,
         execution_witness_mutated: bool | None = None,
+        stateless_input_bytes: Bytes | None = None,
+        stateless_output_bytes: Bytes | None = None,
         execution_payload_modifier: (
             "FixtureExecutionPayloadModifier | None"
         ) = None,
@@ -682,6 +789,8 @@ class FixtureEngineNewPayload(CamelModel):
             forkchoice_updated_version=forkchoice_updated_version,
             execution_witness=execution_witness,
             execution_witness_mutated=execution_witness_mutated,
+            stateless_input_bytes=stateless_input_bytes,
+            stateless_output_bytes=stateless_output_bytes,
             **kwargs,
         )
 
@@ -716,6 +825,48 @@ class FixtureWithdrawal(WithdrawalGeneric[ZeroPaddedHexNumber]):
     def from_withdrawal(cls, w: WithdrawalGeneric) -> Self:
         """Return FixtureWithdrawal from a Withdrawal."""
         return cls(**w.model_dump())
+
+
+def block_rlp_encode_list(
+    header: FixtureHeader,
+    serialized_txs: List[Any],
+    ommers: List[FixtureHeader],
+    withdrawals: List[FixtureWithdrawal] | None,
+) -> List[Any]:
+    """Return the RLP-serializable list that makes up a block."""
+    block: List[Any] = [
+        header.rlp_encode_list,
+        serialized_txs,
+        ommers,
+    ]
+
+    if withdrawals is not None:
+        block.append([w.to_serializable_list() for w in withdrawals])
+
+    return block
+
+
+def block_rlp_size(
+    header: FixtureHeader,
+    txs: List[Transaction],
+    ommers: List[FixtureHeader],
+    withdrawals: List[FixtureWithdrawal] | None,
+) -> int:
+    """
+    Return the encoded size of the block, without encoding it.
+
+    Each transaction enters `block_rlp_encode_list` as a placeholder carrying
+    its `Transaction.serializable_size`, so the transaction bytes are never
+    built.
+    """
+    return encoded_size(
+        block_rlp_encode_list(
+            header,
+            [KnownEncodedSize(tx.serializable_size) for tx in txs],
+            ommers,
+            withdrawals,
+        )
+    )
 
 
 class FixtureBlockBase(CamelModel):
@@ -762,20 +913,16 @@ class FixtureBlockBase(CamelModel):
 
     def with_rlp(self, txs: List[Transaction]) -> "FixtureBlock":
         """Return FixtureBlock with the RLP bytes set."""
-        block = [
-            self.header.rlp_encode_list,
-            [tx.serializable_list for tx in txs],
-            # TODO: This is incorrect, and we probably
-            # need to serialize the ommers
-            self.ommers,
-        ]
-
-        if self.withdrawals is not None:
-            block.append([w.to_serializable_list() for w in self.withdrawals])
-
         return FixtureBlock(
             **self.model_dump(),
-            rlp=eth_rlp.encode(block),
+            rlp=eth_rlp.encode(
+                block_rlp_encode_list(
+                    self.header,
+                    [tx.serializable_list for tx in txs],
+                    self.ommers,
+                    self.withdrawals,
+                )
+            ),
         )
 
 
@@ -936,10 +1083,10 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
     }
     transition_tool_cache_key: ClassVar[str] = ""
 
-    pre_hash: str
+    pre_hash: AllocGroupHash
     """Hash of the pre-allocation group this test belongs to."""
 
-    post_state_diff: Alloc | None = None
+    post_state_diff: Alloc
     """
     State difference from genesis after test execution (efficiency
     optimization).

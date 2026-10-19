@@ -15,7 +15,7 @@ The test measures the performance impact of state root recomputation and IO when
 
 ## Contract Sources
 
-- **Pre-mined assets** (depth\__.sol, s_\_acc\*.json): https://github.com/CPerezz/worst_case_miner/tree/master/mined_assets
+- **Pre-mined assets** (`depth_*.sol`, `s*_acc*.json`): https://github.com/CPerezz/worst_case_miner/tree/master/mined_assets
 
 For complete deployment setup and instructions, see the gist: https://gist.github.com/CPerezz/44d521c0f9e6adf7d84187a4f2c11978
 

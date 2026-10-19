@@ -1,17 +1,27 @@
 """
-Test_create_and_gas_inside_create.
+Verify the gas a CREATE's init code observes: the child receives all but
+one 64th of what remains in the creating frame, and the parent's CREATE
+cost is measured alongside it.
 
 Ported from:
 state_tests/stEIP150Specific/CreateAndGasInsideCreateFiller.json
+state_tests/stMemExpandingEIP150Calls/CreateAndGasInsideCreateWithMemExpandingCallsFiller.json
+
+@manually-enhanced: Do not overwrite. An outer call pins the creating
+frame's budget so the child's stored GAS observation is fork-derived
+(`63/64` of the derived base); the parent measures the CREATE with
+CodeGasMeasure instead of raw snapshots, which subsumes the raw entry and
+post-CREATE snapshots the second filler stored. Neither filler varied the
+one thing its directory is named for -- whether the CREATE's own window
+grows memory -- so that is the parametrized axis here.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    CodeGasMeasure,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -21,58 +31,122 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+ADDRESS_SLOT = 0xB
+GAS_SLOT = 0x9
+CHILD_GAS_SLOT = 0xFD
+
+# The creating frame's pinned budget (the ported transaction's).
+CALLER_GAS = 600_000
+
+# How far the CREATE's window runs past the word the setup already paid
+# for, in the expanding case. A CREATE always reads its init code from
+# memory, so the axis cannot be "touches memory or not" -- it is whether
+# the CREATE is itself charged the growth, which happens before the 63/64
+# withhold and so lands in what the child observes.
+MEM_EXPANSION_BYTES = 0x20
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stEIP150Specific/CreateAndGasInsideCreateFiller.json"],
+    [
+        "state_tests/stEIP150Specific/CreateAndGasInsideCreateFiller.json",
+        "state_tests/stMemExpandingEIP150Calls/CreateAndGasInsideCreateWithMemExpandingCallsFiller.json",  # noqa: E501
+    ],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Berlin")
+@pytest.mark.parametrize(
+    "memory_expansion", [False, True], ids=["flat", "mem_expansion"]
+)
 def test_create_and_gas_inside_create(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
+    memory_expansion: bool,
 ) -> None:
-    """Test_create_and_gas_inside_create."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
+    """A CREATE's init code observes 63/64 of the creating frame's gas."""
+    # Child init code: stores the gas it observes into its own storage
+    # and deposits no code.
+    child_code = Op.SSTORE(
+        key=CHILD_GAS_SLOT,
+        value=Op.GAS,
+        key_warm=False,
+        original_value=0,
+        new_value=1,
     )
 
-    # Source: lll
-    # { [100] (GAS) (MSTORE 0 0x5a60fd55) (SSTORE 11 (CREATE 0 28 4)) (SSTORE 9 (SUB @100 (GAS))) }  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x64, value=Op.GAS)
-        + Op.MSTORE(offset=0x0, value=0x5A60FD55)
-        + Op.SSTORE(key=0xB, value=Op.CREATE(value=0x0, offset=0x1C, size=0x4))
-        + Op.SSTORE(key=0x9, value=Op.SUB(Op.MLOAD(offset=0x64), Op.GAS))
+    # The child bytes sit right-aligned in the first memory word.
+    setup = Op.MSTORE(
+        offset=0x0,
+        value=int.from_bytes(child_code, "big"),
+        new_memory_size=0x20,
+    )
+    # Padding the window with bytes the setup never wrote leaves the child
+    # unchanged -- they read as zero, so they are STOPs after its store --
+    # while forcing the CREATE to pay for the growth.
+    padding = MEM_EXPANSION_BYTES if memory_expansion else 0
+    create_code = Op.CREATE(
+        value=0x0,
+        offset=0x20 - len(child_code),
+        size=len(child_code) + padding,
+        new_memory_size=0x20 + padding,
+        old_memory_size=0x20,
+        init_code_size=len(child_code) + padding,
+    )
+    create_store = Op.SSTORE(
+        key=ADDRESS_SLOT,
+        value=create_code,
+        key_warm=False,
+        original_value=0,
+        new_value=1,
+    )
+    creator = pre.deploy_contract(
+        code=setup
+        + CodeGasMeasure(
+            code=create_store,
+            extra_stack_items=0,
+            sstore_key=GAS_SLOT,
+        ),
+    )
+
+    # The outer call pins the creating frame's budget so the child's
+    # observation does not depend on the tx gas limit.
+    entry = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.CALL(gas=CALLER_GAS, address=creator))
         + Op.STOP,
-        nonce=0,
     )
 
     tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=Bytes(""),
-        gas_limit=600000,
+        sender=pre.fund_eoa(),
+        to=entry,
+        state_gas_reservoir=0,
     )
 
+    # The child receives all but one 64th of what remains after the
+    # setup, the measuring GAS read, and the CREATE's own charges (its
+    # new-account state gas is taken before the withhold).
+    base = (
+        CALLER_GAS
+        - setup.gas_cost(fork)
+        - Op.GAS.gas_cost(fork)
+        - create_code.gas_cost(fork)
+    )
+    assert base > 0, "CALLER_GAS must cover the CREATE's charges"
+    child_observed = (base - base // 64) - Op.GAS.gas_cost(fork)
+    measured_create = create_store.gas_cost(fork) + child_code.gas_cost(fork)
+
+    created = compute_create_address(address=creator, nonce=1)
     post = {
-        contract_0: Account(
+        entry: Account(storage={0: 1}),
+        creator: Account(
             storage={
-                9: 0x129DB,
-                11: compute_create_address(address=contract_0, nonce=0),
+                ADDRESS_SLOT: created,
+                GAS_SLOT: measured_create,
             },
         ),
-        compute_create_address(address=contract_0, nonce=0): Account(
-            storage={253: 0x83729}
+        created: Account(
+            nonce=1,
+            code=b"",
+            storage={CHILD_GAS_SLOT: child_observed},
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

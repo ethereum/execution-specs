@@ -35,6 +35,7 @@ from execution_testing import (
     FeeSystemContractRequest,
     Fork,
     Hash,
+    Header,
     Initcode,
     Op,
     RecipientType,
@@ -47,6 +48,7 @@ from execution_testing import (
     add_kzg_version,
     call_return_code,
     compute_create_address,
+    max_count_with_gas_limit,
 )
 from execution_testing import Macros as Om
 from execution_testing.base_types import HexNumber
@@ -1397,6 +1399,28 @@ def test_ext_code_on_set_code(
             ),
             callee_address: Account(storage=callee_storage),
         },
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                auth_signer: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=Spec.delegation_designation(
+                                set_code_to_address
+                            ),
+                        )
+                    ],
+                    balance_changes=[],
+                ),
+                # Code-reading opcodes return the designation itself
+                # rather than resolving it, so the address it points at
+                # is never accessed.
+                set_code_to_address: None,
+            }
+        ),
     )
 
 
@@ -1633,19 +1657,39 @@ def test_set_code_address_and_authority_warm_state_call_types(
 
 
 @pytest.mark.parametrize(
-    "balance",
-    [0, 1],
+    "balance,self_sponsored",
+    [
+        pytest.param(0, False, id="zero_balance_authority"),
+        pytest.param(1, False, id="one_wei_balance_authority"),
+        pytest.param(None, True, id="self_sponsored_tx"),
+    ],
 )
 def test_ext_code_on_self_delegating_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
-    balance: int,
+    balance: int | None,
+    self_sponsored: bool,
 ) -> None:
     """
     Test different ext*code operations on a set-code address that delegates to
     itself.
     """
-    auth_signer = pre.fund_eoa(balance)
+    # Pin gas so BALANCE(auth_signer) is deterministic when the authority
+    # is also the sender (up-front max-fee hold).
+    gas_limit = 1_000_000
+    max_fee_per_gas = 7
+
+    if self_sponsored:
+        auth_balance = 10**18
+        auth_signer = pre.fund_eoa(auth_balance)
+        sender = auth_signer
+        expected_ext_balance = auth_balance - gas_limit * max_fee_per_gas
+    else:
+        assert balance is not None
+        auth_balance = balance
+        auth_signer = pre.fund_eoa(auth_balance)
+        sender = pre.fund_eoa()
+        expected_ext_balance = auth_balance
 
     slot = count(1)
     slot_ext_code_size_result = next(slot)
@@ -1673,47 +1717,82 @@ def test_ext_code_on_self_delegating_set_code(
     callee_storage[slot_ext_code_copy_result] = Hash(
         Spec.delegation_designation(auth_signer), right_padding=True
     )
-    callee_storage[slot_ext_balance_result] = balance
+    callee_storage[slot_ext_balance_result] = expected_ext_balance
 
+    tx_kwargs: dict[str, int] = {}
+    if self_sponsored:
+        tx_kwargs = {
+            "gas_limit": gas_limit,
+            "max_fee_per_gas": max_fee_per_gas,
+            "max_priority_fee_per_gas": 0,
+        }
     tx = Transaction(
         to=callee_address,
         authorization_list=[
             AuthorizationTuple(
                 address=auth_signer,
-                nonce=0,
+                nonce=1 if self_sponsored else 0,
                 signer=auth_signer,
             ),
         ],
-        sender=pre.fund_eoa(),  # TODO: Test with sender as auth_signer
+        sender=sender,
+        **tx_kwargs,
     )
+
+    post_auth: dict = {
+        "nonce": 2 if self_sponsored else 1,
+        "code": Spec.delegation_designation(auth_signer),
+    }
+    if not self_sponsored:
+        # Self-sponsored post balance depends on exact gas_used refunds;
+        # the EXT* BALANCE slot already covers the mid-tx hold.
+        post_auth["balance"] = auth_balance
 
     state_test(
         env=Environment(),
         pre=pre,
         tx=tx,
         post={
-            auth_signer: Account(
-                nonce=1,
-                code=Spec.delegation_designation(auth_signer),
-                balance=balance,
-            ),
+            auth_signer: Account(**post_auth),
             callee_address: Account(storage=callee_storage),
         },
     )
 
 
+@pytest.mark.parametrize(
+    "self_sponsored",
+    [
+        pytest.param(False, id="not_self_sponsored"),
+        pytest.param(True, id="self_sponsored"),
+    ],
+)
 def test_ext_code_on_chain_delegating_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    self_sponsored: bool,
 ) -> None:
     """
     Test different ext*code operations on a set-code address that references
     another delegated address.
     """
-    auth_signer_1_balance = 1
-    auth_signer_2_balance = 0
+    # Pin gas so BALANCE(auth_signer_1) is deterministic when that authority
+    # is also the sender (up-front max-fee hold).
+    gas_limit = 2_000_000
+    max_fee_per_gas = 7
 
-    auth_signer_1 = pre.fund_eoa(auth_signer_1_balance)
+    auth_signer_2_balance = 0
+    if self_sponsored:
+        auth_signer_1_balance = 10**18
+        auth_signer_1 = pre.fund_eoa(auth_signer_1_balance)
+        sender = auth_signer_1
+        expected_ext_balance_1 = (
+            auth_signer_1_balance - gas_limit * max_fee_per_gas
+        )
+    else:
+        auth_signer_1_balance = 1
+        auth_signer_1 = pre.fund_eoa(auth_signer_1_balance)
+        sender = pre.fund_eoa()
+        expected_ext_balance_1 = auth_signer_1_balance
     auth_signer_2 = pre.fund_eoa(auth_signer_2_balance)
 
     slot = count(1)
@@ -1755,7 +1834,7 @@ def test_ext_code_on_chain_delegating_set_code(
     callee_storage[slot_ext_code_copy_result_1] = Hash(
         Spec.delegation_designation(auth_signer_2), right_padding=True
     )
-    callee_storage[slot_ext_balance_result_1] = auth_signer_1_balance
+    callee_storage[slot_ext_balance_result_1] = expected_ext_balance_1
 
     callee_storage[slot_ext_code_size_result_2] = len(
         Spec.delegation_designation(auth_signer_1)
@@ -1768,12 +1847,19 @@ def test_ext_code_on_chain_delegating_set_code(
     )
     callee_storage[slot_ext_balance_result_2] = auth_signer_2_balance
 
+    tx_kwargs: dict[str, int] = {}
+    if self_sponsored:
+        tx_kwargs = {
+            "gas_limit": gas_limit,
+            "max_fee_per_gas": max_fee_per_gas,
+            "max_priority_fee_per_gas": 0,
+        }
     tx = Transaction(
         to=callee_address,
         authorization_list=[
             AuthorizationTuple(
                 address=auth_signer_2,
-                nonce=0,
+                nonce=1 if self_sponsored else 0,
                 signer=auth_signer_1,
             ),
             AuthorizationTuple(
@@ -1782,19 +1868,23 @@ def test_ext_code_on_chain_delegating_set_code(
                 signer=auth_signer_2,
             ),
         ],
-        sender=pre.fund_eoa(),  # TODO: Test with sender as auth_signer
+        sender=sender,
+        **tx_kwargs,
     )
+
+    post_auth_1: dict = {
+        "nonce": 2 if self_sponsored else 1,
+        "code": Spec.delegation_designation(auth_signer_2),
+    }
+    if not self_sponsored:
+        post_auth_1["balance"] = auth_signer_1_balance
 
     state_test(
         env=Environment(),
         pre=pre,
         tx=tx,
         post={
-            auth_signer_1: Account(
-                nonce=1,
-                code=Spec.delegation_designation(auth_signer_2),
-                balance=auth_signer_1_balance,
-            ),
+            auth_signer_1: Account(**post_auth_1),
             auth_signer_2: Account(
                 nonce=1,
                 code=Spec.delegation_designation(auth_signer_1),
@@ -2452,6 +2542,11 @@ def test_set_code_using_valid_synthetic_signatures(
         pytest.param(2**8 - 1, 1, 1, id="v=2**8-1"),
         # R
         pytest.param(1, 0, 1, id="r=0"),
+        # In range but not the x-coordinate of any curve point: 5 is the
+        # smallest such value, as 5**3 + 7 is a quadratic non-residue mod p.
+        # Recovery has no solution, so the authorization is skipped.
+        pytest.param(0, 5, 1, id="r=5_not_on_curve"),
+        # SECP256K1N - 1 is in range and, by chance, also off the curve.
         pytest.param(0, SECP256K1N - 1, 1, id="r=SECP256K1N-1"),
         pytest.param(0, SECP256K1N, 1, id="r=SECP256K1N"),
         pytest.param(0, SECP256K1N + 1, 1, id="r=SECP256K1N+1"),
@@ -3106,8 +3201,12 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
     making the discount calculation (PER_EMPTY_ACCOUNT_COST -
     PER_AUTH_BASE_COST) and receipt gas expectation invalid.
 
-    TODO: Add EIP-8037-specific variant in tests/amsterdam/ that
-    verifies receipt gas and auth refund under EIP-8037's 2D model.
+    From EIP-8037 the equivalent coverage is
+    ``test_value_moving_with_tx_delegation.py`` under
+    ``tests/amsterdam/eip2780_reduce_intrinsic_tx_gas/`` (value to a
+    same-tx authority at exact gas) and the existing-authority receipt
+    tests in ``test_state_gas_set_code.py``. A precompile delegation
+    target adds no new path there because its body never runs.
     """
     auth_signer = pre.fund_eoa(amount=1)
     auth = AuthorizationTuple(
@@ -3300,8 +3399,8 @@ def test_set_code_to_system_contract(
         blocks=[
             Block(
                 txs=txs,
-                requests_hash=Requests(),  # Verify nothing slipped into the
-                # requests trie
+                # Verify nothing slipped into the requests trie.
+                header_verify=Header(requests_hash=Requests()),
             )
         ],
         post={
@@ -3533,6 +3632,7 @@ def test_reset_code(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage
 def test_contract_create(
@@ -3561,6 +3661,7 @@ def test_contract_create(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage
 def test_empty_authorization_list(
@@ -3672,6 +3773,188 @@ def test_delegation_clearing(
                     ext_code_size_slot: 0,
                     ext_code_hash_slot: Bytes().keccak256(),
                     ext_code_copy_slot: 0,
+                },
+            ),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "self_sponsored",
+    [
+        pytest.param(False, id="not_self_sponsored"),
+        pytest.param(True, id="self_sponsored"),
+    ],
+)
+def test_delegation_clearing_preserves_storage(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    self_sponsored: bool,
+) -> None:
+    """
+    Test that clearing the delegation of an account that already carries a
+    delegation in the pre-state resets its code but leaves its storage
+    untouched.
+    """
+    slot_preserved = 1
+
+    delegation_address = pre.deploy_contract(Op.STOP)
+    storage = Storage({slot_preserved: 0x2A})  # type: ignore[dict-item]
+
+    auth_signer = pre.fund_eoa(delegation=delegation_address, storage=storage)
+
+    authorization = AuthorizationTuple(
+        address=Spec.RESET_DELEGATION_ADDRESS,
+        nonce=auth_signer.nonce + (1 if self_sponsored else 0),
+        signer=auth_signer,
+    )
+
+    tx = Transaction(
+        to=pre.deploy_contract(Op.STOP),
+        value=0,
+        authorization_list=[authorization],
+        sender=auth_signer if self_sponsored else pre.fund_eoa(),
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={
+            auth_signer: Account(
+                nonce=auth_signer.nonce + 1,
+                code=b"",
+                storage=storage,
+            ),
+        },
+    )
+
+
+def test_delegation_clearing_and_set_preserves_storage(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that clearing a pre-state delegation and setting a new one in the
+    same authorization list keeps the authority's storage intact and
+    readable.
+    """
+    slot_preserved = 1
+    slot_read_back = 2
+    slot_marker = 3
+
+    auth_signer = pre.fund_eoa(
+        0,
+        delegation=pre.deploy_contract(Op.STOP),
+        storage=Storage({slot_preserved: 0x2A}),  # type: ignore[dict-item]
+    )
+    reader = pre.deploy_contract(
+        Op.SSTORE(slot_read_back, Op.SLOAD(slot_preserved))
+        # The write to an untouched slot forces the storage root to be
+        # recomputed from the whole slot set.
+        + Op.SSTORE(slot_marker, 1)
+        + Op.STOP
+    )
+
+    tx = Transaction(
+        to=auth_signer,
+        value=0,
+        authorization_list=[
+            AuthorizationTuple(
+                address=Spec.RESET_DELEGATION_ADDRESS,  # Reset
+                nonce=auth_signer.nonce,
+                signer=auth_signer,
+            ),
+            AuthorizationTuple(
+                address=reader,
+                nonce=auth_signer.nonce + 1,
+                signer=auth_signer,
+            ),
+        ],
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={
+            auth_signer: Account(
+                nonce=auth_signer.nonce + 2,
+                code=Spec.delegation_designation(reader),
+                storage={
+                    slot_preserved: 0x2A,
+                    slot_read_back: 0x2A,
+                    slot_marker: 1,
+                },
+            ),
+        },
+    )
+
+
+def test_delegation_clearing_storage_readable_in_later_tx(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that the storage of an authority whose pre-state delegation is
+    cleared is still readable by a later transaction of the same block.
+    """
+    slot_preserved = 1
+    slot_read_back = 2
+    slot_marker = 3
+
+    auth_signer = pre.fund_eoa(
+        0,
+        delegation=pre.deploy_contract(Op.STOP),
+        storage=Storage({slot_preserved: 0x2A}),  # type: ignore[dict-item]
+    )
+    reader = pre.deploy_contract(
+        Op.SSTORE(slot_read_back, Op.SLOAD(slot_preserved))
+        # The write to an untouched slot forces the storage root to be
+        # recomputed from the whole slot set.
+        + Op.SSTORE(slot_marker, 1)
+        + Op.STOP
+    )
+
+    sender = pre.fund_eoa()
+
+    tx_1 = Transaction(
+        to=auth_signer,
+        value=0,
+        authorization_list=[
+            AuthorizationTuple(
+                address=Spec.RESET_DELEGATION_ADDRESS,  # Reset
+                nonce=auth_signer.nonce,
+                signer=auth_signer,
+            ),
+        ],
+        sender=sender,
+    )
+    tx_2 = Transaction(
+        to=auth_signer,
+        value=0,
+        authorization_list=[
+            AuthorizationTuple(
+                address=reader,
+                nonce=auth_signer.nonce + 1,
+                signer=auth_signer,
+            ),
+        ],
+        sender=sender,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx_1, tx_2])],
+        post={
+            auth_signer: Account(
+                nonce=auth_signer.nonce + 2,
+                code=Spec.delegation_designation(reader),
+                storage={
+                    slot_preserved: 0x2A,
+                    slot_read_back: 0x2A,
+                    slot_marker: 1,
                 },
             ),
         },
@@ -3996,18 +4279,7 @@ def test_many_delegations(
     pre: Alloc,
     signer_balance: int,
 ) -> None:
-    """
-    Perform as many delegations as possible in a transaction using the entire
-    block gas limit.
-
-    Every delegation comes from a different signer.
-
-    The account of can be empty or not depending on the `signer_balance`
-    parameter.
-
-    The transaction is expected to succeed and the state after the transaction
-    is expected to have the code of the entry contract set to 1.
-    """
+    """Fill the gas budget with distinct delegations and execute a write."""
     env = Environment()
     tx_gas_limit_cap = fork.transaction_gas_limit_cap()
     if tx_gas_limit_cap is not None:
@@ -4017,16 +4289,31 @@ def test_many_delegations(
 
     success_slot = 1
     entry_code = Op.SSTORE(success_slot, 1) + Op.STOP
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    top_frame_cost = fork.transaction_top_frame_gas_calculator()
     entry_code_gas = entry_code.gas_cost(fork)
-    gas_for_delegations = max_gas - intrinsic_gas - entry_code_gas
-
-    gas_costs = fork.gas_costs()
-    delegation_count = gas_for_delegations // gas_costs.AUTH_PER_EMPTY_ACCOUNT
+    first_signer = pre.fund_eoa(signer_balance)
+    authorization = AuthorizationTuple(
+        address=Address(1),
+        nonce=0,
+        signer=first_signer,
+        creates_account=signer_balance == 0,
+        writes_delegation=True,
+        first_write=True,
+    )
+    delegation_count = max_count_with_gas_limit(
+        lambda count: intrinsic_cost(authorization_list_or_count=count)
+        + top_frame_cost(authorizations=[authorization] * count)
+        + entry_code_gas,
+        max_gas,
+    )
 
     entry_address = pre.deploy_contract(entry_code)
 
-    signers = [pre.fund_eoa(signer_balance) for _ in range(delegation_count)]
+    assert delegation_count > 0
+    signers = [first_signer] + [
+        pre.fund_eoa(signer_balance) for _ in range(delegation_count - 1)
+    ]
 
     tx = Transaction(
         gas_limit=max_gas,
@@ -4037,6 +4324,9 @@ def test_many_delegations(
                 address=Address(i + 1),
                 nonce=0,
                 signer=signer,
+                creates_account=signer_balance == 0,
+                writes_delegation=True,
+                first_write=True,
             )
             for (i, signer) in enumerate(signers)
         ],
@@ -4062,6 +4352,7 @@ def test_many_delegations(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 def test_invalid_transaction_after_authorization(
     blockchain_test: BlockchainTestFiller,
@@ -4180,6 +4471,7 @@ def test_authorization_reusing_nonce(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "set_code_type",
     list(AddressType),
@@ -4256,6 +4548,7 @@ def test_set_code_from_account_with_non_delegating_code(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "max_fee_per_gas, max_priority_fee_per_gas, expected_error",
     [

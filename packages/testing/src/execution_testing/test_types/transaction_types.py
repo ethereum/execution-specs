@@ -7,7 +7,6 @@ from functools import cached_property
 from typing import Any, ClassVar, Dict, Generic, List, Literal, Self, Sequence
 
 import ethereum_rlp as eth_rlp
-from coincurve.keys import PrivateKey, PublicKey
 from pydantic import (
     AliasChoices,
     BaseModel,
@@ -17,6 +16,7 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
+from spec256k1 import PrivateKey, PublicKey
 
 from execution_testing.base_types import (
     AccessList,
@@ -30,6 +30,8 @@ from execution_testing.base_types import (
     SignableRLPSerializable,
     TestAddress,
     TestPrivateKey,
+    encoded_prefixed_size,
+    encoded_size,
 )
 from execution_testing.exceptions import TransactionException
 from execution_testing.forks import Fork
@@ -120,6 +122,13 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
 
     signer: EOA | None = None
     secret_key: Hash | None = None
+    creates_account: bool = Field(False, exclude=True)
+    writes_delegation: bool = Field(True, exclude=True)
+    # Whether applying this authorization is the transaction's first
+    # write to the authority's account leaf. False for a self-sponsored
+    # authority (the sender is written at inclusion), for repeated
+    # authorizations on one authority, and for invalid authorizations.
+    first_write: bool = Field(True, exclude=True)
 
     def model_post_init(self, __context: Any) -> None:
         """
@@ -147,8 +156,8 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
                 signing_key = eoa.key
             assert signing_key is not None, "secret_key or signer must be set"
 
-            signature_bytes = PrivateKey(secret=signing_key).sign_recoverable(
-                rlp_signing_bytes, hasher=keccak256
+            signature_bytes = PrivateKey(signing_key).sign_recoverable(
+                rlp_signing_bytes.keccak256()
             )
             self.v, self.r, self.s = (
                 HexNumber(signature_bytes[64]),
@@ -172,7 +181,7 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
                         + bytes([self.v])
                     )
                 public_key = PublicKey.from_signature_and_message(
-                    signature_bytes, rlp_signing_bytes.keccak256(), hasher=None
+                    signature_bytes, rlp_signing_bytes.keccak256()
                 )
                 self.signer = EOA(
                     address=Address(
@@ -533,13 +542,16 @@ class Transaction(
 
     def sign(self: "Transaction") -> None:
         """Signs the authorization tuple with a private key."""
-        signature_bytes: bytes | None = None
-        rlp_signing_bytes = self.rlp_signing_bytes()
-        if (
+        needs_signature = (
             "v" not in self.model_fields_set
             and "r" not in self.model_fields_set
             and "s" not in self.model_fields_set
-        ):
+        )
+        if not needs_signature and self.sender is not None:
+            return
+        signature_bytes: bytes | None = None
+        rlp_signing_bytes = self.rlp_signing_bytes()
+        if needs_signature:
             signing_key: Hash | None = None
             if self.secret_key is not None:
                 signing_key = self.secret_key
@@ -550,8 +562,8 @@ class Transaction(
                 signing_key = eoa.key
             assert signing_key is not None, "secret_key or signer must be set"
 
-            signature_bytes = PrivateKey(secret=signing_key).sign_recoverable(
-                rlp_signing_bytes, hasher=keccak256
+            signature_bytes = PrivateKey(signing_key).sign_recoverable(
+                rlp_signing_bytes.keccak256()
             )
             v, r, s = (
                 signature_bytes[64],
@@ -583,7 +595,7 @@ class Transaction(
                         + bytes([v])
                     )
                 public_key = PublicKey.from_signature_and_message(
-                    signature_bytes, rlp_signing_bytes.keccak256(), hasher=None
+                    signature_bytes, rlp_signing_bytes.keccak256()
                 )
                 self.sender = EOA(
                     address=Address(
@@ -602,6 +614,7 @@ class Transaction(
         max_gas_limit: int,
         transaction_gas_limit_cap: int | None,
         state_gas_reservoir_enabled: bool = False,
+        transaction_total_gas_limit_cap: int | None = None,
     ) -> HexNumber:
         """
         Calculate the gas limit given the current external factors.
@@ -613,9 +626,17 @@ class Transaction(
         `max_gas_limit` (any excess above the cap acts as an implicit
         reservoir), an explicit 0 pins the gas limit to exactly the
         cap, and a positive value pins it to the cap plus the requested
-        reservoir.
+        reservoir. The result never exceeds the fork's transaction total
+        gas limit cap (EIP-8037's bound on `tx.gas` as a whole) if there
+        is one; a reservoir request that would is a test correctness
+        error.
         """
         tx_gas_limit = max_gas_limit
+        if (
+            transaction_total_gas_limit_cap is not None
+            and tx_gas_limit > transaction_total_gas_limit_cap
+        ):
+            tx_gas_limit = transaction_total_gas_limit_cap
         if state_gas_reservoir_enabled:
             if "state_gas_reservoir" in self.model_fields_set:
                 assert transaction_gas_limit_cap is not None, (
@@ -629,6 +650,22 @@ class Transaction(
                     minimum_gas_with_reservoir = (
                         transaction_gas_limit_cap + self.state_gas_reservoir
                     )
+                    if (
+                        transaction_total_gas_limit_cap is not None
+                        and minimum_gas_with_reservoir
+                        > transaction_total_gas_limit_cap
+                    ):
+                        raise Exception(
+                            "test correctness: the requested state "
+                            "gas reservoir of "
+                            f"{self.state_gas_reservoir} puts the gas "
+                            f"limit at {minimum_gas_with_reservoir} "
+                            "(transaction gas limit cap of "
+                            f"{transaction_gas_limit_cap} plus "
+                            "reservoir), above the transaction total "
+                            "gas limit cap of "
+                            f"{transaction_total_gas_limit_cap}."
+                        )
                     if tx_gas_limit < minimum_gas_with_reservoir:
                         raise Exception(
                             "test correctness: the requested state "
@@ -671,6 +708,7 @@ class Transaction(
         max_gas_limit: int,
         transaction_gas_limit_cap: int | None,
         state_gas_reservoir_enabled: bool = False,
+        transaction_total_gas_limit_cap: int | None = None,
     ) -> Self:
         """Return copy of the transaction with the set gas limit."""
         updated_values: Dict[str, Any] = {}
@@ -683,6 +721,9 @@ class Transaction(
                 max_gas_limit=max_gas_limit,
                 transaction_gas_limit_cap=transaction_gas_limit_cap,
                 state_gas_reservoir_enabled=state_gas_reservoir_enabled,
+                transaction_total_gas_limit_cap=(
+                    transaction_total_gas_limit_cap
+                ),
             )
 
         return self.model_copy(update=updated_values)
@@ -705,7 +746,6 @@ class Transaction(
             public_key = PublicKey.from_signature_and_message(
                 self.signature_bytes,
                 self.rlp_signing_bytes().keccak256(),
-                hasher=None,
             )
             updated_values["sender"] = Address(
                 keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
@@ -722,15 +762,22 @@ class Transaction(
         signing_hash = self.rlp_signing_bytes().keccak256()
 
         # Sign the bytes
-        signature_bytes = PrivateKey(secret=self.secret_key).sign_recoverable(
-            signing_hash, hasher=None
-        )
-        public_key = PublicKey.from_signature_and_message(
-            signature_bytes, signing_hash, hasher=None
-        )
+        signing_key = PrivateKey(self.secret_key)
+        signature_bytes = signing_key.sign_recoverable(signing_hash)
 
-        sender = keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
-        updated_values["sender"] = Address(sender)
+        # The key comparison is what makes reusing `sender` safe: it is
+        # reassignable and `EOA.key` may be `None`, so a sender that does not
+        # hold the signing key would contradict its own signature.
+        if self.sender is not None and self.sender.key == self.secret_key:
+            updated_values["sender"] = self.sender
+        else:
+            # The address the public key recovery would return, since the
+            # signature was produced by this key, but derived with one point
+            # multiplication instead.
+            public_key = signing_key.public_key
+            updated_values["sender"] = Address(
+                keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
+            )
 
         v, r, s = (
             signature_bytes[64],
@@ -901,6 +948,18 @@ class Transaction(
         """
         return self.rlp() if self.ty > 0 else self.to_list(signing=False)
 
+    @cached_property
+    def serializable_size(self) -> int:
+        """
+        Return the encoded size of `serializable_list`, without building the
+        encoding.
+        """
+        if self.ty == 0:
+            return encoded_size(self.serializable_list)
+        # A typed transaction is embedded as an opaque byte string, never
+        # short enough to encode as a single byte.
+        return encoded_prefixed_size(self.rlp_size())
+
     @staticmethod
     def list_blob_versioned_hashes(
         input_txs: List["Transaction"],
@@ -922,11 +981,16 @@ class Transaction(
         env_gas_limit: int,
         transaction_gas_limit_cap: int | None,
         state_gas_reservoir_enabled: bool,
+        transaction_total_gas_limit_cap: int | None = None,
     ) -> int:
         """
         Calculate the maximum gas limit that can be set in a transaction
         given a list of transactions with and without gas-limits set
         and a maximum available environment gas.
+
+        The share is clamped to the transaction gas limit cap on forks
+        without the state gas reservoir, and always to the transaction
+        total gas limit cap if there is one.
         """
         available_gas = env_gas_limit
         unset_gas_limit_tx_count = 0
@@ -952,6 +1016,10 @@ class Transaction(
             transaction_gas_limit_cap = None
         if transaction_gas_limit_cap:
             max_tx_gas_limit = min(max_tx_gas_limit, transaction_gas_limit_cap)
+        if transaction_total_gas_limit_cap:
+            max_tx_gas_limit = min(
+                max_tx_gas_limit, transaction_total_gas_limit_cap
+            )
         return max_tx_gas_limit
 
     @cached_property
@@ -1001,6 +1069,7 @@ class Transaction(
         max_gas_limit: int,
         transaction_gas_limit_cap: int | None,
         state_gas_reservoir_enabled: bool = False,
+        transaction_total_gas_limit_cap: int | None = None,
     ) -> None:
         """Set the transaction gas limit if unset."""
         self._check_state_gas_reservoir_supported(
@@ -1011,6 +1080,9 @@ class Transaction(
                 max_gas_limit=max_gas_limit,
                 transaction_gas_limit_cap=transaction_gas_limit_cap,
                 state_gas_reservoir_enabled=state_gas_reservoir_enabled,
+                transaction_total_gas_limit_cap=(
+                    transaction_total_gas_limit_cap
+                ),
             )
 
     def signer_minimum_balance(self, *, fork: Fork) -> int:
@@ -1216,12 +1288,14 @@ class NetworkWrappedTransaction(CamelModel, RLPSerializable):
         max_gas_limit: int,
         transaction_gas_limit_cap: int | None,
         state_gas_reservoir_enabled: bool = False,
+        transaction_total_gas_limit_cap: int | None = None,
     ) -> None:
         """Set the transaction gas limit if unset."""
         self.tx.set_gas_limit(
             max_gas_limit=max_gas_limit,
             transaction_gas_limit_cap=transaction_gas_limit_cap,
             state_gas_reservoir_enabled=state_gas_reservoir_enabled,
+            transaction_total_gas_limit_cap=transaction_total_gas_limit_cap,
         )
 
     def signer_minimum_balance(self, *, fork: Fork) -> int:

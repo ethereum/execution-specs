@@ -843,7 +843,7 @@ test_module_execution_witness = textwrap.dedent(
         contract = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.STOP)
         state_test(env=Environment(),
                     pre=pre, post={contract: Account(storage={0: 1})},
-                    tx=Transaction(to=contract, gas_limit=100_000, sender=pre.fund_eoa()))
+                    tx=Transaction(to=contract, sender=pre.fund_eoa()))
     """
 )
 
@@ -868,7 +868,7 @@ test_module_execution_witness_skip_stateless = textwrap.dedent(
     ) -> None:
         contract = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.STOP)
         sender = pre.fund_eoa()
-        tx = Transaction(to=contract, gas_limit=100_000, sender=sender)
+        tx = Transaction(to=contract, sender=sender)
 
         blockchain_test(
             pre=pre,
@@ -978,6 +978,58 @@ test_module_execution_witness_expected_true = textwrap.dedent(
     """
 )
 
+test_module_execution_witness_bal_modifier = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import (
+        Account,
+        Alloc,
+        BalAccountExpectation,
+        BalNonceChange,
+        Block,
+        BlockAccessListExpectation,
+        BlockchainTestFiller,
+        BlockException,
+        Transaction,
+    )
+    from execution_testing.test_types.block_access_list.modifiers import (
+        remove_nonces,
+    )
+
+    @pytest.mark.valid_at("Amsterdam")
+    @pytest.mark.exception_test
+    def test_execution_witness_bal_modifier(
+        pre: Alloc,
+        blockchain_test: BlockchainTestFiller,
+    ) -> None:
+        sender = pre.fund_eoa()
+        tx = Transaction(sender=sender, to=pre.fund_eoa(amount=0), value=1)
+
+        blockchain_test(
+            pre=pre,
+            post={sender: Account(nonce=0)},
+            blocks=[
+                Block(
+                    txs=[tx],
+                    exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                    expected_block_access_list=BlockAccessListExpectation(
+                        account_expectations={
+                            sender: BalAccountExpectation(
+                                nonce_changes=[
+                                    BalNonceChange(
+                                        block_access_index=1, post_nonce=1
+                                    )
+                                ],
+                            ),
+                        }
+                    ).modify(remove_nonces(sender)),
+                )
+            ],
+        )
+    """
+)
+
 test_module_execution_witness_missing_expected = textwrap.dedent(
     """\
     import pytest
@@ -1049,7 +1101,7 @@ test_module_execution_witness_rlp_modifier = textwrap.dedent(
     ) -> None:
         contract = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.STOP)
         sender = pre.fund_eoa()
-        tx = Transaction(to=contract, gas_limit=100_000, sender=sender)
+        tx = Transaction(to=contract, sender=sender)
 
         blockchain_test(
             pre=pre,
@@ -1068,7 +1120,7 @@ test_module_execution_witness_rlp_modifier = textwrap.dedent(
 )
 
 
-test_module_execution_witness_rlp_modifier_stateless_intent = textwrap.dedent(
+test_module_execution_witness_rlp_modifier_remove_field = textwrap.dedent(
     """\
     import pytest
 
@@ -1076,11 +1128,13 @@ test_module_execution_witness_rlp_modifier_stateless_intent = textwrap.dedent(
         Alloc,
         Block,
         BlockchainTestFiller,
+        BlockException,
         Header,
     )
 
     @pytest.mark.valid_at("Amsterdam")
-    def test_execution_witness_rlp_modifier_stateless_intent(
+    @pytest.mark.exception_test
+    def test_execution_witness_rlp_modifier_remove_field(
         pre: Alloc,
         blockchain_test: BlockchainTestFiller,
     ) -> None:
@@ -1089,8 +1143,50 @@ test_module_execution_witness_rlp_modifier_stateless_intent = textwrap.dedent(
             post={},
             blocks=[
                 Block(
-                    rlp_modifier=Header(extra_data=b"mutated"),
-                    expected_stateless_validation_success=True,
+                    rlp_modifier=Header(slot_number=Header.REMOVE_FIELD),
+                    exception=BlockException.INCORRECT_BLOCK_FORMAT,
+                )
+            ],
+        )
+    """
+)
+
+
+test_module_execution_witness_engine_only = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import (
+        Account,
+        Alloc,
+        Block,
+        BlockchainTestFiller,
+        BlockException,
+        Bytes,
+        Transaction,
+    )
+
+    @pytest.mark.valid_at("Amsterdam")
+    @pytest.mark.blockchain_test_engine_only
+    @pytest.mark.exception_test
+    def test_execution_witness_engine_only(
+        pre: Alloc,
+        blockchain_test: BlockchainTestFiller,
+    ) -> None:
+        sender = pre.fund_eoa()
+        tx = Transaction(sender=sender, to=pre.fund_eoa(amount=0), value=1)
+
+        blockchain_test(
+            pre=pre,
+            post={sender: Account(nonce=0)},
+            blocks=[
+                Block(
+                    txs=[tx],
+                    engine_new_payload_block_access_list=Bytes(b"\\xc0"),
+                    exception=[
+                        BlockException.INVALID_BLOCK_ACCESS_LIST,
+                        BlockException.INVALID_BLOCK_HASH,
+                    ],
                 )
             ],
         )
@@ -1149,7 +1245,8 @@ def test_execution_witness_in_blockchain_fixture(
     # statelessInputBytes is schema-prefixed guest input bytes.
     sib = block.stateless_input_bytes
     assert sib is not None and len(sib) > 0
-    from ethereum.forks.amsterdam.stateless_ssz import (
+    from ethereum.forks.amsterdam.stateless import (
+        STATELESS_INPUT_SCHEMA_ID,
         STATELESS_INPUT_SCHEMA_ID_BYTES,
     )
 
@@ -1159,15 +1256,15 @@ def test_execution_witness_in_blockchain_fixture(
     assert sob is not None and len(sob) > 0
 
     from ethereum.forks.amsterdam.stateless_host import (
-        build_chain_config,
         deserialize_stateless_output,
     )
     from ethereum_types.bytes import Bytes as EthereumBytes
-    from ethereum_types.numeric import U64
+    from ethereum_types.numeric import U16, U64
 
     stateless_output = deserialize_stateless_output(EthereumBytes(bytes(sob)))
     assert stateless_output.successful_validation is True
-    assert stateless_output.chain_config == build_chain_config(U64(1))
+    assert stateless_output.chain_id == U64(1)
+    assert stateless_output.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
 
     engine_fixture_path = Path(
         "fixtures/blockchain_tests_engine/for_amsterdam/amsterdam/"
@@ -1198,6 +1295,8 @@ def test_execution_witness_in_blockchain_fixture(
         "engine executionWitness.headers is empty"
     )
     assert engine_witness == witness
+    assert engine_payload.stateless_input_bytes == sib
+    assert engine_payload.stateless_output_bytes == sob
 
 
 def test_execution_witness_skip_stateless_validation(
@@ -1249,10 +1348,13 @@ def test_execution_witness_skip_stateless_validation(
     assert "statelessOutputBytes" not in block
 
 
-def test_execution_witness_rlp_modifier_omits_stateless_artifacts(
+def test_execution_witness_rlp_modifier_carries_stateless_artifacts(
     testdir: pytest.Testdir,
 ) -> None:
-    """RLP-mutated blocks should not expose canonical stateless artifacts."""
+    """
+    An RLP-mutated block carries its witness and stateless bytes. The input
+    describes the mutated header, which the guest accepts.
+    """
     tests_dir = testdir.mkdir("tests")
     amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
     test_module = amsterdam_tests_dir.join(
@@ -1294,42 +1396,159 @@ def test_execution_witness_rlp_modifier_omits_stateless_artifacts(
     fixture = next(iter(fixture_data.values()))
     block = fixture["blocks"][0]
 
-    assert "executionWitness" not in block
-    assert "statelessInputBytes" not in block
-    assert "statelessOutputBytes" not in block
+    assert len(block["executionWitness"]["headers"]) > 0
+
+    from ethereum.forks.amsterdam.stateless_guest import (
+        deserialize_stateless_input,
+    )
+    from ethereum.forks.amsterdam.stateless_host import (
+        deserialize_stateless_output,
+    )
+
+    stateless_input = deserialize_stateless_input(
+        bytes.fromhex(block["statelessInputBytes"][2:])
+    )
+    stateless_output = deserialize_stateless_output(
+        bytes.fromhex(block["statelessOutputBytes"][2:])
+    )
+
+    assert stateless_output.successful_validation is True
+    payload = stateless_input.new_payload_request.execution_payload
+    assert payload.extra_data == b"mutated"
 
 
-def test_execution_witness_rlp_modifier_rejects_stateless_intent(
+def test_execution_witness_rlp_modifier_remove_field_omits_stateless_bytes(
     testdir: pytest.Testdir,
 ) -> None:
-    """RLP modifiers cannot be combined with explicit stateless assertions."""
+    """
+    A header field removed by an RLP modifier can't be expressed as an
+    Amsterdam block, so the block keeps its witness but omits the bytes.
+    """
     tests_dir = testdir.mkdir("tests")
     amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
     test_module = amsterdam_tests_dir.join(
-        "test_module_execution_witness_rlp_modifier_stateless_intent.py"
+        "test_module_execution_witness_rlp_modifier_remove_field.py"
     )
-    test_module.write(
-        test_module_execution_witness_rlp_modifier_stateless_intent
-    )
+    test_module.write(test_module_execution_witness_rlp_modifier_remove_field)
 
     testdir.copy_example(
         name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
     )
-    args = ["-c", "pytest-fill.ini", "-v", "--until=Amsterdam", "--no-html"]
+    args = [
+        "-c",
+        "pytest-fill.ini",
+        "-v",
+        "--until=Amsterdam",
+        "-m",
+        "blockchain_test",
+        "--no-html",
+    ]
     result = testdir.runpytest(*args)
-    assert result.ret != 0
-    result.stdout.fnmatch_lines(
-        [
-            "*Blocks with rlp_modifier omit stateless artifacts because "
-            "they are generated before the RLP mutation*"
-        ]
+    result.assert_outcomes(
+        passed=1,
+        failed=0,
+        skipped=0,
+        errors=0,
     )
+
+    fixture_path = Path(
+        "fixtures/blockchain_tests/for_amsterdam/amsterdam/"
+        "module_execution_witness_rlp_modifier_remove_field/"
+        "execution_witness_rlp_modifier_remove_field.json"
+    )
+    assert fixture_path.exists(), f"{fixture_path} does not exist"
+
+    with open(fixture_path, "r") as f:
+        fixture_data = json.load(f)
+
+    assert len(fixture_data) == 1, "Expected exactly one fixture"
+    fixture = next(iter(fixture_data.values()))
+    block = fixture["blocks"][0]
+
+    assert len(block["executionWitness"]["headers"]) > 0
+    assert "statelessInputBytes" not in block
+    assert "statelessOutputBytes" not in block
+
+
+def test_execution_witness_engine_only_block_carries_stateless_artifacts(
+    testdir: pytest.Testdir,
+) -> None:
+    """
+    A block whose override only reaches the engine payload carries its
+    witness and stateless bytes in that payload. The input describes the
+    overridden payload, so the guest rejects the block.
+    """
+    tests_dir = testdir.mkdir("tests")
+    amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
+    test_module = amsterdam_tests_dir.join(
+        "test_module_execution_witness_engine_only.py"
+    )
+    test_module.write(test_module_execution_witness_engine_only)
+
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    args = [
+        "-c",
+        "pytest-fill.ini",
+        "-v",
+        "--until=Amsterdam",
+        "-m",
+        "blockchain_test_engine",
+        "--no-html",
+    ]
+    result = testdir.runpytest(*args)
+    result.assert_outcomes(
+        passed=1,
+        failed=0,
+        skipped=0,
+        errors=0,
+    )
+
+    fixture_path = Path(
+        "fixtures/blockchain_tests_engine/for_amsterdam/amsterdam/"
+        "module_execution_witness_engine_only/"
+        "execution_witness_engine_only.json"
+    )
+    assert fixture_path.exists(), f"{fixture_path} does not exist"
+
+    with open(fixture_path, "r") as f:
+        fixture_data = json.load(f)
+
+    assert len(fixture_data) == 1, "Expected exactly one fixture"
+    fixture = next(iter(fixture_data.values()))
+    engine_payload = fixture["engineNewPayloads"][0]
+
+    assert len(engine_payload["executionWitness"]["headers"]) > 0
+    assert "executionWitnessMutated" not in engine_payload
+
+    from ethereum.forks.amsterdam.stateless_guest import (
+        deserialize_stateless_input,
+    )
+    from ethereum.forks.amsterdam.stateless_host import (
+        deserialize_stateless_output,
+    )
+
+    stateless_input = deserialize_stateless_input(
+        bytes.fromhex(engine_payload["statelessInputBytes"][2:])
+    )
+    stateless_output = deserialize_stateless_output(
+        bytes.fromhex(engine_payload["statelessOutputBytes"][2:])
+    )
+
+    assert stateless_output.successful_validation is False
+    payload = stateless_input.new_payload_request.execution_payload
+    assert engine_payload["params"][0]["blockAccessList"] == "0xc0"
+    assert payload.block_access_list == b"\xc0"
 
 
 def test_execution_witness_expected_true_reuses_canonical_stateless_result(
     testdir: pytest.Testdir,
 ) -> None:
-    """Explicit True expectation should preserve the canonical success path."""
+    """
+    An explicit True expectation should keep the stateless result built
+    from the fixture block.
+    """
     tests_dir = testdir.mkdir("tests")
     amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
     test_module = amsterdam_tests_dir.join(
@@ -1357,16 +1576,112 @@ def test_execution_witness_expected_true_reuses_canonical_stateless_result(
     fixture = next(iter(fixture_data.values()))
     block = fixture["blocks"][-1]
 
+    from ethereum.crypto.hash import Hash32
+    from ethereum.forks.amsterdam.stateless import (
+        compute_new_payload_request_root,
+    )
+    from ethereum.forks.amsterdam.stateless_guest import (
+        deserialize_stateless_input,
+    )
     from ethereum.forks.amsterdam.stateless_host import (
         deserialize_stateless_output,
     )
+    from ethereum.forks.amsterdam.stateless import (
+        STATELESS_INPUT_SCHEMA_ID,
+    )
     from ethereum_types.bytes import Bytes as EthereumBytes
+    from ethereum_types.numeric import U16
 
+    stateless_input = deserialize_stateless_input(
+        EthereumBytes(bytes.fromhex(block["statelessInputBytes"][2:]))
+    )
     stateless_output = deserialize_stateless_output(
         EthereumBytes(bytes.fromhex(block["statelessOutputBytes"][2:]))
     )
 
     assert stateless_output.successful_validation is True
+    assert stateless_output.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
+    assert stateless_output.new_payload_request_root != Hash32(b"\0" * 32)
+    assert (
+        stateless_output.new_payload_request_root
+        == compute_new_payload_request_root(stateless_input)
+    )
+    payload = stateless_input.new_payload_request.execution_payload
+    assert (
+        "0x" + bytes(payload.block_hash).hex() == block["blockHeader"]["hash"]
+    )
+
+
+def test_execution_witness_bal_modifier_rebuilds_stateless_input(
+    testdir: pytest.Testdir,
+) -> None:
+    """
+    A block access list modified after the transition tool runs should
+    reach the stateless input, and the guest should reject the block.
+    """
+    tests_dir = testdir.mkdir("tests")
+    amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
+    test_module = amsterdam_tests_dir.join(
+        "test_module_execution_witness_bal_modifier.py"
+    )
+    test_module.write(test_module_execution_witness_bal_modifier)
+
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    args = [
+        "-c",
+        "pytest-fill.ini",
+        "-v",
+        "--until=Amsterdam",
+        "-m",
+        "blockchain_test",
+        "--no-html",
+    ]
+    result = testdir.runpytest(*args)
+    result.assert_outcomes(
+        passed=1,
+        failed=0,
+        skipped=0,
+        errors=0,
+    )
+
+    fixture_path = Path(
+        "fixtures/blockchain_tests/for_amsterdam/amsterdam/"
+        "module_execution_witness_bal_modifier/"
+        "execution_witness_bal_modifier.json"
+    )
+    assert fixture_path.exists(), f"{fixture_path} does not exist"
+
+    with open(fixture_path, "r") as f:
+        fixture_data = json.load(f)
+
+    fixture = next(iter(fixture_data.values()))
+    block = fixture["blocks"][0]
+    header = block["rlp_decoded"]["blockHeader"]
+
+    from ethereum.crypto.hash import keccak256
+    from ethereum.forks.amsterdam.stateless_guest import (
+        deserialize_stateless_input,
+    )
+    from ethereum.forks.amsterdam.stateless_host import (
+        deserialize_stateless_output,
+    )
+
+    stateless_input = deserialize_stateless_input(
+        bytes.fromhex(block["statelessInputBytes"][2:])
+    )
+    stateless_output = deserialize_stateless_output(
+        bytes.fromhex(block["statelessOutputBytes"][2:])
+    )
+
+    assert stateless_output.successful_validation is False
+    payload = stateless_input.new_payload_request.execution_payload
+    assert "0x" + bytes(payload.block_hash).hex() == header["hash"]
+    assert (
+        "0x" + keccak256(payload.block_access_list).hex()
+        == header["blockAccessListHash"]
+    )
 
 
 def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
@@ -1402,13 +1717,21 @@ def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
 
     assert len(block["executionWitness"]["headers"]) == 1
 
+    from ethereum.crypto.hash import Hash32
+    from ethereum.forks.amsterdam.stateless import (
+        compute_new_payload_request_root,
+    )
     from ethereum.forks.amsterdam.stateless_guest import (
         deserialize_stateless_input,
     )
     from ethereum.forks.amsterdam.stateless_host import (
         deserialize_stateless_output,
     )
+    from ethereum.forks.amsterdam.stateless import (
+        STATELESS_INPUT_SCHEMA_ID,
+    )
     from ethereum_types.bytes import Bytes as EthereumBytes
+    from ethereum_types.numeric import U16
 
     stateless_input = deserialize_stateless_input(
         EthereumBytes(bytes.fromhex(block["statelessInputBytes"][2:]))
@@ -1418,6 +1741,12 @@ def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
     )
 
     assert stateless_output.successful_validation is False
+    assert stateless_output.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
+    assert stateless_output.new_payload_request_root != Hash32(b"\0" * 32)
+    assert (
+        stateless_output.new_payload_request_root
+        == compute_new_payload_request_root(stateless_input)
+    )
     assert len(stateless_input.witness.headers) == 1
     assert [
         "0x" + bytes(header).hex()

@@ -15,7 +15,7 @@ The abstract computer which runs the code stored in an
 from dataclasses import dataclass, field
 from typing import List, Optional, Set, Tuple, final
 
-from ethereum_types.bytes import Bytes, Bytes0, Bytes32
+from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
@@ -26,11 +26,12 @@ from ethereum.utils.byte import left_pad_zero_bytes
 
 from ..block_access_lists import BlockAccessList, BlockAccessListBuilder
 from ..blocks import Log, Receipt, Withdrawal
-from ..fork_types import Authorization, StateGas, VersionedHash
+from ..fork_types import Authorization, ExecutionGas, StateGas, VersionedHash
 from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
+from .gas import GasMeter, repay_state_gas_spill
 
-__all__ = ("Environment", "Evm", "Message")
+__all__ = ("Environment", "Evm")
 TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
 SYSTEM_ADDRESS = Address(
     bytes.fromhex("fffffffffffffffffffffffffffffffffffffffe")
@@ -58,7 +59,6 @@ class BlockEnvironment:
     parent_beacon_block_root: Hash32
     block_access_list_builder: BlockAccessListBuilder
     slot_number: U64
-    transaction_public_keys: Optional[Tuple[Bytes, ...]] = None
 
 
 @final
@@ -69,9 +69,10 @@ class BlockOutput:
 
     Contains the following:
 
-    block_gas_used : `ethereum.base_types.Uint`
-        Gas used for executing all transactions.
-    block_state_gas_used : `ethereum.base_types.Uint`
+    block_gas_used : `ExecutionGas`
+        Execution gas used for executing all transactions. EIP-8037
+        names this counter `block_execution_gas_used`.
+    block_state_gas_used : `StateGas`
         State gas used for executing all transactions.
     cumulative_gas_used : `ethereum.base_types.Uint`
         Cumulative gas paid by users (post-refund, post-floor).
@@ -94,8 +95,8 @@ class BlockOutput:
         The block access list for the block.
     """
 
-    block_gas_used: Uint = Uint(0)
-    block_state_gas_used: Uint = Uint(0)
+    block_gas_used: ExecutionGas = ExecutionGas(Uint(0))
+    block_state_gas_used: StateGas = StateGas(Uint(0))
     cumulative_gas_used: Uint = Uint(0)
     transactions_trie: Trie[Bytes, Optional[Bytes | LegacyTransaction]] = (
         field(default_factory=lambda: Trie(secured=False, default=None))
@@ -121,101 +122,89 @@ class TransactionEnvironment:
     """
 
     origin: Address
-    recipient: Bytes0 | Address
+    # For a creation, the address the contract deploys to.
+    recipient: Address
+    is_create: bool
+    data: Bytes
     value: U256
-    gas_price: Uint
-    gas: Uint
-    state_gas_reservoir: Uint
+    gas_limit: Uint
+    effective_gas_price: Uint
+    execution_gas_grant: ExecutionGas
+    state_gas_reservoir: StateGas
+    calldata_floor: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
+    accounts_with_paid_writes: Set[Address]
     state: TransactionState
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
-    intrinsic_regular_gas: Uint
-    intrinsic_state_gas: Uint
-
-
-@final
-@dataclass
-class Message:
-    """
-    Items that are used by contract creation or message call.
-    """
-
-    block_env: BlockEnvironment
-    tx_env: TransactionEnvironment
-    caller: Address
-    target: Bytes0 | Address
-    current_target: Address
-    gas: Uint
-    state_gas_reservoir: Uint
-    value: U256
-    data: Bytes
-    code_address: Optional[Address]
-    code: Bytes
-    depth: Uint
-    should_transfer_value: bool
-    is_static: bool
-    accessed_addresses: Set[Address]
-    accessed_storage_keys: Set[Tuple[Address, Bytes32]]
-    disable_precompiles: bool
-    parent_evm: Optional["Evm"]
 
 
 @final
 @dataclass
 class Evm:
-    """The internal state of the virtual machine."""
+    """
+    A single call frame: its parameters, gas meter, machine state, and
+    accrued effects.
+
+    A call spawns a child frame and each top-level call is a frame at
+    depth zero, so one dataclass describes them all.
+    """
 
     pc: Uint
     stack: List[U256]
     memory: bytearray
+    # Init code for a creation; the resolved code for a call.
     code: Bytes
-    gas_left: Uint
-    state_gas_left: Uint
+    gas_meter: GasMeter
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
-    refund_counter: int
     running: bool
-    message: Message
+
+    # The call's parameters, fixed at frame creation.
+    block_env: BlockEnvironment
+    tx_env: TransactionEnvironment
+    caller: Address
+    current_target: Address
+    value: U256
+    call_data: Bytes
+    code_address: Optional[Address]
+    depth: Uint
+    should_transfer_value: bool
+    is_static: bool
+    disable_precompiles: bool
+    parent_evm: Optional["Evm"]
+
     output: Bytes
     accounts_to_delete: Set[Address]
     return_data: Bytes
     error: Optional[EthereumException]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
-    regular_gas_used: Uint = Uint(0)
-    state_gas_spilled: Uint = Uint(0)
 
 
-def credit_state_gas_refund(evm: Evm, amount: StateGas) -> None:
+def incorporate_child(evm: Evm, child_evm: Evm) -> None:
     """
-    Credit a state gas refund to the local frame, in LIFO order.
+    Incorporate the state of a returning `child_evm` into the parent
+    `evm`.
 
-    State-gas charges draw from the reservoir first and from `gas_left`
-    last, so refills credit the pool charged last first: `gas_left` up
-    to `state_gas_spilled`, then the reservoir. This restores the
-    exact pools the charge drew from, so the two never drift.
+    Gas flows back to the parent regardless of the child's fate. A
+    failed child settles its own meter before returning -- its state
+    gas rolled back to the baseline, its [spill] refilled, and its
+    refunds discarded -- so absorbing the meter unconditionally
+    reclaims exactly the gas the child gives back. Everything else the
+    child accumulated -- logs, scheduled self-destructs, refunds, and
+    warmed access sets -- survives only on success, dying with a
+    failed child's reverted state.
 
-    Parameters
-    ----------
-    evm :
-        The frame crediting the refund.
-    amount :
-        The refund amount to credit.
-
-    """
-    from_gas_left = min(amount, evm.state_gas_spilled)
-    evm.gas_left += from_gas_left
-    evm.state_gas_spilled -= from_gas_left
-    evm.state_gas_left += amount - from_gas_left
-
-
-def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
-    """
-    Incorporate the state of a successful `child_evm` into the parent `evm`.
+    A successful merge ends with the reservoir repaying any [spill]
+    still outstanding: a cross-frame refund lands in the reservoir
+    while the `gas_left` that funded the charge stays reduced, and the
+    merge is where the claim and the credit first share a meter. A
+    failed child repays nothing -- its rollback restored the state
+    whose removal any refund credited.
 
     Parameters
     ----------
@@ -224,84 +213,35 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     child_evm :
         The child evm to incorporate.
 
-    """
-    evm.gas_left += child_evm.gas_left
-    evm.state_gas_left += child_evm.state_gas_left
-    evm.state_gas_spilled += child_evm.state_gas_spilled
-    evm.logs += child_evm.logs
-    evm.refund_counter += child_evm.refund_counter
-    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
-    evm.accessed_addresses.update(child_evm.accessed_addresses)
-    evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
-    evm.regular_gas_used += child_evm.regular_gas_used
-
-
-def refill_frame_state_gas(evm: Evm) -> None:
-    """
-    Roll back the frame's state gas in LIFO order on revert or halt.
-
-    The frame's state changes are undone, so the state gas it consumed
-    is credited back to `gas_left` first and then to the reservoir,
-    restoring the pools the charges drew from.
-
-    Parameters
-    ----------
-    evm :
-        The frame whose state gas is rolled back.
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
 
     """
-    evm.gas_left += evm.state_gas_spilled
-    evm.state_gas_left = evm.message.state_gas_reservoir
-    evm.state_gas_spilled = Uint(0)
+    child_meter = child_evm.gas_meter
+    # Only the top frame commits state gas; a child never carries any.
+    assert child_meter.state_gas_committed_spill == Uint(0)
 
+    if child_evm.error:
+        # A failed child arrives settled: rolled back to its baseline,
+        # spill refilled, refunds discarded.
+        assert child_meter.state_gas_spilled == Uint(0)
+        assert child_meter.refund_counter == 0
+        assert child_meter.state_gas_left == child_meter.state_gas_baseline
 
-def frame_state_gas_used(evm: Evm) -> int:
-    """
-    Return the net state gas consumed by a finished frame.
+    # Gas returns to the parent regardless of the child's fate.
+    # Note that upon failure, the child already arrives settled.
+    gas_meter = evm.gas_meter
+    gas_meter.gas_left += child_meter.gas_left
+    gas_meter.state_gas_left += child_meter.state_gas_left
+    gas_meter.state_gas_spilled += child_meter.state_gas_spilled
+    gas_meter.refund_counter += child_meter.refund_counter
 
-    Equal to the reservoir drawn down ([`state_gas_reservoir`][sgr] at entry
-    minus the reservoir now) plus [`state_gas_spilled`][sgs]. May be negative
-    when refunds exceed charges.
-
-    Parameters
-    ----------
-    evm :
-        The finished frame.
-
-    [sgr]: ref:ethereum.forks.amsterdam.vm.Message.state_gas_reservoir
-    [sgs]: ref:ethereum.forks.amsterdam.vm.Evm.state_gas_spilled
-
-    """
-    return (
-        int(evm.message.state_gas_reservoir)
-        - int(evm.state_gas_left)
-        + int(evm.state_gas_spilled)
-    )
-
-
-def incorporate_child_on_error(
-    evm: Evm,
-    child_evm: Evm,
-) -> None:
-    """
-    Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
-
-    The child rolls back its own state gas via `refill_frame_state_gas`
-    before returning (on both reverts and exceptional halts), so its
-    `gas_left` and reservoir already reflect the LIFO refill. The parent
-    therefore only reabsorbs the child's `gas_left` and reservoir.
-
-    Parameters
-    ----------
-    evm :
-        The parent `EVM`.
-    child_evm :
-        The child evm to incorporate.
-
-    """
-    evm.gas_left += child_evm.gas_left
-    evm.state_gas_left += child_evm.state_gas_left
-    evm.regular_gas_used += child_evm.regular_gas_used
+    # Everything else survives only on success.
+    if not child_evm.error:
+        repay_state_gas_spill(gas_meter)
+        evm.logs += child_evm.logs
+        evm.accounts_to_delete.update(child_evm.accounts_to_delete)
+        evm.accessed_addresses.update(child_evm.accessed_addresses)
+        evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
 
 
 def emit_transfer_log(

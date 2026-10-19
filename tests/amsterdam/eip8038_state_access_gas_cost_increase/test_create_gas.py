@@ -1,19 +1,19 @@
 """
-Tests for the EIP-8038 [State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038)
-``CREATE``/``CREATE2`` regular-gas dimension.
+Tests for the EIP-8038 [State-access gas cost update](https://eips.ethereum.org/EIPS/eip-8038)
+``CREATE``/``CREATE2`` execution-gas dimension.
 
 Under EIP-8038 the contract-creation opcodes are repriced in their
-*regular* gas dimension to ``CREATE_ACCESS`` (``ACCOUNT_WRITE`` +
-``COLD_STORAGE_ACCESS`` = 11,000), on top of which the EIP-3860 init
-code word cost (2 per word) and, for ``CREATE2`` only, an additional
-keccak word cost (6 per word) are charged. The new-account creation
+*execution* gas dimension to ``CREATE_ACCESS`` (``ACCOUNT_WRITE`` +
+``COLD_ACCOUNT_ACCESS``), on top of which the EIP-3860 init code
+word cost and, for ``CREATE2`` only, an additional keccak word cost
+are charged. The new-account creation
 and per-byte code deposit charges are the EIP-8037 *state* dimension,
 covered in
 ``eip8037_state_creation_gas_cost_increase/test_state_gas_create.py``.
 
-These tests isolate and assert the EIP-8038 *regular* dimension. At the
+These tests isolate and assert the EIP-8038 *execution* dimension. At the
 contract-creating-transaction boundary the state component is re-derived
-only to feed the ``max(regular, state)`` block-header accounting.
+only to feed the ``max(execution, state)`` block-header accounting.
 """
 
 from typing import List
@@ -36,6 +36,7 @@ from execution_testing import (
     Transaction,
     TransactionException,
     compute_create_address,
+    create_op,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -58,7 +59,7 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
         pytest.param(96, id="three_words"),
     ],
 )
-def test_create_regular_gas(
+def test_create_execution_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -66,66 +67,43 @@ def test_create_regular_gas(
     init_code_size: int,
 ) -> None:
     """
-    Measure the regular gas of CREATE/CREATE2 and assert the schedule.
+    Measure the execution gas of CREATE/CREATE2 and assert the schedule.
 
-    The EIP-8038 *regular* dimension is ``CREATE_ACCESS`` (11,000) plus
-    the EIP-3860 init code word cost (2 per word) plus, for ``CREATE2``
-    only, an additional keccak word cost (6 per word). The EIP-8037
+    The EIP-8038 *execution* dimension is ``CREATE_ACCESS`` plus the
+    EIP-3860 init code word cost plus, for ``CREATE2`` only, an
+    additional keccak word cost. The EIP-8037
     account-creation state gas is excluded by subtracting
     ``create_state_gas(0)``.
     """
-    gas_costs = fork.gas_costs()
-    # The EIP-8038 CREATE regular base equals ACCOUNT_WRITE +
-    # COLD_STORAGE_ACCESS = 11,000.
-    assert gas_costs.OPCODE_CREATE_BASE == 11_000
-    assert (
-        gas_costs.OPCODE_CREATE_BASE
-        == gas_costs.ACCOUNT_WRITE + gas_costs.COLD_STORAGE_ACCESS
-    )
-
-    # Isolate the regular dimension: opcode total minus its account
+    # Isolate the execution dimension: opcode total minus its account
     # creation state gas (the only state component carried by the CREATE
     # opcode itself; code deposit is charged on RETURN inside initcode).
     create_meta = create_opcode(init_code_size=init_code_size)
-    regular_gas = create_meta.gas_cost(fork) - fork.create_state_gas(
+    execution_gas = create_meta.gas_cost(fork) - fork.create_state_gas(
         code_size=0
     )
-    # Equivalent isolation via the regular_cost helper.
-    assert regular_gas == create_meta.regular_cost(fork)
-
-    init_code_words = (init_code_size + 31) // 32
-    expected_regular = (
-        gas_costs.OPCODE_CREATE_BASE
-        + gas_costs.CODE_INIT_PER_WORD * init_code_words
-    )
-    if create_opcode == Op.CREATE2:
-        expected_regular += (
-            gas_costs.OPCODE_KECCAK256_PER_WORD * init_code_words
-        )
-    assert regular_gas == expected_regular
+    # Equivalent isolation via the execution_cost helper.
+    assert execution_gas == create_meta.execution_cost(fork)
 
     # Runtime confirmation via CodeGasMeasure: a factory whose CREATE
     # deploys empty code, so no code-deposit state gas is charged and the
     # only state component is the account-creation gas funded from the
     # reservoir. The initcode is brought into memory BEFORE the measured
     # window, so the memory-expansion charge is excluded; the measured
-    # value is the CREATE opcode's regular cost exactly. The overhead
+    # value is the CREATE opcode's execution cost exactly. The overhead
     # subtracts the create-call argument pushes (the create leaves one
     # stack item, its result).
     #
     # The initcode is all-zero bytes (`STOP`), so the child frame halts
     # immediately consuming zero gas and deposits empty code. This keeps
-    # the measured value the CREATE opcode's own regular cost, with no
+    # the measured value the CREATE opcode's own execution cost, with no
     # child-execution gas folded in. `init_code_size` still drives the
     # opcode's per-init-word charge.
     padded_init = b"\x00" * init_code_size
 
-    create_call = (
-        Op.CREATE2(value=0, offset=0, size=init_code_size, salt=0)
-        if create_opcode == Op.CREATE2
-        else Op.CREATE(value=0, offset=0, size=init_code_size)
-    )
-    arg_pushes = (4 if create_opcode == Op.CREATE2 else 3) * gas_costs.VERY_LOW
+    create_call = create_op(create_opcode, size=init_code_size)
+    push_cost = Op.PUSH1(0).execution_cost(fork)
+    arg_pushes = create_opcode.popped_stack_items * push_cost
 
     memory_setup = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE, new_memory_size=init_code_size)
@@ -137,7 +115,7 @@ def test_create_regular_gas(
         code=create_call,
         overhead_cost=arg_pushes,
         extra_stack_items=1,
-        sstore_key=storage.store_next(regular_gas, "create_regular_gas"),
+        sstore_key=storage.store_next(execution_gas, "create_execution_gas"),
     )
     factory = pre.deploy_contract(code=memory_setup + measure)
 
@@ -174,45 +152,33 @@ def test_create2_keccak_word_delta(
 
     ``CREATE2`` hashes the init code to derive the salted address, adding
     ``OPCODE_KECCAK256_PER_WORD`` (6) per init-code word on top of the
-    regular cost shared with ``CREATE``. Both opcodes carry the identical
+    execution cost shared with ``CREATE``. Both opcodes carry the identical
     EIP-8038 ``CREATE_ACCESS`` base and EIP-3860 word cost.
 
-    The regular-gas delta is asserted via the opcode model
-    (``create2_regular - create_regular`` equals the keccak word
-    surcharge). At runtime a factory then measures a single ``CREATE2``
-    with ``CodeGasMeasure`` and stores its absolute regular cost: the
-    surcharge is established by the model assertion, and the runtime leg
-    confirms the absolute ``CREATE2`` regular cost.
+    A factory measures a single ``CREATE2`` with ``CodeGasMeasure`` and
+    stores its absolute execution cost, confirming the opcode's own
+    ``execution_cost`` (which folds the keccak word surcharge) against the
+    runtime charge.
     """
-    gas_costs = fork.gas_costs()
-    init_code_words = (init_code_size + 31) // 32
-    keccak_surcharge = gas_costs.OPCODE_KECCAK256_PER_WORD * init_code_words
+    create2_execution = Op.CREATE2(
+        init_code_size=init_code_size
+    ).execution_cost(fork)
 
-    create_regular = Op.CREATE(init_code_size=init_code_size).regular_cost(
-        fork
-    )
-    create2_regular = Op.CREATE2(init_code_size=init_code_size).regular_cost(
-        fork
-    )
-    assert create2_regular - create_regular == keccak_surcharge
-
-    # Runtime confirmation. Init code is all-zero bytes (`STOP`), so the
-    # child frame halts immediately (zero gas) depositing empty code; the
-    # CREATE2 charges no code-deposit state gas and no child execution gas
-    # is folded into the measurement. The single CREATE2 regular cost is
-    # measured via CodeGasMeasure with a reservoir sized for its account
-    # creation state gas, keeping the GAS-measured `gas_left` free of
-    # state-gas spill. The opcode-model assertion above is the
-    # load-bearing keccak-delta check; this confirms the absolute value.
+    # Init code is all-zero bytes (`STOP`), so the child frame halts
+    # immediately (zero gas) depositing empty code; the CREATE2 charges no
+    # code-deposit state gas and no child execution gas is folded into the
+    # measurement. The single CREATE2 execution cost is measured via
+    # CodeGasMeasure with a reservoir sized for its account creation state
+    # gas, keeping the GAS-measured `gas_left` free of state-gas spill.
     padded = b"\x00" * init_code_size
 
-    push4 = 4 * gas_costs.VERY_LOW
+    push4 = 4 * Op.PUSH1(0).execution_cost(fork)
     storage = Storage()
     measure_create2 = CodeGasMeasure(
         code=Op.CREATE2(value=0, offset=0, size=init_code_size, salt=0),
         overhead_cost=push4,
         extra_stack_items=1,
-        sstore_key=storage.store_next(create2_regular, "create2_regular"),
+        sstore_key=storage.store_next(create2_execution, "create2_execution"),
     )
     factory_code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE, new_memory_size=init_code_size)
@@ -276,7 +242,7 @@ class TestCreateTxGasBoundary:
         initcode: Initcode,
         tx_access_list: List[AccessList],
     ) -> int:
-        """Return the total (regular + state) intrinsic tx gas cost."""
+        """Return the total (execution + state) intrinsic tx gas cost."""
         calc = fork.transaction_intrinsic_cost_calculator()
         return calc(
             calldata=initcode,
@@ -289,19 +255,28 @@ class TestCreateTxGasBoundary:
         self, fork: Fork, exact_intrinsic_gas: int, initcode: Initcode
     ) -> int:
         """
-        Return the total execution gas: intrinsic plus the initcode
-        execution gas plus the code-deposit gas.
+        Return the total execution gas: intrinsic plus the top-frame
+        ``NEW_ACCOUNT`` plus the initcode execution gas plus the
+        code-deposit gas.
+
+        Under EIP-2780 the created account's ``NEW_ACCOUNT`` state gas
+        moved out of the intrinsic and into the top frame, so it is added
+        explicitly here (the intrinsic is execution-only).
 
         ``deployment_gas`` is fork-aware: under EIP-8037 it splits the
-        deposit into the keccak word cost (regular) and the per-byte cost
+        deposit into the keccak word cost (execution) and the per-byte cost
         (state), while on a fork without state-byte metering it is the
-        flat regular per-byte deposit cost. The single call is therefore
+        flat execution per-byte deposit cost. The single call is therefore
         correct in either regime.
         """
-        execution = exact_intrinsic_gas + initcode.execution_gas(fork)
+        execution = exact_intrinsic_gas + fork.transaction_top_frame_state_gas(
+            contract_creation=True
+        )
+        execution += initcode.evm_gas(fork)
         execution += initcode.deployment_gas(fork)
         return execution
 
+    @pytest.mark.inclusion_test
     @pytest.mark.parametrize(
         "gas_test_case",
         [
@@ -362,26 +337,28 @@ class TestCreateTxGasBoundary:
             sender=sender,
         )
 
-        # 2D block accounting: gas_used = max(regular, state). The state
-        # axis carries the intrinsic NEW_ACCOUNT and (when the deposit
-        # succeeds) the per-byte code-deposit gas.
+        # 2D block accounting: gas_used = max(execution, state). Under
+        # EIP-2780 the state axis carries the fresh target's top-frame
+        # NEW_ACCOUNT and (when the deposit succeeds) the per-byte
+        # code-deposit gas.
         if tx_error is not None:
             header_verify = None
-        else:
-            intrinsic_state = (
-                fork.transaction_intrinsic_state_gas(contract_creation=True)
-                if hasattr(fork, "transaction_intrinsic_state_gas")
-                else 0
+        elif succeeds:
+            # Fresh target: top-frame NEW_ACCOUNT plus the per-byte code
+            # deposit are the state-gas axis; the rest is execution.
+            state_used = fork.transaction_top_frame_state_gas(
+                contract_creation=True
             )
-            regular_used = gas_limit - intrinsic_state
-            state_used = intrinsic_state
-            if succeeds:
-                code_deposit_state = fork.code_deposit_state_gas(
-                    code_size=len(initcode.deploy_code)
-                )
-                state_used += code_deposit_state
-                regular_used -= code_deposit_state
-            header_verify = Header(gas_used=max(regular_used, state_used))
+            state_used += fork.code_deposit_state_gas(
+                code_size=len(initcode.deploy_code)
+            )
+            execution_used = gas_limit - state_used
+            header_verify = Header(gas_used=max(execution_used, state_used))
+        else:
+            # exact_intrinsic / too_little_execution: the top-frame
+            # NEW_ACCOUNT (and any deposit) cannot be covered, the whole
+            # preparation rolls back, and all gas is burned as execution.
+            header_verify = Header(gas_used=gas_limit)
 
         state_test(
             pre=pre,
@@ -391,6 +368,7 @@ class TestCreateTxGasBoundary:
         )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_create_opcodes()
 @pytest.mark.parametrize(
     "abort_mode",
@@ -414,7 +392,7 @@ def test_aborted_create_does_not_warm_address(
     balance for the endowment, or nonce overflow), the would-be address
     is never added to the accessed-addresses set. A subsequent
     ``BALANCE`` of that address is therefore charged the full
-    ``COLD_ACCOUNT_ACCESS`` (3,000), not ``WARM_ACCESS`` (100).
+    ``COLD_ACCOUNT_ACCESS``, not ``WARM_ACCESS``.
     """
     init_code = Op.STOP
     init_code_bytes = bytes(init_code)
@@ -472,6 +450,7 @@ def test_aborted_create_does_not_warm_address(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.pre_alloc_mutable
 def test_create2_to_occupied_address(
     state_test: StateTestFiller,
@@ -479,15 +458,17 @@ def test_create2_to_occupied_address(
     fork: Fork,
 ) -> None:
     """
-    Verify ``CREATE2`` to an occupied address creates nothing and refunds.
+    Verify ``CREATE2`` to an occupied address creates nothing.
 
     When ``CREATE2`` targets an address that is not deployable (here an
     already-deployed contract, whose ``code_hash`` is non-empty), the
     creation aborts after the account-access charge: the opcode pushes
-    ``0``, bumps the factory's nonce, charges the message gas to the
-    regular dimension, and refunds the ``NEW_ACCOUNT`` *state* gas so no
-    net account-creation charge lands. No child frame runs, so the
-    occupied contract's code and storage are left untouched.
+    ``0``, bumps the factory's nonce, and consumes the withheld child
+    gas grant. No child frame runs, so the occupied contract's code and
+    storage are left untouched.
+
+    This test asserts the *state* effects only; the gas outcome is
+    pinned by ``test_create_collision_consumes_child_grant``.
     """
     # Initcode the factory passes to CREATE2; were the target free it
     # would deposit a single STOP. The salt is fixed so the collision
@@ -526,7 +507,8 @@ def test_create2_to_occupied_address(
     #
     # `address=` hard-codes the occupant at the derived collision address;
     # it requires `pre_alloc_mutable`. This is the only way to pre-seat the
-    # exact CREATE2 target, mirroring the EIP-7610 collision suite.
+    # exact CREATE2 target, mirroring
+    # `tests/frontier/create/test_create_collision.py`.
     occupant_code = Op.SSTORE(0, 0x42) + Op.STOP
     occupant_storage = Storage({0x1: 0xCAFE})  # type: ignore[dict-item]
     pre.deploy_contract(
@@ -549,5 +531,281 @@ def test_create2_to_occupied_address(
         collision_address: Account(
             code=occupant_code, storage=occupant_storage
         ),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@pytest.mark.with_all_create_opcodes()
+@pytest.mark.parametrize(
+    "abort_mode",
+    [
+        pytest.param("insufficient_balance", id="insufficient_balance"),
+        pytest.param("nonce_overflow", id="nonce_overflow"),
+    ],
+)
+@pytest.mark.parametrize(
+    "sufficient_gas", [True, False], ids=["sufficient", "insufficient"]
+)
+def test_aborted_create_gas_boundary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+    abort_mode: str,
+    sufficient_gas: bool,
+) -> None:
+    """
+    A preflight-aborted ``CREATE`` is charged ``CREATE_ACCESS`` and
+    nothing beyond it.
+
+    The abort (insufficient balance for the endowment, or a nonce at
+    ``2**64 - 1``) is decided *before* the destination access, so the
+    account-creation state gas is never charged and no child gas grant
+    is withheld. The whole operation therefore costs exactly the
+    opcode's own execution charge.
+
+    Forwarding precisely that much succeeds; one gas less makes the
+    opcode itself run out. The boundary is two-sided, so it pins
+    ``CREATE_ACCESS`` exactly rather than bounding it from one side.
+    Zero-size init code keeps the charge free of memory-expansion and
+    EIP-3860 word costs (and, for ``CREATE2``, of keccak word costs),
+    leaving ``CREATE_ACCESS`` as the whole of it.
+    """
+    # A non-zero endowment is what the insufficient-balance arm starves;
+    # the nonce-overflow arm funds it so the balance check passes and the
+    # nonce is the sole reason for the abort.
+    endowment = 1
+    create_call = (
+        Op.CREATE2(value=endowment, offset=0, size=0, salt=0)
+        if create_opcode == Op.CREATE2
+        else Op.CREATE(value=endowment, offset=0, size=0)
+    )
+
+    # Everything the child frame spends: the operand pushes plus the
+    # opcode's execution charge. Nothing follows the CREATE, so the code
+    # runs off its end into an implicit STOP at zero gas.
+    forwarded = create_call.execution_cost(fork)
+    if not sufficient_gas:
+        forwarded -= 1
+
+    nonce = 2**64 - 1 if abort_mode == "nonce_overflow" else 1
+    balance = 0 if abort_mode == "insufficient_balance" else endowment
+    factory = pre.deploy_contract(
+        code=create_call, nonce=nonce, balance=balance
+    )
+
+    storage = Storage()
+    caller = pre.deploy_contract(
+        code=Op.SSTORE(
+            storage.store_next(1 if sufficient_gas else 0, "call_result"),
+            Op.CALL(gas=forwarded, address=factory),
+        ),
+    )
+
+    tx = Transaction(
+        to=caller,
+        sender=pre.fund_eoa(),
+        state_gas_reservoir=0,
+    )
+
+    # The abort returns before the nonce increment, so the factory is
+    # left exactly as deployed in both arms.
+    post = {
+        caller: Account(storage=storage),
+        factory: Account(nonce=nonce, balance=balance),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize("trailing_gas", [0, 1], ids=["exact", "one_too_many"])
+def test_create_collision_consumes_child_grant(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    trailing_gas: int,
+) -> None:
+    """
+    A ``CREATE2`` collision consumes the withheld child gas grant and
+    charges no state gas.
+
+    The collision is detected *after* the child grant is withheld, and
+    the aborting branch returns without ever restoring it, so the
+    frame loses the all-but-one-64th share outright. With ``R`` gas left
+    when the grant is withheld, exactly ``R // 64`` survives the
+    collision.
+
+    A budget of ``64 * n`` is forwarded past the opcode so that ``n``
+    gas remains, and the factory then burns ``n`` gas in ``JUMPDEST``s
+    (one gas each, so the budget is spent at the finest granularity
+    available). Spending exactly ``n`` succeeds; one more runs out.
+    Without the grant being consumed the frame would still hold the
+    full ``64 * n``, so this fails loudly if the burn stops happening.
+
+    It also pins the *absence* of a state-gas charge. A collision target
+    is necessarily alive — ``account_deployable`` is false only for a
+    non-zero nonce or non-empty code, either of which makes the account
+    non-empty — so ``NEW_ACCOUNT`` is never charged on this path and
+    there is correspondingly nothing to refund. The transaction runs
+    with a zero reservoir and a budget far below ``NEW_ACCOUNT``, so a
+    spurious charge would spill into execution gas and abort the frame.
+    """
+    # Zero-size init code: the CREATE2 address derivation hashes the
+    # empty string, so the collision address needs no memory setup and
+    # the opcode charge carries no keccak or EIP-3860 word cost.
+    salt = 0
+    create_call = Op.CREATE2(value=0, offset=0, size=0, salt=salt)
+
+    # Gas left when the grant is withheld, chosen as a multiple of 64 so
+    # the surviving share is exact rather than rounded.
+    surviving_gas = 10
+    budget = 64 * surviving_gas
+
+    factory_code = create_call + Op.JUMPDEST * (surviving_gas + trailing_gas)
+    factory = pre.deploy_contract(code=factory_code)
+
+    collision_address = compute_create_address(
+        address=factory,
+        salt=salt,
+        initcode=b"",
+        opcode=Op.CREATE2,
+    )
+
+    # Pre-occupy the derived address so the creation collides. Non-empty
+    # code is what makes it non-deployable; `address=` hard-codes the
+    # occupant there and requires `pre_alloc_mutable`.
+    occupant_code = Op.SSTORE(0, 0x42) + Op.STOP
+    pre.deploy_contract(code=occupant_code, nonce=1, address=collision_address)
+
+    sufficient_gas = trailing_gas == 0
+    storage = Storage()
+    caller = pre.deploy_contract(
+        code=Op.SSTORE(
+            storage.store_next(1 if sufficient_gas else 0, "call_result"),
+            Op.CALL(
+                gas=create_call.execution_cost(fork) + budget,
+                address=factory,
+            ),
+        ),
+    )
+
+    tx = Transaction(
+        to=caller,
+        sender=pre.fund_eoa(),
+        state_gas_reservoir=0,
+    )
+
+    # The collision bumps the factory's nonce (it happens on the
+    # aborting branch, after the deployability check) and leaves the
+    # occupant untouched, its own initcode never having run. The
+    # out-of-gas arm reverts the frame, so the nonce bump is rolled
+    # back with it.
+    post = {
+        caller: Account(storage=storage),
+        factory: Account(nonce=2 if sufficient_gas else 1),
+        collision_address: Account(code=occupant_code, storage={}),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize(
+    "first_initcode_reverts", [True, False], ids=["reverts", "succeeds"]
+)
+def test_failed_initcode_refills_creation_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    first_initcode_reverts: bool,
+) -> None:
+    """
+    A failed init code refills the account-creation state gas, so one
+    creation's worth of reservoir funds a failed creation and a later
+    successful one.
+
+    ``CREATE`` charges the account-creation state gas on the
+    destination access, before the child runs, and resolves it by the
+    state's fate afterwards: a child that errors gets the charge
+    credited straight back. This is the one ``CREATE`` failure path that
+    moves state gas, and the credit is observable as the absence of a
+    spill.
+
+    The factory is given a reservoir sized for exactly *one* creation
+    and performs two ``CREATE``s, the second wrapped in
+    ``CodeGasMeasure``. When the first init code reverts, its charge is
+    credited back and the second creation draws the reservoir, so the
+    measured *execution* cost is the bare opcode's. When the first
+    init code succeeds, the reservoir is gone and the second creation
+    spills the account-creation gas into ``gas_left``, so the measured
+    cost is the opcode's full two-dimensional ``gas_cost``. The two arms
+    therefore differ by exactly the charge under test.
+    """
+    # The first creation's init code, five bytes either way so both arms
+    # run identical code with identical memory. `REVERT` is used rather
+    # than an invalid opcode so the child returns its unused execution
+    # gas and the measurement below sees only the state-gas effect.
+    first_initcode = bytes(Op.REVERT(0, 0)) if first_initcode_reverts else b""
+    initcode_len = 5
+    assert len(first_initcode) <= initcode_len
+    first_initcode = first_initcode.ljust(initcode_len, b"\x00")
+    initcode_word = int.from_bytes(first_initcode, "big") << (
+        256 - 8 * initcode_len
+    )
+
+    # The second creation uses zero-size init code, so its child halts
+    # immediately, deposits empty code and returns its whole grant. That
+    # keeps the measured window the CREATE opcode's own charge.
+    measured_bare = Op.CREATE(init_code_size=0)
+    measured_call = Op.CREATE(value=0, offset=0, size=0)
+    arg_pushes = 3 * Op.PUSH1(0).execution_cost(fork)
+
+    # Reservoir funded, so no spill; reservoir spent, so the whole
+    # account-creation charge lands on the execution dimension.
+    expected_measured = (
+        measured_bare.execution_cost(fork)
+        if first_initcode_reverts
+        else measured_bare.gas_cost(fork)
+    )
+
+    storage = Storage()
+    factory_code = (
+        Op.MSTORE(0, initcode_word)
+        + Op.POP(Op.CREATE(value=0, offset=0, size=initcode_len))
+        + CodeGasMeasure(
+            code=measured_call,
+            overhead_cost=arg_pushes,
+            extra_stack_items=1,
+            sstore_key=storage.store_next(
+                expected_measured, "second_create_execution_gas"
+            ),
+        )
+    )
+    factory = pre.deploy_contract(code=factory_code)
+
+    # `CREATE` derives from the factory's nonce at the time of the call,
+    # and the increment survives a failed child, so the two addresses are
+    # the same in both arms.
+    first_address = compute_create_address(address=factory, nonce=1)
+    second_address = compute_create_address(address=factory, nonce=2)
+
+    tx = Transaction(
+        to=factory,
+        sender=pre.fund_eoa(),
+        state_gas_reservoir=fork.create_state_gas(code_size=0),
+    )
+
+    # A reverted creation leaves nothing behind; a successful one
+    # deposits the empty code its init code returned. The second
+    # creation succeeds in both arms — in the spilling arm because
+    # execution gas can cover the charge — which is what makes the
+    # measured value, not the post-state, the discriminator.
+    post = {
+        factory: Account(nonce=3, storage=storage),
+        first_address: Account.NONEXISTENT
+        if first_initcode_reverts
+        else Account(nonce=1, code=b""),
+        second_address: Account(nonce=1, code=b""),
     }
     state_test(pre=pre, post=post, tx=tx)

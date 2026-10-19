@@ -12,6 +12,7 @@ from execution_testing import (
     AuthorizationTuple,
     Bytecode,
     Fork,
+    GasConsumer,
     Op,
     RefundTypes,
     StateTestFiller,
@@ -52,16 +53,9 @@ def data_test_type() -> DataTestType:
 
 
 @pytest.fixture
-def authorization_list(
-    pre: Alloc, refund_type: RefundTypes
-) -> List[AuthorizationTuple] | None:
-    """
-    Modify fixture from conftest to automatically read the refund_type
-    information.
-    """
-    if refund_type != RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
-        return None
-    return [AuthorizationTuple(signer=pre.fund_eoa(1), address=Address(1))]
+def authorization_list() -> List[AuthorizationTuple] | None:
+    """Return no authorizations; the STORAGE_CLEAR refund needs none."""
+    return None
 
 
 @pytest.fixture
@@ -70,43 +64,20 @@ def ty(refund_type: RefundTypes) -> int:
     Modify fixture from conftest to automatically read the refund_type
     information.
     """
-    if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
-        return 4
     if refund_type == RefundTypes.STORAGE_CLEAR:
         return 2
     raise ValueError(f"Unknown refund type: {refund_type}")
 
 
 @pytest.fixture
-def state_gas_refund(fork: Fork, refund_type: RefundTypes) -> int:
-    """Return the EIP-8037 auth state-gas refund (not subject to 1/5 cap)."""
-    if (
-        fork.is_eip_enabled(8037)
-        and refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY
-    ):
-        return fork.gas_costs().REFUND_AUTH_PER_EXISTING_ACCOUNT
-    return 0
-
-
-@pytest.fixture
 def max_refund(fork: Fork, refund_type: RefundTypes) -> int:
     """Return the max refund gas of the transaction."""
     gas_costs = fork.gas_costs()
-    max_refund = (
+    return (
         gas_costs.REFUND_STORAGE_CLEAR
         if refund_type == RefundTypes.STORAGE_CLEAR
         else 0
     )
-    if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
-        if fork.is_eip_enabled(8037):
-            # The worst-case `ACCOUNT_WRITE` charged at intrinsic time
-            # is refunded via the refund counter when the authority's
-            # account leaf already exists; the state-gas portion is
-            # refilled separately and is not subject to the cap.
-            max_refund += gas_costs.ACCOUNT_WRITE
-        else:
-            max_refund += gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT
-    return max_refund
 
 
 @pytest.fixture
@@ -177,7 +148,6 @@ def execution_gas_used(
     tx_intrinsic_gas_cost_before_execution: int,
     tx_floor_data_cost: int,
     max_refund: int,
-    state_gas_refund: int,
     prefix_code_gas: int,
     refund_test_type: RefundTestType,
 ) -> int:
@@ -195,9 +165,8 @@ def execution_gas_used(
 
     def execution_gas_cost(execution_gas: int) -> int:
         total_gas_used = tx_intrinsic_gas_cost_before_execution + execution_gas
-        effective_gas = total_gas_used - state_gas_refund
-        return effective_gas - min(
-            max_refund, effective_gas // fork.max_refund_quotient()
+        return total_gas_used - min(
+            max_refund, total_gas_used // fork.max_refund_quotient()
         )
 
     execution_gas = prefix_code_gas
@@ -241,14 +210,12 @@ def refund(
     tx_intrinsic_gas_cost_before_execution: int,
     execution_gas_used: int,
     max_refund: int,
-    state_gas_refund: int,
 ) -> int:
     """Return the refund gas of the transaction."""
     total_gas_used = (
         tx_intrinsic_gas_cost_before_execution + execution_gas_used
     )
-    effective_gas = total_gas_used - state_gas_refund
-    return min(max_refund, effective_gas // fork.max_refund_quotient())
+    return min(max_refund, total_gas_used // fork.max_refund_quotient())
 
 
 @pytest.fixture
@@ -260,50 +227,10 @@ def to(
     prefix_code_gas: int,
     code_storage: Dict,
 ) -> Address | None:
-    """
-    Return a contract that consumes the expected execution gas.
-
-    At the moment we naively use JUMPDEST to consume the gas, which can yield
-    very big contracts.
-
-    Ideally, we can use memory expansion to consume gas.
-    """
-    extra_gas = execution_gas_used - prefix_code_gas
-    code = prefix_code + (Op.JUMPDEST * extra_gas) + Op.STOP
-    if len(code) <= fork.max_code_size():
-        return pre.deploy_contract(code, storage=code_storage)
-
-    loop_target = len(prefix_code) + len(Op.PUSH2(0))
-    setup = Op.PUSH2(0)
-    loop_body = (
-        Op.JUMPDEST
-        + Op.PUSH1(1)
-        + Op.SWAP1
-        + Op.SUB
-        + Op.DUP1
-        + Op.PUSH1(loop_target)
-        + Op.JUMPI
-    )
-    teardown = Op.POP
-    overhead = setup.gas_cost(fork) + teardown.gas_cost(fork)
-    gas_per_iter = loop_body.gas_cost(fork)
-
-    available = extra_gas - overhead
-    iterations = available // gas_per_iter
-    remaining = available % gas_per_iter
-
+    """Return a contract that consumes the expected execution gas."""
     code = (
         prefix_code
-        + Op.PUSH2(iterations)
-        + Op.JUMPDEST
-        + Op.PUSH1(1)
-        + Op.SWAP1
-        + Op.SUB
-        + Op.DUP1
-        + Op.PUSH1(loop_target)
-        + Op.JUMPI
-        + Op.POP
-        + (Op.JUMPDEST * remaining)
+        + GasConsumer(gas=execution_gas_used - prefix_code_gas, fork=fork)
         + Op.STOP
     )
     return pre.deploy_contract(code, storage=code_storage)
@@ -343,7 +270,6 @@ def test_gas_refunds_from_data_floor(
     tx_intrinsic_gas_cost_before_execution: int,
     execution_gas_used: int,
     refund: int,
-    state_gas_refund: int,
     refund_test_type: RefundTestType,
 ) -> None:
     """
@@ -351,10 +277,7 @@ def test_gas_refunds_from_data_floor(
     floor.
     """
     gas_used = (
-        tx_intrinsic_gas_cost_before_execution
-        + execution_gas_used
-        - state_gas_refund
-        - refund
+        tx_intrinsic_gas_cost_before_execution + execution_gas_used - refund
     )
     if (
         refund_test_type

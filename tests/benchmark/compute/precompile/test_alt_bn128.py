@@ -21,7 +21,7 @@ from execution_testing import (
 from py_ecc.bn128 import G1, G2, multiply
 from py_ecc.fields import bn128_FQ2
 
-from tests.benchmark.compute.helpers import Precompile
+from tests.benchmark.helper.precompile import Precompile
 from tests.byzantium.eip196_ec_add_mul.spec import (
     PointG1,
     Scalar,
@@ -179,6 +179,12 @@ from tests.byzantium.eip197_ec_pairing.spec import (
             id="bn128_mul_32_byte_coord_and_scalar",
             marks=pytest.mark.repricing,
         ),
+        # Pairing inputs below are py_ecc-generated (not external vectors),
+        # so every point is on-curve and in the prime-order subgroup: each
+        # G1 is k*G1, each G2 is k*G2 with FQ2 coeffs swapped to the
+        # precompile's (imag, real) decode order. Scalars are small and
+        # arbitrary - 1_pair (3, 5); 2_sets adds (7, 11); 3_pair (2,3),
+        # (5,7), (11,13); 1_pair_empty is one 192-byte (inf, inf) pair.
         pytest.param(
             EIP197Spec.ECPAIRING,
             # First pairing
@@ -251,17 +257,17 @@ from tests.byzantium.eip197_ec_pairing.spec import (
             )
             # Second pairing
             + PointG1(
-                x=0x0000000000000000000000000000000000000000000000000000000000000013,
-                y=0x0644E72E131A029B85045B68181585D97816A916871CA8D3C208C16D87CFD451,
+                x=0x17072B2ED3BB8D759A5325F477629386CB6FC6ECB801BD76983A6B86ABFFE078,
+                y=0x168ADA6CD130DD52017BB54BFA19377AADFE3BF05D18F41B77809F7F60D4AF9E,
             )
             + PointG2(
                 x=(
-                    0x971FF0471B09FA93CAAF13CBF443C1AEDE09CC4328F5A62AAD45F40EC133EB40,
-                    0x91058A3141822985733CBDDDFED0FD8D6C104E9E9EFF40BF5ABFEF9AB163BC72,
+                    0x228B515A17F28B89920873207477F8C7FC05582DEBAF3184FEBF1CFDEDC5CE88,
+                    0x12BB1156A9F6B360FCB2614E15D8A3FF07F2C699DC69CA830B20D2DF91FE9CD3,
                 ),
                 y=(
-                    0xA23AF9A5CE2BA2796C1F4E453A370EB0AF8C212D9DC9ACD8FC02C2E907BAEA22,
-                    0x3A8EB0B0996252CB548A4487DA97B02422EBC0E834613F954DE6C7E0AFDC1FC0,
+                    0x2B15DC62A5C9E36597914DDBBFDE48806A8EABE45C8D3CCCF9578AD08E058F92,
+                    0x02A4FD764F52470E2FCFFF325FB9692F55D6B8B077EEFEAA04E07152B4D1FA94,
                 ),
             ),
             Precompile.BN128_PAIRING,
@@ -269,7 +275,20 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         ),
         pytest.param(
             EIP197Spec.ECPAIRING,
-            b"",
+            PointG1(
+                x=0x0769BF9AC56BEA3FF40232BCB1B6BD159315D84715B8E679F2D355961915ABF0,
+                y=0x2AB799BEE0489429554FDB7C8D086475319E63B40B9C5B57CDF1FF3DD9FE2261,
+            )
+            + PointG2(
+                x=(
+                    0x0A09CCF561B55FD99D1C1208DEE1162457B57AC5AF3759D50671E510E428B2A1,
+                    0x2E539C423B302D13F4E5773C603948EAF5DB5DF8AE8A9A9113708390A06410D8,
+                ),
+                y=(
+                    0x19B763513924A736E4EEBD0D78C91C1BC1D657FEE4214057D21414011CFCC763,
+                    0x2F8D9F9AB83727C77A2FEC063CB7B6E5EB23044CCF535AD49D46D394FB6F6BF6,
+                ),
+            ),
             Precompile.BN128_PAIRING,
             id="ec_pairing_1_pair",
         ),
@@ -302,23 +321,50 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         pytest.param(
             EIP197Spec.ECPAIRING,
             # First pairing
-            PointG1(x=0, y=0)
+            PointG1(
+                x=0x030644E72E131A029B85045B68181585D97816A916871CA8D3C208C16D87CFD3,
+                y=0x15ED738C0E0A7C92E7845F96B2AE9C0A68A6A449E3538FC7FF3EBF7A5A18A2C4,
+            )
             + PointG2(
                 x=(
-                    0x0EF4AAC9B7954D5FC6EAFAE7F4F4C2A732AB05B45F8D50D102CEE4973F36EB2C,
-                    0x23DB7D30C99E0A2A7F3BB5CD1F04635AAEA58732B58887DF93D9239C28230D28,
+                    0x1014772F57BB9742735191CD5DCFE4EBBC04156B6878A0A7C9824F32FFB66E85,
+                    0x06064E784DB10E9051E52826E192715E8D7E478CB09A5E0012DEFA0694FBC7F5,
                 ),
                 y=(
-                    0x2BD99D31A5054F2556D226F2E5EF0E075423D8604178B2E2C08006311CAEE54F,
-                    0x0F11AFB0C6073D12D21B13F4F78210E8CA9A66729206D3FCC2C1B04824C425F2,
+                    0x021E2335F3354BB7922FFCC2F38D3323DD9453AC49B55441452AEACA147711B2,
+                    0x058E1D5681B5B9E0074B0F9C8D2C68A069B920D74521E79765036D57666C5597,
                 ),
             )
-            # Second pairing (32 zero + G2 generator = 160 bytes)
-            + bytes(32)
-            + EIP197Spec.G2
-            # Third pairing (same structure as second)
-            + bytes(32)
-            + EIP197Spec.G2,
+            # Second pairing
+            + PointG1(
+                x=0x17C139DF0EFEE0F766BC0204762B774362E4DED88953A39CE849A8A7FA163FA9,
+                y=0x01E0559BACB160664764A357AF8A9FE70BAA9258E0B959273FFC5718C6D4CC7C,
+            )
+            + PointG2(
+                x=(
+                    0x2903BA015A9ABDE26A5D081E84551E63BE0FD4516E46EE6D593EDEBA46362455,
+                    0x224BDC5D4327FCF8ED702E01DE1C2F1657A253BA75E32A89C390142AAA28B308,
+                ),
+                y=(
+                    0x03C8B7CDA6B2DEDB7AEEAF5FDA464AD17036BEA1C4E6F7ADBAED1EBE0335E0D8,
+                    0x1D92FFF52A265017EECCB372E37D7A7BD431800ECA28DFD82E21E8054114233F,
+                ),
+            )
+            # Third pairing
+            + PointG1(
+                x=0x2A14705537B009189DA8808651EECDB82482477FE92AC12CA8B71F80FC3D49EF,
+                y=0x2DF7EE7F243EA8B38E1DDF14029258877A618C779FD4717DB6177E19EA67EC38,
+            )
+            + PointG2(
+                x=(
+                    0x009EDAF0698A8C56F51139588ACC094CEE3C37D427BB6D2EAB830AAE529097D1,
+                    0x23AD66F3A7CCA9DC75049635FAEBD124316244B91DE5FB2764CD151572A905F7,
+                ),
+                y=(
+                    0x2700E8A29B7BB45F3022A18A07BDC66D0254559E17CCE64E3B4AD21578FCF410,
+                    0x1AD4F87D3B4375A39988AC099B042B1E7C0C715678E4C2BEA8905F607CF950F8,
+                ),
+            ),
             Precompile.BN128_PAIRING,
             id="ec_pairing_3_pair",
         ),
@@ -464,7 +510,10 @@ from tests.byzantium.eip197_ec_pairing.spec import (
         ),
         pytest.param(
             EIP197Spec.ECPAIRING,
-            bytes(32),
+            # One correctly sized (192-byte) pair of infinity points: the
+            # minimal input the precompile still accepts and charges a full
+            # pair for. bytes(32) would be rejected as a bad length.
+            bytes(192),
             Precompile.BN128_PAIRING,
             id="ec_pairing_1_pair_empty",
         ),

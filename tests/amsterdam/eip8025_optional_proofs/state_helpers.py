@@ -2,6 +2,9 @@
 
 from collections.abc import Mapping, Sequence
 
+import pytest
+from ethereum_rlp import rlp
+from ethereum_types.bytes import Bytes as TrieBytes
 from ethereum_types.bytes import Bytes32
 from ethereum_types.numeric import U256, Uint
 from execution_testing import Account, Address, Alloc, Bytes, Storage
@@ -10,6 +13,7 @@ from execution_testing.forks import Amsterdam
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.forks.amsterdam.incremental_mpt import (
     build_mpt,
+    compact_to_nibbles,
     mpt_get,
     mpt_root,
     mpt_set,
@@ -25,6 +29,19 @@ from ethereum.state import (
 from ethereum.state import (
     Address as StateAddress,
 )
+
+COLLAPSE_DELETED_SLOT = 2
+"""Slot whose deletion leaves the storage root branch with one child."""
+
+COLLAPSE_SIBLING_SHAPES = [
+    # keccak(2) starts with 4 and every sibling slot starts with b, so
+    # deleting slot 2 collapses the root onto the subtree under b. Slot 1
+    # starts with b1, slot 24 with b1 and slot 14 with bb.
+    pytest.param([1], "leaf", id="sibling_leaf"),
+    pytest.param([1, 24], "extension", id="sibling_extension"),
+    pytest.param([1, 14], "branch", id="sibling_branch"),
+]
+"""Sibling slots and the node type the collapse has to resolve."""
 
 
 def large_storage_value(slot: int) -> int:
@@ -70,12 +87,35 @@ def _nodes(nodes: set[bytes]) -> list[Bytes]:
     return [Bytes(node) for node in nodes]
 
 
+def trie_node_kind(node: Bytes) -> str:
+    """Return whether a trie node is a `leaf`, `extension` or `branch`."""
+    decoded = rlp.decode(bytes(node))
+    assert isinstance(decoded, list)
+    if len(decoded) == 17:
+        return "branch"
+    assert len(decoded) == 2
+    path_bytes = decoded[0]
+    assert isinstance(path_bytes, (bytes, bytearray))
+    _, is_leaf = compact_to_nibbles(TrieBytes(path_bytes))
+    return "leaf" if is_leaf else "extension"
+
+
 def collect_storage_proof_nodes(
     storage: Mapping[int, int],
     slots: Sequence[int],
 ) -> list[Bytes]:
     """Collect the pre-state proof nodes for the given storage slots."""
     return _nodes(_collect_storage_node_set(storage, slots))
+
+
+def storage_root_node(storage: Mapping[int, int]) -> Bytes:
+    """Return the root node of a non-empty storage trie."""
+    root = mpt_root(
+        build_mpt(_storage_mpt_input(storage), secured=True, default=U256(0))
+    )
+    nodes = _collect_storage_node_set(storage, [next(iter(storage))])
+    (root_node,) = [node for node in nodes if keccak256(node) == root]
+    return Bytes(root_node)
 
 
 def collect_storage_delete_auxiliary_nodes(
@@ -131,6 +171,38 @@ def find_account_with_shared_secured_nibble(
         if (keccak256(bytes(address))[0] >> 4) == target_nibble:
             return address
     raise AssertionError("failed to find non-precompile sibling address")
+
+
+def _shared_secured_nibbles(address: Address, other: Address) -> int:
+    """Count the leading nibbles that two addresses' secured keys share."""
+    key = keccak256(bytes(address)).hex()
+    other_key = keccak256(bytes(other)).hex()
+    count = 0
+    while count < len(key) and key[count] == other_key[count]:
+        count += 1
+    return count
+
+
+def find_account_ending_absence_proof(
+    alloc: Alloc,
+    target: Address,
+) -> Address:
+    """
+    Return an address whose leaf would end one account absence proof.
+
+    The address's secured key shares more leading nibbles with the target's
+    than any account in `alloc` does. Once funded, its leaf ends the target's
+    absence proof and lies on no proof of an account in `alloc`.
+    """
+    depth = 1 + max(
+        (_shared_secured_nibbles(target, address) for address in alloc),
+        default=0,
+    )
+    for value in range(0x1000, 0x1000000):
+        address = Address(value)
+        if _shared_secured_nibbles(target, address) >= depth:
+            return address
+    raise AssertionError("failed to find an address to end the proof")
 
 
 def merge_with_amsterdam_pre_alloc(pre: Alloc) -> Alloc:

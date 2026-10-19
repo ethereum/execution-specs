@@ -272,6 +272,20 @@ import pytest
         pytest.param(
             """
             import pytest
+            @pytest.mark.with_all_system_contract_request_types()
+            @pytest.mark.valid_from("Prague")
+            @pytest.mark.valid_until("Prague")
+            @pytest.mark.state_test_only
+            def test_case(state_test, request_class):
+                pass
+            """,
+            {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
+            None,
+            id="with_all_system_contract_request_types",
+        ),
+        pytest.param(
+            """
+            import pytest
             from execution_testing import  Transaction
             @pytest.mark.with_all_typed_transactions
             @pytest.mark.valid_from("Berlin")
@@ -616,6 +630,25 @@ def test_fork_covariant_markers(
             {},
             "filter_combinations deselected all",
             id="filter_combinations_empty_set_error",
+        ),
+        pytest.param(
+            """
+            import pytest
+
+            @pytest.mark.parametrize("a", [1, 2])
+            @pytest.mark.filter_combinations(
+                lambda nonexistent_param, **_: True,
+                reason="predicate names a parameter that does not exist",
+            )
+            @pytest.mark.valid_from("Cancun")
+            @pytest.mark.valid_until("Cancun")
+            @pytest.mark.state_test_only
+            def test_case(state_test, a):
+                pass
+            """,
+            {},
+            "cannot be called with the item's params",
+            id="filter_combinations_bad_predicate_signature_error",
         ),
     ],
 )

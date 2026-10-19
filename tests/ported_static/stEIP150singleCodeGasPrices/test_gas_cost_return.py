@@ -26,6 +26,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.pre_alloc_group(
+    "separate",
+    reason="Calls hardcoded addresses 0x1000 and 0x2000 without declaring "
+    "them, so gas usage depends on them staying empty; sharing a genesis "
+    "with a test that allocates either address changes the execution.",
+)
 def test_gas_cost_return(
     state_test: StateTestFiller,
     pre: Alloc,

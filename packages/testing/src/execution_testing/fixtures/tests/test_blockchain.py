@@ -23,17 +23,20 @@ from execution_testing.exceptions import (
     EngineAPIError,
     TransactionException,
 )
-from execution_testing.forks import Amsterdam, Prague
+from execution_testing.forks import (
+    Amsterdam,
+    ConsolidationRequest,
+    DepositRequest,
+    Prague,
+    Requests,
+    WithdrawalRequest,
+)
 from execution_testing.test_types import (
     EOA,
     AuthorizationTuple,
-    ConsolidationRequest,
-    DepositRequest,
     ExecutionWitness,
-    Requests,
     Transaction,
     Withdrawal,
-    WithdrawalRequest,
 )
 
 from ..blockchain import (

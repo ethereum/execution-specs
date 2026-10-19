@@ -7,11 +7,12 @@ from typing import List
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
     Bytecode,
+    ConsolidationRequest,
+    Header,
     Op,
     Requests,
     SystemContractInteractionTransaction,
@@ -20,8 +21,6 @@ from execution_testing import (
 )
 from execution_testing import Macros as Om
 
-from .helpers import ConsolidationRequest
-from .spec import Spec as Spec_EIP7251
 from .spec import ref_spec_7251
 
 REFERENCE_SPEC_GIT_PATH: str = ref_spec_7251.git_path
@@ -38,7 +37,7 @@ def consolidation_list_with_custom_fee(n: int) -> List[ConsolidationRequest]:  #
         ConsolidationRequest(
             source_pubkey=0x01,
             target_pubkey=0x02,
-            fee=Spec_EIP7251.get_fee(10),
+            fee=ConsolidationRequest.get_fee(10),
         )
         for i in range(n)
     ]
@@ -93,25 +92,21 @@ def test_extra_consolidations(
     """
     modified_code: Bytecode = Bytecode()
     memory_offset: int = 0
-    amount_of_requests: int = 0
 
     for consolidation_request in requests_list:
-        # update memory_offset with the correct value
-        consolidation_request_bytes_amount: int = len(
-            bytes(consolidation_request)
-        )
-        assert consolidation_request_bytes_amount == 116, (
+        record = bytes(consolidation_request)
+        assert len(record) == 116, (
             "Expected consolidation request to be of size 116 but got size "
-            f"{consolidation_request_bytes_amount}"
+            f"{len(record)}"
         )
-        memory_offset += consolidation_request_bytes_amount
+        # Store records contiguously from offset 0 so the returned data is
+        # exactly the concatenated records (no gap, no trailing padding).
+        modified_code += Om.MSTORE(record, memory_offset)
+        memory_offset += len(record)
 
-        modified_code += Om.MSTORE(bytes(consolidation_request), memory_offset)
-        amount_of_requests += 1
+    modified_code += Op.RETURN(0, memory_offset)
 
-    modified_code += Op.RETURN(0, Op.MSIZE())
-
-    pre[Spec_EIP7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS] = Account(
+    pre[ConsolidationRequest.system_contract_address] = Account(
         code=modified_code,
         nonce=1,
         balance=0,
@@ -132,7 +127,7 @@ def test_extra_consolidations(
         blocks=[
             Block(
                 txs=txs,
-                requests_hash=Requests(*requests_list),
+                header_verify=Header(requests_hash=Requests(*requests_list)),
             ),
         ],
         post={},
@@ -141,11 +136,9 @@ def test_extra_consolidations(
 
 @pytest.mark.parametrize(
     "system_contract",
-    [Address(Spec_EIP7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS)],
+    [ConsolidationRequest.system_contract_address],
 )
-@generate_system_contract_error_test(  # type: ignore[arg-type]
-    max_gas_limit=Spec_EIP7251.SYSTEM_CALL_GAS_LIMIT,
-)
+@generate_system_contract_error_test()  # type: ignore[arg-type]
 def test_system_contract_errors() -> None:
     """
     Test consolidation system contract raising different errors when called by

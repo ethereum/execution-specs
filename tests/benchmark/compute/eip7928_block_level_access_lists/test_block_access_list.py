@@ -16,6 +16,7 @@ from enum import Enum, auto
 
 import pytest
 from execution_testing import (
+    Account,
     Alloc,
     BenchmarkTestFiller,
     Block,
@@ -34,7 +35,7 @@ from execution_testing import (
 from ethereum.crypto.hash import keccak256
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7928.md"
-REFERENCE_SPEC_VERSION = "aca88aa0932580c29d0233f902cb4390e88b8c41"
+REFERENCE_SPEC_VERSION = "f834f0004aa5110a5f1ac0d6b80e3dc4b842d040"
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
@@ -648,11 +649,18 @@ def test_deploy_then_interact(
         new_value=1,
     )
     initcode_exec_gas = initcode_sstore.gas_cost(fork)
-    code_deposit_gas = 200 * len(runtime_code)
+    code_deposit_gas = fork.code_deposit_state_gas(code_size=len(runtime_code))
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        contract_creation=True
+    )
 
     # Buffer for Initcode wrapper overhead (CODECOPY + RETURN + memory).
     deploy_gas_limit = (
-        intrinsic_gas_create + initcode_exec_gas + code_deposit_gas + 10000
+        intrinsic_gas_create
+        + initcode_exec_gas
+        + code_deposit_gas
+        + top_frame_state_gas
+        + 10000
     )
 
     min_call_gas = intrinsic_gas + setup_gas + reserve_gas
@@ -693,6 +701,7 @@ def test_deploy_then_interact(
         num_pairs = 1
 
     blocks: list[Block] = []
+    post = {}
 
     with TestPhaseManager.execution():
         exec_txs: list[Transaction] = []
@@ -709,6 +718,7 @@ def test_deploy_then_interact(
                     )
                 )
                 contract = compute_create_address(address=deployer, nonce=0)
+                post[contract] = Account(nonce=1, code=runtime_code)
                 exec_txs.append(
                     Transaction(
                         to=contract,
@@ -728,6 +738,7 @@ def test_deploy_then_interact(
                 )
             )
             contract = compute_create_address(address=deployer, nonce=0)
+            post[contract] = Account(nonce=1, code=runtime_code)
             for _ in range(num_call_txs):
                 exec_txs.append(
                     Transaction(
@@ -739,7 +750,7 @@ def test_deploy_then_interact(
 
         blocks.append(Block(txs=exec_txs))
 
-    benchmark_test(blocks=blocks, skip_gas_used_validation=True)
+    benchmark_test(blocks=blocks, post=post, skip_gas_used_validation=True)
 
 
 @pytest.mark.parametrize(

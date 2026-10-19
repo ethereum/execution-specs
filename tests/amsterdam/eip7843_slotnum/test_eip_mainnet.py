@@ -26,12 +26,13 @@ def test_slotnum_mainnet(
     pre: Alloc,
 ) -> None:
     """
-    Test that SLOTNUM is callable and returns a non-zero slot number.
+    Test that SLOTNUM executes and pushes one stack item.
 
-    Asserts on ``POP(SLOTNUM)`` rather than the slot value itself
-    so the test remains valid when ``execute``-ed against a live network,
-    where the slot number is whatever the consensus layer transmits and
-    cannot be controlled by the test.
+    Asserts on `POP(SLOTNUM)` followed by a storage write rather than
+    on the slot value itself, so the test remains valid when
+    `execute`-ed against a live network, where the slot number is
+    whatever the consensus layer transmits and cannot be controlled by
+    the test.
     """
     contract = pre.deploy_contract(
         code=Op.POP(Op.SLOTNUM) + Op.SSTORE(0, 1),

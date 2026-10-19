@@ -16,7 +16,7 @@ from hive.client import Client
 from execution_testing.exceptions import ExceptionMapper
 from execution_testing.fixtures import BlockchainEngineFixture
 from execution_testing.fixtures.blockchain import FixtureHeader
-from execution_testing.rpc import EngineSszRPC
+from execution_testing.rpc import EngineSSZRPC
 
 pytest_plugins = (
     "execution_testing.cli.pytest_commands.plugins.pytest_hive.pytest_hive",
@@ -36,8 +36,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         default=False,
         help=(
-            "Use the REST POST /new-payload-with-witness endpoint with "
-            "SSZ-encoded response instead of the default JSON-RPC "
+            "Use the REST POST /engine/v1/payloads/witness endpoint with "
+            "SSZ-encoded request and response instead of the default JSON-RPC "
             "engine_newPayloadWithWitnessVX with RLP-encoded witness "
         ),
     )
@@ -67,7 +67,7 @@ def test_suite_description() -> str:
         "Execute blockchain-engine fixtures via the witness-emitting Engine "
         "API path, using JSON-RPC engine_newPayloadWithWitnessVX with "
         "RLP-encoded witness by default or REST POST "
-        "/new-payload-with-witness with SSZ response when --ssz is enabled, "
+        "/engine/v1/payloads/witness with SSZ response when --ssz is enabled, "
         "verifying the client-generated execution witness against the fixture "
         "witness."
     )
@@ -92,13 +92,13 @@ def genesis_header(fixture: BlockchainEngineFixture) -> "FixtureHeader":
 @pytest.fixture(scope="function")
 def engine_ssz_rpc(
     client: Client, client_exception_mapper: ExceptionMapper | None
-) -> EngineSszRPC:
+) -> EngineSSZRPC:
     """Provide the REST client used by the `--ssz` witness transport."""
     if client_exception_mapper:
-        return EngineSszRPC(
+        return EngineSSZRPC(
             f"http://{client.ip}:8551",
             response_validation_context={
                 "exception_mapper": client_exception_mapper,
             },
         )
-    return EngineSszRPC(f"http://{client.ip}:8551")
+    return EngineSSZRPC(f"http://{client.ip}:8551")

@@ -11,7 +11,10 @@ from execution_testing import (
     Transaction,
 )
 
+from .spec import ref_spec_8025
 from .state_helpers import (
+    COLLAPSE_DELETED_SLOT,
+    COLLAPSE_SIBLING_SHAPES,
     as_storage,
     build_large_storage,
     collect_storage_delete_auxiliary_nodes,
@@ -19,34 +22,41 @@ from .state_helpers import (
     collect_storage_post_state_only_nodes,
     collect_storage_proof_nodes,
     large_storage_value,
+    trie_node_kind,
 )
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-REFERENCE_SPEC_GIT_PATH = "N/A"
-REFERENCE_SPEC_VERSION = "N/A"
+REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8025.version
 
 
+@pytest.mark.parametrize("sibling_slots,sibling_kind", COLLAPSE_SIBLING_SHAPES)
 def test_witness_state_sstore_delete_branch_collapse_adds_auxiliary_node(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    sibling_slots: list[int],
+    sibling_kind: str,
 ) -> None:
     """
-    Deleting slot 1 from the `{1, 2}` trie shape forces branch collapse.
+    Deleting one of two root branch children forces a branch collapse.
 
-    The witness should contain both the normal proof for slot 1 and the
-    auxiliary node needed to preserve the untouched sibling subtree.
+    The witness should contain both the normal proof for the deleted slot
+    and the auxiliary node needed to preserve the untouched sibling subtree.
     """
-    storage = build_large_storage([1, 2])
-    proof_nodes = collect_storage_proof_nodes(storage, [1])
-    auxiliary_nodes = collect_storage_delete_auxiliary_nodes(storage, 1)
+    storage = build_large_storage([COLLAPSE_DELETED_SLOT, *sibling_slots])
+    proof_nodes = collect_storage_proof_nodes(storage, [COLLAPSE_DELETED_SLOT])
+    auxiliary_nodes = collect_storage_delete_auxiliary_nodes(
+        storage, COLLAPSE_DELETED_SLOT
+    )
     assert proof_nodes
     # Double check the auxiliary node after the deletion resulted in
-    # exactly one MPT node.
+    # exactly one MPT node of the expected type.
     assert len(auxiliary_nodes) == 1
+    assert trie_node_kind(auxiliary_nodes[0]) == sibling_kind
 
     contract = pre.deploy_contract(
-        code=Op.SSTORE(1, 0) + Op.STOP,
+        code=Op.SSTORE(COLLAPSE_DELETED_SLOT, 0) + Op.STOP,
         storage=as_storage(storage),
     )
     sender = pre.fund_eoa()
@@ -66,7 +76,9 @@ def test_witness_state_sstore_delete_branch_collapse_adds_auxiliary_node(
         ],
         post={
             sender: Account(nonce=1),
-            contract: Account(storage={2: storage[2]}),
+            contract: Account(
+                storage={slot: storage[slot] for slot in sibling_slots}
+            ),
         },
     )
 
@@ -156,68 +168,30 @@ def test_witness_state_sstore_delete_only_slot_keeps_proof(
     )
 
 
-def test_witness_state_delete_with_new_dirty_sibling_omits_post_state_node(
+@pytest.mark.parametrize(
+    "pre_slots,new_slot_2_value",
+    [
+        pytest.param([1], large_storage_value(2), id="new_sibling"),
+        pytest.param([1, 2], large_storage_value(9), id="modified_sibling"),
+    ],
+)
+def test_witness_state_delete_with_dirty_sibling_omits_post_state_node(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    pre_slots: list[int],
+    new_slot_2_value: int,
 ) -> None:
     """
-    A sibling created before branch collapse is dirty and should not leak.
+    A sibling that becomes dirty before branch collapse should not leak.
 
     The witness still needs the pre-state delete proof for slot 1 and the
-    pre-state absence proof for slot 2, but it must not include the node
-    created only after slot 2 is inserted during execution.
-    """
-    pre_storage = build_large_storage([1])
-    post_storage = {2: large_storage_value(2)}
-    proof_nodes = collect_storage_proof_nodes(pre_storage, [1, 2])
-    post_state_only_nodes = collect_storage_post_state_only_nodes(
-        pre_storage=pre_storage,
-        post_storage=post_storage,
-        slot=2,
-        pre_state_reference_slots=[1, 2],
-    )
-    assert proof_nodes
-    assert len(post_state_only_nodes) == 1
-
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(2, post_storage[2]) + Op.SSTORE(1, 0) + Op.STOP,
-        storage=as_storage(pre_storage),
-    )
-    sender = pre.fund_eoa()
-    tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[tx],
-                expected_execution_witness_state=(
-                    ExecutionWitnessStateExpectation(
-                        nodes_present=proof_nodes,
-                        nodes_absent=post_state_only_nodes,
-                    )
-                ),
-            )
-        ],
-        post={
-            sender: Account(nonce=1),
-            contract: Account(storage=post_storage),
-        },
-    )
-
-
-def test_witness_state_delete_with_modified_dirty_sibling_omits_post(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """
-    A pre-state sibling that becomes dirty before collapse should not leak.
-
-    The delete still requires the pre-state proof material, but the updated
+    pre-state proof for slot 2. When slot 2 is new, that is an absence
+    proof, and the node created only after slot 2 is inserted during
+    execution must not appear. When slot 2 already exists, the updated
     surviving child is dirty and must not be re-recorded as auxiliary.
     """
-    pre_storage = build_large_storage([1, 2])
-    post_storage = {2: large_storage_value(9)}
+    pre_storage = build_large_storage(pre_slots)
+    post_storage = {2: new_slot_2_value}
     proof_nodes = collect_storage_proof_nodes(pre_storage, [1, 2])
     post_state_only_nodes = collect_storage_post_state_only_nodes(
         pre_storage=pre_storage,

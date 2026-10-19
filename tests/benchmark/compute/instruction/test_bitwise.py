@@ -27,7 +27,7 @@ from execution_testing import (
     Transaction,
 )
 
-from ..helpers import (
+from tests.benchmark.helper.numeric import (
     DEFAULT_BINOP_ARGS,
     make_dup,
     sar,
@@ -197,6 +197,40 @@ def test_shifts(
     benchmark_test(
         target_opcode=opcode,
         tx=tx,
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode,initial_value",
+    [
+        pytest.param(Op.SHL, 2**256 - 1),
+        pytest.param(Op.SHR, 2**256 - 1),
+        pytest.param(Op.SAR, 2**255 - 1),
+        pytest.param(Op.SAR, 2**256 - 1),
+    ],
+)
+@pytest.mark.parametrize(
+    "shift",
+    [
+        pytest.param(256, id="word size"),
+        pytest.param(2**255, id="unrepresentable as a bit index"),
+    ],
+)
+def test_shifts_beyond_word_size(
+    benchmark_test: BenchmarkTestFiller,
+    opcode: Op,
+    shift: int,
+    initial_value: int,
+) -> None:
+    """
+    Benchmark shifts by at least the 256-bit word size.
+    """
+    benchmark_test(
+        target_opcode=opcode,
+        code_generator=JumpLoopGenerator(
+            setup=Op.PUSH32[initial_value],
+            attack_block=Op.PUSH32[shift] + opcode,
+        ),
     )
 
 

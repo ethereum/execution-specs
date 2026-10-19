@@ -460,6 +460,16 @@ fork_covariant_decorators: List[Type[CovariantDecorator]] = [
         argnames=["system_contract"],
     ),
     covariant_decorator(
+        marker_name="with_all_system_contract_request_types",
+        description=(
+            "marks a test to be parametrized for all request types "
+            "triggered through a system contract at parameter named "
+            "request_class of type Type[SystemContractRequest]"
+        ),
+        fork_attribute_name="system_contract_request_types",
+        argnames=["request_class"],
+    ),
+    covariant_decorator(
         marker_name="with_all_refund_types",
         description=(
             "marks a test to be parametrized for all refund types at "
@@ -1584,7 +1594,16 @@ def _combination_filter_reason(
                 f"{predicate!r}",
                 returncode=pytest.ExitCode.USAGE_ERROR,
             )
-        if not predicate(**params):
+        try:
+            keep = predicate(**params)
+        except TypeError as e:
+            pytest.exit(
+                f"filter_combinations predicate for "
+                f"'{item.nodeid}' cannot be called with the "
+                f"item's params: {e}",
+                returncode=pytest.ExitCode.USAGE_ERROR,
+            )
+        if not keep:
             return marker.kwargs.get(
                 "reason", "rejected by filter_combinations"
             )

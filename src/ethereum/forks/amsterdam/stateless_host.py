@@ -9,7 +9,6 @@ from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.exceptions import InvalidSignatureError
 
 from .block_access_lists import BlockAccessList
 from .blocks import Block
@@ -17,25 +16,16 @@ from .execution_engine.requests import ExecutionRequests
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork_types import VersionedHash
 from .stateless import (
-    ChainConfig,
+    STATELESS_INPUT_SCHEMA_ID_BYTES,
     ExecutionWitness,
-    ForkActivation,
-    ForkConfig,
     StatelessInput,
     StatelessValidationResult,
-)
-from .stateless_ssz import (
-    STATELESS_INPUT_SCHEMA_ID_BYTES,
-    SszStatelessValidationResult,
-    ssz_to_validation_result,
-    stateless_input_to_ssz,
 )
 from .transactions import (
     BlobTransaction,
     LegacyTransaction,
     Transaction,
     decode_transaction,
-    recover_transaction_public_key,
 )
 
 
@@ -43,33 +33,14 @@ def serialize_stateless_input(
     stateless_input: StatelessInput,
 ) -> Bytes:
     """Serialize a StatelessInput to schema-prefixed SSZ bytes."""
-    ssz_obj = stateless_input_to_ssz(stateless_input)
     return Bytes(
-        STATELESS_INPUT_SCHEMA_ID_BYTES + bytes(ssz_obj.encode_bytes())
+        STATELESS_INPUT_SCHEMA_ID_BYTES + stateless_input.encode_bytes()
     )
 
 
 def deserialize_stateless_output(data: Bytes) -> StatelessValidationResult:
     """Deserialize a StatelessValidationResult from SSZ bytes."""
-    ssz_obj = SszStatelessValidationResult.decode_bytes(data)
-    return ssz_to_validation_result(ssz_obj)
-
-
-def build_chain_config(chain_id: U64) -> ChainConfig:
-    """
-    Build the chain configuration supported by this host.
-
-    For now the Amsterdam stateless host only describes the Amsterdam fork.
-    """
-    return ChainConfig(
-        chain_id=chain_id,
-        active_fork=ForkConfig(
-            activation=ForkActivation(
-                block_number=None,
-                timestamp=U64(0),
-            ),
-        ),
-    )
+    return StatelessValidationResult.decode_bytes(data)
 
 
 def build_stateless_input(
@@ -90,10 +61,8 @@ def build_stateless_input(
     header = block.header
     block_hash = Hash32(keccak256(rlp.encode(header)))
 
-    # Encode transactions to bytes, recover public keys, and collect
-    # versioned hashes.
+    # Encode transactions to bytes and collect versioned hashes.
     tx_bytes_list: List[Bytes] = []
-    public_keys: List[Bytes] = []
     versioned_hashes: List[VersionedHash] = []
     for tx in block.transactions:
         tx_obj: Transaction
@@ -109,14 +78,6 @@ def build_stateless_input(
                 tx_obj = decode_transaction(tx)
             except Exception:
                 continue
-        try:
-            public_keys.append(
-                recover_transaction_public_key(chain_id, tx_obj)
-            )
-        except InvalidSignatureError:
-            # Rejected transactions remain in invalid payloads passed to the
-            # guest, but cannot provide a recoverable public key.
-            continue
         if isinstance(tx_obj, BlobTransaction):
             versioned_hashes.extend(tx_obj.blob_versioned_hashes)
 
@@ -155,6 +116,5 @@ def build_stateless_input(
     return StatelessInput(
         new_payload_request=new_payload,
         witness=execution_witness,
-        chain_config=build_chain_config(chain_id),
-        public_keys=tuple(public_keys),
+        chain_id=chain_id,
     )

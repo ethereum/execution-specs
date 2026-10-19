@@ -1,0 +1,3 @@
+general/code_coverage/eels = EIP-7976 floor logic lives in calculate_intrinsic_gas_cost (transactions.py) and GasCosts (vm/gas.py); exercised end-to-end by this suite's exact-receipt and calculator cross-check tests, line coverage tracked via codecov on src/ethereum/forks/amsterdam/transactions.py
+general/code_coverage/test_coverage = Suite asserts exact cumulative_gas_used and hand-derived calculator cross-checks throughout (token calculation, execution gas, validity matrices, fork transition)
+general/code_coverage/missed_lines = No EIP-7976-specific lines excluded; shared intrinsic-gas infrastructure is covered by the type 0-4 validity matrices

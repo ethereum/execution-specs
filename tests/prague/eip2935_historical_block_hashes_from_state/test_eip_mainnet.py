@@ -1,7 +1,7 @@
 """
-abstract: Crafted tests for mainnet of
+Crafted tests for mainnet of
 [EIP-2935: Serve historical block hashes from state](https://eips.ethereum.org/EIPS/eip-2935).
-"""  # noqa: E501
+"""
 
 import pytest
 from execution_testing import (

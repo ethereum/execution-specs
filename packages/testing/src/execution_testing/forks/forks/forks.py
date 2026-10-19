@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, Sized
+from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, Sized, Type
 
 if TYPE_CHECKING:
     from execution_testing.fixtures.blockchain import FixtureHeader
@@ -31,20 +31,20 @@ from ..base_fork import (
     ExcessBlobGasCalculator,
     MemoryExpansionGasCalculator,
     RefundTypes,
+    SystemCallPhase,
     TransactionDataFloorCostCalculator,
     TransactionIntrinsicCostCalculator,
 )
 from ..gas_costs import BASE, HIGH, LOW, MID, VERY_LOW, GasCosts
+from ..requests import SystemContractRequest
 from . import eips
 from .eips.amsterdam import AmsterdamEIPs
+from .eips.bogota import BogotaEIPs
 from .helpers import ceiling_division
 
 
 # All forks must be listed here !!! in the order they were introduced !!!
-class Frontier(
-    BaseFork,
-    solc_name="homestead",
-):
+class Frontier(BaseFork):
     """Frontier fork."""
 
     @classmethod
@@ -56,13 +56,6 @@ class Frontier(
         if cls._transition_tool_name is not None:
             return cls._transition_tool_name
         return cls.name()
-
-    @classmethod
-    def solc_name(cls) -> str:
-        """Return fork name as it's meant to be passed to the solc compiler."""
-        if cls._solc_name is not None:
-            return cls._solc_name
-        return cls.name().lower()
 
     @classmethod
     def header_base_fee_required(cls) -> bool:
@@ -111,6 +104,10 @@ class Frontier(
             COLD_ACCOUNT_ACCESS=2_600,
             WARM_SLOAD=100,
             COLD_STORAGE_ACCESS=2_100,
+            OPCODE_BALANCE=20,
+            OPCODE_EXTERNAL_BASE=20,
+            OPCODE_CALL_BASE=40,
+            OPCODE_SLOAD=50,
             # Storage
             STORAGE_SET=20_000,
             COLD_STORAGE_WRITE=5_000,
@@ -121,7 +118,6 @@ class Frontier(
             NEW_ACCOUNT=25_000,
             # Contract Creation
             CODE_DEPOSIT_PER_BYTE=200,
-            CODE_INIT_PER_WORD=2,
             # Authorization
             AUTH_PER_EMPTY_ACCOUNT=0,
             # Utility
@@ -134,7 +130,8 @@ class Frontier(
             TX_DATA_PER_NON_ZERO=68,
             TX_CREATE=32_000,
             # Refunds
-            REFUND_STORAGE_CLEAR=4_800,
+            REFUND_STORAGE_CLEAR=15_000,
+            REFUND_SELF_DESTRUCT=24_000,
             REFUND_AUTH_PER_EXISTING_ACCOUNT=0,
             # Precompiles
             PRECOMPILE_ECRECOVER=3_000,
@@ -181,11 +178,11 @@ class Frontier(
             OPCODE_MLOAD_BASE=VERY_LOW,
             OPCODE_MSTORE_BASE=VERY_LOW,
             OPCODE_MSTORE8_BASE=VERY_LOW,
-            OPCODE_SELFDESTRUCT_BASE=5_000,
+            OPCODE_SELFDESTRUCT_BASE=0,
             OPCODE_COPY_PER_WORD=3,
             OPCODE_CREATE_BASE=32_000,
             OPCODE_EXP_BASE=10,
-            OPCODE_EXP_PER_BYTE=50,
+            OPCODE_EXP_PER_BYTE=10,
             OPCODE_LOG_BASE=375,
             OPCODE_LOG_DATA_PER_BYTE=8,
             OPCODE_LOG_TOPIC=375,
@@ -193,6 +190,7 @@ class Frontier(
             OPCODE_KECCAK256_PER_WORD=6,
             # Zero-initialized: introduced in later forks, set via
             # replace() in the fork that activates them.
+            CODE_INIT_PER_WORD=0,
             TX_DATA_TOKEN_STANDARD=0,
             TX_DATA_TOKEN_FLOOR=0,
             PRECOMPILE_ECADD=0,
@@ -387,7 +385,7 @@ class Frontier(
                 memory_expansion_calculator,
             ),
             Opcodes.ADDRESS: gas_costs.BASE,
-            Opcodes.BALANCE: cls._with_account_access(0, gas_costs),
+            Opcodes.BALANCE: gas_costs.OPCODE_BALANCE,
             Opcodes.ORIGIN: gas_costs.BASE,
             Opcodes.CALLER: gas_costs.BASE,
             Opcodes.CALLVALUE: gas_costs.BASE,
@@ -405,10 +403,10 @@ class Frontier(
                 memory_expansion_calculator,
             ),
             Opcodes.GASPRICE: gas_costs.BASE,
-            Opcodes.EXTCODESIZE: cls._with_account_access(0, gas_costs),
+            Opcodes.EXTCODESIZE: gas_costs.OPCODE_EXTERNAL_BASE,
             Opcodes.EXTCODECOPY: cls._with_memory_expansion(
                 cls._with_data_copy(
-                    cls._with_account_access(0, gas_costs),
+                    gas_costs.OPCODE_EXTERNAL_BASE,
                     gas_costs,
                 ),
                 memory_expansion_calculator,
@@ -432,11 +430,7 @@ class Frontier(
                 gas_costs.OPCODE_MSTORE8_BASE,
                 memory_expansion_calculator,
             ),
-            Opcodes.SLOAD: lambda op: (
-                gas_costs.WARM_SLOAD
-                if op.metadata["key_warm"]
-                else gas_costs.COLD_STORAGE_ACCESS
-            ),
+            Opcodes.SLOAD: gas_costs.OPCODE_SLOAD,
             Opcodes.SSTORE: lambda op: cls._calculate_sstore_gas(
                 op, gas_costs
             ),
@@ -579,6 +573,11 @@ class Frontier(
             Opcodes.SSTORE: lambda op: cls._calculate_sstore_refund(
                 op, gas_costs
             ),
+            Opcodes.SELFDESTRUCT: lambda op: (
+                gas_costs.REFUND_SELF_DESTRUCT
+                if op.metadata["self_destructed_account"]
+                else 0
+            ),
         }
 
     @classmethod
@@ -628,37 +627,17 @@ class Frontier(
         """Calculate SSTORE gas refund based on metadata."""
         metadata = opcode.metadata
 
-        original_value = metadata["original_value"]
         current_value = metadata["current_value"]
         if current_value is None:
-            current_value = original_value
+            current_value = metadata["original_value"]
         new_value = metadata["new_value"]
 
-        # Refund is provided when setting from non-zero to zero
-        refund = 0
-        if current_value != new_value:
-            if original_value != 0 and current_value != 0 and new_value == 0:
-                # Storage is cleared for the first time in the transaction
-                refund += gas_costs.REFUND_STORAGE_CLEAR
+        # Every clearing write is refunded, no net metering before
+        # EIP-2200.
+        if current_value != 0 and new_value == 0:
+            return gas_costs.REFUND_STORAGE_CLEAR
 
-            if original_value != 0 and current_value == 0:
-                # Gas refund issued earlier to be reversed
-                refund -= gas_costs.REFUND_STORAGE_CLEAR
-
-            if original_value == new_value:
-                # Storage slot being restored to its original value
-                if original_value == 0:
-                    # Slot was originally empty and was SET earlier
-                    refund += gas_costs.STORAGE_SET - gas_costs.WARM_SLOAD
-                else:
-                    # Slot was originally non-empty and was UPDATED earlier
-                    refund += (
-                        gas_costs.COLD_STORAGE_WRITE
-                        - gas_costs.COLD_STORAGE_ACCESS
-                        - gas_costs.WARM_SLOAD
-                    )
-
-        return refund
+        return 0
 
     @classmethod
     def _calculate_sstore_gas(
@@ -667,26 +646,39 @@ class Frontier(
         """Calculate SSTORE gas cost based on metadata."""
         metadata = opcode.metadata
 
-        original_value = metadata["original_value"]
         current_value = metadata["current_value"]
         if current_value is None:
-            current_value = original_value
+            current_value = metadata["original_value"]
         new_value = metadata["new_value"]
 
-        gas_cost = 0 if metadata["key_warm"] else gas_costs.COLD_STORAGE_ACCESS
+        # The charge depends on the current value only, no net metering
+        # before EIP-2200.
+        if current_value == 0 and new_value != 0:
+            return gas_costs.STORAGE_SET
 
-        if original_value == current_value and current_value != new_value:
-            if original_value == 0:
-                gas_cost += gas_costs.STORAGE_SET
-            else:
-                gas_cost += (
-                    gas_costs.COLD_STORAGE_WRITE
-                    - gas_costs.COLD_STORAGE_ACCESS
-                )
-        else:
-            gas_cost += gas_costs.WARM_SLOAD
+        return gas_costs.COLD_STORAGE_WRITE
 
-        return gas_cost
+    @classmethod
+    def _call_access_cost(cls, opcode: OpcodeBase, gas_costs: GasCosts) -> int:
+        """
+        Return the CALL family account access cost.
+
+        Flat before EIP-2929 introduces warm and cold pricing.
+        """
+        del opcode
+        return gas_costs.OPCODE_CALL_BASE
+
+    @classmethod
+    def _selfdestruct_access_cost(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Return the SELFDESTRUCT beneficiary access cost.
+
+        Zero before EIP-2929 introduces warm and cold pricing.
+        """
+        del opcode, gas_costs
+        return 0
 
     @classmethod
     def _calculate_call_gas(
@@ -697,14 +689,18 @@ class Frontier(
         """
         metadata = opcode.metadata
 
-        # Base cost depends on address warmth
-        if metadata["address_warm"]:
-            base_cost = gas_costs.WARM_ACCESS
-        else:
-            base_cost = gas_costs.COLD_ACCOUNT_ACCESS
+        base_cost = cls._call_access_cost(opcode, gas_costs)
 
         if metadata["inner_call_cost"]:
-            return base_cost + metadata["inner_call_cost"]
+            base_cost += metadata["inner_call_cost"]
+
+        # Value transfer and new account charges apply from Frontier.
+        # They are independent until EIP-161 couples the new account
+        # charge to a value transfer.
+        if "value_transfer" in metadata and metadata["value_transfer"]:
+            base_cost += gas_costs.CALL_VALUE
+        if "account_new" in metadata and metadata["account_new"]:
+            base_cost += gas_costs.NEW_ACCOUNT
 
         return base_cost
 
@@ -743,17 +739,9 @@ class Frontier(
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """Calculate SELFDESTRUCT gas cost based on metadata."""
-        metadata = opcode.metadata
-
         base_cost = gas_costs.OPCODE_SELFDESTRUCT_BASE
 
-        # Check if the beneficiary is cold
-        if not metadata["address_warm"]:
-            base_cost += gas_costs.COLD_ACCOUNT_ACCESS
-
-        # Check if creating a new account
-        if metadata["account_new"]:
-            base_cost += gas_costs.NEW_ACCOUNT
+        base_cost += cls._selfdestruct_access_cost(opcode, gas_costs)
 
         return base_cost
 
@@ -882,6 +870,7 @@ class Frontier(
         ) -> int:
             del return_cost_deducted_prior_execution
             del sends_value, recipient_type
+            del contract_creation
 
             assert access_list is None, (
                 f"Access list is not supported in {cls.name()}"
@@ -891,12 +880,6 @@ class Frontier(
             )
 
             intrinsic_cost: int = gas_costs.TX_BASE
-
-            if contract_creation:
-                intrinsic_cost += (
-                    gas_costs.CODE_INIT_PER_WORD
-                    * ceiling_division(len(Bytes(calldata)), 32)
-                )
 
             return intrinsic_cost + calldata_gas_calculator(data=calldata)
 
@@ -1022,6 +1005,13 @@ class Frontier(
         return False
 
     @classmethod
+    def engine_payload_attribute_target_gas_limit(cls) -> bool:
+        """
+        At genesis, payload attributes do not include the target gas limit.
+        """
+        return False
+
+    @classmethod
     def get_reward(cls) -> int:
         """
         At Genesis the expected reward amount in wei is
@@ -1047,6 +1037,11 @@ class Frontier(
     @classmethod
     def transaction_gas_limit_cap(cls) -> int | None:
         """At Genesis, no transaction gas limit cap is imposed."""
+        return None
+
+    @classmethod
+    def transaction_total_gas_limit_cap(cls) -> int | None:
+        """At Genesis, no transaction total gas limit cap is imposed."""
         return None
 
     @classmethod
@@ -1092,8 +1087,20 @@ class Frontier(
         return []
 
     @classmethod
-    def deterministic_factory_predeploy_address(cls) -> Address | None:
-        """At Genesis, no deterministic factory predeploy is present."""
+    def system_contract_request_types(
+        cls,
+    ) -> List[Type[SystemContractRequest]]:
+        """At Genesis, no system contract triggers execution requests."""
+        return []
+
+    @classmethod
+    def system_contract_call_phases(cls) -> Mapping[Address, SystemCallPhase]:
+        """At Genesis, no system contract is called."""
+        return {}
+
+    @classmethod
+    def deterministic_factory_contract_address(cls) -> Address | None:
+        """Return None because Genesis defines no factory contract."""
         return None
 
     @classmethod
@@ -1370,6 +1377,7 @@ class DAOFork(
 
 
 class TangerineWhistle(
+    eips.EIP150,
     DAOFork,
     ruleset_name="TANGERINE",
 ):
@@ -1381,6 +1389,7 @@ class TangerineWhistle(
 class SpuriousDragon(
     eips.EIP170,
     eips.EIP161,
+    eips.EIP160,
     eips.EIP155,
     TangerineWhistle,
     ruleset_name="SPURIOUS",
@@ -1419,7 +1428,6 @@ class Constantinople(
 
 class ConstantinopleFix(
     Constantinople,
-    solc_name="constantinople",
     ruleset_name="PETERSBURG",
 ):
     """Constantinople Fix fork."""
@@ -1428,6 +1436,7 @@ class ConstantinopleFix(
 
 
 class Istanbul(
+    eips.EIP2200,
     eips.EIP2028,
     eips.EIP1884,
     eips.EIP1344,
@@ -1443,7 +1452,6 @@ class Istanbul(
 # Glacier forks skipped, unless explicitly specified
 class MuirGlacier(
     Istanbul,
-    solc_name="istanbul",
     ignore=True,
 ):
     """Muir Glacier fork."""
@@ -1453,6 +1461,7 @@ class MuirGlacier(
 
 class Berlin(
     eips.EIP2930,
+    eips.EIP2929,
     Istanbul,
 ):
     """Berlin fork."""
@@ -1474,7 +1483,6 @@ class London(
 # Glacier forks skipped, unless explicitly specified
 class ArrowGlacier(
     London,
-    solc_name="london",
     ignore=True,
 ):
     """Arrow Glacier fork."""
@@ -1484,7 +1492,6 @@ class ArrowGlacier(
 
 class GrayGlacier(
     ArrowGlacier,
-    solc_name="london",
     ignore=True,
 ):
     """Gray Glacier fork."""
@@ -1555,7 +1562,6 @@ class Osaka(
     eips.EIP7951,
     eips.EIP7883,
     Prague,
-    solc_name="cancun",
 ):
     """Osaka fork."""
 
@@ -1680,3 +1686,21 @@ class Amsterdam(
                 label="HISTORY_STORAGE_ADDRESS",
             ),
         ]
+
+    @classmethod
+    def engine_payload_attribute_target_gas_limit(cls) -> bool:
+        """
+        Starting from Amsterdam, payload attributes now include the target gas
+        limit.
+        """
+        return True
+
+
+class Bogota(
+    BogotaEIPs,
+    Amsterdam,
+    deployed=False,
+):
+    """Bogota fork."""
+
+    pass

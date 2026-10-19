@@ -12,8 +12,7 @@ from pydantic import AliasChoices, BaseModel, Field, model_validator
 from remerkleable.basic import uint8
 from remerkleable.byte_arrays import ByteList, ByteVector
 from remerkleable.complex import Container
-from remerkleable.complex import List as SszList
-from remerkleable.union import Union as SszUnion
+from remerkleable.complex import List as SSZList
 
 from execution_testing.base_types import (
     Address,
@@ -190,6 +189,16 @@ class BlockTransactionExceptionWithMessage(
     pass
 
 
+ClientValidationError = (
+    BlockTransactionExceptionWithMessage | UndefinedException
+)
+"""
+A client's validation error for a rejected block: the mapped exceptions
+with the verbatim message, or `UndefinedException` if the message could
+not be mapped.
+"""
+
+
 class PayloadStatus(CamelModel):
     """Represents the status of a payload after execution."""
 
@@ -197,7 +206,7 @@ class PayloadStatus(CamelModel):
     latest_valid_hash: Hash | None
     validation_error: (
         Annotated[
-            BlockTransactionExceptionWithMessage | UndefinedException,
+            ClientValidationError,
             ExceptionMapperValidator,
         ]
         | None
@@ -222,6 +231,7 @@ class PayloadAttributes(CamelModel):
     target_blobs_per_block: HexNumber | None = None
     max_blobs_per_block: HexNumber | None = None
     slot_number: HexNumber | None = None
+    target_gas_limit: HexNumber | None = None
 
     @classmethod
     def for_fork(
@@ -229,6 +239,8 @@ class PayloadAttributes(CamelModel):
         fork: Fork,
         *,
         timestamp: int,
+        target_gas_limit: int,
+        slot_number: int | None,
         prev_randao: Hash | None = None,
         suggested_fee_recipient: Address | None = None,
         withdrawals: List[Withdrawal] | None = None,
@@ -248,6 +260,11 @@ class PayloadAttributes(CamelModel):
             and fork.header_beacon_root_required()
         ):
             parent_beacon_block_root = Hash(0)
+        attributes_slot_number: HexNumber | None = None
+        if fork.engine_payload_attribute_slot_number():
+            attributes_slot_number = HexNumber(
+                1 if slot_number is None else slot_number
+            )
         return cls(
             timestamp=HexNumber(timestamp),
             prev_randao=prev_randao if prev_randao is not None else Hash(0),
@@ -268,9 +285,10 @@ class PayloadAttributes(CamelModel):
                 if fork.engine_payload_attribute_max_blobs_per_block()
                 else None
             ),
-            slot_number=(
-                HexNumber(0)
-                if fork.engine_payload_attribute_slot_number()
+            slot_number=attributes_slot_number,
+            target_gas_limit=(
+                HexNumber(target_gas_limit)
+                if fork.engine_payload_attribute_target_gas_limit()
                 else None
             ),
         )
@@ -311,6 +329,13 @@ class BlobAndProofV2(CamelModel):
     proofs: List[Bytes]
 
 
+class BlobCellsAndProofsV1(CamelModel):
+    """Represents a partial cell and cell-proof structure (>= Amsterdam)."""
+
+    blob_cells: List[Bytes | None]
+    proofs: List[Bytes | None]
+
+
 class GetPayloadResponse(CamelModel):
     """Represents the response of a get payload request."""
 
@@ -336,6 +361,22 @@ class GetBlobsResponse(
         self, index: int
     ) -> BlobAndProofV1 | BlobAndProofV2 | None:
         """Return the blob at the given index."""
+        return self.root[index]
+
+
+class GetBlobsV4Response(
+    EthereumTestRootModel[List[BlobCellsAndProofsV1 | None]]
+):
+    """Represents the response of an `engine_getBlobsV4` request."""
+
+    root: List[BlobCellsAndProofsV1 | None]
+
+    def __len__(self) -> int:
+        """Return the number of blob entries in the response."""
+        return len(self.root)
+
+    def __getitem__(self, index: int) -> BlobCellsAndProofsV1 | None:
+        """Return the blob cell matrix at the given index."""
         return self.root[index]
 
 
@@ -386,25 +427,30 @@ class EthConfigResponse(CamelModel):
     last: ForkConfig | None = None
 
 
-# SSZ schema for the REST POST /new-payload-with-witness response.
-
-VALIDATION_ERROR_MAX = 8192
-MAX_WITNESS_BYTES = 2**30  # 1 GiB
+# Wire types from execution-apis PR #885 (REST + SSZ).
+MAX_ERROR_BYTES = 1024
 MAX_WITNESS_ITEMS = 2**20
-MAX_WITNESS_ITEM_BYTES = 2**20
+MAX_BYTES_PER_WITNESS_NODE = 2**10
+MAX_BYTES_PER_CODE = 2**16
+MAX_BYTES_PER_HEADER = 2**10
+MAX_WITNESS_HEADERS = 256
 
 
-class _SszExecutionWitness(Container):
-    state: SszList[ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS]
-    codes: SszList[ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS]
-    headers: SszList[ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS]
+class _SSZExecutionWitness(Container):
+    state: SSZList[ByteList[MAX_BYTES_PER_WITNESS_NODE], MAX_WITNESS_ITEMS]
+    codes: SSZList[ByteList[MAX_BYTES_PER_CODE], MAX_WITNESS_ITEMS]
+    headers: SSZList[ByteList[MAX_BYTES_PER_HEADER], MAX_WITNESS_HEADERS]
 
 
-class _SszNewPayloadWithWitnessResponse(Container):
+class _SSZPayloadStatus(Container):
     status: uint8
-    latest_valid_hash: SszUnion[None, ByteVector[32]]
-    validation_error: SszUnion[None, ByteList[VALIDATION_ERROR_MAX]]
-    witness: ByteList[MAX_WITNESS_BYTES]
+    latest_valid_hash: SSZList[ByteVector[32], 1]
+    validation_error: SSZList[ByteList[MAX_ERROR_BYTES], 1]
+
+
+class _SSZNewPayloadWithWitnessResponse(Container):
+    payload_status: _SSZPayloadStatus
+    witness: SSZList[_SSZExecutionWitness, 1]
 
 
 class _NewPayloadWithWitnessJSONRPCResult(CamelModel):
@@ -423,7 +469,6 @@ _SSZ_STATUS_TO_ENUM: Dict[int, PayloadStatusEnum] = {
     1: PayloadStatusEnum.INVALID,
     2: PayloadStatusEnum.SYNCING,
     3: PayloadStatusEnum.ACCEPTED,
-    4: PayloadStatusEnum.INVALID_BLOCK_HASH,
 }
 
 
@@ -517,12 +562,7 @@ def _execution_witness_from_json_rpc_rlp(
 
 @dataclass(frozen=True, slots=True)
 class NewPayloadWithWitnessResponse:
-    """
-    Decoded response of POST /new-payload-with-witness.
-
-    The witness field is ``None`` whenever status is not ``VALID`` (the spec
-    mandates an empty SSZ witness in that case).
-    """
+    """Represent a decoded witness response from either Engine transport."""
 
     status: PayloadStatusEnum
     latest_valid_hash: Hash | None
@@ -531,42 +571,48 @@ class NewPayloadWithWitnessResponse:
 
     @classmethod
     def from_ssz_bytes(cls, data: bytes) -> Self:
-        """Decode an SSZ-encoded NewPayloadWithWitnessResponseV1 body."""
-        resp = _SszNewPayloadWithWitnessResponse.decode_bytes(data)
-
-        status_int = int(resp.status)
+        """Decode and validate a REST PayloadStatusWithWitness response."""
+        resp = _SSZNewPayloadWithWitnessResponse.decode_bytes(data)
+        # The decoder accepts some offset gaps and unconsumed trailing bytes.
+        # Require the unique canonical encoding before inspecting its fields.
+        if resp.encode_bytes() != data:
+            raise ValueError("Non-canonical SSZ witness response")
+        payload_status = resp.payload_status
+        status_int = int(payload_status.status)
         try:
             status = _SSZ_STATUS_TO_ENUM[status_int]
         except KeyError as e:
             raise ValueError(f"Unknown SSZ status byte: {status_int}") from e
 
-        latest_valid_hash: Hash | None = None
-        if resp.latest_valid_hash.selector() == 1:
-            latest_valid_hash = Hash(bytes(resp.latest_valid_hash.value()))
-
-        validation_error: str | None = None
-        if resp.validation_error.selector() == 1:
-            raw = bytes(resp.validation_error.value())
-            validation_error = raw.decode("utf-8", errors="replace")
-
         witness: ExecutionWitness | None = None
-        witness_bytes = bytes(resp.witness)
-        if witness_bytes:
-            if status != PayloadStatusEnum.VALID:
-                raise ValueError(
-                    f"{status.value} SSZ response must not contain a witness"
-                )
-            inner = _SszExecutionWitness.decode_bytes(witness_bytes)
+        if status == PayloadStatusEnum.VALID:
+            if not resp.witness:
+                raise ValueError("VALID SSZ response must contain a witness")
+            inner = resp.witness[0]
+            if not inner.headers:
+                raise ValueError("VALID witness must contain a parent header")
             witness = ExecutionWitness(
                 state=[Bytes(bytes(x)) for x in inner.state],
                 codes=[Bytes(bytes(x)) for x in inner.codes],
                 headers=[Bytes(bytes(x)) for x in inner.headers],
             )
+        elif resp.witness:
+            raise ValueError(
+                f"{status.value} SSZ response must not contain a witness"
+            )
 
         return cls(
             status=status,
-            latest_valid_hash=latest_valid_hash,
-            validation_error=validation_error,
+            latest_valid_hash=(
+                Hash(bytes(payload_status.latest_valid_hash[0]))
+                if payload_status.latest_valid_hash
+                else None
+            ),
+            validation_error=(
+                bytes(payload_status.validation_error[0]).decode("utf-8")
+                if payload_status.validation_error
+                else None
+            ),
             witness=witness,
         )
 

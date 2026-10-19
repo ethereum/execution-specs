@@ -37,20 +37,23 @@ from tenacity import (
 from execution_testing.base_types import (
     Account,
     Address,
-    Alloc,
     Bytes,
     Hash,
     to_json,
 )
+from execution_testing.forks import Amsterdam, Fork
 from execution_testing.logging import (
     get_logger,
 )
+from execution_testing.test_types import Alloc
 
+from .engine_ssz import encode_witness_request
 from .rpc_types import (
     EthConfigResponse,
     ForkchoiceState,
     ForkchoiceUpdateResponse,
     GetBlobsResponse,
+    GetBlobsV4Response,
     GetPayloadResponse,
     JSONRPCError,
     JSONRPCRequest,
@@ -162,7 +165,7 @@ class ForkchoiceUpdateTimeoutError(Exception):
 class EngineWitnessEndpointNotImplementedError(Exception):
     """
     Raised when the client does not implement the REST
-    ``/new-payload-with-witness`` endpoint (HTTP 404 or 405).
+    ``/engine/v1/payloads/witness`` endpoint (HTTP 404 or 405).
     """
 
     def __init__(self, url: str, http_status: int):
@@ -228,9 +231,13 @@ class BaseRPC:
     simulators.
     """
 
+    OVERLOAD_THRESHOLD: int = 1000
+    DEFAULT_MAX_BATCH_SIZE: int = 750
+
     namespace: ClassVar[str]
     response_validation_context: Any | None
     request_timeout: TimeoutType
+    max_batch_size: int
 
     def __init__(
         self,
@@ -238,17 +245,29 @@ class BaseRPC:
         *,
         response_validation_context: Any | None = None,
         request_timeout: TimeoutType = DEFAULT_REQUEST_TIMEOUT,
+        max_batch_size: int | None = None,
     ):
         """
         Initialize BaseRPC class with the given url.
 
-        `request_timeout` bounds every request made through this client;
+        - `request_timeout` bounds every request made through this client;
         `None` disables the bound.
+        - `max_batch_size` caps how many calls in a single batch request.
         """
         self.url = url
         self.request_id_counter = count(1)
         self.response_validation_context = response_validation_context
         self.request_timeout = request_timeout
+        if max_batch_size is not None and max_batch_size < 1:
+            raise ValueError(
+                f"max_batch_size must be >= 1, got {max_batch_size}"
+            )
+        self.max_batch_size = max_batch_size or self.DEFAULT_MAX_BATCH_SIZE
+        if self.max_batch_size > self.OVERLOAD_THRESHOLD:
+            logger.warning(
+                f"max_batch_size ({max_batch_size}) exceeds safe threshold "
+                f"({self.OVERLOAD_THRESHOLD}) and may cause RPC instability."
+            )
         self.session = requests.Session()
 
     def close(self) -> None:
@@ -381,22 +400,13 @@ class BaseRPC:
 
         return JSONRPCResponse.model_validate(response.json())
 
-    def post_batch_request(
+    def _post_single_batch(
         self,
-        *,
         calls: Sequence[RPCCall],
-        extra_headers: Dict[str, str] | None = None,
-        timeout: TimeoutType = None,
+        extra_headers: Dict[str, str],
+        timeout: TimeoutType,
     ) -> List[JSONRPCResponse]:
-        """
-        Send a JSON-RPC batch POST request to the client RPC server at port
-        defined in the url.
-
-        A `timeout` of `None` applies the client's `request_timeout`.
-        """
-        if extra_headers is None:
-            extra_headers = {}
-
+        """Send one batch POST and return responses in request order."""
         json_rpc_requests = [
             self._build_json_rpc_request(call) for call in calls
         ]
@@ -433,8 +443,35 @@ class BaseRPC:
             )
             results.append(response_map[json_rpc_request.id])
 
-        logger.info(f"Batch RPC: {len(results)} responses received")
         return results
+
+    def post_batch_request(
+        self,
+        *,
+        calls: Sequence[RPCCall],
+        extra_headers: Dict[str, str] | None = None,
+        timeout: TimeoutType = None,
+    ) -> List[JSONRPCResponse]:
+        """
+        Send JSON-RPC batch POST requests to the client RPC server at port
+        defined in the url.
+
+        Responses are returned in the same order as `calls`.
+        """
+        if not calls:
+            return []
+        if extra_headers is None:
+            extra_headers = {}
+
+        responses: List[JSONRPCResponse] = []
+        for start in range(0, len(calls), self.max_batch_size):
+            chunk = calls[start : start + self.max_batch_size]
+            responses.extend(
+                self._post_single_batch(chunk, extra_headers, timeout)
+            )
+
+        logger.info(f"Batch RPC: {len(responses)} responses received")
+        return responses
 
 
 class BaseJwtRPC(BaseRPC):
@@ -477,12 +514,8 @@ class EthRPC(BaseRPC):
     within EEST based hive simulators.
     """
 
-    OVERLOAD_THRESHOLD: int = 1000
-    DEFAULT_MAX_TRANSACTIONS_PER_BATCH: int = 750
-
     transaction_wait_timeout: int = 60
     poll_interval: float = 1.0  # how often to poll for tx inclusion
-    max_transactions_per_batch: int = DEFAULT_MAX_TRANSACTIONS_PER_BATCH
 
     gas_information_stale_seconds: int
 
@@ -497,7 +530,6 @@ class EthRPC(BaseRPC):
         transaction_wait_timeout: int = 60,
         poll_interval: float | None = None,
         gas_information_stale_seconds: int = 12,
-        max_transactions_per_batch: int | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize JWT-authenticated RPC class with the given JWT secret."""
@@ -531,19 +563,6 @@ class EthRPC(BaseRPC):
             "maxPriorityFeePerGas": 0.0,
             "blobBaseFee": 0.0,
         }
-
-        # Transaction batching configuration
-        if max_transactions_per_batch is None:
-            max_transactions_per_batch = (
-                self.DEFAULT_MAX_TRANSACTIONS_PER_BATCH
-            )
-        self.max_transactions_per_batch = max_transactions_per_batch
-        if max_transactions_per_batch > self.OVERLOAD_THRESHOLD:
-            logger.warning(
-                f"max_transactions_per_batch ({max_transactions_per_batch}) "
-                f"exceeds the safe threshold ({self.OVERLOAD_THRESHOLD}). "
-                "This may cause RPC service instability or failures."
-            )
 
     def config(self, timeout: int | None = None) -> EthConfigResponse | None:
         """
@@ -594,6 +613,17 @@ class EthRPC(BaseRPC):
         params = [block, full_txs]
         return self.post_request(
             request=RPCCall(method="getBlockByNumber", params=params)
+        ).result_or_raise()
+
+    def get_block_receipts(
+        self, block_hash: Hash
+    ) -> List[dict[str, Any]] | None:
+        """`eth_getBlockReceipts`: Returns every receipt in a block."""
+        logger.info(f"Requesting all receipts for block {block_hash}..")
+        return self.post_request(
+            request=RPCCall(
+                method="getBlockReceipts", params=[f"{block_hash}"]
+            )
         ).result_or_raise()
 
     def get_block_by_hash(
@@ -851,6 +881,27 @@ class EthRPC(BaseRPC):
                 params=[f"{transaction_hash}"],
             )
         ).result_or_raise()
+
+    def get_transaction_receipts(
+        self, transaction_hashes: Sequence[Hash]
+    ) -> List[dict[str, Any] | None]:
+        """
+        `eth_getTransactionReceipt` batch: receipts for many transactions.
+
+        Returns one entry per input hash, in the same order.
+        """
+        if not transaction_hashes:
+            return []
+        logger.info(f"Batch requesting {len(transaction_hashes)} tx receipts")
+        calls = [
+            RPCCall(
+                method="getTransactionReceipt",
+                params=[f"{tx_hash}"],
+            )
+            for tx_hash in transaction_hashes
+        ]
+        responses = self.post_batch_request(calls=calls)
+        return [r.result_or_raise() for r in responses]
 
     def get_storage_at(
         self,
@@ -1275,7 +1326,7 @@ class EthRPC(BaseRPC):
         block. Transactions are sent in batches to avoid RPC overload.
         """
         results: List[Any] = []
-        batch_size = self.max_transactions_per_batch
+        batch_size = self.max_batch_size
         total_txs = len(transactions)
 
         for i in range(0, total_txs, batch_size):
@@ -1299,6 +1350,17 @@ class DebugRPC(EthRPC):
     used within EEST based hive simulators.
     """
 
+    # JSON-RPC "method not found" error code.
+    _METHOD_NOT_FOUND = -32601
+
+    # JSON-RPC "internal error" code. Nethermind registers debug_setHead
+    # but throws NotImplementedException, surfaced as this code.
+    _METHOD_NOT_IMPLEMENTED = -32603
+
+    # Which head-rewind method the client supports; resolved on first use
+    # so the fallback probe runs only once per session.
+    _rewind_method: str | None = None
+
     def trace_call(self, tr: dict[str, str], block_number: str) -> Any | None:
         """`debug_traceCall`: Returns pre state required for transaction."""
         params = [tr, block_number, {"tracer": "prestateTracer"}]
@@ -1306,11 +1368,73 @@ class DebugRPC(EthRPC):
             request=RPCCall(method="traceCall", params=params)
         ).result_or_raise()
 
+    def trace_block_by_hash(
+        self, block_hash: str, tracer_config: dict[str, Any]
+    ) -> Any:
+        """`debug_traceBlockByHash`: Trace every transaction in a block."""
+        params = [block_hash, tracer_config]
+        return self.post_request(
+            request=RPCCall(method="traceBlockByHash", params=params)
+        ).result_or_raise()
+
     def set_head(self, block_number: str) -> None:
-        """`debug_setHead`: Reset chain head to the given block."""
+        """`debug_setHead`: Reset chain head to the given block number."""
         self.post_request(
             request=RPCCall(method="setHead", params=[block_number])
         ).result_or_raise()
+
+    def reset_head(self, block_hash: str) -> None:
+        """`debug_resetHead`: Reset chain head to the given block hash."""
+        self.post_request(
+            request=RPCCall(method="resetHead", params=[block_hash])
+        ).result_or_raise()
+
+    def rewind_head(self, *, block_number: str, block_hash: str) -> None:
+        """
+        Rewind the chain head to a given block.
+
+        Prefer geth's ``debug_setHead`` (takes a block number); if the
+        client does not expose it (e.g. Nethermind, which returns a
+        "method not found"/"not implemented" error), fall back to
+        ``debug_resetHead`` (takes a block hash). If the client implements
+        neither, give up gracefully (``"none"``): each per-test block is
+        built on its explicit start_block parent, so the client reorgs onto
+        it without a debug rewind. The chosen method is cached after the
+        first call so the probe runs only once.
+
+        Note ``debug_setHead`` truncates the chain (geth), keeping the block
+        tree small, whereas ``debug_resetHead`` only repoints the head on
+        Nethermind — there per-test forks still accumulate as under
+        ``"none"``.
+        """
+        if self._rewind_method is None:
+            try:
+                self.set_head(block_number)
+                self._rewind_method = "setHead"
+                return
+            except JSONRPCError as e:
+                if e.code not in (
+                    self._METHOD_NOT_FOUND,
+                    self._METHOD_NOT_IMPLEMENTED,
+                ):
+                    raise
+            try:
+                self.reset_head(block_hash)
+                self._rewind_method = "resetHead"
+                return
+            except JSONRPCError as e:
+                if e.code not in (
+                    self._METHOD_NOT_FOUND,
+                    self._METHOD_NOT_IMPLEMENTED,
+                ):
+                    raise
+                self._rewind_method = "none"
+                return
+        if self._rewind_method == "setHead":
+            self.set_head(block_number)
+        elif self._rewind_method == "resetHead":
+            self.reset_head(block_hash)
+        # "none": no debug rewind available; the explicit-parent build reorgs.
 
 
 class EngineRPC(BaseJwtRPC):
@@ -1405,17 +1529,35 @@ class EngineRPC(BaseJwtRPC):
         payload_attributes: PayloadAttributes | None = None,
         *,
         version: int,
+        custody_columns: bytes | None = None,
+        custody_columns_null: bool = False,
     ) -> ForkchoiceUpdateResponse:
         """
         `engine_forkchoiceUpdatedVX`: Updates the forkchoice state of the
         execution client.
+
+        `custody_columns_null` sends an explicit `null` as the
+        `custodyColumns` parameter (EIP-8070: the client treats it as a
+        no-op for its blobpool).
         """
         method = f"forkchoiceUpdatedV{version}"
+        assert custody_columns is None or not custody_columns_null, (
+            "Pass either custody_columns or custody_columns_null, not both."
+        )
 
+        params: List[Any]
         if payload_attributes is None:
             params = [to_json(forkchoice_state), None]
         else:
             params = [to_json(forkchoice_state), to_json(payload_attributes)]
+        if custody_columns is not None:
+            # Third parameter of `engine_forkchoiceUpdatedV4` (EIP-8070):
+            # a bitmap of the blob columns custodied by the node.
+            assert version >= 4, "custodyColumns requires forkchoiceUpdatedV4."
+            params.append(f"0x{custody_columns.hex()}")
+        elif custody_columns_null:
+            assert version >= 4, "custodyColumns requires forkchoiceUpdatedV4."
+            params.append(None)
 
         return ForkchoiceUpdateResponse.model_validate(
             self.post_request(
@@ -1448,21 +1590,33 @@ class EngineRPC(BaseJwtRPC):
         versioned_hashes: List[Hash],
         *,
         version: int,
-    ) -> GetBlobsResponse | None:
+        indices_bitarray: int | None = None,
+    ) -> GetBlobsResponse | GetBlobsV4Response | None:
         """
         `engine_getBlobsVX`: Retrieves blobs from an execution layers tx pool.
         """
         method = f"getBlobsV{version}"
-        params = [f"{h}" for h in versioned_hashes]
+        params: List[Any] = [[f"{h}" for h in versioned_hashes]]
+
+        if version >= 4:
+            assert indices_bitarray is not None, (
+                f"getBlobsV{version} requires an indices_bitarray cell mask."
+            )
+            # `indices_bitarray` is a little-endian 16-byte bitmap where bit
+            # `i` selects cell `i` (execution-apis `engine_getBlobsV4`).
+            params.append(f"0x{indices_bitarray.to_bytes(16, 'little').hex()}")
 
         response = self.post_request(
-            request=RPCCall(method=method, params=[params]),
+            request=RPCCall(method=method, params=params),
         ).result_or_raise()
         if response is None:  # for tests that request non-existing blobs
             logger.debug("get_blobs response received but it has value: None")
             return None
 
-        return GetBlobsResponse.model_validate(
+        response_model = (
+            GetBlobsV4Response if version >= 4 else GetBlobsResponse
+        )
+        return response_model.model_validate(
             response,
             context=self.response_validation_context,
         )
@@ -1545,69 +1699,119 @@ class EngineRPC(BaseJwtRPC):
         return _do_forkchoice_update()
 
 
-class EngineSszRPC(BaseJwtRPC):
-    """
-    REST client for `POST /new-payload-with-witness`.
+class EngineSSZRPC(BaseJwtRPC):
+    """Submit SSZ payload envelopes to the REST witness endpoint."""
 
-    The endpoint uses a JSON request body and an SSZ response body; JWT auth
-    is inherited from `BaseJwtRPC`.
-    """
-
-    path: ClassVar[str] = "/new-payload-with-witness"
+    path: ClassVar[str] = "/engine/v1/payloads/witness"
     default_timeout: ClassVar[int] = 8
 
-    def new_payload_with_witness(
-        self,
-        *params: Any,
-        timeout: int | None = None,
-    ) -> NewPayloadWithWitnessResponse:
-        """
-        `POST /new-payload-with-witness`: submit a payload and receive the
-        validation result together with the client-generated execution
-        witness.
-
-        Raise `EngineWitnessEndpointNotImplementedError` on HTTP 404 or 405
-        so the caller can skip clients without REST support.
-        """
-        if timeout is None:
-            timeout = self.default_timeout
-
-        url = self.url.rstrip("/") + self.path
-        body = [to_json(param) for param in params]
-        headers = {
-            "Content-Type": "application/json",
-        } | self.namespace_extra_headers()
-
-        logger.debug(f"POST {url}, timeout={timeout}")
-        response = self.session.post(
-            url, json=body, headers=headers, timeout=timeout
+    def check_witness_capability(self, fork: Fork) -> None:
+        """Require the endpoint and fork to be advertised before testing."""
+        url = self.url.rstrip("/") + "/engine/v1/capabilities"
+        response = self.session.get(
+            url,
+            headers={"Accept": "application/json"}
+            | self.namespace_extra_headers(),
+            timeout=self.default_timeout,
         )
-
         if response.status_code in (404, 405):
             raise EngineWitnessEndpointNotImplementedError(
                 url, response.status_code
             )
+        response.raise_for_status()
+        capabilities = response.json()
+        if "payloads/witness" not in capabilities.get(
+            "fork_scoped_endpoints", []
+        ) or fork.name().lower() not in capabilities.get(
+            "supported_forks", []
+        ):
+            raise EngineWitnessEndpointNotImplementedError(url, 200)
 
-        # Engine API errors arrive as an HTTP error + JSON {code, message}.
-        if not response.ok:
-            try:
-                error = response.json()
-            except ValueError:
-                error = None
-            if isinstance(error, dict) and "code" in error:
-                raise JSONRPCError(
-                    code=error["code"],
-                    message=error.get("message", ""),
+    def post_witness_request(
+        self,
+        body: bytes,
+        *,
+        fork: Fork = Amsterdam,
+        timeout: int | None = None,
+    ) -> requests.Response:
+        """Send raw SSZ bytes, including malformed conformance-test inputs."""
+        return self.session.post(
+            self.url.rstrip("/") + self.path,
+            data=body,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "Accept": "application/octet-stream",
+                "Eth-Execution-Version": fork.name().lower(),
+            }
+            | self.namespace_extra_headers(),
+            timeout=self.default_timeout if timeout is None else timeout,
+            allow_redirects=False,
+        )
+
+    def new_payload_with_witness(
+        self,
+        *params: Any,
+        fork: Fork = Amsterdam,
+        timeout: int | None = None,
+    ) -> NewPayloadWithWitnessResponse:
+        """Submit a payload and validate its witness response and keys."""
+        if len(params) != 4:
+            raise ValueError("REST witness requires Amsterdam payload params")
+        payload, _blob_hashes, beacon_root, execution_requests = params
+        body = encode_witness_request(
+            payload, beacon_root, execution_requests, fork
+        )
+        url = self.url.rstrip("/") + self.path
+        response = self.post_witness_request(body, fork=fork, timeout=timeout)
+        if response.status_code != 200:
+            if response.status_code < 400:
+                raise ValueError(
+                    f"Unexpected HTTP status from {url}: "
+                    f"{response.status_code} (expected 200)"
                 )
+            # Map only errors with a specified legacy equivalent. New REST
+            # errors remain HTTP failures rather than invented JSON-RPC codes.
+            error_codes = {
+                "parse-error": (400, -32700),
+                "invalid-request": (400, -32600),
+                "ssz-decode-error": (400, None),
+                "unsupported-fork": (400, -38005),
+                "method-not-found": (404, -32601),
+                "unknown-payload": (404, -38001),
+                "invalid-forkchoice": (409, -38002),
+                "reorg-too-deep": (409, -38006),
+                "request-too-large": (413, -38004),
+                "unsupported-media-type": (415, None),
+                "invalid-body": (422, -32602),
+                "invalid-attributes": (422, -38003),
+                "internal": (500, -32603),
+            }
+            content_type = response.headers.get("Content-Type", "")
+            if content_type.split(";", 1)[0] == "application/problem+json":
+                problem = response.json()
+                error_type = problem.get("type", "")
+                prefix = "/engine-api/errors/"
+                entry = error_codes.get(error_type.removeprefix(prefix))
+                if error_type.startswith(prefix) and entry is not None:
+                    expected_status, code = entry
+                    if response.status_code != expected_status:
+                        raise ValueError(
+                            f"Unexpected HTTP status for {error_type}: "
+                            f"{response.status_code} "
+                            f"(expected {expected_status})"
+                        )
+                    if code is not None:
+                        raise JSONRPCError(
+                            code=code,
+                            message=problem.get("detail", error_type),
+                        )
             response.raise_for_status()
 
         content_type = response.headers.get("Content-Type", "")
-        if "application/octet-stream" not in content_type:
+        if content_type.split(";", 1)[0] != "application/octet-stream":
             raise ValueError(
-                f"Unexpected Content-Type from {url}: {content_type!r} "
-                f"(expected application/octet-stream)"
+                f"Unexpected Content-Type from {url}: {content_type!r}"
             )
-
         return NewPayloadWithWitnessResponse.from_ssz_bytes(response.content)
 
 

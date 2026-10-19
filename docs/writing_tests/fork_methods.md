@@ -38,11 +38,13 @@ def test_some_feature(fork):
 
 ```python
 def test_transaction_gas(fork, state_test):
-    gas_cost = fork.gas_costs().GAS_TX_BASE
+    # Derive the fork's intrinsic gas from the calculator rather than
+    # summing raw `gas_costs()` constants (see the Gas Parameters warning).
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
 
     # Create a transaction with the correct gas parameters for this fork
     tx = Transaction(
-        gas_limit=gas_cost + 10000,
+        gas_limit=intrinsic_gas + 10000,
         # ...
     )
 
@@ -114,6 +116,9 @@ fork.memory_expansion_gas_calculator()  # Returns a callable
 fork.transaction_intrinsic_cost_calculator()  # Returns a callable
 ```
 
+!!! warning "Do not reconstruct expected gas from `gas_costs()` constants"
+    `fork.gas_costs()` exposes the raw schedule for framework internals. When a test needs an *expected* gas amount, derive it from a cost construct that tracks the live schedule (`bytecode.gas_cost(fork)` / `.execution_cost(fork)` / `.state_cost(fork)` / `.refund(fork)`, opcode metadata, the intrinsic/top-frame/data-floor calculators, `fork.call_value_stipend()`) rather than hand-summing constants — hand-built expectations silently break when a fork reprices. See [Opcode Metadata and Gas Calculations](opcode_metadata.md#do-not-hand-reconstruct-gas-from-constants).
+
 ### Transaction Types
 
 Methods for determining valid transaction types:
@@ -123,6 +128,8 @@ fork.tx_types()  # Returns list of supported transaction types
 fork.contract_creating_tx_types()  # Returns list of tx types that can create contracts 
 fork.precompiles()  # Returns list of precompile addresses
 fork.system_contracts()  # Returns list of system contract addresses
+fork.system_contract_request_types()  # Request classes triggered through a system contract (Prague+)
+fork.system_contract_call_phases()  # When the block calls each system contract: before/after transactions, or never
 ```
 
 ### EVM Features

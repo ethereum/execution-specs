@@ -28,6 +28,7 @@ from .pre_alloc_groups import (
     PreAllocGroupBuilder,
     PreAllocGroupBuilders,
     PreAllocGroups,
+    pack_pre_alloc_groups,
 )
 from .state import StateFixture
 from .transaction import TransactionFixture
@@ -57,4 +58,5 @@ __all__ = [
     "TestInfo",
     "TransactionFixture",
     "merge_partial_fixture_files",
+    "pack_pre_alloc_groups",
 ]

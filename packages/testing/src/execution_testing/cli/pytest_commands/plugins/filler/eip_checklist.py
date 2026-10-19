@@ -7,8 +7,9 @@ docs/writing_tests/checklist_templates/eip_testing_checklist_template.md
 """
 
 import logging
+import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import ClassVar, Dict, List, Set, Tuple, Type
 
@@ -355,9 +356,18 @@ class EIP:
         self.mark_not_applicable()
         self.mark_external_coverage()
 
-        for checklist_item in self.items.values():
-            # Find the line with this item ID
-            lines[checklist_item.line_number - 1] = str(checklist_item)
+        for index, line in enumerate(lines):
+            if template_item := EIPItem.from_checklist_line(
+                line=line, line_number=index + 1
+            ):
+                # An ID can describe several outcomes on separate rows.
+                # Share its coverage while preserving each description.
+                lines[index] = str(
+                    replace(
+                        self.items[template_item.id],
+                        description=template_item.description,
+                    )
+                )
 
         emoji = self.completeness_emoji
         pct = f"{self.percentage:.2f}%"
@@ -431,7 +441,11 @@ class EIPChecklistCollector:
 
     def get_eip_from_item(self, item: pytest.Item) -> EIP | None:
         """Get the EIP for a test item."""
-        test_path = Path(item.location[0])
+        # The collected module, not `item.location`, which for a test built
+        # by a generator points at the module that defines the wrapper.
+        # `os.path.relpath` rather than `Path.relative_to`, which raises for
+        # a test collected from outside the rootpath.
+        test_path = Path(os.path.relpath(item.path, item.config.rootpath))
         for part_idx, part in enumerate(test_path.parts):
             match = re.match(r"eip(\d+)", part)
             if match:
@@ -484,6 +498,8 @@ class EIPChecklistCollector:
             for item_id in marker.args:
                 item_id = str(item_id)
                 covered_ids = resolve_id(item_id.strip())
+                if marker.kwargs.get("exact", False):
+                    covered_ids &= {item_id.strip()}
                 if not covered_ids:
                     logger.warning(
                         f"Item ID {item_id} not found in checklist template "
@@ -506,8 +522,8 @@ class EIPChecklistCollector:
         """Collect checklist markers during test collection."""
         for item in items:
             eip = self.get_eip_from_item(item)
-            if item.get_closest_marker(
-                "derived_test"
+            if not item.get_closest_marker(
+                "primary_format"
             ) or item.get_closest_marker("skip"):
                 continue
             self.collect_from_item(item, eip)

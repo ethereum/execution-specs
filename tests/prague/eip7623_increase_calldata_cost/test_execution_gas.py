@@ -12,6 +12,7 @@ from execution_testing import (
     AuthorizationTuple,
     Bytes,
     Fork,
+    GasConsumer,
     Op,
     StateTestFiller,
     Transaction,
@@ -137,7 +138,7 @@ class TestGasConsumptionBelowDataFloor:
         assert execution_gas > 0
 
         return pre.deploy_contract(
-            (Op.JUMPDEST * (execution_gas - 1)) + Op.STOP
+            GasConsumer(gas=execution_gas - 1, fork=fork) + Op.STOP
         )
 
     @pytest.mark.parametrize(

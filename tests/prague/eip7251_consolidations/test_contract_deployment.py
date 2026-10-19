@@ -7,9 +7,10 @@ from pathlib import Path
 from typing import Any, Generator
 
 from execution_testing import (
-    Address,
     Alloc,
     Block,
+    ConsolidationRequest,
+    Header,
     Requests,
     Transaction,
     TransitionFork,
@@ -17,8 +18,7 @@ from execution_testing import (
 )
 from execution_testing.forks import Prague
 
-from .helpers import ConsolidationRequest
-from .spec import Spec, ref_spec_7251
+from .spec import ref_spec_7251
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7251.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7251.version
@@ -27,9 +27,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7251.version
 @generate_system_contract_deploy_test(
     fork=Prague,
     tx_json_path=Path(realpath(__file__)).parent / "contract_deploy_tx.json",
-    expected_deploy_address=Address(
-        Spec.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS
-    ),
+    expected_deploy_address=ConsolidationRequest.system_contract_address,
     fail_on_empty_code=True,
 )
 def test_system_contract_deployment(
@@ -44,6 +42,7 @@ def test_system_contract_deployment(
         source_pubkey=0x01,
         target_pubkey=0x02,
         source_address=sender,
+        fee=ConsolidationRequest.get_fee(0),
     )
     intrinsic_gas_calculator = (
         fork.transitions_to().transaction_intrinsic_cost_calculator()
@@ -55,12 +54,12 @@ def test_system_contract_deployment(
     test_transaction = Transaction(
         data=consolidation_request.calldata,
         gas_limit=test_transaction_gas * 10,
-        to=Spec.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+        to=ConsolidationRequest.system_contract_address,
         sender=sender,
         value=consolidation_request.value,
     )
 
     yield Block(
         txs=[test_transaction],
-        requests_hash=Requests(consolidation_request),
+        header_verify=Header(requests_hash=Requests(consolidation_request)),
     )

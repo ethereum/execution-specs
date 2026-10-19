@@ -30,6 +30,9 @@ from execution_testing.base_types import (
 )
 from execution_testing.client_clis import ClientBackend
 from execution_testing.client_clis.cli_types import EnginePayloadMetadata
+from execution_testing.client_clis.client_backend import (
+    DEFAULT_OPCODE_COUNT_TRACE_TIMEOUT,
+)
 from execution_testing.fixtures import FixtureFillingPhase
 from execution_testing.fixtures.blockchain import (
     StatefulPreRunFixture,
@@ -130,6 +133,45 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "the live client) or a block number (hex or decimal). When "
             "omitted, the client's ``latest`` block is used and recorded "
             "by hash. The produced fixtures are anchored by hash regardless."
+        ),
+    )
+    group.addoption(
+        "--extract-opcode-count",
+        action="store_true",
+        dest="extract_opcode_count",
+        default=False,
+        help=(
+            "Trace each built block via debug_traceBlockByHash and record "
+            "per-opcode execution counts in the fixture's "
+            "_info.metadata.opcode_counts. Uses a client-side JS tracer where "
+            "supported (geth/nethermind/erigon/reth) and falls back to the "
+            "struct-log tracer otherwise (besu). Requires the `debug` "
+            "namespace. Adds a full re-execution trace per block — slow; "
+            "opt-in."
+        ),
+    )
+    group.addoption(
+        "--opcode-count-trace-timeout",
+        action="store",
+        dest="opcode_count_trace_timeout",
+        default=DEFAULT_OPCODE_COUNT_TRACE_TIMEOUT,
+        type=str,
+        help=(
+            "Per-transaction bound for the --extract-opcode-count trace, as "
+            "a Go duration (e.g. 30s, 5m, 1h). Without it the client applies "
+            "its own (5s on geth), which a benchmark block's trace outruns; "
+            "the abandoned transaction is then tallied as zero."
+        ),
+    )
+    group.addoption(
+        "--verify-full-accounts",
+        action="store_true",
+        dest="verify_full_accounts",
+        default=False,
+        help=(
+            "Verify all predeployed targets instead of sampling. "
+            "By default, only first and last accounts per range are checked. "
+            "This flag checks every account at start_block.)"
         ),
     )
 
@@ -395,9 +437,26 @@ def session_worker_key(seed_key: EOA) -> EOA:
 
 
 @pytest.fixture(scope="function")
-def worker_key(eth_rpc: EthRPC, session_worker_key: EOA) -> EOA:
+def worker_key(
+    eth_rpc: EthRPC,
+    session_worker_key: EOA,
+    client_backend: ClientBackend,
+) -> EOA:
     """Sync seed key nonce before each test."""
-    account = eth_rpc.get_account(session_worker_key, skip_code=True)
+    # Read the nonce at the reset head (start_block), not "latest": a client
+    # whose rewind restores the build state but leaves the `latest` pointer at
+    # the previous test's tip (e.g. nethermind's debug_resetHead) would
+    # otherwise report a stale, too-high nonce and get every funding tx
+    # rejected ("Invalid nonce - expected 0").
+    start = client_backend.start_block
+    if start is None:
+        account = eth_rpc.get_account(session_worker_key, skip_code=True)
+    else:
+        account = eth_rpc.get_account(
+            session_worker_key,
+            block_number=int(start["number"], 16),
+            skip_code=True,
+        )
     session_worker_key.nonce = Number(account.nonce)
     return session_worker_key
 
@@ -441,7 +500,7 @@ def max_gas_limit_per_test(
     return fork_at_genesis.transaction_gas_limit_cap()
 
 
-# Other live-client fixtures (``max_transactions_per_batch``,
+# Other live-client fixtures (``max_batch_size``,
 # ``default_*``, fee fields, ``dry_run``, ...) come from
 # ``shared.live_client_flags``. ``skip_cleanup`` from ``execute.pre_alloc``;
 # we force it on in ``pytest_configure``.
@@ -454,13 +513,28 @@ def max_gas_limit_per_test(
 
 @pytest.fixture(scope="session")
 def debug_rpc(eth_rpc: EthRPC) -> DebugRPC:
-    """DebugRPC on the same endpoint as eth_rpc (for debug_setHead)."""
+    """DebugRPC on eth_rpc's endpoint (debug_setHead/resetHead rewind)."""
     return DebugRPC(eth_rpc.url)
+
+
+@pytest.fixture(scope="session")
+def extract_opcode_count(request: pytest.FixtureRequest) -> bool:
+    """Whether --extract-opcode-count block tracing is enabled."""
+    return request.config.getoption("extract_opcode_count")
+
+
+@pytest.fixture(scope="session")
+def opcode_count_trace_timeout(request: pytest.FixtureRequest) -> str:
+    """The --opcode-count-trace-timeout bound sent with each trace."""
+    return request.config.getoption("opcode_count_trace_timeout")
 
 
 @pytest.fixture(scope="session")
 def client_backend(
     eth_rpc: ChainBuilderEthRPC,
+    debug_rpc: DebugRPC,
+    extract_opcode_count: bool,
+    opcode_count_trace_timeout: str,
     session_fork: Fork | TransitionFork,
     default_gas_price: int | None,
     default_max_fee_per_gas: int | None,
@@ -484,6 +558,9 @@ def client_backend(
         engine_rpc=eth_rpc.engine_rpc,
         eth_rpc=eth_rpc,
         fork=session_fork,
+        debug_rpc=debug_rpc,
+        extract_opcode_count=extract_opcode_count,
+        opcode_count_trace_timeout=opcode_count_trace_timeout,
     )
 
     priority_fee = default_max_priority_fee_per_gas
@@ -600,14 +677,27 @@ def _session_pre_run(
         f"hash={snapshot_block['hash'][:20]}..."
     )
 
-    # 2. Fund seed key via CL withdrawal; helper returns the built payload.
+    # 2. Fund seed key via CL withdrawal, unless it is already funded (e.g.
+    #    pre-funded in the snapshot state). Skipping the withdrawal keeps the
+    #    pre-run empty so start_block == the snapshot block, whose persistent
+    #    state debug_setHead can always rewind to between tests. Otherwise
+    #    start_block sits one diff-layer above the snapshot and a test that
+    #    builds many blocks (e.g. test_blockhash) can prune its state, making
+    #    the per-test rewind collapse to the snapshot block and abort the run.
     captured: List[EnginePayloadMetadata] = []
-    fund_payload = eth_rpc.fund_via_withdrawals(
-        [(Address(session_worker_key), SEED_FUNDING_WEI)]
-    )
-    if fund_payload is not None:
-        captured.append(fund_payload)
-    logger.info(f"Funded {Address(session_worker_key)} via withdrawal")
+    seed_address = Address(session_worker_key)
+    if eth_rpc.get_balance(seed_address) >= SEED_FUNDING_WEI:
+        logger.info(
+            f"Seed {seed_address} already funded "
+            f"(>= {SEED_FUNDING_WEI} wei); skipping withdrawal"
+        )
+    else:
+        fund_payload = eth_rpc.fund_via_withdrawals(
+            [(seed_address, SEED_FUNDING_WEI)]
+        )
+        if fund_payload is not None:
+            captured.append(fund_payload)
+        logger.info(f"Funded {seed_address} via withdrawal")
 
     # 3. Deploy deterministic factory if not already present.
     lock_file = session_temp_folder / "fill_stateful_setup.lock"
@@ -689,7 +779,8 @@ def session_t8n(
 def t8n(
     session_t8n: ClientBackend,
 ) -> Generator[ClientBackend, None, None]:
-    """Override: no per-test reset needed for ClientBackend."""
+    """Override: zero per-test opcode counts (no-op unless enabled)."""
+    session_t8n.reset_opcode_count()
     yield session_t8n
 
 
@@ -706,9 +797,12 @@ def _reset_chain_between_tests(
 ) -> Generator[None, None, None]:
     """
     Rewind to start_block after each test so the chain is identical for
-    every fill. ``debug_setHead`` only takes a number, so after the
-    rewind we re-fetch ``latest`` and fail loudly if the hash drifted
-    (e.g. live reorg of a same-numbered block).
+    every fill. Uses ``debug_setHead`` (by number) when available, else
+    ``debug_resetHead`` (by hash) for clients like Nethermind, else nothing
+    — each test's first block is built on its explicit start_block parent,
+    so the client reorgs onto it even without a debug rewind. Afterwards we
+    verify the block at the start_block number matches and fail loudly if it
+    drifted (e.g. a live reorg).
     """
     yield
     if client_backend.start_block is None:
@@ -720,14 +814,20 @@ def _reset_chain_between_tests(
     if current_head is not None and current_head["hash"] == expected_hash:
         return
     try:
-        debug_rpc.set_head(start_hex)
+        debug_rpc.rewind_head(block_number=start_hex, block_hash=expected_hash)
     except Exception as e:
-        pytest.exit(f"debug_setHead failed — subsequent fixtures invalid: {e}")
-    head = eth_rpc.get_block_by_number("latest")
+        pytest.exit(f"head rewind failed — subsequent fixtures invalid: {e}")
+    # Verify the rewind landed by querying the block at the expected
+    # start_block number, not "latest": nethermind's debug_resetHead restores
+    # the build head but leaves the `latest` pointer at the previous test's
+    # tip, so "latest" is unreliable there. The block at start_block's number
+    # is the start block on both geth (debug_setHead moves latest) and
+    # nethermind (resetHead leaves it stale).
+    head = eth_rpc.get_block_by_number(start_hex)
     if head is None or head["hash"] != expected_hash:
         observed = head["hash"] if head is not None else "<none>"
         pytest.exit(
-            f"debug_setHead landed on hash {observed} but expected "
+            f"head rewind landed on hash {observed} but expected "
             f"{expected_hash} (start_block at number {start_hex}). The "
             "live chain may have reorged out from under fill-stateful; "
             "rerun against a quiescent client or use --snapshot-block "

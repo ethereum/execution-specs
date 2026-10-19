@@ -25,6 +25,9 @@ REFERENCE_SPEC_VERSION = ref_spec_8024.version
 pytestmark = pytest.mark.valid_from("EIP8024")
 
 
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Odd()
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Even()
+@EIPChecklist.Opcode.Test.StackComplexOperations.DataPortionVariables.Bottom()
 @pytest.mark.parametrize(
     "stack_index",
     [17, 18, 32, 64, 107, 108, 200, 235],
@@ -86,6 +89,8 @@ def test_swapn_basic(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.DataPortion.AllZeros()
+@EIPChecklist.Opcode.Test.DataPortion.MaxValue()
 @pytest.mark.parametrize(
     "immediate",
     [0, 45, 90, 128, 200, 255],
@@ -189,6 +194,7 @@ def test_swapn_preserves_other_stack_items(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.StackUnderflow()
 def test_swapn_stack_underflow(
     pre: Alloc,
     state_test: StateTestFiller,
@@ -212,6 +218,31 @@ def test_swapn_stack_underflow(
 
     # Transaction should fail, contract storage unchanged
     post = {contract_address: Account(storage={})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Zero()
+@EIPChecklist.Opcode.Test.StackUnderflow()
+def test_swapn_empty_stack(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test SWAPN on an empty stack aborts with a stack underflow.
+    """
+    sender = pre.fund_eoa()
+
+    code = Op.SSTORE(0, 1)  # leaves the stack empty
+    code += Op.SWAPN[Spec.MIN_STACK_INDEX]
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender)
+
+    # Transaction should fail, contract storage unchanged.
+    post = {contract_address: Account(storage={0: 0})}
 
     state_test(pre=pre, post=post, tx=tx)
 
@@ -264,6 +295,7 @@ def test_swapn_gas_cost_boundary(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.ExceptionalAbort()
 @pytest.mark.parametrize(
     "invalid_immediate",
     list(range(91, 128)),  # 0x5b to 0x7f (JUMPDEST and PUSH opcodes)
@@ -353,16 +385,24 @@ def test_endofcode_behavior(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.DataPortion.Jump()
+@pytest.mark.parametrize(
+    "jump",
+    [
+        pytest.param(Op.JUMP, id="jump"),
+        pytest.param(Op.JUMPI, id="jumpi_taken"),
+    ],
+)
 def test_swapn_jump_to_immediate_byte_0x5b_succeeds(
+    jump: Op,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
     """
     Test that jumping to 0x5b after SWAPN succeeds (backward compat).
 
-    Bytecode: PUSH1(4) JUMP SWAPN[0x5b]
-    Hex: 6004 56 e7 5b
-    Position 4 contains 0x5b which is an INVALID immediate for SWAPN.
+    Bytecode: <JUMP or taken JUMPI> SWAPN[0x5b]
+    The jump target contains 0x5b which is an INVALID immediate for SWAPN.
     Per EIP-8024, 0x5b is preserved as valid JUMPDEST for compatibility.
     The SWAPN instruction is never executed due to the jump.
     """
@@ -370,10 +410,13 @@ def test_swapn_jump_to_immediate_byte_0x5b_succeeds(
 
     # Build code that jumps to 0x5b after SWAPN opcode
     code = Bytecode()
-    code += Op.PUSH1(4)  # Push jump target (position 4)
-    code += Op.JUMP  # Jump to position 4
+    pc = Op.PUSH1(data_placeholder="jump_pc")
+    code += (
+        Op.JUMPI(pc=pc, condition=1) if jump == Op.JUMPI else Op.JUMP(pc=pc)
+    )  # Jump to the immediate byte
     # Pass as bytes (raw immediate byte for testing)
-    code += Op.SWAPN[b"\x5b"]  # Position 3-4: SWAPN + 0x5b (invalid)
+    code += Op.SWAPN[b"\x5b"]  # SWAPN + 0x5b (invalid)
+    code.substitute(jump_pc=len(code) - 1)
 
     # This SHOULD execute because 0x5b is a valid JUMPDEST
     code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
@@ -389,26 +432,38 @@ def test_swapn_jump_to_immediate_byte_0x5b_succeeds(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.DataPortion.Jump()
+@pytest.mark.parametrize(
+    "jump",
+    [
+        pytest.param(Op.JUMP, id="jump"),
+        pytest.param(Op.JUMPI, id="jumpi_taken"),
+    ],
+)
 def test_swapn_jump_to_valid_immediate_fails(
+    jump: Op,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
     """
     Test jumping to a valid immediate byte fails.
 
-    Bytecode: PUSH1(4) JUMP SWAPN[0x00]
-    Hex: 6004 56 e7 00
-    Position 4 contains 0x00 which is a VALID immediate for SWAPN.
-    Valid immediates are skipped in JUMPDEST analysis, so jump fails.
+    Bytecode: <JUMP or taken JUMPI> SWAPN[0x00]
+    The jump target contains 0x00 which is a VALID immediate for SWAPN.
+    JUMPDEST analysis is unchanged by EIP-8024: the target holds 0x00,
+    not 0x5b, so it is not a valid jump target and the jump fails.
     """
     sender = pre.fund_eoa()
 
     # Build code that tries to jump to a valid immediate
     code = Bytecode()
-    code += Op.PUSH1(4)  # Push jump target (position 4)
-    code += Op.JUMP  # Try to jump to position 4
+    pc = Op.PUSH1(data_placeholder="jump_pc")
+    code += (
+        Op.JUMPI(pc=pc, condition=1) if jump == Op.JUMPI else Op.JUMP(pc=pc)
+    )  # Jump to the immediate byte
     # Pass as bytes (raw immediate byte for testing)
-    code += Op.SWAPN[b"\x00"]  # Position 3-4: SWAPN + 0x00 (valid)
+    code += Op.SWAPN[b"\x00"]  # SWAPN + 0x00 (valid)
+    code.substitute(jump_pc=len(code) - 1)
 
     # This should never execute
     code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
@@ -418,7 +473,7 @@ def test_swapn_jump_to_valid_immediate_fails(
 
     tx = Transaction(to=contract_address, sender=sender)
 
-    # Transaction fails - position 4 is a valid immediate, not JUMPDEST
+    # Transaction fails - the target is a valid immediate, not JUMPDEST
     post = {contract_address: Account(storage={})}
 
     state_test(pre=pre, post=post, tx=tx)
@@ -473,5 +528,59 @@ def test_swapn_with_dup1_and_push(
             expected_storage[i] = 0  # All middle values
 
     post = {contract_address: Account(storage=expected_storage)}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.Opcode.Test.StackComplexOperations.DataPortionVariables.Top()
+@EIPChecklist.Opcode.Test.StackComplexOperations.DataPortionVariables.Middle()
+@pytest.mark.parametrize(
+    "stack_index",
+    [17, 126, 235],
+    ids=lambda x: f"swapn_full_stack_{x}",
+)
+def test_swapn_full_stack(
+    stack_index: int,
+    pre: Alloc,
+    fork: Fork,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test SWAPN succeeds on a completely full stack.
+
+    SWAPN swaps in place without pushing, so it must work at the stack
+    limit. The top marker is swapped down to position `stack_index + 1`;
+    popping `stack_index` items then exposes it. If a faulty
+    implementation had not swapped, the popped-to item would hold the
+    planted deep marker instead, so either direction of failure is
+    visible in storage.
+    """
+    sender = pre.fund_eoa()
+
+    top_marker = 0xAAAA
+    deep_marker = 0xBBBB
+
+    # Full stack, top-down: the top marker at position 1, the deep
+    # marker at the swap target, position stack_index + 1.
+    stack = [0] * fork.max_stack_height()
+    stack[0] = top_marker
+    stack[stack_index] = deep_marker
+
+    code = Bytecode()
+    for value in reversed(stack):
+        code += Op.PUSH2(value) if value else Op.PUSH0
+
+    code += Op.SWAPN[stack_index]
+
+    # Pop down to the swap target and store the item now there.
+    code += Op.POP * stack_index
+    code += Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code, storage={0: 0xBA5E})
+
+    tx = Transaction(to=contract_address, sender=sender)
+
+    post = {contract_address: Account(storage={0: top_marker})}
 
     state_test(pre=pre, post=post, tx=tx)

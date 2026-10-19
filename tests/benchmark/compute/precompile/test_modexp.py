@@ -17,10 +17,9 @@ from execution_testing import (
 )
 from execution_testing.forks import Osaka
 
+from tests.benchmark.helper.precompile import Precompile
 from tests.byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from tests.osaka.eip7883_modexp_gas_increase.spec import Spec, Spec7883
-
-from ..helpers import Precompile
 
 
 def create_random_modexp_test_case(
@@ -511,6 +510,51 @@ def test_modexp(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,
             tx_kwargs={"data": bytes(mod_exp_input).rstrip(b"\x00")},
+        ),
+    )
+
+
+@pytest.mark.valid_from("Osaka")
+@pytest.mark.parametrize(
+    "base_length,exponent_length,modulus_length",
+    [
+        pytest.param(Spec.MAX_LENGTH_BYTES + 1, 1, 1, id="oversized base"),
+        pytest.param(1, Spec.MAX_LENGTH_BYTES + 1, 1, id="oversized exponent"),
+        pytest.param(1, 1, Spec.MAX_LENGTH_BYTES + 1, id="oversized modulus"),
+    ],
+)
+def test_modexp_length_above_upper_bound(
+    benchmark_test: BenchmarkTestFiller,
+    base_length: int,
+    exponent_length: int,
+    modulus_length: int,
+) -> None:
+    """
+    Benchmark MODEXP rejecting a length above its EIP-7823 upper bound.
+    """
+    mod_exp_input = ModExpInput(
+        base=b"\x01",
+        exponent=b"\x01",
+        modulus=b"\x01",
+        declared_base_length=base_length,
+        declared_exponent_length=exponent_length,
+        declared_modulus_length=modulus_length,
+    )
+
+    attack_block = Op.POP(
+        Op.STATICCALL(
+            gas=Spec7883.calculate_gas_cost(mod_exp_input),
+            address=Spec.MODEXP_ADDRESS,
+            args_size=Op.CALLDATASIZE,
+        ),
+    )
+
+    benchmark_test(
+        target_opcode=Precompile.MODEXP,
+        code_generator=JumpLoopGenerator(
+            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
+            attack_block=attack_block,
+            tx_kwargs={"data": bytes(mod_exp_input)},
         ),
     )
 

@@ -17,13 +17,13 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    ConsolidationRequest,
     Environment,
     SystemContractInteractionContract,
     SystemContractInteractionTransaction,
 )
 
-from .helpers import ConsolidationRequest
-from .spec import Spec, ref_spec_7251
+from .spec import ref_spec_7251
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7251.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7251.version
@@ -95,13 +95,13 @@ pytestmark = pytest.mark.valid_from("Prague")
                             )
                             for i in range(
                                 1,
-                                Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5,
+                                ConsolidationRequest.max_per_block * 5,
                             )
                         ],
                         # Starve the first inner call of gas
                         gas_limits=[100]
                         + [None]
-                        * (Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5 - 1),
+                        * (ConsolidationRequest.max_per_block * 5 - 1),
                     ),
                 ],
             ],
@@ -118,7 +118,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 valid=True,
                             )
                             for i in range(
-                                Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5
+                                ConsolidationRequest.max_per_block * 5
                             )
                         ]
                         + [
@@ -130,7 +130,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         ],
                         # Starve the last inner call of gas
                         gas_limits=[None]
-                        * (Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5)
+                        * (ConsolidationRequest.max_per_block * 5)
                         + [100],
                     ),
                 ],

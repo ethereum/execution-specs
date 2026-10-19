@@ -7,7 +7,7 @@ execution witness state, codes, and headers in tests.
 
 from __future__ import annotations
 
-from typing import Callable, List
+from typing import Callable, List, Self
 
 import ethereum_rlp as eth_rlp
 from pydantic import Field, PrivateAttr
@@ -19,7 +19,46 @@ from .exceptions import ExecutionWitnessValidationError
 from .types import ExecutionWitness
 
 
-class ExecutionWitnessCodesExpectation(CamelModel):
+class ExecutionWitnessExpectationBase(CamelModel):
+    """
+    Base for execution witness expectations.
+
+    Hold an optional modifier that invalid tests use to mutate the
+    witness produced by the t8n tool.
+    """
+
+    _modifier: Callable[["ExecutionWitness"], "ExecutionWitness"] | None = (
+        PrivateAttr(default=None)
+    )
+
+    @property
+    def modifier(
+        self,
+    ) -> Callable[["ExecutionWitness"], "ExecutionWitness"] | None:
+        """Return the witness modifier, if one has been set."""
+        return self._modifier
+
+    def modify(
+        self,
+        *modifiers: Callable[["ExecutionWitness"], "ExecutionWitness"],
+    ) -> Self:
+        """
+        Create a new expectation with a modifier for invalid test cases.
+
+        Args:
+            modifiers: One or more functions that take and return
+                       an ExecutionWitness
+
+        Returns:
+            A copy of this expectation with the modifiers applied
+
+        """
+        new_instance = self.model_copy(deep=True)
+        new_instance._modifier = _compose(*modifiers)
+        return new_instance
+
+
+class ExecutionWitnessCodesExpectation(ExecutionWitnessExpectationBase):
     """
     Execution witness codes expectation model for test writing.
 
@@ -46,46 +85,6 @@ class ExecutionWitnessCodesExpectation(CamelModel):
         default_factory=list,
         description=("Bytecodes that must NOT be present in witness codes"),
     )
-
-    _modifier: Callable[["ExecutionWitness"], "ExecutionWitness"] | None = (
-        PrivateAttr(default=None)
-    )
-
-    def modify(
-        self,
-        *modifiers: Callable[["ExecutionWitness"], "ExecutionWitness"],
-    ) -> "ExecutionWitnessCodesExpectation":
-        """
-        Create a new expectation with a modifier for invalid test cases.
-
-        Args:
-            modifiers: One or more functions that take and return
-                       an ExecutionWitness
-
-        Returns:
-            A new ExecutionWitnessCodesExpectation with modifiers applied
-
-        """
-        new_instance = self.model_copy(deep=True)
-        new_instance._modifier = _compose(*modifiers)
-        return new_instance
-
-    def modify_if_invalid_test(
-        self, t8n_witness: "ExecutionWitness"
-    ) -> "ExecutionWitness":
-        """
-        Apply the modifier to the given witness if this is an invalid test.
-
-        Args:
-            t8n_witness: The ExecutionWitness from the t8n tool
-
-        Returns:
-            The potentially transformed ExecutionWitness for the fixture
-
-        """
-        if self._modifier:
-            return self._modifier(t8n_witness)
-        return t8n_witness
 
     def verify_against(self, actual_witness: "ExecutionWitness") -> None:
         """
@@ -152,7 +151,7 @@ class ExecutionWitnessCodesExpectation(CamelModel):
             )
 
 
-class ExecutionWitnessStateExpectation(CamelModel):
+class ExecutionWitnessStateExpectation(ExecutionWitnessExpectationBase):
     """
     Execution witness state expectation model for test writing.
 
@@ -176,46 +175,6 @@ class ExecutionWitnessStateExpectation(CamelModel):
             "Encoded trie nodes that must NOT be present in witness state"
         ),
     )
-
-    _modifier: Callable[["ExecutionWitness"], "ExecutionWitness"] | None = (
-        PrivateAttr(default=None)
-    )
-
-    def modify(
-        self,
-        *modifiers: Callable[["ExecutionWitness"], "ExecutionWitness"],
-    ) -> "ExecutionWitnessStateExpectation":
-        """
-        Create a new expectation with a modifier for invalid test cases.
-
-        Args:
-            modifiers: One or more functions that take and return
-                       an ExecutionWitness
-
-        Returns:
-            A new ExecutionWitnessStateExpectation with modifiers applied
-
-        """
-        new_instance = self.model_copy(deep=True)
-        new_instance._modifier = _compose(*modifiers)
-        return new_instance
-
-    def modify_if_invalid_test(
-        self, t8n_witness: "ExecutionWitness"
-    ) -> "ExecutionWitness":
-        """
-        Apply the modifier to the given witness if this is an invalid test.
-
-        Args:
-            t8n_witness: The ExecutionWitness from the t8n tool
-
-        Returns:
-            The potentially transformed ExecutionWitness for the fixture
-
-        """
-        if self._modifier:
-            return self._modifier(t8n_witness)
-        return t8n_witness
 
     def verify_against(self, actual_witness: "ExecutionWitness") -> None:
         """
@@ -270,7 +229,7 @@ class ExecutionWitnessStateExpectation(CamelModel):
                 )
 
 
-class ExecutionWitnessHeadersExpectation(CamelModel):
+class ExecutionWitnessHeadersExpectation(ExecutionWitnessExpectationBase):
     """
     Execution witness headers expectation model for test writing.
 
@@ -288,47 +247,6 @@ class ExecutionWitnessHeadersExpectation(CamelModel):
     expected_count: int = Field(
         description="Exact number of RLP-encoded headers expected",
     )
-
-    _modifier: Callable[["ExecutionWitness"], "ExecutionWitness"] | None = (
-        PrivateAttr(default=None)
-    )
-
-    def modify(
-        self,
-        *modifiers: Callable[["ExecutionWitness"], "ExecutionWitness"],
-    ) -> "ExecutionWitnessHeadersExpectation":
-        """
-        Create a new expectation with a modifier for invalid test cases.
-
-        Args:
-            modifiers: One or more functions that take and return
-                       an ExecutionWitness
-
-        Returns:
-            A new ExecutionWitnessHeadersExpectation with modifiers
-            applied
-
-        """
-        new_instance = self.model_copy(deep=True)
-        new_instance._modifier = _compose(*modifiers)
-        return new_instance
-
-    def modify_if_invalid_test(
-        self, t8n_witness: "ExecutionWitness"
-    ) -> "ExecutionWitness":
-        """
-        Apply the modifier to the given witness if this is an invalid test.
-
-        Args:
-            t8n_witness: The ExecutionWitness from the t8n tool
-
-        Returns:
-            The potentially transformed ExecutionWitness for the fixture
-
-        """
-        if self._modifier:
-            return self._modifier(t8n_witness)
-        return t8n_witness
 
     def verify_against(
         self,

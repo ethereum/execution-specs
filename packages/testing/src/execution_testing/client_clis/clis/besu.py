@@ -278,7 +278,7 @@ class BesuTransitionTool(TransitionTool):
             dump_files_to_directory(
                 debug_output_path,
                 {
-                    "output/alloc.json": output.alloc.raw,
+                    "output/alloc.json": output.alloc,
                     "output/result.json": output.result.model_dump(
                         mode="json", **model_dump_config
                     ),
@@ -423,8 +423,13 @@ class BesuExceptionMapper(ExceptionMapper):
             r"maximum size of \d+"
         ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
-            r"transaction invalid transaction up-front cost 0x[0-9a-f]+ "
-            r"exceeds transaction sender account balance 0x[0-9a-f]+"
+            # Besu PR 11272 renamed `up-front cost` to `up-front gas cost`
+            # and split the value transfer off into its own check.
+            r"transaction invalid transaction up-front (?:gas )?cost "
+            r"0x[0-9a-f]+ exceeds transaction sender account balance "
+            r"0x[0-9a-f]+"
+            r"|transaction invalid transfer value 0x[0-9a-f]+ exceeds "
+            r"transaction sender account balance 0x[0-9a-f]+"
         ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
             r"transaction invalid intrinsic gas cost \d+"
@@ -452,6 +457,13 @@ class BesuExceptionMapper(ExceptionMapper):
             r"transaction invalid Transaction gas limit "
             r"must be at most \d+"
         ),
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            r"Failed to decode transactions from block parameter|"
+            r"transaction invalid Signature s value should be less "
+            r"than \d+, but got \d+|"
+            # In-range r that is not an x-coordinate on the curve.
+            r"Cannot recover public key from signature"
+        ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"Blob transaction 0x[0-9a-f]+ exceeds "
             r"block blob gas limit: \d+ > \d+"
@@ -471,7 +483,8 @@ class BesuExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"Block access list hash mismatch, "
             r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)|"
-            r"Block access list validation failed for block 0x[a-f0-9]+"
+            r"Block access list validation failed for block 0x[a-f0-9]+|"
+            r"Failed to decode block access list payload parameter"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"Block access list hash mismatch, "
@@ -576,11 +589,13 @@ class BesuFixtureConsumer(
                 f"Error:\n{result.stderr}"
             )
 
-        # Parse NDJSON output, normalize "test" -> "name"
+        # Parse NDJSON output, normalize "test" -> "name". Besu >= 26.8
+        # appends a human-readable "State test summary: ..." line; skip
+        # anything that is not a JSON object.
         results: List[Dict[str, Any]] = []
         for line in result.stdout.strip().splitlines():
             line = line.strip()
-            if not line:
+            if not line or not line.startswith("{"):
                 continue
             try:
                 entry = json.loads(line)

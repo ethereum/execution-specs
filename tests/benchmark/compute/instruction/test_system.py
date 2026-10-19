@@ -13,6 +13,9 @@ Supported Opcodes:
 - SELFDESTRUCT
 """
 
+import math
+from typing import Any
+
 import pytest
 from execution_testing import (
     AccessList,
@@ -22,6 +25,7 @@ from execution_testing import (
     BenchmarkTestFiller,
     Block,
     Bytecode,
+    Conditional,
     Create2PreimageLayout,
     ExtCallGenerator,
     Fork,
@@ -32,9 +36,13 @@ from execution_testing import (
     TestPhaseManager,
     Transaction,
     While,
+    WhileGas,
     compute_create2_address,
     compute_create_address,
 )
+from execution_testing import Macros as Om
+
+from tests.frontier.identity_precompile.spec import Spec as IdentitySpec
 
 
 @pytest.mark.parametrize("transfer_amount", [0, 1])
@@ -48,64 +56,391 @@ def test_contract_calling_many_addresses(
     opcode: Op,
     access_warm: bool,
     gas_benchmark_value: int,
-    tx_gas_limit: int,
+    fixed_opcode_count: float | None,
 ) -> None:
-    """Benchmark a contract that calls many addresses."""
-    warm_start_addr = 2**80 - 1
-    setup = Op.PUSH20(warm_start_addr) if access_warm else Op.GAS
+    """Benchmark a contract that calls many distinct addresses."""
+    start_addr = 2**80 - 1
 
-    def loop(threshold: int) -> Bytecode:
-        return (
-            Op.JUMPDEST
-            + opcode(address=Op.DUP6, value=transfer_amount)
-            + Op.SWAP1
-            + Op.SUB
-            + Op.JUMPI(Op.GT(Op.GAS, threshold), len(setup))
-        )
+    value_transfer = transfer_amount > 0
+    # Only CALL creates accounts on value transfer (CALLCODE doesn't).
+    account_creation = value_transfer and opcode == Op.CALL
 
-    cost = loop(0xFFFF).gas_cost(fork)
-    code = setup + loop(cost)
-
-    contract_addr = pre.deploy_contract(
-        code=code,
-        balance=10**18 if transfer_amount > 0 else 0,
+    setup = (
+        Op.ADD(1, Op.CALLDATALOAD(32))  # [end+1 = limit]
+        + Op.CALLDATALOAD(0)  # [start = index, limit]
     )
 
-    intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_cost = intrinsic_cost_calc()
-    access_list_addr_cost = fork.gas_costs().TX_ACCESS_LIST_ADDRESS
-
-    txs = []
-    remaining_gas = gas_benchmark_value
-    while remaining_gas > intrinsic_cost:
-        per_tx_gas = min(tx_gas_limit, remaining_gas)
-        remaining_gas -= per_tx_gas
-
-        access_list = None
-        if access_warm:
-            iterations = (per_tx_gas - intrinsic_cost) // (
-                access_list_addr_cost + cost
+    iterating = While(
+        body=Op.POP(
+            opcode(
+                address=Op.ADD(start_addr, Op.DUP6),
+                value=transfer_amount,
+                # gas accounting
+                address_warm=access_warm,
+                value_transfer=value_transfer,
+                account_new=account_creation,
             )
-            if iterations <= 0:
-                break
-            access_list = [
-                AccessList(
-                    address=Address(warm_start_addr - i),
-                    storage_keys=[],
-                )
-                for i in range(iterations)
-            ]
+        ),
+        condition=Op.PUSH1(1)  # [1, index, limit]
+        + Op.ADD  # [index+1, limit]
+        + Op.DUP1  # [index+1, index+1, limit]
+        + Op.DUP3  # [limit, index+1, index+1, limit]
+        + Op.GT,  # [limit > index+1, index+1, limit]
+    )
+    code = IteratingBytecode(
+        setup=setup,
+        iterating=iterating,
+        cleanup=Op.STOP,
+    )
 
-        txs.append(
-            Transaction(
-                to=contract_addr,
-                sender=pre.fund_eoa(),
-                gas_limit=per_tx_gas,
-                access_list=access_list,
+    contract_address = pre.deploy_contract(
+        code=code,
+        balance=10**9 if value_transfer else 0,
+    )
+
+    def calldata(iteration_count: int, start_iteration: int) -> bytes:
+        index_end = start_iteration + iteration_count - 1
+        return Hash(start_iteration) + Hash(index_end)
+
+    def access_list(
+        iteration_count: int, start_iteration: int
+    ) -> list[AccessList]:
+        return [
+            AccessList(address=Address(start_addr + i), storage_keys=[])
+            for i in range(start_iteration, start_iteration + iteration_count)
+        ]
+
+    tx_kwargs: dict = {
+        "calldata": calldata,
+        "access_list": access_list if access_warm else None,
+    }
+
+    stipend = fork.call_value_stipend() if value_transfer else 0
+
+    def packing_budget() -> int:
+        """
+        Return the gas budget to size the transactions against.
+
+        Every iteration is charged the call stipend but gets it back
+        unused, so the block consumes less than it is charged; raising the
+        budget by that ratio lands the block on the target. The stipend
+        only comes back out of the execution dimension, so a block bounded
+        by the state dimension needs no adjustment.
+        """
+        state_bound = code.state_gas_cost_by_iteration_count(
+            fork=fork, iteration_count=1
+        )
+        if not stipend or state_bound:
+            return gas_benchmark_value
+        per_iteration = code.tx_execution_gas_cost_by_iteration_count(
+            fork=fork, iteration_count=2, **tx_kwargs
+        ) - code.tx_execution_gas_cost_by_iteration_count(
+            fork=fork, iteration_count=1, **tx_kwargs
+        )
+        return gas_benchmark_value * per_iteration // (per_iteration - stipend)
+
+    if fixed_opcode_count is not None:
+        total_iterations = int(fixed_opcode_count * 1000)
+    else:
+        total_iterations = sum(
+            code.tx_iterations_by_gas_limit(
+                fork=fork, gas_limit=packing_budget(), **tx_kwargs
             )
         )
 
-    benchmark_test(blocks=[Block(txs=txs)])
+    def block_gas(iterations: int) -> int:
+        """Return the block gas the iterations land, per gas dimension."""
+        execution = 0
+        state = 0
+        start_iteration = 0
+        for iteration_count in code.tx_iterations_by_total_iteration_count(
+            fork=fork, total_iterations=iterations, **tx_kwargs
+        ):
+            execution += code.tx_execution_gas_cost_by_iteration_count(
+                fork=fork,
+                iteration_count=iteration_count,
+                start_iteration=start_iteration,
+                **tx_kwargs,
+            )
+            state += code.state_gas_cost_by_iteration_count(
+                fork=fork, iteration_count=iteration_count
+            )
+            start_iteration += iteration_count
+        # The block header carries the larger dimension only (EIP-8037),
+        # and the unused stipend comes back out of the execution one.
+        return max(execution - stipend * iterations, state)
+
+    # The raised packing budget inflates the per-transaction intrinsic gas
+    # too, which earns no stipend back, so the block can overshoot the
+    # target by up to one iteration.
+    while (
+        total_iterations > 0
+        and block_gas(total_iterations) > gas_benchmark_value
+    ):
+        total_iterations -= 1
+
+    if total_iterations == 0:
+        pytest.skip(
+            "Benchmark gas value cannot cover a single call to the contract."
+        )
+
+    with TestPhaseManager.execution():
+        sender = pre.fund_eoa()
+        exec_txs = list(
+            code.transactions_by_total_iteration_count(
+                fork=fork,
+                total_iterations=total_iterations,
+                sender=sender,
+                to=contract_address,
+                **tx_kwargs,
+            )
+        )
+        total_gas_cost = sum(tx.gas_cost for tx in exec_txs)
+        total_gas_cost -= stipend * total_iterations
+
+    post = {
+        Address(start_addr + i): Account(balance=transfer_amount)
+        for i in range(total_iterations)
+        if account_creation
+    }
+
+    benchmark_test(
+        post=post,
+        blocks=[Block(txs=exec_txs)],
+        expected_benchmark_gas_used=total_gas_cost,
+    )
+
+
+@pytest.mark.parametrize("opcode", [Op.DELEGATECALL, Op.STATICCALL])
+@pytest.mark.parametrize(
+    "warm_access",
+    [True, False],
+)
+def test_delegatecall_staticcall(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    opcode: Op,
+    warm_access: bool,
+) -> None:
+    """Benchmark a contract that STATICCALL/DELEGATECALL accounts."""
+    target = pre.deploy_contract(code=Op.STOP)
+    address = target if warm_access else Op.GAS
+
+    benchmark_test(
+        target_opcode=opcode,
+        code_generator=JumpLoopGenerator(
+            attack_block=Op.POP(
+                opcode(
+                    gas=Op.GAS,
+                    address=address,
+                )
+            ),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode,value",
+    [
+        pytest.param(Op.CALL, 0, id="CALL"),
+        pytest.param(Op.CALL, 1, id="CALL with value"),
+        pytest.param(Op.CALLCODE, 0, id="CALLCODE"),
+        pytest.param(Op.CALLCODE, 1, id="CALLCODE with value"),
+        pytest.param(Op.DELEGATECALL, None, id="DELEGATECALL"),
+        pytest.param(Op.STATICCALL, None, id="STATICCALL"),
+    ],
+)
+def test_call_opcodes_to_precompile(
+    benchmark_test: BenchmarkTestFiller,
+    opcode: Op,
+    value: int | None,
+) -> None:
+    """Benchmark every call opcode dispatching to a precompile."""
+    value_kwarg: dict[str, Any] = {}
+    if value is not None:
+        value_kwarg = {"value": value}
+
+    attack_block = Op.POP(
+        opcode(
+            gas=Op.GAS,
+            address=IdentitySpec.IDENTITY,
+            args_offset=Op.PUSH0,
+            args_size=Op.PUSH0,
+            ret_offset=Op.PUSH0,
+            ret_size=Op.PUSH0,
+            **value_kwarg,
+        )
+    )
+
+    benchmark_test(
+        target_opcode=opcode,
+        code_generator=JumpLoopGenerator(
+            attack_block=attack_block,
+            contract_balance=10**9 if value else 0,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL],
+)
+def test_nested_calls(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    opcode: Op,
+) -> None:
+    """Benchmark chains of nested call frames."""
+    chain_address = pre.deploy_contract(
+        code=Op.POP(opcode(gas=Op.GAS, address=Op.ADDRESS))
+    )
+
+    benchmark_test(
+        target_opcode=opcode,
+        code_generator=JumpLoopGenerator(
+            attack_block=Op.POP(Op.CALL(gas=Op.GAS, address=chain_address))
+        ),
+    )
+
+
+def test_nested_call_chain(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_gas_limit: int,
+    gas_benchmark_value: int,
+) -> None:
+    """Benchmark nested call frames that each enter a different contract."""
+    # Overwriting the slot keeps the tail cheaper than filling a fresh one.
+    tail = Op.SSTORE(0, 2, original_value=1, current_value=1, new_value=2)
+    tail_address = pre.deploy_contract(code=tail, storage={0: 1})
+
+    # Every level is a distinct account, so the first traversal pays cold
+    # access all the way down.
+    address = tail_address
+    link = Op.POP(Op.CALL(gas=Op.GAS, address=address, address_warm=False))
+    tail_call_gas = link.gas_cost(fork) + math.ceil(
+        tail.gas_cost(fork) * 64 / 63
+    )
+
+    gas = min(tx_gas_limit, gas_benchmark_value)
+    gas -= fork.transaction_intrinsic_cost_calculator()(
+        return_cost_deducted_prior_execution=True
+    )
+    while True:
+        forwarded_gas = gas - link.gas_cost(fork)
+        forwarded_gas -= forwarded_gas // 64
+        if forwarded_gas < tail_call_gas:
+            break
+        gas = forwarded_gas
+        address = pre.deploy_contract(code=link)
+        link = Op.POP(Op.CALL(gas=Op.GAS, address=address, address_warm=False))
+
+    benchmark_test(
+        target_opcode=Op.CALL,
+        skip_gas_used_validation=True,
+        post={tail_address: Account(storage={0: 2})},
+        tx=Transaction(
+            to=pre.deploy_contract(code=WhileGas(body=link, fork=fork)),
+            sender=pre.fund_eoa(),
+        ),
+    )
+
+
+@pytest.mark.parametrize("out_of_gas", [True, False])
+def test_nested_creates(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_gas_limit: int,
+    gas_benchmark_value: int,
+    out_of_gas: bool,
+) -> None:
+    """Benchmark chains of nested CREATE frames."""
+    initcode_size = 32
+
+    copy_self = Op.CODECOPY(
+        dest_offset=0,
+        offset=0,
+        size=Op.CODESIZE,
+        # gas accounting
+        data_size=initcode_size,
+        old_memory_size=0,
+        new_memory_size=initcode_size,
+    )
+
+    create_self = Op.POP(
+        Op.CREATE(
+            value=0,
+            offset=0,
+            size=Op.CODESIZE,
+            # gas accounting
+            init_code_size=initcode_size,
+            old_memory_size=initcode_size,
+            new_memory_size=initcode_size,
+        )
+    )
+
+    initcode = copy_self + create_self
+    if not out_of_gas:
+        initcode = copy_self + Conditional(
+            condition=Op.GT(Op.GAS, 2 * initcode.gas_cost(fork)),
+            if_true=create_self,
+        )
+
+    assert len(initcode) <= initcode_size, "initcode outgrew its padding"
+    initcode += Op.STOP * (initcode_size - len(initcode))
+
+    setup = Om.MSTORE(bytes(initcode), 0)
+    launch = Op.POP(
+        Op.CREATE(
+            value=0,
+            offset=0,
+            size=initcode_size,
+            # gas accounting
+            init_code_size=initcode_size,
+            old_memory_size=initcode_size,
+            new_memory_size=initcode_size,
+        )
+    )
+
+    if out_of_gas:
+        benchmark_test(
+            target_opcode=Op.CREATE,
+            code_generator=JumpLoopGenerator(setup=setup, attack_block=launch),
+        )
+    else:
+        driver_address = pre.deploy_contract(
+            code=setup + WhileGas(body=launch, fork=fork)
+        )
+        # Every level spends fifteen times more state gas than execution
+        # gas, so a single transaction asking for the whole budget goes
+        # deeper than several could: the state gas the chain spends counts
+        # against the budget whether a reservoir or execution gas paid it.
+        gas_limit = min(tx_gas_limit, gas_benchmark_value)
+        if fork.state_gas_reservoir_enabled():
+            gas_limit = gas_benchmark_value
+
+        benchmark_test(
+            target_opcode=Op.CREATE,
+            skip_gas_used_validation=True,
+            post={
+                compute_create_address(
+                    address=driver_address, nonce=1
+                ): Account(nonce=2, code=b""),
+            },
+            blocks=[
+                Block(
+                    txs=[
+                        Transaction(
+                            to=driver_address,
+                            gas_limit=gas_limit,
+                            sender=pre.fund_eoa(),
+                        )
+                    ]
+                )
+            ],
+        )
 
 
 @pytest.mark.repricing(max_code_size_ratio=0)
@@ -148,90 +483,155 @@ def test_create(
     max_code_size_ratio: float,
     non_zero_data: bool,
     value: int,
+    gas_benchmark_value: int,
+    fixed_opcode_count: float | None,
 ) -> None:
     """Benchmark CREATE and CREATE2 instructions."""
     max_code_size = fork.max_code_size()
 
     code_size = int(max_code_size * max_code_size_ratio)
 
-    # Deploy the initcode template which has following design:
-    # ```
-    # PUSH3(code_size)
-    # [CODECOPY(DUP1) -- Conditional that non_zero_data is True]
-    # RETURN(0, DUP1)
-    # [<pad to code_size>] -- Conditional that non_zero_data is True]
-    # ```
-    code = (
-        Op.PUSH3(code_size)
-        + (Op.CODECOPY(size=Op.DUP1) if non_zero_data else Bytecode())
-        + Op.RETURN(0, Op.DUP1)
+    copy = (
+        Op.CODECOPY(
+            dest_offset=0,
+            offset=0,
+            size=code_size,
+            # gas accounting
+            data_size=code_size,
+            new_memory_size=code_size,
+        )
+        if non_zero_data
+        else Bytecode()
     )
-    if non_zero_data:  # Pad to code_size.
-        code += bytes([i % 256 for i in range(code_size - len(code))])
 
-    initcode_template_contract = pre.deploy_contract(code=code)
+    initcode_body = copy + Op.RETURN(
+        0,
+        code_size,
+        # gas accounting
+        code_deposit_size=code_size,
+        new_memory_size=0 if non_zero_data else code_size,
+    )
 
-    # Create the benchmark contract which has the following design:
-    # ```
-    # PUSH(value)
-    # [EXTCODECOPY(full initcode_template_contract)
-    # -> Conditional that non_zero_data is True]
-    #
-    # JUMPDEST (#)
-    # (CREATE|CREATE2)
-    # (CREATE|CREATE2)
-    # ...
-    # JUMP(#)
-    # ```
+    initcode = initcode_body
+
+    if non_zero_data:  # Pad to code_size so CODECOPY has code_size bytes.
+        initcode += bytes(
+            [i % 256 for i in range(code_size - len(initcode_body))]
+        )
+
+    initcode_template_contract = pre.deploy_contract(code=initcode)
+
+    # CALLDATA[0:32] = start index
+    # CALLDATA[32:64] = end index
     setup = (
-        Op.PUSH3(code_size)
-        + Op.PUSH1(value)
-        + Op.EXTCODECOPY(
+        Op.EXTCODECOPY(
             address=initcode_template_contract,
-            size=Op.DUP2,  # DUP2 refers to the EXTCODESIZE value above.
+            dest_offset=0,
+            offset=0,
+            size=len(initcode),
+            # gas accounting
+            data_size=len(initcode),
+            new_memory_size=len(initcode),
         )
+        + Op.ADD(1, Op.CALLDATALOAD(32))  # [end+1 = limit]
+        + Op.CALLDATALOAD(0)  # [start = index, limit]
     )
 
+    # CREATE2 takes the loop index (stack top) as its salt;
+    salt_kwarg: dict[str, Any] = {}
     if opcode == Op.CREATE2:
-        # For CREATE2, load salt from storage (persist across outer loop calls)
-        # If storage is 0 (first call), use initial salt of 42.
-        # Stack after setup: [..., value, code_size, salt]
-        setup += (
-            Op.SLOAD(0)  # Load saved salt
-            + Op.DUP1  # Duplicate for check
-            + Op.ISZERO  # Check if zero
-            + Op.PUSH1(42)  # Default salt
-            + Op.MUL  # 42 if zero, 0 if not
-            + Op.ADD  # Add to get final salt (saved or 42)
+        salt_kwarg = {"salt": Op.DUP1}
+
+    create_op = opcode(
+        value=value,
+        offset=0,
+        size=len(initcode),
+        init_code_size=len(initcode),
+        **salt_kwarg,
+    )
+
+    loop = While(
+        body=Op.POP(create_op),  # [index, limit]
+        condition=Op.PUSH1(1)  # [1, index, limit]
+        + Op.ADD  # [index+1, limit]
+        + Op.DUP1  # [index+1, index+1, limit]
+        + Op.DUP3  # [limit, index+1, index+1, limit]
+        + Op.GT,  # [limit > index+1, index+1, limit]
+    )
+
+    code = IteratingBytecode(
+        setup=setup,
+        iterating=loop,
+        iterating_subcall=initcode_body,
+        cleanup=Op.STOP,
+    )
+
+    contract_address = pre.deploy_contract(
+        code=code,
+        balance=10**9 if value > 0 else 0,
+    )
+
+    def calldata(iteration_count: int, start_iteration: int) -> bytes:
+        index_end = iteration_count + start_iteration - 1
+        return Hash(start_iteration) + Hash(index_end)
+
+    num_contracts = (
+        sum(
+            code.tx_iterations_by_gas_limit(
+                fork=fork,
+                gas_limit=gas_benchmark_value,
+                calldata=calldata,
+            )
+        )
+        if fixed_opcode_count is None
+        else int(fixed_opcode_count * 1000)
+    )
+
+    if num_contracts == 0:
+        pytest.skip(
+            "Benchmark gas value cannot cover a single contract creation."
         )
 
-    attack_block = (
-        # For CREATE:
-        # - DUP2 refers to the EXTOCODESIZE value  pushed in code_prefix.
-        # - DUP3 refers to PUSH1(value) above.
-        Op.POP(Op.CREATE(value=Op.DUP3, offset=0, size=Op.DUP2))
-        if opcode == Op.CREATE
-        # For CREATE2: we manually push the arguments because we leverage the
-        # return value of previous CREATE2 calls as salt for the next CREATE2
-        # call. After CREATE2, save result to storage for next outer loop call.
-        # - DUP4 is targeting the PUSH1(value) from the code_prefix.
-        # - DUP3 is targeting the EXTCODESIZE value pushed in code_prefix.
-        else Op.DUP3
-        + Op.PUSH0
-        + Op.DUP4
-        + Op.CREATE2
-        + Op.DUP1
-        + Op.PUSH0
-        + Op.SSTORE
-    )
+    with TestPhaseManager.execution():
+        sender = pre.fund_eoa()
+        if fixed_opcode_count is not None:
+            exec_txs = list(
+                code.transactions_by_total_iteration_count(
+                    fork=fork,
+                    total_iterations=num_contracts,
+                    sender=sender,
+                    to=contract_address,
+                    calldata=calldata,
+                )
+            )
+        else:
+            exec_txs = list(
+                code.transactions_by_gas_limit(
+                    fork=fork,
+                    gas_limit=gas_benchmark_value,
+                    sender=sender,
+                    to=contract_address,
+                    calldata=calldata,
+                )
+            )
+        total_gas_cost = sum(tx.gas_cost for tx in exec_txs)
+
+    post = {
+        compute_create_address(
+            address=contract_address,
+            nonce=1 + i,
+            salt=i,
+            initcode=initcode,
+            opcode=opcode,
+        ): Account(nonce=1)
+        for i in range(num_contracts)
+    }
 
     benchmark_test(
+        post=post,
         target_opcode=opcode,
-        code_generator=JumpLoopGenerator(
-            setup=setup,
-            attack_block=attack_block,
-            contract_balance=1_000_000_000 if value > 0 else 0,
-        ),
+        blocks=[Block(txs=exec_txs)],
+        expected_benchmark_gas_used=total_gas_cost,
     )
 
 
@@ -249,6 +649,7 @@ def test_creates_collisions(
     fork: Fork,
     opcode: Op,
     gas_benchmark_value: int,
+    fixed_opcode_count: float | None,
 ) -> None:
     """Benchmark CREATE and CREATE2 instructions with collisions."""
     # We deploy a "proxy contract" which is the contract that will be called in
@@ -265,18 +666,31 @@ def test_creates_collisions(
     # Note that these CREATE(2) calls will fail because in (**) below we pre-
     # alloc contracts with the same address as the ones that CREATE(2) will try
     # to create.
+    # The collision targets pre-exist (**), so per EIP-8037 the
+    # CREATE(2) never charges NEW_ACCOUNT state gas.
     proxy_contract_code = (
         Op.CREATE2(
-            value=Op.PUSH0, salt=Op.PUSH0, offset=Op.PUSH0, size=Op.PUSH0
+            value=Op.PUSH0,
+            salt=Op.PUSH0,
+            offset=Op.PUSH0,
+            size=Op.PUSH0,
+            # gas accounting
+            account_new=False,
         )
         if opcode == Op.CREATE2
-        else Op.CREATE(value=Op.PUSH0, offset=Op.PUSH0, size=Op.PUSH0)
+        else Op.CREATE(
+            value=Op.PUSH0,
+            offset=Op.PUSH0,
+            size=Op.PUSH0,
+            # gas accounting
+            account_new=False,
+        )
     )
     proxy_contract = pre.deploy_contract(code=proxy_contract_code)
 
-    # The CALL to the proxy contract needs at a minimum gas corresponding to
-    # the CREATE(2) plus extra required PUSH0s for arguments.
-    min_gas_required = proxy_contract_code.gas_cost(fork)
+    min_gas_required = proxy_contract_code.execution_cost(
+        fork
+    ) + proxy_contract_code.state_cost(fork)
     setup = Op.PUSH20(proxy_contract) + Op.PUSH3(min_gas_required)
     attack_block = Op.POP(
         # DUP7 refers to the PUSH3 above.
@@ -292,9 +706,12 @@ def test_creates_collisions(
         )
         pre.deploy_contract(address=addr, code=Op.INVALID)
     else:
-        # Heuristic to have an upper bound.
-        creation_cost = proxy_contract_code.gas_cost(fork)
-        max_contract_count = 2 * gas_benchmark_value // creation_cost
+        creation_cost = proxy_contract_code.execution_cost(fork)
+        max_contract_count = (
+            2 * gas_benchmark_value // creation_cost
+            if fixed_opcode_count is None
+            else int(fixed_opcode_count * 1000)
+        )
         for nonce in range(max_contract_count):
             addr = compute_create_address(address=proxy_contract, nonce=nonce)
             pre.deploy_contract(address=addr, code=Op.INVALID)
@@ -303,6 +720,51 @@ def test_creates_collisions(
         target_opcode=opcode,
         code_generator=JumpLoopGenerator(
             setup=setup, attack_block=attack_block
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.CREATE,
+        Op.CREATE2,
+    ],
+)
+@pytest.mark.parametrize(
+    "revert_size",
+    [
+        pytest.param(0, id="empty revert data"),
+        pytest.param(32, id="32 bytes of revert data"),
+        pytest.param(1024, id="1KiB of revert data"),
+    ],
+)
+def test_creates_reverting_initcode(
+    benchmark_test: BenchmarkTestFiller,
+    opcode: Op,
+    revert_size: int,
+) -> None:
+    """Benchmark CREATE and CREATE2 whose initcode reverts."""
+    initcode = Op.REVERT(0, revert_size)
+
+    salt_kwarg: dict[str, Any] = {}
+    if opcode == Op.CREATE2:
+        salt_kwarg = {"salt": 0}
+
+    attack_block = Op.POP(
+        opcode(
+            value=0,
+            offset=32 - len(initcode),
+            size=len(initcode),
+            **salt_kwarg,
+        )
+    )
+
+    benchmark_test(
+        target_opcode=opcode,
+        code_generator=JumpLoopGenerator(
+            setup=Op.MSTORE(0, initcode.hex()),
+            attack_block=attack_block,
         ),
     )
 
@@ -464,17 +926,6 @@ def test_selfdestruct_existing(
     )
     num_contracts = sum(iteration_counts)
 
-    start = 0
-    total_gas_cost = 0
-    for iters in iteration_counts:
-        total_gas_cost += attack_code.tx_gas_cost_by_iteration_count(
-            fork=fork,
-            iteration_count=iters,
-            start_iteration=start,
-            calldata=calldata,
-        )
-        start += iters
-
     def factory_calldata(iteration_count: int, start_iteration: int) -> bytes:
         index_end = iteration_count + start_iteration - 1
         return Hash(start_iteration) + Hash(index_end)
@@ -502,6 +953,8 @@ def test_selfdestruct_existing(
                 calldata=calldata,
             )
         )
+
+    total_gas_cost = sum(tx.gas_cost for tx in exec_txs)
 
     post = {}
     for i in range(num_contracts):
@@ -582,8 +1035,7 @@ def test_selfdestruct_created(
     attack_code = IteratingBytecode(
         setup=setup,
         iterating=loop,
-        iterating_subcall=selfdestructable_contract.gas_cost(fork)
-        + initcode.gas_cost(fork),
+        iterating_subcall=initcode + selfdestructable_contract,
         cleanup=Op.STOP,
     )
 
@@ -599,15 +1051,6 @@ def test_selfdestruct_created(
         )
     )
     num_iterations = sum(iteration_counts)
-
-    total_gas_cost = sum(
-        attack_code.tx_gas_cost_by_iteration_count(
-            fork=fork,
-            iteration_count=iters,
-            calldata=calldata,
-        )
-        for iters in iteration_counts
-    )
 
     attack_code_address = pre.deploy_contract(
         code=attack_code,
@@ -626,6 +1069,8 @@ def test_selfdestruct_created(
             )
         )
 
+    total_gas_cost = sum(tx.gas_cost for tx in exec_txs)
+
     post = {
         attack_code_address: Account(
             balance=num_iterations if value_bearing else 0
@@ -642,16 +1087,25 @@ def test_selfdestruct_created(
     )
 
 
-@pytest.mark.parametrize("value_bearing", [True, False])
+@pytest.mark.parametrize(
+    "value_bearing,beneficiary_is_self",
+    [
+        pytest.param(False, False, id="without value"),
+        pytest.param(True, False, id="with value moved to the creator"),
+        pytest.param(True, True, id="with value burnt to self"),
+    ],
+)
 def test_selfdestruct_initcode(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     value_bearing: bool,
+    beneficiary_is_self: bool,
     fork: Fork,
     gas_benchmark_value: int,
 ) -> None:
     """Benchmark SELFDESTRUCT instruction executed in initcode."""
-    initcode = Op.SELFDESTRUCT(Op.CALLER, address_warm=True)
+    beneficiary = Op.ADDRESS if beneficiary_is_self else Op.CALLER
+    initcode = Op.SELFDESTRUCT(beneficiary, address_warm=True)
 
     # CALLDATA[0:32] = iteration_count
     setup = (
@@ -698,15 +1152,6 @@ def test_selfdestruct_initcode(
     )
     num_iterations = sum(iteration_counts)
 
-    total_gas_cost = sum(
-        attack_code.tx_gas_cost_by_iteration_count(
-            fork=fork,
-            iteration_count=iters,
-            calldata=calldata,
-        )
-        for iters in iteration_counts
-    )
-
     attack_code_address = pre.deploy_contract(
         code=attack_code,
         balance=num_iterations if value_bearing else 0,
@@ -724,9 +1169,12 @@ def test_selfdestruct_initcode(
             )
         )
 
+    total_gas_cost = sum(tx.gas_cost for tx in exec_txs)
+
+    returned_to_creator = value_bearing and not beneficiary_is_self
     post = {
         attack_code_address: Account(
-            balance=num_iterations if value_bearing else 0
+            balance=num_iterations if returned_to_creator else 0
         )
     }
 

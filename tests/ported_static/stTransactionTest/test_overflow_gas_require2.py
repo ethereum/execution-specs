@@ -16,7 +16,8 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post_fork,
 )
 

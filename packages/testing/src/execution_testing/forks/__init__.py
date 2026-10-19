@@ -1,6 +1,16 @@
 """Ethereum test fork definitions."""
 
-from .base_fork import RefundTypes
+from .base_fork import RefundTypes, SystemCallPhase
+from .forks.eips.amsterdam.eip_8282 import (
+    BuilderDepositRequest,
+    BuilderExitRequest,
+)
+from .forks.eips.prague.eip_6110 import (
+    DepositRequest,
+    create_deposit_log_bytes,
+)
+from .forks.eips.prague.eip_7002 import WithdrawalRequest
+from .forks.eips.prague.eip_7251 import ConsolidationRequest
 from .forks.forks import (
     BPO1,
     BPO2,
@@ -10,6 +20,7 @@ from .forks.forks import (
     Amsterdam,
     ArrowGlacier,
     Berlin,
+    Bogota,
     Byzantium,
     Cancun,
     Constantinople,
@@ -28,6 +39,7 @@ from .forks.forks import (
     TangerineWhistle,
 )
 from .forks.transition import (
+    AmsterdamToBogotaAtTime15k,
     BerlinToLondonAt5,
     BPO1ToBPO2AtTime15k,
     BPO2ToAmsterdamAtTime15k,
@@ -71,11 +83,31 @@ from .helpers import (
     get_transition_fork_predecessor,
     get_transition_fork_successor,
     get_transition_forks,
+    ssz_schema_fork_key,
     transition_fork_from_to,
     transition_fork_to,
 )
+from .requests import (
+    FeeSystemContractRequest,
+    RequestBase,
+    Requests,
+    SystemContractRequest,
+    requests_list_to_bytes,
+)
 
 __all__ = [
+    "BuilderDepositRequest",
+    "BuilderExitRequest",
+    "ConsolidationRequest",
+    "DepositRequest",
+    "FeeSystemContractRequest",
+    "RequestBase",
+    "Requests",
+    "SystemCallPhase",
+    "SystemContractRequest",
+    "WithdrawalRequest",
+    "create_deposit_log_bytes",
+    "requests_list_to_bytes",
     "ALL_FORKS_WITH_TRANSITIONS",
     "ALL_FORKS",
     "ALL_TRANSITION_FORKS",
@@ -90,6 +122,7 @@ __all__ = [
     "TransitionForkOrNoneAdapter",
     "RefundTypes",
     "Amsterdam",
+    "AmsterdamToBogotaAtTime15k",
     "ArrowGlacier",
     "Berlin",
     "BerlinToLondonAt5",
@@ -121,6 +154,7 @@ __all__ = [
     "BPO2",
     "BPO2ToBPO3AtTime15k",
     "BPO2ToAmsterdamAtTime15k",
+    "Bogota",
     "BPO3",
     "BPO3ToBPO4AtTime15k",
     "BPO4",
@@ -141,6 +175,7 @@ __all__ = [
     "get_from_until_fork_set",
     "get_last_descendants",
     "get_selected_fork_set",
+    "ssz_schema_fork_key",
     "transition_fork_from_to",
     "transition_fork_to",
     "GasCosts",

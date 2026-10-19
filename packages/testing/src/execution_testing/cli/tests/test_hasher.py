@@ -8,21 +8,19 @@ from typing import Generator, List
 import pytest
 from click.testing import CliRunner
 
-from execution_testing.base_types import HexNumber
+from execution_testing.base_types import Account, Address, Hash
 from execution_testing.cli.gen_index import merge_partial_indexes
 from execution_testing.cli.hasher import HashableItem, hasher
 from execution_testing.fixtures.consume import IndexFile, TestCaseIndexFile
+from execution_testing.fixtures.pre_alloc_groups import PreAllocGroupBuilder
+from execution_testing.forks import Fork, Prague
+from execution_testing.test_types import Alloc, Environment
 
 HASH_1 = 0x1111111111111111111111111111111111111111111111111111111111111111
 HASH_2 = 0x2222222222222222222222222222222222222222222222222222222222222222
 HASH_3 = 0x3333333333333333333333333333333333333333333333333333333333333333
 HASH_4 = 0x4444444444444444444444444444444444444444444444444444444444444444
 HASH_9 = 0x9999999999999999999999999999999999999999999999999999999999999999
-
-
-def _hex_str(h: int) -> str:
-    """Convert an integer hash to its 0x-prefixed hex string."""
-    return f"0x{h:064x}"
 
 
 def _make_entry(
@@ -36,7 +34,7 @@ def _make_entry(
     return TestCaseIndexFile(
         id=test_id,
         json_path=Path(json_path),
-        fixture_hash=HexNumber(fixture_hash),
+        fixture_hash=fixture_hash,
         fork=fork,
         format=fmt,
     )
@@ -47,17 +45,40 @@ def _make_json_fixture(test_names_and_hashes: dict[str, int]) -> str:
     data = {}
     for name, h in test_names_and_hashes.items():
         data[name] = {
-            "_info": {"hash": _hex_str(h)},
+            "_info": {"hash": str(Hash(h))},
             "pre": {},
             "post": {},
         }
     return json.dumps(data)
 
 
-def create_fixture(path: Path, test_name: str, hash_value: str) -> None:
+def create_fixture(path: Path, test_name: str, hash_value: int) -> None:
     """Create a test fixture JSON file."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({test_name: {"_info": {"hash": hash_value}}}))
+    path.write_text(
+        json.dumps({test_name: {"_info": {"hash": str(Hash(hash_value))}}})
+    )
+
+
+def create_pre_alloc_group(
+    folder: Path, balance: int, fork: Fork = Prague
+) -> Path:
+    """Write a pre-allocation group file, as filling phase 1 produces it."""
+    folder.mkdir(parents=True, exist_ok=True)
+    builder = PreAllocGroupBuilder(
+        test_ids=["tests/test_group.py::test_group"],
+        environment=Environment().set_fork_requirements(fork),
+        fork=fork,
+        group_hash=0x0011223344556677,
+        pre=Alloc({Address(0x1000): Account(balance=balance)}),
+    )
+    group_file = folder / f"{builder.group_hash}.json"
+    group_file.write_text(
+        builder.build().model_dump_json(
+            by_alias=True, exclude_none=True, indent=2
+        )
+    )
+    return group_file
 
 
 class TestCompareIdenticalDirectories:
@@ -67,8 +88,8 @@ class TestCompareIdenticalDirectories:
         """Same content in both dirs should exit 0 with no output."""
         dir_a = tmp_path / "dir_a" / "state_tests"
         dir_b = tmp_path / "dir_b" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
-        create_fixture(dir_b / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
+        create_fixture(dir_b / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         result = runner.invoke(
@@ -85,8 +106,8 @@ class TestCompareDifferentDirectories:
         """Different hashes should exit 1 with diff in stdout."""
         dir_a = tmp_path / "dir_a" / "state_tests"
         dir_b = tmp_path / "dir_b" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
-        create_fixture(dir_b / "test.json", "test1", "0xdef456")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
+        create_fixture(dir_b / "test.json", "test1", 0xDEF456)
 
         runner = CliRunner()
         result = runner.invoke(
@@ -96,8 +117,68 @@ class TestCompareDifferentDirectories:
         assert "Fixture Hash Differences" in result.output
         # Verify the new format shows the path and both hashes
         assert "test1" in result.output
-        assert "0xabc123" in result.output
-        assert "0xdef456" in result.output
+        assert "abc123" in result.output
+        assert "def456" in result.output
+
+
+class TestComparePreAllocGroups:
+    """
+    Compare directories holding a `pre_alloc` group folder.
+
+    Group files are hashed by their `PreAllocGroup` content, which the hasher
+    keys off the folder name rather than off a trial parse, so a broken group
+    file fails as a group instead of falling through to the fixture path.
+    """
+
+    def test_compare_identical_groups(self, tmp_path: Path) -> None:
+        """Identical group files hash equal."""
+        for name in ("dir_a", "dir_b"):
+            root = tmp_path / name / "blockchain_tests_engine_x"
+            create_fixture(root / "test.json", "test1", 0xABC123)
+            create_pre_alloc_group(root / "pre_alloc", balance=1)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            hasher,
+            ["compare", str(tmp_path / "dir_a"), str(tmp_path / "dir_b")],
+        )
+        assert result.exit_code == 0
+        assert result.output == ""
+
+    def test_compare_different_groups(self, tmp_path: Path) -> None:
+        """A changed pre-allocation shows as a group file difference."""
+        for name, balance in (("dir_a", 1), ("dir_b", 2)):
+            root = tmp_path / name / "blockchain_tests_engine_x"
+            create_fixture(root / "test.json", "test1", 0xABC123)
+            create_pre_alloc_group(root / "pre_alloc", balance=balance)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            hasher,
+            ["compare", str(tmp_path / "dir_a"), str(tmp_path / "dir_b")],
+        )
+        assert result.exit_code == 1
+        assert "pre_alloc" in result.output
+        # The regular fixture sitting next to the group folder is untouched.
+        assert "test.json" not in result.output
+
+    def test_broken_group_file_reports_a_group_error(
+        self, tmp_path: Path
+    ) -> None:
+        """A malformed group file fails as a group, not as a fixture."""
+        root = tmp_path / "dir_a" / "blockchain_tests_engine_x"
+        pre_alloc = root / "pre_alloc"
+        pre_alloc.mkdir(parents=True)
+        (pre_alloc / "broken.json").write_text(json.dumps({"test1": {}}))
+
+        runner = CliRunner()
+        result = runner.invoke(
+            hasher,
+            ["compare", str(tmp_path / "dir_a"), str(tmp_path / "dir_a")],
+        )
+        assert result.exit_code == 2
+        assert "PreAllocGroup" in result.output
+        assert "_info" not in result.output
 
 
 class TestCompareMissingDirectory:
@@ -106,7 +187,7 @@ class TestCompareMissingDirectory:
     def test_compare_missing_directory(self, tmp_path: Path) -> None:
         """One path doesn't exist should exit 2 with error in stderr."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         result = runner.invoke(
@@ -122,7 +203,7 @@ class TestCompareFlagParity:
     def test_compare_flag_parity_files(self, tmp_path: Path) -> None:
         """Hasher -f X vs hasher compare -f X X should exit 0."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         # Compare same directory with -f flag
@@ -134,7 +215,7 @@ class TestCompareFlagParity:
     def test_compare_flag_parity_tests(self, tmp_path: Path) -> None:
         """Hasher -t X vs hasher compare -t X X should exit 0."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         # Compare same directory with -t flag
@@ -146,7 +227,7 @@ class TestCompareFlagParity:
     def test_compare_flag_parity_root(self, tmp_path: Path) -> None:
         """Hasher -r X vs hasher compare -r X X should exit 0."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         # Compare same directory with -r flag
@@ -162,7 +243,7 @@ class TestBackwardsCompatibility:
     def test_backwards_compat(self, tmp_path: Path) -> None:
         """Hasher FOLDER without subcommand should work as before."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         # Old syntax without subcommand
@@ -173,7 +254,7 @@ class TestBackwardsCompatibility:
     def test_explicit_hash_subcommand(self, tmp_path: Path) -> None:
         """Hasher hash FOLDER should work."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         # Explicit hash subcommand
@@ -186,7 +267,7 @@ class TestBackwardsCompatibility:
     ) -> None:
         """Both syntaxes should produce identical output."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         # Old syntax
@@ -234,7 +315,7 @@ class TestHashCommandFlags:
     def test_hash_with_files_flag(self, tmp_path: Path) -> None:
         """Hasher hash -f FOLDER should work."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         result = runner.invoke(hasher, ["hash", "-f", str(dir_a.parent)])
@@ -244,7 +325,7 @@ class TestHashCommandFlags:
     def test_hash_with_tests_flag(self, tmp_path: Path) -> None:
         """Hasher hash -t FOLDER should work."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         result = runner.invoke(hasher, ["hash", "-t", str(dir_a.parent)])
@@ -254,7 +335,7 @@ class TestHashCommandFlags:
     def test_hash_with_root_flag(self, tmp_path: Path) -> None:
         """Hasher hash -r FOLDER should only print root hash."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         result = runner.invoke(hasher, ["hash", "-r", str(dir_a.parent)])
@@ -272,8 +353,8 @@ class TestCompareDepthFlag:
         """--depth should limit how deep the comparison goes."""
         dir_a = tmp_path / "dir_a" / "folder" / "subfolder"
         dir_b = tmp_path / "dir_b" / "folder" / "subfolder"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
-        create_fixture(dir_b / "test.json", "test1", "0xdef456")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
+        create_fixture(dir_b / "test.json", "test1", 0xDEF456)
 
         runner = CliRunner()
 
@@ -296,8 +377,8 @@ class TestCompareDepthFlag:
         """--depth 2 should show subfolders."""
         dir_a = tmp_path / "dir_a" / "folder" / "subfolder"
         dir_b = tmp_path / "dir_b" / "folder" / "subfolder"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
-        create_fixture(dir_b / "test.json", "test1", "0xdef456")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
+        create_fixture(dir_b / "test.json", "test1", 0xDEF456)
 
         runner = CliRunner()
 
@@ -327,22 +408,22 @@ class TestCompareHierarchy:
         create_fixture(
             dir_a / "blockchain_tests" / "shanghai" / "test.json",
             "test1",
-            "0xaaa111",
+            0xAAA111,
         )
         create_fixture(
             dir_a / "state_tests" / "shanghai" / "test.json",
             "test1",
-            "0xbbb222",
+            0xBBB222,
         )
         create_fixture(
             dir_b / "blockchain_tests" / "shanghai" / "test.json",
             "test1",
-            "0xccc333",
+            0xCCC333,
         )
         create_fixture(
             dir_b / "state_tests" / "shanghai" / "test.json",
             "test1",
-            "0xddd444",
+            0xDDD444,
         )
 
         runner = CliRunner()
@@ -524,28 +605,6 @@ class TestHashableItemFromIndexEntries:
             hash_from_entries = HashableItem.from_index_entries(entries).hash()
             assert hash_from_folder == hash_from_entries
 
-    def test_entries_with_none_fixture_hash_skipped(self) -> None:
-        """Verify entries with fixture_hash=None are skipped."""
-        entries_with_none = [
-            _make_entry("t1", "tests/a.json", HASH_1),
-            TestCaseIndexFile(
-                id="t_null",
-                json_path=Path("tests/a.json"),
-                fixture_hash=None,
-                fork=None,
-                format=None,
-            ),
-        ]
-        entries_without_none = [
-            _make_entry("t1", "tests/a.json", HASH_1),
-        ]
-
-        hash_with = HashableItem.from_index_entries(entries_with_none).hash()
-        hash_without = HashableItem.from_index_entries(
-            entries_without_none
-        ).hash()
-        assert hash_with == hash_without
-
 
 class TestMergePartialIndexes:
     """Test the JSONL partial index merge pipeline end-to-end."""
@@ -569,7 +628,7 @@ class TestMergePartialIndexes:
         return {
             "id": test_id,
             "json_path": json_path,
-            "fixture_hash": _hex_str(fixture_hash),
+            "fixture_hash": str(Hash(fixture_hash)),
             "fork": fork,
             "format": fmt,
             "pre_hash": None,
@@ -862,4 +921,4 @@ class TestIndexFileMerge:
 
         merged = IndexFile.merge([idx_a, idx_b])
         expected_hash = HashableItem.from_index_entries(cases).hash()
-        assert merged.root_hash == HexNumber(expected_hash)
+        assert merged.root_hash == expected_hash

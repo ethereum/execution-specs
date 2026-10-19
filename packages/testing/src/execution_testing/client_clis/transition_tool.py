@@ -169,7 +169,7 @@ class OutputCache:
             # Without this, every cached subcall would retain its own
             # `output/alloc.json` on disk for the test's lifetime - O(N) for
             # an N-block chained test.
-            alloc.get()
+            alloc.materialize()
             alloc._keepalive = None
         self._cache[subkey] = value
 
@@ -202,10 +202,12 @@ class TransitionTool(EthereumCLI):
     debug_dump_dir: Path | None = None
     call_counter: int = 0
     opcode_count: OpcodeCount | None = None
+    opcode_count_per_block: List[OpcodeCount] | None = None
 
     supports_opcode_count: ClassVar[bool] = False
     supports_xdist: ClassVar[bool] = True
     supports_blob_params: ClassVar[bool] = False
+    attests_block_access_list_hash: ClassVar[bool] = True
     fork_name_map: ClassVar[Dict[str, str]] = {}
 
     @abstractmethod
@@ -314,6 +316,7 @@ class TransitionTool(EthereumCLI):
         Reset the opcode count to zero.
         """
         self.opcode_count = OpcodeCount({})
+        self.opcode_count_per_block = []
 
     @dataclass
     class TransitionToolData:
@@ -670,7 +673,7 @@ class TransitionTool(EthereumCLI):
                 dump_files_to_directory(
                     debug_output_path,
                     {
-                        "output/alloc.json": output.alloc.raw,
+                        "output/alloc.json": output.alloc,
                         "output/result.json": output.result,
                         "output/txs.rlp": str(output.body),
                         "response_info.txt": response_info,
@@ -988,6 +991,8 @@ class TransitionTool(EthereumCLI):
             and self.opcode_count is not None
         ):
             self.opcode_count += result.result.opcode_count
+            if self.opcode_count_per_block is not None:
+                self.opcode_count_per_block.append(result.result.opcode_count)
         return result
 
     def evaluate(

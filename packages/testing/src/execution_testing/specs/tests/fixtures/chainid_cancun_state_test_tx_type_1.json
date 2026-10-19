@@ -1,7 +1,7 @@
 {
     "000/my_chain_id_test/Cancun/tx_type_1": {
         "_info": {
-            "hash": "0x49130f37343fa73f364ed83e2a2e7146c4effa64cdb6b371f5f2bf3f2004fade",
+            "hash": "0x0c9cdd9849022dfb46f20fc00a646394a58e0fc8847f6e3cf578dff67378e6bc",
             "fixture_format": "state_test"
         },
         "env": {
@@ -39,6 +39,7 @@
             }
         },
         "transaction": {
+            "chainId": "0x01",
             "accessLists": [
                 [
                     {

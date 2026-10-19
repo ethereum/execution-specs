@@ -1,6 +1,5 @@
 """Tests for pytest commands (e.g., fill) click CLI."""
 
-import json
 import shutil
 from pathlib import Path
 from typing import Callable
@@ -10,6 +9,7 @@ from click.testing import CliRunner, Result
 from pytest import MonkeyPatch, Pytester, RunResult, TempPathFactory
 
 import execution_testing.cli.pytest_commands.plugins.filler.filler
+from execution_testing.fixtures import PreAllocGroup
 
 from ..pytest_commands.fill import fill
 
@@ -246,12 +246,13 @@ class TestFillPytester:
         pytester.copy_example(
             name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
         )
+        chain_id = 12345
         result = pytester.runpytest(
             "-c",
             "pytest-fill.ini",
             "--generate-pre-alloc-groups",
             "--chain-id",
-            "12345",
+            str(chain_id),
             f"--output={default_fixtures_output}",
             str(test_file),
             "-q",
@@ -265,8 +266,10 @@ class TestFillPytester:
         assert pre_alloc_files, f"No pre-alloc files found in {pre_alloc_dir}"
 
         for pre_alloc_file in pre_alloc_files:
-            payload = json.loads(pre_alloc_file.read_text())
-            assert payload["chainId"] == 12345, pre_alloc_file
+            payload = PreAllocGroup.model_validate_json(
+                pre_alloc_file.read_text()
+            )
+            assert payload.chain_id == 12345, pre_alloc_file
 
     def test_fill_html_option(
         self,

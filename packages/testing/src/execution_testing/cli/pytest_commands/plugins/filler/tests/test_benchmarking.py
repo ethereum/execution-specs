@@ -18,8 +18,18 @@ from execution_testing.cli.pytest_commands.plugins.shared.fixture_output import 
     format_fork_subdir,
 )
 
-# EVM binary for fill tests; defaults to geth evm
-BENCHMARK_EVM_T8N = os.environ.get("EVM_BIN", "evm")
+# EVM binary for fill tests. Unset (or empty) -> the in-repo EELS t8n
+# (fill's default when --evm-bin is omitted). Set EVM_BIN to fill
+# against a specific binary, e.g. geth's `evm`.
+BENCHMARK_EVM_T8N = os.environ.get("EVM_BIN") or None
+
+
+def _evm_bin_args() -> List[str]:
+    """Return `--evm-bin` args, or none to use fill's EELS default."""
+    if BENCHMARK_EVM_T8N is None:
+        return []
+    return [f"--evm-bin={BENCHMARK_EVM_T8N}"]
+
 
 test_module_dummy = textwrap.dedent(
     """\
@@ -236,7 +246,7 @@ def test_benchmark_gas_values_split_into_subdirs(
         "--gas-benchmark-values",
         "1,2",
         "-m",
-        "blockchain_test and not derived_test",
+        "blockchain_test and primary_format",
         "--no-html",
         "--skip-index",
         f"--output={output_dir}",
@@ -317,11 +327,11 @@ def test_fixed_opcode_count_split_into_subdirs(
         "Prague",
         "--fixed-opcode-count=1,2",
         "-m",
-        "blockchain_test and not derived_test",
+        "blockchain_test and primary_format",
         "--no-html",
         "--skip-index",
         f"--output={output_dir}",
-        f"--evm-bin={BENCHMARK_EVM_T8N}",
+        *_evm_bin_args(),
         "tests/benchmark/dummy_test_module/",
         "-q",
     )
@@ -937,7 +947,7 @@ def test_fixed_opcode_count_config_file_parametrized(
         "--fork",
         "Prague",
         "tests/benchmark/dummy_test_module/",
-        f"--evm-bin={BENCHMARK_EVM_T8N}",
+        *_evm_bin_args(),
         "--fixed-opcode-count",
         "-v",
     )
@@ -1069,7 +1079,7 @@ def test_fixed_opcode_count_per_parameter_patterns(
         "--fork",
         "Prague",
         "tests/benchmark/dummy_test_module/",
-        f"--evm-bin={BENCHMARK_EVM_T8N}",
+        *_evm_bin_args(),
         "--fixed-opcode-count",
         "-v",
     )
@@ -1109,7 +1119,7 @@ def test_cli_mode_ignores_per_parameter_patterns(
         "Prague",
         "--fixed-opcode-count=1,5",
         "tests/benchmark/dummy_test_module/",
-        f"--evm-bin={BENCHMARK_EVM_T8N}",
+        *_evm_bin_args(),
         "-v",
     )
 

@@ -13,6 +13,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionReceipt,
+    compute_create_address,
 )
 
 from .spec import ref_spec_7708, transfer_log
@@ -81,6 +82,32 @@ def test_call_with_value_mainnet(
     )
 
     post = {recipient: Account(balance=100)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_create_endowment_mainnet(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Test that a CREATE endowment emits a transfer log on mainnet."""
+    sender = pre.fund_eoa()
+    create_value = 1
+
+    contract = pre.deploy_contract(
+        Op.CREATE(value=create_value, offset=0, size=0),
+        balance=create_value,
+    )
+    created = compute_create_address(address=contract, nonce=1)
+
+    tx = Transaction(
+        sender=sender,
+        to=contract,
+        expected_receipt=TransactionReceipt(
+            logs=[transfer_log(contract, created, create_value)]
+        ),
+    )
+
+    post = {created: Account(balance=create_value)}
     state_test(pre=pre, post=post, tx=tx)
 
 

@@ -17,10 +17,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -32,6 +33,10 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
+# Kept before EIP-7954: the 0xC000 / 0xC001 initcode sizes are baked into
+# the vectors. The raised limit is covered with fork-derived sizes by
+# tests/shanghai/eip3860_initcode and
+# tests/amsterdam/eip7954_increase_max_contract_size.
 @pytest.mark.valid_before("EIP7954")
 @pytest.mark.parametrize(
     "d, g, v",

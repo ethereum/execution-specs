@@ -8,7 +8,9 @@ from typing import Any, Type
 
 import ijson  # type: ignore[import-untyped]
 import pytest
+from tenacity import retry, retry_if_exception_type, stop_after_attempt
 
+from execution_testing.base_types import StateCommitment
 from execution_testing.client_clis import (
     CLINotFoundInPathError,
     EvmOneTransitionTool,
@@ -22,6 +24,7 @@ from execution_testing.client_clis.cli_types import (
     LazyAllocFile,
     LazyAllocJson,
     LazyAllocStr,
+    OpcodeCount,
     Result,
     TransitionToolInput,
     TransitionToolOutput,
@@ -101,6 +104,57 @@ def test_from_binary(
     )
 
 
+class MockEvmoneVersion:
+    """Stand-in for the completed `evmone --version` process."""
+
+    stdout = b"evmone 0.22.0"
+    stderr = None
+    returncode = 0
+
+
+def test_a_subclass_failing_to_detect_prints_nothing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    A subclass whose detection raises is skipped without writing to
+    stdout, which `fill --output stdout` streams fixtures to.
+    """
+
+    def failing_detect(*args: Any) -> bool:
+        del args
+        raise RuntimeError("cannot read this version")
+
+    monkeypatch.setattr(shutil, "which", lambda _: "evmone")
+    monkeypatch.setattr(
+        subprocess, "run", lambda *_a, **_k: MockEvmoneVersion()
+    )
+    for tool in TransitionTool.registered_tools:
+        if tool is not EvmOneTransitionTool:
+            monkeypatch.setattr(
+                tool, "detect_binary", classmethod(failing_detect)
+            )
+    tool = TransitionTool.from_binary_path(binary_path=Path("evmone"))
+    assert isinstance(tool, EvmOneTransitionTool)
+    assert capsys.readouterr().out == ""
+
+
+def test_a_matched_tool_that_cannot_be_built_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    A detected tool whose constructor fails raises that error instead of
+    `UnknownCLIError`: evmone takes no `server_url`.
+    """
+    monkeypatch.setattr(shutil, "which", lambda _: "evmone")
+    monkeypatch.setattr(
+        subprocess, "run", lambda *_a, **_k: MockEvmoneVersion()
+    )
+    with pytest.raises(TypeError, match="server_url"):
+        TransitionTool.from_binary_path(
+            binary_path=Path("evmone"), server_url="http://localhost:1"
+        )
+
+
 def test_unknown_binary_path() -> None:
     """
     Test that `from_binary_path` raises `UnknownCLIError` for unknown
@@ -115,6 +169,7 @@ def test_unknown_binary_path() -> None:
 TEST_ALLOC = Alloc.model_validate(
     {0xA: {"balance": 1, "nonce": 2, "code": "0x00"}}
 )
+TEST_ALLOC.migrate_state_commitment(StateCommitment.MPT)
 TEST_ALLOC_STATE_ROOT = TEST_ALLOC.state_root()
 
 
@@ -132,7 +187,7 @@ TEST_ALLOC_STATE_ROOT = TEST_ALLOC.state_root()
 def test_lazy_alloc(ty: Type[LazyAlloc], raw: Any) -> None:
     """Test LazyAlloc types."""
     lazy_instance = ty(raw=raw, _state_root=TEST_ALLOC_STATE_ROOT)
-    assert lazy_instance.get() == TEST_ALLOC
+    assert lazy_instance.materialize() == TEST_ALLOC
     assert lazy_instance.state_root() == TEST_ALLOC_STATE_ROOT
 
 
@@ -143,7 +198,7 @@ def test_lazy_alloc_file(tmp_path: Path) -> None:
     lazy_instance = LazyAllocFile(
         raw=alloc_path, _state_root=TEST_ALLOC_STATE_ROOT
     )
-    assert lazy_instance.get() == TEST_ALLOC
+    assert lazy_instance.materialize() == TEST_ALLOC
     assert lazy_instance.state_root() == TEST_ALLOC_STATE_ROOT
 
 
@@ -164,11 +219,12 @@ def test_lazy_alloc_file_handles_mixed_entries(tmp_path: Path) -> None:
             0xC: {"balance": "0xff", "nonce": 0, "code": "0x"},
         }
     )
+    alloc.migrate_state_commitment(StateCommitment.MPT)
     state_root = alloc.state_root()
     alloc_path = tmp_path / "alloc.json"
     alloc_path.write_text(alloc.model_dump_json())
     lazy_instance = LazyAllocFile(raw=alloc_path, _state_root=state_root)
-    assert lazy_instance.get() == alloc
+    assert lazy_instance.materialize() == alloc
     assert lazy_instance.state_root() == state_root
 
 
@@ -201,7 +257,7 @@ def test_model_validate_files_uses_lazy_alloc_file(tmp_path: Path) -> None:
 
     assert isinstance(output.alloc, LazyAllocFile)
     assert output.alloc.raw == alloc_path
-    assert output.alloc.get() == TEST_ALLOC
+    assert output.alloc.materialize() == TEST_ALLOC
 
 
 def test_transition_tool_input_serializes_lazy_alloc_file(
@@ -240,7 +296,7 @@ def test_to_files_copies_chained_lazy_alloc_file_without_serialize(
     """
     Chained-block handoff: `to_files` should copy the backing alloc file
     byte-for-byte rather than round-tripping through
-    `LazyAllocFile.get().model_dump_json()`. Verified by populating the
+    `LazyAllocFile.materialize().model_dump_json()`. Verified by populating the
     file with bytes that don't match what pydantic would re-emit and
     asserting those exact bytes survive the dump.
     """
@@ -299,27 +355,38 @@ def test_lazy_alloc_file_keepalive_pins_temp_dir() -> None:
     import gc
     import tempfile
 
-    keep = tempfile.TemporaryDirectory()
-    keep_path = Path(keep.name)
-    alloc_path = keep_path / "alloc.json"
-    alloc_path.write_text(TEST_ALLOC.model_dump_json())
+    def materialize_alloc() -> Path:
+        keep = tempfile.TemporaryDirectory()
+        keep_path = Path(keep.name)
+        alloc_path = keep_path / "alloc.json"
+        alloc_path.write_text(TEST_ALLOC.model_dump_json())
 
-    lazy = LazyAllocFile(
-        raw=alloc_path,
-        _state_root=TEST_ALLOC_STATE_ROOT,
-        _keepalive=keep,
+        lazy = LazyAllocFile(
+            raw=alloc_path,
+            _state_root=TEST_ALLOC_STATE_ROOT,
+            _keepalive=keep,
+        )
+        # The keepalive must preserve the file across garbage collection.
+        del keep
+        gc.collect()
+        assert alloc_path.exists()
+        assert lazy.materialize() == TEST_ALLOC
+        return keep_path
+
+    # Exit the producing frame before checking finalizer-driven cleanup.
+    keep_path = materialize_alloc()
+
+    @retry(
+        retry=retry_if_exception_type(AssertionError),
+        stop=stop_after_attempt(5),
+        reraise=True,
     )
-    # Releasing our handle leaves the file alive via the keepalive on lazy.
-    del keep
-    assert alloc_path.exists()
-    assert lazy.get() == TEST_ALLOC
+    def assert_cleaned_up() -> None:
+        # PyPy may need multiple collections to run the temp dir finalizer.
+        gc.collect()
+        assert not keep_path.exists()
 
-    # Dropping the LazyAllocFile drops the keepalive; TemporaryDirectory's
-    # finalizer wipes the directory. PyPy doesn't refcount, so trigger GC
-    # explicitly to run the finalizer deterministically.
-    del lazy
-    gc.collect()
-    assert not keep_path.exists()
+    assert_cleaned_up()
 
 
 def test_dump_files_to_directory_copies_lazy_alloc_file(
@@ -350,10 +417,10 @@ def test_dump_files_to_directory_lazy_alloc_file_after_backing_removed(
 ) -> None:
     """
     On chained blocks, the previous block's t8n temp dir is cleaned up after
-    its alloc is materialized via ``.get()``. The resulting ``LazyAllocFile``
-    still carries a now-stale ``.raw`` path. Debug dumps must fall back to
-    re-serializing the cached ``Alloc`` instead of attempting to copy the
-    missing backing file.
+    its alloc is materialized via ``.materialize()``. The resulting
+    ``LazyAllocFile`` still carries a now-stale ``.raw`` path. Debug dumps must
+    fall back to re-serializing the cached ``Alloc`` instead of attempting to
+    copy the missing backing file.
     """
     from execution_testing.client_clis.file_utils import (
         dump_files_to_directory,
@@ -362,7 +429,7 @@ def test_dump_files_to_directory_lazy_alloc_file_after_backing_removed(
     source = tmp_path / "source_alloc.json"
     source.write_text(TEST_ALLOC.model_dump_json())
     lazy = LazyAllocFile(raw=source, _state_root=TEST_ALLOC_STATE_ROOT)
-    lazy.get()
+    lazy.materialize()
     source.unlink()
 
     dump_dir = tmp_path / "dump"
@@ -396,7 +463,7 @@ def test_lazy_alloc_file_malformed_json_raises(
     lazy = LazyAllocFile(raw=alloc_path, _state_root=TEST_ALLOC_STATE_ROOT)
 
     with pytest.raises(ijson.common.IncompleteJSONError):
-        lazy.get()
+        lazy.materialize()
 
 
 @pytest.mark.parametrize(
@@ -421,7 +488,7 @@ def test_lazy_alloc_file_non_object_top_level_raises(
     lazy = LazyAllocFile(raw=alloc_path, _state_root=TEST_ALLOC_STATE_ROOT)
 
     with pytest.raises(ValueError, match="Expected JSON object"):
-        lazy.get()
+        lazy.materialize()
 
 
 def test_lazy_alloc_file_empty_object_yields_empty_alloc(
@@ -435,4 +502,66 @@ def test_lazy_alloc_file_empty_object_yields_empty_alloc(
     alloc_path.write_bytes(b"{}")
     lazy = LazyAllocFile(raw=alloc_path, _state_root=TEST_ALLOC_STATE_ROOT)
 
-    assert lazy.get() == Alloc.model_validate({})
+    assert lazy.materialize() == Alloc.model_validate({})
+
+
+def _output_with_opcode_count(counts: dict) -> TransitionToolOutput:
+    """Build a minimal t8n output carrying the given opcode counts."""
+    result = Result.model_validate(
+        {
+            "stateRoot": "0x" + "00" * 32,
+            "txRoot": "0x" + "00" * 32,
+            "receiptsRoot": "0x" + "00" * 32,
+            "logsHash": "0x" + "00" * 32,
+            "logsBloom": "0x" + "00" * 256,
+            "receipts": [],
+            "gasUsed": "0x0",
+        }
+    )
+    result.opcode_count = OpcodeCount.model_validate(counts)
+    return TransitionToolOutput(
+        alloc=LazyAllocJson(
+            raw=TEST_ALLOC.model_dump(), _state_root=TEST_ALLOC_STATE_ROOT
+        ),
+        result=result,
+    )
+
+
+def test_opcode_count_accumulation() -> None:
+    """
+    `process_result` accumulates the per-test opcode count total and also
+    records each call's (per-block) count separately.
+    """
+    tool = ExecutionSpecsTransitionTool()
+    tool.reset_opcode_count()
+
+    tool.process_result(_output_with_opcode_count({"PUSH1": 5, "SSTORE": 2}))
+    tool.process_result(_output_with_opcode_count({"PUSH1": 3}))
+
+    assert tool.opcode_count == OpcodeCount.model_validate(
+        {"PUSH1": 8, "SSTORE": 2}
+    )
+    assert tool.opcode_count_per_block == [
+        OpcodeCount.model_validate({"PUSH1": 5, "SSTORE": 2}),
+        OpcodeCount.model_validate({"PUSH1": 3}),
+    ]
+
+    tool.reset_opcode_count()
+    assert tool.opcode_count == OpcodeCount({})
+    assert tool.opcode_count_per_block == []
+
+
+def test_an_opcode_count_accepts_every_name_geth_reports() -> None:
+    """
+    Geth's t8n reports an undefined byte as ``"opcode 0xb8 not defined"``
+    and still names EOF opcodes the fork does not define. The count keeps
+    the byte and drops the names with no opcode here, rather than failing
+    the whole result.
+    """
+    count = OpcodeCount.model_validate(
+        {"ADD": 3, "opcode 0xb8 not defined": 2, "EOFCREATE": 1}
+    )
+    assert {str(k): v for k, v in count.root.items()} == {
+        "ADD": 3,
+        "0xb8": 2,
+    }

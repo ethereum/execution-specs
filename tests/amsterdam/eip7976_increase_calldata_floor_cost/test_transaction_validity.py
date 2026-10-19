@@ -21,7 +21,10 @@ from .spec import ref_spec_7976
 REFERENCE_SPEC_GIT_PATH = ref_spec_7976.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7976.version
 
-pytestmark = [pytest.mark.valid_from("EIP7976")]
+pytestmark = [
+    pytest.mark.valid_from("EIP7976"),
+    pytest.mark.inclusion_test,
+]
 
 
 # All tests in this file are parametrized with the following parameters:
@@ -338,6 +341,47 @@ def test_transaction_validity_type_4(
     """
     Test transaction validity for transactions with access lists, authorization
     lists, but no contract creation.
+    """
+    state_test(
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@pytest.mark.parametrize(
+    "data_byte",
+    [pytest.param(b"\x00", id="zero_bytes")],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "authorization_list",
+    [
+        pytest.param(
+            [Address(1)],
+            id="single_authorization",
+        ),
+        pytest.param(
+            [Address(i + 1) for i in range(10)],
+            id="multiple_authorizations",
+        ),
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "ty",
+    [pytest.param(4, id="type_4")],
+)
+def test_transaction_validity_zero_byte_data(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx: Transaction,
+) -> None:
+    """
+    Pin the standard zero-byte weight at both validity boundaries.
+
+    Use authorizations to lift the standard cost above the floor for
+    short calldata, then cross into floor-dominated pricing.
     """
     state_test(
         pre=pre,

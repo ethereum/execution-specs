@@ -12,6 +12,7 @@ from execution_testing.test_types.execution_witness.modifiers import (
     add_code,
     add_state_node,
     clear_headers,
+    duplicate_header_at,
     prepend_header,
     remove_code,
     remove_code_at,
@@ -21,6 +22,7 @@ from execution_testing.test_types.execution_witness.modifiers import (
     reverse_codes,
     reverse_headers,
     reverse_state_nodes,
+    swap_headers_at,
 )
 
 
@@ -123,6 +125,16 @@ def test_execution_witness_header_modifiers() -> None:
     removed = remove_header_at(-1)(witness)
     assert removed.headers == [Bytes(b"aa")]
 
+    duplicated = duplicate_header_at(0)(witness)
+    assert duplicated.headers == [Bytes(b"aa"), Bytes(b"aa"), Bytes(b"bb")]
+
+    duplicated_last = duplicate_header_at(-1)(witness)
+    assert duplicated_last.headers == [
+        Bytes(b"aa"),
+        Bytes(b"bb"),
+        Bytes(b"bb"),
+    ]
+
     replaced = replace_header_at(0, Bytes(b"cc"))(witness)
     assert replaced.headers == [Bytes(b"cc"), Bytes(b"bb")]
 
@@ -131,6 +143,9 @@ def test_execution_witness_header_modifiers() -> None:
 
     reversed_headers = reverse_headers()(witness)
     assert reversed_headers.headers == [Bytes(b"bb"), Bytes(b"aa")]
+
+    swapped = swap_headers_at(0, -1)(witness)
+    assert swapped.headers == [Bytes(b"bb"), Bytes(b"aa")]
 
     cleared = clear_headers()(witness)
     assert cleared.headers == []

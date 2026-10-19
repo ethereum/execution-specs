@@ -1,0 +1,13 @@
+general/code_coverage/second_client = Optional
+opcode = EIP does not introduce or modify an opcode
+precompile = EIP does not introduce a precompile
+removed_precompile = EIP does not remove a precompile
+system_contract = EIP does not introduce a system contract
+transaction_type = EIP does not introduce a new transaction type
+block_header_field = EIP does not add any new block header fields
+block_body_field = EIP does not add any new block body fields
+gas_refunds_changes = EIP introduces no new refund mechanism; it removes the EIP-7702 existing-authority refund, whose absence is pinned by the exact-gas authorization tests
+blob_count_changes = EIP does not introduce any blob count changes
+execution_layer_request = EIP does not introduce an execution layer request
+new_transaction_validity_constraint = EIP modifies the existing intrinsic gas validity constraint rather than introducing a new one
+block_level_constraint = EIP does not introduce a block-level validation constraint

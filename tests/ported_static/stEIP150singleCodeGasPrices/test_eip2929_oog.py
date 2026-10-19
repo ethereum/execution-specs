@@ -3,6 +3,13 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/eip2929OOGFiller.yml
+
+@manually-enhanced: Do not overwrite. EIP-7928 block access list
+expectations added: a frame starved of its cold access cost leaves the
+target account out of the list. The transaction's gas limit is exactly
+`TX_MAX_GAS_LIMIT`, so its state gas reservoir is zero and no storage
+can be created here; the SSTORE case therefore pins the implicit read,
+not a write boundary.
 """
 
 import pytest
@@ -11,6 +18,8 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BlockAccessListExpectation,
     Bytes,
     Environment,
     Hash,
@@ -330,4 +339,73 @@ def test_eip2929_oog(
 
     post = {contract_11: Account(storage={0: 0})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    expected_block_access_list = None
+    if fork.is_eip_enabled(7928):
+        # Each starved frame halts at its cold access charge, so the
+        # account it reaches for never enters the block access list.
+        # SSTORE is the exception: it pays the slot's access cost before
+        # its implicit read, so the slot lands in `storage_reads`, and
+        # the write cannot be recorded either way because this
+        # transaction has no state gas to create storage with.
+        expectations: dict[Address, BalAccountExpectation | None]
+        if d == 0:  # SLOAD
+            expectations = {contract_0: BalAccountExpectation.empty()}
+        elif d == 1:  # SSTORE
+            expectations = {
+                contract_1: BalAccountExpectation(
+                    storage_reads=[0], storage_changes=[]
+                )
+            }
+        elif d == 2:  # BALANCE
+            expectations = {
+                contract_2: BalAccountExpectation.empty(),
+                contract_10: None,
+            }
+        elif d == 3:  # EXTCODESIZE
+            expectations = {
+                contract_3: BalAccountExpectation.empty(),
+                contract_2: None,
+            }
+        elif d == 4:  # EXTCODECOPY
+            expectations = {
+                contract_4: BalAccountExpectation.empty(),
+                contract_2: None,
+            }
+        elif d == 5:  # EXTCODEHASH
+            expectations = {
+                contract_5: BalAccountExpectation.empty(),
+                contract_2: None,
+            }
+        elif d == 6:  # CALL
+            expectations = {
+                contract_6: BalAccountExpectation.empty(),
+                contract_10: None,
+            }
+        elif d == 7:  # CALLCODE
+            expectations = {
+                contract_7: BalAccountExpectation.empty(),
+                contract_10: None,
+            }
+        elif d == 8:  # DELEGATECALL
+            expectations = {
+                contract_8: BalAccountExpectation.empty(),
+                contract_10: None,
+            }
+        elif d == 9:  # STATICCALL
+            expectations = {
+                contract_9: BalAccountExpectation.empty(),
+                contract_10: None,
+            }
+        else:
+            raise ValueError(f"unhandled case: d={d}")
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations=expectations
+        )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+        expected_block_access_list=expected_block_access_list,
+    )

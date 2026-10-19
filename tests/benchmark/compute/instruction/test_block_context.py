@@ -11,6 +11,7 @@ Supported Opcodes:
 - CHAINID
 - BASEFEE
 - BLOBBASEFEE
+- SLOTNUM
 """
 
 import pytest
@@ -78,4 +79,14 @@ def test_blockhash(
         code_generator=ExtCallGenerator(
             attack_block=Op.BLOCKHASH(block_number)
         ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.valid_from("Amsterdam")
+def test_slotnum(benchmark_test: BenchmarkTestFiller) -> None:
+    """Benchmark SLOTNUM instruction."""
+    benchmark_test(
+        target_opcode=Op.SLOTNUM,
+        code_generator=ExtCallGenerator(attack_block=Op.SLOTNUM),
     )

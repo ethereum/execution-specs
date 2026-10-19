@@ -161,7 +161,7 @@ The following must be updated manually afterwards:
 
 The sync tool uses an RPC provider to fetch and validate blocks against EELS. The validated state can be stored in a local DB. Because syncing directly with the specs is very slow, the sync tool can also leverage the `ethereum_optimized` module, which contains alternative implementations of routines in EELS optimized for speed rather than clarity/readability.
 
-Invoke the tool with `ethereum-spec-sync`. Arguments:
+Invoke the tool with `uv run --group optimized ethereum-spec-sync` (the `optimized` dependency group provides the `ethereum_optimized` module). Arguments:
 
 - `rpc-url`: Endpoint providing the Ethereum RPC API. Defaults to `http://localhost:8545/`.
 - `unoptimized`: Don't use the optimized state/ethash (this can be extremely slow).

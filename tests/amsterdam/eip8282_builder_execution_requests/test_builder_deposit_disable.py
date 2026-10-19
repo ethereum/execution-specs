@@ -17,13 +17,13 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    BuilderDepositRequest,
     Fork,
     Header,
     Requests,
     SystemContractInteractionTransaction,
 )
 
-from .helpers import BuilderDepositRequest
 from .spec import Spec, ref_spec_8282
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8282.git_path
@@ -38,13 +38,14 @@ pytestmark = [
 @pytest.fixture
 def inhibited_pre(pre: Alloc, fork: Fork) -> Alloc:
     """Seed the builder deposit predeploy with the disable inhibitor set."""
-    predeploy = fork.pre_allocation_blockchain()[
-        Spec.BUILDER_DEPOSIT_CONTRACT_ADDRESS
+    predeploy = Alloc.model_validate(fork.pre_allocation_blockchain())[
+        BuilderDepositRequest.system_contract_address
     ]
-    pre[Spec.BUILDER_DEPOSIT_CONTRACT_ADDRESS] = Account(
-        nonce=predeploy["nonce"],
-        code=predeploy["code"],
-        storage={Spec.EXCESS_STORAGE_SLOT: Spec.EXCESS_INHIBITOR},
+    assert predeploy is not None
+    pre[BuilderDepositRequest.system_contract_address] = Account(
+        nonce=predeploy.nonce,
+        code=predeploy.code,
+        storage={BuilderDepositRequest.excess_slot: Spec.EXCESS_INHIBITOR},
     )
     return pre
 
@@ -54,7 +55,7 @@ def deposit_request() -> BuilderDepositRequest:
     return BuilderDepositRequest(
         pubkey=0x01,
         withdrawal_credentials=0x02,
-        amount=Spec.BUILDER_MIN_DEPOSIT // 10**9,
+        amount=BuilderDepositRequest.min_deposit_wei // 10**9,
         signature=0x03,
         fee=BuilderDepositRequest.get_fee(0),
     )
@@ -80,9 +81,9 @@ def test_builder_deposit_inhibited(
     # the accepted request's calldata words remain in the queue's storage.
     calldata = deposit_request().calldata
     residual_record_slots = {
-        Spec.QUEUE_STORAGE_OFFSET + i: calldata[i * 32 : (i + 1) * 32].ljust(
-            32, b"\x00"
-        )
+        BuilderDepositRequest.queue_offset + i: calldata[
+            i * 32 : (i + 1) * 32
+        ].ljust(32, b"\x00")
         for i in range((len(calldata) + 31) // 32)
     }
 
@@ -101,9 +102,9 @@ def test_builder_deposit_inhibited(
             ),
         ],
         post={
-            Spec.BUILDER_DEPOSIT_CONTRACT_ADDRESS: Account(
+            BuilderDepositRequest.system_contract_address: Account(
                 storage={
-                    Spec.EXCESS_STORAGE_SLOT: 0,
+                    BuilderDepositRequest.excess_slot: 0,
                     **residual_record_slots,
                 },
             ),

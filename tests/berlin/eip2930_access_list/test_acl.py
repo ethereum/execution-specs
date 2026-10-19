@@ -104,6 +104,7 @@ def test_account_storage_warm_cold_state(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "access_lists",
     [

@@ -1,5 +1,7 @@
 """Fork-transition tests for EIP-7928 (Block-level Access Lists)."""
 
+from typing import Type
+
 import pytest
 from execution_testing import (
     Account,
@@ -7,20 +9,29 @@ from execution_testing import (
     BalAccountExpectation,
     BalBalanceChange,
     BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
+    BuilderDepositRequest,
+    BuilderExitRequest,
     Bytes,
     EIPChecklist,
     EngineAPIError,
     Environment,
+    FeeSystemContractRequest,
     Hash,
     Header,
+    Op,
+    SystemContractInteractionTransaction,
     Transaction,
+    TransactionReceipt,
     TransitionFork,
 )
 
+from ..eip7708_eth_transfer_logs.spec import transfer_log
 from .spec import ref_spec_7928
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -96,9 +107,9 @@ def test_invalid_pre_fork_block_with_bal_hash_field(
     Reject a pre-Amsterdam block whose header carries
     `block_access_list_hash`.
 
-    The engine fixture sends a pre-Amsterdam `newPayload` carrying an
-    empty `blockAccessList` param; the client's reconstructed header
-    omits the hash, so the block hash check fails.
+    The engine fixture omits `blockAccessList`, keeping the pre-fork API
+    parameters valid. Its block hash still commits to the extra header
+    field, so the client's reconstructed header cannot match it.
     """
     sender = pre.fund_eoa()
     receiver = pre.fund_eoa(amount=0)
@@ -127,11 +138,11 @@ def test_bal_invalid_engine_payload_field_before_fork(
     pre: Alloc,
 ) -> None:
     """
-    Reject a pre-Amsterdam `newPayload` that carries a `blockAccessList`.
+    Reject an extra BAL field under the inherited strict-field API rule.
 
-    The block and its header are otherwise valid, so the spurious payload
-    field is the only defect: clients that silently drop unknown
-    `newPayloadV4` fields would answer VALID and must fail this test.
+    Prague's newPayloadV4 inherits Cancun's newPayloadV3 parameter checks
+    and accepts ExecutionPayloadV3, which has no blockAccessList field.
+    The otherwise-valid block isolates the required Invalid params error.
     """
     sender = pre.fund_eoa()
     receiver = pre.nonexistent_account()
@@ -145,8 +156,7 @@ def test_bal_invalid_engine_payload_field_before_fork(
             Block(
                 timestamp=FORK_TIMESTAMP - 1,
                 txs=[tx],
-                # A valid empty-BAL encoding: field presence alone, not
-                # decodability, must trigger the rejection.
+                # Isolate field presence from BAL decoding validity.
                 engine_new_payload_block_access_list=Bytes(b"\xc0"),
                 exception=BlockException.INCORRECT_BLOCK_FORMAT,
                 engine_api_error_code=EngineAPIError.InvalidParams,
@@ -249,4 +259,264 @@ def test_fork_transition_bal_size_constraint(
         post={},
         blocks=[pre_fork_block, at_fork_block],
         genesis_environment=Environment(gas_limit=block_gas_limit),
+    )
+
+
+def _single_request_queue_expectation(
+    request_class: Type[FeeSystemContractRequest],
+    enqueue_index: int,
+    system_call_index: int,
+    post_balance: int,
+) -> BalAccountExpectation:
+    """
+    Build the BAL expectation for a builder predeploy dequeuing a single
+    request in a clean sweep: count and queue tail rise to one and reset,
+    while the excess and head slots stay read-only.
+    """
+
+    def queue_slot_changes() -> list:
+        return [
+            BalStorageChange(block_access_index=enqueue_index, post_value=1),
+            BalStorageChange(
+                block_access_index=system_call_index, post_value=0
+            ),
+        ]
+
+    return BalAccountExpectation(
+        balance_changes=[
+            BalBalanceChange(
+                block_access_index=enqueue_index, post_balance=post_balance
+            )
+        ],
+        storage_changes=[
+            BalStorageSlot(
+                slot=request_class.count_slot,
+                slot_changes=queue_slot_changes(),
+            ),
+            BalStorageSlot(
+                slot=request_class.queue_tail_slot,
+                slot_changes=queue_slot_changes(),
+            ),
+        ],
+        storage_reads=[
+            request_class.excess_slot,
+            request_class.queue_head_slot,
+        ],
+    )
+
+
+@pytest.mark.valid_at_transition_to("Amsterdam")
+def test_bal_fork_transition_builder_requests(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify the BAL of an activation block that dequeues EIP-8282 builder
+    requests.
+
+    The first Amsterdam block carries the chain's first builder deposit
+    and exit requests: the BAL must record both predeploys' request queue
+    slots, the enqueuing transaction indices, and the clean-sweep dequeue
+    by the post-execution system calls.
+    """
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa(amount=0)
+
+    deposit = BuilderDepositRequest(
+        pubkey=1,
+        withdrawal_credentials=2,
+        amount=BuilderDepositRequest.min_deposit_wei // 10**9,
+        signature=3,
+        fee=BuilderDepositRequest.get_fee(0),
+    )
+    builder_exit = BuilderExitRequest(
+        pubkey=1, fee=BuilderExitRequest.get_fee(0)
+    )
+
+    deposit_interaction = SystemContractInteractionTransaction(
+        requests=[deposit]
+    ).update_pre(pre)
+    exit_interaction = SystemContractInteractionTransaction(
+        requests=[builder_exit]
+    ).update_pre(pre)
+    txs = deposit_interaction.transactions() + exit_interaction.transactions()
+    system_call_index = len(txs) + 1
+
+    deposit_sender = deposit_interaction.sender_account
+    exit_sender = exit_interaction.sender_account
+    assert deposit_sender is not None and exit_sender is not None
+
+    blocks = [
+        Block(
+            timestamp=FORK_TIMESTAMP - 1,
+            txs=[Transaction(sender=alice, to=bob, value=100, gas_price=10)],
+            header_verify=Header(
+                block_access_list_hash=Header.EMPTY_FIELD,
+            ),
+        ),
+        Block(
+            timestamp=FORK_TIMESTAMP,
+            txs=txs,
+            expected_block_access_list=BlockAccessListExpectation(
+                account_expectations={
+                    deposit_sender: BalAccountExpectation(
+                        nonce_changes=[
+                            BalNonceChange(block_access_index=1, post_nonce=1)
+                        ],
+                    ),
+                    exit_sender: BalAccountExpectation(
+                        nonce_changes=[
+                            BalNonceChange(block_access_index=2, post_nonce=1)
+                        ],
+                    ),
+                    BuilderDepositRequest.system_contract_address: (
+                        _single_request_queue_expectation(
+                            BuilderDepositRequest,
+                            1,
+                            system_call_index,
+                            deposit.value,
+                        )
+                    ),
+                    BuilderExitRequest.system_contract_address: (
+                        _single_request_queue_expectation(
+                            BuilderExitRequest,
+                            2,
+                            system_call_index,
+                            builder_exit.value,
+                        )
+                    ),
+                }
+            ),
+        ),
+    ]
+
+    blockchain_test(
+        pre=pre,
+        blocks=blocks,
+        post={
+            BuilderDepositRequest.system_contract_address: Account(
+                balance=deposit.value
+            ),
+            BuilderExitRequest.system_contract_address: Account(
+                balance=builder_exit.value
+            ),
+        },
+    )
+
+
+@pytest.mark.valid_at_transition_to("Amsterdam")
+def test_bal_fork_transition_transfers_and_storage(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify the BAL of an activation block with ordinary transfers,
+    storage writes and Transfer logs.
+
+    The first Amsterdam block mixes a plain EOA transfer with a contract
+    call that writes storage and forwards value: the BAL must carry the
+    balance and storage changes while the receipts carry the EIP-7708
+    Transfer logs.
+    """
+    transfer_value = 100
+    forward_value = 500
+
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa(amount=0)
+    carol = pre.fund_eoa()
+    dave = pre.fund_eoa(amount=0)
+    relay = pre.deploy_contract(
+        code=Op.SSTORE(0, 1)
+        + Op.POP(Op.CALL(Op.GAS, dave, forward_value, 0, 0, 0, 0)),
+        balance=forward_value,
+    )
+
+    pre_fork_tx = Transaction(
+        sender=alice, to=bob, value=transfer_value, gas_price=10
+    )
+    tx_transfer = Transaction(
+        sender=alice,
+        to=bob,
+        value=transfer_value,
+        expected_receipt=TransactionReceipt(
+            logs=[transfer_log(alice, bob, transfer_value)]
+        ),
+    )
+    tx_relay = Transaction(
+        sender=carol,
+        to=relay,
+        expected_receipt=TransactionReceipt(
+            logs=[transfer_log(relay, dave, forward_value)]
+        ),
+    )
+
+    blocks = [
+        Block(
+            timestamp=FORK_TIMESTAMP - 1,
+            txs=[pre_fork_tx],
+            header_verify=Header(
+                block_access_list_hash=Header.EMPTY_FIELD,
+            ),
+        ),
+        Block(
+            timestamp=FORK_TIMESTAMP,
+            txs=[tx_transfer, tx_relay],
+            expected_block_access_list=BlockAccessListExpectation(
+                account_expectations={
+                    alice: BalAccountExpectation(
+                        nonce_changes=[
+                            BalNonceChange(block_access_index=1, post_nonce=2)
+                        ],
+                    ),
+                    bob: BalAccountExpectation(
+                        balance_changes=[
+                            BalBalanceChange(
+                                block_access_index=1,
+                                post_balance=transfer_value * 2,
+                            )
+                        ],
+                    ),
+                    carol: BalAccountExpectation(
+                        nonce_changes=[
+                            BalNonceChange(block_access_index=2, post_nonce=1)
+                        ],
+                    ),
+                    relay: BalAccountExpectation(
+                        balance_changes=[
+                            BalBalanceChange(
+                                block_access_index=2, post_balance=0
+                            )
+                        ],
+                        storage_changes=[
+                            BalStorageSlot(
+                                slot=0,
+                                slot_changes=[
+                                    BalStorageChange(
+                                        block_access_index=2, post_value=1
+                                    )
+                                ],
+                            )
+                        ],
+                    ),
+                    dave: BalAccountExpectation(
+                        balance_changes=[
+                            BalBalanceChange(
+                                block_access_index=2,
+                                post_balance=forward_value,
+                            )
+                        ],
+                    ),
+                }
+            ),
+        ),
+    ]
+
+    blockchain_test(
+        pre=pre,
+        blocks=blocks,
+        post={
+            bob: Account(balance=transfer_value * 2),
+            dave: Account(balance=forward_value),
+            relay: Account(balance=0, storage={0: 1}),
+        },
     )

@@ -14,7 +14,7 @@ from execution_testing.fixtures import (
     PreAllocGroups,
 )
 from execution_testing.forks import Prague
-from execution_testing.test_types import Environment
+from execution_testing.test_types import AllocGroupHash, Environment
 
 from ..filler import FillingSession
 
@@ -84,15 +84,17 @@ class TestFillingSession:
         config = MockConfig(use_pre_alloc_groups=True)
 
         # Mock the file system operations
+        group_hash = AllocGroupHash.from_preimage("test_hash")
         test_group_builder = PreAllocGroupBuilder(
             pre=Alloc().model_dump(mode="json"),
             environment=Environment()
             .set_fork_requirements(Prague)
             .model_dump(mode="json", exclude={"parent_hash"}),
             fork=Prague.name(),
+            group_hash=group_hash,
         )
         test_group = test_group_builder.build()
-        mock_groups = PreAllocGroups(root={"test_hash": test_group})
+        mock_groups = PreAllocGroups(root={group_hash: test_group})
 
         with patch(
             "execution_testing.cli.pytest_commands.plugins.filler.filler.FixtureOutput",
@@ -152,7 +154,7 @@ class TestFillingSession:
             generate_all_formats=True, use_pre_alloc_groups=True
         )
 
-        mock_groups = PreAllocGroups(root={})
+        mock_groups = PreAllocGroups()
 
         with patch(
             "execution_testing.cli.pytest_commands.plugins.filler.filler.FixtureOutput",
@@ -178,15 +180,17 @@ class TestFillingSession:
         """Test getting a pre-alloc group by hash."""
         config = MockConfig(use_pre_alloc_groups=True)
 
+        group_hash = AllocGroupHash.from_preimage("test_hash")
         test_group_builder = PreAllocGroupBuilder(
             pre=Alloc().model_dump(mode="json"),
             environment=Environment()
             .set_fork_requirements(Prague)
             .model_dump(mode="json", exclude={"parent_hash"}),
             fork=Prague.name(),
+            group_hash=group_hash,
         )
         test_group = test_group_builder.build()
-        mock_groups = PreAllocGroups(root={"test_hash": test_group})
+        mock_groups = PreAllocGroups(root={group_hash: test_group})
 
         with patch(
             "execution_testing.cli.pytest_commands.plugins.filler.filler.FixtureOutput",
@@ -198,13 +202,18 @@ class TestFillingSession:
                 ):
                     session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
-        assert session.get_pre_alloc_group("test_hash") is test_group
+        assert (
+            session.get_pre_alloc_group(
+                AllocGroupHash.from_preimage("test_hash")
+            )
+            is test_group
+        )
 
     def test_get_pre_alloc_group_not_found(self) -> None:
         """Test getting a non-existent pre-alloc group."""
         config = MockConfig(use_pre_alloc_groups=True)
 
-        mock_groups = PreAllocGroups(root={})
+        mock_groups = PreAllocGroups()
 
         with patch(
             "execution_testing.cli.pytest_commands.plugins.filler.filler.FixtureOutput",
@@ -219,7 +228,9 @@ class TestFillingSession:
         with pytest.raises(
             ValueError, match="Pre-allocation hash .* not found"
         ):
-            session.get_pre_alloc_group("missing_hash")
+            session.get_pre_alloc_group(
+                AllocGroupHash.from_preimage("missing_hash")
+            )
 
     def test_get_pre_alloc_group_not_initialized(self) -> None:
         """Test getting pre-alloc group when not initialized."""
@@ -234,7 +245,9 @@ class TestFillingSession:
         with pytest.raises(
             ValueError, match="Pre-allocation groups not initialized"
         ):
-            session.get_pre_alloc_group("any_hash")
+            session.get_pre_alloc_group(
+                AllocGroupHash.from_preimage("any_hash")
+            )
 
     def test_save_pre_alloc_groups(self) -> None:
         """Test saving pre-alloc groups to disk."""
@@ -251,13 +264,15 @@ class TestFillingSession:
         # here we only need a non-empty mapping for save_pre_alloc_groups
         # to exercise its mkdir/to_folder path.
         assert session.pre_alloc_group_builders is not None
-        session.pre_alloc_group_builders.root["test_hash"] = (
+        group_hash = AllocGroupHash.from_preimage("test_hash")
+        session.pre_alloc_group_builders.root[group_hash] = (
             PreAllocGroupBuilder(
                 pre=Alloc().model_dump(mode="json"),
                 environment=Environment()
                 .set_fork_requirements(Prague)
                 .model_dump(mode="json", exclude={"parent_hash"}),
                 fork=Prague.name(),
+                group_hash=group_hash,
             )
         )
 
