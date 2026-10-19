@@ -257,14 +257,14 @@ class MempoolAdmission(BaseExecute):
                 raise
             known = eth_rpc.transaction_known(signed.hash)
             logger.info(f"{label} rejected: {e.__cause__}")
-            if entry.accepted and known:
+            if entry.accepted is not False and known:
                 # A retried send of a delivered transaction is answered
                 # as a duplicate.
                 logger.warning(f"{label} rejected but known; admitted")
                 admitted_hash = signed.hash
             elif entry.accepted:
                 verdict = f"{label} was rejected: {e.__cause__}"
-            elif known:
+            elif entry.accepted is False and known:
                 verdict = (
                     f"{label} was rejected with '{e.__cause__}' "
                     "but the client knows it"
@@ -276,7 +276,7 @@ class MempoolAdmission(BaseExecute):
                     f"{label} was admitted as {admitted_hash}, "
                     f"expected {signed.hash}"
                 )
-            elif not entry.accepted:
+            elif entry.accepted is False:
                 verdict = f"{label} was admitted, expected rejection"
         if verdict is not None:
             if self._depends_on_included(tx, admitted, eth_rpc):

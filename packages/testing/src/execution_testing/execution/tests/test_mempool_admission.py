@@ -339,3 +339,15 @@ def test_family_marks() -> None:
         "blob_transaction_test",
         "mempool_admission",
     ]
+
+
+@pytest.mark.parametrize("admit", [True, False], ids=["admitted", "rejected"])
+def test_policy_verdict_accepts_either_answer(admit: bool) -> None:
+    """
+    Test that a transaction left to mempool policy passes whether the
+    client admits it, then mines it, or rejects it.
+    """
+    tx = signed(ALICE, 0)
+    rpc = FakeEthRPC(rejected=set() if admit else {tx.hash})
+    run(rpc, [MempoolTransaction(tx=tx, accepted=None)])
+    assert rpc.waited == ([tx.hash] if admit else [])
