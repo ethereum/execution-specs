@@ -237,18 +237,54 @@ def test_pending_il_appendability_by_affordability(
     )
 
 
+def set_code_authorization(pre: Alloc) -> AuthorizationTuple:
+    """Return an authorization for a pending type-4 IL tx to carry."""
+    return AuthorizationTuple(
+        signer=pre.fund_eoa(),
+        address=pre.deploy_contract(Op.STOP),
+        nonce=0,
+    )
+
+
+def flipped_parity(tx_type: int, v: int) -> int:
+    """Return the `v` that recovers with the other parity of the same r."""
+    if tx_type == 0:
+        # EIP-155: v = 35 + 2 * chain_id + parity. Flipping the low bit of
+        # v would change the chain id instead.
+        return v + 1 if (v - 35) % 2 == 0 else v - 1
+    return v ^ 1
+
+
+# Smallest r whose x^3 + 7 has no square root mod p, so no curve point has
+# it as its x-coordinate.
+R_NOT_ON_CURVE = 5
+
+SIGNATURE_CASES = [
+    "valid",
+    "all_zeros",
+    "r_zero",
+    "r_equals_n",
+    "r_not_on_curve",
+    "s_zero",
+    "high_s",
+    "y_parity_2",
+]
+
+
 @pytest.mark.parametrize(
-    "signature_type",
+    "tx_type,signature_type",
     [
-        "valid",
-        "all_zeros",
-        "invalid_s",
+        pytest.param(tx_type, case, id=f"type_{tx_type}-{case}")
+        for tx_type in (0, 1, 2, 4)
+        for case in SIGNATURE_CASES
+        # A legacy tx has no y_parity; its v also carries the chain id.
+        if not (tx_type == 0 and case == "y_parity_2")
     ],
 )
 def test_block_with_invalid_signature_pending_il_tx_is_valid(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
+    tx_type: int,
     signature_type: str,
 ) -> None:
     """
@@ -256,16 +292,20 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
 
     FOCIL reuses normal transaction validation for missing IL transactions.
     If the signature is invalid, the tx is not appendable and omission is
-    allowed.
+    allowed. Each case breaks one signature check while keeping `v` valid
+    for this chain, so the chain id check doesn't skip the tx first. The
+    `all_zeros` case on a legacy tx is the exception: its `v` of 0 fails
+    the chain id check, not the signature checks.
     """
-    sender = pre.fund_eoa()
-    recipient = pre.nonexistent_account()
-    calc = fork.transaction_intrinsic_cost_calculator()
-    simple_transfer_gas = calc()
+    authorization_list = (
+        [set_code_authorization(pre)] if tx_type == 4 else None
+    )
     signed_tx = Transaction(
-        sender=sender,
-        to=recipient,
-        gas_limit=simple_transfer_gas,
+        ty=tx_type,
+        sender=pre.fund_eoa(),
+        to=pre.nonexistent_account(),
+        gas_limit=100_000,
+        authorization_list=authorization_list,
     ).with_signature_and_sender()
     expected_satisfied = True
     match signature_type:
@@ -275,9 +315,21 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
             signed_tx.v = HexNumber(0)
             signed_tx.r = HexNumber(0)
             signed_tx.s = HexNumber(0)
-        case "invalid_s":
-            signed_tx.v = HexNumber(signed_tx.v ^ 1)
+        case "r_zero":
+            signed_tx.r = HexNumber(0)
+        case "r_equals_n":
+            signed_tx.r = HexNumber(int(SECP256K1N))
+        case "r_not_on_curve":
+            signed_tx.r = HexNumber(R_NOT_ON_CURVE)
+        case "s_zero":
+            signed_tx.s = HexNumber(0)
+        case "high_s":
+            # The same signature with s mirrored and the parity flipped
+            # still recovers the sender, so only the low-s rule rejects it.
+            signed_tx.v = HexNumber(flipped_parity(tx_type, signed_tx.v))
             signed_tx.s = HexNumber(int(SECP256K1N) - signed_tx.s)
+        case "y_parity_2":
+            signed_tx.v = HexNumber(2)
         case _:
             raise ValueError(f"unknown signature type: {signature_type}")
 
@@ -289,6 +341,40 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
                 txs=[],
                 inclusion_list_txs=[signed_tx],
                 expected_inclusion_list_satisfied=expected_satisfied,
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+@pytest.mark.parametrize(
+    "authorization_count", [0, 1], ids=["empty", "one_authorization"]
+)
+def test_pending_il_appendability_by_authorization_list(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    authorization_count: int,
+) -> None:
+    """
+    A pending type-4 IL tx with an empty authorization list may be omitted.
+    """
+    pending_tx = Transaction(
+        ty=4,
+        sender=pre.fund_eoa(),
+        to=pre.nonexistent_account(),
+        authorization_list=[
+            set_code_authorization(pre) for _ in range(authorization_count)
+        ],
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                inclusion_list_txs=[pending_tx],
+                expected_inclusion_list_satisfied=authorization_count == 0,
             )
         ],
     )
@@ -843,7 +929,9 @@ def test_pending_il_appendability_by_chain_id(
     "tx_type",
     [
         pytest.param(0, id="legacy_gas_price"),
+        pytest.param(1, id="access_list_gas_price"),
         pytest.param(2, id="eip1559_max_fee"),
+        pytest.param(4, id="set_code_max_fee"),
     ],
 )
 @pytest.mark.parametrize("fee_cap", ["base_fee", "one_wei_below_base_fee"])
@@ -875,20 +963,23 @@ def test_pending_il_appendability_by_base_fee(
             raise ValueError(f"unknown fee cap: {fee_cap}")
 
     match tx_type:
-        case 0:
+        case 0 | 1:
             pending_tx = Transaction(
-                ty=0,
+                ty=tx_type,
                 sender=pre.fund_eoa(),
                 to=pre.nonexistent_account(),
                 gas_price=max_fee,
             )
-        case 2:
+        case 2 | 4:
             pending_tx = Transaction(
-                ty=2,
+                ty=tx_type,
                 sender=pre.fund_eoa(),
                 to=pre.nonexistent_account(),
                 max_fee_per_gas=max_fee,
                 max_priority_fee_per_gas=0,
+                authorization_list=(
+                    [set_code_authorization(pre)] if tx_type == 4 else None
+                ),
             )
         case _:
             raise ValueError(f"unknown tx type: {tx_type}")
