@@ -93,6 +93,28 @@ which writes the response the from the `t8n-server` to the console output:
 
 The `t8n.sh` is written to the debug directory for all [supported t8n tools](./transition_tool_support.md).
 
+## Printed Traces
+
+If a test fails while filling with `--traces`, the traces of each transaction are also printed as a table, one row per execution step. Use `-s` so that pytest does not capture the output:
+
+```console
+fill tests/frontier/opcodes/test_dup.py --fork Frontier --traces -s
+```
+
+```text
+ Step   PC   Op             Gas    Cost   Depth   Stack
+ ───────────────────────────────────────────────────────────────────
+    0    0   PUSH1    119979000       3       1
+    1    2   PUSH1    119978997       3       1   0x0
+    2    4   PUSH1    119978994       3       1   0x1 0x0
+   ...
+   17   34   DUP10    119978949       3       1   0x10 0xf 0xe 0xd ...
+   18   35   PUSH1    119978946       3       1   0x7 0x10 0xf 0xe ...
+   19   37   SSTORE   119978943   20000       1   0x0 0x7 0x10 0xf ...
+```
+
+The stack column shows the top four values, topmost first, and op names are indented by call depth. An error column is added when a step has an error. The full traces are still written to the `.jsonl` files in the EVM dump directory.
+
 ## Verifying Test Fixtures via `evm blocktest`
 
 The `--verify-fixtures` flag can be used to run go-ethereum's `evm blocktest` command in order to verify the generated JSON test fixtures.
