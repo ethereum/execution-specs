@@ -14,7 +14,7 @@ For example, this selects the published image for the [`tests@v20.0.2` release](
   --client go-ethereum
 ```
 
-Add `--docker.pull` to refresh an image already cached locally. A release tag fixes the tests; [pin a digest](images/how_to.md#reproduce-a-run-exactly) to fix the entire image.
+Add `--docker.pull` to refresh an image already cached locally. A release tag is immutable: it always runs the same tests with the same framework. To pick up framework fixes, such as client exception mappings, use `latest` or a devnet channel such as `glamsterdam-devnet-8`, and [pin a digest](images/how_to.md#reproduce-a-run-exactly) when a run must be reproduced exactly.
 
 The old `fixtures` and `branch` build arguments require `Dockerfile.git`, selected through `--config`; see [Build from source](images/how_to.md#build-from-source-with-dockerfilegit). They are ignored by the default Dockerfiles.
 

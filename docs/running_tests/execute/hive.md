@@ -31,7 +31,7 @@ To select a published release explicitly:
     --sim.buildarg tag=v20.0.2
 ```
 
-To reproduce a dashboard failure, match its simulator image, client version and configuration, and test selection. For [exact reproduction](../hive/images/how_to.md#reproduce-a-run-exactly), pin the image digest; the default `latest` image may have changed since the dashboard run. A [source build](../hive/images/how_to.md#build-from-source-with-dockerfilegit) runs both tests and framework from the selected branch; it does not select a separate release test snapshot.
+To reproduce a dashboard failure, match its simulator image, client version and configuration, and test selection. If the dashboard ran a release tag, the same tag runs the same image. If it ran `latest` or a devnet channel, [pin the image digest](../hive/images/how_to.md#reproduce-a-run-exactly): the channel may have moved since the dashboard run. A [source build](../hive/images/how_to.md#build-from-source-with-dockerfilegit) runs both tests and framework from the selected branch; it does not select a separate release test snapshot.
 
 See [Hive](../hive/index.md) for help installing and configuring Hive.
 

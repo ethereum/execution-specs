@@ -19,7 +19,7 @@ For example, run the latest published mainnet release with:
 
 Hive accepts the short simulator name. The image contains the fixtures and framework, so you do not need to install `consume` separately.
 
-To reproduce a dashboard failure, match its simulator image, client version and configuration, and test selection. Follow [Reproduce a run exactly](../hive/images/how_to.md#reproduce-a-run-exactly) to pin the simulator image digest, and [Select a single test](../hive/common_options.md#exact-test-id-match) to filter the failing test. The default `latest` image may have changed since the dashboard run.
+To reproduce a dashboard failure, match its simulator image, client version and configuration, and test selection. A release tag always runs the same image. For `latest` or a devnet channel, which may have moved since the dashboard run, follow [Reproduce a run exactly](../hive/images/how_to.md#reproduce-a-run-exactly) to pin the simulator image digest. Use [Select a single test](../hive/common_options.md#exact-test-id-match) to filter the failing test.
 
 Once you can reproduce the failure, switch to development mode if you need to inspect Python state or edit the simulator. You can also [build images locally](../hive/images/how_to.md#build-the-images-from-a-local-checkout) to test changes in containers.
 
