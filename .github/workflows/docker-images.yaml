@@ -56,6 +56,12 @@ permissions:
   packages: write
   actions: read
 
+# An explicit bash shell runs with pipefail, so that a failing
+# `git ls-remote | cut` fails its step instead of yielding an empty commit.
+defaults:
+  run:
+    shell: bash
+
 # One queue per line: the mainnet line and the devnets. Push and release runs
 # of a line write the same channel tags, so they must not overlap. Retain
 # pending runs: a release must publish the fixture and tests images that later
