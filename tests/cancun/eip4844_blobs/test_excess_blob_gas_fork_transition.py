@@ -638,7 +638,6 @@ def test_fork_transition_excess_blob_gas_at_blob_genesis(
     ],
 )
 @pytest.mark.parametrize_by_fork("reserve_price_case", reserve_price_cases)
-@pytest.mark.slow
 def test_fork_transition_excess_blob_gas_post_blob_genesis(
     blockchain_test: BlockchainTestFiller,
     genesis_environment: Environment,
