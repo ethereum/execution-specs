@@ -137,6 +137,10 @@ jobs:
           RELEASE_REPO: ${{ inputs.release_repo || github.repository }}
         run: |
           eest() { uv run --directory packages/testing eest "$@"; }
+          # A scheduled caller's event carries no repository: ask the API.
+          if [ -z "$DEFAULT_BRANCH" ]; then
+            DEFAULT_BRANCH=$(gh api "repos/$GITHUB_REPOSITORY" --jq .default_branch)
+          fi
           branch="" sha="" nightly=""
           if [ -n "$NIGHTLY_SHA" ]; then
             mode=nightly nightly=--nightly sha=$NIGHTLY_SHA branch=$DEFAULT_BRANCH
