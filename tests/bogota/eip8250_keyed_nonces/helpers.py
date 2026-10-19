@@ -27,11 +27,15 @@ def keyed_nonce_first_use(fork: Fork) -> int:
 def nonce_field_calldata(nonce_keys: Sequence[int], nonce_seq: int) -> bytes:
     """
     Return the encoding of the nonce fields the EIP prices as transaction
-    data: `rlp(nonce_keys) || rlp(nonce_seq)`.
+    data. A keyed single-use sequence is encoded and signed but exempt
+    from data pricing.
     """
-    return rlp.encode([U256(key) for key in nonce_keys]) + rlp.encode(
-        U256(nonce_seq)
+    priced_sequence = (
+        b""
+        if nonce_keys and nonce_seq == Spec.MAX_NONCE_SEQ
+        else rlp.encode(U256(nonce_seq))
     )
+    return rlp.encode([U256(key) for key in nonce_keys]) + priced_sequence
 
 
 def keyed_nonce_access_cost(fork: Fork, nonce_keys: Sequence[int]) -> int:

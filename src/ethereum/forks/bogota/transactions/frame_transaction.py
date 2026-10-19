@@ -847,10 +847,18 @@ def nonce_keys_hash(tx: FrameTransaction) -> Hash32:
 
 def nonce_calldata(tx: FrameTransaction) -> Bytes:
     """
-    Return the encoding of the transaction's nonce fields, which is
-    priced as transaction data.
+    Return the nonce-field bytes priced as transaction data.
+
+    A keyed single-use sequence is encoded and signed but exempt from
+    data pricing, so using it is not more expensive than a small
+    sequential nonce.
     """
-    return rlp.encode(tx.nonce_keys) + rlp.encode(tx.nonce_seq)
+    priced_sequence = (
+        b""
+        if tx.nonce_keys and tx.nonce_seq == MAX_NONCE_SEQ
+        else rlp.encode(tx.nonce_seq)
+    )
+    return rlp.encode(tx.nonce_keys) + priced_sequence
 
 
 def signature_verification_gas(signature: FrameSignature) -> ExecutionGas:

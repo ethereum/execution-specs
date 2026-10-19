@@ -473,6 +473,13 @@ def test_used_key_set_needs_no_state_gas(
 NONCE_FIELD_ENCODINGS = [
     pytest.param([], 0, id="empty_key_set"),
     pytest.param([NONCE_KEY], 0, id="small_key"),
+    pytest.param([NONCE_KEY], Spec.MAX_NONCE_SEQ, id="single_use_key"),
+    pytest.param([0], Spec.MAX_NONCE_SEQ, id="single_use_zero_key"),
+    pytest.param(
+        [NONCE_KEY, OTHER_KEY],
+        Spec.MAX_NONCE_SEQ,
+        id="single_use_multi_key",
+    ),
     pytest.param([MAX_KEY], 0, id="full_width_key"),
     pytest.param([NONCE_KEY], Spec.MAX_NONCE_SEQ - 1, id="wide_seq"),
     pytest.param(
@@ -489,7 +496,7 @@ def sender_at_sequence(
     pre: Alloc, nonce_keys: List[int], nonce_seq: int
 ) -> EOA:
     """Return a sender whose selected domains all hold `nonce_seq`."""
-    if not nonce_seq:
+    if not nonce_seq or (nonce_keys and nonce_seq == Spec.MAX_NONCE_SEQ):
         return pre.fund_eoa()
     if not nonce_keys:
         return pre.fund_eoa(nonce=nonce_seq)
@@ -502,7 +509,7 @@ def sender_at_sequence(
 
 def first_use_count(nonce_keys: List[int], nonce_seq: int) -> int:
     """Return the slots a set creates, all of them fresh at sequence zero."""
-    if nonce_seq:
+    if nonce_seq and nonce_seq != Spec.MAX_NONCE_SEQ:
         return 0
     return len(nonce_keys)
 
@@ -546,7 +553,8 @@ def test_nonce_fields_priced_as_calldata(
     )
     tx.sign()
     assert tx.frames is not None and tx.signatures is not None
-    intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
+    intrinsic_calculator = fork.frame_transaction_intrinsic_cost_calculator()
+    intrinsic = intrinsic_calculator(
         frames=tx.frames,
         signatures=tx.signatures,
         nonce_keys=nonce_keys,
@@ -562,6 +570,27 @@ def test_nonce_fields_priced_as_calldata(
         nonce_keys=nonce_keys,
         nonce_seq=nonce_seq,
     )
+    if nonce_keys and nonce_seq == Spec.MAX_NONCE_SEQ:
+        sequential_intrinsic = intrinsic_calculator(
+            frames=tx.frames,
+            signatures=tx.signatures,
+            nonce_keys=nonce_keys,
+            nonce_seq=1,
+            return_cost_deducted_prior_execution=True,
+        )
+        sequential_floor = fork.frame_transaction_data_floor_cost_calculator()(
+            frames=tx.frames,
+            signatures=tx.signatures,
+            nonce_keys=nonce_keys,
+            nonce_seq=1,
+        )
+        sequence_one_cost = fork.calldata_gas_calculator()(data=b"\x01")
+        gas_costs = fork.gas_costs()
+        floor_cost_per_byte = (
+            gas_costs.TX_DATA_TOKEN_STANDARD * gas_costs.TX_DATA_TOKEN_FLOOR
+        )
+        assert intrinsic + sequence_one_cost == sequential_intrinsic
+        assert floor + floor_cost_per_byte == sequential_floor
     assert floor < execution_used
     tx.expected_receipt = TransactionReceipt(
         payer=sender, cumulative_gas_used=execution_used + state_gas
