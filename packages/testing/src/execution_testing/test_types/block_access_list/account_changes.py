@@ -13,6 +13,7 @@ from execution_testing.base_types import (
     Address,
     Bytes,
     CamelModel,
+    Hash,
     RLPSerializable,
     ZeroPaddedHexNumber,
 )
@@ -53,9 +54,29 @@ class BalCodeChange(CamelModel, RLPSerializable):
         ZeroPaddedHexNumber(1),
         description="Transaction index where the change occurred",
     )
-    new_code: Bytes = Field(..., description="New code bytes")
+    new_code: Bytes = Field(
+        ..., description="New code bytes; empty for an adoption"
+    )
+    new_code_hash: Hash | None = Field(
+        None,
+        description="Code hash adopted via SETCODEFROM (EIP-8298)",
+    )
 
-    rlp_fields: ClassVar[List[str]] = ["block_access_index", "new_code"]
+    rlp_fields: ClassVar[List[str]] = [
+        "block_access_index",
+        "new_code",
+        "new_code_hash",
+    ]
+    rlp_exclude_none: ClassVar[bool] = True
+
+    @model_validator(mode="after")
+    def _check_code_exclusive_with_hash(self) -> Self:
+        """A hash-form adoption must not also carry bytecode."""
+        if self.new_code_hash is not None and self.new_code != b"":
+            raise ValueError(
+                "new_code must be empty when new_code_hash is set"
+            )
+        return self
 
 
 class BalStorageChange(CamelModel, RLPSerializable):

@@ -292,6 +292,10 @@ Position in the block, as for [`FixtureNonceChange`](#fixturenoncechange).
 
 Code after that position.
 
+#### - `newCodeHash`: [`Hash`](./common_types.md#hash) `(fork: Bogota)`
+
+Code hash adopted through `SETCODEFROM`; present only then, with `newCode` empty.
+
 ### `FixtureSlotChanges`
 
 #### - `slot`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
