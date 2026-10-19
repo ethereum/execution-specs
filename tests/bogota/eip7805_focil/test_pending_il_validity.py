@@ -2,6 +2,7 @@
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -237,18 +238,41 @@ def test_pending_il_appendability_by_affordability(
     )
 
 
-@pytest.mark.parametrize(
-    "signature_type",
-    [
-        "valid",
-        "all_zeros",
-        "invalid_s",
-    ],
+def flipped_parity(tx_type: int, v: int) -> int:
+    """Return the `v` that recovers with the other parity of the same r."""
+    if tx_type == 0:
+        # EIP-155: v = 35 + 2 * chain_id + parity. Flipping the low bit of
+        # v would change the chain id instead.
+        return v + 1 if (v - 35) % 2 == 0 else v - 1
+    return v ^ 1
+
+
+# Smallest r whose x^3 + 7 has no square root mod p, so no curve point has
+# it as its x-coordinate.
+R_NOT_ON_CURVE = 5
+
+SIGNATURE_CASES = [
+    "valid",
+    "all_zeros",
+    "r_zero",
+    "r_equals_n",
+    "r_not_on_curve",
+    "s_zero",
+    "high_s",
+    "y_parity_2",
+]
+
+
+@pytest.mark.with_all_typed_transactions(
+    selector=lambda tx_type: tx_type != TransactionType.BLOB_TRANSACTION
 )
+@pytest.mark.parametrize("signature_type", SIGNATURE_CASES)
 def test_block_with_invalid_signature_pending_il_tx_is_valid(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
+    sender: EOA,
+    typed_transaction: Transaction,
     signature_type: str,
 ) -> None:
     """
@@ -256,28 +280,57 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
 
     FOCIL reuses normal transaction validation for missing IL transactions.
     If the signature is invalid, the tx is not appendable and omission is
-    allowed.
+    allowed. Each case breaks one signature check while keeping `v` valid
+    for this chain, so the chain id check doesn't skip the tx first.
     """
-    sender = pre.fund_eoa()
-    recipient = pre.nonexistent_account()
-    calc = fork.transaction_intrinsic_cost_calculator()
-    simple_transfer_gas = calc()
-    signed_tx = Transaction(
-        sender=sender,
-        to=recipient,
-        gas_limit=simple_transfer_gas,
+    if (
+        signature_type == "y_parity_2"
+        and typed_transaction.ty == TransactionType.LEGACY
+    ):
+        pytest.skip("A legacy tx has no y_parity; its v carries the chain id.")
+    signed_tx = typed_transaction.copy(
+        # Signing up front needs the final gas limit.
+        gas_limit=fork.transaction_gas_limit_cap(),
     ).with_signature_and_sender()
     expected_satisfied = True
     match signature_type:
         case "valid":
             expected_satisfied = False
         case "all_zeros":
+            # On a legacy tx, a `v` of 0 fails the chain id check instead.
             signed_tx.v = HexNumber(0)
             signed_tx.r = HexNumber(0)
             signed_tx.s = HexNumber(0)
-        case "invalid_s":
-            signed_tx.v = HexNumber(signed_tx.v ^ 1)
+        case "r_zero":
+            signed_tx.r = HexNumber(0)
+        case "r_equals_n":
+            signed_tx.r = HexNumber(int(SECP256K1N))
+        case "r_not_on_curve":
+            signed_tx.r = HexNumber(R_NOT_ON_CURVE)
+        case "s_zero":
+            signed_tx.s = HexNumber(0)
+            # With s = 0, recovery drops the R term and yields the key
+            # -z / r. Fund that sender too, so only the s > 0 rule rejects
+            # the tx.
+            n = int(SECP256K1N)
+            signing_hash = int.from_bytes(
+                signed_tx.rlp_signing_bytes().keccak256(), "big"
+            )
+            lenient_sender = EOA(
+                key=-signing_hash * pow(int(signed_tx.r), -1, n) % n
+            )
+            sender_account = pre[sender]
+            assert sender_account is not None
+            pre.fund_address(lenient_sender, sender_account.balance)
+        case "high_s":
+            # The same signature with s mirrored and the parity flipped
+            # still recovers the sender, so only the low-s rule rejects it.
+            signed_tx.v = HexNumber(flipped_parity(signed_tx.ty, signed_tx.v))
             signed_tx.s = HexNumber(int(SECP256K1N) - signed_tx.s)
+        case "y_parity_2":
+            # Keep the low bit, so a client that reads only `v & 1`
+            # recovers the funded sender and includes the tx.
+            signed_tx.v = HexNumber(signed_tx.v + 2)
         case _:
             raise ValueError(f"unknown signature type: {signature_type}")
 
@@ -839,19 +892,15 @@ def test_pending_il_appendability_by_chain_id(
     )
 
 
-@pytest.mark.parametrize(
-    "tx_type",
-    [
-        pytest.param(0, id="legacy_gas_price"),
-        pytest.param(2, id="eip1559_max_fee"),
-    ],
+@pytest.mark.with_all_typed_transactions(
+    selector=lambda tx_type: tx_type != TransactionType.BLOB_TRANSACTION
 )
 @pytest.mark.parametrize("fee_cap", ["base_fee", "one_wei_below_base_fee"])
 def test_pending_il_appendability_by_base_fee(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
-    tx_type: int,
+    typed_transaction: Transaction,
     fee_cap: str,
 ) -> None:
     """A pending IL tx whose fee cap is below the base fee may be omitted."""
@@ -874,24 +923,12 @@ def test_pending_il_appendability_by_base_fee(
         case _:
             raise ValueError(f"unknown fee cap: {fee_cap}")
 
-    match tx_type:
-        case 0:
-            pending_tx = Transaction(
-                ty=0,
-                sender=pre.fund_eoa(),
-                to=pre.nonexistent_account(),
-                gas_price=max_fee,
-            )
-        case 2:
-            pending_tx = Transaction(
-                ty=2,
-                sender=pre.fund_eoa(),
-                to=pre.nonexistent_account(),
-                max_fee_per_gas=max_fee,
-                max_priority_fee_per_gas=0,
-            )
-        case _:
-            raise ValueError(f"unknown tx type: {tx_type}")
+    if typed_transaction.max_fee_per_gas is None:
+        pending_tx = typed_transaction.copy(gas_price=max_fee)
+    else:
+        pending_tx = typed_transaction.copy(
+            max_fee_per_gas=max_fee, max_priority_fee_per_gas=0
+        )
 
     blockchain_test(
         genesis_environment=genesis_environment,
