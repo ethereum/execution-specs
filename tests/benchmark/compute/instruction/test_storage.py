@@ -27,6 +27,7 @@ from execution_testing import (
     JumpLoopGenerator,
     Op,
     RecipientType,
+    Storage,
     TestPhaseManager,
     Transaction,
     While,
@@ -679,6 +680,36 @@ def test_nested_frame_state_access(
         skip_gas_used_validation=True,
         expected_receipt_status=1,
         blocks=[Block(txs=txs)],
+    )
+
+
+@pytest.mark.parametrize("writes_per_frame", [16, 64, 256])
+def test_stacked_storage_commit(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    writes_per_frame: int,
+) -> None:
+    """Benchmark storage writes on branching self-DELEGATECALL frames."""
+    # The second call spends the 1/64 of the gas EIP-150 withholds from the
+    # first; with a single call the transaction leaves most of it unspent.
+    delegate = Op.DELEGATECALL(address=Op.ADDRESS)
+    writes = Bytecode()
+    # Seeded slots keep every write a reset; a set costs state gas.
+    storage = Storage({})
+    for slot in range(writes_per_frame):
+        writes += Op.SSTORE(slot, Op.GAS)
+        storage[slot] = 1
+
+    contract = pre.deploy_contract(
+        writes + delegate + delegate, storage=storage
+    )
+
+    benchmark_test(
+        pre=pre,
+        # The frame tree stops just short of the gas limit.
+        skip_gas_used_validation=True,
+        expected_receipt_status=1,
+        tx=Transaction(to=contract, sender=pre.fund_eoa()),
     )
 
 
