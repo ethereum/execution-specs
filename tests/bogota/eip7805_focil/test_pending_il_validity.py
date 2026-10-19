@@ -329,7 +329,9 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
             signed_tx.v = HexNumber(flipped_parity(tx_type, signed_tx.v))
             signed_tx.s = HexNumber(int(SECP256K1N) - signed_tx.s)
         case "y_parity_2":
-            signed_tx.v = HexNumber(2)
+            # Keep the low bit, so a client that reads only `v & 1`
+            # recovers the funded sender and includes the tx.
+            signed_tx.v = HexNumber(signed_tx.v + 2)
         case _:
             raise ValueError(f"unknown signature type: {signature_type}")
 
