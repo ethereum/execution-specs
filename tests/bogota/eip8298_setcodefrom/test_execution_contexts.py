@@ -674,7 +674,7 @@ def test_system_call_cannot_adopt(
     """Verify `SETCODEFROM` halts when run by a block's system call."""
     template = pre.deploy_contract(SSTORE_MARKER_A)
     override = Op.POP(Op.SETCODEFROM(template)) + Op.STOP
-    pre[system_contract] = Account(code=override)
+    pre.update_account(system_contract, code=override)
     if system_contract in request_predeploys(fork):
         block = Block(
             txs=[], exception=BlockException.SYSTEM_CONTRACT_CALL_FAILED
@@ -691,7 +691,7 @@ def test_system_call_cannot_adopt(
             ),
         )
         post = {system_contract: Account(code=override)}
-    blockchain_test(pre=pre, blocks=[block], post=post)
+    blockchain_test(pre=pre, blocks=[block], post=post, sync_block=False)
 
 
 @pytest.mark.pre_alloc_mutable
@@ -750,7 +750,8 @@ def test_adoption_across_system_calls(
     # Whichever call runs first adopts `source`; the later ones run the
     # adopted code and add to the adopter's balance.
     for caller in callers:
-        pre[caller] = Account(
+        pre.update_account(
+            caller,
             balance=1,
             code=Op.POP(call_with(shell, source, value=1)) + Op.STOP,
         )
@@ -786,7 +787,7 @@ def test_adoption_across_system_calls(
     "context", ["call", "delegatecall_in", "delegatecall_out"]
 )
 def test_system_contract_as_current_account(
-    state_test: StateTestFiller,
+    blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     context: str,
@@ -821,7 +822,7 @@ def test_system_contract_as_current_account(
         if_true=Op.STOP,
         if_false=if_false,
     )
-    pre[address] = Account(code=override, storage=storage)
+    pre.update_account(address, code=override, storage=storage)
     # Slot 1, as under DELEGATECALL the override also writes slot 0 here.
     driver = pre.deploy_contract(
         Op.SSTORE(1, call_with(address, call_opcode=call_opcode)) + Op.STOP,
@@ -868,11 +869,15 @@ def test_system_contract_as_current_account(
             ),
             template: BalAccountExpectation.empty(),
         }
-    state_test(
+    blockchain_test(
         pre=pre,
+        blocks=[
+            Block(
+                txs=[Transaction(sender=pre.fund_eoa(), to=driver)],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations=bal
+                ),
+            )
+        ],
         post=post,
-        tx=Transaction(sender=pre.fund_eoa(), to=driver),
-        expected_block_access_list=BlockAccessListExpectation(
-            account_expectations=bal
-        ),
     )
