@@ -60,8 +60,14 @@ else
     docker run --rm --entrypoint sh "$image" -c '
 set -u
 cd /execution-specs
+# The image default, which a hive run without a fork argument uses.
+fork=${FORK:-${EEST_DEFAULT_FORK:-}}
+if [ -z "$fork" ]; then
+    echo "error: the image has no default fork (EEST_DEFAULT_FORK)" >&2
+    exit 1
+fi
 status=0
-uv run --no-sync execute hive --collect-only -q --fork="${FORK:-Osaka}" \
+uv run --no-sync execute hive --collect-only -q --fork="$fork" \
     -m blob_transaction_test > /tmp/collect.log 2>&1 || status=$?
 collected=$(grep -c "^tests/.*::" /tmp/collect.log || true)
 if [ "$status" -eq 5 ] || { [ "$status" -eq 0 ] && [ "$collected" -eq 0 ]; }; then
@@ -73,6 +79,6 @@ if [ "$status" -ne 0 ]; then
     echo "error: collecting the release tests under the image framework failed (exit $status)" >&2
     exit 1
 fi
-echo "ok: $collected blob_transaction_test tests collected"
+echo "ok: $collected blob_transaction_test tests collected at $fork"
 '
 fi

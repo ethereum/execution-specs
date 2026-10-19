@@ -161,7 +161,7 @@ jobs:
             # The head of the branch the images are paired with.
             sha=$(git ls-remote --exit-code origin "refs/heads/$branch" | cut -f1)
           fi
-          plan=$(eest images plan --github --resolve-commits \
+          plan=$(eest images plan --github --resolve-commits --resolve-forks \
               --repository "$GITHUB_REPOSITORY" --release-repository "$RELEASE_REPO" \
               --branch "$branch" --default-branch "$DEFAULT_BRANCH" --sha "$sha" \
               ${RELEASE_TAG:+--release "$RELEASE_TAG"} $nightly)
@@ -388,6 +388,7 @@ jobs:
           RELEASE: ${{ matrix.release }}
           SLUG: ${{ matrix.slug }}
           RELEASE_COMMIT: ${{ matrix.commit }}
+          EEST_DEFAULT_FORK: ${{ matrix.default_fork }}
           TAGS: ${{ matrix.tags }}
           REGISTRY: ${{ fromJSON(needs.plan.outputs.plan).repository }}
           BASE_REF: ${{ fromJSON(needs.plan.outputs.plan).base.ref }}

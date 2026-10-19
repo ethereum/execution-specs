@@ -32,17 +32,21 @@ ARG EEST_GIT_REF=""
 ARG EEST_TESTS_RELEASE=""
 ARG EEST_TESTS_GIT_SHA=""
 ARG EEST_REPOSITORY="ethereum/execution-specs"
+# The fork the release was filled for; FORK, set by hive, overrides it.
+ARG EEST_DEFAULT_FORK=""
 
 ENV EEST_SIMULATOR=${EEST_SIMULATOR} \
     EEST_TESTS_RELEASE=${EEST_TESTS_RELEASE} \
-    EEST_TESTS_GIT_SHA=${EEST_TESTS_GIT_SHA}
+    EEST_TESTS_GIT_SHA=${EEST_TESTS_GIT_SHA} \
+    EEST_DEFAULT_FORK=${EEST_DEFAULT_FORK}
 
 LABEL org.opencontainers.image.source="https://github.com/${EEST_REPOSITORY}" \
       org.opencontainers.image.revision="${EEST_GIT_SHA}" \
       org.opencontainers.image.version="${EEST_GIT_REF}" \
       org.ethereum.eest.simulator="${EEST_SIMULATOR}" \
       org.ethereum.eest.tests-release="${EEST_TESTS_RELEASE}" \
-      org.ethereum.eest.tests-revision="${EEST_TESTS_GIT_SHA}"
+      org.ethereum.eest.tests-revision="${EEST_TESTS_GIT_SHA}" \
+      org.ethereum.eest.default-fork="${EEST_DEFAULT_FORK}"
 
 WORKDIR /execution-specs/packages/testing
 ENTRYPOINT ["eels-simulator"]
