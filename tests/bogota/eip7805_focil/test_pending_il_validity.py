@@ -237,15 +237,6 @@ def test_pending_il_appendability_by_affordability(
     )
 
 
-def set_code_authorization(pre: Alloc) -> AuthorizationTuple:
-    """Return an authorization for a pending type-4 IL tx to carry."""
-    return AuthorizationTuple(
-        signer=pre.fund_eoa(),
-        address=pre.deploy_contract(Op.STOP),
-        nonce=0,
-    )
-
-
 def flipped_parity(tx_type: int, v: int) -> int:
     """Return the `v` that recovers with the other parity of the same r."""
     if tx_type == 0:
@@ -284,6 +275,7 @@ SIGNATURE_CASES = [
 def test_block_with_invalid_signature_pending_il_tx_is_valid(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     tx_type: int,
     signature_type: str,
 ) -> None:
@@ -293,18 +285,23 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
     FOCIL reuses normal transaction validation for missing IL transactions.
     If the signature is invalid, the tx is not appendable and omission is
     allowed. Each case breaks one signature check while keeping `v` valid
-    for this chain, so the chain id check doesn't skip the tx first. The
-    `all_zeros` case on a legacy tx is the exception: its `v` of 0 fails
-    the chain id check, not the signature checks.
+    for this chain, so the chain id check doesn't skip the tx first.
     """
-    authorization_list = (
-        [set_code_authorization(pre)] if tx_type == 4 else None
-    )
+    authorization_list = None
+    if tx_type == 4:
+        authorization_list = [
+            AuthorizationTuple(
+                signer=pre.fund_eoa(), address=pre.deploy_contract(Op.STOP)
+            )
+        ]
     signed_tx = Transaction(
         ty=tx_type,
         sender=pre.fund_eoa(),
         to=pre.nonexistent_account(),
-        gas_limit=100_000,
+        # Signing up front needs the final gas limit.
+        gas_limit=fork.transaction_intrinsic_cost_calculator()(
+            authorization_list_or_count=authorization_list
+        ),
         authorization_list=authorization_list,
     ).with_signature_and_sender()
     expected_satisfied = True
@@ -312,6 +309,7 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
         case "valid":
             expected_satisfied = False
         case "all_zeros":
+            # On a legacy tx, a `v` of 0 fails the chain id check instead.
             signed_tx.v = HexNumber(0)
             signed_tx.r = HexNumber(0)
             signed_tx.s = HexNumber(0)
@@ -930,6 +928,13 @@ def test_pending_il_appendability_by_base_fee(
         case _:
             raise ValueError(f"unknown fee cap: {fee_cap}")
 
+    authorization_list = None
+    if tx_type == 4:
+        authorization_list = [
+            AuthorizationTuple(
+                signer=pre.fund_eoa(), address=pre.deploy_contract(Op.STOP)
+            )
+        ]
     match tx_type:
         case 0 | 1:
             pending_tx = Transaction(
@@ -945,9 +950,7 @@ def test_pending_il_appendability_by_base_fee(
                 to=pre.nonexistent_account(),
                 max_fee_per_gas=max_fee,
                 max_priority_fee_per_gas=0,
-                authorization_list=(
-                    [set_code_authorization(pre)] if tx_type == 4 else None
-                ),
+                authorization_list=authorization_list,
             )
         case _:
             raise ValueError(f"unknown tx type: {tx_type}")
