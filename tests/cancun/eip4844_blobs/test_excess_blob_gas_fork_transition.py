@@ -24,6 +24,7 @@ from execution_testing import (
     ParameterSet,
     RecipientType,
     Transaction,
+    TransactionException,
     TransitionFork,
     add_kzg_version,
 )
@@ -655,3 +656,52 @@ def test_fork_transition_excess_blob_gas_post_blob_genesis(
         blocks=pre_fork_blocks + post_fork_blocks,
         genesis_environment=genesis_environment,
     )
+
+
+@pytest.mark.valid_for_bpo_forks
+@pytest.mark.valid_at_transition_to("Prague", subsequent_forks=True)
+@pytest.mark.exception_test
+def test_fork_transition_blob_count_above_new_max(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    pre_fork: Fork,
+    post_fork: Fork,
+    destination_account: Address,
+) -> None:
+    """
+    Test a block above the new blob limit is rejected from the activation
+    block, even when the old limit allowed it one block earlier.
+    """
+    blob_count = post_fork.max_blobs_per_block() + 1
+    max_blobs_per_tx = min(
+        pre_fork.max_blobs_per_tx(), post_fork.max_blobs_per_tx()
+    )
+
+    def blob_txs() -> List[Transaction]:
+        sender = pre.fund_eoa()
+        txs = []
+        for first_blob in range(0, blob_count, max_blobs_per_tx):
+            tx_blobs = min(max_blobs_per_tx, blob_count - first_blob)
+            txs.append(
+                Transaction(
+                    ty=Spec.BLOB_TX_TYPE,
+                    to=destination_account,
+                    max_fee_per_blob_gas=100,
+                    blob_versioned_hashes=add_kzg_version(
+                        [Hash(first_blob + x) for x in range(tx_blobs)],
+                        Spec.BLOB_COMMITMENT_VERSION_KZG,
+                    ),
+                    sender=sender,
+                )
+            )
+        return txs
+
+    blocks = []
+    if blob_count <= pre_fork.max_blobs_per_block():
+        blocks.append(Block(txs=blob_txs(), timestamp=FORK_TIMESTAMP - 1))
+    # Only the last transaction crosses the new limit.
+    error = TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
+    txs = blob_txs()
+    txs[-1] = txs[-1].with_error(error)
+    blocks.append(Block(txs=txs, timestamp=FORK_TIMESTAMP, exception=error))
+    blockchain_test(pre=pre, post={}, blocks=blocks)
