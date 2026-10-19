@@ -1,14 +1,11 @@
 """Witness MPT decoding of an over-length secured-trie path."""
 
 from dataclasses import replace
-from typing import AbstractSet
 from unittest.mock import patch
 
 import pytest
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes as AmsterdamBytes
-from ethereum_types.bytes import Bytes32
-from ethereum_types.numeric import U256
 from execution_testing import Alloc, Block, BlockchainTestFiller, Bytes
 
 import ethereum.forks.amsterdam.fork as amsterdam_fork
@@ -38,8 +35,7 @@ from ethereum.forks.amsterdam.witness_state import (
     build_code_db,
     build_node_db,
 )
-from ethereum.merkle_patricia_trie import InternalNode
-from ethereum.state import Account, Address, Root
+from ethereum.state import BlockDiff, Root
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
@@ -148,24 +144,13 @@ def _secured_trie_path_with_leaf_length(
         state_root=malformed_root,
     )
     computed_post_root: list[Root] = []
-    original_compute_state_root = (
-        WitnessState.compute_state_root_and_trie_changes
-    )
+    original_compute_state_root = WitnessState.compute_state_root
 
-    def record_state_root(
-        state: WitnessState,
-        account_changes: dict[Address, Account | None],
-        storage_changes: dict[Address, dict[Bytes32, U256]],
-        storage_clears: AbstractSet[Address] = frozenset(),
-    ) -> tuple[Root, list[InternalNode]]:
-        result = original_compute_state_root(
-            state,
-            account_changes,
-            storage_changes,
-            storage_clears,
+    def record_state_root(state: WitnessState, block_diff: BlockDiff) -> Root:
+        computed_post_root.append(
+            original_compute_state_root(state, block_diff)
         )
-        computed_post_root.append(result[0])
-        return (modified_payload.state_root, result[1])
+        return modified_payload.state_root
 
     recording_state = WitnessState(
         _node_db=build_node_db(tuple(modified_state)),
@@ -185,7 +170,7 @@ def _secured_trie_path_with_leaf_length(
     with (
         patch.object(
             WitnessState,
-            "compute_state_root_and_trie_changes",
+            "compute_state_root",
             new=record_state_root,
         ),
         patch.object(
@@ -208,7 +193,7 @@ def _secured_trie_path_with_leaf_length(
             ),
             recording_state,
             ChainContext(
-                chain_id=stateless_input.chain_config.chain_id,
+                chain_id=stateless_input.chain_id,
                 block_hashes=[modified_parent_hash],
                 parent_header=modified_parent_header,
             ),
