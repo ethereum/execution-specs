@@ -1,9 +1,10 @@
 # The repository as a docker image: the execution-specs source tree and its
-# synced virtualenv, published as ghcr.io/ethereum/execution-specs with one tag
-# per branch. It is the base of every image under packages/testing/docker and
-# runs any command of the testing package on its own, for example:
+# synced virtualenv, published as ghcr.io/ethereum/execution-specs with one
+# `sha-<commit>` tag per built commit. It is the base of every image under
+# packages/testing/docker and runs any command of the testing package on its
+# own, for example:
 #
-#   docker run --rm ghcr.io/ethereum/execution-specs uv run --no-sync ethereum-spec-evm t8n --help
+#   docker run --rm ghcr.io/ethereum/execution-specs:sha-abc1234 uv run --no-sync ethereum-spec-evm t8n --help
 #
 # Build from the repository root, so that the uv workspace is complete. The
 # Dockerfile.dockerignore beside this file keeps generated fixtures, caches and

@@ -13,13 +13,12 @@ from execution_testing.tools.docker_images import (
     branch_tag,
     channel_owner,
     fixture_formats,
-    nightly_tags,
+    nightly_release,
     plan,
     release_series,
     release_slug,
     release_tags,
     releases_for_branch,
-    series_alias,
 )
 
 DEFAULT_BRANCH = "forks/amsterdam"
@@ -85,10 +84,6 @@ def test_release_names() -> None:
     )
     assert release_series("tests-glamsterdam-devnet@v8.1.4") == (
         "tests-glamsterdam-devnet"
-    )
-    assert series_alias("tests") == "latest"
-    assert (
-        series_alias("tests-glamsterdam-devnet") == "glamsterdam-devnet-latest"
     )
 
 
@@ -196,13 +191,12 @@ def test_release_tags_main_line() -> None:
 
 
 def test_release_tags_devnet() -> None:
-    """A devnet release holds its branch channel and maybe the series'."""
+    """A devnet release holds its branch channel while it is the highest."""
     assert release_tags(
         release("tests-glamsterdam-devnet@v8.1.4"), RELEASES, DEFAULT_BRANCH
     ) == [
         "glamsterdam-devnet-v8.1.4",
         "glamsterdam-devnet-8",
-        "glamsterdam-devnet-latest",
     ]
     assert release_tags(
         release("tests-glamsterdam-devnet@v8.1.3"), RELEASES, DEFAULT_BRANCH
@@ -210,7 +204,7 @@ def test_release_tags_devnet() -> None:
     assert release_tags(
         release("tests-glamsterdam-devnet@v7.2.1"), RELEASES, DEFAULT_BRANCH
     ) == ["glamsterdam-devnet-v7.2.1", "glamsterdam-devnet-7"]
-    # A newer devnet takes the series channel; devnet 8 keeps its own.
+    # A newer devnet has its own channel; devnet 8 keeps its own.
     nine = Release(
         "tests-glamsterdam-devnet@v9.0.0", prerelease=True, assets=GLAM_ASSET
     )
@@ -222,9 +216,8 @@ def test_release_tags_devnet() -> None:
     assert release_tags(nine, [*RELEASES, nine], DEFAULT_BRANCH) == [
         "glamsterdam-devnet-v9.0.0",
         "glamsterdam-devnet-9",
-        "glamsterdam-devnet-latest",
     ]
-    # A late patch on devnet 8 does not pull the series channel back.
+    # A late patch on devnet 8 moves only devnet 8's channel.
     patch = Release(
         "tests-glamsterdam-devnet@v8.1.5", prerelease=True, assets=GLAM_ASSET
     )
@@ -235,20 +228,10 @@ def test_release_tags_devnet() -> None:
 
 
 def test_base_tags() -> None:
-    """The repository image is tagged by commit, plus latest or the devnet."""
-    assert base_tags("abc1234", DEFAULT_BRANCH, DEFAULT_BRANCH) == [
-        "sha-abc1234",
-        "latest",
-    ]
-    assert base_tags("abc1234", "devnets/glamsterdam/8", DEFAULT_BRANCH) == [
-        "sha-abc1234",
-        "glamsterdam-devnet-8",
-    ]
-    # No tag is named after a fork.
-    assert base_tags("abc1234", "forks/osaka", DEFAULT_BRANCH) == [
-        "sha-abc1234"
-    ]
-    assert nightly_tags("1a2b3c4") == ["nightly-1a2b3c4", "nightly"]
+    """The repository image is tagged by commit only."""
+    assert base_tags("abc1234") == ["sha-abc1234"]
+    # A nightly is reported by its commit but tagged `nightly` only.
+    assert nightly_release("1a2b3c4") == "nightly-1a2b3c4"
 
 
 def test_catalogue() -> None:
@@ -276,7 +259,7 @@ def test_plan_for_a_push() -> None:
     assert result["repository"] == "ghcr.io/ethereum/execution-specs"
     assert result["channel"] == "glamsterdam-devnet-8"
     assert result["fixtures"] is None and result["tests"] is None
-    assert result["base"]["tags"] == ["sha-abc1234", "glamsterdam-devnet-8"]
+    assert result["base"]["tags"] == ["sha-abc1234"]
     images = result["images"]
     assert len(images) == len(IMAGES)
     newest = images[0]
@@ -290,11 +273,9 @@ def test_plan_for_a_push() -> None:
     )
     assert newest["release"] == "tests-glamsterdam-devnet@v8.1.4"
     assert newest["slug"] == "glamsterdam-devnet-v8.1.4"
-    assert newest["tags"] == [
-        "glamsterdam-devnet-v8.1.4",
-        "glamsterdam-devnet-8",
-        "glamsterdam-devnet-latest",
-    ]
+    # Only the channel moves; the release tag stays as the release built it.
+    assert newest["tags"] == ["glamsterdam-devnet-8"]
+    assert newest["immutable"] == ""
     blobs = images[-1]
     assert blobs["name"] == "execute-blobs" and blobs["kind"] == "execute"
     assert blobs["requires"] == (
@@ -309,9 +290,9 @@ def test_plan_for_a_push() -> None:
         default_branch=DEFAULT_BRANCH,
         releases=RELEASES,
     )
-    assert result["base"]["tags"] == ["sha-abc1234", "latest"]
+    assert result["base"]["tags"] == ["sha-abc1234"]
     assert {i["release"] for i in result["images"]} == {"tests@v20.0.2"}
-    assert result["images"][0]["tags"] == ["v20.0.2", "latest"]
+    assert result["images"][0]["tags"] == ["latest"]
 
     # A branch without releases, or without a line, publishes only its code.
     result = plan(
@@ -320,10 +301,7 @@ def test_plan_for_a_push() -> None:
         default_branch=DEFAULT_BRANCH,
         releases=RELEASES,
     )
-    assert result["images"] == [] and result["base"]["tags"] == [
-        "sha-abc1234",
-        "glamsterdam-devnet-9",
-    ]
+    assert result["images"] == [] and result["base"]["tags"] == ["sha-abc1234"]
     result = plan(
         branch="forks/osaka",
         sha="abc1234def",
@@ -352,19 +330,22 @@ def test_plan_for_a_release() -> None:
         "artifact": None,
         "image": "ghcr.io/ethereum/execution-specs/fixtures",
         "formats": fixture_formats(),
-        "tags": ["v20.0.2", "latest"],
+        "tags": ["v20.0.2"],
+        "immutable": "v20.0.2",
     }
     assert result["tests"] == {
         "release": "tests@v20.0.2",
         "slug": "v20.0.2",
         "commit": "c20002",
         "image": "ghcr.io/ethereum/execution-specs/tests",
-        "tags": ["v20.0.2", "latest"],
+        "tags": ["v20.0.2"],
+        "immutable": "v20.0.2",
     }
     assert [image["release"] for image in result["images"]] == [
         "tests@v20.0.2"
     ] * len(IMAGES)
     assert result["images"][0]["tags"] == ["v20.0.2", "latest"]
+    assert result["images"][0]["immutable"] == "v20.0.2"
 
     # An older release moves nothing.
     older = plan(
@@ -385,7 +366,11 @@ def test_plan_for_a_release() -> None:
         releases=RELEASES,
     )
     assert devnet["branch"] == "devnets/glamsterdam/8"
-    assert devnet["base"]["tags"] == ["sha-abc1234", "glamsterdam-devnet-8"]
+    assert devnet["base"]["tags"] == ["sha-abc1234"]
+    assert devnet["images"][0]["tags"] == [
+        "glamsterdam-devnet-v8.1.4",
+        "glamsterdam-devnet-8",
+    ]
     with pytest.raises(ValueError, match="cut from devnets/glamsterdam/8"):
         plan(
             branch=DEFAULT_BRANCH,
@@ -494,16 +479,21 @@ def test_plan_for_a_nightly() -> None:
     )
     assert result["mode"] == "nightly"
     assert result["branch"] == DEFAULT_BRANCH
-    assert result["base"]["tags"] == ["sha-1a2b3c4", "nightly"]
+    assert result["base"]["tags"] == ["sha-1a2b3c4"]
     assert result["fixtures"]["artifact"] == "fixtures_1a2b3c4"
     assert result["fixtures"]["url"] is None
-    assert result["fixtures"]["tags"] == ["nightly-1a2b3c4", "nightly"]
+    assert result["fixtures"]["release"] == "nightly-1a2b3c4"
+    assert result["fixtures"]["tags"] == ["nightly"]
     assert result["tests"]["commit"] == "1a2b3c4d5e"
-    assert result["tests"]["tags"] == ["nightly-1a2b3c4", "nightly"]
+    assert result["tests"]["tags"] == ["nightly"]
     assert len(result["images"]) == len(IMAGES)
+    # Reported by its commit, tagged and built from `nightly` only.
     assert result["images"][0]["release"] == "nightly-1a2b3c4"
+    assert result["images"][0]["slug"] == "nightly"
+    assert result["images"][0]["requires"].endswith(":nightly")
     assert result["images"][0]["commit"] == "1a2b3c4d5e"
-    assert result["images"][0]["tags"] == ["nightly-1a2b3c4", "nightly"]
+    assert result["images"][0]["tags"] == ["nightly"]
+    assert result["images"][0]["immutable"] == ""
     with pytest.raises(ValueError, match="default branch"):
         plan(
             branch="devnets/glamsterdam/8",

@@ -16,8 +16,9 @@
 #       --build-arg FIXTURES_REF=ghcr.io/ethereum/execution-specs/fixtures/blockchain_tests_engine:v20.0.2 \
 #       --build-arg EEST_SIMULATOR=consume-engine \
 #       -t hive/consume-engine:local packages/testing/docker/hive
-ARG BASE_REF=ghcr.io/ethereum/execution-specs:latest
-ARG FIXTURES_REF=ghcr.io/ethereum/execution-specs/fixtures/blockchain_tests_engine:latest
+# Both are required: the repository and fixture images carry no channel tags.
+ARG BASE_REF
+ARG FIXTURES_REF
 
 FROM ${BASE_REF} AS base
 
