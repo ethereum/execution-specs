@@ -34,12 +34,12 @@ For each [`Fixture`](#fixture) test object in the JSON fixture file, perform the
     2. Attempt to decode field [`rlp`](#-rlp-bytes) as the current block
         1. If the block cannot be decoded:
             - If an rlp decoding exception is not expected for the current block, fail the test.
-            - If an rlp decoding error is expected, pass the test (Note: A block with an expected exception will be the last block in the fixture).
+            - If an rlp decoding error is expected, the block is rejected: leave the current head of the chain unchanged and proceed to the next block, if there is one (Note: a block with an expected exception is not necessarily the last block in the fixture, and the next block is a child of the current head).
         2. If the block can be decoded, proceed to the next step.
 
     3. Attempt to apply the current decoded block on top of the current head of the chain
         1. If the block cannot be applied:
-            - If an exception is expected on the current block and it matches the exception obtained upon execution, pass the test. (Note: A block with an expected exception will be the last block in the fixture)
+            - If an exception is expected on the current block and it matches the exception obtained upon execution, the block is rejected: leave the current head of the chain unchanged and proceed to the next block, if there is one (Note: a block with an expected exception is not necessarily the last block in the fixture, and the next block is a child of the current head). If it does not match the exception obtained upon execution, fail the test.
             - If an exception is not expected on the current block, fail the test
         2. If the block can be applied:
             - If an exception is expected on the current block, fail the test
