@@ -35,8 +35,7 @@ from ..blockchain import (
     BlockchainTest,
     Header,
     TestingBuildBlock,
-    check_stateful_invalid_block,
-    invalid_payload_to_fixture,
+    validate_stateful_blocks,
 )
 
 FORK = Osaka
@@ -187,8 +186,8 @@ def test_invalid_payload_has_modified_header_and_valid_hash() -> None:
     block = _invalid_block()
     built_block = _built_block(START_BLOCK_NUMBER + 1, block)
 
-    payload = invalid_payload_to_fixture(
-        built_block, phase=TestPhase.EXECUTION
+    payload = built_block.get_fixture_engine_new_payload(
+        phase=TestPhase.EXECUTION
     )
 
     execution_payload = payload.params[0]
@@ -205,9 +204,9 @@ def test_invalid_payload_has_modified_header_and_valid_hash() -> None:
 def test_invalid_payload_serializes_validation_error() -> None:
     """The fixture JSON names the expected exception on the payload."""
     block = _invalid_block()
-    payload = invalid_payload_to_fixture(
-        _built_block(START_BLOCK_NUMBER + 1, block)
-    )
+    payload = _built_block(
+        START_BLOCK_NUMBER + 1, block
+    ).get_fixture_engine_new_payload()
 
     data: Dict[str, Any] = payload.model_dump(mode="json", by_alias=True)
 
@@ -225,7 +224,7 @@ def test_header_mismatch_outside_payload_raises() -> None:
     )
 
     with pytest.raises(ValueError, match="hashes to"):
-        invalid_payload_to_fixture(built_block)
+        built_block.get_fixture_engine_new_payload()
 
 
 def test_invalid_block_keeps_head_on_last_valid_block(
@@ -318,12 +317,20 @@ def test_block_after_invalid_block_builds_on_last_valid_block(
             "setup-phase",
             id="setup_phase",
         ),
+        pytest.param(
+            Block(
+                txs=[_tx(TestPhase.EXECUTION)],
+                rlp_modifier=Header(gas_used=1),
+            ),
+            "no `exception`",
+            id="modifier_without_exception",
+        ),
     ],
 )
 def test_unsupported_invalid_block_raises(block: Block, reason: str) -> None:
     """An invalid block the client cannot help produce is refused."""
     with pytest.raises(NotImplementedError, match=reason):
-        check_stateful_invalid_block(block)
+        validate_stateful_blocks([block])
 
 
 def test_unsupported_invalid_block_raises_before_any_build(
