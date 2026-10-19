@@ -211,7 +211,7 @@ jobs:
             EEST_GIT_REF=${{ fromJSON(needs.plan.outputs.plan).branch }}
             EEST_REPOSITORY=${{ github.repository }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
 
       - name: Record the digest
         env:
