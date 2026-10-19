@@ -1,7 +1,7 @@
 """Witness MPT decoding of an over-length secured-trie path."""
 
 from dataclasses import replace
-from typing import AbstractSet, Callable
+from typing import AbstractSet
 from unittest.mock import patch
 
 import pytest
@@ -12,6 +12,7 @@ from ethereum_types.numeric import U256
 from execution_testing import Alloc, Block, BlockchainTestFiller, Bytes
 
 import ethereum.forks.amsterdam.fork as amsterdam_fork
+import ethereum.forks.amsterdam.incremental_mpt as incremental_mpt
 from ethereum.crypto.hash import keccak256
 from ethereum.forks.amsterdam.block_access_lists import BlockAccessList
 from ethereum.forks.amsterdam.blocks import Header
@@ -45,17 +46,17 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
-StatelessInputBytesModifier = Callable[[Bytes], Bytes]
 
-
-def overlength_secured_trie_path(input_bytes: Bytes) -> Bytes:
+def _secured_trie_path_with_leaf_length(
+    input_bytes: Bytes,
+    leaf_path_nibbles: int,
+) -> Bytes:
     """
-    Put a self-consistent 67-nibble leaf in the parent state trie.
+    Put a self-consistent malformed leaf in the parent state trie.
 
-    A secured-trie key has 64 nibbles.  The compact path below has 67
-    nibbles, but is otherwise a valid leaf node.  The parent header and the
-    payload are updated together so that the resulting stateless input is a
-    valid empty block whose pre- and post-state root is this malformed trie.
+    The parent header and payload are updated together so that the resulting
+    stateless input is an otherwise valid empty block whose pre- and post-state
+    root is this malformed trie.
     """
     stateless_input = deserialize_stateless_input(
         AmsterdamBytes(bytes(input_bytes))
@@ -83,8 +84,9 @@ def overlength_secured_trie_path(input_bytes: Bytes) -> Bytes:
             for index, child in enumerate(node.children):
                 if child is None:
                     node.children[index] = MutableLeafNode(
-                        # 67 nibbles exceeds a secured key's 64 nibbles.
-                        rest_of_key=AmsterdamBytes(b"\x00" * 67),
+                        rest_of_key=AmsterdamBytes(
+                            b"\x00" * leaf_path_nibbles
+                        ),
                         value=b"",
                         _dirty=True,
                     )
@@ -191,6 +193,12 @@ def overlength_secured_trie_path(input_bytes: Bytes) -> Bytes:
             "hash_block_access_list",
             new=record_block_access_list,
         ),
+        # Permit the dry run to process the intentionally malformed state.
+        patch.object(
+            incremental_mpt,
+            "_validate_secured_trie_paths",
+            create=True,
+        ),
     ):
         execute_block(
             _payload_block(
@@ -243,20 +251,39 @@ def overlength_secured_trie_path(input_bytes: Bytes) -> Bytes:
     return Bytes(bytes(serialize_stateless_input(modified_input)))
 
 
-def test_witness_state_overlength_secured_trie_path(
+@pytest.mark.parametrize(
+    "leaf_path_nibbles",
+    [
+        pytest.param(
+            67,
+            id="leaf_segment_exceeds_key_length",
+        ),
+        pytest.param(
+            64,
+            id="cumulative_path_exceeds_key_length",
+        ),
+    ],
+)
+def test_witness_state_rejects_overlength_secured_trie_path(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    leaf_path_nibbles: int,
 ) -> None:
-    """
-    The current decoder accepts a secured leaf path longer than 64 nibbles.
-    """
+    """Reject a secured trie path longer than its 64-nibble key."""
+
+    def modifier(input_bytes: Bytes) -> Bytes:
+        return _secured_trie_path_with_leaf_length(
+            input_bytes,
+            leaf_path_nibbles,
+        )
+
     blockchain_test(
         pre=pre,
         blocks=[
             Block(
                 txs=[],
-                stateless_input_bytes_modifier=overlength_secured_trie_path,
-                expected_stateless_validation_success=True,
+                stateless_input_bytes_modifier=modifier,
+                expected_stateless_validation_success=False,
             )
         ],
         post={},

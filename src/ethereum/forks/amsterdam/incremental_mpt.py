@@ -44,6 +44,11 @@ from ethereum.merkle_patricia_trie import (
 )
 from ethereum.state import Account, Address, Root
 
+SECURED_TRIE_KEY_NIBBLES = 64
+"""
+Number of nibbles in a key after applying the secure trie hash.
+"""
+
 
 @final
 @dataclass
@@ -991,6 +996,35 @@ def _decode_witness_node(
         raise AssertionError(f"Invalid RLP node length: {len(decoded)}")
 
 
+def _validate_secured_trie_paths(
+    node: MutableNode,
+    remaining_key_nibbles: int,
+) -> None:
+    """Validate path lengths in the decoded portion of a secured trie."""
+    if node is None or isinstance(node, HashedNode):
+        return
+
+    if isinstance(node, MutableLeafNode):
+        assert len(node.rest_of_key) == remaining_key_nibbles, (
+            "LeafNode path does not terminate at the secured key length"
+        )
+    elif isinstance(node, MutableExtensionNode):
+        assert len(node.key_segment) < remaining_key_nibbles, (
+            "ExtensionNode path exceeds the secured key length"
+        )
+        _validate_secured_trie_paths(
+            node.child,
+            remaining_key_nibbles - len(node.key_segment),
+        )
+    else:
+        assert isinstance(node, MutableBranchNode)
+        assert remaining_key_nibbles > 0, (
+            "BranchNode exceeds the secured key length"
+        )
+        for child in node.children:
+            _validate_secured_trie_paths(child, remaining_key_nibbles - 1)
+
+
 def decode_witness_to_mpt(
     node_db: Dict[Bytes, Bytes],
     root_hash: Root,
@@ -1031,6 +1065,11 @@ def decode_witness_to_mpt(
 
     root_rlp = node_db[root_hash]
     root_node = _decode_witness_node(node_db, root_rlp)
+    if secured:
+        _validate_secured_trie_paths(
+            root_node,
+            SECURED_TRIE_KEY_NIBBLES,
+        )
 
     return IncrementalMPT(
         secured=secured,
