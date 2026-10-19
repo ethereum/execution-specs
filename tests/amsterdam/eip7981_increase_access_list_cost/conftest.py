@@ -273,10 +273,9 @@ def tx_error(
     """
     Transaction error, only expected if the gas delta is negative.
 
-    The intrinsic gas check runs first, so a gas limit below the intrinsic
-    cost is rejected for that reason. A gas limit at or above it but below
-    the calldata floor is rejected by the floor check. A limit below both
-    can be rejected by either, because the spec checks their max.
+    A limit that misses only the standard cost or only the calldata floor
+    is rejected for that threshold. A limit below both can be rejected by
+    either, because the spec checks their max.
     """
     if tx_gas_delta >= 0:
         return None
