@@ -30,4 +30,4 @@ The simulator images combine a repository image (code and dependencies) with a f
 
 ## Migrate an existing Hive command
 
-The image Dockerfiles accept `tag` in place of `fixtures` and `branch`. Those old build arguments are ignored by the image Dockerfiles. To keep building from a Git ref and selecting fixtures independently, choose `Dockerfile.git` through `--sim.file`; see [Build from source](how_to.md#build-from-source-with-dockerfilegit).
+The image Dockerfiles accept `tag` in place of `fixtures` and `branch`. Those old build arguments are ignored by the image Dockerfiles. To keep building from a Git ref and selecting fixtures independently, choose `Dockerfile.git` through `--config`; see [Build from source](how_to.md#build-from-source-with-dockerfilegit).

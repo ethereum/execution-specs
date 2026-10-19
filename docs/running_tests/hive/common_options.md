@@ -16,7 +16,7 @@ For example, this selects the published image for the [`tests@v20.0.2` release](
 
 Add `--docker.pull` to refresh an image already cached locally. A release tag fixes the tests; [pin a digest](images/how_to.md#reproduce-a-run-exactly) to fix the entire image.
 
-The old `fixtures` and `branch` build arguments require `Dockerfile.git`, selected through `--sim.file`; see [Build from source](images/how_to.md#build-from-source-with-dockerfilegit). They are ignored by the default Dockerfiles.
+The old `fixtures` and `branch` build arguments require `Dockerfile.git`, selected through `--config`; see [Build from source](images/how_to.md#build-from-source-with-dockerfilegit). They are ignored by the default Dockerfiles.
 
 ## Test Selection
 

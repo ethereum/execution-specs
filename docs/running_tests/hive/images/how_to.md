@@ -2,7 +2,7 @@
 
 The guides assume Hive is built, as in [Run a Simulator](tutorial.md), and the selected tag has been published. `consume-engine` stands for any EELS simulator. Tag selection works the same for `execute-blobs`; source-build reproduction differs as described below. For a quick comparison, see [Choose a tag](index.md#choose-a-tag).
 
-Hive accepts short names with `--sim`: `consume-engine` selects `ethereum/eels/consume-engine`. The `simulator:` field in a `--sim.file` YAML configuration requires the full name.
+Hive accepts short names with `--sim`: `consume-engine` selects `ethereum/eels/consume-engine`. The `simulator:` field in a `--config` YAML configuration requires the full name.
 
 ## Follow a devnet or the mainnet line
 
@@ -45,7 +45,7 @@ Mainnet tags drop `tests@`; devnet tags drop `tests-` and replace `@` with `-`. 
 
 ## Refresh a moving tag
 
-Docker can reuse an older local image behind a moving tag. Use `--docker.pull` to refresh the base images for both clients and simulators, including simulators selected with `--sim.file`:
+Docker can reuse an older local image behind a moving tag. Use `--docker.pull` to refresh the base images for both clients and simulators, including simulators selected with `--config`:
 
 ```bash
 ./hive --sim consume-engine --client go-ethereum \
@@ -115,7 +115,7 @@ Use a source build when testing an unpublished branch or selecting consume fixtu
 Run it with:
 
 ```bash
-./hive --sim.file simulators.yaml --client go-ethereum
+./hive --config simulators.yaml --client go-ethereum
 ```
 
 `branch` accepts a Git ref; use a full commit SHA to pin the framework source. `fixtures` is a `consume --input` value, such as a release name or URL, not an image tag. With these arguments omitted, source builds use the repository's default branch and `tests@latest`.

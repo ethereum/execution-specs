@@ -29,7 +29,7 @@ Every eels simulator defaults to the tag `latest`: the tests of the latest mainn
 
 !!! warning "Refresh images before testing a moving tag"
 
-    Without `--docker.pull`, Docker can reuse an older local image even when its tag is `latest` or a devnet channel. Include this flag to refresh the base images for **both clients and simulators**. It also applies when selecting simulators with `--sim.file`.
+    Without `--docker.pull`, Docker can reuse an older local image even when its tag is `latest` or a devnet channel. Include this flag to refresh the base images for **both clients and simulators**. It also applies when selecting simulators with `--config`.
 
     If a Dockerfile fetches code during the build, such as a client or simulator `Dockerfile.git`, also disable the build cache so those steps run again. Add `--docker.nocache '^hive/clients/'` for client builds, or `--docker.nocache '.*'` for all builds. This flag takes a regular expression; it does not replace `--docker.pull`. Rebuilding from source can take considerably longer.
 
