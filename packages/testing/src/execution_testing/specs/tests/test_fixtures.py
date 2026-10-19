@@ -157,7 +157,7 @@ def test_blockchain_fixtures_include_inclusion_lists(
     engine_fixture = (
         BlockchainTest(
             fork=Bogota,
-            pre=pre,
+            pre=pre.with_genesis_accounts(),
             post={},
             blocks=[block],
             genesis_environment=Environment(),
@@ -209,7 +209,7 @@ def test_rejected_payload_omits_inclusion_list_satisfied(
     fixture = (
         BlockchainTest(
             fork=Bogota,
-            pre=pre,
+            pre=pre.with_genesis_accounts(),
             post={},
             blocks=[block],
             genesis_environment=Environment(),
@@ -267,7 +267,7 @@ def test_inclusion_list_entry_size_limit(
         raise ValueError(f"unknown list source: {list_source}")
     test = BlockchainTest(
         fork=Bogota,
-        pre=pre,
+        pre=pre.with_genesis_accounts(),
         post={},
         blocks=[block],
         genesis_environment=Environment(),
@@ -311,7 +311,7 @@ def test_inclusion_list_merged_size_limit(
     entries += [tx.copy(rlp_override=Bytes(bytes(1)))] * bytes_over_limit
     test = BlockchainTest(
         fork=Bogota,
-        pre=Alloc(),
+        pre=Alloc().with_genesis_accounts(),
         post={},
         blocks=[Block(txs=[], inclusion_list_txs=entries)],
         genesis_environment=Environment(),
@@ -368,7 +368,9 @@ def test_inclusion_list_verdict_uses_payload_bytes(
     engine_fixture = (
         BlockchainTest(
             fork=Bogota,
-            pre=Alloc({signed_tx.sender: Account(balance=10**18)}),
+            pre=Alloc(
+                {signed_tx.sender: Account(balance=10**18)}
+            ).with_genesis_accounts(),
             post={},
             blocks=[Block(txs=[], inclusion_list_txs=[entry])],
             genesis_environment=Environment(),
@@ -416,7 +418,7 @@ def test_inclusion_list_variant_skips_blob_entries(
         )
     test = BlockchainTest(
         fork=Bogota,
-        pre=Alloc({sender: Account(balance=10**18)}),
+        pre=Alloc({sender: Account(balance=10**18)}).with_genesis_accounts(),
         post={},
         blocks=[Block(txs=[tx])],
         genesis_environment=Environment(),
