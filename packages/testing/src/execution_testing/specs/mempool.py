@@ -94,6 +94,7 @@ class MempoolTest(BaseTest):
         """
         explicit: Dict[Tuple, int] = {}
         next_pool_nonce: Dict[Tuple, int] = {}
+        signature_ids: Dict[int, int] = {}
         for index, entry in enumerate(self.txs):
             tx = entry.unwrapped
             if entry.accepted is None:
@@ -124,6 +125,13 @@ class MempoolTest(BaseTest):
                 )
             if entry.accepted:
                 next_pool_nonce[sender_key] = max(expected, nonce + 1)
+            for signature in tx.signatures or []:
+                owner = signature_ids.setdefault(id(signature), index)
+                if owner != index:
+                    raise ValueError(
+                        f"tx {index} shares a signature entry with tx "
+                        f"{owner}; build each transaction separately."
+                    )
         return self
 
     def block_transactions(self) -> List[Transaction]:

@@ -4,12 +4,15 @@ from typing import List
 
 import pytest
 
+from execution_testing.base_types import Bytes
 from execution_testing.exceptions import TransactionException
 from execution_testing.forks import Cancun, Prague
 from execution_testing.test_types import (
     EOA,
     Alloc,
     Blob,
+    Frame,
+    FrameSignature,
     MempoolTransaction,
     NetworkWrappedTransaction,
     Transaction,
@@ -141,6 +144,27 @@ def test_block_holds_the_payload_of_a_wrapped_tx() -> None:
     )
     test = mempool_test([MempoolTransaction(tx=wrapped, accepted=True)])
     assert test.block_transactions() == [payload]
+
+
+def test_rejects_shared_signature_entries() -> None:
+    """Test that frame transactions cannot share a signature entry."""
+    signature = FrameSignature(scheme=1, signer=Bytes(ALICE), msg=b"")
+
+    def frame_tx(sender: EOA) -> Transaction:
+        return Transaction(
+            sender=sender,
+            nonce=0,
+            frames=[Frame(mode=1, flags=3)],
+            signatures=[signature],
+        )
+
+    with pytest.raises(ValueError, match="shares a signature entry"):
+        mempool_test(
+            [
+                MempoolTransaction(tx=frame_tx(ALICE), accepted=True),
+                MempoolTransaction(tx=frame_tx(BOB), accepted=False),
+            ]
+        )
 
 
 def test_rejects_policy_verdicts() -> None:

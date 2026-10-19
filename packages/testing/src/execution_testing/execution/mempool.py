@@ -31,10 +31,46 @@ from .base import BaseExecute, ExecuteResult
 logger = get_logger(__name__)
 
 
+VERIFY_FRAME_MODE = 1
+"""Mode of a frame that runs before execution to grant approvals."""
+
+APPROVE_PAYMENT = 0x1
+"""Frame flag allowing the frame to approve the transaction's payment."""
+
+
 def transaction_payer(tx: Transaction) -> Address:
-    """Return the account a transaction charges: its sender."""
+    """
+    Return the account a transaction charges: for a frame transaction,
+    the target of the first `VERIFY` frame allowed to approve payment
+    (the sender for a null target), otherwise the sender.
+    """
     assert tx.sender is not None, "Sender is None"
+    for frame in tx.frames or []:
+        if int(frame.mode) != VERIFY_FRAME_MODE:
+            continue
+        if int(frame.flags) & APPROVE_PAYMENT:
+            return frame.target if frame.target is not None else tx.sender
     return tx.sender
+
+
+def frame_transaction_max_cost(tx: Transaction, fork: Fork) -> int:
+    """
+    Return the escrow a signed frame transaction collects from its payer
+    when payment is approved: its derived gas limit at the maximum fee
+    per gas, plus its blob gas at the maximum fee per blob gas.
+    """
+    assert tx.frames is not None and tx.signatures is not None
+    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=tx.frames,
+        signatures=tx.signatures,
+        sender=tx.sender,
+        nonce_keys=[int(key) for key in tx.nonce_keys or (0,)],
+        nonce_seq=int(tx.nonce),
+    )
+    blob_gas = fork.blob_gas_per_blob() * len(tx.blob_versioned_hashes or [])
+    return max_gas * int(tx.max_fee_per_gas or 0) + blob_gas * int(
+        tx.max_fee_per_blob_gas or 0
+    )
 
 
 class AdmittedTransaction:
@@ -100,13 +136,23 @@ class MempoolAdmission(BaseExecute):
         Prepare transactions by setting their final gas properties.
 
         Gas limits and fees a test pins are kept, so tests depending on
-        exact fees, such as replacements, stay exact.
+        exact fees, such as replacements, stay exact. Frame transactions
+        derive their gas limit from their frames, so only their fees are
+        set.
         """
         txs = [entry.unwrapped for entry in self.txs]
-        if not txs:
+        legacy_txs = [tx for tx in txs if tx.frames is None]
+        for tx in txs:
+            tx.set_gas_price(
+                gas_price=gas_price,
+                max_fee_per_gas=max_fee_per_gas,
+                max_priority_fee_per_gas=max_priority_fee_per_gas,
+                max_fee_per_blob_gas=max_fee_per_blob_gas,
+            )
+        if not legacy_txs:
             return
         max_tx_gas_limit = Transaction.calculate_max_gas_limit(
-            txs=txs,
+            txs=legacy_txs,
             env_gas_limit=int(env.gas_limit),
             transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
             state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
@@ -114,7 +160,7 @@ class MempoolAdmission(BaseExecute):
                 fork.transaction_total_gas_limit_cap()
             ),
         )
-        for tx in txs:
+        for tx in legacy_txs:
             tx.set_gas_limit(
                 max_gas_limit=max_tx_gas_limit,
                 transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
@@ -123,12 +169,6 @@ class MempoolAdmission(BaseExecute):
                     fork.transaction_total_gas_limit_cap()
                 ),
             )
-            tx.set_gas_price(
-                gas_price=gas_price,
-                max_fee_per_gas=max_fee_per_gas,
-                max_priority_fee_per_gas=max_priority_fee_per_gas,
-                max_fee_per_blob_gas=max_fee_per_blob_gas,
-            )
 
     def get_required_sender_balances(
         self, *, fork: Fork
@@ -136,16 +176,28 @@ class MempoolAdmission(BaseExecute):
         """
         Get the balances the payers need to cover every transaction.
 
-        Authorization signers are listed with no balance, so a deferred
-        EOA that only signs an authorization is created.
+        A frame transaction charges its payer the maximum cost and its
+        sender the value its frames transfer. Authorization signers are
+        listed with no balance, so a deferred EOA that only signs an
+        authorization is created.
         """
         balances: Dict[Address, int] = {}
         for entry in self.txs:
             tx = entry.unwrapped
             payer = transaction_payer(tx)
-            balances[payer] = balances.get(
-                payer, 0
-            ) + entry.tx.signer_minimum_balance(fork=fork)
+            if tx.frames is None:
+                balances[payer] = balances.get(
+                    payer, 0
+                ) + entry.tx.signer_minimum_balance(fork=fork)
+            else:
+                assert tx.sender is not None, "Sender is None"
+                tx.sign()
+                balances[payer] = balances.get(
+                    payer, 0
+                ) + frame_transaction_max_cost(tx, fork)
+                balances[tx.sender] = balances.get(tx.sender, 0) + sum(
+                    int(frame.value) for frame in tx.frames
+                )
             for authorization in tx.authorization_list or []:
                 if authorization.signer is not None:
                     balances.setdefault(authorization.signer, 0)

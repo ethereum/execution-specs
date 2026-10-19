@@ -8,19 +8,24 @@ import pytest
 
 from execution_testing.base_types import Hash
 from execution_testing.exceptions import TransactionException
-from execution_testing.forks import Cancun, Prague
+from execution_testing.forks import Bogota, Cancun, Prague
 from execution_testing.rpc import SendTransactionExceptionError
 from execution_testing.rpc.rpc_types import JSONRPCError
 from execution_testing.test_types import (
     EOA,
     Blob,
+    Frame,
     MempoolTransaction,
     NetworkWrappedTransaction,
     Transaction,
 )
 
 from ..get_blobs import GetBlobs
-from ..mempool import MempoolAdmission, MempoolCheck
+from ..mempool import (
+    MempoolAdmission,
+    MempoolCheck,
+    frame_transaction_max_cost,
+)
 
 ALICE = EOA(key=1)
 BOB = EOA(key=2)
@@ -352,3 +357,27 @@ def test_get_blobs_rejects_empty_custody_columns_updates() -> None:
         GetBlobs(custody_columns_updates=updates)
     with pytest.raises(ValueError, match="custody_columns_updates"):
         GetBlobs(custody_columns_updates=[])
+
+
+def test_frame_transaction_escrow_is_charged_to_its_payer() -> None:
+    """
+    Test that a sponsored frame transaction's maximum cost is funded on
+    its paying frame's target and its frame values on the sender.
+    """
+    sponsor = EOA(key=3)
+    tx = Transaction(
+        sender=ALICE,
+        nonce=0,
+        max_fee_per_gas=7,
+        max_priority_fee_per_gas=1,
+        frames=[
+            Frame(mode=1, flags=2),
+            Frame(mode=1, flags=1, target=sponsor),
+            Frame(mode=2, target=BOB, value=5),
+        ],
+    )
+    balances = MempoolAdmission(
+        txs=[MempoolTransaction(tx=tx, accepted=True)]
+    ).get_required_sender_balances(fork=Bogota)
+    assert balances[sponsor] == frame_transaction_max_cost(tx, Bogota) > 0
+    assert balances[ALICE] == 5

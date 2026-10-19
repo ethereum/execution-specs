@@ -36,9 +36,11 @@ class MempoolTransaction(CamelModel):
         return self.tx
 
     @property
-    def pool_key(self) -> Tuple[Address | None, int]:
+    def pool_key(self) -> Tuple[Address | None, Tuple[int, ...], int]:
         """
         Return the identity a mempool replaces transactions by: the
-        sender and the nonce.
+        sender, its nonce keys and the nonce.
         """
-        return (self.unwrapped.sender, int(self.unwrapped.nonce))
+        tx = self.unwrapped
+        nonce_keys = tuple(int(key) for key in tx.nonce_keys or ())
+        return (tx.sender, nonce_keys, int(tx.nonce))
