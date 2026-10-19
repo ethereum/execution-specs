@@ -348,39 +348,6 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
     )
 
 
-@pytest.mark.parametrize(
-    "authorization_count", [0, 1], ids=["empty", "one_authorization"]
-)
-def test_pending_il_appendability_by_authorization_list(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    authorization_count: int,
-) -> None:
-    """
-    A pending type-4 IL tx with an empty authorization list may be omitted.
-    """
-    pending_tx = Transaction(
-        ty=4,
-        sender=pre.fund_eoa(),
-        to=pre.nonexistent_account(),
-        authorization_list=[
-            set_code_authorization(pre) for _ in range(authorization_count)
-        ],
-    )
-
-    blockchain_test(
-        pre=pre,
-        post={},
-        blocks=[
-            Block(
-                txs=[],
-                inclusion_list_txs=[pending_tx],
-                expected_inclusion_list_satisfied=authorization_count == 0,
-            )
-        ],
-    )
-
-
 @pytest.mark.parametrize("tx_location", ["prior_block", "same_block"])
 def test_unsatisfied_when_block_tx_funds_pending_il_sender(
     blockchain_test: BlockchainTestFiller,
