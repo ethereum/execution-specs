@@ -284,6 +284,10 @@ def test_plan_for_a_push() -> None:
         newest["image"] == "ghcr.io/ethereum/execution-specs/hive/consume-rlp"
     )
     assert newest["kind"] == "consume"
+    assert newest["requires"] == (
+        "ghcr.io/ethereum/execution-specs/fixtures/blockchain_tests"
+        ":glamsterdam-devnet-v8.1.4"
+    )
     assert newest["release"] == "tests-glamsterdam-devnet@v8.1.4"
     assert newest["slug"] == "glamsterdam-devnet-v8.1.4"
     assert newest["tags"] == [
@@ -293,6 +297,9 @@ def test_plan_for_a_push() -> None:
     ]
     blobs = images[-1]
     assert blobs["name"] == "execute-blobs" and blobs["kind"] == "execute"
+    assert blobs["requires"] == (
+        "ghcr.io/ethereum/execution-specs/tests:glamsterdam-devnet-v8.1.4"
+    )
     assert blobs["tags"] == newest["tags"]
 
     # The main line: the channel owner by version, not the newest publication.

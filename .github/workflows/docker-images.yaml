@@ -346,7 +346,30 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # A push pairs the head with fixture and tests images that only a
+      # release run publishes. Until one has, as on the first push after the
+      # workflow lands on a branch, skip with a notice instead of failing.
+      - name: Check the test content is published
+        id: content
+        if: needs.plan.outputs.mode == 'push'
+        env:
+          REQUIRES: ${{ matrix.requires }}
+        run: |
+          # A missing tag reads "not found"; a package that does not exist
+          # yet is refused like one this job cannot read ("denied", 403).
+          # Any other registry error still fails.
+          if docker buildx imagetools inspect "$REQUIRES" > /dev/null 2> inspect.log; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          elif grep -qiE "not found|denied|403 forbidden" inspect.log; then
+            echo "::notice::$REQUIRES is not published yet; run a release build first"
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          else
+            cat inspect.log >&2
+            exit 1
+          fi
+
       - name: Build and check
+        if: steps.content.outputs.published != 'false'
         env:
           NAME: ${{ matrix.name }}
           FAMILY: ${{ matrix.family }}
@@ -367,6 +390,7 @@ jobs:
           "packages/testing/docker/${FAMILY}/check.sh" "$NAME" "${IMAGE}:${first}"
 
       - name: Push
+        if: steps.content.outputs.published != 'false'
         env:
           MODE: ${{ needs.plan.outputs.mode }}
           BRANCH: ${{ fromJSON(needs.plan.outputs.plan).branch }}

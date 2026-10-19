@@ -73,6 +73,18 @@ class Image:
         """Return `consume` for an image with fixtures, else `execute`."""
         return "consume" if self.fixture_format else "execute"
 
+    @property
+    def content_path(self) -> str:
+        """
+        Return the image path of the test content the image is built from.
+
+        The fixture image of its format for a consume simulator, e.g.
+        `fixtures/blockchain_tests_engine`, else the tests image.
+        """
+        if self.fixture_format:
+            return f"{FIXTURES_IMAGE}/{self.fixture_format}"
+        return TESTS_IMAGE
+
 
 IMAGES: tuple[Image, ...] = (
     Image("consume-rlp", "hive", "blockchain_tests"),
@@ -510,6 +522,7 @@ def plan(
                 "family": image.family,
                 "kind": image.kind,
                 "image": f"{registry}/{image.path}",
+                "requires": f"{registry}/{image.content_path}:{slug}",
                 "release": release,
                 "slug": slug,
                 "commit": commit,

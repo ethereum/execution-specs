@@ -72,7 +72,7 @@ gh workflow run docker-images.yaml --ref forks/bogota -f nightly_sha=<commit>
 
 ## First rollout
 
-Simulator images need the fixture images and the tests image of the release they pair with. As each branch adopts image publishing, publish them for that branch's current release by hand before relying on push builds. Rollout is gradual; consumer instructions should name only tags that have already been published. From then on, published releases and nightly fills keep them current. The planner prints a branch's current release in the `images` entries of a push plan.
+Simulator images need the fixture images and the tests image of the release they pair with. As each branch adopts image publishing, publish them for that branch's current release by hand with a manual release run. Until then, push runs publish the repository image and skip the simulator images with a notice naming the missing image. Rollout is gradual; consumer instructions should name only tags that have already been published. From then on, published releases and nightly fills keep them current. The planner prints a branch's current release in the `images` entries of a push plan.
 
 ## Testing on a fork
 
@@ -93,6 +93,7 @@ Before the first upstream publish, verify these cases on the fork:
 | A release queued between pushes | The release publishes its fixture and tests images; later simulator builds can pull them. |
 | Updates to two devnet branches | Both branches publish; one cannot replace the other's pending run. |
 | A simulator check fails | That simulator's tags stay unchanged; its job fails. |
+| A push before its release's fixture and tests images exist | The repository image publishes; each simulator job skips with a notice. |
 | A release has no fixture tarball | Planning fails before image builds. |
 | A release is paired with the wrong branch in `eest images plan` | The planner rejects the pair. |
 | A manual nightly uses an earlier successful fill | The exact artifact, tests and framework commit are used. |
