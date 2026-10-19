@@ -306,6 +306,8 @@ class CovariantDecorator(CovariantDescriptor):
                               in the test function.
       indirect: Whether the parameters should be passed through fixtures
                 (indirect parametrization).
+      fork_method_kwargs: Names of the marker's keyword arguments that are
+                          passed on to the fork method.
 
     """
 
@@ -314,6 +316,7 @@ class CovariantDecorator(CovariantDescriptor):
     fork_attribute_name: ClassVar[str]
     marker_parameter_names: ClassVar[List[str]]
     indirect: ClassVar[bool]
+    fork_method_kwargs: ClassVar[Tuple[str, ...]] = ()
 
     def __init__(self, metafunc: Metafunc):
         """
@@ -352,6 +355,12 @@ class CovariantDecorator(CovariantDescriptor):
 
         marks = kwargs.pop("marks", None)
 
+        fork_method_kwargs = {
+            name: kwargs.pop(name)
+            for name in self.fork_method_kwargs
+            if name in kwargs
+        }
+
         if len(kwargs) > 0:
             raise ValueError(
                 f"Unknown arguments to {self.marker_name}: {kwargs}"
@@ -360,7 +369,9 @@ class CovariantDecorator(CovariantDescriptor):
         def fn(fork: Fork | TransitionFork) -> List[Any]:
             if fork.is_transition_fork:
                 raise ValueError(f"Transition forks are not supported: {fork}")
-            return getattr(fork, self.fork_attribute_name)()
+            return getattr(fork, self.fork_attribute_name)(
+                **fork_method_kwargs
+            )
 
         super().__init__(
             argnames=self.marker_parameter_names,
@@ -377,6 +388,7 @@ def covariant_decorator(
     fork_attribute_name: str,
     argnames: List[str],
     indirect: bool = False,
+    fork_method_kwargs: Tuple[str, ...] = (),
 ) -> Type[CovariantDecorator]:
     """Generate a new covariant decorator subclass."""
     return type(
@@ -388,6 +400,7 @@ def covariant_decorator(
             "fork_attribute_name": fork_attribute_name,
             "marker_parameter_names": argnames,
             "indirect": indirect,
+            "fork_method_kwargs": fork_method_kwargs,
         },
     )
 
@@ -454,10 +467,13 @@ fork_covariant_decorators: List[Type[CovariantDecorator]] = [
         marker_name="with_all_system_contracts",
         description=(
             "marks a test to be parametrized for all system contracts at "
-            "parameter named system_contract of type int"
+            "parameter named system_contract of type int; pass "
+            "phase=SystemCallPhase.<PHASE> to only include the system "
+            "contracts the block calls in that phase"
         ),
-        fork_attribute_name="system_contracts",
+        fork_attribute_name="system_contracts_in_phase",
         argnames=["system_contract"],
+        fork_method_kwargs=("phase",),
     ),
     covariant_decorator(
         marker_name="with_all_system_contract_request_types",

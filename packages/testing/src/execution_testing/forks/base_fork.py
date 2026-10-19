@@ -1131,6 +1131,25 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         pass
 
     @classmethod
+    def system_contracts_in_phase(
+        cls, phase: SystemCallPhase | None = None
+    ) -> List[Address]:
+        """
+        Return the system contracts the block calls in the given phase, or
+        all system contracts if no phase is given.
+
+        Contracts keep the order of `system_contracts()`.
+        """
+        if phase is None:
+            return cls.system_contracts()
+        phases = cls.system_contract_call_phases()
+        return [
+            address
+            for address in cls.system_contracts()
+            if phases[address] == phase
+        ]
+
+    @classmethod
     @abstractmethod
     def system_contract_request_types(
         cls,

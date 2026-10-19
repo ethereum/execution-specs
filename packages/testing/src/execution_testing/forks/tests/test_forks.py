@@ -421,6 +421,25 @@ def test_system_contract_request_types(fork: Fork) -> None:
 
 
 @pytest.mark.parametrize("fork", sorted(ALL_FORKS, key=str), ids=str)
+def test_system_contracts_in_phase(fork: Fork) -> None:
+    """
+    The system contracts of each phase partition the fork's system
+    contracts, and no phase means all of them.
+    """
+    assert fork.system_contracts_in_phase() == fork.system_contracts()
+    by_phase = [
+        fork.system_contracts_in_phase(phase) for phase in SystemCallPhase
+    ]
+    assert sorted(a for addresses in by_phase for a in addresses) == sorted(
+        fork.system_contracts()
+    )
+    phases = fork.system_contract_call_phases()
+    for phase in SystemCallPhase:
+        for address in fork.system_contracts_in_phase(phase):
+            assert phases[address] == phase
+
+
+@pytest.mark.parametrize("fork", sorted(ALL_FORKS, key=str), ids=str)
 def test_system_contract_call_phases(fork: Fork) -> None:
     """
     Every system contract declares when the block calls it, and every

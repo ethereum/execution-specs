@@ -272,6 +272,23 @@ import pytest
         pytest.param(
             """
             import pytest
+            from execution_testing.forks import SystemCallPhase
+            @pytest.mark.with_all_system_contracts(
+                phase=SystemCallPhase.AFTER_TRANSACTIONS
+            )
+            @pytest.mark.valid_from("Prague")
+            @pytest.mark.valid_until("Prague")
+            @pytest.mark.state_test_only
+            def test_case(state_test, system_contract):
+                pass
+            """,
+            {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
+            None,
+            id="with_all_system_contracts_after_transactions",
+        ),
+        pytest.param(
+            """
+            import pytest
             @pytest.mark.with_all_system_contract_request_types()
             @pytest.mark.valid_from("Prague")
             @pytest.mark.valid_until("Prague")
