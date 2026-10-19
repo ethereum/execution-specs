@@ -35,6 +35,22 @@ To reproduce a dashboard failure, match its simulator image, client version and 
 
 See [Hive](../hive/index.md) for help installing and configuring Hive.
 
+## Mempool Admission Tests
+
+Transaction, blob transaction and mempool tests send each transaction to the client's public mempool via `eth_sendRawTransaction`, and share the `mempool_admission` marker:
+
+- `transaction_test`: the mempool must admit a valid transaction and reject an invalid one.
+- `blob_transaction_test`: blob transactions are admitted with their blobs, which are then validated via `engine_getBlobsVX` endpoints (when Engine RPC available).
+- `mempool_test`: the mempool must admit or reject transactions that are valid in a block, per its public mempool rules.
+
+Admitted transactions are waited on until a block includes them. Run them all in [development mode](#running-execute-tests-with-hive-in-dev-mode):
+
+```bash
+uv run execute hive --fork=Osaka -m mempool_admission
+```
+
+Against a live network, the same tests run with `uv run execute remote ... -m mempool_admission`.
+
 ## Running `execute` tests with Hive in Dev Mode
 
 Switch to development mode when you need to edit tests or simulator code, rerun quickly, or use a Python debugger. Both tests and framework now come from your checkout, rather than the release selected by a published image tag. Install the [testing tools](../../getting_started/installation.md) first; see [Hive development mode](../hive/dev_mode.md) for platform-specific setup.

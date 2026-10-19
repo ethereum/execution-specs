@@ -1,10 +1,11 @@
 # Types of tests
 
-There are currently three types of tests that can be produced by a test spec:
+There are currently four types of tests that can be produced by a test spec:
 
 1. State Tests
 2. Blockchain Tests
 3. Transaction Tests
+4. Mempool Tests
 
 ## State Tests
 
@@ -71,7 +72,20 @@ Test correct transaction rejection/acceptance of a serialized transaction (curre
 
 !!! info
 
-    Using the `execute` command, transaction tests can be sent to clients in a live network using the `eth_sendRawTransaction` endpoint.
+    Using the `execute` command, transaction tests are sent to the client's public mempool via `eth_sendRawTransaction`, which must admit a valid transaction and reject an invalid one.
+
+## Mempool Tests
+
+### Purpose
+
+Test that a client's public mempool admits or rejects transactions that are valid in a block, where the rule is mempool policy and not consensus.
+
+### Use cases
+
+- Verify that a client rejects a transaction its public mempool must not hold, for example an EIP-8141 frame transaction exceeding the validation budget.
+- Verify that a block including the same transaction is still valid.
+
+Each `MempoolTransaction` passed to `mempool_test` states whether the mempool must admit it. The `fill` command places the transactions in a single block that must be valid and generates blockchain fixtures from it. The `execute` command sends them in order via `eth_sendRawTransaction` and checks the client's answer to each.
 
 ## Deciding on a test type
 
