@@ -347,7 +347,6 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
 
 
 @pytest.mark.parametrize(
-@pytest.mark.parametrize(
     "authorization_count", [0, 1], ids=["empty", "one_authorization"]
 )
 def test_pending_il_appendability_by_authorization_list(
