@@ -687,9 +687,18 @@ def test_nested_frame_state_access(
 def test_stacked_storage_commit(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
+    fork: Fork,
     writes_per_frame: int,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
 ) -> None:
     """Benchmark storage writes on branching self-DELEGATECALL frames."""
+    # The first frame pays a cold write per slot, so a large write set does
+    # not fit in a small benchmark budget.
+    first_frame_gas = writes_per_frame * fork.gas_costs().COLD_STORAGE_WRITE
+    if first_frame_gas > min(tx_gas_limit, gas_benchmark_value):
+        pytest.skip("write set does not fit in the transaction gas limit")
+
     # The second call spends the 1/64 of the gas EIP-150 withholds from the
     # first; with a single call the transaction leaves most of it unspent.
     delegate = Op.DELEGATECALL(address=Op.ADDRESS)
