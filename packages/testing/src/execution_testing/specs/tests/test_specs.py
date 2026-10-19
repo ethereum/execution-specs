@@ -4,6 +4,7 @@ from typing import ClassVar, Dict, Protocol, Sequence, Tuple, Type
 
 import pytest
 
+from execution_testing.execution import BlobTransaction
 from execution_testing.fixtures import (
     BaseFixture,
     BlockchainFixture,
@@ -25,6 +26,25 @@ def test_spec_types() -> None:
     assert len(BaseTest.spec_types.items()) > 0
     assert "state_test" in BaseTest.spec_types
     assert "blockchain_test" in BaseTest.spec_types
+    assert "mempool_test" in BaseTest.spec_types
+
+
+@pytest.mark.parametrize(
+    "spec,marks",
+    [
+        ("mempool_test", {"mempool_admission", "mempool_test"}),
+        ("transaction_test", {"mempool_admission", "transaction_test"}),
+        ("blobs_test", {"mempool_admission", "blob_transaction_test"}),
+        ("state_test", {"transaction_post_test", "state_test"}),
+    ],
+)
+def test_execute_format_marks(spec: str, marks: set) -> None:
+    """
+    Test that the specs sending transactions to the mempool share the
+    `mempool_admission` mark, so a single marker selects them all.
+    """
+    (execute_format,) = BaseTest.spec_types[spec].supported_execute_formats
+    assert {mark.name for mark in execute_format.marks()} == marks
 
 
 class SpecType(Protocol):
@@ -233,3 +253,17 @@ def test_blobs_test_rejects_empty_custody_columns_updates() -> None:
         BlobsTest(
             pre=Alloc(), txs=[], fork=Amsterdam, custody_columns_updates=[]
         )
+
+
+def test_blobs_test_executes_its_txs_as_admitted() -> None:
+    """
+    Test that a blobs test sends every transaction expecting the
+    mempool to admit it, before checking the blobs.
+    """
+    tx = Transaction(gas_limit=21_000)
+    (execute_format,) = BlobsTest.supported_execute_formats
+    blob_transaction = BlobsTest(
+        pre=Alloc(), txs=[tx], fork=Amsterdam
+    ).execute(execute_format=execute_format)
+    assert isinstance(blob_transaction, BlobTransaction)
+    assert [(e.tx, e.accepted) for e in blob_transaction.txs] == [(tx, True)]

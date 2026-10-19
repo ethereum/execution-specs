@@ -23,6 +23,7 @@ from execution_testing.fixtures import (
 )
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import (
+    MempoolTransaction,
     NetworkWrappedTransaction,
     Transaction,
 )
@@ -96,7 +97,9 @@ class BlobsTest(BaseTest):
         """Generate the list of test fixtures."""
         if execute_format == BlobTransaction:
             return BlobTransaction(
-                txs=self.txs,
+                txs=[
+                    MempoolTransaction(tx=tx, accepted=True) for tx in self.txs
+                ],
                 nonexisting_blob_hashes=self.nonexisting_blob_hashes,
                 interleave_nonexisting_blob_hashes=(
                     self.interleave_nonexisting_blob_hashes

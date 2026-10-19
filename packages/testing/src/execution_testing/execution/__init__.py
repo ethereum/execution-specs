@@ -2,6 +2,7 @@
 
 from .base import BaseExecute, ExecuteFormat, LabeledExecuteFormat
 from .blob_transaction import BlobTransaction
+from .mempool import MempoolAdmission
 from .transaction_post import TransactionPost
 
 __all__ = [
@@ -9,5 +10,6 @@ __all__ = [
     "ExecuteFormat",
     "BlobTransaction",
     "LabeledExecuteFormat",
+    "MempoolAdmission",
     "TransactionPost",
 ]
