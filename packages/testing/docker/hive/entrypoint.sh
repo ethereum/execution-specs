@@ -12,6 +12,26 @@
 #                                       the release was filled for, set when the image is built
 set -eu
 
+# Deprecated build arguments applied by eels-legacy-build (legacy_build.sh):
+# run what they selected, and drop the image's provenance that no longer
+# describes it, so that the log header stays truthful.
+legacy=${EELS_LEGACY_STATE:-/etc/eels-simulator/legacy}
+if [ -d "$legacy" ]; then
+    echo "eels-simulator: deprecated build arguments fixtures/branch in use;" \
+        "pass --sim.buildarg tag=<tag> instead, see ethereum/execution-specs#3866" >&2
+    if [ -f "$legacy/fixtures" ]; then
+        FIXTURES=$(cat "$legacy/fixtures")
+        unset EEST_FIXTURES_RELEASE
+    fi
+    if [ -f "$legacy/branch" ]; then
+        # The framework, and an execute image's tests, come from the branch.
+        EEST_GIT_SHA=$(cat "$legacy/commit")
+        EEST_GIT_REF=$(cat "$legacy/branch")
+        export EEST_GIT_SHA EEST_GIT_REF
+        unset EEST_TESTS_RELEASE EEST_TESTS_GIT_SHA
+    fi
+fi
+
 cd /execution-specs/packages/testing
 case "${EEST_SIMULATOR:-}" in
 consume-engine)

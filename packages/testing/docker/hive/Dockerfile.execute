@@ -20,6 +20,7 @@ FROM ${TESTS_REF} AS tests
 
 FROM ${BASE_REF}
 COPY entrypoint.sh /usr/local/bin/eels-simulator
+COPY legacy_build.sh /usr/local/bin/eels-legacy-build
 
 # The head's tests are removed first, so that tests renamed or deleted after
 # the release do not linger next to the snapshot.

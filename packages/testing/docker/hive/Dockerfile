@@ -25,6 +25,7 @@ FROM ${BASE_REF} AS base
 FROM ${FIXTURES_REF}
 COPY --from=base / /
 COPY entrypoint.sh /usr/local/bin/eels-simulator
+COPY legacy_build.sh /usr/local/bin/eels-legacy-build
 
 ARG EEST_SIMULATOR
 ARG EEST_GIT_SHA=""
