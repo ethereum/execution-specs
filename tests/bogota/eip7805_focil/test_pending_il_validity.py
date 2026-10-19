@@ -262,21 +262,15 @@ SIGNATURE_CASES = [
 ]
 
 
-@pytest.mark.parametrize(
-    "tx_type,signature_type",
-    [
-        pytest.param(tx_type, case, id=f"type_{tx_type}-{case}")
-        for tx_type in (0, 1, 2, 4)
-        for case in SIGNATURE_CASES
-        # A legacy tx has no y_parity; its v also carries the chain id.
-        if not (tx_type == 0 and case == "y_parity_2")
-    ],
+@pytest.mark.with_all_typed_transactions(
+    selector=lambda tx_type: tx_type != TransactionType.BLOB_TRANSACTION
 )
+@pytest.mark.parametrize("signature_type", SIGNATURE_CASES)
 def test_block_with_invalid_signature_pending_il_tx_is_valid(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
-    tx_type: int,
+    typed_transaction: Transaction,
     signature_type: str,
 ) -> None:
     """
@@ -287,22 +281,14 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
     allowed. Each case breaks one signature check while keeping `v` valid
     for this chain, so the chain id check doesn't skip the tx first.
     """
-    authorization_list = None
-    if tx_type == 4:
-        authorization_list = [
-            AuthorizationTuple(
-                signer=pre.fund_eoa(), address=pre.deploy_contract(Op.STOP)
-            )
-        ]
-    signed_tx = Transaction(
-        ty=tx_type,
-        sender=pre.fund_eoa(),
-        to=pre.nonexistent_account(),
+    if (
+        signature_type == "y_parity_2"
+        and typed_transaction.ty == TransactionType.LEGACY
+    ):
+        pytest.skip("A legacy tx has no y_parity; its v carries the chain id.")
+    signed_tx = typed_transaction.copy(
         # Signing up front needs the final gas limit.
-        gas_limit=fork.transaction_intrinsic_cost_calculator()(
-            authorization_list_or_count=authorization_list
-        ),
-        authorization_list=authorization_list,
+        gas_limit=fork.transaction_gas_limit_cap(),
     ).with_signature_and_sender()
     expected_satisfied = True
     match signature_type:
@@ -324,7 +310,7 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
         case "high_s":
             # The same signature with s mirrored and the parity flipped
             # still recovers the sender, so only the low-s rule rejects it.
-            signed_tx.v = HexNumber(flipped_parity(tx_type, signed_tx.v))
+            signed_tx.v = HexNumber(flipped_parity(signed_tx.ty, signed_tx.v))
             signed_tx.s = HexNumber(int(SECP256K1N) - signed_tx.s)
         case "y_parity_2":
             # Keep the low bit, so a client that reads only `v & 1`
@@ -891,21 +877,15 @@ def test_pending_il_appendability_by_chain_id(
     )
 
 
-@pytest.mark.parametrize(
-    "tx_type",
-    [
-        pytest.param(0, id="legacy_gas_price"),
-        pytest.param(1, id="access_list_gas_price"),
-        pytest.param(2, id="eip1559_max_fee"),
-        pytest.param(4, id="set_code_max_fee"),
-    ],
+@pytest.mark.with_all_typed_transactions(
+    selector=lambda tx_type: tx_type != TransactionType.BLOB_TRANSACTION
 )
 @pytest.mark.parametrize("fee_cap", ["base_fee", "one_wei_below_base_fee"])
 def test_pending_il_appendability_by_base_fee(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
-    tx_type: int,
+    typed_transaction: Transaction,
     fee_cap: str,
 ) -> None:
     """A pending IL tx whose fee cap is below the base fee may be omitted."""
@@ -928,32 +908,12 @@ def test_pending_il_appendability_by_base_fee(
         case _:
             raise ValueError(f"unknown fee cap: {fee_cap}")
 
-    authorization_list = None
-    if tx_type == 4:
-        authorization_list = [
-            AuthorizationTuple(
-                signer=pre.fund_eoa(), address=pre.deploy_contract(Op.STOP)
-            )
-        ]
-    match tx_type:
-        case 0 | 1:
-            pending_tx = Transaction(
-                ty=tx_type,
-                sender=pre.fund_eoa(),
-                to=pre.nonexistent_account(),
-                gas_price=max_fee,
-            )
-        case 2 | 4:
-            pending_tx = Transaction(
-                ty=tx_type,
-                sender=pre.fund_eoa(),
-                to=pre.nonexistent_account(),
-                max_fee_per_gas=max_fee,
-                max_priority_fee_per_gas=0,
-                authorization_list=authorization_list,
-            )
-        case _:
-            raise ValueError(f"unknown tx type: {tx_type}")
+    if typed_transaction.max_fee_per_gas is None:
+        pending_tx = typed_transaction.copy(gas_price=max_fee)
+    else:
+        pending_tx = typed_transaction.copy(
+            max_fee_per_gas=max_fee, max_priority_fee_per_gas=0
+        )
 
     blockchain_test(
         genesis_environment=genesis_environment,
