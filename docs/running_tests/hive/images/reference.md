@@ -80,7 +80,7 @@ Set with `--sim.buildarg name=value` on the image Dockerfiles. For the separate 
 | `tag` | all | `latest` | Selects the tests, see Tags. Accepts `<tag>@sha256:<digest>` to pin an exact image. |
 | `image` | all | the simulator's published image | Another registry namespace or a locally built image. |
 | `disable_strict_exception_matching` | `consume-engine`, `consume-enginex` | `nimbus-el` | Clients exempt from strict exception matching; an empty value exempts none. |
-| `fork` | `execute-blobs` | `Osaka` | Fork to execute the tests for. |
+| `fork` | `execute-blobs` | the image's `EEST_DEFAULT_FORK` | Fork to execute the tests for. |
 
 ## Variables and labels set in the images
 
@@ -94,6 +94,7 @@ These belong to the images, not to the testing package: the Dockerfiles set them
 | `EEST_FIXTURES_RELEASE` | `org.ethereum.eest.fixtures-release` | Release of the fixtures, for example `tests@v20.0.2`, or `nightly-<commit>` for a fill. Consume and fixture images. |
 | `EEST_TESTS_RELEASE` | `org.ethereum.eest.tests-release` | Release of the test sources, or `nightly-<commit>`. Execute and tests images. |
 | `EEST_TESTS_GIT_SHA` | `org.ethereum.eest.tests-revision` | Commit the test sources were taken from. Execute and tests images. |
+| `EEST_DEFAULT_FORK` | `org.ethereum.eest.default-fork` | Fork an execute image runs at when no `fork` is given: the `--fork` or `--until` fork in the release's `fill-params`, read from `.github/configs/feature.yaml` at the release tag or fill commit. Execute images. |
 | `FIXTURES` | | `/fixtures`, the fixture directory the entry point passes to `consume`. |
 
 Fixture and tests images contain data and labels only; they do not set runtime environment variables. The tests image records its source commit as `org.opencontainers.image.revision`; the execute simulator also records it as `org.ethereum.eest.tests-revision`.
