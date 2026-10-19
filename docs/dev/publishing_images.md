@@ -81,7 +81,7 @@ Simulator images need the fixture images and the tests image of the release they
 ## Testing on a fork
 
 1. Push the branch with the workflow to the fork. A manual run requires the workflow file on the fork's default branch, so either add the branch to the `push` trigger temporarily or make it the fork's default branch for the duration of the test.
-2. Releases are not forked. Pass `release_repo=ethereum/execution-specs` to a manual run so that the planner lists upstream releases and the fixtures job downloads the tarball from upstream; the tests job checks the release tag out of that repository too.
+2. Releases are not forked. Pass `release_repo=ethereum/execution-specs` to a manual run so that the planner lists upstream releases and the fixtures job downloads the tarball from upstream; the tests job checks the release tag out of that repository too. Pass it to a manual push run (`branch=<branch>`) as well: without it the planner finds no releases on the fork, so the run publishes the repository image only.
 3. Packages created by the job token are private at first. Make them public in the package settings, or log in to ghcr locally and run hive with `--docker.auth`.
 4. Point hive at the fork's namespace with `--sim.buildarg image=ghcr.io/<user>/execution-specs/hive/consume-engine`.
 
