@@ -53,7 +53,6 @@ from execution_testing import (
 from execution_testing import (
     Macros as Om,
 )
-from execution_testing.checklists import EIPChecklist
 
 from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
@@ -120,7 +119,6 @@ def _receipt_and_header(
         pytest.param(3, id="three_auths"),
     ],
 )
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.valid_from("EIP8037")
 def test_authorization_state_gas_scaling(
     state_test: StateTestFiller,
@@ -1296,7 +1294,6 @@ def test_auth_with_multiple_sstores(
         ),
     ],
 )
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_authorization_exact_state_gas_boundary(
     blockchain_test: BlockchainTestFiller,
@@ -2052,7 +2049,6 @@ def test_top_level_halt_keeps_intrinsic_auth_state_gas(
         pytest.param(-1, id="one_short"),
     ],
 )
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_auth_and_execution_state_oog_boundary(
     state_test: StateTestFiller,

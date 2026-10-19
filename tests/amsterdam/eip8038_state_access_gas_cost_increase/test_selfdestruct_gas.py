@@ -54,7 +54,6 @@ from execution_testing import (
     TransactionReceipt,
     compute_create_address,
 )
-from execution_testing.checklists import EIPChecklist
 
 from ..eip7708_eth_transfer_logs.spec import transfer_log
 from .spec import ref_spec_8038
@@ -79,7 +78,6 @@ def _destructor_code(
     )(beneficiary)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_selfdestruct_new_beneficiary_execution_gas(
     state_test: StateTestFiller,
@@ -132,7 +130,6 @@ def test_selfdestruct_new_beneficiary_execution_gas(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_selfdestruct_account_write_receipt_pin(
     state_test: StateTestFiller,
@@ -192,7 +189,6 @@ def test_selfdestruct_account_write_receipt_pin(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_two_selfdestructs_to_same_beneficiary(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -261,7 +257,6 @@ def test_two_selfdestructs_to_same_beneficiary(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_selfdestruct_alive_beneficiary_no_account_write(
     state_test: StateTestFiller,
@@ -326,7 +321,6 @@ def test_selfdestruct_alive_beneficiary_no_account_write(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_selfdestruct_codebearing_zero_balance_beneficiary_no_account_write(
     state_test: StateTestFiller,
@@ -398,7 +392,6 @@ def test_selfdestruct_codebearing_zero_balance_beneficiary_no_account_write(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_selfdestruct_zero_balance_no_account_write(
     state_test: StateTestFiller,
@@ -456,7 +449,6 @@ def test_selfdestruct_zero_balance_no_account_write(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "beneficiary_kind",
     [
@@ -533,7 +525,6 @@ def test_selfdestruct_self_or_precompile_beneficiary(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_selfdestruct_value_to_precompile_beneficiary(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -588,7 +579,6 @@ def test_selfdestruct_value_to_precompile_beneficiary(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.parametrize(
     "sufficient_gas", [True, False], ids=["sufficient", "insufficient"]
 )
@@ -655,7 +645,6 @@ def test_selfdestruct_oog_boundary(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.pre_alloc_mutable()
 def test_same_tx_created_selfdestruct_self_burn(
     state_test: StateTestFiller,
@@ -736,7 +725,6 @@ def test_same_tx_created_selfdestruct_self_burn(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.pre_alloc_mutable()
 def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
     state_test: StateTestFiller,

@@ -14,7 +14,6 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
-    EIPChecklist,
     Hash,
     Initcode,
     Op,
@@ -33,7 +32,6 @@ FORK_TIMESTAMP = 15_000
 @pytest.mark.valid_at_transition_to("Amsterdam")
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.parametrize("pre_fork_nonce", [1, 2, 32])
-@EIPChecklist.SystemContract.Test.ForkTransition.CallBeforeFork()
 def test_factory_deploys_across_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -119,7 +117,6 @@ def test_factory_deploys_across_transition(
         pytest.param("foreign_code", id="factory_foreign_code"),
     ],
 )
-@EIPChecklist.SystemContract.Test.Deployment.Missing()
 def test_factory_untouched_across_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

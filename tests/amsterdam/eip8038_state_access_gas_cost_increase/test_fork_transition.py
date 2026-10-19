@@ -53,7 +53,6 @@ from execution_testing import (
     TransactionReceipt,
     compute_create_address,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8038
 
@@ -171,8 +170,6 @@ def _minimum_gas_limit(regime: Fork, access_list: List[AccessList]) -> int:
     )
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_cold_account_access_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -216,8 +213,6 @@ def test_cold_account_access_at_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_same_account_accessed_at_both_prices(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -266,8 +261,6 @@ def test_same_account_accessed_at_both_prices(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_ext_code_surcharge_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -319,8 +312,6 @@ def test_ext_code_surcharge_at_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_call_value_cost_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -397,8 +388,6 @@ def test_call_value_cost_at_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_create_base_cost_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -480,8 +469,6 @@ def test_create_base_cost_at_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_selfdestruct_account_write_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -544,8 +531,6 @@ def test_selfdestruct_account_write_at_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_sstore_write_cost_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -606,9 +591,6 @@ def test_sstore_write_cost_at_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_storage_clear_refund_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -672,8 +654,6 @@ def test_storage_clear_refund_at_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_access_list_intrinsic_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -732,12 +712,6 @@ def test_access_list_intrinsic_at_transition(
     blockchain_test(pre=pre, blocks=blocks, post={})
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedBeforeFork()
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork()
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork()
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork()
 @pytest.mark.exception_test
 def test_access_list_intrinsic_straddles_validity(
     blockchain_test: BlockchainTestFiller,
@@ -810,8 +784,6 @@ def test_access_list_intrinsic_straddles_validity(
     blockchain_test(pre=pre, blocks=blocks, post={})
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 @pytest.mark.exception_test
 def test_auth_intrinsic_at_transition(
     blockchain_test: BlockchainTestFiller,

@@ -11,7 +11,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    EIPChecklist,
     Op,
     Transaction,
     TransactionException,
@@ -25,10 +24,6 @@ REFERENCE_SPEC_VERSION = ref_spec_7825.version
 
 
 @pytest.mark.inclusion_test
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedBeforeFork()
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork()
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork()
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork()
 @pytest.mark.valid_at_transition_to("Osaka")
 @pytest.mark.parametrize(
     "transaction_at_cap",

@@ -6,7 +6,6 @@ import pytest
 from execution_testing import (
     Address,
     Alloc,
-    EIPChecklist,
     Environment,
     Fork,
     Op,
@@ -40,9 +39,6 @@ pytestmark = [
     # https://github.com/C2SP/wycheproof/blob/main/testvectors/ecdsa_secp256r1_sha256_test.json
 )
 @pytest.mark.parametrize("precompile_address", [Spec.P256VERIFY], ids=[""])
-@EIPChecklist.Precompile.Test.CallContexts.Normal()
-@EIPChecklist.Precompile.Test.Inputs.Valid()
-@EIPChecklist.Precompile.Test.Inputs.MaxValues()
 @pytest.mark.eels_base_coverage
 def test_wycheproof_valid(
     state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transaction
@@ -61,9 +57,6 @@ def test_wycheproof_valid(
     # testvectors/ecdsa_secp256r1_sha256_test.json
 )
 @pytest.mark.parametrize("precompile_address", [Spec.P256VERIFY], ids=[""])
-@EIPChecklist.Precompile.Test.CallContexts.Normal()
-@EIPChecklist.Precompile.Test.Inputs.Invalid()
-@EIPChecklist.Precompile.Test.Inputs.MaxValues()
 def test_wycheproof_invalid(
     state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transaction
 ) -> None:
@@ -84,8 +77,6 @@ def test_wycheproof_invalid(
     # testvectors/ecdsa_secp256r1_sha256_test.json
 )
 @pytest.mark.parametrize("precompile_address", [Spec.P256VERIFY], ids=[""])
-@EIPChecklist.Precompile.Test.CallContexts.Normal()
-@EIPChecklist.Precompile.Test.Inputs.MaxValues()
 def test_wycheproof_extra(
     state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transaction
 ) -> None:
@@ -959,16 +950,6 @@ def test_valid(
     "expected_output", [Spec.INVALID_RETURN_VALUE], ids=[""]
 )
 @pytest.mark.parametrize("precompile_address", [Spec.P256VERIFY], ids=[""])
-@EIPChecklist.Precompile.Test.Inputs.AllZeros()
-@EIPChecklist.Precompile.Test.Inputs.Invalid()
-@EIPChecklist.Precompile.Test.Inputs.Invalid.Crypto()
-@EIPChecklist.Precompile.Test.Inputs.Invalid.Corrupted()
-@EIPChecklist.Precompile.Test.InputLengths.Zero()
-@EIPChecklist.Precompile.Test.InputLengths.Static.Correct()
-@EIPChecklist.Precompile.Test.InputLengths.Static.TooShort()
-@EIPChecklist.Precompile.Test.InputLengths.Static.TooLong()
-@EIPChecklist.Precompile.Test.OutOfBounds.Max()
-@EIPChecklist.Precompile.Test.OutOfBounds.MaxPlusOne()
 @pytest.mark.eels_base_coverage
 def test_invalid(
     state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transaction
@@ -1011,8 +992,6 @@ def test_invalid(
     ],
 )
 @pytest.mark.parametrize("precompile_address", [Spec.P256VERIFY], ids=[""])
-@EIPChecklist.Precompile.Test.GasUsage.Constant.Exact()
-@EIPChecklist.Precompile.Test.GasUsage.Constant.Oog()
 def test_gas(
     state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transaction
 ) -> None:
@@ -1039,9 +1018,6 @@ def test_gas(
     ],
 )
 @pytest.mark.parametrize("precompile_address", [Spec.P256VERIFY], ids=[""])
-@EIPChecklist.Precompile.Test.CallContexts.Delegate()
-@EIPChecklist.Precompile.Test.CallContexts.Static()
-@EIPChecklist.Precompile.Test.CallContexts.Callcode()
 def test_call_types(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1063,7 +1039,6 @@ def test_call_types(
         ),
     ],
 )
-@EIPChecklist.Precompile.Test.CallContexts.TxEntry()
 def test_precompile_as_tx_entry_point(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1085,7 +1060,6 @@ def test_precompile_as_tx_entry_point(
         ),
     ],
 )
-@EIPChecklist.Precompile.Test.ValueTransfer.NoFee()
 def test_precompile_will_return_success_with_tx_value(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1195,8 +1169,6 @@ def test_precompile_will_return_success_with_tx_value(
     ],
 )
 @pytest.mark.parametrize("precompile_address", [Spec.P256VERIFY], ids=[""])
-@EIPChecklist.Precompile.Test.Inputs.Valid()
-@EIPChecklist.Precompile.Test.Inputs.Invalid.Crypto()
 def test_modular_comparison(
     state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transaction
 ) -> None:
@@ -1226,7 +1198,6 @@ def test_modular_comparison(
     ],
 )
 @pytest.mark.parametrize("precompile_address", [Spec.P256VERIFY], ids=[""])
-@EIPChecklist.Precompile.Test.CallContexts.Initcode.Tx()
 def test_contract_creation_transaction(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1290,7 +1261,6 @@ def test_contract_creation_transaction(
 )
 @pytest.mark.parametrize("precompile_address", [Spec.P256VERIFY], ids=[""])
 @pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
-@EIPChecklist.Precompile.Test.CallContexts.Initcode.CREATE()
 def test_contract_initcode(
     state_test: StateTestFiller,
     pre: Alloc,

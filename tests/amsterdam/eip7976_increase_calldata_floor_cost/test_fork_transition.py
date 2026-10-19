@@ -22,7 +22,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    EIPChecklist,
     GasFee,
     RecipientType,
     Transaction,
@@ -79,8 +78,6 @@ def expected_floors(fork: TransitionFork, data: bytes) -> tuple[int, int]:
     return expected_pre, expected_post
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 @pytest.mark.parametrize(
     "data",
     [
@@ -163,10 +160,6 @@ def test_floor_cost_across_amsterdam_transition(
 
 
 @pytest.mark.inclusion_test
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedBeforeFork()
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork()
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork()
-@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork()
 @pytest.mark.parametrize(
     "data",
     [

@@ -44,7 +44,6 @@ from execution_testing import (
     TransactionReceipt,
     compute_create_address,
 )
-from execution_testing.checklists import EIPChecklist
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .helpers import EOA_INITIAL_BALANCE
@@ -56,8 +55,6 @@ REFERENCE_SPEC_VERSION = ref_spec_2780.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "recipient_is_coinbase",
     [
@@ -157,7 +154,6 @@ def test_top_frame_state_charge(
     state_test(env=env, pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.parametrize(
     "scenario",
     [
@@ -229,7 +225,6 @@ def test_top_frame_state_charge_empty_precompile(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_top_frame_new_account_charged_as_state_gas(
     fork: Fork,
     pre: Alloc,
@@ -300,7 +295,6 @@ def test_top_frame_new_account_charged_as_state_gas(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.pre_alloc_mutable
 def test_top_frame_new_account_skipped_for_nonce_only_recipient(
     fork: Fork,
@@ -375,7 +369,6 @@ def creation_tx_init_code(fork: Fork) -> tuple[Bytecode, int]:
     return init_code, init_code.gas_cost(fork)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -460,7 +453,6 @@ def test_top_frame_new_account_skipped_for_prefunded_create_target(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -580,8 +572,6 @@ def test_top_frame_new_account_skipped_for_create_target_funded_same_block(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("outcome", ["oog", "success", "evm_reverts"])
 @pytest.mark.parametrize(
     "value",
@@ -673,7 +663,6 @@ def test_top_frame_execution_charge(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "beneficiary_kind",
     [
@@ -791,7 +780,6 @@ def test_initcode_selfdestruct_keeps_top_frame_state_charge(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_initcode_selfdestruct_state_gas_in_header(
     fork: Fork,
     pre: Alloc,
@@ -873,7 +861,6 @@ class TopFrameFailureMode(Enum):
     DELEGATED_EXECUTION_OOG = auto()
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.parametrize(
     "failure_mode",
     [

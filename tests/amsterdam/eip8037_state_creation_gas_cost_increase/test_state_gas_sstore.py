@@ -36,7 +36,6 @@ from execution_testing import (
     TransactionReceipt,
     create_op,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import init_code_at_high_bytes, ref_spec_8037
 
@@ -54,7 +53,6 @@ def sender_gas_used(fork: Fork, pre_refund_gas: int, code: Bytecode) -> int:
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.valid_from("EIP8037")
 def test_sstore_zero_to_nonzero(
     state_test: StateTestFiller,
@@ -140,26 +138,21 @@ def test_sstore_nonzero_to_nonzero(
     )
 
 
-@EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable()
 @pytest.mark.parametrize(
     "abort_mode",
     [
         pytest.param("success", id="success_refund_applied"),
         pytest.param(
             "revert",
-            marks=EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable.Revert(),
         ),
         pytest.param(
             "out_of_gas",
-            marks=EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable.OutOfGas(),
         ),
         pytest.param(
             "invalid_opcode",
-            marks=EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable.InvalidOpcode(),
         ),
         pytest.param(
             "upper_revert",
-            marks=EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable.UpperRevert(),
         ),
     ],
 )
@@ -390,7 +383,6 @@ def test_sstore_restoration_refund_credits_local_reservoir(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
 @pytest.mark.valid_from("EIP8037")
 def test_sstore_restoration_refund(
     state_test: StateTestFiller,

@@ -12,7 +12,6 @@ from execution_testing import (
     BuilderExitRequest,
     Bytecode,
     ConsolidationRequest,
-    EIPChecklist,
     Environment,
     Fork,
     Header,
@@ -57,7 +56,6 @@ def system_call_execution_grant(fork: Fork) -> int:
 
 
 @system_contract_cases
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_system_call_execution_grant(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -79,7 +77,6 @@ def test_system_call_execution_grant(
 
 
 @system_contract_cases
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.parametrize("allow_spill", [False, True])
 def test_system_call_reservoir_boundary(
     blockchain_test: BlockchainTestFiller,
@@ -158,7 +155,6 @@ def execution_boundary_code(fork: Fork) -> Bytecode:
         for extra in (0, 1)
     ],
 )
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 def test_system_call_execution_boundary(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

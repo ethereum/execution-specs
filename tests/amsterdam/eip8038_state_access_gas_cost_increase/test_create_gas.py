@@ -38,7 +38,6 @@ from execution_testing import (
     compute_create_address,
     create_op,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8038
 
@@ -48,7 +47,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8038.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_create_opcodes()
 @pytest.mark.parametrize(
     "init_code_size",
@@ -132,7 +130,6 @@ def test_create_execution_gas(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "init_code_size",
     [
@@ -288,7 +285,6 @@ class TestCreateTxGasBoundary:
             pytest.param("exact_execution_gas"),
         ],
     )
-    @EIPChecklist.GasCostChanges.Test.OutOfGas()
     def test_create_tx_gas_boundary(
         self,
         state_test: StateTestFiller,
@@ -368,7 +364,6 @@ class TestCreateTxGasBoundary:
         )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_create_opcodes()
 @pytest.mark.parametrize(
     "abort_mode",
@@ -450,7 +445,6 @@ def test_aborted_create_does_not_warm_address(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.pre_alloc_mutable
 def test_create2_to_occupied_address(
     state_test: StateTestFiller,
@@ -535,7 +529,6 @@ def test_create2_to_occupied_address(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.with_all_create_opcodes()
 @pytest.mark.parametrize(
     "abort_mode",
@@ -618,7 +611,6 @@ def test_aborted_create_gas_boundary(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.parametrize("trailing_gas", [0, 1], ids=["exact", "one_too_many"])
 def test_create_collision_consumes_child_grant(
@@ -710,7 +702,6 @@ def test_create_collision_consumes_child_grant(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "first_initcode_reverts", [True, False], ids=["reverts", "succeeds"]
 )

@@ -34,7 +34,6 @@ from execution_testing import (
     add_kzg_version,
     compute_create_address,
 )
-from execution_testing.checklists import EIPChecklist
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP4844_Spec
 from .spec import ref_spec_8037
@@ -158,7 +157,6 @@ def test_block_gas_used_state_dominates(
         pytest.param(
             True,
             id="with_log",
-            marks=EIPChecklist.BlockLevelConstraint.Test.Content.Logs(),
         ),
     ],
 )
@@ -554,13 +552,11 @@ def test_multi_block_dimension_flip(
             -1,
             None,
             id="gas_one_below",
-            marks=EIPChecklist.BlockLevelConstraint.Test.Boundary.Under(),
         ),
         pytest.param(
             0,
             None,
             id="gas_equal",
-            marks=EIPChecklist.BlockLevelConstraint.Test.Boundary.Exact(),
         ),
         pytest.param(
             1,
@@ -568,7 +564,6 @@ def test_multi_block_dimension_flip(
             id="gas_one_above",
             marks=[
                 pytest.mark.exception_test,
-                EIPChecklist.BlockLevelConstraint.Test.Boundary.Over(),
             ],
         ),
         pytest.param(
@@ -577,7 +572,6 @@ def test_multi_block_dimension_flip(
             id="gas_two_above",
             marks=[
                 pytest.mark.exception_test,
-                EIPChecklist.BlockLevelConstraint.Test.Boundary.Over(),
             ],
         ),
     ],
@@ -602,7 +596,6 @@ def test_multi_block_dimension_flip(
         pytest.param(4, False, id="type_4_set_code"),
     ],
 )
-@EIPChecklist.BlockLevelConstraint.Test.Content.TransactionTypes()
 @pytest.mark.valid_from("EIP8037")
 def test_tx_gas_limit_block_boundary(
     blockchain_test: BlockchainTestFiller,

@@ -27,7 +27,6 @@ from execution_testing import (
     Bytecode,
     Bytes,
     CodeGasMeasure,
-    EIPChecklist,
     Fork,
     Hash,
     Initcode,
@@ -112,12 +111,9 @@ def test_factory_contract_account(
         pytest.param(
             1,
             id="with_value",
-            marks=EIPChecklist.SystemContract.Test.ValueTransfer.NoFee(),
         ),
     ],
 )
-@EIPChecklist.SystemContract.Test.CallContexts.Normal()
-@EIPChecklist.SystemContract.Test.Inputs.Valid()
 def test_factory_deploys_contract(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -350,14 +346,11 @@ def test_factory_creation_failure_returns_empty_data(
         pytest.param(
             0,
             id="0_bytes",
-            marks=EIPChecklist.SystemContract.Test.InputLengths.Zero(),
         ),
         pytest.param(1, id="1_byte"),
         pytest.param(Spec.SALT_SIZE - 1, id="31_bytes"),
     ],
 )
-@EIPChecklist.SystemContract.Test.InputLengths.Dynamic.TooShort()
-@EIPChecklist.SystemContract.Test.Inputs.Invalid.Corrupted()
 def test_factory_short_calldata_out_of_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -436,7 +429,6 @@ def test_factory_short_calldata_out_of_gas(
             Initcode(deploy_code=RUNTIME_CODE),
             RUNTIME_CODE,
             id="salt_max",
-            marks=EIPChecklist.SystemContract.Test.Inputs.MaxValues(),
         ),
         pytest.param(0x42, b"", b"", id="empty_initcode"),
         pytest.param(
@@ -444,12 +436,9 @@ def test_factory_short_calldata_out_of_gas(
             bytes(32),
             b"",
             id="all_zero_calldata",
-            marks=EIPChecklist.SystemContract.Test.Inputs.AllZeros(),
         ),
     ],
 )
-@EIPChecklist.SystemContract.Test.Inputs.Boundary()
-@EIPChecklist.SystemContract.Test.InputLengths.Dynamic.Valid()
 def test_factory_calldata_layouts(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -474,7 +463,6 @@ def test_factory_calldata_layouts(
     )
 
 
-@EIPChecklist.SystemContract.Test.InputLengths.Dynamic.TooLong()
 def test_factory_trailing_calldata_is_initcode(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -501,7 +489,6 @@ def test_factory_trailing_calldata_is_initcode(
     )
 
 
-@EIPChecklist.SystemContract.Test.Inputs.Valid()
 def test_factory_different_salts_produce_different_addresses(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -573,7 +560,6 @@ def test_factory_different_salts_produce_different_addresses(
     )
 
 
-@EIPChecklist.SystemContract.Test.CallContexts.TxEntry()
 def test_factory_direct_eoa_call(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -598,7 +584,6 @@ def test_factory_direct_eoa_call(
 
 
 @pytest.mark.parametrize("nested", [False, True])
-@EIPChecklist.SystemContract.Test.CallContexts.Static()
 def test_factory_staticcall_reverts(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -679,8 +664,6 @@ def test_factory_staticcall_reverts(
 
 
 @pytest.mark.parametrize("call_opcode", [Op.DELEGATECALL, Op.CALLCODE])
-@EIPChecklist.SystemContract.Test.CallContexts.Delegate()
-@EIPChecklist.SystemContract.Test.CallContexts.Callcode()
 def test_factory_in_caller_context(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -736,21 +719,14 @@ def test_factory_in_caller_context(
         pytest.param(
             "tx",
             id="initcode_of_create_tx",
-            marks=EIPChecklist.SystemContract.Test.CallContexts.Initcode.Tx(),
         ),
         pytest.param(
             "create",
             id="initcode_of_create_opcode",
-            marks=(
-                EIPChecklist.SystemContract.Test.CallContexts.Initcode.CREATE()
-            ),
         ),
         pytest.param(
             "factory",
             id="initcode_of_factory_create2",
-            marks=(
-                EIPChecklist.SystemContract.Test.CallContexts.Initcode.CREATE()
-            ),
         ),
     ],
 )
@@ -973,7 +949,6 @@ def test_factory_receives_balance_via_selfdestruct(
     )
 
 
-@EIPChecklist.SystemContract.Test.CallContexts.SetCode()
 @pytest.mark.parametrize(
     "forwarded_value",
     [
@@ -1051,8 +1026,6 @@ def test_factory_via_eip7702_delegation(
     )
 
 
-@EIPChecklist.SystemContract.Test.Inputs.Invalid(exact=True)
-@EIPChecklist.SystemContract.Test.Inputs.Invalid.Checks()
 def test_factory_rejects_ef_prefix_deployment(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1104,15 +1077,10 @@ def test_factory_rejects_ef_prefix_deployment(
         pytest.param(
             0,
             id="max",
-            marks=EIPChecklist.SystemContract.Test.OutOfBounds.Max(),
         ),
         pytest.param(
             1,
             id="max_plus_one",
-            marks=[
-                EIPChecklist.SystemContract.Test.OutOfBounds.MaxPlusOne(),
-                EIPChecklist.SystemContract.Test.Inputs.Invalid.Checks(),
-            ],
         ),
     ],
 )
@@ -1380,7 +1348,6 @@ def test_factory_block_access_list_address_collision(
     )
 
 
-@EIPChecklist.SystemContract.Test.CallContexts.SetCode()
 def test_delegated_sender_forwards_value(
     state_test: StateTestFiller,
     pre: Alloc,

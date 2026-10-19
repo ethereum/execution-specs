@@ -56,7 +56,7 @@ Every Amsterdam+ fixture carries a BAL whether or not the test asserts one. An `
 - `@pytest.mark.with_all_system_contracts`, `with_all_precompiles`, `with_all_system_contract_request_types` (yields the request *class* as `request_class`), … — parametrize over a fork-derived set; `selector=lambda value: ...` narrows any `with_all_*` marker. Check `docs/writing_tests/test_markers.md` for the full list before writing out protocol values by hand.
 - `@pytest.mark.slow` — deselected by `just fill` and CI (`-m "not slow"`); a plain `uv run fill` still runs it
 - `@pytest.mark.exception_test` — marks tests expecting exceptions.
-- A mark that only some cases earn goes on that case, `pytest.param(..., marks=...)`, not the function: `exception_test` on the function fails the passing cases, and a function-level `EIPChecklist` item stays green after the one case that proved it is deleted.
+- A mark that only some cases earn goes on that case, `pytest.param(..., marks=...)`, not the function: `exception_test` on the function fails the passing cases.
 
 ## Fork-Aware Logic
 

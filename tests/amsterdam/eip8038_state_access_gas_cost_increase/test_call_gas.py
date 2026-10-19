@@ -39,7 +39,6 @@ from execution_testing import (
     Transaction,
     TransactionReceipt,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8038
 
@@ -73,7 +72,6 @@ def _measure_call(
     return pre.deploy_contract(code=code_gas_measure, balance=balance)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_call_opcodes()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_call_access_gas(
@@ -114,7 +112,6 @@ def test_call_access_gas(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_call_opcodes()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_call_value_alive_target_gas(
@@ -200,7 +197,6 @@ def test_call_value_alive_target_gas(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_callcode_value_to_nonexistent_no_new_account(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -262,7 +258,6 @@ def test_callcode_value_to_nonexistent_no_new_account(
     state_test(pre=pre, post={caller: Account(balance=1)}, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_call_value_to_new_account_seam(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -329,7 +324,6 @@ def test_call_value_to_new_account_seam(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_call_opcodes()
 @pytest.mark.parametrize(
     "target_warm", [False, True], ids=["target_cold", "target_warm"]
@@ -393,7 +387,6 @@ def test_call_to_delegated_target_double_access(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.with_all_call_opcodes()
 @pytest.mark.parametrize(
     "sufficient_gas", [True, False], ids=["sufficient", "insufficient"]
@@ -435,7 +428,6 @@ def test_call_exact_gas_oog(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.parametrize(
     "sufficient_gas", [True, False], ids=["sufficient", "insufficient"]
 )
@@ -493,7 +485,6 @@ def test_call_value_exact_gas_oog(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "target_alive", [True, False], ids=["alive_target", "empty_target"]
 )
@@ -557,7 +548,6 @@ def test_call_value_insufficient_balance_preflight(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_repeated_value_call_to_same_recipient(
     state_test: StateTestFiller,
     env: Environment,
@@ -625,7 +615,6 @@ def test_repeated_value_call_to_same_recipient(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_call_value_to_precompile_creates_leaf(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -687,7 +676,6 @@ def test_call_value_to_precompile_creates_leaf(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_call_value_to_self(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -738,7 +726,6 @@ def test_call_value_to_self(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_call_opcodes()
 def test_call_self_is_warm(
     state_test: StateTestFiller,
@@ -770,7 +757,6 @@ def test_call_self_is_warm(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "sufficient_gas", [True, False], ids=["sufficient", "insufficient"]
 )
@@ -846,7 +832,6 @@ def test_call_forwarded_gas_63_64(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_account_warmth_reverts_on_subcall_revert(
     state_test: StateTestFiller,
     env: Environment,
@@ -898,7 +883,6 @@ def test_account_warmth_reverts_on_subcall_revert(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_call_to_double_delegated_target_single_hop(
     state_test: StateTestFiller,
     env: Environment,
@@ -945,7 +929,6 @@ def test_call_to_double_delegated_target_single_hop(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_call_opcodes()
 def test_call_precompile_is_warm(
     state_test: StateTestFiller,
@@ -976,7 +959,6 @@ def test_call_precompile_is_warm(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value", [0, 1], ids=["no_value_no_stipend", "value_grants_stipend"]
 )
@@ -1016,7 +998,6 @@ def test_call_value_stipend_is_usable(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "first_call_fails", [True, False], ids=["child_fails", "child_succeeds"]
 )

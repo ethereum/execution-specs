@@ -7,7 +7,6 @@ from execution_testing import (
     AccessList,
     Account,
     Alloc,
-    EIPChecklist,
     Fork,
     GasConsumer,
     Hash,
@@ -27,8 +26,6 @@ REFERENCE_SPEC_VERSION = ref_spec_7981.version
 pytestmark = pytest.mark.valid_at("EIP7981")
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
 @pytest.mark.parametrize("gas_delta", [-1, 0, 1])
 def test_execution_gas_after_access_list_surcharge(
@@ -73,7 +70,6 @@ def test_execution_gas_after_access_list_surcharge(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
 @pytest.mark.parametrize("reverts", [False, True])
 @pytest.mark.parametrize("floor_dominates", [False, True])
@@ -124,7 +120,6 @@ def test_access_list_surcharge_with_refund(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
 @pytest.mark.parametrize(
     "gas_dominance",

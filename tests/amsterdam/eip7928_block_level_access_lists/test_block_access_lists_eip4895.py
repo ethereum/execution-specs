@@ -15,7 +15,6 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
-    EIPChecklist,
     Environment,
     Fork,
     Header,
@@ -84,7 +83,6 @@ def test_bal_withdrawal_empty_block(
     )
 
 
-@EIPChecklist.BlockLevelConstraint.Test.Content.Withdrawals()
 def test_bal_withdrawal_and_transaction(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,

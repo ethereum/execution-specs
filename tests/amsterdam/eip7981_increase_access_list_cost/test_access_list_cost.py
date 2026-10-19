@@ -8,7 +8,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    EIPChecklist,
     Fork,
     Hash,
     Op,
@@ -27,7 +26,6 @@ REFERENCE_SPEC_VERSION = ref_spec_7981.version
 pytestmark = pytest.mark.valid_at("EIP7981")
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
     "access_list,expected_floor_tokens",
@@ -142,9 +140,6 @@ def test_access_list_token_calculation(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
-# A type 4 authorization's top-frame state gas outgrows any moderate
-# floor, and the floor does not depend on the transaction type.
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2, 3))
 @pytest.mark.parametrize(
     "access_list,tx_data",
@@ -192,7 +187,6 @@ def test_access_list_floor_cost_with_calldata(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
     "access_list",
@@ -234,7 +228,6 @@ def test_large_access_list_cost(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
     "access_list",
@@ -275,7 +268,6 @@ def test_duplicate_access_list_entries(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
 @pytest.mark.parametrize(
     "data",
@@ -361,7 +353,6 @@ def test_access_list_data_cost_with_execution(
     state_test(pre=pre, post={}, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
 @pytest.mark.parametrize("self_transfer", [False, True])
 @pytest.mark.parametrize("value", [0, 1])

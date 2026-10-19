@@ -27,7 +27,6 @@ from execution_testing import (
     TransactionException,
     TransactionReceipt,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8037
 
@@ -57,7 +56,6 @@ def calldata_length_where_floor_overtakes(fork: Fork, state_gas: int) -> int:
     return low
 
 
-@EIPChecklist.GasRefundsChanges.Test.CrossFunctional.CalldataCost()
 @pytest.mark.parametrize(
     "floor_dominates",
     [

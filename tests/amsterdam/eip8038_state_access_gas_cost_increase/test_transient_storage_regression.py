@@ -19,7 +19,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8038
 
@@ -29,7 +28,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8038.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_transient_storage_gas_unchanged(
     state_test: StateTestFiller,
     env: Environment,
