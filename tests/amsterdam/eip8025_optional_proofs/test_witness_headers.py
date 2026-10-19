@@ -24,7 +24,7 @@ from execution_testing.test_types.execution_witness.modifiers import (
 
 from .spec import ref_spec_8025
 
-pytestmark = pytest.mark.valid_from("Amsterdam")
+pytestmark = pytest.mark.valid_at("Amsterdam")
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8025.version

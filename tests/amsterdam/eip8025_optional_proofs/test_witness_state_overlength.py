@@ -37,7 +37,7 @@ from ethereum.forks.amsterdam.witness_state import (
 )
 from ethereum.state import BlockDiff, Root
 
-pytestmark = pytest.mark.valid_from("Amsterdam")
+pytestmark = pytest.mark.valid_at("Amsterdam")
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
