@@ -22,7 +22,7 @@ Tests can be run using:
 
 **Note**: If the Engine RPC is unavailable, blob transactions will be sent and `getBlobsV*` validation is skipped.
 
-The default `execute-blobs` Dockerfile uses a published simulator image. Its tag selects the release's Python test sources; images for the branch's current release receive framework updates. See [Simulator Images](../hive/images/index.md) for setup and [Choose a tag](../hive/images/index.md#choose-a-tag) for release, devnet and nightly options. Hive accepts the short name `--sim execute-blobs`.
+The default `execute-blobs` Dockerfile uses a published simulator image. Its tag selects the release's Python test sources; release tags are immutable, and the channel tags pick up framework updates. See [Simulator Images](../hive/images/index.md) for setup and [Choose a tag](../hive/images/index.md#choose-a-tag) for release, devnet and nightly options. Hive accepts the short name `--sim execute-blobs`.
 
 To select a published release explicitly:
 
@@ -31,7 +31,7 @@ To select a published release explicitly:
     --sim.buildarg tag=v20.0.2
 ```
 
-To reproduce a dashboard failure, match its simulator image, client version and configuration, and test selection. For [exact reproduction](../hive/images/how_to.md#reproduce-a-run-exactly), pin the image digest; the default `latest` image may have changed since the dashboard run. A [source build](../hive/images/how_to.md#build-from-source-with-dockerfilegit) runs both tests and framework from the selected branch; it does not select a separate release test snapshot.
+To reproduce a dashboard failure, match its simulator image, client version and configuration, and test selection. If the dashboard ran a release tag, the same tag runs the same image. If it ran `latest` or a devnet channel, [pin the image digest](../hive/images/how_to.md#reproduce-a-run-exactly): the channel may have moved since the dashboard run. A [source build](../hive/images/how_to.md#build-from-source-with-dockerfilegit) runs both tests and framework from the selected branch; it does not select a separate release test snapshot.
 
 See [Hive](../hive/index.md) for help installing and configuring Hive.
 

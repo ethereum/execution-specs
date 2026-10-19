@@ -2,8 +2,9 @@
 # docs/running_tests/hive/images/ for the images and their tags, and
 # docs/dev/publishing_images.md for how this workflow is operated.
 #
-# Simulator tags select the tests. Current releases receive framework
-# updates; older releases keep their last build. Three kinds of run:
+# Simulator tags select the tests. Release tags are immutable: the release
+# run publishes them once. Channel tags move with their branch. Three kinds
+# of run:
 #   push      a fork or devnet branch moved: the repository image of the head,
 #             and the simulator images of the branch's channel owner (its
 #             highest release) rebuilt with the head, so that `latest` or
@@ -12,7 +13,7 @@
 #             image, and the simulator images pairing it with the head of the
 #             branch it was cut from
 #   nightly   the scheduled fill finished: every image at the fill commit under
-#             `nightly` and `nightly-<sha7>`, called from release_fixtures.yaml
+#             `nightly`, called from release_fixtures.yaml
 #
 # Jobs: `plan` computes every name, tag and build with `eest images plan`; the
 # other jobs only consume its output. Runs of one line (mainnet or devnets)
@@ -265,6 +266,7 @@ jobs:
           URL: ${{ fromJSON(needs.plan.outputs.plan).fixtures.url }}
           IMAGE: ${{ fromJSON(needs.plan.outputs.plan).fixtures.image }}
           TAGS: ${{ fromJSON(needs.plan.outputs.plan).fixtures.tags }}
+          IMMUTABLE: ${{ fromJSON(needs.plan.outputs.plan).fixtures.immutable }}
           RELEASE: ${{ fromJSON(needs.plan.outputs.plan).fixtures.release }}
           COMMIT: ${{ fromJSON(needs.plan.outputs.plan).fixtures.commit }}
           FORMAT: ${{ matrix.format }}
@@ -277,14 +279,11 @@ jobs:
           first=${TAGS%% *}
           EEST_FIXTURES_RELEASE="$RELEASE" EEST_FIXTURES_GIT_SHA="$COMMIT" EEST_REPOSITORY="$GITHUB_REPOSITORY" \
             packages/testing/docker/fixtures/build.sh "$source" "$FORMAT" "${IMAGE}/${FORMAT}:${first}"
-          for tag in $TAGS; do
-            docker tag "${IMAGE}/${FORMAT}:${first}" "${IMAGE}/${FORMAT}:${tag}"
-            docker push "${IMAGE}/${FORMAT}:${tag}"
-          done
-          digest=$(docker buildx imagetools inspect "${IMAGE}/${FORMAT}:${first}" --format '{{.Manifest.Digest}}')
-          .github/scripts/record_image_digest.sh "${IMAGE}/${FORMAT}" "$TAGS" "$digest" "$COMMIT" "$RELEASE"
+          .github/scripts/push_image_tags.sh "${IMAGE}/${FORMAT}:${first}" "${IMAGE}/${FORMAT}" \
+            "$TAGS" "$IMMUTABLE" "$COMMIT" "$RELEASE"
 
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: hashFiles('digests/*.json') != ''
         with:
           name: digests-fixtures-${{ matrix.format }}
           path: digests/
@@ -320,20 +319,18 @@ jobs:
         env:
           IMAGE: ${{ fromJSON(needs.plan.outputs.plan).tests.image }}
           TAGS: ${{ fromJSON(needs.plan.outputs.plan).tests.tags }}
+          IMMUTABLE: ${{ fromJSON(needs.plan.outputs.plan).tests.immutable }}
           RELEASE: ${{ fromJSON(needs.plan.outputs.plan).tests.release }}
         run: |
           first=${TAGS%% *}
           commit=$(git -C release rev-parse HEAD)
           EEST_TESTS_RELEASE="$RELEASE" EEST_TESTS_GIT_SHA="$commit" EEST_REPOSITORY="$GITHUB_REPOSITORY" \
             packages/testing/docker/tests/build.sh release/tests "${IMAGE}:${first}"
-          for tag in $TAGS; do
-            docker tag "${IMAGE}:${first}" "${IMAGE}:${tag}"
-            docker push "${IMAGE}:${tag}"
-          done
-          digest=$(docker buildx imagetools inspect "${IMAGE}:${first}" --format '{{.Manifest.Digest}}')
-          .github/scripts/record_image_digest.sh "$IMAGE" "$TAGS" "$digest" "$commit" "$RELEASE"
+          .github/scripts/push_image_tags.sh "${IMAGE}:${first}" "$IMAGE" \
+            "$TAGS" "$IMMUTABLE" "$commit" "$RELEASE"
 
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: hashFiles('digests/*.json') != ''
         with:
           name: digests-tests
           path: digests/
@@ -412,6 +409,7 @@ jobs:
           RELEASE: ${{ matrix.release }}
           SLUG: ${{ matrix.slug }}
           TAGS: ${{ matrix.tags }}
+          IMMUTABLE: ${{ matrix.immutable }}
           EEST_GIT_SHA: ${{ fromJSON(needs.plan.outputs.plan).sha }}
         run: |
           first=${TAGS%% *}
@@ -428,12 +426,8 @@ jobs:
               TAGS=$SLUG
             fi
           fi
-          for tag in $TAGS; do
-            docker tag "${IMAGE}:${first}" "${IMAGE}:${tag}"
-            docker push "${IMAGE}:${tag}"
-          done
-          digest=$(docker buildx imagetools inspect "${IMAGE}:${first}" --format '{{.Manifest.Digest}}')
-          .github/scripts/record_image_digest.sh "$IMAGE" "$TAGS" "$digest" "$EEST_GIT_SHA" "$RELEASE"
+          .github/scripts/push_image_tags.sh "${IMAGE}:${first}" "$IMAGE" \
+            "$TAGS" "$IMMUTABLE" "$EEST_GIT_SHA" "$RELEASE"
 
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: hashFiles('digests/*.json') != ''

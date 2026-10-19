@@ -2,7 +2,7 @@
 
 The `ethereum/eels/*` simulators in [ethereum/hive](https://github.com/ethereum/hive) can run from ready-to-run images under `ghcr.io/ethereum/execution-specs/hive/`. Each image contains the simulator and its test content. Hive pulls the image and builds a small wrapper; it does not clone execution-specs, install Python dependencies or extract a fixture tarball during the simulator build.
 
-**A simulator tag selects the tests.** Consume images contain a release's generated fixtures; execute images contain the Python test sources from the release commit. Images for a branch's current release receive framework updates on branch pushes. Older releases retain their last framework build. Nightly images use the fill commit for both tests and framework.
+**A simulator tag selects the tests.** Consume images contain a release's generated fixtures; execute images contain the Python test sources from the release commit. Release tags are immutable; channel tags (`latest`, `<name>-devnet-<n>`) pair a branch's highest release with the branch head and so pick up framework fixes. Nightly images use the fill commit for both tests and framework.
 
 ## Choose a tag
 
@@ -12,8 +12,7 @@ Pass a tag with `--sim.buildarg tag=<tag>`. These examples illustrate the publis
 | --- | --- | --- |
 | The latest mainnet release | `latest` (default) | Tests advance with releases; framework follows the default branch. |
 | One devnet | `glamsterdam-devnet-8` | Tests advance within devnet 8; framework follows `devnets/glamsterdam/8`. |
-| The newest devnet in a series | `glamsterdam-devnet-latest` | Moves to devnet 9 when its first release is published. |
-| A specific release | `glamsterdam-devnet-v8.1.4` or `v20.0.2` | Tests stay fixed; framework updates while this is the branch's current release. |
+| A specific release | `glamsterdam-devnet-v8.1.4` or `v20.0.2` | Nothing: release tags are immutable. |
 | The most recent nightly fill | `nightly` | Tests and framework advance together with each published fill. |
 | An exact image from an earlier run | `<tag>@sha256:<digest>` | Neither tests nor framework changes. Requires the retained image digest. |
 

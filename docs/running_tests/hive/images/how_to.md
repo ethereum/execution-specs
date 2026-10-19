@@ -6,14 +6,11 @@ Hive accepts short names with `--sim`: `consume-engine` selects `ethereum/eels/c
 
 ## Follow a devnet or the mainnet line
 
-The channel tags follow the releases and the branch head together. `glamsterdam-devnet-8` runs the highest release of Glamsterdam devnet 8 with the head of `devnets/glamsterdam/8`, which is how a dashboard for that devnet is configured; `glamsterdam-devnet-latest` follows the highest release of any Glamsterdam devnet and so moves from devnet 8 to devnet 9 on its own; `latest`, the default, follows the highest mainnet release with the head of the default branch:
+The channel tags follow the releases and the branch head together, so they also pick up framework fixes such as client exception mappings. `glamsterdam-devnet-8` runs the highest release of Glamsterdam devnet 8 with the head of `devnets/glamsterdam/8`, which is how a dashboard for that devnet is configured; switch to `glamsterdam-devnet-9` when devnet 9 starts. `latest`, the default, follows the highest mainnet release with the head of the default branch:
 
 ```bash
 ./hive --sim consume-engine --client go-ethereum \
     --sim.buildarg tag=glamsterdam-devnet-8
-
-./hive --sim consume-engine --client go-ethereum \
-    --sim.buildarg tag=glamsterdam-devnet-latest
 
 ./hive --sim consume-engine --client go-ethereum
 ```
@@ -27,11 +24,11 @@ The channel tags follow the releases and the branch head together. `glamsterdam-
     --sim.buildarg tag=nightly
 ```
 
-`nightly-<commit>` names one fill exactly, by the seven-character prefix of the commit it built. The simulator log header reports it as `fixtures release: nightly-<commit>`.
+Only the latest fill is tagged. The simulator log header names the fill by the seven-character prefix of the commit it built, `fixtures release: nightly-<commit>`; to rerun a particular fill later, [pin its digest](#reproduce-a-run-exactly).
 
 ## Pin a release
 
-Name the release. The simulator runs exactly the tests of that release. While the release is the current one of its branch, the framework follows the branch head; once a newer release exists, the tag keeps the framework of its last build:
+Name the release. The simulator runs exactly the tests of that release, with the framework of its release run. Release tags are immutable, so the same tag always runs the same image:
 
 ```bash
 ./hive --sim consume-engine --client go-ethereum \
@@ -173,14 +170,14 @@ Then run Hive with `--sim.buildarg image=hive/consume-rlp` and `--sim.buildarg t
 
 ## Use the repository image as a tool image
 
-The repository image runs every command of the testing package, including the EELS `t8n` and `statetest` tools, without a checkout:
+The repository image runs every command of the testing package, including the EELS `t8n` and `statetest` tools, without a checkout. It is tagged by commit only, `sha-<first seven characters>`; pick a commit of the branch you want:
 
 ```bash
-docker run --rm ghcr.io/ethereum/execution-specs:latest \
+docker run --rm ghcr.io/ethereum/execution-specs:sha-abc1234 \
     uv run --no-sync ethereum-spec-evm t8n --help
 
 docker run --rm -v "$PWD:/work" -w /work \
-    ghcr.io/ethereum/execution-specs:latest \
+    ghcr.io/ethereum/execution-specs:sha-abc1234 \
     uv run --no-sync --directory /execution-specs/packages/testing \
     ethereum-spec-evm statetest /work/test.json
 ```

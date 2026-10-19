@@ -8,15 +8,18 @@ The repository publishes four kinds of images to ghcr.io, described in
 release (`.../tests`), and one ready-to-run image per hive simulator
 (`.../hive/<simulator>`).
 
-Simulator tags select the tests. Current releases receive framework updates;
-older releases retain their last build, and nightlies use the fill commit.
-Release tags omit the mainnet `tests@` prefix or the devnet `tests-` prefix
-and replace `@` with `-`; channel tags name the
-current state of a line: `latest` for the default branch, `<name>-devnet-<n>`
-for a devnet branch, `<name>-devnet-latest` for a devnet series, and `nightly`
-for the nightly fill. This module holds the naming rules in one place and
-computes what a publishing run has to build. The `eest images` command exposes
-it to the publishing workflow, which consumes the plan as JSON.
+Simulator tags select the tests. Release tags are immutable: the release run
+builds them once. Release tags omit the mainnet `tests@` prefix or the devnet
+`tests-` prefix and replace `@` with `-`. Channel tags pair the highest
+release of a branch with its head and move with it: `latest` for the default
+branch and `<name>-devnet-<n>` for a devnet branch. `nightly` names the most
+recent nightly fill, with tests and framework from the fill commit. The
+fixture and tests images carry only release tags and `nightly`, the
+repository image only `sha-<commit>`: they are building blocks of the
+simulator images, not a stable interface. This module holds the naming rules
+in one place and computes what a publishing run has to build. The
+`eest images` command exposes it to the publishing workflow, which consumes
+the plan as JSON.
 """
 
 import os
@@ -132,18 +135,6 @@ def release_series(tag: str) -> str:
 def series_name(series: str) -> str:
     """Return the friendly series name, `tests-x-devnet` as `x-devnet`."""
     return series.removeprefix(SERIES_PREFIX)
-
-
-def series_alias(series: str) -> str:
-    """
-    Return the channel tag following the highest release of a series.
-
-    `latest` for the main line, `<name>-latest` otherwise: what
-    `consume --input tests@latest` and `consume --input <name>@latest` resolve.
-    """
-    if series == MAIN_LINE_SERIES:
-        return LATEST
-    return f"{series_name(series)}-{LATEST}"
 
 
 def release_slug(tag: str) -> str:
@@ -405,18 +396,15 @@ def release_tags(
     release: Release, releases: Iterable[Release], default_branch: str
 ) -> list[str]:
     """
-    Return the tags naming the test content of a release.
+    Return the simulator image tags a release run publishes for a release.
 
-    First the tag naming the release exactly, then the channel tags the
-    release holds: its branch's channel (`latest`, `<name>-devnet-<n>`)
-    when it is the highest release of the branch, and its series' channel
-    (`latest`, `<name>-devnet-latest`) when it is the highest release of the
-    series. Channels follow the highest version, never the newest
+    First the immutable tag naming the release exactly, then its branch's
+    channel (`latest`, `<name>-devnet-<n>`) when it is the highest release
+    of the branch. Channels follow the highest version, never the newest
     publication. An ineligible release holds nothing but its own tag.
     """
     tags = [release.slug]
-    version = release.version
-    if not release.eligible or version is None:
+    if not release.eligible or release.version is None:
         return tags
     peers = [r for r in releases if r.tag != release.tag]
     peers.append(release)
@@ -426,42 +414,27 @@ def release_tags(
         channel = branch_channel(branch, default_branch)
         if owner is release and channel and channel not in tags:
             tags.append(channel)
-    series_peers = [
-        r.version
-        for r in peers
-        if r.eligible and r.series == release.series and r.version
-    ]
-    if version >= max(series_peers):
-        alias = series_alias(release.series)
-        if alias not in tags:
-            tags.append(alias)
     return tags
 
 
-def base_tags(short_sha: str, branch: str, default_branch: str) -> list[str]:
+def base_tags(short_sha: str) -> list[str]:
     """
-    Return the tags of the repository image for a commit of a branch.
+    Return the tags of the repository image for a commit: `sha-<7>`.
 
-    Always the commit, `sha-<7>`; `latest` on the default branch and the
-    branch tag on a devnet branch. The default branch has no branch-named
-    tag, because it is renamed at every fork.
+    The repository image is the base of the simulator images, which a run
+    references by this tag; it carries no channel tags.
     """
-    tags = [f"sha-{short_sha}"]
-    if branch == default_branch:
-        tags.append(LATEST)
-    elif DEVNET_BRANCH_RE.match(branch):
-        tags.append(branch_tag(branch))
-    return tags
+    return [f"sha-{short_sha}"]
 
 
-def nightly_slug(short_sha: str) -> str:
-    """Return the tag naming a nightly fill exactly, by the commit it built."""
+def nightly_release(short_sha: str) -> str:
+    """
+    Return the name a nightly fill reports as its release.
+
+    `nightly-<7>`, by the commit it built. It appears in the image labels
+    and the simulator log header; the images are tagged `nightly` only.
+    """
     return f"{NIGHTLY}-{short_sha}"
-
-
-def nightly_tags(short_sha: str) -> list[str]:
-    """Return the tags of a nightly fill: its own tag, then `nightly`."""
-    return [nightly_slug(short_sha), NIGHTLY]
 
 
 def registry_repository(repository: str) -> str:
@@ -486,12 +459,15 @@ def plan(
 
     Three modes. A push (`branch` and `sha`, nothing else): the repository
     image of the head and the simulator images of the branch's channel
-    owner, its highest release, so that the channel tag follows the head. A
-    release (`release_tag`): the fixture images, the tests image and the
-    simulator images of that release, paired with the head `sha` of the
-    branch it was cut from, which is inferred from the tag and must agree
-    with `branch` when given. A nightly (`nightly`, `sha` the fill commit):
-    every image at that commit under the nightly tags.
+    owner, its highest release, under the channel tag only, so that the
+    channel follows the head. A release (`release_tag`): the fixture images,
+    the tests image and the simulator images of that release, paired with
+    the head `sha` of the branch it was cut from, which is inferred from the
+    tag and must agree with `branch` when given. A nightly (`nightly`, `sha`
+    the fill commit): every image at that commit under `nightly`.
+
+    Each entry names its `immutable` tag: the release tag in a release run,
+    which the publisher must not overwrite once it exists, else empty.
 
     `release_repository` names the repository holding the releases when it
     differs from the publishing one, as on a fork; `releases` replaces the
@@ -514,7 +490,11 @@ def plan(
         return ""
 
     def image_entries(
-        release: str, slug: str, commit: str, tags: list[str]
+        release: str,
+        slug: str,
+        commit: str,
+        tags: list[str],
+        immutable: str = "",
     ) -> list[dict[str, Any]]:
         return [
             {
@@ -527,6 +507,7 @@ def plan(
                 "slug": slug,
                 "commit": commit,
                 "tags": list(tags),
+                "immutable": immutable,
             }
             for image in IMAGES
         ]
@@ -540,10 +521,11 @@ def plan(
             )
         mode = "nightly"
         branch = default_branch
-        slug = nightly_slug(short_sha)
-        tags = nightly_tags(short_sha)
+        release_name = nightly_release(short_sha)
+        slug = NIGHTLY
+        tags = [NIGHTLY]
         fixtures = {
-            "release": slug,
+            "release": release_name,
             "slug": slug,
             "commit": sha,
             "url": None,
@@ -551,16 +533,18 @@ def plan(
             "image": f"{registry}/{FIXTURES_IMAGE}",
             "formats": fixture_formats(),
             "tags": list(tags),
+            "immutable": "",
         }
         tests = {
-            "release": slug,
+            "release": release_name,
             "slug": slug,
             "commit": sha,
             "image": f"{registry}/{TESTS_IMAGE}",
             "tags": list(tags),
+            "immutable": "",
         }
-        images = image_entries(slug, slug, sha, tags)
-        base = [f"sha-{short_sha}", NIGHTLY]
+        images = image_entries(release_name, slug, sha, tags)
+        base = base_tags(short_sha)
     else:
         if releases is None:
             releases = fetch_releases(release_repository)
@@ -608,27 +592,34 @@ def plan(
                 "artifact": None,
                 "image": f"{registry}/{FIXTURES_IMAGE}",
                 "formats": fixture_formats(),
-                "tags": list(tags),
+                "tags": [release.slug],
+                "immutable": release.slug,
             }
             tests = {
                 "release": release.tag,
                 "slug": release.slug,
                 "commit": commit,
                 "image": f"{registry}/{TESTS_IMAGE}",
-                "tags": list(tags),
+                "tags": [release.slug],
+                "immutable": release.slug,
             }
-            images = image_entries(release.tag, release.slug, commit, tags)
+            images = image_entries(
+                release.tag, release.slug, commit, tags, release.slug
+            )
         else:
             mode = "push"
             if branch is None:
                 raise ValueError("a push run needs the branch")
             owner = channel_owner(releases, branch, default_branch)
-            if owner is not None:
-                tags = release_tags(owner, releases, default_branch)
+            channel = branch_channel(branch, default_branch)
+            if owner is not None and channel is not None:
+                # Only the channel moves; the release tag stays as the
+                # release run built it.
+                tags = [channel]
                 images = image_entries(
                     owner.tag, owner.slug, commit_of(owner), tags
                 )
-        base = base_tags(short_sha, branch, default_branch)
+        base = base_tags(short_sha)
 
     return {
         "mode": mode,

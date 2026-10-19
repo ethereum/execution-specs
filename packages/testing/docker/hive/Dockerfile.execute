@@ -12,8 +12,9 @@
 #       --build-arg TESTS_REF=ghcr.io/ethereum/execution-specs/tests:v20.0.2 \
 #       --build-arg EEST_SIMULATOR=execute-blobs \
 #       -t hive/execute-blobs:local packages/testing/docker/hive
-ARG BASE_REF=ghcr.io/ethereum/execution-specs:latest
-ARG TESTS_REF=ghcr.io/ethereum/execution-specs/tests:latest
+# Both are required: the repository and tests images carry no channel tags.
+ARG BASE_REF
+ARG TESTS_REF
 
 FROM ${TESTS_REF} AS tests
 
