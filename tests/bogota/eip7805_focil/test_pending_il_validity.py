@@ -2,6 +2,7 @@
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -270,6 +271,7 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
+    sender: EOA,
     typed_transaction: Transaction,
     signature_type: str,
 ) -> None:
@@ -307,6 +309,19 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
             signed_tx.r = HexNumber(R_NOT_ON_CURVE)
         case "s_zero":
             signed_tx.s = HexNumber(0)
+            # With s = 0, recovery drops the R term and yields the key
+            # -z / r. Fund that sender too, so only the s > 0 rule rejects
+            # the tx.
+            n = int(SECP256K1N)
+            signing_hash = int.from_bytes(
+                signed_tx.rlp_signing_bytes().keccak256(), "big"
+            )
+            lenient_sender = EOA(
+                key=-signing_hash * pow(int(signed_tx.r), -1, n) % n
+            )
+            sender_account = pre[sender]
+            assert sender_account is not None
+            pre.fund_address(lenient_sender, sender_account.balance)
         case "high_s":
             # The same signature with s mirrored and the parity flipped
             # still recovers the sender, so only the low-s rule rejects it.
