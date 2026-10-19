@@ -28,10 +28,27 @@ image=$3
 shift 3
 here=$(cd "$(dirname "$0")" && pwd)
 
+# GNU tar matches member names literally unless asked for wildcards; BSD tar
+# (macOS) always matches them as patterns and has no --wildcards option.
+gnu_tar=""
+if tar --version 2>/dev/null | grep -q "GNU tar"; then
+    gnu_tar=1
+fi
+
 extract() {
     # Release tarballs have a single top-level directory; strip it and
     # extract only the metadata and the requested format.
-    tar -xz -C "$stage" --strip-components=1 --wildcards "*/.meta/*" "*/$format/*"
+    tar -xz -C "$stage" --strip-components=1 ${gnu_tar:+--wildcards} \
+        "*/.meta/*" "*/$format/*"
+}
+
+link_tree() {
+    # Hard-link a directory tree, so that multi-gigabyte fixture sets are not
+    # copied; copy it where cp has no -l.
+    cp -al "$1" "$2" 2>/dev/null || {
+        rm -rf "$2"
+        cp -pR "$1" "$2"
+    }
 }
 
 case "$source" in
@@ -62,8 +79,8 @@ http://* | https://*)
     # Stage next to the source so that hard links stay on one filesystem.
     stage=$(mktemp -d "$(dirname "$source")/.eest-fixtures-stage.XXXXXX")
     trap 'rm -rf "$stage"' EXIT INT TERM
-    cp -al "$source/.meta" "$stage/.meta"
-    cp -al "$source/$format" "$stage/$format"
+    link_tree "$source/.meta" "$stage/.meta"
+    link_tree "$source/$format" "$stage/$format"
     ;;
 esac
 
