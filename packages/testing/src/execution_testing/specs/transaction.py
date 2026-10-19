@@ -132,12 +132,14 @@ class TransactionTest(BaseTest):
         invalid one.
         """
         if execute_format == MempoolAdmission:
+            accepted: bool | None = self.tx.error is None
+            if accepted and self.tx.frames is not None:
+                # A valid frame transaction may still break the public
+                # mempool's validation prefix rules, which a transaction
+                # test does not model.
+                accepted = None
             return MempoolAdmission(
-                txs=[
-                    MempoolTransaction(
-                        tx=self.tx, accepted=self.tx.error is None
-                    )
-                ],
+                txs=[MempoolTransaction(tx=self.tx, accepted=accepted)],
                 benchmark_mode=self.operation_mode == OpMode.BENCHMARKING,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
