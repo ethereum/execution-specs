@@ -2,7 +2,7 @@
 
 ## What a tag selects
 
-A simulator tag selects test content. The framework revision depends on whether the tag names the current release, an older release or a nightly fill:
+A simulator tag selects test content. The framework revision depends on whether the tag is a release tag, a channel or `nightly`:
 
 | Simulator | Test content |
 | --- | --- |
@@ -11,9 +11,11 @@ A simulator tag selects test content. The framework revision depends on whether 
 
 The same release tag on `hive/consume-engine` and `hive/execute-blobs` names the same release, although the simulators run different workloads. Framework updates include client exception mappings.
 
-- **Channel tags** (`latest`, `glamsterdam-devnet-8`, `glamsterdam-devnet-latest`) select the current release and receive framework updates when their branch moves. Superseded pushes are skipped; the current head is built.
-- **Release tags** receive those updates while their release is the branch's current one. Once a newer release exists, an older tag retains the framework of its last build. Other pairings can be [assembled locally](how_to.md#assemble-a-combination-that-is-not-published).
-- **Nightly tags** use fixtures, test sources and framework from the fill commit. A failed or skipped fill does not advance `nightly`.
+- **Release tags** (`v20.0.2`, `glamsterdam-devnet-v8.1.4`) are immutable. The release run publishes them once, with the framework at the head of the release's branch at that time, and never overwrites them.
+- **Channel tags** (`latest`, `glamsterdam-devnet-8`) select a branch's highest release and receive framework updates when the branch moves. They are the tags that pick up fixes such as client exception mappings. Superseded pushes are skipped; the current head is built.
+- **`nightly`** uses fixtures, test sources and framework from the fill commit. A failed or skipped fill does not advance it.
+
+Other pairings can be [assembled locally](how_to.md#assemble-a-combination-that-is-not-published).
 
 Every simulator image is checked before publication. A failed check leaves that simulator's tags unchanged; other image jobs may still publish successfully.
 
@@ -21,12 +23,12 @@ Every simulator image is checked before publication. A failed check leaves that 
 
 | Image | Contents | Built |
 | --- | --- | --- |
-| `ghcr.io/ethereum/execution-specs` | The repository: the execution-specs source tree, test sources included, and its synced virtualenv. | On current pushes to `forks/**` or `devnets/**`; at the selected branch head for a release; at the fill commit for a nightly. |
-| `ghcr.io/ethereum/execution-specs/fixtures/<format>` | One fixture format of one release or nightly fill under `/fixtures`, with `.meta/index.json` filtered to that format. No filesystem otherwise. | When a fixture release is published and after every nightly fill, one image per format. |
-| `ghcr.io/ethereum/execution-specs/tests` | The `tests/` tree at the commit that produced a release or fill, under `/execution-specs/tests`. No filesystem otherwise. | When a fixture release is published and after every nightly fill. |
+| `ghcr.io/ethereum/execution-specs` | The repository: the execution-specs source tree, test sources included, and its synced virtualenv. Tagged `sha-<commit>` only. | On current pushes to `forks/**` or `devnets/**`; at the selected branch head for a release; at the fill commit for a nightly. |
+| `ghcr.io/ethereum/execution-specs/fixtures/<format>` | One fixture format of one release or nightly fill under `/fixtures`, with `.meta/index.json` filtered to that format. No filesystem otherwise. Tagged by release and `nightly` only. | When a fixture release is published and after every nightly fill, one image per format. |
+| `ghcr.io/ethereum/execution-specs/tests` | The `tests/` tree at the commit that produced a release or fill, under `/execution-specs/tests`. No filesystem otherwise. Tagged by release and `nightly` only. | When a fixture release is published and after every nightly fill. |
 | `ghcr.io/ethereum/execution-specs/hive/<simulator>` | A ready-to-run simulator: the repository image with the fixtures or test sources of a release or fill. | On current pushes, for the branch's current release; when a release is published; after every nightly fill. |
 
-The namespace below the repository names the runner: `hive/` for hive simulators, with room for further families such as direct test runners. The leaf of a hive image is the simulator directory name in ethereum/hive.
+Only the simulator images are a stable interface. The repository, fixture and tests images are their building blocks; their tags may change. The namespace below the repository names the runner: `hive/` for hive simulators, with room for further families such as direct test runners. The leaf of a hive image is the simulator directory name in ethereum/hive.
 
 ## Simulators and their test content
 
@@ -49,27 +51,25 @@ Mainnet release tags drop the `tests@` prefix. Devnet release tags drop `tests-`
 
 Channels select releases automatically. The examples use `devnets/glamsterdam/8` and the repository's default branch for the mainnet line:
 
-| Tag | Selects | Published on |
+| Tag | Selects | Moves |
 | --- | --- | --- |
-| `v20.0.2`, `glamsterdam-devnet-v8.1.4` | That release's tests. Framework updates while it is the branch's current release. | fixtures, tests, hive |
-| `latest` | The highest mainnet release, as `consume --input tests@latest`; framework from the default branch. On the repository image, code only. | all images |
-| `glamsterdam-devnet-8` | The highest devnet-8 release and the head of `devnets/glamsterdam/8`. On the repository image, code only. | all images |
-| `glamsterdam-devnet-latest` | The highest release across Glamsterdam devnets, as `consume --input glamsterdam-devnet@latest`. | fixtures, tests, hive |
-| `nightly` | The most recently published nightly fill; tests and framework from one commit. On the repository image, code only. | all images |
-| `nightly-1a2b3c4` | A fill identified by the first seven characters of its commit. | fixtures, tests, hive |
-| `sha-abc1234` | The code and dependencies built at that commit. The repository image of a nightly uses this form too. | repository image only |
+| `v20.0.2`, `glamsterdam-devnet-v8.1.4` | That release's tests, with the framework of its release run. | never |
+| `latest` | The highest mainnet release, as `consume --input tests@latest`, with the head of the default branch. | on pushes and higher releases |
+| `glamsterdam-devnet-8` | The highest devnet-8 release with the head of `devnets/glamsterdam/8`. | on pushes and higher devnet-8 releases |
+| `nightly` | The most recently published nightly fill; tests and framework from one commit. | after each successful fill |
 
-Devnet branch channels and nightly tags have no `consume --input` release counterpart. Tag examples describe the naming scheme; publication is enabled [branch by branch](../../../dev/publishing_images.md#first-rollout).
+These four forms are the tags of the simulator images. The fixture and tests images carry the release tags and `nightly`, which the simulator builds use; the repository image carries `sha-<commit>`. Devnet branch channels and `nightly` have no `consume --input` release counterpart. Tag examples describe the naming scheme; publication is enabled [branch by branch](../../../dev/publishing_images.md#first-rollout).
 
 Rules behind the table:
 
-- `latest` and `<series>-latest` resolve exactly as `consume --input tests@latest` and `consume --input <series>@latest` do: the highest published release of the series that has a fixtures tarball, whatever its GitHub pre-release flag. Channel tags follow the highest version, never the newest publication, so a late 8.1.5 patch published after 9.0.0 does not move `glamsterdam-devnet-latest` back to devnet 8.
-- `glamsterdam-devnet-8` is to devnet 8 what `latest` is to the default branch: the highest release of the branch with the head of the branch. A dashboard that follows one devnet uses it; one that follows the newest devnet uses `glamsterdam-devnet-latest`.
+- `latest` resolves exactly as `consume --input tests@latest` does: the highest published mainnet release that has a fixtures tarball, whatever its GitHub pre-release flag. Channel tags follow the highest version, never the newest publication, so a late 8.1.5 patch published after 9.0.0 moves only `glamsterdam-devnet-8`.
+- `glamsterdam-devnet-8` is to devnet 8 what `latest` is to the default branch: the highest release of the branch with the head of the branch. A dashboard that follows a devnet uses it and switches to `glamsterdam-devnet-9` when devnet 9 starts.
+- A release tag is written once. A re-run of a release run, manual or not, leaves an existing release tag unchanged and only moves the channel. To run a release with newer framework fixes, use its branch's channel while the release is the highest, or [assemble the pair](how_to.md#assemble-a-combination-that-is-not-published).
 - No tag on any image is named after a fork, because the default branch is renamed at every fork. The default branch's channel is `latest`.
 - Only the default branch publishes the mainnet tags, and a release is only ever paired with the branch it was cut from.
-- The nightly fill covers the main line only, so `nightly` is a mainnet channel. It is identified by the commit it built rather than by a date, because the fill skips quiet days. Should the fill ever cover devnet branches, their nightly would be `glamsterdam-devnet-8-nightly`.
+- The nightly fill covers the main line only, so `nightly` is a mainnet channel. Only the latest fill is tagged; the simulator log header and the image labels name the fill by its commit, `nightly-<commit>`, and the publishing run records its digest. Should the fill ever cover devnet branches, their nightly would be `glamsterdam-devnet-8-nightly`.
 - The five simulator images move independently: a failed build leaves one image's channel tag on the previous release while the others advance.
-- Tags name sources, not bytes. A tag is pushed again when the same sources are rebuilt, and the base image below the repository image moves on its own. The byte-exact identity of an image is its digest, `ghcr.io/ethereum/execution-specs/hive/consume-engine@sha256:…`, which the publishing run records; see [Reproduce a run exactly](how_to.md#reproduce-a-run-exactly).
+- Channel tags and `nightly` name sources, not bytes: they are pushed again whenever their sources are rebuilt. A release tag keeps the bytes its release run published. The byte-exact identity of an image is its digest, `ghcr.io/ethereum/execution-specs/hive/consume-engine@sha256:…`, which the publishing run records; see [Reproduce a run exactly](how_to.md#reproduce-a-run-exactly).
 
 ## Hive build arguments
 

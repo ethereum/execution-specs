@@ -6,9 +6,9 @@ The workflow `.github/workflows/docker-images.yaml` publishes the images describ
 
 | Run | Trigger | Builds |
 | --- | --- | --- |
-| push | a push to a `forks/**` or `devnets/**` branch that is still current when its run starts | the repository image of the head, and the simulator images of the branch's current release, its highest one, rebuilt with the head so that the branch's channel tag (`latest`, `glamsterdam-devnet-8`) follows it |
-| release | a fixture release is published (`release: published`) | the fixture images and the tests image of the release, and the simulator images pairing it with the head of the branch it was cut from |
-| nightly | the scheduled fill in `release_fixtures.yaml` completes, which calls this workflow | every image at the fill commit, from the fill's `fixtures_<sha>` artifact; test-carrying images get `nightly` and `nightly-<sha>`, the repository image gets `nightly` and `sha-<sha>` |
+| push | a push to a `forks/**` or `devnets/**` branch that is still current when its run starts | the repository image of the head, and the simulator images of the branch's current release, its highest one, rebuilt with the head and pushed under the branch's channel tag (`latest`, `glamsterdam-devnet-8`) only; the release tag is left as the release run published it |
+| release | a fixture release is published (`release: published`) | the fixture images and the tests image of the release, and the simulator images pairing it with the head of the branch it was cut from, under the immutable release tag and, for the branch's highest release, its channel |
+| nightly | the scheduled fill in `release_fixtures.yaml` completes, which calls this workflow | every image at the fill commit, from the fill's `fixtures_<sha>` artifact; test-carrying images get `nightly`, the repository image `sha-<sha>` |
 | by hand | the Actions tab or `gh workflow run` | any of the above, and testing on a fork |
 
 The branch a release belongs to is inferred from its tag, `tests@` for the default branch and `tests-<name>-devnet@v<n>.` for `devnets/<name>/<n>`, so the release trigger needs no input. A published release whose series is not tied to a branch, such as a zkevm or benchmark release, publishes no images: the run ends after planning with a notice. A manual run for such a release fails.
@@ -23,7 +23,7 @@ A push checks its commit against the branch head before installing dependencies 
 
 If the branch moves during a build, the simulator publication step checks again: a push skips publishing its simulator images, and a release publishes only its release tag. The repository image may already have been published. These skips exit successfully. Actual build, check or registry errors still fail the run.
 
-Nightly publication uses the mainnet queue because it also writes repository images under `sha-<commit>`. The scheduled fill itself remains serialized by the release workflow. Manual nightly publication joins the same image queue.
+Nightly publication uses the mainnet queue because it also moves `nightly` on the fixture and tests images that its simulator builds read. The scheduled fill itself remains serialized by the release workflow. Manual nightly publication joins the same image queue.
 
 The five simulator images are pushed by independent jobs, so a channel tag can point at the new release on four of them and the old one on the fifth while a job is failing. The step summary of every run lists each pushed tag with its digest, commit and release, and the `digests-*` artifacts hold the same as JSON, so what a tag pointed to at any time can be traced.
 
@@ -32,10 +32,12 @@ The five simulator images are pushed by independent jobs, so a channel tag can p
 | Job | Runs | Does |
 | --- | --- | --- |
 | `plan` | always | Skips superseded pushes, resolves a manual nightly artifact, then installs the testing package and runs `eest images plan`, which computes every name, tag and build of the run from `execution_testing.tools.docker_images`. The other jobs only consume its JSON output and check out the commit it planned. |
-| `base` | when a plan is produced | Builds `packages/testing/docker/base/Dockerfile` at the planned commit and pushes it as `ghcr.io/ethereum/execution-specs:sha-<7 hex>`, plus `latest` on the default branch, the branch tag on a devnet branch, or `nightly` for a fill. |
-| `fixtures` | release and nightly runs | Takes the release tarball, or the fill's artifact, once per fixture format, builds `packages/testing/docker/fixtures/Dockerfile` and pushes `fixtures/<format>` under the release tag and every channel tag the release holds. |
-| `tests` | release and nightly runs | Checks out the release tag, or the fill commit, beside the planned commit and builds `packages/testing/docker/tests/Dockerfile` from its `tests/` directory, pushed as `tests` under the same tags as the fixture images. |
+| `base` | when a plan is produced | Builds `packages/testing/docker/base/Dockerfile` at the planned commit and pushes it as `ghcr.io/ethereum/execution-specs:sha-<7 hex>`, the only tag of the repository image. |
+| `fixtures` | release and nightly runs | Takes the release tarball, or the fill's artifact, once per fixture format, builds `packages/testing/docker/fixtures/Dockerfile` and pushes `fixtures/<format>` under the release tag, or `nightly` for a fill. |
+| `tests` | release and nightly runs | Checks out the release tag, or the fill commit, beside the planned commit and builds `packages/testing/docker/tests/Dockerfile` from its `tests/` directory, pushed as `tests` under the same tag as the fixture images. |
 | `images` | per planned simulator | Builds the simulator with `packages/testing/docker/hive/build.sh` from the repository image at the planned commit and the fixture or tests image, verifies it with `check.sh`, confirms the branch has not moved, and pushes the release tag and the channel tags. |
+
+Every push goes through `.github/scripts/push_image_tags.sh`. In a release run it skips a release tag that already exists, so a re-run, manual or not, never changes what a published release tag points to; only the channel moves. It also records the digest of what it pushed.
 
 The check in the `images` job is what makes the execute images safe to publish: it collects the release's tests under the branch-head framework, so that a source tree the framework can no longer load fails the job instead of every hive run that pulls the tag. For a consume image it verifies that the fixture index is non-empty, covers only the image's format, and points only at files present in the image. A failed check leaves that simulator image's tags unchanged. The repository, fixture and tests images may already have been published, and other simulator jobs can still advance.
 

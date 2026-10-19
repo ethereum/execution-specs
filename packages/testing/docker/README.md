@@ -1,6 +1,6 @@
 # Docker images for the hive eels simulators
 
-The `ethereum/eels/*` simulators in ethereum/hive run from images built here and published under `ghcr.io/ethereum/execution-specs`. A simulator tag selects the tests: generated fixtures for consume, or the release's Python test sources for execute. Images for a branch's current release receive framework updates; older releases keep their last build. Nightly images use the fill commit for both tests and framework.
+The `ethereum/eels/*` simulators in ethereum/hive run from images built here and published under `ghcr.io/ethereum/execution-specs`. A simulator tag selects the tests: generated fixtures for consume, or the release's Python test sources for execute. Release tags are immutable; channel tags (`latest`, `<name>-devnet-<n>`) pair a branch's highest release with its head. Nightly images use the fill commit for both tests and framework.
 
 Start with [Simulator Images](../../../docs/running_tests/hive/images/index.md), or jump to the [tag reference](../../../docs/running_tests/hive/images/reference.md#tags), [local build instructions](../../../docs/running_tests/hive/images/how_to.md#build-the-images-from-a-local-checkout) or [publishing guide](../../../docs/dev/publishing_images.md). Naming rules live in `execution_testing.tools.docker_images`, exposed through `eest images`.
 
