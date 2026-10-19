@@ -199,6 +199,6 @@ Private packages need `docker login ghcr.io` and hive's `--docker.auth` flag.
 The entry point of the images reads a few environment variables, which hive sets from build arguments of the simulator Dockerfiles:
 
 - `--sim.buildarg disable_strict_exception_matching=<client>` for `consume-engine` and `consume-enginex`, default `nimbus-el`; an empty value exempts no client.
-- `--sim.buildarg fork=<fork>` for `execute-blobs`. Without it, the image runs at the fork its release was filled for, for example `Amsterdam` for `tests@` releases and `Bogota` for the Bogota devnets.
+- `--sim.buildarg fork=<fork>` for `execute-blobs`. Without it, the image runs at the fork its release was filled for, so a devnet image runs at its devnet's fork.
 
 Test selection, parallelism and log level are hive options, see [Common Options](../common_options.md).
