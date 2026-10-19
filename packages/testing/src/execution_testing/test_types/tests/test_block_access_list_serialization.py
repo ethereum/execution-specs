@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from execution_testing.base_types import Address, Bytes
+from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.test_types.block_access_list import (
     BalAccountChange,
     BalBalanceChange,
@@ -132,3 +132,32 @@ def test_bal_rlp_override_coerces_to_bytes(rlp: Any) -> None:
 
     assert overridden.rlp == Bytes(b"\xc0")
     assert overridden.rlp_hash == Bytes(b"\xc0").keccak256()
+
+
+def test_bal_code_change_hash_form_roundtrip() -> None:
+    """A `new_code_hash` entry round-trips as a 3-element RLP list."""
+    bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=Address(0xA),
+                code_changes=[
+                    BalCodeChange(block_access_index=1, new_code=b"\x00"),
+                    BalCodeChange(
+                        block_access_index=2,
+                        new_code=b"",
+                        new_code_hash=Hash(1),
+                    ),
+                ],
+            )
+        ]
+    )
+
+    assert BlockAccessList.from_rlp(bal.rlp) == bal
+    code_changes = bal.root[0].code_changes
+    assert len(code_changes[0].to_list()) == 2
+    assert len(code_changes[1].to_list()) == 3
+
+    with pytest.raises(ValidationError):
+        BalCodeChange(
+            block_access_index=1, new_code=b"\x01", new_code_hash=Hash(1)
+        )

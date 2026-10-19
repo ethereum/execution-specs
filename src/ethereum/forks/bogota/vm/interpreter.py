@@ -18,7 +18,7 @@ from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint, ulen
 
 from ethereum.exceptions import EthereumException
-from ethereum.state import EMPTY_ACCOUNT, Address
+from ethereum.state import EMPTY_ACCOUNT, EMPTY_CODE_HASH, Address
 from ethereum.trace import (
     EvmStop,
     OpEnd,
@@ -391,6 +391,11 @@ def process_create(evm: Evm) -> Evm:
 
     evm = process_call(evm)
     if not evm.error:
+        created_account = get_account(tx_state, evm.current_target)
+        if created_account.code_hash != EMPTY_CODE_HASH:
+            # Code adopted through `SETCODEFROM` stays; the returned bytes
+            # are neither validated nor deposited, and cost nothing.
+            return evm
         contract_code = evm.output
         try:
             if len(contract_code) > 0:
