@@ -24,7 +24,7 @@ from .state_helpers import (
     large_storage_value,
 )
 
-pytestmark = pytest.mark.valid_from("Amsterdam")
+pytestmark = pytest.mark.valid_at("Amsterdam")
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8025.version
