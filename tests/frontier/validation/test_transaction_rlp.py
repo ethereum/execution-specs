@@ -475,6 +475,50 @@ def test_invalid_structure(
     transaction_test(pre=pre, tx=invalid_tx(pre, rlp, error))
 
 
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "envelope, error",
+    [
+        (
+            "empty",
+            [
+                TransactionException.RLP_ERROR_EOF,
+                TransactionException.TYPE_NOT_SUPPORTED,
+            ],
+        ),
+        (
+            "reserved_type_byte",
+            [
+                TransactionException.RLP_INVALID_HEADER,
+                TransactionException.RLP_ERROR_EOF,
+                TransactionException.TYPE_NOT_SUPPORTED,
+            ],
+        ),
+    ],
+)
+def test_invalid_envelope(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    envelope: str,
+    error: TransactionException | list[TransactionException],
+) -> None:
+    """
+    Send an empty transaction, or one whose first byte is 0xff.
+
+    Neither is a valid transaction under any fork. An empty input has
+    no type byte or RLP header to read. Before EIP-2718, 0xff is the
+    header of a list whose 8-byte length runs past the input;
+    afterwards it is the type byte EIP-2718 reserves, so clients may
+    report either an RLP error or an unsupported type.
+    """
+    if envelope == "empty":
+        rlp = b""
+    elif envelope == "reserved_type_byte":
+        rlp = b"\xff" + encode_tx(signed_tx_fields(pre, fork))
+    transaction_test(pre=pre, tx=invalid_tx(pre, rlp, error))
+
+
 @pytest.mark.ported_from(
     [
         f"{LEGACY_TX_TESTS}/ttRSValue/TransactionWithRvalue0Filler.json",
