@@ -879,6 +879,54 @@ class EthRPC(BaseRPC):
         responses = self.post_batch_request(calls=calls)
         return [r.result_or_raise() for r in responses]
 
+    def transaction_known(self, transaction_hash: Hash) -> bool:
+        """
+        `eth_getTransactionByHash`: Return whether the client knows the
+        transaction, pending or included.
+
+        The response is never parsed into a transaction, so this works for
+        types the response model cannot rebuild from a client's JSON, such
+        as frame transactions.
+        """
+        response = self.post_request(
+            request=RPCCall(
+                method="getTransactionByHash",
+                params=[f"{transaction_hash}"],
+            )
+        ).result_or_raise()
+        return response is not None
+
+    def wait_for_receipts(
+        self, transaction_hashes: Sequence[Hash]
+    ) -> List[dict[str, Any]]:
+        """
+        Use `eth_getTransactionReceipt` batch requests to wait until every
+        transaction is included in a block.
+
+        Unlike `wait_for_transactions`, the transactions are never parsed
+        back from the client, so any transaction type can be waited on.
+        """
+        found: dict[Hash, dict[str, Any]] = {}
+        pending = list(transaction_hashes)
+        start_time = time.time()
+        while pending:
+            with self.transaction_polling_context:
+                receipts = self.get_transaction_receipts(pending)
+                for tx_hash, receipt in zip(pending, receipts, strict=True):
+                    if receipt is not None:
+                        found[tx_hash] = receipt
+                pending = [h for h in pending if h not in found]
+                if not pending:
+                    break
+                if (time.time() - start_time) > self.transaction_wait_timeout:
+                    raise Exception(
+                        f"Transactions {', '.join(str(h) for h in pending)} "
+                        "not included in a block after "
+                        f"{self.transaction_wait_timeout} seconds"
+                    )
+                self.pending_transactions_handler()
+        return [found[tx_hash] for tx_hash in transaction_hashes]
+
     def get_storage_at(
         self,
         address: Address,
