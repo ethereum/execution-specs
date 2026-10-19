@@ -23,10 +23,7 @@ consume-rlp) format=blockchain_tests ;;
 consume-engine) format=blockchain_tests_engine ;;
 consume-enginex) format=blockchain_tests_engine_x ;;
 consume-sync) format=blockchain_tests_sync ;;
-execute-blobs)
-    marker=blob_transaction_test
-    paths=tests/cancun/eip4844_blobs
-    ;;
+execute-blobs) ;;
 *)
     echo "error: unknown simulator '$simulator'" >&2
     exit 1
@@ -54,30 +51,28 @@ if missing:
 print(f"ok: {len(cases)} test cases under {root}/{fmt}, every file present")
 '
 else
-    docker run --rm --entrypoint sh -e "MARKER=$marker" -e "PATHS=$paths" "$image" -c '
+    # Collect with the entry point's own command and selection, so that the
+    # check covers exactly the tests a hive run executes. Exit 5, "no tests
+    # collected", fails the check. The summary line's count is not used: it
+    # includes items that later collection hooks drop without reporting them
+    # as deselected, so it stays in the thousands for a marker that selects
+    # nothing. The node ids printed by --collect-only are counted instead.
+    docker run --rm --entrypoint sh "$image" -c '
 set -u
 cd /execution-specs
-# The collection output is kept for the failure report. A collection error,
-# such as a test module the framework can no longer import, exits 2; exit 5,
-# "no tests collected", is returned whenever the marker deselects anything,
-# tests remaining or not, so the collected count in the summary line decides
-# in that case.
-uv run --no-sync fill --collect-only -q -m "$MARKER" $PATHS > /tmp/collect.log 2>&1
-status=$?
-summary=$(tail -n 1 /tmp/collect.log)
-case "$status" in
-0 | 5) ;;
-*)
+status=0
+uv run --no-sync execute hive --collect-only -q --fork="${FORK:-Osaka}" \
+    -m blob_transaction_test > /tmp/collect.log 2>&1 || status=$?
+collected=$(grep -c "^tests/.*::" /tmp/collect.log || true)
+if [ "$status" -eq 5 ] || { [ "$status" -eq 0 ] && [ "$collected" -eq 0 ]; }; then
+    echo "error: no blob_transaction_test tests collected" >&2
+    exit 1
+fi
+if [ "$status" -ne 0 ]; then
     tail -n 40 /tmp/collect.log >&2
     echo "error: collecting the release tests under the image framework failed (exit $status)" >&2
     exit 1
-    ;;
-esac
-collected=$(printf "%s\n" "$summary" | grep -oE "^[0-9]+" || true)
-if [ -z "$collected" ] || [ "$collected" -eq 0 ]; then
-    echo "error: $summary" >&2
-    exit 1
 fi
-echo "ok: $summary"
+echo "ok: $collected blob_transaction_test tests collected"
 '
 fi
