@@ -16,6 +16,7 @@ from execution_testing import (
     Bytecode,
     Bytes,
     FeeSystemContractRequest,
+    Fork,
     Header,
     Op,
     Requests,
@@ -25,7 +26,6 @@ from execution_testing import (
     generate_system_contract_error_test,
 )
 from execution_testing import Macros as Om
-from execution_testing.base_types import Bloom
 from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8282
@@ -69,6 +69,7 @@ def builder_exit_list_with_custom_fee(n: int) -> List[BuilderExitRequest]:  # no
 def run_modified_requests_test(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     *,
     predeploy_address: Address,
     requests_list: Sequence[SystemContractRequest],
@@ -100,7 +101,7 @@ def run_modified_requests_test(
                 # nothing the predeploy logs reaches the bloom.
                 header_verify=Header(
                     requests_hash=Requests(*requests_list),
-                    logs_bloom=Bloom(0),
+                    logs_bloom=fork.empty_logs_bloom(),
                 ),
             ),
         ],
@@ -146,6 +147,7 @@ def run_modified_requests_test(
 def test_extra_builder_deposits(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     requests_list: List[BuilderDepositRequest],
 ) -> None:
     """
@@ -155,6 +157,7 @@ def test_extra_builder_deposits(
     run_modified_requests_test(
         blockchain_test,
         pre,
+        fork,
         predeploy_address=BuilderDepositRequest.system_contract_address,
         requests_list=requests_list,
     )
@@ -198,6 +201,7 @@ def test_extra_builder_deposits(
 def test_extra_builder_exits(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     requests_list: List[BuilderExitRequest],
 ) -> None:
     """
@@ -207,6 +211,7 @@ def test_extra_builder_exits(
     run_modified_requests_test(
         blockchain_test,
         pre,
+        fork,
         predeploy_address=BuilderExitRequest.system_contract_address,
         requests_list=requests_list,
     )
@@ -249,6 +254,7 @@ def test_system_contract_errors() -> None:
 def test_system_contract_logs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     request_class: Type[FeeSystemContractRequest],
 ) -> None:
     """
@@ -281,7 +287,7 @@ def test_system_contract_logs(
                 txs=[tx],
                 header_verify=Header(
                     requests_hash=Requests(queued_request),
-                    logs_bloom=Bloom(0),
+                    logs_bloom=fork.empty_logs_bloom(),
                 ),
             ),
         ],

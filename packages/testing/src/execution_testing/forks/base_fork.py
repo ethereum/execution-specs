@@ -29,6 +29,7 @@ from execution_testing.base_types import (
     AccessList,
     Address,
     BlobSchedule,
+    Bloom,
     StateCommitment,
 )
 from execution_testing.base_types.conversions import BytesConvertible
@@ -571,6 +572,12 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @abstractmethod
     def header_slot_number_required(cls) -> bool:
         """Return true if the header must contain slot number (EIP-7843)."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def empty_logs_bloom(cls) -> Bloom:
+        """Return the logs bloom of a block or receipt without logs."""
         pass
 
     # Gas related abstract methods

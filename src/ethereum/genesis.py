@@ -231,7 +231,7 @@ def add_genesis_block(
         "state_root": hardfork.state_root(chain.state),
         "transactions_root": hardfork.root(hardfork.Trie(False, None)),
         "receipt_root": hardfork.root(hardfork.Trie(False, None)),
-        "bloom": hardfork.Bloom(b"\0" * 256),
+        "bloom": hardfork.Bloom(b"\0" * hardfork.Bloom.LENGTH),
         "difficulty": genesis.difficulty,
         "number": Uint(0),
         "gas_limit": genesis.gas_limit,
