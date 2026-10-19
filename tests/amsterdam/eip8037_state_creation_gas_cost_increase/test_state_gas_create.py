@@ -820,17 +820,29 @@ def test_create_tx_intrinsic_gas_boundary(
     gas_limit = intrinsic_cost(
         contract_creation=True,
     )
+    standard_cost = intrinsic_cost(
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor_cost = fork.transaction_data_floor_cost_calculator()(
+        data=b"", contract_creation=True
+    )
+    assert floor_cost == standard_cost
+
+    error: List[TransactionException] | None = None
+    if gas_delta < 0:
+        # The spec checks max(standard cost, floor), so either is valid.
+        error = [
+            TransactionException.INTRINSIC_GAS_TOO_LOW,
+            TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST,
+        ]
 
     sender = pre.fund_eoa()
     tx = Transaction(
         to=None,
         gas_limit=gas_limit + gas_delta,
         sender=sender,
-        error=(
-            TransactionException.INTRINSIC_GAS_TOO_LOW
-            if gas_delta < 0
-            else None
-        ),
+        error=error,
     )
 
     post = {

@@ -30,55 +30,53 @@ pytestmark = pytest.mark.valid_from("Berlin")
 
 tx_intrinsic_gas_data_vectors = [
     pytest.param(Bytes(b""), id="data_empty"),
-    pytest.param(Bytes(b"0x00"), id="data_1_zero_byte"),
-    pytest.param(Bytes(b"0x00000000"), id="data_4_zero_byte"),
-    pytest.param(Bytes(b"0xFF"), id="data_1_non_zero_byte"),
-    pytest.param(Bytes(b"0x00FF"), id="data_1_zero_byte_1_non_zero_byte"),
+    pytest.param(Bytes("0x00"), id="data_1_zero_byte"),
+    pytest.param(Bytes("0x00000000"), id="data_4_zero_byte"),
+    pytest.param(Bytes("0xFF"), id="data_1_non_zero_byte"),
+    pytest.param(Bytes("0x00FF"), id="data_1_zero_byte_1_non_zero_byte"),
     pytest.param(
-        Bytes(b"0xFE00"), id="data_1_zero_byte_1_non_zero_byte_reversed"
+        Bytes("0xFE00"), id="data_1_zero_byte_1_non_zero_byte_reversed"
     ),
-    pytest.param(
-        Bytes(b"0x0102030405060708090A0B0C0D0E0F10"), id="data_set_1"
-    ),
+    pytest.param(Bytes("0x0102030405060708090A0B0C0D0E0F10"), id="data_set_1"),
     pytest.param(
         Bytes(
-            b"0x00010203040506000708090A0B0C0D0E0F10111200131415161718191a1b1c1d1e1f"
+            "0x00010203040506000708090A0B0C0D0E0F10111200131415161718191a1b1c1d1e1f"
         ),
         id="data_set_2",
     ),
     pytest.param(
         Bytes(
-            b"0x0102030405060708090A0B0C0D0E0F101112131415161718191a1b1c1d1e1f20"
+            "0x0102030405060708090A0B0C0D0E0F101112131415161718191a1b1c1d1e1f20"
         ),
         id="data_set_3",
     ),
     pytest.param(
         Bytes(
-            b"0x01020304050607080910111213141516171819202122232425262728293031"
+            "0x01020304050607080910111213141516171819202122232425262728293031"
         ),
         id="data_set_31_bytes",
     ),
     pytest.param(
         Bytes(
-            b"0x000102030405060708090A0B0C0D0E0F101112131415161718191a1b1c1d1e1f"
+            "0x000102030405060708090A0B0C0D0E0F101112131415161718191a1b1c1d1e1f"
         ),
         id="data_set_32_bytes",
     ),
     pytest.param(
         Bytes(
-            b"0x010203040506070809101112131415161718192021222324252627282930313233"
+            "0x010203040506070809101112131415161718192021222324252627282930313233"
         ),
         id="data_set_33_bytes",
     ),
     pytest.param(
         Bytes(
-            b"0x000000000000000000000000000000000000000000000000000000000000000000"
+            "0x000000000000000000000000000000000000000000000000000000000000000000"
         ),
         id="data_set_33_empty_bytes",
     ),
     pytest.param(
         Bytes(
-            b"0x000000000000000000000000000000000000000000000000000000000000000000010203040506070809101112131415161718192021222324252627282930313233"
+            "0x000000000000000000000000000000000000000000000000000000000000000000010203040506070809101112131415161718192021222324252627282930313233"
         ),
         id="data_set_66_bytes_half_zeros",
     ),
