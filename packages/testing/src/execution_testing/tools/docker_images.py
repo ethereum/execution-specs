@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import requests
+import yaml
 
 DEFAULT_REPOSITORY = "ethereum/execution-specs"
 """GitHub repository the images are published from, as `owner/name`."""
@@ -51,6 +52,10 @@ VERSION_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)(?:-(.+))?$")
 TAG_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")
 """What docker accepts as an image tag."""
 DEVNET_BRANCH_RE = re.compile(r"^devnets/([^/]+)/(\d+)$")
+FEATURE_CONFIG = ".github/configs/feature.yaml"
+"""Release workflow config: each feature's `fill-params` name its forks."""
+SHARED_DEVNET_FEATURE = "devnet"
+"""Entry of `FEATURE_CONFIG` shared by every `<name>-devnet` feature."""
 
 
 @dataclass(frozen=True)
@@ -326,6 +331,53 @@ def fetch_release(
     return Release.from_api(response.json())
 
 
+def fetch_feature_config(
+    repository: str, ref: str, token: str | None = None
+) -> dict[str, Any] | None:
+    """
+    Fetch the release workflow's feature config at a ref of a repository.
+
+    Read it at the release tag or fill commit, not at a branch head: a
+    devnet branch fills its own forks. Return None if the ref has no config.
+    """
+    headers = _github_headers(token)
+    headers["Accept"] = "application/vnd.github.raw"
+    response = requests.get(
+        f"https://api.github.com/repos/{repository}/contents/{FEATURE_CONFIG}",
+        params={"ref": ref},
+        headers=headers,
+        timeout=30,
+    )
+    if response.status_code == 404:
+        return None
+    response.raise_for_status()
+    config = yaml.safe_load(response.text)
+    return config if isinstance(config, dict) else None
+
+
+def fill_fork(config: dict[str, Any], series: str) -> str | None:
+    """
+    Return the newest fork a release series is filled for, from its config.
+
+    The series' feature is `tests` for the main line and `<name>-devnet`
+    for a devnet, which uses the shared `devnet` entry when there is one,
+    as in the release workflow's `generate_build_matrix.py`. Its
+    `fill-params` name the fork with `--fork`, or the newest one with
+    `--until`. None if the config does not say.
+    """
+    name = series_name(series)
+    if name.endswith(DEVNET_SUFFIX) and SHARED_DEVNET_FEATURE in config:
+        name = SHARED_DEVNET_FEATURE
+    entry = config.get(name)
+    if not isinstance(entry, dict):
+        return None
+    params = str(entry.get("fill-params", ""))
+    match = re.search(r"--fork[=\s]+(\S+)", params) or re.search(
+        r"--until[=\s]+(\S+)", params
+    )
+    return match.group(1) if match else None
+
+
 def git_tag_commit(repository: str, tag: str) -> str | None:
     """
     Resolve a tag of a GitHub repository to its commit with `git ls-remote`.
@@ -453,6 +505,9 @@ def plan(
     nightly: bool = False,
     releases: Iterable[Release] | None = None,
     resolve_commit: Callable[[str], str | None] | None = None,
+    feature_config: (
+        Callable[[str, str], dict[str, Any] | None] | None
+    ) = None,
 ) -> dict[str, Any]:
     """
     Return what a publishing run builds and how it tags it.
@@ -474,6 +529,12 @@ def plan(
     GitHub lookup, for tests. `resolve_commit` maps a release tag to its
     commit when the listing does not know it, `git_tag_commit` in the
     publisher.
+
+    `feature_config` maps a repository and a ref to the feature config at
+    that ref, `fetch_feature_config` in the publisher. It gives each execute
+    image its `default_fork`, the fork the release or fill was filled for;
+    without it, or when the config does not say, `default_fork` is empty and
+    the image's check fails unless a fork is given.
     """
     registry = registry_repository(repository)
     release_repository = release_repository or repository
@@ -481,6 +542,12 @@ def plan(
     fixtures: dict[str, Any] | None = None
     tests: dict[str, Any] | None = None
     images: list[dict[str, Any]] = []
+
+    def default_fork_of(repo: str, ref: str, series: str) -> str:
+        if feature_config is None:
+            return ""
+        config = feature_config(repo, ref)
+        return (fill_fork(config, series) or "") if config else ""
 
     def commit_of(release: Release) -> str:
         if release.commit:
@@ -495,6 +562,7 @@ def plan(
         commit: str,
         tags: list[str],
         immutable: str = "",
+        default_fork: str = "",
     ) -> list[dict[str, Any]]:
         return [
             {
@@ -508,6 +576,7 @@ def plan(
                 "commit": commit,
                 "tags": list(tags),
                 "immutable": immutable,
+                "default_fork": default_fork if image.tests else "",
             }
             for image in IMAGES
         ]
@@ -543,7 +612,13 @@ def plan(
             "tags": list(tags),
             "immutable": "",
         }
-        images = image_entries(release_name, slug, sha, tags)
+        images = image_entries(
+            release_name,
+            slug,
+            sha,
+            tags,
+            default_fork=default_fork_of(repository, sha, MAIN_LINE_SERIES),
+        )
         base = base_tags(short_sha)
     else:
         if releases is None:
@@ -604,7 +679,14 @@ def plan(
                 "immutable": release.slug,
             }
             images = image_entries(
-                release.tag, release.slug, commit, tags, release.slug
+                release.tag,
+                release.slug,
+                commit,
+                tags,
+                release.slug,
+                default_fork_of(
+                    release_repository, release.tag, release.series
+                ),
             )
         else:
             mode = "push"
@@ -617,7 +699,13 @@ def plan(
                 # release run built it.
                 tags = [channel]
                 images = image_entries(
-                    owner.tag, owner.slug, commit_of(owner), tags
+                    owner.tag,
+                    owner.slug,
+                    commit_of(owner),
+                    tags,
+                    default_fork=default_fork_of(
+                        release_repository, owner.tag, owner.series
+                    ),
                 )
         base = base_tags(short_sha)
 

@@ -39,6 +39,8 @@ The five simulator images are pushed by independent jobs, so a channel tag can p
 
 Every push goes through `.github/scripts/push_image_tags.sh`. In a release run it skips a release tag that already exists, so a re-run, manual or not, never changes what a published release tag points to; only the channel moves. It also records the digest of what it pushed. To replace a broken release image, delete that version from the ghcr package and rerun the release, which publishes the missing tag again.
 
+For execute images the plan also sets a default fork: the `--fork` or `--until` fork in the release's `fill-params`, read from `.github/configs/feature.yaml` at the release tag or fill commit, so a devnet line defaults to its own fork. The image's check collects at that fork and fails if the config does not name one.
+
 The check in the `images` job is what makes the execute images safe to publish: it collects the release's tests under the branch-head framework, so that a source tree the framework can no longer load fails the job instead of every hive run that pulls the tag. For a consume image it verifies that the fixture index is non-empty, covers only the image's format, and points only at files present in the image. A failed check leaves that simulator image's tags unchanged. The repository, fixture and tests images may already have been published, and other simulator jobs can still advance.
 
 To see what a run would do without running it, run the planner locally; it needs network access to list the releases. The examples on this page use `forks/bogota`, the default branch at the time of writing; substitute the current one:
@@ -105,7 +107,7 @@ Before the first upstream publish, verify these cases on the fork:
 
 ## Adding an image
 
-Add an entry to `IMAGES` in `execution_testing.tools.docker_images` with the image name, its family, and either the fixture format it carries or `tests=True` for an execute simulator; add the entry point case in `packages/testing/docker/hive/entrypoint.sh` and the format or collection paths in `build.sh` and `check.sh`; and add the family's Dockerfiles under `packages/testing/docker/<family>/` if the family is new. The tests in `tools/tests/test_docker_images.py` pin the naming rules; extend them with the new image.
+Add an entry to `IMAGES` in `execution_testing.tools.docker_images` with the image name, its family, and either the fixture format it carries or `tests=True` for an execute simulator; add the entry point case in `packages/testing/docker/hive/entrypoint.sh` and the fixture format in `build.sh` and `check.sh`; and add the family's Dockerfiles under `packages/testing/docker/<family>/` if the family is new. The tests in `tools/tests/test_docker_images.py` pin the naming rules; extend them with the new image.
 
 ## Registry housekeeping
 

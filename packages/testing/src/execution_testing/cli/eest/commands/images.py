@@ -97,6 +97,14 @@ def release_branch(release_tag: str, default_branch: str) -> None:
     help="Resolve the planned release's commit from its tag with git.",
 )
 @click.option(
+    "--resolve-forks",
+    is_flag=True,
+    help=(
+        "Read each execute image's default fork from the feature config at "
+        "the release tag or fill commit."
+    ),
+)
+@click.option(
     "--github",
     is_flag=True,
     help="Join tag lists into space-separated strings for GitHub Actions.",
@@ -110,6 +118,7 @@ def plan(
     repository: str,
     release_repository: str | None,
     resolve_commits: bool,
+    resolve_forks: bool,
     github: bool,
 ) -> None:
     """Print, as JSON, what a publishing run builds and how it tags it."""
@@ -127,6 +136,9 @@ def plan(
                 (lambda tag: docker_images.git_tag_commit(release_repo, tag))
                 if resolve_commits
                 else None
+            ),
+            feature_config=(
+                docker_images.fetch_feature_config if resolve_forks else None
             ),
         )
     except ValueError as error:

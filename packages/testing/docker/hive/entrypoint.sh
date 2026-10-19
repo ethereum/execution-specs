@@ -8,7 +8,8 @@
 #   DISABLE_STRICT_EXCEPTION_MATCHING   engine and enginex; defaults to nimbus-el when
 #                                       unset; an empty value exempts no client
 #                                       TODO: remove when fixed on nimbus-el side.
-#   FORK                                execute-blobs; defaults to Osaka
+#   FORK                                execute-blobs; defaults to EEST_DEFAULT_FORK, the fork
+#                                       the release was filled for, set when the image is built
 set -eu
 
 cd /execution-specs/packages/testing
@@ -28,9 +29,14 @@ consume-sync)
     exec uv run --no-sync consume sync -v --input "$FIXTURES" "$@"
     ;;
 execute-blobs)
+    fork=${FORK:-${EEST_DEFAULT_FORK:-}}
+    if [ -z "$fork" ]; then
+        echo "eels-simulator: no fork; set FORK (--sim.buildarg fork=<fork>)" >&2
+        exit 2
+    fi
     # `execute` collects the tests from the source tree: run from the repository root.
     cd /execution-specs
-    exec uv run --no-sync execute hive --fork="${FORK:-Osaka}" -v -m blob_transaction_test "$@"
+    exec uv run --no-sync execute hive --fork="$fork" -v -m blob_transaction_test "$@"
     ;;
 *)
     echo "eels-simulator: unknown or unset EEST_SIMULATOR '${EEST_SIMULATOR:-}'" >&2

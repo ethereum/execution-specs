@@ -16,7 +16,8 @@
 # A consume simulator takes the fixture image of its format from the registry,
 # an execute simulator the tests image. Provenance is taken from the environment
 # when set: EEST_GIT_SHA, EEST_GIT_REF, EEST_FIXTURES_RELEASE, EEST_TESTS_RELEASE,
-# EEST_TESTS_GIT_SHA, EEST_REPOSITORY.
+# EEST_TESTS_GIT_SHA, EEST_REPOSITORY; an execute simulator also takes its
+# default fork, the fork the release was filled for, from EEST_DEFAULT_FORK.
 set -eu
 
 if [ $# -lt 5 ]; then
@@ -56,7 +57,7 @@ if [ -n "$format" ]; then
 else
     dockerfile=Dockerfile.execute
     set -- "$@" --build-arg "TESTS_REF=${prefix}tests:${release}"
-    provenance="EEST_GIT_SHA EEST_GIT_REF EEST_TESTS_RELEASE EEST_TESTS_GIT_SHA EEST_REPOSITORY"
+    provenance="EEST_GIT_SHA EEST_GIT_REF EEST_TESTS_RELEASE EEST_TESTS_GIT_SHA EEST_REPOSITORY EEST_DEFAULT_FORK"
 fi
 set -- "$@" --build-arg "BASE_REF=$base_ref" --build-arg "EEST_SIMULATOR=$simulator"
 for var in $provenance; do

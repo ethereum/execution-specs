@@ -12,6 +12,7 @@ from execution_testing.tools.docker_images import (
     branch_for_release,
     branch_tag,
     channel_owner,
+    fill_fork,
     fixture_formats,
     nightly_release,
     plan,
@@ -511,3 +512,97 @@ def test_plan_for_a_nightly() -> None:
             release_tag="tests@v20.0.2",
             releases=RELEASES,
         )
+
+
+# Feature configs as the release workflow reads them, by repository and ref.
+MAIN_CONFIG = {
+    "tests": {"fill-params": "--until=Amsterdam --generate-all-formats"},
+    "devnet": {"fill-params": "--until=Amsterdam --generate-all-formats"},
+    "benchmark": {"fill-params": "--fork=Amsterdam --gas-benchmark-values 1"},
+}
+DEVNET_CONFIG = {
+    "tests": {"fill-params": "--until=Amsterdam --generate-all-formats"},
+    "devnet": {"fill-params": "--until=Bogota --generate-all-formats"},
+}
+
+
+def test_fill_fork() -> None:
+    """The fork comes from `--fork`, else `--until`, of the series' entry."""
+    assert fill_fork(MAIN_CONFIG, "tests") == "Amsterdam"
+    # Every devnet series shares the `devnet` entry, as in the release
+    # workflow, and the entry differs per branch.
+    assert fill_fork(DEVNET_CONFIG, "tests-bogota-devnet") == "Bogota"
+    assert fill_fork(MAIN_CONFIG, "tests-bogota-devnet") == "Amsterdam"
+    assert fill_fork(MAIN_CONFIG, "tests-benchmark") == "Amsterdam"
+    assert fill_fork({"tests": {"fill-params": "-k foo"}}, "tests") is None
+    assert fill_fork({}, "tests") is None
+    assert fill_fork({}, "tests-glamsterdam-devnet") is None
+
+
+def test_plan_default_fork() -> None:
+    """Execute images default to the fork the content was filled for."""
+    reads: list[tuple[str, str]] = []
+
+    def config_at(repository: str, ref: str) -> dict | None:
+        reads.append((repository, ref))
+        if ref == "missing":
+            return None
+        return DEVNET_CONFIG if "devnet" in ref else MAIN_CONFIG
+
+    release = plan(
+        branch=None,
+        sha="abc1234def",
+        default_branch=DEFAULT_BRANCH,
+        release_tag="tests-glamsterdam-devnet@v8.1.4",
+        releases=RELEASES,
+        feature_config=config_at,
+    )
+    by_name = {i["name"]: i for i in release["images"]}
+    assert by_name["execute-blobs"]["default_fork"] == "Bogota"
+    assert by_name["consume-engine"]["default_fork"] == ""
+    # Read at the release tag, not at the branch head.
+    assert reads[-1] == (
+        "ethereum/execution-specs",
+        "tests-glamsterdam-devnet@v8.1.4",
+    )
+
+    push = plan(
+        branch=DEFAULT_BRANCH,
+        sha="abc1234def",
+        default_branch=DEFAULT_BRANCH,
+        releases=RELEASES,
+        feature_config=config_at,
+    )
+    assert push["images"][-1]["default_fork"] == "Amsterdam"
+    assert reads[-1][1] == "tests@v20.0.2", "the channel owner's tag"
+
+    nightly = plan(
+        branch=None,
+        sha="1a2b3c4d5e",
+        default_branch=DEFAULT_BRANCH,
+        nightly=True,
+        releases=[],
+        feature_config=config_at,
+    )
+    assert nightly["images"][-1]["default_fork"] == "Amsterdam"
+    assert reads[-1][1] == "1a2b3c4d5e", "the fill commit"
+
+    # Without a config, or without a lookup, the default is left empty and
+    # the image check fails rather than guessing.
+    unknown = plan(
+        branch=None,
+        sha="abc1234def",
+        default_branch=DEFAULT_BRANCH,
+        release_tag="tests@v20.0.2",
+        releases=RELEASES,
+        feature_config=lambda *_: None,
+    )
+    assert unknown["images"][-1]["default_fork"] == ""
+    offline = plan(
+        branch=None,
+        sha="abc1234def",
+        default_branch=DEFAULT_BRANCH,
+        release_tag="tests@v20.0.2",
+        releases=RELEASES,
+    )
+    assert offline["images"][-1]["default_fork"] == ""

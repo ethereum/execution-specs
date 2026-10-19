@@ -22,7 +22,7 @@ Tests can be run using:
 
 **Note**: If the Engine RPC is unavailable, blob transactions will be sent and `getBlobsV*` validation is skipped.
 
-The default `execute-blobs` Dockerfile uses a published simulator image. Its tag selects the release's Python test sources; release tags are immutable, and the channel tags pick up framework updates. See [Simulator Images](../hive/images/index.md) for setup and [Choose a tag](../hive/images/index.md#choose-a-tag) for release, devnet and nightly options. Hive accepts the short name `--sim execute-blobs`.
+The default `execute-blobs` Dockerfile uses a published simulator image. Its tag selects the release's Python test sources; release tags are immutable, and the channel tags pick up framework updates. It runs them at the fork the release was filled for; pass `--sim.buildarg fork=<fork>` for another. See [Simulator Images](../hive/images/index.md) for setup and [Choose a tag](../hive/images/index.md#choose-a-tag) for release, devnet and nightly options. Hive accepts the short name `--sim execute-blobs`.
 
 To select a published release explicitly:
 
