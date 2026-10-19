@@ -18,7 +18,6 @@ from execution_testing import (
     BuilderDepositRequest,
     BuilderExitRequest,
     Bytes,
-    EIPChecklist,
     EngineAPIError,
     Environment,
     FeeSystemContractRequest,
@@ -40,7 +39,6 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 FORK_TIMESTAMP = 15_000
 
 
-@EIPChecklist.BlockHeaderField.Test.ForkTransition.Initial()
 @pytest.mark.valid_at_transition_to("Amsterdam")
 def test_bal_fork_transition_happy_path(
     blockchain_test: BlockchainTestFiller,
@@ -96,7 +94,6 @@ def test_bal_fork_transition_happy_path(
     )
 
 
-@EIPChecklist.BlockHeaderField.Test.ForkTransition.Before()
 @pytest.mark.valid_at_transition_to("Amsterdam")
 @pytest.mark.exception_test
 def test_invalid_pre_fork_block_with_bal_hash_field(
@@ -165,7 +162,6 @@ def test_bal_invalid_engine_payload_field_before_fork(
     )
 
 
-@EIPChecklist.BlockHeaderField.Test.ForkTransition.After()
 @pytest.mark.valid_at_transition_to("Amsterdam")
 @pytest.mark.exception_test
 def test_invalid_post_fork_block_without_bal_hash_field(
@@ -201,9 +197,6 @@ def test_invalid_post_fork_block_without_bal_hash_field(
     )
 
 
-@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedBeforeFork()
-@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedAfterFork()
-@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.RejectedAfterFork()
 @pytest.mark.valid_at_transition_to("Amsterdam")
 @pytest.mark.parametrize(
     "exceeds_limit_at_fork",

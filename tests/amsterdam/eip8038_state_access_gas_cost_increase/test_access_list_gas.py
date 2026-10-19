@@ -32,7 +32,6 @@ from execution_testing import (
     Transaction,
     TransactionReceipt,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8038
 
@@ -64,7 +63,6 @@ ACCESS_LIST_SHAPES = [
 ]
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("n_addr,n_keys_each,duplicate", ACCESS_LIST_SHAPES)
 def test_access_list_intrinsic_surcharge(
     state_test: StateTestFiller,
@@ -107,7 +105,6 @@ def test_access_list_intrinsic_surcharge(
     state_test(pre=pre, post={}, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_access_list_duplicate_address_key_intrinsic_and_warmth(
     state_test: StateTestFiller,
     env: Environment,
@@ -162,7 +159,6 @@ def test_access_list_duplicate_address_key_intrinsic_and_warmth(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("op", ["SLOAD", "SSTORE"], ids=["sload", "sstore"])
 def test_access_list_warms_storage_slot(
     state_test: StateTestFiller,
@@ -229,7 +225,6 @@ def test_access_list_warms_storage_slot(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_access_list_slot_warmth_is_address_scoped(
     state_test: StateTestFiller,
     env: Environment,

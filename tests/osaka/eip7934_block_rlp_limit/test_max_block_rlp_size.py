@@ -14,7 +14,6 @@ from execution_testing import (
     BlockchainTestFiller,
     BlockException,
     Bytes,
-    EIPChecklist,
     Environment,
     Fork,
     Op,
@@ -638,9 +637,6 @@ def _exact_size_transactions_impl(
     return transactions, extra_data_len
 
 
-@EIPChecklist.BlockLevelConstraint.Test.Boundary.Under()
-@EIPChecklist.BlockLevelConstraint.Test.Boundary.Exact()
-@EIPChecklist.BlockLevelConstraint.Test.Boundary.Over()
 @pytest.mark.parametrize(
     "delta",
     [
@@ -697,7 +693,6 @@ def test_block_at_rlp_size_limit_boundary(
     )
 
 
-@EIPChecklist.BlockLevelConstraint.Test.Content.TransactionTypes()
 @pytest.mark.with_all_typed_transactions
 @pytest.mark.verify_sync
 @pytest.mark.valid_from("Osaka")
@@ -733,7 +728,6 @@ def test_block_rlp_size_at_limit_with_all_typed_transactions(
     )
 
 
-@EIPChecklist.BlockLevelConstraint.Test.Content.Logs()
 @pytest.mark.verify_sync
 @pytest.mark.valid_from("Osaka")
 def test_block_at_rlp_limit_with_logs(
@@ -769,7 +763,6 @@ def test_block_at_rlp_limit_with_logs(
     )
 
 
-@EIPChecklist.BlockLevelConstraint.Test.Content.Withdrawals()
 @pytest.mark.verify_sync
 @pytest.mark.valid_from("Osaka")
 def test_block_at_rlp_limit_with_withdrawals(
@@ -823,9 +816,6 @@ def test_block_at_rlp_limit_with_withdrawals(
     )
 
 
-@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedBeforeFork()
-@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedAfterFork()
-@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.RejectedAfterFork()
 @pytest.mark.parametrize(
     "exceeds_limit_at_fork",
     [

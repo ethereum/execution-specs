@@ -9,7 +9,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    EIPChecklist,
     Fork,
     Hash,
     RecipientType,
@@ -31,7 +30,6 @@ pytestmark = [
 ]
 
 
-@EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Insufficient()
 @pytest.mark.exception_test
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
@@ -87,7 +85,6 @@ def test_insufficient_gas_for_access_list(
     )
 
 
-@EIPChecklist.TransactionType.Test.IntrinsicValidity.DataFloorAboveIntrinsicGasCost()
 @pytest.mark.exception_test
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
@@ -127,8 +124,6 @@ def test_floor_cost_validation_with_access_list(
     )
 
 
-@EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Exact()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
     "access_list,tx_gas_delta",
@@ -183,9 +178,6 @@ def test_valid_gas_limits_with_access_list(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
-# A type 4 authorization's top-frame state gas outgrows any moderate
-# floor, and the floor does not depend on the transaction type.
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2, 3))
 @pytest.mark.parametrize(
     "access_list,tx_data",
@@ -247,7 +239,6 @@ def test_mixed_zero_nonzero_bytes_floor_cost(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "tx_type,access_list",
     [
@@ -304,9 +295,6 @@ def test_transactions_without_access_list(
     )
 
 
-@EIPChecklist.TransactionType.Test.ContractCreation()
-@EIPChecklist.TransactionType.Test.IntrinsicValidity.To()
-@EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Insufficient()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
 @pytest.mark.parametrize(
     "valid",
@@ -387,14 +375,12 @@ def test_contract_creation_with_access_list(
             id="value_zero_insufficient_balance",
             marks=[
                 pytest.mark.exception_test,
-                EIPChecklist.TransactionType.Test.IntrinsicValidity.ValueZeroInsufficientBalance(),
             ],
         ),
         pytest.param(
             0,
             0,
             id="value_zero_sufficient_balance",
-            marks=EIPChecklist.TransactionType.Test.IntrinsicValidity.ValueZeroSufficientBalance(),
         ),
         pytest.param(
             1,
@@ -402,14 +388,12 @@ def test_contract_creation_with_access_list(
             id="value_non_zero_insufficient_balance",
             marks=[
                 pytest.mark.exception_test,
-                EIPChecklist.TransactionType.Test.IntrinsicValidity.ValueNonZeroInsufficientBalance(),
             ],
         ),
         pytest.param(
             1,
             0,
             id="value_non_zero_sufficient_balance",
-            marks=EIPChecklist.TransactionType.Test.IntrinsicValidity.ValueNonZeroSufficientBalance(),
         ),
     ],
 )

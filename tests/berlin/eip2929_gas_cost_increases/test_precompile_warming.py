@@ -15,7 +15,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    EIPChecklist,
     Op,
     Transaction,
 )
@@ -91,8 +90,6 @@ def precompile_addresses_in_predecessor_successor(
     "address,precompile_in_successor,precompile_in_predecessor",
     precompile_addresses_in_predecessor_successor,
 )
-@EIPChecklist.Precompile.Test.ForkTransition.Before.Cold(eip=[7951])
-@EIPChecklist.Precompile.Test.ForkTransition.After.Warm(eip=[7951])
 @pytest.mark.slow()
 def test_precompile_warming(
     blockchain_test: BlockchainTestFiller,

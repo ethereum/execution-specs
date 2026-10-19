@@ -10,7 +10,6 @@ from typing import Dict, Generator
 import pytest
 from execution_testing import (
     Alloc,
-    EIPChecklist,
     Environment,
     Fork,
     Op,
@@ -35,9 +34,6 @@ REFERENCE_SPEC_VERSION = ref_spec_7883.version
     vectors_from_file("vectors.json"),
     ids=lambda v: v.name,
 )
-@EIPChecklist.Precompile.Test.Inputs.Valid()
-@EIPChecklist.Precompile.Test.InputLengths.Dynamic.Valid()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.valid_from("Berlin")
 @pytest.mark.slow()
 def test_vectors_from_eip(
@@ -59,7 +55,6 @@ def test_vectors_from_eip(
     vectors_from_file("legacy.json"),
     ids=lambda v: v.name,
 )
-@EIPChecklist.Precompile.Test.Inputs.Invalid()
 @pytest.mark.valid_from("Berlin")
 def test_vectors_from_legacy_tests(
     state_test: StateTestFiller,
@@ -101,7 +96,6 @@ def test_vectors_from_legacy_tests(
     ],
     ids=[""],
 )
-@EIPChecklist.Precompile.Test.Inputs.AllZeros
 @pytest.mark.valid_from("Berlin")
 def test_modexp_invalid_inputs(
     state_test: StateTestFiller,
@@ -185,7 +179,6 @@ def test_modexp_invalid_inputs(
     ],
     ids=[""],
 )
-@EIPChecklist.Precompile.Test.Inputs.Invalid()
 @pytest.mark.valid_from("Osaka")
 def test_modexp_legacy_oversized_inputs(
     state_test: StateTestFiller,
@@ -250,10 +243,6 @@ def test_modexp_legacy_oversized_inputs(
         ),
     ],
 )
-@EIPChecklist.Precompile.Test.OutOfBounds.MaxPlusOne()
-@EIPChecklist.Precompile.Test.Inputs.Invalid.Corrupted()
-@EIPChecklist.Precompile.Test.Inputs.Invalid()
-@EIPChecklist.Precompile.Test.InputLengths.Dynamic.TooLong()
 @pytest.mark.valid_from("Osaka")
 def test_modexp_boundary_inputs(
     state_test: StateTestFiller,
@@ -284,10 +273,6 @@ def test_modexp_boundary_inputs(
         pytest.param(Spec.modexp_input, Spec.modexp_expected, id="base-heavy"),
     ],
 )
-@EIPChecklist.Precompile.Test.CallContexts.Static()
-@EIPChecklist.Precompile.Test.CallContexts.Delegate()
-@EIPChecklist.Precompile.Test.CallContexts.Callcode()
-@EIPChecklist.Precompile.Test.CallContexts.Normal()
 @pytest.mark.valid_from("Berlin")
 def test_modexp_call_operations(
     state_test: StateTestFiller,
@@ -336,8 +321,6 @@ def test_modexp_call_operations(
         ),
     ],
 )
-@EIPChecklist.Precompile.Test.GasUsage.Dynamic()
-@EIPChecklist.Precompile.Test.ExcessiveGasUsage()
 @pytest.mark.valid_from("Berlin")
 def test_modexp_gas_usage_contract_wrapper(
     state_test: StateTestFiller,
@@ -389,8 +372,6 @@ def test_modexp_gas_usage_contract_wrapper(
         ),
     ],
 )
-@EIPChecklist.Precompile.Test.CallContexts.TxEntry()
-@EIPChecklist.Precompile.Test.ValueTransfer.NoFee()
 @pytest.mark.valid_from("Berlin")
 @pytest.mark.eels_base_coverage
 def test_modexp_used_in_transaction_entry_points(
@@ -423,7 +404,6 @@ def test_modexp_used_in_transaction_entry_points(
         )
     ],
 )
-@EIPChecklist.Precompile.Test.CallContexts.Initcode()
 @pytest.mark.valid_from("Berlin")
 def test_contract_creation_transaction(
     state_test: StateTestFiller,
@@ -492,7 +472,6 @@ def test_contract_creation_transaction(
     ],
 )
 @pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
-@EIPChecklist.Precompile.Test.CallContexts.Initcode.CREATE()
 @pytest.mark.valid_from("Berlin")
 def test_contract_initcode(
     state_test: StateTestFiller,
@@ -778,8 +757,6 @@ def create_modexp_variable_gas_test_cases() -> Generator:
     "modexp_input,modexp_expected,gas_usage",
     create_modexp_variable_gas_test_cases(),
 )
-@EIPChecklist.Precompile.Test.InputLengths.Zero()
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.valid_from("Berlin")
 @pytest.mark.eels_base_coverage
 def test_modexp_variable_gas_cost(

@@ -11,7 +11,6 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     CodeGasMeasure,
-    EIPChecklist,
     Environment,
     Fork,
     Op,
@@ -147,9 +146,6 @@ def test_clz_gas_cost(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.GasUsage.Normal()
-@EIPChecklist.Opcode.Test.GasUsage.OutOfGasExecution()
-@EIPChecklist.Opcode.Test.GasUsage.ExtraGas()
 @pytest.mark.valid_from("Osaka")
 @pytest.mark.parametrize("bits", [0, 64, 128, 255])
 @pytest.mark.parametrize("gas_cost_delta", [-2, -1, 0, 1, 2])
@@ -186,8 +182,6 @@ def test_clz_gas_cost_boundary(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.StackUnderflow()
-@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Zero()
 @pytest.mark.valid_from("Osaka")
 def test_clz_stack_underflow(state_test: StateTestFiller, pre: Alloc) -> None:
     """
@@ -210,8 +204,6 @@ def test_clz_stack_underflow(state_test: StateTestFiller, pre: Alloc) -> None:
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Odd()
-@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Even()
 @pytest.mark.valid_from("Osaka")
 def test_clz_stack_not_overflow(
     state_test: StateTestFiller, pre: Alloc, fork: Fork
@@ -269,8 +261,6 @@ def test_clz_push_operation_same_value(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.ForkTransition.Invalid()
-@EIPChecklist.Opcode.Test.ForkTransition.At()
 @pytest.mark.valid_at_transition_to("Osaka")
 def test_clz_fork_transition(
     blockchain_test: BlockchainTestFiller, pre: Alloc
@@ -408,7 +398,6 @@ def test_clz_jump_operation(
 auth_account_start_balance = 0
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.SetCode()
 @pytest.mark.valid_from("Osaka")
 def test_clz_from_set_code(
     state_test: StateTestFiller,
@@ -566,7 +555,6 @@ def test_clz_with_memory_operation(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Tx()
 @pytest.mark.valid_from("Osaka")
 def test_clz_initcode_context(state_test: StateTestFiller, pre: Alloc) -> None:
     """Test CLZ opcode behavior when creating a contract."""
@@ -591,7 +579,6 @@ def test_clz_initcode_context(state_test: StateTestFiller, pre: Alloc) -> None:
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Opcode()
 @pytest.mark.valid_from("Osaka")
 @pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
 def test_clz_initcode_create(
@@ -646,10 +633,6 @@ class CallingContext:
     no_context = 3  # STATICCALL
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.Call()
-@EIPChecklist.Opcode.Test.ExecutionContext.Delegatecall()
-@EIPChecklist.Opcode.Test.ExecutionContext.Callcode()
-@EIPChecklist.Opcode.Test.ExecutionContext.Staticcall()
 @pytest.mark.valid_from("Osaka")
 @pytest.mark.parametrize(
     "opcode,context",

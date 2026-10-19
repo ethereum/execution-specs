@@ -27,9 +27,7 @@
           * [Using and Extending Fork Methods](writing_tests/fork_methods.md)
           * [Gas Optimization](writing_tests/gas_optimization.md)
           * [Referencing an EIP Spec Version](writing_tests/reference_specification.md)
-          * [EIP Checklist Generation](writing_tests/eip_checklist.md)
-          * [Testing Checklist Templates](writing_tests/checklist_templates/index.md)
-              * [EIP Execution Layer Testing Checklist Template](writing_tests/checklist_templates/eip_testing_checklist_template.md)
+          * [EIP Testing Checklist Template](writing_tests/checklist_templates/eip_testing_checklist_template.md)
           * [Post-mortems](writing_tests/post_mortems.md)
           * Tutorials
               * [Adding a State Test](writing_tests/tutorials/state_transition.md)

@@ -25,7 +25,6 @@ from execution_testing import (
     Storage,
     Transaction,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8038
 
@@ -67,7 +66,6 @@ EXT_OPCODES = [
 ]
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 @pytest.mark.parametrize(
     "executable,cost_metadata,extra_stack_items",
@@ -129,7 +127,6 @@ def test_ext_code_opcode_gas(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 @pytest.mark.parametrize(
     "target_kind", ["funded_eoa", "delegated"], ids=["funded_eoa", "delegated"]
@@ -196,7 +193,6 @@ def test_ext_code_opcode_gas_by_target_kind(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "executable,cost_metadata,extra_stack_items",
     EXT_OPCODES,
@@ -241,7 +237,6 @@ def test_ext_code_opcode_gas_precompile_target(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 @pytest.mark.parametrize(
     "copy_size", [32, 96], ids=["one_word", "three_words"]
@@ -310,7 +305,6 @@ def test_extcodecopy_nonzero_composes_additively(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_extcodehash_empty_account(
     state_test: StateTestFiller,
@@ -384,7 +378,6 @@ def test_extcodehash_empty_account(
 DOUBLE_READ_OPCODES = [Op.EXTCODESIZE, Op.EXTCODECOPY]
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 @pytest.mark.parametrize("opcode", DOUBLE_READ_OPCODES)
 def test_ext_code_double_read_empty_account(
@@ -439,7 +432,6 @@ def test_ext_code_double_read_empty_account(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 def test_extcodesize_empty_account_returns_zero(
     state_test: StateTestFiller,
@@ -491,7 +483,6 @@ def test_extcodesize_empty_account_returns_zero(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
 @pytest.mark.parametrize(
     "copy_size", [32, 96], ids=["one_word", "three_words"]

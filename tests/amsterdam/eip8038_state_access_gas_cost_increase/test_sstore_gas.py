@@ -27,7 +27,6 @@ from execution_testing import (
     Storage,
     Transaction,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8038
 
@@ -70,7 +69,6 @@ SSTORE_ROWS = [
 ]
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("key_warm,original,current,new", SSTORE_ROWS)
 def test_sstore_execution_gas(
     state_test: StateTestFiller,
@@ -159,7 +157,6 @@ def test_sstore_execution_gas(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.parametrize("key_warm", [False, True], ids=["cold", "warm"])
 @pytest.mark.parametrize(
     "sufficient_gas", [True, False], ids=["sufficient", "insufficient"]
@@ -243,7 +240,6 @@ def test_sstore_stipend_sentry_boundary(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_sstore_cold_then_warm_same_slot(
     state_test: StateTestFiller,
     pre: Alloc,

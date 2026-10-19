@@ -13,7 +13,6 @@ from execution_testing import (
     Alloc,
     AuthorizationTuple,
     Bytecode,
-    EIPChecklist,
     Op,
     StateTestFiller,
     Transaction,
@@ -89,10 +88,6 @@ def stack_access_memory_code() -> Bytecode:
     )
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.Call()
-@EIPChecklist.Opcode.Test.ExecutionContext.Callcode()
-@EIPChecklist.Opcode.Test.ExecutionContext.Delegatecall()
-@EIPChecklist.Opcode.Test.ExecutionContext.Staticcall()
 @pytest.mark.with_all_call_opcodes
 def test_stack_access_call_contexts(
     state_test: StateTestFiller,
@@ -138,7 +133,6 @@ def test_stack_access_call_contexts(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.SetCode()
 def test_stack_access_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -174,8 +168,6 @@ def test_stack_access_set_code(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior()
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Tx()
 def test_stack_access_initcode_tx(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -197,8 +189,6 @@ def test_stack_access_initcode_tx(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior()
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Opcode()
 @pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
 def test_stack_access_initcode_create(
     state_test: StateTestFiller,

@@ -43,7 +43,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.checklists import EIPChecklist
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_2780
@@ -54,7 +53,6 @@ REFERENCE_SPEC_VERSION = ref_spec_2780.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -145,7 +143,6 @@ def test_tx_installs_delegation_on_funded_recipient(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -234,7 +231,6 @@ def test_tx_installs_delegation_on_empty_recipient(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [

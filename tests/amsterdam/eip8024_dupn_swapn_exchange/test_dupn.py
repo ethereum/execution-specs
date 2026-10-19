@@ -10,7 +10,6 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
-    EIPChecklist,
     Fork,
     Op,
     StateTestFiller,
@@ -25,9 +24,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8024.version
 pytestmark = pytest.mark.valid_from("EIP8024")
 
 
-@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Odd()
-@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Even()
-@EIPChecklist.Opcode.Test.StackComplexOperations.DataPortionVariables.Bottom()
 @pytest.mark.parametrize(
     "stack_index",
     [17, 18, 32, 64, 107, 108, 200, 235],
@@ -71,8 +67,6 @@ def test_dupn_basic(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.DataPortion.AllZeros()
-@EIPChecklist.Opcode.Test.DataPortion.MaxValue()
 @pytest.mark.parametrize(
     "immediate",
     [0, 45, 90, 128, 200, 255],
@@ -113,7 +107,6 @@ def test_dupn_valid_immediates(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.StackUnderflow()
 @pytest.mark.parametrize(
     "immediate",
     [0, 45, 90, 128, 200, 255],
@@ -150,9 +143,6 @@ def test_dupn_stack_underflow(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.GasUsage.Normal()
-@EIPChecklist.Opcode.Test.GasUsage.OutOfGasExecution()
-@EIPChecklist.Opcode.Test.GasUsage.ExtraGas()
 @pytest.mark.parametrize("gas_cost_delta", [-2, -1, 0, 1, 2])
 def test_dupn_gas_cost_boundary(
     gas_cost_delta: int,
@@ -240,7 +230,6 @@ def test_endofcode_behavior(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.ExceptionalAbort()
 @pytest.mark.parametrize(
     "invalid_immediate",
     list(range(91, 128)),  # 0x5b to 0x7f (JUMPDEST and PUSH opcodes)
@@ -284,7 +273,6 @@ def test_dupn_invalid_immediate_aborts(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.DataPortion.Jump()
 @pytest.mark.parametrize(
     "jump",
     [
@@ -331,7 +319,6 @@ def test_dupn_jump_to_immediate_byte_0x5b_succeeds(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.DataPortion.Jump()
 @pytest.mark.parametrize(
     "jump",
     [
@@ -430,7 +417,6 @@ def test_dupn_with_dup1_sequence(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.StackOverflow()
 @pytest.mark.parametrize(
     "stack_delta,call_succeeds",
     [
@@ -474,8 +460,6 @@ def test_dupn_stack_overflow(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Zero()
-@EIPChecklist.Opcode.Test.StackUnderflow()
 def test_dupn_empty_stack(
     pre: Alloc,
     state_test: StateTestFiller,
@@ -499,7 +483,6 @@ def test_dupn_empty_stack(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.DataPortion.Jump()
 def test_dupn_jump_into_immediate_then_execute(
     pre: Alloc,
     state_test: StateTestFiller,

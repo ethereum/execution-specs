@@ -31,7 +31,6 @@ from execution_testing import (
     Transaction,
     TransactionException,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8038
 
@@ -62,7 +61,6 @@ def gas_costs_before_increase(
 
 
 @pytest.mark.inclusion_test
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
     "num_addresses,num_keys",
@@ -138,7 +136,6 @@ def test_access_list_no_fallback(
 
 
 @pytest.mark.inclusion_test
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
     "num_auths",
@@ -208,7 +205,6 @@ def test_authorization_no_fallback(
 
 
 @pytest.mark.inclusion_test
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 def test_cold_account_access_no_fallback(
     state_test: StateTestFiller,

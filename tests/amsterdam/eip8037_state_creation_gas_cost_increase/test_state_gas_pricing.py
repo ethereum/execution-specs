@@ -36,7 +36,6 @@ from execution_testing import (
     compute_create_address,
     max_count_with_gas_limit,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8037
 
@@ -57,7 +56,6 @@ BLOCK_GAS_LIMITS = [
 ]
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
 @pytest.mark.valid_from("EIP8037")
 def test_pricing_at_various_gas_limits(
@@ -239,7 +237,6 @@ def test_charge_spills_to_gas_left(
     "gas_delta",
     [pytest.param(0, id="exact_fit"), pytest.param(-1, id="one_short")],
 )
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_charge_spill_boundary(
     state_test: StateTestFiller,
@@ -288,7 +285,6 @@ def test_charge_spill_boundary(
     )
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
 @pytest.mark.parametrize(
     "fund_from_reservoir",
     [
@@ -377,7 +373,6 @@ def test_refund_cap_includes_state_gas(
     )
 
 
-@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
 @pytest.mark.valid_from("EIP8037")
 def test_refund_with_reservoir_state_gas(
     state_test: StateTestFiller,

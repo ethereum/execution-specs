@@ -24,7 +24,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    EIPChecklist,
     Environment,
     Fork,
     Header,
@@ -44,8 +43,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
 pytestmark = pytest.mark.valid_at_transition_to("EIP8037")
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_block_gas_used_dimension_switch_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -126,8 +123,6 @@ def test_block_gas_used_dimension_switch_at_transition(
     "state_op",
     [Op.CREATE, Op.CREATE2, Op.CALL, Op.SELFDESTRUCT],
 )
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_account_state_gas_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -211,8 +206,6 @@ def test_account_state_gas_at_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_sstore_state_gas_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -349,18 +342,12 @@ def _access_list_over_execution_cap(
         pytest.param(
             "at_cap",
             id="at_cap",
-            marks=[
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedBeforeFork(),
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork(),
-            ],
         ),
         pytest.param(
             "gas_limit_above_cap",
             id="gas_limit_above_cap",
             marks=[
                 pytest.mark.exception_test,
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork(),
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork(),
             ],
         ),
         pytest.param(
@@ -368,8 +355,6 @@ def _access_list_over_execution_cap(
             id="intrinsic_above_cap",
             marks=[
                 pytest.mark.exception_test,
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork(),
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork(),
             ],
         ),
     ],
@@ -470,8 +455,6 @@ def test_tx_gas_above_cap_at_transition(
             id="at_total_cap",
             marks=[
                 pytest.mark.exception_test,
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork(),
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork(),
             ],
         ),
         pytest.param(
@@ -479,8 +462,6 @@ def test_tx_gas_above_cap_at_transition(
             id="above_total_cap",
             marks=[
                 pytest.mark.exception_test,
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork(),
-                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork(),
             ],
         ),
     ],
@@ -561,7 +542,6 @@ def test_tx_total_gas_limit_cap_at_transition(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_reservoir_available_after_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -612,21 +592,18 @@ def test_reservoir_available_after_transition(
 
 
 @pytest.mark.inclusion_test
-@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedBeforeFork()
 @pytest.mark.parametrize(
     "over_by",
     [
         pytest.param(
             0,
             id="exact",
-            marks=EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedAfterFork(),
         ),
         pytest.param(
             1,
             id="one_above",
             marks=[
                 pytest.mark.exception_test,
-                EIPChecklist.BlockLevelConstraint.Test.ForkTransition.RejectedAfterFork(),
             ],
         ),
     ],
@@ -703,8 +680,6 @@ def test_block_state_inclusion_at_transition(
 @pytest.mark.parametrize("creation", ["transaction", "create", "create2"])
 @pytest.mark.parametrize("code_size", [31, 32, 33])
 @pytest.mark.parametrize("gas_delta", [0, -1], ids=["exact", "one_short"])
-@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
-@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_nonempty_code_deposit_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

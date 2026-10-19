@@ -58,14 +58,6 @@ EELS is a collaborative effort between Ethereum Improvement Proposals (EIP) auth
 
     [:octicons-arrow-right-24: Reference ↗](specs/reference/index.md){target=_blank rel=noopener}
 
-- :material-format-list-checks: **Test Case Reference**
-
-    ---
-
-    Browse all test cases organized by fork and EIP.
-
-    [:octicons-arrow-right-24: Browse tests](tests/index.md)
-
 </div>
 
 ## Responsible Disclosure of Vulnerabilities

@@ -30,7 +30,6 @@ from execution_testing import (
     compute_create_address,
     create_op,
 )
-from execution_testing.checklists import EIPChecklist
 
 from .spec import init_code_at_high_bytes, ref_spec_8037
 
@@ -39,7 +38,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
 @pytest.mark.parametrize("funding", ["reservoir", "spill", "mixed"])
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_new_beneficiary_state_gas(
     state_test: StateTestFiller,
@@ -99,7 +97,6 @@ def test_selfdestruct_new_beneficiary_state_gas(
         ),
     ],
 )
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_new_beneficiary_state_gas_boundary(
     state_test: StateTestFiller,

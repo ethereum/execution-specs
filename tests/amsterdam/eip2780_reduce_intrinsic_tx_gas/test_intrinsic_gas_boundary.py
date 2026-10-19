@@ -20,7 +20,6 @@ from execution_testing import (
     TransactionException,
     add_kzg_version,
 )
-from execution_testing.checklists import EIPChecklist
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP4844_Spec
 from .helpers import (
@@ -38,7 +37,6 @@ REFERENCE_SPEC_VERSION = ref_spec_2780.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.parametrize("recipient_type", RECIPIENT_TYPES_NON_CREATE)
@@ -83,7 +81,6 @@ def test_intrinsic_gas_floor_boundary(
     state_test(pre=pre, tx=tx, post={})
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
@@ -131,7 +128,6 @@ def test_intrinsic_gas_floor_boundary_contract_creation(
     state_test(pre=pre, tx=tx, post={})
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
@@ -192,7 +188,6 @@ def test_intrinsic_gas_floor_boundary_with_authorizations(
     state_test(pre=pre, tx=tx, post=pre)
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.with_all_tx_types

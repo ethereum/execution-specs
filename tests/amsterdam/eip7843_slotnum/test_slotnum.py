@@ -7,7 +7,6 @@ from execution_testing import (
     AuthorizationTuple,
     Block,
     BlockchainTestFiller,
-    EIPChecklist,
     Environment,
     Fork,
     Op,
@@ -25,7 +24,6 @@ REFERENCE_SPEC_VERSION = ref_spec_7843.version
 pytestmark = pytest.mark.valid_from("EIP7843")
 
 
-@EIPChecklist.Opcode.Test.GasUsage.ExtraGas()
 @pytest.mark.parametrize(
     "slot_number",
     [
@@ -73,8 +71,6 @@ def test_slotnum_value(
     )
 
 
-@EIPChecklist.Opcode.Test.GasUsage.Normal()
-@EIPChecklist.Opcode.Test.GasUsage.OutOfGasExecution()
 @pytest.mark.parametrize(
     "gas_delta,call_succeeds",
     [
@@ -122,8 +118,6 @@ def test_slotnum_gas_cost(
     )
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.BlockContext()
-@EIPChecklist.BlockHeaderField.Test.ValueBehavior.Accept()
 def test_slotnum_distinct_per_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -160,7 +154,6 @@ def test_slotnum_distinct_per_block(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@EIPChecklist.BlockHeaderField.Test.Genesis()
 def test_slotnum_genesis(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -188,8 +181,6 @@ def test_slotnum_genesis(
     )
 
 
-@EIPChecklist.Opcode.Test.StackOverflow()
-@EIPChecklist.Opcode.Test.ExceptionalAbort()
 @pytest.mark.parametrize(
     "push_count,call_succeeds",
     [
@@ -236,10 +227,6 @@ def test_slotnum_stack_overflow(
     )
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.Call()
-@EIPChecklist.Opcode.Test.ExecutionContext.Callcode()
-@EIPChecklist.Opcode.Test.ExecutionContext.Delegatecall()
-@EIPChecklist.Opcode.Test.ExecutionContext.Staticcall()
 @pytest.mark.with_all_call_opcodes
 def test_slotnum_call_contexts(
     state_test: StateTestFiller,
@@ -282,7 +269,6 @@ def test_slotnum_call_contexts(
     )
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.SetCode()
 def test_slotnum_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -325,8 +311,6 @@ def test_slotnum_set_code(
     )
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior()
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Tx()
 def test_slotnum_initcode_tx(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -354,8 +338,6 @@ def test_slotnum_initcode_tx(
     )
 
 
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior()
-@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Opcode()
 @pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
 def test_slotnum_initcode_create(
     state_test: StateTestFiller,
