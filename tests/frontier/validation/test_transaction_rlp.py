@@ -479,20 +479,22 @@ def test_invalid_structure(
 @pytest.mark.parametrize(
     "envelope, error",
     [
-        (
+        pytest.param(
             "empty",
             [
                 TransactionException.RLP_ERROR_EOF,
                 TransactionException.TYPE_NOT_SUPPORTED,
             ],
+            id="empty",
         ),
-        (
+        pytest.param(
             "reserved_type_byte",
             [
                 TransactionException.RLP_INVALID_HEADER,
                 TransactionException.RLP_ERROR_EOF,
                 TransactionException.TYPE_NOT_SUPPORTED,
             ],
+            id="reserved_type_byte",
         ),
     ],
 )
