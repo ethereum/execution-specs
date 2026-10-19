@@ -403,6 +403,8 @@ CASES: dict[Opcodes, Case] = {
             excess_blob_gas=EXCESS_BLOB_GAS
         ),
     ),
+    # --- EIP-8298. ORIGIN has no code, so the source is invalid.
+    Op.SETCODEFROM: Case(Op.SETCODEFROM(source=Op.ORIGIN), 0),
     # --- EIP-8024 immediate-operand stack ops. DUPN[n] copies the
     # n-th item up, SWAPN[n] swaps the top with the one n below it, and
     # EXCHANGE[a, b] swaps two items beneath the top.

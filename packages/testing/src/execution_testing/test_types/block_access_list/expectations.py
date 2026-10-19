@@ -451,6 +451,8 @@ class BlockAccessListExpectation(CamelModel):
             else:
                 # Handle nonce_changes, balance_changes, code_changes
                 # Create tuples for comparison (ordering already validated)
+                expected_tuples: List[tuple[Any, ...]]
+                actual_tuples: List[tuple[Any, ...]]
                 if field_name == "nonce_changes":
                     expected_tuples = [
                         (c.block_access_index, c.post_nonce)
@@ -473,11 +475,11 @@ class BlockAccessListExpectation(CamelModel):
                     item_type = "balance"
                 elif field_name == "code_changes":
                     expected_tuples = [
-                        (c.block_access_index, bytes(c.new_code))
+                        (c.block_access_index, c.new_code, c.new_code_hash)
                         for c in expected_list
                     ]
                     actual_tuples = [
-                        (c.block_access_index, bytes(c.new_code))
+                        (c.block_access_index, c.new_code, c.new_code_hash)
                         for c in actual_list
                     ]
                     item_type = "code"

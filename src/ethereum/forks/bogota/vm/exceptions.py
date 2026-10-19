@@ -98,6 +98,14 @@ class WriteInStaticContext(ExceptionalHalt):
     pass
 
 
+class CodeChangeInSystemContract(ExceptionalHalt):
+    """
+    Raised when an attempt is made to replace the code of a system contract.
+    """
+
+    pass
+
+
 class OutOfBoundsRead(ExceptionalHalt):
     """
     Raised when an attempt was made to read data beyond the
