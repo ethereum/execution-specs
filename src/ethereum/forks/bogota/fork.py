@@ -467,7 +467,9 @@ def validate_header(
     For example the header timestamp should be greater than the block's parent
     timestamp because the block was created *after* the parent block.
     Additionally, the block's number should be directly following the parent
-    block's number since it is the next block in the sequence.
+    block's number since it is the next block in the sequence. The block's
+    slot number must also exceed its parent's, since the base fee change
+    divides by the slots elapsed between them.
 
     Parameters
     ----------
