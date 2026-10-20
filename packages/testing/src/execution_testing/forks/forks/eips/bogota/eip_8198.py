@@ -2,9 +2,9 @@
 EIP-8198: Quick Slots.
 
 Reduce the consensus-layer slot duration. The execution layer lowers the
-maximum per-block base fee change and updates the blob schedule so that fee
-dynamics and blob throughput per unit of wall-clock time stay close to their
-previous values.
+maximum per-block base fee change so that fee dynamics per unit of wall-clock
+time stay close to their previous values. Blob parameters change only through
+an EIP-7892 blob schedule entry scheduled with the slot duration change.
 
 https://eips.ethereum.org/EIPS/eip-8198
 """
@@ -12,15 +12,7 @@ https://eips.ethereum.org/EIPS/eip-8198
 from ....base_fork import BaseFork
 
 
-class EIP8198(
-    BaseFork,
-    # Provisional values, pending a joint decision with the consensus layer.
-    update_blob_constants={
-        "TARGET_BLOBS_PER_BLOCK": 12,
-        "MAX_BLOBS_PER_BLOCK": 18,
-        "BLOB_BASE_FEE_UPDATE_FRACTION": 12018519,
-    },
-):
+class EIP8198(BaseFork):
     """EIP-8198 class."""
 
     @classmethod
