@@ -47,6 +47,8 @@ TESTS_IMAGE = "tests"
 """Image path of the tests image below the repository."""
 LATEST = "latest"
 NIGHTLY = "nightly"
+LEGACY_SUFFIX = "-legacy"
+"""Suffix of the deprecated build arguments variant of `latest`."""
 FIXTURES_ASSET_RE = re.compile(r"^fixtures(_.*)?\.tar\.gz$")
 VERSION_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)(?:-(.+))?$")
 TAG_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")
@@ -489,6 +491,21 @@ def nightly_release(short_sha: str) -> str:
     return f"{NIGHTLY}-{short_sha}"
 
 
+def legacy_variant(tags: list[str]) -> dict[str, str] | None:
+    """
+    Return the deprecated build arguments variant published beside `latest`.
+
+    hive's default eels Dockerfiles select `latest-legacy` when a caller
+    passes the deprecated `fixtures` or `branch` arguments without a `tag`.
+    It is `latest` with ONBUILD steps that apply them, so it moves with
+    `latest`; other tags have no variant. Removing it ends the deprecation
+    window (ethereum/execution-specs#3866).
+    """
+    if LATEST not in tags:
+        return None
+    return {"from": LATEST, "tag": f"{LATEST}{LEGACY_SUFFIX}"}
+
+
 def registry_repository(repository: str) -> str:
     """Return the registry path of a repository: `ghcr.io/<owner>/<name>`."""
     return f"{REGISTRY}/{repository.lower()}"
@@ -577,6 +594,7 @@ def plan(
                 "tags": list(tags),
                 "immutable": immutable,
                 "default_fork": default_fork if image.tests else "",
+                "legacy": legacy_variant(tags),
             }
             for image in IMAGES
         ]

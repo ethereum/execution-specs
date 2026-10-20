@@ -84,6 +84,8 @@ Set with `--sim.buildarg name=value` on the image Dockerfiles. For the separate 
 | `disable_strict_exception_matching` | `consume-engine`, `consume-enginex` | `nimbus-el` | Clients exempt from strict exception matching; an empty value exempts none. |
 | `fork` | `execute-blobs` | the image's `EEST_DEFAULT_FORK` | Fork to execute the tests for. |
 
+Without `tag`, `fixtures` and `branch` select the simulator's `latest-legacy` image: `latest` with ONBUILD steps that apply them during hive's build. Builds without them use `latest` or the given tag directly and run no build steps.
+
 ## Variables and labels set in the images
 
 These belong to the images, not to the testing package: the Dockerfiles set them when an image is built, and the entry point reads them when a container starts. The package reads only the provenance ones for its log headers, `EEST_GIT_SHA` as `consume ref` and `execute ref`, `EEST_FIXTURES_RELEASE` as `fixtures release`, and `EEST_TESTS_RELEASE` and `EEST_TESTS_GIT_SHA` as `tests release` and `tests ref`, so that a log names what ran.

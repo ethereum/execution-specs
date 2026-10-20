@@ -20,4 +20,4 @@ mkdir -p digests
 jq -n --arg image "$image" --arg tags "$tags" --arg digest "$digest" \
     --arg commit "$commit" --arg release "$release" \
     '{image: $image, tags: ($tags | split(" ")), digest: $digest, commit: $commit, release: $release}' \
-    > "digests/$(echo "$image" | tr '/:' '__').json"
+    > "digests/$(echo "$image:${tags%% *}" | tr '/:' '__').json"
