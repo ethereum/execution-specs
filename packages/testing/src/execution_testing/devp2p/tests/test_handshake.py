@@ -13,10 +13,11 @@ from typing import Callable, Iterator, List
 import ethereum_rlp as eth_rlp
 import pytest
 from ethereum_rlp.rlp import decode_item_length
+from ethereum_types.numeric import Uint
 from spec256k1 import PublicKey
 
 from .. import rlpx
-from ..ecies import decrypt
+from ..ecies import OVERHEAD, decrypt, encrypt
 from ..keccak import Keccak256
 from ..rlpx import (
     RLPxError,
@@ -51,6 +52,19 @@ def _decode_auth(auth: bytes) -> List[bytes]:
     fields = eth_rlp.decode(body[: decode_item_length(body)])
     assert isinstance(fields, list)
     return [bytes(field) for field in fields[:4]]
+
+
+def _ack(fields: List[bytes]) -> bytes:
+    """Return an EIP-8 ack from node B to node A carrying `fields`."""
+    body = eth_rlp.encode([*fields, Uint(4)]) + bytes(100)
+    prefix = (len(body) + OVERHEAD).to_bytes(2, "big")
+    return prefix + encrypt(public_key_bytes(STATIC_KEY_A), body, prefix)
+
+
+SHORT_ACK_FIELDS = {
+    "short-key": [public_key_bytes(EPHEMERAL_KEY_B)[:63], NONCE_B],
+    "short-nonce": [public_key_bytes(EPHEMERAL_KEY_B), NONCE_B[:31]],
+}
 
 
 def _signer(signature: bytes) -> bytes:
@@ -106,6 +120,16 @@ class TestAck:
             public_key_bytes(EPHEMERAL_KEY_B),
             NONCE_B,
         )
+
+    @pytest.mark.parametrize(
+        "fields", SHORT_ACK_FIELDS.values(), ids=SHORT_ACK_FIELDS.keys()
+    )
+    def test_a_field_of_the_wrong_length_is_refused(
+        self, fields: List[bytes]
+    ) -> None:
+        """A key or nonce of the wrong length is a malformed ack."""
+        with pytest.raises(RLPxError, match="expected 64 and 32"):
+            _parse_ack(STATIC_KEY_A, _ack(fields))
 
 
 class TestSecrets:
@@ -258,3 +282,27 @@ class TestConnect:
                 _dial_node_b(listener)
         finally:
             node.join()
+
+    def test_a_short_nonce_fails_the_dial_and_hangs_up(
+        self,
+        listener: socket.socket,
+    ) -> None:
+        """The dialer raises `RLPxError` and closes its end at once."""
+        read_after_ack: List[bytes] = []
+
+        def node_b() -> None:
+            """Answer the auth with an ack whose nonce is a byte short."""
+            connection, _ = listener.accept()
+            connection.settimeout(5.0)
+            _read_auth(connection)
+            connection.sendall(_ack(SHORT_ACK_FIELDS["short-nonce"]))
+            read_after_ack.append(connection.recv(1))
+            connection.close()
+
+        node = _NodeB(node_b)
+        try:
+            with pytest.raises(RLPxError, match="malformed ack"):
+                _dial_node_b(listener)
+        finally:
+            node.join()
+        assert read_after_ack == [b""]

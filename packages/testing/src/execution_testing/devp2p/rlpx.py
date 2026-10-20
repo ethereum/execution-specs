@@ -26,7 +26,7 @@ from ethereum_rlp.rlp import decode_item_length
 from ethereum_types.numeric import Uint
 from spec256k1 import PrivateKey
 
-from .ecies import OVERHEAD, decrypt, encrypt
+from .ecies import OVERHEAD, PUBLIC_KEY_LENGTH, decrypt, encrypt
 from .keccak import Keccak256, keccak256
 from .secp256k1 import agree, public_key_bytes
 from .snappy import SnappyError, compress, decompress, decompressed_length
@@ -35,6 +35,9 @@ logger = logging.getLogger(__name__)
 
 AUTH_VERSION = 4
 """RLPx handshake version advertised in auth and ack messages."""
+
+NONCE_LENGTH = 32
+"""Bytes of the random nonce each side sends in its handshake message."""
 
 MAX_FRAME_SIZE = 1 << 24
 """
@@ -304,6 +307,15 @@ def _parse_ack(private_key: bytes, message: bytes) -> Tuple[bytes, bytes]:
         remote_nonce, bytes
     ):
         raise RLPxError("malformed ack message fields")
+    if (
+        len(ephemeral_public_key) != PUBLIC_KEY_LENGTH
+        or len(remote_nonce) != NONCE_LENGTH
+    ):
+        raise RLPxError(
+            f"malformed ack: a {len(ephemeral_public_key)} byte key and a "
+            f"{len(remote_nonce)} byte nonce, expected {PUBLIC_KEY_LENGTH} "
+            f"and {NONCE_LENGTH}"
+        )
     return ephemeral_public_key, remote_nonce
 
 
@@ -347,7 +359,7 @@ def connect(
     remote's enode URL.
     """
     ephemeral_private_key = os.urandom(32)
-    nonce = os.urandom(32)
+    nonce = os.urandom(NONCE_LENGTH)
 
     connection = socket.create_connection((host, port), timeout=timeout)
     try:
@@ -368,6 +380,10 @@ def connect(
         ephemeral_key = agree(
             ephemeral_private_key, remote_ephemeral_public_key
         )
+        aes_secret, mac_secret, egress_seed, ingress_seed = _derive_secrets(
+            ephemeral_key, nonce, remote_nonce, auth, ack
+        )
+        connection.settimeout(FRAME_READ_TIMEOUT)
     except (OSError, RLPxError):
         connection.close()
         raise
@@ -378,12 +394,7 @@ def connect(
         connection.close()
         raise RLPxError(f"malformed handshake: {error!r}") from error
 
-    aes_secret, mac_secret, egress_seed, ingress_seed = _derive_secrets(
-        ephemeral_key, nonce, remote_nonce, auth, ack
-    )
-
     logger.debug("RLPx handshake complete with %s:%d", host, port)
-    connection.settimeout(FRAME_READ_TIMEOUT)
     return RLPxSession(
         connection,
         aes_secret,
