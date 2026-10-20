@@ -11,5 +11,5 @@ new_transaction_validity_constraint = EIP adds no transaction validity constrain
 modified_transaction_validity_constraint = EIP changes no transaction validity constraint
 gas_cost_changes/test/gas_updates_measurement = EIP changes no opcode or intrinsic gas cost; the base fee update it changes is measured by test_base_fee_update
 gas_cost_changes/test/out_of_gas = EIP changes no gas cost a transaction can run out of
-block_level_constraint/test/content = The blob limit counts blobs only, so no transaction type, log, receipt, or withdrawal content affects it
-blob_count_changes = EIP does not change the blob schedule; a slot duration change is paired with an EIP-7892 blob schedule entry
+block_level_constraint = EIP adds or changes no block-level constraint; test_blob_count_limit_unchanged_at_fork pins the parent fork's blob limit at the fork block
+blob_count_changes = EIP does not change the blob schedule; a slot duration change is paired with an EIP-7892 blob schedule entry, and test_blob_schedule_unchanged_across_fork pins the parent fork's schedule across the fork
