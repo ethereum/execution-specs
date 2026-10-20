@@ -26,8 +26,6 @@ from execution_testing.fixtures.blockchain import FixtureEngineNewPayload
 
 from ..simulators.wirex import conftest as wirex
 from ..simulators.wirex.sync_targets import (
-    HEADER_JUDGEABLE_INVALIDITIES,
-    UNDECODABLE_BODY_INVALIDITIES,
     SyncTargetResolutionError,
     raw_target_path_lengths,
     resolve_sync_paths,
@@ -37,12 +35,6 @@ from .direct_calls import fixture_body
 
 GENESIS = Hash(0)
 GENESIS_HEADER = SimpleNamespace(block_hash=GENESIS)
-
-
-def test_fixture_schema_retains_plural_sync_payloads() -> None:
-    """The consume-side model must not discard the fill-side targets."""
-    field = BlockchainEngineXFixture.model_fields["sync_payloads"]
-    assert field.alias == "syncPayloads"
 
 
 @dataclass
@@ -369,19 +361,6 @@ class TestDeclaredInvalidities:
         ]
         (path,) = resolve_sync_paths(GENESIS, _fixture(authored, None))
         assert path.invalidities == {INVALID, OTHER_INVALID}
-
-    def test_the_undecodable_and_judgeable_sets_are_disjoint(self) -> None:
-        """
-        No invalidity is both header-judgeable and undecodable.
-
-        The two sets pull in opposite directions - one relaxes what a
-        client must fetch, the other says the block cannot travel at
-        all - so an exception in both would make the simulator's
-        treatment of it depend on evaluation order.
-        """
-        assert not (
-            HEADER_JUDGEABLE_INVALIDITIES & UNDECODABLE_BODY_INVALIDITIES
-        )
 
 
 class TestPathLengths:

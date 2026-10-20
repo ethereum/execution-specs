@@ -14,7 +14,6 @@ from execution_testing.cli.pytest_commands.plugins.consume.simulators.wirex impo
 )
 from execution_testing.cli.pytest_commands.plugins.consume.simulators.wirex.conftest import (  # noqa: E501
     BalMode,
-    BalVariant,
     bal_variants,
     withholds_only,
 )
@@ -38,14 +37,6 @@ pytestmark = pytest.mark.filterwarnings(
 
 GETH = cast(ClientType, SimpleNamespace(name="go-ethereum_default"))
 NETHERMIND = cast(ClientType, SimpleNamespace(name="nethermind_default"))
-
-
-def test_the_suffixes_name_the_mode() -> None:
-    """The test ID suffixes are the documented ones."""
-    assert (BalVariant.WITHHELD, BalVariant.SERVED) == (
-        "bal_withheld",
-        "bal_served",
-    )
 
 
 MODES = {

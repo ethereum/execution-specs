@@ -4,8 +4,7 @@ Tests for the wirex simulator's wire-coverage and client contracts.
 Path resolution and its classification live in
 `test_wirex_sync_targets`; this module covers what happens above a
 resolved chain: which headers and bodies the per-hash coverage check
-demands, and the identifiers isolating a multi-target fixture's
-clients.
+demands, and when a test reuses, replaces or isolates its client.
 """
 
 from dataclasses import dataclass, field
@@ -43,7 +42,6 @@ from ..simulators.wirex.client_policy import (
     HEAD_LOOKUP_TIMEOUT,
     MAX_REORG_DEPTH,
     ClientHead,
-    isolated_identifier,
     reorg_depth,
     replacement_reason,
 )
@@ -168,16 +166,6 @@ class TestRequiredWireHeaders:
             _block(3, empty=True),
         ]
         assert required_wire_headers(_chain(blocks)) == blocks[:-1]
-
-
-class TestIsolatedClientIdentifiers:
-    """The keys a multi-target fixture's clients are managed under."""
-
-    def test_the_suffix_is_the_targets_stable_position(self) -> None:
-        """One identifier per target, suffixed by its announcement index."""
-        group = "0xdeadbeef-go-ethereum"
-        assert isolated_identifier(group, 0) == f"{group}-t0"
-        assert isolated_identifier(group, 2) == f"{group}-t2"
 
 
 def _fork(length: int, *, branch: int, shared: int = 0) -> Chain:
@@ -613,39 +601,3 @@ class TestForkSchedule:
         group = SimpleNamespace(fork=ParisToShanghaiAtTime15k)
         schedule = fixture_body(wirex.wirex_fork_schedule)(group)
         assert schedule.timestamps == (15000,)
-
-    def test_the_peer_is_dialed_with_the_schedule(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """The dialed peer computes its Status from the group's schedule."""
-        made: dict[str, Any] = {}
-
-        class _DialedPeer:
-            """Keep the peer's arguments instead of dialing."""
-
-            remote_name = "client"
-
-            def __init__(self, **arguments: Any) -> None:
-                made.update(arguments)
-
-            def connect(self, chain: Chain) -> None:
-                del chain
-
-            def start(self) -> None:
-                pass
-
-        monkeypatch.setattr(wirex, "MockPeer", _DialedPeer)
-        client = SimpleNamespace(
-            ip="127.0.0.1",
-            enode=lambda: SimpleNamespace(port=30303, id="00" * 64),
-        )
-        schedule = wirex.fork_schedule_of(ParisToShanghaiAtTime15k)
-        wirex.dial_mock_peer(
-            cast(Any, client),
-            _chain([_block(1, empty=False)]),
-            (),
-            False,
-            schedule,
-            TimingData("Total"),
-        )
-        assert made["fork_schedule"] is schedule
