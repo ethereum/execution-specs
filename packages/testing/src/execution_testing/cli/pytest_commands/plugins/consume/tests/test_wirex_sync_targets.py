@@ -334,6 +334,28 @@ class TestNoTargetFallback:
         assert path.expects_rejection
         assert path.invalidities == {INVALID}
 
+    def test_bare_siblings_resolve_to_one_path_per_leaf(self) -> None:
+        """
+        A valid block after an invalid one is its sibling, so each leaf
+        is announced on its own path, judged by its own validity.
+        """
+        trunk = _payload(1, 0)
+        invalid, sibling = _payload(2, 1, error=INVALID), _payload(3, 1)
+        first, second = resolve_sync_paths(
+            GENESIS, _fixture([trunk, invalid, sibling], None)
+        )
+        assert (first.target, first.authored) == (invalid, (trunk, invalid))
+        assert (second.target, second.authored) == (sibling, (trunk, sibling))
+        assert first.expects_rejection and not second.expects_rejection
+        assert {first.total, second.total} == {2}
+        assert not first.announces_scaffolding
+        assert not second.announces_scaffolding
+
+    def test_a_bare_leaf_off_genesis_is_refused(self) -> None:
+        """A bare ancestry that never reaches genesis is a corpus defect."""
+        with pytest.raises(SyncTargetResolutionError, match="leaf 1/1"):
+            resolve_sync_paths(GENESIS, _fixture([_payload(2, 1)], None))
+
 
 class TestDeclaredInvalidities:
     """The census the per-class body downgrade is decided by."""
@@ -422,14 +444,23 @@ class TestSyncTargetCases:
         fixture: BlockchainEngineXFixture,
         min_blocks: int = 2,
         fails: Callable[[list[Any]], bool] | None = None,
+        unrebuildable: Callable[[Any], bool] | None = None,
     ) -> tuple[list[Any], list[list[Any]]]:
         """
         Return the fixture's runnable cases and every chain rebuilt.
 
         Chain reconstruction is replaced by a stand-in that returns the
-        payloads it was given, or raises when `fails` says so.
+        payloads it was given, or raises when `fails` says so. A single
+        block rebuilds unless `unrebuildable` says it does not.
         """
         rebuilt: list[list[Any]] = []
+
+        def block_from_payload(payload: Any) -> Any:
+            if unrebuildable is not None and unrebuildable(payload):
+                raise ChainReconstructionError("commitment modified at fill")
+            return payload
+
+        monkeypatch.setattr(wirex, "block_from_payload", block_from_payload)
 
         def chain_from_payloads(genesis: Any, payloads: list[Any]) -> Any:
             assert genesis is GENESIS_HEADER
@@ -482,9 +513,28 @@ class TestSyncTargetCases:
         kept = _payload(4, 2)
         fixture = _fixture([invalid, valid], [_payload(3, 1), kept])
         (case,), _ = self._cases(
-            monkeypatch, fixture, fails=lambda payloads: invalid in payloads
+            monkeypatch,
+            fixture,
+            fails=lambda payloads: invalid in payloads,
+            unrebuildable=lambda payload: payload is invalid,
         )
         assert case.path.target is kept
+
+    def test_another_failure_on_an_invalid_path_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        An invalid path whose own invalid header rebuilds but whose chain
+        does not is a defect, not a skip.
+        """
+        invalid, valid = _payload(1, 0, error=INVALID), _payload(2, 0)
+        fixture = _fixture([invalid, valid], [_payload(3, 1), _payload(4, 2)])
+        with pytest.raises(ChainReconstructionError):
+            self._cases(
+                monkeypatch,
+                fixture,
+                fails=lambda payloads: invalid in payloads,
+            )
 
     def test_an_unrebuildable_valid_path_fails(
         self, monkeypatch: pytest.MonkeyPatch

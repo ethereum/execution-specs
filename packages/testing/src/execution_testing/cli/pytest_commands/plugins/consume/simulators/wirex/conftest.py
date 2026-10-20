@@ -22,6 +22,7 @@ from hive.client import Client, ClientType
 from execution_testing.devp2p.chain import (
     Chain,
     ChainReconstructionError,
+    block_from_payload,
     chain_from_payloads,
 )
 from execution_testing.devp2p.peer import MockPeer
@@ -32,7 +33,10 @@ from execution_testing.devp2p.protocol import (
 )
 from execution_testing.devp2p.rlpx import RLPxError
 from execution_testing.fixtures import BlockchainEngineXFixture, PreAllocGroup
-from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.fixtures.blockchain import (
+    FixtureEngineNewPayload,
+    FixtureHeader,
+)
 from execution_testing.fixtures.consume import (
     TestCaseBase,
     TestCaseIndexFile,
@@ -407,6 +411,15 @@ def wirex_poll_interval(request: pytest.FixtureRequest) -> float:
     return float(request.config.getoption("wirex_poll_interval"))
 
 
+def _unrebuildable(payload: FixtureEngineNewPayload) -> bool:
+    """Return whether `payload`'s own block cannot be rebuilt from it."""
+    try:
+        block_from_payload(payload)
+    except ChainReconstructionError:
+        return True
+    return False
+
+
 @pytest.fixture(scope="function")
 def sync_target_cases(
     genesis_header: FixtureHeader,
@@ -418,8 +431,9 @@ def sync_target_cases(
 
     Drop a path that is too short to put a block on devp2p, that
     declares a body no client can decode, or whose invalid header
-    cannot be rebuilt from its payload (a commitment modified at fill
-    leaves no trace in the payload); the drop message names the cause.
+    cannot be rebuilt from its own payload (a commitment modified at
+    fill leaves no trace in the payload); the drop message names the
+    cause. Any other rebuild failure is a defect and raises.
     Skip the test only when every path is dropped, and log each drop.
     """
     paths = resolve_sync_paths(genesis_header.block_hash, fixture)
@@ -444,7 +458,11 @@ def sync_target_cases(
         try:
             chain = chain_from_payloads(genesis_header, path.served_payloads)
         except ChainReconstructionError as error:
-            if any(not payload.valid() for payload in path.served_payloads):
+            if any(
+                _unrebuildable(payload)
+                for payload in path.served_payloads
+                if not payload.valid()
+            ):
                 drops.append(
                     "invalid fixture's header cannot be rebuilt from its "
                     "Engine API payload: the declared block hash commits "

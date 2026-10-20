@@ -215,24 +215,14 @@ def resolve_sync_paths(
     A fixture without targets (a chain asserting an Engine API error
     code, one whose leaves admit no child block, one that opted out
     with `sync_block=False`, or a fill with `--no-sync-block`) yields
-    one path: the authored payloads as written, announced by their own
-    head.
+    one path per authored leaf, a payload no other payload builds on:
+    the leaf's ancestry, announced by the leaf itself. A linear fixture
+    has one leaf, its last payload, and a valid payload after an
+    invalid one is its sibling, so it is a leaf of its own.
 
-    Raise `SyncTargetResolutionError` when a target's ancestry does not
-    reach `genesis_hash` through authored payloads.
+    Raise `SyncTargetResolutionError` when an ancestry does not reach
+    `genesis_hash` through authored payloads.
     """
-    targets = fixture.sync_payloads
-    if not targets:
-        return [
-            SyncPath(
-                index=0,
-                total=1,
-                target=fixture.payloads[-1],
-                authored=tuple(fixture.payloads),
-                announces_scaffolding=False,
-            )
-        ]
-
     payloads_by_hash: dict[Hash, FixtureEngineNewPayload] = {}
     for payload in fixture.payloads:
         block_hash = _block_hash(payload)
@@ -243,13 +233,11 @@ def resolve_sync_paths(
             )
         payloads_by_hash[block_hash] = payload
 
-    paths: list[SyncPath] = []
-    total = len(targets)
-    for index, target in enumerate(targets):
-        name = f"sync target {index + 1}/{total}"
+    def ancestry(name: str, parent: Hash) -> list[FixtureEngineNewPayload]:
+        """Return the authored payloads from genesis up to `parent`."""
         authored: list[FixtureEngineNewPayload] = []
         visited: set[Hash] = set()
-        current = _parent_hash(target)
+        current = parent
         while current != genesis_hash:
             if current in visited:
                 raise SyncTargetResolutionError(
@@ -264,12 +252,43 @@ def resolve_sync_paths(
                 )
             authored.append(ancestor)
             current = _parent_hash(ancestor)
+        authored.reverse()
+        return authored
+
+    targets = fixture.sync_payloads
+    if not targets:
+        parents = {_parent_hash(payload) for payload in fixture.payloads}
+        leaves = [
+            payload
+            for payload in fixture.payloads
+            if _block_hash(payload) not in parents
+        ]
+        return [
+            SyncPath(
+                index=index,
+                total=len(leaves),
+                target=leaf,
+                authored=(
+                    *ancestry(
+                        f"leaf {index + 1}/{len(leaves)}", _parent_hash(leaf)
+                    ),
+                    leaf,
+                ),
+                announces_scaffolding=False,
+            )
+            for index, leaf in enumerate(leaves)
+        ]
+
+    paths: list[SyncPath] = []
+    total = len(targets)
+    for index, target in enumerate(targets):
+        name = f"sync target {index + 1}/{total}"
+        authored = ancestry(name, _parent_hash(target))
         if not authored:
             raise SyncTargetResolutionError(
                 f"{name} sits directly above genesis and selects no "
                 "authored payload"
             )
-        authored.reverse()
         paths.append(
             SyncPath(
                 index=index,

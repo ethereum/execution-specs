@@ -189,7 +189,7 @@ Below, `G` is genesis, `T₁…Tₙ` the test's own blocks, `S` a sync target fr
 | Several chains | `G → (T₁ᵢ → S₁*) ⧸ (T₂ → S₂*)` and deeper shapes | several | each target selects one path from genesis and runs independently |
 | Partial target list | one or more target paths | fewer targets than chains | listed targets run; a chain without a target has no WireX path of its own |
 | Engine API error code | `G → T₁…Tₙ*` | none | the test's last block is announced and the declared RPC-layer refusal is asserted; no wire coverage is required |
-| No targets | `G → T₁…Tₙ*` | none | the test's chain is the only path; valid paths assert wire coverage below the head, rejection paths do not |
+| No targets | `G → T₁…Tₙ*` | none | each of the test's chains is a path announced by its own head, a valid block after an invalid one being a chain of its own; valid paths assert wire coverage below the head, rejection paths do not |
 
 Each target selects its path by hash alone: its `parentHash` names the last block of one of the test's chains, and the `parentHash` links of the test's blocks lead back to genesis. List position, timestamps and `lastblockhash` are never consulted. The target counts toward its path's length, so a single-block test plus its target is a two-block chain.
 
