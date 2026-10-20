@@ -224,6 +224,131 @@ class TestReorgDepth:
         assert reorg_depth(69, None, _fork(258, branch=2)) == 69
 
 
+class _FakeManager:
+    """The manager calls the client fixture makes, recorded in order."""
+
+    def __init__(self, running: Any) -> None:
+        """Hold the group's `running` client, or `None`."""
+        self.running = running
+        self.calls: list[tuple[str, ...]] = []
+
+    def get_client(self, identifier: str) -> Any:
+        """Record the lookup and return the running client."""
+        self.calls.append(("get", identifier))
+        return self.running
+
+    def discard_client(self, identifier: str) -> None:
+        """Record the discard."""
+        self.calls.append(("discard", identifier))
+
+    def mark_test_completed(self, identifier: str, nodeid: str) -> None:
+        """Record the completion."""
+        self.calls.append(("completed", identifier, nodeid))
+
+
+GROUP = "0xdeadbeef-go-ethereum"
+
+
+class TestClientFixture:
+    """The client fixture acts on the reuse decision."""
+
+    @pytest.fixture
+    def booted(self, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+        """Stand in for client boots, recording each identifier booted."""
+        booted: list[str] = []
+
+        def boot(*args: Any) -> Any:
+            identifier = args[2]
+            booted.append(identifier)
+            return SimpleNamespace(id=identifier)
+
+        def group_client(*_args: Any) -> Any:
+            booted.append(GROUP)
+            yield SimpleNamespace(id=GROUP)
+
+        monkeypatch.setattr(
+            client_policy, "group_identifier_of", lambda _node: GROUP
+        )
+        monkeypatch.setattr(client_policy, "boot_managed_client", boot)
+        monkeypatch.setattr(client_policy, "group_client", group_client)
+        return booted
+
+    @staticmethod
+    def _run(manager: _FakeManager, cases: list[Any]) -> Any:
+        """Run the fixture through its teardown and return its client."""
+        generator = fixture_body(client_policy.client)(
+            multi_test_hive_test=None,
+            multi_test_client_manager=manager,
+            client_type=None,
+            environment={},
+            client_genesis={},
+            total_timing_data=None,
+            request=SimpleNamespace(node=SimpleNamespace(nodeid="test[x]")),
+            sync_target_cases=cases,
+            mock_peers={},
+        )
+        client = next(generator)
+        with pytest.raises(StopIteration):
+            next(generator)
+        return client
+
+    @pytest.mark.parametrize(
+        "reason,discarded",
+        [("a deep reorg", True), (None, False)],
+        ids=["reason", "no-reason"],
+    )
+    def test_a_reason_replaces_the_group_client(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        booted: list[str],
+        reason: str | None,
+        discarded: bool,
+    ) -> None:
+        """A reason discards the running client, and no reason keeps it."""
+        monkeypatch.setattr(
+            client_policy, "replacement_reason", lambda *_args: reason
+        )
+        manager = _FakeManager(running=SimpleNamespace(id="running"))
+        self._run(manager, [SimpleNamespace()])
+        assert (("discard", GROUP) in manager.calls) == discarded
+        assert booted == [GROUP]
+
+    def test_a_first_test_has_nothing_to_replace(
+        self, monkeypatch: pytest.MonkeyPatch, booted: list[str]
+    ) -> None:
+        """Without a running client, no reason is asked for."""
+
+        def reason(*_args: Any) -> str | None:
+            raise AssertionError("there is no client to judge")
+
+        monkeypatch.setattr(client_policy, "replacement_reason", reason)
+        manager = _FakeManager(running=None)
+        self._run(manager, [SimpleNamespace()])
+        assert manager.calls == [("get", GROUP)]
+        assert booted == [GROUP]
+
+    def test_a_multi_target_fixture_runs_on_an_isolated_client(
+        self, booted: list[str]
+    ) -> None:
+        """
+        The first target boots its own client, discarded at teardown,
+        and the test still counts toward its group's completion.
+        """
+        cases = [
+            SimpleNamespace(
+                path=SimpleNamespace(index=index, total=2, name=f"t{index}")
+            )
+            for index in range(2)
+        ]
+        manager = _FakeManager(running=SimpleNamespace(id="running"))
+        client = self._run(manager, cases)
+        assert client.id == booted[0] == f"{GROUP}-t0"
+        assert manager.calls == [
+            ("discard", f"{GROUP}-t0"),
+            ("completed", GROUP, "test[x]"),
+        ]
+
+
 class TestReplacementReason:
     """When a single-target fixture must not reuse the group client."""
 
