@@ -11,6 +11,9 @@ class EthrexExceptionMapper(ExceptionMapper):
     """Ethrex exception mapper."""
 
     mapping_substring = {
+        BlockException.INVALID_BLOCK_NUMBER: (
+            "Block number is not one greater than parent number"
+        ),
         BlockException.INVALID_GASLIMIT: (
             "Gas limit changed more than allowed from the parent"
         ),
