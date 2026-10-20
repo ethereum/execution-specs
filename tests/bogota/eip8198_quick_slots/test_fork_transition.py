@@ -317,17 +317,17 @@ def next_excess_blob_gas(
     lambda fork: [
         pytest.param(
             fork.transitions_from().max_blobs_per_block(),
-            fork.transitions_from().max_blobs_per_block(),
+            fork.transitions_to().max_blobs_per_block(),
             id="max_blobs_before_and_after",
         ),
         pytest.param(
             fork.transitions_from().target_blobs_per_block(),
-            fork.transitions_from().target_blobs_per_block(),
+            fork.transitions_to().target_blobs_per_block(),
             id="target_blobs_before_and_after",
         ),
         pytest.param(
             0,
-            fork.transitions_from().max_blobs_per_block(),
+            fork.transitions_to().max_blobs_per_block(),
             id="no_blobs_before_and_max_blobs_after",
         ),
         pytest.param(

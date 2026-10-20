@@ -3,8 +3,7 @@ EIP-8198: Quick Slots.
 
 Reduce the consensus-layer slot duration. The execution layer lowers the
 maximum per-block base fee change so that fee dynamics per unit of wall-clock
-time stay close to their previous values. Blob parameters change only through
-an EIP-7892 blob schedule entry scheduled with the slot duration change.
+time stay close to their previous values.
 
 https://eips.ethereum.org/EIPS/eip-8198
 """
