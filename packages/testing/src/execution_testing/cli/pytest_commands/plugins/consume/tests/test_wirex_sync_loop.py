@@ -8,7 +8,7 @@ for minutes, or drops the peer mid-sync, is simulated in microseconds.
 
 import inspect
 import logging
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass, field
 from itertools import pairwise
 from types import SimpleNamespace
@@ -609,82 +609,64 @@ def test_an_invalid_block_hash_answer_fails(clock: FakeClock) -> None:
     assert clock.now < SYNC_TIMEOUT
 
 
+LATEST_VALID_HASH_ANSWERS = {
+    # INVALID naming the first invalid block's parent passes.
+    "expected-hash": (Hash(1), Hash(1), "match"),
+    # INVALID naming another block blamed the wrong block.
+    "another-hash": (
+        Hash(2),
+        Hash(1),
+        rf"mismatch: .* {Hash(2)} \(block 2\), expected {Hash(1)} \(block 1\)",
+    ),
+    "off-the-served-chain": (
+        Hash(9),
+        Hash(1),
+        rf"mismatch: .* {Hash(9)} \(not on the served chain\), expected",
+    ),
+    # A rejection naming no latest valid hash is not held against it.
+    "null": (None, Hash(2), "null"),
+    # The all-zero hash names a PoW ancestor, which is only genesis.
+    "zero-for-genesis": (Hash(0), Hash(100), "match"),
+    "zero-for-a-block": (Hash(0), Hash(2), "mismatch"),
+    # A path that owes none, rejected by an error code only, is unchecked.
+    "no-invalid-block": (Hash(2), None, "unchecked"),
+}
+"""The hash given, the hash owed, and the check's result for them."""
+
+
 class TestLatestValidHash:
     """A rejection that names a latest valid hash must name the right one."""
 
-    def test_the_expected_hash_passes(self, clock: FakeClock) -> None:
-        """INVALID naming the first invalid block's parent passes."""
-        _run(
-            clock,
-            _engine(clock, INVALID, latest_valid_hash=Hash(1)),
-            expects_rejection=True,
-        )
-
-    def test_another_hash_fails(self, clock: FakeClock) -> None:
-        """INVALID naming another block blamed the wrong block."""
-        with pytest.raises(
-            LoggedError,
-            match=r"latestValidHash check: mismatch: .* "
-            rf"{Hash(2)} \(block 2\), expected {Hash(1)} \(block 1\)",
-        ):
-            _run(
-                clock,
-                _engine(clock, INVALID, latest_valid_hash=Hash(2)),
-                expects_rejection=True,
-            )
-
-    def test_a_hash_off_the_served_chain_fails(self, clock: FakeClock) -> None:
-        """A hash the peer never served is named as off the chain."""
-        with pytest.raises(
-            LoggedError,
-            match=rf"{Hash(9)} \(not on the served chain\), expected",
-        ):
-            _run(
-                clock,
-                _engine(clock, INVALID, latest_valid_hash=Hash(9)),
-                expects_rejection=True,
-            )
-
-    def test_a_null_hash_passes(self, clock: FakeClock) -> None:
-        """A rejection naming no latest valid hash is not held against it."""
-        _run(
-            clock,
-            _engine(clock, INVALID, latest_valid_hash=None),
-            expects_rejection=True,
-            expected_latest_valid_hash=Hash(2),
-        )
-
-    def test_a_zero_hash_passes_only_for_a_genesis_ancestor(self) -> None:
-        """The all-zero hash names a PoW ancestor, which is only genesis."""
+    @pytest.mark.parametrize(
+        "given,owed,result",
+        LATEST_VALID_HASH_ANSWERS.values(),
+        ids=LATEST_VALID_HASH_ANSWERS.keys(),
+    )
+    def test_the_hash_is_checked_against_the_owed_one(
+        self,
+        caplog: pytest.LogCaptureFixture,
+        given: Hash | None,
+        owed: Hash | None,
+        result: str,
+    ) -> None:
+        """A mismatch fails the test, and every other result is logged."""
+        path = cast(SyncPath, SimpleNamespace(expected_latest_valid_hash=owed))
         chain = _chain(3, genesis_hash=100)
 
-        def check(expected: Hash) -> None:
-            path = SimpleNamespace(expected_latest_valid_hash=expected)
+        def check() -> None:
             test_via_wirex.check_latest_valid_hash(
-                cast(SyncPath, path), chain, _status(INVALID, Hash(0)), ""
+                path, chain, _status(INVALID, given), ""
             )
 
-        check(Hash(100))
-        with pytest.raises(
-            LoggedError, match="latestValidHash check: mismatch"
-        ):
-            check(Hash(2))
-
-    def test_a_path_with_no_invalid_block_is_unchecked(
-        self, clock: FakeClock, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """
-        A hash given for a path that owes none (an error-code-only
-        rejection) is logged as unchecked, not failed.
-        """
-        with caplog.at_level(logging.INFO):
-            _run(
-                clock,
-                _engine(clock, INVALID, latest_valid_hash=Hash(2)),
-                expects_rejection=True,
-                expected_latest_valid_hash=None,
-            )
-        assert "latestValidHash check: unchecked" in caplog.text
+        if result.startswith("mismatch"):
+            with pytest.raises(
+                LoggedError, match=f"latestValidHash check: {result}"
+            ):
+                check()
+        else:
+            with caplog.at_level(logging.INFO):
+                check()
+            assert f"latestValidHash check: {result}" in caplog.text
 
     def test_a_rejection_without_scaffolding_is_checked(
         self, clock: FakeClock
@@ -704,58 +686,65 @@ class TestLatestValidHash:
             )
 
 
-class TestLatestValidBlock:
+LATEST_VALID_BLOCK_ANSWERS = {
+    # A client still fetching the block may answer SYNCING first.
+    "valid-after-a-wait": (
+        lambda now: VALID if now >= 2.0 else SYNCING,
+        FIRST_INVALID_PARENT,
+        None,
+        (2.0, 2.01),
+    ),
+    # A client rejecting the valid parent too blamed a valid block.
+    "rejected": (
+        lambda _now: INVALID,
+        FIRST_INVALID_PARENT,
+        rf"answered PayloadStatusEnum.INVALID for {Hash(1)}",
+        (0.0, 0.01),
+    ),
+    "never-confirmed": (
+        lambda _now: SYNCING,
+        FIRST_INVALID_PARENT,
+        f"never confirmed {Hash(1)}",
+        (SYNC_TIMEOUT, SYNC_TIMEOUT + 1),
+    ),
+    # Genesis is no payload, so nothing is sent for it.
+    "genesis-parent": (lambda _now: INVALID, GENESIS_HASH, None, (0.0, 0.01)),
+}
+"""
+How the client answers for the block below the head, the hash owed,
+the failure expected, if any, and when the test ends.
+"""
+
+
+@pytest.mark.parametrize(
+    "verdict,owed,failure,ends",
+    LATEST_VALID_BLOCK_ANSWERS.values(),
+    ids=LATEST_VALID_BLOCK_ANSWERS.keys(),
+)
+def test_the_latest_valid_block_must_be_valid(
+    clock: FakeClock,
+    verdict: Callable[[float], PayloadStatusEnum],
+    owed: Hash,
+    failure: str | None,
+    ends: tuple[float, float],
+) -> None:
     """After a rejection, the block owed as latest valid must be VALID."""
-
-    def test_a_valid_answer_passes_after_a_wait(
-        self, clock: FakeClock
-    ) -> None:
-        """A client still fetching the block may answer SYNCING first."""
-        engine = _engine(
-            clock,
-            INVALID,
-            below_head_verdict=lambda now: VALID if now >= 2.0 else SYNCING,
-        )
-        _run(clock, engine, expects_rejection=True)
-        assert set(engine.below_head_calls) == {FIRST_INVALID_PARENT}
-        assert 2.0 <= clock.now < 2.01
-
-    def test_a_rejected_valid_parent_fails(self, clock: FakeClock) -> None:
-        """A client rejecting the valid parent too blamed a valid block."""
-        with pytest.raises(
-            LoggedError,
-            match=rf"answered PayloadStatusEnum.INVALID for {Hash(1)}",
-        ):
-            _run(
-                clock,
-                _engine(clock, INVALID, below_head_verdict=lambda _: INVALID),
-                expects_rejection=True,
-            )
-
-    def test_a_parent_never_confirmed_fails_at_the_deadline(
-        self, clock: FakeClock
-    ) -> None:
-        """A client that never answers VALID for it fails in the end."""
-        with pytest.raises(LoggedError, match=f"never confirmed {Hash(1)}"):
-            _run(
-                clock,
-                _engine(clock, INVALID, below_head_verdict=lambda _: SYNCING),
-                expects_rejection=True,
-            )
-        assert SYNC_TIMEOUT <= clock.now < SYNC_TIMEOUT + 1
-
-    def test_a_genesis_parent_needs_no_confirmation(
-        self, clock: FakeClock
-    ) -> None:
-        """Genesis is no payload, so nothing is sent for it."""
-        engine = _engine(clock, INVALID, below_head_verdict=lambda _: INVALID)
+    engine = _engine(clock, INVALID, below_head_verdict=verdict)
+    outcome: AbstractContextManager[Any] = (
+        nullcontext()
+        if failure is None
+        else pytest.raises(LoggedError, match=failure)
+    )
+    with outcome:
         _run(
             clock,
             engine,
             expects_rejection=True,
-            expected_latest_valid_hash=GENESIS_HASH,
+            expected_latest_valid_hash=owed,
         )
-        assert engine.below_head_calls == []
+    assert set(engine.below_head_calls) == {owed} - {GENESIS_HASH}
+    earliest, latest = ends
+    assert earliest <= clock.now < latest
 
 
 def _path_payload(
@@ -778,63 +767,44 @@ def _path_payload(
     )
 
 
-class TestExpectedLatestValidHash:
+OWED_HASHES = {
+    # The sync target and the blocks above the invalid one are moot.
+    "two-invalid-blocks": (
+        [(1, 0, False), (2, 1, False), (3, 2, True), (4, 3, True)],
+        2,
+    ),
+    # Siblings sharing a trunk each owe their own invalid block's parent.
+    "invalid-leaf-on-the-trunk": (
+        [(1, 0, False), (2, 1, False), (3, 2, True)],
+        2,
+    ),
+    "invalid-branch-off-the-trunk": ([(1, 0, False), (4, 1, True)], 1),
+    "valid-leaf": ([(1, 0, False), (2, 1, False), (5, 2, False)], None),
+    "invalid-first-block": ([(1, 0, True)], 0),
+}
+"""A path's authored blocks (hash, parent, invalid) and the hash owed."""
+
+
+@pytest.mark.parametrize(
+    "authored,owed", OWED_HASHES.values(), ids=OWED_HASHES.keys()
+)
+def test_a_path_owes_the_parent_of_its_first_invalid_block(
+    authored: list[tuple[int, int, bool]], owed: int | None
+) -> None:
     """The owed hash is the parent of the first invalid block served."""
-
-    def test_a_scaffolded_path_owes_the_parent_of_its_first_invalid_block(
-        self,
-    ) -> None:
-        """The sync target and the blocks above the invalid one are moot."""
-        path = SyncPath(
-            index=0,
-            total=1,
-            target=_path_payload(5, 4),
-            authored=(
-                _path_payload(1, 0),
-                _path_payload(2, 1),
-                _path_payload(3, 2, invalid=True),
-                _path_payload(4, 3, invalid=True),
-            ),
-            announces_scaffolding=True,
-        )
-        assert path.expected_latest_valid_hash == Hash(2)
-
-    def test_each_target_owes_the_parent_on_its_own_path(self) -> None:
-        """Siblings sharing a trunk each owe their own invalid block's."""
-        trunk = (_path_payload(1, 0), _path_payload(2, 1))
-        invalid_leaf = _path_payload(3, 2, invalid=True)
-        invalid_branch = (_path_payload(4, 1, invalid=True),)
-        valid_leaf = _path_payload(5, 2)
-        first, second, third = (
-            SyncPath(
-                index=index,
-                total=3,
-                target=_path_payload(10 + index, leaf),
-                authored=authored,
-                announces_scaffolding=True,
-            )
-            for index, (leaf, authored) in enumerate(
-                [
-                    (3, (*trunk, invalid_leaf)),
-                    (4, (trunk[0], *invalid_branch)),
-                    (5, (*trunk, valid_leaf)),
-                ]
-            )
-        )
-        assert first.expected_latest_valid_hash == Hash(2)
-        assert second.expected_latest_valid_hash == Hash(1)
-        assert third.expected_latest_valid_hash is None
-
-    def test_an_invalid_first_block_owes_genesis(self) -> None:
-        """A path invalid from its first block owes the genesis hash."""
-        path = SyncPath(
-            index=0,
-            total=1,
-            target=_path_payload(2, 1),
-            authored=(_path_payload(1, 0, invalid=True),),
-            announces_scaffolding=True,
-        )
-        assert path.expected_latest_valid_hash == GENESIS_HASH
+    path = SyncPath(
+        index=0,
+        total=1,
+        target=_path_payload(10, authored[-1][0]),
+        authored=tuple(
+            _path_payload(block, parent, invalid=invalid)
+            for block, parent, invalid in authored
+        ),
+        announces_scaffolding=True,
+    )
+    assert path.expected_latest_valid_hash == (
+        None if owed is None else Hash(owed)
+    )
 
 
 class RefusingPeer(FakePeer):
@@ -1031,135 +1001,128 @@ def _rpc_block(header: FixtureHeader) -> dict[str, Any]:
     return header.model_dump(mode="json", by_alias=True)
 
 
-class TestGenesisVerification:
-    """A client is run only on the group's genesis."""
+GENESIS_ANSWERS = {
+    "matching": (_rpc_block(_genesis(1)), None),
+    "mismatched": (
+        _rpc_block(_genesis(2)),
+        (GenesisBlockMismatchExceptionError, "hash mismatch"),
+    ),
+    "missing": (None, (LoggedError, "returned no genesis block")),
+}
+"""The genesis block the client answers, and the failure it causes."""
 
-    def test_a_matching_genesis_passes(self, clock: FakeClock) -> None:
-        """A client whose genesis is the group's syncs as usual."""
-        genesis = _genesis(1)
+
+@pytest.mark.parametrize(
+    "answer,failure", GENESIS_ANSWERS.values(), ids=GENESIS_ANSWERS.keys()
+)
+def test_a_client_runs_only_on_the_groups_genesis(
+    clock: FakeClock,
+    answer: dict[str, Any] | None,
+    failure: tuple[type[Exception], str] | None,
+) -> None:
+    """A client on another genesis, or none, fails before any announcement."""
+    engine = _engine(clock)
+    outcome: AbstractContextManager[Any] = (
+        nullcontext()
+        if failure is None
+        else pytest.raises(failure[0], match=failure[1])
+    )
+    with outcome:
         _run(
             clock,
-            _engine(clock),
+            engine,
             imported_at=1.0,
-            overrides={0: _rpc_block(genesis)},
-            genesis_header=genesis,
+            overrides={0: answer},
+            genesis_header=_genesis(1),
         )
-
-    def test_a_mismatched_genesis_fails(self, clock: FakeClock) -> None:
-        """A client on another genesis fails before anything is announced."""
-        engine = _engine(clock)
-        with pytest.raises(
-            GenesisBlockMismatchExceptionError, match="hash mismatch"
-        ):
-            _run(
-                clock,
-                engine,
-                imported_at=1.0,
-                overrides={0: _rpc_block(_genesis(2))},
-                genesis_header=_genesis(1),
-            )
-        assert engine.forkchoice_calls == 0
-
-    def test_a_missing_genesis_fails(self, clock: FakeClock) -> None:
-        """A client that returns no genesis block fails."""
-        with pytest.raises(LoggedError, match="returned no genesis block"):
-            _run(
-                clock,
-                _engine(clock),
-                imported_at=1.0,
-                overrides={0: None},
-                genesis_header=_genesis(1),
-            )
+    assert (engine.forkchoice_calls == 0) == (failure is not None)
 
 
 REFUSAL_CODE = -32602
 
 
-@dataclass(frozen=True)
-class RefusalSite:
-    """Where in the loop the client refuses the head, and when."""
+REFUSED_ALWAYS = {"refusal": lambda _now: REFUSAL_CODE}
+"""A client refusing every `newPayload` with `REFUSAL_CODE`."""
 
-    expects_rejection: bool
-    knobs: dict[str, Any]
-    refused_at: tuple[float, float]
-
-
-REFUSAL_SITES = {
-    "valid-announcement": RefusalSite(
-        False, {"refusal": lambda _now: REFUSAL_CODE}, (0.0, 0.0)
+REFUSALS = {
+    # A refusal with the declared code ends the test at once, passing.
+    "declared-valid-path": (False, REFUSED_ALWAYS, REFUSAL_CODE, None),
+    "declared-rejection-path": (True, REFUSED_ALWAYS, REFUSAL_CODE, None),
+    # A refusal with another code than the declared one fails.
+    "wrong-code-valid-path": (
+        False,
+        REFUSED_ALWAYS,
+        -38003,
+        (LoggedError, "wrong error code"),
     ),
-    "rejection-announcement": RefusalSite(
-        True, {"refusal": lambda _now: REFUSAL_CODE}, (0.0, 0.0)
+    "wrong-code-rejection-path": (
+        True,
+        REFUSED_ALWAYS,
+        -38003,
+        (LoggedError, "wrong error code"),
     ),
-}
-
-
-@pytest.mark.parametrize(
-    "site", REFUSAL_SITES.values(), ids=REFUSAL_SITES.keys()
-)
-class TestRpcRefusal:
-    """An Engine API error is a verdict only with the declared code."""
-
-    @staticmethod
-    def _run_refused(
-        clock: FakeClock, site: RefusalSite, declared: int | None
-    ) -> None:
-        """Run a case declaring `declared` against a refusing client."""
-        _run(
-            clock,
-            _engine(clock, **site.knobs),
-            expects_rejection=site.expects_rejection,
-            error_code=declared,
+    # A refusal the fixture does not declare propagates.
+    "undeclared-valid-path": (
+        False,
+        REFUSED_ALWAYS,
+        None,
+        (JSONRPCError, None),
+    ),
+    "undeclared-rejection-path": (
+        True,
+        REFUSED_ALWAYS,
+        None,
+        (JSONRPCError, None),
+    ),
+    # Any newPayload answer fails a head declaring an error code, so
+    # does a refusal that comes late or from forkchoiceUpdated.
+    **{
+        name: (
+            True,
+            knobs,
+            REFUSAL_CODE,
+            (LoggedError, "instead of refusing the head"),
         )
-
-    def test_the_declared_code_passes(
-        self, clock: FakeClock, site: RefusalSite
-    ) -> None:
-        """A refusal with the declared code ends the test, passing."""
-        self._run_refused(clock, site, REFUSAL_CODE)
-        earliest, latest = site.refused_at
-        assert earliest <= clock.now <= latest
-
-    def test_a_wrong_code_fails(
-        self, clock: FakeClock, site: RefusalSite
-    ) -> None:
-        """A refusal with another code than the declared one fails."""
-        with pytest.raises(LoggedError, match="wrong error code"):
-            self._run_refused(clock, site, -38003)
-
-    def test_an_undeclared_refusal_is_raised(
-        self, clock: FakeClock, site: RefusalSite
-    ) -> None:
-        """A refusal the fixture does not declare propagates."""
-        with pytest.raises(JSONRPCError):
-            self._run_refused(clock, site, None)
-
-
-MISPLACED_REFUSALS = {
-    "invalid-status": {"verdict": INVALID},
-    "valid-status": {"verdict": VALID},
-    "refused-after-syncing": {
-        "refusal": lambda now: REFUSAL_CODE if now >= 1.0 else None
-    },
-    "refused-by-forkchoice": {
-        "forkchoice_refusal": lambda _call: REFUSAL_CODE
+        for name, knobs in {
+            "invalid-status": {"verdict": INVALID},
+            "valid-status": {"verdict": VALID},
+            "refused-after-syncing": {
+                "refusal": lambda now: REFUSAL_CODE if now >= 1.0 else None
+            },
+            "refused-by-forkchoice": {
+                "forkchoice_refusal": lambda _call: REFUSAL_CODE
+            },
+        }.items()
     },
 }
+"""Whether the path is a rejection, the client, the code declared, and
+the failure expected, if any."""
 
 
 @pytest.mark.parametrize(
-    "knobs", MISPLACED_REFUSALS.values(), ids=MISPLACED_REFUSALS.keys()
+    "expects_rejection,knobs,declared,failure",
+    REFUSALS.values(),
+    ids=REFUSALS.keys(),
 )
-def test_an_error_code_head_needs_the_refusal_from_new_payload(
-    clock: FakeClock, knobs: dict[str, Any]
+def test_an_rpc_refusal_is_a_verdict_only_with_the_declared_code(
+    clock: FakeClock,
+    expects_rejection: bool,
+    knobs: dict[str, Any],
+    declared: int | None,
+    failure: tuple[type[Exception], str | None] | None,
 ) -> None:
-    """Any newPayload answer fails a head declaring an error code."""
-    with pytest.raises(LoggedError, match="instead of refusing the head"):
+    """Only `newPayload` refusing with the declared code passes, at once."""
+    outcome: AbstractContextManager[Any] = (
+        nullcontext()
+        if failure is None
+        else pytest.raises(failure[0], match=failure[1])
+    )
+    with outcome:
         _run(
             clock,
             _engine(clock, **knobs),
-            expects_rejection=True,
-            error_code=REFUSAL_CODE,
+            expects_rejection=expects_rejection,
+            error_code=declared,
         )
     assert clock.now == 0.0
 
