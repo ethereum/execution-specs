@@ -810,6 +810,68 @@ def test_recreate_self_destructed_contract_different_txs(
     blockchain_test(pre=pre, post=post, blocks=[Block(txs=txs)])
 
 
+@pytest.mark.valid_from("Shanghai")
+def test_recreated_contract_storage_in_next_block(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    sender: EOA,
+) -> None:
+    """
+    Test that the next block reads the storage a contract was recreated
+    with, after an earlier transaction in the same block created and
+    self-destructed it.
+    """
+    stored_slot = 1
+    stored_value = 0xC0FFEE
+    witness_slot = 2
+    destroyed_slot = 3
+    runtime = Conditional(
+        condition=Op.CALLDATASIZE,
+        # Only the destroyed incarnation writes this slot.
+        if_true=Op.SSTORE(destroyed_slot, 1) + Op.SELFDESTRUCT(Op.CALLER),
+        if_false=Op.SSTORE(witness_slot, Op.SLOAD(stored_slot)),
+    )
+    initcode = Initcode(
+        deploy_code=runtime,
+        initcode_prefix=Op.SSTORE(stored_slot, stored_value),
+    )
+    initcode_holder = pre.deploy_contract(initcode)
+    # Stores each CREATE2 result under the calldata size; with calldata, it
+    # then asks the new contract to self-destruct.
+    factory = pre.deploy_contract(
+        Op.EXTCODECOPY(initcode_holder, 0, 0, len(initcode))
+        + Op.SSTORE(Op.CALLDATASIZE, Op.CREATE2(0, 0, len(initcode), 0))
+        + Conditional(
+            condition=Op.CALLDATASIZE,
+            if_true=Op.CALL(Op.GAS, Op.SLOAD(1), 0, 0, 1, 0, 0),
+        )
+    )
+    recreated = compute_create_address(
+        address=factory, salt=0, initcode=initcode, opcode=Op.CREATE2
+    )
+
+    blocks = [
+        Block(
+            txs=[
+                Transaction(sender=sender, to=factory, data=b"\x01"),
+                Transaction(sender=sender, to=factory),
+            ]
+        ),
+        # Read from a later block, so the value comes from the committed
+        # state rather than the block that recreated the contract.
+        Block(txs=[Transaction(sender=sender, to=recreated)]),
+    ]
+    post = {
+        factory: Account(storage={0: recreated, 1: recreated}),
+        recreated: Account(
+            code=runtime,
+            storage={stored_slot: stored_value, witness_slot: stored_value},
+        ),
+    }
+
+    blockchain_test(pre=pre, post=post, blocks=blocks)
+
+
 @pytest.mark.parametrize(
     "call_times,sendall_recipient_addresses",
     [
