@@ -89,6 +89,13 @@ class TransactionDataFloorCostCalculator(Protocol):
         pass
 
 
+DEFAULT_SECONDS_ELAPSED = 12
+"""Seconds between a block and its parent unless a test spaces them."""
+
+DEFAULT_SLOTS_ELAPSED = 1
+"""Slots between a block and its parent unless a test spaces them."""
+
+
 class BaseFeePerGasCalculator(Protocol):
     """A protocol to calculate the base fee per gas at a given fork."""
 
@@ -98,6 +105,8 @@ class BaseFeePerGasCalculator(Protocol):
         parent_base_fee_per_gas: int,
         parent_gas_used: int,
         parent_gas_limit: int,
+        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
+        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
     ) -> int:
         """Return the base fee per gas at a given fork."""
         pass
@@ -115,6 +124,8 @@ class BaseFeeChangeCalculator(Protocol):
         parent_base_fee_per_gas: int,
         parent_gas_limit: int,
         required_base_fee_per_gas: int,
+        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
+        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
     ) -> int:
         """Return the gas that needs to be used to change the base fee."""
         pass
@@ -781,14 +792,34 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     # Fee helpers
     @classmethod
     @abstractmethod
-    def base_fee_max_change_numerator(cls) -> int:
+    def base_fee_max_change_numerator(
+        cls,
+        *,
+        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
+        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
+    ) -> int:
         """Return the base fee max change numerator at a given fork."""
         pass
 
     @classmethod
     @abstractmethod
-    def base_fee_max_change_denominator(cls) -> int:
+    def base_fee_max_change_denominator(
+        cls,
+        *,
+        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
+        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
+    ) -> int:
         """Return the base fee max change denominator at a given fork."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def base_fee_follows_slot_spacing(cls) -> bool:
+        """
+        Return whether the maximum base fee change follows the slot duration
+        read from the spacing of a block and its parent, which requires the
+        slot number to increase from block to block.
+        """
         pass
 
     @classmethod

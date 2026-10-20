@@ -285,7 +285,7 @@ def parent_block(
     """Parent block to satisfy the pre-fork conditions of the test."""
     return Block(
         txs=parent_block_txs,
-        timestamp=14_999,
+        timestamp=14_988,
         header_verify=Header(
             excess_blob_gas=parent_excess_blob_gas,
             blob_gas_used=parent_blob_count * blob_gas_per_blob,

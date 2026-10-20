@@ -3,8 +3,9 @@ Base fee update tests for
 [EIP-8198: Quick Slots](https://eips.ethereum.org/EIPS/eip-8198).
 
 From the fork onward, the maximum per-block base fee change is
-`BASE_FEE_MAX_CHANGE_NUMERATOR / BASE_FEE_MAX_CHANGE_DENOMINATOR`, with the
-multiplication performed before the division.
+`seconds_elapsed / (8 * 12 * slots_elapsed)`, the slot duration read from the
+spacing of a block and its parent over 96, with the multiplication performed
+before the division.
 """
 
 from typing import List
@@ -29,6 +30,9 @@ REFERENCE_SPEC_VERSION = ref_spec_8198.version
 
 pytestmark = pytest.mark.valid_from("EIP8198")
 
+SLOT_SECONDS = 10
+"""Slot duration of the blocks in the base fee update tests."""
+
 
 def gas_used_cases(fork: Fork) -> List[ParameterSet]:
     """Return the parent gas used values around the fork's gas target."""
@@ -49,8 +53,12 @@ def gas_used_cases(fork: Fork) -> List[ParameterSet]:
 
 def base_fee_cases(fork: Fork) -> List[ParameterSet]:
     """Return parent base fees on both sides of the fork's rounding edges."""
-    numerator = fork.base_fee_max_change_numerator()
-    denominator = fork.base_fee_max_change_denominator()
+    numerator = fork.base_fee_max_change_numerator(
+        seconds_elapsed=SLOT_SECONDS
+    )
+    denominator = fork.base_fee_max_change_denominator(
+        seconds_elapsed=SLOT_SECONDS
+    )
     full_block_numerator = numerator * (
         fork.base_fee_elasticity_multiplier() - 1
     )
@@ -83,14 +91,20 @@ def base_fee_cases(fork: Fork) -> List[ParameterSet]:
     ]
 
 
-def genesis_base_fee_for(fork: Fork, base_fee_per_gas: int) -> int:
+def genesis_base_fee_for(
+    fork: Fork, base_fee_per_gas: int, slot_seconds: int = SLOT_SECONDS
+) -> int:
     """
     Return a genesis base fee from which the first block, built on the empty
-    genesis block, has exactly `base_fee_per_gas`.
+    genesis block `slot_seconds` later, has exactly `base_fee_per_gas`.
     """
     base_fee_per_gas_calculator = fork.base_fee_per_gas_calculator()
-    numerator = fork.base_fee_max_change_numerator()
-    denominator = fork.base_fee_max_change_denominator()
+    numerator = fork.base_fee_max_change_numerator(
+        seconds_elapsed=slot_seconds
+    )
+    denominator = fork.base_fee_max_change_denominator(
+        seconds_elapsed=slot_seconds
+    )
     lowest = base_fee_per_gas * denominator // (denominator - numerator)
     for candidate in range(max(lowest - 2, base_fee_per_gas), lowest + 50):
         if (
@@ -98,6 +112,7 @@ def genesis_base_fee_for(fork: Fork, base_fee_per_gas: int) -> int:
                 parent_base_fee_per_gas=candidate,
                 parent_gas_used=0,
                 parent_gas_limit=BLOCK_GAS_LIMIT,
+                seconds_elapsed=slot_seconds,
             )
             == base_fee_per_gas
         ):
@@ -127,20 +142,21 @@ def test_base_fee_update(
         parent_base_fee_per_gas=parent_base_fee_per_gas,
         parent_gas_used=parent_gas_used,
         parent_gas_limit=BLOCK_GAS_LIMIT,
+        seconds_elapsed=SLOT_SECONDS,
     )
     blocks = [
         Block(
             txs=gas_spending_transactions(
                 pre=pre, sender=sender, fork=fork, gas=parent_gas_used
             ),
-            timestamp=10,
+            timestamp=SLOT_SECONDS,
             header_verify=Header(
                 base_fee_per_gas=parent_base_fee_per_gas,
                 gas_used=parent_gas_used,
             ),
         ),
         Block(
-            timestamp=20,
+            timestamp=2 * SLOT_SECONDS,
             header_verify=Header(base_fee_per_gas=expected_base_fee),
         ),
     ]
@@ -188,20 +204,104 @@ def test_invalid_base_fee(
         parent_base_fee_per_gas=parent_base_fee_per_gas,
         parent_gas_used=parent_gas_used,
         parent_gas_limit=BLOCK_GAS_LIMIT,
+        seconds_elapsed=SLOT_SECONDS,
     )
     blocks = [
         Block(
             txs=gas_spending_transactions(
                 pre=pre, sender=sender, fork=fork, gas=parent_gas_used
             ),
-            timestamp=10,
+            timestamp=SLOT_SECONDS,
         ),
         Block(
-            timestamp=20,
+            timestamp=2 * SLOT_SECONDS,
             rlp_modifier=Header(
                 base_fee_per_gas=expected_base_fee + base_fee_offset
             ),
             exception=BlockException.INVALID_BASEFEE_PER_GAS,
+        ),
+    ]
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=blocks,
+        genesis_environment=genesis_environment,
+    )
+
+
+@pytest.mark.parametrize(
+    "slot_seconds,slots_elapsed",
+    [
+        pytest.param(12, 1, id="12s"),
+        pytest.param(12, 2, id="12s_missed_slot"),
+        pytest.param(12, 10, id="12s_nine_missed_slots"),
+        pytest.param(11, 1, id="11s"),
+        pytest.param(10, 1, id="10s"),
+        pytest.param(10, 2, id="10s_missed_slot"),
+        pytest.param(10, 5, id="10s_four_missed_slots"),
+        pytest.param(9, 1, id="9s"),
+        pytest.param(9, 3, id="9s_two_missed_slots"),
+    ],
+)
+@pytest.mark.parametrize(
+    "parent_gas_used",
+    [
+        pytest.param(0, id="empty"),
+        pytest.param(BLOCK_GAS_LIMIT, id="full"),
+        pytest.param(BLOCK_GAS_LIMIT * 3 // 4, id="three_quarters"),
+    ],
+)
+def test_base_fee_follows_slot_duration(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    slot_seconds: int,
+    slots_elapsed: int,
+    parent_gas_used: int,
+) -> None:
+    """
+    Check that the maximum base fee change follows the slot duration read
+    from the block spacing, and that missed slots between a block and its
+    parent leave it unchanged.
+    """
+    parent_base_fee_per_gas = 10**9
+    base_fee_per_gas_calculator = fork.base_fee_per_gas_calculator()
+    expected_base_fee = base_fee_per_gas_calculator(
+        parent_base_fee_per_gas=parent_base_fee_per_gas,
+        parent_gas_used=parent_gas_used,
+        parent_gas_limit=BLOCK_GAS_LIMIT,
+        seconds_elapsed=slot_seconds * slots_elapsed,
+        slots_elapsed=slots_elapsed,
+    )
+    assert expected_base_fee == base_fee_per_gas_calculator(
+        parent_base_fee_per_gas=parent_base_fee_per_gas,
+        parent_gas_used=parent_gas_used,
+        parent_gas_limit=BLOCK_GAS_LIMIT,
+        seconds_elapsed=slot_seconds,
+    )
+    sender = pre.fund_eoa()
+    genesis_environment = Environment(
+        gas_limit=BLOCK_GAS_LIMIT,
+        base_fee_per_gas=genesis_base_fee_for(
+            fork, parent_base_fee_per_gas, slot_seconds=slot_seconds
+        ),
+    )
+    blocks = [
+        Block(
+            txs=gas_spending_transactions(
+                pre=pre, sender=sender, fork=fork, gas=parent_gas_used
+            ),
+            timestamp=slot_seconds,
+            slot_number=1,
+            header_verify=Header(
+                base_fee_per_gas=parent_base_fee_per_gas,
+                gas_used=parent_gas_used,
+            ),
+        ),
+        Block(
+            timestamp=slot_seconds * (1 + slots_elapsed),
+            slot_number=1 + slots_elapsed,
+            header_verify=Header(base_fee_per_gas=expected_base_fee),
         ),
     ]
     blockchain_test(

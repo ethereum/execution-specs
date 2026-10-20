@@ -48,6 +48,7 @@ from execution_testing.fixtures.state import (
     FixtureTransactionReceipt,
 )
 from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks.base_fork import DEFAULT_SECONDS_ELAPSED
 from execution_testing.logging import (
     get_logger,
 )
@@ -318,6 +319,19 @@ class StateTest(BaseTest):
         #                    the parent's value
         genesis_block_number = self.env.number - 1
         genesis_timestamp = 0
+        block_fork = self.fork.fork_at(
+            block_number=self.env.number, timestamp=self.env.timestamp
+        )
+        if block_fork.base_fee_follows_slot_spacing():
+            # The block's base fee follows its spacing from the genesis, so
+            # the genesis is one twelve-second slot before it.
+            assert self.env.timestamp >= DEFAULT_SECONDS_ELAPSED, (
+                "set state test env.timestamp to at least "
+                f"{DEFAULT_SECONDS_ELAPSED}"
+            )
+            genesis_timestamp = (
+                int(self.env.timestamp) - DEFAULT_SECONDS_ELAPSED
+            )
         genesis_fork = self.fork.fork_at(
             block_number=genesis_block_number, timestamp=genesis_timestamp
         )
@@ -325,6 +339,14 @@ class StateTest(BaseTest):
             "number": genesis_block_number,
             "timestamp": genesis_timestamp,
         }
+        if (
+            block_fork.base_fee_follows_slot_spacing()
+            and self.env.slot_number is not None
+        ):
+            assert int(self.env.slot_number) >= 1, (
+                "the slot number must follow the genesis slot number"
+            )
+            kwargs["slot_number"] = int(self.env.slot_number) - 1
 
         if "gas_limit" in self.env.model_fields_set:
             kwargs["gas_limit"] = self.env.gas_limit

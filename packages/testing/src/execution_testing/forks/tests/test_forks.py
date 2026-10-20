@@ -629,20 +629,30 @@ def test_blob_schedules(
 
 
 @pytest.mark.parametrize(
-    "fork,expected_max_change",
+    "fork,seconds_elapsed,slots_elapsed,expected_max_change",
     [
-        pytest.param(London, (1, 8), id="London"),
-        pytest.param(Amsterdam, (1, 8), id="Amsterdam"),
-        pytest.param(Bogota, (5, 48), id="Bogota"),
+        pytest.param(London, 12, 1, (1, 8), id="London"),
+        pytest.param(Amsterdam, 12, 1, (1, 8), id="Amsterdam"),
+        pytest.param(Amsterdam, 10, 1, (1, 8), id="Amsterdam_10s"),
+        pytest.param(Bogota, 12, 1, (12, 96), id="Bogota_12s"),
+        pytest.param(Bogota, 10, 1, (10, 96), id="Bogota_10s"),
+        pytest.param(Bogota, 24, 2, (24, 192), id="Bogota_12s_missed_slot"),
     ],
 )
 def test_base_fee_max_change(
-    fork: Fork, expected_max_change: Tuple[int, int]
+    fork: Fork,
+    seconds_elapsed: int,
+    slots_elapsed: int,
+    expected_max_change: Tuple[int, int],
 ) -> None:
     """Test the maximum base fee change per block of each fork."""
     assert (
-        fork.base_fee_max_change_numerator(),
-        fork.base_fee_max_change_denominator(),
+        fork.base_fee_max_change_numerator(
+            seconds_elapsed=seconds_elapsed, slots_elapsed=slots_elapsed
+        ),
+        fork.base_fee_max_change_denominator(
+            seconds_elapsed=seconds_elapsed, slots_elapsed=slots_elapsed
+        ),
     ) == expected_max_change
 
 
@@ -657,31 +667,86 @@ def test_base_fee_max_change(
         pytest.param(20, 100_000, 19, id="near_empty"),
     ],
 )
+@pytest.mark.parametrize(
+    "seconds_elapsed,slots_elapsed",
+    [
+        pytest.param(10, 1, id="10s"),
+        pytest.param(20, 2, id="10s_missed_slot"),
+        pytest.param(50, 5, id="10s_four_missed_slots"),
+    ],
+)
 def test_base_fee_per_gas_calculator_bogota(
     parent_base_fee_per_gas: int,
     parent_gas_used: int,
     expected_base_fee_per_gas: int,
+    seconds_elapsed: int,
+    slots_elapsed: int,
 ) -> None:
     """
-    Test the base fee update with a numerator other than one, which
-    multiplies before dividing.
+    Test the base fee update at ten-second slots, a maximum change of 5/48
+    that multiplies before dividing, with and without missed slots.
     """
     assert (
         Bogota.base_fee_per_gas_calculator()(
             parent_base_fee_per_gas=parent_base_fee_per_gas,
             parent_gas_used=parent_gas_used,
             parent_gas_limit=30_000_000,
+            seconds_elapsed=seconds_elapsed,
+            slots_elapsed=slots_elapsed,
         )
         == expected_base_fee_per_gas
     )
+
+
+@pytest.mark.parametrize(
+    "seconds_elapsed,slots_elapsed",
+    [
+        pytest.param(12, 1, id="12s"),
+        pytest.param(24, 2, id="12s_missed_slot"),
+        pytest.param(120, 10, id="12s_nine_missed_slots"),
+    ],
+)
+def test_base_fee_per_gas_calculator_bogota_twelve_seconds(
+    seconds_elapsed: int, slots_elapsed: int
+) -> None:
+    """
+    Test that the base fee update at twelve-second slots is the pre-Bogota
+    rule, with and without missed slots.
+    """
+    gas_limit = 30_000_000
+    for parent_base_fee_per_gas in [1, 7, 9, 20, 10**9, 10**9 + 7]:
+        for parent_gas_used in range(0, gas_limit + 1, 100_000):
+            assert Bogota.base_fee_per_gas_calculator()(
+                parent_base_fee_per_gas=parent_base_fee_per_gas,
+                parent_gas_used=parent_gas_used,
+                parent_gas_limit=gas_limit,
+                seconds_elapsed=seconds_elapsed,
+                slots_elapsed=slots_elapsed,
+            ) == Amsterdam.base_fee_per_gas_calculator()(
+                parent_base_fee_per_gas=parent_base_fee_per_gas,
+                parent_gas_used=parent_gas_used,
+                parent_gas_limit=gas_limit,
+            )
 
 
 @pytest.mark.parametrize("fork", [London, Amsterdam, Bogota])
 @pytest.mark.parametrize(
     "parent_base_fee_per_gas", [20, 7 * 10**8, 10**9, 10**9 + 7]
 )
+@pytest.mark.parametrize(
+    "seconds_elapsed,slots_elapsed",
+    [
+        pytest.param(12, 1, id="12s"),
+        pytest.param(10, 1, id="10s"),
+        pytest.param(9, 1, id="9s"),
+        pytest.param(20, 2, id="10s_missed_slot"),
+    ],
+)
 def test_base_fee_change_calculator_round_trip(
-    fork: Fork, parent_base_fee_per_gas: int
+    fork: Fork,
+    parent_base_fee_per_gas: int,
+    seconds_elapsed: int,
+    slots_elapsed: int,
 ) -> None:
     """
     Test that the gas returned for a reachable base fee yields that base
@@ -695,17 +760,23 @@ def test_base_fee_change_calculator_round_trip(
             parent_base_fee_per_gas=parent_base_fee_per_gas,
             parent_gas_used=parent_gas_used,
             parent_gas_limit=gas_limit,
+            seconds_elapsed=seconds_elapsed,
+            slots_elapsed=slots_elapsed,
         )
         gas_used = gas_for_base_fee(
             parent_base_fee_per_gas=parent_base_fee_per_gas,
             parent_gas_limit=gas_limit,
             required_base_fee_per_gas=required,
+            seconds_elapsed=seconds_elapsed,
+            slots_elapsed=slots_elapsed,
         )
         assert (
             base_fee_per_gas(
                 parent_base_fee_per_gas=parent_base_fee_per_gas,
                 parent_gas_used=gas_used,
                 parent_gas_limit=gas_limit,
+                seconds_elapsed=seconds_elapsed,
+                slots_elapsed=slots_elapsed,
             )
             == required
         )

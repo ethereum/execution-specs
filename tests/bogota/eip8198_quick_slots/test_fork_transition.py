@@ -77,15 +77,18 @@ def expected_base_fees(
     base_fees = []
     parent_base_fee = GENESIS_BASE_FEE_PER_GAS
     parent_gas_used = 0
+    parent_timestamp = 0
     for timestamp in BLOCK_TIMESTAMPS[:block_count]:
         block_fork = fork.fork_at(timestamp=timestamp)
         parent_base_fee = block_fork.base_fee_per_gas_calculator()(
             parent_base_fee_per_gas=parent_base_fee,
             parent_gas_used=parent_gas_used,
             parent_gas_limit=BLOCK_GAS_LIMIT,
+            seconds_elapsed=timestamp - parent_timestamp,
         )
         base_fees.append(parent_base_fee)
         parent_gas_used = gas_used
+        parent_timestamp = timestamp
     return base_fees
 
 
@@ -111,7 +114,9 @@ def test_base_fee_across_fork(
 ) -> None:
     """
     Check that blocks before the fork use the parent fork's base fee update
-    rule and that the fork block and its successor use the new rule.
+    rule and that the fork block and its successor use the new rule, which
+    at the fork block's twelve-second spacing is the parent fork's rule and
+    at its successor's ten-second spacing lowers the maximum change.
     """
     sender = pre.fund_eoa()
     base_fees = expected_base_fees(fork, gas_used, len(BLOCK_TIMESTAMPS))
@@ -150,33 +155,21 @@ def test_base_fee_across_fork(
         pytest.param(BLOCK_GAS_LIMIT, id="full"),
     ],
 )
-@pytest.mark.parametrize(
-    "invalid_block_index",
-    [
-        pytest.param(FORK_BLOCK_INDEX - 1, id="last_pre_fork_block_new_rule"),
-        pytest.param(FORK_BLOCK_INDEX, id="fork_block_old_rule"),
-    ],
-)
 @pytest.mark.exception_test
 def test_base_fee_wrong_rule_across_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: TransitionFork,
     gas_used: int,
-    invalid_block_index: int,
 ) -> None:
     """
-    Reject the last block before the fork when its base fee follows the new
-    rule, and the fork block when its base fee follows the parent fork's
-    rule.
+    Reject the first block after the fork, ten seconds after its parent,
+    when its base fee follows the parent fork's twelve-second rule.
     """
+    invalid_block_index = FORK_BLOCK_INDEX + 1
     sender = pre.fund_eoa()
     base_fees = expected_base_fees(fork, gas_used, invalid_block_index + 1)
-    if invalid_block_index >= FORK_BLOCK_INDEX:
-        wrong_fork = fork.transitions_from()
-    else:
-        wrong_fork = fork.transitions_to()
-    wrong_base_fee = wrong_fork.base_fee_per_gas_calculator()(
+    wrong_base_fee = fork.transitions_from().base_fee_per_gas_calculator()(
         parent_base_fee_per_gas=base_fees[invalid_block_index - 1],
         parent_gas_used=gas_used,
         parent_gas_limit=BLOCK_GAS_LIMIT,

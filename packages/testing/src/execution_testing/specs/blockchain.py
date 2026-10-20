@@ -223,6 +223,7 @@ def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
         parent_gas_used=parent.gas_used,
         parent_gas_limit=parent.gas_limit,
         parent_ommers_hash=parent.ommers_hash,
+        parent_slot_number=parent.slot_number,
         block_hashes={parent.number: parent.block_hash},
     )
 

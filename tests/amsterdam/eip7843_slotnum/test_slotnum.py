@@ -26,10 +26,14 @@ pytestmark = pytest.mark.valid_from("EIP7843")
 
 
 @EIPChecklist.Opcode.Test.GasUsage.ExtraGas()
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "slot_number",
-    [
-        pytest.param(0, id="slot_zero"),
+    lambda fork: [
+        *(
+            []
+            if fork.base_fee_follows_slot_spacing()
+            else [pytest.param(0, id="slot_zero")]
+        ),
         pytest.param(1, id="slot_one"),
         pytest.param(0x1000, id="slot_4096"),
         pytest.param(2**32, id="slot_large"),
@@ -127,6 +131,7 @@ def test_slotnum_gas_cost(
 def test_slotnum_distinct_per_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test that SLOTNUM returns each block's own slot number.
@@ -140,8 +145,13 @@ def test_slotnum_distinct_per_block(
     sender = pre.fund_eoa()
     contract = pre.deploy_contract(Op.SSTORE(Op.NUMBER, Op.SLOTNUM) + Op.STOP)
 
-    # Non-monotonic on purpose: decrease, increase, jump to large value.
-    slot_numbers = [100, 42, 7, 2**32]
+    # Non-monotonic on purpose where the slot number may decrease: decrease,
+    # increase, jump to large value. From EIP-8198 on, slot numbers must
+    # increase, so they jump instead.
+    if fork.base_fee_follows_slot_spacing():
+        slot_numbers = [7, 42, 100, 2**32]
+    else:
+        slot_numbers = [100, 42, 7, 2**32]
 
     blocks = [
         Block(
