@@ -75,6 +75,27 @@ class MultiTestClientManager:
         self.clients[group_identifier] = client
         logger.info(f"Registered client for group {group_identifier}")
 
+    def discard_client(self, group_identifier: str) -> None:
+        """
+        Stop and forget a group's client so the next request for the
+        group starts a fresh one under the same identifier.
+
+        The test tracker is untouched: the group's completed tests
+        stay counted, and the replacement client registered after this
+        call is the one stopped when the group completes.
+        """
+        client = self.clients.pop(group_identifier, None)
+        if client is None:
+            return
+        logger.info(f"🛑 Discarding client for group {group_identifier}")
+        try:
+            client.stop()
+        except Exception as e:
+            logger.error(
+                f"Error stopping discarded client for group "
+                f"{group_identifier}: {e}"
+            )
+
     def mark_test_completed(self, group_identifier: str, test_id: str) -> None:
         """
         Mark a test as completed and trigger cleanup.
