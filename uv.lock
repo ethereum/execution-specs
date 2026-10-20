@@ -878,7 +878,6 @@ dev = [
     { name = "mike" },
     { name = "mistletoe" },
     { name = "mkdocs" },
-    { name = "mkdocs-click" },
     { name = "mkdocs-gen-files" },
     { name = "mkdocs-git-authors-plugin" },
     { name = "mkdocs-glightbox" },
@@ -922,7 +921,6 @@ mkdocs = [
     { name = "markdown" },
     { name = "mike" },
     { name = "mkdocs" },
-    { name = "mkdocs-click" },
     { name = "mkdocs-gen-files" },
     { name = "mkdocs-git-authors-plugin" },
     { name = "mkdocs-glightbox" },
@@ -988,7 +986,6 @@ dev = [
     { name = "mike", specifier = ">=1.1.2,<2" },
     { name = "mistletoe", specifier = ">=1.5.0,<2" },
     { name = "mkdocs", specifier = ">=1.4.3,<2" },
-    { name = "mkdocs-click", specifier = ">=0.8,<1" },
     { name = "mkdocs-gen-files", specifier = ">=0.5.0,<1" },
     { name = "mkdocs-git-authors-plugin", specifier = ">=0.7.1,<1" },
     { name = "mkdocs-glightbox", specifier = ">=0.3.4,<1" },
@@ -1032,7 +1029,6 @@ mkdocs = [
     { name = "markdown", specifier = "==3.8" },
     { name = "mike", specifier = ">=1.1.2,<2" },
     { name = "mkdocs", specifier = ">=1.4.3,<2" },
-    { name = "mkdocs-click", specifier = ">=0.8,<1" },
     { name = "mkdocs-gen-files", specifier = ">=0.5.0,<1" },
     { name = "mkdocs-git-authors-plugin", specifier = ">=0.7.1,<1" },
     { name = "mkdocs-glightbox", specifier = ">=0.3.4,<1" },
@@ -1847,19 +1843,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/51/fa/9124cd63d822e2bcbea1450ae68cdc3faf3655c69b455f3a7ed36ce6c628/mkdocs_autorefs-1.4.3.tar.gz", hash = "sha256:beee715b254455c4aa93b6ef3c67579c399ca092259cc41b7d9342573ff1fc75", size = 55425, upload-time = "2025-08-26T14:23:17.223Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9f/4d/7123b6fa2278000688ebd338e2a06d16870aaf9eceae6ba047ea05f92df1/mkdocs_autorefs-1.4.3-py3-none-any.whl", hash = "sha256:469d85eb3114801d08e9cc55d102b3ba65917a869b893403b8987b601cf55dc9", size = 25034, upload-time = "2025-08-26T14:23:15.906Z" },
-]
-
-[[package]]
-name = "mkdocs-click"
-version = "0.9.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "click" },
-    { name = "markdown" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a1/c7/8c25f3a3b379def41e6d0bb5c4beeab7aa8a394b17e749f498504102cfa5/mkdocs_click-0.9.0.tar.gz", hash = "sha256:6050917628d4740517541422b607404d044117bc31b770c4f9e9e1939a50c908", size = 18720, upload-time = "2025-04-07T16:59:36.387Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e9/fc/9124ab36e2341e78d8d9c669511bd70f52ea0de8105760c31fabec1f9396/mkdocs_click-0.9.0-py3-none-any.whl", hash = "sha256:5208e828f4f68f63c847c1ef7be48edee9964090390afc8f5b3d4cbe5ea9bbed", size = 15104, upload-time = "2025-04-07T16:59:34.807Z" },
 ]
 
 [[package]]

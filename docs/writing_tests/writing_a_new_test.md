@@ -51,10 +51,10 @@ markers on either the test function, test class or test module level:
     pytestmark = pytest.mark.valid_from("Shanghai")
     ```
 
-The [`execution_testing.forks`](../library/execution_testing_forks.md) package defines the available forks and provides the following helpers that return all forks within the specified range:
+The [`execution_testing.forks`](https://github.com/ethereum/execution-specs/tree/HEAD/packages/testing/src/execution_testing/forks) package defines the available forks and provides the following helpers that return all forks within the specified range:
 
-- [forks_from](../library/execution_testing_forks.md#execution_testing.forks.forks_from)
-- [forks_from_until](../library/execution_testing_forks.md#execution_testing.forks.forks_from_until)
+- [forks_from](https://github.com/ethereum/execution-specs/tree/HEAD/packages/testing/src/execution_testing/forks)
+- [forks_from_until](https://github.com/ethereum/execution-specs/tree/HEAD/packages/testing/src/execution_testing/forks)
 
 ### Transition Fork Tests
 
@@ -178,11 +178,11 @@ which allows checking for an exact `gas_used` value.
 
 ## Writing code for the accounts in the test
 
-Account bytecode can be "deployed" in a test's pre-state using the `pre` pytest fixture. The @ethereum/execution-specs Python [`Opcodes`][execution_testing.vm.Opcodes] minilang can be used to help write the bytecode in a readable form.
+Account bytecode can be "deployed" in a test's pre-state using the `pre` pytest fixture. The @ethereum/execution-specs Python [`Opcodes`](https://github.com/ethereum/execution-specs/blob/HEAD/packages/testing/src/execution_testing/vm/opcodes.py) minilang can be used to help write the bytecode in a readable form.
 
 ### Using the Python Opcode Minilang
 
-EVM bytecode for tests should be written using the Python-based minilang provided by the [`Opcodes`][execution_testing.vm.Opcodes] class. This allows you to construct bytecode using symbolic opcodes as Python objects.
+EVM bytecode for tests should be written using the Python-based minilang provided by the [`Opcodes`](https://github.com/ethereum/execution-specs/blob/HEAD/packages/testing/src/execution_testing/vm/opcodes.py) class. This allows you to construct bytecode using symbolic opcodes as Python objects.
 
 #### Example: Simple Addition Contract
 
@@ -204,11 +204,11 @@ contract_address = pre.deploy_contract(code=code)
 
 You add this contract to the test's pre-state using the `pre` fixture or assign this `code` to the `code` field of an account in your test's `post` state. See the [state test tutorial](./tutorials/state_transition.md) for more help.
 
-For a full list of available opcodes and their usage, see [`Opcodes`][execution_testing.vm.Opcodes].
+For a full list of available opcodes and their usage, see [`Opcodes`](https://github.com/ethereum/execution-specs/blob/HEAD/packages/testing/src/execution_testing/vm/opcodes.py).
 
 #### Higher-Level Constructs
 
-For more complex control flow, you can use constructs like [`Switch`][execution_testing.tools.tools_code.generators.Switch] and [`Case`][execution_testing.tools.tools_code.generators.Case] from the `execution_testing.tools.tools_code.generators` module:
+For more complex control flow, you can use constructs like [`Switch`](https://github.com/ethereum/execution-specs/blob/HEAD/packages/testing/src/execution_testing/tools/tools_code/generators.py) and [`Case`](https://github.com/ethereum/execution-specs/blob/HEAD/packages/testing/src/execution_testing/tools/tools_code/generators.py) from the `execution_testing.tools.tools_code.generators` module:
 
 ```python
 from execution_testing.tools.tools_code.generators import Switch, Case
@@ -223,11 +223,11 @@ code = Switch(
 )
 ```
 
-The `execution_testing.tools.tools_code.generators` module also defines other high-level constructs like [`While`][execution_testing.tools.tools_code.generators.While] and [`Conditional`][execution_testing.tools.tools_code.generators.Conditional].
+The `execution_testing.tools.tools_code.generators` module also defines other high-level constructs like [`While`](https://github.com/ethereum/execution-specs/blob/HEAD/packages/testing/src/execution_testing/tools/tools_code/generators.py) and [`Conditional`](https://github.com/ethereum/execution-specs/blob/HEAD/packages/testing/src/execution_testing/tools/tools_code/generators.py).
 
 #### Converting Bytecode to Minilang
 
-If you have EVM bytecode (as hex or binary), you can use the [`evm_bytes` CLI tool](../library/cli/evm_bytes.md) to convert it to the EEST Python opcode minilang automatically, for example:
+If you have EVM bytecode (as hex or binary), you can use the [`evm_bytes` CLI tool](https://github.com/ethereum/execution-specs/blob/HEAD/packages/testing/src/execution_testing/cli/evm_bytes.py) to convert it to the EEST Python opcode minilang automatically, for example:
 
 ```console
 uv run evm_bytes hex-string 0x604260005260206000F3

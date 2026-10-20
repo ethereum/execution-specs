@@ -19,13 +19,13 @@ Application-wide [environment configuration](https://www.12factor.net/config), w
 
 This file will not be tracked by git, making it safe for storing local secrets.
 
-To get started, run the command [eest make env](../library/cli/eest.md) cli to initialize your environment configuration.
+To get started, run the command `eest make env` cli to initialize your environment configuration.
 
 ### Usage
 
 #### 1. Generate env file
 
-Run the [`eest make env`](../library/cli/eest.md) cli tool.
+Run the `eest make env` cli tool.
 
 ```console
 uv run eest make env

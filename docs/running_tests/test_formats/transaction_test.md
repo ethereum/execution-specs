@@ -62,6 +62,6 @@ Total intrinsic gas cost of the transaction (Field is missing if the transaction
 
 Sender address of the transaction (Field is missing if the transaction is expected to fail).
 
-#### - `exception`: [`TransactionException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.TransactionException)
+#### - `exception`: [`TransactionException`](https://github.com/ethereum/execution-specs/blob/HEAD/packages/testing/src/execution_testing/exceptions/exceptions/transaction.py)
 
 Exception that is expected to be thrown by the transaction parsing (Field is missing if the transaction is expected to succeed).

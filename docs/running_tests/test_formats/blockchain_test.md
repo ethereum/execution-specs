@@ -224,7 +224,7 @@ The block's access list ([EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)). I
 
 ### `InvalidFixtureBlock`
 
-#### - `expectException`: [`TransactionException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.TransactionException)` | `[`BlockException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.BlockException)
+#### - `expectException`: [`TransactionException`](https://github.com/ethereum/execution-specs/blob/HEAD/packages/testing/src/execution_testing/exceptions/exceptions/transaction.py)` | `[`BlockException`](https://github.com/ethereum/execution-specs/blob/HEAD/packages/testing/src/execution_testing/exceptions/exceptions/block.py)
 
 Expected exception that invalidates the block.
 
