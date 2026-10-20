@@ -37,7 +37,7 @@ The five simulator images are pushed by independent jobs, so a channel tag can p
 | `tests` | release and nightly runs | Checks out the release tag, or the fill commit, beside the planned commit and builds `packages/testing/docker/tests/Dockerfile` from its `tests/` directory, pushed as `tests` under the same tag as the fixture images. |
 | `images` | per planned simulator | Builds the simulator with `packages/testing/docker/hive/build.sh` from the repository image at the planned commit and the fixture or tests image, verifies it with `check.sh`, confirms the branch has not moved, and pushes the release tag and the channel tags. |
 
-Whenever a simulator image moves `latest`, the job also publishes `latest-legacy`: `latest` plus the ONBUILD steps of `packages/testing/docker/hive/Dockerfile.legacy`, which hive's default Dockerfiles select for the deprecated `fixtures` and `branch` arguments. Ending the deprecation (ethereum/execution-specs#3866) means no longer publishing it.
+Whenever a simulator image moves `latest`, the job also publishes `latest-legacy`: `latest` plus the ONBUILD steps of `packages/testing/docker/hive/Dockerfile.legacy`, which hive's default Dockerfiles select for the deprecated `fixtures` and `branch` arguments. Ending the deprecation means no longer publishing it.
 
 Every push goes through `.github/scripts/push_image_tags.sh`. In a release run it skips a release tag that already exists, so a re-run, manual or not, never changes what a published release tag points to; only the channel moves. It also records the digest of what it pushed. To replace a broken release image, delete that version from the ghcr package and rerun the release, which publishes the missing tag again.
 
