@@ -34,6 +34,10 @@ def _session(connection: socket.socket, initiator: bool) -> RLPxSession:
 def sessions() -> Iterator[Tuple[RLPxSession, RLPxSession]]:
     """Yield two connected sessions whose seeds mirror each other."""
     left, right = socket.socketpair()
+    # Tests write a whole message before reading it, and macOS socket
+    # pairs buffer only 8 KiB, so a larger frame would block forever.
+    for end in (left, right):
+        end.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1 << 20)
     initiator = _session(left, initiator=True)
     recipient = _session(right, initiator=False)
     for session in (initiator, recipient):
