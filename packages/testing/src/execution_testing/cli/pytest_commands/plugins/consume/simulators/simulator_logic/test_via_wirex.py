@@ -219,9 +219,10 @@ def check_latest_valid_hash(
     An INVALID answer that names a latest valid hash must name the
     parent of the first invalid block on the path (see
     `SyncPath.expected_latest_valid_hash`); any other hash means the
-    client blamed the wrong block, perhaps a valid ancestor. A null or
-    all-zero hash, which the Engine API allows when the client cannot
-    determine one, passes and is logged.
+    client blamed the wrong block, perhaps a valid ancestor. A null hash,
+    which the Engine API allows when the client cannot determine one,
+    passes and is logged. The all-zero hash names a PoW ancestor, which
+    here can only be genesis, so it passes only when genesis is owed.
     """
     expected = path.expected_latest_valid_hash
     got = payload_status.latest_valid_hash
@@ -236,10 +237,16 @@ def check_latest_valid_hash(
                 return f"{block_hash} (block {block.number})"
         return f"{block_hash} (not on the served chain)"
 
-    if got is None or got == Hash(0):
+    if got is None:
         logger.info(
             f"{prefix}{LATEST_VALID_HASH_CHECK} null: the client gave no "
             f"latest valid hash with {status} (latestValidHash {got})"
+        )
+        return
+    if got == Hash(0) and expected == chain.genesis.block_hash:
+        logger.info(
+            f"{prefix}{LATEST_VALID_HASH_CHECK} match: the all-zero hash, "
+            "naming the PoW genesis as the latest valid ancestor"
         )
         return
     if expected is None:

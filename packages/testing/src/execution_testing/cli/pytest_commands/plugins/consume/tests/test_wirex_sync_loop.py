@@ -85,9 +85,9 @@ class _StubHeader:
     block_hash: Hash
 
 
-def _chain(length: int) -> Chain:
+def _chain(length: int, genesis_hash: int = 0) -> Chain:
     """Return a chain of `length` non-empty blocks above a stub genesis."""
-    genesis = _StubHeader(number=0, block_hash=Hash(0))
+    genesis = _StubHeader(number=0, block_hash=Hash(genesis_hash))
     blocks = [
         Block(
             header=cast(
@@ -614,27 +614,30 @@ class TestLatestValidHash:
                 expects_rejection=True,
             )
 
-    @pytest.mark.parametrize(
-        "verdict,latest_valid_hash",
-        [
-            (INVALID, None),
-            (INVALID, Hash(0)),
-        ],
-        ids=["invalid-null", "invalid-zero"],
-    )
-    def test_no_hash_passes(
-        self,
-        clock: FakeClock,
-        verdict: PayloadStatusEnum,
-        latest_valid_hash: Hash | None,
-    ) -> None:
+    def test_a_null_hash_passes(self, clock: FakeClock) -> None:
         """A rejection naming no latest valid hash is not held against it."""
         _run(
             clock,
-            _engine(clock, verdict, latest_valid_hash=latest_valid_hash),
+            _engine(clock, INVALID, latest_valid_hash=None),
             expects_rejection=True,
             expected_latest_valid_hash=Hash(2),
         )
+
+    def test_a_zero_hash_passes_only_for_a_genesis_ancestor(self) -> None:
+        """The all-zero hash names a PoW ancestor, which is only genesis."""
+        chain = _chain(3, genesis_hash=100)
+
+        def check(expected: Hash) -> None:
+            path = SimpleNamespace(expected_latest_valid_hash=expected)
+            test_via_wirex.check_latest_valid_hash(
+                cast(SyncPath, path), chain, _status(INVALID, Hash(0)), ""
+            )
+
+        check(Hash(100))
+        with pytest.raises(
+            LoggedError, match="latestValidHash check: mismatch"
+        ):
+            check(Hash(2))
 
     def test_a_path_with_no_invalid_block_is_unchecked(
         self, clock: FakeClock, caplog: pytest.LogCaptureFixture
