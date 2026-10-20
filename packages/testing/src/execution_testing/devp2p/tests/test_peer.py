@@ -25,7 +25,6 @@ from ..protocol import (
     EthVersion,
     ForkSchedule,
     MessageCode,
-    encode_response,
 )
 from ..rlpx import RLPxSession
 
@@ -151,77 +150,50 @@ def _serve(bodies: Dict[Hash, bytes], hashes: List[Hash]) -> int:
     return served
 
 
+BODY_RESPONSES = {
+    "two-large-bodies-split": (
+        {1: LARGE_BODY_SIZE, 2: LARGE_BODY_SIZE},
+        [1, 2],
+        1,
+    ),
+    "one-oversized-body-served": ({1: LARGE_BODY_SIZE}, [1], 1),
+    "small-bodies-share-one-response": (
+        dict.fromkeys(range(1, 33), 1),
+        list(range(1, 33)),
+        32,
+    ),
+    "item-cap": (
+        dict.fromkeys(range(MAX_BODIES_PER_RESPONSE + 10), 1),
+        list(range(MAX_BODIES_PER_RESPONSE + 10)),
+        MAX_BODIES_PER_RESPONSE,
+    ),
+    "unknown-hash-ends-the-response": ({1: 2, 3: 2}, [1, 2, 3], 1),
+}
+"""Held body sizes by index, the indexes requested, and bodies served."""
+
+
 class TestBodyResponseSize:
     """One response never carries more bytes than a client will read."""
 
-    def test_two_large_bodies_are_split(self) -> None:
-        """Two eight mebibyte bodies do not share one response."""
+    @pytest.mark.parametrize(
+        "sizes,requested,served",
+        BODY_RESPONSES.values(),
+        ids=BODY_RESPONSES.keys(),
+    )
+    def test_a_response_stops_at_a_limit_or_an_unknown_hash(
+        self, sizes: Dict[int, int], requested: List[int], served: int
+    ) -> None:
+        """
+        A response stops at the byte or item limit, though one oversized
+        body is still served rather than withheld, and at an unheld hash,
+        as geth and reth stop: a body after it would sit at the unheld
+        hash's position.
+        """
+        assert LARGE_BODY_SIZE > SOFT_RESPONSE_LIMIT
         bodies = {
-            _hash(1): b"\x00" * LARGE_BODY_SIZE,
-            _hash(2): b"\x00" * LARGE_BODY_SIZE,
+            _hash(index): b"\x01" * size for index, size in sizes.items()
         }
-        assert _serve(bodies, [_hash(1), _hash(2)]) == 1
-
-    def test_one_oversized_body_is_still_served(self) -> None:
-        """A body larger than the limit is served rather than withheld."""
-        body = b"\x00" * LARGE_BODY_SIZE
-        assert len(body) > SOFT_RESPONSE_LIMIT
-        assert _serve({_hash(1): body}, [_hash(1)]) == 1
-
-    def test_small_bodies_share_one_response(self) -> None:
-        """Bodies that fit are still batched, as they always were."""
-        bodies = {_hash(index): bytes([index]) for index in range(1, 33)}
-        assert _serve(bodies, sorted(bodies)) == 32
-
-    def test_an_unknown_hash_ends_the_response(self) -> None:
-        """
-        The response stops at an unheld hash, as geth and reth stop:
-        a body served after it would sit at the unheld hash's position.
-        """
-        bodies = {_hash(1): b"\xc1\x01", _hash(3): b"\xc1\x03"}
-        peer = _stub_peer(bodies)
-        session = _RecordingSession()
-        peer._serve_bodies(
-            cast(RLPxSession, session), 7, [_hash(1), _hash(2), _hash(3)]
-        )
-        assert session.messages == [
-            (MessageCode.BLOCK_BODIES, encode_response(7, [b"\xc1\x01"]))
-        ]
-        assert peer.statistics.bodies_served == 1
-        assert peer.body_hashes_ever_served == {_hash(1)}
-        assert "stopped at unknown" in peer.statistics.transcript[-1]
-
-    def test_item_cap_still_applies(self) -> None:
-        """The count cap bounds a request for many tiny bodies."""
-        wanted = MAX_BODIES_PER_RESPONSE + 10
-        bodies = {_hash(index): b"\x01" for index in range(wanted)}
-        hashes = [_hash(index) for index in range(wanted)]
-        assert _serve(bodies, hashes) == MAX_BODIES_PER_RESPONSE
-
-    def test_lifetime_service_survives_a_chain_switch(self) -> None:
-        """`body_hashes_ever_served` survives a chain switch."""
-        peer = _stub_peer(bodies={_hash(1): b"\x01"})
-        peer._serve_bodies(
-            cast(RLPxSession, _RecordingSession()), 1, [_hash(1)]
-        )
-        assert peer.statistics.body_hashes_served == {_hash(1)}
-
-        peer.set_chain(cast(Any, _StubChain()))
-        assert peer.statistics.body_hashes_served == set()
-        assert peer.body_hashes_ever_served == {_hash(1)}
-
-    def test_failed_write_records_nothing_as_served(self) -> None:
-        """A failed write records no body as served, only the request."""
-        peer = _stub_peer(bodies={_hash(1): b"\x01"})
-        with pytest.raises(OSError):
-            peer._serve_bodies(
-                cast(RLPxSession, _FailingSession()), 1, [_hash(1)]
-            )
-        assert peer.statistics.body_requests == 1
-        assert peer.statistics.bodies_served == 0
-        assert peer.statistics.body_hashes_served == set()
-        assert peer.body_hashes_ever_served == set()
-        assert not any("served" in line for line in peer.statistics.transcript)
+        assert _serve(bodies, [_hash(index) for index in requested]) == served
 
 
 def _headers_request(number: int, amount: int = 1) -> BlockHeadersRequest:
@@ -234,46 +206,6 @@ def _headers_request(number: int, amount: int = 1) -> BlockHeadersRequest:
         skip=0,
         reverse=False,
     )
-
-
-class TestHeaderServiceEvidence:
-    """Served headers are recorded per block hash, like bodies."""
-
-    def test_served_headers_are_recorded_by_hash(self) -> None:
-        """The evidence is the keccak of the exact bytes served."""
-        header = b"\x02" * 100
-        peer = _stub_peer(headers={1: header})
-        peer._serve_headers(
-            cast(RLPxSession, _RecordingSession()), _headers_request(1)
-        )
-        assert peer.statistics.headers_served == 1
-        assert peer.statistics.header_hashes_served == {keccak256(header)}
-        assert peer.header_hashes_ever_served == {keccak256(header)}
-
-    def test_lifetime_service_survives_a_chain_switch(self) -> None:
-        """`header_hashes_ever_served` survives a chain switch."""
-        header = b"\x03" * 100
-        peer = _stub_peer(headers={1: header})
-        peer._serve_headers(
-            cast(RLPxSession, _RecordingSession()), _headers_request(1)
-        )
-        assert peer.statistics.header_hashes_served == {keccak256(header)}
-
-        peer.set_chain(cast(Any, _StubChain()))
-        assert peer.statistics.header_hashes_served == set()
-        assert peer.header_hashes_ever_served == {keccak256(header)}
-
-    def test_failed_write_records_nothing_as_served(self) -> None:
-        """A failed write records no header as served, only the request."""
-        peer = _stub_peer(headers={1: b"\x04" * 100})
-        with pytest.raises(OSError):
-            peer._serve_headers(
-                cast(RLPxSession, _FailingSession()), _headers_request(1)
-            )
-        assert peer.statistics.header_requests == 1
-        assert peer.statistics.headers_served == 0
-        assert peer.statistics.header_hashes_served == set()
-        assert peer.header_hashes_ever_served == set()
 
 
 @dataclass
@@ -364,30 +296,52 @@ class TestHeaderRequests:
     """Header requests walk the served chain as the eth protocol says."""
 
     @pytest.mark.parametrize(
-        "origin,by_hash,amount,skip,reverse,expected",
+        "length,origin,by_hash,amount,skip,reverse,expected",
         [
-            pytest.param(1, False, 4, 2, False, [1, 4, 7, 10], id="skip"),
+            pytest.param(10, 1, False, 4, 2, False, [1, 4, 7, 10], id="skip"),
             pytest.param(
-                10, False, 4, 2, True, [10, 7, 4, 1], id="reverse-skip"
+                10, 10, False, 4, 2, True, [10, 7, 4, 1], id="reverse-skip"
             ),
             pytest.param(
-                3, False, 10, 0, True, [3, 2, 1, 0], id="reverse-to-genesis"
+                10,
+                3,
+                False,
+                10,
+                0,
+                True,
+                [3, 2, 1, 0],
+                id="reverse-to-genesis",
             ),
-            pytest.param(9, False, 5, 0, False, [9, 10], id="past-head"),
-            pytest.param(11, False, 1, 0, False, [], id="beyond-head"),
-            pytest.param(1, False, 0, 0, False, [], id="amount-zero"),
+            pytest.param(10, 9, False, 5, 0, False, [9, 10], id="past-head"),
+            pytest.param(10, 11, False, 1, 0, False, [], id="beyond-head"),
+            pytest.param(10, 1, False, 0, 0, False, [], id="amount-zero"),
             pytest.param(
-                10, True, 3, 0, True, [10, 9, 8], id="hash-head-reverse"
+                10, 10, True, 3, 0, True, [10, 9, 8], id="hash-head-reverse"
             ),
             pytest.param(
-                2, True, 3, 1, False, [2, 4, 6], id="hash-forward-skip"
+                10, 2, True, 3, 1, False, [2, 4, 6], id="hash-forward-skip"
             ),
-            pytest.param(0, True, 3, 0, False, [0, 1, 2], id="hash-genesis"),
+            pytest.param(
+                10, 0, True, 3, 0, False, [0, 1, 2], id="hash-genesis"
+            ),
+            # A hash on no served chain gets an empty, counted answer.
+            pytest.param(10, None, True, 2, 0, False, [], id="unknown-hash"),
+            pytest.param(
+                MAX_HEADERS_PER_RESPONSE + 10,
+                0,
+                False,
+                MAX_HEADERS_PER_RESPONSE + 11,
+                0,
+                False,
+                list(range(MAX_HEADERS_PER_RESPONSE)),
+                id="count-capped",
+            ),
         ],
     )
     def test_header_requests(
         self,
-        origin: int,
+        length: int,
+        origin: int | None,
         by_hash: bool,
         amount: int,
         skip: int,
@@ -395,78 +349,55 @@ class TestHeaderRequests:
         expected: List[int],
     ) -> None:
         """Exactly the requested blocks are served, in order, and recorded."""
-        chain = _chain([bytes([number]) for number in range(1, 11)])
-        peer = _serving(chain)
-        served = _walk(
-            peer,
-            _hash_at(chain, origin) if by_hash else origin,
-            amount,
-            skip,
-            reverse,
+        chain = _chain(
+            [number.to_bytes(2, "big") for number in range(1, length + 1)]
         )
+        peer = _serving(chain)
+        start: int | bytes | None = origin
+        if by_hash:
+            start = b"\xee" * 32 if origin is None else _hash_at(chain, origin)
+        assert start is not None
+        served = _walk(peer, start, amount, skip, reverse)
         wanted = [_hash_at(chain, number) for number in expected]
         assert served == wanted
         assert peer.statistics.header_requests == 1
         assert peer.statistics.headers_served == len(wanted)
         assert peer.statistics.header_hashes_served == set(wanted)
 
-    def test_an_unknown_hash_is_answered_empty(self) -> None:
-        """A hash on no served chain gets an empty, counted answer."""
-        peer = _serving(_chain([b"\x01", b"\x02"]))
-        assert _walk(peer, b"\xee" * 32, 2) == []
-        assert peer.statistics.header_requests == 1
-        assert peer.statistics.header_hashes_served == set()
-
-    def test_header_count_is_capped(self) -> None:
-        """One response carries at most the per-response header cap."""
-        length = MAX_HEADERS_PER_RESPONSE + 10
-        chain = _chain([number.to_bytes(2, "big") for number in range(length)])
-        served = _walk(_serving(chain), 0, length + 1)
-        assert served == [
-            _hash_at(chain, number)
-            for number in range(MAX_HEADERS_PER_RESPONSE)
-        ]
-
-    def test_a_hash_from_an_older_chain_is_walked_on_that_chain(
+    @pytest.mark.parametrize(
+        "walked,origin,amount,reverse,expected",
+        [
+            # A client still syncing the previous test's chain names a
+            # block only that chain holds, and is answered from it.
+            pytest.param("older", 3, 4, True, [3, 2, 1, 0], id="older-head"),
+            pytest.param(
+                "current", 3, 4, True, [3, 2, 1, 0], id="current-head"
+            ),
+            # A forward walk from a block both chains share leads to the
+            # current head, not the older one's.
+            pytest.param(
+                "current", 1, 3, False, [1, 2, 3], id="forward-from-shared"
+            ),
+        ],
+    )
+    def test_a_walk_follows_the_chain_of_its_origin(
         self,
+        walked: str,
+        origin: int,
+        amount: int,
+        reverse: bool,
+        expected: List[int],
     ) -> None:
-        """
-        A client still syncing the previous test's chain is answered
-        from that chain when it names a block only that chain holds.
-        """
-        older = _chain([b"1a", b"2a", b"3a"])
-        current = _chain([b"1b", b"2b"])
-        peer = _serving(older, current)
-        served = _walk(peer, _hash_at(older, 3), 4, reverse=True)
-        assert served == [_hash_at(older, number) for number in (3, 2, 1, 0)]
-
-    def test_forward_walk_from_a_shared_block_follows_the_current_chain(
-        self,
-    ) -> None:
-        """
-        A forward walk from a block the current chain shares with an
-        older one leads to the current head, not the older one's.
-        """
-        older = _chain([b"1", b"2a", b"3a"])
-        current = _chain([b"1", b"2b", b"3b"])
-        assert _hash_at(older, 1) == _hash_at(current, 1)
-        peer = _serving(older, current)
-        served = _walk(peer, _hash_at(current, 1), 3)
-        assert served == [_hash_at(current, number) for number in (1, 2, 3)]
-
-    @pytest.mark.parametrize("walked", ["older", "current"])
-    def test_reverse_walk_from_either_chain_reaches_genesis(
-        self, walked: str
-    ) -> None:
-        """A reverse walk from either chain's head follows its ancestry."""
+        """A walk across two served chains follows the right ancestry."""
         chains = {
             "older": _chain([b"1", b"2a", b"3a"]),
             "current": _chain([b"1", b"2b", b"3b"]),
         }
+        assert _hash_at(chains["older"], 1) == _hash_at(chains["current"], 1)
         peer = _serving(chains["older"], chains["current"])
         chain = chains[walked]
-        served = _walk(peer, _hash_at(chain, 3), 4, reverse=True)
-        assert served == [_hash_at(chain, number) for number in (3, 2, 1, 0)]
+        served = _walk(peer, _hash_at(chain, origin), amount, reverse=reverse)
+        assert served == [_hash_at(chain, number) for number in expected]
 
 
 class _HandoverSession(_RecordingSession):
@@ -483,46 +414,124 @@ class _HandoverSession(_RecordingSession):
         super().write_message(code, payload)
 
 
-class TestStragglerAttribution:
-    """A straggling response is recorded for the test that asked for it."""
+HEADER = b"\x02" * 100
+"""The header a stub peer holds at number 1."""
 
-    def test_a_straggling_body_response_stays_with_its_test(self) -> None:
-        """The served body lands in the asking test's statistics."""
-        peer = _stub_peer(bodies={_hash(1): b"\x01"})
-        asking = peer.statistics
-        session = _HandoverSession(
-            lambda: peer.set_chain(cast(Any, _StubChain()))
+
+@dataclass(frozen=True)
+class _Service:
+    """
+    One kind of served item, as the evidence tests hold and ask for it.
+
+    The `str` fields name the statistics and peer attributes this kind
+    is counted in, and `marker` the word its transcript line carries.
+    """
+
+    held: Callable[[], MockPeer]
+    serve: Callable[[MockPeer, Any], None]
+    evidence: bytes
+    requests: str
+    served: str
+    hashes: str
+    ever_served: str
+    marker: str
+
+
+SERVICES = {
+    "header": _Service(
+        held=lambda: _stub_peer(headers={1: HEADER}),
+        serve=lambda peer, session: peer._serve_headers(
+            session, _headers_request(1)
+        ),
+        evidence=keccak256(HEADER),
+        requests="header_requests",
+        served="headers_served",
+        hashes="header_hashes_served",
+        ever_served="header_hashes_ever_served",
+        marker="headers",
+    ),
+    "body": _Service(
+        held=lambda: _stub_peer(bodies={_hash(1): b"\x01"}),
+        serve=lambda peer, session: peer._serve_bodies(session, 1, [_hash(1)]),
+        evidence=_hash(1),
+        requests="body_requests",
+        served="bodies_served",
+        hashes="body_hashes_served",
+        ever_served="body_hashes_ever_served",
+        marker="served",
+    ),
+}
+
+
+@pytest.mark.parametrize("kind", SERVICES)
+class TestServiceEvidence:
+    """Served headers and bodies are each recorded by hash, apart."""
+
+    def test_a_served_item_is_recorded_by_hash(self, kind: str) -> None:
+        """
+        The evidence is the hash of the exact item served, and it is no
+        evidence of the other kind, per test or lifetime.
+        """
+        service = SERVICES[kind]
+        other = SERVICES["body" if kind == "header" else "header"]
+        peer = service.held()
+        service.serve(peer, _RecordingSession())
+        for attribute in (service.requests, service.served):
+            assert getattr(peer.statistics, attribute) == 1
+        assert getattr(peer.statistics, service.hashes) == {service.evidence}
+        assert getattr(peer, service.ever_served) == {service.evidence}
+        assert getattr(peer.statistics, other.served) == 0
+        assert getattr(peer.statistics, other.hashes) == set()
+        assert getattr(peer, other.ever_served) == set()
+
+    def test_lifetime_service_survives_a_chain_switch(self, kind: str) -> None:
+        """The lifetime record survives the statistics of a chain switch."""
+        service = SERVICES[kind]
+        peer = service.held()
+        service.serve(peer, _RecordingSession())
+        peer.set_chain(cast(Any, _StubChain()))
+        assert getattr(peer.statistics, service.hashes) == set()
+        assert getattr(peer, service.ever_served) == {service.evidence}
+
+    def test_a_failed_write_records_nothing_as_served(self, kind: str) -> None:
+        """A failed write records nothing as served, only the request."""
+        service = SERVICES[kind]
+        peer = service.held()
+        with pytest.raises(OSError):
+            service.serve(peer, _FailingSession())
+        statistics = peer.statistics
+        assert getattr(statistics, service.requests) == 1
+        assert getattr(statistics, service.served) == 0
+        assert getattr(statistics, service.hashes) == set()
+        assert getattr(peer, service.ever_served) == set()
+        assert not any(
+            service.marker in line for line in statistics.transcript
         )
-        peer._serve_bodies(cast(RLPxSession, session), 1, [_hash(1)])
 
-        assert peer.statistics is not asking
-        assert asking.bodies_served == 1
-        assert asking.body_hashes_served == {_hash(1)}
-        assert any("served" in line for line in asking.transcript)
-        assert peer.statistics.bodies_served == 0
-        assert peer.statistics.body_hashes_served == set()
-        assert not any("served" in line for line in peer.statistics.transcript)
-        assert peer.body_hashes_ever_served == {_hash(1)}
-
-    def test_a_straggling_header_response_stays_with_its_test(self) -> None:
-        """The served headers land in the asking test's statistics."""
-        chain = _chain([b"\x01", b"\x02"])
-        peer = _serving(chain)
+    def test_a_straggling_response_stays_with_its_test(
+        self, kind: str
+    ) -> None:
+        """
+        A response written while the next test takes over the peer is
+        recorded for the test that asked for it.
+        """
+        service = SERVICES[kind]
+        peer = service.held()
         asking = peer.statistics
-        session = _HandoverSession(lambda: peer.set_chain(_chain([b"\x03"])))
-        peer._serve_headers(
-            cast(RLPxSession, session), _headers_request(1, amount=2)
+        service.serve(
+            peer,
+            _HandoverSession(lambda: peer.set_chain(cast(Any, _StubChain()))),
         )
-
-        served = {_hash_at(chain, 1), _hash_at(chain, 2)}
         assert peer.statistics is not asking
-        assert asking.headers_served == 2
-        assert asking.header_hashes_served == served
-        assert any("2 headers" in line for line in asking.transcript)
-        assert peer.statistics.headers_served == 0
-        assert peer.statistics.header_hashes_served == set()
-        assert peer.statistics.transcript == []
-        assert peer.header_hashes_ever_served == served
+        assert getattr(asking, service.served) == 1
+        assert getattr(asking, service.hashes) == {service.evidence}
+        assert any(service.marker in line for line in asking.transcript)
+        assert getattr(peer.statistics, service.served) == 0
+        assert getattr(peer.statistics, service.hashes) == set()
+        assert not any(
+            service.marker in line for line in peer.statistics.transcript
+        )
+        assert getattr(peer, service.ever_served) == {service.evidence}
 
 
 class TestChainSwitchDuringALookup:
@@ -618,32 +627,6 @@ class TestStatusForkId:
         """
         peer = _peer(fork_schedule=ForkSchedule(timestamps=(15000,)))
         assert _eth69_status(peer, head_timestamp) == expected
-
-
-class TestEvidenceSeparation:
-    """Header service and body service are separate evidence."""
-
-    def test_header_service_is_not_body_evidence(self) -> None:
-        """Serving a header records no body, per test or lifetime."""
-        peer = _stub_peer(headers={1: b"\x05" * 100})
-        peer._serve_headers(
-            cast(RLPxSession, _RecordingSession()), _headers_request(1)
-        )
-        assert peer.statistics.headers_served == 1
-        assert peer.statistics.bodies_served == 0
-        assert peer.statistics.body_hashes_served == set()
-        assert peer.body_hashes_ever_served == set()
-
-    def test_body_service_is_not_header_evidence(self) -> None:
-        """Serving a body records no header, per test or lifetime."""
-        peer = _stub_peer(bodies={_hash(1): b"\x01"})
-        peer._serve_bodies(
-            cast(RLPxSession, _RecordingSession()), 1, [_hash(1)]
-        )
-        assert peer.statistics.bodies_served == 1
-        assert peer.statistics.headers_served == 0
-        assert peer.statistics.header_hashes_served == set()
-        assert peer.header_hashes_ever_served == set()
 
 
 def _bal_peer(bals: Dict[Hash, bytes | None], serve: bool) -> MockPeer:
