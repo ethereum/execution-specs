@@ -37,7 +37,7 @@ from ..transition_tool import (
     model_dump_config,
 )
 
-BESU_BIN_DETECT_PATTERN = re.compile(r"^Besu evm .*$")
+BESU_BIN_DETECT_PATTERN = re.compile(r"\bBesu evm\b|\bevmtool\b")
 
 
 class BesuEvmTool(EthereumCLI):

@@ -195,7 +195,8 @@ class GethEvm(EthereumCLI):
     """go-ethereum `evm` base class."""
 
     default_binary = Path("evm")
-    detect_binary_pattern = re.compile(r"^evm(.exe)? version\b")
+    # `Besu evm ...` also names `evm`, so the name must lead the line.
+    detect_binary_pattern = re.compile(r"^evm(\.exe)?\b")
     cached_version: Optional[str] = None
     trace: bool
 
