@@ -35,6 +35,28 @@ state_tests/stCallDelegateCodesHomestead/callcodecallcode_11Filler.json
 state_tests/stCallDelegateCodesCallCodeHomestead/callcallcode_01Filler.json
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecall_10Filler.json
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcode_11Filler.json
+state_tests/stCallCodes/callcallcall_ABCB_RECURSIVEFiller.json
+state_tests/stCallCodes/callcallcallcode_ABCB_RECURSIVEFiller.json
+state_tests/stCallCodes/callcallcodecall_ABCB_RECURSIVEFiller.json
+state_tests/stCallCodes/callcallcodecallcode_ABCB_RECURSIVEFiller.json
+state_tests/stCallCodes/callcodecallcall_ABCB_RECURSIVEFiller.json
+state_tests/stCallCodes/callcodecallcallcode_ABCB_RECURSIVEFiller.json
+state_tests/stCallCodes/callcodecallcodecall_ABCB_RECURSIVEFiller.json
+state_tests/stCallCodes/callcodecallcodecallcode_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcallcode_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcodecall_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcodecallcode_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcall_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcallcode_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcodecall_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcodecallcode_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcallcode_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecall_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecallcode_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_ABCB_RECURSIVEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_ABCB_RECURSIVEFiller.json
 
 @manually-enhanced: Do not overwrite. The fillers are one chain test copied
 into three directories, each substituting a different pair of call opcodes,
@@ -45,6 +67,12 @@ slots 5, 6 and 7; every level now stores CALLER and the innermost code
 stores CALLVALUE in slot 7. The post state is derived from the opcodes:
 CALL moves the context to the callee, CALLCODE keeps the caller's account
 but makes it the CALLER, and DELEGATECALL keeps the caller's whole context.
+
+In the recursive A -> B -> C -> B chains, the fillers recursed until the
+gas ran out (about 132 rounds, of which only the first re-entry decided the
+outcome). The recursion is now bounded by a round count passed down as
+calldata, together with B's address, which C would otherwise have to embed
+while B embeds C's.
 """
 
 from dataclasses import dataclass
@@ -73,6 +101,7 @@ GAS_PRICE = 10
 WINDOW = 64
 CALLER_SLOT = 4
 CALLVALUE_SLOT = 7
+ROUNDS_SLOT_OFFSET = 32
 
 
 def call_chains(depth: int) -> list:
@@ -268,3 +297,124 @@ def test_two_level_call_chain(
 ) -> None:
     """Call -> call -> code, every combination of call opcodes."""
     run_call_chain(state_test, pre, chain)
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stCallCodes/callcallcall_ABCB_RECURSIVEFiller.json",
+        "state_tests/stCallCodes/callcallcallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcallcodecall_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcallcodecallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcall_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcodecall_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcodecallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcodecall_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcodecallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcall_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcodecall_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcodecallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecall_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("rounds", [0, 1, 40], ids=lambda r: f"rounds_{r}")
+@pytest.mark.parametrize("chain", call_chains(3))
+def test_recursive_call_chain(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    chain: tuple[Op, Op, Op],
+    rounds: int,
+) -> None:
+    """
+    Call A -> B -> C, where C calls B again for `rounds` more rounds of
+    B -> C, and the last C calls B with no gas so that call fails.
+
+    `rounds=0` is the outcome the fillers checked: their recursion ran until
+    the gas ran out, but the first recursive B already failed, so only A,
+    B and the first C kept their writes. 40 rounds is about as far as the
+    fillers' recursion did any work before its gas thinned out.
+    """
+    a_to_b, b_to_c, c_to_b = chain
+
+    # Construct C, which calls back the address it receives as calldata
+    # with one round less, or with no gas once no rounds are left.
+    # Source: lll
+    # {  [[ 2 ]] (CALL 500000 <contract:0x1000000000000000000000000000000000000001> 0 0 64 0 64 ) }  # noqa: E501
+    rounds_left = Op.CALLDATALOAD(ROUNDS_SLOT_OFFSET)
+    c = pre.deploy_contract(
+        code=Op.CALLDATACOPY(dest_offset=0, offset=0, size=WINDOW)
+        + Op.MSTORE(ROUNDS_SLOT_OFFSET, Op.SUB(rounds_left, 1))
+        + Op.SSTORE(
+            2,
+            c_to_b(
+                gas=Op.MUL(Op.GAS, Op.ISZERO(Op.ISZERO(rounds_left))),
+                address=Op.CALLDATALOAD(0),
+                args_size=WINDOW,
+            ),
+        )
+        + Op.STOP,
+        balance=CONTRACT_BALANCE,
+    )
+
+    # Construct B, which forwards its calldata to C.
+    # Source: lll
+    # {  [[ 1 ]] (CALL 1000000 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) }  # noqa: E501
+    b = pre.deploy_contract(
+        code=Op.CALLDATACOPY(dest_offset=0, offset=0, size=WINDOW)
+        + Op.SSTORE(1, b_to_c(address=c, args_size=WINDOW))
+        + Op.STOP,
+        balance=CONTRACT_BALANCE,
+    )
+
+    # Construct A, which passes B's address and the round count down as
+    # calldata.
+    # Source: lll
+    # {  [[ 0 ]] (CALL 25000000 <contract:0x1000000000000000000000000000000000000001> 0 0 64 0 64 ) }  # noqa: E501
+    a = pre.deploy_contract(
+        code=Op.MSTORE(0, b)
+        + Op.MSTORE(ROUNDS_SLOT_OFFSET, rounds)
+        + Op.SSTORE(0, a_to_b(address=b, args_size=WINDOW))
+        + Op.STOP,
+        balance=CONTRACT_BALANCE,
+    )
+
+    # Construct the transaction.
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, to=a)
+
+    # Simulate the contexts of every frame, from A down to the last C,
+    # with the slot each one stores its call's result in.
+    frame = Frame(address=a, caller=sender, value=0)
+    writes = [(frame, 0)]
+    frame = frame.enter(a_to_b, b, 0)
+    writes.append((frame, 1))
+    frame = frame.enter(b_to_c, c, 0)
+    writes.append((frame, 2))
+    for _ in range(rounds):
+        frame = frame.enter(c_to_b, b, 0)
+        writes.append((frame, 1))
+        frame = frame.enter(b_to_c, c, 0)
+        writes.append((frame, 2))
+
+    # Construct the expected storage: the frames store after their call
+    # returns, innermost first; every call succeeds but the last C's.
+    storage: dict[Address, dict[int, int]] = {a: {}, b: {}, c: {}}
+    for index, (frame, slot) in reversed(list(enumerate(writes))):
+        storage[frame.address][slot] = int(index < len(writes) - 1)
+
+    # Construct the expected post-state.
+    post = {
+        contract: Account(storage=storage[contract], balance=CONTRACT_BALANCE)
+        for contract in (a, b, c)
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
