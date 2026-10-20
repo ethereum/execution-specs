@@ -25,78 +25,57 @@ pytestmark = pytest.mark.filterwarnings(
 )
 
 
-@pytest.mark.parametrize(
-    "variant,suffix", [((), "geth"), (("served",), "geth-served")]
-)
-def test_identifier_names_the_variant(
-    variant: tuple[str, ...], suffix: str
-) -> None:
-    """No variant keeps the pre-hash and client key; a variant extends it."""
-    assert (
-        test_tracker.make_group_identifier(PRE_HASH, "geth", *variant)
-        == f"{PRE_HASH}-{suffix}"
-    )
-
-
-def test_no_variants_by_default() -> None:
-    """A simulator that declares no variants gets one test per case."""
+def test_no_variants_keep_the_ids_and_groups() -> None:
+    """
+    A simulator that declares no variants gets one test per case, under
+    the pre-hash and client key alone; a variant only extends the key.
+    """
     (param,) = generate([engine_x_case("a", Osaka)])
     assert param.id == "a-geth"
     assert groups(param) == [f"{PRE_HASH}-geth"]
     assert variants(param) == []
+    assert test_tracker.make_group_identifier(PRE_HASH, "geth") == (
+        f"{PRE_HASH}-geth"
+    )
+    assert test_tracker.make_group_identifier(PRE_HASH, "geth", "served") == (
+        f"{PRE_HASH}-geth-served"
+    )
 
 
 def test_each_variant_is_its_own_test_and_group() -> None:
-    """Variants multiply the case into separately grouped tests."""
+    """
+    Variants multiply a case into separately grouped tests, and a
+    simulator can run a case under fewer variants on one client.
+    """
 
     def group_variants(
         test_case: TestCaseBase, client_type: Any
     ) -> Sequence[str]:
-        del client_type
-        return ("withheld", "served") if test_case.fork is Amsterdam else ("",)
-
-    params = generate(
-        [engine_x_case("a", Osaka), engine_x_case("b", Amsterdam)],
-        group_variants=group_variants,
-    )
-    assert [param.id for param in params] == [
-        "a-geth",
-        "b-geth-withheld",
-        "b-geth-served",
-    ]
-    assert [groups(param) for param in params] == [
-        [f"{PRE_HASH}-geth"],
-        [f"{PRE_HASH}-geth-withheld"],
-        [f"{PRE_HASH}-geth-served"],
-    ]
-    assert [variants(param) for param in params] == [
-        [],
-        ["withheld"],
-        ["served"],
-    ]
-
-
-def test_variants_can_differ_per_client() -> None:
-    """A simulator can run a case under fewer variants on one client."""
-
-    def group_variants(
-        test_case: TestCaseBase, client_type: Any
-    ) -> Sequence[str]:
-        del test_case
+        if test_case.fork is not Amsterdam:
+            return ("",)
         if client_type.name == "nethermind":
             return ("withheld",)
         return ("withheld", "served")
 
     params = generate(
-        [engine_x_case("a", Amsterdam)],
+        [engine_x_case("a", Osaka), engine_x_case("b", Amsterdam)],
         clients=("geth", "nethermind"),
         group_variants=group_variants,
     )
-    assert [param.id for param in params] == [
-        "a-geth-withheld",
-        "a-geth-served",
-        "a-nethermind-withheld",
+    expected = [
+        ("a-geth", f"{PRE_HASH}-geth", []),
+        ("a-nethermind", f"{PRE_HASH}-nethermind", []),
+        ("b-geth-withheld", f"{PRE_HASH}-geth-withheld", ["withheld"]),
+        ("b-geth-served", f"{PRE_HASH}-geth-served", ["served"]),
+        (
+            "b-nethermind-withheld",
+            f"{PRE_HASH}-nethermind-withheld",
+            ["withheld"],
+        ),
     ]
+    assert [
+        (param.id, *groups(param), variants(param)) for param in params
+    ] == expected
 
 
 @pytest.mark.parametrize("variant", ["", "served"])

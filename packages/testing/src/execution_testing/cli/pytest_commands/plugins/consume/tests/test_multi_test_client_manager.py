@@ -64,36 +64,26 @@ def _manager(
 class TestDiscardClient:
     """A discarded client is stopped and its group slot freed."""
 
-    def test_discard_stops_and_forgets_the_client(self) -> None:
-        """The client is stopped and the next lookup finds nothing."""
+    def test_a_discard_stops_and_frees_only_its_group(self) -> None:
+        """
+        A live group refuses a second client, and discarding an unknown
+        group changes nothing. A discarded client is stopped and the next
+        lookup finds nothing, so a replacement takes the slot, which a
+        stop that fails still frees.
+        """
         manager = MultiTestClientManager()
         stub = _register(manager, "group")
+        other = _register(manager, "other")
+        with pytest.raises(RuntimeError, match="already exists"):
+            _register(manager, "group")
+        manager.discard_client("missing")
+        assert not stub.stopped and not other.stopped
         manager.discard_client("group")
         assert stub.stopped
         assert manager.get_client("group") is None
-
-    def test_discard_of_an_unknown_group_is_a_no_op(self) -> None:
-        """Discarding a group without a client changes nothing."""
-        manager = MultiTestClientManager()
-        other = _register(manager, "other")
-        manager.discard_client("missing")
-        assert not other.stopped
         assert manager.get_client("other") is other
-
-    def test_a_replacement_registers_under_the_same_group(self) -> None:
-        """A live group refuses a second client; a discarded one takes it."""
-        manager = MultiTestClientManager()
-        _register(manager, "group")
-        with pytest.raises(RuntimeError, match="already exists"):
-            _register(manager, "group")
-        manager.discard_client("group")
-        replacement = _register(manager, "group")
+        replacement = _register(manager, "group", _UnstoppableClient())
         assert manager.get_client("group") is replacement
-
-    def test_discard_survives_a_failing_stop(self) -> None:
-        """A stop error still frees the slot."""
-        manager = MultiTestClientManager()
-        _register(manager, "group", _UnstoppableClient())
         manager.discard_client("group")
         assert manager.get_client("group") is None
 
