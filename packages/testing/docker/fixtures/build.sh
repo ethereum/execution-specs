@@ -27,6 +27,9 @@ format=$2
 image=$3
 shift 3
 here=$(cd "$(dirname "$0")" && pwd)
+# A release format can extract to several gigabytes: stage on disk, not in
+# /tmp, which recent Ubuntu releases mount as a size-limited tmpfs.
+tmp_root=${TMPDIR:-/var/tmp}
 
 # GNU tar matches member names literally unless asked for wildcards; BSD tar
 # (macOS) always matches them as patterns and has no --wildcards option.
@@ -53,7 +56,7 @@ link_tree() {
 
 case "$source" in
 http://* | https://*)
-    stage=$(mktemp -d "${TMPDIR:-/tmp}/eest-fixtures.XXXXXX")
+    stage=$(mktemp -d "$tmp_root/eest-fixtures.XXXXXX")
     trap 'rm -rf "$stage"' EXIT INT TERM
     echo "downloading $source" >&2
     curl -fsSL "$source" | extract
@@ -63,7 +66,7 @@ http://* | https://*)
         echo "error: $source is not a file" >&2
         exit 1
     fi
-    stage=$(mktemp -d "${TMPDIR:-/tmp}/eest-fixtures.XXXXXX")
+    stage=$(mktemp -d "$tmp_root/eest-fixtures.XXXXXX")
     trap 'rm -rf "$stage"' EXIT INT TERM
     extract < "$source"
     ;;

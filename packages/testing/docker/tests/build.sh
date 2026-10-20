@@ -27,7 +27,7 @@ if [ -d "$source" ]; then
     sha=${EEST_TESTS_GIT_SHA:-}
 else
     sha=$(git -C "$root" rev-parse --verify "$source^{commit}")
-    stage=$(mktemp -d "${TMPDIR:-/tmp}/eest-tests.XXXXXX")
+    stage=$(mktemp -d "${TMPDIR:-/var/tmp}/eest-tests.XXXXXX")
     trap 'rm -rf "$stage"' EXIT INT TERM
     git -C "$root" archive "$source" tests | tar -x --strip-components=1 -C "$stage"
     context=$stage
