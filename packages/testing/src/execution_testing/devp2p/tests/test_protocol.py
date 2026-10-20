@@ -53,42 +53,38 @@ def _decode_status(payload: bytes) -> tuple[int, int, bytes]:
     )
 
 
+NEGOTIATIONS = {
+    "highest-shared": (tuple(ETH_PROTOCOLS), GETH_LIKE_CAPABILITIES, 72),
+    **{
+        f"pinned-{int(version)}": ((version,), GETH_LIKE_CAPABILITIES, version)
+        for version in ETH_PROTOCOLS
+    },
+    "no-common-version": ((EthVersion.ETH_71,), [("eth", 69)], None),
+    # A snap capability version never joins the eth negotiation.
+    "other-capability": (
+        (EthVersion.ETH_69, EthVersion.ETH_70, EthVersion.ETH_71),
+        [("snap", 71)],
+        None,
+    ),
+}
+
+
 class TestNegotiation:
     """The RLPx rule: highest shared version of the shared capability."""
 
-    def test_auto_picks_highest_implemented(self) -> None:
-        """Advertising every implemented version negotiates eth/72."""
-        assert (
-            highest_common_eth_version(
-                tuple(ETH_PROTOCOLS), GETH_LIKE_CAPABILITIES
-            )
-            == 72
-        )
-
-    def test_pinned_version_wins_when_shared(self) -> None:
-        """A single advertised version negotiates exactly itself."""
-        for version in ETH_PROTOCOLS:
-            assert (
-                highest_common_eth_version((version,), GETH_LIKE_CAPABILITIES)
-                == version
-            )
-
-    def test_no_common_version_is_none(self) -> None:
-        """A client without any shared version cannot negotiate."""
-        assert (
-            highest_common_eth_version((EthVersion.ETH_71,), [("eth", 69)])
-            is None
-        )
-
-    def test_other_capabilities_are_ignored(self) -> None:
-        """A snap capability version never joins the eth negotiation."""
-        assert (
-            highest_common_eth_version(
-                (EthVersion.ETH_69, EthVersion.ETH_70, EthVersion.ETH_71),
-                [("snap", 71)],
-            )
-            is None
-        )
+    @pytest.mark.parametrize(
+        "local,remote,negotiated",
+        NEGOTIATIONS.values(),
+        ids=NEGOTIATIONS.keys(),
+    )
+    def test_the_highest_shared_eth_version_wins(
+        self,
+        local: tuple[EthVersion, ...],
+        remote: list[tuple[str, int]],
+        negotiated: int | None,
+    ) -> None:
+        """Every shared version counts, any other capability does not."""
+        assert highest_common_eth_version(local, remote) == negotiated
 
 
 class TestHello:
@@ -398,89 +394,102 @@ class TestBlockAccessLists:
             assert protocol.has_bals is (version >= 71)
 
 
+HASH_LIST_SHAPES = {
+    "not-a-list": eth_rlp.encode(b"\x01" * 33),
+    "one-element": eth_rlp.encode([Uint(1)]),
+    "three-elements": eth_rlp.encode([Uint(1), [b"\x11" * 32], b""]),
+    "list-request-id": eth_rlp.encode([[b"\x01"], [b"\x11" * 32]]),
+    "leading-zero-request-id": eth_rlp.encode([b"\x00\x01", [b"\x11" * 32]]),
+    "list-hash": eth_rlp.encode([Uint(1), [[b"\x11" * 32]]]),
+    "long-hash": eth_rlp.encode([Uint(1), [b"\x11" * 33]]),
+    "short-hash": eth_rlp.encode([Uint(1), [b"\x11" * 32, b"\x11" * 3]]),
+    "byte-string-hashes": eth_rlp.encode([Uint(1), b"\x03\x02"]),
+    "trailing-bytes": eth_rlp.encode([Uint(1), [b"\x11" * 32]]) + b"\x00",
+}
+"""Shapes `decode_to` refuses for a `[request-id, [hash, ...]]` request."""
+
+HEADERS_QUERY = (Uint(1), Uint(1), b"", b"")
+"""A well formed GetBlockHeaders query: origin 1, one header, forward."""
+
+MALFORMED_MESSAGES = [
+    *(
+        pytest.param(decode, payload, id=f"{name}-{shape}")
+        for name, decode in (
+            ("bodies", decode_get_block_bodies),
+            ("bals", decode_get_block_access_lists),
+        )
+        for shape, payload in HASH_LIST_SHAPES.items()
+    ),
+    pytest.param(
+        ETH_PROTOCOLS[EthVersion.ETH_69].decode_get_receipts,
+        eth_rlp.encode([Uint(1), b"\x03\x02"]),
+        id="receipts-eth69-byte-string-hashes",
+    ),
+    pytest.param(
+        ETH_PROTOCOLS[EthVersion.ETH_70].decode_get_receipts,
+        eth_rlp.encode([Uint(1), Uint(0), b"\x03\x02"]),
+        id="receipts-eth70-byte-string-hashes",
+    ),
+    pytest.param(
+        decode_hello,
+        eth_rlp.encode(
+            [Uint(5), b"peer/v0", b"\x03\x02", Uint(0), b"\x01" * 64]
+        ),
+        id="hello-byte-string-capabilities",
+    ),
+    pytest.param(
+        decode_hello,
+        eth_rlp.encode([Uint(5), b"peer/v0", []])[:-1],
+        id="hello-truncated",
+    ),
+    pytest.param(
+        decode_hello,
+        eth_rlp.encode([Uint(5), b"peer/v0", []]) + b"\x00",
+        id="hello-trailing-bytes",
+    ),
+    *(
+        pytest.param(decode_get_block_headers, payload, id=f"headers-{name}")
+        for name, payload in {
+            "undecodable": b"\xff\x00",
+            "truncated": eth_rlp.encode([Uint(1), HEADERS_QUERY])[:-1],
+            "trailing-bytes": eth_rlp.encode([Uint(1), HEADERS_QUERY])
+            + b"\x00",
+            "leading-zero-request-id": eth_rlp.encode(
+                [b"\x00\x01", HEADERS_QUERY]
+            ),
+            "leading-zero-origin-number": eth_rlp.encode(
+                [Uint(1), [b"\x00\x01", Uint(1), b"", b""]]
+            ),
+            "leading-zero-amount": eth_rlp.encode(
+                [Uint(1), [Uint(1), b"\x00\x05", b"", b""]]
+            ),
+            "zero-byte-skip": eth_rlp.encode(
+                [Uint(1), [Uint(1), Uint(1), b"\x00", b""]]
+            ),
+            "reverse-two": eth_rlp.encode(
+                [Uint(1), [Uint(1), Uint(1), b"", Uint(2)]]
+            ),
+            "zero-byte-reverse": eth_rlp.encode(
+                [Uint(1), [Uint(1), Uint(1), b"", b"\x00"]]
+            ),
+        }.items()
+    ),
+]
+"""
+Every request and Hello shape a decoder must refuse. GetBlockHeaders
+refuses what geth's decoder refuses: undecodable or trailing input, a
+non-canonical integer, or a `reverse` flag other than 0 or 1.
+"""
+
+
 class TestMalformedRequests:
     """A request of the wrong shape is refused, never misread."""
 
-    @pytest.mark.parametrize(
-        "decode, payload",
-        [
-            pytest.param(
-                decode_get_block_bodies,
-                eth_rlp.encode([Uint(1), b"\x03\x02"]),
-                id="bodies",
-            ),
-            pytest.param(
-                decode_get_block_access_lists,
-                eth_rlp.encode([Uint(1), b"\x03\x02"]),
-                id="bals",
-            ),
-            pytest.param(
-                ETH_PROTOCOLS[EthVersion.ETH_69].decode_get_receipts,
-                eth_rlp.encode([Uint(1), b"\x03\x02"]),
-                id="receipts-eth69",
-            ),
-            pytest.param(
-                ETH_PROTOCOLS[EthVersion.ETH_70].decode_get_receipts,
-                eth_rlp.encode([Uint(1), Uint(0), b"\x03\x02"]),
-                id="receipts-eth70",
-            ),
-        ],
-    )
-    def test_a_byte_string_for_the_hash_list_is_refused(
+    @pytest.mark.parametrize("decode, payload", MALFORMED_MESSAGES)
+    def test_a_malformed_message_is_refused(
         self, decode: Callable[[bytes], Any], payload: bytes
     ) -> None:
-        """Bytes where the hash list belongs are not read as hashes."""
-        with pytest.raises(ProtocolError):
-            decode(payload)
-
-    def test_a_short_hash_is_refused(self) -> None:
-        """A hash entry shorter than 32 bytes is no block hash."""
-        payload = eth_rlp.encode([Uint(1), [b"\x11" * 32, b"\x11" * 3]])
-        with pytest.raises(ProtocolError):
-            decode_get_block_bodies(payload)
-
-    @pytest.mark.parametrize(
-        "decode",
-        [
-            pytest.param(decode_get_block_bodies, id="bodies"),
-            pytest.param(decode_get_block_access_lists, id="bals"),
-        ],
-    )
-    @pytest.mark.parametrize(
-        "payload",
-        [
-            pytest.param(eth_rlp.encode(b"\x01" * 33), id="not-a-list"),
-            pytest.param(eth_rlp.encode([Uint(1)]), id="one-element"),
-            pytest.param(
-                eth_rlp.encode([Uint(1), [b"\x11" * 32], b""]),
-                id="three-elements",
-            ),
-            pytest.param(
-                eth_rlp.encode([[b"\x01"], [b"\x11" * 32]]),
-                id="list-request-id",
-            ),
-            pytest.param(
-                eth_rlp.encode([b"\x00\x01", [b"\x11" * 32]]),
-                id="leading-zero-request-id",
-            ),
-            pytest.param(
-                eth_rlp.encode([Uint(1), [[b"\x11" * 32]]]),
-                id="list-hash",
-            ),
-            pytest.param(
-                eth_rlp.encode([Uint(1), [b"\x11" * 33]]),
-                id="long-hash",
-            ),
-            pytest.param(
-                eth_rlp.encode([Uint(1), [b"\x11" * 32]]) + b"\x00",
-                id="trailing-bytes",
-            ),
-        ],
-    )
-    def test_a_malformed_hash_list_request_is_refused(
-        self, decode: Callable[[bytes], Any], payload: bytes
-    ) -> None:
-        """Each shape `decode_to` refused is still refused."""
+        """The decoder raises `ProtocolError` rather than misread it."""
         with pytest.raises(ProtocolError):
             decode(payload)
 
@@ -490,82 +499,6 @@ class TestMalformedRequests:
         _, hashes = decode_get_block_bodies(payload)
         assert hashes == [Hash(b"\x11" * 32)]
         assert all(isinstance(block_hash, Hash) for block_hash in hashes)
-
-    def test_a_byte_string_for_the_capabilities_is_refused(self) -> None:
-        """A Hello whose capability list is bytes is a protocol error."""
-        payload = eth_rlp.encode(
-            [Uint(5), b"peer/v0", b"\x03\x02", Uint(0), b"\x01" * 64]
-        )
-        with pytest.raises(ProtocolError):
-            decode_hello(payload)
-
-    @pytest.mark.parametrize(
-        "payload",
-        [
-            pytest.param(
-                eth_rlp.encode([Uint(5), b"peer/v0", []])[:-1],
-                id="truncated",
-            ),
-            pytest.param(
-                eth_rlp.encode([Uint(5), b"peer/v0", []]) + b"\x00",
-                id="trailing-bytes",
-            ),
-        ],
-    )
-    def test_an_undecodable_hello_is_refused(self, payload: bytes) -> None:
-        """A Hello that is not one RLP item is a protocol error."""
-        with pytest.raises(ProtocolError):
-            decode_hello(payload)
-
-    @pytest.mark.parametrize(
-        "payload",
-        [
-            pytest.param(b"\xff\x00", id="undecodable"),
-            pytest.param(
-                eth_rlp.encode([Uint(1), [Uint(1), Uint(1), b"", b""]])[:-1],
-                id="truncated",
-            ),
-            pytest.param(
-                eth_rlp.encode([Uint(1), [Uint(1), Uint(1), b"", b""]])
-                + b"\x00",
-                id="trailing-bytes",
-            ),
-            pytest.param(
-                eth_rlp.encode([b"\x00\x01", [Uint(1), Uint(1), b"", b""]]),
-                id="leading-zero-request-id",
-            ),
-            pytest.param(
-                eth_rlp.encode([Uint(1), [b"\x00\x01", Uint(1), b"", b""]]),
-                id="leading-zero-origin-number",
-            ),
-            pytest.param(
-                eth_rlp.encode([Uint(1), [Uint(1), b"\x00\x05", b"", b""]]),
-                id="leading-zero-amount",
-            ),
-            pytest.param(
-                eth_rlp.encode([Uint(1), [Uint(1), Uint(1), b"\x00", b""]]),
-                id="zero-byte-skip",
-            ),
-            pytest.param(
-                eth_rlp.encode([Uint(1), [Uint(1), Uint(1), b"", Uint(2)]]),
-                id="reverse-two",
-            ),
-            pytest.param(
-                eth_rlp.encode([Uint(1), [Uint(1), Uint(1), b"", b"\x00"]]),
-                id="zero-byte-reverse",
-            ),
-        ],
-    )
-    def test_a_malformed_headers_request_is_refused(
-        self, payload: bytes
-    ) -> None:
-        """
-        A GetBlockHeaders request geth's decoder refuses is refused too:
-        undecodable or trailing input, a non-canonical integer, or a
-        `reverse` flag other than 0 or 1.
-        """
-        with pytest.raises(ProtocolError):
-            decode_get_block_headers(payload)
 
     def test_a_hash_origin_may_start_with_a_zero_byte(self) -> None:
         """Only integers are canonical; a 32-byte hash is read whole."""
