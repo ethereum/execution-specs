@@ -12,11 +12,11 @@ import ethereum_rlp as eth_rlp
 import pytest
 from ethereum_types.numeric import Uint
 
-from execution_testing.base_types import Hash
+from execution_testing.base_types import Bytes, Hash
 
 from .. import peer as peer_module
 from .. import rlpx
-from ..chain import Chain
+from ..chain import Block, Chain
 from ..peer import HANDSHAKE_TIMEOUT, MockPeer, PeerStatistics
 from ..protocol import ETH_PROTOCOLS, MessageCode
 from ..rlpx import RLPxError, RLPxSession
@@ -560,3 +560,108 @@ class TestStatisticsAcrossRedials:
         )
         assert peer.header_hashes_ever_served == {b"\x01" * 32}
         assert peer.body_hashes_ever_served == {b"\x02" * 32}
+
+
+@dataclass
+class _LoopbackHeader:
+    """The header fields the Status message and the peer's indexes read."""
+
+    number: int
+    block_hash: Hash
+    timestamp: int
+
+
+def _loopback_chain() -> Chain:
+    """Return genesis `0x11..` and two blocks, the first with one tx."""
+    genesis = _LoopbackHeader(0, Hash(b"\x11" * 32), 0)
+    blocks = [
+        Block(
+            header=cast(Any, _LoopbackHeader(1, Hash(b"\x01" * 32), 12)),
+            transactions=[Bytes(b"\x01\x02")],
+            withdrawals=None,
+        ),
+        Block(
+            header=cast(Any, _LoopbackHeader(2, Hash(b"\x02" * 32), 24)),
+            transactions=[],
+            withdrawals=None,
+        ),
+    ]
+    return Chain(cast(Any, genesis), blocks)
+
+
+class TestLoopbackDial:
+    """
+    A dial over a real socket, read as a client reads it.
+
+    Every other protocol test speaks to the library with the library, so
+    a message code moved on both ends would still pass. The codes and
+    layouts here are literal values from devp2p's `rlpx.md` and
+    `caps/eth.md`.
+    """
+
+    @pytest.mark.parametrize("p2p_version", [4, 5])
+    def test_a_dial_speaks_the_spec_codes(
+        self, monkeypatch: pytest.MonkeyPatch, p2p_version: int
+    ) -> None:
+        """
+        Hello is 0x00, then Status 0x10, BlockRangeUpdate 0x21 and
+        BlockBodies 0x16 for GetBlockBodies 0x15, Snappy compressed from
+        p2p version 5 on.
+        """
+        local, remote = socket.socketpair()
+        for end in (local, remote):
+            end.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1 << 20)
+        secrets = (b"\x02" * 32, b"\x03" * 32)
+        peer_end = RLPxSession(
+            local, *secrets, egress_seed=b"\x04", ingress_seed=b"\x05"
+        )
+        client = RLPxSession(
+            remote, *secrets, egress_seed=b"\x05", ingress_seed=b"\x04"
+        )
+        client.set_timeout(WAKE_TIMEOUT)
+        monkeypatch.setattr(
+            peer_module, "connect", lambda *_args, **_kwargs: peer_end
+        )
+        # The client's Hello waits in the socket until the peer reads it.
+        client.write_message(
+            0x00,
+            eth_rlp.encode(
+                [
+                    Uint(p2p_version),
+                    b"client",
+                    [[b"eth", Uint(69)]],
+                    Uint(0),
+                    b"\x09" * 64,
+                ]
+            ),
+        )
+        chain = _loopback_chain()
+        peer = _peer()
+        try:
+            peer.connect(chain)
+            code, _ = client.read_message()
+            assert code == 0x00
+            if p2p_version >= 5:
+                client.enable_snappy()
+            code, status = client.read_message()
+            assert code == 0x10
+            # eth/69, the one version both sides share, then the network,
+            # genesis, fork id (pinned elsewhere) and the block range.
+            fields = cast(list[Any], eth_rlp.decode(status))
+            assert len(fields) == 7
+            assert fields[:3] == [b"\x45", b"\x01", b"\x11" * 32]
+            assert fields[4:] == [b"", b"\x02", b"\x02" * 32]
+            peer.start()
+            peer.set_chain(chain)
+            code, update = client.read_message()
+            assert code == 0x21
+            assert eth_rlp.decode(update) == [b"", b"\x02", b"\x02" * 32]
+            client.write_message(
+                0x15, eth_rlp.encode([Uint(7), [b"\x01" * 32]])
+            )
+            code, bodies = client.read_message()
+            assert code == 0x16
+            assert eth_rlp.decode(bodies) == [b"\x07", [[[b"\x01\x02"], []]]]
+        finally:
+            peer.close()
+            client.close()
