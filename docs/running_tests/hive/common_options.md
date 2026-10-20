@@ -16,7 +16,7 @@ For example, this selects the published image for the [`tests@v20.0.2` release](
 
 Add `--docker.pull` to refresh an image already cached locally. A release tag is immutable: it always runs the same tests with the same framework. To pick up framework fixes, such as client exception mappings, use `latest` or a devnet channel such as `glamsterdam-devnet-8`, and [pin a digest](images/how_to.md#reproduce-a-run-exactly) when a run must be reproduced exactly.
 
-The old `fixtures` and `branch` build arguments are deprecated. Migrate to `tag`, or select `Dockerfile.git` through `--config` to keep building from source; see [Build from source](images/how_to.md#build-from-source-with-dockerfilegit). Until ethereum/execution-specs#3866 removes them, the default Dockerfiles still honour the old `fixtures` and `branch` build arguments when no `tag` is given: the image installs the framework from `branch` and caches `fixtures` at build time, as `Dockerfile.git` does, and every run prints a deprecation notice. With a `tag`, they are ignored.
+The old `fixtures` and `branch` build arguments are deprecated. Migrate to `tag`, or select `Dockerfile.git` through `--config` to keep building from source; see [Build from source](images/how_to.md#build-from-source-with-dockerfilegit). During the deprecation window, the default Dockerfiles still honour the old `fixtures` and `branch` build arguments when no `tag` is given: the image installs the framework from `branch` and caches `fixtures` at build time, as `Dockerfile.git` does, and every run prints a deprecation notice. With a `tag`, they are ignored.
 
 ## Test Selection
 

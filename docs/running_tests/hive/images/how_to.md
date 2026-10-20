@@ -119,7 +119,7 @@ Run it with:
 
 For `execute-blobs`, `Dockerfile.git` runs both the framework and tests from `branch`; it has no `fixtures` argument. To reproduce a release's test snapshot under a different framework commit, [assemble an execute image](#assemble-a-combination-that-is-not-published) or [pin the original image digest](#reproduce-a-run-exactly).
 
-Existing `--sim.buildarg branch=...` and `fixtures=...` options are deprecated. Until ethereum/execution-specs#3866 removes them, the default Dockerfiles still honour the old `fixtures` and `branch` build arguments when no `tag` is given: the image installs the framework from `branch` and caches `fixtures` at build time, as `Dockerfile.git` does, and every run prints a deprecation notice. With a `tag`, they are ignored. Migrate to `tag`, or select the source Dockerfile explicitly. Passing `tag` together with the old arguments works with Hive revisions before and after the image Dockerfiles, so callers can migrate first.
+Existing `--sim.buildarg branch=...` and `fixtures=...` options are deprecated. During the deprecation window, the default Dockerfiles still honour the old `fixtures` and `branch` build arguments when no `tag` is given: the image installs the framework from `branch` and caches `fixtures` at build time, as `Dockerfile.git` does, and every run prints a deprecation notice. With a `tag`, they are ignored. Migrate to `tag`, or select the source Dockerfile explicitly. Passing `tag` together with the old arguments works with Hive revisions before and after the image Dockerfiles, so callers can migrate first.
 
 ## Build the images from a local checkout
 

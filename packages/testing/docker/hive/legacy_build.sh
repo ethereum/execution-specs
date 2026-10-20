@@ -1,8 +1,8 @@
 #!/bin/sh
 # Keep the Dockerfile.git build arguments of the hive eels simulators working
-# while they are deprecated (ethereum/execution-specs#3866). The default hive
-# Dockerfiles run this as `RUN eels-legacy-build` on top of the published
-# image, with their build arguments in the environment:
+# while they are deprecated. The ONBUILD trigger of the latest-legacy image
+# (Dockerfile.legacy) runs this as `RUN eels-legacy-build` in hive's wrapper
+# build, with its build arguments in the environment:
 #
 #   tag       a published image tag; when set, fixtures and branch are ignored
 #   fixtures  the consume input, cached at build time as Dockerfile.git did: a

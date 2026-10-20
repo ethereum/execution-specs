@@ -79,8 +79,8 @@ Set with `--sim.buildarg name=value` on the image Dockerfiles. For the separate 
 | --- | --- | --- | --- |
 | `tag` | all | `latest` | Selects the tests, see Tags. Accepts `<tag>@sha256:<digest>` to pin an exact image. |
 | `image` | all | the simulator's published image | Another registry namespace or a locally built image. |
-| `fixtures` | `consume-*` | none | Deprecated, see ethereum/execution-specs#3866. Without `tag`, a `consume --input` value cached at build time, or `/fixtures` with a staged `fixtures.tar.gz`. |
-| `branch` | all | none | Deprecated, see ethereum/execution-specs#3866. Without `tag`, an execution-specs ref whose framework, and for `execute-blobs` whose tests, the image installs at build time. |
+| `fixtures` | `consume-*` | none | Deprecated. Without `tag`, a `consume --input` value cached at build time, or `/fixtures` with a staged `fixtures.tar.gz`. |
+| `branch` | all | none | Deprecated. Without `tag`, an execution-specs ref whose framework, and for `execute-blobs` whose tests, the image installs at build time. |
 | `disable_strict_exception_matching` | `consume-engine`, `consume-enginex` | `nimbus-el` | Clients exempt from strict exception matching; an empty value exempts none. |
 | `fork` | `execute-blobs` | the image's `EEST_DEFAULT_FORK` | Fork to execute the tests for. |
 
