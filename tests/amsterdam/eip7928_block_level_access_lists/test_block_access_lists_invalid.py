@@ -2036,6 +2036,62 @@ def test_bal_invalid_engine_payload_encoding(
 @pytest.mark.blockchain_test_engine_only
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
+    "wrong_list",
+    [
+        pytest.param(b"\xc0", id="empty_list"),
+        pytest.param(b"", id="empty_byte_string"),
+        pytest.param(b"\x80", id="rlp_non_list"),
+        pytest.param(b"\xc1", id="rlp_truncated_list"),
+    ],
+)
+def test_bal_block_redelivered_with_matching_list(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    wrong_list: bytes,
+) -> None:
+    """
+    Test that a block rejected for carrying the wrong block access list is
+    accepted when it arrives again with the right one.
+
+    Its header, and so its hash, is the same both times, so a client must not
+    remember that hash as invalid.
+    """
+    sender = pre.fund_eoa()
+    receiver = pre.nonexistent_account()
+    tx = Transaction(sender=sender, to=receiver, value=1)
+
+    # Both blocks build on genesis with the same transaction and timestamp,
+    # so they are the same block; only the first delivery's list differs.
+    blocks = [
+        Block(
+            txs=[tx],
+            expected_block_access_list=BlockAccessListExpectation().modify_rlp(
+                lambda _: Bytes(wrong_list)
+            ),
+            # A client may reject the list itself or the block hash it
+            # derives from it.
+            exception=[
+                BlockException.INVALID_BLOCK_ACCESS_LIST,
+                BlockException.INVALID_BLOCK_HASH,
+            ],
+        ),
+        Block(txs=[tx]),
+    ]
+
+    blockchain_test(
+        pre=pre,
+        post={
+            sender: Account(nonce=1),
+            receiver: Account(balance=1),
+        },
+        blocks=blocks,
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.blockchain_test_engine_only
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
     "field",
     [
         "storage_slot",
