@@ -158,6 +158,8 @@ Mapped to a typical client CI setup:
   upcoming fork's active devnet (e.g. `bal-devnet@vX.Y.Z`). Treat it as advisory, since devnet
   coverage changes rapidly and should not block merges.
 
+Gates that run through Hive pin the same releases as [simulator image tags](#hive-simulator-images).
+
 !!! note "Devnet vs. tests overlap"
     Devnet releases are filled for all forks/tests, so they overlap with the `tests` release.
     If your blocking gate already runs a `tests` release, the devnet gate re-runs that shared
@@ -180,5 +182,22 @@ Raw tarballs can also be fetched directly with the GitHub CLI:
 ```bash
 gh release download tests-bal-devnet@v7.0.0 --repo ethereum/execution-specs --pattern '*.tar.gz'
 ```
+
+## Hive Simulator Images
+
+Mainnet and devnet releases are also published as ready-to-run images for the EELS Hive
+simulators, selected with `--sim.buildarg tag=<tag>`:
+
+| Release | Image tag | Changes |
+| --- | --- | --- |
+| `tests@v21.0.1` | `v21.0.1` | never: release tags are immutable |
+| `tests-glamsterdam-devnet@v8.1.4` | `glamsterdam-devnet-v8.1.4` | never |
+| highest `tests@` release | `latest` | with new releases and framework fixes |
+| highest release of `devnets/glamsterdam/8` | `glamsterdam-devnet-8` | with new devnet-8 releases and framework fixes |
+| nightly fill of the default branch | `nightly` | after each successful fill |
+
+Pin a release tag for a reproducible gate. Follow `latest` or a devnet channel to also pick up
+framework fixes, such as client exception mappings, between releases. See
+[Simulator Images](./hive/images/index.md).
 
 To create a release, see [Releasing Test Fixtures](../dev/releasing_tests.md).
