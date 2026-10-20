@@ -1016,16 +1016,6 @@ REFUSAL_SITES = {
     "rejection-announcement": RefusalSite(
         True, {"refusal": lambda _now: REFUSAL_CODE}, (0.0, 0.0)
     ),
-    "rejection-poll": RefusalSite(
-        True,
-        {"refusal": lambda now: REFUSAL_CODE if now >= 1.0 else None},
-        (1.0, 1.01),
-    ),
-    "rejection-reannouncement": RefusalSite(
-        True,
-        {"forkchoice_refusal": lambda call: REFUSAL_CODE if call else None},
-        (ANNOUNCE_INTERVAL, ANNOUNCE_INTERVAL + 0.01),
-    ),
 }
 
 
@@ -1068,6 +1058,35 @@ class TestRpcRefusal:
         """A refusal the fixture does not declare propagates."""
         with pytest.raises(JSONRPCError):
             self._run_refused(clock, site, None)
+
+
+MISPLACED_REFUSALS = {
+    "invalid-status": {"verdict": INVALID},
+    "valid-status": {"verdict": VALID},
+    "refused-after-syncing": {
+        "refusal": lambda now: REFUSAL_CODE if now >= 1.0 else None
+    },
+    "refused-by-forkchoice": {
+        "forkchoice_refusal": lambda _call: REFUSAL_CODE
+    },
+}
+
+
+@pytest.mark.parametrize(
+    "knobs", MISPLACED_REFUSALS.values(), ids=MISPLACED_REFUSALS.keys()
+)
+def test_an_error_code_head_needs_the_refusal_from_new_payload(
+    clock: FakeClock, knobs: dict[str, Any]
+) -> None:
+    """Any newPayload answer fails a head declaring an error code."""
+    with pytest.raises(LoggedError, match="instead of refusing the head"):
+        _run(
+            clock,
+            _engine(clock, **knobs),
+            expects_rejection=True,
+            error_code=REFUSAL_CODE,
+        )
+    assert clock.now == 0.0
 
 
 def test_every_target_of_a_fixture_runs_and_is_judged(

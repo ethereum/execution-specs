@@ -11,7 +11,6 @@ the chain classes, rejection tests and wire coverage.
 
 import time
 from contextlib import AbstractContextManager, nullcontext
-from typing import Callable
 
 from hive.client import Client
 
@@ -319,18 +318,54 @@ def _run_sync_target(
             *head_payload.params, version=head_payload.new_payload_version
         )
 
+    def verdict() -> PayloadStatus | None:
+        """
+        Return `poll()`'s status, or `None` for the declared RPC refusal.
+
+        A head that declares an error code must be refused by
+        `newPayload` itself, as EngineX requires: any status fails, and
+        so does another error code. A head that declares none raises any
+        refusal.
+        """
+        try:
+            payload_status = poll()
+        except JSONRPCError as error:
+            if head_payload.error_code is None:
+                raise
+            if error.code != head_payload.error_code:
+                raise LoggedError(
+                    f"{prefix}Client refused the head with the wrong error "
+                    f"code: got {error.code}, expected "
+                    f"{head_payload.error_code}"
+                ) from error
+            logger.info(
+                f"{prefix}Client refused the invalid head at the RPC layer "
+                f"with the expected error code {head_payload.error_code} "
+                f"({error})"
+            )
+            return None
+        if head_payload.error_code is not None:
+            raise LoggedError(
+                f"{prefix}Client answered {payload_status.status} instead "
+                "of refusing the head with the expected error code "
+                f"{head_payload.error_code}"
+            )
+        return payload_status
+
     forkchoice_status: PayloadStatus | None = None
 
-    def announce() -> PayloadStatus:
+    def announce() -> PayloadStatus | None:
         """
         Send the head payload and name it in a forkchoice update.
 
-        Return the `newPayload` status, which is the client's verdict:
-        SYNCING while the ancestry travels, then VALID or INVALID. The
-        forkchoice reply's status is kept in `forkchoice_status`.
+        Return the `newPayload` verdict (see `verdict`): SYNCING while
+        the ancestry travels, then VALID or INVALID. The forkchoice
+        reply's status is kept in `forkchoice_status`.
         """
         nonlocal forkchoice_status
-        payload_status = poll()
+        payload_status = verdict()
+        if payload_status is None:
+            return None
         response = engine_rpc.forkchoice_updated(
             forkchoice_state=head_state,
             payload_attributes=None,
@@ -360,37 +395,13 @@ def _run_sync_target(
                 "announcement"
             )
 
-    def ask(call: Callable[[], PayloadStatus]) -> PayloadStatus | None:
-        """
-        Return `call()`'s status, or `None` for the declared RPC refusal.
-
-        Raise when the client refuses the head with another error code.
-        """
-        try:
-            return call()
-        except JSONRPCError as error:
-            if head_payload.error_code is None:
-                raise
-            if error.code != head_payload.error_code:
-                raise LoggedError(
-                    f"{prefix}Client refused the head with the wrong error "
-                    f"code: got {error.code}, expected "
-                    f"{head_payload.error_code}"
-                ) from error
-            logger.info(
-                f"{prefix}Client refused the invalid head at the RPC layer "
-                f"with the expected error code {head_payload.error_code} "
-                f"({error})"
-            )
-            return None
-
     with timing_data.time(f"{prefix}Announce sync target"):
         logger.info(
             f"{prefix}Announcing head block {chain.head.number} to "
             f"trigger a sync of {len(chain.blocks) - 1} ancestor "
             "block(s) over devp2p"
         )
-        announce_status = ask(announce)
+        announce_status = announce()
         if announce_status is None:
             return
 
@@ -440,7 +451,7 @@ def _run_sync_target(
                 # Once the ancestry has arrived over devp2p the client
                 # can judge the head; until then it answers SYNCING (or
                 # ACCEPTED if it merely stored the payload).
-                reply = ask(poll)
+                reply = verdict()
                 if reply is None:
                     return
                 payload_status = reply
@@ -454,7 +465,7 @@ def _run_sync_target(
                     logger.info(
                         f"{prefix}Re-announcing the invalid sync target"
                     )
-                    reply = ask(announce)
+                    reply = announce()
                     if reply is None:
                         return
                     payload_status = reply
@@ -544,7 +555,10 @@ def _run_sync_target(
                 if not mock_peer.alive:
                     redial("mid-sync")
                 logger.info(f"{prefix}Re-announcing the sync target")
-                raise_if_rejected(announce())
+                reply = announce()
+                if reply is None:
+                    return
+                raise_if_rejected(reply)
                 next_announcement = time.monotonic() + announce_interval
             time.sleep(poll_interval)
         if not synced:

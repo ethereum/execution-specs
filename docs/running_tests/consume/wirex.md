@@ -203,7 +203,7 @@ Only the fact of rejection is asserted, never its cause: `validationError` is fr
 
 If an `INVALID` answer gives a `latestValidHash`, it must be the parent of the first invalid block on the path. Any other hash fails the test, so a client that blames a valid block fails. A null hash is accepted. The all-zero hash names a PoW ancestor, which here can only be genesis, so it passes only when genesis is the expected hash. An `INVALID_BLOCK_HASH` answer fails the test, since every served payload hashes to its `blockHash`. The log shows the result after `latestValidHash check:` as `match`, `null` (no hash given), `unchecked` (no block on the path is invalid, so there is no hash to match) or `mismatch` (the test fails).
 
-A fixture that declares an Engine API error code for its head passes when the client refuses `engine_newPayload` with that code.
+A fixture that declares an Engine API error code for its head passes when the client refuses `engine_newPayload` with that code. As in EngineX, the refusal must come from `engine_newPayload` itself, so any answer fails the test, `INVALID` included.
 
 WireX skips an invalid path in two cases. A body that no conformant client can decode is a limit of devp2p: the client discards it instead of judging the block. A header that cannot be rebuilt from its payload is a limit of the fixture: WireX recomputes the commitments the payload does not carry (the transactions and withdrawals roots, the requests and BAL hashes), so a commitment modified at fill (via `rlp_modifier`) leaves no trace and the rebuilt header hashes differently.
 
