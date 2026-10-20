@@ -132,6 +132,32 @@ trillion.
 """
 
 
+def record_sync_payload_leaf(
+    candidates: List[Tuple["BuiltBlock", Alloc | LazyAlloc]],
+    leaf: "BuiltBlock",
+    alloc: Alloc | LazyAlloc,
+    *,
+    valid: bool,
+) -> None:
+    """
+    Record an authored leaf as a sync-payload candidate.
+
+    A block authored more than once keeps one candidate. When a block
+    first rejected for a defect outside its header, such as the block
+    access list its payload carried, is later accepted, the accepted copy
+    replaces the rejected one: its target must build on the block's
+    post-state, and the valid leaf comes last.
+    """
+    leaf_hash = leaf.header.block_hash
+    for index, (candidate, _) in enumerate(candidates):
+        if candidate.header.block_hash == leaf_hash:
+            if valid:
+                del candidates[index]
+                candidates.append((leaf, alloc))
+            return
+    candidates.append((leaf, alloc))
+
+
 def sync_block_context_unavailable(
     head: "FixtureHeader", test_fork: Fork | TransitionFork
 ) -> str | None:
@@ -1768,7 +1794,6 @@ class BlockchainTest(BaseTest):
         sync_payload_candidates: List[
             Tuple[BuiltBlock, Alloc | LazyAlloc]
         ] = []
-        sync_payload_leaf_hashes: set[Hash] = set()
         # A format carries sync payloads by declaring the field, so a
         # future format opts in without a new comparison here or at the
         # build step below.
@@ -1825,10 +1850,12 @@ class BlockchainTest(BaseTest):
                 # A valid leaf uses its post-state. An invalid leaf did
                 # not advance ``alloc``, so it retains its valid parent's
                 # state - exactly the context build_sync_payload needs.
-                leaf_hash = built_block.header.block_hash
-                if leaf_hash not in sync_payload_leaf_hashes:
-                    sync_payload_candidates.append((built_block, alloc))
-                    sync_payload_leaf_hashes.add(leaf_hash)
+                record_sync_payload_leaf(
+                    sync_payload_candidates,
+                    built_block,
+                    alloc,
+                    valid=block.exception is None,
+                )
 
             if block.expected_post_state:
                 self.verify_post_state(

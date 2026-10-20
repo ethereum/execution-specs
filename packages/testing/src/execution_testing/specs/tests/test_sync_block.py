@@ -9,12 +9,12 @@ above. The payloads themselves are built against a real backend and are
 covered by the filler plugin's pytester tests.
 """
 
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Tuple, cast
 
 import pytest
 
 from execution_testing.base_types import Address, Hash
-from execution_testing.client_clis import FillerBackend
+from execution_testing.client_clis import FillerBackend, LazyAlloc
 from execution_testing.exceptions import BlockException, EngineAPIError
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.forks import (
@@ -30,6 +30,7 @@ from execution_testing.specs.blockchain import (
     Block,
     BlockchainTest,
     BuiltBlock,
+    record_sync_payload_leaf,
     sync_block_context_unavailable,
 )
 from execution_testing.test_types import Alloc, Environment
@@ -182,6 +183,37 @@ def head_with(**fields: Any) -> FixtureHeader:
         parent_beacon_block_root=Hash(0),
     )
     return FixtureHeader(**{**defaults, **fields})
+
+
+def leaf(number: int) -> BuiltBlock:
+    """Build a stand-in leaf whose hash depends only on ``number``."""
+    # Only the header is read when recording a leaf.
+    fields: Dict[str, Any] = dict(header=head_with(number=number))
+    return BuiltBlock.model_construct(**fields)
+
+
+def test_a_rejected_leaf_authored_twice_keeps_one_target() -> None:
+    """Two rejected copies of one block share the first copy's target."""
+    first_alloc, second_alloc = Alloc(), Alloc()
+    candidates: List[Tuple[BuiltBlock, Alloc | LazyAlloc]] = []
+    record_sync_payload_leaf(candidates, leaf(1), first_alloc, valid=False)
+    record_sync_payload_leaf(candidates, leaf(1), second_alloc, valid=False)
+    assert len(candidates) == 1
+    assert candidates[0][1] is first_alloc
+
+
+def test_an_accepted_copy_replaces_the_rejected_leaf() -> None:
+    """
+    A block rejected for its delivered payload and later accepted gets
+    one target, built on the accepted copy's post-state and placed last.
+    """
+    rejected_alloc, other_alloc, accepted_alloc = Alloc(), Alloc(), Alloc()
+    candidates: List[Tuple[BuiltBlock, Alloc | LazyAlloc]] = []
+    record_sync_payload_leaf(candidates, leaf(1), rejected_alloc, valid=False)
+    record_sync_payload_leaf(candidates, leaf(2), other_alloc, valid=False)
+    record_sync_payload_leaf(candidates, leaf(1), accepted_alloc, valid=True)
+    assert [c.header.number for c, _ in candidates] == [2, 1]
+    assert candidates[-1][1] is accepted_alloc
 
 
 # A distinguishing substring of each clause's reason, so every refused
