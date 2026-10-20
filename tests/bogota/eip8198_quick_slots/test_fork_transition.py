@@ -243,20 +243,36 @@ def test_base_fee_wrong_rule_across_fork(
         pytest.param(BLOCK_GAS_LIMIT, id="full"),
     ],
 )
+@pytest.mark.parametrize(
+    "missed_slots",
+    [
+        pytest.param(1, id="one_missed_slot"),
+        # The spacing per slot is not a whole number of seconds.
+        pytest.param(2, id="two_missed_slots"),
+    ],
+)
 def test_base_fee_fork_block_after_missed_slot(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: TransitionFork,
     gas_used: int,
+    missed_slots: int,
 ) -> None:
     """
-    Check the base fee of a fork block that follows a missed first slot at
-    the fork, so its spacing spans one twelve-second and one ten-second slot.
+    Check the base fee of a fork block that follows missed slots at the
+    fork, so its spacing spans one slot of each duration or more.
     """
     parent_timestamp = BLOCK_TIMESTAMPS[FORK_BLOCK_INDEX - 1]
-    fork_block_timestamp = BLOCK_TIMESTAMPS[FORK_BLOCK_INDEX + 1]
+    pre_fork_slot_seconds = FORK_TIMESTAMP - parent_timestamp
+    post_fork_slot_seconds = (
+        BLOCK_TIMESTAMPS[FORK_BLOCK_INDEX + 1] - FORK_TIMESTAMP
+    )
+    fork_block_timestamp = (
+        FORK_TIMESTAMP + missed_slots * post_fork_slot_seconds
+    )
     parent_slot_number = 1
-    slots_elapsed = 2
+    slots_elapsed = 1 + missed_slots
+    seconds_elapsed = fork_block_timestamp - parent_timestamp
     sender = pre.fund_eoa()
     parent_base_fee = fork.transitions_from().base_fee_per_gas_calculator()(
         parent_base_fee_per_gas=GENESIS_BASE_FEE_PER_GAS,
@@ -276,13 +292,18 @@ def test_base_fee_fork_block_after_missed_slot(
             slots_elapsed=slots_elapsed,
         )
 
-    expected_base_fee = base_fee_after(fork_block_timestamp - parent_timestamp)
+    expected_base_fee = base_fee_after(seconds_elapsed)
     # The spacing lies between the two slot durations, so the base fee
-    # matches neither duration's rule.
+    # matches neither duration's rule, nor a rule that rounds the spacing
+    # per slot down to whole seconds first.
     assert expected_base_fee not in (
-        base_fee_after(12 * slots_elapsed),
-        base_fee_after(10 * slots_elapsed),
+        base_fee_after(pre_fork_slot_seconds * slots_elapsed),
+        base_fee_after(post_fork_slot_seconds * slots_elapsed),
     )
+    if seconds_elapsed % slots_elapsed:
+        assert expected_base_fee != base_fee_after(
+            seconds_elapsed // slots_elapsed * slots_elapsed
+        )
     blockchain_test(
         pre=pre,
         post={},

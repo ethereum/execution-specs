@@ -240,24 +240,30 @@ def slot_spacing_cases(fork: Fork) -> List[ParameterSet]:
     gap_beyond_64_bits = -(
         -(2**64) // fork.base_fee_max_change_denominator(slots_elapsed=1)
     )
+    # Spacing beyond the reference duration per slot is capped.
+    reference = Spec.BASE_FEE_REFERENCE_SLOT_SECONDS
     return [
         pytest.param(9, 1, id="9s"),
         pytest.param(9, 3, id="9s_two_missed_slots"),
         pytest.param(10, 1, id="10s"),
         pytest.param(10, 2, id="10s_missed_slot"),
         pytest.param(10, 5, id="10s_four_missed_slots"),
-        pytest.param(11, 1, id="11s"),
-        pytest.param(12, 1, id="12s"),
-        pytest.param(12, 2, id="12s_missed_slot"),
-        pytest.param(12, 10, id="12s_nine_missed_slots"),
-        pytest.param(13, 1, id="13s"),
-        pytest.param(13, 2, id="13s_missed_slot"),
+        pytest.param(reference - 1, 1, id=f"{reference - 1}s"),
+        pytest.param(reference, 1, id=f"{reference}s"),
+        pytest.param(reference, 2, id=f"{reference}s_missed_slot"),
+        pytest.param(reference, 10, id=f"{reference}s_nine_missed_slots"),
+        pytest.param(reference + 1, 1, id=f"{reference + 1}s"),
+        pytest.param(reference + 1, 2, id=f"{reference + 1}s_missed_slot"),
         pytest.param(2**32, 1, id="long_gap"),
         pytest.param(
-            12, gap_beyond_64_bits - 1, id="slot_gap_product_within_64_bits"
+            reference,
+            gap_beyond_64_bits - 1,
+            id="slot_gap_product_within_64_bits",
         ),
         pytest.param(
-            12, gap_beyond_64_bits, id="slot_gap_product_beyond_64_bits"
+            reference,
+            gap_beyond_64_bits,
+            id="slot_gap_product_beyond_64_bits",
         ),
     ]
 
@@ -302,7 +308,7 @@ def test_slot_number_must_increase(
     parent = Block(timestamp=SLOT_SECONDS, slot_number=parent_slot_number)
     if slots_elapsed > 0:
         block = Block(
-            timestamp=2 * SLOT_SECONDS,
+            timestamp=(1 + slots_elapsed) * SLOT_SECONDS,
             slot_number=slot_number,
             header_verify=Header(
                 slot_number=slot_number,
@@ -310,7 +316,7 @@ def test_slot_number_must_increase(
                     parent_base_fee_per_gas=parent_base_fee_per_gas,
                     parent_gas_used=0,
                     parent_gas_limit=BLOCK_GAS_LIMIT,
-                    seconds_elapsed=SLOT_SECONDS,
+                    seconds_elapsed=slots_elapsed * SLOT_SECONDS,
                     slots_elapsed=slots_elapsed,
                 ),
             ),
