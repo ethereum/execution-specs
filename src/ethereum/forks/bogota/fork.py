@@ -109,11 +109,10 @@ BASE_FEE_REFERENCE_SLOT_SECONDS = Uint(12)
 Slot duration, in seconds, at which the base fee changes by at most
 `1 / BASE_FEE_MAX_CHANGE_DENOMINATOR` per block. The largest change scales
 with the slot duration, read from the spacing of a block and its parent, so
-the base fee reacts to congestion at the same rate per unit of wall-clock
-time whatever the slot duration. It is capped at the whole base fee, which
-a slot duration of up to
-`BASE_FEE_MAX_CHANGE_DENOMINATOR * BASE_FEE_REFERENCE_SLOT_SECONDS` seconds
-never reaches.
+the base fee reacts to congestion at about the same rate per unit of
+wall-clock time whatever the slot duration. Spacing beyond this duration per
+slot is ignored, so no block changes the base fee by more than
+`1 / BASE_FEE_MAX_CHANGE_DENOMINATOR`.
 """
 ELASTICITY_MULTIPLIER = Uint(2)
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
@@ -416,7 +415,9 @@ def calculate_base_fee_per_gas(
         * BASE_FEE_REFERENCE_SLOT_SECONDS
         * slots_elapsed
     )
-    seconds_elapsed = min(seconds_elapsed, base_fee_max_change_denominator)
+    seconds_elapsed = min(
+        seconds_elapsed, BASE_FEE_REFERENCE_SLOT_SECONDS * slots_elapsed
+    )
 
     if parent_gas_used == parent_gas_target:
         expected_base_fee_per_gas = parent_base_fee_per_gas

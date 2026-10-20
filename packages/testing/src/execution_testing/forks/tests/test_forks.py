@@ -637,6 +637,7 @@ def test_blob_schedules(
         pytest.param(Bogota, 12, 1, (12, 96), id="Bogota_12s"),
         pytest.param(Bogota, 10, 1, (10, 96), id="Bogota_10s"),
         pytest.param(Bogota, 24, 2, (24, 192), id="Bogota_12s_missed_slot"),
+        pytest.param(Bogota, 13, 1, (12, 96), id="Bogota_13s_capped"),
     ],
 )
 def test_base_fee_max_change(
@@ -704,14 +705,17 @@ def test_base_fee_per_gas_calculator_bogota(
         pytest.param(12, 1, id="12s"),
         pytest.param(24, 2, id="12s_missed_slot"),
         pytest.param(120, 10, id="12s_nine_missed_slots"),
+        pytest.param(13, 1, id="13s"),
+        pytest.param(26, 2, id="13s_missed_slot"),
+        pytest.param(2**40, 1, id="long_gap"),
     ],
 )
 def test_base_fee_per_gas_calculator_bogota_twelve_seconds(
     seconds_elapsed: int, slots_elapsed: int
 ) -> None:
     """
-    Test that the base fee update at twelve-second slots is the pre-Bogota
-    rule, with and without missed slots.
+    Test that the base fee update at twelve-second slots or longer is the
+    pre-Bogota rule, with and without missed slots.
     """
     gas_limit = 30_000_000
     for parent_base_fee_per_gas in [1, 7, 9, 20, 10**9, 10**9 + 7]:

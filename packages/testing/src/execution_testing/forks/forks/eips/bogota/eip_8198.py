@@ -15,6 +15,12 @@ from ....base_fork import (
     BaseFork,
 )
 
+BASE_FEE_REFERENCE_SLOT_SECONDS = 12
+"""
+Slot duration at which the maximum base fee change per block is the parent
+fork's.
+"""
+
 
 class EIP8198(BaseFork):
     """EIP-8198 class."""
@@ -37,9 +43,11 @@ class EIP8198(BaseFork):
         """
         The maximum base fee change per block scales with the slot duration,
         `seconds_elapsed / slots_elapsed`, read from the block spacing, and
-        is capped at the whole base fee.
+        never exceeds the parent fork's maximum change.
         """
-        return min(seconds_elapsed, 8 * 12 * slots_elapsed)
+        return min(
+            seconds_elapsed, BASE_FEE_REFERENCE_SLOT_SECONDS * slots_elapsed
+        )
 
     @classmethod
     def base_fee_max_change_denominator(
@@ -49,8 +57,15 @@ class EIP8198(BaseFork):
         slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
     ) -> int:
         """
-        The maximum base fee change per block is `1/8` at twelve-second
-        slots: `seconds_elapsed / (8 * 12 * slots_elapsed)`.
+        The maximum base fee change per block is the parent fork's at
+        twelve-second slots.
         """
         del seconds_elapsed
-        return 8 * 12 * slots_elapsed
+        parent_denominator = super(
+            EIP8198, cls
+        ).base_fee_max_change_denominator()
+        return (
+            parent_denominator
+            * BASE_FEE_REFERENCE_SLOT_SECONDS
+            * slots_elapsed
+        )
