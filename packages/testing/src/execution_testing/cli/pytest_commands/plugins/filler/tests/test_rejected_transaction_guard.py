@@ -1,6 +1,7 @@
 """
-Test that `fill` refuses a block whose transaction is rejected while the
-transition tool also rejects the block itself.
+Test that `fill` refuses a block whose transaction is rejected when the block
+has a second defect: the transition tool rejects the block itself, or the
+accounts the rejected transaction touches take the BAL over its item cap.
 
 The block exception is not verified when a transaction is rejected, so the
 fixture would otherwise carry two defects and name only one.
@@ -9,6 +10,8 @@ fixture would otherwise carry two defects and name only one.
 import textwrap
 
 import pytest
+
+from execution_testing.forks import Amsterdam
 
 FORK = "Amsterdam"
 
@@ -94,5 +97,32 @@ def test_block_over_access_list_cap_is_refused(
 def test_block_within_access_list_cap_fills(pytester: pytest.Pytester) -> None:
     """Positive control: only the transaction is invalid."""
     result = fill(pytester, block_gas_limit=100_000)
+
+    result.assert_outcomes(passed=1, failed=0)
+
+
+def test_rejected_tx_accounts_over_access_list_cap_are_refused(
+    pytester: pytest.Pytester,
+) -> None:
+    """
+    The transition tool's BAL fits the cap, but adding the rejected
+    transaction's sender and recipient takes it one item over.
+    """
+    item_gas = Amsterdam.gas_costs().BLOCK_ACCESS_LIST_ITEM
+    max_items = Amsterdam.empty_block_bal_item_count() + 1
+    result = fill(pytester, block_gas_limit=max_items * item_gas)
+
+    result.assert_outcomes(passed=0, failed=1)
+    output = "\n".join(result.outlines + result.errlines)
+    assert "listing the accounts it touches" in output, output
+
+
+def test_rejected_tx_accounts_within_access_list_cap_fill(
+    pytester: pytest.Pytester,
+) -> None:
+    """Positive control: the cap has room for the sender and recipient."""
+    item_gas = Amsterdam.gas_costs().BLOCK_ACCESS_LIST_ITEM
+    max_items = Amsterdam.empty_block_bal_item_count() + 2
+    result = fill(pytester, block_gas_limit=max_items * item_gas)
 
     result.assert_outcomes(passed=1, failed=0)

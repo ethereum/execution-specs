@@ -420,3 +420,27 @@ def test_bal_with_accounts_already_present() -> None:
     """Test that the BAL is returned as is when no account is missing."""
     bal = BlockAccessList([BalAccountChange(address=Address(0xA))])
     assert bal.with_accounts([Address(0xA)]) is bal
+
+
+def test_bal_item_count() -> None:
+    """Test that each account and each slot it reads or writes is an item."""
+    bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=Address(0xA),
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=1
+                            )
+                        ],
+                    )
+                ],
+                storage_reads=[2],
+            ),
+            BalAccountChange(address=Address(0xB)),
+        ]
+    )
+    assert bal.item_count() == 4

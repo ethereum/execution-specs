@@ -43,7 +43,6 @@ def test_authorization_authorities_are_listed() -> None:
     unrecoverable = AuthorizationTuple(address=Address(0x400), v=0, r=0, s=0)
     assert unrecoverable.signer is None
     tx = Transaction(
-        ty=4,
         to=Address(0x200),
         gas_limit=100_000,
         authorization_list=[recovered, unrecoverable],
