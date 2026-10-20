@@ -14,7 +14,7 @@ from typing import Any, cast
 
 import pytest
 
-from execution_testing.base_types import Bytes, Hash
+from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.devp2p.chain import Block, Chain
 from execution_testing.devp2p.peer import MockPeer, PeerStatistics
 from execution_testing.devp2p.protocol import ForkSchedule
@@ -26,6 +26,7 @@ from execution_testing.forks import (
     Paris,
     ParisToShanghaiAtTime15k,
 )
+from execution_testing.test_types.block_types import Withdrawal
 
 from ..simulators.helpers.exceptions import LoggedError
 from ..simulators.helpers.ruleset import ruleset
@@ -141,6 +142,19 @@ class TestRequiredWireBodies:
         """The invalid block below a rejection target owes its body."""
         chain = _chain([_block(1, empty=False), _block(2, empty=True)])
         assert [b.number for b in required_wire_bodies(chain)] == [1]
+
+    def test_a_withdrawals_only_body_is_owed(self) -> None:
+        """Withdrawals alone make a body its header cannot stand for."""
+        withdrawal = Withdrawal(
+            index=0, validator_index=0, address=Address(1), amount=1
+        )
+        withdrawals_only = Block(
+            header=cast(FixtureHeader, _StubHeader(1, Hash(1))),
+            transactions=[],
+            withdrawals=[withdrawal],
+        )
+        chain = _chain([withdrawals_only, _block(2, empty=True)])
+        assert required_wire_bodies(chain) == [withdrawals_only]
 
 
 class TestRequiredWireHeaders:
