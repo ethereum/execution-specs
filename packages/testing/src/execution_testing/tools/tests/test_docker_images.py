@@ -276,6 +276,7 @@ def test_plan_for_a_push() -> None:
     assert newest["slug"] == "glamsterdam-devnet-v8.1.4"
     # Only the channel moves; the release tag stays as the release built it.
     assert newest["tags"] == ["glamsterdam-devnet-8"]
+    assert newest["legacy"] is None, "only `latest` has a variant"
     assert newest["immutable"] == ""
     blobs = images[-1]
     assert blobs["name"] == "execute-blobs" and blobs["kind"] == "execute"
@@ -294,6 +295,10 @@ def test_plan_for_a_push() -> None:
     assert result["base"]["tags"] == ["sha-abc1234"]
     assert {i["release"] for i in result["images"]} == {"tests@v20.0.2"}
     assert result["images"][0]["tags"] == ["latest"]
+    assert result["images"][0]["legacy"] == {
+        "from": "latest",
+        "tag": "latest-legacy",
+    }
 
     # A branch without releases, or without a line, publishes only its code.
     result = plan(
@@ -347,6 +352,11 @@ def test_plan_for_a_release() -> None:
     ] * len(IMAGES)
     assert result["images"][0]["tags"] == ["v20.0.2", "latest"]
     assert result["images"][0]["immutable"] == "v20.0.2"
+    # `latest` brings its deprecated build arguments variant.
+    assert result["images"][0]["legacy"] == {
+        "from": "latest",
+        "tag": "latest-legacy",
+    }
 
     # An older release moves nothing.
     older = plan(
@@ -357,6 +367,7 @@ def test_plan_for_a_release() -> None:
         releases=RELEASES,
     )
     assert older["images"][0]["tags"] == ["v20.0.1"]
+    assert older["images"][0]["legacy"] is None
 
     # A devnet release is paired with its own branch, whatever the caller says.
     devnet = plan(
@@ -494,6 +505,7 @@ def test_plan_for_a_nightly() -> None:
     assert result["images"][0]["requires"].endswith(":nightly")
     assert result["images"][0]["commit"] == "1a2b3c4d5e"
     assert result["images"][0]["tags"] == ["nightly"]
+    assert result["images"][0]["legacy"] is None
     assert result["images"][0]["immutable"] == ""
     with pytest.raises(ValueError, match="default branch"):
         plan(

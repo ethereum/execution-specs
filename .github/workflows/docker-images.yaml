@@ -411,6 +411,8 @@ jobs:
           SLUG: ${{ matrix.slug }}
           TAGS: ${{ matrix.tags }}
           IMMUTABLE: ${{ matrix.immutable }}
+          LEGACY_FROM: ${{ matrix.legacy.from }}
+          LEGACY_TAG: ${{ matrix.legacy.tag }}
           EEST_GIT_SHA: ${{ fromJSON(needs.plan.outputs.plan).sha }}
         run: |
           first=${TAGS%% *}
@@ -429,6 +431,17 @@ jobs:
           fi
           .github/scripts/push_image_tags.sh "${IMAGE}:${first}" "$IMAGE" \
             "$TAGS" "$IMMUTABLE" "$EEST_GIT_SHA" "$RELEASE"
+
+          # The deprecated build arguments variant moves with its channel,
+          # `latest`, built on what the registry now serves under it. A run
+          # that left the channel to a newer run publishes no variant.
+          if [ -n "$LEGACY_TAG" ] && [ "$TAGS" != "$SLUG" ]; then
+            docker build -f packages/testing/docker/hive/Dockerfile.legacy \
+              --build-arg "IMAGE_REF=${IMAGE}:${LEGACY_FROM}" \
+              -t "${IMAGE}:${LEGACY_TAG}" packages/testing/docker/hive
+            .github/scripts/push_image_tags.sh "${IMAGE}:${LEGACY_TAG}" "$IMAGE" \
+              "$LEGACY_TAG" "" "$EEST_GIT_SHA" "$RELEASE"
+          fi
 
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: hashFiles('digests/*.json') != ''
