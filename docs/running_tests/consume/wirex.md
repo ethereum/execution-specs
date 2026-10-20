@@ -201,7 +201,7 @@ With a sync target from `syncPayloads`, the verdict must also have been reached 
 
 Only the fact of rejection is asserted, never its cause: `validationError` is free-form client text and devp2p carries no reason at all. The client's reason is logged.
 
-If an `INVALID` answer gives a `latestValidHash`, it must be the parent of the first invalid block on the path. Any other hash fails the test, so a client that blames a valid block fails. A null or all-zero hash is accepted, and so is an `INVALID_BLOCK_HASH` answer, which carries no hash. The log shows the result after `latestValidHash check:` as `match`, `null` (no hash given), `unchecked` (no block on the path is invalid, so there is no hash to match) or `mismatch` (the test fails).
+If an `INVALID` answer gives a `latestValidHash`, it must be the parent of the first invalid block on the path. Any other hash fails the test, so a client that blames a valid block fails. A null or all-zero hash is accepted. An `INVALID_BLOCK_HASH` answer fails the test, since every served payload hashes to its `blockHash`. The log shows the result after `latestValidHash check:` as `match`, `null` (no hash given), `unchecked` (no block on the path is invalid, so there is no hash to match) or `mismatch` (the test fails).
 
 A fixture that declares an Engine API error code for its head passes when the client refuses `engine_newPayload` with that code.
 

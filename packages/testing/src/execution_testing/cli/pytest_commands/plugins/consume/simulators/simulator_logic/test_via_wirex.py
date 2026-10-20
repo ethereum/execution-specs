@@ -58,10 +58,15 @@ geth has answered VALID for a block its own backfill rejected moments
 later.
 """
 
-REJECTED_STATUSES = frozenset(
-    {PayloadStatusEnum.INVALID, PayloadStatusEnum.INVALID_BLOCK_HASH}
-)
-"""The `newPayload` statuses that reject the head."""
+REJECTED_STATUSES = frozenset({PayloadStatusEnum.INVALID})
+"""
+The `newPayload` statuses that reject the head.
+
+INVALID_BLOCK_HASH is not one: every served payload hashes to its
+`blockHash` (`chain_from_payloads` checks it), and `newPayloadV2` onward
+answers INVALID where V1 answered INVALID_BLOCK_HASH, so that status is
+always a wrong answer.
+"""
 
 
 def required_wire_bodies(chain: Chain) -> list[Block]:
@@ -216,8 +221,7 @@ def check_latest_valid_hash(
     `SyncPath.expected_latest_valid_hash`); any other hash means the
     client blamed the wrong block, perhaps a valid ancestor. A null or
     all-zero hash, which the Engine API allows when the client cannot
-    determine one, passes and is logged, as does INVALID_BLOCK_HASH,
-    which carries none.
+    determine one, passes and is logged.
     """
     expected = path.expected_latest_valid_hash
     got = payload_status.latest_valid_hash
@@ -232,11 +236,7 @@ def check_latest_valid_hash(
                 return f"{block_hash} (block {block.number})"
         return f"{block_hash} (not on the served chain)"
 
-    if (
-        status == PayloadStatusEnum.INVALID_BLOCK_HASH
-        or got is None
-        or got == Hash(0)
-    ):
+    if got is None or got == Hash(0):
         logger.info(
             f"{prefix}{LATEST_VALID_HASH_CHECK} null: the client gave no "
             f"latest valid hash with {status} (latestValidHash {got})"
@@ -410,6 +410,12 @@ def _run_sync_target(
                 status = payload_status.status
                 if status in REJECTED_STATUSES:
                     return True
+                if status == PayloadStatusEnum.INVALID_BLOCK_HASH:
+                    raise LoggedError(
+                        f"{prefix}Client answered INVALID_BLOCK_HASH for "
+                        f"the invalid head {expected_head}, whose payload "
+                        "hashes to its blockHash (see REJECTED_STATUSES)"
+                    )
                 if status != PayloadStatusEnum.VALID:
                     accepted_since = None
                 elif accepted_since is None:
@@ -507,7 +513,10 @@ def _run_sync_target(
         An INVALID head means the client executed the ancestry and
         decided; waiting out the timeout would only lose its reason.
         """
-        if payload_status.status in REJECTED_STATUSES:
+        if payload_status.status in (
+            PayloadStatusEnum.INVALID,
+            PayloadStatusEnum.INVALID_BLOCK_HASH,
+        ):
             raise LoggedError(
                 f"{prefix}Client rejected the chain at head "
                 f"{expected_head}: {payload_status.status} "

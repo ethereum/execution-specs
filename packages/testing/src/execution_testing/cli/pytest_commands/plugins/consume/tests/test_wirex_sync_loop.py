@@ -571,6 +571,13 @@ class TestWireCoverage:
 INVALID_BLOCK_HASH = PayloadStatusEnum.INVALID_BLOCK_HASH
 
 
+def test_an_invalid_block_hash_answer_fails(clock: FakeClock) -> None:
+    """Every served payload hashes to its blockHash, so the answer is wrong."""
+    with pytest.raises(LoggedError, match="answered INVALID_BLOCK_HASH"):
+        _run(clock, _engine(clock, INVALID_BLOCK_HASH), expects_rejection=True)
+    assert clock.now < SYNC_TIMEOUT
+
+
 class TestLatestValidHash:
     """A rejection that names a latest valid hash must name the right one."""
 
@@ -612,9 +619,8 @@ class TestLatestValidHash:
         [
             (INVALID, None),
             (INVALID, Hash(0)),
-            (INVALID_BLOCK_HASH, None),
         ],
-        ids=["invalid-null", "invalid-zero", "invalid-block-hash-null"],
+        ids=["invalid-null", "invalid-zero"],
     )
     def test_no_hash_passes(
         self,
