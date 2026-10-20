@@ -122,6 +122,7 @@ class GethExceptionMapper(ExceptionMapper):
             "invalid timestamp"
         ),
         BlockException.INVALID_GASLIMIT: "invalid gas limit",
+        BlockException.INVALID_SLOT_NUMBER: "invalid slotNumber",
         BlockException.INVALID_BLOCK_NUMBER: "invalid block number",
         BlockException.EXTRA_DATA_TOO_BIG: "invalid extradata length",
         BlockException.INVALID_RECEIPTS_ROOT: "invalid receipt root hash",
