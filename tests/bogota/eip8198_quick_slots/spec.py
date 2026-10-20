@@ -23,8 +23,8 @@ class Spec(EIP4844Spec):
     """
     Parameters from the EIP-8198 specifications. Extends the EIP-4844 spec.
 
-    The new base fee change and blob schedule are read from the fork, which
-    carries them from the EIP-8198 fork class.
+    The new base fee change is read from the fork, which carries it from the
+    EIP-8198 fork class.
     """
 
     GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
