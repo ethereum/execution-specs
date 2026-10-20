@@ -8,11 +8,13 @@ an interval its client did not apply.
 """
 
 import argparse
+from contextlib import nullcontext
 from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
 import requests
+from hive.client import Client
 
 from execution_testing.rpc import RPCCall
 from execution_testing.rpc.rpc_types import JSONRPCResponse
@@ -229,6 +231,29 @@ def test_an_ignored_interval_is_a_mismatch(
     assert SYNC_LOOP_INTERVAL_VARIABLE in reason
 
 
+@pytest.mark.parametrize(
+    "rpc,applied",
+    [
+        (FakeRPC(result="50"), True),
+        (FakeRPC(result="1000"), False),
+        (FakeRPC(error={"code": -32601, "message": "unsupported"}), True),
+    ],
+    ids=["applied", "ignored", "cannot-report"],
+)
+def test_a_client_is_confirmed_from_what_it_reports(
+    monkeypatch: pytest.MonkeyPatch, rpc: FakeRPC, applied: bool
+) -> None:
+    """A reported mismatch is the reason, and a silent client passes."""
+    monkeypatch.setattr(
+        sync_loop_interval, "DebugRPC", lambda _url: nullcontext(rpc)
+    )
+    reason = sync_loop_interval.confirm_interval(
+        cast(Client, SimpleNamespace(ip="10.0.0.2")),
+        SyncLoopInterval(50, IntervalSource.OPTION),
+    )
+    assert (reason is None) == applied
+
+
 CLIENT = SimpleNamespace(id="client")
 REASON = "the client reports SyncConfig.MultiSyncModeSelectorLoopTimerMs"
 
@@ -236,21 +261,24 @@ REASON = "the client reports SyncConfig.MultiSyncModeSelectorLoopTimerMs"
 class _Request:
     """The slice of a test's request the interval gate reads."""
 
-    def __init__(self, interval: SyncLoopInterval) -> None:
+    def __init__(
+        self, interval: SyncLoopInterval, client_type: str = "nethermind"
+    ) -> None:
         """Hold a run resolved to `interval` and record what is asked."""
         self.config = _config(interval)
+        self.client_type = SimpleNamespace(name=client_type)
         self.node = SimpleNamespace(user_properties=[])
         self.session = SimpleNamespace(shouldstop=False)
         self.fixtures_requested: list[str] = []
 
     def getfixturevalue(self, name: str) -> Any:
-        """Record the request and return the test's client."""
+        """Record the request and return the test's client or its type."""
         self.fixtures_requested.append(name)
-        return CLIENT
+        return self.client_type if name == "client_type" else CLIENT
 
 
 class TestTheIntervalGate:
-    """The first client is checked against the requested interval."""
+    """The first client of each type is checked against the interval."""
 
     @pytest.fixture
     def confirmed(self, monkeypatch: pytest.MonkeyPatch) -> list[Any]:
@@ -294,18 +322,25 @@ class TestTheIntervalGate:
         assert len(confirmed) == 1
         assert f"{REASON}; continuing at the client's default" in caplog.text
 
-    def test_only_the_first_client_is_checked(
+    def test_only_the_first_client_of_each_type_is_checked(
         self, confirmed: list[Any]
     ) -> None:
-        """Later tests of the worker neither request nor check a client."""
-        first = _Request(SyncLoopInterval(10, IntervalSource.DEFAULT))
-        second = _Request(SyncLoopInterval(10, IntervalSource.DEFAULT))
-        second.config = first.config  # the same worker
-        self._gate(first)
-        self._gate(second)
-        assert first.fixtures_requested == ["client"]
-        assert second.fixtures_requested == []
-        assert len(confirmed) == 1
+        """
+        A later client of a checked type is neither set up nor checked,
+        while the first of another type on the same worker still is.
+        """
+        interval = SyncLoopInterval(10, IntervalSource.DEFAULT)
+        first, second, third = (
+            _Request(interval, client_type)
+            for client_type in ("go-ethereum", "go-ethereum", "nethermind")
+        )
+        second.config = third.config = first.config  # the same worker
+        for request in (first, second, third):
+            self._gate(request)
+        assert first.fixtures_requested == ["client_type", "client"]
+        assert second.fixtures_requested == ["client_type"]
+        assert third.fixtures_requested == ["client_type", "client"]
+        assert len(confirmed) == 2
 
     def test_every_test_records_the_requested_interval(
         self, confirmed: list[Any]
@@ -313,7 +348,9 @@ class TestTheIntervalGate:
         """Each test's JUnit properties carry the interval it ran under."""
         del confirmed
         request = _Request(SyncLoopInterval(10, IntervalSource.DEFAULT))
-        request.config.stash[sync_loop_interval.client_checked_key] = True
+        request.config.stash[sync_loop_interval.client_checked_key] = {
+            "nethermind"
+        }
         self._gate(request)
         assert request.node.user_properties == [
             ("wirex_sync_loop_interval_ms", "10")

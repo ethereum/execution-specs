@@ -7,7 +7,7 @@ milliseconds instead of on their own slower timer; a Hive client
 wrapper may map the hint to its own setting, and clients without one
 ignore it. Record the interval in the run's reports, since a client
 that applies it runs at a non-default configuration, and check it on
-the first client of each worker that reports its configuration. See
+the first client of each type on each worker. See
 "Tuning" in `docs/running_tests/consume/wirex.md` for the reasons.
 """
 
@@ -153,8 +153,8 @@ def resolve_interval(
 
 sync_loop_interval_key = pytest.StashKey[SyncLoopInterval]()
 
-client_checked_key = pytest.StashKey[bool]()
-"""Set once this worker has checked a client's interval."""
+client_checked_key = pytest.StashKey[set[str]]()
+"""The client types whose interval this worker has checked."""
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -292,10 +292,13 @@ def confirm_interval(client: Client, interval: SyncLoopInterval) -> str | None:
 @pytest.fixture(scope="function", autouse=True)
 def _record_sync_loop_interval(request: pytest.FixtureRequest) -> None:
     """
-    Record a requested interval on the test and check the first client.
+    Record a requested interval on the test and check the first client
+    of each type.
 
     The client is requested only when an interval is, so runs without
-    one set up exactly the fixtures they did before.
+    one set up exactly the fixtures they did before. The check is per
+    client type, since a client that cannot report must not use up the
+    check for a later one that can.
     """
     interval = run_interval(request.config)
     if not interval.requested:
@@ -303,10 +306,12 @@ def _record_sync_loop_interval(request: pytest.FixtureRequest) -> None:
     request.node.user_properties.append(
         (SYNC_LOOP_INTERVAL_PROPERTY, str(interval.milliseconds))
     )
-    if request.config.stash.get(client_checked_key, False):
+    client_type = request.getfixturevalue("client_type")
+    checked = request.config.stash.setdefault(client_checked_key, set())
+    if client_type.name in checked:
         return
     client = request.getfixturevalue("client")
-    request.config.stash[client_checked_key] = True
+    checked.add(client_type.name)
     reason = confirm_interval(client, interval)
     if reason is None:
         return

@@ -93,7 +93,7 @@ Run time depends on the client. Much of it goes to starting and stopping clients
     - WireX asks every client for a 10 ms interval through the client environment variable `HIVE_SYNC_LOOP_INTERVAL_MS`. A client's Hive wrapper must map it to the client's own setting. nethermind's wrapper does so once [ethereum/hive#1621](https://github.com/ethereum/hive/pull/1621) is in your Hive build. Other clients ignore it.
     - To change the value, pass `--wirex-sync-loop-interval MS` or set `HIVE_SYNC_LOOP_INTERVAL_MS` for the simulator. `0` sends no hint.
     - A client that applies the hint runs with a non-default setting, so the run records the interval in the report header, the Hive suite description and each test's junit properties.
-    - The first client of each worker that reports its configuration is checked. If it ignored a value you set, the run stops. If it ignored the default, the run warns and continues.
+    - The first client of each type on each worker is checked, if it reports its configuration. If it ignored a value you set, the run stops. If it ignored the default, the run warns and continues.
 - Timing data: `--timing-data` prints each test's phase timings and records them as a `timing_data` property of each test case in the junit report, also under `-n`.
 - Leftover clients: a crashed xdist worker cannot stop its clients, and stopping Hive does not remove them, so check for leftover client containers (`docker ps`) after an interrupted run.
 
