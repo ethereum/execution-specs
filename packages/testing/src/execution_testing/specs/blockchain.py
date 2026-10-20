@@ -258,6 +258,27 @@ def count_blobs(txs: List[Transaction]) -> int:
     )
 
 
+def rejected_transactions_accessed_addresses(
+    txs: List[Transaction], rejected_indices: List[int]
+) -> List[Address]:
+    """
+    Return the sender, recipient and authorization authorities of each
+    rejected transaction, skipping authorities whose signer cannot be
+    recovered.
+    """
+    addresses: List[Address] = []
+    for index in rejected_indices:
+        tx = txs[index]
+        if tx.sender is not None:
+            addresses.append(Address(tx.sender))
+        if tx.to is not None:
+            addresses.append(tx.to)
+        for authorization in tx.authorization_list or []:
+            if authorization.signer is not None:
+                addresses.append(Address(authorization.signer))
+    return addresses
+
+
 def payload_metadata_to_fixture(
     meta: EnginePayloadMetadata,
     *,
@@ -502,6 +523,23 @@ class Block(Header):
         ):
             overrides.append("expected_block_access_list.modify_rlp")
         return overrides
+
+    def sets_block_access_list(self) -> bool:
+        """
+        Return whether the test sets the block access list or its hash
+        instead of taking the one the transition tool builds.
+        """
+        return (
+            (
+                self.expected_block_access_list is not None
+                and self.expected_block_access_list.has_modifier
+            )
+            or self.engine_new_payload_block_access_list is not None
+            or (
+                self.rlp_modifier is not None
+                and self.rlp_modifier.block_access_list_hash is not None
+            )
+        )
 
     def set_environment(self, env: Environment) -> Environment:
         """
@@ -1315,6 +1353,45 @@ class BlockchainTest(BaseTest):
                     "arbitrary bytes."
                 )
 
+        if (
+            bal is not None
+            and transition_tool_output.result.rejected_transactions
+            and not block.sets_block_access_list()
+            and transition_tool_output.engine_payload is None
+        ):
+            # The transition tool leaves rejected transactions out of the
+            # BAL, so add the accounts they touch; otherwise the BAL would be
+            # a second defect. A BAL the test sets, or one a client built, is
+            # kept as it is.
+            bal = bal.with_accounts(
+                rejected_transactions_accessed_addresses(
+                    txs,
+                    [
+                        rejected_tx.index
+                        for rejected_tx in (
+                            transition_tool_output.result.rejected_transactions
+                        )
+                    ],
+                )
+            )
+            header.block_access_list_hash = Hash(bal.rlp.keccak256())
+            max_items = (
+                header.gas_limit // fork.gas_costs().BLOCK_ACCESS_LIST_ITEM
+            )
+            # A block the transition tool rejects itself is reported below.
+            if (
+                transition_tool_output.result.block_exception is None
+                and bal.item_count() > max_items
+            ):
+                raise Exception(
+                    f"test correctness: block number {int(env.number)} "
+                    "rejects a transaction, and listing the accounts it "
+                    f"touches takes the block access list to "
+                    f"{bal.item_count()} items, over the EIP-7928 cap of "
+                    f"{max_items} at this gas limit. The fixture would carry "
+                    "two defects and name one. Raise the block gas limit."
+                )
+
         built_block_kwargs: Dict[str, Any] = dict(
             header=header,
             alloc=transition_tool_output.alloc,
@@ -1357,12 +1434,8 @@ class BlockchainTest(BaseTest):
                 and block.rlp_modifier is None
                 and block.requests is None
                 and not block.skip_exception_verification
-                and block.engine_new_payload_block_access_list is None
                 and block.engine_new_payload_slot_number is None
-                and not (
-                    block.expected_block_access_list is not None
-                    and block.expected_block_access_list.has_modifier
-                )
+                and not block.sets_block_access_list()
             ):
                 # Only verify block level exception if: - No transaction
                 # exception was raised, because these are not reported as block

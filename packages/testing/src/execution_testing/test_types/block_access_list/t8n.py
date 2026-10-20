@@ -190,6 +190,41 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
         """Return the hash of the RLP encoded block access list."""
         return self.rlp.keccak256()
 
+    def item_count(self) -> int:
+        """
+        Return the number of items the EIP-7928 cap counts: each account and
+        each unique storage slot it reads or writes.
+        """
+        return sum(
+            1
+            + len(
+                {slot.slot for slot in account.storage_changes}
+                | set(account.storage_reads)
+            )
+            for account in self.root
+        )
+
+    def with_accounts(self, addresses: Sequence[Address]) -> Self:
+        """
+        Return a BAL that also lists each of ``addresses``, adding an entry
+        without changes for every address not already present and keeping
+        the accounts in ascending address order.
+        """
+        present = {account.address for account in self.root}
+        new_accounts = [
+            BalAccountChange(address=address)
+            for address in dict.fromkeys(addresses)
+            if address not in present
+        ]
+        if not new_accounts:
+            return self
+        return type(self)(
+            root=sorted(
+                [*self.root, *new_accounts],
+                key=lambda account: account.address,
+            )
+        )
+
     def validate_structure(self) -> None:
         """
         Validate BAL structure follows EIP-7928 requirements.

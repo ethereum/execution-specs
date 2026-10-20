@@ -393,3 +393,54 @@ def test_bal_single_account_valid() -> None:
         ]
     )
     bal.validate_structure()  # Should not raise
+
+
+def test_bal_with_accounts_inserts_in_order() -> None:
+    """Test that added accounts have no changes and keep address order."""
+    changed = BalAccountChange(
+        address=Address(0xB),
+        nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+    )
+    bal = BlockAccessList([changed])
+
+    extended = bal.with_accounts(
+        [Address(0xC), Address(0xA), Address(0xB), Address(0xA)]
+    )
+
+    assert extended.root == [
+        BalAccountChange(address=Address(0xA)),
+        changed,
+        BalAccountChange(address=Address(0xC)),
+    ]
+    extended.validate_structure()
+    assert bal.root == [changed]
+
+
+def test_bal_with_accounts_already_present() -> None:
+    """Test that the BAL is returned as is when no account is missing."""
+    bal = BlockAccessList([BalAccountChange(address=Address(0xA))])
+    assert bal.with_accounts([Address(0xA)]) is bal
+
+
+def test_bal_item_count() -> None:
+    """Test that each account and each slot it reads or writes is an item."""
+    bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=Address(0xA),
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=1
+                            )
+                        ],
+                    )
+                ],
+                storage_reads=[2],
+            ),
+            BalAccountChange(address=Address(0xB)),
+        ]
+    )
+    assert bal.item_count() == 4
