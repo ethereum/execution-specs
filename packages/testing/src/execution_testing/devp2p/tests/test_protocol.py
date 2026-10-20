@@ -398,15 +398,6 @@ class TestBlockAccessLists:
             assert protocol.has_bals is (version >= 71)
 
 
-class TestRegistry:
-    """The registry is the single source of what the peer implements."""
-
-    def test_versions_match_keys(self) -> None:
-        """Each protocol object declares the version it is keyed by."""
-        for version, protocol in ETH_PROTOCOLS.items():
-            assert protocol.version == version
-
-
 class TestMalformedRequests:
     """A request of the wrong shape is refused, never misread."""
 

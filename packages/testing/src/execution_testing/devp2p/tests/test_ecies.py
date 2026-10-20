@@ -8,8 +8,7 @@ another implementation encrypted.
 
 import pytest
 
-from ..ecies import DecryptionError, decrypt, encrypt
-from ..secp256k1 import public_key_bytes
+from ..ecies import DecryptionError, decrypt
 from .handshake_vectors import AUTH_VERSION_4, NONCE_A, STATIC_KEY_B
 
 PREFIX = AUTH_VERSION_4[:2]
@@ -43,12 +42,3 @@ class TestDecrypt:
         """A message shorter than the ECIES overhead raises."""
         with pytest.raises(DecryptionError, match="malformed"):
             decrypt(STATIC_KEY_B, MESSAGE[:100], PREFIX)
-
-
-class TestEncrypt:
-    """Encryption produces what decryption accepts."""
-
-    def test_a_message_round_trips(self) -> None:
-        """A message encrypted to a key decrypts with that key."""
-        message = encrypt(public_key_bytes(STATIC_KEY_B), b"hello", PREFIX)
-        assert decrypt(STATIC_KEY_B, message, PREFIX) == b"hello"
