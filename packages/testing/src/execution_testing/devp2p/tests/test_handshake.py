@@ -283,25 +283,34 @@ class TestConnect:
         finally:
             node.join()
 
-    def test_a_short_nonce_fails_the_dial_and_hangs_up(
+    @pytest.mark.parametrize(
+        "fields",
+        [
+            SHORT_ACK_FIELDS["short-nonce"],
+            [b"\x00" * 63 + b"\x01", NONCE_B],
+        ],
+        ids=["short-nonce", "key-off-the-curve"],
+    )
+    def test_a_malformed_ack_field_fails_the_dial_and_hangs_up(
         self,
         listener: socket.socket,
+        fields: List[bytes],
     ) -> None:
         """The dialer raises `RLPxError` and closes its end at once."""
         read_after_ack: List[bytes] = []
 
         def node_b() -> None:
-            """Answer the auth with an ack whose nonce is a byte short."""
+            """Answer the auth with an ack carrying `fields`."""
             connection, _ = listener.accept()
             connection.settimeout(5.0)
             _read_auth(connection)
-            connection.sendall(_ack(SHORT_ACK_FIELDS["short-nonce"]))
+            connection.sendall(_ack(fields))
             read_after_ack.append(connection.recv(1))
             connection.close()
 
         node = _NodeB(node_b)
         try:
-            with pytest.raises(RLPxError, match="malformed ack"):
+            with pytest.raises(RLPxError, match="malformed"):
                 _dial_node_b(listener)
         finally:
             node.join()
