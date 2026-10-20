@@ -704,10 +704,10 @@ class TestBalService:
         assert peer.statistics.receipt_requests == 0
 
     @pytest.mark.parametrize("version", sorted(ETH_PROTOCOLS))
-    def test_receipts_stay_unanswered_when_serving(
+    def test_receipts_are_answered_as_none_held_when_serving(
         self, version: EthVersion
     ) -> None:
-        """No version answers receipts, even with BALs served."""
+        """No version serves receipts, even with BALs served."""
         peer = _bal_peer({}, serve=True)
         peer.protocol = ETH_PROTOCOLS[version]
         session = _RecordingSession()
@@ -716,6 +716,11 @@ class TestBalService:
         peer._handle(
             cast(RLPxSession, session), MessageCode.GET_RECEIPTS, payload
         )
-        assert session.messages == []
+        assert session.messages == [
+            (
+                MessageCode.RECEIPTS,
+                ETH_PROTOCOLS[version].encode_no_receipts(5),
+            )
+        ]
         assert peer.statistics.receipt_requests == 1
         assert "receipts for 1 hashes" in peer.statistics.transcript[-1]

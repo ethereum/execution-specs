@@ -58,6 +58,7 @@ class MessageCode(IntEnum):
     GET_BLOCK_BODIES = ETH_OFFSET + 0x05
     BLOCK_BODIES = ETH_OFFSET + 0x06
     GET_RECEIPTS = ETH_OFFSET + 0x0F
+    RECEIPTS = ETH_OFFSET + 0x10
     BLOCK_RANGE_UPDATE = ETH_OFFSET + 0x11
     GET_BLOCK_ACCESS_LISTS = ETH_OFFSET + 0x12
     BLOCK_ACCESS_LISTS = ETH_OFFSET + 0x13
@@ -391,6 +392,18 @@ class EthProtocol:
             first_block_receipt_index=None,
         )
 
+    def encode_no_receipts(self, request_id: int) -> bytes:
+        """
+        Encode a Receipts response that holds no receipts.
+
+        An empty list is how a peer says it holds none of the requested
+        blocks' receipts. From eth/70 the response also carries the
+        `lastBlockIncomplete` flag, which is 0 for an empty list.
+        """
+        if self.receipts_request_has_offset:
+            return eth_rlp.encode([Uint(request_id), Uint(0), []])
+        return eth_rlp.encode([Uint(request_id), []])
+
 
 ETH_PROTOCOLS: Mapping[EthVersion, EthProtocol] = {
     EthVersion.ETH_69: EthProtocol(
@@ -417,8 +430,8 @@ ETH_PROTOCOLS: Mapping[EthVersion, EthProtocol] = {
 """
 Every eth capability version this peer implements, by version number.
 
-eth/70 (EIP-7975) changes only the receipts request, which this peer
-never answers. eth/71 (EIP-8159) adds the BAL request pair (see
+eth/70 (EIP-7975) changes only the receipts messages, which this peer
+answers with no receipts. eth/71 (EIP-8159) adds the BAL request pair (see
 `MockPeer._answer_bals`). eth/72 (EIP-8070) changes only mempool blob
 propagation, which this peer takes no part in.
 """

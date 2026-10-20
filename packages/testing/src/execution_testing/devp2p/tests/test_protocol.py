@@ -366,6 +366,21 @@ class TestGetReceipts:
         with pytest.raises(ProtocolError):
             ETH_PROTOCOLS[EthVersion.ETH_70].decode_get_receipts(eth69_shaped)
 
+    @pytest.mark.parametrize(
+        "version,encoded",
+        [
+            (EthVersion.ETH_69, "c201c0"),
+            (EthVersion.ETH_70, "c30180c0"),
+            (EthVersion.ETH_71, "c30180c0"),
+            (EthVersion.ETH_72, "c30180c0"),
+        ],
+    )
+    def test_no_receipts_answer(
+        self, version: EthVersion, encoded: str
+    ) -> None:
+        """[1, []] up to eth/69, then [1, lastBlockIncomplete 0, []]."""
+        assert ETH_PROTOCOLS[version].encode_no_receipts(1).hex() == encoded
+
 
 class TestBlockAccessLists:
     """eth/71 (EIP-8159) adds the request pair; the peer always answers."""

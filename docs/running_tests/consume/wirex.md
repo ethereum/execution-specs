@@ -169,7 +169,7 @@ The peer lives in `execution_testing.devp2p`: an RLPx transport (ECIES handshake
 
 The peer is deliberately honest: it never withholds, reorders or corrupts a response, so a sync failure is a finding about the client or the fixture, not the peer.
 
-- Receipts requests are counted and left unanswered. A full syncing client derives receipts by executing blocks, so serving them would turn real failures into passes without coverage; a nonzero count is a finding.
+- Receipts requests are counted and answered with no receipts, the spec's answer for blocks a peer does not hold. A full syncing client derives receipts by executing blocks, so serving them would turn real failures into passes without coverage; a nonzero count is a finding.
 - BALs are withheld or served per `--wirex-bals` (see [Block Access Lists](#block-access-lists)).
 - Chains already served stay served, because a client's downloader keeps asking for the chain it was syncing when a test ended.
 - Responses are bounded by serialized bytes (2 MiB), because clients drop a peer whose message exceeds their own cap.

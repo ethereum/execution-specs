@@ -104,7 +104,7 @@ class PeerStatistics:
     bals_withheld: int = 0
     """BALs held but answered as unavailable."""
     receipt_requests: int = 0
-    """GetReceipts requests left unanswered; nonzero is a finding."""
+    """GetReceipts requests, each answered with none; nonzero is a finding."""
     transcript: List[str] = field(default_factory=list)
 
     def record(self, line: str) -> None:
@@ -448,12 +448,17 @@ class MockPeer:
         elif code == MessageCode.GET_RECEIPTS:
             # A full syncing client derives receipts by executing the
             # block; serving them would let a failing test pass with no
-            # coverage. Leave the request unanswered and make it visible.
+            # coverage. Answer that none are held, rather than leave the
+            # request to time out, and make it visible.
             request = protocol.decode_get_receipts(payload)
+            session.write_message(
+                MessageCode.RECEIPTS,
+                protocol.encode_no_receipts(request.request_id),
+            )
             with self._lock:
                 self.statistics.receipt_requests += 1
-                self.statistics.record(f"{request.describe()} (unanswered)")
-            logger.warning("Client requested GetReceipts; not served")
+                self.statistics.record(f"{request.describe()} (none held)")
+            logger.warning("Client requested GetReceipts; answered none held")
         elif code == MessageCode.DISCONNECT:
             reason = decode_disconnect(payload)
             logger.info("Client disconnected: reason %s", reason)
