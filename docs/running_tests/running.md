@@ -105,6 +105,12 @@ Every test after the first in a pre-allocation group consequently exercises the 
 
     It does mean, however, that a test which fails under `consume enginex` but passes under `consume engine` is more likely to indicate a bug in the client's reorg, head state rollback or block caching logic than in its EVM or block validation logic.
 
+### Client Replacement After Deep Chains
+
+The forkchoice update to genesis at the start of each test makes the client unwind the whole chain the previous test left. Some clients cannot reliably make a rewind beyond a certain depth, so the simulator replaces their client with a fresh one after a test whose deepest valid block is above a per-client limit (`MAX_REUSED_HEAD_NUMBER` in the enginex simulator). The next test in the group starts on the fresh client, and the group's remaining tests reuse it as usual.
+
+Only ethrex is listed, with a limit of 128 blocks: it keeps the state of its latest 128 blocks in memory and rebuilds older state from a journal that can record the wrong block hash when two blocks at the same height share a post-state root. In `tests@v21.0.1`, eight tests leave a head above block 128, so ethrex starts eight extra clients per run. Other clients are always reused.
+
 ### Bad-Block Cache Handling
 
 Clients typically cache the blocks they reject. Because a client is reused across a pre-allocation group, its bad-block cache persists between tests: if two tests in a group contain an identical invalid block, the client validates the first submission for real and returns the specific validation error, but may answer the resubmission from its cache with a generic error (e.g. geth's and reth's "links to previously rejected block" or Nethermind's "is known to be a part of an invalid chain") that maps to no known exception.
