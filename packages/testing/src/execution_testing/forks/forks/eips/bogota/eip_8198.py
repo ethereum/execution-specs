@@ -34,6 +34,11 @@ class EIP8198(BaseFork):
         return True
 
     @classmethod
+    def header_slot_number_must_increase(cls) -> bool:
+        """A block's slot number must exceed its parent's."""
+        return True
+
+    @classmethod
     def base_fee_max_change_numerator(
         cls,
         *,

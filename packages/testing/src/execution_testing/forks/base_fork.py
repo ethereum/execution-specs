@@ -584,6 +584,12 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """Return true if the header must contain slot number (EIP-7843)."""
         pass
 
+    @classmethod
+    @abstractmethod
+    def header_slot_number_must_increase(cls) -> bool:
+        """Return true if a block's slot number must exceed its parent's."""
+        pass
+
     # Gas related abstract methods
 
     @classmethod
@@ -817,8 +823,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     def base_fee_follows_slot_spacing(cls) -> bool:
         """
         Return whether the maximum base fee change follows the slot duration
-        read from the spacing of a block and its parent, which requires the
-        slot number to increase from block to block.
+        read from the spacing of a block and its parent.
         """
         pass
 

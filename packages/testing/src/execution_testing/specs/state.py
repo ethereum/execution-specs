@@ -339,14 +339,13 @@ class StateTest(BaseTest):
             "number": genesis_block_number,
             "timestamp": genesis_timestamp,
         }
-        if (
-            block_fork.base_fee_follows_slot_spacing()
-            and self.env.slot_number is not None
-        ):
-            assert int(self.env.slot_number) >= 1, (
-                "the slot number must follow the genesis slot number"
+        slot_number = self._slot_number()
+        if slot_number is not None and slot_number >= 1:
+            kwargs["slot_number"] = slot_number - 1
+        else:
+            assert not block_fork.header_slot_number_must_increase(), (
+                "set state test env.slot_number to at least 1"
             )
-            kwargs["slot_number"] = int(self.env.slot_number) - 1
 
         if "gas_limit" in self.env.model_fields_set:
             kwargs["gas_limit"] = self.env.gas_limit
@@ -380,6 +379,21 @@ class StateTest(BaseTest):
 
         return Environment(**kwargs)
 
+    def _slot_number(self) -> int | None:
+        """
+        Return the slot number of the state test's block, which the state
+        fixture and the blockchain fixture generated from it share.
+        """
+        fork = self.fork.fork_at(
+            block_number=self.env.number, timestamp=self.env.timestamp
+        )
+        if not fork.header_slot_number_required():
+            return None
+        if self.env.slot_number is not None:
+            return int(self.env.slot_number)
+        # One slot after the genesis block, as in a blockchain test.
+        return 1
+
     def _generate_blockchain_blocks(self) -> List[Block]:
         """
         Generate the single block that represents this state test in a
@@ -397,7 +411,7 @@ class StateTest(BaseTest):
             "extra_data": self.env.extra_data,
             "withdrawals": self.env.withdrawals,
             "parent_beacon_block_root": self.env.parent_beacon_block_root,
-            "slot_number": self.env.slot_number,
+            "slot_number": self._slot_number(),
             "txs": [self.tx],
             "ommers": [],
             "header_verify": self.blockchain_test_header_verify,
@@ -442,6 +456,8 @@ class StateTest(BaseTest):
         )
 
         env = self.env.set_fork_requirements(fork)
+        if env.slot_number is not None:
+            env = env.copy(slot_number=self._slot_number())
         env.check_fork_fields(fork)
         tx = self.tx.with_gas_limit(
             max_gas_limit=env.gas_limit,

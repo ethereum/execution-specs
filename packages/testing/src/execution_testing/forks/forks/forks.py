@@ -984,6 +984,11 @@ class Frontier(BaseFork):
         return False
 
     @classmethod
+    def header_slot_number_must_increase(cls) -> bool:
+        """At genesis, slot numbers need not increase."""
+        return False
+
+    @classmethod
     def engine_new_payload_blob_hashes(cls) -> bool:
         """At genesis, payloads do not have blob hashes."""
         return False
