@@ -220,8 +220,14 @@ class TestReplacementReason:
         chain: Chain,
         *,
         expects_rejection: bool = False,
+        engine_only: frozenset[int] = frozenset(),
     ) -> str | None:
-        """Return the verdict for `chain` on a client at `head`'s top."""
+        """
+        Return the verdict for `chain` on a client at `head`'s top.
+
+        The peer served `head`'s headers, bar the blocks numbered in
+        `engine_only`, which reached the client over the Engine API.
+        """
         monkeypatch.setattr(
             client_policy,
             "client_head",
@@ -230,7 +236,12 @@ class TestReplacementReason:
         peer = SimpleNamespace(
             served_chain_holding=lambda block_hash: (
                 head if head.number_of(block_hash) is not None else None
-            )
+            ),
+            header_hashes_ever_served={
+                block.block_hash
+                for block in head.blocks
+                if block.number not in engine_only
+            },
         )
         case = SimpleNamespace(
             chain=chain,
@@ -257,6 +268,21 @@ class TestReplacementReason:
             monkeypatch, _fork(259, branch=1), _fork(268, branch=2)
         )
         assert reason is not None and "259 blocks" in reason
+
+    def test_an_engine_only_ancestor_replaces_the_client(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        A chain extending a head the client got over the Engine API
+        alone needs that head as wire ancestry, which it never fetches.
+        """
+        earlier = _fork(5, branch=1)
+        extension = _fork(8, branch=1)
+        assert self._reason(monkeypatch, earlier, extension) is None
+        reason = self._reason(
+            monkeypatch, earlier, extension, engine_only=frozenset({5})
+        )
+        assert reason is not None and "Block(s) 5 of this chain" in reason
 
     def test_a_rejection_below_the_head_replaces_the_client(
         self, monkeypatch: pytest.MonkeyPatch

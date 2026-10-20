@@ -222,8 +222,9 @@ def replacement_reason(
     `None` means the client may be reused. Reuse fails for a rejection
     below the client's head (clients refuse to walk their head
     backwards, so the ancestry would never travel the wire), for a
-    reorg deeper than `MAX_REORG_DEPTH`, and when the client's head
-    cannot be looked up.
+    chain whose ancestry holds a block the client got only over the
+    Engine API (see `engine_only_ancestors`), for a reorg deeper than
+    `MAX_REORG_DEPTH`, and when the client's head cannot be looked up.
     """
     try:
         head = client_head(running)
@@ -234,6 +235,13 @@ def replacement_reason(
             f"Rejection target {case.chain.head.number} is below the "
             f"reused client's head {head.number}, so the verdict would "
             "leave the sync path"
+        )
+    engine_only = [] if peer is None else engine_only_ancestors(case, peer)
+    if engine_only:
+        return (
+            f"Block(s) {', '.join(map(str, engine_only))} of this chain "
+            "reached the reused client only over the Engine API, so they "
+            "would never travel the wire as its ancestry"
         )
     head_chain = (
         None if peer is None else peer.served_chain_holding(head.block_hash)
@@ -246,6 +254,25 @@ def replacement_reason(
             f"{MAX_REORG_DEPTH}"
         )
     return None
+
+
+def engine_only_ancestors(case: SyncTargetCase, peer: MockPeer) -> list[int]:
+    """
+    Return the numbers of `case`'s ancestors that never traveled `peer`.
+
+    These are blocks of an earlier test's chain whose header the peer
+    never served: the head a fixture without sync targets announces
+    over the Engine API, or a block the client never fetched. The
+    client keeps such a head without fetching it, so a later chain that
+    needs it as ancestry would fail its coverage check on a correct
+    client. Blocks of no earlier chain will be fetched and are fine.
+    """
+    return [
+        block.number
+        for block in case.chain.blocks[:-1]
+        if block.block_hash not in peer.header_hashes_ever_served
+        and peer.served_chain_holding(block.block_hash) is not None
+    ]
 
 
 @pytest.fixture(scope="function")

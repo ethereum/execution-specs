@@ -218,10 +218,11 @@ A group normally shares one client. WireX starts a fresh client instead in these
 - Several sync targets: each target of the fixture runs on its own fresh client and mock peer, torn down when the target completes, so one target's rejected branch cannot starve another. The group's client is not used, but the fixture still counts toward the group's completion, so the group's client stops on time.
 - Rejection below the head: the invalid chain's head is below the reused client's head (see [Rejection Tests](#rejection-tests)).
 - Deep reorg: the chain would reorg the reused client more than 64 blocks. A reused client syncs each new chain by reorging down to where it forks from the client's chain, usually genesis, but clients keep state only for their most recent blocks and cannot reorg below that from full sync alone. A chain that extends the head's ancestry does not count as a reorg.
+- Engine-only ancestor: the chain's ancestry holds a block the reused client got only over the Engine API, such as the head an earlier fixture without sync targets announced. The client keeps that block without fetching it, so it would never travel the wire.
 - Head lookup failure: WireX cannot read the reused client's head.
 - `--wirex-bals both`: each BAL mode has its own client (see [Block Access Lists](#block-access-lists)).
 
-In the rejection, reorg and head lookup cases, the fresh client replaces the group's client for the rest of the group, and a warning names the reason (see [Reading Results](#reading-results)).
+In the rejection, Engine-only ancestor, reorg and head lookup cases, the fresh client replaces the group's client for the rest of the group, and a warning names the reason (see [Reading Results](#reading-results)).
 
 ### Wire Coverage
 
