@@ -2,9 +2,10 @@
 Fork transition tests for
 [EIP-8198: Quick Slots](https://eips.ethereum.org/EIPS/eip-8198).
 
-Blocks are spaced twelve seconds apart before the fork and ten seconds after
-it, as on a network that shortens its slots. The execution layer does not
-depend on the spacing.
+Blocks are spaced ten seconds apart, except for the fork block, which follows
+its parent by one twelve-second slot as on a network that shortens its slots
+at the fork. The fork block's base fee therefore follows the parent fork's
+rule, and the shorter slots lower the maximum change from the next block on.
 """
 
 from typing import List
@@ -28,6 +29,7 @@ from .helpers import (
     BLOB_COUNT_ERRORS,
     BLOCK_GAS_LIMIT,
     blob_transactions,
+    block_with_invalid_slot_number,
     gas_spending_transactions,
 )
 from .spec import Spec, ref_spec_8198
@@ -39,7 +41,7 @@ pytestmark = pytest.mark.valid_at_transition_to("EIP8198")
 
 FORK_TIMESTAMP = 15_000
 BLOCK_TIMESTAMPS = [
-    FORK_TIMESTAMP - 24,
+    FORK_TIMESTAMP - 22,
     FORK_TIMESTAMP - 12,
     FORK_TIMESTAMP,
     FORK_TIMESTAMP + 10,
@@ -120,6 +122,13 @@ def test_base_fee_across_fork(
     """
     sender = pre.fund_eoa()
     base_fees = expected_base_fees(fork, gas_used, len(BLOCK_TIMESTAMPS))
+    assert base_fees[FORK_BLOCK_INDEX] == (
+        fork.transitions_from().base_fee_per_gas_calculator()(
+            parent_base_fee_per_gas=base_fees[FORK_BLOCK_INDEX - 1],
+            parent_gas_used=gas_used,
+            parent_gas_limit=BLOCK_GAS_LIMIT,
+        )
+    )
     blocks = []
     for i, timestamp in enumerate(BLOCK_TIMESTAMPS):
         block_fork = fork.fork_at(block_number=i + 1, timestamp=timestamp)
@@ -155,24 +164,46 @@ def test_base_fee_across_fork(
         pytest.param(BLOCK_GAS_LIMIT, id="full"),
     ],
 )
+@pytest.mark.parametrize(
+    "invalid_block_index,base_fee_offset",
+    [
+        pytest.param(FORK_BLOCK_INDEX - 1, 0, id="pre_fork_block_new_rule"),
+        pytest.param(FORK_BLOCK_INDEX, 1, id="fork_block_one_wei_over"),
+        pytest.param(FORK_BLOCK_INDEX, -1, id="fork_block_one_wei_under"),
+        pytest.param(FORK_BLOCK_INDEX + 1, 0, id="post_fork_block_old_rule"),
+    ],
+)
 @pytest.mark.exception_test
 def test_base_fee_wrong_rule_across_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: TransitionFork,
     gas_used: int,
+    invalid_block_index: int,
+    base_fee_offset: int,
 ) -> None:
     """
-    Reject the first block after the fork, ten seconds after its parent,
-    when its base fee follows the parent fork's twelve-second rule.
+    Reject a base fee one wei off the parent fork's rule at the fork block,
+    and a base fee from the other fork's rule at a ten-second spacing on
+    either side of it.
     """
-    invalid_block_index = FORK_BLOCK_INDEX + 1
     sender = pre.fund_eoa()
     base_fees = expected_base_fees(fork, gas_used, invalid_block_index + 1)
-    wrong_base_fee = fork.transitions_from().base_fee_per_gas_calculator()(
+    if invalid_block_index == FORK_BLOCK_INDEX - 1:
+        wrong_fork = fork.transitions_to()
+    elif invalid_block_index in (FORK_BLOCK_INDEX, FORK_BLOCK_INDEX + 1):
+        wrong_fork = fork.transitions_from()
+    else:
+        raise ValueError(f"Unexpected block index {invalid_block_index}")
+    base_fee_per_gas_calculator = wrong_fork.base_fee_per_gas_calculator()
+    wrong_base_fee = base_fee_offset + base_fee_per_gas_calculator(
         parent_base_fee_per_gas=base_fees[invalid_block_index - 1],
         parent_gas_used=gas_used,
         parent_gas_limit=BLOCK_GAS_LIMIT,
+        seconds_elapsed=(
+            BLOCK_TIMESTAMPS[invalid_block_index]
+            - BLOCK_TIMESTAMPS[invalid_block_index - 1]
+        ),
     )
     assert wrong_base_fee != base_fees[invalid_block_index]
 
@@ -203,6 +234,139 @@ def test_base_fee_wrong_rule_across_fork(
             base_fee_per_gas=GENESIS_BASE_FEE_PER_GAS,
         ),
     )
+
+
+@pytest.mark.parametrize(
+    "gas_used",
+    [
+        pytest.param(0, id="empty"),
+        pytest.param(BLOCK_GAS_LIMIT, id="full"),
+    ],
+)
+def test_base_fee_fork_block_after_missed_slot(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: TransitionFork,
+    gas_used: int,
+) -> None:
+    """
+    Check the base fee of a fork block that follows a missed first slot at
+    the fork, so its spacing spans one twelve-second and one ten-second slot.
+    """
+    parent_timestamp = BLOCK_TIMESTAMPS[FORK_BLOCK_INDEX - 1]
+    fork_block_timestamp = BLOCK_TIMESTAMPS[FORK_BLOCK_INDEX + 1]
+    parent_slot_number = 1
+    slots_elapsed = 2
+    sender = pre.fund_eoa()
+    parent_base_fee = fork.transitions_from().base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=GENESIS_BASE_FEE_PER_GAS,
+        parent_gas_used=0,
+        parent_gas_limit=BLOCK_GAS_LIMIT,
+    )
+    base_fee_per_gas_calculator = (
+        fork.transitions_to().base_fee_per_gas_calculator()
+    )
+
+    def base_fee_after(seconds_elapsed: int) -> int:
+        return base_fee_per_gas_calculator(
+            parent_base_fee_per_gas=parent_base_fee,
+            parent_gas_used=gas_used,
+            parent_gas_limit=BLOCK_GAS_LIMIT,
+            seconds_elapsed=seconds_elapsed,
+            slots_elapsed=slots_elapsed,
+        )
+
+    expected_base_fee = base_fee_after(fork_block_timestamp - parent_timestamp)
+    # The spacing lies between the two slot durations, so the base fee
+    # matches neither duration's rule.
+    assert expected_base_fee not in (
+        base_fee_after(12 * slots_elapsed),
+        base_fee_after(10 * slots_elapsed),
+    )
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=gas_spending_transactions(
+                    pre=pre,
+                    sender=sender,
+                    fork=fork.fork_at(
+                        block_number=1, timestamp=parent_timestamp
+                    ),
+                    gas=gas_used,
+                ),
+                timestamp=parent_timestamp,
+                slot_number=parent_slot_number,
+            ),
+            Block(
+                timestamp=fork_block_timestamp,
+                slot_number=parent_slot_number + slots_elapsed,
+                header_verify=Header(base_fee_per_gas=expected_base_fee),
+            ),
+        ],
+        genesis_environment=Environment(
+            gas_limit=BLOCK_GAS_LIMIT,
+            base_fee_per_gas=GENESIS_BASE_FEE_PER_GAS,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "fork_block_slots_elapsed",
+    [
+        pytest.param(
+            1,
+            id="fork_block_next_slot",
+            marks=EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedAfterFork(),
+        ),
+        pytest.param(
+            0,
+            id="fork_block_same_slot",
+            marks=[
+                pytest.mark.exception_test,
+                EIPChecklist.BlockLevelConstraint.Test.ForkTransition.RejectedAfterFork(),
+            ],
+        ),
+    ],
+)
+@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedBeforeFork()
+def test_slot_number_rule_starts_at_fork(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork_block_slots_elapsed: int,
+) -> None:
+    """
+    Accept a block before the fork that repeats its parent's slot number,
+    and require the slot number to increase from the fork block on.
+    """
+    slot_number = 1
+    blocks = [
+        Block(timestamp=BLOCK_TIMESTAMPS[0], slot_number=slot_number),
+        Block(
+            timestamp=BLOCK_TIMESTAMPS[1],
+            slot_number=slot_number,
+            header_verify=Header(slot_number=slot_number),
+        ),
+    ]
+    fork_block_slot_number = slot_number + fork_block_slots_elapsed
+    if fork_block_slots_elapsed > 0:
+        blocks.append(
+            Block(
+                timestamp=FORK_TIMESTAMP,
+                slot_number=fork_block_slot_number,
+                header_verify=Header(slot_number=fork_block_slot_number),
+            )
+        )
+    else:
+        blocks.append(
+            block_with_invalid_slot_number(
+                timestamp=FORK_TIMESTAMP,
+                parent_slot_number=slot_number,
+                slot_number=fork_block_slot_number,
+            )
+        )
+    blockchain_test(pre=pre, post={}, blocks=blocks)
 
 
 @pytest.mark.parametrize(
