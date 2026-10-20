@@ -17,6 +17,7 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
+    Conditional,
     Fork,
     GasConsumer,
     Initcode,
@@ -673,6 +674,90 @@ def test_create_tx_storage_only_target_later_tx(
             Block(
                 txs=[create_tx, probe_tx],
                 expected_block_access_list=expected_block_access_list,
+            )
+        ],
+    )
+
+
+@STORAGE_ONLY_ACCOUNT_SKIP
+# The module starts at Frontier; the calling frame needs REVERT.
+@pytest.mark.valid_from("Byzantium")
+@pytest.mark.with_all_create_opcodes
+@pytest.mark.parametrize(
+    "frame_end",
+    [
+        pytest.param(Op.STOP, id="destruction_kept"),
+        pytest.param(Op.REVERT(0, 0), id="destruction_reverted"),
+    ],
+)
+def test_create_opcode_storage_only_target_selfdestruct_in_frame(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+    frame_end: Bytecode,
+) -> None:
+    """
+    Test that a creation's wipe of the target's old storage holds whether a
+    call frame that self-destructs the new contract stops or reverts.
+    """
+    runtime_probe = Conditional(
+        condition=Op.CALLDATASIZE,
+        if_true=Op.SELFDESTRUCT(Op.CALLER),
+        if_false=Op.SSTORE(3, Op.ADD(Op.SLOAD(2), 1)),
+    )
+    initcode = Initcode(deploy_code=runtime_probe)
+    initcode_holder = pre.deploy_contract(initcode)
+    # Calls the contract named in its calldata so it self-destructs.
+    destroying_caller = pre.deploy_contract(
+        Op.CALL(Op.GAS, Op.CALLDATALOAD(0), 0, 0, 1, 0, 0) + frame_end
+    )
+    factory = pre.deploy_contract(
+        Op.EXTCODECOPY(initcode_holder, 0, 0, len(initcode))
+        + Op.SSTORE(0, create_opcode(value=0, offset=0, size=len(initcode)))
+        + Op.MSTORE(0, Op.SLOAD(0))
+        + Op.SSTORE(1, Op.CALL(Op.GAS, destroying_caller, 0, 0, 32, 0, 0)),
+        storage={1: 0xDEAD},
+    )
+    created = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode,
+        opcode=create_opcode,
+    )
+    pre[created] = Account(storage=STORAGE_ONLY_PRE_STORAGE)
+    sender = pre.fund_eoa()
+
+    if frame_end == Op.STOP:
+        # The contract was created in this transaction, so the
+        # self-destruct removes it, old storage included.
+        post = {
+            factory: Account(storage={0: created, 1: 1}),
+            created: Account.NONEXISTENT,
+        }
+    elif frame_end == Op.REVERT(0, 0):
+        post = {
+            factory: Account(storage={0: created, 1: 0}),
+            # Slot 3 holds the wiped slot 2 plus one.
+            created: Account(
+                nonce=created_contract_nonce(fork),
+                code=runtime_probe,
+                storage={3: 1},
+            ),
+        }
+    else:
+        raise ValueError(f"Unknown frame end: {frame_end}")
+
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(sender=sender, to=factory),
+                    Transaction(sender=sender, to=created),
+                ]
             )
         ],
     )
