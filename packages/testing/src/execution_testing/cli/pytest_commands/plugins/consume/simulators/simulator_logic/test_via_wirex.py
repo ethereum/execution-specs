@@ -48,16 +48,6 @@ from ..wirex.sync_targets import (
 
 logger = get_logger(__name__)
 
-ACCEPTANCE_HOLD_TIME = 0.5
-"""
-Seconds a VALID verdict on an invalid head must hold to be believed.
-
-A client answers `engine_newPayload` from its database state of that
-instant, so while the chain is still arriving a VALID can be transient:
-geth has answered VALID for a block its own backfill rejected moments
-later.
-"""
-
 REJECTED_STATUSES = frozenset({PayloadStatusEnum.INVALID})
 """
 The `newPayload` statuses that reject the head.
@@ -329,19 +319,24 @@ def _run_sync_target(
             *head_payload.params, version=head_payload.new_payload_version
         )
 
+    forkchoice_status: PayloadStatus | None = None
+
     def announce() -> PayloadStatus:
         """
         Send the head payload and name it in a forkchoice update.
 
         Return the `newPayload` status, which is the client's verdict:
-        SYNCING while the ancestry travels, then VALID or INVALID.
+        SYNCING while the ancestry travels, then VALID or INVALID. The
+        forkchoice reply's status is kept in `forkchoice_status`.
         """
+        nonlocal forkchoice_status
         payload_status = poll()
-        engine_rpc.forkchoice_updated(
+        response = engine_rpc.forkchoice_updated(
             forkchoice_state=head_state,
             payload_attributes=None,
             version=head_payload.forkchoice_updated_version,
         )
+        forkchoice_status = response.payload_status
         return payload_status
 
     def redial(event: str) -> None:
@@ -403,58 +398,53 @@ def _run_sync_target(
         with timing_data.time(f"{prefix}Reject invalid chain"):
             deadline = time.monotonic() + sync_timeout
             next_announcement = time.monotonic() + announce_interval
-            accepted_since: float | None = None
+
+            def refuse_acceptance(
+                payload_status: PayloadStatus | None, method: str
+            ) -> None:
+                """
+                Fail at once when `method` answered VALID for the head.
+
+                The Engine API never allows VALID for an invalid block,
+                and a later INVALID cannot undo an acceptance, so no
+                VALID is waited out, not even an early one.
+                """
+                if (
+                    payload_status is not None
+                    and payload_status.status == PayloadStatusEnum.VALID
+                ):
+                    raise LoggedError(
+                        f"{prefix}Client accepted the invalid chain: "
+                        f"{method} answered VALID for the invalid head "
+                        f"{expected_head} (latestValidHash "
+                        f"{payload_status.latest_valid_hash}) but the "
+                        "fixture expects the block to be rejected"
+                    )
 
             def rejected(payload_status: PayloadStatus) -> bool:
-                """
-                Return whether `payload_status` rejects the head.
-
-                A VALID answer starts (or continues) the acceptance
-                hold and fails the test once it has held; anything
-                else that is not a rejection resets the hold.
-                """
-                nonlocal accepted_since
+                """Return whether `payload_status` rejects the head."""
                 status = payload_status.status
-                if status in REJECTED_STATUSES:
-                    return True
                 if status == PayloadStatusEnum.INVALID_BLOCK_HASH:
                     raise LoggedError(
                         f"{prefix}Client answered INVALID_BLOCK_HASH for "
                         f"the invalid head {expected_head}, whose payload "
                         "hashes to its blockHash (see REJECTED_STATUSES)"
                     )
-                if status != PayloadStatusEnum.VALID:
-                    accepted_since = None
-                elif accepted_since is None:
-                    # See `ACCEPTANCE_HOLD_TIME`.
-                    accepted_since = time.monotonic()
-                    logger.warning(
-                        f"{prefix}Client answered VALID for the invalid "
-                        f"head {expected_head} (latestValidHash "
-                        f"{payload_status.latest_valid_hash}) while the "
-                        "chain may still be arriving; confirming before "
-                        "failing the test"
-                    )
-                elif time.monotonic() - accepted_since >= ACCEPTANCE_HOLD_TIME:
-                    raise LoggedError(
-                        f"{prefix}Client accepted the invalid chain: "
-                        f"head {expected_head} returned VALID for "
-                        f"{ACCEPTANCE_HOLD_TIME}s (latestValidHash "
-                        f"{payload_status.latest_valid_hash}) but the "
-                        "fixture expects the block to be rejected"
-                    )
-                return False
+                refuse_acceptance(payload_status, "engine_newPayload")
+                return status in REJECTED_STATUSES
 
-            while True:
+            # The first announcement's answers are verdicts too.
+            refuse_acceptance(forkchoice_status, "engine_forkchoiceUpdated")
+            payload_status = announce_status
+            while not rejected(payload_status):
                 # Once the ancestry has arrived over devp2p the client
                 # can judge the head; until then it answers SYNCING (or
                 # ACCEPTED if it merely stored the payload).
-                payload_status = ask(poll)
-                if payload_status is None:
+                reply = ask(poll)
+                if reply is None:
                     return
-                if rejected(payload_status):
-                    break
-                if time.monotonic() >= deadline:
+                payload_status = reply
+                if rejected(payload_status) or time.monotonic() >= deadline:
                     break
                 if time.monotonic() >= next_announcement:
                     if not mock_peer.alive:
@@ -464,9 +454,13 @@ def _run_sync_target(
                     logger.info(
                         f"{prefix}Re-announcing the invalid sync target"
                     )
-                    payload_status = ask(announce)
-                    if payload_status is None:
+                    reply = ask(announce)
+                    if reply is None:
                         return
+                    payload_status = reply
+                    refuse_acceptance(
+                        forkchoice_status, "engine_forkchoiceUpdated"
+                    )
                     if rejected(payload_status):
                         break
                     next_announcement = time.monotonic() + announce_interval

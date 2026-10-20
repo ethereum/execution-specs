@@ -169,15 +169,19 @@ class FakeEngine:
 
     `verdict` gives the `newPayload` answer at a time and `refusal` the
     error code it raises instead, if any; `forkchoice_delay` gives how
-    long the n-th `forkchoiceUpdated` of an announcement blocks and
-    `forkchoice_refusal` the error code it raises; `confirmation` is
-    the answer, or the exception, of the confirming update.
+    long the n-th `forkchoiceUpdated` of an announcement blocks,
+    `forkchoice_verdict` its status and `forkchoice_refusal` the error
+    code it raises; `confirmation` is the answer, or the exception, of
+    the confirming update.
     `latest_valid_hash` comes with every `newPayload` answer.
     """
 
     clock: FakeClock
     verdict: Callable[[float], PayloadStatusEnum]
     forkchoice_delay: Callable[[int], float] = lambda _call: 0.0
+    forkchoice_verdict: Callable[[int], PayloadStatusEnum] = (
+        lambda _call: PayloadStatusEnum.SYNCING
+    )
     refusal: Callable[[float], int | None] = lambda _now: None
     forkchoice_refusal: Callable[[int], int | None] = lambda _call: None
     confirmation: PayloadStatusEnum | Exception = PayloadStatusEnum.VALID
@@ -207,7 +211,7 @@ class FakeEngine:
         code = self.forkchoice_refusal(call)
         if code is not None:
             raise JSONRPCError(code, "refused")
-        return _response(PayloadStatusEnum.SYNCING)
+        return _response(self.forkchoice_verdict(call))
 
     def forkchoice_updated_with_retry(
         self,
@@ -444,43 +448,49 @@ class TestDeadline:
         assert SYNC_TIMEOUT <= clock.now < SYNC_TIMEOUT + 1
 
 
-class TestAcceptanceHold:
-    """A VALID verdict on an invalid head fails only once it has held."""
+ACCEPTANCE_SITES = {
+    "first-announcement": ({"verdict": VALID}, 0.0, "engine_newPayload"),
+    "turning-invalid-later": (
+        {"verdict": lambda now: VALID if now < 0.3 else INVALID},
+        0.0,
+        "engine_newPayload",
+    ),
+    "later-poll": (
+        {"verdict": lambda now: VALID if now >= 1.0 else SYNCING},
+        1.0,
+        "engine_newPayload",
+    ),
+    "first-forkchoice-reply": (
+        {"forkchoice_verdict": lambda _call: VALID},
+        0.0,
+        "engine_forkchoiceUpdated",
+    ),
+    "reannouncement-forkchoice-reply": (
+        {"forkchoice_verdict": lambda call: VALID if call else SYNCING},
+        ANNOUNCE_INTERVAL,
+        "engine_forkchoiceUpdated",
+    ),
+}
 
-    def test_a_held_acceptance_fails(self, clock: FakeClock) -> None:
-        """A VALID that holds for half a second fails there and then."""
-        with pytest.raises(LoggedError, match="accepted the invalid chain"):
-            _run(clock, _engine(clock, VALID), expects_rejection=True)
-        assert 0.5 <= clock.now < 0.6
 
-    def test_a_transient_acceptance_then_rejection_passes(
-        self, clock: FakeClock
-    ) -> None:
-        """A VALID that turns INVALID within the hold is no acceptance."""
-        engine = _engine(clock, lambda now: VALID if now < 0.3 else INVALID)
-        _run(clock, engine, expects_rejection=True)
-
-    def test_an_acceptance_interrupted_by_syncing_restarts_the_hold(
-        self, clock: FakeClock
-    ) -> None:
-        """VALID flapping with SYNCING, each under the hold, never fails."""
-        engine = _engine(
-            clock, lambda now: VALID if now % 0.6 < 0.3 else SYNCING
-        )
-        with pytest.raises(LoggedError, match="never rejected"):
-            _run(clock, engine, expects_rejection=True)
-
-    def test_an_acceptance_young_at_the_deadline_is_no_rejection(
-        self, clock: FakeClock
-    ) -> None:
-        """A VALID begun just before the deadline still fails the test."""
-        engine = _engine(
-            clock, lambda now: VALID if now >= SYNC_TIMEOUT - 0.2 else SYNCING
-        )
-        with pytest.raises(
-            LoggedError, match=r"last status: PayloadStatusEnum.VALID\)"
-        ):
-            _run(clock, engine, expects_rejection=True)
+@pytest.mark.parametrize(
+    "knobs,accepted_at,method",
+    ACCEPTANCE_SITES.values(),
+    ids=ACCEPTANCE_SITES.keys(),
+)
+def test_any_acceptance_of_an_invalid_head_fails_at_once(
+    clock: FakeClock,
+    knobs: dict[str, Any],
+    accepted_at: float,
+    method: str,
+) -> None:
+    """A VALID from either method, at any point, fails there and then."""
+    with pytest.raises(
+        LoggedError,
+        match=f"accepted the invalid chain: {method} answered VALID",
+    ):
+        _run(clock, _engine(clock, **knobs), expects_rejection=True)
+    assert accepted_at <= clock.now < accepted_at + 0.01
 
 
 OFF_WIRE = {
