@@ -185,7 +185,7 @@ The `consume sync` command:
 | Nomenclature   |                            |
 | -------------- | -------------------------- |
 | Command        | `consume wirex`            |
-| Simulator      | `eels/consume-wirex`       |
+| Simulator      | None yet, dev mode only    |
 | Fixture format | `blockchain_test_engine_x` |
 
 The WireX method makes the client under test full sync each test's chain from a mock devp2p peer, reusing one client per pre-allocation group as `consume enginex` does. It intends to replace `consume rlp` for post-Merge forks: the same blocks travel the client's production peer-to-peer path instead of a client-specific offline import.
@@ -197,7 +197,7 @@ The `consume wirex` command, for each pre-allocation group:
 3. **Syncs each fixture's chains.** For each sync target, WireX installs the chain on the peer, names its head over the Engine API, waits while the client downloads and executes the missing blocks, and checks the outcome and that the blocks traveled over devp2p.
 4. **Stops the client** when all tests in the group complete.
 
-See [Consume WireX](./consume/wirex.md) for options, the full flow and the exceptions to client reuse.
+Hive has no `eels/consume-wirex` simulator image yet, so WireX runs only against `./hive --dev`. `eels/consume-wirex` is the name its results are reported under. See [Consume WireX](./consume/wirex.md) for options, the full flow and the exceptions to client reuse.
 
 ## Block Building
 

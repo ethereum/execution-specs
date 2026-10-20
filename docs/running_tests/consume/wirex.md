@@ -13,7 +13,7 @@ WireX consumes the [Blockchain Engine X Test](../test_formats/blockchain_test_en
 
 ## Quick Start
 
-WireX runs against Hive in development mode, like the other consume simulators. See [Hive Development Mode](../hive/dev_mode.md) for setup.
+WireX runs against Hive in development mode, like the other consume simulators. Hive has no `eels/consume-wirex` simulator image yet, so `./hive --sim eels/consume-wirex` does not work. The name is the suite its results are reported under. See [Hive Development Mode](../hive/dev_mode.md) for setup.
 
 1. Start Hive in development mode with one client:
 
