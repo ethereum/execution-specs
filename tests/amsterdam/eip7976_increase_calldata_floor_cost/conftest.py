@@ -337,18 +337,38 @@ def tx_gas_limit(
 
 @pytest.fixture
 def tx_error(
-    tx_gas_delta: int, data_test_type: DataTestType
-) -> TransactionException | None:
+    data_test_type: DataTestType,
+    tx_intrinsic_gas_cost_before_execution: int,
+    tx_floor_data_cost: int,
+    tx_gas_limit: int,
+    tx_gas_delta: int,
+) -> List[TransactionException] | TransactionException | None:
     """Transaction error, only expected if the gas delta is negative."""
-    if tx_gas_delta < 0:
-        if (
-            data_test_type
-            == DataTestType.FLOOR_GAS_COST_GREATER_THAN_INTRINSIC_GAS
-        ):
-            return TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
-        else:
+    if tx_gas_delta >= 0:
+        return None
+    # The data type names the threshold the gas limit misses; check it.
+    below_standard_cost = tx_gas_limit < tx_intrinsic_gas_cost_before_execution
+    if (
+        data_test_type
+        == DataTestType.FLOOR_GAS_COST_LESS_THAN_OR_EQUAL_TO_INTRINSIC_GAS
+    ):
+        assert below_standard_cost
+        if tx_gas_limit >= tx_floor_data_cost:
             return TransactionException.INTRINSIC_GAS_TOO_LOW
-    return None
+        # The limit misses the floor too, and the spec checks
+        # max(standard cost, floor), so either is valid.
+        return [
+            TransactionException.INTRINSIC_GAS_TOO_LOW,
+            TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST,
+        ]
+    elif (
+        data_test_type
+        == DataTestType.FLOOR_GAS_COST_GREATER_THAN_INTRINSIC_GAS
+    ):
+        assert not below_standard_cost
+        return TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
+    else:
+        raise ValueError(f"Unknown data test type: {data_test_type}")
 
 
 @pytest.fixture
@@ -362,7 +382,7 @@ def tx(
     authorization_list: List[AuthorizationTuple] | None,
     blob_versioned_hashes: Sequence[Hash] | None,
     tx_gas_limit: int,
-    tx_error: TransactionException | None,
+    tx_error: List[TransactionException] | TransactionException | None,
 ) -> Transaction:
     """Create the transaction used in each test."""
     return Transaction(
