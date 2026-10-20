@@ -131,8 +131,16 @@ def _case(
         forkchoice_updated_version=3,
         error_code=error_code,
     )
+    served_payloads = [
+        SimpleNamespace(
+            params=[SimpleNamespace(block_hash=block.block_hash)],
+            new_payload_version=4,
+        )
+        for block in chain.blocks
+    ]
     path = SimpleNamespace(
         target=target,
+        served_payloads=served_payloads,
         expects_rejection=expects_rejection,
         announces_scaffolding=announces_scaffolding,
         invalidities=set(invalidities),
@@ -174,6 +182,10 @@ class FakeEngine:
     code it raises; `confirmation` is the answer, or the exception, of
     the confirming update.
     `latest_valid_hash` comes with every `newPayload` answer.
+
+    A `newPayload` for a block other than `head`, the hash of `CHAIN`'s
+    head, is the confirmation of a block below it: `below_head_verdict`
+    answers it, and `below_head_calls` records its hash.
     """
 
     clock: FakeClock
@@ -187,10 +199,19 @@ class FakeEngine:
     confirmation: PayloadStatusEnum | Exception = PayloadStatusEnum.VALID
     latest_valid_hash: Hash | None = None
     forkchoice_calls: int = 0
+    head: Hash = Hash(3)
+    below_head_verdict: Callable[[float], PayloadStatusEnum] = (
+        lambda _now: PayloadStatusEnum.VALID
+    )
+    below_head_calls: list[Hash] = field(default_factory=list)
 
     def new_payload(self, *params: Any, version: int) -> PayloadStatus:
         """Answer with the verdict of this instant, or refuse."""
-        del params, version
+        del version
+        block_hash = params[0].block_hash
+        if block_hash != self.head:
+            self.below_head_calls.append(block_hash)
+            return _status(self.below_head_verdict(self.clock.now))
         code = self.refusal(self.clock.now)
         if code is not None:
             raise JSONRPCError(code, "refused")
@@ -681,6 +702,60 @@ class TestLatestValidHash:
                 expects_rejection=True,
                 announces_scaffolding=False,
             )
+
+
+class TestLatestValidBlock:
+    """After a rejection, the block owed as latest valid must be VALID."""
+
+    def test_a_valid_answer_passes_after_a_wait(
+        self, clock: FakeClock
+    ) -> None:
+        """A client still fetching the block may answer SYNCING first."""
+        engine = _engine(
+            clock,
+            INVALID,
+            below_head_verdict=lambda now: VALID if now >= 2.0 else SYNCING,
+        )
+        _run(clock, engine, expects_rejection=True)
+        assert set(engine.below_head_calls) == {FIRST_INVALID_PARENT}
+        assert 2.0 <= clock.now < 2.01
+
+    def test_a_rejected_valid_parent_fails(self, clock: FakeClock) -> None:
+        """A client rejecting the valid parent too blamed a valid block."""
+        with pytest.raises(
+            LoggedError,
+            match=rf"answered PayloadStatusEnum.INVALID for {Hash(1)}",
+        ):
+            _run(
+                clock,
+                _engine(clock, INVALID, below_head_verdict=lambda _: INVALID),
+                expects_rejection=True,
+            )
+
+    def test_a_parent_never_confirmed_fails_at_the_deadline(
+        self, clock: FakeClock
+    ) -> None:
+        """A client that never answers VALID for it fails in the end."""
+        with pytest.raises(LoggedError, match=f"never confirmed {Hash(1)}"):
+            _run(
+                clock,
+                _engine(clock, INVALID, below_head_verdict=lambda _: SYNCING),
+                expects_rejection=True,
+            )
+        assert SYNC_TIMEOUT <= clock.now < SYNC_TIMEOUT + 1
+
+    def test_a_genesis_parent_needs_no_confirmation(
+        self, clock: FakeClock
+    ) -> None:
+        """Genesis is no payload, so nothing is sent for it."""
+        engine = _engine(clock, INVALID, below_head_verdict=lambda _: INVALID)
+        _run(
+            clock,
+            engine,
+            expects_rejection=True,
+            expected_latest_valid_hash=GENESIS_HASH,
+        )
+        assert engine.below_head_calls == []
 
 
 def _path_payload(

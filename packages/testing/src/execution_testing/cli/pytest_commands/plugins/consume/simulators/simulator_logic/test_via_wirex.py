@@ -18,7 +18,10 @@ from execution_testing.base_types import Hash
 from execution_testing.devp2p.chain import Block, Chain
 from execution_testing.devp2p.peer import MockPeer
 from execution_testing.devp2p.rlpx import RLPxError
-from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.fixtures.blockchain import (
+    FixtureEngineNewPayload,
+    FixtureHeader,
+)
 from execution_testing.logging import get_logger
 from execution_testing.rpc import (
     EngineRPC,
@@ -258,6 +261,21 @@ def check_latest_valid_hash(
     )
 
 
+def latest_valid_payload(path: SyncPath) -> FixtureEngineNewPayload | None:
+    """
+    Return the payload of the block a rejection of `path` owes as valid.
+
+    It is the block `SyncPath.expected_latest_valid_hash` names, the
+    parent of the first invalid block. `None` means there is nothing to
+    confirm: the parent is genesis, or no block on the path is invalid.
+    """
+    expected = path.expected_latest_valid_hash
+    for payload in path.served_payloads:
+        if payload.params[0].block_hash == expected:
+            return payload
+    return None
+
+
 def _run_sync_target(
     case: SyncTargetCase,
     client: Client,
@@ -395,6 +413,48 @@ def _run_sync_target(
                 "announcement"
             )
 
+    def confirm_valid(payload: FixtureEngineNewPayload) -> None:
+        """
+        Require VALID for `payload`, a valid block below the rejected head.
+
+        A rejection shows the client refused the path, not that it holds
+        the blocks below the first invalid one valid. Sync targets end
+        at each invalid block, and at the final block only when it is
+        valid, so a valid prefix under invalid leaves is otherwise only
+        judged through rejections: a client that wrongly rejects it
+        would pass, even with a null latestValidHash. The client may
+        still have to fetch the block (after a header-only rejection,
+        say), so SYNCING and ACCEPTED are waited out.
+        """
+        block_hash = payload.params[0].block_hash
+        deadline = time.monotonic() + sync_timeout
+        while True:
+            status = engine_rpc.new_payload(
+                *payload.params, version=payload.new_payload_version
+            ).status
+            if status == PayloadStatusEnum.VALID:
+                logger.info(
+                    f"{prefix}Client holds the latest valid block "
+                    f"{block_hash} VALID"
+                )
+                return
+            if status in (
+                PayloadStatusEnum.INVALID,
+                PayloadStatusEnum.INVALID_BLOCK_HASH,
+            ):
+                raise LoggedError(
+                    f"{prefix}Client rejected the invalid head but answered "
+                    f"{status} for {block_hash}, the valid parent of the "
+                    "first invalid block"
+                )
+            if time.monotonic() >= deadline:
+                raise LoggedError(
+                    f"{prefix}Client never confirmed {block_hash}, the "
+                    "valid parent of the first invalid block, within "
+                    f"{sync_timeout}s (last status: {status})"
+                )
+            time.sleep(poll_interval)
+
     with timing_data.time(f"{prefix}Announce sync target"):
         logger.info(
             f"{prefix}Announcing head block {chain.head.number} to "
@@ -499,23 +559,30 @@ def _run_sync_target(
                 "announced and the client may judge it without fetching "
                 "an ancestor"
             )
-            return
-        # `any`, not `all`: a chain that may fail either way lets the
-        # client take the header shortcut.
-        header_judgeable = bool(
-            path.invalidities & HEADER_JUDGEABLE_INVALIDITIES
-        )
-        if header_judgeable:
-            logger.info(
-                f"{prefix}Not requiring bodies on the wire: the "
-                "declared invalidity is judgeable from the headers alone"
+        else:
+            # `any`, not `all`: a chain that may fail either way lets
+            # the client take the header shortcut.
+            header_judgeable = bool(
+                path.invalidities & HEADER_JUDGEABLE_INVALIDITIES
             )
-        assert_wire_coverage(
-            chain,
-            mock_peer,
-            "rejected the invalid chain",
-            require_bodies=not header_judgeable,
-        )
+            if header_judgeable:
+                logger.info(
+                    f"{prefix}Not requiring bodies on the wire: the "
+                    "declared invalidity is judgeable from the headers "
+                    "alone"
+                )
+            assert_wire_coverage(
+                chain,
+                mock_peer,
+                "rejected the invalid chain",
+                require_bodies=not header_judgeable,
+            )
+        # After the coverage check, so the blocks this may make the
+        # client fetch never count as evidence for the rejection.
+        latest_valid = latest_valid_payload(path)
+        if latest_valid is not None:
+            with timing_data.time(f"{prefix}Confirm latest valid block"):
+                confirm_valid(latest_valid)
         return
 
     def raise_if_rejected(payload_status: PayloadStatus) -> None:
