@@ -167,7 +167,7 @@ class ErigonEvm(EthereumCLI):
     default_binary = Path("evm")
     # Cheap pre-filter shared with go-ethereum; the binary probe in
     # `detect_binary` is what actually confirms Erigon.
-    detect_binary_pattern = re.compile(r"^evm(\.exe)? version\b")
+    detect_binary_pattern = re.compile(r"^evm(\.exe)?\b")
     # Erigon-only subcommand, used as the disambiguating fingerprint.
     erigon_marker = "enginextest"
     cached_version: Optional[str] = None
