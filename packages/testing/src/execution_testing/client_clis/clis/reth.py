@@ -116,9 +116,7 @@ class RethExceptionMapper(ExceptionMapper):
             r"the parent timestamp \d+"
         ),
         BlockException.INVALID_BLOCK_NUMBER: (
-            r"block number \d+ does not match parent block number \d+|"
-            r"trying to append data to Headers as block #\d+ but expected "
-            r"block #\d+"
+            r"block number \d+ does not match parent block number \d+"
         ),
         BlockException.GAS_USED_OVERFLOW: (
             r"transaction gas limit \w+ is more than blocks available gas \w+"

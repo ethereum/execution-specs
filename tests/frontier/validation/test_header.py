@@ -91,17 +91,15 @@ def test_block_gas_limit_below_minimum(
 )
 @pytest.mark.verify_sync
 @pytest.mark.valid_from("Frontier")
-def test_block_number(
+def test_block_number_follows_parent(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     number_offset: int,
 ) -> None:
-    """
-    Test that a block's number must be its parent's number plus one.
-
-    The first block is valid, so the block under test has a parent that is
-    not the genesis block, and a sync test has a valid head to sync to.
-    """
+    """Test that a block's number must be its parent's number plus one."""
+    # A valid first block keeps the low case off number 0, which an earlier
+    # check rejects. Before Paris, a client that finds the parent by number
+    # rejects a wrong number as an unknown parent.
     parent = Block()
     child = Block()
     if number_offset != 0:
