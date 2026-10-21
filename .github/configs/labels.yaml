@@ -1,0 +1,133 @@
+# Source of truth for the repository's labels.
+# Apply with: uv run .github/scripts/labels.py [--apply] [--prune] [--check]
+#
+# `from` lists are for the one-off migration only. They name the old labels
+# this label replaces: the first that exists is renamed (keeping its
+# assignments), the rest are merged into it and then deleted. Remove them
+# once the migration has run.
+
+# Type of change, matching the PR title type.
+- name: feat
+  color: a2eeef
+  description: An improvement or new feature, including new test cases.
+  from: [C-feat]
+- name: fix
+  color: d73a4a
+  description: A bug report, or a bug fix.
+  from: [C-bug]
+- name: refactor
+  color: d4c5f9
+  description: Code changes that neither fix a bug nor add a feature.
+  from: [C-refactor]
+- name: perf
+  color: f9d0c4
+  description: A performance optimization.
+  from: [C-perf]
+- name: docs
+  color: 0075ca
+  description: A documentation report, or documentation-only changes.
+  from: [C-docs, A-doc]
+- name: test
+  color: bfd4f2
+  description: Changes to unit tests only.
+  from: [C-test]
+- name: chore
+  color: ededed
+  description: Routine maintenance, such as cleanups and dependency bumps.
+  from: [C-chore]
+
+# Area, matching the PR title areas.
+- name: spec
+  color: 1d76db
+  description: The specification and its tooling (`src/`).
+  from: [A-spec-specs, A-spec-tools, A-spec-tests, A-spec-rpc]
+- name: tests
+  color: 0e8a16
+  description: Consensus tests (`tests/`).
+  from: [A-tests]
+- name: benchmark
+  color: 5319e7
+  description: Benchmark tests and the benchmark framework.
+  from: [A-test-benchmark]
+- name: framework
+  color: fbca04
+  description: The testing framework (`packages/`).
+  from:
+    - A-test-cli
+    - A-test-config
+    - A-test-devp2p
+    - A-test-eest
+    - A-test-evm-tools
+    - A-test-exceptions
+    - A-test-execution
+    - A-test-fixtures
+    - A-test-forks
+    - A-test-gentest
+    - A-test-logging
+    - A-test-make
+    - A-test-rpc
+    - A-test-specs
+    - A-test-tests
+    - A-test-types
+    - A-test-vm
+- name: ci
+  color: bfdadc
+  description: CI, tooling and repository configuration.
+  from: [A-ci, A-tooling, A-deps, A-packaging]
+
+# Framework sub-areas, added by path next to `framework` (labels only, the
+# title keeps `framework`).
+- name: fill
+  color: fef2c0
+  description: The `fill` command and its plugins.
+  from: [A-test-fill]
+- name: consume
+  color: fef2c0
+  description: The `consume` command and its plugins.
+  from: [A-test-consume]
+- name: execute
+  color: fef2c0
+  description: The `execute` command and its plugins.
+  from: [A-test-execute]
+- name: clients
+  color: fef2c0
+  description: Client CLI wrappers (`execution_testing.client_clis`).
+  from: [A-test-client-clis]
+
+# Project, from the PR's base branch. `zkEVM` is renamed by case alone.
+- name: zkevm
+  color: 17a8e4
+  description: zkEVM project (`projects/zkevm*`).
+- name: binary-trie
+  color: c5def5
+  description: Binary trie project (`projects/binary-trie`, `projects/ubt`).
+  from: [C-binary]
+
+# Issues only.
+- name: tracker
+  color: c5def5
+  description: Meta-issue that tracks progress, for example of an EIP.
+  from: [C-tracker, C-eip]
+- name: good first issue
+  color: 7057ff
+  description: Good for newcomers.
+  from: [E-easy]
+
+# Used by other workflows.
+- name: stale
+  color: bfd4f2
+  description: The Issue/PR has not had any activity for 60 days. PRs will be automatically closed.
+- name: backport forks/amsterdam
+  color: ac7fd3
+  description: On merge, bot cherry-picks the squash commit to `forks/amsterdam` and opens a PR. Squash only.
+- name: backport forks/bogota
+  color: ac7fd3
+  description: On merge, bot cherry-picks the squash commit to `forks/bogota` and opens a PR. Squash only.
+- name: backport benchmarks/amsterdam
+  color: ac7fd3
+  description: On merge, bot cherry-picks the squash commit to `benchmarks/amsterdam` and opens a PR. Squash only.
+
+# Deleted by `--prune` (not listed above): E-hard, E-medium, P-urgent,
+# P-high, P-medium, P-low, S-needs-attention, S-needs-discussion,
+# C-question, C-hegota, Finalize Weld, help wanted, Interop, report,
+# automated issue, Requires Backport.
