@@ -98,3 +98,23 @@ def test_frame_transaction_variant_keeps_post_without_gas_terms() -> None:
     variant = convert_to_frame_transaction_variant(test)
 
     assert variant.post is test.post
+
+
+def test_frame_transaction_variant_keeps_genesis() -> None:
+    """
+    Leave the pre-allocation and environment alone, so the variant
+    shares its base test's pre-allocation group.
+    """
+    tx = Transaction(to=Address(0x200))
+    test = StateTest(
+        fork=Bogota,
+        pre=Alloc({Address(0x200): Account(code=b"\x00")}),
+        post=Alloc(),
+        tx=tx,
+    )
+
+    variant = convert_to_frame_transaction_variant(test)
+
+    assert variant.tx is not test.tx
+    assert variant.pre is test.pre
+    assert variant.env is test.env
