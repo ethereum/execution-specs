@@ -2,13 +2,15 @@
 Tests for how the EELS t8n tool handles rejected transactions.
 
 A transaction that is rejected during admission must leave no trace in the
-block: the roots and (post-Amsterdam) the block access list index must be
-identical to those of a run that never received the rejected transaction.
+block: the body, the roots and (post-Amsterdam) the block access list index
+must be identical to those of a run that never received the rejected
+transaction.
 """
 
 from typing import Any, List
 
 import pytest
+from ethereum_rlp import rlp
 
 from execution_testing.base_types import Address, Hash, to_json
 from execution_testing.client_clis import TransitionTool
@@ -39,11 +41,11 @@ SENDER_KEY = 0x1111111111111111111111111111111111111111111111111111111111111111
 RECIPIENT = Address(0x1000000000000000000000000000000000000001)
 
 
-def _tx(**overrides: Any) -> Transaction:
-    """Return a signed legacy transfer, with some fields overridden."""
+def _tx(tx_type: int, **overrides: Any) -> Transaction:
+    """Return a signed transfer, with some fields overridden."""
     fields: dict[str, Any] = {
+        "ty": tx_type,
         "nonce": 0,
-        "gas_price": 10,
         "gas_limit": 21_000,
         "to": RECIPIENT,
         "value": 1,
@@ -98,21 +100,31 @@ def _run(t8n: TransitionTool, fork: Fork, txs: List[Transaction]) -> Any:
     )
 
 
+FORKS = [
+    Frontier,
+    Homestead,
+    Byzantium,
+    Constantinople,
+    Istanbul,
+    Berlin,
+    London,
+    Paris,
+    Shanghai,
+    Cancun,
+    Prague,
+    Amsterdam,
+]
+
+
+# A legacy transaction goes in the body as an RLP list and a typed one as its
+# envelope bytes, so run every fork with each kind it supports.
 @pytest.mark.parametrize(
-    "fork",
+    "fork,tx_type",
     [
-        Frontier,
-        Homestead,
-        Byzantium,
-        Constantinople,
-        Istanbul,
-        Berlin,
-        London,
-        Paris,
-        Shanghai,
-        Cancun,
-        Prague,
-        Amsterdam,
+        pytest.param(fork, tx_type, id=f"{fork.name()}-type-{tx_type}")
+        for fork in FORKS
+        for tx_type in (0, 2)
+        if tx_type in fork.tx_types()
     ],
 )
 @pytest.mark.parametrize(
@@ -130,6 +142,7 @@ def _run(t8n: TransitionTool, fork: Fork, txs: List[Transaction]) -> Any:
 def test_rejected_tx_leaves_no_trace_in_roots(
     default_t8n: TransitionTool,
     fork: Fork,
+    tx_type: int,
     position: int,
     count: int,
     rejection: dict[str, Any],
@@ -141,10 +154,10 @@ def test_rejected_tx_leaves_no_trace_in_roots(
     # `count` transactions in total, of which the one at `position` is
     # rejected. The accepted ones keep the nonces they have in a run that
     # never saw the rejected one.
-    accepted_only = [_tx(nonce=nonce) for nonce in range(count - 1)]
+    accepted_only = [_tx(tx_type, nonce=nonce) for nonce in range(count - 1)]
     with_rejected = [
         *accepted_only[:position],
-        _tx(**{"nonce": position, **rejection}),
+        _tx(tx_type, **{"nonce": position, **rejection}),
         *accepted_only[position:],
     ]
 
@@ -154,6 +167,9 @@ def test_rejected_tx_leaves_no_trace_in_roots(
 
     assert [r.index for r in result.rejected_transactions] == [position]
     assert output.body == expected_output.body
+    assert output.body == rlp.encode(
+        [tx.serializable_list for tx in accepted_only]
+    )
     assert result.transactions_trie == expected.transactions_trie
     assert result.receipts_root == expected.receipts_root
     assert result.gas_used == expected.gas_used
