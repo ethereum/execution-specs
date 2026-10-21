@@ -35,6 +35,8 @@ from execution_testing.vm import (
 
 from ...recipient_type import RecipientType
 from ..base_fork import (
+    DEFAULT_SECONDS_ELAPSED,
+    DEFAULT_SLOTS_ELAPSED,
     BaseFeeChangeCalculator,
     BaseFeePerGasCalculator,
     BaseFork,
@@ -826,14 +828,31 @@ class Frontier(BaseFork):
         return 0
 
     @classmethod
-    def base_fee_max_change_numerator(cls) -> int:
+    def base_fee_follows_slot_spacing(cls) -> bool:
+        """
+        Return whether the maximum base fee change follows the block spacing.
+        """
+        return False
+
+    @classmethod
+    def base_fee_max_change_numerator(
+        cls,
+        *,
+        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
+        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
+    ) -> int:
         """Return the base fee max change numerator at a given fork."""
         raise NotImplementedError(
             f"Base fee max change numerator is not supported in {cls.name()}"
         )
 
     @classmethod
-    def base_fee_max_change_denominator(cls) -> int:
+    def base_fee_max_change_denominator(
+        cls,
+        *,
+        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
+        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
+    ) -> int:
         """Return the base fee max change denominator at a given fork."""
         raise NotImplementedError(
             f"Base fee max change denominator is not supported in {cls.name()}"
@@ -974,6 +993,11 @@ class Frontier(BaseFork):
     @classmethod
     def header_slot_number_required(cls) -> bool:
         """At genesis, header must not contain slot number (EIP-7843)."""
+        return False
+
+    @classmethod
+    def header_slot_number_must_increase(cls) -> bool:
+        """At genesis, slot numbers need not increase."""
         return False
 
     @classmethod
