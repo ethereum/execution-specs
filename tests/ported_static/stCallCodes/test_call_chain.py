@@ -144,6 +144,50 @@ state_tests/stCallDelegateCodesCallCodeHomestead/callcallcode_01_OOGEFiller.json
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecall_10_OOGEFiller.json
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcode_11_OOGEFiller.json
 state_tests/stCallCodes/callcall_00_OOGE_valueTransferFiller.json
+state_tests/stCallCodes/callcallcall_000_OOGMBeforeFiller.json
+state_tests/stCallCodes/callcallcallcode_001_OOGMBeforeFiller.json
+state_tests/stCallCodes/callcallcodecall_010_OOGMBeforeFiller.json
+state_tests/stCallCodes/callcallcodecallcode_011_OOGMBeforeFiller.json
+state_tests/stCallCodes/callcodecallcall_100_OOGMBeforeFiller.json
+state_tests/stCallCodes/callcodecallcallcode_101_OOGMBeforeFiller.json
+state_tests/stCallCodes/callcodecallcodecall_110_OOGMBeforeFiller.json
+state_tests/stCallCodes/callcodecallcodecallcode_111_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcallcode_001_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcodecall_010_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcodecallcode_011_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcall_100_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcallcode_101_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcodecall_110_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcodecallcode_111_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcallcode_001_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecall_010_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecallcode_011_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_100_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_101_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_110_OOGMBeforeFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_OOGMBeforeFiller.json
+state_tests/stCallCodes/callcallcall_000_OOGMAfterFiller.json
+state_tests/stCallCodes/callcallcallcode_001_OOGMAfterFiller.json
+state_tests/stCallCodes/callcallcodecall_010_OOGMAfterFiller.json
+state_tests/stCallCodes/callcallcodecallcode_011_OOGMAfterFiller.json
+state_tests/stCallCodes/callcodecallcall_100_OOGMAfterFiller.json
+state_tests/stCallCodes/callcodecallcallcode_101_OOGMAfterFiller.json
+state_tests/stCallCodes/callcodecallcodecall_110_OOGMAfterFiller.json
+state_tests/stCallCodes/callcodecallcodecallcode_111_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcallcode_001_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcodecall_010_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcodecallcode_011_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcall_100_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcallcode_101_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcodecall_110_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcodecallcode_111_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcallcode_001_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecall_010_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecallcode_011_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_100_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_101_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_110_OOGMAfterFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_OOGMAfterFiller.json
 
 @manually-enhanced: Do not overwrite. The fillers are one chain test copied
 into three directories, each substituting a different pair of call opcodes,
@@ -166,8 +210,9 @@ and the destroyed account is whichever account the self-destructing frame
 runs as. Before EIP-6780 it is deleted; from Cancun on it keeps its code
 and storage and only its balance moves, unless it is its own beneficiary.
 
-In the out-of-gas chains one frame runs out of gas expanding memory to 3 MB
-for a KECCAK256, which takes about 19.2M gas. Only the call into that frame
+In the out-of-gas chains one frame (the innermost, or a calling frame
+before or after its own call) runs out of gas expanding memory to 3 MB for a
+KECCAK256, which takes about 19.2M gas. Only the call into that frame
 is given bounded gas, so its caller keeps enough to record the failure.
 """
 
@@ -938,5 +983,89 @@ def test_two_level_call_chain_ooge(
         chain,
         values=values,
         failing_level=2,
+        after_call=True,
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stCallCodes/callcallcall_000_OOGMBeforeFiller.json",
+        "state_tests/stCallCodes/callcallcallcode_001_OOGMBeforeFiller.json",
+        "state_tests/stCallCodes/callcallcodecall_010_OOGMBeforeFiller.json",
+        "state_tests/stCallCodes/callcallcodecallcode_011_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcall_100_OOGMBeforeFiller.json",
+        "state_tests/stCallCodes/callcodecallcallcode_101_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcodecall_110_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcodecallcode_111_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcallcode_001_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcodecall_010_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcodecallcode_011_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcall_100_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcallcode_101_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcodecall_110_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcodecallcode_111_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcallcode_001_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecall_010_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecallcode_011_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_100_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_101_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_110_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_OOGMBeforeFiller.json",  # noqa: E501,
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("chain", call_chains(3))
+def test_three_level_call_chain_oogm_before(
+    state_test: StateTestFiller, pre: Alloc, chain: tuple[Op, Op, Op]
+) -> None:
+    """Call -> call -> (out of gas) call -> code."""
+    run_out_of_gas_chain(
+        state_test,
+        pre,
+        chain,
+        values=(0, 0, 0),
+        failing_level=2,
+        after_call=False,
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stCallCodes/callcallcall_000_OOGMAfterFiller.json",
+        "state_tests/stCallCodes/callcallcallcode_001_OOGMAfterFiller.json",
+        "state_tests/stCallCodes/callcallcodecall_010_OOGMAfterFiller.json",
+        "state_tests/stCallCodes/callcallcodecallcode_011_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcall_100_OOGMAfterFiller.json",
+        "state_tests/stCallCodes/callcodecallcallcode_101_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcodecall_110_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcodecallcode_111_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcallcode_001_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcodecall_010_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcodecallcode_011_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcall_100_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcallcode_101_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcodecall_110_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcodecallcode_111_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcallcode_001_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecall_010_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecallcode_011_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_100_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_101_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_110_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_OOGMAfterFiller.json",  # noqa: E501,
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("chain", call_chains(3))
+def test_three_level_call_chain_oogm_after(
+    state_test: StateTestFiller, pre: Alloc, chain: tuple[Op, Op, Op]
+) -> None:
+    """Call -> (call -> call -> code) out of gas."""
+    run_out_of_gas_chain(
+        state_test,
+        pre,
+        chain,
+        values=(0, 0, 0),
+        failing_level=1,
         after_call=True,
     )
