@@ -354,6 +354,21 @@ def post_fork_blocks(
 ) -> list[Block]:
     """Generate blocks after the fork."""
     blocks = []
+    # The blob gas price keeps rising while the blocks hold more blobs than
+    # the target, and jumps at the fork if the update fraction drops, so
+    # cover the price the last block can reach.
+    max_fee_per_blob_gas = max(
+        100,
+        post_fork.blob_gas_price_calculator()(
+            excess_blob_gas=fork_block_excess_blob_gas
+            + post_fork_block_count
+            * (
+                post_fork.max_blobs_per_block()
+                - post_fork.target_blobs_per_block()
+            )
+            * post_fork.blob_gas_per_blob()
+        ),
+    )
 
     for i in range(post_fork_block_count):
         if post_fork_blobs_per_block == 0:
@@ -385,7 +400,7 @@ def post_fork_blocks(
                     gas_limit=100_000,
                     max_fee_per_gas=1_000_000,
                     max_priority_fee_per_gas=10,
-                    max_fee_per_blob_gas=100,
+                    max_fee_per_blob_gas=max_fee_per_blob_gas,
                     blob_versioned_hashes=add_kzg_version(
                         [Hash(blob_index + x) for x in range(tx_blobs)],
                         Spec.BLOB_COMMITMENT_VERSION_KZG,
