@@ -8,6 +8,7 @@ writes, so no test touches the network.
 import importlib.util
 import json
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -118,19 +119,41 @@ def opened(number: int, pull_request: bool = False) -> dict[str, Any]:
     return item
 
 
+def pull(
+    number: int,
+    base: str,
+    hours_ago: float,
+    association: str = "FIRST_TIME_CONTRIBUTOR",
+) -> dict[str, Any]:
+    """Return an open pull request `alice` opened into `base`."""
+    created = datetime.now(UTC) - timedelta(hours=hours_ago)
+    return {
+        "number": number,
+        "body": "",
+        "base": {"ref": base},
+        "created_at": created.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "author_association": association,
+        "user": {"login": "alice", "type": "User"},
+    }
+
+
 class FakeGh:
-    """Stand in for the `gh` CLI, serving issues and an author's history."""
+    """Stand in for the `gh` CLI, serving fixtures for one repository."""
 
     def __init__(
         self,
         issues: list[dict[str, Any]] | None = None,
         history: list[dict[str, Any]] | None = None,
         merged: int = 0,
+        pulls: list[dict[str, Any]] | None = None,
+        comments: dict[int, list[str]] | None = None,
     ):
-        """Serve these issues, opened items and merged pull request count."""
+        """Serve issues, opened items, merged count, pulls and comments."""
         self.issues = {item["number"]: item for item in issues or []}
         self.history = history or []
         self.merged = merged
+        self.pulls = pulls or []
+        self.comments = comments or {}
         self.reads: list[tuple[str, ...]] = []
         self.writes: list[tuple[str, ...]] = []
 
@@ -143,10 +166,18 @@ class FakeGh:
         if "search/issues" in args:
             assert "q=repo:o/r is:pr is:merged author:alice" in args
             return str(self.merged)
-        if "--paginate" in args:
-            assert "creator=alice&state=open" in args[2]
+        path = next(arg for arg in args if arg.startswith("repos/"))
+        if path == "repos/o/r":
+            return json.dumps({"default_branch": "forks/bogota"})
+        if path.startswith("repos/o/r/pulls?"):
+            return "\n".join(json.dumps(pr) for pr in self.pulls)
+        if path.endswith("/comments"):
+            number = int(path.split("/")[-2])
+            return "\n".join(self.comments.get(number, []))
+        if path.startswith("repos/o/r/issues?"):
+            assert "creator=alice&state=open" in path
             return "\n".join(json.dumps(item) for item in self.history)
-        number = int(args[1].rsplit("/", 1)[1])
+        number = int(path.rsplit("/", 1)[1])
         if number in self.issues:
             return json.dumps(self.issues[number])
         assert not check
@@ -239,12 +270,13 @@ NOT_PLANNED = ("-f", "state_reason=not_planned")
 
 
 def test_messages_name_the_author_and_link_the_guide() -> None:
-    """Mention the author and link CONTRIBUTING.md and the Discord."""
+    """Mention the author, link the guide and end with the marker."""
     for message in (PR_MESSAGE, ISSUE_MESSAGE):
         assert message.startswith("Thanks")
         assert "@alice" in message
         assert CONTRIBUTING in message
         assert m.RND_DISCORD in message
+        assert message.endswith(m.MARKER)
         assert "{" not in message
 
 
@@ -385,4 +417,56 @@ def test_dry_run_writes_nothing(
     """Print the decision without commenting or closing."""
     fake = FakeGh()
     run_event(monkeypatch, tmp_path, fake, pr_event(""), "--dry-run")
+    assert fake.writes == []
+
+
+def run_sweep(
+    monkeypatch: pytest.MonkeyPatch, fake: FakeGh, *flags: str
+) -> None:
+    """Run the script's `main` in sweep mode against `fake`."""
+    monkeypatch.setattr(m, "gh", fake)
+    monkeypatch.setattr(m, "bypassed", lambda: {"bob"})
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    monkeypatch.setattr(
+        sys, "argv", ["new_contributor_gate.py", "--sweep", *flags]
+    )
+    m.main()
+
+
+def test_sweep_closes_pr_into_another_branch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Close a recent new contributor pull request into any other branch."""
+    fake = FakeGh(pulls=[pull(11, "forks/amsterdam", 1)])
+    run_sweep(monkeypatch, fake)
+    assert fake.writes == closed(11, PR_MESSAGE)
+
+
+@pytest.mark.parametrize(
+    "pr,comments",
+    [
+        (pull(11, "forks/bogota", 1), {}),
+        (pull(11, "forks/amsterdam", m.SWEEP_HOURS + 1), {}),
+        (pull(11, "forks/amsterdam", 1, association="CONTRIBUTOR"), {}),
+        (pull(11, "forks/amsterdam", 1), {11: [f"Closed.\n\n{m.MARKER}"]}),
+    ],
+    ids=["default-branch", "too-old", "known-author", "reopened"],
+)
+def test_sweep_leaves_others_alone(
+    monkeypatch: pytest.MonkeyPatch,
+    pr: dict[str, Any],
+    comments: dict[int, list[str]],
+) -> None:
+    """Skip the default branch, old and known pull requests, and reopens."""
+    fake = FakeGh(pulls=[pr], comments=comments)
+    run_sweep(monkeypatch, fake)
+    assert fake.writes == []
+
+
+def test_sweep_dry_run_writes_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Print the sweep's decisions without commenting or closing."""
+    fake = FakeGh(pulls=[pull(11, "forks/amsterdam", 1)])
+    run_sweep(monkeypatch, fake, "--dry-run")
     assert fake.writes == []

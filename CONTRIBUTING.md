@@ -14,7 +14,7 @@ Our review resources are constrained, so we review pull requests that have a con
 - Your client is missing test coverage that a change here would add (name the client and link the gap).
 - A fix for an open issue that a maintainer has assigned to you.
 
-New EIP features stay on your own fork until the fork development process needs them. Open an issue that links your branch and a maintainer will ask for a pull request when the time comes.
+New EIP features stay on your own fork until the EIP is Proposed or Considered for Inclusion (PFI or CFI) in a fork. Open an issue that links your branch and a maintainer will ask for a pull request when the time comes.
 
 ### What we won't review
 
@@ -22,7 +22,7 @@ We close the following without review:
 
 - Pull requests from first-time contributors that don't link an issue assigned to them. These are closed automatically.
 - Issues from first-time contributors beyond the limit below. These are closed automatically.
-- New EIP features opened before the fork development process needs them.
+- New EIP features for EIPs that are not yet PFI or CFI.
 - Changes without a concrete reason, such as refactors, renames or style changes nobody asked for.
 - Changes that only fix spelling, grammar or formatting.
 - Drive-by or vibe-coded contributions, including generated code or text the author hasn't reviewed and can't explain.

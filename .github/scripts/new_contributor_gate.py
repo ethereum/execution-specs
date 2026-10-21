@@ -6,7 +6,7 @@
 """
 Close pull requests and issues from new contributors that skip the rules.
 
-Usage: `new_contributor_gate.py [--pr N | --issue N] [--dry-run]`.
+Usage: `new_contributor_gate.py [--pr N | --issue N | --sweep] [--dry-run]`.
 
 New contributors are authors with nothing merged into the repository
 yet, going by `author_association` and confirmed by a search, since the
@@ -16,6 +16,11 @@ reference an issue they are assigned to, and they may have at most
 explaining the rule (see CONTRIBUTING.md). Everyone else is left alone,
 and so are bots, items a maintainer reopened and authors listed in
 `.github/configs/new-contributor-gate-bypass.txt`.
+
+A pull request event runs the workflow of the pull request's base
+branch, so `--sweep` gates the pull requests opened into every other
+branch in the last `SWEEP_HOURS` hours from a schedule on the default
+branch instead.
 
 Read the event from `GITHUB_EVENT_PATH` (or the item from `--pr` or
 `--issue`) and the repository from `GITHUB_REPOSITORY`, and query GitHub
@@ -28,6 +33,7 @@ import os
 import re
 import subprocess
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +44,13 @@ CONFIGS = Path(__file__).parent.parent / "configs"
 BYPASS = CONFIGS / "new-contributor-gate-bypass.txt"
 
 MAX_OPEN_ISSUES = 2
+
+# The sweep runs every 15 minutes, so this window also covers late runs.
+SWEEP_HOURS = 3
+
+# Hidden in every comment the gate posts, so the sweep can tell a pull
+# request a maintainer reopened from one the gate has not seen yet.
+MARKER = "<!-- new-contributor-gate -->"
 
 # Most issue references looked up per pull request, to bound API calls.
 MAX_REFERENCES = 10
@@ -70,7 +83,9 @@ words what you want to change and why.
 
 {BYPASS_HELP}
 
-See [CONTRIBUTING.md]({{contributing}}) for details."""
+See [CONTRIBUTING.md]({{contributing}}) for details.
+
+{MARKER}"""
 
 ISSUE_MESSAGE = f"""\
 Thanks for opening this issue, @{{author}}! Our review resources are \
@@ -80,7 +95,9 @@ wait for a reply on your earlier issues.
 
 {BYPASS_HELP}
 
-See [CONTRIBUTING.md]({{contributing}}) for details."""
+See [CONTRIBUTING.md]({{contributing}}) for details.
+
+{MARKER}"""
 
 
 def bypassed(path: Path = BYPASS) -> set[str]:
@@ -171,6 +188,18 @@ def earlier_open_issues(repo: str, author: str, number: int) -> list[int]:
     )
 
 
+def already_gated(repo: str, number: int) -> bool:
+    """Return whether the gate has commented on `number` before."""
+    output = gh(
+        "api",
+        "--paginate",
+        f"repos/{repo}/issues/{number}/comments",
+        "--jq",
+        ".[].body",
+    )
+    return MARKER in output
+
+
 def load_item(
     args: argparse.Namespace, repo: str
 ) -> tuple[dict[str, Any], bool, str]:
@@ -208,17 +237,15 @@ def close(repo: str, number: int, message: str, is_pr: bool) -> None:
     )
 
 
-def main() -> None:
-    """Close one pull request or issue if a new contributor broke a rule."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    target = parser.add_mutually_exclusive_group()
-    target.add_argument("--pr", type=int, help="pull request number")
-    target.add_argument("--issue", type=int, help="issue number")
-    parser.add_argument("--dry-run", action="store_true", help="print only")
-    args = parser.parse_args()
-
-    repo = os.environ.get("GITHUB_REPOSITORY", "ethereum/execution-specs")
-    item, is_pr, sender = load_item(args, repo)
+def gate(
+    repo: str,
+    item: dict[str, Any],
+    is_pr: bool,
+    sender: str,
+    dry_run: bool,
+    swept: bool = False,
+) -> None:
+    """Close `item` if a new contributor opened it against the rules."""
     number = item["number"]
     contributing = f"https://github.com/{repo}/blob/HEAD/CONTRIBUTING.md"
 
@@ -228,6 +255,9 @@ def main() -> None:
     author = item["user"]["login"]
     if has_merged_pr(repo, author):
         print(f"#{number}: skipped, {author} has a merged pull request")
+        return
+    if swept and already_gated(repo, number):
+        print(f"#{number}: skipped, reopened after the gate closed it")
         return
     if is_pr:
         issue = assigned_issue(repo, item)
@@ -247,8 +277,45 @@ def main() -> None:
         )
 
     print(f"#{number}: closing")
-    if not args.dry_run:
+    if not dry_run:
         close(repo, number, message, is_pr)
+
+
+def sweep(repo: str, now: datetime, dry_run: bool) -> None:
+    """Gate recent pull requests into branches other than the default."""
+    default = json.loads(gh("api", f"repos/{repo}"))["default_branch"]
+    since = now - timedelta(hours=SWEEP_HOURS)
+    query = "state=open&sort=created&direction=desc&per_page=100"
+    output = gh(
+        "api", "--paginate", f"repos/{repo}/pulls?{query}", "--jq", ".[]"
+    )
+    for line in output.splitlines():
+        pr = json.loads(line)
+        recent = datetime.fromisoformat(pr["created_at"]) >= since
+        if recent and pr["base"]["ref"] != default:
+            gate(repo, pr, True, pr["user"]["login"], dry_run, swept=True)
+
+
+def main() -> None:
+    """Gate one pull request or issue, or sweep recent pull requests."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    target = parser.add_mutually_exclusive_group()
+    target.add_argument("--pr", type=int, help="pull request number")
+    target.add_argument("--issue", type=int, help="issue number")
+    target.add_argument(
+        "--sweep",
+        action="store_true",
+        help="gate recent pull requests into other branches",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="print only")
+    args = parser.parse_args()
+
+    repo = os.environ.get("GITHUB_REPOSITORY", "ethereum/execution-specs")
+    if args.sweep:
+        sweep(repo, datetime.now(UTC), args.dry_run)
+        return
+    item, is_pr, sender = load_item(args, repo)
+    gate(repo, item, is_pr, sender, args.dry_run)
 
 
 if __name__ == "__main__":
