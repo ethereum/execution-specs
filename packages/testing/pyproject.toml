@@ -146,7 +146,9 @@ markers = [
 ]
 
 [tool.uv]
-required-version = ">=0.7.0"
+# Older uv versions trust a root CA with a compromised intermediate:
+# https://github.com/astral-sh/uv/security/advisories/GHSA-hq85-5cpj-mr62
+required-version = ">=0.13.4"
 
 [tool.uv.sources]
 ethereum-execution = { workspace = true }
