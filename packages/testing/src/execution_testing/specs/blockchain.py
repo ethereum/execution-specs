@@ -1291,9 +1291,15 @@ class BlockchainTest(BaseTest):
                     f"!= {computed_block_access_list_hash}"
                 )
 
+        rejected_indices = [
+            int(rejected_tx.index)
+            for rejected_tx in (
+                transition_tool_output.result.rejected_transactions
+            )
+        ]
         if (
             t8n_bal is not None
-            and transition_tool_output.result.rejected_transactions
+            and rejected_indices
             and transition_tool_output.engine_payload is None
         ):
             # The transition tool numbers transactions by the count of
@@ -1302,12 +1308,6 @@ class BlockchainTest(BaseTest):
             # position in the body, and the post-execution index after the
             # last one. This keeps the fixture the same whichever transition
             # tool fills it.
-            rejected_indices = {
-                int(rejected_tx.index)
-                for rejected_tx in (
-                    transition_tool_output.result.rejected_transactions
-                )
-            }
             body_positions = [
                 position
                 for position, _ in enumerate(txs, start=1)
@@ -1389,7 +1389,7 @@ class BlockchainTest(BaseTest):
 
         if (
             bal is not None
-            and transition_tool_output.result.rejected_transactions
+            and rejected_indices
             and not block.sets_block_access_list()
             and transition_tool_output.engine_payload is None
         ):
@@ -1398,15 +1398,7 @@ class BlockchainTest(BaseTest):
             # a second defect. A BAL the test sets, or one a client built, is
             # kept as it is.
             bal = bal.with_accounts(
-                rejected_transactions_accessed_addresses(
-                    txs,
-                    [
-                        rejected_tx.index
-                        for rejected_tx in (
-                            transition_tool_output.result.rejected_transactions
-                        )
-                    ],
-                )
+                rejected_transactions_accessed_addresses(txs, rejected_indices)
             )
             header.block_access_list_hash = Hash(bal.rlp.keccak256())
             max_items = (
