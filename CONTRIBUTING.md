@@ -73,6 +73,6 @@ Pull requests are squash merged, and the PR title becomes the commit message. PR
 
 Separate multiple areas with a comma, for example `feat(spec,tests): ...`. Documentation-only changes take no area, for example `docs: ...`.
 
-A bot keeps the title and labels in step: it sets the title's areas from the files the PR changes, labels the PR with its type and areas, adds a project label such as `zkevm` for PRs into a `projects/*` branch, and rewrites titles that don't follow this form.
+A bot keeps the title and labels in step. It replaces the title's areas with every area the PR's files touch, even through a one-line change, and rewrites titles that don't follow this form. It labels the PR with its type and areas, plus a project label such as `zkevm` for PRs into a `projects/*` branch. To keep titles short, only the labels carry `ci` next to a code area and the `framework` sub-areas `fill`, `consume`, `execute` and `clients`. The labels are defined in [`.github/configs/labels.yaml`](.github/configs/labels.yaml).
 
 Keep the description short, lowercase and in the imperative mood ("add", not "added" or "adds"), with code names in backticks and no trailing period.

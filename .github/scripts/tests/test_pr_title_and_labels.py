@@ -58,10 +58,41 @@ def test_area_for_path(path: str, area: str | None) -> None:
     assert m.area_for_path(path) == area
 
 
+@pytest.mark.parametrize(
+    "path,sub_area",
+    [
+        (f"{m.TESTING}cli/pytest_commands/fill.py", "fill"),
+        (f"{m.TESTING}cli/pytest_commands/plugins/filler/filler.py", "fill"),
+        (f"{m.TESTING}cli/pytest_commands/fill_stateful.py", None),
+        (f"{m.TESTING}cli/pytest_commands/consume.py", "consume"),
+        (
+            f"{m.TESTING}cli/pytest_commands/plugins/consume/consume.py",
+            "consume",
+        ),
+        (
+            f"{m.TESTING}cli/pytest_commands/plugins/execute/execute.py",
+            "execute",
+        ),
+        (f"{m.TESTING}client_clis/clis/geth.py", "clients"),
+        (f"{m.TESTING}forks/forks.py", None),
+        ("src/ethereum/forks/osaka/fork.py", None),
+    ],
+)
+def test_sub_area_for_path(path: str, sub_area: str | None) -> None:
+    """Map framework paths to their sub-area."""
+    assert m.sub_area_for_path(path) == sub_area
+
+
 def test_areas_for_files_are_ordered_and_skip_docs() -> None:
     """Return touched areas in canonical order, without docs."""
     paths = ["docs/a.md", "packages/x.py", "src/y.py", ".github/z.yaml"]
     assert m.areas_for_files(paths) == ["spec", "framework", "ci"]
+
+
+def test_areas_for_files_add_sub_areas_after_the_areas() -> None:
+    """List framework sub-areas after the areas."""
+    paths = [f"{m.TESTING}client_clis/a.py", f"{m.TESTING}forks/b.py"]
+    assert m.areas_for_files(paths) == ["framework", "clients"]
 
 
 def listed(*paths: str) -> list[dict[str, Any]]:
@@ -79,7 +110,10 @@ def listed(*paths: str) -> list[dict[str, Any]]:
 
 @pytest.mark.parametrize(
     "changed_files,areas",
-    [(1, ["spec", "ci"]), (3001, ["spec", "tests", "benchmark", "ci"])],
+    [
+        (1, ["spec", "ci"]),
+        (3001, ["spec", "tests", "benchmark", "ci", "fill"]),
+    ],
 )
 def test_touched_areas_keep_named_areas_past_the_file_cap(
     changed_files: int, areas: list[str]
@@ -87,7 +121,7 @@ def test_touched_areas_keep_named_areas_past_the_file_cap(
     """Keep title and label areas only when GitHub cut the list short."""
     pr = {
         "title": "feat(tests,zkevm): add tests",
-        "labels": [{"name": "benchmark"}, {"name": "stale"}],
+        "labels": [{"name": n} for n in ("benchmark", "fill", "stale")],
         "changed_files": changed_files,
     }
     files = listed("src/a.py", ".github/b.yaml")
@@ -98,12 +132,14 @@ def test_touched_areas_keep_named_areas_past_the_file_cap(
     "touched,areas",
     [
         (["spec", "tests", "ci"], ["spec", "tests"]),
+        (["framework", "fill", "clients"], ["framework"]),
         (["ci"], ["ci"]),
+        (["ci", "fill"], ["ci"]),
         ([], []),
     ],
 )
 def test_title_areas(touched: list[str], areas: list[str]) -> None:
-    """Name code areas, `ci` only without code, nothing for docs."""
+    """Name code areas, `ci` only without code, never a sub-area."""
     assert m.title_areas(touched) == areas
 
 
@@ -282,7 +318,7 @@ def test_validate_claude_title_rejects_bad_output(data: Any) -> None:
 
 
 @pytest.mark.parametrize(
-    "kind,areas,base,expected",
+    "kind,touched,base,expected",
     [
         ("feat", ["spec", "tests"], "forks/bogota", {"feat", "spec", "tests"}),
         ("fix", ["tests"], "projects/zkevm", {"fix", "tests", "zkevm"}),
@@ -303,14 +339,20 @@ def test_validate_claude_title_rejects_bad_output(data: Any) -> None:
         ("perf", ["framework"], "forks/bogota", {"perf", "framework"}),
         ("chore", ["ci"], "forks/bogota", {"chore", "ci"}),
         ("docs", [], "forks/bogota", {"docs"}),
+        (
+            "feat",
+            ["framework", "ci", "fill", "clients"],
+            "forks/bogota",
+            {"feat", "framework", "ci", "fill", "clients"},
+        ),
     ],
 )
-def test_desired_labels_match_the_title(
-    kind: str, areas: list[str], base: str, expected: set[str]
+def test_desired_labels(
+    kind: str, touched: list[str], base: str, expected: set[str]
 ) -> None:
-    """Label with the title's type and areas, plus the project."""
-    title = m.Title(kind, tuple(areas), "x")
-    assert m.desired_labels(title, base) == expected
+    """Label with the type and every touched area, plus the project."""
+    title = m.Title(kind, tuple(m.title_areas(touched)), "x")
+    assert m.desired_labels(title, touched, base) == expected
     assert expected <= m.MANAGED_LABELS
 
 
@@ -471,6 +513,30 @@ def test_main_fixes_title_and_syncs_labels(
             "labels[]=spec",
         ),
         ("api", "--method", "DELETE", "repos/o/r/issues/7/labels/ci"),
+    ]
+
+
+def test_main_labels_ci_and_sub_areas_left_out_of_the_title(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Keep `ci` and sub-areas out of the title but in the labels."""
+    fake = FakeGh(
+        "feat(framework): add a flag",
+        ["feat", "framework"],
+        [f"{m.TESTING}cli/pytest_commands/plugins/filler/a.py", ".github/b"],
+    )
+    run_main(monkeypatch, fake, "--pr", "7")
+    assert fake.writes == [
+        (
+            "api",
+            "--method",
+            "POST",
+            "repos/o/r/issues/7/labels",
+            "-f",
+            "labels[]=ci",
+            "-f",
+            "labels[]=fill",
+        ),
     ]
 
 

@@ -11,15 +11,17 @@ Fix a pull request's title and sync its labels.
 
 Usage: `pr_title_and_labels.py [--pr N] [--dry-run]`.
 
-Titles follow `<type>(<areas>): <description>` (see CONTRIBUTING.md),
-and the labels match the title one to one. The areas always come from
-the files the pull request changes. A title with a known type keeps its
-type and description. A title without one is rewritten by Claude when
+Titles follow `<type>(<areas>): <description>` (see CONTRIBUTING.md).
+The areas always come from the files the pull request changes, even
+from a one-line change. A title with a known type keeps its type and
+description. A title without one is rewritten by Claude when
 `ANTHROPIC_API_KEY` is set, and by simple rules otherwise.
 
 Labels in `MANAGED_LABELS` are then synced to the title's type and
-areas, plus a project label for pull requests into a branch in
-`PROJECT_LABELS`. Other labels are never touched.
+every touched area, which adds `ci` and the framework sub-areas that
+the title leaves out, plus a project label for pull requests into a
+branch in `PROJECT_LABELS`. Other labels are never touched. The labels
+themselves are defined in `.github/configs/labels.yaml`.
 
 Read the pull request number from `GITHUB_EVENT_PATH` (or `--pr`) and
 the repository from `GITHUB_REPOSITORY`, and query GitHub via the `gh`
@@ -55,6 +57,20 @@ BENCHMARK_PATHS = (
 SPEC_PATHS = ("src/", "tests/json_loader/", "tests/spec_tools/")
 IGNORED_FILES = ("whitelist.txt", "vulture_whitelist.py")
 
+# Framework sub-area label for files with this prefix, added next to
+# `framework`. Only the labels name sub-areas, so titles stay short.
+TESTING = "packages/testing/src/execution_testing/"
+SUB_AREA_LABELS = {
+    f"{TESTING}cli/pytest_commands/fill.py": "fill",
+    f"{TESTING}cli/pytest_commands/plugins/filler/": "fill",
+    f"{TESTING}cli/pytest_commands/consume.py": "consume",
+    f"{TESTING}cli/pytest_commands/plugins/consume/": "consume",
+    f"{TESTING}cli/pytest_commands/execute.py": "execute",
+    f"{TESTING}cli/pytest_commands/plugins/execute/": "execute",
+    f"{TESTING}client_clis/": "clients",
+}
+SUB_AREAS = ("fill", "consume", "execute", "clients")
+
 # Project label for pull requests into a base branch with this prefix, so
 # `projects/zkevm-releases` is labeled `zkevm` too.
 PROJECT_LABELS = {
@@ -64,6 +80,7 @@ PROJECT_LABELS = {
 }
 MANAGED_LABELS = {
     *AREAS,
+    *SUB_AREAS,
     *PROJECT_LABELS.values(),
     *TYPES,
 }
@@ -169,17 +186,30 @@ def area_for_path(path: str) -> str | None:
     return "ci"
 
 
+def sub_area_for_path(path: str) -> str | None:
+    """Return the framework sub-area a changed file belongs to, if any."""
+    return next(
+        (
+            label
+            for prefix, label in SUB_AREA_LABELS.items()
+            if path.startswith(prefix)
+        ),
+        None,
+    )
+
+
 def areas_for_files(paths: list[str]) -> list[str]:
-    """Return every area the changed files touch, in canonical order."""
+    """Return every area and sub-area the changed files touch, in order."""
     touched = {area_for_path(path) for path in paths}
-    return [area for area in AREAS if area in touched]
+    touched |= {sub_area_for_path(path) for path in paths}
+    return [area for area in (*AREAS, *SUB_AREAS) if area in touched]
 
 
 def touched_areas(
     pr: dict[str, Any], files: list[dict[str, Any]]
 ) -> list[str]:
     """
-    Return every area a pull request touches, in canonical order.
+    Return every area and sub-area a pull request touches, in order.
 
     GitHub lists at most 3000 changed files. When the list is cut short,
     also keep the areas the title or labels already name, so that a file
@@ -191,8 +221,8 @@ def touched_areas(
         match = TITLE_PATTERN.match(strip_noise(pr["title"]))
         if match is not None and match["areas"]:
             named |= {area.strip() for area in match["areas"].split(",")}
-        touched |= named & set(AREAS)
-    return [area for area in AREAS if area in touched]
+        touched |= named & {*AREAS, *SUB_AREAS}
+    return [area for area in (*AREAS, *SUB_AREAS) if area in touched]
 
 
 def title_areas(touched: list[str]) -> list[str]:
@@ -200,9 +230,10 @@ def title_areas(touched: list[str]) -> list[str]:
     Return the areas a title names for the touched areas.
 
     Name the code areas, or `ci` when no code is touched. Docs-only
-    changes name no area.
+    changes name no area, and sub-areas are left to the labels.
     """
-    return [area for area in touched if area in CODE_AREAS] or touched
+    code = [area for area in touched if area in CODE_AREAS]
+    return code or [area for area in touched if area in AREAS]
 
 
 def strip_noise(title: str) -> str:
@@ -295,14 +326,19 @@ def fit_title(title: Title) -> Title:
     return replace(title, description=description.rstrip())
 
 
-def desired_labels(title: Title, base: str) -> set[str]:
-    """Return the title's type and areas, plus the base branch's project."""
+def desired_labels(title: Title, touched: list[str], base: str) -> set[str]:
+    """
+    Return the title's type, the touched areas and the base's project.
+
+    The touched areas include the title's areas, plus `ci` and the
+    framework sub-areas that the title leaves out.
+    """
     projects = {
         label
         for prefix, label in PROJECT_LABELS.items()
         if base.startswith(prefix)
     }
-    return {title.type, *title.areas, *projects}
+    return {title.type, *touched, *projects}
 
 
 def label_changes(
@@ -445,7 +481,7 @@ def main() -> None:
     title = str(fixed)
 
     current = {label["name"] for label in pr["labels"]}
-    wanted = desired_labels(fixed, pr["base"]["ref"])
+    wanted = desired_labels(fixed, touched, pr["base"]["ref"])
     add, remove = label_changes(current, wanted)
 
     print(f"#{number}: {pr['title']}")
