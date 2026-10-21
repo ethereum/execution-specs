@@ -341,7 +341,9 @@ class T8N(Load):
         Rejected transactions are skipped. They are reported under their
         position in the input, but they leave no trace in the block: the
         transactions that follow take the position the rejected one would
-        have had, as if it had never been supplied.
+        have had, as if it had never been supplied. Accepted transactions
+        are added to ``self.included_txs``, so its length is the index the
+        next one takes.
         """
         for tx_index, testing_tx in enumerate(self.txs):
             try:

@@ -310,7 +310,11 @@ class ForkLoad:
         return self._module("transactions").decode_transaction
 
     def encode_transaction(self, tx: Any) -> Any:
-        """Return the transaction representation used in a block body."""
+        """
+        Return the transaction representation used in a block body. Forks
+        before Berlin have no typed transactions and put the transaction in
+        the body as it is.
+        """
         transactions = self._module("transactions")
         if hasattr(transactions, "encode_transaction"):
             return transactions.encode_transaction(tx)
