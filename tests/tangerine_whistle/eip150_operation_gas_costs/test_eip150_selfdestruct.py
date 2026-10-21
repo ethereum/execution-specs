@@ -1290,7 +1290,14 @@ def test_selfdestruct_send_to_sender(
     refund = min(
         victim_code.refund(fork), executed // fork.max_refund_quotient()
     )
-    gas_used = executed - refund
+    # The sweep's block access list bytes (EIP-8279) extend the floor past
+    # this execution, as the warm beneficiary pays no cold access.
+    floor_gas = fork.transaction_data_floor_cost_calculator()(
+        data=b""
+    ) + fork.block_access_list_floor_cost(
+        addresses=1, balances=2 if originator_balance > 0 else 0
+    )
+    gas_used = max(executed - refund, floor_gas)
     alice_final_balance = (
         alice_initial_balance + originator_balance - gas_used * gas_price
     )

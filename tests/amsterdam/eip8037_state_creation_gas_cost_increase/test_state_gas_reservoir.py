@@ -1779,7 +1779,14 @@ def test_access_list_warm_savings_stay_execution(
     )(0, Op.SLOAD.with_metadata(key_warm=True)(0))
     evm_gas = contract_code.gas_cost(fork)
 
-    expected_gas_used = intrinsic_gas + evm_gas
+    # The listed slot's first access meters its block access list bytes
+    # (EIP-8279), and with this little execution that floor is what the
+    # block charges; a cold charge in place of the warm saving would
+    # still show, lifting the execution above the floor.
+    metered_floor = fork.transaction_data_floor_cost_calculator()(
+        data=b"", access_list=access_list
+    ) + fork.block_access_list_floor_cost(storage_keys=1)
+    expected_gas_used = max(intrinsic_gas + evm_gas, metered_floor)
 
     tx = Transaction(
         to=contract,

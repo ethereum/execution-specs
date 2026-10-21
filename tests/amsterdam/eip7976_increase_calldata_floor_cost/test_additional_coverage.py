@@ -916,6 +916,11 @@ class TestRefundCapInteraction:
         # Calculate costs
         floor_cost_calculator = fork.transaction_data_floor_cost_calculator()
         floor_cost = floor_cost_calculator(data=calldata)
+        # The storage clear adds its slot key and value to the block
+        # access list, extending the floor (EIP-8279).
+        floor_cost += fork.block_access_list_floor_cost(
+            storage_keys=1, storage_values=1
+        )
 
         intrinsic_cost_calculator = (
             fork.transaction_intrinsic_cost_calculator()

@@ -104,6 +104,12 @@ def test_access_list_surcharge_with_refund(
     floor = fork.transaction_data_floor_cost_calculator()(
         data=data, access_list=access_list
     )
+    # The cleared slot's key and new value enter the block access list
+    # even when the frame reverts, extending the floor (EIP-8279): the
+    # access list warms the key but its first touch still meters it.
+    floor += fork.block_access_list_floor_cost(
+        storage_keys=1, storage_values=1
+    )
     assert (floor > before_refund - refund) == floor_dominates
     tx = Transaction(
         ty=tx_type,
@@ -163,7 +169,12 @@ def test_access_list_surcharge_in_block_execution_gas(
 
     def bill(data: bytes) -> tuple[int, int]:
         """Return the floor and the pre-floor execution bill for `data`."""
-        floor = floor_calculator(data=data, access_list=access_list)
+        # The set slot's key and new value enter the block access list,
+        # extending the floor (EIP-8279): the access list warms the key
+        # but its first touch still meters it.
+        floor = floor_calculator(
+            data=data, access_list=access_list
+        ) + fork.block_access_list_floor_cost(storage_keys=1, storage_values=1)
         tx_execution = intrinsic_calculator(
             calldata=data,
             access_list=access_list,

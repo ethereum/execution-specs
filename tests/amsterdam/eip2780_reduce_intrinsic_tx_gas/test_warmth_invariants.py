@@ -809,10 +809,32 @@ def test_top_frame_charges_delegation_is_authority(
     assert top_frame_state_gas == 0, (
         "a skipped authorization must not carry a state-gas charge"
     )
-    total_gas_cost = intrinsic_gas + top_frame_gas
+    # The skipped authorization's content and block access list bytes
+    # lift the floor above the transaction's charges, so the receipt
+    # pins the floor and the gas limit sits one above the total. The
+    # charge still discriminates: a cold charge where warm is expected
+    # overruns that limit, and a warm charge where cold is expected
+    # settles at the floor instead of the cold total.
+    floor_gas = fork.transaction_data_floor_cost_calculator()(
+        data=b"",
+        sends_value=bool(value),
+        recipient_type=RecipientType.DELEGATION_7702,
+        authorization_list_or_count=authorization_list,
+    )
+    cold_total_gas_cost = (
+        intrinsic_gas
+        + fork.transaction_top_frame_execution_gas(
+            sends_value=bool(value),
+            recipient_type=RecipientType.DELEGATION_7702,
+            delegation_warm=False,
+            authorizations=authorization_list,
+        )
+    )
+    assert floor_gas + 1 < cold_total_gas_cost, (
+        "the floor must leave the cold delegation charge out of reach"
+    )
+    total_gas_cost = max(intrinsic_gas + top_frame_gas, floor_gas)
 
-    # A cold charge in a warm case halts and spends the spare gas; a
-    # warm charge in a cold case spends less than the expected receipt.
     tx = Transaction(
         sender=sender,
         to=target,
