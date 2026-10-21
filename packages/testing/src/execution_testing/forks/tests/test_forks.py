@@ -1196,7 +1196,8 @@ def test_bpo_scenarios_follow_a_new_fork() -> None:
     try:
         increase, decrease = add_bpo_scenarios(NewFork)
         # A named fork with its own blob schedule takes no client BPO slot.
-        assert_bpo_scenarios_fit(NewFork, increase, decrease, slot=3)
+        slot = first_free_bpo_slot(Bogota)
+        assert_bpo_scenarios_fit(NewFork, increase, decrease, slot=slot)
         assert blob_schedule_of(increase) == (18, 27, 18027778)
         assert blob_schedule_of(decrease) == (8, 12, 8012346)
     finally:
@@ -1220,23 +1221,24 @@ def test_bpo_scenarios_follow_a_new_bpo_fork() -> None:
 
     try:
         increase, decrease = add_bpo_scenarios(NewBPO)
-        assert_bpo_scenarios_fit(NewBPO, increase, decrease, slot=4)
+        # The new BPO fork takes the slot its parent left free.
+        slot = first_free_bpo_slot(Amsterdam) + 1
+        assert_bpo_scenarios_fit(NewBPO, increase, decrease, slot=slot)
         assert blob_schedule_of(increase) == (24, 36, 20030865)
         assert blob_schedule_of(decrease) == (10, 15, 8346193)
     finally:
         Amsterdam._children.discard(NewBPO)
 
 
-@pytest.mark.parametrize(
-    "forks_until,scenario_parents",
-    [(Amsterdam, [Amsterdam]), (Bogota, [Amsterdam, Bogota])],
-)
+@pytest.mark.parametrize("forks_until", [Amsterdam, Bogota])
 def test_bpo_scenarios_are_selected_on_request(
-    forks_until: Type[BaseFork], scenario_parents: List[Type[BaseFork]]
+    forks_until: Type[BaseFork],
 ) -> None:
     """Select the scenarios of each selected fork only when asked."""
     expected: set = set()
-    for fork in scenario_parents:
+    for fork in BPO_SCENARIOS:
+        if not Amsterdam <= fork <= forks_until:
+            continue
         increase, decrease = BPO_SCENARIOS[fork]
         expected |= {
             increase,

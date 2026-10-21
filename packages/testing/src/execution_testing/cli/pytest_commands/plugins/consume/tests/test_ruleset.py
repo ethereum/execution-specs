@@ -17,6 +17,7 @@ from execution_testing.forks import (
     TransitionFork,
     transition_fork_from_to,
 )
+from execution_testing.forks.forks.forks import first_free_bpo_slot
 
 from ..simulators.helpers.ruleset import ruleset_format
 
@@ -72,9 +73,10 @@ def bpo_scenario_transitions() -> List[ParameterSet]:
 def test_bpo_scenario_genesis_ruleset(fork: Fork) -> None:
     """Activate both BPO scenarios at genesis in the next client slots."""
     increase, decrease = BPO_SCENARIOS[fork]
+    slot = first_free_bpo_slot(fork)
     assert [increase.ruleset_name(), decrease.ruleset_name()] == [
-        "BPO3",
-        "BPO4",
+        f"BPO{slot}",
+        f"BPO{slot + 1}",
     ]
     rules = ruleset_format(decrease)
     assert rules[f"HIVE_{fork.ruleset_name()}_TIMESTAMP"] == 0
@@ -89,7 +91,7 @@ def test_bpo_scenario_genesis_ruleset(fork: Fork) -> None:
             rules[f"{prefix}_BLOB_BASE_FEE_UPDATE_FRACTION"]
             == scenario.blob_base_fee_update_fraction()
         )
-    assert "HIVE_BPO4_TIMESTAMP" not in ruleset_format(increase)
+    assert f"HIVE_BPO{slot + 1}_TIMESTAMP" not in ruleset_format(increase)
     assert not any(key.startswith("HIVE_AMSTERDAM_BLOB_") for key in rules)
 
 
