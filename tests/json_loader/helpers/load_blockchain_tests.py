@@ -52,8 +52,8 @@ def spec_fork_name(network: str) -> str:
     filled for the testing fork `network`.
 
     A blob parameter only (BPO) fork of the testing framework without a
-    spec fork of its own, such as `BPOIncrease`, runs on the spec fork of
-    its nearest non-BPO ancestor with its blob schedule patched in.
+    spec fork of its own, such as `AmsterdamBPOIncrease`, runs on the spec
+    fork of its nearest non-BPO ancestor with its blob schedule patched in.
     """
     if network in FORKS:
         return network
@@ -244,8 +244,8 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
             from_fork = spec_fork_name(self.transition.from_fork)
             current = Load(FORKS[from_fork].short_name)
         # Both ends of a transition between two BPO forks of the testing
-        # framework, such as `BPOIncreaseToBPODecreaseAtTime15k`, may run
-        # on the same spec fork; only their blob schedules differ.
+        # framework, such as an increase and its decrease, may run on the
+        # same spec fork; only their blob schedules differ.
         same_spec_fork = (
             current.fork.hardfork.short_name == load.fork.hardfork.short_name
         )

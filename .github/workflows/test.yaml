@@ -98,7 +98,7 @@ jobs:
             until_fork: Osaka
           - label: amsterdam
             from_fork: Amsterdam
-            until_fork: BPODecrease
+            until_fork: Amsterdam
           - label: bogota
             from_fork: Bogota
             until_fork: Bogota
@@ -110,7 +110,7 @@ jobs:
       - name: Run fill (${{ matrix.label }})
         run: >
           just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
-          -m "not slow and primary_format"
+          --bpo-scenarios -m "not slow and primary_format"
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Validate blockchain fixtures with EELS (${{ matrix.label }})

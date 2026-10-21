@@ -17,12 +17,11 @@ from .forks.forks import (
     BPO3,
     BPO4,
     BPO5,
+    BPO_SCENARIOS,
     Amsterdam,
     ArrowGlacier,
     Berlin,
     Bogota,
-    BPODecrease,
-    BPOIncrease,
     Byzantium,
     Cancun,
     Constantinople,
@@ -42,13 +41,11 @@ from .forks.forks import (
 )
 from .forks.transition import (
     AmsterdamToBogotaAtTime15k,
-    AmsterdamToBPOIncreaseAtTime15k,
     BerlinToLondonAt5,
     BPO1ToBPO2AtTime15k,
     BPO2ToAmsterdamAtTime15k,
     BPO2ToBPO3AtTime15k,
     BPO3ToBPO4AtTime15k,
-    BPOIncreaseToBPODecreaseAtTime15k,
     CancunToPragueAtTime15k,
     OsakaToBPO1AtTime15k,
     ParisToShanghaiAtTime15k,
@@ -100,6 +97,7 @@ from .requests import (
 )
 
 __all__ = [
+    "BPO_SCENARIOS",
     "BuilderDepositRequest",
     "BuilderExitRequest",
     "ConsolidationRequest",
@@ -163,10 +161,6 @@ __all__ = [
     "BPO3ToBPO4AtTime15k",
     "BPO4",
     "BPO5",
-    "BPOIncrease",
-    "BPODecrease",
-    "AmsterdamToBPOIncreaseAtTime15k",
-    "BPOIncreaseToBPODecreaseAtTime15k",
     "get_transition_forks",
     "forks_from",
     "forks_from_until",

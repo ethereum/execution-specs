@@ -17,11 +17,10 @@ from ..forks.forks import (
     BPO3,
     BPO4,
     BPO5,
+    BPO_SCENARIOS,
     Amsterdam,
     Berlin,
     Bogota,
-    BPODecrease,
-    BPOIncrease,
     Cancun,
     Frontier,
     Homestead,
@@ -31,16 +30,16 @@ from ..forks.forks import (
     Paris,
     Prague,
     Shanghai,
+    add_bpo_scenarios,
+    first_free_bpo_slot,
 )
 from ..forks.transition import (
     AmsterdamToBogotaAtTime15k,
-    AmsterdamToBPOIncreaseAtTime15k,
     BerlinToLondonAt5,
     BPO1ToBPO2AtTime15k,
     BPO2ToAmsterdamAtTime15k,
     BPO2ToBPO3AtTime15k,
     BPO3ToBPO4AtTime15k,
-    BPOIncreaseToBPODecreaseAtTime15k,
     CancunToPragueAtTime15k,
     OsakaToBPO1AtTime15k,
     ParisToShanghaiAtTime15k,
@@ -49,6 +48,7 @@ from ..forks.transition import (
 )
 from ..helpers import (
     ALL_FORKS,
+    BPO_SCENARIO_FORKS,
     Fork,
     ForkAdapter,
     ForkOrNoneAdapter,
@@ -1081,41 +1081,188 @@ def test_abstract_memoized_declarations_are_left_alone() -> None:
         assert not hasattr(declaration.__func__, "cache_info")
 
 
-@pytest.mark.parametrize("fork", [BPOIncrease, BPODecrease])
-def test_amsterdam_bpo_rules(fork: Fork) -> None:
-    """Retain Amsterdam execution rules with a distinct blob schedule."""
-    assert fork.non_bpo_ancestor() is Amsterdam
-    assert fork.transition_tool_name() == "Amsterdam"
-    assert (
-        fork.engine_new_payload_version()
-        == Amsterdam.engine_new_payload_version()
+def blob_schedule_of(fork: Type[BaseFork]) -> Tuple[int, int, int]:
+    """Return the target, max and update fraction of `fork`."""
+    return (
+        fork.target_blobs_per_block(),
+        fork.max_blobs_per_block(),
+        fork.blob_base_fee_update_fraction(),
     )
-    assert fork.header_bal_hash_required()
-    assert not fork.is_deployed()
 
 
-def test_amsterdam_bpo_selection() -> None:
-    """Select both synthetic schedules and transitions without legacy BPOs."""
-    selected = get_selected_fork_set(
-        single_fork=set(), forks_from={Amsterdam}, forks_until={BPODecrease}
+def assert_bpo_scenarios_fit(
+    fork: Type[BaseFork],
+    increase: Type[BaseFork],
+    decrease: Type[BaseFork],
+    slot: int,
+) -> None:
+    """Check the BPO increase and decrease generated for `fork`."""
+    target, max_blobs, fraction = blob_schedule_of(fork)
+    for scenario, parent, scenario_slot in (
+        (increase, fork, slot),
+        (decrease, increase, slot + 1),
+    ):
+        assert scenario.parent() is parent
+        assert scenario.bpo_fork()
+        assert not scenario.is_deployed()
+        assert scenario.ruleset_name() == f"BPO{scenario_slot}"
+        # Keep the rules of `fork`, only the blob schedule changes.
+        assert scenario.non_bpo_ancestor() is fork.non_bpo_ancestor()
+        assert scenario.transition_tool_name() == fork.transition_tool_name()
+        assert (
+            scenario.engine_new_payload_version()
+            == fork.engine_new_payload_version()
+        )
+        scenario_target, scenario_max, scenario_fraction = blob_schedule_of(
+            scenario
+        )
+        # Keep the ratio of max to target, rounded up.
+        assert scenario_max * target >= max_blobs * scenario_target
+        assert (scenario_max - 1) * target < max_blobs * scenario_target
+        # Scale the update fraction with the target, as on mainnet.
+        remainder = fraction * scenario_target - scenario_fraction * target
+        assert 0 <= remainder < target
+    assert all(
+        raised > value
+        for raised, value in zip(
+            blob_schedule_of(increase), blob_schedule_of(fork), strict=True
+        )
     )
-    assert selected == {
-        Amsterdam,
-        BPOIncrease,
-        BPODecrease,
-        BPO2ToAmsterdamAtTime15k,
-        AmsterdamToBPOIncreaseAtTime15k,
-        BPOIncreaseToBPODecreaseAtTime15k,
+    assert all(
+        lowered < value
+        for lowered, value in zip(
+            blob_schedule_of(decrease), blob_schedule_of(fork), strict=True
+        )
+    )
+    # A full blob transaction still fits a block after the decrease.
+    assert decrease.max_blobs_per_block() >= fork.max_blobs_per_tx()
+
+
+def test_every_fork_from_amsterdam_has_bpo_scenarios() -> None:
+    """Give each fork from Amsterdam on, and only those, BPO scenarios."""
+    assert set(BPO_SCENARIOS) == {
+        fork
+        for fork in ALL_FORKS
+        if fork >= Amsterdam and fork not in BPO_SCENARIO_FORKS
     }
-    assert (
-        BPOIncrease.target_blobs_per_block()
-        > Amsterdam.target_blobs_per_block()
+    assert {Amsterdam, Bogota} <= set(BPO_SCENARIOS)
+
+
+@pytest.mark.parametrize(
+    "fork", list(BPO_SCENARIOS), ids=lambda fork: fork.name()
+)
+def test_bpo_scenarios_follow_their_fork(fork: Type[BaseFork]) -> None:
+    """Derive each BPO increase and decrease from the fork they follow."""
+    increase, decrease = BPO_SCENARIOS[fork]
+    assert increase.name() == f"{fork.name()}BPOIncrease"
+    assert decrease.name() == f"{fork.name()}BPODecrease"
+    assert_bpo_scenarios_fit(
+        fork, increase, decrease, slot=first_free_bpo_slot(fork)
     )
-    assert BPOIncrease.max_blobs_per_block() > Amsterdam.max_blobs_per_block()
-    assert (
-        BPODecrease.target_blobs_per_block()
-        < BPOIncrease.target_blobs_per_block()
-    )
-    assert (
-        BPODecrease.max_blobs_per_block() < BPOIncrease.max_blobs_per_block()
-    )
+    for from_fork, to_fork in ((fork, increase), (increase, decrease)):
+        transition = transition_fork_from_to(from_fork, to_fork)
+        assert transition is not None
+        assert transition.name() == (
+            f"{from_fork.name()}To{to_fork.name()}AtTime15k"
+        )
+        assert transition.fork_at(timestamp=14_999) is from_fork
+        assert transition.fork_at(timestamp=15_000) is to_fork
+
+
+def test_amsterdam_bpo_scenarios() -> None:
+    """Raise Amsterdam's blob schedule by half, then lower it below."""
+    increase, decrease = BPO_SCENARIOS[Amsterdam]
+    assert blob_schedule_of(Amsterdam) == (14, 21, 11684671)
+    assert blob_schedule_of(increase) == (21, 32, 17527006)
+    assert blob_schedule_of(decrease) == (9, 14, 7511574)
+    # BPO1 and BPO2 already take the first two client slots.
+    assert first_free_bpo_slot(Amsterdam) == 3
+
+
+def test_bpo_scenarios_follow_a_new_fork() -> None:
+    """Derive the scenarios of a new fork from its own blob schedule."""
+
+    class NewFork(
+        Bogota,
+        deployed=False,
+        update_blob_constants={
+            "TARGET_BLOBS_PER_BLOCK": 12,
+            "MAX_BLOBS_PER_BLOCK": 18,
+            "BLOB_BASE_FEE_UPDATE_FRACTION": 12018519,
+        },
+    ):
+        """Change the blob schedule at a new named fork."""
+
+    try:
+        increase, decrease = add_bpo_scenarios(NewFork)
+        # A named fork with its own blob schedule takes no client BPO slot.
+        assert_bpo_scenarios_fit(NewFork, increase, decrease, slot=3)
+        assert blob_schedule_of(increase) == (18, 27, 18027778)
+        assert blob_schedule_of(decrease) == (8, 12, 8012346)
+    finally:
+        Bogota._children.discard(NewFork)
+
+
+def test_bpo_scenarios_follow_a_new_bpo_fork() -> None:
+    """Move the scenarios of a new BPO fork onto the next client slots."""
+
+    class NewBPO(
+        Amsterdam,
+        bpo_fork=True,
+        deployed=False,
+        update_blob_constants={
+            "TARGET_BLOBS_PER_BLOCK": 16,
+            "MAX_BLOBS_PER_BLOCK": 24,
+            "BLOB_BASE_FEE_UPDATE_FRACTION": 13353910,
+        },
+    ):
+        """Raise the blob schedule after Amsterdam."""
+
+    try:
+        increase, decrease = add_bpo_scenarios(NewBPO)
+        assert_bpo_scenarios_fit(NewBPO, increase, decrease, slot=4)
+        assert blob_schedule_of(increase) == (24, 36, 20030865)
+        assert blob_schedule_of(decrease) == (10, 15, 8346193)
+    finally:
+        Amsterdam._children.discard(NewBPO)
+
+
+@pytest.mark.parametrize(
+    "forks_until,scenario_parents",
+    [(Amsterdam, [Amsterdam]), (Bogota, [Amsterdam, Bogota])],
+)
+def test_bpo_scenarios_are_selected_on_request(
+    forks_until: Type[BaseFork], scenario_parents: List[Type[BaseFork]]
+) -> None:
+    """Select the scenarios of each selected fork only when asked."""
+    expected: set = set()
+    for fork in scenario_parents:
+        increase, decrease = BPO_SCENARIOS[fork]
+        expected |= {
+            increase,
+            decrease,
+            transition_fork_from_to(fork, increase),
+            transition_fork_from_to(increase, decrease),
+        }
+
+    def selected_scenarios(**options: bool) -> set:
+        selected = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={Amsterdam},
+            forks_until={forks_until},
+            **options,
+        )
+        return {
+            fork
+            for fork in selected
+            if (
+                fork.transitions_to()
+                if issubclass(fork, TransitionBaseClass)
+                else fork
+            )
+            in BPO_SCENARIO_FORKS
+        }
+
+    assert selected_scenarios() == set()
+    assert selected_scenarios(bpo_siblings=True) == set()
+    assert selected_scenarios(bpo_scenarios=True) == expected

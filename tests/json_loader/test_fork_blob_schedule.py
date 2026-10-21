@@ -71,8 +71,10 @@ def test_every_bpo_fork_is_known_to_both_sides() -> None:
     [
         ("BPO3", "BPO3"),
         ("Amsterdam", "Amsterdam"),
-        ("BPOIncrease", "Amsterdam"),
-        ("BPODecrease", "Amsterdam"),
+        ("AmsterdamBPOIncrease", "Amsterdam"),
+        ("AmsterdamBPODecrease", "Amsterdam"),
+        ("BogotaBPOIncrease", "Bogota"),
+        ("BogotaBPODecrease", "Bogota"),
     ],
 )
 def test_bpo_fork_without_a_spec_fork_runs_on_its_ancestor(

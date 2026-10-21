@@ -20,7 +20,11 @@ from execution_testing import (
     TransitionFork,
     add_kzg_version,
 )
-from execution_testing.forks import AmsterdamToBPOIncreaseAtTime15k
+from execution_testing.forks import (
+    BPO_SCENARIOS,
+    Amsterdam,
+    transition_fork_from_to,
+)
 
 from .spec import Spec, ref_spec_7918
 
@@ -529,10 +533,12 @@ def get_fork_scenarios(fork: TransitionFork) -> Iterator[ParameterSet]:
                         ),
                     )
 
-    if fork == AmsterdamToBPOIncreaseAtTime15k:
+    amsterdam_increase, _ = BPO_SCENARIOS[Amsterdam]
+    if fork == transition_fork_from_to(Amsterdam, amsterdam_increase):
         # The exact scenario that forked Fusaka Devnet-4 at its BPO2 to BPO3
-        # transition. Amsterdam keeps BPO2's blob schedule and BPOIncrease
-        # uses BPO3's, so the same blocks reach the same excess blob gas.
+        # transition. Amsterdam keeps BPO2's blob schedule and its increase
+        # raises it to BPO3's target and max, so the same blocks reach the
+        # same excess blob gas.
         yield pytest.param(
             0x32,
             0x125BF5F,

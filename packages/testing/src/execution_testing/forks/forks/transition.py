@@ -1,16 +1,19 @@
 """List of all transition fork definitions."""
 
+from types import new_class
+from typing import Type
+
+from ..base_fork import BaseFork
 from ..transition_base_fork import TransitionBaseClass, transition_fork
 from .forks import (
     BPO1,
     BPO2,
     BPO3,
     BPO4,
+    BPO_SCENARIOS,
     Amsterdam,
     Berlin,
     Bogota,
-    BPODecrease,
-    BPOIncrease,
     Cancun,
     London,
     Osaka,
@@ -102,17 +105,32 @@ class BPO3ToBPO4AtTime15k(TransitionBaseClass):
     pass
 
 
-@transition_fork(to_fork=BPOIncrease, from_fork=Amsterdam, at_timestamp=15_000)
-class AmsterdamToBPOIncreaseAtTime15k(TransitionBaseClass):
-    """Increase the Amsterdam blob schedule at timestamp 15k."""
+def add_bpo_scenario_transition(
+    from_fork: Type[BaseFork], to_fork: Type[BaseFork]
+) -> None:
+    """Add the transition from `from_fork` to `to_fork` at timestamp 15k."""
+    name = f"{from_fork.name()}To{to_fork.name()}AtTime15k"
+    doc = (
+        f"{from_fork.name()} to {to_fork.name()} transition at Timestamp 15k."
+    )
+    globals()[name] = transition_fork(
+        to_fork=to_fork, from_fork=from_fork, at_timestamp=15_000
+    )(
+        new_class(
+            name,
+            (TransitionBaseClass,),
+            exec_body=lambda namespace: namespace.update(
+                __module__=__name__, __doc__=doc
+            ),
+        )
+    )
 
-    pass
+
+def add_bpo_scenario_transitions() -> None:
+    """Add the transitions into each BPO increase and decrease at 15k."""
+    for fork, (increase, decrease) in BPO_SCENARIOS.items():
+        add_bpo_scenario_transition(fork, increase)
+        add_bpo_scenario_transition(increase, decrease)
 
 
-@transition_fork(
-    to_fork=BPODecrease, from_fork=BPOIncrease, at_timestamp=15_000
-)
-class BPOIncreaseToBPODecreaseAtTime15k(TransitionBaseClass):
-    """Decrease the increased blob schedule at timestamp 15k."""
-
-    pass
+add_bpo_scenario_transitions()

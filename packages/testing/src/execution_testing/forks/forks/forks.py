@@ -2,7 +2,19 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, Sized, Type
+from itertools import chain
+from types import new_class
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Sized,
+    Tuple,
+    Type,
+    cast,
+)
 
 if TYPE_CHECKING:
     from execution_testing.fixtures.blockchain import FixtureHeader
@@ -1673,33 +1685,114 @@ class Bogota(
     pass
 
 
-class BPOIncrease(
-    Amsterdam,
-    bpo_fork=True,
-    transition_tool_name="Amsterdam",
-    ruleset_name="BPO_INCREASE",
-    update_blob_constants={
-        "BLOB_BASE_FEE_UPDATE_FRACTION": 20609697,
-        "TARGET_BLOBS_PER_BLOCK": 21,
-        "MAX_BLOBS_PER_BLOCK": 32,
-    },
-):
-    """Exercise an increased blob schedule under Amsterdam rules."""
+def scaled_blob_schedule(
+    fork: Type[BaseFork], numerator: int, denominator: int
+) -> Dict[str, int]:
+    """
+    Return the blob schedule of `fork` with its target scaled.
 
-    pass
+    The max keeps the fork's ratio to the target, rounded up, and the update
+    fraction scales with the target, as on mainnet, so the blob base fee falls
+    at the same rate per empty block.
+    """
+    target = fork.target_blobs_per_block()
+    scaled_target = target * numerator // denominator
+    assert scaled_target > 0, f"{fork.name()} has too few blobs to scale"
+    return {
+        "TARGET_BLOBS_PER_BLOCK": scaled_target,
+        "MAX_BLOBS_PER_BLOCK": ceiling_division(
+            scaled_target * fork.max_blobs_per_block(), target
+        ),
+        "BLOB_BASE_FEE_UPDATE_FRACTION": (
+            fork.blob_base_fee_update_fraction() * scaled_target // target
+        ),
+    }
 
 
-class BPODecrease(
-    BPOIncrease,
-    bpo_fork=True,
-    transition_tool_name="Amsterdam",
-    ruleset_name="BPO_DECREASE",
-    update_blob_constants={
-        "BLOB_BASE_FEE_UPDATE_FRACTION": 13739630,
-        "TARGET_BLOBS_PER_BLOCK": 14,
-        "MAX_BLOBS_PER_BLOCK": 21,
-    },
-):
-    """Exercise a decreased blob schedule after BPOIncrease."""
+def first_free_bpo_slot(fork: Type[BaseFork]) -> int:
+    """
+    Return the first client BPO slot that no BPO fork up to `fork` uses.
 
-    pass
+    Clients number their BPO config fields (`bpo1`, `bpo2`, ...) and each BPO
+    fork up to and including `fork` takes the next one.
+    """
+    slot = 1
+    ancestor: Type[BaseFork] | None = fork
+    while ancestor is not None:
+        if ancestor.bpo_fork():
+            slot += 1
+        ancestor = ancestor.parent()
+    return slot
+
+
+def add_bpo_scenarios(
+    fork: Type[BaseFork],
+) -> Tuple[Type[BaseFork], Type[BaseFork]]:
+    """
+    Add forks that raise, then lower, the blob schedule after `fork`.
+
+    Both keep `fork`'s rules and take the next free client BPO slots. The
+    increase raises the target by half, and the decrease then lowers it to
+    two thirds of `fork`'s.
+    """
+    slot = first_free_bpo_slot(fork)
+
+    def scenario(
+        parent: Type[BaseFork],
+        kind: str,
+        slot: int,
+        blob_schedule: Dict[str, int],
+        doc: str,
+    ) -> Type[BaseFork]:
+        return cast(
+            Type[BaseFork],
+            new_class(
+                f"{fork.name()}BPO{kind}",
+                (parent,),
+                {
+                    "bpo_fork": True,
+                    "deployed": False,
+                    "transition_tool_name": fork.transition_tool_name(),
+                    "ruleset_name": f"BPO{slot}",
+                    "update_blob_constants": blob_schedule,
+                },
+                lambda namespace: namespace.update(
+                    __module__=__name__, __doc__=doc
+                ),
+            ),
+        )
+
+    increase = scenario(
+        fork,
+        "Increase",
+        slot,
+        scaled_blob_schedule(fork, 3, 2),
+        f"Raise the {fork.name()} blob schedule by half.",
+    )
+    decrease = scenario(
+        increase,
+        "Decrease",
+        slot + 1,
+        scaled_blob_schedule(fork, 2, 3),
+        f"Lower the blob schedule to two thirds of {fork.name()}'s.",
+    )
+    return increase, decrease
+
+
+# Every fork from Amsterdam on gets its BPO increase and decrease.
+BPO_SCENARIOS: Dict[Type[BaseFork], Tuple[Type[BaseFork], Type[BaseFork]]] = {
+    fork: add_bpo_scenarios(fork)
+    for fork in list(globals().values())
+    if isinstance(fork, type)
+    and issubclass(fork, BaseFork)
+    and fork is not BaseFork
+    and not fork.is_eip()
+    and not fork.ignore()
+    and fork >= Amsterdam
+}
+globals().update(
+    {
+        scenario.name(): scenario
+        for scenario in chain.from_iterable(BPO_SCENARIOS.values())
+    }
+)

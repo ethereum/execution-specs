@@ -5,7 +5,6 @@ Each test invokes the script via `uv run` to validate the actual CLI
 interface, matching how GitHub Actions calls them.
 """
 
-import importlib.util
 import json
 import os
 import subprocess
@@ -61,22 +60,6 @@ class TestGenerateBuildMatrix:
         assert all(lbl != "" for lbl in labels)
         assert all(e["from_fork"] != "" for e in matrix)
         assert all(e["until_fork"] != "" for e in matrix)
-
-    def test_until_synthetic_bpo_stops_at_amsterdam_range(self):
-        """Verify the synthetic BPO forks clamp to the Amsterdam range."""
-        spec = importlib.util.spec_from_file_location(
-            "generate_build_matrix", BUILD_MATRIX_SCRIPT
-        )
-        assert spec is not None and spec.loader is not None
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        fork_ranges = module.load_config(
-            REPO_ROOT / ".github/configs/fork-ranges.yaml"
-        )
-        ranges = module.applicable_ranges(fork_ranges, "BPODecrease")
-        labels = [r["label"] for r in ranges]
-        assert labels[-1] == "amsterdam"
-        assert "bogota" not in labels
 
     def test_unsplit_feature_produces_single_entry(self):
         """Verify a feature without fork-ranges produces one entry."""
