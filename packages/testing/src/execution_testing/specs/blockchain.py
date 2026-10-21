@@ -1291,6 +1291,40 @@ class BlockchainTest(BaseTest):
                     f"!= {computed_block_access_list_hash}"
                 )
 
+        if (
+            t8n_bal is not None
+            and transition_tool_output.result.rejected_transactions
+            and transition_tool_output.engine_payload is None
+        ):
+            # The transition tool numbers transactions by the count of
+            # accepted ones, as clients do. The block body still carries the
+            # rejected transactions, so move each index to its transaction's
+            # position in the body, and the post-execution index after the
+            # last one. This keeps the fixture the same whichever transition
+            # tool fills it.
+            rejected_indices = {
+                int(rejected_tx.index)
+                for rejected_tx in (
+                    transition_tool_output.result.rejected_transactions
+                )
+            }
+            body_positions = [
+                position
+                for position, _ in enumerate(txs, start=1)
+                if position - 1 not in rejected_indices
+            ]
+            post_execution_index = len(body_positions) + 1
+
+            def body_position(index: int) -> int:
+                if index == 0:
+                    return 0
+                if index == post_execution_index:
+                    return len(txs) + 1
+                return body_positions[index - 1]
+
+            t8n_bal = t8n_bal.with_remapped_indices(body_position)
+            header.block_access_list_hash = Hash(t8n_bal.rlp.keccak256())
+
         if block.rlp_modifier is not None:
             # Modify any parameter specified in the `rlp_modifier` after
             # transition tool processing.

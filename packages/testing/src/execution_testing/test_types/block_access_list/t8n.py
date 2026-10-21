@@ -225,6 +225,46 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
             )
         )
 
+    def with_remapped_indices(self, remap: Callable[[int], int]) -> Self:
+        """
+        Return a BAL with every block access index replaced by
+        ``remap(index)``. The remapping must be strictly increasing so the
+        changes stay ordered.
+        """
+
+        def remapped(changes: Sequence[Any]) -> List[Any]:
+            return [
+                change.model_copy(
+                    update={
+                        "block_access_index": remap(
+                            int(change.block_access_index)
+                        )
+                    }
+                )
+                for change in changes
+            ]
+
+        return type(self)(
+            root=[
+                account.model_copy(
+                    update={
+                        "nonce_changes": remapped(account.nonce_changes),
+                        "balance_changes": remapped(account.balance_changes),
+                        "code_changes": remapped(account.code_changes),
+                        "storage_changes": [
+                            slot.model_copy(
+                                update={
+                                    "slot_changes": remapped(slot.slot_changes)
+                                }
+                            )
+                            for slot in account.storage_changes
+                        ],
+                    }
+                )
+                for account in self.root
+            ]
+        )
+
     def validate_structure(self) -> None:
         """
         Validate BAL structure follows EIP-7928 requirements.
