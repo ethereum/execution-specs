@@ -114,6 +114,31 @@ def build_trigger(name: str, fork: Fork, pre: Alloc) -> Trigger:
             success_storage={SLOT: ORIGINAL_VALUE},
         )
 
+    if name == "sstore_repeated_departures":
+        # Leaving the transaction-start value a second time meters
+        # nothing more: the block access list holds one post value per
+        # slot, so its bytes are counted once per slot, like the key.
+        code = Op.SSTORE(SLOT, 6, original_value=ORIGINAL_VALUE, new_value=6)
+        for current_value, new_value in (
+            (6, ORIGINAL_VALUE),
+            (ORIGINAL_VALUE, 7),
+        ):
+            code += Op.SSTORE(
+                SLOT,
+                new_value,
+                key_warm=True,
+                original_value=ORIGINAL_VALUE,
+                current_value=current_value,
+                new_value=new_value,
+            )
+        return Trigger(
+            code,
+            bal_floor(storage_keys=1, storage_values=1),
+            code.gas_cost(fork),
+            contract_storage={SLOT: ORIGINAL_VALUE},
+            success_storage={SLOT: 7},
+        )
+
     if name == "sstore_repeated_writes":
         # The block access list keeps one post-value per changed slot,
         # so the value bytes are metered once, on the first change.
@@ -263,6 +288,7 @@ def build_trigger(name: str, fork: Fork, pre: Alloc) -> Trigger:
         "cold_sstore",
         "sstore_round_trip",
         "sstore_repeated_writes",
+        "sstore_repeated_departures",
         "cold_balance",
         "call_with_value",
         "call_with_value_to_self",

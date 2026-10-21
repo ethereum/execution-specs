@@ -13,7 +13,6 @@ Implementations of the EVM storage related instructions.
 
 from ethereum_types.numeric import Uint
 
-from ...block_access_lists import BAL_BYTES_PER_STORAGE_VALUE
 from ...fork_types import ExecutionGas, StateGas
 from ...state_tracker import (
     get_storage,
@@ -31,8 +30,8 @@ from ..gas import (
     charge_state_gas,
     check_gas,
     credit_state_gas_refund,
-    meter_bal_data,
     meter_bal_storage_key,
+    meter_bal_storage_value,
 )
 from ..stack import pop, push
 
@@ -166,14 +165,10 @@ def sstore(evm: Evm) -> None:
     charge_state_gas(evm, state_gas)
 
     # BLOCK ACCESS LIST DATA
-    # The block access list holds one post value per changed slot, so
-    # the value bytes are counted when the slot first leaves its
-    # transaction-start value. A write that restores it gives nothing
-    # back: that write may sit in a frame that later reverts, leaving
-    # the change in the block access list, so the count stays an upper
-    # bound.
+    # A write that takes the slot off its transaction-start value may
+    # put a post value in the block access list; metered once per slot.
     if original_value == current_value and current_value != new_value:
-        meter_bal_data(evm.tx_env, BAL_BYTES_PER_STORAGE_VALUE)
+        meter_bal_storage_value(evm.tx_env, evm.current_target, key)
     set_storage(tx_state, evm.current_target, key, new_value)
 
     # PROGRAM COUNTER
