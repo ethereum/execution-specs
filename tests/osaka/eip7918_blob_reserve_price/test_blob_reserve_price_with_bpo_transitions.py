@@ -20,6 +20,7 @@ from execution_testing import (
     TransitionFork,
     add_kzg_version,
 )
+from execution_testing.forks import AmsterdamToBPOIncreaseAtTime15k
 
 from .spec import Spec, ref_spec_7918
 
@@ -527,6 +528,20 @@ def get_fork_scenarios(fork: TransitionFork) -> Iterator[ParameterSet]:
                             f"parent_blobs_{source_blob_count}"
                         ),
                     )
+
+    if fork == AmsterdamToBPOIncreaseAtTime15k:
+        # The exact scenario that forked Fusaka Devnet-4 at its BPO2 to BPO3
+        # transition. Amsterdam keeps BPO2's blob schedule and BPOIncrease
+        # uses BPO3's, so the same blocks reach the same excess blob gas.
+        yield pytest.param(
+            0x32,
+            0x125BF5F,
+            19,
+            0x33,
+            9,
+            0x132CF5F,
+            id="devnet-4-fork-scenario",
+        )
 
 
 @pytest.mark.parametrize_by_fork(
