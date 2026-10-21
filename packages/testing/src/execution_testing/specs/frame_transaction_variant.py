@@ -440,14 +440,19 @@ def frame_transaction_variants(
     fixture_formats: Sequence["Type[BaseFixture] | LabeledFixtureFormat"],
 ) -> List[LabeledFixtureFormat]:
     """
-    Return the ``frame_tx`` variant of every plain-fill format.
+    Return the ``frame_tx`` variant of every format that fills from the
+    test's own genesis.
 
-    Formats filled through pre-allocation grouping or state snapshots
-    derive their genesis before the variant's rewrite runs, so only
-    formats of the plain fill phase get a variant.
+    The rewrite changes only the transaction and the post-state
+    expectations, never the pre-allocation or the environment, so a
+    variant derives the same genesis as the test it rewrites. Formats
+    filled through pre-allocation grouping therefore get a variant
+    that joins its base test's group. Formats filled against a state
+    snapshot do not.
     """
     return [
         FrameTransactionVariant(fixture_format)
         for fixture_format in fixture_formats
-        if FixtureFillingPhase.FILL in fixture_format.format_phases
+        if FixtureFillingPhase.FILL_STATEFUL
+        not in fixture_format.format_phases
     ]
