@@ -89,6 +89,28 @@ state_tests/stCallDelegateCodesHomestead/callcodecallcode_11_SuicideEndFiller.js
 state_tests/stCallDelegateCodesCallCodeHomestead/callcallcode_01_SuicideEndFiller.json
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecall_10_SuicideEndFiller.json
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcode_11_SuicideEndFiller.json
+state_tests/stCallCodes/callcallcall_000_SuicideMiddleFiller.json
+state_tests/stCallCodes/callcallcallcode_001_SuicideMiddleFiller.json
+state_tests/stCallCodes/callcallcodecall_010_SuicideMiddleFiller.json
+state_tests/stCallCodes/callcallcodecallcode_011_SuicideMiddleFiller.json
+state_tests/stCallCodes/callcodecallcall_100_SuicideMiddleFiller.json
+state_tests/stCallCodes/callcodecallcallcode_101_SuicideMiddleFiller.json
+state_tests/stCallCodes/callcodecallcodecall_110_SuicideMiddleFiller.json
+state_tests/stCallCodes/callcodecallcodecallcode_111_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcallcode_001_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcodecall_010_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcodecallcode_011_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcall_100_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcallcode_101_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcodecall_110_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcodecallcode_111_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcallcode_001_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecall_010_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecallcode_011_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_100_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_101_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_110_SuicideMiddleFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_SuicideMiddleFiller.json
 
 @manually-enhanced: Do not overwrite. The fillers are one chain test copied
 into three directories, each substituting a different pair of call opcodes,
@@ -470,19 +492,22 @@ def test_recursive_call_chain(
     state_test(pre=pre, post=post, tx=tx)
 
 
-def run_suicide_end_chain(
+def run_self_destruct_chain(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     chain: tuple[Op, ...],
     beneficiary_level: int,
+    before_call: bool,
 ) -> None:
     """
-    Call down `chain` and SELFDESTRUCT the frame that makes the last call,
-    after it returns, to the contract at `beneficiary_level`.
+    Call down `chain` and SELFDESTRUCT the frame that makes the last call
+    to the contract at `beneficiary_level`, after that call returns or,
+    with `before_call`, before it is made.
 
     Level `n` stores its call's success in slot `n` and the innermost code
-    stores 1 in slot `len(chain)`.
+    stores 1 in slot `len(chain)`. A SELFDESTRUCT before the last call halts
+    its frame, so neither that call nor anything below it runs.
     """
     depth = len(chain)
     sender = pre.fund_eoa()
@@ -498,7 +523,8 @@ def run_suicide_end_chain(
 
     # Construct the calling contracts, from the innermost one outward. The
     # top level passes the beneficiary down as calldata, the middle levels
-    # forward it, and the last caller self-destructs to it.
+    # forward it, and the last caller self-destructs to it, before or after
+    # its call.
     # Source: lll
     # {  [[ 2 ]] (CALL 50000 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) (SELFDESTRUCT <contract:0x1000000000000000000000000000000000000001>) }  # noqa: E501
     for level in reversed(range(depth)):
@@ -512,6 +538,8 @@ def run_suicide_end_chain(
             prefix = Op.MSTORE(0, beneficiary)
         elif not last_caller:
             prefix = Op.MSTORE(0, Op.CALLDATALOAD(0))
+        elif before_call:
+            prefix = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
         else:
             prefix = Bytecode()
         call = Op.SSTORE(
@@ -521,7 +549,9 @@ def run_suicide_end_chain(
             ),
         )
         suffix = (
-            Op.SELFDESTRUCT(Op.CALLDATALOAD(0)) if last_caller else Bytecode()
+            Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
+            if last_caller and not before_call
+            else Bytecode()
         )
         contracts.insert(
             0,
@@ -541,9 +571,11 @@ def run_suicide_end_chain(
     destroyed = frames[depth - 1].address
     beneficiary_address = contracts[beneficiary_level]
 
-    # Construct the expected storage.
+    # Construct the expected storage: with `before_call`, the last caller
+    # and the innermost code store nothing.
     storage: dict[Address, dict[int, int]] = {c: {} for c in contracts}
-    for level, frame in enumerate(frames):
+    storing = depth - 1 if before_call else depth + 1
+    for level, frame in enumerate(frames[:storing]):
         storage[frame.address][level] = 1
 
     # Construct the expected balances: the destroyed account's balance
@@ -603,7 +635,9 @@ def test_three_level_call_chain_suicide_end(
     chain: tuple[Op, Op, Op],
 ) -> None:
     """Call -> call -> (call -> code) self-destruct to the first callee."""
-    run_suicide_end_chain(state_test, pre, fork, chain, beneficiary_level=1)
+    run_self_destruct_chain(
+        state_test, pre, fork, chain, beneficiary_level=1, before_call=False
+    )
 
 
 @pytest.mark.ported_from(
@@ -629,4 +663,46 @@ def test_two_level_call_chain_suicide_end(
     chain: tuple[Op, Op],
 ) -> None:
     """Call -> (call -> code) self-destruct to the top level."""
-    run_suicide_end_chain(state_test, pre, fork, chain, beneficiary_level=0)
+    run_self_destruct_chain(
+        state_test, pre, fork, chain, beneficiary_level=0, before_call=False
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stCallCodes/callcallcall_000_SuicideMiddleFiller.json",
+        "state_tests/stCallCodes/callcallcallcode_001_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcallcodecall_010_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcallcodecallcode_011_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcall_100_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcallcode_101_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcodecall_110_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcodecallcode_111_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcallcode_001_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcodecall_010_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcodecallcode_011_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcall_100_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcallcode_101_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcodecall_110_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcodecallcode_111_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcallcode_001_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecall_010_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecallcode_011_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_100_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_101_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_110_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_SuicideMiddleFiller.json",  # noqa: E501,
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("chain", call_chains(3))
+def test_three_level_call_chain_suicide_middle(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    chain: tuple[Op, Op, Op],
+) -> None:
+    """Call -> call -> (self-destruct to the top level) call -> code."""
+    run_self_destruct_chain(
+        state_test, pre, fork, chain, beneficiary_level=0, before_call=True
+    )
