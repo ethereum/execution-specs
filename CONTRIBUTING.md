@@ -6,8 +6,32 @@ Help is always welcome. The Ethereum Execution Layer Specifications (EELS) are a
 - Fixing and responding to [issues](https://github.com/ethereum/execution-specs/issues), especially those tagged [E-easy](https://github.com/ethereum/execution-specs/labels/E-easy), which are intended as introductory issues for external contributors.
 - Improving the documentation.
 
-> [!IMPORTANT]
-> Generally, we do not assign issues to external contributors. If you want to work on an issue, you are welcome to go ahead and make a pull request. We are happy to answer questions before you start implementing.
+## Before you open a pull request
+
+We review pull requests that have a concrete reason behind them, for example:
+
+- Something in this repository is broken for a project you maintain (link it).
+- Your client is missing test coverage that a change here would add (name the client and link the gap).
+- A fix for an open issue that a maintainer has assigned to you.
+
+New EIP features stay on your own fork until the fork development process needs them. Open an issue that links your branch and a maintainer will ask for a pull request when the time comes.
+
+### First-time contributors
+
+Until your first pull request is merged:
+
+1. Comment on an existing issue, or open a new one, saying what you want to change and why.
+2. Wait for a maintainer to assign the issue to you.
+3. Open a pull request that links the issue with a [closing keyword](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword), for example `Closes #123`.
+
+Pull requests without a linked issue assigned to their author are closed automatically. A closed pull request can't be reopened by its author, so open a new one once you are assigned. Your branch is not affected.
+
+### Limits
+
+- Contributors without write access can have at most 2 open pull requests, drafts included.
+- First-time contributors can have at most 2 open issues. Further issues are closed automatically.
+
+Client and tooling teams that hit these limits can ask a maintainer to be added to the bypass list.
 
 ## Contributions we don't accept
 
