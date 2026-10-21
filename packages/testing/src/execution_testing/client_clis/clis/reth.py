@@ -71,10 +71,12 @@ class RethExceptionMapper(ExceptionMapper):
             r"Unexpected type flag"
         ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: (
-            r"nonce \d+ too low, expected \d+"
+            r"nonce \d+ too low, expected \d+|"
+            r"EIP-8250 nonce sequence mismatch"
         ),
         TransactionException.NONCE_MISMATCH_TOO_HIGH: (
-            r"nonce \d+ too high, expected \d+"
+            r"nonce \d+ too high, expected \d+|"
+            r"EIP-8250 nonce sequence mismatch"
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             r"blob gas price \(\d+\) is greater than "
@@ -187,7 +189,12 @@ class RethExceptionMapper(ExceptionMapper):
             r"malformed EIP-8141 expiry verifier frame|"
             r"multiple EIP-8141 expiry verifier frames|"
             r"EIP-8141 arbitrary signature signer must be empty|"
-            r"EIP-8141 signature signer does not match"
+            r"EIP-8141 signature signer does not match|"
+            r"EIP-8250 nonce key zero must be the only key|"
+            r"EIP-8250 nonce keys must be strictly increasing|"
+            r"EIP-8250 requires between 1 and 16 nonce keys|"
+            r"EIP-8250 nonce key exceeds 256 bits|"
+            r"EIP-8250 nonce sequence exceeds 64 bits"
         ),
         TransactionException.TYPE_6_INVALID_FRAME_EXECUTION: (
             r"EIP-8141 SENDER frame executed before execution approval|"
