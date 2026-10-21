@@ -21,7 +21,7 @@ from execution_testing.execution import (
     ExecuteFormat,
     LabeledExecuteFormat,
 )
-from execution_testing.execution.mempool import MempoolAdmission
+from execution_testing.execution.mempool import MempoolAdmission, MempoolCheck
 from execution_testing.fixtures import (
     FixtureFormat,
     LabeledFixtureFormat,
@@ -52,6 +52,8 @@ class MempoolTest(BaseTest):
     post: Alloc = Field(default_factory=Alloc)
     """Post state of the filled block; never checked by execute."""
     txs: List[MempoolTransaction]
+    checks: List[MempoolCheck] = Field(default_factory=list)
+    """Checks of the mempool's state once every transaction is sent."""
     genesis_environment: Environment = Field(default_factory=Environment)
 
     supported_fixture_formats: ClassVar[
@@ -186,7 +188,7 @@ class MempoolTest(BaseTest):
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
         if execute_format == MempoolAdmission:
-            return MempoolAdmission(txs=self.txs)
+            return MempoolAdmission(txs=self.txs, checks=self.checks)
         raise Exception(f"Unsupported execute format: {execute_format}")
 
 

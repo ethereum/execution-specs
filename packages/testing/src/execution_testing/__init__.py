@@ -28,6 +28,7 @@ from .exceptions import (
     EngineAPIError,
     TransactionException,
 )
+from .execution import GetBlobs, MempoolCheck
 from .fixtures import BaseFixture, FixtureCollector
 from .forks import (
     BuilderDepositRequest,
@@ -208,6 +209,7 @@ __all__ = (
     "Fork",
     "GasConsumer",
     "GasCosts",
+    "GetBlobs",
     "Hash",
     "Header",
     "Initcode",
@@ -215,6 +217,7 @@ __all__ = (
     "JumpLoopGenerator",
     "Macro",
     "Macros",
+    "MempoolCheck",
     "MempoolTest",
     "MempoolTestFiller",
     "MempoolTransaction",
