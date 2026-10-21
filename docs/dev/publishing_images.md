@@ -13,7 +13,7 @@ The workflow `.github/workflows/docker-images.yaml` publishes the images describ
 
 The branch a release belongs to is inferred from its tag, `tests@` for the default branch and `tests-<name>-devnet@v<n>.` for `devnets/<name>/<n>`, so the release trigger needs no input. A published release whose series is not tied to a branch, such as a zkevm or benchmark release, publishes no images: the run ends after planning with a notice. A manual run for such a release fails.
 
-The workflow authenticates to ghcr with the job token and needs no secrets. Publishing requires `packages: write`, which the workflow requests; the nightly call additionally needs `actions: read` to download the fill's artifact.
+The workflow authenticates to ghcr with the job token and needs no secrets to publish. An optional `HIVE_TESTS_DISPATCH_TOKEN` secret lets the `announce` job tell [ethpandaops/hive-tests](https://github.com/ethpandaops/hive-tests) about a release: a fine-grained token for that repository with read and write access to Actions. Publishing requires `packages: write`, which the workflow requests; the nightly call additionally needs `actions: read` to download the fill's artifact.
 
 ## Ordering
 
@@ -36,6 +36,7 @@ The five simulator images are pushed by independent jobs, so a channel tag can p
 | `fixtures` | release and nightly runs | Takes the release tarball, or the fill's artifact, once per fixture format, builds `packages/testing/docker/fixtures/Dockerfile` and pushes `fixtures/<format>` under the release tag, or `nightly` for a fill. |
 | `tests` | release and nightly runs | Checks out the release tag, or the fill commit, beside the planned commit and builds `packages/testing/docker/tests/Dockerfile` from its `tests/` directory, pushed as `tests` under the same tag as the fixture images. |
 | `images` | per planned simulator | Builds the simulator with `packages/testing/docker/hive/build.sh` from the repository image at the planned commit and the fixture or tests image, verifies it with `check.sh`, confirms the branch has not moved, and pushes the release tag and the channel tags. |
+| `announce` | release runs | Runs `watch-images.yaml` in ethpandaops/hive-tests, so its dashboards test the release's images right away instead of at its hourly check. Skipped with a notice when `HIVE_TESTS_DISPATCH_TOKEN` is not set. |
 
 Whenever a simulator image moves `latest`, the job also publishes `latest-legacy`: `latest` plus the ONBUILD steps of `packages/testing/docker/hive/Dockerfile.legacy`, which hive's default Dockerfiles select for the deprecated `fixtures` and `branch` arguments. Ending the deprecation means no longer publishing it.
 

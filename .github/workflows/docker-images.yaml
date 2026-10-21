@@ -448,3 +448,22 @@ jobs:
         with:
           name: digests-${{ matrix.name }}-${{ matrix.slug }}
           path: digests/
+
+  # A release changes what the ethpandaops/hive-tests dashboards test, so its
+  # image watcher checks now rather than at its next hourly check. Push and
+  # nightly runs leave the release of every channel as it was.
+  announce:
+    name: Announce the release to hive-tests
+    needs: [plan, images]
+    if: ${{ !cancelled() && needs.plan.outputs.mode == 'release' && needs.images.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run the hive-tests image check
+        env:
+          GH_TOKEN: ${{ secrets.HIVE_TESTS_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::HIVE_TESTS_DISPATCH_TOKEN is not set, hive-tests picks the release up at its next hourly check"
+            exit 0
+          fi
+          gh workflow run watch-images.yaml --repo ethpandaops/hive-tests --ref master
