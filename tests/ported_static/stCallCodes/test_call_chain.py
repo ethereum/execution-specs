@@ -57,6 +57,38 @@ state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_ABCB_RECURSIVE
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_ABCB_RECURSIVEFiller.json
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_ABCB_RECURSIVEFiller.json
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_ABCB_RECURSIVEFiller.json
+state_tests/stCallCodes/callcallcall_000_SuicideEndFiller.json
+state_tests/stCallCodes/callcallcallcode_001_SuicideEndFiller.json
+state_tests/stCallCodes/callcallcodecall_010_SuicideEndFiller.json
+state_tests/stCallCodes/callcallcodecallcode_011_SuicideEndFiller.json
+state_tests/stCallCodes/callcodecallcall_100_SuicideEndFiller.json
+state_tests/stCallCodes/callcodecallcallcode_101_SuicideEndFiller.json
+state_tests/stCallCodes/callcodecallcodecall_110_SuicideEndFiller.json
+state_tests/stCallCodes/callcodecallcodecallcode_111_SuicideEndFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcallcode_001_SuicideEndFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcodecall_010_SuicideEndFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcodecallcode_011_SuicideEndFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcall_100_SuicideEndFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcallcode_101_SuicideEndFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcodecall_110_SuicideEndFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcodecallcode_111_SuicideEndFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcallcode_001_SuicideEndFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecall_010_SuicideEndFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecallcode_011_SuicideEndFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_100_SuicideEndFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_101_SuicideEndFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_110_SuicideEndFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_SuicideEndFiller.json
+state_tests/stCallCodes/callcall_00_SuicideEndFiller.json
+state_tests/stCallCodes/callcallcode_01_SuicideEndFiller.json
+state_tests/stCallCodes/callcodecall_10_SuicideEndFiller.json
+state_tests/stCallCodes/callcodecallcode_11_SuicideEndFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcode_01_SuicideEndFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecall_10_SuicideEndFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcode_11_SuicideEndFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcode_01_SuicideEndFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecall_10_SuicideEndFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcode_11_SuicideEndFiller.json
 
 @manually-enhanced: Do not overwrite. The fillers are one chain test copied
 into three directories, each substituting a different pair of call opcodes,
@@ -73,6 +105,11 @@ gas ran out (about 132 rounds, of which only the first re-entry decided the
 outcome). The recursion is now bounded by a round count passed down as
 calldata, together with B's address, which C would otherwise have to embed
 while B embeds C's.
+
+In the SELFDESTRUCT chains the beneficiary is passed down as calldata too,
+and the destroyed account is whichever account the self-destructing frame
+runs as. Before EIP-6780 it is deleted; from Cancun on it keeps its code
+and storage and only its balance moves, unless it is its own beneficiary.
 """
 
 from dataclasses import dataclass
@@ -83,9 +120,11 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Fork,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Cancun
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -418,3 +457,160 @@ def test_recursive_call_chain(
     }
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+def run_suicide_end_chain(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    chain: tuple[Op, ...],
+    beneficiary_level: int,
+) -> None:
+    """
+    Call down `chain` and SELFDESTRUCT the frame that makes the last call,
+    after it returns, to the contract at `beneficiary_level`.
+
+    Level `n` stores its call's success in slot `n` and the innermost code
+    stores 1 in slot `len(chain)`.
+    """
+    depth = len(chain)
+    sender = pre.fund_eoa()
+
+    # Construct the innermost contract.
+    # Source: lll
+    # {  (SSTORE 3 1)  }
+    contracts = [
+        pre.deploy_contract(
+            code=Op.SSTORE(depth, 1) + Op.STOP, balance=CONTRACT_BALANCE
+        )
+    ]
+
+    # Construct the calling contracts, from the innermost one outward. The
+    # top level passes the beneficiary down as calldata, the middle levels
+    # forward it, and the last caller self-destructs to it.
+    # Source: lll
+    # {  [[ 2 ]] (CALL 50000 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) (SELFDESTRUCT <contract:0x1000000000000000000000000000000000000001>) }  # noqa: E501
+    for level in reversed(range(depth)):
+        call = Op.SSTORE(
+            level,
+            chain[level](
+                address=contracts[0], args_size=WINDOW, ret_size=WINDOW
+            ),
+        )
+        if level == depth - 1:
+            call += Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
+        if level == 0:
+            # The top level runs as itself, so it can name itself as the
+            # beneficiary with ADDRESS.
+            beneficiary = (
+                Op.ADDRESS if beneficiary_level == 0 else contracts[0]
+            )
+            code = Op.MSTORE(0, beneficiary) + call
+        elif level < depth - 1:
+            code = Op.MSTORE(0, Op.CALLDATALOAD(0)) + call
+        else:
+            code = call
+        contracts.insert(
+            0,
+            pre.deploy_contract(code=code + Op.STOP, balance=CONTRACT_BALANCE),
+        )
+
+    # Construct the transaction.
+    tx = Transaction(sender=sender, to=contracts[0])
+
+    # Simulate each call's context.
+    frames = [Frame(address=contracts[0], caller=sender, value=0)]
+    for opcode, callee in zip(chain, contracts[1:], strict=True):
+        frames.append(frames[-1].enter(opcode, callee, 0))
+    destroyed = frames[depth - 1].address
+    beneficiary_address = contracts[beneficiary_level]
+
+    # Construct the expected storage.
+    storage: dict[Address, dict[int, int]] = {c: {} for c in contracts}
+    for level, frame in enumerate(frames):
+        storage[frame.address][level] = 1
+
+    # Construct the expected balances: the destroyed account's balance
+    # moves to the beneficiary, and before Cancun a self-destruct to itself
+    # burns it.
+    balance = dict.fromkeys(contracts, CONTRACT_BALANCE)
+    if beneficiary_address != destroyed:
+        balance[beneficiary_address] += balance[destroyed]
+        balance[destroyed] = 0
+    elif fork < Cancun:
+        balance[destroyed] = 0
+
+    # Construct the expected post-state: before Cancun the destroyed
+    # account is deleted.
+    post: dict[Address, Account | None] = {
+        contract: Account(storage=storage[contract], balance=balance[contract])
+        for contract in contracts
+    }
+    if fork < Cancun:
+        post[destroyed] = Account.NONEXISTENT
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stCallCodes/callcallcall_000_SuicideEndFiller.json",
+        "state_tests/stCallCodes/callcallcallcode_001_SuicideEndFiller.json",
+        "state_tests/stCallCodes/callcallcodecall_010_SuicideEndFiller.json",
+        "state_tests/stCallCodes/callcallcodecallcode_011_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcall_100_SuicideEndFiller.json",
+        "state_tests/stCallCodes/callcodecallcallcode_101_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcodecall_110_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcodecallcodecallcode_111_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcallcode_001_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcodecall_010_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcodecallcode_011_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcall_100_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcallcode_101_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcodecall_110_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcodecallcode_111_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcallcode_001_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecall_010_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecallcode_011_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_100_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_101_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_110_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_SuicideEndFiller.json",  # noqa: E501,
+    ],
+)
+@pytest.mark.valid_from("SpuriousDragon")
+@pytest.mark.parametrize("chain", call_chains(3))
+def test_three_level_call_chain_suicide_end(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    chain: tuple[Op, Op, Op],
+) -> None:
+    """Call -> call -> (call -> code) self-destruct to the first callee."""
+    run_suicide_end_chain(state_test, pre, fork, chain, beneficiary_level=1)
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stCallCodes/callcall_00_SuicideEndFiller.json",
+        "state_tests/stCallCodes/callcallcode_01_SuicideEndFiller.json",
+        "state_tests/stCallCodes/callcodecall_10_SuicideEndFiller.json",
+        "state_tests/stCallCodes/callcodecallcode_11_SuicideEndFiller.json",
+        "state_tests/stCallDelegateCodesHomestead/callcallcode_01_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecall_10_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcode_11_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcode_01_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecall_10_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcode_11_SuicideEndFiller.json",  # noqa: E501,
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("chain", call_chains(2))
+def test_two_level_call_chain_suicide_end(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    chain: tuple[Op, Op],
+) -> None:
+    """Call -> (call -> code) self-destruct to the top level."""
+    run_suicide_end_chain(state_test, pre, fork, chain, beneficiary_level=0)
