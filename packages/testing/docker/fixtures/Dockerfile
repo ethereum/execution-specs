@@ -11,7 +11,7 @@
 #       fixtures/blockchain_tests_engine:v20.0.2
 #
 # Requires BuildKit (named build contexts).
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS meta
+FROM ghcr.io/astral-sh/uv:python3.12-trixie-slim AS meta
 ARG format
 COPY subset_index.py /subset_index.py
 RUN --mount=type=bind,from=fixtures,source=.meta,target=/src/.meta \

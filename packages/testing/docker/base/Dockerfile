@@ -13,7 +13,7 @@
 #   docker build -f packages/testing/docker/base/Dockerfile -t execution-specs:local .
 #
 # Fixtures are deliberately not part of this image; see ../fixtures.
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.12-trixie-slim
 
 # GitPython, used by EEST for version reporting, needs the git binary at import.
 RUN apt-get update \
