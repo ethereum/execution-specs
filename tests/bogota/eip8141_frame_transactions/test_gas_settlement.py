@@ -14,8 +14,6 @@ state-dimension halves of those rollback scenarios are pinned in
 `test_state_gas.py`.
 """
 
-from typing import Tuple
-
 import pytest
 from execution_testing import (
     Account,
@@ -24,16 +22,14 @@ from execution_testing import (
     Bytecode,
     Conditional,
     Fork,
-    FrameReceipt,
     Header,
     Op,
     StateTestFiller,
-    Transaction,
-    TransactionReceipt,
 )
 
 from .helpers import (
-    default_code_frame_gas,
+    FrameTransaction,
+    Outcome,
     default_frame,
     floor_binding_padding,
     verify_frame,
@@ -63,29 +59,6 @@ written.
 
 WORKER_FRAME_GAS = 100_000
 """Execution gas budget of the frames running the worker contracts."""
-
-
-def _spent_gas(fork: Fork, tx: Transaction, receipts: list) -> int:
-    """
-    Return the transaction's spent gas before the refund and the floor.
-
-    The settlement charges the intrinsic execution cost plus each
-    frame's final receipt usage in both dimensions. A caller whose
-    transaction accrues a surviving refund subtracts it, and one whose
-    calldata floor may bind clamps the result to the floor; with
-    neither in play the sum is the spent gas.
-    """
-    assert tx.frames is not None and tx.signatures is not None
-    intrinsic_execution = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=tx.frames,
-        signatures=tx.signatures,
-        return_cost_deducted_prior_execution=True,
-    )
-    return (
-        intrinsic_execution
-        + sum(receipt.gas_used for receipt in receipts)
-        + sum(receipt.state_gas_used for receipt in receipts)
-    )
 
 
 @pytest.mark.parametrize(
@@ -144,68 +117,42 @@ def test_calldata_floor_with_state_gas(
         padding + (write if with_state_write else Bytecode()) + Op.STOP
     )
     worker = pre.deploy_contract(code=worker_code)
-    state_used = worker_code.state_cost(fork)
-    # Every frame budget is exactly what its execution uses, so the
-    # execution dimension is known to the byte.
-    entry_gas = fork.frame_entry_gas_calculator()
-    verify_gas = entry_gas(target_warm=True) + verify_code.execution_cost(fork)
-    worker_gas = entry_gas(target_warm=False) + worker_code.execution_cost(
-        fork
-    )
-    intrinsic_calculator = fork.frame_transaction_intrinsic_cost_calculator()
-    floor_calculator = fork.frame_transaction_data_floor_cost_calculator()
 
-    def build(data_length: int) -> Tuple[Transaction, int, int]:
-        """
-        Return the signed transaction, its execution gas and its calldata
-        floor.
-        """
-        tx = Transaction(
+    def build(data_length: int) -> FrameTransaction:
+        """Return the transaction carrying `data_length` padding bytes."""
+        return FrameTransaction.build(
+            fork=fork,
             sender=sender,
             nonce=nonce,
+            # Each frame is budgeted exactly what it spends, so the
+            # execution dimension is known to the byte.
             frames=[
-                verify_frame(gas_limit=verify_gas, state_gas_limit=0),
+                verify_frame(
+                    code=verify_code,
+                    gas_limit_delta=0,
+                    state_gas_limit=0,
+                    state_gas_used=0,
+                ),
                 default_frame(
                     target=worker,
-                    gas_limit=worker_gas,
-                    state_gas_limit=state_used,
+                    code=worker_code,
+                    gas_limit_delta=0,
+                    state_gas_limit_delta=0,
                     data=bytes(data_length),
                 ),
             ],
         )
-        # Materialize the signature bytes, none for a contract sender,
-        # that the intrinsic cost and calldata floor charge for.
-        tx.sign()
-        assert tx.frames is not None and tx.signatures is not None
-        execution_gas = (
-            intrinsic_calculator(
-                frames=tx.frames,
-                signatures=tx.signatures,
-                return_cost_deducted_prior_execution=True,
-            )
-            + verify_gas
-            + worker_gas
-        )
-        calldata_floor = floor_calculator(
-            frames=tx.frames, signatures=tx.signatures
-        )
-        return tx, execution_gas, calldata_floor
 
     def floor_binds(data_length: int) -> bool:
-        _, execution_gas, calldata_floor = build(data_length)
-        return calldata_floor > execution_gas
+        return build(data_length).floor_binds()
 
     data_length = floor_binding_padding(floor_binds)
     if not floor_bound:
         data_length -= 1
-    tx, execution_gas, calldata_floor = build(data_length)
+    tx = build(data_length)
     # The premise of the test: the floor binds, or in `below_floor`
     # falls short by the last byte.
-    assert (calldata_floor > execution_gas) == floor_bound
-    gas_used = calldata_floor if floor_bound else execution_gas
-    tx.expected_receipt = TransactionReceipt(
-        payer=sender, cumulative_gas_used=gas_used + state_used
-    )
+    assert tx.floor_binds() == floor_bound
 
     state_test(
         pre=pre,
@@ -265,85 +212,49 @@ def test_storage_refund_settlement(
     padding = Op.POP(Op.BALANCE(address=sender, address_warm=True)) * 400
     worker_code = padding + clear + Op.STOP
     worker = pre.deploy_contract(code=worker_code, storage={SLOT_CREATED: 1})
-
-    verify_gas = default_code_frame_gas(fork, target_warm=True)
-    frame_execution_gas = fork.frame_entry_gas_calculator()() + (
-        worker_code.execution_cost(fork)
-    )
-    receipts = [
-        FrameReceipt(
-            status=Spec.STATUS_SUCCESS,
-            gas_used=verify_gas,
-            state_gas_used=0,
-        ),
-        # The receipt reports pre-refund execution gas; the refund
-        # applies only at transaction settlement.
-        FrameReceipt(
-            status=Spec.STATUS_SUCCESS,
-            gas_used=frame_execution_gas,
-            state_gas_used=0,
-        ),
-    ]
-
     refund = worker_code.refund(fork)
 
-    def build(data_length: int) -> Tuple[Transaction, int, int]:
-        """
-        Return the signed transaction, its spent gas before the refund
-        and its calldata floor.
-        """
-        tx = Transaction(
+    def build(data_length: int) -> FrameTransaction:
+        """Return the transaction carrying `data_length` padding bytes."""
+        return FrameTransaction.build(
+            fork=fork,
             sender=sender,
             nonce=0,
+            refund=refund,
             frames=[
                 verify_frame(),
+                # The receipt reports pre-refund execution gas; the
+                # refund applies only at transaction settlement.
                 default_frame(
                     target=worker,
+                    code=worker_code,
                     gas_limit=WORKER_FRAME_GAS,
                     state_gas_limit=0,
                     data=bytes(data_length),
                 ),
             ],
         )
-        # Materialize the signature bytes the intrinsic cost and calldata
-        # floor charge for.
-        tx.sign()
-        assert tx.frames is not None and tx.signatures is not None
-        calldata_floor = fork.frame_transaction_data_floor_cost_calculator()(
-            frames=tx.frames, signatures=tx.signatures
-        )
-        return tx, _spent_gas(fork, tx, receipts), calldata_floor
 
     def floor_binds(data_length: int) -> bool:
-        _, gas_used_before_refund, calldata_floor = build(data_length)
-        if boundary == "post_refund":
-            return calldata_floor > gas_used_before_refund - refund
-        return calldata_floor > gas_used_before_refund
+        return build(data_length).floor_binds(
+            after_refund=boundary == "post_refund"
+        )
 
     data_length = floor_binding_padding(floor_binds)
     if floor_side == "below":
         data_length -= 1
-    tx, gas_used_before_refund, calldata_floor = build(data_length)
+    tx = build(data_length)
     # The premise of the test: the refund applies uncapped.
-    assert 0 < refund <= gas_used_before_refund // fork.max_refund_quotient()
-    gas_used_after_refund = gas_used_before_refund - refund
+    assert 0 < tx.effective_refund == refund
+    gas_used_after_refund = tx.gas_before_refund - refund
     # The premise of each case: the floor sits below the post-refund
     # gas, above the pre-refund gas, or between the two.
     if (boundary, floor_side) == ("post_refund", "below"):
-        assert calldata_floor < gas_used_after_refund
+        assert tx.calldata_floor < gas_used_after_refund
     elif (boundary, floor_side) == ("pre_refund", "above"):
-        assert gas_used_before_refund < calldata_floor
+        assert tx.gas_before_refund < tx.calldata_floor
     else:
-        assert gas_used_after_refund < calldata_floor < gas_used_before_refund
-
-    payer_gas_used = max(gas_used_after_refund, calldata_floor)
-    block_gas_used = max(gas_used_before_refund, calldata_floor)
-
-    tx.expected_receipt = TransactionReceipt(
-        payer=sender,
-        cumulative_gas_used=payer_gas_used,
-        frame_receipts=receipts,
-    )
+        assert gas_used_after_refund < tx.calldata_floor < tx.gas_before_refund
 
     state_test(
         pre=pre,
@@ -352,7 +263,7 @@ def test_storage_refund_settlement(
             sender: Account(nonce=1),
             worker: Account(storage={SLOT_CREATED: 0}),
         },
-        blockchain_test_header_verify=Header(gas_used=block_gas_used),
+        blockchain_test_header_verify=Header(gas_used=tx.block_gas_used()),
     )
 
 
@@ -395,11 +306,6 @@ def test_batch_unroll_refill_restores_spent_gas(
     )
     probe = pre.deploy_contract(code=probe_code)
 
-    # The creating frame reaches the worker cold; the refilling frame that
-    # follows it finds the worker warm, the creating frame's success having
-    # seeded the transaction's warm address set with it.
-    entry_cold = fork.frame_entry_gas_calculator()()
-    entry_warm = fork.frame_entry_gas_calculator()(target_warm=True)
     create_body = (
         Op.SSTORE(
             SLOT_CREATED,
@@ -423,77 +329,48 @@ def test_batch_unroll_refill_restores_spent_gas(
         + Op.STOP
     )
 
-    verify_exec = default_code_frame_gas(fork, target_warm=True)
-    create_exec = entry_cold + create_body.execution_cost(fork)
-    refill_exec = entry_warm + refill_body.execution_cost(fork)
-    revert_exec = entry_cold + reverter_code.execution_cost(fork)
-    probe_exec = entry_cold + probe_code.execution_cost(fork)
-    probe_state = 2 * fresh_write_state_cost
-
-    receipts = [
-        FrameReceipt(
-            status=Spec.STATUS_SUCCESS,
-            gas_used=verify_exec,
-            state_gas_used=0,
-        ),
-        # The creating frame keeps its full attribution: the unroll undid
-        # the refill the batch frame applied to this receipt.
-        FrameReceipt(
-            status=Spec.STATUS_SUCCESS,
-            gas_used=create_exec,
-            state_gas_used=fresh_write_state_cost,
-        ),
-        # The batch frames' receipts are re-appended with their state gas
-        # zeroed; their execution gas stays charged.
-        FrameReceipt(
-            status=Spec.STATUS_SUCCESS,
-            gas_used=refill_exec,
-            state_gas_used=0,
-        ),
-        FrameReceipt(
-            status=Spec.STATUS_FAILURE,
-            gas_used=revert_exec,
-            state_gas_used=0,
-        ),
-        FrameReceipt(
-            status=Spec.STATUS_SUCCESS,
-            gas_used=probe_exec,
-            state_gas_used=probe_state,
-        ),
-    ]
-
-    tx = Transaction(
+    # No refund survives to settlement: the only slot returned to its
+    # start value is undone by the rollback under test.
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
             verify_frame(),
-            # Frame 1: create the slot (0 -> 1).
+            # Frame 1: create the slot (0 -> 1), keeping its full
+            # attribution once the unroll undoes the refill applied to
+            # this receipt.
             default_frame(
                 target=worker,
+                code=create_body,
                 gas_limit=WORKER_FRAME_GAS,
                 data=(1).to_bytes(32, "big"),
             ),
             # Frame 2: open the batch and return the slot to its start
-            # value (1 -> 0), refilling frame 1's receipt.
+            # value (1 -> 0), refilling frame 1's receipt. The unroll
+            # re-appends this receipt with its state gas zeroed.
+            # Frame 1's success left the worker warm.
             default_frame(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=worker,
+                code=refill_body,
+                warm=True,
+                outcome=Outcome.UNROLLED,
                 gas_limit=WORKER_FRAME_GAS,
             ),
             # Frame 3: terminate the batch with a revert, unrolling it.
-            default_frame(target=reverter, gas_limit=WORKER_FRAME_GAS),
+            default_frame(
+                target=reverter,
+                code=reverter_code,
+                outcome=Outcome.REVERT,
+                gas_limit=WORKER_FRAME_GAS,
+            ),
             # Frame 4: read frame 1's restored attribution and frame 3's
             # status after the unroll.
-            default_frame(target=probe, gas_limit=WORKER_FRAME_GAS),
+            default_frame(
+                target=probe, code=probe_code, gas_limit=WORKER_FRAME_GAS
+            ),
         ],
-    )
-    tx.sign()
-    # No refund survives to settlement: the only slot returned to its
-    # start value is undone by the rollback under test.
-    tx.expected_receipt = TransactionReceipt(
-        payer=sender,
-        cumulative_gas_used=_spent_gas(fork, tx, receipts),
-        frame_receipts=receipts,
     )
 
     state_test(
@@ -556,11 +433,6 @@ def test_frame_revert_refill_restores_spent_gas(
     )
     probe = pre.deploy_contract(code=probe_code)
 
-    # The creating frame reaches the worker cold; the refilling frame that
-    # follows it finds the worker warm, the creating frame's success having
-    # seeded the transaction's warm address set with it.
-    entry_cold = fork.frame_entry_gas_calculator()()
-    entry_warm = fork.frame_entry_gas_calculator()(target_warm=True)
     # The worker's control flow after the store: evaluate the calldata
     # size, then branch. The branch is taken only on the reverting path.
     branch_control = (
@@ -576,7 +448,7 @@ def test_frame_revert_refill_restores_spent_gas(
         original_value=0,
         current_value=0,
         new_value=1,
-    ).execution_cost(fork)
+    )
     refill_store = Op.SSTORE(
         SLOT_CREATED,
         Op.CALLDATALOAD(0),
@@ -584,69 +456,46 @@ def test_frame_revert_refill_restores_spent_gas(
         original_value=0,
         current_value=1,
         new_value=0,
-    ).execution_cost(fork)
+    )
 
-    verify_exec = default_code_frame_gas(fork, target_warm=True)
-    # The creating frame stores, evaluates the branch, and falls through
-    # to the trailing stop.
-    create_exec = entry_cold + create_store + branch_control
-    # The refilling frame stores, evaluates the branch, and takes it into
-    # the revert.
-    refill_exec = entry_warm + refill_store + branch_control + revert_tail
-    probe_exec = entry_cold + probe_code.execution_cost(fork)
-    probe_state = 2 * fresh_write_state_cost
-
-    receipts = [
-        FrameReceipt(
-            status=Spec.STATUS_SUCCESS,
-            gas_used=verify_exec,
-            state_gas_used=0,
-        ),
-        # The revert restored the refill the failing frame applied to this
-        # receipt.
-        FrameReceipt(
-            status=Spec.STATUS_SUCCESS,
-            gas_used=create_exec,
-            state_gas_used=fresh_write_state_cost,
-        ),
-        FrameReceipt(
-            status=Spec.STATUS_FAILURE,
-            gas_used=refill_exec,
-            state_gas_used=0,
-        ),
-        FrameReceipt(
-            status=Spec.STATUS_SUCCESS,
-            gas_used=probe_exec,
-            state_gas_used=probe_state,
-        ),
-    ]
-
-    tx = Transaction(
+    # No refund survives to settlement: the only slot returned to its
+    # start value is undone by the rollback under test.
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
             verify_frame(),
-            # Frame 1: create the slot (0 -> 1).
+            # Frame 1: create the slot (0 -> 1), storing, evaluating the
+            # branch and falling through to the trailing stop. The
+            # revert restores the refill applied to this receipt.
             default_frame(
                 target=worker,
+                code=create_store,
+                execution_gas=create_store.execution_cost(fork)
+                + branch_control,
                 gas_limit=WORKER_FRAME_GAS,
                 data=(1).to_bytes(32, "big"),
             ),
             # Frame 2: return the slot to its start value (1 -> 0),
-            # refilling frame 1's receipt, then revert.
-            default_frame(target=worker, gas_limit=WORKER_FRAME_GAS),
+            # refilling frame 1's receipt, then take the branch into the
+            # revert. Frame 1's success left the worker warm.
+            default_frame(
+                target=worker,
+                code=refill_store,
+                execution_gas=refill_store.execution_cost(fork)
+                + branch_control
+                + revert_tail,
+                warm=True,
+                outcome=Outcome.REVERT,
+                gas_limit=WORKER_FRAME_GAS,
+            ),
             # Frame 3: read frame 1's restored attribution and frame 2's
             # status after the revert.
-            default_frame(target=probe, gas_limit=WORKER_FRAME_GAS),
+            default_frame(
+                target=probe, code=probe_code, gas_limit=WORKER_FRAME_GAS
+            ),
         ],
-    )
-    tx.sign()
-    # No refund survives to settlement: the only slot returned to its
-    # start value is undone by the rollback under test.
-    tx.expected_receipt = TransactionReceipt(
-        payer=sender,
-        cumulative_gas_used=_spent_gas(fork, tx, receipts),
-        frame_receipts=receipts,
     )
 
     state_test(

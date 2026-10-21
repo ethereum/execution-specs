@@ -16,17 +16,20 @@ from execution_testing import (
     Bytes,
     Conditional,
     Fork,
-    Frame,
-    FrameReceipt,
     FrameSignature,
     Op,
     StateTestFiller,
     Transaction,
     TransactionException,
-    TransactionReceipt,
 )
 
-from .helpers import default_code_frame_gas
+from .helpers import (
+    FrameTransaction,
+    Outcome,
+    default_frame,
+    sender_frame,
+    verify_frame,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -44,6 +47,7 @@ SLOT_CALL_OUTCOME = 0x02
 def test_transfer_with_default_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Transfer ETH from an EOA sender using the default code: a `VERIFY`
@@ -54,26 +58,13 @@ def test_transfer_with_default_code(
     recipient = pre.fund_eoa(amount=1)
     transfer_value = 10**17
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-            ),
-            Frame(
-                mode=Spec.MODE_SENDER,
-                target=recipient,
-                value=transfer_value,
-            ),
+            verify_frame(logs=[]),
+            sender_frame(target=recipient, value=transfer_value),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, logs=[]),
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-            ],
-        ),
     )
 
     state_test(
@@ -89,38 +80,26 @@ def test_transfer_with_default_code(
 def test_contract_sender_approves(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Send a frame transaction from a contract account whose code calls
     `APPROVE` to authorize execution and payment, then executes a
     `SENDER` frame calling another contract.
     """
-    sender = pre.deploy_contract(
-        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
-        balance=10**18,
-    )
-    target = pre.deploy_contract(code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP)
+    sender_code = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
+    sender = pre.deploy_contract(code=sender_code, balance=10**18)
+    target_code = Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP
+    target = pre.deploy_contract(code=target_code)
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         nonce=1,
         frames=[
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-            ),
-            Frame(
-                mode=Spec.MODE_SENDER,
-                target=target,
-            ),
+            verify_frame(code=sender_code),
+            sender_frame(target=target, code=target_code),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-            ],
-        ),
     )
 
     state_test(
@@ -136,6 +115,7 @@ def test_contract_sender_approves(
 def test_eoa_paymaster(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Sponsor a frame transaction's fees from a second EOA via the
@@ -145,23 +125,19 @@ def test_eoa_paymaster(
     sender_balance = 10**18
     sender = pre.fund_eoa(amount=sender_balance)
     payer = pre.fund_eoa()
-    target = pre.deploy_contract(code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP)
+    target_code = Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP
+    target = pre.deploy_contract(code=target_code)
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
+        payer=payer,
         frames=[
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_EXECUTION,
-            ),
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_PAYMENT,
-                target=payer,
-            ),
-            Frame(
-                mode=Spec.MODE_SENDER,
+            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
+            sender_frame(
                 target=target,
+                code=target_code,
             ),
         ],
         signatures=[
@@ -175,14 +151,6 @@ def test_eoa_paymaster(
                 secret_key=payer.key,
             ),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=payer,
-            frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-            ],
-        ),
     )
 
     state_test(
@@ -206,6 +174,7 @@ def test_eoa_paymaster(
 def test_atomic_batch_rollback(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     revert_position: str,
 ) -> None:
     """
@@ -219,57 +188,41 @@ def test_atomic_batch_rollback(
     storage write is discarded.
     """
     sender = pre.fund_eoa()
-    target = pre.deploy_contract(
-        code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.LOG0(0, 0) + Op.STOP
-    )
-    reverter = pre.deploy_contract(code=Op.REVERT(0, 0))
+    target_code = Op.SSTORE(SLOT_EXECUTED, 1) + Op.LOG0(0, 0) + Op.STOP
+    target = pre.deploy_contract(code=target_code)
+    reverter_code = Op.REVERT(0, 0)
+    reverter = pre.deploy_contract(code=reverter_code)
 
-    store_frame_flags = (
-        Spec.ATOMIC_BATCH_FLAG if revert_position == "last" else 0
-    )
-    revert_frame_flags = (
-        Spec.ATOMIC_BATCH_FLAG if revert_position == "first" else 0
-    )
-    store_frame = Frame(
-        mode=Spec.MODE_SENDER,
-        flags=store_frame_flags,
-        target=target,
-    )
-    revert_frame = Frame(
-        mode=Spec.MODE_SENDER,
-        flags=revert_frame_flags,
-        target=reverter,
-    )
     if revert_position == "last":
-        batch = [store_frame, revert_frame]
-        expected_frame_receipts = [
-            FrameReceipt(status=Spec.STATUS_SUCCESS),
+        batch = [
             # The unrolled frame retains its execution status and gas
             # used, but its logs are discarded with its state changes.
-            FrameReceipt(status=Spec.STATUS_SUCCESS, logs=[]),
-            FrameReceipt(status=Spec.STATUS_FAILURE),
+            sender_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG,
+                target=target,
+                code=target_code,
+                outcome=Outcome.UNROLLED,
+                logs=[],
+            ),
+            sender_frame(
+                target=reverter, code=reverter_code, outcome=Outcome.REVERT
+            ),
         ]
     else:
-        batch = [revert_frame, store_frame]
-        expected_frame_receipts = [
-            FrameReceipt(status=Spec.STATUS_SUCCESS),
-            FrameReceipt(status=Spec.STATUS_FAILURE),
-            FrameReceipt(status=Spec.STATUS_SKIPPED, gas_used=0),
+        batch = [
+            sender_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG,
+                target=reverter,
+                code=reverter_code,
+                outcome=Outcome.REVERT,
+            ),
+            sender_frame(target=target, outcome=Outcome.SKIPPED),
         ]
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
-        frames=[
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-            ),
-            *batch,
-        ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=expected_frame_receipts,
-        ),
+        frames=[verify_frame(), *batch],
     )
 
     state_test(
@@ -297,15 +250,8 @@ def test_sender_frame_before_approval(
     tx = Transaction(
         sender=sender,
         frames=[
-            Frame(
-                mode=Spec.MODE_SENDER,
-                target=target,
-                gas_limit=200_000,
-            ),
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-            ),
+            sender_frame(target=target, gas_limit=200_000),
+            verify_frame(),
         ],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )
@@ -335,15 +281,8 @@ def test_verify_frame_reverts(
     tx = Transaction(
         sender=sender,
         frames=[
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-            ),
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_NONE,
-                target=reverter,
-            ),
+            verify_frame(),
+            verify_frame(flags=Spec.APPROVE_NONE, target=reverter),
         ],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )
@@ -369,6 +308,7 @@ def test_verify_frame_reverts(
 def test_frame_revert_discards_the_approval_it_granted(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     frame_reverts: bool,
 ) -> None:
     """
@@ -397,9 +337,8 @@ def test_frame_revert_discards_the_approval_it_granted(
     # The frame's target must be `tx.sender` for the approval scopes, so
     # both invocations run the sender's code. Calldata distinguishes them:
     # the frame supplies some, the self-call supplies none.
-    outer = Op.SSTORE(SLOT_EXECUTED, 1) + Op.CALL(
-        gas=Op.GAS, address=Op.ADDRESS
-    )
+    record = Op.SSTORE(SLOT_EXECUTED, 1)
+    outer = record + Op.CALL(gas=Op.GAS, address=Op.ADDRESS)
     outer += Op.REVERT(0, 0) if frame_reverts else Op.STOP
     sender_code = Conditional(
         condition=Op.CALLDATASIZE,
@@ -409,16 +348,18 @@ def test_frame_revert_discards_the_approval_it_granted(
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         nonce=1,
         frames=[
-            Frame(
-                mode=Spec.MODE_DEFAULT,
+            default_frame(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
                 gas_limit=400_000,
                 data=Bytes(b"\x01"),
+                pin_gas=False,
+                state_gas_used=record.state_cost(fork),
             ),
         ],
         # Discarding the approval leaves the only frame's transaction with
@@ -427,14 +368,6 @@ def test_frame_revert_discards_the_approval_it_granted(
             TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
             if frame_reverts
             else None
-        ),
-        expected_receipt=(
-            None
-            if frame_reverts
-            else TransactionReceipt(
-                payer=sender,
-                frame_receipts=[FrameReceipt(status=Spec.STATUS_SUCCESS)],
-            )
         ),
     )
 
@@ -465,6 +398,7 @@ def test_frame_revert_discards_the_approval_it_granted(
 def test_call_revert_above_approve_discards_the_approval(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     middle_reverts: bool,
     outer_approves: bool,
 ) -> None:
@@ -493,8 +427,9 @@ def test_call_revert_above_approve_discards_the_approval(
     # every invocation runs the sender's code, picked by calldata: the
     # frame supplies two bytes, the middle call one, the inner call none.
     approve = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
+    record = Op.SSTORE(SLOT_EXECUTED, 1)
     outer = (
-        Op.SSTORE(SLOT_EXECUTED, 1)
+        record
         + Op.POP(
             Op.CALL(gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1)
         )
@@ -516,30 +451,24 @@ def test_call_revert_above_approve_discards_the_approval(
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
 
     approved = not middle_reverts or outer_approves
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         nonce=1,
         frames=[
-            Frame(
-                mode=Spec.MODE_DEFAULT,
+            default_frame(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
                 gas_limit=400_000,
                 data=Bytes(b"\x01\x01"),
+                pin_gas=False,
+                state_gas_used=record.state_cost(fork),
             ),
         ],
         error=(
             None
             if approved
             else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
-        ),
-        expected_receipt=(
-            TransactionReceipt(
-                payer=sender,
-                frame_receipts=[FrameReceipt(status=Spec.STATUS_SUCCESS)],
-            )
-            if approved
-            else None
         ),
     )
 
@@ -600,45 +529,21 @@ def test_refused_approval_reverts_only_its_call_frame(
     ) + Op.SSTORE(SLOT_EXECUTED, 1)
     target = pre.deploy_contract(code=target_code)
 
-    # The refused call's gas stays consumed: the frame reports its
-    # target's cold entry access, the outer code, and the inner code
-    # the revert cut short.
-    frame_gas = (
-        fork.frame_entry_gas_calculator()()
-        + target_code.execution_cost(fork)
-        + inner_code.execution_cost(fork)
-    )
-    fresh_write_state_cost = Op.SSTORE(SLOT_EXECUTED, 1).state_cost(fork)
-
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-            ),
-            Frame(
-                mode=Spec.MODE_DEFAULT,
+            verify_frame(logs=[]),
+            # The refused call's gas stays consumed: the frame reports
+            # its target's cold entry access, the outer code, and the
+            # inner code the revert cut short.
+            default_frame(
                 target=target,
+                code=target_code,
+                execution_gas=target_code.execution_cost(fork)
+                + inner_code.execution_cost(fork),
             ),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=True),
-                    logs=[],
-                ),
-                # The control's outcome write creates a second slot.
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=frame_gas,
-                    state_gas_used=fresh_write_state_cost
-                    * (1 if inner_attempts_approval else 2),
-                ),
-            ],
-        ),
     )
 
     state_test(
@@ -710,41 +615,19 @@ def test_refused_approval_charges_memory_expansion(
     ) + Op.SSTORE(SLOT_EXECUTED, 1)
     target = pre.deploy_contract(code=target_code)
 
-    frame_gas = (
-        fork.frame_entry_gas_calculator()()
-        + target_code.execution_cost(fork)
-        + inner_code.execution_cost(fork)
-    )
-
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-            ),
-            Frame(
-                mode=Spec.MODE_DEFAULT,
+            verify_frame(logs=[]),
+            default_frame(
                 flags=Spec.APPROVE_PAYMENT,
                 target=target,
+                code=target_code,
+                execution_gas=target_code.execution_cost(fork)
+                + inner_code.execution_cost(fork),
             ),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=True),
-                ),
-                FrameReceipt(
-                    status=Spec.STATUS_SUCCESS,
-                    gas_used=frame_gas,
-                    state_gas_used=Op.SSTORE(SLOT_EXECUTED, 1).state_cost(
-                        fork
-                    ),
-                ),
-            ],
-        ),
     )
 
     state_test(

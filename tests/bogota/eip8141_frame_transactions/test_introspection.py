@@ -20,14 +20,13 @@ from execution_testing import (
     Bytecode,
     Bytes,
     Fork,
-    Frame,
     FrameSignature,
     Op,
     StateTestFiller,
     Transaction,
 )
 
-from .helpers import verify_frame
+from .helpers import FrameTransaction, default_frame, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -72,8 +71,7 @@ def probe_transaction(
         max_fee_per_gas=MAX_FEE,
         frames=[
             verify_frame(),
-            Frame(
-                mode=Spec.MODE_DEFAULT,
+            default_frame(
                 target=probe,
                 gas_limit=PROBE_FRAME_GAS,
                 state_gas_limit=PROBE_FRAME_STATE_GAS,
@@ -388,15 +386,12 @@ def test_frameparam_atomic_batch_set(
         max_fee_per_gas=MAX_FEE,
         frames=[
             verify_frame(),
-            Frame(
-                mode=Spec.MODE_DEFAULT,
+            default_frame(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=probe,
                 gas_limit=PROBE_FRAME_GAS,
             ),
-            Frame(
-                mode=Spec.MODE_DEFAULT,
-            ),
+            default_frame(),
         ],
     )
 
@@ -431,8 +426,8 @@ def test_frameparam_gas_used(
     sender = pre.fund_eoa()
     worker_code = Op.SSTORE(SLOT_RESULT, 1) + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
-    probe = pre.deploy_contract(
-        code=Op.SSTORE(
+    probe_code = (
+        Op.SSTORE(
             SLOT_RESULT,
             Op.FRAMEPARAM(1, Spec.FRAMEPARAM_EXECUTION_GAS_USED),
         )
@@ -442,22 +437,27 @@ def test_frameparam_gas_used(
         )
         + Op.STOP
     )
+    probe = pre.deploy_contract(code=probe_code)
 
-    tx = Transaction(
+    worker_frame = default_frame(target=worker, code=worker_code)
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee_per_gas=MAX_FEE,
         frames=[
             verify_frame(),
-            Frame(mode=Spec.MODE_DEFAULT, target=worker),
-            Frame(
-                mode=Spec.MODE_DEFAULT,
+            worker_frame,
+            default_frame(
                 target=probe,
+                code=probe_code,
                 gas_limit=PROBE_FRAME_GAS,
                 state_gas_limit=PROBE_FRAME_STATE_GAS,
             ),
         ],
     )
+
+    worker_receipt = worker_frame.receipt(fork)
 
     state_test(
         pre=pre,
@@ -466,9 +466,8 @@ def test_frameparam_gas_used(
             worker: Account(storage={SLOT_RESULT: 1}),
             probe: Account(
                 storage={
-                    SLOT_RESULT: fork.gas_costs().COLD_ACCOUNT_ACCESS
-                    + worker_code.execution_cost(fork),
-                    SLOT_RESULT + 1: worker_code.state_cost(fork),
+                    SLOT_RESULT: worker_receipt.gas_used,
+                    SLOT_RESULT + 1: worker_receipt.state_gas_used,
                 }
             ),
         },
@@ -759,13 +758,11 @@ def test_sigparam_resolved_signer(
         max_fee_per_gas=MAX_FEE,
         frames=[
             verify_frame(),
-            Frame(
-                mode=Spec.MODE_DEFAULT,
+            default_frame(
                 target=resolved,
                 gas_limit=PROBE_FRAME_GAS,
             ),
-            Frame(
-                mode=Spec.MODE_DEFAULT,
+            default_frame(
                 target=refused,
                 gas_limit=PROBE_FRAME_GAS,
             ),
@@ -821,13 +818,11 @@ def test_sigdatacopy(
         max_fee_per_gas=MAX_FEE,
         frames=[
             verify_frame(),
-            Frame(
-                mode=Spec.MODE_DEFAULT,
+            default_frame(
                 target=copied,
                 gas_limit=PROBE_FRAME_GAS,
             ),
-            Frame(
-                mode=Spec.MODE_DEFAULT,
+            default_frame(
                 target=refused,
                 gas_limit=PROBE_FRAME_GAS,
             ),
