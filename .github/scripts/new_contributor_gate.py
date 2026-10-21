@@ -11,11 +11,10 @@ Usage: `new_contributor_gate.py [--pr N | --issue N] [--dry-run]`.
 New contributors are authors with nothing merged into the repository
 yet, going by `author_association` and confirmed by a search, since the
 association can lag days behind a merge. Their pull requests must
-reference an issue they are assigned to, and they may open at most
-`MAX_RECENT_ISSUES` issues every `RECENT_ISSUE_DAYS` days, closed ones
-included. Anything else is closed with a comment explaining the rule
-(see CONTRIBUTING.md). Everyone else is left alone, and so are bots,
-items a maintainer reopened and authors listed in
+reference an issue they are assigned to, and they may have at most
+`MAX_OPEN_ISSUES` open issues. Anything else is closed with a comment
+explaining the rule (see CONTRIBUTING.md). Everyone else is left alone,
+and so are bots, items a maintainer reopened and authors listed in
 `.github/configs/new-contributor-gate-bypass.txt`.
 
 Read the event from `GITHUB_EVENT_PATH` (or the item from `--pr` or
@@ -29,7 +28,6 @@ import os
 import re
 import subprocess
 import sys
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -39,8 +37,7 @@ NEW_CONTRIBUTOR = ("NONE", "FIRST_TIMER", "FIRST_TIME_CONTRIBUTOR")
 CONFIGS = Path(__file__).parent.parent / "configs"
 BYPASS = CONFIGS / "new-contributor-gate-bypass.txt"
 
-MAX_RECENT_ISSUES = 2
-RECENT_ISSUE_DAYS = 30
+MAX_OPEN_ISSUES = 2
 
 # Most issue references looked up per pull request, to bound API calls.
 MAX_REFERENCES = 10
@@ -77,9 +74,9 @@ See [CONTRIBUTING.md]({{contributing}}) for details."""
 
 ISSUE_MESSAGE = f"""\
 Thanks for opening this issue, @{{author}}! Our review resources are \
-constrained, so contributors with nothing merged yet can open at most \
-{{max_issues}} issues every {{days}} days. This issue was closed \
-automatically. Please wait for a reply on your earlier issues.
+constrained, so contributors with nothing merged yet can have at most \
+{{max_issues}} open issues. This issue was closed automatically. Please \
+wait for a reply on your earlier issues.
 
 {BYPASS_HELP}
 
@@ -160,16 +157,9 @@ def has_merged_pr(repo: str, author: str) -> bool:
     return int(count or 0) > 0
 
 
-def earlier_issues(
-    repo: str, author: str, number: int, now: datetime
-) -> list[int]:
-    """Return the issues `author` opened before `number` in the window."""
-    since = now - timedelta(days=RECENT_ISSUE_DAYS)
-    # `since` filters on the last update, so check the creation date too.
-    query = (
-        f"creator={author}&state=all&per_page=100"
-        f"&since={since.strftime('%Y-%m-%dT%H:%M:%SZ')}"
-    )
+def earlier_open_issues(repo: str, author: str, number: int) -> list[int]:
+    """Return the open issues `author` opened before issue `number`."""
+    query = f"creator={author}&state=open&per_page=100"
     output = gh(
         "api", "--paginate", f"repos/{repo}/issues?{query}", "--jq", ".[]"
     )
@@ -177,9 +167,7 @@ def earlier_issues(
     return sorted(
         item["number"]
         for item in items
-        if "pull_request" not in item
-        and item["number"] < number
-        and datetime.fromisoformat(item["created_at"]) >= since
+        if "pull_request" not in item and item["number"] < number
     )
 
 
@@ -248,14 +236,13 @@ def main() -> None:
             return
         message = PR_MESSAGE.format(author=author, contributing=contributing)
     else:
-        earlier = earlier_issues(repo, author, number, datetime.now(UTC))
-        if len(earlier) < MAX_RECENT_ISSUES:
-            print(f"#{number}: {len(earlier)} earlier recent issues")
+        earlier = earlier_open_issues(repo, author, number)
+        if len(earlier) < MAX_OPEN_ISSUES:
+            print(f"#{number}: {len(earlier)} earlier open issues")
             return
         message = ISSUE_MESSAGE.format(
             author=author,
-            max_issues=MAX_RECENT_ISSUES,
-            days=RECENT_ISSUE_DAYS,
+            max_issues=MAX_OPEN_ISSUES,
             contributing=contributing,
         )
 

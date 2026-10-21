@@ -1,7 +1,7 @@
 name: New contributor gate
 
 # Closes a new contributor's pull request unless it references an issue
-# they are assigned to, and closes their issues beyond a few a month. New
+# they are assigned to, and closes their issues beyond 2 open at once. New
 # contributors are authors with nothing merged yet. See CONTRIBUTING.md.
 #
 # Runs from the base branch via `pull_request_target`, so fork pull requests

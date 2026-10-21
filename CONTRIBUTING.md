@@ -16,6 +16,18 @@ Our review resources are constrained, so we review pull requests that have a con
 
 New EIP features stay on your own fork until the fork development process needs them. Open an issue that links your branch and a maintainer will ask for a pull request when the time comes.
 
+### What we won't review
+
+We close the following without review:
+
+- Pull requests from first-time contributors that don't link an issue assigned to them. These are closed automatically.
+- Issues from first-time contributors beyond the limit below. These are closed automatically.
+- New EIP features opened before the fork development process needs them.
+- Changes without a concrete reason, such as refactors, renames or style changes nobody asked for.
+- Changes that only fix spelling, grammar or formatting.
+- Drive-by or vibe-coded contributions, including generated code or text the author hasn't reviewed and can't explain.
+- Work on an issue assigned to someone else, or a duplicate of an open pull request.
+
 ### First-time contributors
 
 Until your first pull request is merged:
@@ -29,16 +41,9 @@ Pull requests without a linked issue assigned to their author are closed automat
 ### Limits
 
 - Contributors without write access can have at most 2 open pull requests, drafts included.
-- First-time contributors can open at most 2 issues every 30 days, closed ones included. Further issues are closed automatically.
+- First-time contributors can have at most 2 open issues. Further issues are closed automatically.
 
 If you are an EIP author or part of an EL client or tooling team, message us in `#el-testing` on the [Ethereum R&D Discord](https://discord.com/invite/qGpsxSA) or on the STEEL Discord server to get added to the bypass list.
-
-## Contributions we don't accept
-
-Pull requests should have reasonable substance and context. In particular, we do not accept:
-
-- Contributions that only fix spelling or grammatical errors in documentation, code, or elsewhere.
-- Drive-by or vibe-coded contributions without proper engagement or context.
 
 ## Code of Conduct
 

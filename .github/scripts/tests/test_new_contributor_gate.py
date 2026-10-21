@@ -8,7 +8,6 @@ writes, so no test touches the network.
 import importlib.util
 import json
 import sys
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -111,15 +110,9 @@ def issue(number: int, assignees: list[str]) -> dict[str, Any]:
     }
 
 
-def opened(
-    number: int, days_ago: float, pull_request: bool = False
-) -> dict[str, Any]:
-    """Return item `number` that `alice` opened this many days ago."""
-    created = datetime.now(UTC) - timedelta(days=days_ago)
-    item: dict[str, Any] = {
-        "number": number,
-        "created_at": created.strftime("%Y-%m-%dT%H:%M:%SZ"),
-    }
+def opened(number: int, pull_request: bool = False) -> dict[str, Any]:
+    """Return open item `number` that `alice` opened."""
+    item: dict[str, Any] = {"number": number}
     if pull_request:
         item["pull_request"] = {}
     return item
@@ -151,7 +144,7 @@ class FakeGh:
             assert "q=repo:o/r is:pr is:merged author:alice" in args
             return str(self.merged)
         if "--paginate" in args:
-            assert "creator=alice&state=all" in args[2]
+            assert "creator=alice&state=open" in args[2]
             return "\n".join(json.dumps(item) for item in self.history)
         number = int(args[1].rsplit("/", 1)[1])
         if number in self.issues:
@@ -239,8 +232,7 @@ CONTRIBUTING = "https://github.com/o/r/blob/HEAD/CONTRIBUTING.md"
 PR_MESSAGE = m.PR_MESSAGE.format(author="alice", contributing=CONTRIBUTING)
 ISSUE_MESSAGE = m.ISSUE_MESSAGE.format(
     author="alice",
-    max_issues=m.MAX_RECENT_ISSUES,
-    days=m.RECENT_ISSUE_DAYS,
+    max_issues=m.MAX_OPEN_ISSUES,
     contributing=CONTRIBUTING,
 )
 NOT_PLANNED = ("-f", "state_reason=not_planned")
@@ -330,7 +322,7 @@ def test_author_with_a_merged_pr_is_left_alone(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, is_pr: bool
 ) -> None:
     """Trust a merged pull request over a lagging `author_association`."""
-    history = [opened(3, 1), opened(5, 2), opened(9, 0)]
+    history = [opened(3), opened(5), opened(9)]
     fake = FakeGh(history=history, merged=1)
     event = pr_event("Fix a typo.") if is_pr else issue_event()
     run_event(monkeypatch, tmp_path, fake, event)
@@ -340,20 +332,12 @@ def test_author_with_a_merged_pr_is_left_alone(
 @pytest.mark.parametrize(
     "number,history",
     [
-        (9, [opened(9, 0)]),
-        (9, [opened(5, 10), opened(9, 0)]),
-        (
-            9,
-            [
-                opened(2, 31),
-                opened(3, 1, pull_request=True),
-                opened(5, 10),
-                opened(9, 0),
-            ],
-        ),
-        (5, [opened(3, 20), opened(5, 10), opened(9, 0)]),
+        (9, [opened(9)]),
+        (9, [opened(5), opened(9)]),
+        (9, [opened(3, pull_request=True), opened(5), opened(9)]),
+        (5, [opened(3), opened(5), opened(9)]),
     ],
-    ids=["first", "second", "old-and-prs-ignored", "later-ones-ignored"],
+    ids=["first", "second", "prs-ignored", "later-ones-ignored"],
 )
 def test_issue_within_limit_is_left_open(
     monkeypatch: pytest.MonkeyPatch,
@@ -370,8 +354,8 @@ def test_issue_within_limit_is_left_open(
 @pytest.mark.parametrize(
     "history",
     [
-        [opened(3, 29), opened(5, 5), opened(9, 0)],
-        [opened(3, 29), opened(5, 5)],
+        [opened(3), opened(5), opened(9)],
+        [opened(3), opened(5)],
     ],
     ids=["third", "not-listed-yet"],
 )
@@ -380,7 +364,7 @@ def test_issue_over_limit_is_closed(
     tmp_path: Path,
     history: list[dict[str, Any]],
 ) -> None:
-    """Close a third issue in the window, counting closed ones too."""
+    """Close an issue while two earlier ones are still open."""
     fake = FakeGh(history=history)
     run_event(monkeypatch, tmp_path, fake, issue_event())
     assert fake.writes == closed(9, ISSUE_MESSAGE, *NOT_PLANNED)
@@ -390,7 +374,7 @@ def test_issue_reopened_by_maintainer_is_left_alone(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Let a maintainer override the limit by reopening the issue."""
-    fake = FakeGh(history=[opened(3, 29), opened(5, 5), opened(9, 0)])
+    fake = FakeGh(history=[opened(3), opened(5), opened(9)])
     run_event(monkeypatch, tmp_path, fake, issue_event(sender="maintainer"))
     assert fake.writes == []
 
