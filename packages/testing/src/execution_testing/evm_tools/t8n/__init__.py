@@ -135,6 +135,7 @@ class T8N(Load):
     alloc: Any
     env: "TestingEnvironment"
     txs: List["TestingTransaction"]
+    included_txs: List[Any]
     ommers: List[Ommer]
     rejected_transactions: List[Any]
     body: Bytes
@@ -238,8 +239,9 @@ class T8N(Load):
         self.alloc.migrate_state_commitment(t8n_data.fork.state_commitment())
         self.env = t8n_data.env
         self.txs = list(t8n_data.txs)
+        self.included_txs = []
         self.ommers = list(ommers)
-        self.body = Bytes(rlp.encode([tx.rlp() for tx in self.txs]))
+        self.body = Bytes()
         self.rejected_transactions = []
 
     def _tracer(self, type_: Type[T]) -> T:
@@ -332,24 +334,25 @@ class T8N(Load):
 
         self.fork.incorporate_tx_into_block(rewards_state)
 
-    def _process_txs(self, block_env: Any, block_output: Any) -> int:
+    def _process_txs(self, block_env: Any, block_output: Any) -> None:
         """
         Execute every transaction in ``self.txs`` against ``block_env``.
 
         Rejected transactions are skipped. They are reported under their
         position in the input, but they leave no trace in the block: the
         transactions that follow take the position the rejected one would
-        have had, as if it had never been supplied.
-
-        Return the number of accepted transactions.
+        have had, as if it had never been supplied. Accepted transactions
+        are added to ``self.included_txs``, so its length is the index the
+        next one takes.
         """
-        accepted = 0
-        accepted_txs = []
         for tx_index, testing_tx in enumerate(self.txs):
             try:
                 fork_tx = self.convert_transaction(testing_tx)
                 self.fork.process_transaction(
-                    block_env, block_output, fork_tx, Uint(accepted)
+                    block_env,
+                    block_output,
+                    fork_tx,
+                    Uint(len(self.included_txs)),
                 )
             except (EthereumException, UnsupportedTxError) as e:
                 # `UnsupportedTxError` covers ``convert_transaction``
@@ -363,16 +366,13 @@ class T8N(Load):
                 # fork raises only while admitting the transaction.
                 trie_set(
                     block_output.transactions_trie,
-                    rlp.encode(Uint(accepted)),
+                    rlp.encode(Uint(len(self.included_txs))),
                     None,
                 )
                 record_rejected_tx(self, tx_index, e)
                 self.logger.warning(f"Transaction {tx_index} failed: {e!r}")
             else:
-                accepted += 1
-                accepted_txs.append(testing_tx)
-        self.body = Bytes(rlp.encode([tx.rlp() for tx in accepted_txs]))
-        return accepted
+                self.included_txs.append(fork_tx)
 
     def run_state_test(self) -> None:
         """
@@ -398,9 +398,10 @@ class T8N(Load):
                     rlp.encode(Uint(0)),
                     None,
                 )
-                self.body = Bytes(rlp.encode([]))
                 record_rejected_tx(self, 0, e)
                 self.logger.warning(f"Transaction 0 failed: {e!r}")
+            else:
+                self.included_txs.append(fork_tx)
 
         self._block_exception = None
         self.result = build_result(
@@ -427,12 +428,14 @@ class T8N(Load):
                 data=block_env.block_hashes[-1],  # The parent hash
             )
 
-        accepted_txs = self._process_txs(block_env, block_output)
+        self._process_txs(block_env, block_output)
 
         # EIP-7928: Post-execution operations use index N+1
         if self.fork.has_hash_block_access_list:
             block_env.block_access_list_builder.block_access_index = (
-                self.fork.BlockAccessIndex(Uint(accepted_txs) + Uint(1))
+                self.fork.BlockAccessIndex(
+                    Uint(len(self.included_txs)) + Uint(1)
+                )
             )
 
         if not self.fork.proof_of_stake and self.state_reward != -1:
@@ -529,6 +532,12 @@ class T8N(Load):
             if self._previous_tracer is not None:
                 trace.set_evm_trace(self._previous_tracer)
                 self._previous_tracer = None
+
+        self.body = Bytes(
+            rlp.encode(
+                [self.fork.encode_transaction(tx) for tx in self.included_txs]
+            )
+        )
 
         # Apply the block diff in place so `self.alloc` is the post-state
         # when the caller reads it. Safe to do unconditionally, as
