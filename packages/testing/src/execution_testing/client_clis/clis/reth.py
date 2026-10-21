@@ -194,7 +194,10 @@ class RethExceptionMapper(ExceptionMapper):
             r"EIP-8250 nonce keys must be strictly increasing|"
             r"EIP-8250 requires between 1 and 16 nonce keys|"
             r"EIP-8250 nonce key exceeds 256 bits|"
-            r"EIP-8250 nonce sequence exceeds 64 bits"
+            r"EIP-8250 nonce sequence exceeds 64 bits|"
+            r"EIP-7906 atomic flag is invalid on POST_TX frames|"
+            r"EIP-7906 atomic batch cannot end on a POST_TX frame|"
+            r"EIP-7906 POST_TX frames must form a trailing suffix"
         ),
         TransactionException.TYPE_6_INVALID_FRAME_EXECUTION: (
             r"EIP-8141 SENDER frame executed before execution approval|"
