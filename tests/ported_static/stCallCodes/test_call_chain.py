@@ -295,8 +295,6 @@ def run_call_chain(
     context_base = depth * 100
 
     # Construct the innermost contract.
-    # Source: lll
-    # {  (SSTORE 3 1) (SSTORE 4 (CALLER)) (SSTORE 7 (CALLVALUE)) (SSTORE 330 (ADDRESS)) (SSTORE 332 (ORIGIN)) (SSTORE 336 (CALLDATASIZE)) (SSTORE 338 (CODESIZE)) (SSTORE 340 (GASPRICE)) }  # noqa: E501
     leaf_code = (
         Op.SSTORE(depth, 1)
         + Op.SSTORE(CALLER_SLOT, Op.CALLER)
@@ -319,8 +317,6 @@ def run_call_chain(
         values.append(0 if opcode == Op.DELEGATECALL else sent)
 
     # Construct the calling contracts, from the innermost one outward.
-    # Source: lll
-    # {  [[ 2 ]] (CALL 250000 <contract:0x1000000000000000000000000000000000000003> 3 0 64 0 64 ) }  # noqa: E501
     for level in reversed(range(depth)):
         opcode = chain[level]
         if opcode == Op.DELEGATECALL:
@@ -504,8 +500,6 @@ def test_recursive_call_chain(
 
     # Construct C, which calls back the address it receives as calldata
     # with one round less, or with no gas once no rounds are left.
-    # Source: lll
-    # {  [[ 2 ]] (CALL 500000 <contract:0x1000000000000000000000000000000000000001> 0 0 64 0 64 ) }  # noqa: E501
     rounds_left = Op.CALLDATALOAD(ROUNDS_SLOT_OFFSET)
     c = pre.deploy_contract(
         code=Op.CALLDATACOPY(dest_offset=0, offset=0, size=WINDOW)
@@ -523,8 +517,6 @@ def test_recursive_call_chain(
     )
 
     # Construct B, which forwards its calldata to C.
-    # Source: lll
-    # {  [[ 1 ]] (CALL 1000000 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) }  # noqa: E501
     b = pre.deploy_contract(
         code=Op.CALLDATACOPY(dest_offset=0, offset=0, size=WINDOW)
         + Op.SSTORE(1, b_to_c(address=c, args_size=WINDOW))
@@ -534,8 +526,6 @@ def test_recursive_call_chain(
 
     # Construct A, which passes B's address and the round count down as
     # calldata.
-    # Source: lll
-    # {  [[ 0 ]] (CALL 25000000 <contract:0x1000000000000000000000000000000000000001> 0 0 64 0 64 ) }  # noqa: E501
     a = pre.deploy_contract(
         code=Op.MSTORE(0, b)
         + Op.MSTORE(ROUNDS_SLOT_OFFSET, rounds)
@@ -598,8 +588,6 @@ def run_self_destruct_chain(
     sender = pre.fund_eoa()
 
     # Construct the innermost contract.
-    # Source: lll
-    # {  (SSTORE 3 1)  }
     contracts = [
         pre.deploy_contract(
             code=Op.SSTORE(depth, 1) + Op.STOP, balance=CONTRACT_BALANCE
@@ -610,8 +598,6 @@ def run_self_destruct_chain(
     # top level passes the beneficiary down as calldata, the middle levels
     # forward it, and the last caller self-destructs to it, before or after
     # its call.
-    # Source: lll
-    # {  [[ 2 ]] (CALL 50000 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) (SELFDESTRUCT <contract:0x1000000000000000000000000000000000000001>) }  # noqa: E501
     for level in reversed(range(depth)):
         last_caller = level == depth - 1
         if level == 0:
@@ -814,8 +800,6 @@ def run_out_of_gas_chain(
     sender = pre.fund_eoa()
 
     # Construct the innermost contract.
-    # Source: lll
-    # {  (SSTORE 3 1) (KECCAK256 0x00 0x2fffff) }
     leaf_suffix = OUT_OF_GAS_MEMORY if failing_level == depth else Bytecode()
     contracts = [
         pre.deploy_contract(
@@ -826,8 +810,6 @@ def run_out_of_gas_chain(
 
     # Construct the calling contracts, from the innermost one outward. Only
     # the call into the failing frame has bounded gas.
-    # Source: lll
-    # {  [[ 2 ]] (CALL 400000 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) [[11]] 1 }  # noqa: E501
     for level in reversed(range(depth)):
         opcode = chain[level]
         gas = OUT_OF_GAS_CALL_GAS if level == failing_level - 1 else Op.GAS
