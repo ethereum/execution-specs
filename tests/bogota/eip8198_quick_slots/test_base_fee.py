@@ -235,35 +235,54 @@ def test_invalid_base_fee(
 
 
 def slot_spacing_cases(fork: Fork) -> List[ParameterSet]:
-    """Return slot durations and slot gaps between a block and its parent."""
+    """Return the seconds and slots between a block and its parent."""
     # The smallest slot gap at which `96 * slots_elapsed` exceeds 64 bits.
     gap_beyond_64_bits = -(
         -(2**64) // fork.base_fee_max_change_denominator(slots_elapsed=1)
     )
     # Spacing beyond the reference duration per slot is capped.
     reference = Spec.BASE_FEE_REFERENCE_SLOT_SECONDS
+    # The smallest slot gap at which the cap, `reference * slots_elapsed`,
+    # exceeds 64 bits. Spacing below the reference keeps the cap unused.
+    cap_gap_beyond_64_bits = -(-(2**64) // reference)
     return [
         pytest.param(9, 1, id="9s"),
-        pytest.param(9, 3, id="9s_two_missed_slots"),
+        pytest.param(9 * 3, 3, id="9s_two_missed_slots"),
         pytest.param(10, 1, id="10s"),
-        pytest.param(10, 2, id="10s_missed_slot"),
-        pytest.param(10, 5, id="10s_four_missed_slots"),
+        pytest.param(10 * 2, 2, id="10s_missed_slot"),
+        pytest.param(10 * 5, 5, id="10s_four_missed_slots"),
+        # The spacing per slot is not a whole number of seconds.
+        pytest.param(21, 2, id="21s_over_two_slots"),
+        pytest.param(31, 3, id="31s_over_three_slots"),
+        pytest.param(1, 2, id="1s_over_two_slots"),
         pytest.param(reference - 1, 1, id=f"{reference - 1}s"),
         pytest.param(reference, 1, id=f"{reference}s"),
-        pytest.param(reference, 2, id=f"{reference}s_missed_slot"),
-        pytest.param(reference, 10, id=f"{reference}s_nine_missed_slots"),
+        pytest.param(reference * 2, 2, id=f"{reference}s_missed_slot"),
+        pytest.param(reference * 10, 10, id=f"{reference}s_nine_missed_slots"),
         pytest.param(reference + 1, 1, id=f"{reference + 1}s"),
-        pytest.param(reference + 1, 2, id=f"{reference + 1}s_missed_slot"),
+        pytest.param(
+            (reference + 1) * 2, 2, id=f"{reference + 1}s_missed_slot"
+        ),
         pytest.param(2**32, 1, id="long_gap"),
         pytest.param(
-            reference,
+            reference * (gap_beyond_64_bits - 1),
             gap_beyond_64_bits - 1,
             id="slot_gap_product_within_64_bits",
         ),
         pytest.param(
-            reference,
+            reference * gap_beyond_64_bits,
             gap_beyond_64_bits,
             id="slot_gap_product_beyond_64_bits",
+        ),
+        pytest.param(
+            (reference - 1) * (cap_gap_beyond_64_bits - 1),
+            cap_gap_beyond_64_bits - 1,
+            id="spacing_cap_within_64_bits",
+        ),
+        pytest.param(
+            (reference - 1) * cap_gap_beyond_64_bits,
+            cap_gap_beyond_64_bits,
+            id="spacing_cap_beyond_64_bits",
         ),
     ]
 
@@ -341,7 +360,7 @@ def test_slot_number_must_increase(
 
 
 @pytest.mark.parametrize_by_fork(
-    "slot_seconds,slots_elapsed", slot_spacing_cases
+    "seconds_elapsed,slots_elapsed", slot_spacing_cases
 )
 @pytest.mark.parametrize(
     "parent_gas_used",
@@ -355,7 +374,7 @@ def test_base_fee_follows_slot_duration(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
-    slot_seconds: int,
+    seconds_elapsed: int,
     slots_elapsed: int,
     parent_gas_used: int,
 ) -> None:
@@ -365,36 +384,40 @@ def test_base_fee_follows_slot_duration(
     slots between a block and its parent leave it unchanged.
     """
     parent_base_fee_per_gas = 10**9
-    base_fee_per_gas_calculator = fork.base_fee_per_gas_calculator()
-    expected_base_fee = base_fee_per_gas_calculator(
-        parent_base_fee_per_gas=parent_base_fee_per_gas,
-        parent_gas_used=parent_gas_used,
-        parent_gas_limit=BLOCK_GAS_LIMIT,
-        seconds_elapsed=slot_seconds * slots_elapsed,
-        slots_elapsed=slots_elapsed,
-    )
-    capped_slot_seconds = min(
-        slot_seconds, Spec.BASE_FEE_REFERENCE_SLOT_SECONDS
-    )
-    assert expected_base_fee == base_fee_per_gas_calculator(
-        parent_base_fee_per_gas=parent_base_fee_per_gas,
-        parent_gas_used=parent_gas_used,
-        parent_gas_limit=BLOCK_GAS_LIMIT,
-        seconds_elapsed=capped_slot_seconds,
-    )
+
+    def base_fee_after(seconds_elapsed: int, slots_elapsed: int) -> int:
+        return fork.base_fee_per_gas_calculator()(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_used=parent_gas_used,
+            parent_gas_limit=BLOCK_GAS_LIMIT,
+            seconds_elapsed=seconds_elapsed,
+            slots_elapsed=slots_elapsed,
+        )
+
+    expected_base_fee = base_fee_after(seconds_elapsed, slots_elapsed)
+    slot_seconds = seconds_elapsed // slots_elapsed
+    if seconds_elapsed % slots_elapsed == 0:
+        capped_slot_seconds = min(
+            slot_seconds, Spec.BASE_FEE_REFERENCE_SLOT_SECONDS
+        )
+        assert expected_base_fee == base_fee_after(capped_slot_seconds, 1)
+    else:
+        # A rule that rounds the spacing per slot down to whole seconds
+        # gives another base fee.
+        assert expected_base_fee != base_fee_after(
+            slot_seconds * slots_elapsed, slots_elapsed
+        )
     sender = pre.fund_eoa()
     genesis_environment = Environment(
         gas_limit=BLOCK_GAS_LIMIT,
-        base_fee_per_gas=genesis_base_fee_for(
-            fork, parent_base_fee_per_gas, slot_seconds=slot_seconds
-        ),
+        base_fee_per_gas=genesis_base_fee_for(fork, parent_base_fee_per_gas),
     )
     blocks = [
         Block(
             txs=gas_spending_transactions(
                 pre=pre, sender=sender, fork=fork, gas=parent_gas_used
             ),
-            timestamp=slot_seconds,
+            timestamp=SLOT_SECONDS,
             slot_number=1,
             header_verify=Header(
                 base_fee_per_gas=parent_base_fee_per_gas,
@@ -402,7 +425,7 @@ def test_base_fee_follows_slot_duration(
             ),
         ),
         Block(
-            timestamp=slot_seconds * (1 + slots_elapsed),
+            timestamp=SLOT_SECONDS + seconds_elapsed,
             slot_number=1 + slots_elapsed,
             header_verify=Header(base_fee_per_gas=expected_base_fee),
         ),
