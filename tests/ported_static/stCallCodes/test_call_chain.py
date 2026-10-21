@@ -111,6 +111,39 @@ state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_100_SuicideMid
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_101_SuicideMiddleFiller.json
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_110_SuicideMiddleFiller.json
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_SuicideMiddleFiller.json
+state_tests/stCallCodes/callcallcall_000_OOGEFiller.json
+state_tests/stCallCodes/callcallcallcode_001_OOGEFiller.json
+state_tests/stCallCodes/callcallcodecall_010_OOGEFiller.json
+state_tests/stCallCodes/callcallcodecallcode_011_OOGEFiller.json
+state_tests/stCallCodes/callcodecallcall_100_OOGEFiller.json
+state_tests/stCallCodes/callcodecallcallcode_101_OOGEFiller.json
+state_tests/stCallCodes/callcodecallcodecall_110_OOGEFiller.json
+state_tests/stCallCodes/callcodecallcodecallcode_111_OOGEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcallcode_001_OOGEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcodecall_010_OOGEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcodecallcode_011_OOGEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcall_100_OOGEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcallcode_101_OOGEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcodecall_110_OOGEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcodecallcode_111_OOGEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcallcode_001_OOGEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecall_010_OOGEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecallcode_011_OOGEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_100_OOGEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_101_OOGEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_110_OOGEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_OOGEFiller.json
+state_tests/stCallCodes/callcall_00_OOGEFiller.json
+state_tests/stCallCodes/callcallcode_01_OOGEFiller.json
+state_tests/stCallCodes/callcodecall_10_OOGEFiller.json
+state_tests/stCallCodes/callcodecallcode_11_OOGEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcallcode_01_OOGEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecall_10_OOGEFiller.json
+state_tests/stCallDelegateCodesHomestead/callcodecallcode_11_OOGEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcallcode_01_OOGEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecall_10_OOGEFiller.json
+state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcode_11_OOGEFiller.json
+state_tests/stCallCodes/callcall_00_OOGE_valueTransferFiller.json
 
 @manually-enhanced: Do not overwrite. The fillers are one chain test copied
 into three directories, each substituting a different pair of call opcodes,
@@ -132,6 +165,10 @@ In the SELFDESTRUCT chains the beneficiary is passed down as calldata too,
 and the destroyed account is whichever account the self-destructing frame
 runs as. Before EIP-6780 it is deleted; from Cancun on it keeps its code
 and storage and only its balance moves, unless it is its own beneficiary.
+
+In the out-of-gas chains one frame runs out of gas expanding memory to 3 MB
+for a KECCAK256, which takes about 19.2M gas. Only the call into that frame
+is given bounded gas, so its caller keeps enough to record the failure.
 """
 
 from dataclasses import dataclass
@@ -164,6 +201,9 @@ WINDOW = 64
 CALLER_SLOT = 4
 CALLVALUE_SLOT = 7
 ROUNDS_SLOT_OFFSET = 32
+OUT_OF_GAS_MEMORY = Op.SHA3(offset=0, size=0x2FFFFF)
+OUT_OF_GAS_CALL_GAS = 400_000
+FAILURE_SLOT = 11
 
 
 def call_chains(depth: int) -> list:
@@ -705,4 +745,198 @@ def test_three_level_call_chain_suicide_middle(
     """Call -> call -> (self-destruct to the top level) call -> code."""
     run_self_destruct_chain(
         state_test, pre, fork, chain, beneficiary_level=0, before_call=True
+    )
+
+
+def run_out_of_gas_chain(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    chain: tuple[Op, ...],
+    values: tuple[int, ...],
+    failing_level: int,
+    after_call: bool,
+) -> None:
+    """
+    Call down `chain`, with the frame at `failing_level` running out of gas
+    before or, with `after_call`, after its own call; the innermost code
+    runs out of gas after its store.
+
+    Level `n` stores its call's success in slot `n`, and the caller of the
+    failing frame stores 1 in `FAILURE_SLOT` after the failed call. The
+    failing frame's writes and everything below it are reverted.
+    """
+    depth = len(chain)
+    sender = pre.fund_eoa()
+
+    # Construct the innermost contract.
+    # Source: lll
+    # {  (SSTORE 3 1) (KECCAK256 0x00 0x2fffff) }
+    leaf_suffix = OUT_OF_GAS_MEMORY if failing_level == depth else Bytecode()
+    contracts = [
+        pre.deploy_contract(
+            code=Op.SSTORE(depth, 1) + leaf_suffix + Op.STOP,
+            balance=CONTRACT_BALANCE,
+        )
+    ]
+
+    # Construct the calling contracts, from the innermost one outward. Only
+    # the call into the failing frame has bounded gas.
+    # Source: lll
+    # {  [[ 2 ]] (CALL 400000 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) [[11]] 1 }  # noqa: E501
+    for level in reversed(range(depth)):
+        opcode = chain[level]
+        gas = OUT_OF_GAS_CALL_GAS if level == failing_level - 1 else Op.GAS
+        failing = level == failing_level
+        prefix = (
+            OUT_OF_GAS_MEMORY if failing and not after_call else Bytecode()
+        )
+        if opcode == Op.DELEGATECALL:
+            call = Op.SSTORE(
+                level,
+                opcode(
+                    gas=gas,
+                    address=contracts[0],
+                    args_size=WINDOW,
+                    ret_size=WINDOW,
+                ),
+            )
+        else:
+            call = Op.SSTORE(
+                level,
+                opcode(
+                    gas=gas,
+                    address=contracts[0],
+                    value=values[level],
+                    args_size=WINDOW,
+                    ret_size=WINDOW,
+                ),
+            )
+        if failing and after_call:
+            suffix = OUT_OF_GAS_MEMORY
+        elif level == failing_level - 1:
+            suffix = Op.SSTORE(FAILURE_SLOT, 1)
+        else:
+            suffix = Bytecode()
+        contracts.insert(
+            0,
+            pre.deploy_contract(
+                code=prefix + call + suffix + Op.STOP,
+                balance=CONTRACT_BALANCE,
+            ),
+        )
+
+    # Construct the transaction.
+    tx = Transaction(sender=sender, to=contracts[0])
+
+    # Simulate each call's context and the value moved by the calls that
+    # succeed, which are those above the failing frame's caller.
+    frames = [Frame(address=contracts[0], caller=sender, value=0)]
+    balance = dict.fromkeys(contracts, CONTRACT_BALANCE)
+    for level, (opcode, callee, value) in enumerate(
+        zip(chain, contracts[1:], values, strict=True)
+    ):
+        frame = frames[-1]
+        if opcode == Op.CALL and level < failing_level - 1:
+            balance[frame.address] -= value
+            balance[callee] += value
+        frames.append(frame.enter(opcode, callee, value))
+
+    # Construct the expected storage: the failed call stores 0.
+    storage: dict[Address, dict[int, int]] = {c: {} for c in contracts}
+    for level in range(failing_level - 1):
+        storage[frames[level].address][level] = 1
+    storage[frames[failing_level - 1].address][FAILURE_SLOT] = 1
+
+    # Construct the expected post-state.
+    post = {
+        contract: Account(storage=storage[contract], balance=balance[contract])
+        for contract in contracts
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stCallCodes/callcallcall_000_OOGEFiller.json",
+        "state_tests/stCallCodes/callcallcallcode_001_OOGEFiller.json",
+        "state_tests/stCallCodes/callcallcodecall_010_OOGEFiller.json",
+        "state_tests/stCallCodes/callcallcodecallcode_011_OOGEFiller.json",
+        "state_tests/stCallCodes/callcodecallcall_100_OOGEFiller.json",
+        "state_tests/stCallCodes/callcodecallcallcode_101_OOGEFiller.json",
+        "state_tests/stCallCodes/callcodecallcodecall_110_OOGEFiller.json",
+        "state_tests/stCallCodes/callcodecallcodecallcode_111_OOGEFiller.json",
+        "state_tests/stCallDelegateCodesHomestead/callcallcallcode_001_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcodecall_010_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcallcodecallcode_011_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcall_100_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcallcode_101_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcodecall_110_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcodecallcode_111_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcallcode_001_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecall_010_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcodecallcode_011_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_100_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_101_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_110_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_OOGEFiller.json",  # noqa: E501,
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("chain", call_chains(3))
+def test_three_level_call_chain_ooge(
+    state_test: StateTestFiller, pre: Alloc, chain: tuple[Op, Op, Op]
+) -> None:
+    """Call -> call -> call -> code that runs out of gas."""
+    run_out_of_gas_chain(
+        state_test,
+        pre,
+        chain,
+        values=(0, 0, 0),
+        failing_level=3,
+        after_call=True,
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stCallCodes/callcall_00_OOGEFiller.json",
+        "state_tests/stCallCodes/callcallcode_01_OOGEFiller.json",
+        "state_tests/stCallCodes/callcodecall_10_OOGEFiller.json",
+        "state_tests/stCallCodes/callcodecallcode_11_OOGEFiller.json",
+        "state_tests/stCallDelegateCodesHomestead/callcallcode_01_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecall_10_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcode_11_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcallcode_01_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecall_10_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcode_11_OOGEFiller.json",  # noqa: E501
+        "state_tests/stCallCodes/callcall_00_OOGE_valueTransferFiller.json",
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize(
+    "values",
+    [
+        pytest.param((0, 0), id="no_value"),
+        pytest.param((20, 10), id="with_value"),
+    ],
+)
+@pytest.mark.parametrize("chain", call_chains(2))
+def test_two_level_call_chain_ooge(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    chain: tuple[Op, Op],
+    values: tuple[int, int],
+) -> None:
+    """
+    Call -> call -> code that runs out of gas, with and without value on
+    the calls that carry one.
+    """
+    run_out_of_gas_chain(
+        state_test,
+        pre,
+        chain,
+        values=values,
+        failing_level=2,
+        after_call=True,
     )
