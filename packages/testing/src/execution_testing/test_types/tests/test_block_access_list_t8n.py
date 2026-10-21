@@ -444,3 +444,42 @@ def test_bal_item_count() -> None:
         ]
     )
     assert bal.item_count() == 4
+
+
+def test_bal_with_remapped_indices() -> None:
+    """
+    Test that every kind of change moves to its new index and still
+    serializes like a BAL built with that index.
+    """
+
+    def account(indices: List[int]) -> BalAccountChange:
+        return BalAccountChange(
+            address=Address(0xA),
+            nonce_changes=[
+                BalNonceChange(block_access_index=indices[0], post_nonce=1)
+            ],
+            balance_changes=[
+                BalBalanceChange(block_access_index=indices[1], post_balance=1)
+            ],
+            code_changes=[
+                BalCodeChange(block_access_index=indices[2], new_code=b"\x00")
+            ],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=1,
+                    slot_changes=[
+                        BalStorageChange(
+                            block_access_index=index, post_value=1
+                        )
+                        for index in indices
+                    ],
+                )
+            ],
+        )
+
+    bal = BlockAccessList([account([0, 1, 2])])
+    remapped = bal.with_remapped_indices({0: 0, 1: 2, 2: 4}.__getitem__)
+
+    expected = BlockAccessList([account([0, 2, 4])])
+    assert remapped.model_dump(mode="json") == expected.model_dump(mode="json")
+    remapped.validate_structure()

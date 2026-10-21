@@ -236,8 +236,8 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
             return [
                 change.model_copy(
                     update={
-                        "block_access_index": remap(
-                            int(change.block_access_index)
+                        "block_access_index": ZeroPaddedHexNumber(
+                            remap(int(change.block_access_index))
                         )
                     }
                 )
