@@ -120,6 +120,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytecode,
     Fork,
     StateTestFiller,
     Transaction,
@@ -200,6 +201,7 @@ def run_call_chain(
         + Op.SSTORE(context_base + 40, Op.GASPRICE)
         + Op.STOP
     )
+    contracts = [pre.deploy_contract(code=leaf_code, balance=CONTRACT_BALANCE)]
 
     # Assign call values: the k-th call that carries a value sends k wei.
     values = []
@@ -212,26 +214,35 @@ def run_call_chain(
     # Construct the calling contracts, from the innermost one outward.
     # Source: lll
     # {  [[ 2 ]] (CALL 250000 <contract:0x1000000000000000000000000000000000000003> 3 0 64 0 64 ) }  # noqa: E501
-    contracts = [pre.deploy_contract(code=leaf_code, balance=CONTRACT_BALANCE)]
     for level in reversed(range(depth)):
         opcode = chain[level]
         if opcode == Op.DELEGATECALL:
-            call = opcode(
-                address=contracts[0], args_size=WINDOW, ret_size=WINDOW
+            call = Op.SSTORE(
+                level,
+                opcode(
+                    address=contracts[0], args_size=WINDOW, ret_size=WINDOW
+                ),
             )
         else:
-            call = opcode(
-                address=contracts[0],
-                value=values[level],
-                args_size=WINDOW,
-                ret_size=WINDOW,
+            call = Op.SSTORE(
+                level,
+                opcode(
+                    address=contracts[0],
+                    value=values[level],
+                    args_size=WINDOW,
+                    ret_size=WINDOW,
+                ),
             )
-        code = Op.SSTORE(level, call)
-        if level > 0:
-            code += Op.SSTORE(CALLER_SLOT + level, Op.CALLER)
+        suffix = (
+            Op.SSTORE(CALLER_SLOT + level, Op.CALLER)
+            if level > 0
+            else Bytecode()
+        )
         contracts.insert(
             0,
-            pre.deploy_contract(code=code + Op.STOP, balance=CONTRACT_BALANCE),
+            pre.deploy_contract(
+                code=call + suffix + Op.STOP, balance=CONTRACT_BALANCE
+            ),
         )
 
     # Construct the transaction.
@@ -491,28 +502,33 @@ def run_suicide_end_chain(
     # Source: lll
     # {  [[ 2 ]] (CALL 50000 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) (SELFDESTRUCT <contract:0x1000000000000000000000000000000000000001>) }  # noqa: E501
     for level in reversed(range(depth)):
-        call = Op.SSTORE(
-            level,
-            chain[level](
-                address=contracts[0], args_size=WINDOW, ret_size=WINDOW
-            ),
-        )
-        if level == depth - 1:
-            call += Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
+        last_caller = level == depth - 1
         if level == 0:
             # The top level runs as itself, so it can name itself as the
             # beneficiary with ADDRESS.
             beneficiary = (
                 Op.ADDRESS if beneficiary_level == 0 else contracts[0]
             )
-            code = Op.MSTORE(0, beneficiary) + call
-        elif level < depth - 1:
-            code = Op.MSTORE(0, Op.CALLDATALOAD(0)) + call
+            prefix = Op.MSTORE(0, beneficiary)
+        elif not last_caller:
+            prefix = Op.MSTORE(0, Op.CALLDATALOAD(0))
         else:
-            code = call
+            prefix = Bytecode()
+        call = Op.SSTORE(
+            level,
+            chain[level](
+                address=contracts[0], args_size=WINDOW, ret_size=WINDOW
+            ),
+        )
+        suffix = (
+            Op.SELFDESTRUCT(Op.CALLDATALOAD(0)) if last_caller else Bytecode()
+        )
         contracts.insert(
             0,
-            pre.deploy_contract(code=code + Op.STOP, balance=CONTRACT_BALANCE),
+            pre.deploy_contract(
+                code=prefix + call + suffix + Op.STOP,
+                balance=CONTRACT_BALANCE,
+            ),
         )
 
     # Construct the transaction.
