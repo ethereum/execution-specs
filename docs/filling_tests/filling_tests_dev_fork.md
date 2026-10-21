@@ -34,36 +34,26 @@ By default, the execution-testing framework only generates fixtures for forks th
 
 ## Synthetic blob schedules
 
-`BPOIncrease` and `BPODecrease` exercise blob schedule changes under Amsterdam
-execution rules. They form the chain `Amsterdam → BPOIncrease → BPODecrease`:
-the increased schedule has target/max 21/32 and update fraction 20609697; the
-decreased schedule has target/max 14/21 and update fraction 13739630. These are
-test scenarios, not scheduled network upgrades.
+Every fork from Amsterdam on gets two blob parameter only (BPO) scenario forks, generated in `forks.py`, so a new fork or a new BPO fork needs no extra work:
 
-Select them explicitly, for example:
+- `<Fork>BPOIncrease` raises the target of `<Fork>` by half.
+- `<Fork>BPODecrease` follows it and lowers the target to two thirds of `<Fork>`'s.
+
+Both keep the max to target ratio of `<Fork>`, rounded up, and scale the update fraction with the target, as on mainnet, so the blob base fee falls at the same rate per empty block. They run under the rules of `<Fork>`. For Amsterdam the increase is 21/32 with update fraction 17527006 and the decrease is 9/14 with update fraction 7511574. These are test scenarios, not scheduled network upgrades.
+
+Each scenario takes the next client BPO slot after the BPO forks it descends from, so the Amsterdam scenarios fill `HIVE_BPO3_*` and `HIVE_BPO4_*`. Hive already maps the numbered keys onto the client config, so a new fork or BPO fork needs no Hive change either.
+
+Fill them with `--bpo-scenarios`, which adds the scenarios of every selected fork and the transitions into them at timestamp 15,000:
 
 ```console
-uv run fill tests/osaka/eip7918_blob_reserve_price/ --from=BPOIncrease --until=BPODecrease
+uv run fill tests/osaka/eip7918_blob_reserve_price/ --from=Amsterdam --until=Bogota --bpo-scenarios
 ```
 
-Tests marked `valid_for_bpo_forks` can cover either a standalone schedule active
-at genesis or a transition. The transitions activate at timestamp 15,000.
-`--until=Amsterdam` stops before these scenarios and excludes the historical
-parallel BPO3–BPO5 branch. Numbered fork and transition definitions remain
-available for older fixtures and genesis files.
+Without the flag, `--until=Amsterdam` stops before these scenarios and excludes the historical parallel BPO3–BPO5 branch. Numbered fork and transition definitions remain available for older fixtures and genesis files.
 
-Hive needs the descriptive `HIVE_BPO_INCREASE_*` and `HIVE_BPO_DECREASE_*`
-mappings. Clients must also permit their BPO3/BPO4 configuration slots to
-activate after Amsterdam; mapper aliases alone cannot bypass fork-order checks.
-These scenarios are therefore excluded from automatic fixture releases pending
-client support. Successful filling does not establish client compatibility.
+Clients must permit their BPO slots to activate after the fork the scenarios follow, so the scenarios are excluded from automatic fixture releases pending client support. Successful filling does not establish client compatibility.
 
-The Python Specification workflow fills from Amsterdam through BPODecrease
-in its existing Amsterdam matrix entry. The `not slow and primary_format`
-filter includes standalone reserve-price and excess-blob-gas cases, but excludes
-the synthetic transition tests marked `slow`. These CI fixtures are not
-published. Release splitting uses `.github/configs/fork-ranges.yaml`; the
-internal fill jobs are configured separately in `.github/workflows/test.yaml`.
+The Python Specification workflow passes `--bpo-scenarios` to every fill job, so CI fills the scenarios and their transitions for each fork from Amsterdam on. These CI fixtures are not published.
 
 ## Further Help
 
