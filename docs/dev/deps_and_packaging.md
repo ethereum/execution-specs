@@ -1,6 +1,6 @@
 # Dependency Management and Packaging
 
-EELS uses [`uv`](https://docs.astral.sh/uv/) to manage and pin its dependencies, and a minimum `uv>=0.7.0` is required.
+EELS uses [`uv`](https://docs.astral.sh/uv/) to manage and pin its dependencies, and a minimum `uv>=0.13.4` is required. Older versions trust a root CA with a compromised intermediate ([GHSA-hq85-5cpj-mr62](https://github.com/astral-sh/uv/security/advisories/GHSA-hq85-5cpj-mr62)). Run `uv self update` to upgrade a standalone install, or upgrade `uv` with the package manager you installed it with.
 
 ## Workspace Layout
 

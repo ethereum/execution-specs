@@ -18,7 +18,7 @@ runs:
       continue-on-error: true
       shell: bash
       working-directory: ${{ inputs.directory }}
-      run: uv sync --python pypy3.11 --no-dev --group test
+      run: uv sync --python pypy3.11.15 --no-dev --group test
     - name: Install C and Rust toolchains
       if: steps.cached.outcome == 'failure'
       shell: bash
@@ -30,4 +30,4 @@ runs:
       if: steps.cached.outcome == 'failure'
       shell: bash
       working-directory: ${{ inputs.directory }}
-      run: uv sync --python pypy3.11 --no-dev --group test
+      run: uv sync --python pypy3.11.15 --no-dev --group test
