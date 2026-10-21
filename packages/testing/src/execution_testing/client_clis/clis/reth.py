@@ -187,7 +187,10 @@ class RethExceptionMapper(ExceptionMapper):
             r"malformed EIP-8141 expiry verifier frame|"
             r"multiple EIP-8141 expiry verifier frames|"
             r"EIP-8141 arbitrary signature signer must be empty|"
-            r"EIP-8141 signature signer does not match"
+            r"EIP-8141 signature signer does not match|"
+            r"EIP-7906 atomic flag is invalid on POST_TX frames|"
+            r"EIP-7906 atomic batch cannot end on a POST_TX frame|"
+            r"EIP-7906 POST_TX frames must form a trailing suffix"
         ),
         TransactionException.TYPE_6_INVALID_FRAME_EXECUTION: (
             r"EIP-8141 SENDER frame executed before execution approval|"
