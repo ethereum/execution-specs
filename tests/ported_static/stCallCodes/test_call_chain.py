@@ -194,8 +194,8 @@ into three directories, each substituting a different pair of call opcodes,
 so they collapse to one test per chain depth parametrized on every chain of
 CALL, CALLCODE and DELEGATECALL. The Homestead copies added CALLER stores to
 some intermediate levels and moved the innermost CALLVALUE store between
-slots 5, 6 and 7; every level now stores CALLER and the innermost code
-stores CALLVALUE in slot 7. The post state is derived from the opcodes:
+slots 5, 6 and 7; every intermediate level now stores CALLER and the innermost
+code stores CALLVALUE in slot 7. The post state is derived from the opcodes:
 CALL moves the context to the callee, CALLCODE keeps the caller's account
 but makes it the CALLER, and DELEGATECALL keeps the caller's whole context.
 
@@ -226,11 +226,11 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Cancun
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -245,7 +245,7 @@ GAS_PRICE = 10
 WINDOW = 64
 CALLER_SLOT = 4
 CALLVALUE_SLOT = 7
-ROUNDS_SLOT_OFFSET = 32
+ROUNDS_OFFSET = 32
 OUT_OF_GAS_MEMORY = Op.SHA3(offset=0, size=0x2FFFFF)
 OUT_OF_GAS_CALL_GAS = 400_000
 FAILURE_SLOT = 11
@@ -500,10 +500,10 @@ def test_recursive_call_chain(
 
     # Construct C, which calls back the address it receives as calldata
     # with one round less, or with no gas once no rounds are left.
-    rounds_left = Op.CALLDATALOAD(ROUNDS_SLOT_OFFSET)
+    rounds_left = Op.CALLDATALOAD(ROUNDS_OFFSET)
     c = pre.deploy_contract(
         code=Op.CALLDATACOPY(dest_offset=0, offset=0, size=WINDOW)
-        + Op.MSTORE(ROUNDS_SLOT_OFFSET, Op.SUB(rounds_left, 1))
+        + Op.MSTORE(ROUNDS_OFFSET, Op.SUB(rounds_left, 1))
         + Op.SSTORE(
             2,
             c_to_b(
@@ -528,7 +528,7 @@ def test_recursive_call_chain(
     # calldata.
     a = pre.deploy_contract(
         code=Op.MSTORE(0, b)
-        + Op.MSTORE(ROUNDS_SLOT_OFFSET, rounds)
+        + Op.MSTORE(ROUNDS_OFFSET, rounds)
         + Op.SSTORE(0, a_to_b(address=b, args_size=WINDOW))
         + Op.STOP,
         balance=CONTRACT_BALANCE,
@@ -574,6 +574,7 @@ def run_self_destruct_chain(
     chain: tuple[Op, ...],
     beneficiary_level: int,
     before_call: bool,
+    send_value: bool,
 ) -> None:
     """
     Call down `chain` and SELFDESTRUCT the frame that makes the last call
@@ -598,6 +599,7 @@ def run_self_destruct_chain(
     # top level passes the beneficiary down as calldata, the middle levels
     # forward it, and the last caller self-destructs to it, before or after
     # its call.
+    values: list[int] = []
     for level in reversed(range(depth)):
         last_caller = level == depth - 1
         if level == 0:
@@ -613,12 +615,30 @@ def run_self_destruct_chain(
             prefix = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
         else:
             prefix = Bytecode()
-        call = Op.SSTORE(
-            level,
-            chain[level](
-                address=contracts[0], args_size=WINDOW, ret_size=WINDOW
-            ),
-        )
+        call_opcode = chain[level]
+        if call_opcode in [Op.CALL, Op.CALLCODE]:
+            call_value = level + 1 if send_value else 0
+            call = Op.SSTORE(
+                level,
+                call_opcode(
+                    address=contracts[0],
+                    args_size=WINDOW,
+                    ret_size=WINDOW,
+                    value=call_value,
+                ),
+            )
+            values.insert(0, call_value)
+        else:
+            call = Op.SSTORE(
+                level,
+                call_opcode(
+                    address=contracts[0],
+                    args_size=WINDOW,
+                    ret_size=WINDOW,
+                ),
+            )
+            values.insert(0, 0)
+
         suffix = (
             Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
             if last_caller and not before_call
@@ -635,10 +655,19 @@ def run_self_destruct_chain(
     # Construct the transaction.
     tx = Transaction(sender=sender, to=contracts[0])
 
-    # Simulate each call's context.
+    # Simulate each call's context and the value moved by the calls that
+    # run: with `before_call`, the last caller's call never does.
     frames = [Frame(address=contracts[0], caller=sender, value=0)]
-    for opcode, callee in zip(chain, contracts[1:], strict=True):
-        frames.append(frames[-1].enter(opcode, callee, 0))
+    balance = dict.fromkeys(contracts, CONTRACT_BALANCE)
+    calls_made = depth - 1 if before_call else depth
+    for level, (opcode, callee, value) in enumerate(
+        zip(chain, contracts[1:], values, strict=True)
+    ):
+        frame = frames[-1]
+        if opcode == Op.CALL and level < calls_made:
+            balance[frame.address] -= value
+            balance[callee] += value
+        frames.append(frame.enter(opcode, callee, value))
     destroyed = frames[depth - 1].address
     beneficiary_address = contracts[beneficiary_level]
 
@@ -652,7 +681,6 @@ def run_self_destruct_chain(
     # Construct the expected balances: the destroyed account's balance
     # moves to the beneficiary, and before Cancun a self-destruct to itself
     # burns it.
-    balance = dict.fromkeys(contracts, CONTRACT_BALANCE)
     if beneficiary_address != destroyed:
         balance[beneficiary_address] += balance[destroyed]
         balance[destroyed] = 0
@@ -707,7 +735,38 @@ def test_three_level_call_chain_suicide_end(
 ) -> None:
     """Call -> call -> (call -> code) self-destruct to the first callee."""
     run_self_destruct_chain(
-        state_test, pre, fork, chain, beneficiary_level=1, before_call=False
+        state_test,
+        pre,
+        fork,
+        chain,
+        beneficiary_level=1,
+        before_call=False,
+        send_value=False,
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_SuicideEndFiller.json",  # noqa: E501
+    ],
+)
+@pytest.mark.valid_from("SpuriousDragon")
+@pytest.mark.parametrize("chain", call_chains(3))
+def test_three_level_call_chain_suicide_end_with_value(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    chain: tuple[Op, Op, Op],
+) -> None:
+    """Call -> call -> (call -> code) self-destruct to the first callee."""
+    run_self_destruct_chain(
+        state_test,
+        pre,
+        fork,
+        chain,
+        beneficiary_level=1,
+        before_call=False,
+        send_value=True,
     )
 
 
@@ -735,7 +794,13 @@ def test_two_level_call_chain_suicide_end(
 ) -> None:
     """Call -> (call -> code) self-destruct to the top level."""
     run_self_destruct_chain(
-        state_test, pre, fork, chain, beneficiary_level=0, before_call=False
+        state_test,
+        pre,
+        fork,
+        chain,
+        beneficiary_level=0,
+        before_call=False,
+        send_value=False,
     )
 
 
@@ -775,7 +840,13 @@ def test_three_level_call_chain_suicide_middle(
 ) -> None:
     """Call -> call -> (self-destruct to the top level) call -> code."""
     run_self_destruct_chain(
-        state_test, pre, fork, chain, beneficiary_level=0, before_call=True
+        state_test,
+        pre,
+        fork,
+        chain,
+        beneficiary_level=0,
+        before_call=True,
+        send_value=False,
     )
 
 
@@ -789,8 +860,8 @@ def run_out_of_gas_chain(
 ) -> None:
     """
     Call down `chain`, with the frame at `failing_level` running out of gas
-    before or, with `after_call`, after its own call; the innermost code
-    runs out of gas after its store.
+    before or, with `after_call`, after its own call. A failing innermost
+    frame runs out of gas after its store instead.
 
     Level `n` stores its call's success in slot `n`, and the caller of the
     failing frame stores 1 in `FAILURE_SLOT` after the failed call. The
