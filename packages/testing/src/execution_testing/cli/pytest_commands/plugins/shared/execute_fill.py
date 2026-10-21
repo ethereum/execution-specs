@@ -197,7 +197,8 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "primary_format: Mark the first fixture format generated for a test. "
-        "Select with `-m primary_format` to fill every test exactly once.",
+        "Selecting it with `-m primary_format` is deprecated; use "
+        "--primary-format-only to fill every test exactly once.",
     )
     config.addinivalue_line(
         "markers",

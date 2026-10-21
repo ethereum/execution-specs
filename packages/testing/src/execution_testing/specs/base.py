@@ -210,6 +210,7 @@ class BaseTest(BaseModel):
         cls,
         *,
         markers: List[pytest.Mark],
+        primary_format_only: bool = False,
     ) -> List[Tuple[FixtureFormat | LabeledFixtureFormat, ParameterSet]]:
         """
         Return one pytest parameter per fixture format this spec type fills,
@@ -220,6 +221,8 @@ class BaseTest(BaseModel):
         the primary and is marked `primary_format`, so `-m primary_format`
         fills each test once. Only sessions that generate a single format per
         test can filter that primary out, and there the marker is moot.
+
+        With `primary_format_only`, return only the primary.
 
         An override that parametrizes further must leave exactly one parameter
         marked `primary_format`.
@@ -238,6 +241,8 @@ class BaseTest(BaseModel):
                 primary_format=not parameters,
             )
             parameters.append((format_with_or_without_label, parameter))
+            if primary_format_only:
+                break
         return parameters
 
     @classmethod
