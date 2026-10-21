@@ -415,15 +415,6 @@ def hive_test(
                 "unknown).\n\n" + captured_output
             )
 
-        test.end(
-            result=HiveTestResult(
-                test_pass=test_passed, details=test_result_details
-            )
-        )
-        logger.verbose(
-            f"Finished processing logs for test: {request.node.nodeid}"
-        )
-
     except Exception as e:
         logger.verbose(
             f"Error processing logs for test {request.node.nodeid}: {str(e)}"
@@ -432,8 +423,13 @@ def hive_test(
         test_result_details = (
             f"Exception whilst processing test result: {str(e)}"
         )
-        test.end(
-            result=HiveTestResult(
-                test_pass=test_passed, details=test_result_details
-            )
+
+    # End the hive test exactly once, outside the `try`: if `end` itself
+    # raised inside it, a second call could duplicate a request that the
+    # hive server had already processed.
+    test.end(
+        result=HiveTestResult(
+            test_pass=test_passed, details=test_result_details
         )
+    )
+    logger.verbose(f"Finished processing logs for test: {request.node.nodeid}")
