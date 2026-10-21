@@ -2,6 +2,16 @@
 
 Ethereum Execution Layer Specification written in Python. This is a **specification**, not production code — readability over performance.
 
+## Outside Contributors
+
+Read `CONTRIBUTING.md` before opening an issue or pull request.
+
+- Before a first pull request, get a maintainer to assign you to an issue, then reference it with `Closes #<issue>`. A bot closes first pull requests without one.
+- Without write access, keep at most two pull requests open, drafts included.
+- EIP authors and EL client or tooling team members can ask in `#el-testing` on the Ethereum R&D Discord, or on the STEEL Discord server, to be added to the bypass list.
+- Keep new EIP features on your fork until the fork development process needs them, and open an issue that links your branch.
+- Don't open drive-by pull requests without context, or ones that only fix spelling or grammar.
+
 ## Tooling
 
 - **uv** is the package manager. **just** is the command runner (`just --list`).

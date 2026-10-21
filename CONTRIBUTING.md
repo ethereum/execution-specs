@@ -8,7 +8,7 @@ Help is always welcome. The Ethereum Execution Layer Specifications (EELS) are a
 
 ## Before you open a pull request
 
-We review pull requests that have a concrete reason behind them, for example:
+Our review resources are constrained, so we review pull requests that have a concrete reason behind them, for example:
 
 - Something in this repository is broken for a project you maintain (link it).
 - Your client is missing test coverage that a change here would add (name the client and link the gap).
@@ -20,7 +20,7 @@ New EIP features stay on your own fork until the fork development process needs 
 
 Until your first pull request is merged:
 
-1. Comment on an existing issue, or open a new one, saying what you want to change and why.
+1. Comment on an existing issue, or open a new one, saying in your own words what you want to change and why.
 2. Wait for a maintainer to assign the issue to you.
 3. Open a pull request that links the issue with a [closing keyword](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword), for example `Closes #123`.
 
@@ -29,9 +29,9 @@ Pull requests without a linked issue assigned to their author are closed automat
 ### Limits
 
 - Contributors without write access can have at most 2 open pull requests, drafts included.
-- First-time contributors can have at most 2 open issues. Further issues are closed automatically.
+- First-time contributors can open at most 2 issues every 30 days, closed ones included. Further issues are closed automatically.
 
-Client and tooling teams that hit these limits can ask a maintainer to be added to the bypass list.
+If you are an EIP author or part of an EL client or tooling team, message us in `#el-testing` on the [Ethereum R&D Discord](https://discord.com/invite/qGpsxSA) or on the STEEL Discord server to get added to the bypass list.
 
 ## Contributions we don't accept
 

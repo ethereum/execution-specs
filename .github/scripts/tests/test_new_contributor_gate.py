@@ -1,0 +1,404 @@
+"""
+Test the new contributor gate script.
+
+The `gh` CLI is replaced by a fake that serves fixtures and records
+writes, so no test touches the network.
+"""
+
+import importlib.util
+import json
+import sys
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from types import ModuleType
+from typing import Any
+
+import pytest
+
+SCRIPT = Path(__file__).parent.parent / "new_contributor_gate.py"
+
+
+def load_script() -> ModuleType:
+    """Import the script as a module."""
+    spec = importlib.util.spec_from_file_location(
+        "new_contributor_gate", SCRIPT
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+m = load_script()
+
+
+@pytest.mark.parametrize(
+    "body,numbers",
+    [
+        ("Closes #12", [12]),
+        ("Fixes #12 and #12, see #7.", [12, 7]),
+        ("Closes o/r#12", [12]),
+        ("Closes O/R#12", [12]),
+        ("Closes other/repo#12", []),
+        ("Closes https://github.com/o/r/issues/12", [12]),
+        ("See https://github.com/o/r/pull/12", []),
+        ("Closes https://github.com/other/repo/issues/12", []),
+        ("<!-- e.g., Fixes #123 -->\nN/A.", []),
+        ("Written in C#12", []),
+        ("#12abc", []),
+        ("", []),
+        (None, []),
+    ],
+)
+def test_referenced_issues(body: str | None, numbers: list[int]) -> None:
+    """Find same-repository references outside HTML comments."""
+    assert m.referenced_issues(body, "o/r") == numbers
+
+
+@pytest.mark.parametrize(
+    "association,user_type,sender,new",
+    [
+        ("NONE", "User", "alice", True),
+        ("FIRST_TIMER", "User", "alice", True),
+        ("FIRST_TIME_CONTRIBUTOR", "User", "alice", True),
+        ("CONTRIBUTOR", "User", "alice", False),
+        ("MEMBER", "User", "alice", False),
+        ("COLLABORATOR", "User", "alice", False),
+        ("OWNER", "User", "alice", False),
+        ("NONE", "Bot", "alice", False),
+        ("NONE", "User", "maintainer", False),
+    ],
+)
+def test_is_new_contributor(
+    association: str, user_type: str, sender: str, new: bool
+) -> None:
+    """Gate only new, human authors acting on their own items."""
+    item = {
+        "author_association": association,
+        "user": {"login": "alice", "type": user_type},
+    }
+    assert m.is_new_contributor(item, sender, set()) is new
+
+
+def test_bypassed_author_is_not_new() -> None:
+    """Skip an author on the bypass list, whatever the login's case."""
+    item = {
+        "author_association": "NONE",
+        "user": {"login": "Bob", "type": "User"},
+    }
+    assert not m.is_new_contributor(item, "Bob", {"bob"})
+
+
+def test_bypassed_skips_comments_and_blank_lines(tmp_path: Path) -> None:
+    """Read one login per line, ignoring comments and case."""
+    path = tmp_path / "bypass.txt"
+    path.write_text("# Trusted.\n\nAlice\nbob  # EIP author\n")
+    assert m.bypassed(path) == {"alice", "bob"}
+
+
+def test_bypass_file_lists_logins() -> None:
+    """Keep the real bypass file readable and free of stray text."""
+    logins = m.bypassed()
+    assert logins
+    assert all(login.replace("-", "").isalnum() for login in logins)
+
+
+def issue(number: int, assignees: list[str]) -> dict[str, Any]:
+    """Return an issue fixture with these assignees."""
+    return {
+        "number": number,
+        "assignees": [{"login": login} for login in assignees],
+    }
+
+
+def opened(
+    number: int, days_ago: float, pull_request: bool = False
+) -> dict[str, Any]:
+    """Return item `number` that `alice` opened this many days ago."""
+    created = datetime.now(UTC) - timedelta(days=days_ago)
+    item: dict[str, Any] = {
+        "number": number,
+        "created_at": created.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    if pull_request:
+        item["pull_request"] = {}
+    return item
+
+
+class FakeGh:
+    """Stand in for the `gh` CLI, serving issues and an author's history."""
+
+    def __init__(
+        self,
+        issues: list[dict[str, Any]] | None = None,
+        history: list[dict[str, Any]] | None = None,
+        merged: int = 0,
+    ):
+        """Serve these issues, opened items and merged pull request count."""
+        self.issues = {item["number"]: item for item in issues or []}
+        self.history = history or []
+        self.merged = merged
+        self.reads: list[tuple[str, ...]] = []
+        self.writes: list[tuple[str, ...]] = []
+
+    def __call__(self, *args: str, check: bool = True) -> str:
+        """Answer reads from the fixtures and record writes."""
+        if "--method" in args and args[args.index("--method") + 1] != "GET":
+            self.writes.append(args)
+            return ""
+        self.reads.append(args)
+        if "search/issues" in args:
+            assert "q=repo:o/r is:pr is:merged author:alice" in args
+            return str(self.merged)
+        if "--paginate" in args:
+            assert "creator=alice&state=all" in args[2]
+            return "\n".join(json.dumps(item) for item in self.history)
+        number = int(args[1].rsplit("/", 1)[1])
+        if number in self.issues:
+            return json.dumps(self.issues[number])
+        assert not check
+        return ""
+
+
+def run_event(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    fake: FakeGh,
+    event: dict[str, Any],
+    *flags: str,
+) -> None:
+    """Run the script's `main` on `event` against `fake`."""
+    path = tmp_path / "event.json"
+    path.write_text(json.dumps(event))
+    monkeypatch.setattr(m, "gh", fake)
+    monkeypatch.setattr(m, "bypassed", lambda: {"bob"})
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(path))
+    monkeypatch.setattr(sys, "argv", ["new_contributor_gate.py", *flags])
+    m.main()
+
+
+def pr_event(
+    body: str,
+    association: str = "FIRST_TIME_CONTRIBUTOR",
+    sender: str = "alice",
+) -> dict[str, Any]:
+    """Return a pull request event from `alice` with this body."""
+    return {
+        "action": "opened",
+        "sender": {"login": sender},
+        "pull_request": {
+            "number": 7,
+            "body": body,
+            "author_association": association,
+            "user": {"login": "alice", "type": "User"},
+        },
+    }
+
+
+def issue_event(
+    number: int = 9, association: str = "NONE", sender: str = "alice"
+) -> dict[str, Any]:
+    """Return an event for issue `number` from `alice`."""
+    return {
+        "action": "opened",
+        "sender": {"login": sender},
+        "issue": {
+            "number": number,
+            "body": "",
+            "author_association": association,
+            "user": {"login": "alice", "type": "User"},
+        },
+    }
+
+
+def closed(number: int, message: str, *reason: str) -> list[tuple[str, ...]]:
+    """Return the writes that comment `message` and close `number`."""
+    return [
+        (
+            "api",
+            "--method",
+            "POST",
+            f"repos/o/r/issues/{number}/comments",
+            "-f",
+            f"body={message}",
+        ),
+        (
+            "api",
+            "--method",
+            "PATCH",
+            f"repos/o/r/issues/{number}",
+            "-f",
+            "state=closed",
+            *reason,
+        ),
+    ]
+
+
+CONTRIBUTING = "https://github.com/o/r/blob/HEAD/CONTRIBUTING.md"
+PR_MESSAGE = m.PR_MESSAGE.format(author="alice", contributing=CONTRIBUTING)
+ISSUE_MESSAGE = m.ISSUE_MESSAGE.format(
+    author="alice",
+    max_issues=m.MAX_RECENT_ISSUES,
+    days=m.RECENT_ISSUE_DAYS,
+    contributing=CONTRIBUTING,
+)
+NOT_PLANNED = ("-f", "state_reason=not_planned")
+
+
+def test_messages_name_the_author_and_link_the_guide() -> None:
+    """Mention the author and link CONTRIBUTING.md and the Discord."""
+    for message in (PR_MESSAGE, ISSUE_MESSAGE):
+        assert message.startswith("Thanks")
+        assert "@alice" in message
+        assert CONTRIBUTING in message
+        assert m.RND_DISCORD in message
+        assert "{" not in message
+
+
+def test_pr_without_reference_is_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Close a new contributor's pull request that references nothing."""
+    fake = FakeGh()
+    run_event(monkeypatch, tmp_path, fake, pr_event("Fix a typo."))
+    assert fake.writes == closed(7, PR_MESSAGE)
+
+
+def test_pr_with_assigned_issue_is_left_open(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Leave a pull request alone once its author is assigned."""
+    fake = FakeGh(issues=[issue(3, ["bob"]), issue(5, ["Alice"])])
+    run_event(monkeypatch, tmp_path, fake, pr_event("See #3. Closes #5."))
+    assert fake.writes == []
+
+
+@pytest.mark.parametrize(
+    "issues",
+    [
+        [issue(5, ["bob"])],
+        [issue(5, [])],
+        [{**issue(5, ["alice"]), "pull_request": {}}],
+        [],
+    ],
+    ids=["assigned-to-other", "unassigned", "is-a-pr", "missing"],
+)
+def test_pr_without_assignment_is_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    issues: list[dict[str, Any]],
+) -> None:
+    """Close a pull request whose reference does not assign its author."""
+    fake = FakeGh(issues=issues)
+    run_event(monkeypatch, tmp_path, fake, pr_event("Closes #5"))
+    assert fake.writes == closed(7, PR_MESSAGE)
+
+
+def test_pr_references_are_capped(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Look up at most `MAX_REFERENCES` issues per pull request."""
+    body = " ".join(f"#{n}" for n in range(1, m.MAX_REFERENCES + 5))
+    fake = FakeGh()
+    run_event(monkeypatch, tmp_path, fake, pr_event(body))
+    lookups = [read for read in fake.reads if "search/issues" not in read]
+    assert len(lookups) == m.MAX_REFERENCES
+    assert fake.writes == closed(7, PR_MESSAGE)
+
+
+@pytest.mark.parametrize(
+    "association,sender",
+    [("MEMBER", "alice"), ("CONTRIBUTOR", "alice"), ("NONE", "maintainer")],
+)
+def test_pr_from_others_is_left_alone(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    association: str,
+    sender: str,
+) -> None:
+    """Skip known authors and pull requests a maintainer reopened."""
+    fake = FakeGh()
+    event = pr_event("", association=association, sender=sender)
+    run_event(monkeypatch, tmp_path, fake, event)
+    assert fake.reads == []
+    assert fake.writes == []
+
+
+@pytest.mark.parametrize("is_pr", [True, False], ids=["pr", "issue"])
+def test_author_with_a_merged_pr_is_left_alone(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, is_pr: bool
+) -> None:
+    """Trust a merged pull request over a lagging `author_association`."""
+    history = [opened(3, 1), opened(5, 2), opened(9, 0)]
+    fake = FakeGh(history=history, merged=1)
+    event = pr_event("Fix a typo.") if is_pr else issue_event()
+    run_event(monkeypatch, tmp_path, fake, event)
+    assert fake.writes == []
+
+
+@pytest.mark.parametrize(
+    "number,history",
+    [
+        (9, [opened(9, 0)]),
+        (9, [opened(5, 10), opened(9, 0)]),
+        (
+            9,
+            [
+                opened(2, 31),
+                opened(3, 1, pull_request=True),
+                opened(5, 10),
+                opened(9, 0),
+            ],
+        ),
+        (5, [opened(3, 20), opened(5, 10), opened(9, 0)]),
+    ],
+    ids=["first", "second", "old-and-prs-ignored", "later-ones-ignored"],
+)
+def test_issue_within_limit_is_left_open(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    number: int,
+    history: list[dict[str, Any]],
+) -> None:
+    """Leave an issue alone while the author is within the limit."""
+    fake = FakeGh(history=history)
+    run_event(monkeypatch, tmp_path, fake, issue_event(number))
+    assert fake.writes == []
+
+
+@pytest.mark.parametrize(
+    "history",
+    [
+        [opened(3, 29), opened(5, 5), opened(9, 0)],
+        [opened(3, 29), opened(5, 5)],
+    ],
+    ids=["third", "not-listed-yet"],
+)
+def test_issue_over_limit_is_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    history: list[dict[str, Any]],
+) -> None:
+    """Close a third issue in the window, counting closed ones too."""
+    fake = FakeGh(history=history)
+    run_event(monkeypatch, tmp_path, fake, issue_event())
+    assert fake.writes == closed(9, ISSUE_MESSAGE, *NOT_PLANNED)
+
+
+def test_issue_reopened_by_maintainer_is_left_alone(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Let a maintainer override the limit by reopening the issue."""
+    fake = FakeGh(history=[opened(3, 29), opened(5, 5), opened(9, 0)])
+    run_event(monkeypatch, tmp_path, fake, issue_event(sender="maintainer"))
+    assert fake.writes == []
+
+
+def test_dry_run_writes_nothing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Print the decision without commenting or closing."""
+    fake = FakeGh()
+    run_event(monkeypatch, tmp_path, fake, pr_event(""), "--dry-run")
+    assert fake.writes == []

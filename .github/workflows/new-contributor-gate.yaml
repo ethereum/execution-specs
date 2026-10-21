@@ -1,0 +1,49 @@
+name: New contributor gate
+
+# Closes a new contributor's pull request unless it references an issue
+# they are assigned to, and closes their issues beyond a few a month. New
+# contributors are authors with nothing merged yet. See CONTRIBUTING.md.
+#
+# Runs from the base branch via `pull_request_target`, so fork pull requests
+# get a write token. The pull request's code is never checked out, and its
+# body only reaches the script through the event payload, never a `run:`
+# expression. A maintainer overrides the gate by reopening the item.
+
+on:
+  pull_request_target:
+    types: [ opened, reopened ]
+  issues:
+    types: [ opened, reopened ]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  gate:
+    name: Gate
+    # Skip known authors before a runner starts.
+    if: >-
+      contains(
+        fromJSON('["NONE", "FIRST_TIMER", "FIRST_TIME_CONTRIBUTOR"]'),
+        github.event.pull_request.author_association
+          || github.event.issue.author_association
+      )
+    concurrency:
+      group: >-
+        ${{ github.workflow }}-${{
+          github.event.pull_request.number || github.event.issue.number
+        }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-uv
+        with:
+          enable-cache: "false"
+      - name: Close items that break the rules
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run -q .github/scripts/new_contributor_gate.py
