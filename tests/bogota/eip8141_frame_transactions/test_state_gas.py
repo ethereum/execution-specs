@@ -77,9 +77,6 @@ written.
 SLOT_SECOND = 0x09
 """Second storage slot a frame creates from its own state gas pool."""
 
-WORKER_FRAME_GAS = 100_000
-"""Execution gas budget of the frames running the worker contracts."""
-
 SPENT_SENDER_BALANCE = 10**15
 """Balance a sender transfers away before its payment is approved."""
 
@@ -155,7 +152,6 @@ def test_same_frame_refill(
             default_frame(
                 target=worker,
                 code=worker_code,
-                gas_limit=WORKER_FRAME_GAS,
                 state_gas_used=observe_pool.state_cost(fork),
             ),
         ],
@@ -233,7 +229,6 @@ def test_cross_frame_refill(
             # charge at settlement.
             default_frame(
                 target=worker,
-                gas_limit=WORKER_FRAME_GAS,
                 pin_gas=False,
                 state_gas_used=0,
             ),
@@ -241,7 +236,6 @@ def test_cross_frame_refill(
             # recording slots; the refill credits it nothing.
             default_frame(
                 target=worker,
-                gas_limit=WORKER_FRAME_GAS,
                 data=b"\x01",
                 pin_gas=False,
                 state_gas_used=3 * fresh_write_state_cost,
@@ -305,7 +299,6 @@ def test_state_gas_exhaustion(
             default_frame(
                 target=worker,
                 code=worker_code,
-                gas_limit=WORKER_FRAME_GAS,
                 state_gas_limit=state_budget,
                 outcome=Outcome.SUCCESS if succeeds else Outcome.HALT,
                 state_gas_used=state_budget if succeeds else 0,
@@ -486,7 +479,6 @@ def test_refill_after_intermediate_modification(
             # at settlement.
             default_frame(
                 target=worker,
-                gas_limit=WORKER_FRAME_GAS,
                 pin_gas=False,
                 state_gas_used=0,
             ),
@@ -494,7 +486,6 @@ def test_refill_after_intermediate_modification(
             # state gas.
             default_frame(
                 target=worker,
-                gas_limit=WORKER_FRAME_GAS,
                 data=(1).to_bytes(32, "big"),
                 pin_gas=False,
                 state_gas_used=0,
@@ -504,7 +495,6 @@ def test_refill_after_intermediate_modification(
             # charged; the refill credits the owner, not this frame.
             default_frame(
                 target=worker,
-                gas_limit=WORKER_FRAME_GAS,
                 data=(2).to_bytes(32, "big"),
                 pin_gas=False,
                 state_gas_used=fresh_write_state_cost,
@@ -593,14 +583,12 @@ def test_batch_unroll_restores_refilled_receipt(
             # the refill the batch frame applied to this receipt.
             default_frame(
                 target=worker,
-                gas_limit=WORKER_FRAME_GAS,
                 pin_gas=False,
                 state_gas_used=fresh_write_state_cost,
             ),
             # Frame 2: modify the dirty slot (1 -> 2).
             default_frame(
                 target=worker,
-                gas_limit=WORKER_FRAME_GAS,
                 data=(1).to_bytes(32, "big"),
                 pin_gas=False,
                 state_gas_used=0,
@@ -610,7 +598,6 @@ def test_batch_unroll_restores_refilled_receipt(
             default_frame(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=worker,
-                gas_limit=WORKER_FRAME_GAS,
                 data=(2).to_bytes(32, "big"),
                 outcome=Outcome.UNROLLED,
                 pin_gas=False,
@@ -618,7 +605,6 @@ def test_batch_unroll_restores_refilled_receipt(
             # Frame 4: terminate the batch with a revert, unrolling it.
             default_frame(
                 target=reverter,
-                gas_limit=WORKER_FRAME_GAS,
                 outcome=Outcome.REVERT,
                 pin_gas=False,
             ),
@@ -626,7 +612,6 @@ def test_batch_unroll_restores_refilled_receipt(
             # frame 4's status after the unroll.
             default_frame(
                 target=probe,
-                gas_limit=WORKER_FRAME_GAS,
                 pin_gas=False,
                 state_gas_used=3 * fresh_write_state_cost,
             ),
@@ -707,7 +692,6 @@ def test_frame_revert_restores_refilled_receipt(
             # the refill the failing frame applied to this receipt.
             default_frame(
                 target=worker,
-                gas_limit=WORKER_FRAME_GAS,
                 pin_gas=False,
                 state_gas_used=fresh_write_state_cost,
             ),
@@ -715,7 +699,6 @@ def test_frame_revert_restores_refilled_receipt(
             # refilling frame 1's receipt, then revert.
             default_frame(
                 target=worker,
-                gas_limit=WORKER_FRAME_GAS,
                 data=b"\x01",
                 outcome=Outcome.REVERT,
                 pin_gas=False,
@@ -724,7 +707,6 @@ def test_frame_revert_restores_refilled_receipt(
             # frame 2's status after the revert.
             default_frame(
                 target=probe,
-                gas_limit=WORKER_FRAME_GAS,
                 pin_gas=False,
                 state_gas_used=3 * fresh_write_state_cost,
             ),
@@ -808,7 +790,6 @@ def test_call_revert_restores_refilled_receipt(
             # restored the refill it applied to this receipt.
             default_frame(
                 target=worker,
-                gas_limit=WORKER_FRAME_GAS,
                 pin_gas=False,
                 state_gas_used=fresh_write_state_cost,
             ),
@@ -817,7 +798,6 @@ def test_call_revert_restores_refilled_receipt(
             # frame then creates a second slot from its own pool.
             default_frame(
                 target=worker,
-                gas_limit=WORKER_FRAME_GAS,
                 state_gas_limit=fresh_write_state_cost,
                 data=(1).to_bytes(32, "big"),
                 pin_gas=False,
@@ -907,7 +887,6 @@ def test_reversion_restores_charge_ownership(
     def worker_frame(selector: int, **overrides: Any) -> FrameCase:
         return default_frame(
             target=worker,
-            gas_limit=WORKER_FRAME_GAS,
             data=selector.to_bytes(32, "big"),
             pin_gas=False,
             **overrides,
@@ -932,7 +911,6 @@ def test_reversion_restores_charge_ownership(
             # Terminate the batch with a revert, unrolling it.
             default_frame(
                 target=reverter,
-                gas_limit=WORKER_FRAME_GAS,
                 outcome=Outcome.REVERT,
                 pin_gas=False,
             ),

@@ -57,9 +57,6 @@ the expected `FAILURE` readback is distinguishable from a slot never
 written.
 """
 
-WORKER_FRAME_GAS = 100_000
-"""Execution gas budget of the frames running the worker contracts."""
-
 
 @pytest.mark.parametrize(
     "with_state_write",
@@ -228,7 +225,6 @@ def test_storage_refund_settlement(
                 default_frame(
                     target=worker,
                     code=worker_code,
-                    gas_limit=WORKER_FRAME_GAS,
                     state_gas_limit=0,
                     data=bytes(data_length),
                 ),
@@ -343,7 +339,6 @@ def test_batch_unroll_refill_restores_spent_gas(
             default_frame(
                 target=worker,
                 code=create_body,
-                gas_limit=WORKER_FRAME_GAS,
                 data=(1).to_bytes(32, "big"),
             ),
             # Frame 2: open the batch and return the slot to its start
@@ -356,20 +351,16 @@ def test_batch_unroll_refill_restores_spent_gas(
                 code=refill_body,
                 warm=True,
                 outcome=Outcome.UNROLLED,
-                gas_limit=WORKER_FRAME_GAS,
             ),
             # Frame 3: terminate the batch with a revert, unrolling it.
             default_frame(
                 target=reverter,
                 code=reverter_code,
                 outcome=Outcome.REVERT,
-                gas_limit=WORKER_FRAME_GAS,
             ),
             # Frame 4: read frame 1's restored attribution and frame 3's
             # status after the unroll.
-            default_frame(
-                target=probe, code=probe_code, gas_limit=WORKER_FRAME_GAS
-            ),
+            default_frame(target=probe, code=probe_code),
         ],
     )
 
@@ -474,7 +465,6 @@ def test_frame_revert_refill_restores_spent_gas(
                 code=create_store,
                 execution_gas=create_store.execution_cost(fork)
                 + branch_control,
-                gas_limit=WORKER_FRAME_GAS,
                 data=(1).to_bytes(32, "big"),
             ),
             # Frame 2: return the slot to its start value (1 -> 0),
@@ -488,13 +478,10 @@ def test_frame_revert_refill_restores_spent_gas(
                 + revert_tail,
                 warm=True,
                 outcome=Outcome.REVERT,
-                gas_limit=WORKER_FRAME_GAS,
             ),
             # Frame 3: read frame 1's restored attribution and frame 2's
             # status after the revert.
-            default_frame(
-                target=probe, code=probe_code, gas_limit=WORKER_FRAME_GAS
-            ),
+            default_frame(target=probe, code=probe_code),
         ],
     )
 
