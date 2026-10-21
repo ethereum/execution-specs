@@ -16,13 +16,18 @@ from typing_extensions import Self
 from execution_testing.base_types import Alloc
 from execution_testing.base_types.base_types import Hash
 from execution_testing.client_clis import TransitionTool
-from execution_testing.execution import BaseExecute, BlobTransaction
+from execution_testing.execution import (
+    BaseExecute,
+    GetBlobs,
+    MempoolAdmission,
+)
 from execution_testing.fixtures import (
     FixtureFormat,
     LabeledFixtureFormat,
 )
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import (
+    MempoolTransaction,
     NetworkWrappedTransaction,
     Transaction,
 )
@@ -31,7 +36,13 @@ from .base import BaseTest, ExecuteFormat, FillResult, LabeledExecuteFormat
 
 
 class BlobsTest(BaseTest):
-    """Test specification for blob tests."""
+    """
+    Test specification for blob tests.
+
+    Executing the test sends every transaction expecting the mempool to
+    admit it, then checks the blobs via `engine_getBlobsV*`, as a
+    `mempool_test` with a `GetBlobs` check does.
+    """
 
     pre: Alloc
     txs: List[NetworkWrappedTransaction | Transaction]
@@ -61,7 +72,7 @@ class BlobsTest(BaseTest):
 
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
-            BlobTransaction,
+            MempoolAdmission,
             "blob_transaction_test",
             "A test that executes a blob transaction",
         ),
@@ -94,16 +105,21 @@ class BlobsTest(BaseTest):
         execute_format: ExecuteFormat | LabeledExecuteFormat,
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
-        if execute_format == BlobTransaction:
-            return BlobTransaction(
-                txs=self.txs,
+        if execute_format == MempoolAdmission:
+            get_blobs = GetBlobs(
+                version=self.get_blobs_version,
                 nonexisting_blob_hashes=self.nonexisting_blob_hashes,
                 interleave_nonexisting_blob_hashes=(
                     self.interleave_nonexisting_blob_hashes
                 ),
-                get_blobs_version=self.get_blobs_version,
                 cell_mask=self.cell_mask,
                 custody_columns_updates=self.custody_columns_updates,
+            )
+            return MempoolAdmission(
+                txs=[
+                    MempoolTransaction(tx=tx, accepted=True) for tx in self.txs
+                ],
+                checks=[get_blobs],
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
 

@@ -374,6 +374,25 @@ class FrameEntryGasCalculator(Protocol):
         pass
 
 
+class FrameSignatureVerificationGasCalculator(Protocol):
+    """
+    A protocol to calculate the gas an EIP-8141 frame transaction pays
+    to verify its signature entries, the share of the intrinsic cost
+    the public mempool counts as validation work.
+    """
+
+    def __call__(
+        self,
+        *,
+        signatures: Sequence[FrameSignatureGasInfo],
+    ) -> int:
+        """
+        Return the verification gas of the signature entries, priced
+        per scheme and excluding the calldata cost of their bytes.
+        """
+        pass
+
+
 class AuthorizationGasInfo(Protocol):
     """
     Structural view of an EIP-7702 authorization's effect on the
@@ -1061,6 +1080,21 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         Return callable that calculates the gas an EIP-8141 frame
         charges at entry, before the target's code starts execution.
+
+        Raises `NotImplementedError` on forks that do not support frame
+        transactions.
+        """
+        raise NotImplementedError(
+            f"frame transactions are not supported in {cls.name()}"
+        )
+
+    @classmethod
+    def frame_signature_verification_gas_calculator(
+        cls,
+    ) -> FrameSignatureVerificationGasCalculator:
+        """
+        Return callable that calculates the gas an EIP-8141 frame
+        transaction pays to verify its signature entries.
 
         Raises `NotImplementedError` on forks that do not support frame
         transactions.
