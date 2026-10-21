@@ -135,11 +135,12 @@ class TransactionEnvironment:
     # Block access list bytes metered during execution; they extend the
     # floor above `static_floor`.
     bal_data_bytes: Uint
-    # Accounts and storage slots whose block access list bytes have been
-    # metered; a touch survives the revert of its frame, so neither set
-    # is ever rolled back.
+    # Accounts, storage slots, and slot values whose block access list
+    # bytes have been metered; a touch survives the revert of its frame,
+    # so no set is ever rolled back.
     metered_addresses: Set[Address]
     metered_storage_keys: Set[Tuple[Address, Bytes32]]
+    metered_storage_values: Set[Tuple[Address, Bytes32]]
     # Most the floor may reach before execution halts: the execution gas
     # the transaction can consume, which is the dimension the floor
     # binds. `None` for a system transaction, which has no floor.

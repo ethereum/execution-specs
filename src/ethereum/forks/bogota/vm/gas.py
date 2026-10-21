@@ -26,6 +26,7 @@ from ethereum.utils.numeric import ceil32, taylor_exponential
 from ..block_access_lists import (
     BAL_BYTES_PER_ADDRESS,
     BAL_BYTES_PER_STORAGE_KEY,
+    BAL_BYTES_PER_STORAGE_VALUE,
 )
 from ..blocks import Header
 from ..exceptions import (
@@ -1262,6 +1263,39 @@ def meter_bal_storage_key(
         return
     meter_bal_data(tx_env, BAL_BYTES_PER_STORAGE_KEY)
     tx_env.metered_storage_keys.add((address, key))
+
+
+def meter_bal_storage_value(
+    tx_env: "TransactionEnvironment", address: Address, key: Bytes32
+) -> None:
+    """
+    Meter the bytes a storage slot's post value adds to the block access
+    list on the transaction's first write that takes the slot off its
+    transaction-start value.
+
+    The block access list holds one post value per changed slot, so the
+    bytes are counted once per slot, tracked per transaction like
+    [`meter_bal_storage_key`][key]. A write that restores the
+    transaction-start value gives nothing back: it may sit in a frame
+    that later reverts, leaving the change in the block access list, so
+    the count stays an upper bound. Call this before the write.
+
+    Parameters
+    ----------
+    tx_env :
+        The transaction's execution environment.
+    address :
+        The account whose storage is about to be written.
+    key :
+        The storage key about to be written.
+
+    [key]: ref:ethereum.forks.bogota.vm.gas.meter_bal_storage_key
+
+    """
+    if (address, key) in tx_env.metered_storage_values:
+        return
+    meter_bal_data(tx_env, BAL_BYTES_PER_STORAGE_VALUE)
+    tx_env.metered_storage_values.add((address, key))
 
 
 @final
