@@ -299,13 +299,15 @@ class TransactionTraces(CamelModel):
                 )
         return len(diffs) == 0
 
-    def table(self, stack_items: int = 4) -> Table:
+    def table(self, stack_items: int = 4, max_steps: int = 1000) -> Table:
         """
         Return the traces as a table with one row per execution step.
 
-        Only the top `stack_items` stack values are shown, topmost first.
+        Only the first `max_steps` steps are included, and only the top
+        `stack_items` stack values are shown, topmost first.
         """
-        show_errors = any(trace.error for trace in self.traces)
+        traces = self.traces[:max_steps]
+        show_errors = any(trace.error for trace in traces)
         table = Table(box=box.SIMPLE_HEAD, pad_edge=False)
         for column in ("Step", "PC"):
             table.add_column(column, justify="right")
@@ -316,7 +318,7 @@ class TransactionTraces(CamelModel):
         if show_errors:
             table.add_column("Error", style="red")
 
-        for step, trace in enumerate(self.traces):
+        for step, trace in enumerate(traces):
             stack = [_short_hex(value) for value in trace.stack[::-1]]
             if len(stack) > stack_items:
                 stack = stack[:stack_items] + ["..."]
@@ -337,10 +339,22 @@ class TransactionTraces(CamelModel):
             table.add_row(*row)
         return table
 
-    def print(self) -> None:
-        """Print the traces in a readable format."""
+    def print(self, max_steps: int = 1000) -> None:
+        """
+        Print the traces in a readable format.
+
+        At most `max_steps` steps are printed, the full traces are in the
+        `.jsonl` files of the EVM dump directory.
+        """
         console = Console(highlight=False)
-        console.print(self.table())
+        console.print(self.table(max_steps=max_steps))
+        hidden = len(self.traces) - max_steps
+        if hidden > 0:
+            console.print(
+                f"... {hidden} more steps not shown, see the .jsonl trace "
+                "file in the EVM dump directory",
+                markup=False,
+            )
         summary = []
         if self.gas_used is not None:
             summary.append(f"gas used: {int(self.gas_used)}")

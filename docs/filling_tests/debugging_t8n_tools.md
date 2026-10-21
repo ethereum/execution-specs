@@ -113,7 +113,7 @@ fill tests/frontier/opcodes/test_dup.py --fork Frontier --traces -s
    19   37   SSTORE   119978943   20000       1   0x0 0x7 0x10 0xf ...
 ```
 
-The stack column shows the top four values, topmost first, and op names are indented by call depth. An error column is added when a step has an error. The full traces are still written to the `.jsonl` files in the EVM dump directory.
+The stack column shows the top four values, topmost first, and op names are indented by call depth. An error column is added when a step has an error. At most 1000 steps are printed per transaction; the full traces are still written to the `.jsonl` files in the EVM dump directory.
 
 ## Verifying Test Fixtures via `evm blocktest`
 

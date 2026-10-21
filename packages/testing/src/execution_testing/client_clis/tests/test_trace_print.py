@@ -143,3 +143,51 @@ def test_error_is_not_read_as_markup() -> None:
     )
 
     assert _render(traces)[-1].endswith("bad jump [pc 3]")
+
+
+def test_table_stops_at_max_steps() -> None:
+    """Only the first `max_steps` steps are included in the table."""
+    traces = TransactionTraces(
+        traces=[_make_trace_line(pc=pc) for pc in range(5)]
+    )
+    console = Console(file=io.StringIO(), width=200)
+    console.print(traces.table(max_steps=3))
+    output = console.file.getvalue()  # type: ignore[attr-defined]
+    lines = [line for line in output.splitlines() if line.strip()]
+
+    assert len(lines) == 2 + 3
+    assert lines[-1].split()[0] == "2"
+
+
+def test_hidden_steps_do_not_add_error_column() -> None:
+    """An error past `max_steps` does not add the error column."""
+    traces = TransactionTraces(
+        traces=[_make_trace_line(), _make_trace_line(error="out of gas")]
+    )
+    console = Console(file=io.StringIO(), width=200)
+    console.print(traces.table(max_steps=1))
+    output = console.file.getvalue()  # type: ignore[attr-defined]
+
+    assert "Error" not in output
+
+
+def test_print_notes_hidden_steps(capsys: pytest.CaptureFixture[str]) -> None:
+    """Printing more than `max_steps` steps says how many were left out."""
+    traces = TransactionTraces(
+        traces=[_make_trace_line(pc=pc) for pc in range(5)]
+    )
+
+    traces.print(max_steps=3)
+
+    assert "... 2 more steps not shown" in capsys.readouterr().out
+
+
+def test_print_without_hidden_steps(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """No note is printed when all steps fit."""
+    traces = TransactionTraces(traces=[_make_trace_line()])
+
+    traces.print(max_steps=1)
+
+    assert "more steps not shown" not in capsys.readouterr().out
