@@ -18,7 +18,7 @@ runs:
       with:
         enable-cache: ${{ inputs.enable-cache }}
         cache-dependency-glob: ${{ inputs.cache-dependency-glob }}
-        version: "0.10.4"
+        version: "0.13.4"
         python-version: ${{ inputs.python-version }}
     - name: Prefer uv-managed Python over system Python
       shell: bash
