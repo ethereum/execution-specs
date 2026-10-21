@@ -17,7 +17,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureHeader,
 )
 from execution_testing.forks import Osaka
-from execution_testing.rpc.rpc_types import GetPayloadResponse
+from execution_testing.rpc.rpc_types import GetPayloadResponse, LiveBlock
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -118,9 +118,10 @@ def client_backend() -> ClientBackend:
         by_alias=True, mode="json", exclude_none=True
     )
     block_dict["hash"] = str(start_header.block_hash)
+    start_block = LiveBlock.model_validate(block_dict)
     backend.fork = FORK
-    backend.snapshot_block = block_dict
-    backend.start_block = block_dict
+    backend.snapshot_block = start_block
+    backend.start_block = start_block
     backend.extract_opcode_count = False
     backend.debug_rpc = None
     return backend
