@@ -39,11 +39,8 @@ class BaseExecute(CamelModel):
         """
         Register all subclasses of BaseExecute with a execute format
         name set as possible execute formats.
-
-        Only a class setting its own name registers, so a subclass never
-        replaces the format it inherits from.
         """
-        if cls.format_name and "format_name" in cls.__dict__:
+        if cls.format_name:
             # Register the new execute format
             BaseExecute.formats[cls.format_name] = cls
 

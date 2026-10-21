@@ -1,11 +1,11 @@
 """Test execution format to check a client's public mempool admission."""
 
-from typing import Any, ClassVar, Dict, List, Tuple
+from typing import Any, ClassVar, Dict, List, Sequence, Tuple
 
 import pytest
 from pytest import FixtureRequest
 
-from execution_testing.base_types import Address, Hash
+from execution_testing.base_types import Address, CamelModel, Hash
 from execution_testing.forks import Fork
 from execution_testing.logging import (
     get_logger,
@@ -49,15 +49,32 @@ class AdmittedTransaction:
         self.lands = tx.error is None
 
 
+class MempoolCheck(CamelModel):
+    """
+    A check of the client's mempool, run once every transaction is sent
+    and before any block includes one.
+    """
+
+    def check(
+        self,
+        *,
+        fork: Fork,
+        eth_rpc: EthRPC,
+        engine_rpc: EngineRPC | None,
+        txs: Sequence[MempoolTransaction],
+    ) -> None:
+        """Check the mempool's state after `txs` were sent."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement `check`"
+        )
+
+
 class MempoolAdmission(BaseExecute):
     """
     Represents a test execution format that sends transactions in order
-    to the client's public mempool via `eth_sendRawTransaction` and
-    checks that each one is admitted or rejected as expected.
-
-    Subclasses check the mempool's state once every transaction is sent
-    by overriding `after_send`, and every format of the family carries
-    the `mempool_admission` mark.
+    to the client's public mempool via `eth_sendRawTransaction`, checks
+    that each one is admitted or rejected as expected, then runs the
+    mempool checks.
     """
 
     format_name: ClassVar[str] = "mempool_admission"
@@ -67,19 +84,7 @@ class MempoolAdmission(BaseExecute):
     )
 
     txs: List[MempoolTransaction]
-
-    @classmethod
-    def marks(cls) -> List[pytest.MarkDecorator | pytest.Mark]:
-        """
-        Return the mark of every format name along the class hierarchy,
-        so a single mark selects the whole family.
-        """
-        return [
-            getattr(pytest.mark, base.format_name.lower())
-            for base in cls.__mro__
-            if issubclass(base, MempoolAdmission)
-            and "format_name" in base.__dict__
-        ]
+    checks: List[MempoolCheck] = []
 
     def prepare_transactions(
         self,
@@ -146,21 +151,6 @@ class MempoolAdmission(BaseExecute):
                     balances.setdefault(authorization.signer, 0)
         return balances
 
-    def after_send(
-        self,
-        *,
-        fork: Fork,
-        eth_rpc: EthRPC,
-        engine_rpc: EngineRPC | None,
-    ) -> None:
-        """
-        Check the mempool's state once every transaction is sent.
-
-        Called with the block building lock held, before any admitted
-        transaction is included, and only when every verdict matched.
-        """
-        del fork, eth_rpc, engine_rpc
-
     def execute(
         self,
         fork: Fork,
@@ -171,11 +161,12 @@ class MempoolAdmission(BaseExecute):
         """
         Send each transaction and check the mempool's verdict.
 
-        The block building lock is held while sending so that no block
-        includes an admitted transaction before a later one, which may
-        depend on it being pending, is sent. Admitted transactions are
-        then waited on, so that none is still pending at teardown, and
-        unexpected verdicts are reported together.
+        The block building lock is held while sending and checking so
+        that no block includes an admitted transaction before a later one,
+        which may depend on it being pending, is sent, or before the
+        mempool checks see it. Admitted transactions are then waited on,
+        so that none is still pending at teardown, and unexpected verdicts
+        are reported together.
         """
         failures: List[str] = []
         inconclusive: List[str] = []
@@ -193,10 +184,16 @@ class MempoolAdmission(BaseExecute):
                         failures=failures,
                         inconclusive=inconclusive,
                     )
+                # The checks run before any block includes an admitted
+                # transaction, and only once every verdict matched.
                 if not failures and not inconclusive:
-                    self.after_send(
-                        fork=fork, eth_rpc=eth_rpc, engine_rpc=engine_rpc
-                    )
+                    for check in self.checks:
+                        check.check(
+                            fork=fork,
+                            eth_rpc=eth_rpc,
+                            engine_rpc=engine_rpc,
+                            txs=self.txs,
+                        )
         finally:
             landing = [a.tx_hash for a in admitted.values() if a.lands]
             try:

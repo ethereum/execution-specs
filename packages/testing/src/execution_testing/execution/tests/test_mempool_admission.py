@@ -19,8 +19,8 @@ from execution_testing.test_types import (
     Transaction,
 )
 
-from ..blob_transaction import BlobTransaction
-from ..mempool import MempoolAdmission
+from ..get_blobs import GetBlobs
+from ..mempool import MempoolAdmission, MempoolCheck
 
 ALICE = EOA(key=1)
 BOB = EOA(key=2)
@@ -115,11 +115,10 @@ def signed(sender: EOA, nonce: int, gas_price: int = 10) -> Transaction:
 def run(
     rpc: FakeEthRPC,
     entries: List[MempoolTransaction],
-    admission: type[MempoolAdmission] = MempoolAdmission,
     **kwargs: Any,
 ) -> None:
     """Execute the format against `rpc`."""
-    admission(txs=entries, **kwargs).execute(
+    MempoolAdmission(txs=entries, **kwargs).execute(
         fork=Prague,
         eth_rpc=rpc,  # type: ignore[arg-type]
         engine_rpc=None,
@@ -227,55 +226,60 @@ def test_verdict_after_a_related_inclusion_is_inconclusive() -> None:
         )
 
 
-class RecordingAdmission(MempoolAdmission):
-    """Record whether `after_send` ran with the lock held."""
+class RecordingCheck(MempoolCheck):
+    """Record whether the check ran with the lock held."""
 
     calls: ClassVar[List[bool]] = []
     raises: bool = False
 
-    def after_send(self, *, fork: Any, eth_rpc: Any, engine_rpc: Any) -> None:
+    def check(
+        self, *, fork: Any, eth_rpc: Any, engine_rpc: Any, txs: Any
+    ) -> None:
         """Record the lock state, raising if asked to."""
-        del fork, engine_rpc
-        RecordingAdmission.calls.append(eth_rpc.locked)
+        del fork, engine_rpc, txs
+        RecordingCheck.calls.append(eth_rpc.locked)
         if self.raises:
             raise AssertionError("mempool state mismatch")
 
 
-def test_after_send_runs_under_the_lock() -> None:
-    """Test that the hook sees the mempool before any block is built."""
-    RecordingAdmission.calls = []
+def test_checks_run_under_the_lock() -> None:
+    """Test that a check sees the mempool before any block is built."""
+    RecordingCheck.calls = []
     tx = signed(ALICE, 0)
     rpc = FakeEthRPC()
-    run(rpc, [MempoolTransaction(tx=tx, accepted=True)], RecordingAdmission)
-    assert RecordingAdmission.calls == [True]
+    run(
+        rpc,
+        [MempoolTransaction(tx=tx, accepted=True)],
+        checks=[RecordingCheck()],
+    )
+    assert RecordingCheck.calls == [True]
     assert rpc.waited == [tx.hash]
 
 
-def test_after_send_is_skipped_on_a_wrong_verdict() -> None:
-    """Test that the hook does not run once a verdict is wrong."""
-    RecordingAdmission.calls = []
+def test_checks_are_skipped_on_a_wrong_verdict() -> None:
+    """Test that the checks do not run once a verdict is wrong."""
+    RecordingCheck.calls = []
     tx = signed(ALICE, 0)
     rpc = FakeEthRPC(rejected={tx.hash})
     with pytest.raises(pytest.fail.Exception):
         run(
             rpc,
             [MempoolTransaction(tx=tx, accepted=True)],
-            RecordingAdmission,
+            checks=[RecordingCheck()],
         )
-    assert RecordingAdmission.calls == []
+    assert RecordingCheck.calls == []
 
 
-def test_admitted_txs_are_waited_on_when_after_send_fails() -> None:
-    """Test that admitted txs are mined even if the hook fails."""
-    RecordingAdmission.calls = []
+def test_admitted_txs_are_waited_on_when_a_check_fails() -> None:
+    """Test that admitted txs are mined even if a check fails."""
+    RecordingCheck.calls = []
     tx = signed(ALICE, 0)
     rpc = FakeEthRPC()
     with pytest.raises(AssertionError, match="mempool state mismatch"):
         run(
             rpc,
             [MempoolTransaction(tx=tx, accepted=True)],
-            RecordingAdmission,
-            raises=True,
+            checks=[RecordingCheck(raises=True)],
         )
     assert rpc.waited == [tx.hash]
 
@@ -332,22 +336,19 @@ def test_benchmark_gas_sums_the_admitted_receipts() -> None:
     assert result.benchmark_gas_used == 2 * 21_000
 
 
-def test_family_marks() -> None:
-    """Test that every format of the family carries the family mark."""
+def test_mempool_admission_mark() -> None:
+    """Test that the format carries the mark selecting mempool tests."""
     assert [m.name for m in MempoolAdmission.marks()] == ["mempool_admission"]
-    assert [m.name for m in BlobTransaction.marks()] == [
-        "blob_transaction_test",
-        "mempool_admission",
-    ]
 
 
-@pytest.mark.parametrize("admit", [True, False], ids=["admitted", "rejected"])
-def test_policy_verdict_accepts_either_answer(admit: bool) -> None:
+def test_get_blobs_rejects_empty_custody_columns_updates() -> None:
     """
-    Test that a transaction left to mempool policy passes whether the
-    client admits it, then mines it, or rejects it.
+    Test that a getBlobs check accepts any non-empty sequence of
+    `custodyColumns` updates, with `None` for an explicit `null`, and
+    rejects an empty one, which would send nothing.
     """
-    tx = signed(ALICE, 0)
-    rpc = FakeEthRPC(rejected=set() if admit else {tx.hash})
-    run(rpc, [MempoolTransaction(tx=tx, accepted=None)])
-    assert rpc.waited == ([tx.hash] if admit else [])
+    bitmap = b"\xff" * 16
+    for updates in ([bitmap], [None], [bitmap, None], [bitmap, bitmap]):
+        GetBlobs(custody_columns_updates=updates)
+    with pytest.raises(ValueError, match="custody_columns_updates"):
+        GetBlobs(custody_columns_updates=[])
