@@ -68,6 +68,9 @@ FORK_ORDER = [
     "BPO4",
     "BPO5",
     "Amsterdam",
+    # Synthetic blob schedules that branch off Amsterdam, next to Bogota.
+    "BPOIncrease",
+    "BPODecrease",
     "Bogota",
 ]
 
