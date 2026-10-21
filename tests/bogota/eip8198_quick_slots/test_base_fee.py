@@ -2,9 +2,10 @@
 Base fee update tests for
 [EIP-8198: Quick Slots](https://eips.ethereum.org/EIPS/eip-8198).
 
-From the fork onward, the maximum per-block base fee change is
-`BASE_FEE_MAX_CHANGE_NUMERATOR / BASE_FEE_MAX_CHANGE_DENOMINATOR`, with the
-multiplication performed before the division.
+From the fork onward, the maximum per-block base fee change follows the slot
+duration read from the spacing of a block and its parent, up to twelve
+seconds per slot, with the multiplication performed before the division. A
+block's slot number must exceed its parent's.
 """
 
 from typing import List
@@ -15,19 +16,27 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     BlockException,
+    EIPChecklist,
     Environment,
     Fork,
     Header,
     ParameterSet,
 )
 
-from .helpers import BLOCK_GAS_LIMIT, gas_spending_transactions
-from .spec import ref_spec_8198
+from .helpers import (
+    BLOCK_GAS_LIMIT,
+    block_with_invalid_slot_number,
+    gas_spending_transactions,
+)
+from .spec import Spec, ref_spec_8198
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8198.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8198.version
 
 pytestmark = pytest.mark.valid_from("EIP8198")
+
+SLOT_SECONDS = 10
+"""Slot duration of the blocks in the base fee update tests."""
 
 
 def gas_used_cases(fork: Fork) -> List[ParameterSet]:
@@ -49,8 +58,12 @@ def gas_used_cases(fork: Fork) -> List[ParameterSet]:
 
 def base_fee_cases(fork: Fork) -> List[ParameterSet]:
     """Return parent base fees on both sides of the fork's rounding edges."""
-    numerator = fork.base_fee_max_change_numerator()
-    denominator = fork.base_fee_max_change_denominator()
+    numerator = fork.base_fee_max_change_numerator(
+        seconds_elapsed=SLOT_SECONDS
+    )
+    denominator = fork.base_fee_max_change_denominator(
+        seconds_elapsed=SLOT_SECONDS
+    )
     full_block_numerator = numerator * (
         fork.base_fee_elasticity_multiplier() - 1
     )
@@ -83,14 +96,20 @@ def base_fee_cases(fork: Fork) -> List[ParameterSet]:
     ]
 
 
-def genesis_base_fee_for(fork: Fork, base_fee_per_gas: int) -> int:
+def genesis_base_fee_for(
+    fork: Fork, base_fee_per_gas: int, slot_seconds: int = SLOT_SECONDS
+) -> int:
     """
     Return a genesis base fee from which the first block, built on the empty
-    genesis block, has exactly `base_fee_per_gas`.
+    genesis block `slot_seconds` later, has exactly `base_fee_per_gas`.
     """
     base_fee_per_gas_calculator = fork.base_fee_per_gas_calculator()
-    numerator = fork.base_fee_max_change_numerator()
-    denominator = fork.base_fee_max_change_denominator()
+    numerator = fork.base_fee_max_change_numerator(
+        seconds_elapsed=slot_seconds
+    )
+    denominator = fork.base_fee_max_change_denominator(
+        seconds_elapsed=slot_seconds
+    )
     lowest = base_fee_per_gas * denominator // (denominator - numerator)
     for candidate in range(max(lowest - 2, base_fee_per_gas), lowest + 50):
         if (
@@ -98,6 +117,7 @@ def genesis_base_fee_for(fork: Fork, base_fee_per_gas: int) -> int:
                 parent_base_fee_per_gas=candidate,
                 parent_gas_used=0,
                 parent_gas_limit=BLOCK_GAS_LIMIT,
+                seconds_elapsed=slot_seconds,
             )
             == base_fee_per_gas
         ):
@@ -127,20 +147,21 @@ def test_base_fee_update(
         parent_base_fee_per_gas=parent_base_fee_per_gas,
         parent_gas_used=parent_gas_used,
         parent_gas_limit=BLOCK_GAS_LIMIT,
+        seconds_elapsed=SLOT_SECONDS,
     )
     blocks = [
         Block(
             txs=gas_spending_transactions(
                 pre=pre, sender=sender, fork=fork, gas=parent_gas_used
             ),
-            timestamp=10,
+            timestamp=SLOT_SECONDS,
             header_verify=Header(
                 base_fee_per_gas=parent_base_fee_per_gas,
                 gas_used=parent_gas_used,
             ),
         ),
         Block(
-            timestamp=20,
+            timestamp=2 * SLOT_SECONDS,
             header_verify=Header(base_fee_per_gas=expected_base_fee),
         ),
     ]
@@ -188,20 +209,225 @@ def test_invalid_base_fee(
         parent_base_fee_per_gas=parent_base_fee_per_gas,
         parent_gas_used=parent_gas_used,
         parent_gas_limit=BLOCK_GAS_LIMIT,
+        seconds_elapsed=SLOT_SECONDS,
     )
     blocks = [
         Block(
             txs=gas_spending_transactions(
                 pre=pre, sender=sender, fork=fork, gas=parent_gas_used
             ),
-            timestamp=10,
+            timestamp=SLOT_SECONDS,
         ),
         Block(
-            timestamp=20,
+            timestamp=2 * SLOT_SECONDS,
             rlp_modifier=Header(
                 base_fee_per_gas=expected_base_fee + base_fee_offset
             ),
             exception=BlockException.INVALID_BASEFEE_PER_GAS,
+        ),
+    ]
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=blocks,
+        genesis_environment=genesis_environment,
+    )
+
+
+def slot_spacing_cases(fork: Fork) -> List[ParameterSet]:
+    """Return the seconds and slots between a block and its parent."""
+    # The smallest slot gap at which `96 * slots_elapsed` exceeds 64 bits.
+    gap_beyond_64_bits = -(
+        -(2**64) // fork.base_fee_max_change_denominator(slots_elapsed=1)
+    )
+    # Spacing beyond the reference duration per slot is capped.
+    reference = Spec.BASE_FEE_REFERENCE_SLOT_SECONDS
+    # The smallest slot gap at which the cap, `reference * slots_elapsed`,
+    # exceeds 64 bits. Spacing below the reference keeps the cap unused.
+    cap_gap_beyond_64_bits = -(-(2**64) // reference)
+    return [
+        pytest.param(9, 1, id="9s"),
+        pytest.param(9 * 3, 3, id="9s_two_missed_slots"),
+        pytest.param(10, 1, id="10s"),
+        pytest.param(10 * 2, 2, id="10s_missed_slot"),
+        pytest.param(10 * 5, 5, id="10s_four_missed_slots"),
+        # The spacing per slot is not a whole number of seconds.
+        pytest.param(21, 2, id="21s_over_two_slots"),
+        pytest.param(31, 3, id="31s_over_three_slots"),
+        pytest.param(1, 2, id="1s_over_two_slots"),
+        pytest.param(reference - 1, 1, id=f"{reference - 1}s"),
+        pytest.param(reference, 1, id=f"{reference}s"),
+        pytest.param(reference * 2, 2, id=f"{reference}s_missed_slot"),
+        pytest.param(reference * 10, 10, id=f"{reference}s_nine_missed_slots"),
+        pytest.param(reference + 1, 1, id=f"{reference + 1}s"),
+        pytest.param(
+            (reference + 1) * 2, 2, id=f"{reference + 1}s_missed_slot"
+        ),
+        pytest.param(2**32, 1, id="long_gap"),
+        pytest.param(
+            reference * (gap_beyond_64_bits - 1),
+            gap_beyond_64_bits - 1,
+            id="slot_gap_product_within_64_bits",
+        ),
+        pytest.param(
+            reference * gap_beyond_64_bits,
+            gap_beyond_64_bits,
+            id="slot_gap_product_beyond_64_bits",
+        ),
+        pytest.param(
+            (reference - 1) * (cap_gap_beyond_64_bits - 1),
+            cap_gap_beyond_64_bits - 1,
+            id="spacing_cap_within_64_bits",
+        ),
+        pytest.param(
+            (reference - 1) * cap_gap_beyond_64_bits,
+            cap_gap_beyond_64_bits,
+            id="spacing_cap_beyond_64_bits",
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    "slots_elapsed",
+    [
+        pytest.param(
+            2,
+            id="missed_slot",
+            marks=EIPChecklist.BlockLevelConstraint.Test.Boundary.Under(),
+        ),
+        pytest.param(
+            1,
+            id="next_slot",
+            marks=EIPChecklist.BlockLevelConstraint.Test.Boundary.Exact(),
+        ),
+        pytest.param(
+            0,
+            id="same_slot",
+            marks=[
+                pytest.mark.exception_test,
+                EIPChecklist.BlockLevelConstraint.Test.Boundary.Over(),
+            ],
+        ),
+        pytest.param(-1, id="earlier_slot", marks=pytest.mark.exception_test),
+    ],
+)
+def test_slot_number_must_increase(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    slots_elapsed: int,
+) -> None:
+    """
+    Accept a block whose slot number exceeds its parent's, and reject one
+    whose slot number equals or precedes it.
+    """
+    parent_base_fee_per_gas = 10**9
+    parent_slot_number = 1
+    slot_number = parent_slot_number + slots_elapsed
+    parent = Block(timestamp=SLOT_SECONDS, slot_number=parent_slot_number)
+    if slots_elapsed > 0:
+        block = Block(
+            timestamp=(1 + slots_elapsed) * SLOT_SECONDS,
+            slot_number=slot_number,
+            header_verify=Header(
+                slot_number=slot_number,
+                base_fee_per_gas=fork.base_fee_per_gas_calculator()(
+                    parent_base_fee_per_gas=parent_base_fee_per_gas,
+                    parent_gas_used=0,
+                    parent_gas_limit=BLOCK_GAS_LIMIT,
+                    seconds_elapsed=slots_elapsed * SLOT_SECONDS,
+                    slots_elapsed=slots_elapsed,
+                ),
+            ),
+        )
+    else:
+        block = block_with_invalid_slot_number(
+            timestamp=2 * SLOT_SECONDS,
+            parent_slot_number=parent_slot_number,
+            slot_number=slot_number,
+        )
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[parent, block],
+        genesis_environment=Environment(
+            gas_limit=BLOCK_GAS_LIMIT,
+            base_fee_per_gas=genesis_base_fee_for(
+                fork, parent_base_fee_per_gas
+            ),
+        ),
+    )
+
+
+@pytest.mark.parametrize_by_fork(
+    "seconds_elapsed,slots_elapsed", slot_spacing_cases
+)
+@pytest.mark.parametrize(
+    "parent_gas_used",
+    [
+        pytest.param(0, id="empty"),
+        pytest.param(BLOCK_GAS_LIMIT, id="full"),
+        pytest.param(BLOCK_GAS_LIMIT * 3 // 4, id="three_quarters"),
+    ],
+)
+def test_base_fee_follows_slot_duration(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    seconds_elapsed: int,
+    slots_elapsed: int,
+    parent_gas_used: int,
+) -> None:
+    """
+    Check that the maximum base fee change follows the slot duration read
+    from the block spacing up to twelve seconds per slot, and that missed
+    slots between a block and its parent leave it unchanged.
+    """
+    parent_base_fee_per_gas = 10**9
+
+    def base_fee_after(seconds_elapsed: int, slots_elapsed: int) -> int:
+        return fork.base_fee_per_gas_calculator()(
+            parent_base_fee_per_gas=parent_base_fee_per_gas,
+            parent_gas_used=parent_gas_used,
+            parent_gas_limit=BLOCK_GAS_LIMIT,
+            seconds_elapsed=seconds_elapsed,
+            slots_elapsed=slots_elapsed,
+        )
+
+    expected_base_fee = base_fee_after(seconds_elapsed, slots_elapsed)
+    slot_seconds = seconds_elapsed // slots_elapsed
+    if seconds_elapsed % slots_elapsed == 0:
+        capped_slot_seconds = min(
+            slot_seconds, Spec.BASE_FEE_REFERENCE_SLOT_SECONDS
+        )
+        assert expected_base_fee == base_fee_after(capped_slot_seconds, 1)
+    else:
+        # A rule that rounds the spacing per slot down to whole seconds
+        # gives another base fee.
+        assert expected_base_fee != base_fee_after(
+            slot_seconds * slots_elapsed, slots_elapsed
+        )
+    sender = pre.fund_eoa()
+    genesis_environment = Environment(
+        gas_limit=BLOCK_GAS_LIMIT,
+        base_fee_per_gas=genesis_base_fee_for(fork, parent_base_fee_per_gas),
+    )
+    blocks = [
+        Block(
+            txs=gas_spending_transactions(
+                pre=pre, sender=sender, fork=fork, gas=parent_gas_used
+            ),
+            timestamp=SLOT_SECONDS,
+            slot_number=1,
+            header_verify=Header(
+                base_fee_per_gas=parent_base_fee_per_gas,
+                gas_used=parent_gas_used,
+            ),
+        ),
+        Block(
+            timestamp=SLOT_SECONDS + seconds_elapsed,
+            slot_number=1 + slots_elapsed,
+            header_verify=Header(base_fee_per_gas=expected_base_fee),
         ),
     ]
     blockchain_test(

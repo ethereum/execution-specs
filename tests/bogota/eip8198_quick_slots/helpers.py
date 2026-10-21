@@ -5,8 +5,11 @@ from typing import List
 from execution_testing import (
     Address,
     Alloc,
+    Block,
+    BlockException,
     Fork,
     Hash,
+    Header,
     Op,
     Transaction,
     TransactionException,
@@ -66,6 +69,20 @@ def gas_spending_transactions(
         )
         for chunk in chunks
     ]
+
+
+def block_with_invalid_slot_number(
+    *, timestamp: int, parent_slot_number: int, slot_number: int
+) -> Block:
+    """Return a block whose slot number does not exceed its parent's."""
+    # The base fee is undefined for a slot gap below one, so build the block
+    # one slot after its parent and change only its slot number.
+    return Block(
+        timestamp=timestamp,
+        slot_number=parent_slot_number + 1,
+        rlp_modifier=Header(slot_number=slot_number),
+        exception=BlockException.INVALID_SLOT_NUMBER,
+    )
 
 
 def blob_transactions(

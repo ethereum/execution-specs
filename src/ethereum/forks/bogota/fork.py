@@ -97,25 +97,23 @@ from .vm.gas import (
 )
 from .vm.interpreter import TransactionOutput, process_top_level
 
-BASE_FEE_MAX_CHANGE_NUMERATOR = Uint(5)
+BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
 """
-Numerator of the largest fraction by which the base fee can change from one
-block to the next, used with [`BASE_FEE_MAX_CHANGE_DENOMINATOR`].
+Inverse of the largest fraction by which the base fee can change from one
+block to the next at [`BASE_FEE_REFERENCE_SLOT_SECONDS`].
 
-Blocks arrive more often from this fork onward, so the maximum change per
-block is lowered to keep the base fee's reaction to congestion, per unit of
-wall-clock time, close to what it was. The fraction is a hard-coded constant:
-the execution layer does not consume the slot duration.
-
-[`BASE_FEE_MAX_CHANGE_DENOMINATOR`]: ref:ethereum.forks.bogota.fork.BASE_FEE_MAX_CHANGE_DENOMINATOR
+[`BASE_FEE_REFERENCE_SLOT_SECONDS`]: ref:ethereum.forks.bogota.fork.BASE_FEE_REFERENCE_SLOT_SECONDS
 """  # noqa: E501
-BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(48)
+BASE_FEE_REFERENCE_SLOT_SECONDS = Uint(12)
 """
-Denominator of the largest fraction by which the base fee can change from one
-block to the next. See [`BASE_FEE_MAX_CHANGE_NUMERATOR`].
-
-[`BASE_FEE_MAX_CHANGE_NUMERATOR`]: ref:ethereum.forks.bogota.fork.BASE_FEE_MAX_CHANGE_NUMERATOR
-"""  # noqa: E501
+Slot duration, in seconds, at which the base fee changes by at most
+`1 / BASE_FEE_MAX_CHANGE_DENOMINATOR` per block. The largest change scales
+with the slot duration, read from the spacing of a block and its parent, so
+the base fee reacts to congestion at about the same rate per unit of
+wall-clock time whatever the slot duration. Spacing beyond this duration per
+slot is ignored, so no block changes the base fee by more than
+`1 / BASE_FEE_MAX_CHANGE_DENOMINATOR`.
+"""
 ELASTICITY_MULTIPLIER = Uint(2)
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 SYSTEM_ADDRESS = hex_to_address("0xfffffffffffffffffffffffffffffffffffffffe")
@@ -381,6 +379,8 @@ def calculate_base_fee_per_gas(
     parent_gas_limit: Uint,
     parent_gas_used: Uint,
     parent_base_fee_per_gas: Uint,
+    seconds_elapsed: Uint,
+    slots_elapsed: Uint,
 ) -> Uint:
     """
     Calculates the base fee per gas for the block.
@@ -395,6 +395,10 @@ def calculate_base_fee_per_gas(
         Gas used in the parent block.
     parent_base_fee_per_gas :
         Base fee per gas of the parent block.
+    seconds_elapsed :
+        Seconds between the parent block and the block.
+    slots_elapsed :
+        Slots between the parent block and the block.
 
     Returns
     -------
@@ -406,6 +410,15 @@ def calculate_base_fee_per_gas(
     if not check_gas_limit(block_gas_limit, parent_gas_limit):
         raise InvalidBlock
 
+    base_fee_max_change_denominator = (
+        BASE_FEE_MAX_CHANGE_DENOMINATOR
+        * BASE_FEE_REFERENCE_SLOT_SECONDS
+        * slots_elapsed
+    )
+    seconds_elapsed = min(
+        seconds_elapsed, BASE_FEE_REFERENCE_SLOT_SECONDS * slots_elapsed
+    )
+
     if parent_gas_used == parent_gas_target:
         expected_base_fee_per_gas = parent_base_fee_per_gas
     elif parent_gas_used > parent_gas_target:
@@ -416,8 +429,8 @@ def calculate_base_fee_per_gas(
 
         base_fee_per_gas_delta = max(
             target_fee_gas_delta
-            * BASE_FEE_MAX_CHANGE_NUMERATOR
-            // BASE_FEE_MAX_CHANGE_DENOMINATOR,
+            * seconds_elapsed
+            // base_fee_max_change_denominator,
             Uint(1),
         )
 
@@ -432,8 +445,8 @@ def calculate_base_fee_per_gas(
 
         base_fee_per_gas_delta = (
             target_fee_gas_delta
-            * BASE_FEE_MAX_CHANGE_NUMERATOR
-            // BASE_FEE_MAX_CHANGE_DENOMINATOR
+            * seconds_elapsed
+            // base_fee_max_change_denominator
         )
 
         expected_base_fee_per_gas = (
@@ -454,7 +467,9 @@ def validate_header(
     For example the header timestamp should be greater than the block's parent
     timestamp because the block was created *after* the parent block.
     Additionally, the block's number should be directly following the parent
-    block's number since it is the next block in the sequence.
+    block's number since it is the next block in the sequence. The block's
+    slot number must also exceed its parent's, since the base fee change
+    divides by the slots elapsed between them.
 
     Parameters
     ----------
@@ -473,16 +488,20 @@ def validate_header(
 
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
+    if header.timestamp <= parent_header.timestamp:
+        raise InvalidBlock
+    if header.slot_number <= parent_header.slot_number:
+        raise InvalidBlock
 
     expected_base_fee_per_gas = calculate_base_fee_per_gas(
         header.gas_limit,
         parent_header.gas_limit,
         parent_header.gas_used,
         parent_header.base_fee_per_gas,
+        Uint(header.timestamp - parent_header.timestamp),
+        Uint(header.slot_number - parent_header.slot_number),
     )
     if expected_base_fee_per_gas != header.base_fee_per_gas:
-        raise InvalidBlock
-    if header.timestamp <= parent_header.timestamp:
         raise InvalidBlock
     if header.number != parent_header.number + Uint(1):
         raise InvalidBlock
