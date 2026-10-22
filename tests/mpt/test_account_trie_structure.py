@@ -19,7 +19,8 @@ code that self-destructs at once: creation at a balance-only address is
 legal, and the contract counts as created in the transaction. The init
 code sends the balance to the sender, because from EIP-8246 a
 self-destructed account keeps its balance and is removed only when that
-balance is zero (EIP-161).
+balance is zero (EIP-161). From EIP-4758 no account can be deleted, so
+the deletion tests run only before it.
 
 Not expressible: emptying a committed storage trie in one step while its
 account survives, and clearing a committed empty account (the filler
@@ -242,6 +243,7 @@ def test_touched_empty_account_never_persists(
 # --- delete and re-create inside one block ------------------------------
 
 
+@pytest.mark.valid_before("EIP4758")
 def test_account_deleted_and_recreated_same_block(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
@@ -280,6 +282,7 @@ def test_account_deleted_and_recreated_same_block(
         pytest.param({SINGLE_SLOT: 1}, 0, id="hash_to_empty"),
     ],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_storage_root_flip_with_account_shape_change(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -327,6 +330,7 @@ def test_storage_root_flip_with_account_shape_change(
     )
 
 
+@pytest.mark.valid_before("EIP4758")
 def test_code_hash_flip_with_account_shape_change(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
@@ -363,6 +367,7 @@ def test_code_hash_flip_with_account_shape_change(
     )
 
 
+@pytest.mark.valid_before("EIP4758")
 def test_delete_and_update_survivor_same_block(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
@@ -391,6 +396,7 @@ def test_delete_and_update_survivor_same_block(
     )
 
 
+@pytest.mark.valid_before("EIP4758")
 def test_delete_resurrect_delete_across_blocks(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
@@ -424,6 +430,7 @@ def test_delete_resurrect_delete_across_blocks(
 
 
 @pytest.mark.parametrize("amount", [1, 0], ids=["credited", "zero_amount"])
+@pytest.mark.valid_before("EIP4758")
 def test_resurrection_via_withdrawal(
     blockchain_test: BlockchainTestFiller, pre: Alloc, amount: int
 ) -> None:
@@ -563,6 +570,7 @@ def _fund_collapse(
         ),
     ],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_delete_collapses_under_controlled_parent(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -597,6 +605,7 @@ def test_delete_collapses_under_controlled_parent(
     )
 
 
+@pytest.mark.valid_before("EIP4758")
 def test_delete_from_three_child_branch(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
@@ -628,6 +637,7 @@ def test_delete_from_three_child_branch(
     )
 
 
+@pytest.mark.valid_before("EIP4758")
 def test_mass_delete_sixteen_to_one(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:

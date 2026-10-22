@@ -703,10 +703,11 @@ def test_initcode_selfdestruct_keeps_top_frame_state_charge(
     ``SELFDESTRUCT`` is a *successful* halt: the frame returns no
     output (an empty deposit, so no deposit charges) and no rollback
     runs, so the refill machinery that returns state gas on a revert or
-    exceptional halt never triggers — even though the created account
-    is destroyed at the end of the transaction (EIP-6780 same-tx
-    deletion) and its leaf never persists. Deletion itself carries no
-    state-gas credit: freeing state is not refunded.
+    exceptional halt never triggers — even though, before EIP-4758, the
+    created account is destroyed at the end of the transaction (EIP-6780
+    same-tx deletion) and its leaf never persists. Deletion itself
+    carries no state-gas credit: freeing state is not refunded. Under
+    EIP-4758 (SENDALL) the created account persists with nonce one.
 
     Where the endowment ends up follows EIP-8246: destruction preserves
     a nonzero balance, so a self beneficiary leaves a balance-only leaf
@@ -787,6 +788,13 @@ def test_initcode_selfdestruct_keeps_top_frame_state_charge(
         post[created] = None
         # A zero-value sweep does not bring the beneficiary to life.
         post[beneficiary] = Account(balance=value) if value else None
+    if fork.is_eip_enabled(4758):
+        # SENDALL deletes nothing: the created account persists.
+        post[created] = Account(
+            balance=value if beneficiary_kind == "self" else 0,
+            nonce=1,
+            code=b"",
+        )
 
     state_test(pre=pre, tx=tx, post=post)
 
@@ -807,8 +815,9 @@ def test_initcode_selfdestruct_state_gas_in_header(
     distinguish which dimension the surviving charge settled into. The
     block header can: ``gas_used = max(block_execution, block_state)``,
     and with a zero endowment and a self beneficiary the whole created
-    account vanishes while the state side (one ``NEW_ACCOUNT``,
-    dominating the small execution side) must still show in the header.
+    account vanishes (or, under EIP-4758, persists with nonce one) while
+    the state side (one ``NEW_ACCOUNT``, dominating the small execution
+    side) must still show in the header.
 
     Bug signatures: a refill regression collapses the header to the
     small execution sum; an execution-gas mis-classification raises it to
@@ -860,7 +869,12 @@ def test_initcode_selfdestruct_state_gas_in_header(
         ],
         post={
             sender: Account(nonce=1),
-            created: None,
+            # SENDALL (EIP-4758) leaves the created account in place.
+            created: (
+                Account(balance=0, nonce=1, code=b"")
+                if fork.is_eip_enabled(4758)
+                else None
+            ),
         },
     )
 
