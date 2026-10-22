@@ -19,6 +19,7 @@ from execution_testing import (
     Bytes,
     CodeGasMeasure,
     Conditional,
+    Environment,
     Fork,
     Frame,
     FrameReceipt,
@@ -80,6 +81,12 @@ COLD_READ_BASE = 0x10000
 
 MAX_FLOOR_PADDING = 1 << 16
 """Upper bound of the floor-binding padding search, far above any case."""
+
+BASE_FEE = 7
+"""Base fee of the block the fee budget cases land in."""
+
+PRIORITY_FEE = 5
+"""Tip per gas the escrow case asks for."""
 
 
 def floor_binding_padding(floor_binds: Callable[[int], bool]) -> int:
@@ -1199,49 +1206,107 @@ def test_payer_max_cost_counts_keyed_nonce_access(
     frame = verify_frame(
         state_gas_limit=len(nonce_keys) * keyed_nonce_first_use(fork)
     )
-    # Any fee cap at or above the base fee; the payer escrows the
-    # transaction's maximum gas at this price.
-    fee_per_gas = 10**9
     max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
         frames=[frame], nonce_keys=nonce_keys
     )
+    # A budget of exactly the worst case leaves no tip, so the payer
+    # escrows the maximum gas at the base fee.
+    max_cost = max_gas * BASE_FEE
     sender = pre.deploy_contract(
         code=Op.APPROVE(0, 0, Spec8141.APPROVE_EXECUTION_AND_PAYMENT),
-        balance=max_gas * fee_per_gas - shortfall,
+        balance=max_cost - shortfall,
     )
     written = {keyed_nonce_slot(sender, key): 1 for key in nonce_keys}
     state_test(
+        env=Environment(base_fee_per_gas=BASE_FEE),
         pre=pre,
         tx=Transaction(
             sender=sender,
             frames=[frame],
             nonce_keys=nonce_keys,
             nonce=0,
-            max_fee_per_gas=fee_per_gas,
+            max_fee=max_cost,
             error=error,
         ),
         post={Spec.NONCE_MANAGER: Account(storage={} if error else written)},
     )
 
 
-def test_txparam_max_cost_counts_keyed_nonce_access(
+@pytest.mark.parametrize(
+    "budget_shortfall",
+    [
+        pytest.param(0, id="exact"),
+        pytest.param(1, id="one_wei_short", marks=pytest.mark.exception_test),
+    ],
+)
+def test_max_fee_counts_keyed_nonce_access(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    budget_shortfall: int,
+) -> None:
+    """
+    Require a `max_fee` covering the maximum key set's worst case, its
+    `KEYED_NONCE_ACCESS_COST` included in the maximum gas, and reject a
+    budget one wei short of it before any frame executes.
+    """
+    nonce_keys = list(range(1, Spec.MAX_NONCE_KEYS + 1))
+    frame = verify_frame(
+        state_gas_limit=len(nonce_keys) * keyed_nonce_first_use(fork)
+    )
+    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=[frame], nonce_keys=nonce_keys
+    )
+    sender = pre.deploy_contract(
+        code=Op.APPROVE(0, 0, Spec8141.APPROVE_EXECUTION_AND_PAYMENT),
+        balance=10**18,
+    )
+    written = {keyed_nonce_slot(sender, key): 1 for key in nonce_keys}
+    state_test(
+        env=Environment(base_fee_per_gas=BASE_FEE),
+        pre=pre,
+        tx=Transaction(
+            sender=sender,
+            frames=[frame],
+            nonce_keys=nonce_keys,
+            nonce=0,
+            max_fee=max_gas * BASE_FEE - budget_shortfall,
+            error=(
+                TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS
+                if budget_shortfall
+                else None
+            ),
+        ),
+        post={
+            Spec.NONCE_MANAGER: Account(
+                storage={} if budget_shortfall else written
+            )
+        },
+    )
+
+
+def test_escrow_counts_keyed_nonce_access(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Read `TXPARAM`'s max cost for the maximum key set as the maximum gas,
-    its `KEYED_NONCE_ACCESS_COST` included, times the fee cap.
+    Escrow the maximum key set's worst case plus the full tip at payment
+    approval, its `KEYED_NONCE_ACCESS_COST` included in the maximum gas,
+    as a later frame reads off the sender's balance.
     """
     nonce_keys = list(range(1, Spec.MAX_NONCE_KEYS + 1))
-    fee_per_gas = 10**9
+    funds = 10**18
     # A contract sender carries no signature entries, so the calculator
     # prices the maximum gas exactly.
     sender = pre.deploy_contract(
         code=Op.APPROVE(0, 0, Spec8141.APPROVE_EXECUTION_AND_PAYMENT),
-        balance=10**18,
+        balance=funds,
     )
-    probe_store = Op.SSTORE(SLOT_RESULT, Op.TXPARAM(Spec8141.TXPARAM_MAX_COST))
+    probe_store = Op.SSTORE(
+        SLOT_RESULT,
+        Op.SUB(funds, Op.BALANCE(Op.TXPARAM(Spec8141.TXPARAM_SENDER))),
+    )
     probe_frame = default_frame(
         target=pre.deploy_contract(code=probe_store),
         state_gas_limit=probe_store.state_cost(fork),
@@ -1256,18 +1321,19 @@ def test_txparam_max_cost_counts_keyed_nonce_access(
         ],
         nonce_keys=nonce_keys,
         nonce=0,
-        max_fee_per_gas=fee_per_gas,
+        max_priority_fee_per_gas=PRIORITY_FEE,
     )
     assert tx.frames is not None
     max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
         frames=tx.frames, nonce_keys=nonce_keys, nonce_seq=tx.nonce
     )
     state_test(
+        env=Environment(base_fee_per_gas=BASE_FEE),
         pre=pre,
         tx=tx,
         post={
             probe_frame.target: Account(
-                storage={SLOT_RESULT: max_gas * fee_per_gas}
+                storage={SLOT_RESULT: max_gas * (BASE_FEE + PRIORITY_FEE)}
             )
         },
     )
