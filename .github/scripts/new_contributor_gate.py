@@ -13,7 +13,7 @@ yet, going by `author_association` and confirmed by a search, since the
 association can lag days behind a merge. Their pull requests must
 reference an issue they are assigned to, and they may have at most
 `MAX_OPEN_ISSUES` open issues. Anything else is closed with a comment
-explaining the rule (see CONTRIBUTING.md). Everyone else is left alone,
+linking the rule in CONTRIBUTING.md. Everyone else is left alone,
 and so are bots, items a maintainer reopened and authors listed in
 `.github/configs/new-contributor-gate-bypass.txt`.
 
@@ -36,6 +36,7 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 # `author_association` of an author with nothing merged yet.
 NEW_CONTRIBUTOR = ("NONE", "FIRST_TIMER", "FIRST_TIME_CONTRIBUTOR")
@@ -64,46 +65,32 @@ REFERENCE = re.compile(
 )
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 
-RND_DISCORD = "https://discord.com/invite/qGpsxSA"
-BYPASS_HELP = f"""\
-If you are an EIP author or part of an EL client or tooling team, message \
-us in `#el-testing` on the [Ethereum R&D Discord]({RND_DISCORD}) or on \
-the STEEL Discord server to get added to the bypass list."""
+PR_MESSAGE = """\
+Thanks for your interest in contributing, @{author}! This pull request \
+was closed automatically because it does not link an issue assigned to \
+you, and your branch is untouched.
 
-PR_MESSAGE = f"""\
-Thanks for your interest in contributing, @{{author}}! Our review \
-resources are constrained, so first-time contributors need to be assigned \
-to an issue before opening a pull request. This pull request was closed \
-automatically, and your branch is untouched.
+See [First-time contributors]({contributing}#first-time-contributors) \
+for the three steps to follow, and [Limits]({contributing}#limits) if \
+you should be on the bypass list."""
 
-1. Comment on an existing issue, or open a new one, saying in your own \
-words what you want to change and why.
-2. Wait for a maintainer to assign you.
-3. Open a new pull request with `Closes #<issue>` in its description.
+ISSUE_MESSAGE = """\
+Thanks for opening this issue, @{author}! It was closed automatically \
+because you already have {max_issues} open issues. Please wait for a \
+reply on those.
 
-{BYPASS_HELP}
-
-See [CONTRIBUTING.md]({{contributing}}) for details.
-
-{MARKER}"""
-
-ISSUE_MESSAGE = f"""\
-Thanks for opening this issue, @{{author}}! Our review resources are \
-constrained, so contributors with nothing merged yet can have at most \
-{{max_issues}} open issues. This issue was closed automatically. Please \
-wait for a reply on your earlier issues.
-
-{BYPASS_HELP}
-
-See [CONTRIBUTING.md]({{contributing}}) for details.
-
-{MARKER}"""
+See [Limits]({contributing}#limits) for the rule and the bypass list."""
 
 
 def bypassed(path: Path = BYPASS) -> set[str]:
     """Return the lowercase logins listed in the bypass file."""
     lines = path.read_text().splitlines()
     return {line.split("#", 1)[0].strip().lower() for line in lines} - {""}
+
+
+def message(template: str, **fields: str) -> str:
+    """Return `template` filled in and ending with the marker."""
+    return f"{template.format(**fields)}\n\n{MARKER}"
 
 
 def is_new_contributor(
@@ -133,8 +120,9 @@ def referenced_issues(body: str | None, repo: str) -> list[int]:
     return numbers
 
 
-def gh(*args: str, check: bool = True) -> str:
-    """Return the stdout of `gh <args>`, exiting non-zero on error."""
+def gh_api(path: str, *flags: str, check: bool = True) -> str:
+    """Return the stdout of `gh api <path>`, exiting non-zero on error."""
+    args = ["api", path, *flags]
     result = subprocess.run(["gh", *args], capture_output=True, text=True)
     if result.returncode != 0 and check:
         print(f"Error: gh {' '.join(args)} failed:", file=sys.stderr)
@@ -143,12 +131,43 @@ def gh(*args: str, check: bool = True) -> str:
     return result.stdout if result.returncode == 0 else ""
 
 
+def endpoint(path: str, params: dict[str, str]) -> str:
+    """Return `path` with `params` as its query string."""
+    return f"{path}?{urlencode(params)}" if params else path
+
+
+def api(path: str, check: bool = True, **params: str) -> Any:
+    """Return the JSON at `path`, or `None` if the read failed."""
+    output = gh_api(endpoint(path, params), check=check)
+    return json.loads(output) if output else None
+
+
+def api_list(path: str, **params: str) -> list[dict[str, Any]]:
+    """
+    Return every item at `path`, across pages.
+
+    `--paginate` concatenates one array per page, which is not valid
+    JSON, so `--jq` flattens the pages into one object per line.
+    """
+    params["per_page"] = "100"
+    path = endpoint(path, params)
+    output = gh_api(path, "--paginate", "--jq", ".[]")
+    return [json.loads(line) for line in output.splitlines() if line]
+
+
+def api_write(method: str, path: str, **fields: str) -> None:
+    """Send `fields` to `path` with `method`."""
+    flags: list[str] = []
+    for key, value in fields.items():
+        flags += ["-f", f"{key}={value}"]
+    gh_api(path, "--method", method, *flags)
+
+
 def assigned_issue(repo: str, pr: dict[str, Any]) -> int | None:
     """Return an issue `pr` references that its author is assigned to."""
     author = pr["user"]["login"].lower()
     for number in referenced_issues(pr["body"], repo)[:MAX_REFERENCES]:
-        found = gh("api", f"repos/{repo}/issues/{number}", check=False)
-        issue = json.loads(found) if found else {}
+        issue = api(f"repos/{repo}/issues/{number}", check=False)
         if not issue or "pull_request" in issue:
             continue
         if author in {a["login"].lower() for a in issue["assignees"]}:
@@ -158,29 +177,14 @@ def assigned_issue(repo: str, pr: dict[str, Any]) -> int | None:
 
 def has_merged_pr(repo: str, author: str) -> bool:
     """Return whether `author` has a merged pull request in `repo`."""
-    query = f"repo:{repo} is:pr is:merged author:{author}"
-    count = gh(
-        "api",
-        "--method",
-        "GET",
-        "search/issues",
-        "-f",
-        f"q={query}",
-        "-f",
-        "per_page=1",
-        "--jq",
-        ".total_count",
-    )
-    return int(count or 0) > 0
+    search = f"repo:{repo} is:pr is:merged author:{author}"
+    found = api("search/issues", q=search, per_page="1")
+    return int(found["total_count"]) > 0
 
 
 def earlier_open_issues(repo: str, author: str, number: int) -> list[int]:
     """Return the open issues `author` opened before issue `number`."""
-    query = f"creator={author}&state=open&per_page=100"
-    output = gh(
-        "api", "--paginate", f"repos/{repo}/issues?{query}", "--jq", ".[]"
-    )
-    items = [json.loads(line) for line in output.splitlines() if line]
+    items = api_list(f"repos/{repo}/issues", creator=author, state="open")
     return sorted(
         item["number"]
         for item in items
@@ -190,14 +194,8 @@ def earlier_open_issues(repo: str, author: str, number: int) -> list[int]:
 
 def already_gated(repo: str, number: int) -> bool:
     """Return whether the gate has commented on `number` before."""
-    output = gh(
-        "api",
-        "--paginate",
-        f"repos/{repo}/issues/{number}/comments",
-        "--jq",
-        ".[].body",
-    )
-    return MARKER in output
+    path = f"repos/{repo}/issues/{number}/comments"
+    return any(MARKER in item["body"] for item in api_list(path))
 
 
 def load_item(
@@ -207,7 +205,7 @@ def load_item(
     if args.pr is not None or args.issue is not None:
         kind = "pulls" if args.pr is not None else "issues"
         number = args.pr if args.pr is not None else args.issue
-        item = json.loads(gh("api", f"repos/{repo}/{kind}/{number}"))
+        item = api(f"repos/{repo}/{kind}/{number}")
         return item, args.pr is not None, item["user"]["login"]
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
     is_pr = "pull_request" in event
@@ -217,23 +215,33 @@ def load_item(
 
 def close(repo: str, number: int, message: str, is_pr: bool) -> None:
     """Comment `message` on an issue or pull request and close it."""
-    gh(
-        "api",
-        "--method",
-        "POST",
-        f"repos/{repo}/issues/{number}/comments",
-        "-f",
-        f"body={message}",
-    )
-    reason = [] if is_pr else ["-f", "state_reason=not_planned"]
-    gh(
-        "api",
-        "--method",
-        "PATCH",
-        f"repos/{repo}/issues/{number}",
-        "-f",
-        "state=closed",
-        *reason,
+    api_write("POST", f"repos/{repo}/issues/{number}/comments", body=message)
+    fields = {"state": "closed"}
+    if not is_pr:
+        fields["state_reason"] = "not_planned"
+    api_write("PATCH", f"repos/{repo}/issues/{number}", **fields)
+
+
+def violation(repo: str, item: dict[str, Any], is_pr: bool) -> str | None:
+    """Return the message to close `item` with, or `None` to leave it."""
+    number = item["number"]
+    author = item["user"]["login"]
+    contributing = f"https://github.com/{repo}/blob/HEAD/CONTRIBUTING.md"
+    if is_pr:
+        issue = assigned_issue(repo, item)
+        if issue is not None:
+            print(f"#{number}: author is assigned to #{issue}")
+            return None
+        return message(PR_MESSAGE, author=author, contributing=contributing)
+    earlier = earlier_open_issues(repo, author, number)
+    if len(earlier) < MAX_OPEN_ISSUES:
+        print(f"#{number}: {len(earlier)} earlier open issues")
+        return None
+    return message(
+        ISSUE_MESSAGE,
+        author=author,
+        max_issues=str(MAX_OPEN_ISSUES),
+        contributing=contributing,
     )
 
 
@@ -247,8 +255,6 @@ def gate(
 ) -> None:
     """Close `item` if a new contributor opened it against the rules."""
     number = item["number"]
-    contributing = f"https://github.com/{repo}/blob/HEAD/CONTRIBUTING.md"
-
     if not is_new_contributor(item, sender, bypassed()):
         print(f"#{number}: skipped, {item['author_association']} by {sender}")
         return
@@ -259,38 +265,25 @@ def gate(
     if swept and already_gated(repo, number):
         print(f"#{number}: skipped, reopened after the gate closed it")
         return
-    if is_pr:
-        issue = assigned_issue(repo, item)
-        if issue is not None:
-            print(f"#{number}: author is assigned to #{issue}")
-            return
-        message = PR_MESSAGE.format(author=author, contributing=contributing)
-    else:
-        earlier = earlier_open_issues(repo, author, number)
-        if len(earlier) < MAX_OPEN_ISSUES:
-            print(f"#{number}: {len(earlier)} earlier open issues")
-            return
-        message = ISSUE_MESSAGE.format(
-            author=author,
-            max_issues=MAX_OPEN_ISSUES,
-            contributing=contributing,
-        )
-
+    comment = violation(repo, item, is_pr)
+    if comment is None:
+        return
     print(f"#{number}: closing")
     if not dry_run:
-        close(repo, number, message, is_pr)
+        close(repo, number, comment, is_pr)
 
 
 def sweep(repo: str, now: datetime, dry_run: bool) -> None:
     """Gate recent pull requests into branches other than the default."""
-    default = json.loads(gh("api", f"repos/{repo}"))["default_branch"]
+    default = api(f"repos/{repo}")["default_branch"]
     since = now - timedelta(hours=SWEEP_HOURS)
-    query = "state=open&sort=created&direction=desc&per_page=100"
-    output = gh(
-        "api", "--paginate", f"repos/{repo}/pulls?{query}", "--jq", ".[]"
+    pulls = api_list(
+        f"repos/{repo}/pulls",
+        state="open",
+        sort="created",
+        direction="desc",
     )
-    for line in output.splitlines():
-        pr = json.loads(line)
+    for pr in pulls:
         recent = datetime.fromisoformat(pr["created_at"]) >= since
         if recent and pr["base"]["ref"] != default:
             gate(repo, pr, True, pr["user"]["login"], dry_run, swept=True)

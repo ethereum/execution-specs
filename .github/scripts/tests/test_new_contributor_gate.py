@@ -7,11 +7,13 @@ writes, so no test touches the network.
 
 import importlib.util
 import json
+import re
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
 from typing import Any
+from urllib.parse import unquote_plus
 
 import pytest
 
@@ -138,7 +140,7 @@ def pull(
 
 
 class FakeGh:
-    """Stand in for the `gh` CLI, serving fixtures for one repository."""
+    """Stand in for `gh api`, serving fixtures for one repository."""
 
     def __init__(
         self,
@@ -157,23 +159,25 @@ class FakeGh:
         self.reads: list[tuple[str, ...]] = []
         self.writes: list[tuple[str, ...]] = []
 
-    def __call__(self, *args: str, check: bool = True) -> str:
+    def __call__(self, path: str, *flags: str, check: bool = True) -> str:
         """Answer reads from the fixtures and record writes."""
-        if "--method" in args and args[args.index("--method") + 1] != "GET":
-            self.writes.append(args)
+        call = (path, *flags)
+        if "--method" in flags and flags[flags.index("--method") + 1] != "GET":
+            self.writes.append(call)
             return ""
-        self.reads.append(args)
-        if "search/issues" in args:
-            assert "q=repo:o/r is:pr is:merged author:alice" in args
-            return str(self.merged)
-        path = next(arg for arg in args if arg.startswith("repos/"))
+        self.reads.append(call)
+        if "search/issues" in path:
+            search = unquote_plus(path)
+            assert "q=repo:o/r is:pr is:merged author:alice" in search
+            return json.dumps({"total_count": self.merged})
         if path == "repos/o/r":
             return json.dumps({"default_branch": "forks/bogota"})
         if path.startswith("repos/o/r/pulls?"):
             return "\n".join(json.dumps(pr) for pr in self.pulls)
-        if path.endswith("/comments"):
+        if "/comments" in path:
             number = int(path.split("/")[-2])
-            return "\n".join(self.comments.get(number, []))
+            bodies = self.comments.get(number, [])
+            return "\n".join(json.dumps({"body": b}) for b in bodies)
         if path.startswith("repos/o/r/issues?"):
             assert "creator=alice&state=open" in path
             return "\n".join(json.dumps(item) for item in self.history)
@@ -194,7 +198,7 @@ def run_event(
     """Run the script's `main` on `event` against `fake`."""
     path = tmp_path / "event.json"
     path.write_text(json.dumps(event))
-    monkeypatch.setattr(m, "gh", fake)
+    monkeypatch.setattr(m, "gh_api", fake)
     monkeypatch.setattr(m, "bypassed", lambda: {"bob"})
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setenv("GITHUB_EVENT_PATH", str(path))
@@ -240,18 +244,16 @@ def closed(number: int, message: str, *reason: str) -> list[tuple[str, ...]]:
     """Return the writes that comment `message` and close `number`."""
     return [
         (
-            "api",
+            f"repos/o/r/issues/{number}/comments",
             "--method",
             "POST",
-            f"repos/o/r/issues/{number}/comments",
             "-f",
             f"body={message}",
         ),
         (
-            "api",
+            f"repos/o/r/issues/{number}",
             "--method",
             "PATCH",
-            f"repos/o/r/issues/{number}",
             "-f",
             "state=closed",
             *reason,
@@ -260,13 +262,34 @@ def closed(number: int, message: str, *reason: str) -> list[tuple[str, ...]]:
 
 
 CONTRIBUTING = "https://github.com/o/r/blob/HEAD/CONTRIBUTING.md"
-PR_MESSAGE = m.PR_MESSAGE.format(author="alice", contributing=CONTRIBUTING)
-ISSUE_MESSAGE = m.ISSUE_MESSAGE.format(
+CONTRIBUTING_MD = Path(__file__).parents[3] / "CONTRIBUTING.md"
+PR_MESSAGE = m.message(m.PR_MESSAGE, author="alice", contributing=CONTRIBUTING)
+ISSUE_MESSAGE = m.message(
+    m.ISSUE_MESSAGE,
     author="alice",
-    max_issues=m.MAX_OPEN_ISSUES,
+    max_issues=str(m.MAX_OPEN_ISSUES),
     contributing=CONTRIBUTING,
 )
 NOT_PLANNED = ("-f", "state_reason=not_planned")
+
+
+def headings(text: str) -> set[str]:
+    """Return the anchors GitHub gives the Markdown headings in `text`."""
+    found = re.findall(r"^#+ (.+)$", text, re.M)
+    return {
+        re.sub(r"[^a-z0-9 -]", "", heading.lower()).replace(" ", "-")
+        for heading in found
+    }
+
+
+def test_messages_link_sections_that_still_exist() -> None:
+    """Point every anchor at a heading CONTRIBUTING.md still has."""
+    anchors = re.findall(
+        rf"{re.escape(CONTRIBUTING)}#([\w-]+)\)",
+        PR_MESSAGE + ISSUE_MESSAGE,
+    )
+    assert anchors
+    assert set(anchors) <= headings(CONTRIBUTING_MD.read_text())
 
 
 def test_messages_name_the_author_and_link_the_guide() -> None:
@@ -275,7 +298,7 @@ def test_messages_name_the_author_and_link_the_guide() -> None:
         assert message.startswith("Thanks")
         assert "@alice" in message
         assert CONTRIBUTING in message
-        assert m.RND_DISCORD in message
+        assert f"{CONTRIBUTING}#" in message
         assert message.endswith(m.MARKER)
         assert "{" not in message
 
@@ -326,7 +349,7 @@ def test_pr_references_are_capped(
     body = " ".join(f"#{n}" for n in range(1, m.MAX_REFERENCES + 5))
     fake = FakeGh()
     run_event(monkeypatch, tmp_path, fake, pr_event(body))
-    lookups = [read for read in fake.reads if "search/issues" not in read]
+    lookups = [read for read in fake.reads if "search/issues" not in read[0]]
     assert len(lookups) == m.MAX_REFERENCES
     assert fake.writes == closed(7, PR_MESSAGE)
 
@@ -424,7 +447,7 @@ def run_sweep(
     monkeypatch: pytest.MonkeyPatch, fake: FakeGh, *flags: str
 ) -> None:
     """Run the script's `main` in sweep mode against `fake`."""
-    monkeypatch.setattr(m, "gh", fake)
+    monkeypatch.setattr(m, "gh_api", fake)
     monkeypatch.setattr(m, "bypassed", lambda: {"bob"})
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setattr(
