@@ -3,6 +3,8 @@ Test_callcode_ecrecover0_gas3000.
 
 Ported from:
 state_tests/stPreCompiledContracts2/CALLCODEEcrecover0_gas3000Filler.json
+
+@manually-enhanced: Do not overwrite. Call gas from fork.ecrecover_gas.
 """
 
 import pytest
@@ -16,6 +18,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_callcode_ecrecover0_gas3000(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_callcode_ecrecover0_gas3000."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -69,7 +73,8 @@ def test_callcode_ecrecover0_gas3000(
         + Op.SSTORE(
             key=0x2,
             value=Op.CALLCODE(
-                gas=0xBB8,
+                # The recovered address 0xa94f... is tx.origin, so it is warm.
+                gas=fork.ecrecover_gas(recovered=True, address_warm=True),
                 address=0x1,
                 value=0x0,
                 args_offset=0x0,

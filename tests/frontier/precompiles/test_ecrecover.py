@@ -1000,7 +1000,10 @@ def test_precompiles(
 
     # A rejected input is not a failed call: the precompile charges its
     # full price and returns. Forwarding exactly that price makes an
-    # implementation that charges more fail the call.
+    # implementation that charges more fail the call. The vectors fix the
+    # recovered addresses, and none of them is the sender or otherwise
+    # accessed, so a recovery reads a cold account.
+    gas = fork.ecrecover_gas(recovered=bool(output), address_warm=False)
     account = pre.deploy_contract(
         Op.MSTORE(hash_offset, msg_hash)
         + Op.MSTORE(v_offset, v)
@@ -1011,7 +1014,7 @@ def test_precompiles(
         + Op.SSTORE(
             success_slot,
             call_opcode(
-                gas=fork.gas_costs().PRECOMPILE_ECRECOVER,
+                gas=gas,
                 address="0x01",  # ecrecover precompile address
                 args_offset=hash_offset,
                 args_size=4 * 32,

@@ -11,6 +11,7 @@ from execution_testing.test_types import (
     GasFee,
     Tip,
     Transaction,
+    TransactionReceipt,
 )
 
 from ..frame_transaction_variant import (
@@ -120,6 +121,43 @@ def test_frame_transaction_variant_keeps_genesis() -> None:
     assert variant.tx is not test.tx
     assert variant.pre is test.pre
     assert variant.env is test.env
+
+
+def test_frame_transaction_variant_moves_status_to_sender_frame() -> None:
+    """A pinned status becomes the status of the `SENDER` frame."""
+    test = StateTest(
+        fork=Bogota,
+        pre=Alloc(),
+        post=Alloc(),
+        tx=Transaction(
+            expected_receipt=TransactionReceipt(status=0, gas_used=1)
+        ),
+    )
+
+    variant = convert_to_frame_transaction_variant(test)
+
+    receipt = variant.tx.expected_receipt
+    assert receipt is not None
+    assert receipt.status is None
+    assert receipt.gas_used is None
+    assert receipt.frame_receipts is not None
+    assert [frame.status for frame in receipt.frame_receipts] == [1, 0]
+
+
+def test_frame_transaction_variant_leaves_frames_unpinned() -> None:
+    """Without a pinned status, the frame receipts stay unchecked."""
+    test = StateTest(
+        fork=Bogota,
+        pre=Alloc(),
+        post=Alloc(),
+        tx=Transaction(expected_receipt=TransactionReceipt(logs=[])),
+    )
+
+    variant = convert_to_frame_transaction_variant(test)
+
+    receipt = variant.tx.expected_receipt
+    assert receipt is not None
+    assert receipt.frame_receipts is None
 
 
 @pytest.mark.parametrize(
