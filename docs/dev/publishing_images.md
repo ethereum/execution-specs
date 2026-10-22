@@ -36,7 +36,7 @@ The five simulator images are pushed by independent jobs, so a channel tag can p
 | `fixtures` | release and nightly runs | Takes the release tarball, or the fill's artifact, once per fixture format, builds `packages/testing/docker/fixtures/Dockerfile` and pushes `fixtures/<format>` under the release tag, or `nightly` for a fill. |
 | `tests` | release and nightly runs | Checks out the release tag, or the fill commit, beside the planned commit and builds `packages/testing/docker/tests/Dockerfile` from its `tests/` directory, pushed as `tests` under the same tag as the fixture images. |
 | `images` | per planned simulator | Builds the simulator with `packages/testing/docker/hive/build.sh` from the repository image at the planned commit and the fixture or tests image, verifies it with `check.sh`, confirms the branch has not moved, and pushes the release tag and the channel tags. |
-| `announce` | release runs | Runs `watch-images.yaml` in ethpandaops/hive-tests, so its dashboards test the release's images right away instead of at its hourly check. Skipped with a notice when `HIVE_TESTS_APP_CLIENT_ID` is not set. |
+| `announce` | release runs | Runs `watch-images.yaml` in ethpandaops/hive-tests, so its dashboards test the release's images right away instead of at its hourly check. Skipped with a notice when `HIVE_TESTS_APP_CLIENT_ID` is not set, and only warns when the announcement fails. |
 
 Whenever a simulator image moves `latest`, the job also publishes `latest-legacy`: `latest` plus the ONBUILD steps of `packages/testing/docker/hive/Dockerfile.legacy`, which hive's default Dockerfiles select for the deprecated `fixtures` and `branch` arguments. Ending the deprecation means no longer publishing it.
 

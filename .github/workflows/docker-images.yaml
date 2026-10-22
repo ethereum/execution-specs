@@ -460,9 +460,12 @@ jobs:
     if: ${{ !cancelled() && needs.plan.outputs.mode == 'release' && needs.images.result != 'skipped' }}
     runs-on: ubuntu-latest
     steps:
+      # A failed announcement only warns, since every image is published by
+      # now and hive-tests picks the release up at its hourly check anyway.
       - name: Get a hive-tests token
         id: token
         if: vars.HIVE_TESTS_APP_CLIENT_ID != ''
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.HIVE_TESTS_APP_CLIENT_ID }}
@@ -473,9 +476,13 @@ jobs:
       - name: Run the hive-tests image check
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
+          TOKEN_STEP: ${{ steps.token.outcome }}
         run: |
-          if [ -z "$GH_TOKEN" ]; then
+          if [ "$TOKEN_STEP" = skipped ]; then
             echo "::notice::HIVE_TESTS_APP_CLIENT_ID is not set, hive-tests picks the release up at its next hourly check"
-            exit 0
+          elif [ -z "$GH_TOKEN" ]; then
+            echo "::warning::Getting a hive-tests token failed, hive-tests picks the release up at its next hourly check"
+          else
+            gh workflow run watch-images.yaml --repo ethpandaops/hive-tests --ref master \
+              || echo "::warning::Announcing the release to hive-tests failed, it picks the release up at its next hourly check"
           fi
-          gh workflow run watch-images.yaml --repo ethpandaops/hive-tests --ref master
