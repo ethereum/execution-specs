@@ -23,43 +23,14 @@ from typing import Optional, Tuple, final
 
 from ethereum_types.bytes import Bytes32
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U256
+from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32
-from ethereum.state import EMPTY_ACCOUNT, EMPTY_CODE_HASH, Account, Address
+from ethereum.state import EMPTY_ACCOUNT, Account, Address
 
 from ..blocks import Log
-from ..state_tracker import (
-    TransactionState,
-    get_code,
-    get_pre_state_account_optional,
-)
+from ..state_tracker import TransactionState, get_pre_state_account_optional
 from . import FrameContext
-from .eoa_delegation import is_valid_delegation
-
-CHANGE_FLAG_NONCE = U256(0b0001)
-"""
-`account_change_flags` bit set when the account's nonce differs from
-its transaction prestate value.
-"""
-
-CHANGE_FLAG_BALANCE = U256(0b0010)
-"""
-`account_change_flags` bit set when the account's balance differs from
-its transaction prestate value.
-"""
-
-CHANGE_FLAG_STORAGE = U256(0b0100)
-"""
-`account_change_flags` bit set when any storage slot of the account
-differs from its transaction prestate value.
-"""
-
-CHANGE_FLAG_CODE = U256(0b1000)
-"""
-`account_change_flags` bit set when the account's code hash differs
-from its transaction prestate value.
-"""
 
 
 @final
@@ -120,23 +91,50 @@ class SlotChange:
 @final
 @slotted_freezable
 @dataclass
-class DeployedContract:
+class CodeChange:
     """
-    Entry of the `contracts_deployed` table: an address whose code hash
-    changed from the empty-code hash to the hash of code that is not an
-    [EIP-7702] delegation designator.
-
-    [EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
+    Entry of the `codes_changed` table: an address whose code hash
+    differs from its transaction prestate value.
     """
 
     address: Address
     """
-    The address of the newly deployed contract.
+    The account whose code changed.
     """
 
-    code_hash: Hash32
+    before: Hash32
+    """
+    The code hash at the start of the transaction.
+    """
+
+    after: Hash32
     """
     The code hash as of the reading instruction.
+    """
+
+
+@final
+@slotted_freezable
+@dataclass
+class NonceChange:
+    """
+    Entry of the `nonces_changed` table: an address whose nonce differs
+    from its transaction prestate value.
+    """
+
+    address: Address
+    """
+    The account whose nonce changed.
+    """
+
+    before: Uint
+    """
+    The nonce at the start of the transaction.
+    """
+
+    after: Uint
+    """
+    The nonce as of the reading instruction.
     """
 
 
@@ -146,8 +144,8 @@ class DeployedContract:
 class TransactionDiff:
     """
     The transaction's state diff, in the canonical enumeration order:
-    balance and slot changes ascending by address, slots of one address
-    ascending by key, and events in emission order.
+    balance, slot, code and nonce changes ascending by address, slots
+    of one address ascending by key, and events in emission order.
     """
 
     balances: Tuple[BalanceChange, ...]
@@ -160,9 +158,14 @@ class TransactionDiff:
     The `slots_changed` table.
     """
 
-    deployed: Tuple[DeployedContract, ...]
+    codes: Tuple[CodeChange, ...]
     """
-    The `contracts_deployed` table.
+    The `codes_changed` table.
+    """
+
+    nonces: Tuple[NonceChange, ...]
+    """
+    The `nonces_changed` table.
     """
 
     events: Tuple[Log, ...]
@@ -236,28 +239,13 @@ def written_account(
     return account
 
 
-def code_hash_after(tx_state: TransactionState, account: Account) -> Hash32:
-    """
-    Return the code hash `contracts_deployed` reports for an account
-    the transaction wrote, treating an [EIP-7702] delegation designator
-    as no deployed code.
-
-    [EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
-    """
-    if account.code_hash == EMPTY_CODE_HASH:
-        return EMPTY_CODE_HASH
-    if is_valid_delegation(get_code(tx_state, account.code_hash)):
-        return EMPTY_CODE_HASH
-    return account.code_hash
-
-
 def transaction_diff(
     tx_state: TransactionState, frame_context: FrameContext
 ) -> TransactionDiff:
     """
     Compute the executing frame transaction's state diff.
 
-    Balance changes and deployments are read off the accounts the
+    Balance, code and nonce changes are read off the accounts the
     transaction wrote, slot changes off the slots it wrote, each
     compared with its transaction prestate value. Entries the
     transaction restored are omitted. Events are the logs of the
@@ -266,7 +254,8 @@ def transaction_diff(
     unrolled, contributes none.
     """
     balances = []
-    deployed = []
+    codes = []
+    nonces = []
     for address in sorted(tx_state.account_writes, key=address_order):
         before = pre_state_account(tx_state, address)
         after = written_account(tx_state, address)
@@ -277,13 +266,19 @@ def transaction_diff(
                     address=address, before=before.balance, after=after.balance
                 )
             )
-        deployed_code_hash = code_hash_after(tx_state, after)
-        if (
-            before.code_hash == EMPTY_CODE_HASH
-            and deployed_code_hash != EMPTY_CODE_HASH
-        ):
-            deployed.append(
-                DeployedContract(address=address, code_hash=deployed_code_hash)
+        if before.code_hash != after.code_hash:
+            codes.append(
+                CodeChange(
+                    address=address,
+                    before=before.code_hash,
+                    after=after.code_hash,
+                )
+            )
+        if before.nonce != after.nonce:
+            nonces.append(
+                NonceChange(
+                    address=address, before=before.nonce, after=after.nonce
+                )
             )
 
     slots = []
@@ -309,77 +304,7 @@ def transaction_diff(
     return TransactionDiff(
         balances=tuple(balances),
         slots=tuple(slots),
-        deployed=tuple(deployed),
+        codes=tuple(codes),
+        nonces=tuple(nonces),
         events=events,
-    )
-
-
-def account_change_flags(
-    tx_state: TransactionState, diff: TransactionDiff, address: Address
-) -> U256:
-    """
-    Return the `account_change_flags` bitmask of an account: one bit per
-    field of the account tuple, following its `(nonce, balance,
-    storage_root, code_hash)` order, set when the field's net value
-    differs from the transaction prestate.
-
-    An account with neither an account write nor a changed slot has no
-    set bit, and no live state is read to establish that.
-    """
-    flags = U256(0)
-    after = written_account(tx_state, address)
-    if after is not None:
-        before = pre_state_account(tx_state, address)
-        if before.nonce != after.nonce:
-            flags |= CHANGE_FLAG_NONCE
-        if before.balance != after.balance:
-            flags |= CHANGE_FLAG_BALANCE
-        if before.code_hash != after.code_hash:
-            flags |= CHANGE_FLAG_CODE
-    if any(change.address == address for change in diff.slots):
-        flags |= CHANGE_FLAG_STORAGE
-    return flags
-
-
-def slot_indices_of(
-    diff: TransactionDiff, address: Address
-) -> Tuple[int, ...]:
-    """
-    Return the `slots_changed` indices of the entries of one account,
-    the per-address view `TXDIFF` exposes, in enumeration order.
-    """
-    return tuple(
-        index
-        for index, change in enumerate(diff.slots)
-        if change.address == address
-    )
-
-
-def event_indices_of(
-    diff: TransactionDiff, address: Address
-) -> Tuple[int, ...]:
-    """
-    Return the `events_count` indices of the events one account
-    emitted, the per-address view `TXDIFF` exposes, in emission order.
-    """
-    return tuple(
-        index
-        for index, event in enumerate(diff.events)
-        if event.address == address
-    )
-
-
-def event_indices_with_topic(
-    diff: TransactionDiff, topic: Hash32
-) -> Tuple[int, ...]:
-    """
-    Return the `events_count` indices of the events carrying `topic` in
-    any indexed position (`topic1` to `topic3`), the per-topic view
-    `TXDIFF` exposes, in emission order. The signature topic `topic0`
-    identifies the event type and is excluded.
-    """
-    return tuple(
-        index
-        for index, event in enumerate(diff.events)
-        if topic in event.topics[1:]
     )
