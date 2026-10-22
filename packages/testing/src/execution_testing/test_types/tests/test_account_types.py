@@ -4,12 +4,19 @@ from typing import Callable
 
 import ethereum.state as spec_state
 import pytest
+from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum_types.bytes import Bytes20, Bytes32
 from ethereum_types.numeric import U256, Uint
 
-from execution_testing.base_types import Address, StateCommitment, Storage
+from execution_testing.base_types import (
+    Address,
+    StateCommitment,
+    Storage,
+    TestPrivateKey,
+)
 
-from ..account_types import Account, Alloc
+from ..account_types import EOA, Account, Alloc
 
 STORAGE_WRITES: dict[str, Callable[[Storage], object]] = {
     "setitem": lambda storage: storage.__setitem__(1, 2),
@@ -173,3 +180,47 @@ def test_apply_diff_storages_are_frozen() -> None:
     assert alloc[changed] == Account(storage={0: 1, 1: 2})
     assert alloc[cleared] == Account()
     assert alloc[zeroed] == Account(storage={1: 1})
+
+
+@pytest.mark.parametrize(
+    "digest",
+    [
+        pytest.param(b"\x00" * 32, id="zero"),
+        pytest.param(keccak256(b"ecrecover"), id="keccak"),
+        pytest.param(b"\xff" * 32, id="max"),
+    ],
+)
+def test_eoa_sign_digest_recovers_signer(digest: bytes) -> None:
+    """
+    Test that the spec's recovery maps a digest signature back to the
+    signer, with a low `s` and `v` in the form ecrecover takes.
+    """
+    eoa = EOA(key=TestPrivateKey)
+    v, r, s = eoa.sign_digest(digest)
+    assert v in (27, 28)
+    assert 0 < s <= int(SECP256K1N) // 2
+    public_key = secp256k1_recover(
+        U256(r), U256(s), U256(v - 27), Hash32(digest)
+    )
+    assert Address(keccak256(public_key)[12:32]) == eoa
+
+
+def test_eoa_sign_digest_requires_key() -> None:
+    """Test that an EOA known only by its address cannot sign."""
+    eoa = EOA(Address(0x1234))
+    with pytest.raises(ValueError, match="private key"):
+        eoa.sign_digest(b"\x00" * 32)
+
+
+@pytest.mark.parametrize(
+    "digest",
+    [
+        pytest.param(b"\x01" * 31, id="short"),
+        pytest.param(b"\x01" * 33, id="long"),
+    ],
+)
+def test_eoa_sign_digest_requires_32_bytes(digest: bytes) -> None:
+    """Test that a digest of any other length is rejected, not padded."""
+    eoa = EOA(key=TestPrivateKey)
+    with pytest.raises(ValueError, match="fixed size bytes"):
+        eoa.sign_digest(digest)
