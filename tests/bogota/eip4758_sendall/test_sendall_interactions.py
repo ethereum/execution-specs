@@ -14,6 +14,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    AuthorizationTuple,
     BalAccountExpectation,
     BalBalanceChange,
     BalCodeChange,
@@ -39,6 +40,7 @@ from execution_testing import (
 )
 
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
+from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
 from .spec import ref_spec_4758
 
@@ -457,4 +459,113 @@ def test_sendall_grants_no_refund(
                 cumulative_gas_used=executed - refund
             ),
         ),
+    )
+
+
+def test_bal_created_account_storage_read(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Record a storage read by an account created and swept in one tx.
+
+    The read stays a read next to the nonce and code changes that now
+    persist.
+    """
+    beneficiary = pre.fund_eoa(amount=1)
+    victim_code = Op.POP(Op.SLOAD(SLOT)) + Op.SELFDESTRUCT(beneficiary)
+    initcode = Initcode(deploy_code=victim_code)
+    factory = pre.deploy_contract(
+        code=Om.MSTORE(initcode, 0)
+        + Op.CALL(address=Op.CREATE(value=VICTIM_BALANCE, size=len(initcode))),
+        balance=VICTIM_BALANCE,
+    )
+    victim = compute_create_address(address=factory, nonce=1)
+
+    block = Block(
+        txs=[Transaction(sender=pre.fund_eoa(), to=factory)],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                victim: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1, new_code=bytes(victim_code)
+                        )
+                    ],
+                    storage_changes=[],
+                    storage_reads=[SLOT],
+                    balance_changes=[],
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            victim: Account(nonce=1, code=victim_code, balance=0, storage={}),
+            beneficiary: Account(balance=1 + VICTIM_BALANCE),
+        },
+    )
+
+
+def test_delegation_to_swept_account(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Delegate an EOA to a contract that is created and swept in one tx.
+
+    The swept contract persists, so a later transaction to the authority
+    still runs its code against the authority's storage and balance.
+    """
+    beneficiary = pre.fund_eoa(amount=1)
+    victim_code = Op.SSTORE(SLOT, CANARY) + Op.SELFDESTRUCT(beneficiary)
+    initcode = Initcode(deploy_code=victim_code)
+    factory = pre.deploy_contract(
+        code=Om.MSTORE(initcode, 0)
+        + Op.CALL(address=Op.CREATE(value=VICTIM_BALANCE, size=len(initcode))),
+        balance=VICTIM_BALANCE,
+    )
+    victim = compute_create_address(address=factory, nonce=1)
+    authority = pre.fund_eoa(amount=REFILL)
+
+    sender = pre.fund_eoa()
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(
+                        sender=sender,
+                        to=factory,
+                        authorization_list=[
+                            AuthorizationTuple(
+                                address=victim, nonce=0, signer=authority
+                            )
+                        ],
+                    ),
+                    Transaction(sender=sender, to=authority),
+                ]
+            )
+        ],
+        post={
+            victim: Account(
+                nonce=1,
+                code=victim_code,
+                balance=0,
+                storage={SLOT: CANARY},
+            ),
+            authority: Account(
+                nonce=1,
+                code=Spec7702.delegation_designation(victim),
+                balance=0,
+                storage={SLOT: CANARY},
+            ),
+            beneficiary: Account(balance=1 + VICTIM_BALANCE + REFILL),
+        },
     )

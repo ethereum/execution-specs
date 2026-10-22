@@ -9,6 +9,7 @@ never be reused.
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -33,18 +34,25 @@ SALT = 0
 RESULT_OFFSET = 0x100
 
 
+@pytest.mark.parametrize("beneficiary_kind", ["other", "self"])
 @pytest.mark.valid_at_transition_to("EIP4758")
 def test_same_tx_selfdestruct_across_transition(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    beneficiary_kind: str,
 ) -> None:
     """
     Run the same create-and-destroy transaction on both sides of the fork.
 
-    The pre-fork victim is deleted; the post-fork victims persist with
+    The pre-fork victim is deleted, or cleared down to its balance by
+    EIP-8246 when it sweeps itself. The post-fork victims persist with
     their code, nonce, and storage.
     """
     beneficiary = pre.fund_eoa(amount=1)
-    victim_code = Op.SSTORE(0, CANARY) + Op.SELFDESTRUCT(beneficiary)
+    target: Address | Op = (
+        beneficiary if beneficiary_kind == "other" else Op.ADDRESS
+    )
+    victim_code = Op.SSTORE(0, CANARY) + Op.SELFDESTRUCT(target)
     initcode = Initcode(deploy_code=victim_code)
     assert len(initcode) <= RESULT_OFFSET
 
@@ -72,15 +80,20 @@ def test_same_tx_selfdestruct_across_transition(
         for slot, timestamp in enumerate((14_999, 15_000, 15_001))
     ]
 
+    kept = 0 if beneficiary_kind == "other" else VICTIM_BALANCE
     persisted = Account(
-        nonce=1, code=victim_code, balance=0, storage={0: CANARY}
+        nonce=1, code=victim_code, balance=kept, storage={0: CANARY}
     )
     post = {
         factory: Account(storage=dict(enumerate(victims))),
-        victims[0]: Account.NONEXISTENT,
+        victims[0]: (
+            Account.NONEXISTENT
+            if beneficiary_kind == "other"
+            else Account(nonce=0, code=b"", balance=kept, storage={})
+        ),
         victims[1]: persisted,
         victims[2]: persisted,
-        beneficiary: Account(balance=1 + 3 * VICTIM_BALANCE),
+        beneficiary: Account(balance=1 + 3 * (VICTIM_BALANCE - kept)),
     }
 
     blockchain_test(pre=pre, post=post, blocks=blocks)

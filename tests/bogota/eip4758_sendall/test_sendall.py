@@ -360,3 +360,98 @@ def test_zero_balance_sendall_fresh_beneficiary(
         post=post,
         tx=Transaction(sender=pre.fund_eoa(), to=entry),
     )
+
+
+@pytest.mark.parametrize("call_opcode", [Op.DELEGATECALL, Op.CALLCODE])
+def test_sendall_in_delegate_context(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_opcode: Op,
+) -> None:
+    """
+    A freshly created victim borrows a library's SENDALL.
+
+    The sweep runs in the victim's context, so only the victim's balance
+    moves, the victim keeps writing after it, and both contracts persist.
+    """
+    beneficiary = pre.fund_eoa(amount=1)
+    library_code = Op.SELFDESTRUCT(beneficiary)
+    library = pre.deploy_contract(code=library_code, balance=1)
+
+    victim_code = Op.SSTORE(0, call_opcode(address=library)) + Op.SSTORE(
+        1, CANARY
+    )
+    factory, victim = deploy_victim_factory(pre, victim_code)
+
+    entry_storage = Storage()
+    entry = pre.deploy_contract(
+        code=Op.SSTORE(entry_storage.store_next(1), Op.CALL(address=factory))
+        + Op.SSTORE(entry_storage.store_next(1), Op.CALL(address=victim)),
+        storage=entry_storage.canary(),
+    )
+
+    post = {
+        entry: Account(storage=entry_storage),
+        victim: Account(
+            nonce=1,
+            code=victim_code,
+            balance=0,
+            storage={0: 1, 1: CANARY},
+        ),
+        library: Account(code=library_code, balance=1),
+        beneficiary: Account(balance=1 + VICTIM_BALANCE),
+    }
+
+    state_test(
+        pre=pre,
+        post=post,
+        tx=Transaction(sender=pre.fund_eoa(), to=entry),
+    )
+
+
+def test_nested_created_accounts_persist(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    A created contract creates a child and both sweep in one transaction.
+
+    The child sweeps back to its parent, which sweeps everything onward.
+    Both persist, and the parent keeps the nonce from its CREATE.
+    """
+    beneficiary = pre.fund_eoa(amount=1)
+    child_code = Op.SELFDESTRUCT(Op.CALLER)
+    child_initcode = Initcode(deploy_code=child_code)
+    parent_code = (
+        Om.MSTORE(child_initcode, 0)
+        + Op.POP(
+            Op.CALL(
+                address=Op.CREATE(
+                    value=Op.SELFBALANCE, size=len(child_initcode)
+                )
+            )
+        )
+        + Op.SELFDESTRUCT(beneficiary)
+    )
+    factory, parent = deploy_victim_factory(pre, parent_code)
+    child = compute_create_address(address=parent, nonce=1)
+
+    entry_storage = Storage()
+    entry = pre.deploy_contract(
+        code=Op.SSTORE(entry_storage.store_next(1), Op.CALL(address=factory))
+        + Op.SSTORE(entry_storage.store_next(1), Op.CALL(address=parent)),
+        storage=entry_storage.canary(),
+    )
+
+    post = {
+        entry: Account(storage=entry_storage),
+        parent: Account(nonce=2, code=parent_code, balance=0),
+        child: Account(nonce=1, code=child_code, balance=0),
+        beneficiary: Account(balance=1 + VICTIM_BALANCE),
+    }
+
+    state_test(
+        pre=pre,
+        post=post,
+        tx=Transaction(sender=pre.fund_eoa(), to=entry),
+    )
