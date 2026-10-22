@@ -227,20 +227,20 @@ def test_case_reproduction(
     """
     return "\n".join(
         [
-            "# Reproduce this test locally",
+            "# Reproduce this test locally. Lines starting with # are shell",
+            "# comments, so each part can be pasted into a shell as is.",
             "",
-            "## Run the test in hive (https://github.com/ethereum/hive)",
-            "",
+            "# Run the test in hive (https://github.com/ethereum/hive):",
             hive_clients_yaml_generator_command,
             hive_consume_command,
             "",
-            "## Or debug it with the simulator's consume command against a "
-            "hive developer backend",
-            "",
-            f"See {HIVE_DEV_MODE_DOCS_URL}",
-            "1. Create the client file, as above.",
-            f"2. Start hive in dev mode: {hive_dev_command}",
-            "3. In the execution-specs repository root: "
-            f"{eest_consume_command}",
+            "# Or debug it with the simulator's consume command against a",
+            f"# hive developer backend, see {HIVE_DEV_MODE_DOCS_URL}",
+            "# 1. Create the client file, as above.",
+            "# 2. Start hive in dev mode:",
+            hive_dev_command,
+            "# 3. In another terminal, in the execution-specs repository "
+            "root:",
+            eest_consume_command,
         ]
     )
