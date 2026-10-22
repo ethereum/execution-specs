@@ -8,7 +8,7 @@ Such a contract may self-destruct more than once, and may receive more
 value afterwards. At the end of the transaction, before EIP-8246 the
 account is deleted and any balance it still holds is burned; from EIP-8246
 on its nonce, code and storage are cleared but the balance stays, leaving a
-balance-only account behind.
+balance-only account behind. Under EIP-4758 nothing is cleared.
 """
 
 import pytest
@@ -20,6 +20,8 @@ from execution_testing import (
     BalBalanceChange,
     BalCodeChange,
     BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
@@ -55,21 +57,70 @@ SD_OTHER = "selfdestruct_to_other"
 SEND = "send_value"
 
 
-def finalized(fork: Fork, balance: int) -> Account | None:
+def finalized(
+    fork: Fork,
+    balance: int,
+    *,
+    nonce: int = 1,
+    code: Bytecode | bytes = b"",
+    storage: dict[int, int] | None = None,
+) -> Account | None:
     """
     Expected account for a contract that self-destructed in the transaction
     that created it, holding ``balance`` when the transaction ended. It is
-    deleted, or under EIP-8246 kept with only that balance.
+    deleted, under EIP-8246 kept with only that balance, or under EIP-4758
+    kept whole with ``nonce``, ``code`` and ``storage``.
     """
+    if fork.is_eip_enabled(4758):
+        return Account(
+            balance=balance, nonce=nonce, code=code, storage=storage or {}
+        )
     if fork.is_eip_enabled(8246) and balance > 0:
         return Account(balance=balance, nonce=0, code=b"", storage={})
     return Account.NONEXISTENT
 
 
 def finalized_bal(
-    fork: Fork, balance: int, storage_reads: list[int]
+    fork: Fork,
+    balance: int,
+    storage_reads: list[int],
+    *,
+    nonce: int = 1,
+    code: Bytecode | bytes = b"",
+    storage: dict[int, int] | None = None,
 ) -> BalAccountExpectation:
     """Block access list entry expected for that same contract."""
+    if fork.is_eip_enabled(4758):
+        storage = storage or {}
+        return BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(block_access_index=1, post_nonce=nonce)
+            ],
+            code_changes=(
+                [BalCodeChange(block_access_index=1, new_code=bytes(code))]
+                if code
+                else []
+            ),
+            storage_changes=[
+                BalStorageSlot(
+                    slot=slot,
+                    slot_changes=[
+                        BalStorageChange(
+                            block_access_index=1, post_value=value
+                        )
+                    ],
+                )
+                for slot, value in storage.items()
+            ],
+            storage_reads=[
+                slot for slot in storage_reads if slot not in storage
+            ],
+            balance_changes=(
+                [BalBalanceChange(block_access_index=1, post_balance=balance)]
+                if balance > 0
+                else []
+            ),
+        )
     kept = balance if fork.is_eip_enabled(8246) else 0
     if kept == 0 and not storage_reads:
         return BalAccountExpectation.empty()
@@ -112,7 +163,6 @@ def finalized_bal(
 @EIPChecklist.Opcode.Test.ExecutionContext.Call(eip=[8246])
 @EIPChecklist.Opcode.Test.GasUsage.ExtraGas(eip=[8246])
 @EIPChecklist.Opcode.Test.Terminating.Scenarios.SubLevel(eip=[8246])
-@pytest.mark.valid_before("EIP4758")
 def test_selfdestruct_sequences(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -213,7 +263,9 @@ def test_selfdestruct_sequences(
     if fork.is_eip_enabled(7928):
         expected_bal = BlockAccessListExpectation(
             account_expectations={
-                victim: finalized_bal(fork, victim_balance, [])
+                victim: finalized_bal(
+                    fork, victim_balance, [], code=victim_code
+                )
             }
         )
 
@@ -224,7 +276,7 @@ def test_selfdestruct_sequences(
         pre=pre,
         post={
             entry: Account(balance=0, storage=entry_storage),
-            victim: finalized(fork, victim_balance),
+            victim: finalized(fork, victim_balance, code=victim_code),
             other: Account(balance=other_balance),
         },
         tx=tx,
@@ -248,7 +300,6 @@ def test_selfdestruct_sequences(
         pytest.param(True, True, id="nonce_and_storage"),
     ],
 )
-@pytest.mark.valid_before("EIP4758")
 def test_selfdestruct_clears_nonce_and_storage(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -261,8 +312,9 @@ def test_selfdestruct_clears_nonce_and_storage(
     """
     Cases 13-16 of the EIP-8246 test list: a contract created in this
     transaction raises its nonce or writes storage before self-destructing.
-    It is deleted, or under EIP-8246 has its nonce reset to zero and its
-    storage cleared while it keeps its balance.
+    It is deleted, under EIP-8246 has its nonce reset to zero and its
+    storage cleared while it keeps its balance, or under EIP-4758 keeps
+    them all.
     """
     sender = pre.fund_eoa()
     other = pre.fund_eoa(amount=OTHER_BALANCE)
@@ -300,6 +352,9 @@ def test_selfdestruct_clears_nonce_and_storage(
         other_balance = OTHER_BALANCE + initial_balance
     else:
         raise ValueError(f"unhandled beneficiary {beneficiary}")
+    # What the victim keeps under EIP-4758.
+    victim_nonce = 3 if bump_nonce else 1
+    victim_storage = {0: 1, 1: 2} if write_storage else {}
 
     logs: list[TransactionLog] = []
     if initial_balance > 0:
@@ -315,13 +370,26 @@ def test_selfdestruct_clears_nonce_and_storage(
         storage_reads = [0, 1] if write_storage else []
         expected_bal = BlockAccessListExpectation(
             account_expectations={
-                victim: finalized_bal(fork, victim_balance, storage_reads)
+                victim: finalized_bal(
+                    fork,
+                    victim_balance,
+                    storage_reads,
+                    nonce=victim_nonce,
+                    code=victim_code,
+                    storage=victim_storage,
+                )
             }
         )
 
     post: dict[Address, Account | None] = {
         entry: Account(storage={0: victim, 1: 1}),
-        victim: finalized(fork, victim_balance),
+        victim: finalized(
+            fork,
+            victim_balance,
+            nonce=victim_nonce,
+            code=victim_code,
+            storage=victim_storage,
+        ),
         other: Account(balance=other_balance),
     }
     if bump_nonce:
@@ -337,7 +405,6 @@ def test_selfdestruct_clears_nonce_and_storage(
     )
 
 
-@pytest.mark.valid_before("EIP4758")
 def test_reinvoked_selfdestruct_create_nonce(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -349,7 +416,7 @@ def test_reinvoked_selfdestruct_create_nonce(
     runs a CREATE that survives. Its nonce keeps accumulating across the
     SELFDESTRUCT and the reverted frame, so the surviving children sit at
     CREATE(victim, 1) and CREATE(victim, 2), and no child is ever created
-    at CREATE(victim, 0).
+    at CREATE(victim, 0). Under EIP-4758 the victim persists with that nonce.
     """
     sender = pre.fund_eoa()
 
@@ -396,7 +463,7 @@ def test_reinvoked_selfdestruct_create_nonce(
     if fork.is_eip_enabled(7928):
         expected_bal = BlockAccessListExpectation(
             account_expectations={
-                victim: finalized_bal(fork, 0, []),
+                victim: finalized_bal(fork, 0, [], nonce=3, code=victim_code),
                 child_nonce1: BalAccountExpectation(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=1)
@@ -424,7 +491,7 @@ def test_reinvoked_selfdestruct_create_nonce(
         post={
             # The reverted call's value comes back to the entry contract.
             entry: Account(nonce=2, balance=2, storage={0: victim}),
-            victim: finalized(fork, 0),
+            victim: finalized(fork, 0, nonce=3, code=victim_code),
             child_nonce0: Account.NONEXISTENT,
             child_nonce1: Account(nonce=1, code=b"", balance=1),
             child_nonce2: Account(nonce=1, code=b"", balance=3),
@@ -449,7 +516,6 @@ def test_reinvoked_selfdestruct_create_nonce(
 @EIPChecklist.Opcode.Test.ExecutionContext.Delegatecall.Code(eip=[8246])
 @EIPChecklist.Opcode.Test.ExecutionContext.Delegatecall.Storage(eip=[8246])
 @EIPChecklist.Opcode.Test.ExecutionContext.Callcode(eip=[8246])
-@pytest.mark.valid_before("EIP4758")
 def test_selfdestruct_in_delegate_context(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -512,7 +578,13 @@ def test_selfdestruct_in_delegate_context(
         # attributes the (then cleared) slot to the victim, not the library.
         expected_bal = BlockAccessListExpectation(
             account_expectations={
-                victim: finalized_bal(fork, victim_balance, [0]),
+                victim: finalized_bal(
+                    fork,
+                    victim_balance,
+                    [0],
+                    code=victim_code,
+                    storage={0: 1},
+                ),
                 library: BalAccountExpectation.empty(),
             }
         )
@@ -521,7 +593,9 @@ def test_selfdestruct_in_delegate_context(
         pre=pre,
         post={
             entry: Account(storage={0: victim, 1: 1}),
-            victim: finalized(fork, victim_balance),
+            victim: finalized(
+                fork, victim_balance, code=victim_code, storage={0: 1}
+            ),
             library: Account(balance=7, code=library_code, storage={}),
             other: Account(balance=other_balance),
         },
@@ -652,7 +726,6 @@ def test_selfdestruct_static_context_same_tx(
     [pytest.param(0, id="zero_balance"), pytest.param(3, id="funded")],
 )
 @EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Reentry(eip=[8246])
-@pytest.mark.valid_before("EIP4758")
 def test_recreate_in_later_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -664,7 +737,8 @@ def test_recreate_in_later_block(
     factory creates it again at the same address in a later block. Before
     EIP-8246 the first account is gone by then, so the second creation
     starts from nothing; from EIP-8246 on it lands on the balance the first
-    one left behind and adds to it.
+    one left behind and adds to it. Under EIP-4758 the first account persists
+    and the second creation collides with it.
     """
     sender = pre.fund_eoa()
     initcode = Op.SELFDESTRUCT(Op.ADDRESS)
@@ -682,28 +756,39 @@ def test_recreate_in_later_block(
         address=factory, salt=0, initcode=initcode, opcode=Op.CREATE2
     )
 
-    def deploy(slot: int) -> Transaction:
+    collides = fork.is_eip_enabled(4758)
+
+    def deploy(slot: int, collision: bool) -> Transaction:
         tx = Transaction(
             sender=sender, to=factory, value=endowment, data=Hash(slot)
         )
         if fork.is_eip_enabled(7708) and endowment > 0:
-            tx.expected_receipt = TransactionReceipt(
-                logs=[
-                    transfer_log(sender, factory, endowment),
-                    transfer_log(factory, created, endowment),
-                ]
-            )
+            logs = [transfer_log(sender, factory, endowment)]
+            if not collision:
+                logs.append(transfer_log(factory, created, endowment))
+            tx.expected_receipt = TransactionReceipt(logs=logs)
         return tx
 
-    # Each deployment keeps its endowment under EIP-8246, so the second one
-    # finds the first one's balance still there.
-    final_balance = 2 * endowment if fork.is_eip_enabled(8246) else 0
+    if collides:
+        # The colliding CREATE2 pushes zero and keeps its endowment.
+        factory_post = Account(
+            nonce=3, balance=endowment, storage={1: created}
+        )
+        final_balance = endowment
+    else:
+        factory_post = Account(nonce=3, storage={1: created, 2: created})
+        # Each deployment keeps its endowment under EIP-8246, so the second
+        # one finds the first one's balance still there.
+        final_balance = 2 * endowment if fork.is_eip_enabled(8246) else 0
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[deploy(1)]), Block(txs=[deploy(2)])],
+        blocks=[
+            Block(txs=[deploy(1, collision=False)]),
+            Block(txs=[deploy(2, collision=collides)]),
+        ],
         post={
-            factory: Account(nonce=3, storage={1: created, 2: created}),
+            factory: factory_post,
             created: finalized(fork, final_balance),
         },
     )
@@ -713,7 +798,6 @@ def test_recreate_in_later_block(
     "existing_balance",
     [pytest.param(0, id="zero_balance"), pytest.param(3, id="funded")],
 )
-@pytest.mark.valid_before("EIP4758")
 def test_selfdestruct_to_self_keeps_existing_balance(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -725,7 +809,8 @@ def test_selfdestruct_to_self_keeps_existing_balance(
     the creation forwarding nothing of its own, and then self-destructs to
     itself. From EIP-8246 on that balance is never moved at all, so the
     block access list records no change for the account even though it was
-    created and cleared within the transaction.
+    created and cleared within the transaction. Under EIP-4758 the account
+    persists and records only its nonce change.
     """
     sender = pre.fund_eoa()
     initcode = Op.SELFDESTRUCT(Op.ADDRESS)
@@ -744,10 +829,22 @@ def test_selfdestruct_to_self_keeps_existing_balance(
 
     expected_bal = None
     if fork.is_eip_enabled(7928):
-        # The nonce goes up and back down and no code is ever deposited,
-        # so nothing about the account actually changes.
+        if fork.is_eip_enabled(4758):
+            created_bal = BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+                code_changes=[],
+                storage_changes=[],
+                storage_reads=[],
+                balance_changes=[],
+            )
+        else:
+            # The nonce goes up and back down and no code is ever deposited,
+            # so nothing about the account actually changes.
+            created_bal = BalAccountExpectation.empty()
         expected_bal = BlockAccessListExpectation(
-            account_expectations={created: BalAccountExpectation.empty()}
+            account_expectations={created: created_bal}
         )
 
     state_test(

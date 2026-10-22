@@ -543,7 +543,6 @@ def test_create_selfdestruct_no_refund_account_and_storage(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
-@pytest.mark.valid_before("EIP4758")
 def test_create_selfdestruct_no_refund_code_deposit_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -611,17 +610,23 @@ def test_create_selfdestruct_no_refund_code_deposit_state_gas(
         sender=pre.fund_eoa(),
     )
 
+    # Under EIP-4758 the account and its deployed code persist.
+    created_post = (
+        Account(balance=0, nonce=1, code=deployed, storage={})
+        if fork.is_eip_enabled(4758)
+        else Account.NONEXISTENT
+    )
+
     blockchain_test(
         pre=pre,
         blocks=[
             Block(txs=[tx], header_verify=Header(gas_used=total_state_gas))
         ],
-        post={created_address: Account.NONEXISTENT},
+        post={created_address: created_post},
     )
 
 
 @pytest.mark.valid_from("EIP8037")
-@pytest.mark.valid_before("EIP4758")
 def test_create_selfdestruct_code_deposit_no_refund_header_check(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -678,6 +683,13 @@ def test_create_selfdestruct_code_deposit_no_refund_header_check(
     )
     expected_gas_used = max(baseline_block_execution, total_state_gas)
 
+    # Under EIP-4758 the account and its deployed code persist.
+    created_post = (
+        Account(balance=0, nonce=1, code=deployed, storage={})
+        if fork.is_eip_enabled(4758)
+        else Account.NONEXISTENT
+    )
+
     blockchain_test(
         pre=pre,
         blocks=[
@@ -686,7 +698,7 @@ def test_create_selfdestruct_code_deposit_no_refund_header_check(
                 header_verify=Header(gas_used=expected_gas_used),
             ),
         ],
-        post={created_address: Account.NONEXISTENT},
+        post={created_address: created_post},
     )
 
 
@@ -813,7 +825,6 @@ def test_selfdestruct_pre_existing_account_no_refund(
 )
 @pytest.mark.parametrize("call_opcode", [Op.DELEGATECALL, Op.CALLCODE])
 @pytest.mark.valid_from("EIP8037")
-@pytest.mark.valid_before("EIP4758")
 def test_selfdestruct_via_delegatecall_chain_no_refund(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -929,7 +940,12 @@ def test_selfdestruct_via_delegatecall_chain_no_refund(
             )
         ],
         post={
-            created_address: Account.NONEXISTENT,
+            # Under EIP-4758 the account and its deployed code persist.
+            created_address: (
+                Account(balance=0, nonce=1, code=deployed, storage={})
+                if fork.is_eip_enabled(4758)
+                else Account.NONEXISTENT
+            ),
             factory: Account(storage=factory_storage),
         },
     )

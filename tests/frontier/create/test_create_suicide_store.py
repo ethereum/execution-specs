@@ -40,7 +40,6 @@ class Operation(IntEnum):
     "for precompile).",
 )
 @pytest.mark.valid_from("Frontier")
-@pytest.mark.valid_before("EIP4758")
 @pytest.mark.with_all_create_opcodes
 @pytest.mark.eels_base_coverage
 def test_create_suicide_store(
@@ -152,6 +151,16 @@ def test_create_suicide_store(
 
     post = {
         create_contract: Account(storage=expect_post),
-        expected_create_address: Account.NONEXISTENT,
+        expected_create_address: (
+            # SENDALL keeps the account and its storage.
+            Account(
+                balance=0,
+                nonce=1,
+                code=suicide_initcode.deploy_code,
+                storage={1: subcall_storage * 2},
+            )
+            if fork.is_eip_enabled(4758)
+            else Account.NONEXISTENT
+        ),
     }
     state_test(pre=pre, post=post, tx=tx)

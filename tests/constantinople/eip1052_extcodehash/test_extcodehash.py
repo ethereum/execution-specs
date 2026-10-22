@@ -711,16 +711,8 @@ def test_extcodehash_via_call(
     "create_opcode",
     [
         pytest.param(None, id="pre_existing"),
-        pytest.param(
-            Op.CREATE,
-            id="create",
-            marks=pytest.mark.valid_before("EIP4758"),
-        ),
-        pytest.param(
-            Op.CREATE2,
-            id="create2",
-            marks=pytest.mark.valid_before("EIP4758"),
-        ),
+        pytest.param(Op.CREATE, id="create"),
+        pytest.param(Op.CREATE2, id="create2"),
     ],
 )
 def test_extcodehash_after_selfdestruct(
@@ -736,7 +728,8 @@ def test_extcodehash_after_selfdestruct(
     within the transaction after SELFDESTRUCT is triggered.
     Pre-Cancun, all selfdestructed accounts are deleted. From Cancun
     (EIP-6780), only accounts created in the same transaction are
-    deleted; pre-existing accounts persist with balance drained.
+    deleted; pre-existing accounts persist with balance drained. With
+    EIP-4758, no account is deleted.
     """
     storage = Storage()
     target_runtime = Op.SELFDESTRUCT(Op.ORIGIN)
@@ -802,6 +795,11 @@ def test_extcodehash_after_selfdestruct(
     if create_opcode is None and fork >= Cancun:
         # EIP-6780: pre-existing account persists after SELFDESTRUCT.
         post[target_address] = Account(balance=0, code=target_runtime)
+    elif fork.is_eip_enabled(4758):
+        # EIP-4758: SENDALL keeps the account created in the same tx.
+        post[target_address] = Account(
+            balance=0, nonce=1, code=target_runtime, storage={}
+        )
     else:
         post[target_address] = Account.NONEXISTENT
 
@@ -1264,17 +1262,14 @@ def test_extcodehash_call_to_selfdestruct(
 @pytest.mark.parametrize(
     "trigger",
     [
-        pytest.param(
-            Op.CALL,
-            id="call",
-            marks=pytest.mark.valid_before("EIP4758"),
-        ),
+        pytest.param(Op.CALL, id="call"),
         pytest.param(Op.STATICCALL, id="staticcall"),
     ],
 )
 def test_extcodehash_created_and_deleted(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     trigger: Opcodes,
 ) -> None:
     """
@@ -1283,8 +1278,8 @@ def test_extcodehash_created_and_deleted(
     CREATE2 a contract with SELFDESTRUCT code, check EXTCODEHASH,
     EXTCODESIZE, and EXTCODECOPY before and after triggering it. Within
     the transaction, the values remain unchanged. With CALL the created
-    contract is deleted at end of transaction; with STATICCALL the
-    trigger fails and the contract persists.
+    contract is deleted at end of transaction, unless EIP-4758 is active;
+    with STATICCALL the trigger fails and the contract persists.
     """
     storage = Storage()
     runtime = Op.SELFDESTRUCT(0)
@@ -1342,7 +1337,7 @@ def test_extcodehash_created_and_deleted(
     post: dict[Address, Account | None] = {
         code_address: Account(storage=storage),
     }
-    if trigger == Op.CALL:
+    if trigger == Op.CALL and not fork.is_eip_enabled(4758):
         post[created] = Account.NONEXISTENT
     else:
         post[created] = Account(code=runtime)
@@ -1356,10 +1351,10 @@ def test_extcodehash_created_and_deleted(
     ],
     pr=["https://github.com/ethereum/execution-specs/pull/2428"],
 )
-@pytest.mark.valid_before("EIP4758")
 def test_extcodehash_created_and_deleted_recheck_outer(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test EXTCODEHASH of a created-and-selfdestructed account rechecked
@@ -1369,7 +1364,8 @@ def test_extcodehash_created_and_deleted_recheck_outer(
     SELFDESTRUCT code then triggers it. After inner returns, outer
     re-checks EXTCODEHASH and EXTCODESIZE of the created address.
     Within the transaction all checks return the original code hash
-    and size. The created contract is deleted at end of transaction.
+    and size. The created contract is deleted at end of transaction,
+    unless EIP-4758 is active.
     """
     inner_storage = Storage()
     outer_storage = Storage()
@@ -1445,7 +1441,12 @@ def test_extcodehash_created_and_deleted_recheck_outer(
     post: dict[Address, Account | None] = {
         inner: Account(storage=inner_storage),
         outer: Account(storage=outer_storage),
-        created: Account.NONEXISTENT,
+        created: (
+            # EIP-4758: SENDALL keeps the account created in the same tx.
+            Account(balance=0, nonce=1, code=runtime, storage={})
+            if fork.is_eip_enabled(4758)
+            else Account.NONEXISTENT
+        ),
     }
 
     state_test(pre=pre, post=post, tx=tx)
@@ -1469,11 +1470,7 @@ def test_extcodehash_created_and_deleted_recheck_outer(
     "dynamic_a",
     [
         pytest.param(False, id="pre_existing"),
-        pytest.param(
-            True,
-            id="dynamic",
-            marks=pytest.mark.valid_before("EIP4758"),
-        ),
+        pytest.param(True, id="dynamic"),
     ],
 )
 def test_extcodehash_subcall_selfdestruct(
@@ -1492,6 +1489,7 @@ def test_extcodehash_subcall_selfdestruct(
     Within the transaction, A's code properties are unchanged. Pre-Cancun,
     A is deleted at end of transaction. In Cancun, A survives only if
     pre-existing; a dynamically created A is still deleted (EIP-6780).
+    With EIP-4758, A always survives.
     """
     storage = Storage()
     beneficiary = pre.nonexistent_account()
@@ -1564,6 +1562,9 @@ def test_extcodehash_subcall_selfdestruct(
     }
     if fork >= Cancun and not dynamic_a:
         post[a] = Account(code=a_code, balance=0)
+    elif fork.is_eip_enabled(4758):
+        # EIP-4758: SENDALL keeps the account created in the same tx.
+        post[a] = Account(code=a_code, balance=0, nonce=1, storage={})
     else:
         post[a] = Account.NONEXISTENT
 

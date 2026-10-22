@@ -38,7 +38,6 @@ class Operation(Enum):
     coverage_missed_reason="Tip to coinbase, og test contains empty account.",
 )
 @pytest.mark.valid_from("Frontier")
-@pytest.mark.valid_before("EIP4758")
 @pytest.mark.with_all_create_opcodes
 @pytest.mark.parametrize("transaction_create", [False, True])
 @pytest.mark.parametrize(
@@ -118,4 +117,14 @@ def test_create_suicide_during_transaction_create(
             else Account.NONEXISTENT
         ),
     }
+    if fork.is_eip_enabled(4758):
+        # SENDALL keeps the account; deployment completes with empty code.
+        post[expected_create_address] = Account(
+            balance=(
+                tx_value if operation == Operation.SUICIDE_TO_ITSELF else 0
+            ),
+            nonce=1,
+            code=b"",
+            storage={},
+        )
     state_test(env=Environment(), pre=pre, post=post, tx=tx)

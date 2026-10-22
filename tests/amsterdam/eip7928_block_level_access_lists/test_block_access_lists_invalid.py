@@ -2468,21 +2468,23 @@ def test_bal_invalid_omitted_slot_change_at_index(
 
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.exception_test
-@pytest.mark.valid_before("EIP4758")
 def test_bal_invalid_phantom_read_on_selfdestruct(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test that clients reject a BAL with a phantom storage read for an
-    account created and destroyed within the same transaction.
+    account whose init code SELFDESTRUCTs within the creating
+    transaction.
 
     A contract-creation transaction's init code immediately
     SELFDESTRUCTs, sending its endowment to beneficiary, without ever
     returning runtime code. Per EIP-6780 the created account is created
     and destroyed within the same transaction, so it has zero net BAL
     changes (its balance and code never persist), but the account still
-    legitimately appears in the BAL as an entry with empty changes. The
+    legitimately appears in the BAL as an entry with empty changes.
+    Under EIP-4758 the account is kept with only its nonce change. The
     BAL is corrupted by injecting a phantom storage read for a slot the
     account never touched.
     """
@@ -2495,6 +2497,17 @@ def test_bal_invalid_phantom_read_on_selfdestruct(
     created = compute_create_address(address=alice)
 
     tx = Transaction(sender=alice, to=None, data=initcode, value=endowment)
+
+    created_bal = BalAccountExpectation.empty()
+    if fork.is_eip_enabled(4758):
+        # SENDALL keeps the created account with nonce 1 and no code.
+        created_bal = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+            balance_changes=[],
+            code_changes=[],
+            storage_reads=[],
+            storage_changes=[],
+        )
 
     blockchain_test(
         pre=pre,
@@ -2513,7 +2526,7 @@ def test_bal_invalid_phantom_read_on_selfdestruct(
                                 )
                             ],
                         ),
-                        created: BalAccountExpectation.empty(),
+                        created: created_bal,
                         beneficiary: BalAccountExpectation(
                             balance_changes=[
                                 BalBalanceChange(

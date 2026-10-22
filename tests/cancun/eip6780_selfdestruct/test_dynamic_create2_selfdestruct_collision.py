@@ -32,7 +32,7 @@ REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
     "create2_dest_already_in_state",
     (
         pytest.param(True, marks=pytest.mark.pre_alloc_mutable),
-        pytest.param(False, marks=pytest.mark.valid_before("EIP4758")),
+        False,
     ),
 )
 @pytest.mark.parametrize(
@@ -203,16 +203,23 @@ def test_dynamic_create2_selfdestruct_collision(
     post: Dict[Address, Union[Account, object]] = {}
 
     # Create2 address only exists if it was pre-existing and after cancun
-    post[create2_address] = (
-        Account(
+    if create2_dest_already_in_state and fork >= Cancun:
+        post[create2_address] = Account(
             balance=0,
             nonce=1,
             code=deploy_code,
             storage={create2_constructor_worked: 0x00},
         )
-        if create2_dest_already_in_state and fork >= Cancun
-        else Account.NONEXISTENT
-    )
+    elif fork.is_eip_enabled(4758):
+        # Under EIP-4758 the created account persists.
+        post[create2_address] = Account(
+            balance=0,
+            nonce=1,
+            code=deploy_code,
+            storage={create2_constructor_worked: 0x01},
+        )
+    else:
+        post[create2_address] = Account.NONEXISTENT
 
     # Create2 initcode is only executed if the contract did not already exist
     post[address_create2_storage] = Account(
@@ -264,7 +271,7 @@ def test_dynamic_create2_selfdestruct_collision(
     "create2_dest_already_in_state",
     (
         pytest.param(True, marks=pytest.mark.pre_alloc_mutable),
-        pytest.param(False, marks=pytest.mark.valid_before("EIP4758")),
+        False,
     ),
 )
 @pytest.mark.parametrize(
@@ -433,20 +440,28 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     post: Dict[Address, Union[Account, object]] = {}
 
     # Create2 address only exists if it was pre-existing and after cancun
-    post[create2_address] = (
-        Account(
+    if create2_dest_already_in_state and fork >= Cancun:
+        post[create2_address] = Account(
             balance=0,
             nonce=1,
             code=deploy_code,
             storage={create2_constructor_worked: 0x00},
         )
-        if create2_dest_already_in_state and fork >= Cancun
-        else (
-            Account.NONEXISTENT
-            if call_create2_contract_at_the_end
-            else Account(balance=1000, nonce=1, code=deploy_code)
+    elif fork.is_eip_enabled(4758):
+        # Under EIP-4758 the account created by the first tx persists, so
+        # the second tx's CREATE2 collides with it.
+        post[create2_address] = Account(
+            balance=0,
+            nonce=1,
+            code=deploy_code,
+            storage={create2_constructor_worked: 0x01},
         )
-    )
+    elif call_create2_contract_at_the_end:
+        post[create2_address] = Account.NONEXISTENT
+    else:
+        post[create2_address] = Account(
+            balance=1000, nonce=1, code=deploy_code
+        )
 
     # after Cancun Create2 initcode is only executed if the contract did not
     # already exist and before it will always be executed as the first tx
@@ -469,19 +484,24 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
             else create2_address,
         }
     )
+    # Second create2 will not collide before Cancun as the first tx calls
+    # selfdestruct
+    #
+    # After cancun it will collide only if create2_dest_already_in_state
+    # otherwise the first tx creates and deletes it
+    #
+    # Under EIP-4758 it always collides, as nothing is deleted
+    if fork.is_eip_enabled(4758):
+        second_create2_collides = True
+    elif fork >= Cancun:
+        second_create2_collides = create2_dest_already_in_state
+    else:
+        second_create2_collides = False
     post[address_to_second] = Account(
         storage={
             code_worked: 0x01,
-            # Second create2 will not collide before Cancun as the first tx
-            # calls selfdestruct
-            #
-            # After cancun it will collide only if
-            # create2_dest_already_in_state otherwise the first tx creates and
-            # deletes it
             second_create2_result: (
-                (0x00 if create2_dest_already_in_state else create2_address)
-                if fork >= Cancun
-                else create2_address
+                0x00 if second_create2_collides else create2_address
             ),
         }
     )
@@ -508,7 +528,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
         # successful and removes because it is removed in the next transaction
         # second create2 successful
         sendall_destination_balance = first_create2_value + first_call_value
-        if call_create2_contract_at_the_end:
+        if call_create2_contract_at_the_end and not fork.is_eip_enabled(4758):
             sendall_destination_balance += second_create2_value
 
     if call_create2_contract_at_the_end:
@@ -543,8 +563,8 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     "selfdestruct_on_first_tx,recreate_on_first_tx",
     [
         (False, False),
-        pytest.param(True, False, marks=pytest.mark.valid_before("EIP4758")),
-        pytest.param(True, True, marks=pytest.mark.valid_before("EIP4758")),
+        (True, False),
+        (True, True),
     ],
 )
 def test_dynamic_create2_selfdestruct_collision_multi_tx(
@@ -733,15 +753,24 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
 
     post: Dict[Address, Union[Account, object]] = {}
 
-    # Create2 address only exists if it was pre-existing and after cancun
-    account_will_exist_with_code = (
+    # Create2 address only exists if it was pre-existing and after cancun,
+    # or always under EIP-4758, which never deletes it
+    account_will_exist_with_code = fork.is_eip_enabled(4758) or (
         not selfdestruct_on_first_tx and fork >= Cancun
     )
     # If the contract is self-destructed and we also attempt to recreate it on
     # the first tx, the second call on the second tx will only place balance in
     # the account
     account_will_exist_with_balance = (
-        selfdestruct_on_first_tx and recreate_on_first_tx
+        selfdestruct_on_first_tx
+        and recreate_on_first_tx
+        and not account_will_exist_with_code
+    )
+    # The second tx recreates the contract only if the first tx deleted it
+    recreated_on_second_tx = (
+        selfdestruct_on_first_tx
+        and not recreate_on_first_tx
+        and not account_will_exist_with_code
     )
 
     post[create2_address] = (
@@ -774,9 +803,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
             # Second create2 only works if we successfully self-destructed on
             # the first tx
             second_create2_result: (
-                create2_address
-                if selfdestruct_on_first_tx and not recreate_on_first_tx
-                else 0x00
+                create2_address if recreated_on_second_tx else 0x00
             ),
         }
     )
@@ -788,7 +815,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     if not account_will_exist_with_balance:
         sendall_destination_balance += second_call_value
 
-    if selfdestruct_on_first_tx and not recreate_on_first_tx:
+    if recreated_on_second_tx:
         sendall_destination_balance += second_create2_value
 
     post[sendall_destination] = Account(balance=sendall_destination_balance)

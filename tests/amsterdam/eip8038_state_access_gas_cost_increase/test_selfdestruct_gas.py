@@ -657,7 +657,6 @@ def test_selfdestruct_oog_boundary(
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.pre_alloc_mutable()
-@pytest.mark.valid_before("EIP4758")
 def test_same_tx_created_selfdestruct_self_burn(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -669,8 +668,9 @@ def test_same_tx_created_selfdestruct_self_burn(
 
     A creation transaction whose initcode SELFDESTRUCTs the new contract
     to ITSELF: the originator is created in this transaction so it is
-    deleted, and because a same-tx-created contract holding balance is
-    alive, ``account_new`` is false for the self-beneficiary —
+    deleted (kept under EIP-4758), and because a same-tx-created contract
+    holding balance is alive, ``account_new`` is false for the
+    self-beneficiary —
     ``execution = OPCODE_SELFDESTRUCT_BASE`` (warm self, no
     ``ACCOUNT_WRITE``) and no
     SELFDESTRUCT state gas.
@@ -718,7 +718,13 @@ def test_same_tx_created_selfdestruct_self_burn(
     # the balance stays in the (otherwise emptied) originator, and no
     # log is emitted.
     expected_logs: list[TransactionLog] = []
-    created_post = Account(balance=amount, nonce=0, code=b"", storage={})
+    # Under EIP-4758 the account is not cleared and keeps nonce 1.
+    created_post = Account(
+        balance=amount,
+        nonce=1 if fork.is_eip_enabled(4758) else 0,
+        code=b"",
+        storage={},
+    )
 
     tx = Transaction(
         to=None,
@@ -739,7 +745,6 @@ def test_same_tx_created_selfdestruct_self_burn(
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.pre_alloc_mutable()
-@pytest.mark.valid_before("EIP4758")
 def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -756,8 +761,8 @@ def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
     ACCOUNT_WRITE`` plus a beneficiary ``NEW_ACCOUNT`` on the state
     axis. The
     beneficiary creation charge keys on the beneficiary, while the
-    originator (created in this transaction) is still deleted: a
-    ``Transfer`` log is emitted (not a ``Burn``).
+    originator (created in this transaction) is still deleted (kept
+    under EIP-4758): a ``Transfer`` log is emitted (not a ``Burn``).
 
     The net state gas is a single beneficiary ``NEW_ACCOUNT``: the
     intrinsic creation ``NEW_ACCOUNT`` is refunded because the pre-funded
@@ -807,10 +812,15 @@ def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
 
     state_test(
         pre=pre,
-        # Same-tx-created originator is deleted; the fresh beneficiary is
-        # created and credited the originator balance.
+        # Same-tx-created originator is deleted (kept with nonce 1 under
+        # EIP-4758); the fresh beneficiary is created and credited the
+        # originator balance.
         post={
-            created: Account.NONEXISTENT,
+            created: (
+                Account(balance=0, nonce=1, code=b"", storage={})
+                if fork.is_eip_enabled(4758)
+                else Account.NONEXISTENT
+            ),
             beneficiary: Account(balance=amount),
         },
         tx=tx,
