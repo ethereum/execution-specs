@@ -455,6 +455,8 @@ jobs:
   announce:
     name: Announce the release to hive-tests
     needs: [plan, images]
+    # Also after some images failed: the watcher only reacts to the images
+    # that were published.
     if: ${{ !cancelled() && needs.plan.outputs.mode == 'release' && needs.images.result != 'skipped' }}
     runs-on: ubuntu-latest
     steps:
