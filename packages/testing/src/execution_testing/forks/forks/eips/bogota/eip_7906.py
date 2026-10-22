@@ -2,7 +2,7 @@
 EIP-7906: Transaction Assertions via State Diff Opcode.
 
 Add the `POST_TX` frame mode to EIP-8141 frame transactions and the
-`TXTRACE`, `TXDIFF` and `EVENTDATACOPY` instructions that expose the
+`TXTRACE` and `EVENTDATACOPY` instructions that expose the
 transaction's state diff to those frames. The transaction payload and
 intrinsic gas are unchanged. A `POST_TX` frame is a read-only trailing
 frame whose failure reverts the execution body without invalidating the
@@ -46,35 +46,15 @@ class EIP7906(BaseFork):
         """
         Add the transaction diff instruction gas costs.
 
-        `TXDIFF` metadata selects the live access kind and warmth, or
-        the flat view cost. `EVENTDATACOPY` follows `CALLDATACOPY`.
+        `EVENTDATACOPY` follows `CALLDATACOPY`.
         """
         gas_costs = cls.gas_costs()
         memory_expansion_calculator = cls.memory_expansion_gas_calculator()
         base_map = super(EIP7906, cls).opcode_gas_map()
 
-        def txdiff_cost(opcode: OpcodeBase) -> int:
-            access = opcode.metadata["state_access"]
-            if access == "slot":
-                return (
-                    gas_costs.WARM_ACCESS
-                    if opcode.metadata["key_warm"]
-                    else gas_costs.COLD_STORAGE_ACCESS
-                )
-            if access == "account":
-                return (
-                    gas_costs.WARM_ACCESS
-                    if opcode.metadata["address_warm"]
-                    else gas_costs.COLD_ACCOUNT_ACCESS
-                )
-            if access is not None:
-                raise ValueError(f"Unknown TXDIFF state access: {access}")
-            return gas_costs.OPCODE_TXTRACE
-
         return {
             **base_map,
             Opcodes.TXTRACE: gas_costs.OPCODE_TXTRACE,
-            Opcodes.TXDIFF: txdiff_cost,
             Opcodes.EVENTDATACOPY: cls._with_memory_expansion(
                 cls._with_data_copy(gas_costs.VERY_LOW, gas_costs),
                 memory_expansion_calculator,
