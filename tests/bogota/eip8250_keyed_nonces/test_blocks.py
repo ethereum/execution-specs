@@ -362,6 +362,8 @@ def test_keyed_then_legacy_from_one_sender(
             id="two_used_keys",
         ),
         pytest.param([NONCE_KEY, OTHER_KEY], 0, {}, id="two_fresh_keys"),
+        pytest.param([0], 0, {}, id="zero_key"),
+        pytest.param([NONCE_KEY], Spec.MAX_NONCE_SEQ, {}, id="single_use_key"),
         pytest.param([], 0, {}, id="empty_key_set"),
     ],
 )
@@ -400,6 +402,12 @@ def test_block_access_list(
         written_slots = sorted(
             keyed_nonce_slot(sender, key) for key in nonce_keys
         )
+        # A single-use set exhausts its keys rather than advancing them.
+        written_seq = (
+            Spec.MAX_NONCE_SEQ
+            if nonce_seq == Spec.MAX_NONCE_SEQ
+            else nonce_seq + 1
+        )
         nonce_manager_expectation = BalAccountExpectation(
             nonce_changes=[],
             balance_changes=[],
@@ -409,7 +417,7 @@ def test_block_access_list(
                     slot=slot,
                     slot_changes=[
                         BalStorageChange(
-                            block_access_index=1, post_value=nonce_seq + 1
+                            block_access_index=1, post_value=written_seq
                         )
                     ],
                 )
@@ -418,7 +426,7 @@ def test_block_access_list(
             storage_reads=[],
         )
         sender_expectation = BalAccountExpectation(nonce_changes=[])
-        post_slots = dict.fromkeys(written_slots, nonce_seq + 1)
+        post_slots = dict.fromkeys(written_slots, written_seq)
         sender_nonce = 0
     block = Block(
         txs=[tx],
