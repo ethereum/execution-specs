@@ -65,6 +65,7 @@ jobs:
           # CI-only: validate vars.* references
           config-variables:
             - DEFAULT_PYTHON_VERSION
+            - HIVE_TESTS_APP_CLIENT_ID
             - UV_VERSION
           EOF
           uvx --from actionlint-py actionlint
