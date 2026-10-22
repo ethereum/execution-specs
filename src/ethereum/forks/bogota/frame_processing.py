@@ -31,7 +31,6 @@ from .exceptions import MaxCostOverflowError
 from .fork_types import ExecutionGas, StateGas
 from .state_tracker import (
     TransactionState,
-    clear_account_preserving_balance,
     create_ether,
     get_account,
     incorporate_tx_into_block,
@@ -320,9 +319,6 @@ def process_frame_transaction(
     )
 
     block_output.block_logs += tx_output.logs
-
-    for address in tx_output.accounts_to_delete:
-        clear_account_preserving_balance(tx_env.state, address)
 
     incorporate_tx_into_block(
         tx_env.state, block_env.block_access_list_builder
