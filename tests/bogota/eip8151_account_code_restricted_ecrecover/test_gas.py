@@ -14,7 +14,9 @@ from execution_testing import (
     Account,
     Alloc,
     BalAccountExpectation,
+    Block,
     BlockAccessListExpectation,
+    BlockchainTestFiller,
     Bytecode,
     Bytes,
     CodeGasMeasure,
@@ -47,6 +49,7 @@ OUTPUT_OFFSET = INPUT_SIZE
     [
         pytest.param("exact", id="exact"),
         pytest.param("access-minus-one", id="access-minus-one"),
+        pytest.param("base", id="base"),
         pytest.param("base-minus-one", id="base-minus-one"),
     ],
 )
@@ -79,7 +82,7 @@ def test_exact_gas_boundary(
     """
     Test that a recovery succeeds with exactly the base fee plus the access
     to the recovered address and the code read, and runs out of gas with one
-    less.
+    less or with the base fee alone.
     """
     if code == "balance-only":
         signer = pre.fund_eoa()
@@ -110,6 +113,13 @@ def test_exact_gas_boundary(
         success = 1
     elif gas == "access-minus-one":
         call_gas = exact_gas - 1
+        success = 0
+        output_word = SENTINEL
+    elif gas == "base":
+        # The base fee alone, as a caller that forwards the old fixed price.
+        call_gas = fork.ecrecover_gas(
+            recovered=False, address_warm=address_warm
+        )
         success = 0
         output_word = SENTINEL
     elif gas == "base-minus-one":
@@ -285,6 +295,86 @@ def test_access_oog_preserves_prior_warmth(
     )
 
     state_test(pre=pre, post={caller: Account(storage=storage)}, tx=tx)
+
+
+def test_repeated_recovery(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test that recovering a signer again in the same transaction costs the
+    warm price, and that the signer is cold again in the next transaction
+    of the block.
+
+    The input is identical every time, so an implementation that caches the
+    precompile result by input must still price each call by warmth.
+    """
+    signer = pre.fund_eoa()
+    v, r, s = signer.sign_digest(DIGEST)
+    cold_gas = fork.ecrecover_gas(recovered=True, address_warm=False)
+    warm_gas = fork.ecrecover_gas(recovered=True, address_warm=True)
+
+    def recover(gas: int) -> Bytecode:
+        return Op.STATICCALL(
+            gas=gas,
+            address=Spec.ECRECOVER,
+            args_offset=0,
+            args_size=INPUT_SIZE,
+            ret_offset=OUTPUT_OFFSET,
+            ret_size=32,
+        )
+
+    first_storage = Storage()
+    first_caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, INPUT_SIZE)
+        + Op.SSTORE(
+            first_storage.store_next(1, "cold_call"), recover(cold_gas)
+        )
+        + Op.SSTORE(
+            first_storage.store_next(1, "warm_call"), recover(warm_gas)
+        )
+        + Op.SSTORE(
+            first_storage.store_next(signer, "output"),
+            Op.MLOAD(OUTPUT_OFFSET),
+        ),
+        storage=first_storage.canary(),
+    )
+
+    # The warm price runs out of gas before the cold call warms the signer.
+    second_storage = Storage()
+    second_caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, INPUT_SIZE)
+        + Op.SSTORE(
+            second_storage.store_next(0, "warm_call"), recover(warm_gas)
+        )
+        + Op.SSTORE(
+            second_storage.store_next(1, "cold_call"), recover(cold_gas)
+        )
+        + Op.SSTORE(
+            second_storage.store_next(signer, "output"),
+            Op.MLOAD(OUTPUT_OFFSET),
+        ),
+        storage=second_storage.canary(),
+    )
+
+    data = EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s)
+    sender = pre.fund_eoa()
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(to=first_caller, data=data, sender=sender),
+                    Transaction(to=second_caller, data=data, sender=sender),
+                ]
+            )
+        ],
+        post={
+            first_caller: Account(storage=first_storage),
+            second_caller: Account(storage=second_storage),
+        },
+    )
 
 
 @pytest.mark.parametrize(
