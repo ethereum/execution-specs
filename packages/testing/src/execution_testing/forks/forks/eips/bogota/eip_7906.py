@@ -1,10 +1,10 @@
 """
 EIP-7906: Transaction Assertions via State Diff Opcode.
 
-Add the `POST_TX` frame mode to EIP-8141 frame transactions and the
+Add the `ASSERT` frame mode to EIP-8141 frame transactions and the
 `TXTRACE` and `EVENTDATACOPY` instructions that expose the
 transaction's state diff to those frames. The transaction payload and
-intrinsic gas are unchanged. A `POST_TX` frame is a read-only trailing
+intrinsic gas are unchanged. An `ASSERT` frame is a read-only trailing
 frame whose failure reverts the execution body without invalidating the
 transaction.
 
@@ -19,8 +19,8 @@ from execution_testing.vm import OpcodeBase, Opcodes
 from ....base_fork import BaseFork
 from ....gas_costs import GasCosts
 
-POST_TX_MODE = 3
-"""Frame mode value of a `POST_TX` assertion frame."""
+ASSERT_MODE = 3
+"""Frame mode value of an `ASSERT` assertion frame."""
 
 
 class EIP7906(BaseFork):
@@ -28,9 +28,9 @@ class EIP7906(BaseFork):
 
     @classmethod
     def frame_mode_count(cls) -> int:
-        """The `POST_TX` frame mode is introduced after the existing ones."""
+        """The `ASSERT` frame mode is introduced after the existing ones."""
         count = super(EIP7906, cls).frame_mode_count()
-        assert count == POST_TX_MODE, "POST_TX must be the next frame mode"
+        assert count == ASSERT_MODE, "ASSERT must be the next frame mode"
         return count + 1
 
     @classmethod

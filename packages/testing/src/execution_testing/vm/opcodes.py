@@ -6218,7 +6218,7 @@ class Opcodes(Opcode, Enum):
     Push one value of the executing frame transaction's state diff
     (EIP-7906): a table count, an entry of the balance, slot, code,
     nonce or event tables at `index`, or the gas payment
-    parameters. Valid only inside a `POST_TX` frame, exceptionally
+    parameters. Valid only inside an `ASSERT` frame, exceptionally
     halts elsewhere, on an undefined parameter, an out-of-bounds index,
     or a non-zero index for a parameter that takes none.
 
@@ -6253,7 +6253,7 @@ class Opcodes(Opcode, Enum):
     ----
     Copy a portion of one event's non-indexed data into memory with
     CALLDATACOPY pricing (EIP-7906). Exceptionally halts outside a
-    `POST_TX` frame, on an out-of-bounds event index, or on a range
+    `ASSERT` frame, on an out-of-bounds event index, or on a range
     past the end of the event's data.
 
     Inputs

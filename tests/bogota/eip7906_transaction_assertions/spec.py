@@ -25,8 +25,8 @@ class Spec:
     https://eips.ethereum.org/EIPS/eip-7906.
     """
 
-    MODE_POST_TX = 3
-    """The `POST_TX` frame mode value."""
+    MODE_ASSERT = 3
+    """The `ASSERT` frame mode value."""
 
     TXTRACE_OPCODE = 0xB6
     EVENTDATACOPY_OPCODE = 0xB7

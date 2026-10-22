@@ -107,7 +107,7 @@ def approve(evm: Evm) -> None:
     — reverts the current call frame, not the whole frame: a caller
     that handles the revert carries on. The approval's writes
     deliberately bypass the `VERIFY` static restriction: only
-    `APPROVE` may mutate state there. A `POST_TX` frame has no such
+    `APPROVE` may mutate state there. An `ASSERT` frame has no such
     exception and halts exceptionally instead ([EIP-7906]).
 
     [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
@@ -127,7 +127,7 @@ def approve(evm: Evm) -> None:
     frame = tx.frames[int(frame_context.current_frame_index)]
     resolved_target = resolve_frame_target(tx, frame)
 
-    if frame.mode == FrameMode.POST_TX:
+    if frame.mode == FrameMode.ASSERT:
         raise WriteInStaticContext
 
     evm.memory += b"\x00" * extend_memory.expand_by
