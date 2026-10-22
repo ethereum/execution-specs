@@ -21,6 +21,7 @@ from ....gas_costs import GasCosts
 
 NONCE_MANAGER_ADDRESS = 0x8250968C12E01A19D6F667B9B2F3B3A4D0E51CB7
 NONCE_MANAGER_BYTECODE = bytes.fromhex("60006000fd")
+MAX_NONCE_SEQ = 2**64 - 1
 
 
 class EIP8250(BaseFork):
@@ -41,11 +42,9 @@ class EIP8250(BaseFork):
         cls, nonce_keys: Sequence[int]
     ) -> int:
         """
-        Charge the read and write of each non-zero key's nonce manager
-        slot. The legacy key set uses the account nonce instead.
+        Charge the read and write of each key's nonce manager slot. The
+        empty key set uses the account nonce instead.
         """
-        if list(nonce_keys) == [0]:
-            return 0
         return len(nonce_keys) * cls.gas_costs().KEYED_NONCE_ACCESS
 
     @classmethod
@@ -53,13 +52,17 @@ class EIP8250(BaseFork):
         cls, nonce_keys: Sequence[int], nonce_seq: int
     ) -> List[Bytes]:
         """
-        Price the encoding of the nonce key set followed by the nonce
-        sequence as calldata.
+        Price the nonce key set and, except for a keyed single-use
+        transaction, the nonce sequence as calldata.
         """
+        priced_sequence = (
+            b""
+            if nonce_keys and nonce_seq == MAX_NONCE_SEQ
+            else rlp.encode(U256(nonce_seq))
+        )
         return [
             Bytes(
-                rlp.encode([U256(key) for key in nonce_keys])
-                + rlp.encode(U256(nonce_seq))
+                rlp.encode([U256(key) for key in nonce_keys]) + priced_sequence
             )
         ]
 
