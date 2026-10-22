@@ -1959,6 +1959,7 @@ def test_double_auth(
 def test_pointer_resets_an_empty_code_account_with_storage(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     So in Block1 we create a sender with empty code, but non empty storage
@@ -2083,7 +2084,12 @@ def test_pointer_resets_an_empty_code_account_with_storage(
             storage=sender_storage,
             code=Spec.delegation_designation(newly_created_address),
         ),
-        newly_created_address: Account.NONEXISTENT,
+        newly_created_address: (
+            # SENDALL keeps the account created in the same transaction.
+            Account(balance=0, nonce=1, code=deploy_code, storage={5: 5, 6: 6})
+            if fork.is_eip_enabled(4758)
+            else Account.NONEXISTENT
+        ),
         contract_create: Account(storage={1: newly_created_address}),
         another_pointer: Account(balance=0, storage={5: 5}),
     }

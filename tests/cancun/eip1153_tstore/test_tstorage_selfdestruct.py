@@ -14,6 +14,7 @@ from execution_testing import (
     Alloc,
     Bytecode,
     CalldataCase,
+    Fork,
     Hash,
     Initcode,
     Op,
@@ -245,6 +246,7 @@ class SelfDestructCases(PytestParameterEnum):
 def test_reentrant_selfdestructing_call(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     pre_existing_contract: bool,
     caller_bytecode: Bytecode,
     callee_bytecode: Bytecode,
@@ -278,6 +280,11 @@ def test_reentrant_selfdestructing_call(
 
     if pre_existing_contract:
         post[callee_address] = Account(code=callee_bytecode)
+    elif fork.is_eip_enabled(4758):
+        # SENDALL keeps the account created in the same transaction.
+        post[callee_address] = Account(
+            balance=0, nonce=1, code=callee_bytecode, storage={}
+        )
     else:
         post[callee_address] = Account.NONEXISTENT
 

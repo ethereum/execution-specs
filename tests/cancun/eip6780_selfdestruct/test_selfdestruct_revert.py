@@ -408,7 +408,15 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
     }
 
     if selfdestruct_on_outer_call > 0:
-        if selfdestruct_on_outer_call == 1 and fork.is_eip_enabled(8246):
+        if fork.is_eip_enabled(4758):
+            # Under EIP-4758 the contract persists with its storage.
+            post[selfdestruct_with_transfer_contract_address] = Account(
+                balance=1 if selfdestruct_on_outer_call == 1 else 0,
+                nonce=1,
+                code=selfdestruct_with_transfer_contract_code,
+                storage={0: 1, 1: 1},
+            )
+        elif selfdestruct_on_outer_call == 1 and fork.is_eip_enabled(8246):
             # per EIP-8246
             post[selfdestruct_with_transfer_contract_address] = Account(
                 balance=1,
@@ -447,7 +455,38 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
         account_expectations = {}
 
         if selfdestruct_on_outer_call > 0:
-            if selfdestruct_on_outer_call == 1 and fork.is_eip_enabled(8246):
+            if fork.is_eip_enabled(4758):
+                account_expectations[
+                    selfdestruct_with_transfer_contract_address
+                ] = BalAccountExpectation(
+                    storage_reads=[],
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    balance_changes=[
+                        BalBalanceChange(block_access_index=1, post_balance=1)
+                    ]
+                    if selfdestruct_on_outer_call == 1
+                    else [],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=selfdestruct_with_transfer_contract_code,
+                        ),
+                    ],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=slot,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=1
+                                ),
+                            ],
+                        )
+                        for slot in (0, 1)
+                    ],
+                )
+            elif selfdestruct_on_outer_call == 1 and fork.is_eip_enabled(8246):
                 # per EIP-8246
                 account_expectations[
                     selfdestruct_with_transfer_contract_address

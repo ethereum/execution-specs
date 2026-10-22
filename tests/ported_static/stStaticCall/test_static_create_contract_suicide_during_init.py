@@ -56,6 +56,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_static_create_contract_suicide_during_init(
     state_test: StateTestFiller,
     pre: Alloc,

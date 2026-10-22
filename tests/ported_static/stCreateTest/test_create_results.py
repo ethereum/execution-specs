@@ -203,7 +203,10 @@ def test_returndatacopy_after_successful_create_aborts(
         "revert",
         "revert_data",
         "empty_deploy",
-        "selfdestruct",
+        pytest.param(
+            "selfdestruct",
+            marks=pytest.mark.valid_before("EIP4758"),
+        ),
     ],
 )
 def test_create_results_without_call(
