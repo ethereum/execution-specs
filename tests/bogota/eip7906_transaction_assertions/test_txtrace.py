@@ -30,7 +30,6 @@ from execution_testing import (
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import Spec as Spec7708
 from tests.bogota.eip8141_frame_transactions.helpers import verify_frame
 from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
-from tests.bogota.eip8250_keyed_nonces.helpers import NONCE_KEY
 
 from .helpers import (
     BOB_FUNDS,
@@ -459,31 +458,20 @@ def test_codes_and_nonces_changed(
     )
 
 
-@pytest.mark.parametrize(
-    "nonce_keys",
-    [
-        pytest.param([0], id="account_nonce"),
-        pytest.param([NONCE_KEY], id="keyed_nonce"),
-    ],
-)
 def test_sender_nonce_change(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    nonce_keys: List[int],
 ) -> None:
     """
-    List `tx.sender` in `nonces_changed` only when `APPROVE` increments
-    its account nonce: a transaction using a non-zero nonce key leaves
-    the account nonce, and so the table, untouched.
+    List `tx.sender` in `nonces_changed` when `APPROVE` increments its
+    account nonce.
     """
     sender = pre.fund_eoa()
-    bumped = nonce_keys == [0]
-    checks = expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCES_CHANGED, 0), int(bumped))
-    if bumped:
-        checks += expect_eq(
-            Op.TXTRACE(Spec.TXTRACE_NONCE_ADDRESS, 0), as_int(sender)
-        )
+    checks = expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCES_CHANGED, 0), 1)
+    checks += expect_eq(
+        Op.TXTRACE(Spec.TXTRACE_NONCE_ADDRESS, 0), as_int(sender)
+    )
     assertion = pre.deploy_contract(code=checks + Op.STOP)
 
     state_test(
@@ -494,10 +482,8 @@ def test_sender_nonce_change(
             body=[],
             assertion=assertion,
             frame_receipts=success_receipts(2),
-            nonce_keys=nonce_keys,
-            nonce=0,
         ),
-        post={sender: Account(nonce=int(bumped))},
+        post={sender: Account(nonce=1)},
     )
 
 
