@@ -40,6 +40,7 @@ from .helpers import (
     contract_address_from_hash,
     eoa_from_hash,
 )
+from .mempool_types import MempoolTransaction
 from .phase_manager import TestPhase, TestPhaseManager
 from .receipt_types import TransactionLog, TransactionReceipt
 from .system_contract_interactions import (
@@ -88,6 +89,7 @@ __all__ = (
     "EOA",
     "fee_increment_blocks",
     "GasFee",
+    "MempoolTransaction",
     "NetworkWrappedTransaction",
     "PostStateContext",
     "Removable",

@@ -28,6 +28,7 @@ from .exceptions import (
     EngineAPIError,
     TransactionException,
 )
+from .execution import GetBlobs, MempoolCheck
 from .fixtures import BaseFixture, FixtureCollector
 from .forks import (
     BuilderDepositRequest,
@@ -56,6 +57,8 @@ from .specs import (
     BlockchainTest,
     BlockchainTestFiller,
     Header,
+    MempoolTest,
+    MempoolTestFiller,
     OpcodeTarget,
     StateTest,
     StateTestFiller,
@@ -84,6 +87,7 @@ from .test_types import (
     ChainConfig,
     Environment,
     GasFee,
+    MempoolTransaction,
     NetworkWrappedTransaction,
     Removable,
     SystemContractInteractionBase,
@@ -205,6 +209,7 @@ __all__ = (
     "Fork",
     "GasConsumer",
     "GasCosts",
+    "GetBlobs",
     "Hash",
     "Header",
     "Initcode",
@@ -212,6 +217,10 @@ __all__ = (
     "JumpLoopGenerator",
     "Macro",
     "Macros",
+    "MempoolCheck",
+    "MempoolTest",
+    "MempoolTestFiller",
+    "MempoolTransaction",
     "MemoryVariable",
     "NetworkWrappedTransaction",
     "OpcodeTarget",
