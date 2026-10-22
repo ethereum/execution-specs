@@ -20,6 +20,7 @@ from execution_testing import (
     AuthorizationTuple,
     Fork,
     Op,
+    RecipientType,
     StateTestFiller,
     Storage,
     Transaction,
@@ -39,17 +40,25 @@ pytestmark = [pytest.mark.valid_at("Amsterdam"), pytest.mark.mainnet]
 def test_sstore_zero_to_nonzero(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     A zero-to-nonzero ``SSTORE`` pays the EIP-8038 storage write and
     succeeds, leaving the slot set.
     """
     storage = Storage()
-    contract = pre.deploy_contract(code=Op.SSTORE(storage.store_next(1), 1))
+    code = Op.SSTORE(
+        storage.store_next(1),
+        1,
+    )
+    contract = pre.deploy_contract(code=code)
+    gas_limit = fork.transaction_intrinsic_cost_calculator()() + code.gas_cost(
+        fork
+    )
 
     tx = Transaction(
         to=contract,
-        gas_limit=1_000_000,
+        gas_limit=gas_limit,
         sender=pre.fund_eoa(),
     )
 
@@ -61,6 +70,7 @@ def test_sstore_zero_to_nonzero(
 def test_cold_call_with_value(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     A value-bearing cold ``CALL`` pays ``COLD_ACCOUNT_ACCESS`` plus
@@ -70,18 +80,25 @@ def test_cold_call_with_value(
     callee = pre.deploy_contract(code=Op.STOP, balance=0)
 
     caller_storage = Storage()
-    caller = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                caller_storage.store_next(1),
-                Op.CALL(gas=100_000, address=callee, value=1),
-            )
+    # The callee is a bare STOP, so the stipend covers the inner frame.
+    caller_code = Op.SSTORE(
+        caller_storage.store_next(1),
+        Op.CALL(
+            gas=0,
+            address=callee,
+            value=1,
+            # gas accounting
+            value_transfer=True,
         ),
     )
+    caller = pre.deploy_contract(code=caller_code)
+    gas_limit = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True
+    ) + caller_code.gas_cost(fork)
 
     tx = Transaction(
         to=caller,
-        gas_limit=1_000_000,
+        gas_limit=gas_limit,
         value=1,
         sender=pre.fund_eoa(),
     )
@@ -97,6 +114,7 @@ def test_cold_call_with_value(
 def test_extcodesize(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     ``EXTCODESIZE`` pays the EIP-8038 account access plus the code-read
@@ -105,13 +123,20 @@ def test_extcodesize(
     target = pre.deploy_contract(code=Op.STOP * 3)
 
     storage = Storage()
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(3), Op.EXTCODESIZE(target)),
+    code = Op.SSTORE(
+        storage.store_next(3),
+        Op.EXTCODESIZE(target),
+        # gas accounting
+        new_value=3,
+    )
+    contract = pre.deploy_contract(code=code)
+    gas_limit = fork.transaction_intrinsic_cost_calculator()() + code.gas_cost(
+        fork
     )
 
     tx = Transaction(
         to=contract,
-        gas_limit=1_000_000,
+        gas_limit=gas_limit,
         sender=pre.fund_eoa(),
     )
 
@@ -137,19 +162,23 @@ def test_create_deploys_contract(
     )
 
     storage = Storage()
-    factory = pre.deploy_contract(
-        code=(
-            Op.MSTORE(0, init_word)
-            + Op.SSTORE(
-                storage.store_next(True),
-                Op.GT(Op.CREATE(0, 0, len(init_code)), 0),
-            )
+    factory_code = Op.MSTORE(0, init_word, new_memory_size=32) + Op.SSTORE(
+        storage.store_next(True),
+        Op.GT(
+            Op.CREATE(0, 0, len(init_code), init_code_size=len(init_code)),
+            0,
         ),
+    )
+    factory = pre.deploy_contract(code=factory_code)
+    gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + factory_code.gas_cost(fork)
+        + fork.create_state_gas(code_size=0)
     )
 
     tx = Transaction(
         to=factory,
-        gas_limit=1_000_000,
+        gas_limit=gas_limit,
         state_gas_reservoir=fork.create_state_gas(code_size=0),
         sender=pre.fund_eoa(),
     )
@@ -172,14 +201,15 @@ def test_selfdestruct_funds_new_account(
     """
     beneficiary = pre.fund_eoa(amount=0)
 
-    suicidal = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(beneficiary),
-        balance=1,
+    code = Op.SELFDESTRUCT(beneficiary, account_new=True)
+    suicidal = pre.deploy_contract(code=code, balance=1)
+    gas_limit = fork.transaction_intrinsic_cost_calculator()() + code.gas_cost(
+        fork
     )
 
     tx = Transaction(
         to=suicidal,
-        gas_limit=1_000_000,
+        gas_limit=gas_limit,
         state_gas_reservoir=Op.SELFDESTRUCT(account_new=True).state_cost(fork),
         sender=pre.fund_eoa(),
     )
@@ -192,12 +222,13 @@ def test_selfdestruct_funds_new_account(
 def test_auth_installs_delegation(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     A single valid ``7702`` authorization pays the EIP-8038 auth
     intrinsic and installs a delegation designation on the authority.
     """
-    auth_signer = pre.fund_eoa()
+    auth_signer = pre.fund_eoa(amount=1)
     set_code_to = pre.deploy_contract(code=Op.STOP)
 
     authorization_list = [
@@ -210,7 +241,14 @@ def test_auth_installs_delegation(
 
     tx = Transaction(
         to=auth_signer,
-        gas_limit=1_000_000,
+        gas_limit=fork.transaction_intrinsic_cost_calculator()(
+            recipient_type=RecipientType.DELEGATION_7702,
+            authorization_list_or_count=authorization_list,
+        )
+        + fork.transaction_top_frame_gas_calculator()(
+            recipient_type=RecipientType.DELEGATION_7702,
+            authorizations=authorization_list,
+        ),
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
     )
@@ -228,6 +266,7 @@ def test_auth_installs_delegation(
 def test_existing_authority_refund(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Re-authorizing an already-delegated authority re-points the
@@ -242,7 +281,7 @@ def test_existing_authority_refund(
     # refund is gone. The exact charges are pinned by the EIP-2780
     # suite's `test_authorization_charges.py`; this test only checks the
     # delegation is re-pointed on a mainnet-marked path.
-    auth_signer = pre.fund_eoa(delegation=old_target)
+    auth_signer = pre.fund_eoa(amount=0, delegation=old_target)
 
     authorization_list = [
         AuthorizationTuple(
@@ -254,7 +293,14 @@ def test_existing_authority_refund(
 
     tx = Transaction(
         to=auth_signer,
-        gas_limit=1_000_000,
+        gas_limit=fork.transaction_intrinsic_cost_calculator()(
+            recipient_type=RecipientType.DELEGATION_7702,
+            authorization_list_or_count=authorization_list,
+        )
+        + fork.transaction_top_frame_gas_calculator()(
+            recipient_type=RecipientType.DELEGATION_7702,
+            authorizations=authorization_list,
+        ),
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
     )
