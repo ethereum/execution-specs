@@ -30,6 +30,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_before("EIP4758")
 def test_transaction_create_suicide_in_initcode(
     state_test: StateTestFiller,
     fork: Fork,

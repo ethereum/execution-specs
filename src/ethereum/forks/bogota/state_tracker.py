@@ -491,38 +491,14 @@ def destroy_account(tx_state: TransactionState, address: Address) -> None:
     set_account(tx_state, address, None)
 
 
-def clear_account_preserving_balance(
-    tx_state: TransactionState, address: Address
-) -> None:
-    """
-    Clear an account's nonce, code, and storage while preserving its
-    balance.
-
-    Parameters
-    ----------
-    tx_state :
-        The transaction state.
-    address :
-        Address of the account to modify.
-
-    """
-
-    def clear_account(account: Account) -> None:
-        account.nonce = Uint(0)
-        account.code_hash = EMPTY_CODE_HASH
-
-    destroy_storage(tx_state, address)
-    modify_state(tx_state, address, clear_account)
-
-
 def destroy_storage(tx_state: TransactionState, address: Address) -> None:
     """
     Completely remove the storage at ``address``.
 
-    Convert storage writes to reads before deleting so that accesses
-    from created-then-destroyed accounts appear in the Block Access
-    List. Record the address in ``storage_clears`` so that reads no
-    longer fall back to earlier block writes or ``pre_state``.
+    Convert storage writes to reads before deleting so that the
+    destroyed slots still appear in the Block Access List. Record the
+    address in ``storage_clears`` so that reads no longer fall back to
+    earlier block writes or ``pre_state``.
 
     Parameters
     ----------
@@ -543,8 +519,7 @@ def mark_account_created(tx_state: TransactionState, address: Address) -> None:
     """
     Mark an account as having been created in the current transaction.
     This information is used by ``get_storage_original()`` to handle an
-    obscure edgecase, and to respect the constraints added to
-    SELFDESTRUCT by EIP-6780.
+    obscure edgecase.
 
     The marker is not removed even if the account creation reverts.
     Since the account cannot have had code prior to its creation and

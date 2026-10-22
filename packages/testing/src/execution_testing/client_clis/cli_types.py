@@ -425,6 +425,7 @@ _opcode_synonyms = {
     "KECCAK256": "SHA3",
     "KECCAK": "SHA3",
     "DIFFICULTY": "PREVRANDAO",
+    "SENDALL": "SELFDESTRUCT",
 }
 
 

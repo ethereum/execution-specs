@@ -460,6 +460,7 @@ def test_bal_account_touch_system_address(
 def test_bal_selfdestruct_to_system_address_zero_balance(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
 ) -> None:
     """
     Ensure `SYSTEM_ADDRESS` is in BAL when accessed via `SELFDESTRUCT`,
@@ -479,17 +480,30 @@ def test_bal_selfdestruct_to_system_address_zero_balance(
         data=init_code,
     )
 
+    account_expectations: Dict[Address, BalAccountExpectation | None] = {
+        alice: BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(block_access_index=1, post_nonce=1),
+            ],
+        ),
+        SYSTEM_ADDRESS: BalAccountExpectation.empty(),
+    }
+    new_contract_post: Account | None = Account.NONEXISTENT
+    if fork.is_eip_enabled(4758):
+        # SENDALL keeps the created account with nonce 1 and no code.
+        account_expectations[new_contract] = BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(block_access_index=1, post_nonce=1),
+            ],
+            code_changes=[],
+            balance_changes=[],
+        )
+        new_contract_post = Account(nonce=1, balance=0, code=b"")
+
     block = Block(
         txs=[tx],
         expected_block_access_list=BlockAccessListExpectation(
-            account_expectations={
-                alice: BalAccountExpectation(
-                    nonce_changes=[
-                        BalNonceChange(block_access_index=1, post_nonce=1),
-                    ],
-                ),
-                SYSTEM_ADDRESS: BalAccountExpectation.empty(),
-            }
+            account_expectations=account_expectations
         ),
     )
 
@@ -498,7 +512,7 @@ def test_bal_selfdestruct_to_system_address_zero_balance(
         blocks=[block],
         post={
             alice: Account(nonce=1),
-            new_contract: Account.NONEXISTENT,
+            new_contract: new_contract_post,
         },
     )
 
@@ -2711,6 +2725,7 @@ def test_bal_call_revert_insufficient_funds(
 def test_bal_create_selfdestruct_to_self_with_call(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
 ) -> None:
     """
     Test BAL with init code that CALLs Oracle, writes storage, then
@@ -2724,6 +2739,8 @@ def test_bal_create_selfdestruct_to_self_with_call(
     - Oracle: storage_changes slot 0x01
     - Created address: storage_reads [0x01] (aborted write→read),
       MUST NOT have nonce/code/storage/balance changes (ephemeral)
+    - Under EIP-4758 the created address is kept: nonce, balance and
+      the slot 0x01 write are recorded, with no code
     """
     alice = pre.fund_eoa()
     factory_balance = 1000
@@ -2802,6 +2819,45 @@ def test_bal_create_selfdestruct_to_self_with_call(
 
     tx = Transaction(sender=alice, to=factory)
 
+    if fork.is_eip_enabled(4758):
+        # SENDALL to self keeps the balance and the created account.
+        created_bal = BalAccountExpectation(
+            storage_reads=[],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=0x01,
+                    slot_changes=[
+                        BalStorageChange(block_access_index=1, post_value=0x42)
+                    ],
+                )
+            ],
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+            code_changes=[],
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=endowment)
+            ],
+        )
+        created_post = Account(
+            balance=endowment, nonce=1, code=b"", storage={0x01: 0x42}
+        )
+    else:
+        # Created address: ephemeral (created and destroyed same tx)
+        # - storage_reads for slot 0x01 (aborted write becomes read)
+        # - NO nonce/code/storage changes
+        # - Balance remains per eip-8246
+        created_bal = BalAccountExpectation(
+            storage_reads=[0x01],
+            storage_changes=[],
+            nonce_changes=[],
+            code_changes=[],
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=endowment)
+            ],
+        )
+        created_post = Account(
+            balance=endowment, nonce=0, code=b"", storage={}
+        )
+
     block = Block(
         txs=[tx],
         expected_block_access_list=BlockAccessListExpectation(
@@ -2836,21 +2892,7 @@ def test_bal_create_selfdestruct_to_self_with_call(
                         )
                     ],
                 ),
-                # Created address: ephemeral (created and destroyed same tx)
-                # - storage_reads for slot 0x01 (aborted write becomes read)
-                # - NO nonce/code/storage changes
-                # - Balance remains per eip-8246
-                created_address: BalAccountExpectation(
-                    storage_reads=[0x01],
-                    storage_changes=[],
-                    nonce_changes=[],
-                    code_changes=[],
-                    balance_changes=[
-                        BalBalanceChange(
-                            block_access_index=1, post_balance=endowment
-                        )
-                    ],
-                ),
+                created_address: created_bal,
             }
         ),
     )
@@ -2862,9 +2904,7 @@ def test_bal_create_selfdestruct_to_self_with_call(
             alice: Account(nonce=1),
             factory: Account(nonce=2, balance=factory_balance - endowment),
             oracle: Account(storage={0x01: 0x42}),
-            created_address: Account(
-                balance=endowment, nonce=0, code=b"", storage={}
-            ),
+            created_address: created_post,
         },
     )
 
@@ -3823,6 +3863,7 @@ def test_bal_create_existing_target(
 def test_bal_create_storage_op_then_selfdestruct_same_tx(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     create_opcode: Op,
     storage_op: str,
 ) -> None:
@@ -3834,7 +3875,8 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
     SLOAD or SSTORE on slot B then SELFDESTRUCTs. Because the contract
     is destroyed in the same tx, slot B MUST appear in `storage_reads`
     and MUST NOT appear in `storage_changes` (writes demoted to reads
-    per EIP-7928).
+    per EIP-7928). Under EIP-4758 A is kept, so its nonce and any write
+    to slot B are recorded without demotion.
     """
     alice = pre.fund_eoa()
     beneficiary = pre.fund_eoa(amount=0)
@@ -3867,19 +3909,57 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
 
     tx = Transaction(sender=alice, to=factory, data=initcode_bytes)
 
+    target_a_post: Account | None
+    if fork.is_eip_enabled(4758):
+        # SENDALL keeps A with nonce 1, no code and its storage.
+        if storage_op == "read":
+            storage_reads = [slot_b]
+            storage_changes = []
+            target_a_storage = {}
+        else:
+            storage_reads = []
+            storage_changes = [
+                BalStorageSlot(
+                    slot=slot_b,
+                    slot_changes=[
+                        BalStorageChange(
+                            block_access_index=1, post_value=0xCAFE
+                        )
+                    ],
+                )
+            ]
+            target_a_storage = {slot_b: 0xCAFE}
+        target_a_bal = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=0),
+            ],
+            storage_reads=storage_reads,
+            storage_changes=storage_changes,
+            code_changes=[],
+            nonce_changes=[
+                BalNonceChange(block_access_index=1, post_nonce=1),
+            ],
+        )
+        target_a_post = Account(
+            nonce=1, balance=0, code=b"", storage=target_a_storage
+        )
+    else:
+        target_a_bal = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=0),
+            ],
+            storage_reads=[slot_b],
+            storage_changes=[],
+            code_changes=[],
+            nonce_changes=[],
+        )
+        target_a_post = Account.NONEXISTENT
+
     block = Block(
         txs=[tx],
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
-                target_a: BalAccountExpectation(
-                    balance_changes=[
-                        BalBalanceChange(block_access_index=1, post_balance=0),
-                    ],
-                    storage_reads=[slot_b],
-                    storage_changes=[],
-                    code_changes=[],
-                    nonce_changes=[],
-                ),
+                target_a: target_a_bal,
                 beneficiary: BalAccountExpectation(
                     balance_changes=[
                         BalBalanceChange(
@@ -3896,7 +3976,7 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
         pre=pre,
         blocks=[block],
         post={
-            target_a: Account.NONEXISTENT,
+            target_a: target_a_post,
             beneficiary: Account(balance=fund_amount),
             factory: Account(nonce=2, storage={0: target_a}),
         },
@@ -3911,6 +3991,7 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
 def test_bal_create2_selfdestruct_then_recreate_same_block(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     pre_balance: int,
 ) -> None:
     """
@@ -3931,6 +4012,9 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     contract is destroyed in the same tx. Tx2's fresh A has
     `nonce_changes` (post=1), `code_changes` (post=runtime), and empty
     storage.
+
+    Under EIP-4758 Tx1's A is kept with its nonce, code and SSTORE, so
+    Tx2's CREATE2 collides: it returns 0 and A is left unchanged.
     """
     alice = pre.fund_eoa()
     beneficiary = pre.fund_eoa(amount=0)
@@ -3985,29 +4069,99 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
         # balance change is recorded.
         beneficiary_expectation = BalAccountExpectation.empty()
 
+    account_expectations: Dict[Address, BalAccountExpectation | None]
+    if fork.is_eip_enabled(4758):
+        # Tx1 creates A and SENDALL keeps it; Tx2's CREATE2 collides,
+        # stores 0 in factory slot 0 and leaves A unchanged.
+        account_expectations = {
+            target_a: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1),
+                ],
+                code_changes=[
+                    BalCodeChange(
+                        block_access_index=1, new_code=runtime_bytes
+                    ),
+                ],
+                balance_changes=target_a_balance_changes,
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=target_slot,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=0xCAFE
+                            )
+                        ],
+                    )
+                ],
+                storage_reads=[],
+            ),
+            beneficiary: beneficiary_expectation,
+            factory: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=2),
+                    BalNonceChange(block_access_index=2, post_nonce=3),
+                ],
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=0,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=target_a
+                            ),
+                            BalStorageChange(
+                                block_access_index=2, post_value=0
+                            ),
+                        ],
+                    ),
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=1
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        }
+        target_a_post = Account(
+            nonce=1,
+            balance=0,
+            code=runtime_bytes,
+            storage={target_slot: 0xCAFE},
+        )
+        factory_post = Account(nonce=3, storage={0: 0, 1: 1})
+    else:
+        account_expectations = {
+            target_a: BalAccountExpectation(
+                # Tx1 destruction (EIP-7928 #165): no nonce/code changes;
+                # the SSTORE is demoted to a storage_read because A is
+                # destroyed same-tx. Tx2 resurrection: fresh contract
+                # with nonce=1, runtime, and untouched storage.
+                nonce_changes=[
+                    BalNonceChange(block_access_index=2, post_nonce=1),
+                ],
+                code_changes=[
+                    BalCodeChange(
+                        block_access_index=2, new_code=runtime_bytes
+                    ),
+                ],
+                balance_changes=target_a_balance_changes,
+                storage_changes=[],
+                storage_reads=[target_slot],
+            ),
+            beneficiary: beneficiary_expectation,
+        }
+        target_a_post = Account(
+            nonce=1, balance=0, code=runtime_bytes, storage={}
+        )
+        factory_post = Account(nonce=3, storage={0: target_a, 1: 1})
+
     block = Block(
         txs=[tx1, tx2],
         expected_block_access_list=BlockAccessListExpectation(
-            account_expectations={
-                target_a: BalAccountExpectation(
-                    # Tx1 destruction (EIP-7928 #165): no nonce/code changes;
-                    # the SSTORE is demoted to a storage_read because A is
-                    # destroyed same-tx. Tx2 resurrection: fresh contract
-                    # with nonce=1, runtime, and untouched storage.
-                    nonce_changes=[
-                        BalNonceChange(block_access_index=2, post_nonce=1),
-                    ],
-                    code_changes=[
-                        BalCodeChange(
-                            block_access_index=2, new_code=runtime_bytes
-                        ),
-                    ],
-                    balance_changes=target_a_balance_changes,
-                    storage_changes=[],
-                    storage_reads=[target_slot],
-                ),
-                beneficiary: beneficiary_expectation,
-            }
+            account_expectations=account_expectations
         ),
     )
 
@@ -4015,13 +4169,11 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
         pre=pre,
         blocks=[block],
         post={
-            target_a: Account(
-                nonce=1, balance=0, code=runtime_bytes, storage={}
-            ),
+            target_a: target_a_post,
             beneficiary: Account(balance=pre_balance)
             if pre_balance > 0
             else Account.NONEXISTENT,
-            factory: Account(nonce=3, storage={0: target_a, 1: 1}),
+            factory: factory_post,
         },
     )
 
@@ -4029,11 +4181,15 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
 def test_bal_create2_selfdestruct_then_recreate_and_write(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
 ) -> None:
     """
     Ensure `storage_reads` unions the wiped `SSTORE`s of an address that two
     transactions each recreate, write and destroy at the same CREATE2
     destination.
+
+    Under EIP-4758 the first transaction's account is kept with its write,
+    so the second transaction's CREATE2 collides and writes nothing.
 
     Reported in https://github.com/erigontech/erigon/issues/23407.
     """
@@ -4059,6 +4215,44 @@ def test_bal_create2_selfdestruct_then_recreate_and_write(
     )
     pre.fund_address(target, target_balance)
 
+    target_post: Account | None
+    if fork.is_eip_enabled(4758):
+        # Tx1's account is kept; Tx2's CREATE2 collides and runs no init.
+        target_bal = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=0),
+            ],
+            nonce_changes=[
+                BalNonceChange(block_access_index=1, post_nonce=1),
+            ],
+            code_changes=[],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=target_balance,
+                    slot_changes=[
+                        BalStorageChange(
+                            block_access_index=1, post_value=0xCAFE
+                        )
+                    ],
+                )
+            ],
+            storage_reads=[],
+        )
+        target_post = Account(
+            nonce=1, balance=0, code=b"", storage={target_balance: 0xCAFE}
+        )
+    else:
+        target_bal = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=0),
+            ],
+            nonce_changes=[],
+            code_changes=[],
+            storage_changes=[],
+            storage_reads=[0, target_balance],
+        )
+        target_post = Account.NONEXISTENT
+
     blockchain_test(
         pre=pre,
         blocks=[
@@ -4066,17 +4260,7 @@ def test_bal_create2_selfdestruct_then_recreate_and_write(
                 txs=[Transaction(sender=alice, to=factory) for _ in range(2)],
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
-                        target: BalAccountExpectation(
-                            balance_changes=[
-                                BalBalanceChange(
-                                    block_access_index=1, post_balance=0
-                                ),
-                            ],
-                            nonce_changes=[],
-                            code_changes=[],
-                            storage_changes=[],
-                            storage_reads=[0, target_balance],
-                        ),
+                        target: target_bal,
                         beneficiary: BalAccountExpectation(
                             balance_changes=[
                                 BalBalanceChange(
@@ -4090,7 +4274,7 @@ def test_bal_create2_selfdestruct_then_recreate_and_write(
             )
         ],
         post={
-            target: Account.NONEXISTENT,
+            target: target_post,
             beneficiary: Account(balance=target_balance),
             factory: Account(nonce=3),
         },
@@ -4108,6 +4292,7 @@ def test_bal_create2_selfdestruct_then_recreate_and_write(
 def test_bal_dirty_account_selfdestruct(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     create_opcode: Op,
     destruction_successful: bool,
     oracle_suffix: Bytecode,
@@ -4127,7 +4312,9 @@ def test_bal_dirty_account_selfdestruct(
     - destruction_succeeds: oracle STOPs; per EIP-6780 the same-tx
       selfdestruct fully removes the ephemeral; per EIP-7928 its BAL
       entry must contain no balance/nonce/code/storage changes — only
-      `storage_reads` for the demoted slots.
+      `storage_reads` for the demoted slots. Under EIP-4758 the
+      ephemeral is kept: BAL records its nonce, code and storage
+      write, while its balance moves to the beneficiary.
 
     - destruction_reverts: oracle REVERTs; the SELFDESTRUCT (and the
       balance transfer to the beneficiary) are rolled back. The
@@ -4186,7 +4373,41 @@ def test_bal_dirty_account_selfdestruct(
 
     expected_ephemeral_post: Account | None
     expected_beneficiary_post: Account | None
-    if destruction_successful:
+    if destruction_successful and fork.is_eip_enabled(4758):
+        # SENDALL sweeps the balance and keeps the other dirty fields.
+        expected_ephemeral_bal = BalAccountExpectation(
+            balance_changes=[],
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=2)],
+            code_changes=[
+                BalCodeChange(
+                    block_access_index=1, new_code=init_code.deploy_code
+                )
+            ],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=slot_write,
+                    slot_changes=[
+                        BalStorageChange(
+                            block_access_index=1, post_value=0xCAFE
+                        )
+                    ],
+                )
+            ],
+            storage_reads=[slot_read],
+        )
+        expected_beneficiary_bal = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=endowment)
+            ],
+        )
+        expected_ephemeral_post = Account(
+            nonce=2,
+            balance=0,
+            code=init_code.deploy_code,
+            storage={slot_write: 0xCAFE},
+        )
+        expected_beneficiary_post = Account(balance=endowment)
+    elif destruction_successful:
         expected_ephemeral_bal = BalAccountExpectation(
             balance_changes=[],
             nonce_changes=[],

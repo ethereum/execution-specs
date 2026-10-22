@@ -12,6 +12,9 @@ from execution_testing import (
     Alloc,
     BalAccountExpectation,
     BalBalanceChange,
+    BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
@@ -89,6 +92,7 @@ FACTORY = Address(Spec.FACTORY_ADDRESS)
 def test_selfdestructing_initcode_preserves_balance(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     initial_balance: int,
     post_send_count: int,
     create_opcode: Op,
@@ -114,7 +118,8 @@ def test_selfdestructing_initcode_preserves_balance(
 
         tx finalize
          - victim balance-only per EIP-8246,
-         - or NONEXISTENT if EIP-161 cleans up a zero-balance account
+         - or NONEXISTENT if EIP-161 cleans up a zero-balance account,
+         - or, under EIP-4758, a created victim persists with nonce 1
 
       probe_tx
         tx.to = probe_contract
@@ -201,7 +206,9 @@ def test_selfdestructing_initcode_preserves_balance(
     )
 
     expected_balance = retained + delivered if execution_success else delivered
-    victim_alive = expected_balance > 0
+    # Under EIP-4758 a committed creation is never cleared.
+    victim_persists = execution_success and fork.is_eip_enabled(4758)
+    victim_alive = victim_persists or expected_balance > 0
 
     probe_storage = Storage()
     probe_code = (
@@ -235,16 +242,25 @@ def test_selfdestructing_initcode_preserves_balance(
         sender=sender, to=probe_contract, data=Hash(victim, left_padding=True)
     )
 
+    victim_post: Account | None
+    if victim_persists:
+        victim_post = Account(
+            balance=expected_balance,
+            nonce=1,
+            code=b"",
+            storage={0: 1} if initial_storage else {},
+        )
+    elif victim_alive:
+        victim_post = Account(
+            balance=expected_balance, nonce=0, code=b"", storage={}
+        )
+    else:
+        victim_post = Account.NONEXISTENT
+
     blockchain_test(
         pre=pre,
         post={
-            victim: (
-                Account.NONEXISTENT
-                if not victim_alive
-                else Account(
-                    balance=expected_balance, nonce=0, code=b"", storage={}
-                )
-            ),
+            victim: victim_post,
             probe_contract: Account(storage=probe_storage),
         },
         blocks=[Block(txs=[selfdestruct_tx, probe_tx])],
@@ -260,6 +276,7 @@ def test_selfdestructing_initcode_preserves_balance(
 def test_create_transaction_initcode_selfdestruct(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     value: int,
 ) -> None:
     """
@@ -268,7 +285,7 @@ def test_create_transaction_initcode_selfdestruct(
     A creation transaction (``tx.to is None``) whose initcode
     self-destructs to itself exercises the depth-0 create path. A nonzero
     endowment is kept as a balance-only account; a zero endowment is
-    removed.
+    removed. Under EIP-4758 the account persists with nonce one.
     """
     sender = pre.fund_eoa()
     created = compute_create_address(address=sender, nonce=sender.nonce)
@@ -279,13 +296,14 @@ def test_create_transaction_initcode_selfdestruct(
         value=value,
         data=Op.SELFDESTRUCT(Op.ADDRESS),
     )
-    post = {
-        created: (
-            Account(balance=value, nonce=0, code=b"", storage={})
-            if value
-            else Account.NONEXISTENT
-        )
-    }
+    created_post: Account | None
+    if fork.is_eip_enabled(4758):
+        created_post = Account(balance=value, nonce=1, code=b"", storage={})
+    elif value:
+        created_post = Account(balance=value, nonce=0, code=b"", storage={})
+    else:
+        created_post = Account.NONEXISTENT
+    post = {created: created_post}
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -332,9 +350,10 @@ def test_created_coinbase_initcode_selfdestruct_keeps_priority_fee(
         env=Environment(fee_recipient=created),
         pre=pre,
         post={
+            # Under EIP-4758 the account is not cleared and keeps nonce 1.
             created: Account(
                 balance_change=value + Tip(tx, gas=gas_used),
-                nonce=0,
+                nonce=1 if fork.is_eip_enabled(4758) else 0,
                 code=b"",
                 storage={},
             ),
@@ -412,10 +431,11 @@ def test_created_coinbase_selfdestruct_keeps_priority_fee(
         env=Environment(fee_recipient=created),
         pre=pre,
         post={
+            # Under EIP-4758 the account is not cleared at all.
             created: Account(
                 balance_change=value + Tip(tx, gas=gas_used),
-                nonce=0,
-                code=b"",
+                nonce=1 if fork.is_eip_enabled(4758) else 0,
+                code=deploy_code if fork.is_eip_enabled(4758) else b"",
                 storage={},
             ),
             factory: Account(
@@ -445,7 +465,9 @@ def test_create2_redeploy_over_remnant(
     Case 17 of the EIP and its third security consideration. Because the
     account left behind has nonce zero and no storage, the same factory can
     CREATE2 over it again in a later transaction, and that second deployment
-    can spend the balance the first one left there.
+    can spend the balance the first one left there. Under EIP-4758 the
+    account keeps its nonce and storage, so the redeploy collides and the
+    balance stays put.
     """
     endowment = 5
     deployer = pre.fund_eoa()
@@ -487,7 +509,23 @@ def test_create2_redeploy_over_remnant(
     )
 
     created_post: Account | None
-    if sweep_on_redeploy:
+    factory_post = Account(nonce=3, storage={1: created, 2: created})
+    if fork.is_eip_enabled(4758):
+        # The redeploy collides (EIP-684): CREATE2 returns zero and the
+        # redeploy value stays with the factory.
+        final_balance = endowment
+        created_post = Account(
+            balance=endowment, nonce=1, code=b"", storage={0: 1}
+        )
+        tx2_logs = (
+            [transfer_log(redeployer, factory, redeploy_value)]
+            if redeploy_value
+            else []
+        )
+        factory_post = Account(
+            balance=redeploy_value, nonce=3, storage={1: created}
+        )
+    elif sweep_on_redeploy:
         created_post = Account.NONEXISTENT
         final_balance = 0
         tx2_logs = [transfer_log(created, redeployer, endowment)]
@@ -510,7 +548,36 @@ def test_create2_redeploy_over_remnant(
         tx2.expected_receipt = TransactionReceipt(logs=tx2_logs)
 
     expected_bal = None
-    if fork.is_eip_enabled(7928):
+    if fork.is_eip_enabled(4758):
+        # The first deployment's writes persist; the redeploy changes
+        # nothing.
+        expected_bal = BlockAccessListExpectation(
+            account_expectations={
+                created: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=1
+                                )
+                            ],
+                        )
+                    ],
+                    storage_reads=[],
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=endowment
+                        ),
+                    ],
+                )
+            }
+        )
+    elif fork.is_eip_enabled(7928):
         expected_bal = BlockAccessListExpectation(
             account_expectations={
                 created: BalAccountExpectation(
@@ -536,7 +603,7 @@ def test_create2_redeploy_over_remnant(
             Block(txs=[tx1, tx2], expected_block_access_list=expected_bal)
         ],
         post={
-            factory: Account(nonce=3, storage={1: created, 2: created}),
+            factory: factory_post,
             created: created_post,
         },
     )
@@ -546,13 +613,15 @@ def test_create2_redeploy_over_remnant(
 def test_deterministic_factory_redeploy_takes_balance(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     The EIP's third security consideration, using the permissionless
     EIP-7997 factory. One account deploys a contract through the factory
     that self-destructs to itself, leaving its balance behind. Anyone else
     can then call the same factory with the same salt and initcode, land on
-    that balance, and take it.
+    that balance, and take it. Under EIP-4758 the deployed account persists,
+    so the redeploy collides, the factory reverts and the balance stays put.
     """
     endowment = 5
     deployer = pre.fund_eoa()
@@ -592,13 +661,20 @@ def test_deterministic_factory_redeploy_takes_balance(
     redeploy_tx.expected_receipt = TransactionReceipt(
         logs=[transfer_log(created, redeployer, endowment)]
     )
+    created_post: Account | None = Account.NONEXISTENT
+    if fork.is_eip_enabled(4758):
+        # The redeploy collides (EIP-684) and the factory reverts.
+        redeploy_tx.expected_receipt = TransactionReceipt(status=0, logs=[])
+        created_post = Account(
+            balance=endowment, nonce=1, code=b"", storage={}
+        )
 
     blockchain_test(
         pre=pre,
         blocks=[Block(txs=[deploy_tx, redeploy_tx])],
         post={
             FACTORY: Account(balance=0, code=Spec.FACTORY_BYTECODE),
-            created: Account.NONEXISTENT,
+            created: created_post,
         },
     )
 
@@ -613,13 +689,15 @@ def test_deterministic_factory_redeploy_takes_balance(
 def test_deployed_code_selfdestruct_clears_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     selfdestruct_to_self: bool,
 ) -> None:
     """
     Verify finalization clears deployed code and storage but keeps balance.
 
     Call a contract created in the same transaction so that it holds
-    deployed code and a written storage slot when it self-destructs.
+    deployed code and a written storage slot when it self-destructs. Under
+    EIP-4758 nothing is cleared.
     """
     endowment = 5
     sender = pre.fund_eoa()
@@ -645,6 +723,13 @@ def test_deployed_code_selfdestruct_clears_code(
         factory: Account(balance=0, nonce=2, storage={0: created}),
         created: Account(balance=endowment, nonce=0, code=b"", storage={}),
     }
+    if fork.is_eip_enabled(4758):
+        post[created] = Account(
+            balance=endowment,
+            nonce=1,
+            code=initcode.deploy_code,
+            storage={0: 1},
+        )
     if beneficiary is not None:
         donor = pre.deploy_contract(
             code=Op.SELFDESTRUCT(created), balance=endowment

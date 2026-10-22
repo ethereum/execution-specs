@@ -9,7 +9,7 @@ state_tests/stSystemOperationsTest/doubleSelfdestructTouch_ParisFiller.yml
 transaction value rather than three pinned result sets, and the caller
 records both call results, which is what proves the second SELFDESTRUCT
 ran. Extended with a `created_in_tx` arm covering EIP-6780's other
-branch, where the account really is deleted.
+branch, where the account really is deleted (until EIP-4758).
 """
 
 import pytest
@@ -18,6 +18,7 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
+    Fork,
     Initcode,
     StateTestFiller,
     Transaction,
@@ -46,6 +47,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_double_selfdestruct_touch_paris(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     tx_value: int,
     created_in_tx: bool,
 ) -> None:
@@ -130,9 +132,20 @@ def test_double_selfdestruct_touch_paris(
         beneficiary_2: Account(balance=beneficiary_balance + second_transfer),
     }
     if created_in_tx:
-        # EIP-6780 deletes an account created in this same transaction.
         callee = compute_create_address(address=caller, nonce=1)
-        post[callee] = Account.NONEXISTENT
+        if fork.is_eip_enabled(4758):
+            # EIP-4758 SENDALL never deletes, so the account created in
+            # this transaction survives like a pre-existing one.
+            post[callee] = Account(
+                nonce=1,
+                code=selfdestructor_code,
+                storage={0: 2, 1: beneficiary_1, 2: beneficiary_2},
+                balance=0,
+            )
+        else:
+            # EIP-6780 deletes an account created in this same
+            # transaction.
+            post[callee] = Account.NONEXISTENT
     else:
         # EIP-6780 spares a pre-existing account, so the index reaching
         # 2 survives to show both SELFDESTRUCTs executed.

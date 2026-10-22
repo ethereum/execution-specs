@@ -636,6 +636,7 @@ def test_bal_block_rewards(
 def test_bal_selfdestruct_to_coinbase(
     pre: Alloc,
     state_test: StateTestFiller,
+    fork: Fork,
     same_tx: bool,
 ) -> None:
     """
@@ -643,7 +644,8 @@ def test_bal_selfdestruct_to_coinbase(
 
     Post-Cancun (EIP-6780) the contract is only actually destroyed when
     created in the same tx; the pre-deployed path only transfers balance
-    and preserves the contract. Both shapes must appear in BAL.
+    and preserves the contract. Under EIP-4758 the same-tx contract is
+    kept too, with its creation recorded. Both shapes must appear in BAL.
     """
     alice = pre.fund_eoa()
     coinbase = pre.fund_eoa(amount=0)
@@ -672,9 +674,28 @@ def test_bal_selfdestruct_to_coinbase(
         )
         victim = compute_create_address(address=factory, nonce=1)
         tx_target = factory
+        victim_post: Account | None
+        if fork.is_eip_enabled(4758):
+            # SENDALL keeps the account created in the same tx.
+            victim_post = Account(nonce=1, balance=0, code=victim_code)
+            victim_bal = BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+                code_changes=[
+                    BalCodeChange(
+                        block_access_index=1, new_code=bytes(victim_code)
+                    )
+                ],
+                balance_changes=[],
+            )
+        else:
+            victim_post = Account.NONEXISTENT
+            # Created and destroyed in the same tx — empty changes.
+            victim_bal = BalAccountExpectation.empty()
         post = {
             factory: Account(balance=0),
-            victim: Account.NONEXISTENT,
+            victim: victim_post,
             coinbase: Account(balance=victim_balance),
         }
         account_expectations = {
@@ -686,8 +707,7 @@ def test_bal_selfdestruct_to_coinbase(
                     BalBalanceChange(block_access_index=1, post_balance=0)
                 ],
             ),
-            # Created and destroyed in the same tx — empty changes.
-            victim: BalAccountExpectation.empty(),
+            victim: victim_bal,
             coinbase: BalAccountExpectation(
                 balance_changes=[
                     BalBalanceChange(

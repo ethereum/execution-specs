@@ -1584,11 +1584,15 @@ def test_call_value_to_self_destructed_header_gas_used(
     )
 
     # End of transaction destruction clears the nonce, code and storage
-    # but leaves every wei the account received in place.
+    # but leaves every wei the account received in place. Under
+    # EIP-4758 nothing is cleared and the nonce stays at one.
     swept = 0 if selfdestruct_beneficiary == "self" else 1
+    created_nonce = 1 if fork.is_eip_enabled(4758) else 0
     post: dict = {
         orchestrator: Account(balance=1),
-        created: Account(balance=2 - swept, nonce=0, code=b"", storage={}),
+        created: Account(
+            balance=2 - swept, nonce=created_nonce, code=b"", storage={}
+        ),
     }
     if selfdestruct_beneficiary != "self":
         post[alive_beneficiary] = Account(balance=1 + swept)
