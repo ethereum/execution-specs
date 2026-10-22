@@ -1,9 +1,11 @@
 """
 Pytest fixtures that help create the test case "Description" displayed in the
-Hive UI.
+Hive UI, and the steps to reproduce a failed test.
 """
 
 import logging
+import urllib.parse
+import warnings
 from typing import List
 
 import pytest
@@ -15,7 +17,7 @@ from execution_testing.fixtures.consume import (
     TestCaseStream,
 )
 
-from ...pytest_hive.hive_info import HiveInfo
+from ...pytest_hive.hive_info import ClientFile, HiveInfo
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,58 @@ HIVE_DEV_MODE_DOCS_URL = (
 def hive_clients_yaml_target_filename() -> str:
     """Return the name of the target clients YAML file."""
     return "clients_eest.yaml"
+
+
+@pytest.fixture(scope="function")
+def hive_clients_yaml_generator_command(
+    client_type: ClientType,
+    client_file: ClientFile,
+    hive_clients_yaml_target_filename: str,
+    hive_info: HiveInfo,
+) -> str:
+    """
+    Generate a shell command that creates a clients YAML file for the current
+    client.
+    """
+    try:
+        if not client_file:
+            raise ValueError(
+                "No client information available - try updating hive"
+            )
+        client_config = [
+            c for c in client_file.root if c.client in client_type.name
+        ]
+        if not client_config:
+            raise ValueError(
+                f"Client '{client_type.name}' not found in client file"
+            )
+        try:
+            yaml_content = ClientFile(root=[client_config[0]]).yaml()
+        except Exception as e:
+            raise ValueError(f"Failed to generate YAML: {str(e)}") from e
+        target = hive_clients_yaml_target_filename
+        return f"cat > {target} << 'EOF'\n{yaml_content}EOF"
+    except ValueError as e:
+        error_message = str(e)
+        warnings.warn(
+            f"{error_message}. The Hive clients YAML generator command will "
+            "not be available.",
+            stacklevel=2,
+        )
+
+        issue_title = f"Client {client_type.name} configuration issue"
+        issue_body = (
+            f"Error: {error_message}\nHive version: {hive_info.commit}\n"
+        )
+        issue_url = (
+            "https://github.com/ethereum/execution-specs/issues/new"
+            f"?title={urllib.parse.quote(issue_title)}"
+            f"&body={urllib.parse.quote(issue_body)}"
+        )
+        return (
+            f"# Error: {error_message}\n"
+            f"# Please report this problem: {issue_url}"
+        )
 
 
 @pytest.fixture(scope="function")
@@ -92,19 +146,46 @@ def hive_consume_command(
 
 
 @pytest.fixture(scope="function")
+def hive_dev_command(
+    client_type: ClientType,
+    hive_client_config_file_parameter: str,
+) -> str:
+    """
+    Return the command used to instantiate hive alongside the `consume`
+    command.
+    """
+    return (
+        f"./hive --dev {hive_client_config_file_parameter} "
+        f"--client {client_type.name}"
+    )
+
+
+@pytest.fixture(scope="function")
+def eest_consume_command(
+    test_suite_name: str,
+    test_case: TestCaseIndexFile | TestCaseStream,
+    fixture_source_flags: List[str],
+) -> str:
+    """Commands to run the test within EEST using a hive dev back-end."""
+    flags = " ".join(fixture_source_flags)
+    return (
+        f"uv run consume {test_suite_name.split('-')[-1]} "
+        f'{flags} --sim.limit="id:{test_case.id}" -v -s'
+    )
+
+
+@pytest.fixture(scope="function")
 def test_case_description(
     fixture: BaseFixture,
     test_case: TestCaseIndexFile | TestCaseStream,
-    hive_clients_yaml_target_filename: str,
-    hive_consume_command: str,
 ) -> str:
     """
     Create the description of the current blockchain fixture test case.
 
-    The description is kept short because hive stores it for every test
-    in the run's result file. The client file and the hive command of the
-    whole run are in the result file's run metadata, so only the command
-    that runs this test is repeated here.
+    Hive stores the description of every test in the run's result file, so
+    it holds only what identifies the test. The steps to reproduce the
+    test go into the details of failed tests instead, see
+    `test_case_reproduction`.
     """
     test_url = fixture.info.get("url", "")
 
@@ -126,14 +207,40 @@ def test_case_description(
         f"<code>{test_case.id}</code>{source_link}",
         "",
         test_docstring.strip(),
-        "",
-        "<b>Run This Test Locally:</b>",
-        "Save the run's client file as "
-        f"<code>{hive_clients_yaml_target_filename}</code>, then run in "
-        '<a href="https://github.com/ethereum/hive">hive</a>:',
-        f"<code>{hive_consume_command}</code>",
-        "To debug it with the simulator's <code>consume</code> command "
-        f'instead, see <a href="{HIVE_DEV_MODE_DOCS_URL}">'
-        "Hive Development Mode</a>.",
     ]
     return "<br/>".join(lines).replace("\n", "<br/>")
+
+
+@pytest.fixture(scope="function")
+def test_case_reproduction(
+    hive_clients_yaml_generator_command: str,
+    hive_consume_command: str,
+    hive_dev_command: str,
+    eest_consume_command: str,
+) -> str:
+    """
+    Return plain-text steps to reproduce the current test locally.
+
+    The hive plugin appends them to the details of a failed test only, which
+    hive stores in the run's test details log rather than in the result
+    file.
+    """
+    return "\n".join(
+        [
+            "# Reproduce this test locally",
+            "",
+            "## Run the test in hive (https://github.com/ethereum/hive)",
+            "",
+            hive_clients_yaml_generator_command,
+            hive_consume_command,
+            "",
+            "## Or debug it with the simulator's consume command against a "
+            "hive developer backend",
+            "",
+            f"See {HIVE_DEV_MODE_DOCS_URL}",
+            "1. Create the client file, as above.",
+            f"2. Start hive in dev mode: {hive_dev_command}",
+            "3. In the execution-specs repository root: "
+            f"{eest_consume_command}",
+        ]
+    )

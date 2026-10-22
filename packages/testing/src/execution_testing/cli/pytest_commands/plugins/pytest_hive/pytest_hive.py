@@ -8,6 +8,9 @@ Simulators using this plugin must define two pytest fixtures:
 
 These fixtures are used when creating the hive test suite.
 
+Simulators may also define `test_case_reproduction`, plain-text steps to
+reproduce a test, which are added to the details of failed tests only.
+
 Log Capture Architecture:
 -------------------------
 This module implements a log capture approach that ensures all logs,
@@ -336,6 +339,15 @@ def hive_test(
             "by the simulator or pytest plugin using this plugin!"
         )
 
+    # Plugins that can say how to reproduce a test define this fixture; the
+    # steps are added to the details of failed tests only.
+    try:
+        test_case_reproduction = request.getfixturevalue(
+            "test_case_reproduction"
+        )
+    except pytest.FixtureLookupError:
+        test_case_reproduction = ""
+
     test_parameter_string = request.node.name
     test: HiveTest = test_suite.start_test(
         name=test_parameter_string,
@@ -423,6 +435,9 @@ def hive_test(
         test_result_details = (
             f"Exception whilst processing test result: {str(e)}"
         )
+
+    if not test_passed and test_case_reproduction:
+        test_result_details += "\n\n" + test_case_reproduction
 
     # End the hive test exactly once, outside the `try`: if `end` itself
     # raised inside it, a second call could duplicate a request that the
