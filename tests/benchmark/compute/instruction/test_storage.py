@@ -26,6 +26,7 @@ from execution_testing import (
     IteratingBytecode,
     JumpLoopGenerator,
     Op,
+    ReceiptStatusExpected,
     RecipientType,
     Storage,
     TestPhaseManager,
@@ -678,7 +679,7 @@ def test_nested_frame_state_access(
     benchmark_test(
         target_opcode=opcode,
         skip_gas_used_validation=True,
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected()],
         blocks=[Block(txs=txs)],
     )
 
@@ -717,7 +718,7 @@ def test_stacked_storage_commit(
         pre=pre,
         # The frame tree stops just short of the gas limit.
         skip_gas_used_validation=True,
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected()],
         tx=Transaction(to=contract, sender=pre.fund_eoa()),
     )
 

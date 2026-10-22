@@ -13,6 +13,7 @@ from execution_testing import (
     Fork,
     JumpLoopGenerator,
     Op,
+    ReceiptStatusExpected,
     Transaction,
     While,
 )
@@ -278,7 +279,7 @@ def test_point_evaluation_uncachable(
     benchmark_test(
         target_opcode=Precompile.POINT_EVALUATION,
         skip_gas_used_validation=True,
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected()],
         expected_opcode_count=expected_opcode_count,
         blocks=[Block(txs=txs)],
     )

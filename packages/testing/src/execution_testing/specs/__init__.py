@@ -21,9 +21,15 @@ from .transaction import (
     TransactionTestFiller,
     TransactionTestSpec,
 )
+from .verifications import (
+    BlockVerification,
+    NoTraceErrors,
+    ReceiptStatusExpected,
+)
 
 __all__ = (
     "BaseTest",
+    "BlockVerification",
     "BenchmarkTest",
     "BenchmarkTestFiller",
     "BenchmarkTestSpec",
@@ -37,7 +43,9 @@ __all__ = (
     "BlockchainTestSpec",
     "Block",
     "Header",
+    "NoTraceErrors",
     "OpcodeTarget",
+    "ReceiptStatusExpected",
     "StateTest",
     "StateTestFiller",
     "StateTestSpec",
