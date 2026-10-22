@@ -5,11 +5,13 @@ accepted.
 
 ### Changes
 
+- [EIP-8151: Account Code Restricted ecRecover][EIP-8151]
 - [EIP-8298: SETCODEFROM Code Reuse Instruction][EIP-8298]
 
 ### Releases
 
 [EIP-8081]: https://eips.ethereum.org/EIPS/eip-8081
+[EIP-8151]: https://eips.ethereum.org/EIPS/eip-8151
 [EIP-8298]: https://eips.ethereum.org/EIPS/eip-8298
 """
 
