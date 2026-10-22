@@ -329,15 +329,21 @@ def selfdestruct_with_transfer_initcode_copy_from_address(
 )
 @pytest.mark.parametrize(
     "selfdestruct_on_outer_call",
-    [0, 1, 2],
-    ids=[
-        "no_outer_selfdestruct",
-        "outer_selfdestruct_before_inner_call",
-        "outer_selfdestruct_after_inner_call",
+    [
+        pytest.param(0, id="no_outer_selfdestruct"),
+        pytest.param(
+            1,
+            id="outer_selfdestruct_before_inner_call",
+            marks=pytest.mark.valid_before("EIP4758"),
+        ),
+        pytest.param(
+            2,
+            id="outer_selfdestruct_after_inner_call",
+            marks=pytest.mark.valid_before("EIP4758"),
+        ),
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_before("EIP4758")
 def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
     state_test: StateTestFiller,
     sender: EOA,

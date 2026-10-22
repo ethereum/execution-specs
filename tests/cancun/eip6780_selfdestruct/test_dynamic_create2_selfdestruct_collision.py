@@ -32,7 +32,7 @@ REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
     "create2_dest_already_in_state",
     (
         pytest.param(True, marks=pytest.mark.pre_alloc_mutable),
-        False,
+        pytest.param(False, marks=pytest.mark.valid_before("EIP4758")),
     ),
 )
 @pytest.mark.parametrize(
@@ -43,7 +43,6 @@ REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
         (False, True),
     ],
 )
-@pytest.mark.valid_before("EIP4758")
 def test_dynamic_create2_selfdestruct_collision(
     fork: Fork,
     create2_dest_already_in_state: bool,
@@ -265,14 +264,13 @@ def test_dynamic_create2_selfdestruct_collision(
     "create2_dest_already_in_state",
     (
         pytest.param(True, marks=pytest.mark.pre_alloc_mutable),
-        False,
+        pytest.param(False, marks=pytest.mark.valid_before("EIP4758")),
     ),
 )
 @pytest.mark.parametrize(
     "call_create2_contract_at_the_end",
     (True, False),
 )
-@pytest.mark.valid_before("EIP4758")
 def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     fork: Fork,
     create2_dest_already_in_state: bool,
@@ -545,11 +543,10 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     "selfdestruct_on_first_tx,recreate_on_first_tx",
     [
         (False, False),
-        (True, False),
-        (True, True),
+        pytest.param(True, False, marks=pytest.mark.valid_before("EIP4758")),
+        pytest.param(True, True, marks=pytest.mark.valid_before("EIP4758")),
     ],
 )
-@pytest.mark.valid_before("EIP4758")
 def test_dynamic_create2_selfdestruct_collision_multi_tx(
     fork: Fork,
     selfdestruct_on_first_tx: bool,

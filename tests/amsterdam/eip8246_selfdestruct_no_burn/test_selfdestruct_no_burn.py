@@ -77,7 +77,12 @@ FACTORY = Address(Spec.FACTORY_ADDRESS)
 @pytest.mark.parametrize(
     "exit_op, execution_success",
     [
-        pytest.param(Op.STOP, True, id="success"),
+        pytest.param(
+            Op.STOP,
+            True,
+            id="success",
+            marks=pytest.mark.valid_before("EIP4758"),
+        ),
         pytest.param(Op.REVERT(0, 0), False, id="revert"),
         pytest.param(Op.MSTORE(2**32, 0), False, id="oog"),
     ],
@@ -86,7 +91,6 @@ FACTORY = Address(Spec.FACTORY_ADDRESS)
 @EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Opcode()
 @EIPChecklist.Opcode.Test.Terminating.Scenarios.Initcode()
 @EIPChecklist.Opcode.Test.Terminating.Rollback.Balance()
-@pytest.mark.valid_before("EIP4758")
 def test_selfdestructing_initcode_preserves_balance(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

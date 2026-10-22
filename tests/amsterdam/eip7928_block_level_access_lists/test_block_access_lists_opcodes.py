@@ -4105,12 +4105,16 @@ def test_bal_create2_selfdestruct_then_recreate_and_write(
 @pytest.mark.parametrize(
     "destruction_successful,oracle_suffix",
     [
-        pytest.param(True, Op.STOP, id="destruction_succeeds"),
+        pytest.param(
+            True,
+            Op.STOP,
+            id="destruction_succeeds",
+            marks=pytest.mark.valid_before("EIP4758"),
+        ),
         pytest.param(False, Op.REVERT(0, 0), id="destruction_reverts"),
     ],
 )
 @pytest.mark.with_all_create_opcodes
-@pytest.mark.valid_before("EIP4758")
 def test_bal_dirty_account_selfdestruct(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
