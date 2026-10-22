@@ -122,6 +122,89 @@ def test_permitted_code(
 
 
 @pytest.mark.parametrize(
+    "check",
+    [
+        pytest.param("block-access-list", id="block-access-list"),
+        pytest.param("warmth", id="warmth"),
+    ],
+)
+def test_delegation_target_untouched(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    check: str,
+) -> None:
+    """
+    Test that recovering a delegated signer reads only the signer's raw
+    code: the delegation target is neither read into the block access list
+    nor warmed.
+    """
+    target = pre.deploy_contract(Op.STOP)
+    signer = pre.fund_eoa(delegation=target)
+    v, r, s = signer.sign_digest(DIGEST)
+
+    storage = Storage()
+    caller_code = (
+        Op.CALLDATACOPY(0, 0, INPUT_SIZE)
+        + Op.MSTORE(OUTPUT_OFFSET, SENTINEL)
+        + Op.SSTORE(
+            storage.store_next(1, "success"),
+            Op.STATICCALL(
+                address=Spec.ECRECOVER,
+                args_offset=0,
+                args_size=INPUT_SIZE,
+                ret_offset=OUTPUT_OFFSET,
+                ret_size=32,
+            ),
+        )
+        + Op.SSTORE(
+            storage.store_next(signer, "output"), Op.MLOAD(OUTPUT_OFFSET)
+        )
+    )
+    if check == "block-access-list":
+        # Nothing else touches the target, so any read of it would be the
+        # recovery's.
+        expected_block_access_list: BlockAccessListExpectation | None = (
+            BlockAccessListExpectation(
+                account_expectations={
+                    signer: BalAccountExpectation.empty(),
+                    target: None,
+                }
+            )
+        )
+    elif check == "warmth":
+        # Measuring the target reads it, so this case leaves the block
+        # access list unchecked.
+        balance = Op.BALANCE(target)
+        cold_balance = Op.BALANCE.with_metadata(address_warm=False)
+        caller_code += CodeGasMeasure(
+            code=balance,
+            overhead_cost=balance.gas_cost(fork) - cold_balance.gas_cost(fork),
+            extra_stack_items=1,
+            sstore_key=storage.store_next(
+                cold_balance.gas_cost(fork), "target_balance_gas"
+            ),
+        )
+        expected_block_access_list = None
+    else:
+        raise ValueError(f"unknown check: {check}")
+    caller = pre.deploy_contract(caller_code)
+
+    tx = Transaction(
+        to=caller,
+        data=EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s),
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        pre=pre,
+        post={caller: Account(storage=storage)},
+        tx=tx,
+        expected_block_access_list=expected_block_access_list,
+    )
+
+
+@pytest.mark.parametrize(
     "code",
     [
         pytest.param(
