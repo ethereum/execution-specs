@@ -56,8 +56,10 @@ def deploy_victim_factory(
     initcode = Initcode(deploy_code=victim_code)
     if create_opcode == Op.CREATE2:
         create_call = Op.CREATE2(value=value, size=len(initcode), salt=SALT)
-    else:
+    elif create_opcode == Op.CREATE:
         create_call = Op.CREATE(value=value, size=len(initcode))
+    else:
+        raise ValueError(f"Unsupported create opcode: {create_opcode}")
     factory = pre.deploy_contract(
         code=Om.MSTORE(initcode, 0) + Op.SSTORE(0, create_call),
         balance=value if balance is None else balance,
@@ -72,7 +74,7 @@ def deploy_victim_factory(
     return factory, victim
 
 
-@pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
+@pytest.mark.with_all_create_opcodes
 @pytest.mark.parametrize("beneficiary_kind", ["fresh", "existing", "self"])
 def test_created_account_persists(
     state_test: StateTestFiller,
@@ -129,7 +131,7 @@ def test_created_account_persists(
     )
 
 
-@pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
+@pytest.mark.with_all_create_opcodes
 def test_sendall_in_initcode(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -149,8 +151,10 @@ def test_sendall_in_initcode(
         create_call = Op.CREATE2(
             value=VICTIM_BALANCE, size=len(initcode), salt=SALT
         )
-    else:
+    elif create_opcode == Op.CREATE:
         create_call = Op.CREATE(value=VICTIM_BALANCE, size=len(initcode))
+    else:
+        raise ValueError(f"Unsupported create opcode: {create_opcode}")
     factory = pre.deploy_contract(
         code=Om.MSTORE(initcode, 0) + Op.SSTORE(0, create_call),
         balance=VICTIM_BALANCE,

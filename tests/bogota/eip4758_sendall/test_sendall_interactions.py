@@ -60,10 +60,12 @@ def create_call(create_opcode: Op, initcode: Bytecode, value: int) -> Bytecode:
     """Return a CREATE or CREATE2 of `initcode` stored at memory 0."""
     if create_opcode == Op.CREATE2:
         return Op.CREATE2(value=value, size=len(initcode), salt=SALT)
-    return Op.CREATE(value=value, size=len(initcode))
+    if create_opcode == Op.CREATE:
+        return Op.CREATE(value=value, size=len(initcode))
+    raise ValueError(f"Unsupported create opcode: {create_opcode}")
 
 
-@pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
+@pytest.mark.with_all_create_opcodes
 @pytest.mark.parametrize("sweep_in", ["runtime", "initcode"])
 def test_bal_created_account_keeps_writes(
     blockchain_test: BlockchainTestFiller,
