@@ -25,18 +25,26 @@ from ...state_tracker import (
     account_deployable,
     get_account,
     get_code,
+    get_pre_state_account,
     increment_nonce,
     is_account_alive,
+    is_tcreate_account,
     move_ether,
 )
 from ...utils.address import (
     compute_contract_address,
     compute_create2_contract_address,
+    compute_tcreate_contract_address,
     to_address_masked,
 )
 from ...vm.eoa_delegation import calculate_delegation_cost
 from .. import CALL_SUCCESS, Evm, emit_transfer_log, incorporate_child
-from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
+from ..exceptions import (
+    InvalidOpcode,
+    OutOfGasError,
+    Revert,
+    WriteInStaticContext,
+)
 from ..gas import (
     GasCosts,
     GasMeter,
@@ -278,9 +286,15 @@ def create2(evm: Evm) -> None:
     # This import causes a circular import error
     # if it's not moved inside this method
     from ...vm.interpreter import MAX_INIT_CODE_SIZE
+    from . import Ops
 
     if evm.is_static:
         raise WriteInStaticContext
+
+    # EIP-8360: CREATE2 in a TCREATE account context exceptional-halts
+    # without accessing the derived address or pushing 0.
+    if is_tcreate_account(evm.tx_env.state, evm.current_target):
+        raise InvalidOpcode(Ops.CREATE2.value)
 
     # STACK
     endowment = pop(evm.stack)
@@ -316,6 +330,161 @@ def create2(evm: Evm) -> None:
     )
 
     generic_create(
+        evm,
+        endowment,
+        contract_address,
+        memory_start_position,
+        memory_size,
+    )
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
+def generic_tcreate(
+    evm: Evm,
+    endowment: U256,
+    contract_address: Address,
+    memory_start_position: U256,
+    memory_size: U256,
+) -> None:
+    """
+    Run the child-frame lifecycle for ``TCREATE`` (EIP-8360).
+
+    Like ``generic_create``, but does not charge new-account state gas, does
+    not increment the deployer's nonce, and marks the target as a TCREATE
+    account for end-of-transaction finalization.
+    """
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create
+    from ...vm.runtime import get_valid_jump_destinations
+
+    tx_state = evm.tx_env.state
+
+    init_code = memory_read_bytes(
+        evm.memory, memory_start_position, memory_size
+    )
+
+    evm.return_data = b""
+
+    # PREFLIGHT
+    sender_address = evm.current_target
+    sender = get_account(tx_state, sender_address)
+
+    if (
+        sender.balance < endowment
+        or sender.nonce == Uint(2**64 - 1)
+        or evm.depth + Uint(1) > STACK_DEPTH_LIMIT
+    ):
+        push(evm.stack, U256(0))
+        return
+
+    # DESTINATION ACCESS — no NEW_ACCOUNT state-gas charge for TCREATE.
+    evm.accessed_addresses.add(contract_address)
+
+    create_message_gas = withhold_create_gas(evm.gas_meter)
+
+    # Collision: consume the child gas grant, push 0, do not bump nonce.
+    if not account_deployable(tx_state, contract_address):
+        push(evm.stack, U256(0))
+        return
+
+    create_message_state_gas_reservoir = drain_state_gas_reservoir(
+        evm.gas_meter
+    )
+
+    # Signal process_create to journal this address as a TCREATE account.
+    tx_state.tcreate_initiating.add(contract_address)
+
+    child_evm = Evm(
+        block_env=evm.block_env,
+        tx_env=evm.tx_env,
+        parent_evm=evm,
+        depth=evm.depth + Uint(1),
+        caller=evm.current_target,
+        current_target=contract_address,
+        value=endowment,
+        call_data=b"",
+        should_transfer_value=True,
+        is_static=False,
+        disable_precompiles=False,
+        code_address=None,
+        code=init_code,
+        valid_jump_destinations=get_valid_jump_destinations(init_code),
+        gas_meter=GasMeter(
+            gas_left=create_message_gas,
+            state_gas_left=create_message_state_gas_reservoir,
+            state_gas_baseline=create_message_state_gas_reservoir,
+        ),
+        pc=Uint(0),
+        stack=[],
+        memory=bytearray(),
+        return_data=b"",
+        logs=(),
+        accessed_addresses=evm.accessed_addresses.copy(),
+        accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        running=True,
+        output=b"",
+        error=None,
+    )
+    child_evm = process_create(child_evm)
+
+    incorporate_child(evm, child_evm)
+    if child_evm.error:
+        evm.return_data = child_evm.output
+        push(evm.stack, U256(0))
+    else:
+        evm.return_data = b""
+        push(evm.stack, U256.from_be_bytes(child_evm.current_target))
+
+
+def tcreate(evm: Evm) -> None:
+    """
+    Create a transient contract (EIP-8360).
+
+    Like ``CREATE2`` with a ``0xfe`` address prefix, but the deployer's nonce
+    is not incremented and the account's code and nonce are discarded at the
+    end of the transaction.
+    """
+    from ...vm.interpreter import MAX_INIT_CODE_SIZE
+
+    if evm.is_static:
+        raise WriteInStaticContext
+
+    # STACK
+    endowment = pop(evm.stack)
+    memory_start_position = pop(evm.stack)
+    memory_size = pop(evm.stack)
+    salt = pop(evm.stack).to_be_bytes32()
+
+    # GAS: BASE_OPCODE_COST + CREATE2 execution costs
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(memory_start_position, memory_size)]
+    )
+    call_data_words = ceil32(Uint(memory_size)) // Uint(32)
+    init_code_gas = init_code_cost(Uint(memory_size))
+    charge_gas(
+        evm,
+        ExecutionGas(
+            GasCosts.OPCODE_TCREATE_BASE
+            + GasCosts.CREATE_ACCESS
+            + GasCosts.OPCODE_KECCAK256_PER_WORD * call_data_words
+            + extend_memory.cost
+            + init_code_gas
+        ),
+    )
+
+    if memory_size > U256(MAX_INIT_CODE_SIZE):
+        raise OutOfGasError
+
+    # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
+    contract_address = compute_tcreate_contract_address(
+        evm.current_target,
+        salt,
+        memory_read_bytes(evm.memory, memory_start_position, memory_size),
+    )
+
+    generic_tcreate(
         evm,
         endowment,
         contract_address,
@@ -812,6 +981,18 @@ def sendall(evm: Evm) -> None:
     # OPERATION
     originator = evm.current_target
     originator_balance = get_account(tx_state, originator).balance
+
+    # EIP-8360: SENDALL/SELFDESTRUCT-style balance sweep from a TCREATE
+    # account uses the TCREATE balance state-gas table (ordered rows),
+    # not the EIP-8037 selfdestruct refill rules.
+    if is_tcreate_account(tx_state, originator) and originator_balance != 0:
+        original = get_pre_state_account(tx_state, originator).balance
+        current = originator_balance
+        new = U256(0)
+        if original == U256(0) and current != U256(0) and new == U256(0):
+            credit_state_gas_refund(evm.gas_meter, StateGasCosts.NEW_ACCOUNT)
+        elif original == U256(0) and current == U256(0) and new != U256(0):
+            charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
 
     # Transfer balance
     move_ether(tx_state, originator, beneficiary, originator_balance)
