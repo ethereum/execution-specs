@@ -17,16 +17,21 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
-    Bytecode,
-    Bytes,
     Fork,
     Op,
     Storage,
     Transaction,
 )
 
-from ...frontier.precompiles.spec import EcrecoverInput
-from .spec import Spec, ref_spec_8151
+from .helpers import (
+    INPUT_SIZE,
+    OUTPUT_OFFSET,
+    SENTINEL,
+    fund_signer,
+    recover,
+    signed_input,
+)
+from .spec import ref_spec_8151
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8151.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8151.version
@@ -34,68 +39,37 @@ REFERENCE_SPEC_VERSION = ref_spec_8151.version
 pytestmark = pytest.mark.valid_at_transition_to("EIP8151")
 
 FORK_TIMESTAMP = 15_000
-DIGEST = Bytes(b"account code restricted ecrecover").keccak256()
-SENTINEL = 2**256 - 1
-CONTRACT_CODE = Op.SSTORE(0, 1) + Op.STOP
-
-# Memory layout of the callers: the 128-byte input, then the output word.
-INPUT_SIZE = 128
-OUTPUT_OFFSET = INPUT_SIZE
 
 
 @pytest.mark.parametrize(
-    "code",
+    "signer_has_code",
     [
-        pytest.param("balance-only", id="balance-only"),
-        pytest.param(
-            "contract", id="contract", marks=pytest.mark.pre_alloc_mutable
-        ),
+        pytest.param(False, id="balance-only"),
+        pytest.param(True, id="contract", marks=pytest.mark.pre_alloc_mutable),
     ],
 )
 def test_ecrecover_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
-    code: str,
+    signer_has_code: bool,
 ) -> None:
     """
     Test that the account access, the code check and the block access list
     read start exactly at the fork.
     """
-    if code == "balance-only":
-        signer = pre.fund_eoa()
-    elif code == "contract":
-        signer = pre.fund_eoa(code=CONTRACT_CODE)
-    else:
-        raise ValueError(f"unknown code: {code}")
-    v, r, s = signer.sign_digest(DIGEST)
-
-    def recover(gas: int) -> Bytecode:
-        return Op.STATICCALL(
-            gas=gas,
-            address=Spec.ECRECOVER,
-            args_offset=0,
-            args_size=INPUT_SIZE,
-            ret_offset=OUTPUT_OFFSET,
-            ret_size=32,
-        )
-
+    signer = fund_signer(pre, has_code=signer_has_code)
     sender = pre.fund_eoa()
+
     blocks: list[Block] = []
     post: dict[Address, Account] = {}
     for timestamp in (FORK_TIMESTAMP - 1, FORK_TIMESTAMP, FORK_TIMESTAMP + 1):
         block_fork = fork.fork_at(timestamp=timestamp)
         activated = timestamp >= FORK_TIMESTAMP
-        if activated and code == "contract":
+        if activated and signer_has_code:
             output_word = SENTINEL
         else:
             output_word = int.from_bytes(signer)
-        if activated:
-            signer_in_bal: BalAccountExpectation | None = (
-                BalAccountExpectation.empty()
-            )
-        else:
-            signer_in_bal = None
 
         # The base fee alone recovers the signer only before the fork.
         storage = Storage()
@@ -105,7 +79,7 @@ def test_ecrecover_at_transition(
             + Op.SSTORE(
                 storage.store_next(int(not activated), "base_fee_call"),
                 recover(
-                    block_fork.ecrecover_gas(
+                    gas=block_fork.ecrecover_gas(
                         recovered=False, address_warm=False
                     )
                 ),
@@ -113,7 +87,7 @@ def test_ecrecover_at_transition(
             + Op.SSTORE(
                 storage.store_next(1, "cold_call"),
                 recover(
-                    block_fork.ecrecover_gas(
+                    gas=block_fork.ecrecover_gas(
                         recovered=True, address_warm=False
                     )
                 ),
@@ -129,15 +103,17 @@ def test_ecrecover_at_transition(
                 timestamp=timestamp,
                 txs=[
                     Transaction(
-                        to=caller,
-                        data=EcrecoverInput(
-                            msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s
-                        ),
-                        sender=sender,
+                        to=caller, data=signed_input(signer), sender=sender
                     )
                 ],
                 expected_block_access_list=BlockAccessListExpectation(
-                    account_expectations={signer: signer_in_bal}
+                    account_expectations={
+                        signer: (
+                            BalAccountExpectation.empty()
+                            if activated
+                            else None
+                        )
+                    }
                 ),
             )
         )

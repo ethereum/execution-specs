@@ -8,8 +8,11 @@ these the call runs out of gas: it neither warms the address nor reads the
 account, and an address that was already warm stays warm.
 """
 
+from typing import Callable
+
 import pytest
 from execution_testing import (
+    EOA,
     AccessList,
     Account,
     Alloc,
@@ -18,7 +21,6 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
-    Bytes,
     CodeGasMeasure,
     Environment,
     Fork,
@@ -29,45 +31,46 @@ from execution_testing import (
 )
 
 from ...frontier.precompiles.spec import EcrecoverInput
-from .spec import Spec, ref_spec_8151
+from .helpers import (
+    CONTRACT_CODE,
+    DIGEST,
+    INPUT_SIZE,
+    OUTPUT_OFFSET,
+    SENTINEL,
+    fund_signer,
+    recover,
+    signed_input,
+)
+from .spec import ref_spec_8151
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8151.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8151.version
 
 pytestmark = pytest.mark.valid_from("EIP8151")
 
-DIGEST = Bytes(b"account code restricted ecrecover").keccak256()
-SENTINEL = 2**256 - 1
-CONTRACT_CODE = Op.SSTORE(0, 1) + Op.STOP
-
-# Memory layout of the callers: the 128-byte input, then the output word.
-INPUT_SIZE = 128
-OUTPUT_OFFSET = INPUT_SIZE
-
 
 @pytest.mark.parametrize(
-    "gas",
+    "priced_as_recovered,gas_delta,call_succeeds",
     [
-        pytest.param("exact", id="exact"),
-        pytest.param("access-minus-one", id="access-minus-one"),
-        pytest.param("base", id="base"),
-        pytest.param("base-minus-one", id="base-minus-one"),
+        pytest.param(True, 0, True, id="exact"),
+        pytest.param(True, -1, False, id="access-minus-one"),
+        # The base fee alone, as a caller that forwards the old fixed price.
+        pytest.param(False, 0, False, id="base"),
+        pytest.param(False, -1, False, id="base-minus-one"),
     ],
 )
 @pytest.mark.parametrize(
-    "code",
+    "signer_has_code",
     [
-        pytest.param("balance-only", id="balance-only"),
-        pytest.param(
-            "contract", id="contract", marks=pytest.mark.pre_alloc_mutable
-        ),
+        pytest.param(False, id="balance-only"),
+        pytest.param(True, id="contract", marks=pytest.mark.pre_alloc_mutable),
     ],
 )
 @pytest.mark.parametrize(
-    "warmth",
+    "address_warm",
     [
-        pytest.param("cold", id="cold"),
-        pytest.param("access-list", id="access-list"),
+        pytest.param(False, id="cold"),
+        pytest.param(True, id="access-list"),
     ],
 )
 @pytest.mark.with_all_call_opcodes
@@ -76,76 +79,41 @@ def test_exact_gas_boundary(
     pre: Alloc,
     fork: Fork,
     call_opcode: Op,
-    warmth: str,
-    code: str,
-    gas: str,
+    address_warm: bool,
+    signer_has_code: bool,
+    priced_as_recovered: bool,
+    gas_delta: int,
+    call_succeeds: bool,
 ) -> None:
     """
     Test that a recovery succeeds with exactly the base fee plus the access
     to the recovered address and the code read, and runs out of gas with one
     less or with the base fee alone.
     """
-    if code == "balance-only":
-        signer = pre.fund_eoa()
+    signer = fund_signer(pre, has_code=signer_has_code)
+    # A withheld address returns empty output, as does a call that runs out
+    # of gas, leaving the sentinel.
+    if call_succeeds and not signer_has_code:
         output_word = int.from_bytes(signer)
-    elif code == "contract":
-        # A withheld address returns empty output, leaving the sentinel.
-        signer = pre.fund_eoa(code=CONTRACT_CODE)
+    else:
         output_word = SENTINEL
-    else:
-        raise ValueError(f"unknown code: {code}")
-    v, r, s = signer.sign_digest(DIGEST)
-
-    # An access list warms the signer without reading it.
-    if warmth == "cold":
-        address_warm = False
-        access_list = None
-    elif warmth == "access-list":
-        address_warm = True
-        access_list = [AccessList(address=signer, storage_keys=[])]
-    else:
-        raise ValueError(f"unknown warmth: {warmth}")
 
     # A withheld address is charged like a returned one, code read included;
     # only a failed recovery skips the access.
-    exact_gas = fork.ecrecover_gas(recovered=True, address_warm=address_warm)
-    if gas == "exact":
-        call_gas = exact_gas
-        success = 1
-    elif gas == "access-minus-one":
-        call_gas = exact_gas - 1
-        success = 0
-        output_word = SENTINEL
-    elif gas == "base":
-        # The base fee alone, as a caller that forwards the old fixed price.
-        call_gas = fork.ecrecover_gas(
-            recovered=False, address_warm=address_warm
+    call_gas = (
+        fork.ecrecover_gas(
+            recovered=priced_as_recovered, address_warm=address_warm
         )
-        success = 0
-        output_word = SENTINEL
-    elif gas == "base-minus-one":
-        call_gas = (
-            fork.ecrecover_gas(recovered=False, address_warm=address_warm) - 1
-        )
-        success = 0
-        output_word = SENTINEL
-    else:
-        raise ValueError(f"unknown gas: {gas}")
+        + gas_delta
+    )
 
     storage = Storage()
     caller = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, INPUT_SIZE)
         + Op.MSTORE(OUTPUT_OFFSET, SENTINEL)
         + Op.SSTORE(
-            storage.store_next(success, "success"),
-            call_opcode(
-                gas=call_gas,
-                address=Spec.ECRECOVER,
-                args_offset=0,
-                args_size=INPUT_SIZE,
-                ret_offset=OUTPUT_OFFSET,
-                ret_size=32,
-            ),
+            storage.store_next(int(call_succeeds), "success"),
+            recover(call_opcode, gas=call_gas),
         )
         + Op.SSTORE(
             storage.store_next(output_word, "output"),
@@ -154,10 +122,15 @@ def test_exact_gas_boundary(
         storage=storage.canary(),
     )
 
+    # An access list warms the signer without reading it.
     tx = Transaction(
         to=caller,
-        data=EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s),
-        access_list=access_list,
+        data=signed_input(signer),
+        access_list=(
+            [AccessList(address=signer, storage_keys=[])]
+            if address_warm
+            else None
+        ),
         sender=pre.fund_eoa(),
     )
 
@@ -165,17 +138,20 @@ def test_exact_gas_boundary(
 
 
 @pytest.mark.parametrize(
-    "gas",
+    "gas_delta,call_succeeds",
     [
-        pytest.param("exact", id="exact"),
-        pytest.param("minus-one", id="minus-one"),
+        pytest.param(0, True, id="exact"),
+        pytest.param(-1, False, id="minus-one"),
     ],
 )
 @pytest.mark.parametrize(
-    "signature",
+    "v,r,s",
     [
-        pytest.param("v-29", id="v-29"),
-        pytest.param("r-not-on-curve", id="r-not-on-curve"),
+        # A `v` other than 27 or 28 fails before any recovery.
+        pytest.param(29, 1, 1, id="v-29"),
+        # In-range parameters that recover no key: 5 is not the x-coordinate
+        # of any curve point, as 5**3 + 7 is a quadratic non-residue.
+        pytest.param(27, 5, 1, id="r-not-on-curve"),
     ],
 )
 @pytest.mark.with_all_call_opcodes
@@ -184,48 +160,27 @@ def test_failed_recovery_gas_boundary(
     pre: Alloc,
     fork: Fork,
     call_opcode: Op,
-    signature: str,
-    gas: str,
+    v: int,
+    r: int,
+    s: int,
+    gas_delta: int,
+    call_succeeds: bool,
 ) -> None:
     """
     Test that a failed recovery pays the base fee before it fails: exactly
     the base fee returns empty output, and one less runs out of gas.
     """
-    if signature == "v-29":
-        # A malformed parameter on an otherwise valid signature.
-        _, r, s = pre.fund_eoa(amount=0).sign_digest(DIGEST)
-        v = 29
-    elif signature == "r-not-on-curve":
-        # In-range parameters that recover no key: 5 is not the x-coordinate
-        # of any curve point, as 5**3 + 7 is a quadratic non-residue.
-        v, r, s = 27, 5, 1
-    else:
-        raise ValueError(f"unknown signature: {signature}")
-
-    base_gas = fork.ecrecover_gas(recovered=False, address_warm=False)
-    if gas == "exact":
-        call_gas = base_gas
-        success = 1
-    elif gas == "minus-one":
-        call_gas = base_gas - 1
-        success = 0
-    else:
-        raise ValueError(f"unknown gas: {gas}")
+    call_gas = (
+        fork.ecrecover_gas(recovered=False, address_warm=False) + gas_delta
+    )
 
     storage = Storage()
     caller = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, INPUT_SIZE)
         + Op.MSTORE(OUTPUT_OFFSET, SENTINEL)
         + Op.SSTORE(
-            storage.store_next(success, "success"),
-            call_opcode(
-                gas=call_gas,
-                address=Spec.ECRECOVER,
-                args_offset=0,
-                args_size=INPUT_SIZE,
-                ret_offset=OUTPUT_OFFSET,
-                ret_size=32,
-            ),
+            storage.store_next(int(call_succeeds), "success"),
+            recover(call_opcode, gas=call_gas),
         )
         + Op.SSTORE(storage.store_next(0, "returndatasize"), Op.RETURNDATASIZE)
         + Op.SSTORE(
@@ -244,20 +199,18 @@ def test_failed_recovery_gas_boundary(
 
 
 @pytest.mark.parametrize(
-    "gas",
+    "priced_as_recovered,gas_delta,call_succeeds",
     [
-        pytest.param("exact", id="exact"),
-        pytest.param("access-minus-one", id="access-minus-one"),
-        pytest.param("base-minus-one", id="base-minus-one"),
+        pytest.param(True, 0, True, id="exact"),
+        pytest.param(True, -1, False, id="access-minus-one"),
+        pytest.param(False, -1, False, id="base-minus-one"),
     ],
 )
 @pytest.mark.parametrize(
-    "code",
+    "signer_has_code",
     [
-        pytest.param("balance-only", id="balance-only"),
-        pytest.param(
-            "contract", id="contract", marks=pytest.mark.pre_alloc_mutable
-        ),
+        pytest.param(False, id="balance-only"),
+        pytest.param(True, id="contract", marks=pytest.mark.pre_alloc_mutable),
     ],
 )
 @pytest.mark.with_all_call_opcodes
@@ -266,54 +219,31 @@ def test_cold_signer_warmed_only_when_access_paid(
     pre: Alloc,
     fork: Fork,
     call_opcode: Op,
-    code: str,
-    gas: str,
+    signer_has_code: bool,
+    priced_as_recovered: bool,
+    gas_delta: int,
+    call_succeeds: bool,
 ) -> None:
     """
     Test that ecrecover warms a cold signer when the call pays for the
     access, whether the address is then returned or withheld, and leaves it
     cold when the call runs out of gas.
     """
-    if code == "balance-only":
-        signer = pre.fund_eoa()
-    elif code == "contract":
-        signer = pre.fund_eoa(code=CONTRACT_CODE)
-    else:
-        raise ValueError(f"unknown code: {code}")
-    v, r, s = signer.sign_digest(DIGEST)
+    signer = fund_signer(pre, has_code=signer_has_code)
+    call_gas = (
+        fork.ecrecover_gas(recovered=priced_as_recovered, address_warm=False)
+        + gas_delta
+    )
 
     # A failed frame drops whatever it warmed, so only the call that pays
     # for the access leaves the signer warm.
-    exact_gas = fork.ecrecover_gas(recovered=True, address_warm=False)
-    if gas == "exact":
-        call_gas = exact_gas
-        success = 1
-        address_warm = True
-    elif gas == "access-minus-one":
-        call_gas = exact_gas - 1
-        success = 0
-        address_warm = False
-    elif gas == "base-minus-one":
-        call_gas = fork.ecrecover_gas(recovered=False, address_warm=False) - 1
-        success = 0
-        address_warm = False
-    else:
-        raise ValueError(f"unknown gas: {gas}")
-
     balance = Op.BALANCE(signer)
     storage = Storage()
     caller = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, INPUT_SIZE)
         + Op.SSTORE(
-            storage.store_next(success, "success"),
-            call_opcode(
-                gas=call_gas,
-                address=Spec.ECRECOVER,
-                args_offset=0,
-                args_size=INPUT_SIZE,
-                ret_offset=OUTPUT_OFFSET,
-                ret_size=32,
-            ),
+            storage.store_next(int(call_succeeds), "success"),
+            recover(call_opcode, gas=call_gas),
         )
         + CodeGasMeasure(
             code=balance,
@@ -321,7 +251,7 @@ def test_cold_signer_warmed_only_when_access_paid(
             - Op.BALANCE.with_metadata(address_warm=False).gas_cost(fork),
             extra_stack_items=1,
             sstore_key=storage.store_next(
-                Op.BALANCE.with_metadata(address_warm=address_warm).gas_cost(
+                Op.BALANCE.with_metadata(address_warm=call_succeeds).gas_cost(
                     fork
                 ),
                 "balance_gas",
@@ -331,9 +261,7 @@ def test_cold_signer_warmed_only_when_access_paid(
     )
 
     tx = Transaction(
-        to=caller,
-        data=EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s),
-        sender=pre.fund_eoa(),
+        to=caller, data=signed_input(signer), sender=pre.fund_eoa()
     )
 
     state_test(pre=pre, post={caller: Account(storage=storage)}, tx=tx)
@@ -351,7 +279,6 @@ def test_access_oog_preserves_prior_warmth(
     ecrecover call runs out of gas for the access.
     """
     signer = pre.fund_eoa()
-    v, r, s = signer.sign_digest(DIGEST)
 
     balance = Op.BALANCE(signer)
     warm_balance = Op.BALANCE.with_metadata(address_warm=True)
@@ -360,13 +287,9 @@ def test_access_oog_preserves_prior_warmth(
         Op.CALLDATACOPY(0, 0, INPUT_SIZE)
         + Op.SSTORE(
             storage.store_next(0, "success"),
-            call_opcode(
+            recover(
+                call_opcode,
                 gas=fork.ecrecover_gas(recovered=True, address_warm=True) - 1,
-                address=Spec.ECRECOVER,
-                args_offset=0,
-                args_size=INPUT_SIZE,
-                ret_offset=OUTPUT_OFFSET,
-                ret_size=32,
             ),
         )
         # A failed frame drops only what it added; the caller's warm set
@@ -385,7 +308,7 @@ def test_access_oog_preserves_prior_warmth(
 
     tx = Transaction(
         to=caller,
-        data=EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s),
+        data=signed_input(signer),
         access_list=[AccessList(address=signer, storage_keys=[])],
         sender=pre.fund_eoa(),
     )
@@ -407,28 +330,17 @@ def test_repeated_recovery(
     precompile result by input must still price each call by warmth.
     """
     signer = pre.fund_eoa()
-    v, r, s = signer.sign_digest(DIGEST)
     cold_gas = fork.ecrecover_gas(recovered=True, address_warm=False)
     warm_gas = fork.ecrecover_gas(recovered=True, address_warm=True)
-
-    def recover(gas: int) -> Bytecode:
-        return Op.STATICCALL(
-            gas=gas,
-            address=Spec.ECRECOVER,
-            args_offset=0,
-            args_size=INPUT_SIZE,
-            ret_offset=OUTPUT_OFFSET,
-            ret_size=32,
-        )
 
     first_storage = Storage()
     first_caller = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, INPUT_SIZE)
         + Op.SSTORE(
-            first_storage.store_next(1, "cold_call"), recover(cold_gas)
+            first_storage.store_next(1, "cold_call"), recover(gas=cold_gas)
         )
         + Op.SSTORE(
-            first_storage.store_next(1, "warm_call"), recover(warm_gas)
+            first_storage.store_next(1, "warm_call"), recover(gas=warm_gas)
         )
         + Op.SSTORE(
             first_storage.store_next(signer, "output"),
@@ -442,10 +354,10 @@ def test_repeated_recovery(
     second_caller = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, INPUT_SIZE)
         + Op.SSTORE(
-            second_storage.store_next(0, "warm_call"), recover(warm_gas)
+            second_storage.store_next(0, "warm_call"), recover(gas=warm_gas)
         )
         + Op.SSTORE(
-            second_storage.store_next(1, "cold_call"), recover(cold_gas)
+            second_storage.store_next(1, "cold_call"), recover(gas=cold_gas)
         )
         + Op.SSTORE(
             second_storage.store_next(signer, "output"),
@@ -454,7 +366,7 @@ def test_repeated_recovery(
         storage=second_storage.canary(),
     )
 
-    data = EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s)
+    data = signed_input(signer)
     sender = pre.fund_eoa()
     blockchain_test(
         pre=pre,
@@ -474,26 +386,27 @@ def test_repeated_recovery(
 
 
 @pytest.mark.parametrize(
-    "recoverer_outcome",
+    "recoverer_exit,frame_succeeds",
     [
-        pytest.param("success", id="success"),
-        pytest.param("revert", id="revert"),
-        pytest.param("invalid", id="invalid"),
+        pytest.param(Op.STOP, True, id="success"),
+        pytest.param(Op.REVERT(0, 0), False, id="revert"),
+        pytest.param(Op.INVALID, False, id="invalid"),
     ],
 )
 @pytest.mark.parametrize(
-    "warmth",
+    "warm_on_entry",
     [
-        pytest.param("cold", id="cold"),
-        pytest.param("access-list", id="access-list"),
+        pytest.param(False, id="cold"),
+        pytest.param(True, id="access-list"),
     ],
 )
 def test_warmth_after_recovering_frame(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    warmth: str,
-    recoverer_outcome: str,
+    warm_on_entry: bool,
+    recoverer_exit: Bytecode,
+    frame_succeeds: bool,
 ) -> None:
     """
     Test that a signer warmed by a recovery stays warm for the caller only
@@ -507,44 +420,14 @@ def test_warmth_after_recovering_frame(
     paid.
     """
     signer = pre.fund_eoa()
-    v, r, s = signer.sign_digest(DIGEST)
-
-    # An access list warms the signer without reading it.
-    if warmth == "cold":
-        warm_on_entry = False
-        access_list = None
-    elif warmth == "access-list":
-        warm_on_entry = True
-        access_list = [AccessList(address=signer, storage_keys=[])]
-    else:
-        raise ValueError(f"unknown warmth: {warmth}")
-
-    if recoverer_outcome == "success":
-        recoverer_exit: Bytecode = Op.STOP
-        recoverer_success = 1
-        signer_warm = True
-    elif recoverer_outcome == "revert":
-        recoverer_exit = Op.REVERT(0, 0)
-        recoverer_success = 0
-        signer_warm = warm_on_entry
-    elif recoverer_outcome == "invalid":
-        recoverer_exit = Op.INVALID
-        recoverer_success = 0
-        signer_warm = warm_on_entry
-    else:
-        raise ValueError(f"unknown recoverer outcome: {recoverer_outcome}")
 
     recoverer = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, INPUT_SIZE)
         + Op.POP(
-            Op.STATICCALL(
+            recover(
                 gas=fork.ecrecover_gas(
                     recovered=True, address_warm=warm_on_entry
                 ),
-                address=Spec.ECRECOVER,
-                args_offset=0,
-                args_size=INPUT_SIZE,
-                ret_offset=0,
                 ret_size=0,
             )
         )
@@ -555,27 +438,27 @@ def test_warmth_after_recovering_frame(
     caller = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, INPUT_SIZE)
         + Op.SSTORE(
-            storage.store_next(recoverer_success, "recoverer_success"),
+            storage.store_next(int(frame_succeeds), "recoverer_success"),
             Op.CALL(address=recoverer, args_offset=0, args_size=INPUT_SIZE),
         )
         + Op.SSTORE(
-            storage.store_next(int(signer_warm), "warm_price_call"),
-            Op.STATICCALL(
-                gas=fork.ecrecover_gas(recovered=True, address_warm=True),
-                address=Spec.ECRECOVER,
-                args_offset=0,
-                args_size=INPUT_SIZE,
-                ret_offset=OUTPUT_OFFSET,
-                ret_size=32,
+            storage.store_next(
+                int(frame_succeeds or warm_on_entry), "warm_price_call"
             ),
+            recover(gas=fork.ecrecover_gas(recovered=True, address_warm=True)),
         ),
         storage=storage.canary(),
     )
 
+    # An access list warms the signer without reading it.
     tx = Transaction(
         to=caller,
-        data=EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s),
-        access_list=access_list,
+        data=signed_input(signer),
+        access_list=(
+            [AccessList(address=signer, storage_keys=[])]
+            if warm_on_entry
+            else None
+        ),
         sender=pre.fund_eoa(),
     )
 
@@ -626,18 +509,13 @@ def test_signer_warmed_by_transaction(
         + Op.MSTORE(OUTPUT_OFFSET, SENTINEL)
         + Op.SSTORE(
             success_slot,
-            Op.STATICCALL(
-                gas=fork.ecrecover_gas(recovered=True, address_warm=True),
-                address=Spec.ECRECOVER,
-                args_offset=0,
-                args_size=INPUT_SIZE,
-                ret_offset=OUTPUT_OFFSET,
-                ret_size=32,
-            ),
+            recover(gas=fork.ecrecover_gas(recovered=True, address_warm=True)),
         )
         + Op.SSTORE(output_slot, Op.MLOAD(OUTPUT_OFFSET))
     )
 
+    # Each case warms the signer a different way, so each builds its own
+    # transaction shape.
     env = Environment()
     if warmed_as == "sender":
         signer = pre.fund_eoa()
@@ -660,13 +538,8 @@ def test_signer_warmed_by_transaction(
     else:
         raise ValueError(f"unknown warmed_as: {warmed_as}")
     storage[output_slot] = signer
-    v, r, s = signer.sign_digest(DIGEST)
 
-    tx = Transaction(
-        to=to,
-        data=EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s),
-        sender=sender,
-    )
+    tx = Transaction(to=to, data=signed_input(signer), sender=sender)
 
     state_test(
         env=env,
@@ -677,19 +550,22 @@ def test_signer_warmed_by_transaction(
 
 
 @pytest.mark.parametrize(
-    "caller_outcome",
+    "recoverer_exit,frame_succeeds",
     [
-        pytest.param("success", id="success"),
-        pytest.param("revert", id="revert"),
+        pytest.param(Op.RETURN(0, 32), True, id="success"),
+        pytest.param(Op.REVERT(0, 32), False, id="revert"),
     ],
 )
 @pytest.mark.parametrize(
-    "code",
+    "make_signer",
     [
-        pytest.param("absent", id="absent"),
-        pytest.param("balance-only", id="balance-only"),
+        # A signer with no account is read as an account with empty code.
+        pytest.param(lambda pre: pre.fund_eoa(amount=0), id="absent"),
+        pytest.param(lambda pre: pre.fund_eoa(), id="balance-only"),
         pytest.param(
-            "contract", id="contract", marks=pytest.mark.pre_alloc_mutable
+            lambda pre: pre.fund_eoa(code=CONTRACT_CODE),
+            id="contract",
+            marks=pytest.mark.pre_alloc_mutable,
         ),
     ],
 )
@@ -697,53 +573,34 @@ def test_bal_records_recovered_signer(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    code: str,
-    caller_outcome: str,
+    make_signer: Callable[[Alloc], EOA],
+    recoverer_exit: Bytecode,
+    frame_succeeds: bool,
 ) -> None:
     """
     Test that a recovery puts the signer in the block access list, whether
     the address is returned or withheld, and keeps it there when the caller
     reverts.
-
-    A signer with no account is read as an account with empty code, so it
-    is recorded too.
     """
-    if code == "absent":
-        signer = pre.fund_eoa(amount=0)
-    elif code == "balance-only":
-        signer = pre.fund_eoa()
-    elif code == "contract":
-        signer = pre.fund_eoa(code=CONTRACT_CODE)
-    else:
-        raise ValueError(f"unknown code: {code}")
-    v, r, s = signer.sign_digest(DIGEST)
+    signer = make_signer(pre)
 
-    call = Op.STATICCALL(
-        gas=fork.ecrecover_gas(recovered=True, address_warm=False),
-        address=Spec.ECRECOVER,
-        args_offset=0,
-        args_size=INPUT_SIZE,
-        ret_offset=OUTPUT_OFFSET,
-        ret_size=32,
-    )
     # The recoverer hands the precompile call's result back either way.
-    if caller_outcome == "success":
-        recoverer_exit = Op.RETURN(0, 32)
-        recoverer_success = 1
-    elif caller_outcome == "revert":
-        recoverer_exit = Op.REVERT(0, 32)
-        recoverer_success = 0
-    else:
-        raise ValueError(f"unknown caller outcome: {caller_outcome}")
     recoverer = pre.deploy_contract(
-        Op.CALLDATACOPY(0, 0, INPUT_SIZE) + Op.MSTORE(0, call) + recoverer_exit
+        Op.CALLDATACOPY(0, 0, INPUT_SIZE)
+        + Op.MSTORE(
+            0,
+            recover(
+                gas=fork.ecrecover_gas(recovered=True, address_warm=False)
+            ),
+        )
+        + recoverer_exit
     )
 
     storage = Storage()
     caller = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, INPUT_SIZE)
         + Op.SSTORE(
-            storage.store_next(recoverer_success, "recoverer_success"),
+            storage.store_next(int(frame_succeeds), "recoverer_success"),
             Op.CALL(address=recoverer, args_offset=0, args_size=INPUT_SIZE),
         )
         + Op.RETURNDATACOPY(0, 0, 32)
@@ -752,9 +609,7 @@ def test_bal_records_recovered_signer(
     )
 
     tx = Transaction(
-        to=caller,
-        data=EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s),
-        sender=pre.fund_eoa(),
+        to=caller, data=signed_input(signer), sender=pre.fund_eoa()
     )
 
     # The read is recorded when the access is paid for, and a revert does
@@ -770,81 +625,49 @@ def test_bal_records_recovered_signer(
 
 
 @pytest.mark.parametrize(
-    "gas",
+    "priced_as_recovered",
     [
-        pytest.param("access-minus-one", id="access-minus-one"),
-        pytest.param("base-minus-one", id="base-minus-one"),
+        pytest.param(True, id="access-minus-one"),
+        pytest.param(False, id="base-minus-one"),
     ],
 )
 @pytest.mark.parametrize(
-    "warmth",
+    "access_listed,read_first",
     [
-        pytest.param("cold", id="cold"),
-        pytest.param("access-list", id="access-list"),
-        pytest.param("balance", id="balance"),
+        pytest.param(False, False, id="cold"),
+        pytest.param(True, False, id="access-list"),
+        pytest.param(False, True, id="balance"),
     ],
 )
 def test_bal_after_oog(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    warmth: str,
-    gas: str,
+    access_listed: bool,
+    read_first: bool,
+    priced_as_recovered: bool,
 ) -> None:
     """
     Test that an ecrecover call that runs out of gas does not read the
     signer, which reaches the block access list only through another read.
     """
     signer = pre.fund_eoa()
-    v, r, s = signer.sign_digest(DIGEST)
+    call_gas = (
+        fork.ecrecover_gas(
+            recovered=priced_as_recovered,
+            address_warm=access_listed or read_first,
+        )
+        - 1
+    )
 
     # Only the BALANCE case reads the signer outside ecrecover; access list
     # entries are not added to the block access list by themselves.
-    if warmth == "cold":
-        address_warm = False
-        access_list = None
-        prior_read = Bytecode()
-        signer_in_bal: BalAccountExpectation | None = None
-    elif warmth == "access-list":
-        address_warm = True
-        access_list = [AccessList(address=signer, storage_keys=[])]
-        prior_read = Bytecode()
-        signer_in_bal = None
-    elif warmth == "balance":
-        address_warm = True
-        access_list = None
-        prior_read = Op.POP(Op.BALANCE(signer))
-        signer_in_bal = BalAccountExpectation.empty()
-    else:
-        raise ValueError(f"unknown warmth: {warmth}")
-
-    if gas == "access-minus-one":
-        call_gas = (
-            fork.ecrecover_gas(recovered=True, address_warm=address_warm) - 1
-        )
-    elif gas == "base-minus-one":
-        call_gas = (
-            fork.ecrecover_gas(recovered=False, address_warm=address_warm) - 1
-        )
-    else:
-        raise ValueError(f"unknown gas: {gas}")
-
     storage = Storage()
     caller = pre.deploy_contract(
-        prior_read
+        (Op.POP(Op.BALANCE(signer)) if read_first else Bytecode())
         + Op.CALLDATACOPY(0, 0, INPUT_SIZE)
         + Op.MSTORE(OUTPUT_OFFSET, SENTINEL)
-        + Op.SSTORE(
-            storage.store_next(0, "success"),
-            Op.STATICCALL(
-                gas=call_gas,
-                address=Spec.ECRECOVER,
-                args_offset=0,
-                args_size=INPUT_SIZE,
-                ret_offset=OUTPUT_OFFSET,
-                ret_size=32,
-            ),
-        )
+        + Op.SSTORE(storage.store_next(0, "success"), recover(gas=call_gas))
         + Op.SSTORE(
             storage.store_next(SENTINEL, "output"), Op.MLOAD(OUTPUT_OFFSET)
         ),
@@ -853,8 +676,12 @@ def test_bal_after_oog(
 
     tx = Transaction(
         to=caller,
-        data=EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s),
-        access_list=access_list,
+        data=signed_input(signer),
+        access_list=(
+            [AccessList(address=signer, storage_keys=[])]
+            if access_listed
+            else None
+        ),
         sender=pre.fund_eoa(),
     )
 
@@ -863,6 +690,8 @@ def test_bal_after_oog(
         post={caller: Account(storage=storage)},
         tx=tx,
         expected_block_access_list=BlockAccessListExpectation(
-            account_expectations={signer: signer_in_bal}
+            account_expectations={
+                signer: BalAccountExpectation.empty() if read_first else None
+            }
         ),
     )
