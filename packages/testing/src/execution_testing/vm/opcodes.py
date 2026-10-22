@@ -6218,15 +6218,15 @@ class Opcodes(Opcode, Enum):
     Description
     ----
     Push one value of the executing frame transaction's state diff
-    (EIP-7906): a table count, an entry of the balance, slot,
-    deployment or event tables at `index`, or the gas payment
+    (EIP-7906): a table count, an entry of the balance, slot, code,
+    nonce or event tables at `index`, or the gas payment
     parameters. Valid only inside a `POST_TX` frame, exceptionally
     halts elsewhere, on an undefined parameter, an out-of-bounds index,
     or a non-zero index for a parameter that takes none.
 
     Inputs
     ----
-    - param: parameter selector (0x00-0x15)
+    - param: parameter selector (0x00-0x1A)
     - index: entry index, or 0 for the count and payment parameters
 
     Outputs
@@ -6240,54 +6240,8 @@ class Opcodes(Opcode, Enum):
     Gas: WARM_STORAGE_READ_COST
     """
 
-    TXDIFF = Opcode(
-        0xB7,
-        popped_stack_items=3,
-        pushed_stack_items=1,
-        kwargs=["param", "key", "index"],
-        metadata={
-            "state_access": None,
-            "key_warm": False,
-            "address_warm": False,
-        },
-    )
-    """
-    TXDIFF(param, key, index)
-    ----
-
-    Description
-    ----
-    Push one keyed lookup into the executing frame transaction's state
-    diff (EIP-7906): an account's slot, balance or code hash before and
-    after the transaction (params 0x00-0x05, priced as a warm or cold
-    state read), or per-address and per-topic views over the diff
-    tables and the account change flags (params 0x06-0x0C, flat cost).
-    Valid only inside a `POST_TX` frame. For gas calculation, set
-    `state_access="slot"` for params 0x00-0x01 or `"account"` for
-    params 0x02-0x05, and provide `key_warm` or `address_warm`. The
-    default `state_access=None` prices a view or flags parameter.
-
-    Inputs
-    ----
-    - param: parameter selector (0x00-0x0C)
-    - key: the address the query is keyed on, or a topic value
-    - index: slot key, per-address index, or 0
-
-    Outputs
-    ----
-    - value: the requested diff value
-
-    Fork
-    ----
-    Bogota
-
-    Gas: COLD_STORAGE_ACCESS or WARM_ACCESS for slots,
-    COLD_ACCOUNT_ACCESS or WARM_ACCESS for accounts, and
-    WARM_STORAGE_READ_COST for the views
-    """
-
     EVENTDATACOPY = Opcode(
-        0xB8,
+        0xB7,
         popped_stack_items=4,
         pushed_stack_items=0,
         kwargs=["event_index", "dest_offset", "offset", "size"],
