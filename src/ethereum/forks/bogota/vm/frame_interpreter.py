@@ -74,12 +74,11 @@ class FrameJournal:
     Effects accrued across the frames of a frame transaction.
 
     Each finished frame's contributions are incorporated here: the
-    warm journal that successful frames feed, and the refunds and
-    scheduled deletions that settle the transaction once the last
-    frame has run. Everything gas-shaped settles from the frame
-    receipts instead. When an atomic batch opens, a copy of the
-    journal joins the batch's rollback point; unrolling the batch
-    resumes from that copy.
+    warm journal that successful frames feed, and the refunds that
+    settle the transaction once the last frame has run. Everything
+    gas-shaped settles from the frame receipts instead. When an atomic
+    batch opens, a copy of the journal joins the batch's rollback
+    point; unrolling the batch resumes from that copy.
     """
 
     warm_addresses: Set[Address]
@@ -97,11 +96,6 @@ class FrameJournal:
     Refunds accrued by successful frames.
     """
 
-    accounts_to_delete: Set[Address]
-    """
-    Accounts scheduled for deletion by successful frames.
-    """
-
 
 def copy_frame_journal(journal: FrameJournal) -> FrameJournal:
     """
@@ -112,7 +106,6 @@ def copy_frame_journal(journal: FrameJournal) -> FrameJournal:
         warm_addresses=set(journal.warm_addresses),
         warm_storage_keys=set(journal.warm_storage_keys),
         refund_counter=journal.refund_counter,
-        accounts_to_delete=set(journal.accounts_to_delete),
     )
 
 
@@ -216,12 +209,6 @@ class FrameOutcome:
     Refunds the frame accrued; zero unless the frame succeeded.
     """
 
-    accounts_to_delete: Set[Address]
-    """
-    Accounts the frame scheduled for deletion; empty unless the frame
-    succeeded.
-    """
-
 
 def incorporate_frame_outcome(
     journal: FrameJournal, outcome: FrameOutcome
@@ -235,7 +222,6 @@ def incorporate_frame_outcome(
     succeeds.
     """
     journal.refund_counter += outcome.refund_counter
-    journal.accounts_to_delete |= outcome.accounts_to_delete
 
 
 def unroll_atomic_batch(
@@ -391,7 +377,6 @@ def create_evm_from_frame(
         return_data=b"",
         # Accrued Effects
         logs=(),
-        accounts_to_delete=set(),
         accessed_addresses=accessed_addresses,
         accessed_storage_keys=accessed_storage_keys,
         # Outcome
@@ -534,7 +519,6 @@ def execute_frame(
                 logs=(),
             ),
             refund_counter=0,
-            accounts_to_delete=set(),
         )
 
     target_account = get_account(tx_state, resolved_target)
@@ -560,7 +544,6 @@ def execute_frame(
                     logs=(),
                 ),
                 refund_counter=0,
-                accounts_to_delete=set(),
             )
         if status == FrameStatus.SUCCESS:
             journal.warm_addresses.update(accessed_addresses)
@@ -574,7 +557,6 @@ def execute_frame(
                 logs=(),
             ),
             refund_counter=0,
-            accounts_to_delete=set(),
         )
 
     if frame.value != U256(0):
@@ -590,7 +572,6 @@ def execute_frame(
                     logs=(),
                 ),
                 refund_counter=0,
-                accounts_to_delete=set(),
             )
 
     try:
@@ -617,7 +598,6 @@ def execute_frame(
                 logs=(),
             ),
             refund_counter=0,
-            accounts_to_delete=set(),
         )
 
     process_call(evm)
@@ -638,17 +618,14 @@ def execute_frame(
         receipt = FrameReceipt(
             status=FrameStatus.SUCCESS, gas_used=gas_used, logs=evm.logs
         )
-        accounts_to_delete = set(evm.accounts_to_delete)
     else:
         receipt = FrameReceipt(
             status=FrameStatus.FAILURE, gas_used=gas_used, logs=()
         )
-        accounts_to_delete = set()
 
     return FrameOutcome(
         receipt=receipt,
         refund_counter=gas_meter.refund_counter,
-        accounts_to_delete=accounts_to_delete,
     )
 
 
@@ -694,7 +671,6 @@ def process_frames(
         warm_addresses={tx.sender},
         warm_storage_keys=set(),
         refund_counter=0,
-        accounts_to_delete=set(),
     )
 
     open_batch: Optional[AtomicBatch] = None
@@ -838,7 +814,6 @@ def process_frames(
         gas_left=ExecutionGas(unused_execution_gas),
         refund_counter=U256(journal.refund_counter),
         logs=logs,
-        accounts_to_delete=journal.accounts_to_delete,
         error=None,
         return_data=Bytes(b""),
         state_gas_left=StateGas(unused_state_gas),
