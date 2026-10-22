@@ -186,7 +186,7 @@ def txparam(evm: Evm) -> None:
     elif param == U256(0x0F):
         value = U256.from_be_bytes(nonce_keys_hash(tx))
     elif param == U256(0x10):
-        value = tx.nonce_keys[0]
+        value = tx.nonce_keys[0] if tx.nonce_keys else U256(0)
     else:
         raise InvalidParameter("undefined TXPARAM parameter")
 

@@ -214,7 +214,7 @@ class EIP8141(BaseFork):
             frames: Sequence[FrameGasInfo] | int,
             signatures: Sequence[FrameSignatureGasInfo] = (),
             sender: BytesConvertible | None = None,
-            nonce_keys: Sequence[int] = (0,),
+            nonce_keys: Sequence[int] = (),
             nonce_seq: int = 0,
         ) -> int:
             frame_list = cls._frame_list(frames)
@@ -295,7 +295,7 @@ class EIP8141(BaseFork):
             frames: Sequence[FrameGasInfo] | int,
             signatures: Sequence[FrameSignatureGasInfo] = (),
             sender: BytesConvertible | None = None,
-            nonce_keys: Sequence[int] = (0,),
+            nonce_keys: Sequence[int] = (),
             nonce_seq: int = 0,
             return_cost_deducted_prior_execution: bool = False,
         ) -> int:
