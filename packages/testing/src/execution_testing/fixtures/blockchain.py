@@ -1114,6 +1114,7 @@ class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
     format_phases: ClassVar[Set[FixtureFillingPhase]] = {
         FixtureFillingPhase.FILL_STATEFUL,
     }
+    stream_hash: ClassVar[bool] = True
 
     snapshot_block_number: HexNumber
     snapshot_block_hash: Hash
