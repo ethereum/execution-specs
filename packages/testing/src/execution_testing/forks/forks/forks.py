@@ -1082,6 +1082,12 @@ class Frontier(BaseFork):
         ]
 
     @classmethod
+    def ecrecover_gas(cls, *, recovered: bool, address_warm: bool) -> int:
+        """At Genesis, ecrecover charges a flat fee for every input."""
+        del recovered, address_warm
+        return cls.gas_costs().PRECOMPILE_ECRECOVER
+
+    @classmethod
     def system_contracts(cls) -> List[Address]:
         """At Genesis, no system contracts are present."""
         return []

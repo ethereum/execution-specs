@@ -1360,6 +1360,17 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def ecrecover_gas(cls, *, recovered: bool, address_warm: bool) -> int:
+        """
+        Return the gas charged by the ecrecover precompile.
+
+        `recovered` tells whether the input yields a signer address, and
+        `address_warm` whether that address was already accessed.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def system_contracts(cls) -> List[Address]:
         """Return list of system contracts supported by the fork."""
         pass

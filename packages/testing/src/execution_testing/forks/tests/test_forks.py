@@ -405,6 +405,43 @@ def test_precompiles() -> None:  # noqa: D103
     assert sorted(Cancun.precompiles()) == list(range(1, 11))
 
 
+@pytest.mark.parametrize(
+    "fork,recovered,address_warm,expected_gas",
+    [
+        pytest.param(Frontier, True, False, 3_000, id="Frontier-recovered"),
+        pytest.param(Amsterdam, False, False, 3_000, id="Amsterdam-failed"),
+        pytest.param(Amsterdam, True, False, 3_000, id="Amsterdam-cold"),
+        pytest.param(Amsterdam, True, True, 3_000, id="Amsterdam-warm"),
+        pytest.param(Bogota, False, False, 3_000, id="Bogota-failed"),
+        pytest.param(Bogota, False, True, 3_000, id="Bogota-failed-warm"),
+        pytest.param(Bogota, True, False, 6_100, id="Bogota-cold"),
+        pytest.param(Bogota, True, True, 3_200, id="Bogota-warm"),
+    ],
+)
+def test_ecrecover_gas(
+    fork: Fork, recovered: bool, address_warm: bool, expected_gas: int
+) -> None:
+    """
+    Test that only a recovered address adds an account access and a code
+    read to the ecrecover fee, and only once the restriction is enabled.
+    """
+    assert (
+        fork.ecrecover_gas(recovered=recovered, address_warm=address_warm)
+        == expected_gas
+    )
+
+
+def test_ecrecover_gas_at_transition() -> None:
+    """Test that the ecrecover gas switches at the transition."""
+    fork = AmsterdamToBogotaAtTime15k
+    before = fork.fork_at(timestamp=14_999)
+    after = fork.fork_at(timestamp=15_000)
+    assert not before.is_eip_enabled(8151)
+    assert after.is_eip_enabled(8151)
+    assert before.ecrecover_gas(recovered=True, address_warm=False) == 3_000
+    assert after.ecrecover_gas(recovered=True, address_warm=False) == 6_100
+
+
 @pytest.mark.parametrize("fork", sorted(ALL_FORKS, key=str), ids=str)
 def test_system_contract_request_types(fork: Fork) -> None:
     """

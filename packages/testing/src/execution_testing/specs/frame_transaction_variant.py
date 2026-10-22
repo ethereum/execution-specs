@@ -26,9 +26,11 @@ from execution_testing.test_types import (
     Account,
     Alloc,
     Frame,
+    FrameReceipt,
     GasFee,
     Tip,
     Transaction,
+    TransactionReceipt,
 )
 
 if TYPE_CHECKING:
@@ -160,7 +162,7 @@ def without_gas_pins(pinned: Any, gas_fields: Set[str]) -> Any:
 
     Frame transactions have different intrinsic and per-frame costs,
     so a pinned gas value can never match; the remaining pins — logs,
-    status, non-gas header fields — carry over unchanged, and the
+    non-gas header fields — carry over unchanged, and the
     fixture's post-state root still captures gas indirectly through
     the sender and coinbase balances.
     """
@@ -172,6 +174,31 @@ def without_gas_pins(pinned: Any, gas_fields: Set[str]) -> Any:
     if not kept:
         return None
     return type(pinned)(**kept)
+
+
+def with_status_on_sender_frame(
+    receipt: TransactionReceipt | None,
+) -> TransactionReceipt | None:
+    """
+    Move a pinned transaction `status` onto the frame receipts.
+
+    A frame transaction's receipt has no status of its own. Each frame
+    reports one instead: the `VERIFY` frame of the rewritten transaction
+    always approves, and its `SENDER` frame performs the original call,
+    so the original status becomes the `SENDER` frame's.
+    """
+    if receipt is None or receipt.status is None:
+        return receipt
+    kept = {
+        field: getattr(receipt, field)
+        for field in receipt.model_fields_set
+        if field != "status"
+    }
+    kept["frame_receipts"] = [
+        FrameReceipt(status=1),
+        FrameReceipt(status=receipt.status),
+    ]
+    return TransactionReceipt(**kept)
 
 
 def without_gas_balance_terms(account: Account) -> Account:
@@ -270,8 +297,8 @@ def as_frame_transaction(
 
     expected_receipt = None
     if tx.expected_receipt is not None:
-        expected_receipt = without_gas_pins(
-            tx.expected_receipt, RECEIPT_GAS_PINS
+        expected_receipt = with_status_on_sender_frame(
+            without_gas_pins(tx.expected_receipt, RECEIPT_GAS_PINS)
         )
 
     execution_budget, state_budget = frame_budgets(fork, tx, env_gas_limit)
