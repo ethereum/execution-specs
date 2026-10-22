@@ -1,5 +1,5 @@
 """
-Failure of `POST_TX` frames (EIP-7906): a failed assertion reverts the
+Failure of `ASSERT` frames (EIP-7906): a failed assertion reverts the
 execution body after the validation prefix without invalidating the
 transaction, skips the frames after it, and settles the reverted body's
 gas, refunds, events and block access list entries.
@@ -48,6 +48,7 @@ from .helpers import (
     WORKER_STORAGE,
     BodyEffect,
     as_int,
+    assert_frame,
     assertion_transaction,
     body_frame,
     creation_state_gas,
@@ -55,7 +56,6 @@ from .helpers import (
     frame_gas,
     frame_transaction_gas,
     initcode_word,
-    post_tx_frame,
     reverted_body_receipts,
     settled_receipt,
     state_creations,
@@ -80,7 +80,7 @@ RECIPIENT_FUNDS = 1_000
         pytest.param(Op.POP, True, id="stack_underflow"),
     ],
 )
-def test_post_tx_failure_reverts_body(
+def test_assert_frame_failure_reverts_body(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -88,7 +88,7 @@ def test_post_tx_failure_reverts_body(
     halts: bool,
 ) -> None:
     """
-    Revert the execution body when the `POST_TX` frame reverts or halts
+    Revert the execution body when the `ASSERT` frame reverts or halts
     exceptionally, keeping the transaction valid: the validation
     prefix's nonce bump stays, the body's slot write and log are
     discarded, and the assertion frame's receipt reports failure, with
@@ -118,14 +118,14 @@ def test_post_tx_failure_reverts_body(
     )
 
 
-def test_post_tx_failure_overrides_atomic_batch(
+def test_assert_frame_failure_overrides_atomic_batch(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
     Revert a committed atomic batch together with the rest of the body
-    when the `POST_TX` frame fails: the batch's own all-or-nothing rule
+    when the `ASSERT` frame fails: the batch's own all-or-nothing rule
     is superseded by the unconditional body revert.
     """
     sender = pre.fund_eoa()
@@ -156,14 +156,14 @@ def test_post_tx_failure_overrides_atomic_batch(
 
 
 @pytest.mark.parametrize(
-    "post_tx_fails",
+    "assert_fails",
     [pytest.param(False, id="holds"), pytest.param(True, id="fails")],
 )
-def test_failed_body_batch_runs_post_tx(
+def test_failed_body_batch_runs_assert(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    post_tx_fails: bool,
+    assert_fails: bool,
 ) -> None:
     """
     Run the assertion after a failed atomic batch inside the execution
@@ -183,7 +183,7 @@ def test_failed_body_batch_runs_post_tx(
         ),
         FrameReceipt(
             status=Spec8141.STATUS_FAILURE
-            if post_tx_fails
+            if assert_fails
             else Spec8141.STATUS_SUCCESS
         ),
     ]
@@ -199,12 +199,12 @@ def test_failed_body_batch_runs_post_tx(
                 ),
                 body_frame(fork, target=noop),
             ],
-            assertion=failure if post_tx_fails else noop,
+            assertion=failure if assert_fails else noop,
             frame_receipts=receipts,
         ),
         post={
             sender: Account(nonce=1),
-            writer: Account(storage={SLOT_A: 0 if post_tx_fails else 1}),
+            writer: Account(storage={SLOT_A: 0 if assert_fails else 1}),
         },
     )
 
@@ -261,23 +261,23 @@ def test_diff_excludes_unrolled_batch(
 
 
 @pytest.mark.parametrize(
-    "post_tx_fails",
+    "assert_fails",
     [pytest.param(False, id="holds"), pytest.param(True, id="fails")],
 )
 @pytest.mark.parametrize(
     "assertion_reads",
     [pytest.param(False, id="blind"), pytest.param(True, id="reads")],
 )
-def test_post_tx_block_access_list(
+def test_assert_frame_block_access_list(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    post_tx_fails: bool,
+    assert_fails: bool,
     assertion_reads: bool,
 ) -> None:
     """
     Record the execution body's changes in the block access list only
-    when the assertion holds. A failed `POST_TX` frame re-files the
+    when the assertion holds. A failed `ASSERT` frame re-files the
     body's storage write as a bare access and leaves the transfer
     recipient as a touched account without changes, as an atomic batch
     unroll does. The sender's nonce bump in the validation prefix stays,
@@ -294,7 +294,7 @@ def test_post_tx_block_access_list(
             Op.TXTRACE(Spec.TXTRACE_BALANCE_AFTER, 0)
         )
     assertion = pre.deploy_contract(
-        code=lookups + (Op.REVERT(0, 0) if post_tx_fails else Op.STOP)
+        code=lookups + (Op.REVERT(0, 0) if assert_fails else Op.STOP)
     )
 
     tx = assertion_transaction(
@@ -306,11 +306,11 @@ def test_post_tx_block_access_list(
         ],
         assertion=assertion,
         frame_receipts=reverted_body_receipts(fork, 2)
-        if post_tx_fails
+        if assert_fails
         else success_receipts(4),
     )
 
-    if post_tx_fails:
+    if assert_fails:
         writer_expectation = BalAccountExpectation(
             storage_changes=[], storage_reads=[SLOT_A]
         )
@@ -353,23 +353,23 @@ def test_post_tx_block_access_list(
         ),
         post={
             sender: Account(nonce=1),
-            writer: Account(storage={SLOT_A: 0 if post_tx_fails else 1}),
+            writer: Account(storage={SLOT_A: 0 if assert_fails else 1}),
             recipient: Account(
                 balance=RECIPIENT_FUNDS
-                if post_tx_fails
+                if assert_fails
                 else RECIPIENT_FUNDS + VALUE
             ),
         },
     )
 
 
-def test_post_tx_failure_skips_remaining_frames(
+def test_assert_frame_failure_skips_remaining_frames(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Skip the `POST_TX` frames after a failed one: the body is already
+    Skip the `ASSERT` frames after a failed one: the body is already
     reverted, so the later assertion has nothing left to observe and
     reports the skipped status with no gas used.
     """
@@ -407,14 +407,14 @@ def test_post_tx_failure_skips_remaining_frames(
         pytest.param([True, False, True], id="middle_of_three_fails"),
     ],
 )
-def test_multiple_post_tx_frames(
+def test_multiple_assert_frames(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     outcomes: List[bool],
 ) -> None:
     """
-    Compose independent assertions: every `POST_TX` frame must pass for
+    Compose independent assertions: every `ASSERT` frame must pass for
     the body to commit, a later one failing reverts the body even
     though an earlier one accepted it, and the frames after a failed
     one are skipped.
@@ -465,7 +465,7 @@ def test_multiple_post_tx_frames(
 
 @pytest.mark.parametrize("effect", BODY_EFFECTS)
 @pytest.mark.parametrize("failure", ["none", "revert", "exception"])
-def test_post_tx_gas_settlement(
+def test_assert_frame_gas_settlement(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -476,7 +476,7 @@ def test_post_tx_gas_settlement(
     Settle a body frame's state gas, refund and event against exact
     receipts, payer balance and block gas when the assertion holds,
     reverts or halts, a failed assertion dropping all three and
-    skipping the `POST_TX` frame after it.
+    skipping the `ASSERT` frame after it.
     """
     sender = pre.fund_eoa(amount=FUNDS)
     worker = pre.deploy_contract(code=effect.code, storage=WORKER_STORAGE)
@@ -524,8 +524,8 @@ def test_post_tx_gas_settlement(
                 target=worker,
                 state_gas_limit=effect.code.state_cost(fork),
             ),
-            post_tx_frame(fork, target=assertion),
-            post_tx_frame(fork, target=later),
+            assert_frame(fork, target=assertion),
+            assert_frame(fork, target=later),
         ],
     )
     payer_used, block_gas_used = frame_transaction_gas(
@@ -586,7 +586,7 @@ def test_failed_assertion_keeps_prefix_deployment(
                 ),
                 verify_frame(),
                 body_frame(fork, target=writer),
-                post_tx_frame(fork, target=assertion),
+                assert_frame(fork, target=assertion),
             ],
             expected_receipt=TransactionReceipt(
                 payer=sender,
@@ -629,7 +629,7 @@ def test_failed_assertion_charges_sponsor(
                 verify_frame(flags=Spec8141.APPROVE_EXECUTION),
                 verify_frame(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
                 body_frame(fork, target=writer),
-                post_tx_frame(fork, target=assertion),
+                assert_frame(fork, target=assertion),
             ],
             expected_receipt=TransactionReceipt(
                 payer=sponsor,
@@ -647,14 +647,14 @@ def test_failed_assertion_charges_sponsor(
 
 
 @pytest.mark.parametrize(
-    "post_tx_fails",
+    "assert_fails",
     [pytest.param(False, id="holds"), pytest.param(True, id="fails")],
 )
 def test_body_revert_restores_prefix_state_charge(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    post_tx_fails: bool,
+    assert_fails: bool,
 ) -> None:
     """
     Restore a prefix frame's state gas charge that the body refilled by
@@ -669,18 +669,18 @@ def test_body_revert_restores_prefix_state_charge(
         fork
     )
     assertion = pre.deploy_contract(
-        code=Op.REVERT(0, 0) if post_tx_fails else Op.STOP
+        code=Op.REVERT(0, 0) if assert_fails else Op.STOP
     )
     receipts = [
         FrameReceipt(
             status=Spec8141.STATUS_SUCCESS,
-            state_gas_used=charge if post_tx_fails else 0,
+            state_gas_used=charge if assert_fails else 0,
         ),
         FrameReceipt(status=Spec8141.STATUS_SUCCESS, state_gas_used=0),
         FrameReceipt(status=Spec8141.STATUS_SUCCESS, state_gas_used=0),
         FrameReceipt(
             status=Spec8141.STATUS_FAILURE
-            if post_tx_fails
+            if assert_fails
             else Spec8141.STATUS_SUCCESS,
             state_gas_used=0,
         ),
@@ -698,7 +698,7 @@ def test_body_revert_restores_prefix_state_charge(
                 ),
                 verify_frame(),
                 body_frame(fork, target=toggler),
-                post_tx_frame(fork, target=assertion),
+                assert_frame(fork, target=assertion),
             ],
             expected_receipt=TransactionReceipt(
                 payer=sender, frame_receipts=receipts
@@ -706,20 +706,20 @@ def test_body_revert_restores_prefix_state_charge(
         ),
         post={
             sender: Account(nonce=1),
-            toggler: Account(storage={SLOT_A: 1 if post_tx_fails else 0}),
+            toggler: Account(storage={SLOT_A: 1 if assert_fails else 0}),
         },
     )
 
 
 @pytest.mark.parametrize(
-    "post_tx_fails",
+    "assert_fails",
     [pytest.param(False, id="holds"), pytest.param(True, id="fails")],
 )
 def test_body_revert_drops_scheduled_deletion(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    post_tx_fails: bool,
+    assert_fails: bool,
 ) -> None:
     """
     Drop the deletion the body scheduled for a contract a prefix frame
@@ -736,7 +736,7 @@ def test_body_revert_drops_scheduled_deletion(
     )
     created = compute_create_address(address=factory, nonce=1)
     assertion = pre.deploy_contract(
-        code=Op.REVERT(0, 0) if post_tx_fails else Op.STOP
+        code=Op.REVERT(0, 0) if assert_fails else Op.STOP
     )
 
     state_test(
@@ -753,13 +753,13 @@ def test_body_revert_drops_scheduled_deletion(
                 ),
                 verify_frame(),
                 body_frame(fork, target=created),
-                post_tx_frame(fork, target=assertion),
+                assert_frame(fork, target=assertion),
             ],
         ),
         post={
             sender: Account(nonce=1),
             created: Account(code=bytes(runtime))
-            if post_tx_fails
+            if assert_fails
             else Account.NONEXISTENT,
         },
     )
@@ -823,7 +823,7 @@ def test_frames_before_payment_approval_survive_failed_assertion(
             body_frame(fork, target=prefix_writer),
             verify_frame(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
             body_frame(fork, target=body_writer),
-            post_tx_frame(fork, target=assertion),
+            assert_frame(fork, target=assertion),
         ],
     )
     payer_used, block_gas_used = frame_transaction_gas(
@@ -888,7 +888,7 @@ def test_failed_assertion_keeps_prefix_state_gas(
                 *prefix.frames,
                 verify_frame(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
                 *body.frames,
-                post_tx_frame(fork, target=assertion),
+                assert_frame(fork, target=assertion),
             ],
             expected_receipt=TransactionReceipt(
                 payer=sponsor, frame_receipts=receipts
@@ -930,7 +930,7 @@ def test_failed_assertion_keeps_prefix_storage_change(
                 body_frame(fork, target=counter),
                 verify_frame(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
                 body_frame(fork, target=counter),
-                post_tx_frame(fork, target=assertion),
+                assert_frame(fork, target=assertion),
             ],
             expected_receipt=TransactionReceipt(
                 payer=sponsor,

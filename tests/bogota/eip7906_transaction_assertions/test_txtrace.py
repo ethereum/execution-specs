@@ -53,6 +53,7 @@ from .helpers import (
     WRITER_POST,
     WRITER_STORAGE,
     as_int,
+    assert_frame,
     assertion_transaction,
     body_frame,
     calldata_floor_data,
@@ -62,7 +63,6 @@ from .helpers import (
     frame_max_cost,
     frame_max_gas,
     initcode_word,
-    post_tx_frame,
     reverted_body_receipts,
     success_receipts,
 )
@@ -715,7 +715,7 @@ def test_sponsored_gas_pre_charge(
         frames=[
             verify_frame(flags=Spec8141.APPROVE_EXECUTION),
             verify_frame(target=payer, flags=Spec8141.APPROVE_PAYMENT),
-            post_tx_frame(fork, target=assertion),
+            assert_frame(fork, target=assertion),
         ],
         expected_receipt=TransactionReceipt(
             payer=payer, frame_receipts=success_receipts(3)
@@ -781,7 +781,7 @@ def test_gas_pre_charge_amount(
             * blob_count,
             frames=[
                 verify_frame(),
-                post_tx_frame(fork, target=assertion, data=data),
+                assert_frame(fork, target=assertion, data=data),
             ],
             expected_receipt=TransactionReceipt(
                 payer=sender, frame_receipts=success_receipts(2)

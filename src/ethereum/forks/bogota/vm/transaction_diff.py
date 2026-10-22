@@ -1,11 +1,11 @@
 """
 State diff of the executing frame transaction, as exposed to its
-`POST_TX` assertion frames by the [EIP-7906] instructions.
+`ASSERT` assertion frames by the [EIP-7906] instructions.
 
 The diff is the net difference between the transaction prestate, the
 state before any write made in relation to the transaction with the gas
 payment included, and the state as of the reading instruction. Writes
-that later restore the prestate value leave no entry. `POST_TX` frames
+that later restore the prestate value leave no entry. `ASSERT` frames
 run read-only after the execution body. Gas settlement and deferred
 account deletion still follow them: the diff is the state at the read,
 not the final committed state after that cleanup.

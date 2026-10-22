@@ -134,7 +134,7 @@ def as_int(address: Address | EOA) -> int:
 
 def frame_gas(fork: Fork) -> int:
     """
-    Return the execution gas budget of a body or `POST_TX` frame: an
+    Return the execution gas budget of a body or `ASSERT` frame: an
     equal share of the transaction gas cap among the most frames a
     transaction may carry.
     """
@@ -143,15 +143,15 @@ def frame_gas(fork: Fork) -> int:
     return cap // Spec8141.MAX_FRAMES
 
 
-def post_tx_frame(fork: Fork, **overrides: Any) -> Frame:
+def assert_frame(fork: Fork, **overrides: Any) -> Frame:
     """
-    Return a `POST_TX` frame, the trailing assertion frame.
+    Return an `ASSERT` frame, the trailing assertion frame.
 
     Keyword arguments override the corresponding frame fields, for
     variants that differ from the canonical frame in a single field.
     """
     kwargs: Dict[str, Any] = dict(
-        mode=Spec.MODE_POST_TX,
+        mode=Spec.MODE_ASSERT,
         gas_limit=frame_gas(fork),
     )
     kwargs.update(overrides)
@@ -177,7 +177,7 @@ def expect_eq(value: Bytecode | Op, expected: Any) -> Bytecode:
     Return bytecode that reverts unless `value` evaluates to `expected`.
 
     An assertion contract is a sequence of these checks followed by
-    `STOP`: the `POST_TX` frame succeeds only when every check holds,
+    `STOP`: the `ASSERT` frame succeeds only when every check holds,
     which the body's committed effects and the frame's receipt status
     then make observable.
     """
@@ -230,7 +230,7 @@ def assertion_transaction(
     """
     Return a frame transaction whose validation prefix is the sender's
     default-code `VERIFY` frame, followed by the body frames and one
-    `POST_TX` frame per assertion contract, a single one usually.
+    `ASSERT` frame per assertion contract, a single one usually.
     """
     assertions = assertion if isinstance(assertion, list) else [assertion]
     kwargs: Dict[str, Any] = dict(
@@ -238,7 +238,7 @@ def assertion_transaction(
         frames=[
             verify_frame(),
             *body,
-            *[post_tx_frame(fork, target=target) for target in assertions],
+            *[assert_frame(fork, target=target) for target in assertions],
         ],
     )
     if frame_receipts is not None:
@@ -258,7 +258,7 @@ def reverted_body_receipts(
     fork: Fork, body_count: int, *, assertion_halts: bool = False
 ) -> List[FrameReceipt]:
     """
-    Return the receipts of a transaction whose single `POST_TX` frame
+    Return the receipts of a transaction whose single `ASSERT` frame
     failed: the `VERIFY` frame succeeded, the body frames keep their
     success status with their logs emptied, and the assertion frame
     failed.

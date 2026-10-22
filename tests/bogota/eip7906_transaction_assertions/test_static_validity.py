@@ -1,9 +1,9 @@
 """
-Static validity of frame transactions carrying `POST_TX` frames
+Static validity of frame transactions carrying `ASSERT` frames
 (EIP-7906): the mode's suffix rule, its value restriction, and its
 place outside atomic batches.
 
-The first mode value beyond `POST_TX` is rejected by the EIP-8141
+The first mode value beyond `ASSERT` is rejected by the EIP-8141
 suite's `test_first_undefined_frame_mode`, which reads the boundary
 from the fork.
 
@@ -37,7 +37,7 @@ from tests.bogota.eip8141_frame_transactions.helpers import (
 )
 from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
 
-from .helpers import post_tx_frame, success_receipts
+from .helpers import assert_frame, success_receipts
 from .spec import ref_spec_7906
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7906.git_path
@@ -52,73 +52,73 @@ INVALID_FRAME_LISTS = [
     pytest.param(
         lambda fork, noop, _: [
             verify_frame(),
-            post_tx_frame(fork, target=noop),
+            assert_frame(fork, target=noop),
             sender_frame(target=noop),
         ],
-        id="sender_after_post_tx",
+        id="sender_after_assert",
     ),
     pytest.param(
         lambda fork, noop, _: [
             verify_frame(),
-            post_tx_frame(fork, target=noop),
+            assert_frame(fork, target=noop),
             default_frame(target=noop),
         ],
-        id="default_after_post_tx",
+        id="default_after_assert",
     ),
     pytest.param(
         lambda fork, noop, _: [
             verify_frame(),
-            post_tx_frame(fork, target=noop),
+            assert_frame(fork, target=noop),
             verify_frame(target=noop, flags=Spec8141.APPROVE_PAYMENT),
         ],
-        id="verify_after_post_tx",
+        id="verify_after_assert",
     ),
     pytest.param(
         lambda fork, noop, _: [
             verify_frame(),
-            post_tx_frame(fork, target=noop, value=1),
+            assert_frame(fork, target=noop, value=1),
         ],
-        id="post_tx_with_value",
+        id="assert_with_value",
     ),
     pytest.param(
         lambda fork, noop, _: [
             verify_frame(),
-            post_tx_frame(fork, target=noop, flags=Spec8141.ATOMIC_BATCH_FLAG),
-            post_tx_frame(fork, target=noop),
+            assert_frame(fork, target=noop, flags=Spec8141.ATOMIC_BATCH_FLAG),
+            assert_frame(fork, target=noop),
         ],
-        id="post_tx_with_atomic_batch_flag",
+        id="assert_with_atomic_batch_flag",
     ),
     pytest.param(
         lambda fork, noop, failure: [
             verify_frame(),
             sender_frame(target=failure, flags=Spec8141.ATOMIC_BATCH_FLAG),
-            post_tx_frame(fork, target=noop),
+            assert_frame(fork, target=noop),
         ],
-        id="batch_ends_on_post_tx",
+        id="batch_ends_on_assert",
     ),
     pytest.param(
         lambda fork, noop, failure: [
             verify_frame(),
             sender_frame(target=noop),
             sender_frame(target=failure, flags=Spec8141.ATOMIC_BATCH_FLAG),
-            post_tx_frame(fork, target=noop),
+            assert_frame(fork, target=noop),
         ],
         id="failing_batch_skips_assertion",
     ),
 ]
 """
-Frame lists breaking one `POST_TX` static rule each: only `POST_TX`
-frames may follow one, a `POST_TX` frame carries no value and no atomic
-batch flag, and no atomic batch may end on a `POST_TX` frame.
+Frame lists breaking one `ASSERT` static rule each: only `ASSERT`
+frames may follow one, an `ASSERT` frame carries no value and no atomic
+batch flag, and no atomic batch may end on an `ASSERT` frame.
 
-The `VERIFY` frame after a `POST_TX` frame carries only the payment
+The `VERIFY` frame after an `ASSERT` frame carries only the payment
 scope, so no rule but the suffix rule rejects it. A failing batch
-before a `POST_TX` frame would skip the assertion and keep the frame
+before an `ASSERT` frame would skip the assertion and keep the frame
 before the batch.
 """
 
 
-def invalid_post_tx_transaction(
+def invalid_assert_transaction(
     pre: Alloc, fork: Fork, frame_list: FrameList
 ) -> Transaction:
     """Return a frame transaction built from one invalid frame list."""
@@ -133,41 +133,41 @@ def invalid_post_tx_transaction(
 
 @pytest.mark.exception_test
 @pytest.mark.parametrize("frame_list", INVALID_FRAME_LISTS)
-def test_post_tx_static_rules(
+def test_assert_frame_static_rules(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     frame_list: FrameList,
 ) -> None:
-    """Reject a frame transaction breaking one `POST_TX` static rule."""
-    tx = invalid_post_tx_transaction(pre, fork, frame_list)
+    """Reject a frame transaction breaking one `ASSERT` static rule."""
+    tx = invalid_assert_transaction(pre, fork, frame_list)
     state_test(pre=pre, tx=tx, post={tx.sender: Account(nonce=0)})
 
 
 @pytest.mark.exception_test
 @pytest.mark.parametrize("frame_list", INVALID_FRAME_LISTS)
-def test_post_tx_static_rules_transaction(
+def test_assert_frame_static_rules_transaction(
     transaction_test: TransactionTestFiller,
     pre: Alloc,
     fork: Fork,
     frame_list: FrameList,
 ) -> None:
     """
-    Assert `test_post_tx_static_rules` on the transaction itself rather
+    Assert `test_assert_frame_static_rules` on the transaction itself rather
     than on a block containing it.
     """
     transaction_test(
-        pre=pre, tx=invalid_post_tx_transaction(pre, fork, frame_list)
+        pre=pre, tx=invalid_assert_transaction(pre, fork, frame_list)
     )
 
 
-def test_post_tx_suffix_valid(
+def test_assert_frame_suffix_valid(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Accept several `POST_TX` frames as the trailing suffix of a
+    Accept several `ASSERT` frames as the trailing suffix of a
     transaction with an execution body.
     """
     sender = pre.fund_eoa()
@@ -177,8 +177,8 @@ def test_post_tx_suffix_valid(
         frames=[
             verify_frame(),
             sender_frame(target=noop),
-            post_tx_frame(fork, target=noop),
-            post_tx_frame(fork, target=noop),
+            assert_frame(fork, target=noop),
+            assert_frame(fork, target=noop),
         ],
         expected_receipt=TransactionReceipt(
             payer=sender, frame_receipts=success_receipts(4)

@@ -28,12 +28,12 @@ from .helpers import (
     TOPIC_2,
     TOPIC_3,
     TOPIC_4,
+    assert_frame,
     assertion_transaction,
     body_frame,
     expect_eq,
     factory_state_gas,
     measured_gas,
-    post_tx_frame,
     probe_overhead,
     success_receipts,
 )
@@ -67,7 +67,7 @@ def fill_on_every_table(
 ) -> None:
     """
     Fill a transaction whose body leaves an entry at index zero of
-    every table, followed by a `POST_TX` frame running `checks`.
+    every table, followed by an `ASSERT` frame running `checks`.
     """
     sender = pre.fund_eoa()
     source = pre.deploy_contract(code=SOURCE_CODE)
@@ -173,7 +173,7 @@ def test_diff_gas_boundary(
         frames=[
             verify_frame(),
             body_frame(fork, target=emitter),
-            post_tx_frame(fork, target=assertion, gas_limit=gas - shortfall),
+            assert_frame(fork, target=assertion, gas_limit=gas - shortfall),
         ],
         expected_receipt=TransactionReceipt(
             payer=sender,

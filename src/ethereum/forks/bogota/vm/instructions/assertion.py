@@ -1,7 +1,7 @@
 """
 Implementations of the [EIP-7906] instructions, which expose the
-executing frame transaction's state diff to its `POST_TX` assertion
-frames. Executing any of them outside a `POST_TX` frame's call
+executing frame transaction's state diff to its `ASSERT` assertion
+frames. Executing any of them outside an `ASSERT` frame's call
 subtree, in a legacy transaction or in a frame of any other mode,
 results in an exceptional halt.
 
@@ -64,19 +64,19 @@ class TraceParameter(UintEnum):
     GAS_PAYER = Uint(0x1A)
 
 
-def post_tx_frame_context(evm: Evm) -> FrameContext:
+def assert_frame_context(evm: Evm) -> FrameContext:
     """
     Return the executing frame transaction's context, or exceptionally
-    halt unless the executing frame is a `POST_TX` frame.
+    halt unless the executing frame is an `ASSERT` frame.
 
     The check keys on the frame, not the call depth, so the diff
-    instructions are valid anywhere in a `POST_TX` frame's call subtree
+    instructions are valid anywhere in an `ASSERT` frame's call subtree
     and nowhere else.
     """
     frame_context = frame_transaction_context(evm)
     frame = frame_context.tx.frames[int(frame_context.current_frame_index)]
-    if frame.mode != FrameMode.POST_TX:
-        raise InvalidParameter("not a POST_TX frame")
+    if frame.mode != FrameMode.ASSERT:
+        raise InvalidParameter("not an ASSERT frame")
     return frame_context
 
 
@@ -119,7 +119,7 @@ def txtrace(evm: Evm) -> None:
     and halt on a non-zero one. The gas pre-charge is the payer's
     escrow, the transaction's maximum cost with blob fees included.
     The payer is the address that approved payment, read as zero by a
-    `POST_TX` frame executing before any frame approved payment, which
+    `ASSERT` frame executing before any frame approved payment, which
     leaves the transaction invalid regardless.
     """
     # STACK
@@ -130,7 +130,7 @@ def txtrace(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_TXTRACE)
 
     # OPERATION
-    frame_context = post_tx_frame_context(evm)
+    frame_context = assert_frame_context(evm)
     diff = transaction_diff(evm.tx_env.state, frame_context)
 
     if param == TraceParameter.BALANCES_CHANGED:
@@ -235,7 +235,7 @@ def eventdatacopy(evm: Evm) -> None:
     )
 
     # OPERATION
-    frame_context = post_tx_frame_context(evm)
+    frame_context = assert_frame_context(evm)
     diff = transaction_diff(evm.tx_env.state, frame_context)
     event = table_entry(diff.events, event_index)
     if Uint(data_start_index) + Uint(size) > ulen(event.data):
