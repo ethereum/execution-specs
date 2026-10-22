@@ -448,3 +448,41 @@ jobs:
         with:
           name: digests-${{ matrix.name }}-${{ matrix.slug }}
           path: digests/
+
+  # A release changes what the ethpandaops/hive-tests dashboards test, so its
+  # image watcher checks now rather than at its next hourly check. Push and
+  # nightly runs leave the release of every channel as it was.
+  announce:
+    name: Announce the release to hive-tests
+    needs: [plan, images]
+    # Also after some images failed: the watcher only reacts to the images
+    # that were published.
+    if: ${{ !cancelled() && needs.plan.outputs.mode == 'release' && needs.images.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    steps:
+      # A failed announcement only warns, since every image is published by
+      # now and hive-tests picks the release up at its hourly check anyway.
+      - name: Get a hive-tests token
+        id: token
+        if: vars.HIVE_TESTS_APP_CLIENT_ID != ''
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.HIVE_TESTS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.HIVE_TESTS_APP_PRIVATE_KEY }}
+          owner: ethpandaops
+          repositories: hive-tests
+          permission-actions: write
+      - name: Run the hive-tests image check
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          TOKEN_STEP: ${{ steps.token.outcome }}
+        run: |
+          if [ "$TOKEN_STEP" = skipped ]; then
+            echo "::notice::HIVE_TESTS_APP_CLIENT_ID is not set, hive-tests picks the release up at its next hourly check"
+          elif [ -z "$GH_TOKEN" ]; then
+            echo "::warning::Getting a hive-tests token failed, hive-tests picks the release up at its next hourly check"
+          else
+            gh workflow run watch-images.yaml --repo ethpandaops/hive-tests --ref master \
+              || echo "::warning::Announcing the release to hive-tests failed, it picks the release up at its next hourly check"
+          fi
