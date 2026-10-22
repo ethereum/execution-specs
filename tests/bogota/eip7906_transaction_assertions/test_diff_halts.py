@@ -1,15 +1,12 @@
 """
 Exceptional halts of the diff instructions (EIP-7906): non-zero
-reserved inputs, undefined parameters, and indices and data ranges
-beyond a table, a view or an event.
+reserved inputs, undefined parameters, indices and data ranges beyond
+a table or an event, and the undefined opcode the EIP dropped.
 """
-
-from typing import Callable
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytecode,
     Fork,
@@ -22,11 +19,8 @@ from .helpers import (
     EVENT_DATA,
     KEY_A,
     SILENT_CODE,
-    TOPIC_1,
-    TOPIC_2,
     assertion_transaction,
     body_frame,
-    expect_eq,
     reverted_body_receipts,
 )
 from .spec import Spec, ref_spec_7906
@@ -57,8 +51,12 @@ pytestmark = pytest.mark.valid_from("EIP7906")
             id="reserved_index_slots_count",
         ),
         pytest.param(
-            Op.TXTRACE(Spec.TXTRACE_CONTRACTS_DEPLOYED, 1),
-            id="reserved_index_deployed_count",
+            Op.TXTRACE(Spec.TXTRACE_CODES_CHANGED, 1),
+            id="reserved_index_codes_count",
+        ),
+        pytest.param(
+            Op.TXTRACE(Spec.TXTRACE_NONCES_CHANGED, 1),
+            id="reserved_index_nonces_count",
         ),
         pytest.param(
             Op.TXTRACE(Spec.TXTRACE_EVENTS_COUNT, 1),
@@ -86,8 +84,28 @@ pytestmark = pytest.mark.valid_from("EIP7906")
             id="index_above_64_bits",
         ),
         pytest.param(
-            Op.TXTRACE(Spec.TXTRACE_DEPLOYED_ADDRESS, 0),
-            id="deployed_index_out_of_bounds",
+            Op.TXTRACE(Spec.TXTRACE_CODE_ADDRESS, 0),
+            id="code_index_out_of_bounds",
+        ),
+        pytest.param(
+            Op.TXTRACE(Spec.TXTRACE_CODE_AFTER, 0),
+            id="code_after_index_out_of_bounds",
+        ),
+        pytest.param(
+            Op.TXTRACE(Spec.TXTRACE_NONCE_ADDRESS, 1),
+            id="nonce_index_out_of_bounds",
+        ),
+        pytest.param(
+            Op.TXTRACE(Spec.TXTRACE_NONCE_AFTER, 1),
+            id="nonce_after_index_out_of_bounds",
+        ),
+        pytest.param(
+            Bytecode(
+                bytes([Spec.UNDEFINED_OPCODE]),
+                popped_stack_items=0,
+                pushed_stack_items=0,
+            ),
+            id="undefined_opcode",
         ),
         pytest.param(
             Op.TXTRACE(Spec.TXTRACE_EVENT_ADDRESS, 2),
@@ -142,8 +160,9 @@ def test_txtrace_halts(
     topic beyond an event's topic count, and a data range past an
     event's data, operands wider than 64 bits included. The halt
     consumes the assertion frame's budget and reverts the body, whose
-    tables hold one changed slot, the payer's balance, no deployment
-    and two events.
+    tables hold one changed slot, the payer's balance, the sender's
+    nonce, no code change and two events. The opcode the EIP dropped is
+    undefined.
     """
     sender = pre.fund_eoa()
     writer = pre.deploy_contract(code=Op.SSTORE(KEY_A, 1) + Op.STOP)
@@ -164,155 +183,6 @@ def test_txtrace_halts(
             assertion=assertion,
             frame_receipts=reverted_body_receipts(
                 fork, 3, assertion_halts=True
-            ),
-        ),
-        post={
-            sender: Account(nonce=1),
-            writer: Account(storage={KEY_A: 0}),
-        },
-    )
-
-
-HaltingRead = Callable[[Address], Bytecode]
-"""Build a halting `TXDIFF` read keyed on the body's writer if needed."""
-
-
-@pytest.mark.parametrize(
-    "halting_read",
-    [
-        pytest.param(
-            lambda _: Op.TXDIFF(Spec.TXDIFF_BALANCE_BEFORE, 0xBEEF, 1),
-            id="reserved_index_balance_before",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(Spec.TXDIFF_BALANCE_AFTER, 0xBEEF, 1),
-            id="reserved_index_balance_after",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(Spec.TXDIFF_CODEHASH_BEFORE, 0xBEEF, 1),
-            id="reserved_index_codehash_before",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(Spec.TXDIFF_CODEHASH_AFTER, 0xBEEF, 1),
-            id="reserved_index_codehash_after",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(Spec.TXDIFF_ADDRESS_SLOTS_COUNT, 0xBEEF, 1),
-            id="reserved_index_slots_count",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(Spec.TXDIFF_ADDRESS_EVENTS_COUNT, 0xBEEF, 1),
-            id="reserved_index_events_count",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(Spec.TXDIFF_ACCOUNT_CHANGE_FLAGS, 0xBEEF, 1),
-            id="reserved_index_flags",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(
-                Spec.TXDIFF_ACCOUNT_CHANGE_FLAGS, 0xBEEF, 2**255
-            ),
-            id="reserved_index_high_bit",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(Spec.TXDIFF_TOPIC_EVENTS_COUNT, TOPIC_1, 1),
-            id="reserved_index_topic_count",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(Spec.TXDIFF_UNDEFINED, 0, 0),
-            id="undefined_param",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(2**64, 0, 0),
-            id="undefined_param_above_64_bits",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(2**255, 0, 0),
-            id="undefined_param_high_bit",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(Spec.TXDIFF_ADDRESS_EVENT_INDEX, 0xBEEF, 0),
-            id="event_index_of_silent_address",
-        ),
-        pytest.param(
-            lambda writer: Op.TXDIFF(
-                Spec.TXDIFF_ADDRESS_EVENT_INDEX, writer, 1
-            ),
-            id="event_index_at_count",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(Spec.TXDIFF_TOPIC_EVENT_INDEX, TOPIC_1, 0),
-            id="topic_index_of_signature_topic",
-        ),
-        pytest.param(
-            lambda _: Op.TXDIFF(Spec.TXDIFF_TOPIC_EVENT_INDEX, TOPIC_2, 1),
-            id="topic_index_at_count",
-        ),
-    ],
-)
-def test_txdiff_halts(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    halting_read: HaltingRead,
-) -> None:
-    """
-    Halt `TXDIFF` exceptionally on a non-zero reserved input, an
-    undefined parameter, and a per-address or per-topic index at or
-    beyond the view's count. The halt consumes the assertion frame's
-    budget and reverts the body, whose writer changed one slot and
-    emitted one event.
-    """
-    sender = pre.fund_eoa()
-    writer = pre.deploy_contract(
-        code=Op.SSTORE(KEY_A, 1) + Op.LOG2(0, 0, TOPIC_1, TOPIC_2) + Op.STOP
-    )
-    assertion = pre.deploy_contract(code=halting_read(writer) + Op.STOP)
-
-    state_test(
-        pre=pre,
-        tx=assertion_transaction(
-            fork,
-            sender,
-            body=[body_frame(fork, target=writer)],
-            assertion=assertion,
-            frame_receipts=reverted_body_receipts(
-                fork, 1, assertion_halts=True
-            ),
-        ),
-        post={
-            sender: Account(nonce=1),
-            writer: Account(storage={KEY_A: 0}),
-        },
-    )
-
-
-def test_txdiff_slot_index_out_of_bounds(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Halt the per-address slot view on a local index equal to the view's
-    count: the writer changed exactly one slot.
-    """
-    sender = pre.fund_eoa()
-    writer = pre.deploy_contract(code=Op.SSTORE(KEY_A, 1) + Op.STOP)
-    assertion = pre.deploy_contract(
-        code=expect_eq(Op.TXDIFF(Spec.TXDIFF_ADDRESS_SLOT_INDEX, writer, 0), 0)
-        + Op.TXDIFF(Spec.TXDIFF_ADDRESS_SLOT_INDEX, writer, 1)
-        + Op.STOP
-    )
-
-    state_test(
-        pre=pre,
-        tx=assertion_transaction(
-            fork,
-            sender,
-            body=[body_frame(fork, target=writer)],
-            assertion=assertion,
-            frame_receipts=reverted_body_receipts(
-                fork, 1, assertion_halts=True
             ),
         ),
         post={
