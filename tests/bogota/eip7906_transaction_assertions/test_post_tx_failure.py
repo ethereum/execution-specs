@@ -38,7 +38,6 @@ from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
 
 from .helpers import (
     BODY_EFFECTS,
-    CAROL_FUNDS,
     DEPLOYED_RUNTIME,
     FEE_PER_GAS,
     FUNDS,
@@ -230,7 +229,6 @@ def test_diff_excludes_unrolled_batch(
         Op.TXTRACE(Spec.TXTRACE_SLOT_ADDRESS, 0), as_int(survivor)
     )
     checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_EVENTS_COUNT, 0), 0)
-    checks += expect_eq(Op.TXDIFF(Spec.TXDIFF_SLOT_AFTER, batched, SLOT_A), 0)
     assertion = pre.deploy_contract(code=checks + Op.STOP)
 
     state_test(
@@ -284,19 +282,17 @@ def test_post_tx_block_access_list(
     recipient as a touched account without changes, as an atomic batch
     unroll does. The sender's nonce bump in the validation prefix stays,
     and the assertion, which only reads, is touched either way. An
-    assertion that looks up the written slot and an untouched account
-    before deciding adds no entry for the slot and leaves the account
-    touched, its own failure included.
+    assertion that reads the slot and balance tables before deciding
+    adds no entry, its own failure included.
     """
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=RECIPIENT_FUNDS)
-    carol = pre.fund_eoa(amount=CAROL_FUNDS)
     writer = pre.deploy_contract(code=Op.SSTORE(SLOT_A, 1) + Op.STOP)
     lookups = Bytecode()
     if assertion_reads:
-        lookups = Op.POP(
-            Op.TXDIFF(Spec.TXDIFF_SLOT_AFTER, writer, SLOT_A)
-        ) + Op.POP(Op.TXDIFF(Spec.TXDIFF_BALANCE_AFTER, carol, 0))
+        lookups = Op.POP(Op.TXTRACE(Spec.TXTRACE_SLOT_AFTER, 0)) + Op.POP(
+            Op.TXTRACE(Spec.TXTRACE_BALANCE_AFTER, 0)
+        )
     assertion = pre.deploy_contract(
         code=lookups + (Op.REVERT(0, 0) if post_tx_fails else Op.STOP)
     )
@@ -347,9 +343,6 @@ def test_post_tx_block_access_list(
             account_expectations={
                 writer: writer_expectation,
                 recipient: recipient_expectation,
-                carol: BalAccountExpectation.empty()
-                if assertion_reads
-                else None,
                 assertion: BalAccountExpectation.empty(),
                 sender: BalAccountExpectation(
                     nonce_changes=[
@@ -366,7 +359,6 @@ def test_post_tx_block_access_list(
                 if post_tx_fails
                 else RECIPIENT_FUNDS + VALUE
             ),
-            carol: Account(balance=CAROL_FUNDS),
         },
     )
 

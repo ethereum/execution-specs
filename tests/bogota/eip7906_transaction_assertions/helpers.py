@@ -47,9 +47,6 @@ BOB_FUNDS = 1_000
 CAROL_FUNDS = 1
 """Funding of an account the body never touches."""
 
-NEVER_EXISTED = Address(0x7906000000000000000000000000000000000001)
-"""An address with no account before or after the transaction."""
-
 VALUE = 7
 
 KEY_A = 0xA1
@@ -126,7 +123,7 @@ FACTORY_CODE = (
 )
 """
 Deploy one contract with runtime code and one whose initcode returns
-nothing, so only the first appears in `contracts_deployed`.
+nothing, so only the first appears in `codes_changed`.
 """
 
 
@@ -451,72 +448,6 @@ def factory_state_gas(fork: Fork) -> int:
     return creation_state_gas(
         fork, creations=2, deposited_bytes=len(DEPLOYED_RUNTIME)
     )
-
-
-@dataclass
-class MixedBody:
-    """
-    The accounts of an execution body that writes slots, writes and
-    restores one, transfers value and deploys contracts.
-    """
-
-    sender: EOA
-    recipient: EOA
-    untouched: EOA
-    writer: Address
-    restorer: Address
-    factory: Address
-    deployed: Address
-    frames: List[Frame] = field(default_factory=list)
-
-    def transaction(self, fork: Fork, assertion: Address) -> Transaction:
-        """Return the body followed by one `POST_TX` frame that holds."""
-        return assertion_transaction(
-            fork,
-            self.sender,
-            body=self.frames,
-            assertion=assertion,
-            frame_receipts=success_receipts(len(self.frames) + 2),
-        )
-
-    def post(self) -> Dict[Address, Account]:
-        """Return the post state the body leaves when it commits."""
-        return {
-            self.sender: Account(nonce=1),
-            self.writer: Account(storage=WRITER_POST),
-            self.restorer: Account(storage={KEY_A: 0}),
-            self.recipient: Account(balance=BOB_FUNDS + VALUE),
-            self.untouched: Account(balance=CAROL_FUNDS),
-            self.factory: Account(nonce=3),
-            self.deployed: Account(nonce=1, code=DEPLOYED_RUNTIME),
-        }
-
-
-def mixed_body(pre: Alloc, fork: Fork) -> MixedBody:
-    """
-    Return a body whose writer updates and sets slots, whose restorer
-    leaves a slot unchanged, which pays a recipient and whose factory
-    deploys a contract, beside an account the body never touches.
-    """
-    factory = pre.deploy_contract(code=FACTORY_CODE)
-    body = MixedBody(
-        sender=pre.fund_eoa(amount=FUNDS),
-        recipient=pre.fund_eoa(amount=BOB_FUNDS),
-        untouched=pre.fund_eoa(amount=CAROL_FUNDS),
-        writer=pre.deploy_contract(code=WRITER_CODE, storage=WRITER_STORAGE),
-        restorer=pre.deploy_contract(code=RESTORER_CODE),
-        factory=factory,
-        deployed=compute_create_address(address=factory, nonce=1),
-    )
-    body.frames = [
-        body_frame(fork, target=body.writer),
-        body_frame(fork, target=body.restorer),
-        body_frame(fork, target=body.recipient, value=VALUE),
-        body_frame(
-            fork, target=body.factory, state_gas_limit=factory_state_gas(fork)
-        ),
-    ]
-    return body
 
 
 DEPLOYER_CODE = (
