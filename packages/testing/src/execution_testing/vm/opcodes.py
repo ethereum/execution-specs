@@ -5785,6 +5785,40 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#F5](https://www.evm.codes/#F5)
     """
 
+    TCREATE = Opcode(
+        0xF6,
+        popped_stack_items=4,
+        pushed_stack_items=1,
+        kwargs=["value", "offset", "size", "salt"],
+        metadata={
+            "init_code_size": 0,
+            "new_memory_size": 0,
+            "old_memory_size": 0,
+            "account_new": True,
+        },
+    )
+    """
+    TCREATE(value, offset, size, salt) = address
+    ----
+
+    Description
+    ----
+    Creates a transient contract whose code and nonce are discarded at the
+    end of the transaction (EIP-8360). Address uses the ``0xfe`` prefix.
+    Opcode ``0xF6`` is a placeholder pending EIP assignment.
+
+    Inputs
+    ----
+    - value: value in wei to send to the new account
+    - offset: byte offset in memory of the initialization code
+    - size: byte size of the initialization code
+    - salt: 32-byte salt for address derivation
+
+    Outputs
+    ----
+    - address: the address of the deployed contract, 0 if creation failed
+    """
+
     STATICCALL = Opcode(
         0xFA,
         popped_stack_items=6,
