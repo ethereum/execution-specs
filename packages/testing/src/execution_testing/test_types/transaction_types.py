@@ -624,7 +624,7 @@ class Transaction(
         if self.frames is not None:
             # EIP-8250: https://eips.ethereum.org/EIPS/eip-8250
             if self.nonce_keys is None:
-                self.nonce_keys = [HexNumber(0)]
+                self.nonce_keys = []
             # EIP-8141: Frame transactions cap their total fee with
             # `max_fee` instead of a fee per gas or per blob gas, and
             # always carry blob versioned hashes.
