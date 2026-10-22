@@ -54,9 +54,6 @@ pytestmark = pytest.mark.valid_from("EIP7906")
 
 DIFF_INSTRUCTIONS = [
     pytest.param(Op.TXTRACE(Spec.TXTRACE_BALANCES_CHANGED, 0), id="txtrace"),
-    pytest.param(
-        Op.TXDIFF(Spec.TXDIFF_ADDRESS_SLOTS_COUNT, 0, 0), id="txdiff"
-    ),
     pytest.param(Op.EVENTDATACOPY(0, 0, 0, 0), id="eventdatacopy"),
 ]
 """One minimal use of each diff instruction."""
@@ -442,7 +439,7 @@ def test_diff_instructions_in_subcall(
     )
     reader = pre.deploy_contract(
         code=Op.MSTORE(0, Op.TXTRACE(Spec.TXTRACE_SLOTS_CHANGED, 0))
-        + Op.MSTORE(32, Op.TXDIFF(Spec.TXDIFF_SLOT_AFTER, writer, SLOT_A))
+        + Op.MSTORE(32, Op.TXTRACE(Spec.TXTRACE_SLOT_AFTER, 0))
         + Op.EVENTDATACOPY(0, 64, 0, 32)
         + Op.RETURN(0, 96)
     )
