@@ -329,12 +329,15 @@ def test_returndatasize_after_rejection(
 ) -> None:
     """
     Test that the return data after a withheld address is the same as after
-    an invalid signature.
+    an invalid signature, even when a recovery just filled the return data
+    buffer.
 
     Some verifiers, such as Solady's `ECDSA.recover`, detect a failed
     recovery from `RETURNDATASIZE` alone, so they treat a rejection the
     same way as a failed recovery only if the sizes match.
     """
+    permitted = pre.fund_eoa()
+    permitted_v, permitted_r, permitted_s = permitted.sign_digest(DIGEST)
     signer = pre.fund_eoa(code=CONTRACT_CODE)
     v, r, s = signer.sign_digest(DIGEST)
     if signature == "valid":
@@ -344,14 +347,29 @@ def test_returndatasize_after_rejection(
     else:
         raise ValueError(f"unknown signature: {signature}")
 
+    # The first recovery leaves 32 bytes of return data, so the call under
+    # test has to clear them.
     storage = Storage()
     caller = pre.deploy_contract(
-        Op.CALLDATACOPY(0, 0, INPUT_SIZE)
+        Op.CALLDATACOPY(0, 0, 2 * INPUT_SIZE)
+        + Op.POP(
+            Op.STATICCALL(
+                address=Spec.ECRECOVER,
+                args_offset=0,
+                args_size=INPUT_SIZE,
+                ret_offset=0,
+                ret_size=0,
+            )
+        )
+        + Op.SSTORE(
+            storage.store_next(32, "recovered_returndatasize"),
+            Op.RETURNDATASIZE,
+        )
         + Op.SSTORE(
             storage.store_next(1, "success"),
             Op.STATICCALL(
                 address=Spec.ECRECOVER,
-                args_offset=0,
+                args_offset=INPUT_SIZE,
                 args_size=INPUT_SIZE,
                 ret_offset=0,
                 ret_size=0,
@@ -365,7 +383,17 @@ def test_returndatasize_after_rejection(
 
     tx = Transaction(
         to=caller,
-        data=EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s),
+        data=bytes(
+            EcrecoverInput(
+                msg_hash=int.from_bytes(DIGEST),
+                v=permitted_v,
+                r=permitted_r,
+                s=permitted_s,
+            )
+        )
+        + bytes(
+            EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s)
+        ),
         sender=pre.fund_eoa(),
     )
 
@@ -434,43 +462,56 @@ def test_transaction_to_ecrecover(
     )
 
 
-@pytest.mark.pre_alloc_mutable
-def test_skipped_authorization_warms_rejected_signer(
+@pytest.mark.parametrize(
+    "authorization",
+    [
+        pytest.param("applied", id="applied"),
+        pytest.param(
+            "skipped", id="skipped", marks=pytest.mark.pre_alloc_mutable
+        ),
+    ],
+)
+def test_authorization_warms_signer(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    authorization: str,
 ) -> None:
     """
-    Test that an authorization skipped because its authority has code other
-    than a delegation designation still warms the authority, and that
-    ecrecover then withholds the authority's address.
+    Test that an authorization warms its authority for ecrecover, whether
+    it is applied or skipped because the authority has code other than a
+    delegation designation.
 
     Authorizations are applied before execution, so ecrecover sees the
-    state they leave.
+    state they leave: a new delegation returns the address and a skipped
+    authorization leaves the code that withholds it.
     """
-    signer = pre.fund_eoa(code=CONTRACT_CODE)
+    delegate = pre.deploy_contract(Op.STOP)
+    if authorization == "applied":
+        signer = pre.fund_eoa()
+        output_word = int.from_bytes(signer)
+        post_code = Spec.DELEGATION_MARKER + bytes(delegate)
+        post_nonce = int(signer.nonce) + 1
+    elif authorization == "skipped":
+        signer = pre.fund_eoa(code=CONTRACT_CODE)
+        output_word = SENTINEL
+        post_code = bytes(CONTRACT_CODE)
+        # A skipped authorization leaves the nonce as it was.
+        post_nonce = int(signer.nonce)
+    else:
+        raise ValueError(f"unknown authorization: {authorization}")
     v, r, s = signer.sign_digest(DIGEST)
 
-    # The authority is warmed before its code is checked, so the BALANCE
-    # before ecrecover reads it warm.
-    balance = Op.BALANCE(signer)
-    warm_balance = Op.BALANCE.with_metadata(address_warm=True)
+    # The authority is warmed before its code is checked, so the warm price
+    # is enough in both cases.
     storage = Storage()
     caller = pre.deploy_contract(
-        CodeGasMeasure(
-            code=balance,
-            overhead_cost=balance.gas_cost(fork)
-            - Op.BALANCE.with_metadata(address_warm=False).gas_cost(fork),
-            extra_stack_items=1,
-            sstore_key=storage.store_next(
-                warm_balance.gas_cost(fork), "balance_gas"
-            ),
-        )
-        + Op.CALLDATACOPY(0, 0, INPUT_SIZE)
+        Op.CALLDATACOPY(0, 0, INPUT_SIZE)
         + Op.MSTORE(OUTPUT_OFFSET, SENTINEL)
         + Op.SSTORE(
             storage.store_next(1, "success"),
             Op.STATICCALL(
+                gas=fork.ecrecover_gas(recovered=True, address_warm=True),
                 address=Spec.ECRECOVER,
                 args_offset=0,
                 args_size=INPUT_SIZE,
@@ -479,8 +520,10 @@ def test_skipped_authorization_warms_rejected_signer(
             ),
         )
         + Op.SSTORE(
-            storage.store_next(SENTINEL, "output"), Op.MLOAD(OUTPUT_OFFSET)
+            storage.store_next(output_word, "output"),
+            Op.MLOAD(OUTPUT_OFFSET),
         ),
+        storage=storage.canary(),
     )
 
     tx = Transaction(
@@ -488,7 +531,7 @@ def test_skipped_authorization_warms_rejected_signer(
         data=EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s),
         authorization_list=[
             AuthorizationTuple(
-                address=pre.deploy_contract(Op.STOP),
+                address=delegate,
                 nonce=signer.nonce,
                 signer=signer,
             ),
@@ -496,12 +539,11 @@ def test_skipped_authorization_warms_rejected_signer(
         sender=pre.fund_eoa(),
     )
 
-    # The skipped authorization leaves the code and the nonce as they were.
     state_test(
         pre=pre,
         post={
             caller: Account(storage=storage),
-            signer: Account(code=CONTRACT_CODE, nonce=signer.nonce),
+            signer: Account(code=post_code, nonce=post_nonce),
         },
         tx=tx,
     )
