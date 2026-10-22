@@ -179,6 +179,7 @@ def test_factory_deploys_contract(
 def test_factory_address_collision_reverts(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     destroy_before_retry: bool,
 ) -> None:
     """
@@ -186,7 +187,8 @@ def test_factory_address_collision_reverts(
 
     SELFDESTRUCT schedules deletion at transaction end under EIP-6780.
     Until then the code and nonce still prevent another creation, including
-    under EIP-8246. Reverting the retry restores the factory nonce.
+    under EIP-8246. Under EIP-4758 the account is never deleted. Reverting
+    the retry restores the factory nonce.
     """
     salt = 0x77
     beneficiary = pre.fund_eoa(amount=0)
@@ -256,7 +258,7 @@ def test_factory_address_collision_reverts(
             caller: Account(storage=storage),
             target: (
                 Account.NONEXISTENT
-                if destroy_before_retry
+                if destroy_before_retry and not fork.is_eip_enabled(4758)
                 else Account(nonce=1, code=bytes(runtime_code))
             ),
             FACTORY: Account(nonce=2, code=Spec.FACTORY_BYTECODE),

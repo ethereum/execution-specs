@@ -211,7 +211,8 @@ def test_create_selfdestruct_same_tx(
     Use CREATE or CREATE2 to create a self-destructing contract, and call it in
     the same transaction.
 
-    Behavior should be the same before and after EIP-6780.
+    Behavior should be the same before and after EIP-6780. Under EIP-4758
+    the contract is not deleted.
 
     Test using:
         - Different send-all recipient addresses: single, multiple,
@@ -338,8 +339,8 @@ def test_create_selfdestruct_same_tx(
                 selfdestruct_contract_current_balance
             )
             selfdestruct_contract_current_balance = 0
-        elif not fork.is_eip_enabled(8246):
-            # per EIP-8246
+        elif not fork.is_eip_enabled(8246) and not fork.is_eip_enabled(4758):
+            # per EIP-8246 and EIP-4758
             selfdestruct_contract_current_balance = 0
 
         entry_code += Op.SSTORE(
@@ -383,7 +384,17 @@ def test_create_selfdestruct_same_tx(
     for address, balance in sendall_final_balances.items():
         post[address] = Account(balance=balance, storage={0: 1})
 
-    if fork.is_eip_enabled(8246) and selfdestruct_contract_current_balance > 0:
+    if fork.is_eip_enabled(4758):
+        # Under EIP-4758 the account persists with its code and storage.
+        post[selfdestruct_contract_address] = Account(
+            balance=selfdestruct_contract_current_balance,
+            nonce=1,
+            code=selfdestruct_code,
+            storage={0: call_times},
+        )
+    elif (
+        fork.is_eip_enabled(8246) and selfdestruct_contract_current_balance > 0
+    ):
         # per EIP-8246
         post[selfdestruct_contract_address] = Account(
             balance=selfdestruct_contract_current_balance,
@@ -429,7 +440,8 @@ def test_self_destructing_initcode(
     """
     Test that a contract can self-destruct in its initcode.
 
-    Behavior is the same before and after EIP-6780.
+    Behavior is the same before and after EIP-6780. Under EIP-4758 the
+    contract is deployed with empty code and keeps its storage.
 
     Test using:
         - Different initial balances for the self-destructing contract
@@ -544,6 +556,14 @@ def test_self_destructing_initcode(
             balance=sendall_amount, storage={0: 1}
         ),
     }
+    if fork.is_eip_enabled(4758):
+        # Under EIP-4758 the account persists with empty code and storage.
+        post[selfdestruct_contract_address] = Account(
+            balance=entry_code_balance,
+            nonce=1,
+            code=b"",
+            storage={0: 1},
+        )
 
     expected_logs = []
     if fork.is_eip_enabled(7708):
@@ -593,7 +613,8 @@ def test_self_destructing_initcode_create_tx(
     """
     Use a Create Transaction to execute a self-destructing initcode.
 
-    Behavior should be the same before and after EIP-6780.
+    Behavior should be the same before and after EIP-6780. Under EIP-4758
+    the contract is deployed with empty code and keeps its storage.
 
     Test using:
       - Different initial balances for the self-destructing contract
@@ -622,6 +643,11 @@ def test_self_destructing_initcode_create_tx(
             balance=sendall_amount, storage={0: 1}
         ),
     }
+    if fork.is_eip_enabled(4758):
+        # Under EIP-4758 the account persists with empty code and storage.
+        post[selfdestruct_contract_address] = Account(
+            balance=0, nonce=1, code=b"", storage={0: 1}
+        )
 
     if fork.is_eip_enabled(7708):
         expected_logs = []
@@ -683,7 +709,8 @@ def test_recreate_self_destructed_contract_different_txs(
     Test that a contract can be recreated after it has self-destructed, over
     the lapse of multiple transactions.
 
-    Behavior should be the same before and after EIP-6780.
+    Behavior should be the same before and after EIP-6780. Under EIP-4758
+    the contract is never deleted, so every re-creation collides.
 
     Test using:
       - Different initial balances for the self-destructing contract
@@ -733,7 +760,13 @@ def test_recreate_self_destructed_contract_different_txs(
 
     entry_code += Op.STOP
 
-    entry_code_address = pre.deploy_contract(code=entry_code)
+    # Under EIP-4758 the re-creation witness slots start at a sentinel.
+    entry_code_address = pre.deploy_contract(
+        code=entry_code,
+        storage=dict.fromkeys(range(1, recreate_times + 1), 0xDEADBEEF)
+        if fork.is_eip_enabled(4758)
+        else {},
+    )
     selfdestruct_contract_address = compute_create_address(
         address=entry_code_address,
         initcode=selfdestruct_contract_initcode,
@@ -778,7 +811,11 @@ def test_recreate_self_destructed_contract_different_txs(
                 expected_receipt=expected_receipt,
             )
         )
-        entry_code_storage[i] = selfdestruct_contract_address
+        if i > 0 and fork.is_eip_enabled(4758):
+            # Under EIP-4758 the re-creation collides and returns zero.
+            entry_code_storage[i] = 0
+        else:
+            entry_code_storage[i] = selfdestruct_contract_address
 
     post: Dict[Address, Account] = {
         entry_code_address: Account(
@@ -788,7 +825,17 @@ def test_recreate_self_destructed_contract_different_txs(
     self_target = (
         sendall_recipient_addresses[0] == selfdestruct_contract_address
     )
-    if (
+    if fork.is_eip_enabled(4758):
+        # Under EIP-4758 the first deployment persists.
+        post[selfdestruct_contract_address] = Account(
+            balance=selfdestruct_contract_initial_balance
+            if self_target
+            else 0,
+            nonce=1,
+            code=selfdestruct_code,
+            storage={0: call_times},
+        )
+    elif (
         fork.is_eip_enabled(8246)
         and self_target
         and selfdestruct_contract_initial_balance > 0
@@ -1211,7 +1258,7 @@ def test_calling_from_new_contract_to_pre_existing_contract(
     """
     Test that if an account created in the current transaction delegate-call a
     previously created account that executes self-destruct, the calling account
-    is deleted.
+    is deleted. Under EIP-4758 the calling account persists.
     """
     pre_existing_selfdestruct_address = pre.deploy_contract(
         selfdestruct_code_preset(
@@ -1326,6 +1373,14 @@ def test_calling_from_new_contract_to_pre_existing_contract(
             balance=sendall_amount, storage={0: 1}
         ),
     }
+    if fork.is_eip_enabled(4758):
+        # Under EIP-4758 the calling account persists with its storage.
+        post[selfdestruct_contract_address] = Account(
+            balance=0,
+            nonce=1,
+            code=selfdestruct_code,
+            storage={0: call_times},
+        )
 
     tx = Transaction(
         value=entry_code_balance,
@@ -1585,7 +1640,7 @@ def test_create_selfdestruct_same_tx_increased_nonce(
     """
     Verify that a contract can self-destruct if it was created in the same
     transaction, even when its nonce has been increased due to contract
-    creation.
+    creation. Under EIP-4758 the contract persists with the increased nonce.
     """
     initcode = Op.RETURN(0, 1)
     selfdestruct_pre_bytecode = Op.MSTORE(
@@ -1769,7 +1824,16 @@ def test_create_selfdestruct_same_tx_increased_nonce(
             code=b"\x00",
         )
 
-    post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
+    if fork.is_eip_enabled(4758):
+        # Under EIP-4758 the account persists with one nonce per CREATE.
+        post[selfdestruct_contract_address] = Account(
+            balance=0,
+            nonce=1 + call_times,
+            code=selfdestruct_code,
+            storage={0: call_times},
+        )
+    else:
+        post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
 
     if fork.is_eip_enabled(7708):
         expected_logs = []
@@ -1800,7 +1864,8 @@ def test_create_and_destroy_multiple_contracts_same_tx(
 
     Each contract is created via CREATE2 with different salts and then called
     to trigger self-destruction. All contracts should be deleted because they
-    are destroyed in the same transaction they were created.
+    are destroyed in the same transaction they were created, except under
+    EIP-4758 where all of them persist.
     """
     entry_code_storage = Storage()
 
@@ -1892,7 +1957,13 @@ def test_create_and_destroy_multiple_contracts_same_tx(
 
     # All created contracts should be non-existent
     for addr in contract_addresses:
-        post[addr] = Account.NONEXISTENT  # type: ignore
+        if fork.is_eip_enabled(4758):
+            # Under EIP-4758 every contract persists with its storage.
+            post[addr] = Account(
+                balance=0, nonce=1, code=selfdestruct_code, storage={0: 1}
+            )
+        else:
+            post[addr] = Account.NONEXISTENT  # type: ignore
 
     if fork.is_eip_enabled(7708):
         # Each contract SELFDESTRUCTs to a shared recipient after being created
@@ -1928,7 +1999,8 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
     Test creating multiple contracts in one transaction, destroying only one
     of them, then attempting to destroy the other in a subsequent transaction.
 
-    Contract A: Self-destructs in the same transaction as creation (deleted)
+    Contract A: Self-destructs in the same transaction as creation (deleted,
+                persists under EIP-4758)
     Contract B: Does NOT self-destruct in creation tx, attempted destruction
                 in subsequent tx (persists after EIP-6780)
     """
@@ -2068,9 +2140,14 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
 
     post: Dict[Address, Account] = {
         entry_code_address: Account(storage=entry_code_storage),
-        # Contract A is always destroyed (created and destroyed same tx)
+        # Contract A is destroyed (created and destroyed same tx)
         contract_a_address: Account.NONEXISTENT,  # type: ignore
     }
+    if fork.is_eip_enabled(4758):
+        # Under EIP-4758 contract A persists with its storage.
+        post[contract_a_address] = Account(
+            balance=0, nonce=1, code=selfdestruct_code, storage={0: 1}
+        )
 
     if eip_enabled:
         # After EIP-6780: Contract B persists (not destroyed in same tx)
@@ -2114,7 +2191,7 @@ def test_parent_creates_child_selfdestruct_one(
     - If destroy_parent=False: Child self-destructs, parent survives
 
     Since both are created in the same tx, whichever self-destructs should be
-    deleted.
+    deleted, except under EIP-4758 where both persist.
     """
     entry_code_storage = Storage()
 
@@ -2195,7 +2272,16 @@ def test_parent_creates_child_selfdestruct_one(
     }
 
     if destroy_parent:
-        post[parent_address] = Account.NONEXISTENT  # type: ignore
+        if fork.is_eip_enabled(4758):
+            # Under EIP-4758 the parent persists with its storage.
+            post[parent_address] = Account(
+                balance=0,
+                nonce=2,
+                code=parent_code,
+                storage={0: 1, 1: child_address},
+            )
+        else:
+            post[parent_address] = Account.NONEXISTENT  # type: ignore
         post[child_address] = Account(
             storage={0: 0},
             balance=selfdestruct_contract_initial_balance,
@@ -2205,7 +2291,13 @@ def test_parent_creates_child_selfdestruct_one(
             storage={0: 1},
         )
     else:
-        post[child_address] = Account.NONEXISTENT  # type: ignore
+        if fork.is_eip_enabled(4758):
+            # Under EIP-4758 the child persists with its storage.
+            post[child_address] = Account(
+                balance=0, nonce=1, code=child_code, storage={0: 1}
+            )
+        else:
+            post[child_address] = Account.NONEXISTENT  # type: ignore
         post[parent_address] = Account(
             storage={0: 1, 1: child_address},
             balance=selfdestruct_contract_initial_balance,
@@ -2257,7 +2349,7 @@ def test_recursive_contract_creation_and_selfdestruct(
     - selfdestruct_on_unwind=False: Only the deepest contract self-destructs
 
     All contracts are created in the same transaction, so any that
-    self-destruct should be deleted.
+    self-destruct should be deleted, except under EIP-4758 where all persist.
     """
     entry_code_storage = Storage()
 
@@ -2372,15 +2464,36 @@ def test_recursive_contract_creation_and_selfdestruct(
     if selfdestruct_on_unwind:
         # All contracts self-destruct
         total_sendall = selfdestruct_contract_initial_balance * recursion_depth
-        for addr in contract_addresses:
-            post[addr] = Account.NONEXISTENT  # type: ignore
+        for i, addr in enumerate(contract_addresses):
+            if fork.is_eip_enabled(4758):
+                # Under EIP-4758 every contract persists with its storage.
+                deepest = i == len(contract_addresses) - 1
+                post[addr] = Account(
+                    balance=0,
+                    nonce=1 if deepest else 2,
+                    code=level_codes[recursion_depth - 1 - i],
+                    storage={0: 1}
+                    if deepest
+                    else {0: 1, 1: contract_addresses[i + 1]},
+                )
+            else:
+                post[addr] = Account.NONEXISTENT  # type: ignore
     else:
         # Only the deepest contract (last in list) self-destructs
         total_sendall = selfdestruct_contract_initial_balance
         for i, addr in enumerate(contract_addresses):
             if i == len(contract_addresses) - 1:
-                # Deepest - destroyed
-                post[addr] = Account.NONEXISTENT  # type: ignore
+                if fork.is_eip_enabled(4758):
+                    # Under EIP-4758 the deepest contract persists.
+                    post[addr] = Account(
+                        balance=0,
+                        nonce=1,
+                        code=level_codes[0],
+                        storage={0: 1},
+                    )
+                else:
+                    # Deepest - destroyed
+                    post[addr] = Account.NONEXISTENT  # type: ignore
             else:
                 # Survives with storage: slot 0 = call count, slot 1 = child
                 # Retains its initial balance since it didn't self-destruct

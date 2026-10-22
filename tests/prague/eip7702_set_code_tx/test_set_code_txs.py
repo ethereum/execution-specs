@@ -2134,6 +2134,7 @@ def test_set_code_to_account_deployed_in_same_tx(
 def test_set_code_to_self_destructing_account_deployed_in_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     create_opcode: Op,
     call_set_code_first: bool,
     external_sendall_recipient: bool,
@@ -2208,7 +2209,17 @@ def test_set_code_to_self_destructing_account_deployed_in_same_tx(
     )
 
     post = {
-        deployed_contract_address: Account.NONEXISTENT,
+        deployed_contract_address: (
+            # SENDALL keeps the account created in the same transaction.
+            Account(
+                balance=0,
+                nonce=1,
+                code=deployed_code,
+                storage={success_slot: 1},
+            )
+            if fork.is_eip_enabled(4758)
+            else Account.NONEXISTENT
+        ),
         auth_signer: Account(
             nonce=1,
             code=Spec.delegation_designation(deployed_contract_address),

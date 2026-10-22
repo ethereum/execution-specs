@@ -358,7 +358,12 @@ def test_selfdestruct_to_self_in_create_tx(
         ],
         post={
             contract: Account(balance=0, nonce=2),
-            created: Account(balance=1, nonce=0, code=b""),
+            # Under EIP-4758 the account is not cleared and keeps nonce 1.
+            created: Account(
+                balance=1,
+                nonce=1 if fork.is_eip_enabled(4758) else 0,
+                code=b"",
+            ),
         },
     )
 
@@ -507,7 +512,17 @@ def test_create_selfdestruct_no_refund_account_and_storage(
     )
 
     created = compute_create_address(
-        address=factory, nonce=1, opcode=create_opcode
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=init_code,
+        opcode=create_opcode,
+    )
+    # Under EIP-4758 the account and its storage persist.
+    created_post = (
+        Account(nonce=1, code=b"", storage=dict.fromkeys(range(num_slots), 1))
+        if fork.is_eip_enabled(4758)
+        else Account.NONEXISTENT
     )
 
     blockchain_test(
@@ -515,7 +530,7 @@ def test_create_selfdestruct_no_refund_account_and_storage(
         blocks=[
             Block(txs=[tx], header_verify=Header(gas_used=expected_gas_used)),
         ],
-        post={created: Account.NONEXISTENT},
+        post={created: created_post},
     )
 
 
@@ -595,12 +610,19 @@ def test_create_selfdestruct_no_refund_code_deposit_state_gas(
         sender=pre.fund_eoa(),
     )
 
+    # Under EIP-4758 the account and its deployed code persist.
+    created_post = (
+        Account(balance=0, nonce=1, code=deployed, storage={})
+        if fork.is_eip_enabled(4758)
+        else Account.NONEXISTENT
+    )
+
     blockchain_test(
         pre=pre,
         blocks=[
             Block(txs=[tx], header_verify=Header(gas_used=total_state_gas))
         ],
-        post={created_address: Account.NONEXISTENT},
+        post={created_address: created_post},
     )
 
 
@@ -661,6 +683,13 @@ def test_create_selfdestruct_code_deposit_no_refund_header_check(
     )
     expected_gas_used = max(baseline_block_execution, total_state_gas)
 
+    # Under EIP-4758 the account and its deployed code persist.
+    created_post = (
+        Account(balance=0, nonce=1, code=deployed, storage={})
+        if fork.is_eip_enabled(4758)
+        else Account.NONEXISTENT
+    )
+
     blockchain_test(
         pre=pre,
         blocks=[
@@ -669,7 +698,7 @@ def test_create_selfdestruct_code_deposit_no_refund_header_check(
                 header_verify=Header(gas_used=expected_gas_used),
             ),
         ],
-        post={created_address: Account.NONEXISTENT},
+        post={created_address: created_post},
     )
 
 
@@ -911,7 +940,12 @@ def test_selfdestruct_via_delegatecall_chain_no_refund(
             )
         ],
         post={
-            created_address: Account.NONEXISTENT,
+            # Under EIP-4758 the account and its deployed code persist.
+            created_address: (
+                Account(balance=0, nonce=1, code=deployed, storage={})
+                if fork.is_eip_enabled(4758)
+                else Account.NONEXISTENT
+            ),
             factory: Account(storage=factory_storage),
         },
     )
