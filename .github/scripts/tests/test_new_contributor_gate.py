@@ -299,6 +299,7 @@ def test_messages_name_the_author_and_link_the_guide() -> None:
         assert "@alice" in message
         assert CONTRIBUTING in message
         assert f"{CONTRIBUTING}#" in message
+        assert m.RND_DISCORD in message
         assert message.endswith(m.MARKER)
         assert "{" not in message
 

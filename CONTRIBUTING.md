@@ -43,7 +43,7 @@ Pull requests without a linked issue assigned to their author are closed automat
 - Contributors without write access can have at most 2 open pull requests, drafts included.
 - First-time contributors can have at most 2 open issues. Further issues are closed automatically.
 
-If you are an EIP author or part of an EL client or tooling team, message us in `#el-testing` on the [Ethereum R&D Discord](https://discord.com/invite/qGpsxSA) or on the STEEL Discord server to get added to the bypass list.
+If you are an EIP author or part of an EL client or tooling team, message us in `#el-testing` on the [Ethereum R&D Discord](https://discord.com/invite/qGpsxSA) to get added to the bypass list.
 
 ## Code of Conduct
 

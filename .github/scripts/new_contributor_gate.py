@@ -46,7 +46,7 @@ BYPASS = CONFIGS / "new-contributor-gate-bypass.txt"
 
 MAX_OPEN_ISSUES = 2
 
-# The sweep runs every 15 minutes, so this window also covers late runs.
+# The sweep runs hourly, so this window also covers late or dropped runs.
 SWEEP_HOURS = 3
 
 # Hidden in every comment the gate posts, so the sweep can tell a pull
@@ -65,21 +65,27 @@ REFERENCE = re.compile(
 )
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 
-PR_MESSAGE = """\
-Thanks for your interest in contributing, @{author}! This pull request \
-was closed automatically because it does not link an issue assigned to \
-you, and your branch is untouched.
+RND_DISCORD = "https://discord.com/invite/qGpsxSA"
+BYPASS_HELP = f"""\
+If you are an EIP author or part of an EL client or tooling team, message \
+us in `#el-testing` on the [Ethereum R&D Discord]({RND_DISCORD}) to get \
+added to the bypass list."""
 
-See [First-time contributors]({contributing}#first-time-contributors) \
-for the three steps to follow, and [Limits]({contributing}#limits) if \
-you should be on the bypass list."""
+PR_MESSAGE = f"""\
+Thanks for your interest in contributing, @{{author}}! Our review \
+resources are constrained, so this pull request was closed automatically \
+because it does not link an issue assigned to you. Your branch is \
+untouched.
 
-ISSUE_MESSAGE = """\
-Thanks for opening this issue, @{author}! It was closed automatically \
-because you already have {max_issues} open issues. Please wait for a \
-reply on those.
+See [First-time contributors]({{contributing}}#first-time-contributors) \
+for the steps to follow. {BYPASS_HELP}"""
 
-See [Limits]({contributing}#limits) for the rule and the bypass list."""
+ISSUE_MESSAGE = f"""\
+Thanks for opening this issue, @{{author}}! Our review resources are \
+constrained, so it was closed automatically because you already have \
+{{max_issues}} open issues. Please wait for a reply on those.
+
+See [Limits]({{contributing}}#limits) for the rule. {BYPASS_HELP}"""
 
 
 def bypassed(path: Path = BYPASS) -> set[str]:

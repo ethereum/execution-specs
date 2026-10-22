@@ -19,7 +19,8 @@ on:
   issues:
     types: [ opened, reopened ]
   schedule:
-    - cron: '*/15 * * * *'
+    # Avoid the top of the hour, when scheduled runs are most often delayed.
+    - cron: '17 * * * *'
 
 permissions:
   contents: read
