@@ -20,6 +20,7 @@ from execution_testing import (
     Bytecode,
     Bytes,
     CodeGasMeasure,
+    Environment,
     Fork,
     Op,
     StateTestFiller,
@@ -374,6 +375,185 @@ def test_repeated_recovery(
             first_caller: Account(storage=first_storage),
             second_caller: Account(storage=second_storage),
         },
+    )
+
+
+@pytest.mark.parametrize(
+    "recoverer_outcome",
+    [
+        pytest.param("success", id="success"),
+        pytest.param("revert", id="revert"),
+        pytest.param("invalid", id="invalid"),
+    ],
+)
+def test_warmth_after_recovering_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    recoverer_outcome: str,
+) -> None:
+    """
+    Test that a signer warmed by a recovery stays warm for the caller only
+    when the frame that recovered it succeeds.
+
+    A revert or an exceptional halt restores the warm set, so the warm price
+    then runs out of gas. The read itself stays in the block access list
+    either way, which also shows the recovery in a failed frame was paid.
+    """
+    signer = pre.fund_eoa()
+    v, r, s = signer.sign_digest(DIGEST)
+
+    if recoverer_outcome == "success":
+        recoverer_exit: Bytecode = Op.STOP
+        recoverer_success = 1
+        signer_warm = True
+    elif recoverer_outcome == "revert":
+        recoverer_exit = Op.REVERT(0, 0)
+        recoverer_success = 0
+        signer_warm = False
+    elif recoverer_outcome == "invalid":
+        recoverer_exit = Op.INVALID
+        recoverer_success = 0
+        signer_warm = False
+    else:
+        raise ValueError(f"unknown recoverer outcome: {recoverer_outcome}")
+
+    recoverer = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, INPUT_SIZE)
+        + Op.POP(
+            Op.STATICCALL(
+                gas=fork.ecrecover_gas(recovered=True, address_warm=False),
+                address=Spec.ECRECOVER,
+                args_offset=0,
+                args_size=INPUT_SIZE,
+                ret_offset=0,
+                ret_size=0,
+            )
+        )
+        + recoverer_exit
+    )
+
+    storage = Storage()
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, INPUT_SIZE)
+        + Op.SSTORE(
+            storage.store_next(recoverer_success, "recoverer_success"),
+            Op.CALL(address=recoverer, args_offset=0, args_size=INPUT_SIZE),
+        )
+        + Op.SSTORE(
+            storage.store_next(int(signer_warm), "warm_price_call"),
+            Op.STATICCALL(
+                gas=fork.ecrecover_gas(recovered=True, address_warm=True),
+                address=Spec.ECRECOVER,
+                args_offset=0,
+                args_size=INPUT_SIZE,
+                ret_offset=OUTPUT_OFFSET,
+                ret_size=32,
+            ),
+        ),
+        storage=storage.canary(),
+    )
+
+    tx = Transaction(
+        to=caller,
+        data=EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s),
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        pre=pre,
+        post={caller: Account(storage=storage)},
+        tx=tx,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={signer: BalAccountExpectation.empty()}
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "warmed_as",
+    [
+        pytest.param("sender", id="sender"),
+        pytest.param(
+            "coinbase",
+            id="coinbase",
+            marks=pytest.mark.execute(
+                pytest.mark.skip(
+                    reason="requires env.fee_recipient as block coinbase"
+                )
+            ),
+        ),
+        pytest.param("executing-account", id="executing-account"),
+    ],
+)
+def test_signer_warmed_by_transaction(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    warmed_as: str,
+) -> None:
+    """
+    Test that a signer the transaction has already warmed is recovered for
+    the warm price: the sender, the block coinbase, and a delegated account
+    recovering its own signature.
+    """
+    # The signer, and so the expected output, depends on the case, so the
+    # output slot is filled in once the signer exists.
+    storage = Storage()
+    success_slot = storage.store_next(1, "success")
+    output_slot = storage.store_next(0, "output")
+    recovering_code = (
+        Op.CALLDATACOPY(0, 0, INPUT_SIZE)
+        + Op.MSTORE(OUTPUT_OFFSET, SENTINEL)
+        + Op.SSTORE(
+            success_slot,
+            Op.STATICCALL(
+                gas=fork.ecrecover_gas(recovered=True, address_warm=True),
+                address=Spec.ECRECOVER,
+                args_offset=0,
+                args_size=INPUT_SIZE,
+                ret_offset=OUTPUT_OFFSET,
+                ret_size=32,
+            ),
+        )
+        + Op.SSTORE(output_slot, Op.MLOAD(OUTPUT_OFFSET))
+    )
+
+    env = Environment()
+    if warmed_as == "sender":
+        signer = pre.fund_eoa()
+        sender = signer
+        to = pre.deploy_contract(recovering_code)
+        storage_owner = to
+    elif warmed_as == "coinbase":
+        signer = pre.fund_eoa()
+        sender = pre.fund_eoa()
+        to = pre.deploy_contract(recovering_code)
+        storage_owner = to
+        env = Environment(fee_recipient=signer)
+    elif warmed_as == "executing-account":
+        # The delegation designation keeps the signer's address returned,
+        # and the code runs as the signer, the call target.
+        signer = pre.fund_eoa(delegation=pre.deploy_contract(recovering_code))
+        sender = pre.fund_eoa()
+        to = signer
+        storage_owner = signer
+    else:
+        raise ValueError(f"unknown warmed_as: {warmed_as}")
+    storage[output_slot] = signer
+    v, r, s = signer.sign_digest(DIGEST)
+
+    tx = Transaction(
+        to=to,
+        data=EcrecoverInput(msg_hash=int.from_bytes(DIGEST), v=v, r=r, s=s),
+        sender=sender,
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={storage_owner: Account(storage=storage)},
+        tx=tx,
     )
 
 
