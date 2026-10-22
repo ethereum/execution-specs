@@ -55,7 +55,7 @@ class TransactionLoad:
         try:
             return tuple(
                 hex_to_u256(nonce_key)
-                for nonce_key in self.raw.get("nonceKeys", ["0x00"])
+                for nonce_key in self.raw.get("nonceKeys", [])
             )
         except (ValueError, OverflowError) as e:
             # A key wider than 256 bits never decodes, so reject the

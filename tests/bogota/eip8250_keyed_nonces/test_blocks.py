@@ -313,7 +313,7 @@ def test_keyed_then_legacy_from_one_sender(
     blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """
-    Interleave keyed and legacy-keyed transactions from one sender in a
+    Interleave keyed and empty-key-set transactions from one sender in a
     block, neither advancing the other's domain.
     """
     sender = pre.fund_eoa()
@@ -327,7 +327,7 @@ def test_keyed_then_legacy_from_one_sender(
         Transaction(
             sender=sender,
             frames=[verify_frame()],
-            nonce_keys=[0],
+            nonce_keys=[],
             nonce=0,
         ),
         Transaction(
@@ -362,7 +362,7 @@ def test_keyed_then_legacy_from_one_sender(
             id="two_used_keys",
         ),
         pytest.param([NONCE_KEY, OTHER_KEY], 0, {}, id="two_fresh_keys"),
-        pytest.param([0], 0, {}, id="legacy_key_set"),
+        pytest.param([], 0, {}, id="empty_key_set"),
     ],
 )
 def test_block_access_list(
@@ -377,7 +377,7 @@ def test_block_access_list(
     Record each keyed write as a nonce manager storage change at the
     transaction's index, with the written sequence and never among the
     storage reads, with no sender nonce change, and leave the nonce
-    manager out of the list for the legacy key set.
+    manager out of the list for the empty key set.
     """
     sender = pre.fund_eoa()
     if used_keys:
@@ -389,7 +389,7 @@ def test_block_access_list(
         nonce=nonce_seq,
     )
     nonce_manager_expectation: Optional[BalAccountExpectation]
-    if nonce_keys == [0]:
+    if not nonce_keys:
         nonce_manager_expectation = None
         sender_expectation = BalAccountExpectation(
             nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)]
