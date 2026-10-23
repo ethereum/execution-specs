@@ -67,6 +67,9 @@ class TransactionDefaults:
     gas_price: int = 10
     max_fee_per_gas: int = 7
     max_priority_fee_per_gas: int = 0
+    # EIP-8141 frame transactions cap their total fee instead of a fee
+    # per gas; the default budget never binds at test base fees.
+    max_fee: int = 10**18
 
 
 class AuthorizationTupleGeneric(
@@ -273,6 +276,10 @@ class FrameSignatureGeneric(
     ]
 
 
+SECP256K1_SIGNATURE_LENGTH = 65
+"""Length of an EIP-8141 secp256k1 signature: `v || r || s`."""
+
+
 class FrameSignature(FrameSignatureGeneric[HexNumber]):
     """
     Signature entry within an EIP-8141 frame transaction (test authoring).
@@ -310,6 +317,7 @@ class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
     gas_price: NumberBoundTypeVar | None = None
     max_priority_fee_per_gas: NumberBoundTypeVar | None = None
     max_fee_per_gas: NumberBoundTypeVar | None = None
+    max_fee: NumberBoundTypeVar | None = None
     gas_limit: NumberBoundTypeVar = Field(21_000)  # type: ignore
     to: Address | None = None
     value: NumberBoundTypeVar = Field(0)  # type: ignore
@@ -485,6 +493,7 @@ class Transaction(
             "max_fee_per_gas": "type-2+",
             "max_priority_fee_per_gas": "type-2+",
             "max_fee_per_blob_gas": "type-3+",
+            "max_fee": "frame",
         }
 
         def __init__(self, *conflicting_fields: str) -> None:
@@ -522,6 +531,7 @@ class Transaction(
                 "max_fee_per_gas",
                 "max_priority_fee_per_gas",
                 "max_fee_per_blob_gas",
+                "max_fee",
             )
             if getattr(self, field_name) is not None
         ]
@@ -587,7 +597,11 @@ class Transaction(
         if self.ty < 1:
             assert self.access_list is None, "access_list must be None"
 
-        if self.ty >= 2 and self.max_fee_per_gas is None:
+        if (
+            self.ty >= 2
+            and self.frames is None
+            and self.max_fee_per_gas is None
+        ):
             self.max_fee_per_gas = HexNumber(
                 TransactionDefaults.max_fee_per_gas
             )
@@ -607,19 +621,23 @@ class Transaction(
             self.max_fee_per_blob_gas = HexNumber(1)
             self.model_fields_set.remove("max_fee_per_blob_gas")
         if self.frames is not None:
-            # EIP-8141: Frame transactions always carry blob fields.
+            # EIP-8141: Frame transactions cap their total fee with
+            # `max_fee` instead of a fee per gas or per blob gas, and
+            # always carry blob versioned hashes.
+            assert self.max_fee_per_gas is None, (
+                "frame transactions set max_fee, not max_fee_per_gas"
+            )
+            assert self.max_fee_per_blob_gas is None, (
+                "frame transactions set max_fee, not max_fee_per_blob_gas"
+            )
+            if self.max_fee is None:
+                self.max_fee = HexNumber(TransactionDefaults.max_fee)
+                self.model_fields_set.remove("max_fee")
             if self.blob_versioned_hashes is None:
                 self.blob_versioned_hashes = []
-            if self.max_fee_per_blob_gas is None:
-                if self.blob_versioned_hashes:
-                    # A blob-carrying frame transaction defaults its blob
-                    # fee cap as a type-3 one does, so the execution
-                    # environment can set it.
-                    self.max_fee_per_blob_gas = HexNumber(1)
-                    self.model_fields_set.remove("max_fee_per_blob_gas")
-                else:
-                    self.max_fee_per_blob_gas = HexNumber(0)
-        elif self.ty != 3:
+        else:
+            assert self.max_fee is None, "max_fee must be None"
+        if self.frames is None and self.ty != 3:
             assert self.blob_versioned_hashes is None, (
                 "blob_versioned_hashes must be None"
             )
@@ -673,27 +691,25 @@ class Transaction(
     def fees(self) -> List[HexNumber]:
         """
         Return the frame transaction's nested `fees` RLP list:
-        `[max_priority_fee_per_gas, max_fee_per_gas, max_fee_per_blob_gas]`.
+        `[max_fee, max_priority_fee_per_gas]`.
         """
+        assert self.max_fee is not None
         assert self.max_priority_fee_per_gas is not None
-        assert self.max_fee_per_gas is not None
-        assert self.max_fee_per_blob_gas is not None
-        return [
-            self.max_priority_fee_per_gas,
-            self.max_fee_per_gas,
-            self.max_fee_per_blob_gas,
-        ]
+        return [self.max_fee, self.max_priority_fee_per_gas]
 
     @property
     def signing_signatures(self) -> List[FrameSignature]:
         """
         Return the signature entries as included in the canonical frame
         transaction signature hash: entries with an empty `msg` have
-        their raw `signature` bytes elided.
+        their raw `signature` bytes replaced by their length, encoded as
+        an unsigned integer.
         """
         assert self.signatures is not None
         return [
-            sig.model_copy(update={"signature": Bytes(b"")})
+            sig.model_copy(
+                update={"signature": Bytes(int_to_bytes(len(sig.signature)))}
+            )
             if len(sig.msg) == 0
             else sig
             for sig in self.signatures
@@ -750,7 +766,10 @@ class Transaction(
             if key is not None:
                 sig.signed_over(bytes(sig.msg), key)
 
-        sig_hash = self.rlp_signing_bytes().keccak256()
+        # The canonical signature hash commits to the length of each
+        # empty-msg entry's raw bytes, so reserve the signature's length
+        # before hashing.
+        empty_msg_entries = []
         for sig in self.signatures:
             if sig.scheme != 1 or len(sig.signature) > 0:
                 continue
@@ -758,7 +777,12 @@ class Transaction(
                 continue
             key = resolve_key(sig)
             if key is not None:
-                sig.signed_over(sig_hash, key)
+                sig.signature = Bytes(bytes(SECP256K1_SIGNATURE_LENGTH))
+                empty_msg_entries.append((sig, key))
+
+        sig_hash = self.rlp_signing_bytes().keccak256()
+        for sig, key in empty_msg_entries:
+            sig.signed_over(sig_hash, key)
 
     def sign(self: "Transaction") -> None:
         """Signs the authorization tuple with a private key."""
@@ -1299,6 +1323,13 @@ class Transaction(
         if self.ty <= 1:
             if "gas_price" not in self.model_fields_set:
                 self.gas_price = HexNumber(gas_price)
+        elif self.frames is not None:
+            # A frame transaction's `max_fee` budget has no per-gas
+            # environment value to take.
+            if "max_priority_fee_per_gas" not in self.model_fields_set:
+                self.max_priority_fee_per_gas = HexNumber(
+                    max_priority_fee_per_gas
+                )
         else:
             if "max_fee_per_gas" not in self.model_fields_set:
                 self.max_fee_per_gas = HexNumber(max_fee_per_gas)
@@ -1306,7 +1337,7 @@ class Transaction(
                 self.max_priority_fee_per_gas = HexNumber(
                     max_priority_fee_per_gas
                 )
-            if self.ty == 3 or (self.ty == 6 and self.blob_versioned_hashes):
+            if self.ty == 3:
                 if "max_fee_per_blob_gas" not in self.model_fields_set:
                     self.max_fee_per_blob_gas = HexNumber(max_fee_per_blob_gas)
 
@@ -1334,6 +1365,10 @@ class Transaction(
 
     def signer_minimum_balance(self, *, fork: Fork) -> int:
         """Return minimum balance of the signer."""
+        if self.frames is not None:
+            # A frame transaction's payer is charged at most `max_fee`.
+            assert self.max_fee is not None
+            return self.max_fee
         gas_price = self.gas_price or self.max_fee_per_gas
         assert gas_price is not None, (
             "Impossible to calculate minimum balance without gas price"
@@ -1341,7 +1376,7 @@ class Transaction(
         assert "gas_limit" in self.model_fields_set, (
             "Impossible to calculate minimum balance without a set gas limit"
         )
-        if self.blob_versioned_hashes and self.ty in (3, 6):
+        if self.blob_versioned_hashes and self.ty == 3:
             max_fee_per_blob_gas = self.max_fee_per_blob_gas
             assert max_fee_per_blob_gas is not None, (
                 "Impossible to calculate minimum balance without "

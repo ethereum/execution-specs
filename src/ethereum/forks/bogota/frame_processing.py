@@ -27,7 +27,7 @@ from .blocks import (
     Receipt,
     encode_receipt,
 )
-from .exceptions import MaxCostOverflowError
+from .exceptions import InsufficientMaxFeeError
 from .fork_types import ExecutionGas, StateGas
 from .state_tracker import (
     TransactionState,
@@ -36,12 +36,7 @@ from .state_tracker import (
     get_account,
     incorporate_tx_into_block,
 )
-from .transactions import (
-    calculate_effective_gas_price,
-    check_nonce,
-    encode_transaction,
-    get_transaction_hash,
-)
+from .transactions import check_nonce, encode_transaction, get_transaction_hash
 from .transactions.frame_transaction import (
     FrameTransaction,
     validate_frame_transaction,
@@ -51,7 +46,6 @@ from .vm.gas import (
     calculate_blob_gas_price,
     calculate_total_blob_gas,
     check_block_gas_capacity,
-    check_max_fee_per_blob_gas,
     settle_frame_transaction_gas,
 )
 
@@ -107,16 +101,12 @@ def check_frame_transaction(
         If the gas used by the transaction exceeds the block's gas limit.
     NonceMismatchError :
         If the nonce of the transaction is not equal to the sender's nonce.
-    InsufficientMaxFeePerGasError :
-        If the maximum fee per gas is insufficient for the transaction.
-    InsufficientMaxFeePerBlobGasError :
-        If the maximum fee per blob gas is insufficient for the transaction.
+    InsufficientMaxFeeError :
+        If the maximum fee does not cover the transaction's worst-case
+        base fee charge.
     BlobGasLimitExceededError :
         If the blob gas used by the transaction exceeds the block's blob gas
         limit.
-    MaxCostOverflowError :
-        If the maximum wei cost the transaction can incur is not
-        representable in 256 bits.
 
     """
     validation = validate_frame_transaction(tx)
@@ -151,23 +141,11 @@ def check_frame_transaction(
 
     sender_account = get_account(tx_state, tx.sender)
 
-    effective_gas_price = calculate_effective_gas_price(
-        tx, block_env.base_fee_per_gas
-    )
-
-    check_max_fee_per_blob_gas(
-        tx.blob_versioned_hashes,
-        tx.fees.max_fee_per_blob_gas,
-        block_env.excess_blob_gas,
+    max_cost, effective_gas_price = calculate_frame_transaction_fees(
+        tx, validation.max_gas, block_env
     )
 
     check_nonce(tx, sender_account.nonce)
-
-    max_cost = validation.max_gas * tx.fees.max_fee_per_gas + Uint(
-        calculate_total_blob_gas(tx)
-    ) * calculate_blob_gas_price(block_env.excess_blob_gas)
-    if max_cost > Uint(U256.MAX_VALUE):
-        raise MaxCostOverflowError("Max cost too high")
 
     return vm.TransactionEnvironment(
         origin=tx.sender,
@@ -201,6 +179,45 @@ def check_frame_transaction(
     )
 
 
+def calculate_frame_transaction_fees(
+    tx: FrameTransaction,
+    max_gas: Uint,
+    block_env: vm.BlockEnvironment,
+) -> Tuple[Uint, Uint]:
+    """
+    Check a frame transaction's fee budget against the block's base fees
+    and derive what the payer escrows.
+
+    The `max_fee` budget covers the execution, state, and blob gas
+    together. It must cover the worst case at the block's base fees,
+    `max_gas` at the base fee plus the blob gas at the blob base fee, or
+    an `InsufficientMaxFeeError` is raised. The payer escrows that worst
+    case plus the largest tip the rest of the budget allows.
+
+    Return the escrow, `max_cost`, and the price per gas that `GASPRICE`
+    reports: the base fee plus the tip per gas, capped by what the rest of
+    the budget can pay for every unit of `max_gas`. The payer pays at
+    least this price per unit of gas used, since unused gas can back a
+    larger tip at settlement.
+    """
+    blob_fee = Uint(calculate_total_blob_gas(tx)) * calculate_blob_gas_price(
+        block_env.excess_blob_gas
+    )
+    required_max_fee = max_gas * block_env.base_fee_per_gas + blob_fee
+    if tx.fees.max_fee < required_max_fee:
+        raise InsufficientMaxFeeError(
+            f"max fee {tx.fees.max_fee} below the required {required_max_fee}"
+        )
+
+    budget_left = tx.fees.max_fee - required_max_fee
+    max_priority_fee = min(
+        tx.fees.max_priority_fee_per_gas * max_gas, budget_left
+    )
+    max_cost = required_max_fee + max_priority_fee
+    gas_price = block_env.base_fee_per_gas + max_priority_fee // max_gas
+    return max_cost, gas_price
+
+
 def disburse_frame_gas_fees(
     block_env: vm.BlockEnvironment,
     tx_env: vm.TransactionEnvironment,
@@ -209,16 +226,11 @@ def disburse_frame_gas_fees(
     """
     Refund the payer's unspent escrow and pay the priority fee.
 
-    At `APPROVE` the payer escrowed the transaction's maximum cost,
-    priced at the maximum fee per gas; the refund is that escrow less
-    the charged fee — the gas used priced at the effective gas price,
-    plus the blob gas fee, which appears in both terms and cancels.
-    Refunding the unused gas at the effective gas price, as the
-    regular flow does, would under-refund the escrowed difference
-    between the two prices.
-
-    The coinbase's priority fee on the gas used is unchanged from the
-    regular flow.
+    At `APPROVE` the payer escrowed the transaction's `max_cost`. The
+    gas used at the base fee, plus the blob gas at the blob base fee, is
+    burned. The coinbase receives the priority fee per gas on the gas
+    used, capped by what the escrow holds after the burn, and the payer
+    gets back the rest.
     """
     frame_context = tx_env.frame_context
     assert frame_context is not None
@@ -227,19 +239,19 @@ def disburse_frame_gas_fees(
     payer = frame_context.payer
     assert payer is not None
 
-    blob_gas_fee = Uint(
-        calculate_total_blob_gas(frame_context.tx)
-    ) * calculate_blob_gas_price(block_env.excess_blob_gas)
-    charged_fee = gas_used * tx_env.effective_gas_price + blob_gas_fee
-    payer_refund = frame_context.max_cost - charged_fee
-
-    priority_fee_per_gas = (
-        tx_env.effective_gas_price - block_env.base_fee_per_gas
+    tx = frame_context.tx
+    blob_fee = Uint(calculate_total_blob_gas(tx)) * calculate_blob_gas_price(
+        block_env.excess_blob_gas
     )
-    transaction_fee = gas_used * priority_fee_per_gas
+    base_fee_paid = gas_used * block_env.base_fee_per_gas + blob_fee
+    priority_fee_paid = min(
+        tx.fees.max_priority_fee_per_gas * gas_used,
+        frame_context.max_cost - base_fee_paid,
+    )
+    payer_refund = frame_context.max_cost - base_fee_paid - priority_fee_paid
 
     create_ether(tx_env.state, payer, U256(payer_refund))
-    create_ether(tx_env.state, block_env.coinbase, U256(transaction_fee))
+    create_ether(tx_env.state, block_env.coinbase, U256(priority_fee_paid))
 
 
 def make_frame_receipt(

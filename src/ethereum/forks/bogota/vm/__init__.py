@@ -217,9 +217,9 @@ class FrameContext:
 
     max_cost: Uint
     """
-    The maximum cost of the transaction: `max_gas` priced at the fee
-    cap, plus the blob fee. Collected from the payer when a frame
-    approves payment.
+    The escrow collected from the payer when a frame approves payment:
+    the worst-case base fee charge at the block's base fees, plus the
+    largest tip the transaction's `max_fee` budget allows.
     """
 
     current_frame_index: Uint
