@@ -388,9 +388,18 @@ def generic_tcreate(
         push(evm.stack, U256(0))
         return
 
-    create_message_state_gas_reservoir = drain_state_gas_reservoir(
-        evm.gas_meter
-    )
+    # Same reservoir handoff as CREATE/CREATE2. Frame transactions carry no
+    # reservoir; their state gas stays on the frame context.
+    if evm.gas_meter.reservoir is None:
+        child_reservoir = None
+    else:
+        create_message_state_gas_reservoir = drain_state_gas_reservoir(
+            evm.gas_meter
+        )
+        child_reservoir = StateGasReservoir(
+            state_gas_left=create_message_state_gas_reservoir,
+            state_gas_baseline=create_message_state_gas_reservoir,
+        )
 
     # Signal process_create to journal this address as a TCREATE account.
     tx_state.tcreate_initiating.add(contract_address)
@@ -412,8 +421,7 @@ def generic_tcreate(
         valid_jump_destinations=get_valid_jump_destinations(init_code),
         gas_meter=GasMeter(
             gas_left=create_message_gas,
-            state_gas_left=create_message_state_gas_reservoir,
-            state_gas_baseline=create_message_state_gas_reservoir,
+            reservoir=child_reservoir,
         ),
         pc=Uint(0),
         stack=[],
