@@ -1,10 +1,10 @@
 """
 `TXTRACE` and `EVENTDATACOPY` (EIP-7906): enumeration of the
-transaction's balance, slot, deployment and event tables, the gas
+transaction's balance, slot, code, nonce and event tables, the gas
 payment parameters, and the event data reads.
 """
 
-from typing import Callable, List
+from typing import Any, Callable, Dict, List
 
 import pytest
 from execution_testing import (
@@ -12,9 +12,12 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Bytecode,
     Bytes,
     Fork,
+    Hash,
     Initcode,
     Op,
     StateTestFiller,
@@ -28,6 +31,10 @@ from execution_testing import (
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import Spec as Spec7708
 from tests.bogota.eip8141_frame_transactions.helpers import verify_frame
 from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
+from tests.bogota.eip8250_keyed_nonces.helpers import NONCE_KEY
+from tests.bogota.eip8250_keyed_nonces.spec import Spec as Spec8250
+from tests.bogota.eip8250_keyed_nonces.spec import keyed_nonce_slot
+from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
 from .helpers import (
     BOB_FUNDS,
@@ -51,6 +58,7 @@ from .helpers import (
     WRITER_POST,
     WRITER_STORAGE,
     as_int,
+    assert_frame,
     assertion_transaction,
     body_frame,
     calldata_floor_data,
@@ -60,7 +68,6 @@ from .helpers import (
     frame_max_cost,
     frame_max_gas,
     initcode_word,
-    post_tx_frame,
     reverted_body_receipts,
     success_receipts,
 )
@@ -150,10 +157,19 @@ def transfer_event(sender: EOA, recipient: EOA) -> Bytecode:
             id="no_slot_changes",
         ),
         pytest.param(
-            lambda *_: expect_eq(
-                Op.TXTRACE(Spec.TXTRACE_CONTRACTS_DEPLOYED, 0), 0
-            ),
-            id="no_deployments",
+            lambda *_: expect_eq(Op.TXTRACE(Spec.TXTRACE_CODES_CHANGED, 0), 0),
+            id="no_code_changes",
+        ),
+        pytest.param(
+            lambda sender, _: expect_eq(
+                Op.TXTRACE(Spec.TXTRACE_NONCES_CHANGED, 0), 1
+            )
+            + expect_eq(
+                Op.TXTRACE(Spec.TXTRACE_NONCE_ADDRESS, 0), as_int(sender)
+            )
+            + expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCE_BEFORE, 0), 0)
+            + expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCE_AFTER, 0), 1),
+            id="sender_nonce_entry",
         ),
         pytest.param(
             lambda *_: expect_eq(Op.TXTRACE(Spec.TXTRACE_EVENTS_COUNT, 0), 1),
@@ -179,7 +195,8 @@ def test_value_transfer_trace(
     """
     Trace a value transfer: the payer's and the recipient's balance
     entries in ascending address order, the gas payment parameters, the
-    empty slot and deployment tables, and the EIP-7708 transfer log.
+    empty slot and code tables, the sender's nonce bump, and the
+    EIP-7708 transfer log.
     The payer's escrow is refunded only at settlement, so its live
     balance is its after value and the pre-charge is what the transfer
     does not explain.
@@ -288,7 +305,7 @@ def test_txtrace_operand_order(
     instead of halting.
     """
     sender = pre.fund_eoa(amount=FUNDS)
-    recipients = [pre.fund_eoa(amount=BOB_FUNDS) for _ in range(4)]
+    recipients = [pre.fund_eoa(amount=BOB_FUNDS) for _ in range(5)]
     entries = sorted([sender, *recipients], key=as_int)
     # Swapped operands read the address of entry `TXTRACE_BALANCE_BEFORE`.
     index = Spec.TXTRACE_BALANCE_ADDRESS
@@ -375,31 +392,50 @@ def test_slots_changed(
     )
 
 
-def test_contracts_deployed(
+def test_codes_and_nonces_changed(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Enumerate `contracts_deployed`: a creation that installs runtime
-    code is listed with its code hash, while a creation whose initcode
-    returns nothing leaves the account without a code change. Accounts
-    the creations wrote without moving their balance are not in
-    `balances_changed`, where only the payer appears.
+    Enumerate `codes_changed` and `nonces_changed` after a factory body:
+    a creation that installs runtime code is listed with the empty-code
+    hash before and its code hash after, while a creation whose initcode
+    returns nothing has no code change. Both created accounts, the
+    factory and the sender have nonce changes, listed in ascending
+    address order, a created account's nonce counting as zero before.
+    Accounts the creations wrote without moving their balance are not
+    in `balances_changed`, where only the payer appears.
     """
     sender = pre.fund_eoa()
     factory = pre.deploy_contract(code=FACTORY_CODE)
     deployed = compute_create_address(address=factory, nonce=1)
     empty = compute_create_address(address=factory, nonce=2)
+    nonces = {sender: (0, 1), factory: (1, 3), deployed: (0, 1), empty: (0, 1)}
 
-    checks = expect_eq(Op.TXTRACE(Spec.TXTRACE_CONTRACTS_DEPLOYED, 0), 1)
+    checks = expect_eq(Op.TXTRACE(Spec.TXTRACE_CODES_CHANGED, 0), 1)
     checks += expect_eq(
-        Op.TXTRACE(Spec.TXTRACE_DEPLOYED_ADDRESS, 0), as_int(deployed)
+        Op.TXTRACE(Spec.TXTRACE_CODE_ADDRESS, 0), as_int(deployed)
     )
     checks += expect_eq(
-        Op.TXTRACE(Spec.TXTRACE_DEPLOYED_CODEHASH, 0),
+        Op.TXTRACE(Spec.TXTRACE_CODE_BEFORE, 0), Spec.EMPTY_CODE_HASH
+    )
+    checks += expect_eq(
+        Op.TXTRACE(Spec.TXTRACE_CODE_AFTER, 0),
         int.from_bytes(keccak256(DEPLOYED_RUNTIME), "big"),
     )
+    checks += expect_eq(
+        Op.TXTRACE(Spec.TXTRACE_NONCES_CHANGED, 0), len(nonces)
+    )
+    for index, address in enumerate(sorted(nonces, key=as_int)):
+        before, after = nonces[address]
+        checks += expect_eq(
+            Op.TXTRACE(Spec.TXTRACE_NONCE_ADDRESS, index), as_int(address)
+        )
+        checks += expect_eq(
+            Op.TXTRACE(Spec.TXTRACE_NONCE_BEFORE, index), before
+        )
+        checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCE_AFTER, index), after)
     checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_BALANCES_CHANGED, 0), 1)
     assertion = pre.deploy_contract(code=checks + Op.STOP)
 
@@ -427,14 +463,73 @@ def test_contracts_deployed(
     )
 
 
-def test_contracts_deployed_ascend_regardless_of_creation_order(
+@pytest.mark.parametrize(
+    "keyed",
+    [
+        pytest.param(False, id="account_nonce"),
+        pytest.param(True, id="keyed_nonce"),
+    ],
+)
+def test_sender_nonce_change(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    keyed: bool,
+) -> None:
+    """
+    List `tx.sender` in `nonces_changed` only when `APPROVE` increments
+    its account nonce. A keyed nonce (EIP-8250) leaves the account nonce
+    untouched and advances the sender's sequence in the nonce manager,
+    which `slots_changed` lists instead.
+    """
+    if keyed and not fork.is_eip_enabled(8250):
+        pytest.skip("keyed nonces need EIP-8250")
+    sender = pre.fund_eoa()
+    checks = expect_eq(
+        Op.TXTRACE(Spec.TXTRACE_NONCES_CHANGED, 0), int(not keyed)
+    )
+    overrides: Dict[str, Any] = {}
+    if keyed:
+        checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_SLOTS_CHANGED, 0), 1)
+        checks += expect_eq(
+            Op.TXTRACE(Spec.TXTRACE_SLOT_ADDRESS, 0),
+            as_int(Spec8250.NONCE_MANAGER),
+        )
+        checks += expect_eq(
+            Op.TXTRACE(Spec.TXTRACE_SLOT_KEY, 0),
+            keyed_nonce_slot(sender, NONCE_KEY),
+        )
+        checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_SLOT_BEFORE, 0), 0)
+        checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_SLOT_AFTER, 0), 1)
+        overrides = dict(nonce_keys=[NONCE_KEY], nonce=0)
+    else:
+        checks += expect_eq(
+            Op.TXTRACE(Spec.TXTRACE_NONCE_ADDRESS, 0), as_int(sender)
+        )
+    assertion = pre.deploy_contract(code=checks + Op.STOP)
+
+    state_test(
+        pre=pre,
+        tx=assertion_transaction(
+            fork,
+            sender,
+            body=[],
+            assertion=assertion,
+            frame_receipts=success_receipts(2),
+            **overrides,
+        ),
+        post={sender: Account(nonce=int(not keyed))},
+    )
+
+
+def test_code_and_nonce_changes_ascend_regardless_of_creation_order(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Enumerate `contracts_deployed` in ascending address order when the
-    body creates the higher address first.
+    Enumerate `codes_changed` and `nonces_changed` in ascending address
+    order when the body creates the higher address first.
     """
     sender = pre.fund_eoa()
     initcode_size = len(bytes(INITCODE_DEPLOYING))
@@ -455,13 +550,19 @@ def test_contracts_deployed_ascend_regardless_of_creation_order(
     )
     (lower, lower_salt), (higher, higher_salt) = by_address
 
-    checks = expect_eq(Op.TXTRACE(Spec.TXTRACE_CONTRACTS_DEPLOYED, 0), 2)
+    checks = expect_eq(Op.TXTRACE(Spec.TXTRACE_CODES_CHANGED, 0), 2)
     checks += expect_eq(
-        Op.TXTRACE(Spec.TXTRACE_DEPLOYED_ADDRESS, 0), as_int(lower)
+        Op.TXTRACE(Spec.TXTRACE_CODE_ADDRESS, 0), as_int(lower)
     )
     checks += expect_eq(
-        Op.TXTRACE(Spec.TXTRACE_DEPLOYED_ADDRESS, 1), as_int(higher)
+        Op.TXTRACE(Spec.TXTRACE_CODE_ADDRESS, 1), as_int(higher)
     )
+    by_nonce = sorted([sender, factory, lower, higher], key=as_int)
+    checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCES_CHANGED, 0), 4)
+    for index, address in enumerate(by_nonce):
+        checks += expect_eq(
+            Op.TXTRACE(Spec.TXTRACE_NONCE_ADDRESS, index), as_int(address)
+        )
     assertion = pre.deploy_contract(code=checks + Op.STOP)
 
     state_test(
@@ -490,6 +591,66 @@ def test_contracts_deployed_ascend_regardless_of_creation_order(
             factory: Account(nonce=3),
             lower: Account(nonce=1, code=DEPLOYED_RUNTIME),
             higher: Account(nonce=1, code=DEPLOYED_RUNTIME),
+        },
+    )
+
+
+def test_adopted_code_replaces_delegation(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    List an EIP-8298 adoption over an EIP-7702 delegation in
+    `codes_changed`, with the delegation indicator's hash before and the
+    adopted code's hash after.
+    """
+    if not fork.is_eip_enabled(8298):
+        pytest.skip("SETCODEFROM needs EIP-8298")
+    sender = pre.fund_eoa()
+    source_code = Op.SSTORE(KEY_A, 1) + Op.STOP
+    source = pre.deploy_contract(code=source_code)
+    # Looked up by name past the skip: the opcode table only lists
+    # `SETCODEFROM` where this branch shares a fork with EIP-8298.
+    setcodefrom = Op.__members__["SETCODEFROM"]
+    shell = pre.deploy_contract(
+        code=Op.POP(setcodefrom(Op.CALLDATALOAD(0))) + Op.STOP
+    )
+    adopter = pre.fund_eoa(amount=0, delegation=shell)
+    indicator = Spec7702.delegation_designation(shell)
+
+    checks = expect_eq(Op.TXTRACE(Spec.TXTRACE_CODES_CHANGED, 0), 1)
+    checks += expect_eq(
+        Op.TXTRACE(Spec.TXTRACE_CODE_ADDRESS, 0), as_int(adopter)
+    )
+    checks += expect_eq(
+        Op.TXTRACE(Spec.TXTRACE_CODE_BEFORE, 0),
+        int.from_bytes(keccak256(indicator), "big"),
+    )
+    checks += expect_eq(
+        Op.TXTRACE(Spec.TXTRACE_CODE_AFTER, 0),
+        int.from_bytes(source_code.keccak256(), "big"),
+    )
+    assertion = pre.deploy_contract(code=checks + Op.STOP)
+
+    state_test(
+        pre=pre,
+        tx=assertion_transaction(
+            fork,
+            sender,
+            body=[
+                body_frame(
+                    fork,
+                    target=adopter,
+                    data=Hash(source, left_padding=True),
+                )
+            ],
+            assertion=assertion,
+            frame_receipts=success_receipts(3),
+        ),
+        post={
+            sender: Account(nonce=1),
+            adopter: Account(code=source_code),
         },
     )
 
@@ -611,6 +772,8 @@ def test_sponsored_gas_pre_charge(
     Expose a distinct payer and its entire escrow, `TXPARAM`'s maximum
     cost: execution gas priced at the maximum fee even when it exceeds
     the price the transaction pays, and blob gas at the blob base fee.
+    The payer alone has a balance change and the sender alone a nonce
+    change.
     """
     sender = pre.fund_eoa(amount=FUNDS)
     payer = pre.deploy_contract(
@@ -626,16 +789,11 @@ def test_sponsored_gas_pre_charge(
             Op.TXTRACE(Spec.TXTRACE_GAS_PRE_CHARGE, 0),
             Op.TXPARAM(Spec8141.TXPARAM_MAX_COST),
         )
-        + expect_eq(
-            Op.TXDIFF(
-                Spec.TXDIFF_BALANCE_BEFORE,
-                payer,
-                0,
-                state_access="account",
-                address_warm=True,
-            ),
-            FUNDS,
-        )
+        + expect_eq(Op.TXTRACE(Spec.TXTRACE_BALANCES_CHANGED, 0), 1)
+        + expect_eq(Op.TXTRACE(Spec.TXTRACE_BALANCE_ADDRESS, 0), payer)
+        + expect_eq(Op.TXTRACE(Spec.TXTRACE_BALANCE_BEFORE, 0), FUNDS)
+        + expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCES_CHANGED, 0), 1)
+        + expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCE_ADDRESS, 0), sender)
         + Op.STOP
     )
     assertion = pre.deploy_contract(code=assertion_code)
@@ -652,7 +810,7 @@ def test_sponsored_gas_pre_charge(
         frames=[
             verify_frame(flags=Spec8141.APPROVE_EXECUTION),
             verify_frame(target=payer, flags=Spec8141.APPROVE_PAYMENT),
-            post_tx_frame(fork, target=assertion),
+            assert_frame(fork, target=assertion),
         ],
         expected_receipt=TransactionReceipt(
             payer=payer, frame_receipts=success_receipts(3)
@@ -698,13 +856,7 @@ def test_gas_pre_charge_amount(
         code=expect_eq(Op.BALANCE(sender, address_warm=True), 0)
         + expect_eq(
             Op.TXTRACE(Spec.TXTRACE_GAS_PRE_CHARGE, 0),
-            Op.TXDIFF(
-                Spec.TXDIFF_BALANCE_BEFORE,
-                sender,
-                0,
-                state_access="account",
-                address_warm=True,
-            ),
+            Op.TXTRACE(Spec.TXTRACE_BALANCE_BEFORE, 0),
         )
         + Op.STOP
     )
@@ -724,7 +876,7 @@ def test_gas_pre_charge_amount(
             * blob_count,
             frames=[
                 verify_frame(),
-                post_tx_frame(fork, target=assertion, data=data),
+                assert_frame(fork, target=assertion, data=data),
             ],
             expected_receipt=TransactionReceipt(
                 payer=sender, frame_receipts=success_receipts(2)
@@ -749,9 +901,10 @@ def test_diff_precedes_selfdestruct_cleanup(
     assertion_fails: bool,
 ) -> None:
     """
-    Read a contract the body created and self-destructed as deployed,
-    with its code and storage: the diff is taken before the
-    transaction's deferred account cleanup.
+    Read a contract the body created and self-destructed with its code
+    change, nonce change and storage: the diff is taken before the
+    transaction's deferred account cleanup. EIP-4758 drops the cleanup,
+    so the contract then outlives a passing assertion.
     """
     sender = pre.fund_eoa()
     runtime = Op.SSTORE(KEY_A, 1) + Op.SELFDESTRUCT(0)
@@ -762,13 +915,21 @@ def test_diff_precedes_selfdestruct_cleanup(
         + Op.STOP
     )
     created = compute_create_address(address=factory, nonce=1)
-    checks = expect_eq(Op.TXTRACE(Spec.TXTRACE_CONTRACTS_DEPLOYED, 0), 1)
-    checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_SLOTS_CHANGED, 0), 1)
-    checks += expect_eq(Op.TXDIFF(Spec.TXDIFF_SLOT_AFTER, created, KEY_A), 1)
+    checks = expect_eq(Op.TXTRACE(Spec.TXTRACE_CODES_CHANGED, 0), 1)
+    checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_CODE_ADDRESS, 0), created)
     checks += expect_eq(
-        Op.TXDIFF(Spec.TXDIFF_CODEHASH_AFTER, created, 0),
+        Op.TXTRACE(Spec.TXTRACE_CODE_AFTER, 0),
         int.from_bytes(keccak256(bytes(runtime)), "big"),
     )
+    by_nonce = sorted([sender, factory, created], key=as_int)
+    checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCES_CHANGED, 0), 3)
+    checks += expect_eq(
+        Op.TXTRACE(Spec.TXTRACE_NONCE_ADDRESS, by_nonce.index(created)),
+        created,
+    )
+    checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_SLOTS_CHANGED, 0), 1)
+    checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_SLOT_ADDRESS, 0), created)
+    checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_SLOT_AFTER, 0), 1)
     assertion = pre.deploy_contract(
         code=checks + (Op.REVERT(0, 0) if assertion_fails else Op.STOP)
     )
@@ -795,6 +956,102 @@ def test_diff_precedes_selfdestruct_cleanup(
         post={
             sender: Account(nonce=1),
             factory: Account(nonce=1 if assertion_fails else 2),
-            created: Account.NONEXISTENT,
+            created: Account(code=bytes(runtime), storage={KEY_A: 1}, nonce=1)
+            if fork.is_eip_enabled(4758) and not assertion_fails
+            else Account.NONEXISTENT,
+        },
+    )
+
+
+PrestateChecks = Callable[[EOA], Bytecode]
+"""Build an assertion's checks from the frame transaction's sender."""
+
+
+@pytest.mark.parametrize(
+    "checks",
+    [
+        pytest.param(
+            lambda _: expect_eq(Op.TXTRACE(Spec.TXTRACE_SLOT_BEFORE, 0), 1)
+            + expect_eq(Op.TXTRACE(Spec.TXTRACE_SLOT_AFTER, 0), 2),
+            id="slot_before",
+        ),
+        pytest.param(
+            lambda sender: expect_eq(
+                Op.TXTRACE(Spec.TXTRACE_BALANCES_CHANGED, 0), 1
+            )
+            + expect_eq(
+                Op.TXTRACE(Spec.TXTRACE_BALANCE_ADDRESS, 0), as_int(sender)
+            ),
+            id="balances_exclude_earlier_transfer",
+        ),
+        pytest.param(
+            lambda sender: expect_eq(
+                Op.TXTRACE(Spec.TXTRACE_NONCES_CHANGED, 0), 1
+            )
+            + expect_eq(
+                Op.TXTRACE(Spec.TXTRACE_NONCE_ADDRESS, 0), as_int(sender)
+            )
+            + expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCE_BEFORE, 0), 1)
+            + expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCE_AFTER, 0), 2),
+            id="nonce_before",
+        ),
+        pytest.param(
+            lambda _: expect_eq(Op.TXTRACE(Spec.TXTRACE_CODES_CHANGED, 0), 0),
+            id="codes_exclude_earlier_deployment",
+        ),
+    ],
+)
+def test_prestate_after_earlier_transaction(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    checks: PrestateChecks,
+) -> None:
+    """
+    Take the before values from the transaction prestate, which includes
+    the writes, transfers, deployments and nonce bumps of earlier
+    transactions in the same block, so none of those appear as changes.
+    """
+    alice = pre.fund_eoa()
+    sender = pre.fund_eoa()
+    recipient = pre.fund_eoa(amount=BOB_FUNDS)
+    counter = pre.deploy_contract(
+        code=Op.SSTORE(KEY_A, Op.ADD(Op.SLOAD(KEY_A), 1)) + Op.STOP
+    )
+    created = compute_create_address(address=alice, nonce=2)
+    assertion = pre.deploy_contract(code=checks(sender) + Op.STOP)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(sender=alice, to=counter),
+                    Transaction(
+                        sender=alice, to=recipient, value=VALUE, nonce=1
+                    ),
+                    Transaction(
+                        sender=alice,
+                        to=None,
+                        data=INITCODE_DEPLOYING,
+                        nonce=2,
+                    ),
+                    Transaction(sender=sender, to=alice),
+                    assertion_transaction(
+                        fork,
+                        sender,
+                        body=[body_frame(fork, target=counter)],
+                        assertion=assertion,
+                        frame_receipts=success_receipts(3),
+                        nonce=1,
+                    ),
+                ]
+            )
+        ],
+        post={
+            sender: Account(nonce=2),
+            counter: Account(storage={KEY_A: 2}),
+            recipient: Account(balance=BOB_FUNDS + VALUE),
+            created: Account(code=DEPLOYED_RUNTIME),
         },
     )
