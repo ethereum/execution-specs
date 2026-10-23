@@ -21,6 +21,10 @@ from typing import (
 
 import ijson  # type: ignore[import-untyped]
 from pydantic import Field, PlainSerializer, PlainValidator, model_validator
+from rich import box
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 
 from execution_testing.base_types import (
     Bloom,
@@ -137,6 +141,17 @@ class TraceLine(CamelModel):
             )
             return False
         return True
+
+
+def _short_hex(value: HexNumber | None, max_length: int = 18) -> str:
+    """Return `value` as hex, eliding the middle of long values."""
+    if value is None:
+        return "-"
+    text = str(value)
+    if len(text) <= max_length:
+        return text
+    keep = (max_length - 3) // 2
+    return f"{text[:keep]}...{text[-keep:]}"
 
 
 class TraceFieldDiff(NamedTuple):
@@ -284,12 +299,83 @@ class TransactionTraces(CamelModel):
                 )
         return len(diffs) == 0
 
-    def print(self) -> None:
-        """Print the traces in a readable format."""
-        for exec_step, trace in enumerate(self.traces):
-            print(f"Step {exec_step}:")
-            print(trace.model_dump_json(indent=2))
-            print()
+    def _shown_steps(self, max_steps: int | None) -> List[TraceLine]:
+        """Return the last `max_steps` steps, or all of them if `None`."""
+        if max_steps is None:
+            return self.traces
+        return self.traces[max(len(self.traces) - max_steps, 0) :]
+
+    def table(
+        self, stack_items: int = 4, max_steps: int | None = 1000
+    ) -> Table:
+        """
+        Return the traces as a table with one row per execution step.
+
+        Only the last `max_steps` steps are included (all of them if
+        `None`), and only the top `stack_items` stack values are shown,
+        topmost first.
+        """
+        traces = self._shown_steps(max_steps)
+        show_errors = any(trace.error for trace in traces)
+        table = Table(box=box.SIMPLE_HEAD, pad_edge=False)
+        for column in ("Step", "PC"):
+            table.add_column(column, justify="right")
+        table.add_column("Op")
+        for column in ("Gas", "Cost", "Depth"):
+            table.add_column(column, justify="right")
+        table.add_column("Stack", overflow="fold")
+        if show_errors:
+            table.add_column("Error", style="red")
+
+        first_step = len(self.traces) - len(traces)
+        for step, trace in enumerate(traces, start=first_step):
+            stack = [_short_hex(value) for value in trace.stack[::-1]]
+            if len(stack) > stack_items:
+                stack = stack[:stack_items] + ["..."]
+            gas_cost = (
+                "" if trace.gas_cost is None else str(int(trace.gas_cost))
+            )
+            row: List[str | Text] = [
+                str(step),
+                str(trace.pc),
+                "  " * (trace.depth - 1) + trace.op_name,
+                str(int(trace.gas)),
+                gas_cost,
+                str(trace.depth),
+                " ".join(stack),
+            ]
+            if show_errors:
+                row.append(Text(trace.error or ""))
+            table.add_row(*row)
+        return table
+
+    def print(self, max_steps: int | None = 1000) -> None:
+        """
+        Print the traces in a readable format.
+
+        Only the last `max_steps` steps are printed (all of them if `None`),
+        since errors usually show up at the end of the trace. The full
+        traces are in the `.jsonl` files of the EVM dump directory.
+        """
+        console = Console(highlight=False)
+        omitted = len(self.traces) - len(self._shown_steps(max_steps))
+        if omitted > 0:
+            console.print(
+                f"... {omitted} earlier steps omitted, see the .jsonl trace "
+                "file in the EVM dump directory",
+                markup=False,
+            )
+        console.print(self.table(max_steps=max_steps))
+        summary = []
+        if self.gas_used is not None:
+            summary.append(f"gas used: {int(self.gas_used)}")
+        if self.output:
+            summary.append(f"output: {self.output}")
+        if self.error:
+            summary.append(f"error: {self.error}")
+        if summary:
+            console.print(", ".join(summary), markup=False)
+        console.print()
 
 
 class Traces(EthereumTestRootModel):
