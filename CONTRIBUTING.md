@@ -3,7 +3,7 @@
 Help is always welcome. The Ethereum Execution Layer Specifications (EELS) are a community effort and we appreciate support in the following areas:
 
 - Reporting issues.
-- Fixing and responding to [issues](https://github.com/ethereum/execution-specs/issues), especially those tagged [E-easy](https://github.com/ethereum/execution-specs/labels/E-easy), which are intended as introductory issues for external contributors.
+- Fixing and responding to [issues](https://github.com/ethereum/execution-specs/issues), especially those tagged [good first issue](https://github.com/ethereum/execution-specs/labels/good%20first%20issue), which are intended as introductory issues for external contributors.
 - Improving the documentation.
 
 > [!IMPORTANT]
@@ -53,22 +53,26 @@ Pull requests are squash merged, and the PR title becomes the commit message. PR
 <type>(<area>): <description>
 ```
 
-`<type>` comes from a [`C-<type>`](https://github.com/ethereum/execution-specs/labels?q=C-) label:
+| `<type>`   | Use for                                                     |
+| ---------- | ----------------------------------------------------------- |
+| `feat`     | An improvement or new feature, including new test cases.    |
+| `fix`      | A bug fix.                                                  |
+| `refactor` | Code changes that neither fix a bug nor add a feature.      |
+| `perf`     | A performance optimization.                                 |
+| `docs`     | Documentation-only changes.                                 |
+| `test`     | Changes to unit tests only.                                 |
+| `chore`    | Routine maintenance, such as cleanups and dependency bumps. |
 
-| `<type>`   | Label        | Use for                                                     |
-| ---------- | ------------ | ----------------------------------------------------------- |
-| `feat`     | `C-feat`     | An improvement or new feature, including new test cases.    |
-| `fix`      | `C-bug`      | A bug fix. Issues use the `bug` label; PR titles use `fix`. |
-| `refactor` | `C-refactor` | Code changes that neither fix a bug nor add a feature.      |
-| `perf`     | `C-perf`     | A performance optimization.                                 |
-| `docs`     | `C-docs`     | Documentation-only changes.                                 |
-| `test`     | `C-test`     | Changes to unit tests only.                                 |
-| `chore`    | `C-chore`    | Routine maintenance, such as cleanups and dependency bumps. |
+| `<area>`    | Covers                                                                        |
+| ----------- | ----------------------------------------------------------------------------- |
+| `spec`      | The specification and its tooling (`src/`).                                   |
+| `tests`     | Consensus tests (`tests/`).                                                   |
+| `benchmark` | Benchmark tests and the benchmark framework.                                  |
+| `framework` | The testing framework (`packages/`), such as `fill`, `consume` and `execute`. |
+| `ci`        | CI, tooling and repository configuration.                                     |
 
-The remaining `C-` labels (for example `C-eip`, `C-question` and `C-tracker`) categorize issues and are not used as title types.
+Separate multiple areas with a comma, for example `feat(spec,tests): ...`. Documentation-only changes take no area, for example `docs: ...`.
 
-`<area>` comes from an [`A-<area>`](https://github.com/ethereum/execution-specs/labels?q=A-) label, for example `spec-specs` for the specification, `tests` for consensus tests, `test-fill` for the `fill` command, `doc` for documentation, or `ci`. Separate multiple areas with a comma, for example `feat(spec-specs,tests): ...`.
-
-Maintainers apply the matching labels when triaging the PR.
+A bot keeps the title and labels in step: it sets the title's areas from the files the PR changes, labels the PR with its type and areas, adds a project label such as `zkevm` for PRs into a `projects/*` branch, and rewrites titles that don't follow this form.
 
 Keep the description short, lowercase and in the imperative mood ("add", not "added" or "adds"), with code names in backticks and no trailing period.
