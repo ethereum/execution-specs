@@ -100,7 +100,7 @@ def test_value_transfer(
 
     post = {sender: Account(nonce=1)}
     if target_kind == "other":
-        post[recipient] = Account(balance=1 + TRANSFER_VALUE)
+        post[recipient] = Account(balance_change=TRANSFER_VALUE)
 
     state_test(pre=pre, tx=tx, post=post)
 
@@ -137,8 +137,8 @@ def transfer_exceeding_balance(
         ],
     )
     post = {
-        sender: Account(nonce=1, balance=TRANSFER_VALUE),
-        recipient: Account(balance=1),
+        sender: Account(nonce=1, balance_change=0),
+        recipient: Account(balance_change=0),
     }
     return tx, post
 

@@ -360,7 +360,7 @@ def test_approve_creates_sender(
 
     post: Dict[Address, Account] = {sender: Account(nonce=1, balance=0)}
     if recipient is not None:
-        post[recipient] = Account(balance=1 + SPENT_SENDER_BALANCE)
+        post[recipient] = Account(balance_change=SPENT_SENDER_BALANCE)
     state_test(pre=pre, tx=tx, post=post)
 
 
@@ -410,8 +410,8 @@ def test_approve_sender_creation_unaffordable(
     post: Dict[Address, Account] = {}
     if recipient is not None:
         post = {
-            sender: Account(nonce=0, balance=SPENT_SENDER_BALANCE),
-            recipient: Account(balance=1),
+            sender: Account(nonce_change=0, balance_change=0),
+            recipient: Account(balance_change=0),
         }
     state_test(pre=pre, tx=tx, post=post)
 

@@ -486,6 +486,44 @@ CASES: dict[Opcodes, Case] = {
             topic_4=0x0,
         )
     ),
+    # --- EIP-8141's instructions exceptionally halt outside a frame
+    # transaction, which a creation transaction never is, so no contract
+    # is created.
+    Op.APPROVE: Case(
+        Op.APPROVE(offset=0x0, size=0x0, scope=0x0),
+        terminates=True,
+        discarded=True,
+    ),
+    Op.TXPARAM: Case(Op.TXPARAM(param=0x0), terminates=True, discarded=True),
+    Op.FRAMEDATALOAD: Case(
+        Op.FRAMEDATALOAD(offset=0x0, frame_index=0x0),
+        terminates=True,
+        discarded=True,
+    ),
+    Op.FRAMEDATACOPY: Case(
+        Op.FRAMEDATACOPY(
+            dest_offset=0x0, offset=0x0, size=0x0, frame_index=0x0
+        ),
+        terminates=True,
+        discarded=True,
+    ),
+    Op.FRAMEPARAM: Case(
+        Op.FRAMEPARAM(frame_index=0x0, param=0x0),
+        terminates=True,
+        discarded=True,
+    ),
+    Op.SIGPARAM: Case(
+        Op.SIGPARAM(signature_index=0x0, param=0x0),
+        terminates=True,
+        discarded=True,
+    ),
+    Op.SIGDATACOPY: Case(
+        Op.SIGDATACOPY(
+            dest_offset=0x0, offset=0x0, size=0x0, signature_index=0x0
+        ),
+        terminates=True,
+        discarded=True,
+    ),
     # Reaching other accounts.
 }
 CASES.update({_push_op(n): _push_case(n) for n in range(1, 33)})

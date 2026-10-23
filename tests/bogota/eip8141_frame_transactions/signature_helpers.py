@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Optional
 
-from execution_testing import Bytes, FrameSignature, Hash
+from execution_testing import Bytes, FrameSignature, Hash, keccak256
 
 from .spec import Spec
 
@@ -27,6 +27,15 @@ with low `s`, produced with the NIST P-256 private key `1`. Embedded
 as a constant because P256 signing is randomized and fixtures must be
 deterministic.
 """
+
+P256_R, P256_S, P256_QX, P256_QY = (
+    int.from_bytes(P256_SIGNATURE[start : start + 32], "big")
+    for start in range(0, 128, 32)
+)
+"""The words of `P256_SIGNATURE`."""
+
+P256_SIGNER = Bytes(keccak256(P256_SIGNATURE[64:128])[12:])
+"""The signer `P256_SIGNATURE`'s public key words hash to."""
 
 
 def signed_digest_entry(key: Hash, **overrides: Any) -> FrameSignature:
@@ -76,6 +85,18 @@ def resized_signature(entry: FrameSignature, length: int) -> FrameSignature:
     sig = bytes(entry.signature)
     entry.signature = Bytes(sig[:length].ljust(length, b"\x00"))
     return entry
+
+
+def valid_p256_entry(**components: int) -> FrameSignature:
+    """
+    Return the P256 signature entry over `DIGEST` built from
+    `P256_SIGNATURE`'s words and the signer they hash to, with the
+    given components replaced, for variants that break the rule on one
+    component and nothing else.
+    """
+    words = dict(r=P256_R, s=P256_S, qx=P256_QX, qy=P256_QY)
+    words.update(components)
+    return p256_entry(**words, signer=P256_SIGNER)
 
 
 def p256_entry(
