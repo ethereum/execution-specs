@@ -9,6 +9,8 @@ basic invalid-transaction cases. Exhaustive edge-case coverage is left
 for follow-up work.
 """
 
+from typing import Callable
+
 import pytest
 from execution_testing import (
     Account,
@@ -25,6 +27,7 @@ from execution_testing import (
 )
 
 from .helpers import (
+    FrameCase,
     FrameTransaction,
     Outcome,
     default_frame,
@@ -481,6 +484,171 @@ def test_call_revert_above_approve_discards_the_approval(
                 storage={SLOT_EXECUTED: 1 if approved else 0},
             ),
         },
+    )
+
+
+@pytest.mark.parametrize(
+    "approving_frame",
+    [
+        pytest.param(verify_frame, id="verify_frame"),
+        pytest.param(default_frame, id="default_frame"),
+    ],
+)
+@pytest.mark.parametrize(
+    "static_call_writes",
+    [
+        pytest.param(False, id="approve"),
+        pytest.param(
+            True,
+            id="sstore_then_approve",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+def test_approve_inside_staticcall(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    approving_frame: Callable[..., FrameCase],
+    static_call_writes: bool,
+) -> None:
+    """
+    An `APPROVE` issued inside a `STATICCALL` back into the frame's
+    target counts: the approval's effects are exempt from the static
+    restriction wherever the approval runs, not only at the top of a
+    `VERIFY` frame.
+
+    The `sstore_then_approve` case is the control: the same static
+    call writing storage before approving halts, which pins that the
+    approval really ran in a static context.
+    """
+    inner = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
+    if static_call_writes:
+        inner = Op.SSTORE(SLOT_EXECUTED, 1) + inner
+    # The frame succeeds only if the static self-call did, so a refused
+    # or halted approval fails the frame and leaves no payer.
+    outer = Conditional(
+        condition=Op.STATICCALL(gas=Op.GAS, address=Op.ADDRESS),
+        if_true=Op.STOP,
+        if_false=Op.REVERT(0, 0),
+    )
+    # The frame supplies calldata, the static self-call supplies none.
+    sender_code = Conditional(
+        condition=Op.CALLDATASIZE,
+        if_true=outer,
+        if_false=inner,
+    )
+    sender = pre.deploy_contract(code=sender_code, balance=10**18)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        nonce=1,
+        frames=[
+            approving_frame(
+                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
+                target=sender,
+                gas_limit=400_000,
+                data=Bytes(b"\x01"),
+                pin_gas=False,
+            ),
+        ],
+        error=(
+            TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+            if static_call_writes
+            else None
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        # The approval's nonce increment is the witness that it counted.
+        post={sender: Account(nonce_change=0 if static_call_writes else 1)},
+    )
+
+
+@pytest.mark.parametrize(
+    "approving_frame",
+    [
+        pytest.param(verify_frame, id="verify_frame"),
+        pytest.param(default_frame, id="default_frame"),
+        pytest.param(sender_frame, id="sender_frame"),
+    ],
+)
+@pytest.mark.parametrize(
+    "static_call_writes",
+    [
+        pytest.param(False, id="approve"),
+        pytest.param(
+            True,
+            id="sstore_then_approve",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+def test_approve_payment_inside_staticcall(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    approving_frame: Callable[..., FrameCase],
+    static_call_writes: bool,
+) -> None:
+    """
+    A payer approving payment inside a `STATICCALL` back into itself
+    binds as the payer in every frame mode allowed to approve payment.
+
+    The `sstore_then_approve` case is the control: the same static
+    call writing storage before approving halts, which pins that the
+    approval really ran in a static context.
+    """
+    sender = pre.fund_eoa()
+
+    inner = Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT)
+    if static_call_writes:
+        inner = Op.SSTORE(SLOT_EXECUTED, 1) + inner
+    # The frame succeeds only if the static self-call did, so a refused
+    # or halted approval fails the frame and leaves no payer.
+    outer = Conditional(
+        condition=Op.STATICCALL(gas=Op.GAS, address=Op.ADDRESS),
+        if_true=Op.STOP,
+        if_false=Op.REVERT(0, 0),
+    )
+    # The frame supplies calldata, the static self-call supplies none.
+    payer_code = Conditional(
+        condition=Op.CALLDATASIZE,
+        if_true=outer,
+        if_false=inner,
+    )
+    payer = pre.deploy_contract(code=payer_code, balance=10**18)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        payer=payer,
+        frames=[
+            # A `SENDER` frame needs execution approved before it runs.
+            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            approving_frame(
+                flags=Spec.APPROVE_PAYMENT,
+                target=payer,
+                gas_limit=400_000,
+                data=Bytes(b"\x01"),
+                pin_gas=False,
+            ),
+        ],
+        error=(
+            TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+            if static_call_writes
+            else None
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        # Approving payment increments the sender's nonce.
+        post={sender: Account(nonce_change=0 if static_call_writes else 1)},
     )
 
 
