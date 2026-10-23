@@ -3,8 +3,8 @@ Blob introspection in frame transactions, for
 [EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141).
 
 `BLOBHASH` returns `tx.blob_versioned_hashes[index]` in every frame, and
-`TXPARAM` reports the blob count, the blob fee cap and the maximum cost,
-which includes the blob gas at the blob base fee.
+`TXPARAM` reports the blob count and the `max_fee` budget, which also pays
+for the blob gas at the blob base fee.
 """
 
 from functools import reduce
@@ -16,6 +16,7 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Conditional,
+    Environment,
     Fork,
     Frame,
     Hash,
@@ -38,20 +39,26 @@ BLOB_COUNT = 2
 
 BLOB_COMMITMENT_VERSION_KZG = 1
 
-MAX_FEE_PER_BLOB_GAS = 11
-"""A blob fee cap above the blob base fee, distinct from other fields."""
+BASE_FEE = 7
+"""Base fee of the block the probed transaction lands in."""
+
+MAX_PRIORITY_FEE = 3
+"""A tip, so the escrow includes the largest tip the budget allows."""
 
 MAX_FEE = 1_000_000_000
-"""A fee cap above the base fee, so a max cost computed at the effective
-gas price instead of the cap is caught."""
+"""A `max_fee` budget the worst case never reaches, distinct from other
+fields."""
+
+SENDER_FUNDS = 10**18
+"""Sender balance before the transaction, which pays and escrows."""
 
 PROBE_FRAME_STATE_GAS = 1_000_000
 """State budget of the probe frame, above the framework default, which
 the storage slot the probe creates per read would exhaust."""
 
 SLOT_BLOB_COUNT = 0x01
-SLOT_MAX_FEE_PER_BLOB_GAS = 0x02
-SLOT_MAX_COST = 0x03
+SLOT_MAX_FEE = 0x02
+SLOT_ESCROW = 0x03
 SLOT_FIRST_BLOBHASH = 0x10
 """`BLOBHASH(i)` is stored at `SLOT_FIRST_BLOBHASH + i`, one index past
 the last blob included."""
@@ -64,25 +71,27 @@ def blob_versioned_hashes(count: int) -> List[Hash]:
     )
 
 
-def max_cost(fork: Fork, tx: Transaction) -> int:
+def escrow(fork: Fork, tx: Transaction) -> int:
     """
-    Return the maximum cost of a signed frame transaction: its maximum
-    gas at the maximum fee per gas, plus its blob gas at the blob base
-    fee of an empty excess.
+    Return what the payer of a signed frame transaction escrows: its
+    maximum gas at the base fee plus its blob gas at the blob base fee of
+    an empty excess, the worst case, plus the largest tip the rest of the
+    `max_fee` budget allows.
     """
     tx.sign()
     assert tx.frames is not None and tx.signatures is not None
-    assert tx.max_fee_per_gas is not None
     assert tx.blob_versioned_hashes is not None
+    assert tx.max_fee is not None and tx.max_priority_fee_per_gas is not None
     max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
         frames=tx.frames, signatures=tx.signatures
     )
-    floor = fork.frame_transaction_data_floor_cost_calculator()(
-        frames=tx.frames, signatures=tx.signatures
-    ) + sum(int(frame.state_gas_limit) for frame in tx.frames)
     blob_gas = fork.blob_gas_per_blob() * len(tx.blob_versioned_hashes)
     blob_base_fee = fork.blob_gas_price_calculator()(excess_blob_gas=0)
-    return max(max_gas, floor) * tx.max_fee_per_gas + blob_gas * blob_base_fee
+    required_max_fee = max_gas * BASE_FEE + blob_gas * blob_base_fee
+    return required_max_fee + min(
+        int(tx.max_priority_fee_per_gas) * max_gas,
+        int(tx.max_fee) - required_max_fee,
+    )
 
 
 @pytest.mark.parametrize(
@@ -99,8 +108,8 @@ def test_blob_introspection(
     """
     Read the transaction's blobs from a `DEFAULT` or `SENDER` frame:
     `BLOBHASH` returns each versioned hash and zero past the last one,
-    and `TXPARAM` reports the blob count, the blob fee cap and a maximum
-    cost that includes the blob gas.
+    `TXPARAM` reports the blob count and the `max_fee` budget, and the
+    sender's escrow includes the blob gas.
     """
     hashes = blob_versioned_hashes(BLOB_COUNT)
     probe_code = Bytecode()
@@ -110,18 +119,19 @@ def test_blob_introspection(
         )
     probe_code += (
         Op.SSTORE(SLOT_BLOB_COUNT, Op.TXPARAM(Spec.TXPARAM_BLOB_COUNT))
+        + Op.SSTORE(SLOT_MAX_FEE, Op.TXPARAM(Spec.TXPARAM_MAX_FEE))
+        # The escrow stays out of the payer's balance until settlement.
         + Op.SSTORE(
-            SLOT_MAX_FEE_PER_BLOB_GAS,
-            Op.TXPARAM(Spec.TXPARAM_MAX_FEE_PER_BLOB_GAS),
+            SLOT_ESCROW,
+            Op.SUB(SENDER_FUNDS, Op.BALANCE(Op.TXPARAM(Spec.TXPARAM_SENDER))),
         )
-        + Op.SSTORE(SLOT_MAX_COST, Op.TXPARAM(Spec.TXPARAM_MAX_COST))
         + Op.STOP
     )
     probe = pre.deploy_contract(code=probe_code)
     tx = Transaction(
-        sender=pre.fund_eoa(),
-        max_fee_per_gas=MAX_FEE,
-        max_fee_per_blob_gas=MAX_FEE_PER_BLOB_GAS,
+        sender=pre.fund_eoa(amount=SENDER_FUNDS),
+        max_fee=MAX_FEE,
+        max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         blob_versioned_hashes=hashes,
         frames=[
             verify_frame(),
@@ -139,9 +149,14 @@ def test_blob_introspection(
     }
     storage[SLOT_FIRST_BLOBHASH + len(hashes)] = 0
     storage[SLOT_BLOB_COUNT] = len(hashes)
-    storage[SLOT_MAX_FEE_PER_BLOB_GAS] = MAX_FEE_PER_BLOB_GAS
-    storage[SLOT_MAX_COST] = max_cost(fork, tx)
-    state_test(pre=pre, tx=tx, post={probe: Account(storage=storage)})
+    storage[SLOT_MAX_FEE] = MAX_FEE
+    storage[SLOT_ESCROW] = escrow(fork, tx)
+    state_test(
+        env=Environment(base_fee_per_gas=BASE_FEE),
+        pre=pre,
+        tx=tx,
+        post={probe: Account(storage=storage)},
+    )
 
 
 def test_blob_introspection_in_verify_frame(
@@ -152,7 +167,7 @@ def test_blob_introspection_in_verify_frame(
     Read the transaction's blobs from a `VERIFY` frame, which cannot
     store what it reads: the sender approves only when `BLOBHASH`
     returns each versioned hash and zero past the last one, and
-    `TXPARAM` reports the blob count and the blob fee cap. The
+    `TXPARAM` reports the blob count and the `max_fee` budget. The
     transaction is valid only if every read matches.
     """
     hashes = blob_versioned_hashes(BLOB_COUNT)
@@ -164,12 +179,9 @@ def test_blob_introspection_in_verify_frame(
             Op.EQ(Op.BLOBHASH(i), blob_hash)
             for i, blob_hash in enumerate(hashes)
         ],
-        # The blob count and the blob fee cap read back as sent.
+        # The blob count and the budget read back as sent.
         Op.EQ(Op.TXPARAM(Spec.TXPARAM_BLOB_COUNT), len(hashes)),
-        Op.EQ(
-            Op.TXPARAM(Spec.TXPARAM_MAX_FEE_PER_BLOB_GAS),
-            MAX_FEE_PER_BLOB_GAS,
-        ),
+        Op.EQ(Op.TXPARAM(Spec.TXPARAM_MAX_FEE), MAX_FEE),
     ]
     reads_match = reduce(Op.AND, checks)
     sender = pre.deploy_contract(
@@ -183,8 +195,7 @@ def test_blob_introspection_in_verify_frame(
     tx = Transaction(
         sender=sender,
         nonce=1,
-        max_fee_per_gas=MAX_FEE,
-        max_fee_per_blob_gas=MAX_FEE_PER_BLOB_GAS,
+        max_fee=MAX_FEE,
         blob_versioned_hashes=hashes,
         frames=[verify_frame()],
     )

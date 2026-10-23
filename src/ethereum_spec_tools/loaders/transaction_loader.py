@@ -134,11 +134,10 @@ class TransactionLoad:
     def json_to_fees(self) -> Any:
         """Get the nested fee parameters of a frame transaction."""
         return self.fork.TransactionFees(
+            max_fee=hex_to_uint(self.raw.get("maxFee")),
             max_priority_fee_per_gas=hex_to_uint(
                 self.raw.get("maxPriorityFeePerGas")
             ),
-            max_fee_per_gas=hex_to_uint(self.raw.get("maxFeePerGas")),
-            max_fee_per_blob_gas=hex_to_u256(self.raw.get("maxFeePerBlobGas")),
         )
 
     def json_to_frames(self) -> Any:
@@ -295,8 +294,8 @@ class TransactionLoad:
                 raise ValueError(f"Unknown transaction type: {tx_type}")
         else:
             if "frames" in self.raw:
-                # Checked before the blob fields: frame transactions
-                # always carry `maxFeePerBlobGas`.
+                # Checked first: the frames identify the type before
+                # any field it shares with the other types.
                 if not self.fork.supports_tx_type(6):
                     raise self.unsupported_tx_type(6)
                 tx_cls = self.fork.FrameTransaction

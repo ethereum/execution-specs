@@ -39,9 +39,7 @@ class TransactionParameter(UintEnum):
     NONCE = Uint(0x01)
     SENDER = Uint(0x02)
     MAX_PRIORITY_FEE_PER_GAS = Uint(0x03)
-    MAX_FEE_PER_GAS = Uint(0x04)
-    MAX_FEE_PER_BLOB_GAS = Uint(0x05)
-    MAX_COST = Uint(0x06)
+    MAX_FEE = Uint(0x04)
     BLOB_COUNT = Uint(0x07)
     SIG_HASH = Uint(0x08)
     FRAME_COUNT = Uint(0x09)
@@ -165,12 +163,8 @@ def txparam(evm: Evm) -> None:
         value = U256.from_be_bytes(tx.sender)
     elif param == TransactionParameter.MAX_PRIORITY_FEE_PER_GAS:
         value = U256(tx.fees.max_priority_fee_per_gas)
-    elif param == TransactionParameter.MAX_FEE_PER_GAS:
-        value = U256(tx.fees.max_fee_per_gas)
-    elif param == TransactionParameter.MAX_FEE_PER_BLOB_GAS:
-        value = tx.fees.max_fee_per_blob_gas
-    elif param == TransactionParameter.MAX_COST:
-        value = U256(frame_context.max_cost)
+    elif param == TransactionParameter.MAX_FEE:
+        value = U256(tx.fees.max_fee)
     elif param == TransactionParameter.BLOB_COUNT:
         value = U256(len(tx.blob_versioned_hashes))
     elif param == TransactionParameter.SIG_HASH:

@@ -64,6 +64,7 @@ from .system_contract_interactions import (
 from .transaction_types import (
     DEFAULT_FRAME_GAS_LIMIT,
     DEFAULT_FRAME_STATE_GAS_LIMIT,
+    SECP256K1_SIGNATURE_LENGTH,
     AuthorizationTuple,
     Frame,
     FrameSignature,
@@ -113,6 +114,7 @@ __all__ = (
     "P256Signature",
     "PostStateContext",
     "Removable",
+    "SECP256K1_SIGNATURE_LENGTH",
     "SystemContractInteractionBase",
     "SystemContractInteractionContract",
     "SystemContractInteractionMeasuredOutOfGasContract",

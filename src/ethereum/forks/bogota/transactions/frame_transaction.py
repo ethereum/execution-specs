@@ -38,8 +38,6 @@ from ..exceptions import (
     FrameCountError,
     InvalidBlobVersionedHashError,
     InvalidFrameError,
-    InvalidMaxFeePerBlobGasError,
-    PriorityFeeGreaterThanMaxFeeError,
     TransactionGasLimitExceededError,
 )
 from ..fork_types import ExecutionGas, VersionedHash
@@ -356,20 +354,15 @@ class TransactionFees:
     [ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
     """  # noqa: E501
 
+    max_fee: Uint
+    """
+    The maximum total fee, in wei, that the sender is willing to pay for
+    all of the transaction's execution, state, and blob gas.
+    """
+
     max_priority_fee_per_gas: Uint
     """
-    The maximum priority fee per gas that the sender is willing to pay.
-    """
-
-    max_fee_per_gas: Uint
-    """
-    The maximum fee per gas that the sender is willing to pay, including the
-    base fee and priority fee.
-    """
-
-    max_fee_per_blob_gas: U256
-    """
-    The maximum fee per blob gas that the sender is willing to pay.
+    The priority fee per gas that the sender is willing to pay.
     """
 
 
@@ -447,13 +440,16 @@ def compute_frame_signature_hash(tx: FrameTransaction) -> Hash32:
     Compute the canonical signature hash of a frame transaction.
 
     The raw `signature` bytes of every entry with an empty `msg` are
-    elided before hashing, since a signature over the canonical hash
-    cannot commit to its own bytes.
+    replaced by their length, encoded as an unsigned integer, before
+    hashing. A signature over the canonical hash cannot commit to its
+    own bytes, but committing to their length fixes what the payer is
+    charged for them.
     """
     elided_signatures = []
     for signature in tx.signatures:
         if len(signature.message) == 0:
-            elided_signatures.append(replace(signature, signature=Bytes(b"")))
+            length = ulen(signature.signature).to_be_bytes()
+            elided_signatures.append(replace(signature, signature=length))
         else:
             elided_signatures.append(signature)
 
@@ -635,21 +631,12 @@ def validate_frame_transaction(
     if tx.nonce >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
 
-    if tx.fees.max_fee_per_gas > Uint(U256.MAX_VALUE):
-        raise FeeOverflowError("Max fee per gas too high")
+    if tx.fees.max_fee > Uint(U256.MAX_VALUE):
+        raise FeeOverflowError("Max fee too high")
     if tx.fees.max_priority_fee_per_gas > Uint(U256.MAX_VALUE):
         raise FeeOverflowError("Max priority fee per gas too high")
 
-    if tx.fees.max_fee_per_gas < tx.fees.max_priority_fee_per_gas:
-        raise PriorityFeeGreaterThanMaxFeeError(
-            "priority fee greater than max fee"
-        )
-
     blob_count = len(tx.blob_versioned_hashes)
-    if blob_count == 0 and tx.fees.max_fee_per_blob_gas != U256(0):
-        raise InvalidMaxFeePerBlobGasError(
-            "max fee per blob gas must be zero without blobs"
-        )
     if blob_count > BLOB_COUNT_LIMIT:
         raise BlobCountExceededError(
             f"Tx has {blob_count} blobs. Max allowed: {BLOB_COUNT_LIMIT}"
@@ -791,7 +778,10 @@ def calculate_frame_transaction_intrinsic_cost(
     and the `signer`, `message`, and `signature` bytes of each signature
     entry — the signature verification cost, and the value transfer cost
     of each value-bearing frame with an explicit target other than the
-    sender, covering the recipient balance write and transfer log.
+    sender, covering the recipient balance write and transfer log. The
+    `signature` bytes of an entry with an empty `message` are priced as
+    if all non-zero, since the canonical signature hash commits only to
+    their length.
     Unlike other transaction types, there is no recipient component:
     target access is paid during frame execution from each frame's own
     execution gas budget.
@@ -823,13 +813,15 @@ def calculate_frame_transaction_intrinsic_cost(
     signature_gas = Uint(0)
     for signature in tx.signatures:
         signature_gas += signature_verification_gas(signature)
-        for data in (
-            signature.signer,
-            signature.message,
-            signature.signature,
-        ):
+        for data in (signature.signer, signature.message):
             tokens += count_tokens_in_data(data)
             data_length += ulen(data)
+        signature_length = ulen(signature.signature)
+        if len(signature.message) == 0:
+            tokens += signature_length * GasCosts.TX_DATA_TOKEN_STANDARD
+        else:
+            tokens += count_tokens_in_data(signature.signature)
+        data_length += signature_length
 
     # EIP-7976 floor tokens: all charged bytes count uniformly.
     floor_tokens = data_length * GasCosts.TX_DATA_TOKEN_STANDARD
