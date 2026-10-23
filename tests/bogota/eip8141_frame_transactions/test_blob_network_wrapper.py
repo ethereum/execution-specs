@@ -22,13 +22,13 @@ from execution_testing import (
     BlockchainTestFiller,
     BlockException,
     Fork,
-    Frame,
     Header,
     NetworkWrappedTransaction,
     Transaction,
     TransactionException,
 )
 
+from .helpers import sender_frame, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -60,12 +60,8 @@ def frame_tx_with_blobs(pre: Alloc, blobs: List[Blob]) -> Transaction:
     return Transaction(
         sender=pre.fund_eoa(),
         frames=[
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-                gas_limit=Spec.MAX_VERIFY_GAS // 2,
-            ),
-            Frame(mode=Spec.MODE_SENDER, target=pre.fund_eoa(amount=0)),
+            verify_frame(gas_limit=Spec.MAX_VERIFY_GAS // 2),
+            sender_frame(target=pre.fund_eoa(amount=0)),
         ],
         blob_versioned_hashes=[blob.versioned_hash for blob in blobs],
     )

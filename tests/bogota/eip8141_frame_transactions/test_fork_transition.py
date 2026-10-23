@@ -21,13 +21,17 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
-    FrameReceipt,
+    Fork,
     Op,
-    Transaction,
-    TransactionReceipt,
 )
 
-from .helpers import expiry_frame, sender_frame, verify_frame
+from .helpers import (
+    FrameTransaction,
+    expiry_frame,
+    expiry_verifier_gas,
+    sender_frame,
+    verify_frame,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -55,6 +59,7 @@ records no code change.
 def test_expiry_frame_in_first_post_fork_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Execute an expiry verifier frame in the block that activates the fork.
@@ -65,20 +70,18 @@ def test_expiry_frame_in_first_post_fork_block(
     the verifier as executed code, not as a code change.
     """
     sender = pre.fund_eoa()
-    target = pre.deploy_contract(code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP)
-    tx = Transaction(
+    target_code = Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP
+    target = pre.deploy_contract(code=target_code)
+    # The frame transaction runs in a block past the transition.
+    post_fork = fork.transitions_to()
+    tx = FrameTransaction.build(
+        fork=post_fork,
         sender=sender,
         frames=[
             verify_frame(),
-            expiry_frame(),
-            sender_frame(target=target),
+            expiry_frame(execution_gas=expiry_verifier_gas(post_fork)),
+            sender_frame(target=target, code=target_code),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS) for _ in range(3)
-            ],
-        ),
     )
     blocks = [
         Block(timestamp=FORK_TIMESTAMP - 1),

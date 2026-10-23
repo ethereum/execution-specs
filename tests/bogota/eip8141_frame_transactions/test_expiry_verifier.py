@@ -15,15 +15,19 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
-    FrameReceipt,
+    Fork,
     Op,
     StateTestFiller,
-    Transaction,
     TransactionException,
-    TransactionReceipt,
 )
 
-from .helpers import expiry_frame, sender_frame, verify_frame
+from .helpers import (
+    FrameTransaction,
+    expiry_frame,
+    expiry_verifier_gas,
+    sender_frame,
+    verify_frame,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -54,6 +58,7 @@ BLOCK_TIMESTAMP = 1_000
 def test_expiry_verifier_frame(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     expiry: int,
     error: TransactionException | None,
 ) -> None:
@@ -67,30 +72,21 @@ def test_expiry_verifier_frame(
     transaction.
     """
     sender = pre.fund_eoa()
-    target = pre.deploy_contract(code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP)
+    target_code = Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP
+    target = pre.deploy_contract(code=target_code)
 
-    expected_receipt = None
-    if error is None:
-        expected_receipt = TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-            ],
-        )
-
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
         frames=[
             verify_frame(),
             expiry_frame(
-                data=Bytes(expiry.to_bytes(Spec.EXPIRY_DATA_LENGTH, "big"))
+                data=Bytes(expiry.to_bytes(Spec.EXPIRY_DATA_LENGTH, "big")),
+                execution_gas=expiry_verifier_gas(fork),
             ),
-            sender_frame(target=target),
+            sender_frame(target=target, code=target_code),
         ],
         error=error,
-        expected_receipt=expected_receipt,
     )
 
     state_test(

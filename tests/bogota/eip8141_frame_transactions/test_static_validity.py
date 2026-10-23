@@ -424,13 +424,13 @@ FRAME_CASES = [
     # Decode-time rejections: field values outside their type's
     # domain never construct, so the transaction never decodes.
     pytest.param(
-        [verify_frame(), default_frame(mode=3)],
+        [verify_frame(), Frame(mode=3)],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="undefined_frame_mode",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        [verify_frame(), default_frame(mode=255)],
+        [verify_frame(), Frame(mode=255)],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="undefined_frame_mode_high",
         marks=pytest.mark.exception_test,
