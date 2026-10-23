@@ -17,6 +17,7 @@ from execution_testing import (
     Bytecode,
     Bytes,
     Fork,
+    Hash,
     Initcode,
     Op,
     StateTestFiller,
@@ -33,6 +34,7 @@ from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
 from tests.bogota.eip8250_keyed_nonces.helpers import NONCE_KEY
 from tests.bogota.eip8250_keyed_nonces.spec import Spec as Spec8250
 from tests.bogota.eip8250_keyed_nonces.spec import keyed_nonce_slot
+from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
 from .helpers import (
     BOB_FUNDS,
@@ -589,6 +591,66 @@ def test_code_and_nonce_changes_ascend_regardless_of_creation_order(
             factory: Account(nonce=3),
             lower: Account(nonce=1, code=DEPLOYED_RUNTIME),
             higher: Account(nonce=1, code=DEPLOYED_RUNTIME),
+        },
+    )
+
+
+def test_adopted_code_replaces_delegation(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    List an EIP-8298 adoption over an EIP-7702 delegation in
+    `codes_changed`, with the delegation indicator's hash before and the
+    adopted code's hash after.
+    """
+    if not fork.is_eip_enabled(8298):
+        pytest.skip("SETCODEFROM needs EIP-8298")
+    sender = pre.fund_eoa()
+    source_code = Op.SSTORE(KEY_A, 1) + Op.STOP
+    source = pre.deploy_contract(code=source_code)
+    # Looked up by name past the skip: the opcode table only lists
+    # `SETCODEFROM` where this branch shares a fork with EIP-8298.
+    setcodefrom = Op.__members__["SETCODEFROM"]
+    shell = pre.deploy_contract(
+        code=Op.POP(setcodefrom(Op.CALLDATALOAD(0))) + Op.STOP
+    )
+    adopter = pre.fund_eoa(amount=0, delegation=shell)
+    indicator = Spec7702.delegation_designation(shell)
+
+    checks = expect_eq(Op.TXTRACE(Spec.TXTRACE_CODES_CHANGED, 0), 1)
+    checks += expect_eq(
+        Op.TXTRACE(Spec.TXTRACE_CODE_ADDRESS, 0), as_int(adopter)
+    )
+    checks += expect_eq(
+        Op.TXTRACE(Spec.TXTRACE_CODE_BEFORE, 0),
+        int.from_bytes(keccak256(indicator), "big"),
+    )
+    checks += expect_eq(
+        Op.TXTRACE(Spec.TXTRACE_CODE_AFTER, 0),
+        int.from_bytes(source_code.keccak256(), "big"),
+    )
+    assertion = pre.deploy_contract(code=checks + Op.STOP)
+
+    state_test(
+        pre=pre,
+        tx=assertion_transaction(
+            fork,
+            sender,
+            body=[
+                body_frame(
+                    fork,
+                    target=adopter,
+                    data=Hash(source, left_padding=True),
+                )
+            ],
+            assertion=assertion,
+            frame_receipts=success_receipts(3),
+        ),
+        post={
+            sender: Account(nonce=1),
+            adopter: Account(code=source_code),
         },
     )
 
