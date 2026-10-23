@@ -70,11 +70,10 @@ class EIP8141(BaseFork):
         """
         Add the frame instruction gas costs.
 
-        `SIGDATACOPY` follows the `CALLDATACOPY` shape: the opcode
-        instance must carry copy-size and memory-size metadata.
-        `APPROVE` follows the `REVERT` shape: only its return-data
-        region's memory expansion is charged. The remaining frame
-        instruction — `FRAMEDATACOPY` — stays unmapped.
+        `FRAMEDATACOPY` and `SIGDATACOPY` follow the `CALLDATACOPY`
+        shape: the opcode instance must carry copy-size and memory-size
+        metadata. `APPROVE` follows the `REVERT` shape: only its
+        return-data region's memory expansion is charged.
         """
         gas_costs = cls.gas_costs()
         memory_expansion_calculator = cls.memory_expansion_gas_calculator()
@@ -85,6 +84,10 @@ class EIP8141(BaseFork):
             Opcodes.FRAMEDATALOAD: gas_costs.VERY_LOW,
             Opcodes.FRAMEPARAM: gas_costs.BASE,
             Opcodes.SIGPARAM: gas_costs.BASE,
+            Opcodes.FRAMEDATACOPY: cls._with_memory_expansion(
+                cls._with_data_copy(gas_costs.VERY_LOW, gas_costs),
+                memory_expansion_calculator,
+            ),
             Opcodes.SIGDATACOPY: cls._with_memory_expansion(
                 cls._with_data_copy(gas_costs.VERY_LOW, gas_costs),
                 memory_expansion_calculator,
