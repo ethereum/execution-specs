@@ -84,16 +84,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default="",
         help="Fill tests until and including the specified fork.",
     )
-    fork_group.addoption(
-        "--bpo-scenarios",
-        action="store_true",
-        dest="bpo_scenarios",
-        default=False,
-        help=(
-            "Also fill the synthetic BPO increase and decrease of each "
-            "selected fork."
-        ),
-    )
 
 
 @dataclass(kw_only=True)
@@ -618,7 +608,6 @@ def pytest_configure(config: pytest.Config) -> None:
         forks_from=forks_from,
         forks_until=forks_until,
         transition_forks=transition_forks,
-        bpo_scenarios=config.getoption("bpo_scenarios"),
     )
     if (
         getattr(config, "single_fork_mode", False)

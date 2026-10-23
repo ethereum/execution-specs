@@ -43,17 +43,17 @@ Both keep the max to target ratio of `<Fork>`, rounded up, and scale the update 
 
 Both scenarios follow `<Fork>` directly and take the next client BPO slot after the BPO forks it descends from, so the Amsterdam scenarios both fill `HIVE_BPO3_*`. The transitions into them activate at timestamp 15,000 and leave out the repeated fork name, for example `AmsterdamToBPOIncreaseAtTime15k` and `AmsterdamToBPODecreaseAtTime15k`. Hive already maps the numbered keys onto the client config, so a new fork or BPO fork needs no Hive change either.
 
-Fill them with `--bpo-scenarios`, which adds the scenarios of every selected fork and the transitions into them at timestamp 15,000:
+A fork range fills the scenarios of every fork it selects, together with the transitions into them, so releases, devnets and CI include them with no extra option. For example, `--until=Amsterdam` fills `AmsterdamBPOIncrease`, `AmsterdamBPODecrease` and both transitions. `--fork=Amsterdam` fills Amsterdam alone; select a scenario on its own with `--fork=AmsterdamBPODecrease`.
 
 ```console
-uv run fill tests/osaka/eip7918_blob_reserve_price/ --from=Amsterdam --until=Bogota --bpo-scenarios
+uv run fill tests/osaka/eip7918_blob_reserve_price/ --from=Amsterdam --until=Amsterdam
 ```
 
-Without the flag, `--until=Amsterdam` stops before these scenarios and excludes the historical parallel BPO3–BPO5 branch. Numbered fork and transition definitions remain available for older fixtures and genesis files.
+`--until=Amsterdam` still excludes the historical parallel BPO3–BPO5 branch. Numbered fork and transition definitions remain available for older fixtures and genesis files.
 
-Clients must permit their BPO slots to activate after the fork the scenarios follow, so the scenarios are excluded from automatic fixture releases pending client support. Successful filling does not establish client compatibility.
+Clients must permit their BPO slots to activate after the fork the scenarios follow. Successful filling does not establish client compatibility.
 
-The Python Specification workflow passes `--bpo-scenarios` to every fill job, so CI fills the scenarios and their transitions for each fork from Amsterdam on. These CI fixtures are not published.
+On BPO forks, including these scenarios, only the tests marked with `valid_for_bpo_forks` run. Mark tests whose case count stays small, since every scenario multiplies it.
 
 ## Further Help
 

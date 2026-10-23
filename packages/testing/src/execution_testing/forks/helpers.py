@@ -242,14 +242,14 @@ def get_selected_fork_set(
     forks_until: Set[Type[BaseFork]],
     transition_forks: bool = True,
     bpo_siblings: bool = False,
-    bpo_scenarios: bool = False,
 ) -> Set[Type[BaseFork | TransitionBaseClass]]:
     """
     Process sets derived from `--fork`, `--until` and `--from` to return an
     unified fork set.
 
-    Include parallel BPO branches, and the BPO increase and decrease of each
-    selected fork, only when explicitly requested.
+    A fork range also includes the BPO increase and decrease of each selected
+    fork, so releases and CI fill them with their fork. Include parallel BPO
+    branches only when explicitly requested.
     """
     selected_fork_set: Set[Type[BaseFork]] = set()
     if single_fork:
@@ -274,7 +274,6 @@ def get_selected_fork_set(
             selected_fork_set |= get_bpo_sibling_forks(
                 ALL_FORKS, forks_from, forks_until
             )
-    if bpo_scenarios:
         for fork in list(selected_fork_set):
             selected_fork_set |= set(forks.BPO_SCENARIOS.get(fork, ()))
     selected_fork_set_with_transitions: Set[

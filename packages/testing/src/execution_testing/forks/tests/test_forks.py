@@ -839,14 +839,22 @@ class TestSelectedForkSetWithTransitionBoundaries:
         normal = self._normal_forks(result)
         assert {BPO1, BPO2, Amsterdam} <= normal
         assert not ({BPO3, BPO4, BPO5} & normal)
+        increase, decrease = BPO_SCENARIOS[Amsterdam]
         assert {
             fork
             for fork in self._transition_forks(result)
             if fork.transitions_from() >= BPO2
-        } == {BPO2ToAmsterdamAtTime15k}
+        } == {
+            BPO2ToAmsterdamAtTime15k,
+            transition_fork_from_to(Amsterdam, increase),
+            transition_fork_from_to(Amsterdam, decrease),
+        }
 
     def test_from_osaka_until_amsterdam_follows_ancestry(self) -> None:
-        """Include only BPO ancestors in the Osaka-to-Amsterdam range."""
+        """
+        Include only BPO ancestors and Amsterdam's own BPO scenarios in the
+        Osaka-to-Amsterdam range.
+        """
         result = get_selected_fork_set(
             single_fork=set(),
             forks_from={Osaka},
@@ -857,6 +865,7 @@ class TestSelectedForkSetWithTransitionBoundaries:
             BPO1,
             BPO2,
             Amsterdam,
+            *BPO_SCENARIOS[Amsterdam],
         }
 
     def test_until_amsterdam_bpo_siblings_enabled(self) -> None:
@@ -892,13 +901,19 @@ class TestSelectedForkSetWithTransitionBoundaries:
         assert not ({BPO3, BPO4, BPO5} & normal)
 
     def test_from_amsterdam_until_amsterdam_excludes_bpos(self) -> None:
-        """`--from=Amsterdam --until=Amsterdam` stays Amsterdam-only."""
+        """
+        `--from=Amsterdam --until=Amsterdam` adds only Amsterdam's own BPO
+        scenarios.
+        """
         result = get_selected_fork_set(
             single_fork=set(),
             forks_from={Amsterdam},
             forks_until={Amsterdam},
         )
-        assert self._normal_forks(result) == {Amsterdam}
+        assert self._normal_forks(result) == {
+            Amsterdam,
+            *BPO_SCENARIOS[Amsterdam],
+        }
 
 
 def test_blob_constants() -> None:  # noqa: D103
@@ -1228,10 +1243,10 @@ def test_bpo_scenarios_follow_a_new_bpo_fork() -> None:
 
 
 @pytest.mark.parametrize("forks_until", [Amsterdam, Bogota])
-def test_bpo_scenarios_are_selected_on_request(
+def test_bpo_scenarios_are_selected_with_their_fork(
     forks_until: Type[BaseFork],
 ) -> None:
-    """Select the scenarios of each selected fork only when asked."""
+    """Select the scenarios of each fork in a range, not for a single fork."""
     expected: set = set()
     for fork in BPO_SCENARIOS:
         if not Amsterdam <= fork <= forks_until:
@@ -1244,13 +1259,7 @@ def test_bpo_scenarios_are_selected_on_request(
             transition_fork_from_to(fork, decrease),
         }
 
-    def selected_scenarios(**options: bool) -> set:
-        selected = get_selected_fork_set(
-            single_fork=set(),
-            forks_from={Amsterdam},
-            forks_until={forks_until},
-            **options,
-        )
+    def scenarios_in(selected: set) -> set:
         return {
             fork
             for fork in selected
@@ -1262,6 +1271,15 @@ def test_bpo_scenarios_are_selected_on_request(
             in BPO_SCENARIO_FORKS
         }
 
-    assert selected_scenarios() == set()
-    assert selected_scenarios(bpo_siblings=True) == set()
-    assert selected_scenarios(bpo_scenarios=True) == expected
+    for bpo_siblings in (False, True):
+        selected = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={Amsterdam},
+            forks_until={forks_until},
+            bpo_siblings=bpo_siblings,
+        )
+        assert scenarios_in(selected) == expected
+    single = get_selected_fork_set(
+        single_fork={forks_until}, forks_from=set(), forks_until=set()
+    )
+    assert scenarios_in(single) == set()
