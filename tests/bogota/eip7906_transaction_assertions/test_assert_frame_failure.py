@@ -30,7 +30,6 @@ from execution_testing import (
 )
 
 from tests.bogota.eip8141_frame_transactions.helpers import (
-    default_code_frame_gas,
     default_frame,
     verify_frame,
 )
@@ -492,7 +491,7 @@ def test_assert_frame_gas_settlement(
     receipts = [
         FrameReceipt(
             status=Spec8141.STATUS_SUCCESS,
-            gas_used=default_code_frame_gas(fork, target_warm=True),
+            gas_used=fork.frame_entry_gas_calculator()(target_warm=True),
             state_gas_used=0,
         ),
         settled_receipt(fork, worker, effect, kept=holds),
@@ -515,7 +514,6 @@ def test_assert_frame_gas_settlement(
     ]
     tx = Transaction(
         sender=sender,
-        max_fee_per_gas=FEE_PER_GAS,
         max_priority_fee_per_gas=0,
         frames=[
             verify_frame(),
@@ -790,7 +788,7 @@ def test_frames_before_payment_approval_survive_failed_assertion(
     receipts = [
         FrameReceipt(
             status=Spec8141.STATUS_SUCCESS,
-            gas_used=default_code_frame_gas(fork, target_warm=True),
+            gas_used=fork.frame_entry_gas_calculator()(target_warm=True),
             state_gas_used=0,
         ),
         FrameReceipt(
@@ -817,7 +815,6 @@ def test_frames_before_payment_approval_survive_failed_assertion(
     ]
     tx = Transaction(
         sender=sender,
-        max_fee_per_gas=FEE_PER_GAS,
         max_priority_fee_per_gas=0,
         frames=[
             verify_frame(flags=Spec8141.APPROVE_EXECUTION),

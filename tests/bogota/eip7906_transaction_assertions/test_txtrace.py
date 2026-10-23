@@ -40,7 +40,6 @@ from .helpers import (
     EMITTER_CODE,
     EVENT_DATA,
     FACTORY_CODE,
-    FEE_PER_GAS,
     FOUR_TOPIC_CODE,
     FUNDS,
     INITCODE_DEPLOYING,
@@ -65,6 +64,7 @@ from .helpers import (
     factory_state_gas,
     frame_max_cost,
     frame_max_gas,
+    frame_required_max_fee,
     initcode_word,
     reverted_body_receipts,
     success_receipts,
@@ -75,6 +75,9 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7906.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7906.version
 
 pytestmark = pytest.mark.valid_from("EIP7906")
+
+PRIORITY_FEE = 1
+"""Tip per gas of a transaction whose escrow a test pins."""
 
 TransferChecks = Callable[[EOA, EOA], Bytecode]
 """Build an assertion's checks from the payer and the recipient."""
@@ -695,8 +698,8 @@ def test_event_table(
 @pytest.mark.parametrize(
     "fee_headroom",
     [
-        pytest.param(1, id="max_fees_at_price"),
-        pytest.param(3, id="max_fees_above_price"),
+        pytest.param(1, id="budget_at_worst_case"),
+        pytest.param(3, id="budget_above_worst_case"),
     ],
 )
 def test_sponsored_gas_pre_charge(
@@ -707,53 +710,56 @@ def test_sponsored_gas_pre_charge(
     fee_headroom: int,
 ) -> None:
     """
-    Expose a distinct payer and its entire escrow, `TXPARAM`'s maximum
-    cost: execution gas priced at the maximum fee even when it exceeds
-    the price the transaction pays, and blob gas at the blob base fee.
-    The payer alone has a balance change and the sender alone a nonce
-    change.
+    Expose a distinct payer and its entire escrow: the worst case at the
+    base fees, execution gas at the base fee and blob gas at the blob base
+    fee, plus the tip only a budget above that worst case allows. The
+    payer alone has a balance change and the sender alone a nonce change.
     """
     sender = pre.fund_eoa(amount=FUNDS)
+
+    def transaction(
+        payer: Address, assertion: Address, max_fee: int
+    ) -> Transaction:
+        return Transaction(
+            sender=sender,
+            nonce=0,
+            max_fee=max_fee,
+            max_priority_fee_per_gas=PRIORITY_FEE,
+            blob_versioned_hashes=[bytes.fromhex("01" + "00" * 31)]
+            * blob_count,
+            frames=[
+                verify_frame(flags=Spec8141.APPROVE_EXECUTION),
+                verify_frame(target=payer, flags=Spec8141.APPROVE_PAYMENT),
+                assert_frame(fork, target=assertion),
+            ],
+            expected_receipt=TransactionReceipt(
+                payer=payer, frame_receipts=success_receipts(3)
+            ),
+        )
+
+    # The frame targets are not priced, so the escrow is known before the
+    # payer, funded with exactly that much, and the assertion exist.
+    draft = transaction(sender, sender, FUNDS)
+    max_fee = frame_required_max_fee(fork, draft) * fee_headroom
+    escrow = frame_max_cost(fork, transaction(sender, sender, max_fee))
+    assert (escrow > frame_required_max_fee(fork, draft)) == (fee_headroom > 1)
     payer = pre.deploy_contract(
-        code=Op.APPROVE(0, 0, Spec8141.APPROVE_PAYMENT), balance=FUNDS
+        code=Op.APPROVE(0, 0, Spec8141.APPROVE_PAYMENT), balance=escrow
     )
     assertion_code = (
         expect_eq(Op.TXTRACE(Spec.TXTRACE_GAS_PAYER, 0), payer)
-        + expect_eq(
-            Op.TXTRACE(Spec.TXTRACE_GAS_PRE_CHARGE, 0),
-            Op.SUB(FUNDS, Op.BALANCE(payer, address_warm=True)),
-        )
-        + expect_eq(
-            Op.TXTRACE(Spec.TXTRACE_GAS_PRE_CHARGE, 0),
-            Op.TXPARAM(Spec8141.TXPARAM_MAX_COST),
-        )
+        + expect_eq(Op.TXTRACE(Spec.TXTRACE_GAS_PRE_CHARGE, 0), escrow)
+        + expect_eq(Op.BALANCE(payer, address_warm=True), 0)
         + expect_eq(Op.TXTRACE(Spec.TXTRACE_BALANCES_CHANGED, 0), 1)
         + expect_eq(Op.TXTRACE(Spec.TXTRACE_BALANCE_ADDRESS, 0), payer)
-        + expect_eq(Op.TXTRACE(Spec.TXTRACE_BALANCE_BEFORE, 0), FUNDS)
+        + expect_eq(Op.TXTRACE(Spec.TXTRACE_BALANCE_BEFORE, 0), escrow)
         + expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCES_CHANGED, 0), 1)
         + expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCE_ADDRESS, 0), sender)
         + Op.STOP
     )
     assertion = pre.deploy_contract(code=assertion_code)
-    tx = Transaction(
-        sender=sender,
-        max_fee_per_gas=FEE_PER_GAS * fee_headroom,
-        max_priority_fee_per_gas=0,
-        max_fee_per_blob_gas=(
-            fork.min_base_fee_per_blob_gas() * fee_headroom
-            if blob_count
-            else 0
-        ),
-        blob_versioned_hashes=[bytes.fromhex("01" + "00" * 31)] * blob_count,
-        frames=[
-            verify_frame(flags=Spec8141.APPROVE_EXECUTION),
-            verify_frame(target=payer, flags=Spec8141.APPROVE_PAYMENT),
-            assert_frame(fork, target=assertion),
-        ],
-        expected_receipt=TransactionReceipt(
-            payer=payer, frame_receipts=success_receipts(3)
-        ),
-    )
+    tx = transaction(payer, assertion, max_fee)
+    assert frame_max_cost(fork, tx) == escrow
     state_test(
         pre=pre,
         tx=tx,
@@ -765,8 +771,8 @@ def test_sponsored_gas_pre_charge(
 @pytest.mark.parametrize(
     "fee_headroom",
     [
-        pytest.param(1, id="max_fees_at_price"),
-        pytest.param(3, id="max_fees_above_price"),
+        pytest.param(1, id="budget_at_worst_case"),
+        pytest.param(3, id="budget_above_worst_case"),
     ],
 )
 @pytest.mark.parametrize(
@@ -799,17 +805,12 @@ def test_gas_pre_charge_amount(
         + Op.STOP
     )
 
-    def transaction(data: Bytes) -> Transaction:
+    def transaction(data: Bytes, max_fee: int) -> Transaction:
         return Transaction(
             sender=sender,
             nonce=0,
-            max_fee_per_gas=FEE_PER_GAS * fee_headroom,
-            max_priority_fee_per_gas=0,
-            max_fee_per_blob_gas=(
-                fork.min_base_fee_per_blob_gas() * fee_headroom
-                if blob_count
-                else 0
-            ),
+            max_fee=max_fee,
+            max_priority_fee_per_gas=PRIORITY_FEE,
             blob_versioned_hashes=[bytes.fromhex("01" + "00" * 31)]
             * blob_count,
             frames=[
@@ -821,12 +822,17 @@ def test_gas_pre_charge_amount(
             ),
         )
 
-    tx = transaction(Bytes(b""))
+    # The budget prices no bytes, so it is set once the gas is known.
+    data = Bytes(b"")
     if floor_sets_max_gas:
-        tx = transaction(calldata_floor_data(fork, tx))
+        data = calldata_floor_data(fork, transaction(data, FUNDS))
+    required_max_fee = frame_required_max_fee(fork, transaction(data, FUNDS))
+    tx = transaction(data, required_max_fee * fee_headroom)
     max_gas, floor_gas = frame_max_gas(fork, tx)
     assert (max_gas == floor_gas) == floor_sets_max_gas
-    pre.fund_address(sender, frame_max_cost(fork, tx))
+    escrow = frame_max_cost(fork, tx)
+    assert (escrow > required_max_fee) == (fee_headroom > 1)
+    pre.fund_address(sender, escrow)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 

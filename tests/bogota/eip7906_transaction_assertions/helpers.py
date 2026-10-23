@@ -41,7 +41,10 @@ FUNDS = 10**18
 """Funding of a sender or sponsor whose balance a test pins."""
 
 FEE_PER_GAS = 7
-"""Gas price of a transaction whose payer balance a test pins."""
+"""
+Base fee of the default block, and so the gas price of a transaction
+that tips nothing, whose payer balance a test pins.
+"""
 
 BOB_FUNDS = 1_000
 CAROL_FUNDS = 1
@@ -333,16 +336,29 @@ def frame_max_gas(fork: Fork, tx: Transaction) -> Tuple[int, int]:
     return max_gas, floor + state_gas
 
 
-def frame_max_cost(fork: Fork, tx: Transaction) -> int:
+def frame_required_max_fee(fork: Fork, tx: Transaction) -> int:
     """
-    Return the escrow a signed frame transaction collects from its payer
-    when payment is approved: its derived gas limit at the maximum fee
-    per gas, plus its blob gas at the blob base fee of an empty excess.
+    Return the fee a signed frame transaction's `max_fee` must cover: its
+    derived gas limit at the base fee `FEE_PER_GAS`, plus its blob gas at
+    the blob base fee of an empty excess.
     """
     max_gas, _ = frame_max_gas(fork, tx)
     blob_gas = fork.blob_gas_per_blob() * len(tx.blob_versioned_hashes or [])
     blob_base_fee = fork.blob_gas_price_calculator()(excess_blob_gas=0)
-    return max_gas * int(tx.max_fee_per_gas or 0) + blob_gas * blob_base_fee
+    return max_gas * FEE_PER_GAS + blob_gas * blob_base_fee
+
+
+def frame_max_cost(fork: Fork, tx: Transaction) -> int:
+    """
+    Return the escrow a signed frame transaction collects from its payer
+    when payment is approved: the fee its `max_fee` must cover, plus the
+    largest tip on its derived gas limit that the rest of the budget
+    allows.
+    """
+    max_gas, _ = frame_max_gas(fork, tx)
+    required_max_fee = frame_required_max_fee(fork, tx)
+    tip = int(tx.max_priority_fee_per_gas or 0) * max_gas
+    return required_max_fee + min(tip, int(tx.max_fee or 0) - required_max_fee)
 
 
 def calldata_floor_data(fork: Fork, tx: Transaction) -> Bytes:
