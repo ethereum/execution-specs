@@ -24,11 +24,9 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
-    Bytes,
     CodeGasMeasure,
     Environment,
     Fork,
-    FrameSignature,
     Op,
     StateTestFiller,
 )
@@ -357,14 +355,6 @@ def test_payer_warm_after_default_code_payment_approval(
             verify_frame(flags=Spec.APPROVE_EXECUTION),
             verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
             probe_frame(probe_address, probe),
-        ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
         ],
     )
 

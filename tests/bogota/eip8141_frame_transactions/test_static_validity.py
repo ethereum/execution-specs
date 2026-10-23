@@ -50,7 +50,6 @@ from .helpers import (
     verify_frame,
 )
 from .signature_helpers import (
-    DIGEST,
     P256_SIGNATURE,
     SECP256K1N,
     SECP256R1N,
@@ -58,6 +57,7 @@ from .signature_helpers import (
     p256_entry,
     resized_signature,
     signed_digest_entry,
+    valid_p256_entry,
     with_tampered_components,
 )
 from .spec import Spec, ref_spec_8141
@@ -824,39 +824,18 @@ SIGNATURE_CASES = [
     ),
     # P256 entries.
     pytest.param(
-        [
-            FrameSignature(
-                scheme=Spec.SCHEME_P256,
-                msg=Bytes(DIGEST),
-                signer=Bytes(keccak256(P256_SIGNATURE[64:])[12:]),
-                signature=Bytes(P256_SIGNATURE),
-            )
-        ],
+        [valid_p256_entry()],
         None,
         id="p256_valid_entry",
     ),
     pytest.param(
-        [
-            FrameSignature(
-                scheme=Spec.SCHEME_P256,
-                msg=Bytes(DIGEST),
-                signer=Bytes(keccak256(P256_SIGNATURE[64:])[12:]),
-                signature=Bytes(P256_SIGNATURE[:127]),
-            )
-        ],
+        [valid_p256_entry(signature=Bytes(P256_SIGNATURE[:127]))],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
         id="p256_signature_too_short",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        [
-            FrameSignature(
-                scheme=Spec.SCHEME_P256,
-                msg=Bytes(DIGEST),
-                signer=Bytes(keccak256(P256_SIGNATURE[64:])[12:]),
-                signature=Bytes(P256_SIGNATURE + b"\x00"),
-            )
-        ],
+        [valid_p256_entry(signature=Bytes(P256_SIGNATURE + b"\x00"))],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
         id="p256_signature_too_long",
         marks=pytest.mark.exception_test,
@@ -910,14 +889,7 @@ SIGNATURE_CASES = [
     pytest.param(
         # A well-formed signature over a different digest than the
         # entry's msg fails cryptographic verification.
-        [
-            FrameSignature(
-                scheme=Spec.SCHEME_P256,
-                msg=Bytes(b"\x02" * 32),
-                signer=Bytes(keccak256(P256_SIGNATURE[64:])[12:]),
-                signature=Bytes(P256_SIGNATURE),
-            )
-        ],
+        [valid_p256_entry(msg=Bytes(b"\x02" * 32))],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
         id="p256_signature_over_different_digest",
         marks=pytest.mark.exception_test,

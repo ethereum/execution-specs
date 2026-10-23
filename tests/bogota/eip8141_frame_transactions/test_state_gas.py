@@ -20,13 +20,10 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Conditional,
     Fork,
-    FrameSignature,
     Op,
     StateTestFiller,
-    Transaction,
     TransactionException,
 )
 
@@ -348,14 +345,6 @@ def test_approve_creates_sender(
                 state_gas_used=sender_creation,
             ),
         ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
     )
 
     post: Dict[Address, Account] = {sender: Account(nonce=1, balance=0)}
@@ -385,8 +374,10 @@ def test_approve_sender_creation_unaffordable(
     sender, spend_frames, recipient = unfunded_sender(pre, sender_state)
     payer = pre.fund_eoa()
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
+        payer=payer,
         frames=[
             verify_frame(flags=Spec.APPROVE_EXECUTION),
             *spend_frames,
@@ -394,14 +385,6 @@ def test_approve_sender_creation_unaffordable(
                 flags=Spec.APPROVE_PAYMENT,
                 target=payer,
                 state_gas_limit=fork.gas_costs().NEW_ACCOUNT - 1,
-            ),
-        ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
             ),
         ],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
