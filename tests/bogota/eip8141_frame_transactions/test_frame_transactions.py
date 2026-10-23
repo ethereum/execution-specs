@@ -14,11 +14,13 @@ from execution_testing import (
     Account,
     Alloc,
     Bytes,
+    Case,
     Conditional,
     Fork,
     FrameSignature,
     Op,
     StateTestFiller,
+    Switch,
     Transaction,
     TransactionException,
 )
@@ -335,7 +337,7 @@ def test_frame_revert_discards_the_approval_it_granted(
     # both invocations run the sender's code. Calldata distinguishes them:
     # the frame supplies some, the self-call supplies none.
     record = Op.SSTORE(SLOT_EXECUTED, 1)
-    outer = record + Op.CALL(gas=Op.GAS, address=Op.ADDRESS)
+    outer = record + Op.CALL(gas=Op.GAS, address=Op.ADDRESS, address_warm=True)
     outer += Op.REVERT(0, 0) if frame_reverts else Op.STOP
     sender_code = Conditional(
         condition=Op.CALLDATASIZE,
@@ -345,6 +347,10 @@ def test_frame_revert_discards_the_approval_it_granted(
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
 
+    invocation_gas = sender_code.branch(condition=True).execution_cost(
+        fork
+    ) + sender_code.branch(condition=False).execution_cost(fork)
+
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
@@ -353,9 +359,12 @@ def test_frame_revert_discards_the_approval_it_granted(
             default_frame(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
-                gas_limit=400_000,
+                warm=True,
+                # The nested call forwards all but a 64th of the gas
+                # left, so the budget carries the retention.
+                execution_gas=invocation_gas,
+                gas_limit_delta=invocation_gas // 64,
                 data=Bytes(b"\x01"),
-                pin_gas=False,
                 state_gas_used=record.state_cost(fork),
             ),
         ],
@@ -428,24 +437,35 @@ def test_call_revert_above_approve_discards_the_approval(
     outer = (
         record
         + Op.POP(
-            Op.CALL(gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1)
+            Op.CALL(
+                gas=Op.GAS,
+                address=Op.ADDRESS,
+                args_offset=0,
+                args_size=1,
+                address_warm=True,
+                new_memory_size=1,
+            )
         )
         + (approve if outer_approves else Op.STOP)
     )
-    middle = Op.POP(Op.CALL(gas=Op.GAS, address=Op.ADDRESS)) + (
-        Op.REVERT(0, 0) if middle_reverts else Op.STOP
-    )
-    sender_code = Conditional(
-        condition=Op.CALLDATASIZE,
-        if_true=Conditional(
-            condition=Op.EQ(Op.CALLDATASIZE, 2),
-            if_true=outer,
-            if_false=middle,
-        ),
+    middle = Op.POP(
+        Op.CALL(gas=Op.GAS, address=Op.ADDRESS, address_warm=True)
+    ) + (Op.REVERT(0, 0) if middle_reverts else Op.STOP)
+    sender_code = Switch(
+        cases=[
+            Case(condition=Op.EQ(Op.CALLDATASIZE, 2), action=outer),
+            Case(condition=Op.CALLDATASIZE, action=middle),
+        ],
         # `APPROVE` exits this call context, returning control to `middle`.
-        if_false=approve,
+        default_action=approve,
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
+
+    invocation_gas = (
+        sender_code.branch(case=0).execution_cost(fork)
+        + sender_code.branch(case=1).execution_cost(fork)
+        + sender_code.branch(case=None).execution_cost(fork)
+    )
 
     approved = not middle_reverts or outer_approves
     tx = FrameTransaction.build(
@@ -456,9 +476,12 @@ def test_call_revert_above_approve_discards_the_approval(
             default_frame(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
-                gas_limit=400_000,
+                warm=True,
+                # Each nested call forwards all but a 64th of the gas
+                # left, so the budget carries both retentions.
+                execution_gas=invocation_gas,
+                gas_limit_delta=invocation_gas // 32,
                 data=Bytes(b"\x01\x01"),
-                pin_gas=False,
                 state_gas_used=record.state_cost(fork),
             ),
         ],

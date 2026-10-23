@@ -404,11 +404,12 @@ def test_frame_revert_refill_restores_spent_gas(
     # A worker that writes whichever value its frame passes and then
     # reverts when called with empty data: the creating frame passes a
     # value word and stops, the refilling frame passes no data and reverts.
-    worker_code = Op.SSTORE(SLOT_CREATED, Op.CALLDATALOAD(0)) + Conditional(
+    after_store = Conditional(
         condition=Op.ISZERO(Op.CALLDATASIZE),
         if_true=Op.REVERT(0, 0),
         if_false=Op.STOP,
     )
+    worker_code = Op.SSTORE(SLOT_CREATED, Op.CALLDATALOAD(0)) + after_store
     worker = pre.deploy_contract(code=worker_code)
     probe_code = (
         Op.SSTORE(
@@ -423,14 +424,6 @@ def test_frame_revert_refill_restores_spent_gas(
     )
     probe = pre.deploy_contract(code=probe_code)
 
-    # The worker's control flow after the store: evaluate the calldata
-    # size, then branch. The branch is taken only on the reverting path.
-    branch_control = (
-        Op.CALLDATASIZE + Op.ISZERO + Op.PUSH1(0) + Op.PC + Op.ADD + Op.JUMPI
-    ).execution_cost(fork)
-    revert_tail = (
-        Op.JUMPDEST + Op.PUSH1(0) + Op.PUSH1(0) + Op.REVERT
-    ).execution_cost(fork)
     create_store = Op.SSTORE(
         SLOT_CREATED,
         Op.CALLDATALOAD(0),
@@ -463,7 +456,7 @@ def test_frame_revert_refill_restores_spent_gas(
                 target=worker,
                 code=create_store,
                 execution_gas=create_store.execution_cost(fork)
-                + branch_control,
+                + after_store.branch(condition=False).execution_cost(fork),
                 data=(1).to_bytes(32, "big"),
             ),
             # Frame 2: return the slot to its start value (1 -> 0),
@@ -473,8 +466,7 @@ def test_frame_revert_refill_restores_spent_gas(
                 target=worker,
                 code=refill_store,
                 execution_gas=refill_store.execution_cost(fork)
-                + branch_control
-                + revert_tail,
+                + after_store.branch(condition=True).execution_cost(fork),
                 warm=True,
                 outcome=Outcome.REVERT,
             ),
