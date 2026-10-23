@@ -808,7 +808,8 @@ def test_diff_precedes_selfdestruct_cleanup(
     """
     Read a contract the body created and self-destructed with its code
     change, nonce change and storage: the diff is taken before the
-    transaction's deferred account cleanup.
+    transaction's deferred account cleanup. EIP-4758 drops the cleanup,
+    so the contract then outlives a passing assertion.
     """
     sender = pre.fund_eoa()
     runtime = Op.SSTORE(KEY_A, 1) + Op.SELFDESTRUCT(0)
@@ -860,7 +861,9 @@ def test_diff_precedes_selfdestruct_cleanup(
         post={
             sender: Account(nonce=1),
             factory: Account(nonce=1 if assertion_fails else 2),
-            created: Account.NONEXISTENT,
+            created: Account(code=bytes(runtime), storage={KEY_A: 1}, nonce=1)
+            if fork.is_eip_enabled(4758) and not assertion_fails
+            else Account.NONEXISTENT,
         },
     )
 

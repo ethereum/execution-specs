@@ -725,6 +725,7 @@ def test_body_revert_drops_scheduled_deletion(
     Drop the deletion the body scheduled for a contract a prefix frame
     created, when the assertion fails: the contract survives the
     transaction, while a passing assertion lets the deletion happen.
+    EIP-4758 schedules no deletion, so the contract then survives both.
     """
     sender = pre.fund_eoa()
     runtime = Op.SELFDESTRUCT(0)
@@ -759,7 +760,7 @@ def test_body_revert_drops_scheduled_deletion(
         post={
             sender: Account(nonce=1),
             created: Account(code=bytes(runtime))
-            if assert_fails
+            if assert_fails or fork.is_eip_enabled(4758)
             else Account.NONEXISTENT,
         },
     )
