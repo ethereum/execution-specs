@@ -83,21 +83,17 @@ TX_FIELD_CASES = [
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        dict(max_fee_per_gas=10, max_priority_fee_per_gas=11),
-        TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS,
-        id="priority_fee_above_max_fee",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        dict(max_fee_per_gas=10, max_priority_fee_per_gas=10),
-        None,
-        id="priority_fee_equals_max_fee",
-    ),
-    pytest.param(
-        dict(max_fee_per_gas=2**256),
+        dict(max_fee=2**256),
         TransactionException.GASPRICE_OVERFLOW,
         id="max_fee_overflow",
         marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # Only the `max_fee` budget caps the tip, so no tip per gas is
+        # too high for it.
+        dict(max_priority_fee_per_gas=2**256 - 1),
+        None,
+        id="priority_fee_at_max",
     ),
     pytest.param(
         dict(max_priority_fee_per_gas=2**256),
@@ -129,23 +125,13 @@ TX_FIELD_CASES = [
         id="frame_count_at_max",
     ),
     pytest.param(
-        dict(max_fee_per_blob_gas=1, blob_versioned_hashes=[]),
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="blob_fee_without_blobs",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        dict(
-            max_fee_per_blob_gas=1,
-            blob_versioned_hashes=[blob_hash(version=2)],
-        ),
+        dict(blob_versioned_hashes=[blob_hash(version=2)]),
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH,
         id="invalid_blob_hash_version",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
         dict(
-            max_fee_per_blob_gas=1,
             blob_versioned_hashes=lambda fork: [
                 blob_hash(version=1, index=i)
                 for i in range(fork.max_blobs_per_tx() + 1)

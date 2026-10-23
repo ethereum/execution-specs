@@ -68,7 +68,7 @@ def probe_transaction(
     return Transaction(
         sender=sender,
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
-        max_fee_per_gas=MAX_FEE,
+        max_fee=MAX_FEE,
         frames=[
             verify_frame(),
             default_frame(
@@ -92,8 +92,7 @@ def probe_transaction(
             MAX_PRIORITY_FEE,
             id="priority_fee",
         ),
-        pytest.param(Spec.TXPARAM_MAX_FEE_PER_GAS, MAX_FEE, id="max_fee"),
-        pytest.param(Spec.TXPARAM_MAX_FEE_PER_BLOB_GAS, 0, id="max_blob_fee"),
+        pytest.param(Spec.TXPARAM_MAX_FEE, MAX_FEE, id="max_fee"),
         pytest.param(Spec.TXPARAM_BLOB_COUNT, 0, id="blob_count"),
         pytest.param(Spec.TXPARAM_FRAME_COUNT, 2, id="frame_count"),
         pytest.param(Spec.TXPARAM_CURRENT_FRAME_INDEX, 1, id="frame_index"),
@@ -116,41 +115,6 @@ def test_txparam(
         pre=pre,
         tx=probe_transaction(sender, probe),
         post={probe: Account(storage={SLOT_RESULT: expected})},
-    )
-
-
-def test_txparam_max_cost(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Check `TXPARAM`'s max cost selector against the payer's escrow.
-
-    The maximum cost is charged to the payer in full when payment is
-    approved and the surplus is only refunded at settlement, so during
-    frame execution the sender's balance is short of its funding by
-    exactly the value the selector reports.
-    """
-    sender_funds = 10**18
-    sender = pre.fund_eoa(amount=sender_funds)
-    probe = pre.deploy_contract(
-        code=Op.SSTORE(
-            SLOT_RESULT,
-            Op.EQ(
-                Op.TXPARAM(Spec.TXPARAM_MAX_COST),
-                Op.SUB(
-                    sender_funds,
-                    Op.BALANCE(Op.TXPARAM(Spec.TXPARAM_SENDER)),
-                ),
-            ),
-        )
-        + Op.STOP
-    )
-
-    state_test(
-        pre=pre,
-        tx=probe_transaction(sender, probe),
-        post={probe: Account(storage={SLOT_RESULT: 1})},
     )
 
 
@@ -383,7 +347,7 @@ def test_frameparam_atomic_batch_set(
     tx = Transaction(
         sender=sender,
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
-        max_fee_per_gas=MAX_FEE,
+        max_fee=MAX_FEE,
         frames=[
             verify_frame(),
             default_frame(
@@ -444,7 +408,7 @@ def test_frameparam_gas_used(
         fork=fork,
         sender=sender,
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
-        max_fee_per_gas=MAX_FEE,
+        max_fee=MAX_FEE,
         frames=[
             verify_frame(),
             worker_frame,
@@ -529,6 +493,16 @@ def test_frameparam_halts(
         pytest.param(
             Op.POP(Op.TXPARAM(0x0D)),
             id="txparam_undefined_param",
+        ),
+        # The per-gas and per-blob-gas fee caps and the maximum cost
+        # selectors were removed with the `max_fee` budget.
+        pytest.param(
+            Op.POP(Op.TXPARAM(0x05)),
+            id="txparam_removed_max_fee_per_blob_gas",
+        ),
+        pytest.param(
+            Op.POP(Op.TXPARAM(0x06)),
+            id="txparam_removed_max_cost",
         ),
         pytest.param(
             Op.POP(Op.SIGPARAM(0, 0x04)),
@@ -755,7 +729,7 @@ def test_sigparam_resolved_signer(
     tx = Transaction(
         sender=sender,
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
-        max_fee_per_gas=MAX_FEE,
+        max_fee=MAX_FEE,
         frames=[
             verify_frame(),
             default_frame(
@@ -815,7 +789,7 @@ def test_sigdatacopy(
     tx = Transaction(
         sender=sender,
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
-        max_fee_per_gas=MAX_FEE,
+        max_fee=MAX_FEE,
         frames=[
             verify_frame(),
             default_frame(
