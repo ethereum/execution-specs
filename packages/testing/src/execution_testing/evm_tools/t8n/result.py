@@ -34,6 +34,7 @@ def get_receipts_from_output(t8n: "T8N", block_output: Any) -> List[Any]:
     )
 
     receipts: List[Any] = []
+    previous_cumulative_gas_used = 0
     for key in block_output.receipt_keys:
         tx = trie_get(block_output.transactions_trie, key)
         receipt = trie_get(block_output.receipts_trie, key)
@@ -47,9 +48,17 @@ def get_receipts_from_output(t8n: "T8N", block_output: Any) -> List[Any]:
         else:
             decoded_receipt = receipt
 
+        # The consensus receipt only carries the cumulative gas used; the
+        # gas used by the transaction is the difference to the previous
+        # receipt (as reported by other t8n tools and by RPC receipts).
+        cumulative_gas_used = int(decoded_receipt.cumulative_gas_used)
+        gas_used = cumulative_gas_used - previous_cumulative_gas_used
+        previous_cumulative_gas_used = cumulative_gas_used
+
         receipt_kwargs: Dict[str, Any] = {
             "transaction_hash": tx_hash,
-            "cumulative_gas_used": int(decoded_receipt.cumulative_gas_used),
+            "cumulative_gas_used": cumulative_gas_used,
+            "gas_used": gas_used,
             "bloom": decoded_receipt.bloom,
             "logs": [
                 TransactionLog(
