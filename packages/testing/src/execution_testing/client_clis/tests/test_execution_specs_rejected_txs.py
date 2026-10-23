@@ -28,6 +28,8 @@ from execution_testing.test_types import (
     Blob,
     Environment,
     Frame,
+    FrameFlag,
+    FrameMode,
     Transaction,
 )
 
@@ -44,9 +46,6 @@ BASE_FEE_PER_GAS = 7
 # An EIP-8141 frame transfer: a `VERIFY` frame has the sender's default
 # code approve execution and payment, then a `SENDER` frame moves the
 # value. The budgets keep three transfers within the block gas limit.
-VERIFY_FRAME_MODE = 1
-SENDER_FRAME_MODE = 2
-APPROVE_EXECUTION_AND_PAYMENT = 0x3
 FRAME_GAS_LIMIT = 50_000
 
 
@@ -54,13 +53,13 @@ def _frames(gas_limit: int = FRAME_GAS_LIMIT) -> List[Frame]:
     """Return the frames of a frame transfer to the funded recipient."""
     return [
         Frame(
-            mode=VERIFY_FRAME_MODE,
-            flags=APPROVE_EXECUTION_AND_PAYMENT,
+            mode=FrameMode.VERIFY,
+            flags=FrameFlag.APPROVE_EXECUTION | FrameFlag.APPROVE_PAYMENT,
             gas_limit=FRAME_GAS_LIMIT,
             state_gas_limit=0,
         ),
         Frame(
-            mode=SENDER_FRAME_MODE,
+            mode=FrameMode.SENDER,
             target=RECIPIENT,
             value=1,
             gas_limit=gas_limit,

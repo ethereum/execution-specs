@@ -52,6 +52,22 @@ class EIP8141(BaseFork):
         return super(EIP8141, cls).tx_types() + [6]
 
     @classmethod
+    def valid_opcodes(cls) -> List[Opcodes]:
+        """
+        Add the frame transaction instructions. Outside a frame
+        transaction they halt exceptionally.
+        """
+        return [
+            Opcodes.APPROVE,
+            Opcodes.TXPARAM,
+            Opcodes.FRAMEDATALOAD,
+            Opcodes.FRAMEDATACOPY,
+            Opcodes.FRAMEPARAM,
+            Opcodes.SIGPARAM,
+            Opcodes.SIGDATACOPY,
+        ] + super(EIP8141, cls).valid_opcodes()
+
+    @classmethod
     def gas_costs(cls) -> GasCosts:
         """Add the frame transaction intrinsic gas constants."""
         return replace(

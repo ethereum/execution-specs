@@ -2,7 +2,7 @@
 
 import numbers
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import IntEnum, IntFlag
 from functools import cached_property
 from typing import Any, ClassVar, Dict, Generic, List, Literal, Self, Sequence
 
@@ -58,6 +58,51 @@ class TransactionType(IntEnum):
     BLOB_TRANSACTION = 3
     SET_CODE = 4
     FRAME = 6
+
+
+class FrameMode(IntEnum):
+    """
+    Mode of a frame in an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
+    frame transaction: who the frame executes as and when it runs.
+    """
+
+    DEFAULT = 0
+    VERIFY = 1
+    SENDER = 2
+
+
+class FrameFlag(IntFlag):
+    """
+    Flags of a frame in an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
+    frame transaction: the approvals it may grant and whether it opens an
+    atomic batch.
+    """
+
+    APPROVE_PAYMENT = 1
+    APPROVE_EXECUTION = 2
+    ATOMIC_BATCH = 4
+
+
+class FrameStatus(IntEnum):
+    """
+    Status of a frame in an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
+    frame transaction's receipt.
+    """
+
+    FAILURE = 0
+    SUCCESS = 1
+    SKIPPED = 2
+
+
+class FrameSignatureScheme(IntEnum):
+    """
+    Scheme of a signature entry of an
+    [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141) frame transaction.
+    """
+
+    ARBITRARY = 0
+    SECP256K1 = 1
+    P256 = 2
 
 
 @dataclass
@@ -541,9 +586,9 @@ class Transaction(
         if "ty" not in self.model_fields_set:
             # Try to deduce transaction type from included fields
             if self.frames is not None:
-                self.ty = HexNumber(6)
+                self.ty = HexNumber(TransactionType.FRAME)
             elif self.initcodes is not None:
-                self.ty = HexNumber(6)
+                self.ty = HexNumber(TransactionType.FRAME)
             elif self.authorization_list is not None:
                 self.ty = HexNumber(4)
             elif (
@@ -561,10 +606,21 @@ class Transaction(
             else:
                 self.ty = HexNumber(0)
 
-        if self.ty == 6 and self.frames is None and self.initcodes is None:
-            # Type 6 is the EIP-8141 frame transaction; an explicit
-            # `initcodes` list selects the EIP-7873 shape instead.
-            self.frames = []
+        if (
+            self.ty == TransactionType.FRAME
+            and self.frames is None
+            and self.initcodes is None
+        ):
+            # Type 6 is the EIP-8141 frame transaction, whose call lives
+            # in its frames; an explicit `initcodes` list selects the
+            # EIP-7873 shape instead. A legacy-shaped type-6 transaction
+            # has no valid encoding, so refuse it rather than build one
+            # with no frames.
+            raise ValueError(
+                "a type 6 transaction is an EIP-8141 frame transaction: "
+                "pass `frames` instead of `to`, `value`, `data` and "
+                "`gas_limit`"
+            )
 
         if "v" in self.model_fields_set and self.secret_key is not None:
             raise Transaction.InvalidSignaturePrivateKeyError()
@@ -652,7 +708,7 @@ class Transaction(
                 "authorization_list must be None"
             )
 
-        if self.ty != 6:
+        if self.ty != TransactionType.FRAME:
             assert self.initcodes is None, "initcodes must be None"
             assert self.frames is None, "frames must be None"
             assert self.signatures is None, "signatures must be None"
@@ -734,7 +790,7 @@ class Transaction(
                 # default code.
                 self.signatures = [
                     FrameSignature(
-                        scheme=HexNumber(1),
+                        scheme=HexNumber(FrameSignatureScheme.SECP256K1),
                         signer=Bytes(self.sender),
                         msg=Bytes(b""),
                     )
@@ -758,7 +814,10 @@ class Transaction(
         # Explicit-digest entries first: their raw bytes are part of the
         # canonical signature hash signed by empty-msg entries.
         for sig in self.signatures:
-            if sig.scheme != 1 or len(sig.signature) > 0:
+            if (
+                sig.scheme != FrameSignatureScheme.SECP256K1
+                or len(sig.signature) > 0
+            ):
                 continue
             if len(sig.msg) != 32:
                 continue
@@ -771,7 +830,10 @@ class Transaction(
         # before hashing.
         empty_msg_entries = []
         for sig in self.signatures:
-            if sig.scheme != 1 or len(sig.signature) > 0:
+            if (
+                sig.scheme != FrameSignatureScheme.SECP256K1
+                or len(sig.signature) > 0
+            ):
                 continue
             if len(sig.msg) != 0:
                 continue
@@ -983,9 +1045,27 @@ class Transaction(
 
         if self.frames is not None:
             # EIP-8141: The sender is explicit; fill in the signature
-            # entries instead of v/r/s.
-            self._sign_frame_signatures()
-            return self
+            # entries instead of v/r/s. Sign a copy, as the other types
+            # return one: the entries are signed in place, so signing
+            # `self` would also sign a transaction the caller keeps. The
+            # copy is shallow, like the other types', so the entries are
+            # copied too, and the cached hash and encodings a caller may
+            # have computed before signing are dropped from the copy.
+            signed = self.model_copy(
+                update={
+                    "signatures": (
+                        None
+                        if self.signatures is None
+                        else [sig.model_copy() for sig in self.signatures]
+                    )
+                }
+            )
+            for klass in type(signed).__mro__:
+                for name, attribute in vars(klass).items():
+                    if isinstance(attribute, cached_property):
+                        signed.__dict__.pop(name, None)
+            signed._sign_frame_signatures()
+            return signed
 
         if (
             "v" in self.model_fields_set
@@ -1062,7 +1142,7 @@ class Transaction(
         depending on the transaction type.
         """
         field_list: List[str]
-        if self.ty == 6 and self.frames is not None:
+        if self.ty == TransactionType.FRAME and self.frames is not None:
             # EIP-8141: https://eips.ethereum.org/EIPS/eip-8141
             field_list = [
                 "chain_id",
@@ -1073,7 +1153,7 @@ class Transaction(
                 "fees",
                 "blob_versioned_hashes",
             ]
-        elif self.ty == 6:
+        elif self.ty == TransactionType.FRAME:
             # EIP-7873: https://eips.ethereum.org/EIPS/eip-7873
             field_list = [
                 "chain_id",
@@ -1171,7 +1251,7 @@ class Transaction(
         depending on the transaction type.
         """
         fields = self.get_rlp_signing_fields()
-        if self.ty == 6 and self.frames is not None:
+        if self.ty == TransactionType.FRAME and self.frames is not None:
             # EIP-8141: The transaction is not wrapped in a signature;
             # the full encoding carries the raw signature entries.
             return [

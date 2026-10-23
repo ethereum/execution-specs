@@ -331,9 +331,10 @@ class FrameEntryGasCalculator(Protocol):
     starts execution — the frame-level analogue of
     ``TopFrameGasCalculator``.
 
-    A ``VERIFY`` frame whose resolved target has no code runs the
-    protocol default code instead, which consumes no gas at all; this
-    calculator applies only to frames that execute their target's code.
+    Every frame pays its resolved target's access at entry, including a
+    ``VERIFY`` frame whose target has no code and so runs the protocol
+    default code: the default code draws no execution gas of its own,
+    so that access is the frame's only execution charge.
     """
 
     def __call__(
