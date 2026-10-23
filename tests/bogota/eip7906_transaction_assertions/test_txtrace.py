@@ -4,7 +4,7 @@ transaction's balance, slot, code, nonce and event tables, the gas
 payment parameters, and the event data reads.
 """
 
-from typing import Callable, List
+from typing import Any, Callable, Dict, List
 
 import pytest
 from execution_testing import (
@@ -30,6 +30,9 @@ from execution_testing import (
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import Spec as Spec7708
 from tests.bogota.eip8141_frame_transactions.helpers import verify_frame
 from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
+from tests.bogota.eip8250_keyed_nonces.helpers import NONCE_KEY
+from tests.bogota.eip8250_keyed_nonces.spec import Spec as Spec8250
+from tests.bogota.eip8250_keyed_nonces.spec import keyed_nonce_slot
 
 from .helpers import (
     BOB_FUNDS,
@@ -458,20 +461,49 @@ def test_codes_and_nonces_changed(
     )
 
 
+@pytest.mark.parametrize(
+    "keyed",
+    [
+        pytest.param(False, id="account_nonce"),
+        pytest.param(True, id="keyed_nonce"),
+    ],
+)
 def test_sender_nonce_change(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    keyed: bool,
 ) -> None:
     """
-    List `tx.sender` in `nonces_changed` when `APPROVE` increments its
-    account nonce.
+    List `tx.sender` in `nonces_changed` only when `APPROVE` increments
+    its account nonce. A keyed nonce (EIP-8250) leaves the account nonce
+    untouched and advances the sender's sequence in the nonce manager,
+    which `slots_changed` lists instead.
     """
+    if keyed and not fork.is_eip_enabled(8250):
+        pytest.skip("keyed nonces need EIP-8250")
     sender = pre.fund_eoa()
-    checks = expect_eq(Op.TXTRACE(Spec.TXTRACE_NONCES_CHANGED, 0), 1)
-    checks += expect_eq(
-        Op.TXTRACE(Spec.TXTRACE_NONCE_ADDRESS, 0), as_int(sender)
+    checks = expect_eq(
+        Op.TXTRACE(Spec.TXTRACE_NONCES_CHANGED, 0), int(not keyed)
     )
+    overrides: Dict[str, Any] = {}
+    if keyed:
+        checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_SLOTS_CHANGED, 0), 1)
+        checks += expect_eq(
+            Op.TXTRACE(Spec.TXTRACE_SLOT_ADDRESS, 0),
+            as_int(Spec8250.NONCE_MANAGER),
+        )
+        checks += expect_eq(
+            Op.TXTRACE(Spec.TXTRACE_SLOT_KEY, 0),
+            keyed_nonce_slot(sender, NONCE_KEY),
+        )
+        checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_SLOT_BEFORE, 0), 0)
+        checks += expect_eq(Op.TXTRACE(Spec.TXTRACE_SLOT_AFTER, 0), 1)
+        overrides = dict(nonce_keys=[NONCE_KEY], nonce=0)
+    else:
+        checks += expect_eq(
+            Op.TXTRACE(Spec.TXTRACE_NONCE_ADDRESS, 0), as_int(sender)
+        )
     assertion = pre.deploy_contract(code=checks + Op.STOP)
 
     state_test(
@@ -482,8 +514,9 @@ def test_sender_nonce_change(
             body=[],
             assertion=assertion,
             frame_receipts=success_receipts(2),
+            **overrides,
         ),
-        post={sender: Account(nonce=1)},
+        post={sender: Account(nonce=int(not keyed))},
     )
 
 
