@@ -32,6 +32,7 @@ from .helpers import (
     Outcome,
     default_frame,
     floor_binding_padding,
+    state_slots,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -40,22 +41,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
-
-SLOT_CREATED = 0x01
-"""
-Storage slot the worker contract creates, clears, or returns to its
-transaction-start value.
-"""
-
-SLOT_OWNER_USED = 0x06
-"""Probe slot recording the creating frame's restored state gas attribution."""
-
-SLOT_STATUS = 0x08
-"""
-Probe slot recording the rolled-back frame's receipt status, plus one so
-the expected `FAILURE` readback is distinguishable from a slot never
-written.
-"""
 
 
 @pytest.mark.parametrize(
@@ -95,6 +80,7 @@ def test_calldata_floor_with_state_gas(
     sender carries none.
     """
     sender: Address
+    (worker_slot,) = state_slots(1)
     if sender_kind == "eoa":
         sender = pre.fund_eoa()
         nonce = 0
@@ -105,7 +91,7 @@ def test_calldata_floor_with_state_gas(
         sender = pre.deploy_contract(code=verify_code, balance=10**18)
         nonce = 1
     write = Op.SSTORE(
-        SLOT_CREATED, 1, key_warm=False, original_value=0, new_value=1
+        worker_slot.key, 1, key_warm=False, original_value=0, new_value=1
     )
     # Pad execution so the signature bytes alone never bind the floor.
     # The sender seeds the warm set, so its balance reads are warm.
@@ -156,7 +142,7 @@ def test_calldata_floor_with_state_gas(
         post={
             sender: Account(nonce=nonce + 1),
             worker: Account(
-                storage={SLOT_CREATED: 1 if with_state_write else 0}
+                storage={worker_slot.key: 1 if with_state_write else 0}
             ),
         },
     )
@@ -193,8 +179,9 @@ def test_storage_refund_settlement(
     so the frame declares none.
     """
     sender = pre.fund_eoa()
+    (worker_slot,) = state_slots(1)
     clear = Op.SSTORE(
-        SLOT_CREATED,
+        worker_slot.key,
         0,
         key_warm=False,
         original_value=1,
@@ -207,7 +194,9 @@ def test_storage_refund_settlement(
     # reads are warm accesses.
     padding = Op.POP(Op.BALANCE(address=sender, address_warm=True)) * 400
     worker_code = padding + clear + Op.STOP
-    worker = pre.deploy_contract(code=worker_code, storage={SLOT_CREATED: 1})
+    worker = pre.deploy_contract(
+        code=worker_code, storage={worker_slot.key: 1}
+    )
     refund = worker_code.refund(fork)
 
     def build(data_length: int) -> FrameTransaction:
@@ -256,7 +245,7 @@ def test_storage_refund_settlement(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            worker: Account(storage={SLOT_CREATED: 0}),
+            worker: Account(storage={worker_slot.key: 0}),
         },
         blockchain_test_header_verify=Header(gas_used=tx.block_gas_used()),
     )
@@ -280,30 +269,25 @@ def test_batch_unroll_refill_restores_spent_gas(
     settled from the restored receipts.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    worker_slot, owner_used, status = state_slots(3)
+    creation_cost = worker_slot.creation_cost(fork)
 
     # A passive worker that writes whichever value its frame passes: the
     # creating frame passes one, the refilling frame passes zero.
-    worker_code = Op.SSTORE(SLOT_CREATED, Op.CALLDATALOAD(0)) + Op.STOP
+    worker_code = Op.SSTORE(worker_slot.key, Op.CALLDATALOAD(0)) + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
     reverter_code = Op.REVERT(0, 0)
     reverter = pre.deploy_contract(code=reverter_code)
     probe_code = (
-        Op.SSTORE(
-            SLOT_OWNER_USED,
-            Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED),
-        )
-        + Op.SSTORE(
-            SLOT_STATUS,
-            Op.ADD(1, Op.FRAMEPARAM(3, Spec.FRAMEPARAM_STATUS)),
-        )
+        owner_used.record(1, Spec.FRAMEPARAM_STATE_GAS_USED)
+        + status.record(3, Spec.FRAMEPARAM_STATUS)
         + Op.STOP
     )
     probe = pre.deploy_contract(code=probe_code)
 
     create_body = (
         Op.SSTORE(
-            SLOT_CREATED,
+            worker_slot.key,
             Op.CALLDATALOAD(0),
             key_warm=False,
             original_value=0,
@@ -314,7 +298,7 @@ def test_batch_unroll_refill_restores_spent_gas(
     )
     refill_body = (
         Op.SSTORE(
-            SLOT_CREATED,
+            worker_slot.key,
             Op.CALLDATALOAD(0),
             key_warm=True,
             original_value=0,
@@ -370,11 +354,11 @@ def test_batch_unroll_refill_restores_spent_gas(
             sender: Account(nonce=1),
             # The unroll undid the batch frame's clearing write, so the
             # created slot survives.
-            worker: Account(storage={SLOT_CREATED: 1}),
+            worker: Account(storage={worker_slot.key: 1}),
             probe: Account(
                 storage={
-                    SLOT_OWNER_USED: fresh_write_state_cost,
-                    SLOT_STATUS: 1,
+                    owner_used.key: owner_used.recorded(creation_cost),
+                    status.key: status.recorded(Spec.STATUS_FAILURE),
                 }
             ),
         },
@@ -399,26 +383,21 @@ def test_frame_revert_refill_restores_spent_gas(
     the restored receipts.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    worker_slot, owner_used, status = state_slots(3)
+    creation_cost = worker_slot.creation_cost(fork)
 
     # A worker that writes whichever value its frame passes and then
     # reverts when called with empty data: the creating frame passes a
     # value word and stops, the refilling frame passes no data and reverts.
-    worker_code = Op.SSTORE(SLOT_CREATED, Op.CALLDATALOAD(0)) + Conditional(
+    worker_code = Op.SSTORE(worker_slot.key, Op.CALLDATALOAD(0)) + Conditional(
         condition=Op.ISZERO(Op.CALLDATASIZE),
         if_true=Op.REVERT(0, 0),
         if_false=Op.STOP,
     )
     worker = pre.deploy_contract(code=worker_code)
     probe_code = (
-        Op.SSTORE(
-            SLOT_OWNER_USED,
-            Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED),
-        )
-        + Op.SSTORE(
-            SLOT_STATUS,
-            Op.ADD(1, Op.FRAMEPARAM(2, Spec.FRAMEPARAM_STATUS)),
-        )
+        owner_used.record(1, Spec.FRAMEPARAM_STATE_GAS_USED)
+        + status.record(2, Spec.FRAMEPARAM_STATUS)
         + Op.STOP
     )
     probe = pre.deploy_contract(code=probe_code)
@@ -432,7 +411,7 @@ def test_frame_revert_refill_restores_spent_gas(
         Op.JUMPDEST + Op.PUSH1(0) + Op.PUSH1(0) + Op.REVERT
     ).execution_cost(fork)
     create_store = Op.SSTORE(
-        SLOT_CREATED,
+        worker_slot.key,
         Op.CALLDATALOAD(0),
         key_warm=False,
         original_value=0,
@@ -440,7 +419,7 @@ def test_frame_revert_refill_restores_spent_gas(
         new_value=1,
     )
     refill_store = Op.SSTORE(
-        SLOT_CREATED,
+        worker_slot.key,
         Op.CALLDATALOAD(0),
         key_warm=True,
         original_value=0,
@@ -491,11 +470,11 @@ def test_frame_revert_refill_restores_spent_gas(
             sender: Account(nonce=1),
             # The revert undid the clearing write, so the created slot
             # survives.
-            worker: Account(storage={SLOT_CREATED: 1}),
+            worker: Account(storage={worker_slot.key: 1}),
             probe: Account(
                 storage={
-                    SLOT_OWNER_USED: fresh_write_state_cost,
-                    SLOT_STATUS: 1,
+                    owner_used.key: owner_used.recorded(creation_cost),
+                    status.key: status.recorded(Spec.STATUS_FAILURE),
                 }
             ),
         },

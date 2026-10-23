@@ -96,6 +96,56 @@ def expiry_verifier_gas(fork: Fork) -> int:
     return accepting.execution_cost(fork)
 
 
+class StateSlot:
+    """
+    A storage slot under test, which prices its own writes.
+
+    A transaction finds the slot empty, so a write over nothing
+    creates it and a later write is priced against what the slot holds
+    when it runs. A recording is stored offset by one, which keeps a
+    parameter reading zero distinguishable from a slot never written.
+    """
+
+    def __init__(self, key: int) -> None:
+        self.key = key
+
+    def write(self, *, old: int = 0, new: int) -> Bytecode:
+        """
+        Return code writing `new` over `old`.
+
+        `old` is what the slot holds when the write runs — the gas
+        model's current value. The original value stays zero, since
+        the transaction finds the slot empty.
+        """
+        if old == 0:
+            return Op.SSTORE(self.key, new)
+        return Op.SSTORE(
+            self.key,
+            new,
+            key_warm=True,
+            original_value=0,
+            current_value=old,
+            new_value=new,
+        )
+
+    def record(self, frame: int, param: int) -> Bytecode:
+        """Return code recording a frame parameter into the slot."""
+        return Op.SSTORE(self.key, Op.ADD(1, Op.FRAMEPARAM(frame, param)))
+
+    def recorded(self, value: int) -> int:
+        """Return the readback `record` stores for `value`."""
+        return value + 1
+
+    def creation_cost(self, fork: Fork) -> int:
+        """Return the state gas creating the slot charges."""
+        return self.write(new=1).state_cost(fork)
+
+
+def state_slots(count: int) -> List[StateSlot]:
+    """Return `count` slots of a contract, keyed from zero in order."""
+    return [StateSlot(key) for key in range(count)]
+
+
 class FrameCase(Frame):
     """A frame carrying the facts its budget and receipt follow from."""
 

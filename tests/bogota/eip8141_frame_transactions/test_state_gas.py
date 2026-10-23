@@ -36,6 +36,7 @@ from .helpers import (
     Outcome,
     default_frame,
     sender_frame,
+    state_slots,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -44,38 +45,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
-
-SLOT_CREATED = 0x01
-"""Storage slot created — and possibly cleared again — under test."""
-
-SLOT_USED_BEFORE = 0x02
-"""Slot recording the owner frame's attributed state gas pre-refill."""
-
-SLOT_USED_AFTER = 0x03
-"""Slot recording the owner frame's attributed state gas post-refill."""
-
-SLOT_POOL = 0x04
-"""Slot recording the executing frame's remaining state gas pool."""
-
-SLOT_OWNER_USED = 0x06
-"""Probe slot recording the creating frame's attributed state gas."""
-
-SLOT_EDITOR_USED = 0x07
-"""
-Probe slot recording the refilling frame's attributed state gas, plus
-one so the expected zero readback is distinguishable from a slot never
-written.
-"""
-
-SLOT_STATUS = 0x08
-"""
-Probe slot recording a frame's receipt status, plus one so the
-expected `FAILURE` readback is distinguishable from a slot never
-written.
-"""
-
-SLOT_SECOND = 0x09
-"""Second storage slot a frame creates from its own state gas pool."""
 
 SPENT_SENDER_BALANCE = 10**15
 """Balance a sender transfers away before its payment is approved."""
@@ -126,18 +95,10 @@ def test_same_frame_refill(
     and the frame's receipt attributes only the recording's charge.
     """
     sender = pre.fund_eoa()
-    create = Op.SSTORE(SLOT_CREATED, 1)
-    clear = Op.SSTORE(
-        SLOT_CREATED,
-        0,
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=0,
-    )
-    observe_pool = Op.SSTORE(
-        SLOT_POOL, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT)
-    )
+    worker_slot, pool = state_slots(2)
+    create = worker_slot.write(new=1)
+    clear = worker_slot.write(old=1, new=0)
+    observe_pool = Op.SSTORE(pool.key, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
     worker_code = create + clear + observe_pool + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
 
@@ -164,8 +125,8 @@ def test_same_frame_refill(
             sender: Account(nonce=1),
             worker: Account(
                 storage={
-                    SLOT_CREATED: 0,
-                    SLOT_POOL: DEFAULT_FRAME_STATE_GAS_LIMIT,
+                    worker_slot.key: 0,
+                    pool.key: DEFAULT_FRAME_STATE_GAS_LIMIT,
                 }
             ),
         },
@@ -186,32 +147,18 @@ def test_cross_frame_refill(
     and credits nothing to the executing frame's pool.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    worker_slot, used_before, used_after, pool = state_slots(4)
+    creation_cost = worker_slot.creation_cost(fork)
 
-    observe_before = Op.SSTORE(
-        SLOT_USED_BEFORE,
-        Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED),
-    )
-    refill = Op.SSTORE(
-        SLOT_CREATED,
-        0,
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=0,
-    )
+    observe_before = used_before.record(1, Spec.FRAMEPARAM_STATE_GAS_USED)
+    refill = worker_slot.write(old=1, new=0)
     # Recorded with one added, so the expected zero readback is
     # distinguishable from a slot never written.
-    observe_after = Op.SSTORE(
-        SLOT_USED_AFTER,
-        Op.ADD(1, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED)),
-    )
-    observe_pool = Op.SSTORE(
-        SLOT_POOL, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT)
-    )
+    observe_after = used_after.record(1, Spec.FRAMEPARAM_STATE_GAS_USED)
+    observe_pool = Op.SSTORE(pool.key, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
     worker_code = Conditional(
         condition=Op.ISZERO(Op.CALLDATALOAD(0)),
-        if_true=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP,
+        if_true=worker_slot.write(new=1) + Op.STOP,
         if_false=observe_before
         + refill
         + observe_after
@@ -238,7 +185,7 @@ def test_cross_frame_refill(
                 target=worker,
                 data=b"\x01",
                 pin_gas=False,
-                state_gas_used=3 * fresh_write_state_cost,
+                state_gas_used=3 * creation_cost,
             ),
         ],
     )
@@ -250,11 +197,11 @@ def test_cross_frame_refill(
             sender: Account(nonce=1),
             worker: Account(
                 storage={
-                    SLOT_CREATED: 0,
-                    SLOT_USED_BEFORE: fresh_write_state_cost,
-                    SLOT_USED_AFTER: 1,
-                    SLOT_POOL: DEFAULT_FRAME_STATE_GAS_LIMIT
-                    - 2 * fresh_write_state_cost,
+                    worker_slot.key: 0,
+                    used_before.key: used_before.recorded(creation_cost),
+                    used_after.key: used_after.recorded(0),
+                    pool.key: DEFAULT_FRAME_STATE_GAS_LIMIT
+                    - 2 * creation_cost,
                 }
             ),
         },
@@ -284,7 +231,8 @@ def test_state_gas_exhaustion(
     and the transaction stays valid.
     """
     sender = pre.fund_eoa()
-    worker_code = Op.SSTORE(SLOT_CREATED, 1) + Op.STOP
+    (worker_slot,) = state_slots(1)
+    worker_code = worker_slot.write(new=1) + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
 
     succeeds = state_gas_limit_delta >= 0
@@ -308,7 +256,7 @@ def test_state_gas_exhaustion(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            worker: Account(storage={SLOT_CREATED: 1 if succeeds else 0}),
+            worker: Account(storage={worker_slot.key: 1 if succeeds else 0}),
         },
     )
 
@@ -432,31 +380,15 @@ def test_refill_after_intermediate_modification(
     observed the value that frame wrote.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    worker_slot, used_after = state_slots(2)
+    creation_cost = worker_slot.creation_cost(fork)
 
-    modify = Op.SSTORE(
-        SLOT_CREATED,
-        2,
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=2,
-    )
-    clear = Op.SSTORE(
-        SLOT_CREATED,
-        0,
-        key_warm=True,
-        original_value=0,
-        current_value=2,
-        new_value=0,
-    )
-    observe_owner = Op.SSTORE(
-        SLOT_USED_AFTER,
-        Op.ADD(1, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED)),
-    )
+    modify = worker_slot.write(old=1, new=2)
+    clear = worker_slot.write(old=2, new=0)
+    observe_owner = used_after.record(1, Spec.FRAMEPARAM_STATE_GAS_USED)
     worker_code = Conditional(
         condition=Op.ISZERO(Op.CALLDATALOAD(0)),
-        if_true=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP,
+        if_true=worker_slot.write(new=1) + Op.STOP,
         if_false=Conditional(
             condition=Op.EQ(Op.CALLDATALOAD(0), 1),
             if_true=modify + Op.STOP,
@@ -494,7 +426,7 @@ def test_refill_after_intermediate_modification(
                 target=worker,
                 data=(2).to_bytes(32, "big"),
                 pin_gas=False,
-                state_gas_used=fresh_write_state_cost,
+                state_gas_used=creation_cost,
             ),
         ],
     )
@@ -504,7 +436,12 @@ def test_refill_after_intermediate_modification(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            worker: Account(storage={SLOT_CREATED: 0, SLOT_USED_AFTER: 1}),
+            worker: Account(
+                storage={
+                    worker_slot.key: 0,
+                    used_after.key: used_after.recorded(0),
+                }
+            ),
         },
     )
 
@@ -525,27 +462,14 @@ def test_batch_unroll_restores_refilled_receipt(
     re-appended receipt keeps its status with its state gas zeroed.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    worker_slot, owner_used, editor_used, status = state_slots(4)
+    creation_cost = worker_slot.creation_cost(fork)
 
-    modify = Op.SSTORE(
-        SLOT_CREATED,
-        2,
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=2,
-    )
-    clear = Op.SSTORE(
-        SLOT_CREATED,
-        0,
-        key_warm=True,
-        original_value=0,
-        current_value=2,
-        new_value=0,
-    )
+    modify = worker_slot.write(old=1, new=2)
+    clear = worker_slot.write(old=2, new=0)
     worker_code = Conditional(
         condition=Op.ISZERO(Op.CALLDATALOAD(0)),
-        if_true=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP,
+        if_true=worker_slot.write(new=1) + Op.STOP,
         if_false=Conditional(
             condition=Op.EQ(Op.CALLDATALOAD(0), 1),
             if_true=modify + Op.STOP,
@@ -555,18 +479,9 @@ def test_batch_unroll_restores_refilled_receipt(
     worker = pre.deploy_contract(code=worker_code)
     reverter = pre.deploy_contract(code=Op.REVERT(0, 0))
     probe = pre.deploy_contract(
-        code=Op.SSTORE(
-            SLOT_OWNER_USED,
-            Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED),
-        )
-        + Op.SSTORE(
-            SLOT_EDITOR_USED,
-            Op.ADD(1, Op.FRAMEPARAM(3, Spec.FRAMEPARAM_STATE_GAS_USED)),
-        )
-        + Op.SSTORE(
-            SLOT_STATUS,
-            Op.ADD(1, Op.FRAMEPARAM(4, Spec.FRAMEPARAM_STATUS)),
-        )
+        code=owner_used.record(1, Spec.FRAMEPARAM_STATE_GAS_USED)
+        + editor_used.record(3, Spec.FRAMEPARAM_STATE_GAS_USED)
+        + status.record(4, Spec.FRAMEPARAM_STATUS)
         + Op.STOP
     )
 
@@ -581,7 +496,7 @@ def test_batch_unroll_restores_refilled_receipt(
             default_frame(
                 target=worker,
                 pin_gas=False,
-                state_gas_used=fresh_write_state_cost,
+                state_gas_used=creation_cost,
             ),
             # Frame 2: modify the dirty slot (1 -> 2).
             default_frame(
@@ -610,7 +525,7 @@ def test_batch_unroll_restores_refilled_receipt(
             default_frame(
                 target=probe,
                 pin_gas=False,
-                state_gas_used=3 * fresh_write_state_cost,
+                state_gas_used=3 * creation_cost,
             ),
         ],
     )
@@ -622,12 +537,12 @@ def test_batch_unroll_restores_refilled_receipt(
             sender: Account(nonce=1),
             # The unroll undid the batch frame's clearing write, so
             # the intermediate modification survives.
-            worker: Account(storage={SLOT_CREATED: 2}),
+            worker: Account(storage={worker_slot.key: 2}),
             probe: Account(
                 storage={
-                    SLOT_OWNER_USED: fresh_write_state_cost,
-                    SLOT_EDITOR_USED: 1,
-                    SLOT_STATUS: 1,
+                    owner_used.key: owner_used.recorded(creation_cost),
+                    editor_used.key: editor_used.recorded(0),
+                    status.key: status.recorded(Spec.STATUS_FAILURE),
                 }
             ),
         },
@@ -647,35 +562,20 @@ def test_frame_revert_restores_refilled_receipt(
     and the reverting frame's own receipt reports zero state gas.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    worker_slot, owner_used, editor_used, status = state_slots(4)
+    creation_cost = worker_slot.creation_cost(fork)
 
-    clear = Op.SSTORE(
-        SLOT_CREATED,
-        0,
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=0,
-    )
+    clear = worker_slot.write(old=1, new=0)
     worker_code = Conditional(
         condition=Op.ISZERO(Op.CALLDATALOAD(0)),
-        if_true=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP,
+        if_true=worker_slot.write(new=1) + Op.STOP,
         if_false=clear + Op.REVERT(0, 0),
     )
     worker = pre.deploy_contract(code=worker_code)
     probe = pre.deploy_contract(
-        code=Op.SSTORE(
-            SLOT_OWNER_USED,
-            Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED),
-        )
-        + Op.SSTORE(
-            SLOT_EDITOR_USED,
-            Op.ADD(1, Op.FRAMEPARAM(2, Spec.FRAMEPARAM_STATE_GAS_USED)),
-        )
-        + Op.SSTORE(
-            SLOT_STATUS,
-            Op.ADD(1, Op.FRAMEPARAM(2, Spec.FRAMEPARAM_STATUS)),
-        )
+        code=owner_used.record(1, Spec.FRAMEPARAM_STATE_GAS_USED)
+        + editor_used.record(2, Spec.FRAMEPARAM_STATE_GAS_USED)
+        + status.record(2, Spec.FRAMEPARAM_STATUS)
         + Op.STOP
     )
 
@@ -690,7 +590,7 @@ def test_frame_revert_restores_refilled_receipt(
             default_frame(
                 target=worker,
                 pin_gas=False,
-                state_gas_used=fresh_write_state_cost,
+                state_gas_used=creation_cost,
             ),
             # Frame 2: return the slot to its start value (1 -> 0),
             # refilling frame 1's receipt, then revert.
@@ -705,7 +605,7 @@ def test_frame_revert_restores_refilled_receipt(
             default_frame(
                 target=probe,
                 pin_gas=False,
-                state_gas_used=3 * fresh_write_state_cost,
+                state_gas_used=3 * creation_cost,
             ),
         ],
     )
@@ -716,12 +616,12 @@ def test_frame_revert_restores_refilled_receipt(
         post={
             sender: Account(nonce=1),
             # The revert undid the clearing write.
-            worker: Account(storage={SLOT_CREATED: 1}),
+            worker: Account(storage={worker_slot.key: 1}),
             probe: Account(
                 storage={
-                    SLOT_OWNER_USED: fresh_write_state_cost,
-                    SLOT_EDITOR_USED: 1,
-                    SLOT_STATUS: 1,
+                    owner_used.key: owner_used.recorded(creation_cost),
+                    editor_used.key: editor_used.recorded(0),
+                    status.key: status.recorded(Spec.STATUS_FAILURE),
                 }
             ),
         },
@@ -744,19 +644,13 @@ def test_call_revert_restores_refilled_receipt(
     a slot from a budget of exactly one slot creation.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    worker_slot, second = state_slots(2)
+    creation_cost = worker_slot.creation_cost(fork)
 
-    clear = Op.SSTORE(
-        SLOT_CREATED,
-        0,
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=0,
-    )
+    clear = worker_slot.write(old=1, new=0)
     worker_code = Conditional(
         condition=Op.ISZERO(Op.CALLDATALOAD(0)),
-        if_true=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP,
+        if_true=worker_slot.write(new=1) + Op.STOP,
         if_false=Conditional(
             condition=Op.EQ(Op.CALLDATALOAD(0), 1),
             # Call this contract to clear the slot and revert, then
@@ -770,7 +664,7 @@ def test_call_revert_restores_refilled_receipt(
                     args_size=32,
                 )
             )
-            + Op.SSTORE(SLOT_SECOND, 1)
+            + second.write(new=1)
             + Op.STOP,
             if_false=clear + Op.REVERT(0, 0),
         ),
@@ -788,17 +682,17 @@ def test_call_revert_restores_refilled_receipt(
             default_frame(
                 target=worker,
                 pin_gas=False,
-                state_gas_used=fresh_write_state_cost,
+                state_gas_used=creation_cost,
             ),
             # Frame 2: a call returns the slot to its start value
             # (1 -> 0), refilling frame 1's receipt, and reverts; the
             # frame then creates a second slot from its own pool.
             default_frame(
                 target=worker,
-                state_gas_limit=fresh_write_state_cost,
+                state_gas_limit=creation_cost,
                 data=(1).to_bytes(32, "big"),
                 pin_gas=False,
-                state_gas_used=fresh_write_state_cost,
+                state_gas_used=creation_cost,
             ),
         ],
     )
@@ -809,7 +703,7 @@ def test_call_revert_restores_refilled_receipt(
         post={
             sender: Account(nonce=1),
             # The revert undid the clearing write.
-            worker: Account(storage={SLOT_CREATED: 1, SLOT_SECOND: 1}),
+            worker: Account(storage={worker_slot.key: 1, second.key: 1}),
         },
     )
 
@@ -838,23 +732,17 @@ def test_reversion_restores_charge_ownership(
     owner.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    worker_slot, second = state_slots(2)
+    creation_cost = worker_slot.creation_cost(fork)
 
-    clear = Op.SSTORE(
-        SLOT_CREATED,
-        0,
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=0,
-    )
+    clear = worker_slot.write(old=1, new=0)
     worker_code = Conditional(
         condition=Op.ISZERO(Op.CALLDATALOAD(0)),
-        if_true=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP,
+        if_true=worker_slot.write(new=1) + Op.STOP,
         if_false=Conditional(
             condition=Op.EQ(Op.CALLDATALOAD(0), 1),
             # Clear the slot for good and create a second one.
-            if_true=clear + Op.SSTORE(SLOT_SECOND, 1) + Op.STOP,
+            if_true=clear + second.write(new=1) + Op.STOP,
             if_false=Conditional(
                 condition=Op.EQ(Op.CALLDATALOAD(0), 2),
                 # Clear the slot and revert.
@@ -928,8 +816,8 @@ def test_reversion_restores_charge_ownership(
             # second slot from exactly one slot creation of budget.
             worker_frame(
                 1,
-                state_gas_limit=fresh_write_state_cost,
-                state_gas_used=fresh_write_state_cost,
+                state_gas_limit=creation_cost,
+                state_gas_used=creation_cost,
             ),
         ],
     )
@@ -939,6 +827,6 @@ def test_reversion_restores_charge_ownership(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            worker: Account(storage={SLOT_CREATED: 0, SLOT_SECOND: 1}),
+            worker: Account(storage={worker_slot.key: 0, second.key: 1}),
         },
     )
