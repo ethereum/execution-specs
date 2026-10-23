@@ -58,6 +58,19 @@ def prepare_suffix(opcode: Opcode) -> Bytecode:
     return Op.STOP
 
 
+# EIP-8141's instructions are valid opcodes from Bogota, but outside a
+# frame transaction they exceptionally halt.
+FRAME_TRANSACTION_OPCODES = [
+    Op.APPROVE,
+    Op.TXPARAM,
+    Op.FRAMEDATALOAD,
+    Op.FRAMEDATACOPY,
+    Op.FRAMEPARAM,
+    Op.SIGPARAM,
+    Op.SIGDATACOPY,
+]
+
+
 @pytest.mark.ported_from(
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stBadOpcode/badOpcodesFiller.json",
@@ -67,9 +80,9 @@ def prepare_suffix(opcode: Opcode) -> Bytecode:
 )
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.eels_base_coverage
-# The valid-opcode oracle depends on the transaction type: EIP-8141's
-# introspection opcodes (e.g. TXPARAM, 0xB0) exceptionally halt under
-# a legacy transaction but execute inside a frame transaction.
+# The valid-opcode oracle depends on the transaction type: the frame
+# transaction opcodes exceptionally halt under a legacy transaction but
+# execute inside a frame transaction.
 @pytest.mark.frame_tx_incompatible
 def test_all_opcodes(
     state_test: StateTestFiller, pre: Alloc, fork: Fork
@@ -118,7 +131,12 @@ def test_all_opcodes(
         contract_address: Account(
             storage={
                 **{
-                    opcode.int(): 1 if opcode != Op.REVERT else 0
+                    opcode.int(): (
+                        0
+                        if opcode == Op.REVERT
+                        or opcode in FRAME_TRANSACTION_OPCODES
+                        else 1
+                    )
                     for opcode in fork.valid_opcodes()
                 },
                 code_worked: 1,
@@ -223,6 +241,7 @@ def fork_opcodes_with_non_increasing_stack(
                 Op.JUMP,  # Tries to jump to non-jumpdest
                 Op.BLOCKHASH,  # Incompatible with state_test
                 Op.SELFDESTRUCT,  # selfdestructs the contract in old forks
+                *FRAME_TRANSACTION_OPCODES,  # Halt under a legacy transaction
             ]:
                 yield opcode
 
@@ -295,6 +314,9 @@ def constant_gas_opcodes(fork: Fork) -> Generator[ParameterSet, None, None]:
         # the state reservoir that cannot be measured via the GAS opcode
         # delta used by gas_test. Excluded to keep the test meaningful.
         if fork.is_eip_enabled(8037) and opcode in (Op.CREATE, Op.CREATE2):
+            continue
+        # The frame transaction opcodes halt under a legacy transaction.
+        if opcode in FRAME_TRANSACTION_OPCODES:
             continue
         yield pytest.param(
             opcode,

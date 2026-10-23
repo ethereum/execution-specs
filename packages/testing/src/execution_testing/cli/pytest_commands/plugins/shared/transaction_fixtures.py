@@ -12,6 +12,9 @@ from execution_testing.test_types import (
     EOA,
     Alloc,
     AuthorizationTuple,
+    Frame,
+    FrameFlag,
+    FrameMode,
     Transaction,
     add_kzg_version,
 )
@@ -119,6 +122,31 @@ def type_4_default_transaction(sender: EOA, pre: Alloc) -> Transaction:
                 address=target2,
                 nonce=0,
                 signer=auth_signer2,
+            ),
+        ],
+    )
+
+
+@pytest.fixture
+def type_6_default_transaction(sender: EOA) -> Transaction:
+    """
+    Type 6 (EIP-8141 frame) default transaction introduced in Bogota fork.
+
+    A `VERIFY` frame has the sender's default code approve execution and
+    payment, then a `SENDER` frame calls the sender itself with the data.
+    """
+    return Transaction(
+        ty=6,
+        sender=sender,
+        max_priority_fee_per_gas=10**9,
+        frames=[
+            Frame(
+                mode=FrameMode.VERIFY,
+                flags=FrameFlag.APPROVE_EXECUTION | FrameFlag.APPROVE_PAYMENT,
+            ),
+            Frame(
+                mode=FrameMode.SENDER,
+                data=b"\x00" * 150,
             ),
         ],
     )
