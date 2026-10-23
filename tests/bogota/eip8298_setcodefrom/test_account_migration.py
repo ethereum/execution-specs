@@ -13,11 +13,18 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    Bytecode,
+    Bytes,
+    Fork,
     Op,
+    StateTestFiller,
     Transaction,
     TransactionException,
 )
+from spec256k1 import PrivateKey
 
+from ...frontier.precompiles.spec import EcrecoverInput
+from ...frontier.precompiles.spec import Spec as PrecompileSpec
 from .helpers import (
     ADOPT_FROM_CALLDATA,
     MARKER_A,
@@ -25,6 +32,7 @@ from .helpers import (
     RESULT_SLOT,
     SENTINEL,
     SSTORE_MARKER_A,
+    call_with,
     word,
 )
 from .spec import ref_spec_8298
@@ -222,5 +230,74 @@ def test_migrated_eoa_runs_adopted_code(
                 balance=2,
                 storage={RESULT_SLOT: 1, MARKER_SLOT: MARKER_A},
             )
+        },
+    )
+
+
+def test_migrated_eoa_withheld_from_ecrecover(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify `ecrecover` recovers an EOA's signature before and after it
+    adopts code, unless EIP-8151 is enabled: a signer holding code other
+    than a delegation designation is then withheld, so adopting code
+    retires the EOA's key.
+    """
+    template = pre.deploy_contract(SSTORE_MARKER_A)
+    shell = pre.deploy_contract(
+        ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}
+    )
+    eoa = pre.fund_eoa(delegation=shell)
+    assert eoa.key is not None
+    digest = Bytes(b"migrated eoa ecrecover").keccak256()
+    signature = PrivateKey(eoa.key).sign_recoverable(digest)
+    recover_input = EcrecoverInput(
+        msg_hash=int.from_bytes(digest),
+        v=signature[64] + 27,
+        r=int.from_bytes(signature[0:32]),
+        s=int.from_bytes(signature[32:64]),
+    )
+
+    def recover_into(slot: int) -> Bytecode:
+        """
+        Recover the signature in the calldata, leaving `SENTINEL` in
+        `slot` when the output is empty.
+        """
+        return (
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            + Op.MSTORE(128, SENTINEL)
+            + Op.POP(
+                Op.STATICCALL(
+                    address=PrecompileSpec.ECRECOVER,
+                    args_size=128,
+                    ret_offset=128,
+                    ret_size=32,
+                )
+            )
+            + Op.SSTORE(slot, Op.MLOAD(128))
+        )
+
+    driver = pre.deploy_contract(
+        recover_into(0)
+        + Op.POP(call_with(eoa, template))
+        + recover_into(1)
+        + Op.STOP
+    )
+    tx = Transaction(
+        sender=pre.fund_eoa(), to=driver, data=bytes(recover_input)
+    )
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            driver: Account(
+                storage={
+                    0: eoa,
+                    1: SENTINEL if fork.is_eip_enabled(8151) else eoa,
+                }
+            ),
+            eoa: Account(code=SSTORE_MARKER_A, storage={RESULT_SLOT: 1}),
         },
     )

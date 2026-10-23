@@ -915,11 +915,13 @@ def test_revert_restores_same_tx_delegation(
 def test_created_adopter_selfdestructed(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     created_same_tx: bool,
 ) -> None:
     """
     Verify an adopter running adopted `SELFDESTRUCT` code is deleted only
-    when it was created in the same tx.
+    when it was created in the same tx, and never under EIP-4758, which
+    only sweeps the balance.
     """
     source_code = Op.SELFDESTRUCT(Op.ORIGIN)
     source = pre.deploy_contract(source_code)
@@ -936,16 +938,30 @@ def test_created_adopter_selfdestructed(
             address=factory, salt=0, initcode=initcode, opcode=Op.CREATE2
         )
         tx = Transaction(sender=pre.fund_eoa(), to=factory, data=initcode)
-        post: dict[Address, Account | None] = {adopter: Account.NONEXISTENT}
-        # EIP-7928: a deleted account keeps no nonce or code changes, and
-        # its written slots become reads.
-        adopter_bal = BalAccountExpectation(
-            nonce_changes=[],
-            code_changes=[],
-            storage_changes=[],
-            storage_reads=[RESULT_SLOT],
-            balance_changes=[],
-        )
+        post: dict[Address, Account | None]
+        if fork.is_eip_enabled(4758):
+            post = {
+                adopter: Account(
+                    code=source_code, nonce=1, storage={RESULT_SLOT: 1}
+                ),
+            }
+            adopter_bal = BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+                code_changes=adoption(1, source_code),
+            )
+        else:
+            post = {adopter: Account.NONEXISTENT}
+            # EIP-7928: a deleted account keeps no nonce or code changes,
+            # and its written slots become reads.
+            adopter_bal = BalAccountExpectation(
+                nonce_changes=[],
+                code_changes=[],
+                storage_changes=[],
+                storage_reads=[RESULT_SLOT],
+                balance_changes=[],
+            )
     elif not created_same_tx:
         adopter = pre.deploy_contract(
             ADOPT_FROM_CALLDATA, storage={RESULT_SLOT: SENTINEL}, balance=1
