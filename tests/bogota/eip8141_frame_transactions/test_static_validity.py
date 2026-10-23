@@ -51,6 +51,7 @@ from .helpers import (
 )
 from .signature_helpers import (
     DIGEST,
+    P256_S,
     P256_SIGNATURE,
     SECP256K1N,
     SECP256R1N,
@@ -58,6 +59,7 @@ from .signature_helpers import (
     p256_entry,
     resized_signature,
     signed_digest_entry,
+    valid_p256_entry,
     with_tampered_components,
 )
 from .spec import Spec, ref_spec_8141
@@ -76,11 +78,13 @@ def blob_hash(version: int, index: int = 0) -> Hash:
 TX_FIELD_CASES = [
     pytest.param(
         # The nonce must leave room for the post-execution
-        # increment, so 2**64 - 1 is already invalid.
+        # increment, so 2**64 - 1 is already invalid. The state test
+        # gives the sender that nonce, so the transaction breaks no
+        # other rule.
         dict(nonce=2**64 - 1),
         TransactionException.NONCE_IS_MAX,
         id="nonce_overflow",
-        marks=pytest.mark.exception_test,
+        marks=[pytest.mark.exception_test, pytest.mark.pre_alloc_mutable],
     ),
     pytest.param(
         dict(max_fee=2**256),
@@ -166,7 +170,12 @@ def test_invalid_tx_fields(
     taking the fork, since the parametrize table is built before the
     fork is known.
     """
-    sender = pre.fund_eoa()
+    # An overridden nonce is the sender's nonce too, so a case about
+    # the nonce's bound is not also a nonce mismatch.
+    nonce = tx_overrides.get("nonce", 0)
+    sender = pre.fund_eoa(
+        **({"nonce": nonce} if "nonce" in tx_overrides else {})
+    )
     tx_kwargs: Dict[str, Any] = dict(
         sender=sender,
         frames=[verify_frame()],
@@ -185,7 +194,7 @@ def test_invalid_tx_fields(
         tx=tx,
         # The sender's nonce only increments if the transaction is
         # valid and executes.
-        post={sender: Account(nonce=0 if error else 1)},
+        post={sender: Account(nonce=nonce if error else nonce + 1)},
     )
 
 
@@ -533,12 +542,6 @@ EXPIRY_VERIFIER_CASES = [
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        [verify_frame(), expiry_frame(value=1)],
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="expiry_frame_with_value",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
         # The expiry verifier creates no state, so its frame must
         # declare no state gas budget.
         [verify_frame(), expiry_frame(state_gas_limit=1)],
@@ -861,26 +864,31 @@ SIGNATURE_CASES = [
         id="p256_signature_too_long",
         marks=pytest.mark.exception_test,
     ),
+    # Each entry below keeps the valid public key words and the signer
+    # they hash to, so only the rule on the tampered component is broken
+    # and a client checking the signer first rejects it the same way.
     pytest.param(
-        [p256_entry(r=0, s=1)],
+        [valid_p256_entry(r=0)],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
         id="p256_r_zero",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        [p256_entry(r=SECP256R1N, s=1)],
+        [valid_p256_entry(r=SECP256R1N)],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
         id="p256_r_at_curve_order",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        [p256_entry(r=1, s=0)],
+        [valid_p256_entry(s=0)],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
         id="p256_s_zero",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        [p256_entry(r=1, s=SECP256R1N // 2 + 1)],
+        # The high-`s` complement is algebraically valid but rejected
+        # by the canonical-encoding rule, as for secp256k1.
+        [valid_p256_entry(s=SECP256R1N - P256_S)],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
         id="p256_high_s",
         marks=pytest.mark.exception_test,

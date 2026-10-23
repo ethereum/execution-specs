@@ -6076,6 +6076,7 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=4,
         pushed_stack_items=0,
         kwargs=["dest_offset", "offset", "size", "frame_index"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
     )
     """
     FRAMEDATACOPY(dest_offset, offset, size, frame_index)
@@ -6174,6 +6175,7 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=4,
         pushed_stack_items=0,
         kwargs=["dest_offset", "offset", "size", "signature_index"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
     )
     """
     SIGDATACOPY(dest_offset, offset, size, signature_index)
