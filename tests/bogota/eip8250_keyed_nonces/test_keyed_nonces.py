@@ -35,7 +35,6 @@ from execution_testing import (
 )
 
 from ..eip8141_frame_transactions.helpers import (
-    default_code_frame_gas,
     default_frame,
     sender_frame,
     verify_frame,
@@ -154,7 +153,7 @@ def default_verify_receipt(fork: Fork, state_gas_used: int) -> FrameReceipt:
     """
     return FrameReceipt(
         status=Spec8141.STATUS_SUCCESS,
-        gas_used=default_code_frame_gas(fork, target_warm=True),
+        gas_used=fork.frame_entry_gas_calculator()(target_warm=True),
         state_gas_used=state_gas_used,
     )
 
@@ -569,7 +568,9 @@ def test_nonce_fields_priced_as_calldata(
         return_cost_deducted_prior_execution=True,
     )
     execution_used = (
-        intrinsic + default_code_frame_gas(fork, target_warm=True) + burner_gas
+        intrinsic
+        + fork.frame_entry_gas_calculator()(target_warm=True)
+        + burner_gas
     )
     floor = fork.frame_transaction_data_floor_cost_calculator()(
         frames=tx.frames,
@@ -622,7 +623,7 @@ def test_nonce_fields_in_calldata_floor(
     first_uses = first_use_count(nonce_keys, nonce_seq)
     state_gas = first_uses * keyed_nonce_first_use(fork)
     worker, worker_gas = cold_read_burner(pre, fork)
-    verify_gas = default_code_frame_gas(fork, target_warm=True)
+    verify_gas = fork.frame_entry_gas_calculator()(target_warm=True)
 
     def build(padding: int) -> Tuple[Transaction, int, int]:
         """Return the signed transaction, its standard cost and its floor."""
@@ -711,7 +712,7 @@ def test_keyed_nonce_access_cost(
         fork
     )
     worker, worker_gas = cold_read_burner(pre, fork)
-    verify_gas = default_code_frame_gas(fork, target_warm=True)
+    verify_gas = fork.frame_entry_gas_calculator()(target_warm=True)
 
     access = keyed_nonce_access_cost(fork, nonce_keys)
     own_nonce_data = nonce_field_calldata(nonce_keys, nonce_seq)
@@ -1783,7 +1784,9 @@ def test_sponsor_pays_first_use(
                 default_verify_receipt(fork, 0),
                 FrameReceipt(
                     status=Spec8141.STATUS_SUCCESS,
-                    gas_used=default_code_frame_gas(fork, target_warm=False),
+                    gas_used=fork.frame_entry_gas_calculator()(
+                        target_warm=False
+                    ),
                     state_gas_used=first_use,
                 ),
             ],
