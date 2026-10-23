@@ -26,6 +26,7 @@ from execution_testing import (
     Bytes,
     Fork,
     FrameSignature,
+    GasFee,
     Op,
     keccak256,
 )
@@ -417,8 +418,11 @@ def test_bal_sponsored_payer_and_sender(
         pre=pre,
         blocks=[block],
         post={
-            sender: Account(nonce=1, balance=start_balance),
-            payer: Account(nonce=0, balance=payer_post_balance),
+            sender: Account(nonce=1, balance_change=0),
+            payer: Account(
+                nonce_change=0,
+                balance_change=-GasFee(tx, gas=tx.payer_gas_used()),
+            ),
             target: Account(storage={SLOT: WRITTEN_VALUE}),
         },
     )

@@ -23,9 +23,13 @@ from execution_testing.fixtures import BaseFixture, LabeledFixtureFormat
 from execution_testing.fixtures.base import FixtureFillingPhase
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import (
+    DEFAULT_FRAME_GAS_LIMIT,
+    DEFAULT_FRAME_STATE_GAS_LIMIT,
     Account,
     Alloc,
     Frame,
+    FrameFlag,
+    FrameMode,
     GasFee,
     Tip,
     Transaction,
@@ -40,13 +44,9 @@ Transaction type of the EIP-8141 frame transaction; its presence in a
 fork's transaction types gates the ``frame_tx`` variant.
 """
 
-VERIFY_FRAME_MODE = 1
-"""Mode of a frame that runs before execution to grant approvals."""
-
-SENDER_FRAME_MODE = 2
-"""Mode of a frame executing as the transaction sender."""
-
-APPROVE_EXECUTION_AND_PAYMENT = 0x3
+APPROVE_EXECUTION_AND_PAYMENT = (
+    FrameFlag.APPROVE_EXECUTION | FrameFlag.APPROVE_PAYMENT
+)
 """Flags approving both the transaction's execution and its payment."""
 
 FRAME_TRANSACTION_VARIANT = "frame_tx"
@@ -83,10 +83,18 @@ frame's budget and the base, per-frame, and signature intrinsic
 charges.
 """
 
-FRAME_VERIFY_TOTAL_GAS = 500_000
+FRAME_VERIFY_TOTAL_GAS = (
+    DEFAULT_FRAME_GAS_LIMIT + DEFAULT_FRAME_STATE_GAS_LIMIT
+)
 """
 The VERIFY frame's default budgets across both dimensions, counted
 against the block gas limit when sizing the ``SENDER`` frame.
+"""
+
+FRAME_BLOCK_HEADROOM = 500_000
+"""
+Block gas left unclaimed by the rewritten transaction, so a test whose
+block holds more than the one transaction still fits it.
 """
 
 FRAME_BUDGET_FLOOR = 1_000_000
@@ -131,7 +139,10 @@ def frame_budgets(
     # the transaction gas limit.
     assert cap is not None, "fork with frame transactions has no gas cap"
     available = (
-        env_gas_limit - calldata_cost - FRAME_VERIFY_TOTAL_GAS - 500_000
+        env_gas_limit
+        - calldata_cost
+        - FRAME_VERIFY_TOTAL_GAS
+        - FRAME_BLOCK_HEADROOM
     )
     execution = min(
         cap - calldata_cost - FRAME_INTRINSIC_HEADROOM,
@@ -283,11 +294,11 @@ def as_frame_transaction(
         expected_receipt=expected_receipt,
         frames=[
             Frame(
-                mode=VERIFY_FRAME_MODE,
+                mode=FrameMode.VERIFY,
                 flags=APPROVE_EXECUTION_AND_PAYMENT,
             ),
             Frame(
-                mode=SENDER_FRAME_MODE,
+                mode=FrameMode.SENDER,
                 target=tx.to,
                 value=tx.value,
                 data=tx.data,

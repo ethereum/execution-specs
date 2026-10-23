@@ -2,7 +2,17 @@
 
 from dataclasses import dataclass
 
-from execution_testing import Address
+from execution_testing import (
+    Address,
+    FrameFlag,
+    FrameMode,
+    FrameSignatureScheme,
+    FrameStatus,
+    TransactionType,
+)
+from execution_testing.forks.forks.eips.bogota.eip_8141 import (
+    EXPIRY_VERIFIER_ADDRESS,
+)
 
 
 @dataclass(frozen=True)
@@ -25,35 +35,33 @@ class Spec:
     https://eips.ethereum.org/EIPS/eip-8141.
     """
 
-    FRAME_TX_TYPE = 0x06
-    FRAME_TX_INTRINSIC_COST = 12_000
-    FRAME_TX_PER_FRAME_COST = 475
+    FRAME_TX_TYPE = TransactionType.FRAME
     ENTRY_POINT = Address(0xAA)
-    EXPIRY_VERIFIER = Address(0x81413F0CF12E9B6A49B1D0439E081C577D57FFFF)
+    EXPIRY_VERIFIER = Address(EXPIRY_VERIFIER_ADDRESS)
     EXPIRY_DATA_LENGTH = 8
     MAX_FRAMES = 64
 
-    # Frame modes
-    MODE_DEFAULT = 0
-    MODE_VERIFY = 1
-    MODE_SENDER = 2
+    # Frame modes, flags, signature schemes and receipt statuses are the
+    # framework's enums, named here as the EIP names them.
+    MODE_DEFAULT = FrameMode.DEFAULT
+    MODE_VERIFY = FrameMode.VERIFY
+    MODE_SENDER = FrameMode.SENDER
 
-    # Frame flags
-    APPROVE_NONE = 0x0
-    APPROVE_PAYMENT = 0x1
-    APPROVE_EXECUTION = 0x2
-    APPROVE_EXECUTION_AND_PAYMENT = 0x3
-    ATOMIC_BATCH_FLAG = 0x4
+    APPROVE_NONE = FrameFlag(0)
+    APPROVE_PAYMENT = FrameFlag.APPROVE_PAYMENT
+    APPROVE_EXECUTION = FrameFlag.APPROVE_EXECUTION
+    APPROVE_EXECUTION_AND_PAYMENT = (
+        FrameFlag.APPROVE_EXECUTION | FrameFlag.APPROVE_PAYMENT
+    )
+    ATOMIC_BATCH_FLAG = FrameFlag.ATOMIC_BATCH
 
-    # Signature schemes
-    SCHEME_ARBITRARY = 0x0
-    SCHEME_SECP256K1 = 0x1
-    SCHEME_P256 = 0x2
+    SCHEME_ARBITRARY = FrameSignatureScheme.ARBITRARY
+    SCHEME_SECP256K1 = FrameSignatureScheme.SECP256K1
+    SCHEME_P256 = FrameSignatureScheme.P256
 
-    # Frame receipt statuses
-    STATUS_FAILURE = 0
-    STATUS_SUCCESS = 1
-    STATUS_SKIPPED = 2
+    STATUS_FAILURE = FrameStatus.FAILURE
+    STATUS_SUCCESS = FrameStatus.SUCCESS
+    STATUS_SKIPPED = FrameStatus.SKIPPED
 
     # TXPARAM selectors
     TXPARAM_TYPE = 0x00
