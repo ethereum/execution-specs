@@ -201,6 +201,161 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
     assert bytes(conditional_bytecode) == expected
 
 
+CONDITION_BYTECODE = (
+    Op.PUSH1[0] + Op.CALLDATALOAD + Op.PUSH1[0x0E] + Op.PC + Op.ADD + Op.JUMPI
+)
+"""
+`Op.CALLDATALOAD(0)` followed by the jump that a conditional takes to
+its true branch, fourteen bytes ahead of the program counter.
+"""
+
+
+@pytest.mark.parametrize(
+    "condition,expected",
+    [
+        pytest.param(
+            True,
+            CONDITION_BYTECODE
+            + Op.JUMPDEST
+            + Op.PUSH1[1]
+            + Op.PUSH1[0]
+            + Op.SSTORE
+            + Op.STOP,
+            id="true",
+        ),
+        pytest.param(
+            False,
+            CONDITION_BYTECODE
+            + Op.PUSH1[1]
+            + Op.PUSH1[1]
+            + Op.SSTORE
+            + Op.STOP,
+            id="false",
+        ),
+    ],
+)
+def test_conditional_branch_of_terminating_bodies(
+    condition: bool, expected: Bytecode
+) -> None:
+    """
+    Take the branch of a conditional whose bodies both terminate.
+
+    Neither body returns, so the jump closing the false branch and the
+    jumpdest rejoining the two paths are never reached, and pricing
+    the branch must leave them out.
+    """
+    conditional = Conditional(
+        condition=Op.CALLDATALOAD(0),
+        if_true=Op.SSTORE(0, 1) + Op.STOP,
+        if_false=Op.SSTORE(1, 1) + Op.STOP,
+    )
+    branch = conditional.branch(condition=condition)
+    assert bytes(branch) == bytes(expected)
+    assert not bytes(branch).endswith(bytes(Op.JUMPDEST))
+
+
+def test_conditional_branch_of_returning_bodies() -> None:
+    """
+    Take the branch of a conditional whose bodies return.
+
+    Both paths rejoin at the closing jumpdest, which the false branch
+    reaches through the jump that skips the true branch.
+    """
+    conditional = Conditional(
+        condition=Op.CALLDATALOAD(0),
+        if_true=Op.POP(1),
+        if_false=Op.POP(2),
+    )
+    for condition in (True, False):
+        branch = conditional.branch(condition=condition)
+        assert bytes(branch).endswith(bytes(Op.JUMPDEST))
+    false_branch = conditional.branch(condition=False)
+    assert bytes(Op.JUMP) in bytes(false_branch)
+
+
+def test_conditional_branch_prices_one_path() -> None:
+    """
+    Price each branch of a conditional on its own.
+
+    The whole bytecode holds both bodies, so its cost prices neither
+    path; each branch carries the cost of the body it runs.
+    """
+    conditional = Conditional(
+        condition=Op.CALLDATALOAD(0),
+        if_true=Op.SSTORE(0, 1) + Op.STOP,
+        if_false=Op.STOP,
+    )
+    taken = conditional.branch(condition=True)
+    skipped = conditional.branch(condition=False)
+    assert taken.gas_cost(Cancun) > skipped.gas_cost(Cancun)
+    assert conditional.gas_cost(Cancun) > taken.gas_cost(Cancun)
+    assert skipped.state_cost(Cancun) == 0
+    assert taken.execution_cost(Cancun) == taken.gas_cost(
+        Cancun
+    ) - taken.state_cost(Cancun)
+
+
+def test_switch_branch_tests_every_earlier_condition() -> None:
+    """
+    Take the branch of a switch, which tests each case in turn.
+
+    A case runs only once every case before it has been tested and
+    failed, so its branch carries those conditions; the default runs
+    only once every case has failed.
+    """
+    switch = Switch(
+        cases=[
+            CalldataCase(value=0, action=Op.SSTORE(0, 1) + Op.STOP),
+            CalldataCase(value=1, action=Op.SSTORE(1, 1) + Op.STOP),
+        ],
+        default_action=Op.STOP,
+    )
+    first = switch.branch(case=0)
+    second = switch.branch(case=1)
+    default = switch.branch(case=None)
+    # The second case pays to test the first case's condition too.
+    assert second.gas_cost(Cancun) > first.gas_cost(Cancun)
+    # The default runs no action, yet paid for both conditions.
+    assert default.gas_cost(Cancun) > Op.STOP.gas_cost(Cancun)
+    assert first.state_cost(Cancun) == second.state_cost(Cancun)
+    assert default.state_cost(Cancun) == 0
+
+
+def test_switch_branch_of_terminating_actions() -> None:
+    """
+    Take the branch of a switch whose actions all terminate.
+
+    No action returns, so the jump rejoining the cases and the jumpdest
+    they rejoin at are never reached, and pricing a branch must leave
+    them out.
+    """
+    switch = Switch(
+        cases=[CalldataCase(value=0, action=Op.SSTORE(0, 1) + Op.STOP)],
+        default_action=Op.STOP,
+    )
+    for case in (0, None):
+        branch = switch.branch(case=case)
+        assert bytes(branch).endswith(bytes(Op.STOP))
+        assert not bytes(branch).endswith(bytes(Op.JUMPDEST))
+
+
+def test_switch_branch_of_returning_actions() -> None:
+    """
+    Take the branch of a switch whose actions return.
+
+    Every path rejoins at the closing jumpdest, reached through the
+    jump that each action ends with.
+    """
+    switch = Switch(
+        cases=[CalldataCase(value=0, action=Op.POP(1))],
+        default_action=Op.POP(2),
+    )
+    for case in (0, None):
+        branch = switch.branch(case=case)
+        assert bytes(branch).endswith(bytes(Op.JUMPDEST))
+        assert bytes(Op.JUMP) in bytes(branch)
+
+
 @pytest.mark.parametrize(
     "tx_data,switch_bytecode,expected_storage",
     [
