@@ -53,7 +53,7 @@ Once a fork is deployed, a plain `fill` also fills its scenarios. `--until=Amste
 
 Clients must permit their BPO slots to activate after the fork the scenarios follow. Successful filling does not establish client compatibility.
 
-On BPO forks, including these scenarios, only the tests marked with `valid_for_bpo_forks` run. Mark tests whose case count stays small, since every scenario multiplies it.
+On BPO forks, including these scenarios, only the tests marked with `valid_for_bpo_forks` run. Each BPO fork repeats them, so a test that varies blob counts should only use the counts at the edges of a BPO fork's schedule; `SpecHelpers.get_blob_counts` in `tests/cancun/eip4844_blobs/spec.py` returns those.
 
 ## Further Help
 
