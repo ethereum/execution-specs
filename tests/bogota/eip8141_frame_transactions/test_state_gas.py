@@ -262,17 +262,17 @@ def test_cross_frame_refill(
 
 
 @pytest.mark.parametrize(
-    "shortfall",
+    "state_gas_limit_delta",
     [
         pytest.param(0, id="exact_budget"),
-        pytest.param(1, id="one_below"),
+        pytest.param(-1, id="one_below"),
     ],
 )
 def test_state_gas_exhaustion(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    shortfall: int,
+    state_gas_limit_delta: int,
 ) -> None:
     """
     Drive a frame's state gas budget across the exact cost of its one
@@ -284,12 +284,10 @@ def test_state_gas_exhaustion(
     and the transaction stays valid.
     """
     sender = pre.fund_eoa()
-    write = Op.SSTORE(SLOT_CREATED, 1)
-    worker_code = write + Op.STOP
+    worker_code = Op.SSTORE(SLOT_CREATED, 1) + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
 
-    state_budget = write.state_cost(fork) - shortfall
-    succeeds = shortfall == 0
+    succeeds = state_gas_limit_delta >= 0
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -299,9 +297,8 @@ def test_state_gas_exhaustion(
             default_frame(
                 target=worker,
                 code=worker_code,
-                state_gas_limit=state_budget,
+                state_gas_limit_delta=state_gas_limit_delta,
                 outcome=Outcome.SUCCESS if succeeds else Outcome.HALT,
-                state_gas_used=state_budget if succeeds else 0,
             ),
         ],
     )

@@ -125,7 +125,6 @@ def transfer_exceeding_balance(
                 target=recipient,
                 value=TRANSFER_VALUE + 1,
                 outcome=Outcome.REVERT,
-                logs=[],
             ),
         ],
         signatures=[

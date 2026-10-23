@@ -195,14 +195,11 @@ def test_atomic_batch_rollback(
 
     if revert_position == "last":
         batch = [
-            # The unrolled frame retains its execution status and gas
-            # used, but its logs are discarded with its state changes.
             sender_frame(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=target,
                 code=target_code,
                 outcome=Outcome.UNROLLED,
-                logs=[],
             ),
             sender_frame(
                 target=reverter, code=reverter_code, outcome=Outcome.REVERT

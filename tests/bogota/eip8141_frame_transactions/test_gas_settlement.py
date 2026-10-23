@@ -127,8 +127,7 @@ def test_calldata_floor_with_state_gas(
                 verify_frame(
                     code=verify_code,
                     gas_limit_delta=0,
-                    state_gas_limit=0,
-                    state_gas_used=0,
+                    state_gas_limit_delta=0,
                 ),
                 default_frame(
                     target=worker,

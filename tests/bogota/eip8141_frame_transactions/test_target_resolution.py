@@ -434,10 +434,6 @@ def test_entry_charge_halt_unrolls_batch(
     worker_code = Op.SSTORE(SLOT_CREATED, 1)
     worker = pre.deploy_contract(code=worker_code)
 
-    # Both frame targets are fresh, so each entry access is cold.
-    entry_gas = fork.frame_entry_gas_calculator()()
-    worker_gas = entry_gas + worker_code.execution_cost(fork)
-
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
@@ -448,19 +444,20 @@ def test_entry_charge_halt_unrolls_batch(
                 target=worker,
                 code=worker_code,
                 outcome=Outcome.UNROLLED,
-                gas_limit=worker_gas,
-                state_gas_limit=worker_code.state_cost(fork),
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
             ),
             default_frame(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=halting_target,
                 outcome=Outcome.HALT,
-                gas_limit=entry_gas - 1,
+                gas_limit_delta=-1,
             ),
             default_frame(
                 target=worker,
+                code=worker_code,
                 outcome=Outcome.SKIPPED,
-                gas_limit=worker_gas,
+                gas_limit_delta=0,
             ),
         ],
     )

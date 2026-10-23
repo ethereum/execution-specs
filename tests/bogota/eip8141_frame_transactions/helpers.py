@@ -209,11 +209,15 @@ class FrameCase(Frame):
         elif self.outcome.keeps_state_gas:
             state_gas_used = self.code_state_gas(fork)
 
+        logs = self.logs
+        if logs is None and self.outcome is not Outcome.SUCCESS:
+            logs = []
+
         return FrameReceipt(
             status=self.outcome.status,
             gas_used=gas_used,
             state_gas_used=state_gas_used,
-            logs=self.logs,
+            logs=logs,
         )
 
 
@@ -289,7 +293,9 @@ class FrameTransaction(Transaction):
         Return the frame transaction `frames` describes.
 
         `settle` drops the transaction total for a test that prices
-        neither the refund nor the floor; a transaction expected to be
+        neither the refund nor the floor. A frame whose execution gas
+        is unpinned leaves the total unpinned as well, since the total
+        follows from every receipt. A transaction expected to be
         rejected carries no receipt expectation at all.
         """
         for case in frames:
