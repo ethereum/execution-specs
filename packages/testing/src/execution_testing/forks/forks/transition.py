@@ -108,11 +108,15 @@ class BPO3ToBPO4AtTime15k(TransitionBaseClass):
 def add_bpo_scenario_transition(
     from_fork: Type[BaseFork], to_fork: Type[BaseFork]
 ) -> None:
-    """Add the transition from `from_fork` to `to_fork` at timestamp 15k."""
-    name = f"{from_fork.name()}To{to_fork.name()}AtTime15k"
-    doc = (
-        f"{from_fork.name()} to {to_fork.name()} transition at Timestamp 15k."
-    )
+    """
+    Add the transition from `from_fork` to `to_fork` at timestamp 15k.
+
+    The name leaves out the fork prefix of a scenario of `from_fork`, as in
+    `AmsterdamToBPOIncreaseAtTime15k`.
+    """
+    to_name = to_fork.name().removeprefix(from_fork.name())
+    name = f"{from_fork.name()}To{to_name}AtTime15k"
+    doc = f"{from_fork.name()} to {to_name} transition at Timestamp 15k."
     globals()[name] = transition_fork(
         to_fork=to_fork, from_fork=from_fork, at_timestamp=15_000
     )(
@@ -127,10 +131,10 @@ def add_bpo_scenario_transition(
 
 
 def add_bpo_scenario_transitions() -> None:
-    """Add the transitions into each BPO increase and decrease at 15k."""
-    for fork, (increase, decrease) in BPO_SCENARIOS.items():
-        add_bpo_scenario_transition(fork, increase)
-        add_bpo_scenario_transition(increase, decrease)
+    """Add the transitions from each fork into its BPO scenarios at 15k."""
+    for fork, scenarios in BPO_SCENARIOS.items():
+        for scenario in scenarios:
+            add_bpo_scenario_transition(fork, scenario)
 
 
 add_bpo_scenario_transitions()

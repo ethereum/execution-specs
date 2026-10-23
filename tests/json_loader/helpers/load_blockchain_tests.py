@@ -243,8 +243,8 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
         else:
             from_fork = spec_fork_name(self.transition.from_fork)
             current = Load(FORKS[from_fork].short_name)
-        # Both ends of a transition between two BPO forks of the testing
-        # framework, such as an increase and its decrease, may run on the
+        # Both ends of a transition into a BPO fork of the testing
+        # framework, such as Amsterdam to its BPO decrease, may run on the
         # same spec fork; only their blob schedules differ.
         same_spec_fork = (
             current.fork.hardfork.short_name == load.fork.hardfork.short_name

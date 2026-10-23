@@ -52,15 +52,15 @@ def test_amsterdam_blob_compatibility(
 def bpo_scenario_transitions() -> List[ParameterSet]:
     """Return each transition into a BPO scenario with its ruleset names."""
     transitions = []
-    for fork, (increase, decrease) in BPO_SCENARIOS.items():
-        for from_fork, to_fork in ((fork, increase), (increase, decrease)):
-            transition = transition_fork_from_to(from_fork, to_fork)
+    for fork, scenarios in BPO_SCENARIOS.items():
+        for scenario in scenarios:
+            transition = transition_fork_from_to(fork, scenario)
             assert transition is not None
             transitions.append(
                 pytest.param(
                     transition,
-                    to_fork.ruleset_name(),
-                    from_fork.ruleset_name(),
+                    scenario.ruleset_name(),
+                    fork.ruleset_name(),
                     id=transition.name(),
                 )
             )
@@ -71,17 +71,13 @@ def bpo_scenario_transitions() -> List[ParameterSet]:
     "fork", list(BPO_SCENARIOS), ids=lambda fork: fork.name()
 )
 def test_bpo_scenario_genesis_ruleset(fork: Fork) -> None:
-    """Activate both BPO scenarios at genesis in the next client slots."""
-    increase, decrease = BPO_SCENARIOS[fork]
+    """Activate each BPO scenario at genesis in the next client slot."""
     slot = first_free_bpo_slot(fork)
-    assert [increase.ruleset_name(), decrease.ruleset_name()] == [
-        f"BPO{slot}",
-        f"BPO{slot + 1}",
-    ]
-    rules = ruleset_format(decrease)
-    assert rules[f"HIVE_{fork.ruleset_name()}_TIMESTAMP"] == 0
-    for scenario in (increase, decrease):
-        prefix = f"HIVE_{scenario.ruleset_name()}"
+    prefix = f"HIVE_BPO{slot}"
+    for scenario in BPO_SCENARIOS[fork]:
+        assert scenario.ruleset_name() == f"BPO{slot}"
+        rules = ruleset_format(scenario)
+        assert rules[f"HIVE_{fork.ruleset_name()}_TIMESTAMP"] == 0
         assert rules[f"{prefix}_TIMESTAMP"] == 0
         assert (
             rules[f"{prefix}_BLOB_TARGET"] == scenario.target_blobs_per_block()
@@ -91,8 +87,8 @@ def test_bpo_scenario_genesis_ruleset(fork: Fork) -> None:
             rules[f"{prefix}_BLOB_BASE_FEE_UPDATE_FRACTION"]
             == scenario.blob_base_fee_update_fraction()
         )
-    assert f"HIVE_BPO{slot + 1}_TIMESTAMP" not in ruleset_format(increase)
-    assert not any(key.startswith("HIVE_AMSTERDAM_BLOB_") for key in rules)
+        assert f"HIVE_BPO{slot + 1}_TIMESTAMP" not in rules
+        assert not any(key.startswith("HIVE_AMSTERDAM_BLOB_") for key in rules)
 
 
 @pytest.mark.parametrize(

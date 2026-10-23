@@ -37,11 +37,11 @@ By default, the execution-testing framework only generates fixtures for forks th
 Every fork from Amsterdam on gets two blob parameter only (BPO) scenario forks, generated in `forks.py`, so a new fork or a new BPO fork needs no extra work:
 
 - `<Fork>BPOIncrease` raises the target of `<Fork>` by half.
-- `<Fork>BPODecrease` follows it and lowers the target to two thirds of `<Fork>`'s.
+- `<Fork>BPODecrease` lowers the target of `<Fork>` to two thirds.
 
 Both keep the max to target ratio of `<Fork>`, rounded up, and scale the update fraction with the target, as on mainnet, so the blob base fee falls at the same rate per empty block. They run under the rules of `<Fork>`. For Amsterdam the increase is 21/32 with update fraction 17527006 and the decrease is 9/14 with update fraction 7511574. These are test scenarios, not scheduled network upgrades.
 
-Each scenario takes the next client BPO slot after the BPO forks it descends from, so the Amsterdam scenarios fill `HIVE_BPO3_*` and `HIVE_BPO4_*`. Hive already maps the numbered keys onto the client config, so a new fork or BPO fork needs no Hive change either.
+Both scenarios follow `<Fork>` directly and take the next client BPO slot after the BPO forks it descends from, so the Amsterdam scenarios both fill `HIVE_BPO3_*`. The transitions into them activate at timestamp 15,000 and leave out the repeated fork name, for example `AmsterdamToBPOIncreaseAtTime15k` and `AmsterdamToBPODecreaseAtTime15k`. Hive already maps the numbered keys onto the client config, so a new fork or BPO fork needs no Hive change either.
 
 Fill them with `--bpo-scenarios`, which adds the scenarios of every selected fork and the transitions into them at timestamp 15,000:
 

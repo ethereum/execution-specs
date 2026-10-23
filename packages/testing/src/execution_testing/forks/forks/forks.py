@@ -1729,11 +1729,11 @@ def add_bpo_scenarios(
     fork: Type[BaseFork],
 ) -> Tuple[Type[BaseFork], Type[BaseFork]]:
     """
-    Add forks that raise, then lower, the blob schedule after `fork`.
+    Add forks that raise or lower the blob schedule after `fork`.
 
-    Both keep `fork`'s rules and take the next free client BPO slots. The
-    increase raises the target by half, and the decrease then lowers it to
-    two thirds of `fork`'s.
+    Both follow `fork` directly, keep its rules and take the next free client
+    BPO slot. The increase raises the target by half, and the decrease lowers
+    it to two thirds of `fork`'s.
     """
     slot = first_free_bpo_slot(fork)
 
@@ -1770,9 +1770,9 @@ def add_bpo_scenarios(
         f"Raise the {fork.name()} blob schedule by half.",
     )
     decrease = scenario(
-        increase,
+        fork,
         "Decrease",
-        slot + 1,
+        slot,
         scaled_blob_schedule(fork, 2, 3),
         f"Lower the blob schedule to two thirds of {fork.name()}'s.",
     )

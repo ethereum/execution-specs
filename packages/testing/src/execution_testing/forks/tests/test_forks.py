@@ -1098,14 +1098,11 @@ def assert_bpo_scenarios_fit(
 ) -> None:
     """Check the BPO increase and decrease generated for `fork`."""
     target, max_blobs, fraction = blob_schedule_of(fork)
-    for scenario, parent, scenario_slot in (
-        (increase, fork, slot),
-        (decrease, increase, slot + 1),
-    ):
-        assert scenario.parent() is parent
+    for scenario in (increase, decrease):
+        assert scenario.parent() is fork
         assert scenario.bpo_fork()
         assert not scenario.is_deployed()
-        assert scenario.ruleset_name() == f"BPO{scenario_slot}"
+        assert scenario.ruleset_name() == f"BPO{slot}"
         # Keep the rules of `fork`, only the blob schedule changes.
         assert scenario.non_bpo_ancestor() is fork.non_bpo_ancestor()
         assert scenario.transition_tool_name() == fork.transition_tool_name()
@@ -1159,23 +1156,22 @@ def test_bpo_scenarios_follow_their_fork(fork: Type[BaseFork]) -> None:
     assert_bpo_scenarios_fit(
         fork, increase, decrease, slot=first_free_bpo_slot(fork)
     )
-    for from_fork, to_fork in ((fork, increase), (increase, decrease)):
-        transition = transition_fork_from_to(from_fork, to_fork)
+    for scenario, kind in ((increase, "Increase"), (decrease, "Decrease")):
+        transition = transition_fork_from_to(fork, scenario)
         assert transition is not None
-        assert transition.name() == (
-            f"{from_fork.name()}To{to_fork.name()}AtTime15k"
-        )
-        assert transition.fork_at(timestamp=14_999) is from_fork
-        assert transition.fork_at(timestamp=15_000) is to_fork
+        assert transition.name() == f"{fork.name()}ToBPO{kind}AtTime15k"
+        assert transition.fork_at(timestamp=14_999) is fork
+        assert transition.fork_at(timestamp=15_000) is scenario
 
 
 def test_amsterdam_bpo_scenarios() -> None:
-    """Raise Amsterdam's blob schedule by half, then lower it below."""
+    """Raise Amsterdam's blob schedule by half, or lower it below."""
     increase, decrease = BPO_SCENARIOS[Amsterdam]
     assert blob_schedule_of(Amsterdam) == (14, 21, 11684671)
     assert blob_schedule_of(increase) == (21, 32, 17527006)
     assert blob_schedule_of(decrease) == (9, 14, 7511574)
-    # BPO1 and BPO2 already take the first two client slots.
+    # BPO1 and BPO2 already take the first two client slots, so both
+    # scenarios use the third.
     assert first_free_bpo_slot(Amsterdam) == 3
 
 
@@ -1221,7 +1217,8 @@ def test_bpo_scenarios_follow_a_new_bpo_fork() -> None:
 
     try:
         increase, decrease = add_bpo_scenarios(NewBPO)
-        # The new BPO fork takes the slot its parent left free.
+        # The new BPO fork takes the slot its parent left free, so its
+        # scenarios use the next one.
         slot = first_free_bpo_slot(Amsterdam) + 1
         assert_bpo_scenarios_fit(NewBPO, increase, decrease, slot=slot)
         assert blob_schedule_of(increase) == (24, 36, 20030865)
@@ -1244,7 +1241,7 @@ def test_bpo_scenarios_are_selected_on_request(
             increase,
             decrease,
             transition_fork_from_to(fork, increase),
-            transition_fork_from_to(increase, decrease),
+            transition_fork_from_to(fork, decrease),
         }
 
     def selected_scenarios(**options: bool) -> set:
