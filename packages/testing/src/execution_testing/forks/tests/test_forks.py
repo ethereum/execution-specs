@@ -868,17 +868,6 @@ class TestSelectedForkSetWithTransitionBoundaries:
             *BPO_SCENARIOS[Amsterdam],
         }
 
-    def test_until_amsterdam_bpo_siblings_enabled(self) -> None:
-        """Allow callers to explicitly include parallel BPO branches."""
-        result = get_selected_fork_set(
-            single_fork=set(),
-            forks_from=set(),
-            forks_until={Amsterdam},
-            bpo_siblings=True,
-        )
-        normal = self._normal_forks(result)
-        assert {BPO1, BPO2, BPO3, BPO4, BPO5, Amsterdam} <= normal
-
     @pytest.mark.parametrize("fork", [BPO3, BPO4, BPO5])
     def test_explicit_bpo_selection(self, fork: Fork) -> None:
         """Retain explicit selection of speculative BPO forks."""
@@ -1271,14 +1260,12 @@ def test_bpo_scenarios_are_selected_with_their_fork(
             in BPO_SCENARIO_FORKS
         }
 
-    for bpo_siblings in (False, True):
-        selected = get_selected_fork_set(
-            single_fork=set(),
-            forks_from={Amsterdam},
-            forks_until={forks_until},
-            bpo_siblings=bpo_siblings,
-        )
-        assert scenarios_in(selected) == expected
+    selected = get_selected_fork_set(
+        single_fork=set(),
+        forks_from={Amsterdam},
+        forks_until={forks_until},
+    )
+    assert scenarios_in(selected) == expected
     single = get_selected_fork_set(
         single_fork={forks_until}, forks_from=set(), forks_until=set()
     )

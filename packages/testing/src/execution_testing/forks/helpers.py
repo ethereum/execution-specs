@@ -204,53 +204,21 @@ def get_last_descendants(
     return resulting_forks
 
 
-def get_bpo_sibling_forks(
-    forks: Set[Type[BaseFork]] | FrozenSet[Type[BaseFork]],
-    forks_from: Set[Type[BaseFork]],
-    forks_until: Set[Type[BaseFork]],
-) -> Set[Type[BaseFork]]:
-    """
-    Return BPO forks that branch off an ancestor of an `--until` fork.
-
-    BPO (Blob Parameter Only) forks form a chain hanging off the fork
-    they extend (e.g. the `BPO3`/`BPO4`/`BPO5` chain branches off `BPO2`).
-    A later fork such as `Amsterdam` descends from that same `BPO2` on a
-    parallel branch, so an ancestry-based `--until=Amsterdam` range never
-    reaches the BPO chain. Return those siblings, bounded below by
-    `forks_from`, so filling until such a fork still exercises the
-    blob-parameter paths the BPO forks cover.
-    """
-    siblings: Set[Type[BaseFork]] = set()
-    for fork_until in forks_until:
-        if issubclass(fork_until, TransitionBaseClass):
-            continue
-        for fork in forks:
-            if not fork.bpo_fork() or fork in BPO_SCENARIO_FORKS:
-                continue
-            if fork <= fork_until or fork >= fork_until:
-                continue
-            if fork.non_bpo_ancestor() <= fork_until and any(
-                fork >= fork_from for fork_from in forks_from
-            ):
-                siblings.add(fork)
-    return siblings
-
-
 def get_selected_fork_set(
     *,
     single_fork: Set[Type[BaseFork]],
     forks_from: Set[Type[BaseFork]],
     forks_until: Set[Type[BaseFork]],
     transition_forks: bool = True,
-    bpo_siblings: bool = False,
 ) -> Set[Type[BaseFork | TransitionBaseClass]]:
     """
     Process sets derived from `--fork`, `--until` and `--from` to return an
     unified fork set.
 
     A fork range also includes the BPO increase and decrease of each selected
-    fork, so releases and CI fill them with their fork. Include parallel BPO
-    branches only when explicitly requested.
+    fork, so releases and CI fill them with their fork. It follows ancestry
+    only, so `--until=Amsterdam` leaves out the parallel `BPO3` to `BPO5`
+    branch.
     """
     selected_fork_set: Set[Type[BaseFork]] = set()
     if single_fork:
@@ -271,10 +239,6 @@ def get_selected_fork_set(
         for fork_until in forks_until:
             if issubclass(fork_until, TransitionBaseClass):
                 selected_fork_set.discard(fork_until.transitions_to())
-        if bpo_siblings:
-            selected_fork_set |= get_bpo_sibling_forks(
-                ALL_FORKS, forks_from, forks_until
-            )
         for fork in list(selected_fork_set):
             selected_fork_set |= set(forks.BPO_SCENARIOS.get(fork, ()))
     selected_fork_set_with_transitions: Set[
