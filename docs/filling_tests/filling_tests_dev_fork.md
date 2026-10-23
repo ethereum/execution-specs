@@ -41,7 +41,7 @@ Every fork from Amsterdam on gets two blob parameter only (BPO) scenario forks, 
 
 Both keep the max to target ratio of `<Fork>`, rounded up, and scale the update fraction with the target, as on mainnet, so the blob base fee falls at the same rate per empty block. They run under the rules of `<Fork>`. For Amsterdam the increase is 21/32 with update fraction 17527006 and the decrease is 9/14 with update fraction 7511574. These are test scenarios, not scheduled network upgrades.
 
-Both scenarios follow `<Fork>` directly and take the next client BPO slot after the BPO forks it descends from, so the Amsterdam scenarios both fill `HIVE_BPO3_*`. The transitions into them activate at timestamp 15,000 and leave out the repeated fork name, for example `AmsterdamToBPOIncreaseAtTime15k` and `AmsterdamToBPODecreaseAtTime15k`. Hive already maps the numbered keys onto the client config, so a new fork or BPO fork needs no Hive change either.
+Both scenarios follow `<Fork>` directly and take the next client BPO slot after the BPO forks it descends from, so the Amsterdam scenarios both fill `HIVE_BPO3_*`. The transitions into them activate at timestamp 15,000 and leave out the repeated fork name, for example `AmsterdamToBPOIncreaseAtTime15k` and `AmsterdamToBPODecreaseAtTime15k`. Hive already maps the numbered keys onto the client config, so a new fork or BPO fork needs no Hive change either, as long as the slot stays within the BPO slots Hive maps (currently up to `HIVE_BPO5_*`).
 
 A fork range fills the scenarios of every fork it selects, together with the transitions into them, so releases, devnets and CI include them with no extra option. For example, `--until=Amsterdam` fills `AmsterdamBPOIncrease`, `AmsterdamBPODecrease` and both transitions. `--fork=Amsterdam` fills Amsterdam alone; select a scenario on its own with `--fork=AmsterdamBPODecrease`.
 
@@ -49,7 +49,7 @@ A fork range fills the scenarios of every fork it selects, together with the tra
 uv run fill tests/osaka/eip7918_blob_reserve_price/ --from=Amsterdam --until=Amsterdam
 ```
 
-`--until=Amsterdam` still excludes the historical parallel BPO3–BPO5 branch. Numbered fork and transition definitions remain available for older fixtures and genesis files.
+Once a fork is deployed, a plain `fill` also fills its scenarios. `--until=AmsterdamBPODecrease` selects Amsterdam, so it fills both of Amsterdam's scenarios. `--until=Amsterdam` still excludes the historical parallel BPO3–BPO5 branch. Numbered fork and transition definitions remain available for older fixtures and genesis files.
 
 Clients must permit their BPO slots to activate after the fork the scenarios follow. Successful filling does not establish client compatibility.
 

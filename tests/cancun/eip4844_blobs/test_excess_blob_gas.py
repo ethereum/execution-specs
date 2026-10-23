@@ -54,9 +54,7 @@ REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 # All tests run from Cancun fork. On BPO forks, only the tests whose case
 # count stays small run: the others multiply the blob counts together.
-pytestmark = [
-    pytest.mark.valid_from("Cancun"),
-]
+pytestmark = pytest.mark.valid_from("Cancun")
 
 
 @pytest.fixture

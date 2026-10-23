@@ -538,7 +538,8 @@ def get_fork_scenarios(fork: TransitionFork) -> Iterator[ParameterSet]:
         # The exact scenario that forked Fusaka Devnet-4 at its BPO2 to BPO3
         # transition. Amsterdam keeps BPO2's blob schedule and its increase
         # raises it to BPO3's target and max, so the same blocks reach the
-        # same excess blob gas.
+        # same excess blob gas. The update fraction differs from BPO3's, but
+        # the blob base fee at this excess is the same.
         yield pytest.param(
             0x32,
             0x125BF5F,

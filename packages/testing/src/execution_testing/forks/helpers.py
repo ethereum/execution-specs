@@ -85,7 +85,8 @@ def get_forks() -> List[Type[BaseFork]]:
     """
     Return all fork classes implemented by `execution_testing.forks`.
 
-    Ordered chronologically by deployment.
+    Ordered chronologically by deployment, followed by the generated BPO
+    scenarios, which are never deployed.
     """
     return all_forks[:]
 
