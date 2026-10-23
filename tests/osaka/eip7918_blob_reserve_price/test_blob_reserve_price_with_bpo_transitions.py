@@ -132,7 +132,7 @@ def genesis_excess_blob_gas(
     if current_excess_blob_gas > parent_excess_blob_gas:
         minimum = 0
         maximum = genesis_excess_blob_gas
-        while minimum < maximum:
+        while minimum <= maximum:
             mid = (minimum + maximum) // 2
             next_excess_blob_gas = excess_blob_gas_calculator(
                 parent_excess_blob_gas=mid,
