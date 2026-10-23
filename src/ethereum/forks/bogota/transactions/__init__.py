@@ -850,18 +850,19 @@ def calculate_effective_gas_price(
 
     A fee-market transaction pays the base fee plus a priority fee
     capped by both of its fee caps; its maximum fee must cover the base
-    fee, or an `InsufficientMaxFeePerGasError` is raised. A frame
-    transaction follows the same rule, with the fee caps read from its
-    nested `fees` list. A transaction priced with a plain gas price
-    pays that price outright, which must likewise cover the base fee.
+    fee, or an `InsufficientMaxFeePerGasError` is raised. A transaction
+    priced with a plain gas price pays that price outright, which must
+    likewise cover the base fee.
+
+    Frame transactions never reach this function: they cap their total
+    fee rather than their price per gas, and their price is derived from
+    that budget in the frame flow.
     """
+    assert not isinstance(tx, FrameTransaction)
+
     if isinstance(tx, FeeMarketCapableTransaction):
-        if isinstance(tx, FrameTransaction):
-            max_fee_per_gas = tx.fees.max_fee_per_gas
-            max_priority_fee_per_gas = tx.fees.max_priority_fee_per_gas
-        else:
-            max_fee_per_gas = tx.max_fee_per_gas
-            max_priority_fee_per_gas = tx.max_priority_fee_per_gas
+        max_fee_per_gas = tx.max_fee_per_gas
+        max_priority_fee_per_gas = tx.max_priority_fee_per_gas
 
         if max_fee_per_gas < base_fee_per_gas:
             raise InsufficientMaxFeePerGasError(

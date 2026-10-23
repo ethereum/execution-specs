@@ -39,21 +39,19 @@ pytestmark = pytest.mark.valid_from("Bogota")
 
 ADMISSION_CASES = [
     pytest.param(
-        dict(max_fee_per_gas=2**255),
-        TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW,
-        id="max_cost_overflow",
+        # No budget covers a worst case of zero, since every frame
+        # transaction pays a nonzero intrinsic cost at the base fee.
+        dict(max_fee=0),
+        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS,
+        id="max_fee_zero",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        # The largest fee cap whose product with the per-transaction
-        # gas cap still fits the maximum cost bound, so the case is
-        # includable regardless of the transaction's derived gas limit.
-        dict(
-            max_fee_per_gas=lambda fork: (2**256 - 1)
-            // fork.transaction_gas_limit_cap()
-        ),
+        # The escrow is the worst case plus the largest tip, never the
+        # budget itself, so the largest budget is includable.
+        dict(max_fee=2**256 - 1),
         None,
-        id="max_cost_within_bound",
+        id="max_fee_at_max",
     ),
 ]
 """

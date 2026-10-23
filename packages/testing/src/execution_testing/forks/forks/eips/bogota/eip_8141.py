@@ -104,13 +104,20 @@ class EIP8141(BaseFork):
         Return the transaction's byte fields priced as calldata: the
         `data` of each frame and the `signer`, `msg`, and `signature`
         bytes of each signature entry.
+
+        The canonical signature hash commits only to the length of an
+        empty-`msg` entry's `signature` bytes, so they stand in as that
+        many non-zero bytes.
         """
         charged_bytes = [Bytes(frame.data) for frame in frames]
         for signature in signatures:
+            raw_signature = Bytes(signature.signature)
+            if len(Bytes(signature.msg)) == 0:
+                raw_signature = Bytes(b"\xff" * len(raw_signature))
             charged_bytes += [
                 Bytes(signature.signer),
                 Bytes(signature.msg),
-                Bytes(signature.signature),
+                raw_signature,
             ]
         return charged_bytes
 
