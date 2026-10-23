@@ -53,11 +53,9 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
 REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 # All tests run from Cancun fork. On BPO forks, which only change the blob
-# schedule, they run with the blob counts at the edges of that schedule.
-pytestmark = [
-    pytest.mark.valid_from("Cancun"),
-    pytest.mark.valid_for_bpo_forks(),
-]
+# schedule, the tests that are not slow run with the blob counts at the
+# edges of that schedule.
+pytestmark = pytest.mark.valid_from("Cancun")
 
 
 @pytest.fixture
@@ -289,6 +287,7 @@ def post(  # noqa: D103
     ),
 )
 @pytest.mark.parametrize("new_blobs", [1])
+@pytest.mark.valid_for_bpo_forks()
 def test_correct_excess_blob_gas_calculation(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -353,6 +352,7 @@ def generate_blob_gas_cost_increases_tests(
     lambda fork: [fork.target_blobs_per_block() + 1],
 )
 @pytest.mark.parametrize("new_blobs", [1])
+@pytest.mark.valid_for_bpo_forks()
 def test_correct_increasing_blob_gas_costs(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -389,6 +389,7 @@ def test_correct_increasing_blob_gas_costs(
     lambda fork: [fork.target_blobs_per_block() - 1],
 )
 @pytest.mark.parametrize("new_blobs", [1])
+@pytest.mark.valid_for_bpo_forks()
 def test_correct_decreasing_blob_gas_costs(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -420,6 +421,7 @@ def test_correct_decreasing_blob_gas_costs(
     ),
 )
 @pytest.mark.exception_test
+@pytest.mark.valid_for_bpo_forks()
 def test_invalid_zero_excess_blob_gas_in_header(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -452,11 +454,8 @@ def all_invalid_blob_gas_used_combinations(
 ) -> Iterator[Tuple[int, int]]:
     """Return all invalid blob gas used combinations."""
     gas_per_blob = fork.blob_gas_per_blob()
-    blob_counts = SpecHelpers.get_blob_counts(
-        fork=fork, upper=fork.max_blobs_per_block()
-    )
-    for new_blobs in blob_counts:
-        for header_blob_gas_used in blob_counts:
+    for new_blobs in range(0, fork.max_blobs_per_block() + 1):
+        for header_blob_gas_used in range(0, fork.max_blobs_per_block() + 1):
             if new_blobs != header_blob_gas_used:
                 yield (new_blobs, header_blob_gas_used * gas_per_blob)
         yield (new_blobs, 2**64 - 1)
@@ -515,6 +514,7 @@ def generate_invalid_excess_blob_gas_above_target_change_tests(
 )
 @pytest.mark.parametrize("new_blobs", [1])
 @pytest.mark.exception_test
+@pytest.mark.valid_for_bpo_forks()
 def test_invalid_excess_blob_gas_above_target_change(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -560,6 +560,7 @@ def test_invalid_excess_blob_gas_above_target_change(
 )
 @pytest.mark.parametrize("new_blobs", [1])
 @pytest.mark.exception_test
+@pytest.mark.valid_for_bpo_forks()
 def test_invalid_static_excess_blob_gas(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -600,6 +601,7 @@ def test_invalid_static_excess_blob_gas(
 @pytest.mark.parametrize("parent_excess_blobs", [0])  # Start at 0
 @pytest.mark.parametrize("new_blobs", [1])
 @pytest.mark.exception_test
+@pytest.mark.valid_for_bpo_forks()
 def test_invalid_excess_blob_gas_target_blobs_increase_from_zero(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -640,6 +642,7 @@ def test_invalid_excess_blob_gas_target_blobs_increase_from_zero(
 @pytest.mark.parametrize("parent_excess_blobs", [0])  # Start at 0
 @pytest.mark.parametrize("new_blobs", [1])
 @pytest.mark.exception_test
+@pytest.mark.valid_for_bpo_forks()
 def test_invalid_static_excess_blob_gas_from_zero_on_blobs_above_target(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -684,6 +687,7 @@ def test_invalid_static_excess_blob_gas_from_zero_on_blobs_above_target(
 )
 @pytest.mark.parametrize("new_blobs", [1])
 @pytest.mark.exception_test
+@pytest.mark.valid_for_bpo_forks()
 def test_invalid_excess_blob_gas_change(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -718,24 +722,17 @@ def test_invalid_excess_blob_gas_change(
     "header_excess_blob_gas",
     lambda fork: [
         (2**64 + (x * fork.blob_gas_per_blob()))
-        for x in SpecHelpers.get_blob_count_offsets(
-            fork=fork, limit=fork.target_blobs_per_block()
-        )
-        if x < 0
+        for x in range(-fork.target_blobs_per_block(), 0)
     ],
 )
 @pytest.mark.parametrize_by_fork(
     "parent_blobs",
-    lambda fork: SpecHelpers.get_blob_counts(
-        fork=fork, upper=fork.target_blobs_per_block() - 1
-    ),
+    lambda fork: range(fork.target_blobs_per_block()),
 )
 @pytest.mark.parametrize("new_blobs", [1])
 @pytest.mark.parametrize_by_fork(
     "parent_excess_blobs",
-    lambda fork: SpecHelpers.get_blob_counts(
-        fork=fork, upper=fork.target_blobs_per_block() - 1
-    ),
+    lambda fork: range(fork.target_blobs_per_block()),
 )
 @pytest.mark.exception_test
 @pytest.mark.slow()
