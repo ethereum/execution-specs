@@ -1,6 +1,7 @@
 """Tests for printing transition tool traces."""
 
 import io
+from typing import Any
 
 import pytest
 from rich.console import Console
@@ -145,33 +146,58 @@ def test_error_is_not_read_as_markup() -> None:
     assert _render(traces)[-1].endswith("bad jump [pc 3]")
 
 
-def test_table_stops_at_max_steps() -> None:
-    """Only the first `max_steps` steps are included in the table."""
+def _render_table(traces: TransactionTraces, **kwargs: Any) -> list[str]:
+    """Render the trace table with `kwargs` and return its lines."""
+    console = Console(file=io.StringIO(), width=200)
+    console.print(traces.table(**kwargs))
+    output = console.file.getvalue()  # type: ignore[attr-defined]
+    return [line for line in output.splitlines() if line.strip()]
+
+
+def test_table_keeps_last_steps() -> None:
+    """Only the last `max_steps` steps are included, with their numbers."""
     traces = TransactionTraces(
         traces=[_make_trace_line(pc=pc) for pc in range(5)]
     )
-    console = Console(file=io.StringIO(), width=200)
-    console.print(traces.table(max_steps=3))
-    output = console.file.getvalue()  # type: ignore[attr-defined]
-    lines = [line for line in output.splitlines() if line.strip()]
+
+    lines = _render_table(traces, max_steps=3)
 
     assert len(lines) == 2 + 3
-    assert lines[-1].split()[0] == "2"
+    assert [line.split()[:2] for line in lines[2:]] == [
+        ["2", "2"],
+        ["3", "3"],
+        ["4", "4"],
+    ]
 
 
-def test_hidden_steps_do_not_add_error_column() -> None:
-    """An error past `max_steps` does not add the error column."""
+def test_table_without_max_steps() -> None:
+    """All steps are included when `max_steps` is `None`."""
     traces = TransactionTraces(
-        traces=[_make_trace_line(), _make_trace_line(error="out of gas")]
+        traces=[_make_trace_line(pc=pc) for pc in range(5)]
     )
-    console = Console(file=io.StringIO(), width=200)
-    console.print(traces.table(max_steps=1))
-    output = console.file.getvalue()  # type: ignore[attr-defined]
 
-    assert "Error" not in output
+    assert len(_render_table(traces, max_steps=None)) == 2 + 5
 
 
-def test_print_notes_hidden_steps(capsys: pytest.CaptureFixture[str]) -> None:
+def test_table_with_zero_max_steps() -> None:
+    """No steps are included when `max_steps` is zero."""
+    traces = TransactionTraces(
+        traces=[_make_trace_line(pc=pc) for pc in range(5)]
+    )
+
+    assert len(_render_table(traces, max_steps=0)) == 2
+
+
+def test_omitted_steps_do_not_add_error_column() -> None:
+    """An error before the last `max_steps` does not add the error column."""
+    traces = TransactionTraces(
+        traces=[_make_trace_line(error="out of gas"), _make_trace_line()]
+    )
+
+    assert "Error" not in "".join(_render_table(traces, max_steps=1))
+
+
+def test_print_notes_omitted_steps(capsys: pytest.CaptureFixture[str]) -> None:
     """Printing more than `max_steps` steps says how many were left out."""
     traces = TransactionTraces(
         traces=[_make_trace_line(pc=pc) for pc in range(5)]
@@ -179,15 +205,18 @@ def test_print_notes_hidden_steps(capsys: pytest.CaptureFixture[str]) -> None:
 
     traces.print(max_steps=3)
 
-    assert "... 2 more steps not shown" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert output.startswith("... 2 earlier steps omitted")
 
 
-def test_print_without_hidden_steps(
+def test_print_without_omitted_steps(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """No note is printed when all steps fit."""
-    traces = TransactionTraces(traces=[_make_trace_line()])
+    traces = TransactionTraces(
+        traces=[_make_trace_line(pc=pc) for pc in range(5)]
+    )
 
-    traces.print(max_steps=1)
+    traces.print(max_steps=None)
 
-    assert "more steps not shown" not in capsys.readouterr().out
+    assert "omitted" not in capsys.readouterr().out

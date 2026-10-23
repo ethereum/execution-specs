@@ -299,14 +299,23 @@ class TransactionTraces(CamelModel):
                 )
         return len(diffs) == 0
 
-    def table(self, stack_items: int = 4, max_steps: int = 1000) -> Table:
+    def _shown_steps(self, max_steps: int | None) -> List[TraceLine]:
+        """Return the last `max_steps` steps, or all of them if `None`."""
+        if max_steps is None:
+            return self.traces
+        return self.traces[max(len(self.traces) - max_steps, 0) :]
+
+    def table(
+        self, stack_items: int = 4, max_steps: int | None = 1000
+    ) -> Table:
         """
         Return the traces as a table with one row per execution step.
 
-        Only the first `max_steps` steps are included, and only the top
-        `stack_items` stack values are shown, topmost first.
+        Only the last `max_steps` steps are included (all of them if
+        `None`), and only the top `stack_items` stack values are shown,
+        topmost first.
         """
-        traces = self.traces[:max_steps]
+        traces = self._shown_steps(max_steps)
         show_errors = any(trace.error for trace in traces)
         table = Table(box=box.SIMPLE_HEAD, pad_edge=False)
         for column in ("Step", "PC"):
@@ -318,7 +327,8 @@ class TransactionTraces(CamelModel):
         if show_errors:
             table.add_column("Error", style="red")
 
-        for step, trace in enumerate(traces):
+        first_step = len(self.traces) - len(traces)
+        for step, trace in enumerate(traces, start=first_step):
             stack = [_short_hex(value) for value in trace.stack[::-1]]
             if len(stack) > stack_items:
                 stack = stack[:stack_items] + ["..."]
@@ -339,22 +349,23 @@ class TransactionTraces(CamelModel):
             table.add_row(*row)
         return table
 
-    def print(self, max_steps: int = 1000) -> None:
+    def print(self, max_steps: int | None = 1000) -> None:
         """
         Print the traces in a readable format.
 
-        At most `max_steps` steps are printed, the full traces are in the
-        `.jsonl` files of the EVM dump directory.
+        Only the last `max_steps` steps are printed (all of them if `None`),
+        since errors usually show up at the end of the trace. The full
+        traces are in the `.jsonl` files of the EVM dump directory.
         """
         console = Console(highlight=False)
-        console.print(self.table(max_steps=max_steps))
-        hidden = len(self.traces) - max_steps
-        if hidden > 0:
+        omitted = len(self.traces) - len(self._shown_steps(max_steps))
+        if omitted > 0:
             console.print(
-                f"... {hidden} more steps not shown, see the .jsonl trace "
+                f"... {omitted} earlier steps omitted, see the .jsonl trace "
                 "file in the EVM dump directory",
                 markup=False,
             )
+        console.print(self.table(max_steps=max_steps))
         summary = []
         if self.gas_used is not None:
             summary.append(f"gas used: {int(self.gas_used)}")
