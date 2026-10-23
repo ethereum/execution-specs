@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Optional
 
-from execution_testing import Bytes, FrameSignature, Hash
+from execution_testing import Bytes, FrameSignature, Hash, keccak256
 
 from .spec import Spec
 
@@ -27,6 +27,30 @@ with low `s`, produced with the NIST P-256 private key `1`. Embedded
 as a constant because P256 signing is randomized and fixtures must be
 deterministic.
 """
+
+
+P256_SIGNER = keccak256(P256_SIGNATURE[64:])[12:]
+"""
+Signer of `P256_SIGNATURE`: a P256 entry's signer is the hash of its
+public key words, `keccak256(qx || qy)[12:]`.
+"""
+
+
+def valid_p256_entry(**overrides: Any) -> FrameSignature:
+    """
+    Return the valid P256 entry over `DIGEST`.
+
+    Keyword arguments override the corresponding entry fields, for
+    variants that differ from a valid entry in a single field.
+    """
+    kwargs: Dict[str, Any] = dict(
+        scheme=Spec.SCHEME_P256,
+        msg=Bytes(DIGEST),
+        signer=Bytes(P256_SIGNER),
+        signature=Bytes(P256_SIGNATURE),
+    )
+    kwargs.update(overrides)
+    return FrameSignature(**kwargs)
 
 
 def signed_digest_entry(key: Hash, **overrides: Any) -> FrameSignature:

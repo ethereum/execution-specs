@@ -16,7 +16,6 @@ from execution_testing import (
     Bytes,
     Conditional,
     Fork,
-    FrameSignature,
     Op,
     StateTestFiller,
     Transaction,
@@ -138,17 +137,6 @@ def test_eoa_paymaster(
             sender_frame(
                 target=target,
                 code=target_code,
-            ),
-        ],
-        signatures=[
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(sender),
-            ),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
             ),
         ],
     )

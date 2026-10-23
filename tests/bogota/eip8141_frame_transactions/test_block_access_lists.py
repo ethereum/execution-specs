@@ -27,7 +27,6 @@ from execution_testing import (
     Fork,
     FrameSignature,
     Op,
-    keccak256,
 )
 
 from tests.frontier.precompiles.spec import Spec as EcrecoverSpec
@@ -39,7 +38,7 @@ from .helpers import (
     sender_frame,
     verify_frame,
 )
-from .signature_helpers import P256_SIGNATURE, p256_entry
+from .signature_helpers import valid_p256_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -361,17 +360,6 @@ def test_bal_sponsored_payer_and_sender(
                 gas_limit=WRITE_FRAME_GAS,
             ),
         ],
-        signatures=[
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(sender),
-            ),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
     )
     payer_post_balance = start_balance - tx.payer_gas_used() * fee_per_gas
 
@@ -467,14 +455,7 @@ def test_bal_omits_signature_validation_precompiles(
                 signer=Bytes(sender),
             ),
             # Carried only to exercise `P256VERIFY`; no frame references it.
-            # A P256 entry's signer is `keccak256(qx || qy)[12:]`.
-            p256_entry(
-                r=int.from_bytes(P256_SIGNATURE[0:32], "big"),
-                s=int.from_bytes(P256_SIGNATURE[32:64], "big"),
-                qx=int.from_bytes(P256_SIGNATURE[64:96], "big"),
-                qy=int.from_bytes(P256_SIGNATURE[96:128], "big"),
-                signer=Bytes(keccak256(P256_SIGNATURE[64:128])[12:]),
-            ),
+            valid_p256_entry(),
         ],
     )
 

@@ -7,9 +7,11 @@ from execution_testing import (
     EOA,
     Address,
     Bytecode,
+    Bytes,
     Fork,
     Frame,
     FrameReceipt,
+    FrameSignature,
     Op,
     Transaction,
     TransactionLog,
@@ -284,13 +286,25 @@ class FrameTransaction(Transaction):
         fork: Fork,
         sender: EOA | Address,
         frames: List[FrameCase],
-        payer: Optional[EOA | Address] = None,
+        payer: Optional[EOA] = None,
+        signatures: Optional[List[FrameSignature]] = None,
+        sender_scheme: Optional[int] = None,
+        payer_scheme: Optional[int] = None,
         refund: int = 0,
         settle: bool = True,
         **overrides: Any,
     ) -> Self:
         """
         Return the frame transaction `frames` describes.
+
+        A `payer` sponsors the transaction's gas, which settles its
+        signature entries: the sender's names it without carrying
+        signature material, which the transaction's own signature
+        supplies, and the sponsor's is signed with the sponsor's own
+        key, with `sender_scheme` and `payer_scheme` picking the
+        schemes those entries carry. A test pinning malformed entries
+        declares `signatures` itself instead, and then declares no
+        scheme, since a given list settles every entry.
 
         `settle` drops the transaction total for a test that prices
         neither the refund nor the floor. A frame whose execution gas
@@ -300,7 +314,26 @@ class FrameTransaction(Transaction):
         """
         for case in frames:
             case.settle_budgets(fork)
-        tx = cls(sender=sender, frames=frames, **overrides)
+        if signatures is None and payer is not None:
+            if sender_scheme is None:
+                sender_scheme = Spec.SCHEME_SECP256K1
+            if payer_scheme is None:
+                payer_scheme = Spec.SCHEME_SECP256K1
+            signatures = [
+                FrameSignature(scheme=sender_scheme, signer=Bytes(sender)),
+                FrameSignature(
+                    scheme=payer_scheme,
+                    signer=Bytes(payer),
+                    secret_key=payer.key,
+                ),
+            ]
+        else:
+            assert sender_scheme is None and payer_scheme is None, (
+                "a transaction declares its signature entries once"
+            )
+        tx = cls(
+            sender=sender, frames=frames, signatures=signatures, **overrides
+        )
         assert tx.expected_receipt is None, (
             "the receipt follows from the frames, so it is never given"
         )
