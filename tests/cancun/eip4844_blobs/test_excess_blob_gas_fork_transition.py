@@ -713,13 +713,8 @@ def test_fork_transition_blob_count_above_new_max(
     blocks = []
     if blob_count <= pre_fork.max_blobs_per_block():
         blocks.append(Block(txs=blob_txs(), timestamp=FORK_TIMESTAMP - 1))
-    # Only the last transaction crosses the new limit. As in
-    # `test_invalid_block_blob_count`, clients report a block over the blob
-    # limit as either exception.
-    error = [
-        TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED,
-        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED,
-    ]
+    # Only the last transaction crosses the new limit.
+    error = TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
     txs = blob_txs()
     txs[-1] = txs[-1].with_error(error)
     blocks.append(Block(txs=txs, timestamp=FORK_TIMESTAMP, exception=error))
