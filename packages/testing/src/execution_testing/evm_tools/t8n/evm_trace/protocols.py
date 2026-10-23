@@ -55,8 +55,9 @@ class Evm(Protocol):
 @runtime_checkable
 class StateGasReservoir(Protocol):
     """
-    The class describes the state gas reservoir carried by the gas
-    meters of single-gas-field transactions (EIP-8037).
+    The class describes a state gas reservoir (EIP-8037): the gas meter
+    itself in forks that keep the state gas on the meter, or the
+    component a meter carries it in.
     """
 
     state_gas_left: Uint
@@ -66,14 +67,24 @@ class StateGasReservoir(Protocol):
 class GasMeter(Protocol):
     """
     The class describes the gas meter of forks that bundle gas
-    accounting into a dedicated object (EIP-8037). The reservoir is
-    `None` for frame transactions (EIP-8141), whose state gas budgets
-    are frame-scoped.
+    accounting into a dedicated object (EIP-8037). Where the meter
+    keeps its state gas differs between forks; `evm_state_gas_left`
+    reads it by layout.
     """
 
     gas_left: Uint
-    reservoir: StateGasReservoir | None
     refund_counter: int
+
+
+@runtime_checkable
+class GasMeterWithReservoir(GasMeter, Protocol):
+    """
+    The class describes a gas meter that carries its state gas in a
+    reservoir component, `None` for frame transactions (EIP-8141),
+    whose state gas budgets are frame-scoped.
+    """
+
+    reservoir: StateGasReservoir | None
 
 
 @runtime_checkable
@@ -130,14 +141,19 @@ def evm_state_gas_left(evm: Evm) -> Uint | None:
     """
     Read the state gas remaining, or `None` for forks without state gas.
 
-    Reads the meter's reservoir; a meter without one belongs to a frame
+    The meter keeps the state gas itself (Amsterdam), or in a reservoir
+    component (Bogota). A meter without a reservoir belongs to a frame
     transaction (EIP-8141), whose executing frame's state gas pool
     lives on the frame context instead.
     """
-    if isinstance(evm, EvmWithGasMeter):
-        reservoir = evm.gas_meter.reservoir
-        if reservoir is not None:
-            return reservoir.state_gas_left
+    if not isinstance(evm, EvmWithGasMeter):
+        return None
+    meter = evm.gas_meter
+    if isinstance(meter, StateGasReservoir):
+        return meter.state_gas_left
+    if isinstance(meter, GasMeterWithReservoir):
+        if meter.reservoir is not None:
+            return meter.reservoir.state_gas_left
         frame_context = getattr(
             getattr(evm, "tx_env", None), "frame_context", None
         )
