@@ -22,7 +22,9 @@ from execution_testing import (
     Header,
     Op,
     ParameterSet,
+    RecipientType,
     Transaction,
+    TransactionException,
     TransitionFork,
     add_kzg_version,
 )
@@ -212,7 +214,9 @@ def pre_fork_blocks(
         while remaining_blobs > 0:
             tx_blobs = min(remaining_blobs, max_blobs_per_tx)
             blob_tx_gas_limit = (
-                pre_fork.transaction_intrinsic_cost_calculator()()
+                pre_fork.transaction_intrinsic_cost_calculator()(
+                    sends_value=True, recipient_type=RecipientType.EOA
+                )
             )
             txs.append(
                 Transaction(
@@ -350,6 +354,21 @@ def post_fork_blocks(
 ) -> list[Block]:
     """Generate blocks after the fork."""
     blocks = []
+    # The blob gas price keeps rising while the blocks hold more blobs than
+    # the target, and jumps at the fork if the update fraction drops, so
+    # cover the price the last block can reach.
+    max_fee_per_blob_gas = max(
+        100,
+        post_fork.blob_gas_price_calculator()(
+            excess_blob_gas=fork_block_excess_blob_gas
+            + post_fork_block_count
+            * (
+                post_fork.max_blobs_per_block()
+                - post_fork.target_blobs_per_block()
+            )
+            * post_fork.blob_gas_per_blob()
+        ),
+    )
 
     for i in range(post_fork_block_count):
         if post_fork_blobs_per_block == 0:
@@ -381,7 +400,7 @@ def post_fork_blocks(
                     gas_limit=100_000,
                     max_fee_per_gas=1_000_000,
                     max_priority_fee_per_gas=10,
-                    max_fee_per_blob_gas=100,
+                    max_fee_per_blob_gas=max_fee_per_blob_gas,
                     blob_versioned_hashes=add_kzg_version(
                         [Hash(blob_index + x) for x in range(tx_blobs)],
                         Spec.BLOB_COMMITMENT_VERSION_KZG,
@@ -634,7 +653,6 @@ def test_fork_transition_excess_blob_gas_at_blob_genesis(
     ],
 )
 @pytest.mark.parametrize_by_fork("reserve_price_case", reserve_price_cases)
-@pytest.mark.slow
 def test_fork_transition_excess_blob_gas_post_blob_genesis(
     blockchain_test: BlockchainTestFiller,
     genesis_environment: Environment,
@@ -652,3 +670,52 @@ def test_fork_transition_excess_blob_gas_post_blob_genesis(
         blocks=pre_fork_blocks + post_fork_blocks,
         genesis_environment=genesis_environment,
     )
+
+
+@pytest.mark.valid_for_bpo_forks
+@pytest.mark.valid_at_transition_to("Prague", subsequent_forks=True)
+@pytest.mark.exception_test
+def test_fork_transition_blob_count_above_new_max(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    pre_fork: Fork,
+    post_fork: Fork,
+    destination_account: Address,
+) -> None:
+    """
+    Test a block above the new blob limit is rejected from the activation
+    block, even when the old limit allowed it one block earlier.
+    """
+    blob_count = post_fork.max_blobs_per_block() + 1
+    max_blobs_per_tx = min(
+        pre_fork.max_blobs_per_tx(), post_fork.max_blobs_per_tx()
+    )
+
+    def blob_txs() -> List[Transaction]:
+        sender = pre.fund_eoa()
+        txs = []
+        for first_blob in range(0, blob_count, max_blobs_per_tx):
+            tx_blobs = min(max_blobs_per_tx, blob_count - first_blob)
+            txs.append(
+                Transaction(
+                    ty=Spec.BLOB_TX_TYPE,
+                    to=destination_account,
+                    max_fee_per_blob_gas=100,
+                    blob_versioned_hashes=add_kzg_version(
+                        [Hash(first_blob + x) for x in range(tx_blobs)],
+                        Spec.BLOB_COMMITMENT_VERSION_KZG,
+                    ),
+                    sender=sender,
+                )
+            )
+        return txs
+
+    blocks = []
+    if blob_count <= pre_fork.max_blobs_per_block():
+        blocks.append(Block(txs=blob_txs(), timestamp=FORK_TIMESTAMP - 1))
+    # Only the last transaction crosses the new limit.
+    error = TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
+    txs = blob_txs()
+    txs[-1] = txs[-1].with_error(error)
+    blocks.append(Block(txs=txs, timestamp=FORK_TIMESTAMP, exception=error))
+    blockchain_test(pre=pre, post={}, blocks=blocks)

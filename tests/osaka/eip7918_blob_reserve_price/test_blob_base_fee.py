@@ -23,12 +23,16 @@ from execution_testing import (
     add_kzg_version,
 )
 
+from ...cancun.eip4844_blobs.spec import SpecHelpers
 from .spec import Spec, ref_spec_7918
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7918.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7918.version
 
-pytestmark = pytest.mark.valid_from("Osaka")
+pytestmark = [
+    pytest.mark.valid_from("Osaka"),
+    pytest.mark.valid_for_bpo_forks(),
+]
 
 
 @pytest.fixture
@@ -131,7 +135,9 @@ def post(
 )
 @pytest.mark.parametrize_by_fork(
     "parent_excess_blobs",
-    lambda fork: range(0, fork.target_blobs_per_block() + 1),
+    lambda fork: SpecHelpers.get_blob_counts(
+        fork=fork, upper=fork.target_blobs_per_block()
+    ),
 )
 def test_reserve_price_various_base_fee_scenarios(
     blockchain_test: BlockchainTestFiller,

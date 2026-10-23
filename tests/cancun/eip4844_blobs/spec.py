@@ -291,6 +291,49 @@ class SpecHelpers:
         )
 
     @classmethod
+    def get_blob_counts(
+        cls,
+        *,
+        fork: Fork,
+        upper: int,
+        lower: int = 0,
+    ) -> List[int]:
+        """
+        Get the blob counts from `lower` to `upper` to test on `fork`.
+
+        A blob parameter only (BPO) fork changes nothing but the blob
+        schedule, so on one only the counts at the edges of that schedule are
+        tested: both bounds, the counts next to them, and the counts around
+        the target.
+        """
+        counts = range(lower, upper + 1)
+        if not fork.bpo_fork():
+            return list(counts)
+        target = fork.target_blobs_per_block()
+        edges = {
+            lower,
+            lower + 1,
+            target - 1,
+            target,
+            target + 1,
+            upper - 1,
+            upper,
+        }
+        return [count for count in counts if count in edges]
+
+    @classmethod
+    def get_blob_count_offsets(cls, *, fork: Fork, limit: int) -> List[int]:
+        """
+        Get the non-zero offsets from `-limit` to `limit` to test on `fork`.
+
+        On a blob parameter only (BPO) fork, only the largest and the
+        smallest offsets in each direction are tested.
+        """
+        if fork.bpo_fork():
+            return [-limit, -1, 1, limit]
+        return [x for x in range(-limit, limit + 1) if x != 0]
+
+    @classmethod
     def get_reserve_price_boundary_base_fee(
         cls,
         *,

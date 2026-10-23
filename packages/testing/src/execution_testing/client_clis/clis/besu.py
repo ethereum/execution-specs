@@ -462,11 +462,12 @@ class BesuExceptionMapper(ExceptionMapper):
         ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"Blob transaction 0x[0-9a-f]+ exceeds "
-            r"block blob gas limit: \d+ > \d+"
+            r"block blob gas limit: \d+ > \d+|"
+            # The blobs of all transactions in the block exceed its limit.
+            r"Invalid Blob Count: \d+"
         ),
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
-            r"Blob transaction has too many blobs: \d+|"
-            r"Invalid Blob Count: \d+"
+            r"Blob transaction has too many blobs: \d+"
         ),
         # BAL Exceptions
         BlockException.INVALID_BAL_HASH: (
