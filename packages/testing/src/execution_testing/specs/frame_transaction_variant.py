@@ -204,6 +204,7 @@ def as_frame_transaction(
     fork: Fork,
     env_gas_limit: int,
     chain_id: int,
+    base_fee_per_gas: int,
     pre: Any = None,
 ) -> Transaction:
     """
@@ -243,30 +244,28 @@ def as_frame_transaction(
             # so the canonical wrapper never grants approval.
             skip_frame_variant("delegated senders approve via their own code")
 
-    fee_fields: Dict[str, Any] = {}
+    # The rewrite keeps the default `max_fee` budget, which never binds,
+    # so it pays the base fee plus its tip per gas. Carrying over the
+    # tip the original pays above the base fee keeps the gas price and
+    # the coinbase's fee identical.
     if tx.gas_price is not None:
-        # A legacy gas price — the default included, which differs
-        # from the default 1559 fee caps — maps exactly onto the
-        # 1559-style fee fields: with both caps at the gas price, the
-        # effective gas price equals it for any base fee the
-        # transaction can pay.
-        fee_fields = dict(
-            max_fee_per_gas=tx.gas_price,
-            max_priority_fee_per_gas=tx.gas_price,
+        tip = int(tx.gas_price) - base_fee_per_gas
+    else:
+        assert tx.max_fee_per_gas is not None
+        assert tx.max_priority_fee_per_gas is not None
+        tip = min(
+            int(tx.max_priority_fee_per_gas),
+            int(tx.max_fee_per_gas) - base_fee_per_gas,
         )
-    elif int(tx.ty) in (2, 3):
-        fee_fields = dict(
-            max_fee_per_gas=tx.max_fee_per_gas,
-            max_priority_fee_per_gas=tx.max_priority_fee_per_gas,
-        )
+    assert tip >= 0, "a valid transaction pays at least the base fee"
+    fee_fields: Dict[str, Any] = dict(max_priority_fee_per_gas=tip)
 
     blob_fields: Dict[str, Any] = {}
     if int(tx.ty) == 3:
-        # Frame transactions carry blobs natively: the versioned
-        # hashes and blob fee cap transfer field-for-field.
+        # Frame transactions carry blobs natively, paying for them from
+        # the `max_fee` budget, so only the versioned hashes transfer.
         blob_fields = dict(
             blob_versioned_hashes=tx.blob_versioned_hashes,
-            max_fee_per_blob_gas=tx.max_fee_per_blob_gas,
         )
 
     expected_receipt = None
@@ -329,6 +328,7 @@ def convert_to_frame_transaction_variant(test: "StateTest") -> "StateTest":
         fork=fork,
         env_gas_limit=int(env.gas_limit),
         chain_id=test.chain_id,
+        base_fee_per_gas=int(env.base_fee_per_gas or 0),
         pre=test.pre,
     )
     update["tx"] = tx

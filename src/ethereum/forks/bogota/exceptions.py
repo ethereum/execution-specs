@@ -67,6 +67,13 @@ class BlobGasLimitExceededError(InvalidTransaction):
     """
 
 
+class InsufficientMaxFeeError(InvalidTransaction):
+    """
+    The maximum fee of a frame transaction does not cover its worst-case
+    base fee charge at the including block's base fees.
+    """
+
+
 class InsufficientMaxFeePerBlobGasError(InvalidTransaction):
     """
     The maximum fee per blob gas is insufficient for the transaction.
@@ -111,13 +118,6 @@ class NoBlobDataError(InvalidTransaction):
     """
 
 
-class InvalidMaxFeePerBlobGasError(InvalidTransaction):
-    """
-    The transaction carries no blobs but has a nonzero
-    `max_fee_per_blob_gas`.
-    """
-
-
 class BlobCountExceededError(InvalidTransaction):
     """
     The transaction has more blobs than the limit.
@@ -134,13 +134,6 @@ class FeeOverflowError(InvalidTransaction):
     """
     A fee field of the transaction exceeds the largest representable
     256-bit value.
-    """
-
-
-class MaxCostOverflowError(InvalidTransaction):
-    """
-    The maximum wei cost the transaction can incur exceeds the largest
-    representable 256-bit value.
     """
 
 

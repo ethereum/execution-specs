@@ -53,6 +53,7 @@ class FixtureTransaction(TransactionFixtureConverter):
     gas_price: ZeroPaddedHexNumber | None = None
     max_priority_fee_per_gas: ZeroPaddedHexNumber | None = None
     max_fee_per_gas: ZeroPaddedHexNumber | None = None
+    max_fee: ZeroPaddedHexNumber | None = None
     gas_limit: List[ZeroPaddedHexNumber]
     to: Address | None = None
     value: List[ZeroPaddedHexNumber]

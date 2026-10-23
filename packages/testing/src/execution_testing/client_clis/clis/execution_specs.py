@@ -240,9 +240,6 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "PriorityFeeGreaterThanMaxFeeError"
         ),
-        TransactionException.GASPRICE_OVERFLOW: (
-            "FeeOverflowError('Max fee per gas too high')"
-        ),
         TransactionException.PRIORITY_OVERFLOW: (
             "FeeOverflowError('Max priority fee per gas too high')"
         ),
@@ -293,9 +290,16 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.INVALID_SIGNATURE_VRS: (
             r"InvalidSignatureError\('r is not the x-coordinate"
         ),
-        # Temporary solution for issue #1981.
+        # Temporary solution for issue #1981. A frame transaction's
+        # `max_fee` budget falling short raises its own error.
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
-            r"InsufficientMaxFeePerGasError|InvalidBlock"
+            r"InsufficientMaxFeePerGasError|InsufficientMaxFeeError"
+            r"|InvalidBlock"
+        ),
+        # The per-gas fee cap of the regular types and the `max_fee`
+        # budget of frame transactions overflow alike.
+        TransactionException.GASPRICE_OVERFLOW: (
+            r"FeeOverflowError\('Max fee (per gas )?too high'\)"
         ),
         TransactionException.TYPE_1_TX_PRE_FORK: (
             r"module '.*transactions' has no attribute "
@@ -314,15 +318,14 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
             r"'.*transactions' has no attribute 'SetCodeTransaction'|"
             r"transaction type 4 is not supported in .*"
         ),
-        # Frame-count and blob-fee violations are static frame
-        # transaction format errors, but ExecutionSpecs raises them as
-        # dedicated exception classes rather than InvalidFrameError.
+        # Frame-count violations are static frame transaction format
+        # errors, but ExecutionSpecs raises them as a dedicated
+        # exception class rather than InvalidFrameError.
         # The "invalid frame ... field" messages come from the t8n
         # transaction loader for field values the transaction types
         # reject as they are constructed (undefined modes, flags, or
         # schemes), which on a real client fail to decode.
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
-            r"FrameCountError|InvalidMaxFeePerBlobGasError"
-            r"|invalid frame (signature )?field"
+            r"FrameCountError|invalid frame (signature )?field"
         ),
     }

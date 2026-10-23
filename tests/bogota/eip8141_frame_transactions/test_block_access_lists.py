@@ -325,8 +325,8 @@ def test_bal_sponsored_payer_and_sender(
     payer's fee balance change and the sender's nonce bump land on
     distinct accounts (EIP-8141 APPROVE_PAYMENT, no sender-equality).
     """
-    # The fee per gas equals the genesis base fee, so the payer's
-    # charge carries no priority tip.
+    # The transaction tips nothing, so the payer is charged the genesis
+    # base fee per gas.
     fee_per_gas = 7
     start_balance = 10**18
 
@@ -351,7 +351,7 @@ def test_bal_sponsored_payer_and_sender(
         fork=fork,
         sender=sender,
         payer=payer,
-        max_fee_per_gas=fee_per_gas,
+        max_priority_fee_per_gas=0,
         frames=[
             verify_frame(flags=Spec.APPROVE_EXECUTION),
             verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
