@@ -15,6 +15,7 @@ from .blockchain import (
     BlockchainTestSpec,
     Header,
 )
+from .evaluate import SpecRun, SpecRunner
 from .state import StateTest, StateTestFiller, StateTestSpec
 from .transaction import (
     TransactionTest,
@@ -29,6 +30,8 @@ from .verifications import (
 
 __all__ = (
     "BaseTest",
+    "SpecRun",
+    "SpecRunner",
     "BlockVerification",
     "BenchmarkTest",
     "BenchmarkTestFiller",
