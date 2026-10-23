@@ -54,7 +54,11 @@ import pytest
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from pytest import Item
 
-from execution_testing.forks import ALL_TRANSITION_FORKS, get_forks
+from execution_testing.forks import (
+    ALL_TRANSITION_FORKS,
+    BPO_SCENARIOS,
+    get_forks,
+)
 from execution_testing.specs import BaseTest
 from execution_testing.tools.utility.versioning import (
     generate_github_url,
@@ -260,6 +264,13 @@ class TestDocsGenerator:
             fork.name(): fork.transitions_to().name()
             for fork in ALL_TRANSITION_FORKS
         }
+        # Count the generated BPO scenarios of a fork toward that fork, so a
+        # scenario never becomes the displayed fork of a test.
+        self._scenario_to_base: Dict[str, str] = {
+            scenario.name(): fork.name()
+            for fork, scenarios in BPO_SCENARIOS.items()
+            for scenario in scenarios
+        }
         self._fork_newness: Dict[str, int] = {
             fork.name(): i for i, fork in enumerate(get_forks())
         }
@@ -279,8 +290,12 @@ class TestDocsGenerator:
         self.page_props: PagePropsLookup = {}
 
     def _base_fork(self, fork_name: str) -> str:
-        """Return the base fork name, resolving transition forks."""
-        return self._transition_to_base.get(fork_name, fork_name)
+        """
+        Return the base fork name, resolving transition forks and BPO
+        scenarios.
+        """
+        fork_name = self._transition_to_base.get(fork_name, fork_name)
+        return self._scenario_to_base.get(fork_name, fork_name)
 
     @pytest.hookimpl(hookwrapper=True, trylast=True)
     def pytest_collection_modifyitems(
