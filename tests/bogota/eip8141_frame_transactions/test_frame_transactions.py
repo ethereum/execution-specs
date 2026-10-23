@@ -17,6 +17,7 @@ from execution_testing import (
     Conditional,
     Fork,
     FrameSignature,
+    GasFee,
     Op,
     StateTestFiller,
     Transaction,
@@ -72,7 +73,7 @@ def test_transfer_with_default_code(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            recipient: Account(balance=1 + transfer_value),
+            recipient: Account(balance_change=transfer_value),
         },
     )
 
@@ -122,8 +123,7 @@ def test_eoa_paymaster(
     default code: the sender approves only execution, the payer
     approves only payment, and the sender's balance is untouched.
     """
-    sender_balance = 10**18
-    sender = pre.fund_eoa(amount=sender_balance)
+    sender = pre.fund_eoa(amount=10**18)
     payer = pre.fund_eoa()
     target_code = Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP
     target = pre.deploy_contract(code=target_code)
@@ -157,8 +157,11 @@ def test_eoa_paymaster(
         pre=pre,
         tx=tx,
         post={
-            sender: Account(nonce=1, balance=sender_balance),
-            payer: Account(nonce=0),
+            sender: Account(nonce=1, balance_change=0),
+            payer: Account(
+                nonce_change=0,
+                balance_change=-GasFee(tx, gas=tx.payer_gas_used()),
+            ),
             target: Account(storage={SLOT_EXECUTED: 1}),
         },
     )
