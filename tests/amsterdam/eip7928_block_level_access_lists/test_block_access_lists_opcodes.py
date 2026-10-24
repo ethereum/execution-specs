@@ -3908,10 +3908,16 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
     [0, 100],
     ids=["no_balance", "with_balance"],
 )
+@pytest.mark.parametrize(
+    "initcode_writes_slot",
+    [False, True],
+    ids=["recreation_untouched", "recreation_writes_slot"],
+)
 def test_bal_create2_selfdestruct_then_recreate_same_block(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     pre_balance: int,
+    initcode_writes_slot: bool,
 ) -> None:
     """
     Tx1 CREATE2+SSTORE+SELFDESTRUCT, Tx2 CREATE2 resurrection at same
@@ -3930,7 +3936,9 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     pre-funded. The SSTORE is demoted to `storage_reads` because the
     contract is destroyed in the same tx. Tx2's fresh A has
     `nonce_changes` (post=1), `code_changes` (post=runtime), and empty
-    storage.
+    storage, unless the initcode writes the target slot: then both
+    incarnations write it, and only Tx2's write lands, as a
+    `storage_changes` entry rather than a read.
     """
     alice = pre.fund_eoa()
     beneficiary = pre.fund_eoa(amount=0)
@@ -3939,7 +3947,15 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
 
     runtime = Op.SSTORE(target_slot, 0xCAFE) + Op.SELFDESTRUCT(beneficiary)
     runtime_bytes = bytes(runtime)
-    initcode_bytes = bytes(Initcode(deploy_code=runtime))
+    recreated_value = 0xBEEF
+    if initcode_writes_slot:
+        initcode = Initcode(
+            deploy_code=runtime,
+            initcode_prefix=Op.SSTORE(target_slot, recreated_value),
+        )
+    else:
+        initcode = Initcode(deploy_code=runtime)
+    initcode_bytes = bytes(initcode)
 
     factory_code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
@@ -3985,6 +4001,24 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
         # balance change is recorded.
         beneficiary_expectation = BalAccountExpectation.empty()
 
+    if initcode_writes_slot:
+        target_a_storage_changes = [
+            BalStorageSlot(
+                slot=target_slot,
+                slot_changes=[
+                    BalStorageChange(
+                        block_access_index=2, post_value=recreated_value
+                    )
+                ],
+            ),
+        ]
+        target_a_storage_reads: list[int] = []
+        target_a_post_storage = {target_slot: recreated_value}
+    else:
+        target_a_storage_changes = []
+        target_a_storage_reads = [target_slot]
+        target_a_post_storage = {}
+
     block = Block(
         txs=[tx1, tx2],
         expected_block_access_list=BlockAccessListExpectation(
@@ -4003,8 +4037,8 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
                         ),
                     ],
                     balance_changes=target_a_balance_changes,
-                    storage_changes=[],
-                    storage_reads=[target_slot],
+                    storage_changes=target_a_storage_changes,
+                    storage_reads=target_a_storage_reads,
                 ),
                 beneficiary: beneficiary_expectation,
             }
@@ -4016,7 +4050,10 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
         blocks=[block],
         post={
             target_a: Account(
-                nonce=1, balance=0, code=runtime_bytes, storage={}
+                nonce=1,
+                balance=0,
+                code=runtime_bytes,
+                storage=target_a_post_storage,
             ),
             beneficiary: Account(balance=pre_balance)
             if pre_balance > 0

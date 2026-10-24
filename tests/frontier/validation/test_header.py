@@ -77,3 +77,34 @@ def test_block_gas_limit_below_minimum(
             )
 
     blockchain_test(pre=pre, post={}, blocks=[block], genesis_environment=env)
+
+
+@pytest.mark.parametrize(
+    "number_offset",
+    [
+        pytest.param(-1, id="parent_number", marks=pytest.mark.exception_test),
+        pytest.param(0, id="parent_number_plus_one"),
+        pytest.param(
+            1, id="parent_number_plus_two", marks=pytest.mark.exception_test
+        ),
+    ],
+)
+@pytest.mark.verify_sync
+@pytest.mark.valid_from("Frontier")
+def test_block_number_follows_parent(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    number_offset: int,
+) -> None:
+    """Test that a block's number must be its parent's number plus one."""
+    # A valid first block keeps the low case off number 0, which an earlier
+    # check rejects. Before Paris, a client that finds the parent by number
+    # rejects a wrong number as an unknown parent.
+    parent = Block()
+    child = Block()
+    if number_offset != 0:
+        # The parent is block 1, so the valid number is 2.
+        child.rlp_modifier = Header(number=2 + number_offset)
+        child.exception = BlockException.INVALID_BLOCK_NUMBER
+
+    blockchain_test(pre=pre, post={}, blocks=[parent, child])

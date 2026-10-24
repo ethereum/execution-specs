@@ -45,6 +45,7 @@ One announced sync payload has only one ancestry path, so it cannot cover both s
 - Every expected-invalid test payload is a chain head and gets a sync payload.
 - If the final test payload is valid, it ends the valid chain and gets the final sync payload.
 - Earlier valid payloads need no additional sync payload because they are ancestors of a later chain head.
+- A block authored more than once gets one sync payload. When a block first rejected for a defect outside its header, such as the block access list its payload carried, is later accepted, its sync payload is built on the accepted block's post-state.
 
 Sync payloads appear in test order, with the one above the final valid chain last. A consumer that reuses one client can therefore try the expected-invalid sibling chains before making the valid chain canonical. A consumer may instead use a fresh client for each sync payload.
 
