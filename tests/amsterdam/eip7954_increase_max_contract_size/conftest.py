@@ -16,11 +16,30 @@ def max_code_size_contract(
     and EXTCODECOPY on itself, storing results in storage slots 0-2.
     Padded with JUMPDESTs to reach the fork's max code size.
     """
+    code_size = fork.max_code_size()
     logic = (
-        Op.SSTORE(0, Op.EXTCODESIZE(Op.ADDRESS))
-        + Op.SSTORE(1, Op.EXTCODEHASH(Op.ADDRESS))
-        + Op.EXTCODECOPY(Op.ADDRESS, 0, 0, Op.EXTCODESIZE(Op.ADDRESS))
-        + Op.SSTORE(2, Op.SHA3(0, Op.EXTCODESIZE(Op.ADDRESS)))
+        Op.SSTORE(0, Op.EXTCODESIZE(Op.ADDRESS, address_warm=True))
+        + Op.SSTORE(1, Op.EXTCODEHASH(Op.ADDRESS, address_warm=True))
+        + Op.EXTCODECOPY(
+            Op.ADDRESS,
+            0,
+            0,
+            Op.EXTCODESIZE(Op.ADDRESS, address_warm=True),
+            # gas accounting
+            address_warm=True,
+            data_size=code_size,
+            new_memory_size=code_size,
+        )
+        + Op.SSTORE(
+            2,
+            Op.SHA3(
+                0,
+                Op.EXTCODESIZE(Op.ADDRESS, address_warm=True),
+                # gas accounting
+                data_size=code_size,
+                new_memory_size=code_size,
+            ),
+        )
         + Op.STOP
     )
     target_code = logic + Op.JUMPDEST * (fork.max_code_size() - len(logic))
