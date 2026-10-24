@@ -1101,6 +1101,11 @@ def process_transaction(
 
     block_output.block_logs += tx_output.logs
 
+    # EIP-8360: discard TCREATE code/nonce before BAL post values are taken.
+    from .state_tracker import finalize_tcreate_accounts
+
+    finalize_tcreate_accounts(tx_env.state)
+
     incorporate_tx_into_block(
         tx_env.state, block_env.block_access_list_builder
     )

@@ -37,6 +37,7 @@ from .helpers import (
     compute_create2_address,
     compute_create_address,
     compute_deterministic_create2_address,
+    compute_tcreate_address,
     contract_address_from_hash,
     eoa_from_hash,
 )
@@ -121,6 +122,7 @@ __all__ = (
     "ceiling_division",
     "compute_create_address",
     "compute_create2_address",
+    "compute_tcreate_address",
     "compute_deterministic_create2_address",
     "contract_address_from_hash",
     "eoa_from_hash",

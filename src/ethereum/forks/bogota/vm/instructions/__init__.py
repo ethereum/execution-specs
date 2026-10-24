@@ -225,6 +225,7 @@ class Ops(enum.Enum):
     RETURN = 0xF3
     DELEGATECALL = 0xF4
     CREATE2 = 0xF5
+    TCREATE = 0xF6  # EIP-8360 placeholder; matches Nethermind
     STATICCALL = 0xFA
     REVERT = 0xFD
     SENDALL = 0xFF
@@ -391,4 +392,5 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.STATICCALL: system_instructions.staticcall,
     Ops.REVERT: system_instructions.revert,
     Ops.CREATE2: system_instructions.create2,
+    Ops.TCREATE: system_instructions.tcreate,
 }

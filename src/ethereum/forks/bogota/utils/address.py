@@ -90,3 +90,19 @@ def compute_create2_contract_address(
     canonical_address = computed_address[-20:]
     padded_address = left_pad_zero_bytes(canonical_address, 20)
     return Address(padded_address)
+
+
+def compute_tcreate_contract_address(
+    address: Address, salt: Bytes32, call_data: Bytes
+) -> Address:
+    """
+    Compute the address of a transient contract created by ``TCREATE``.
+
+    Same derivation as ``CREATE2``, except the domain separator is ``0xfe``
+    instead of ``0xff`` ([EIP-8360](https://eips.ethereum.org/EIPS/eip-8360)).
+    """
+    preimage = b"\xfe" + address + salt + keccak256(call_data)
+    computed_address = keccak256(preimage)
+    canonical_address = computed_address[-20:]
+    padded_address = left_pad_zero_bytes(canonical_address, 20)
+    return Address(padded_address)

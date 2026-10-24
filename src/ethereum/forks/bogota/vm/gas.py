@@ -92,6 +92,9 @@ class GasCosts:
     # Contract Creation
     CODE_INIT_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(2))
     CREATE_ACCESS: Final[ExecutionGas] = ACCOUNT_WRITE + COLD_ACCOUNT_ACCESS
+    # EIP-8360: base cost for TCREATE, charged in addition to CREATE2
+    # execution-gas costs (memory, initcode, keccak of initcode, ...).
+    OPCODE_TCREATE_BASE: Final[ExecutionGas] = ExecutionGas(Uint(100))
 
     # Utility
     ZERO: Final[ExecutionGas] = ExecutionGas(Uint(0))
