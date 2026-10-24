@@ -8,6 +8,7 @@ Tests invalid set-code transactions from
 from enum import Enum, auto
 from typing import List, Type
 
+import ethereum_rlp as eth_rlp
 import pytest
 from execution_testing import (
     Address,
@@ -393,6 +394,63 @@ def test_invalid_tx_invalid_nonce_encoding(
         error=TransactionException.TYPE_4_INVALID_AUTHORIZATION_FORMAT,
         sender=pre.fund_eoa(),
     )
+
+    transaction_test(
+        pre=pre,
+        tx=tx,
+    )
+
+
+@pytest.mark.parametrize(
+    "delegate_address",
+    [
+        pytest.param(
+            Spec.RESET_DELEGATION_ADDRESS, id="reset_delegation_address"
+        ),
+        pytest.param(Address(1), id="non_zero_address"),
+    ],
+)
+def test_invalid_tx_invalid_nonce_zero_prefixed_rlp_encoding(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+    delegate_address: Address,
+) -> None:
+    """
+    Test sending a transaction where the authorization nonce is RLP-encoded as
+    `0x00` instead of the canonical empty string.
+    """
+    auth_signer = pre.fund_eoa()
+
+    tx = Transaction(
+        gas_limit=100_000,
+        to=0,
+        value=0,
+        authorization_list=[
+            AuthorizationTuple(
+                address=delegate_address,
+                nonce=0,
+                signer=auth_signer,
+            ),
+        ],
+        error=TransactionException.TYPE_4_INVALID_AUTHORIZATION_FORMAT,
+        sender=pre.fund_eoa(),
+    )
+
+    tx_rlp = bytes(tx.rlp())
+    tx_payload = eth_rlp.decode(tx_rlp[1:])
+    assert isinstance(tx_payload, list)
+
+    authorization_list_index = 9
+    authorization_nonce_index = 2
+
+    authorization_list = tx_payload[authorization_list_index]
+    assert isinstance(authorization_list, list)
+    authorization_tuple = authorization_list[0]
+    assert isinstance(authorization_tuple, list)
+
+    # Keep nonce value 0 but force non-canonical RLP integer encoding.
+    authorization_tuple[authorization_nonce_index] = b"\x00"
+    tx.rlp_override = Bytes(b"\x04" + eth_rlp.encode(tx_payload))
 
     transaction_test(
         pre=pre,
