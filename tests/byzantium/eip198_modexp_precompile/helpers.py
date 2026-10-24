@@ -137,14 +137,16 @@ class ModExpInput(TestParameterGroup):
         raw = self.raw_input if self.raw_input is not None else bytes(self)
         base_length, exponent_length, _ = self.get_declared_lengths()
         exp_start = 96 + base_length
+        head_length = min(32, exponent_length)
 
-        # Extract up to 32 bytes of exponent data
-        exp_head_bytes = raw[exp_start : exp_start + min(32, exponent_length)]
+        # Extract the head of the exponent, reading input past its end as
+        # zeros: the head keeps its declared length, so the padding goes on
+        # the right.
+        exp_head_bytes = raw[exp_start : exp_start + head_length].ljust(
+            head_length, b"\0"
+        )
 
-        # Pad with zeros if less than 32 bytes
-        exp_head_bytes = exp_head_bytes.rjust(32, b"\0")
-
-        return int.from_bytes(exp_head_bytes[:32], byteorder="big")
+        return int.from_bytes(exp_head_bytes, byteorder="big")
 
 
 class ModExpOutput(TestParameterGroup):
