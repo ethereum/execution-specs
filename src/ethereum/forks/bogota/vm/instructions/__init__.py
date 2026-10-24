@@ -194,6 +194,11 @@ class Ops(enum.Enum):
     SWAPN = 0xE7
     EXCHANGE = 0xE8
 
+    # EIP-7979: Call and return instructions
+    CALLDEST = 0xBB
+    CALLSUB = 0xBC
+    RETURNSUB = 0xBF
+
     # Memory Operations
     MLOAD = 0x51
     MSTORE = 0x52
@@ -291,6 +296,9 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.PC: control_flow_instructions.pc,
     Ops.GAS: control_flow_instructions.gas_left,
     Ops.JUMPDEST: control_flow_instructions.jumpdest,
+    Ops.CALLSUB: control_flow_instructions.callsub,
+    Ops.CALLDEST: control_flow_instructions.calldest,
+    Ops.RETURNSUB: control_flow_instructions.returnsub,
     Ops.POP: stack_instructions.pop,
     Ops.PUSH0: stack_instructions.push0,
     Ops.PUSH1: stack_instructions.push1,
