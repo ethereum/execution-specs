@@ -272,6 +272,7 @@ version = { attr = "ethereum.__version__" }
 ethereum-spec-lint = "ethereum_spec_tools.lint:main"
 ethereum-spec-sync = "ethereum_spec_tools.sync:main"
 ethereum-spec-new-fork = "ethereum_spec_tools.new_fork.cli:main"
+ethereum-spec-unscheduled = "ethereum_spec_tools.unscheduled:main"
 ethereum-spec-patch = "ethereum_spec_tools.patch_tool:main"
 
 [project.entry-points."docc.plugins"]
@@ -362,6 +363,7 @@ paths = [
     "src",
 ]
 excluded_paths = [
+    "src/ethereum/unscheduled",
     "src/ethereum_optimized",
     "src/ethereum_spec_tools",
 ]
@@ -381,11 +383,13 @@ path = ".just/docs-spec"
 extension = ".html"
 
 [tool.vulture]
-exclude = ["tests/fixtures/", "eest_tests/"]
+exclude = ["tests/fixtures/", "eest_tests/", "src/ethereum/unscheduled/"]
 ignore_names = ["pytest_*"]
 
 [tool.ruff]
 line-length = 79
+# Unscheduled feature overlays are fragments, checked once built into a fork.
+extend-exclude = ["src/ethereum/unscheduled"]
 
 [tool.ruff.lint]
 exclude = ["tests/fixtures"]
@@ -528,6 +532,7 @@ exclude = [
     "^fixtures/",
     "^logs/",
     "^site/",
+    "^src/ethereum/unscheduled/",
     "^tests/json_loader/fixtures/",
     "^packages/testing/build/",
 ]

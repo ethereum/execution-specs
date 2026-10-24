@@ -21,6 +21,7 @@ from typing import (
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum_spec_tools.forks import Hardfork
+from ethereum_spec_tools.unscheduled import Feature
 
 W = TypeVar("W", Uint, U64, U256)
 
@@ -126,6 +127,10 @@ def find_fork(
         if current_fork_module == fork.short_name:
             return fork, current_fork_block
 
+    for feature in Feature.discover():
+        if current_fork_module == feature.name:
+            return resolve_fork(options.state_fork), current_fork_block
+
     # Neither in exception nor a standard fork name.
     sys.exit(f"Unsupported state fork: {options.state_fork}")
 
@@ -163,6 +168,11 @@ def resolve_fork(fork_name: str) -> Hardfork:
     for fork in Hardfork.discover():
         if fork.short_name == short:
             return fork
+    # An unscheduled feature is built on top of its base fork, once per
+    # process thanks to the cache.
+    for feature in Feature.discover():
+        if feature.name == short:
+            return feature.build()
     raise ValueError(
         f"No spec Hardfork matches testing fork name {fork_name!r} "
         f"(looked for short_name={short!r})"
@@ -179,6 +189,11 @@ def get_supported_forks() -> List[str]:
 
     # Add the exception forks
     supported_forks.extend(EXCEPTION_MAPS.keys())
+
+    # Add the unscheduled features
+    supported_forks.extend(
+        feature.title_case_name for feature in Feature.discover()
+    )
 
     # Remove the unsupported forks
     supported_forks = [
