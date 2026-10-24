@@ -23,6 +23,8 @@ uv run consume direct --bin=<evm-binary> [OPTIONS]
 | Nethermind | `nethtest` | `nethtest` | `nethtest --blockTest` |
 | evmone | `evmone-statetest`, `evmone-blockchaintest` | `evmone-statetest` | `evmone-blockchaintest` |
 
+The interface clients share for their block and engine test runners is described in [Client Test Runners](client_runners.md).
+
 ## Advantages
 
 - **Speed**: Fastest test execution method.
