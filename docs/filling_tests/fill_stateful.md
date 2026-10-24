@@ -58,7 +58,9 @@ kurtosis files download fillst el_cl_genesis_data /tmp/multi-snap/genesis
 kurtosis files download fillst jwt_file /tmp/fillst-out/jwt
 ```
 
-For production benchmarking, use a perfnet / bloatnet snapshot instead.
+For production benchmarking, use a perfnet / bloatnet snapshot instead;
+[Stateful Environment Stub Accounts Configuration](stateful_environment.md)
+lists the accounts such a snapshot must contain.
 
 ### 2. Start a standalone client on a copy of the snapshot
 
@@ -156,7 +158,7 @@ Some stateful tests (e.g. `test_erc20_operation.py`, `test_sload.py`) target on-
 
 Without a matching `--address-stubs` entry, both paths fail loudly: the marker path with `FAILED ... MISSING_STUBS` carrying the missing prefix; the runtime path with `ValueError("Stub '<label>' not found...")`. Stock pytest's silent skip on empty parametrize is overridden — running a bloatnet test with no stubs is a misconfiguration, not a valid outcome.
 
-Stubs must point at addresses already on the live client; fill-stateful validates each at session start. The kurtosis devnet recipe above does **not** include them — use a bloatnet / perfnet snapshot (or a custom snapshot generator) for these tests.
+Stubs must point at addresses already on the live client; fill-stateful validates each at session start. The kurtosis devnet recipe above does **not** include them — use a bloatnet / perfnet snapshot (or one providing the required [stub accounts](stateful_environment.md)) for these tests.
 
 ## Architecture
 
