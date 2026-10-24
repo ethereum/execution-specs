@@ -2,7 +2,7 @@
 
 import numbers
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import IntEnum, IntFlag
 from functools import cached_property
 from typing import Any, ClassVar, Dict, Generic, List, Literal, Self, Sequence
 
@@ -57,6 +57,52 @@ class TransactionType(IntEnum):
     BASE_FEE = 2
     BLOB_TRANSACTION = 3
     SET_CODE = 4
+    FRAME = 6
+
+
+class FrameMode(IntEnum):
+    """
+    Mode of a frame in an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
+    frame transaction: who the frame executes as and when it runs.
+    """
+
+    DEFAULT = 0
+    VERIFY = 1
+    SENDER = 2
+
+
+class FrameFlag(IntFlag):
+    """
+    Flags of a frame in an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
+    frame transaction: the approvals it may grant and whether it opens an
+    atomic batch.
+    """
+
+    APPROVE_PAYMENT = 1
+    APPROVE_EXECUTION = 2
+    ATOMIC_BATCH = 4
+
+
+class FrameStatus(IntEnum):
+    """
+    Status of a frame in an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
+    frame transaction's receipt.
+    """
+
+    FAILURE = 0
+    SUCCESS = 1
+    SKIPPED = 2
+
+
+class FrameSignatureScheme(IntEnum):
+    """
+    Scheme of a signature entry of an
+    [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141) frame transaction.
+    """
+
+    ARBITRARY = 0
+    SECP256K1 = 1
+    P256 = 2
 
 
 @dataclass
@@ -66,6 +112,9 @@ class TransactionDefaults:
     gas_price: int = 10
     max_fee_per_gas: int = 7
     max_priority_fee_per_gas: int = 0
+    # EIP-8141 frame transactions cap their total fee instead of a fee
+    # per gas; the default budget never binds at test base fees.
+    max_fee: int = 10**18
 
 
 class AuthorizationTupleGeneric(
@@ -195,6 +244,109 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
                 pass
 
 
+DEFAULT_FRAME_GAS_LIMIT = 100_000
+"""
+Default execution gas budget of a frame, with ample headroom for the
+sender's default code, a value transfer, or a small call. Tests that
+are gas-sensitive should set `gas_limit` explicitly.
+"""
+
+DEFAULT_FRAME_STATE_GAS_LIMIT = 400_000
+"""
+Default state gas budget of a frame, with ample headroom for an
+account creation (183,600) plus a couple of storage slot creations
+(97,920 each); unused budget is refunded at settlement. Tests that
+are gas-sensitive — including any expiry verifier frame, which must
+declare a zero state budget — should set `state_gas_limit` explicitly.
+"""
+
+
+class FrameGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
+    """
+    Frame within an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
+    frame transaction.
+    """
+
+    mode: NumberBoundTypeVar = Field(0)  # type: ignore
+    flags: NumberBoundTypeVar = Field(0)  # type: ignore
+    target: Address | None = None
+    gas_limit: NumberBoundTypeVar = Field(DEFAULT_FRAME_GAS_LIMIT)  # type: ignore
+    state_gas_limit: NumberBoundTypeVar = Field(  # type: ignore
+        DEFAULT_FRAME_STATE_GAS_LIMIT
+    )
+    value: NumberBoundTypeVar = Field(0)  # type: ignore
+    data: Bytes = Field(Bytes(b""))
+
+    rlp_fields: ClassVar[List[str]] = [
+        "mode",
+        "flags",
+        "target",
+        "gas_limits",
+        "value",
+        "data",
+    ]
+
+    @property
+    def gas_limits(self) -> List[NumberBoundTypeVar]:
+        """
+        Return the frame's nested `limits = [execution, state]` RLP list.
+        """
+        return [self.gas_limit, self.state_gas_limit]
+
+
+class Frame(FrameGeneric[HexNumber]):
+    """Frame within an EIP-8141 frame transaction (test authoring)."""
+
+    pass
+
+
+class FrameSignatureGeneric(
+    CamelModel, Generic[NumberBoundTypeVar], RLPSerializable
+):
+    """
+    Signature entry within an
+    [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141) frame transaction.
+    """
+
+    scheme: NumberBoundTypeVar = Field(0)  # type: ignore
+    signer: Bytes = Field(Bytes(b""))
+    msg: Bytes = Field(Bytes(b""))
+    signature: Bytes = Field(Bytes(b""))
+
+    rlp_fields: ClassVar[List[str]] = [
+        "scheme",
+        "signer",
+        "msg",
+        "signature",
+    ]
+
+
+SECP256K1_SIGNATURE_LENGTH = 65
+"""Length of an EIP-8141 secp256k1 signature: `v || r || s`."""
+
+
+class FrameSignature(FrameSignatureGeneric[HexNumber]):
+    """
+    Signature entry within an EIP-8141 frame transaction (test authoring).
+
+    When `secret_key` is set (or the entry's `signer` matches the
+    transaction sender), the raw `signature` bytes are filled in
+    automatically when the transaction is signed: entries with an
+    explicit 32-byte `msg` sign that digest, while entries with an empty
+    `msg` sign the canonical transaction signature hash.
+    """
+
+    secret_key: Hash | None = Field(None, exclude=True)
+
+    def signed_over(self, digest: bytes, key: Hash) -> None:
+        """Fill the raw signature bytes by signing `digest` with `key`."""
+        signature_bytes = PrivateKey(key).sign_recoverable(digest)
+        # EIP-8141 secp256k1 encoding: v (1 byte) || r || s, v in {0, 1}.
+        self.signature = Bytes(
+            bytes([signature_bytes[64]]) + signature_bytes[0:64]
+        )
+
+
 class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
     """
     Generic transaction type used as a parent for Transaction and
@@ -210,6 +362,7 @@ class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
     gas_price: NumberBoundTypeVar | None = None
     max_priority_fee_per_gas: NumberBoundTypeVar | None = None
     max_fee_per_gas: NumberBoundTypeVar | None = None
+    max_fee: NumberBoundTypeVar | None = None
     gas_limit: NumberBoundTypeVar = Field(21_000)  # type: ignore
     to: Address | None = None
     value: NumberBoundTypeVar = Field(0)  # type: ignore
@@ -341,6 +494,9 @@ class Transaction(
 
     initcodes: List[Bytes] | None = None
 
+    frames: List[Frame] | None = None
+    signatures: List[FrameSignature] | None = None
+
     secret_key: Hash | None = None
     error: List[TransactionException] | TransactionException | None = Field(
         None, exclude=True
@@ -382,6 +538,7 @@ class Transaction(
             "max_fee_per_gas": "type-2+",
             "max_priority_fee_per_gas": "type-2+",
             "max_fee_per_blob_gas": "type-3+",
+            "max_fee": "frame",
         }
 
         def __init__(self, *conflicting_fields: str) -> None:
@@ -419,6 +576,7 @@ class Transaction(
                 "max_fee_per_gas",
                 "max_priority_fee_per_gas",
                 "max_fee_per_blob_gas",
+                "max_fee",
             )
             if getattr(self, field_name) is not None
         ]
@@ -427,8 +585,10 @@ class Transaction(
 
         if "ty" not in self.model_fields_set:
             # Try to deduce transaction type from included fields
-            if self.initcodes is not None:
-                self.ty = HexNumber(6)
+            if self.frames is not None:
+                self.ty = HexNumber(TransactionType.FRAME)
+            elif self.initcodes is not None:
+                self.ty = HexNumber(TransactionType.FRAME)
             elif self.authorization_list is not None:
                 self.ty = HexNumber(4)
             elif (
@@ -446,10 +606,32 @@ class Transaction(
             else:
                 self.ty = HexNumber(0)
 
+        if (
+            self.ty == TransactionType.FRAME
+            and self.frames is None
+            and self.initcodes is None
+        ):
+            # Type 6 is the EIP-8141 frame transaction, whose call lives
+            # in its frames; an explicit `initcodes` list selects the
+            # EIP-7873 shape instead. A legacy-shaped type-6 transaction
+            # has no valid encoding, so refuse it rather than build one
+            # with no frames.
+            raise ValueError(
+                "a type 6 transaction is an EIP-8141 frame transaction: "
+                "pass `frames` instead of `to`, `value`, `data` and "
+                "`gas_limit`"
+            )
+
         if "v" in self.model_fields_set and self.secret_key is not None:
             raise Transaction.InvalidSignaturePrivateKeyError()
 
-        if "v" not in self.model_fields_set and self.secret_key is None:
+        if self.frames is not None:
+            # EIP-8141: Frame transactions carry an explicit sender and
+            # a signature list instead of a single v/r/s signature.
+            assert self.sender is not None, (
+                "frame transactions require an explicit sender"
+            )
+        elif "v" not in self.model_fields_set and self.secret_key is None:
             if self.sender is not None:
                 self.secret_key = self.sender.key
             else:
@@ -471,7 +653,11 @@ class Transaction(
         if self.ty < 1:
             assert self.access_list is None, "access_list must be None"
 
-        if self.ty >= 2 and self.max_fee_per_gas is None:
+        if (
+            self.ty >= 2
+            and self.frames is None
+            and self.max_fee_per_gas is None
+        ):
             self.max_fee_per_gas = HexNumber(
                 TransactionDefaults.max_fee_per_gas
             )
@@ -490,7 +676,24 @@ class Transaction(
         if self.ty == 3 and self.max_fee_per_blob_gas is None:
             self.max_fee_per_blob_gas = HexNumber(1)
             self.model_fields_set.remove("max_fee_per_blob_gas")
-        if self.ty != 3:
+        if self.frames is not None:
+            # EIP-8141: Frame transactions cap their total fee with
+            # `max_fee` instead of a fee per gas or per blob gas, and
+            # always carry blob versioned hashes.
+            assert self.max_fee_per_gas is None, (
+                "frame transactions set max_fee, not max_fee_per_gas"
+            )
+            assert self.max_fee_per_blob_gas is None, (
+                "frame transactions set max_fee, not max_fee_per_blob_gas"
+            )
+            if self.max_fee is None:
+                self.max_fee = HexNumber(TransactionDefaults.max_fee)
+                self.model_fields_set.remove("max_fee")
+            if self.blob_versioned_hashes is None:
+                self.blob_versioned_hashes = []
+        else:
+            assert self.max_fee is None, "max_fee must be None"
+        if self.frames is None and self.ty != 3:
             assert self.blob_versioned_hashes is None, (
                 "blob_versioned_hashes must be None"
             )
@@ -505,10 +708,10 @@ class Transaction(
                 "authorization_list must be None"
             )
 
-        if self.ty == 6 and self.initcodes is None:
-            self.initcodes = []
-        if self.ty != 6:
+        if self.ty != TransactionType.FRAME:
             assert self.initcodes is None, "initcodes must be None"
+            assert self.frames is None, "frames must be None"
+            assert self.signatures is None, "signatures must be None"
 
         if "nonce" not in self.model_fields_set and self.sender is not None:
             self.nonce = HexNumber(self.sender.get_nonce())
@@ -540,8 +743,114 @@ class Transaction(
             + bytes([v])
         )
 
+    @property
+    def fees(self) -> List[HexNumber]:
+        """
+        Return the frame transaction's nested `fees` RLP list:
+        `[max_fee, max_priority_fee_per_gas]`.
+        """
+        assert self.max_fee is not None
+        assert self.max_priority_fee_per_gas is not None
+        return [self.max_fee, self.max_priority_fee_per_gas]
+
+    @property
+    def signing_signatures(self) -> List[FrameSignature]:
+        """
+        Return the signature entries as included in the canonical frame
+        transaction signature hash: entries with an empty `msg` have
+        their raw `signature` bytes replaced by their length, encoded as
+        an unsigned integer.
+        """
+        assert self.signatures is not None
+        return [
+            sig.model_copy(
+                update={"signature": Bytes(int_to_bytes(len(sig.signature)))}
+            )
+            if len(sig.msg) == 0
+            else sig
+            for sig in self.signatures
+        ]
+
+    def _sign_frame_signatures(self) -> None:
+        """
+        Fill in the raw signature bytes of the frame transaction's
+        signature entries.
+
+        A missing signature list defaults to a single secp256k1 entry
+        from the sender over the canonical signature hash. Entries with
+        an explicit 32-byte `msg` are signed first since their raw bytes
+        are committed to by the canonical hash.
+        """
+        assert self.frames is not None
+        if self.signatures is None:
+            assert self.sender is not None
+            if getattr(self.sender, "key", None) is not None:
+                # EOA sender: default to a single secp256k1 entry over
+                # the canonical signature hash, as consumed by the
+                # default code.
+                self.signatures = [
+                    FrameSignature(
+                        scheme=HexNumber(FrameSignatureScheme.SECP256K1),
+                        signer=Bytes(self.sender),
+                        msg=Bytes(b""),
+                    )
+                ]
+            else:
+                # Contract senders authorize via their code; no
+                # protocol-validated signature is required.
+                self.signatures = []
+
+        def resolve_key(sig: FrameSignature) -> Hash | None:
+            if sig.secret_key is not None:
+                return sig.secret_key
+            if (
+                self.sender is not None
+                and Bytes(self.sender) == sig.signer
+                and self.sender.key is not None
+            ):
+                return self.sender.key
+            return None
+
+        # Explicit-digest entries first: their raw bytes are part of the
+        # canonical signature hash signed by empty-msg entries.
+        for sig in self.signatures:
+            if (
+                sig.scheme != FrameSignatureScheme.SECP256K1
+                or len(sig.signature) > 0
+            ):
+                continue
+            if len(sig.msg) != 32:
+                continue
+            key = resolve_key(sig)
+            if key is not None:
+                sig.signed_over(bytes(sig.msg), key)
+
+        # The canonical signature hash commits to the length of each
+        # empty-msg entry's raw bytes, so reserve the signature's length
+        # before hashing.
+        empty_msg_entries = []
+        for sig in self.signatures:
+            if (
+                sig.scheme != FrameSignatureScheme.SECP256K1
+                or len(sig.signature) > 0
+            ):
+                continue
+            if len(sig.msg) != 0:
+                continue
+            key = resolve_key(sig)
+            if key is not None:
+                sig.signature = Bytes(bytes(SECP256K1_SIGNATURE_LENGTH))
+                empty_msg_entries.append((sig, key))
+
+        sig_hash = self.rlp_signing_bytes().keccak256()
+        for sig, key in empty_msg_entries:
+            sig.signed_over(sig_hash, key)
+
     def sign(self: "Transaction") -> None:
         """Signs the authorization tuple with a private key."""
+        if self.frames is not None:
+            self._sign_frame_signatures()
+            return
         needs_signature = (
             "v" not in self.model_fields_set
             and "r" not in self.model_fields_set
@@ -734,6 +1043,30 @@ class Transaction(
         """Return signed version of the transaction using the private key."""
         updated_values: Dict[str, Any] = {}
 
+        if self.frames is not None:
+            # EIP-8141: The sender is explicit; fill in the signature
+            # entries instead of v/r/s. Sign a copy, as the other types
+            # return one: the entries are signed in place, so signing
+            # `self` would also sign a transaction the caller keeps. The
+            # copy is shallow, like the other types', so the entries are
+            # copied too, and the cached hash and encodings a caller may
+            # have computed before signing are dropped from the copy.
+            signed = self.model_copy(
+                update={
+                    "signatures": (
+                        None
+                        if self.signatures is None
+                        else [sig.model_copy() for sig in self.signatures]
+                    )
+                }
+            )
+            for klass in type(signed).__mro__:
+                for name, attribute in vars(klass).items():
+                    if isinstance(attribute, cached_property):
+                        signed.__dict__.pop(name, None)
+            signed._sign_frame_signatures()
+            return signed
+
         if (
             "v" in self.model_fields_set
             or "r" in self.model_fields_set
@@ -809,7 +1142,18 @@ class Transaction(
         depending on the transaction type.
         """
         field_list: List[str]
-        if self.ty == 6:
+        if self.ty == TransactionType.FRAME and self.frames is not None:
+            # EIP-8141: https://eips.ethereum.org/EIPS/eip-8141
+            field_list = [
+                "chain_id",
+                "nonce",
+                "sender",
+                "frames",
+                "signing_signatures",
+                "fees",
+                "blob_versioned_hashes",
+            ]
+        elif self.ty == TransactionType.FRAME:
             # EIP-7873: https://eips.ethereum.org/EIPS/eip-7873
             field_list = [
                 "chain_id",
@@ -907,6 +1251,13 @@ class Transaction(
         depending on the transaction type.
         """
         fields = self.get_rlp_signing_fields()
+        if self.ty == TransactionType.FRAME and self.frames is not None:
+            # EIP-8141: The transaction is not wrapped in a signature;
+            # the full encoding carries the raw signature entries.
+            return [
+                "signatures" if field == "signing_signatures" else field
+                for field in fields
+            ]
         if self.ty == 0 and self.protected:
             fields = fields[:-3]
         return fields + ["v", "r", "s"]
@@ -1052,6 +1403,13 @@ class Transaction(
         if self.ty <= 1:
             if "gas_price" not in self.model_fields_set:
                 self.gas_price = HexNumber(gas_price)
+        elif self.frames is not None:
+            # A frame transaction's `max_fee` budget has no per-gas
+            # environment value to take.
+            if "max_priority_fee_per_gas" not in self.model_fields_set:
+                self.max_priority_fee_per_gas = HexNumber(
+                    max_priority_fee_per_gas
+                )
         else:
             if "max_fee_per_gas" not in self.model_fields_set:
                 self.max_fee_per_gas = HexNumber(max_fee_per_gas)
@@ -1087,6 +1445,10 @@ class Transaction(
 
     def signer_minimum_balance(self, *, fork: Fork) -> int:
         """Return minimum balance of the signer."""
+        if self.frames is not None:
+            # A frame transaction's payer is charged at most `max_fee`.
+            assert self.max_fee is not None
+            return self.max_fee
         gas_price = self.gas_price or self.max_fee_per_gas
         assert gas_price is not None, (
             "Impossible to calculate minimum balance without gas price"
@@ -1094,7 +1456,7 @@ class Transaction(
         assert "gas_limit" in self.model_fields_set, (
             "Impossible to calculate minimum balance without a set gas limit"
         )
-        if self.ty == 3 and self.blob_versioned_hashes is not None:
+        if self.blob_versioned_hashes and self.ty == 3:
             max_fee_per_blob_gas = self.max_fee_per_blob_gas
             assert max_fee_per_blob_gas is not None, (
                 "Impossible to calculate minimum balance without "
