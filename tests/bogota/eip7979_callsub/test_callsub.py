@@ -119,6 +119,8 @@ def test_subroutine_called_twice(
         pytest.param(
             # Destination 5 is the 0xBB byte inside a DUPN immediate
             # (EIP-8024): the scan skips it, so it is not an instruction.
+            # This case needs EIP-8024 in the fork; without it the scan
+            # would take the byte for a CALLDEST and the call would succeed.
             Op.PUSH1[0x05] + Op.CALLSUB + Op.STOP + Op.DUPN[0xBB] + Op.STOP,
             id="calldest_byte_in_dupn_immediate",
         ),

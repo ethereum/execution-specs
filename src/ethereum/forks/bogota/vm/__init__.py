@@ -31,10 +31,6 @@ from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
 from .gas import GasMeter, repay_state_gas_spill
 
-# EIP-7979: the maximum number of return addresses a frame's return stack
-# may hold. A `CALLSUB` that would exceed it is an exceptional halt.
-RETURN_STACK_LIMIT = Uint(1024)
-
 __all__ = ("Environment", "Evm")
 TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
 SYSTEM_ADDRESS = Address(
@@ -160,7 +156,8 @@ class Evm:
     pc: Uint
     stack: List[U256]
     # EIP-7979: return addresses, pushed only by `CALLSUB`, popped only by
-    # `RETURNSUB`, and not otherwise accessible to EVM code.
+    # `RETURNSUB`, and not otherwise accessible to EVM code. At most
+    # `RETURN_STACK_LIMIT` (interpreter.py) of them.
     return_stack: List[Uint]
     memory: bytearray
     # Init code for a creation; the resolved code for a call.

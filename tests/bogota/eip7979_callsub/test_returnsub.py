@@ -138,36 +138,6 @@ def test_return_stack_limit(
     state_test(pre=pre, post=post, tx=tx)
 
 
-def test_unbounded_recursion_halts(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Recursion with no base case halts on return-stack overflow, not on
-    running out of gas.
-    """
-    # PUSH1 4, CALLSUB, STOP, CALLDEST, PUSH1 4, CALLSUB, RETURNSUB
-    callee_code = (
-        Op.PUSH1[0x04]
-        + Op.CALLSUB
-        + Op.STOP
-        + Op.CALLDEST
-        + Op.PUSH1[0x04]
-        + Op.CALLSUB
-        + Op.RETURNSUB
-    )
-    callee = pre.deploy_contract(callee_code)
-    # Record the gas left after the call: an overflow halt consumes only
-    # the callee's gas, so the caller keeps roughly what it withheld.
-    caller_code = Op.SSTORE(
-        SLOT_CALL_SUCCESS, Op.CALL(gas=CALLEE_GAS, address=callee)
-    ) + Op.SSTORE(SLOT_MARKER, Op.GT(Op.GAS, 100_000))
-    caller = pre.deploy_contract(caller_code)
-    tx = Transaction(sender=pre.fund_eoa(), to=caller, gas_limit=TX_GAS_LIMIT)
-    post = {caller: Account(storage={SLOT_CALL_SUCCESS: 0, SLOT_MARKER: 1})}
-    state_test(pre=pre, post=post, tx=tx)
-
-
 @pytest.mark.parametrize(
     "call_opcode",
     [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL],

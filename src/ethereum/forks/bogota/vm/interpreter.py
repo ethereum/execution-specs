@@ -77,6 +77,9 @@ from .instructions import Ops, op_implementation
 from .runtime import get_valid_destinations
 
 STACK_DEPTH_LIMIT = Uint(1024)
+# EIP-7979: the most return addresses a frame's return stack may hold. A
+# `CALLSUB` that would exceed it is an exceptional halt.
+RETURN_STACK_LIMIT = Uint(1024)
 MAX_CODE_SIZE = 0x10000
 MAX_INIT_CODE_SIZE = 2 * MAX_CODE_SIZE
 

@@ -20,8 +20,7 @@ ref_spec_7979 = ReferenceSpec(
 class Spec:
     """Constants and parameters from EIP-7979."""
 
-    # Opcode values; 0xBD and 0xBE are left for EIP-8173's multi-way
-    # call and jump.
+    # Opcode values; 0xBD and 0xBE are EIP-8452's CALLSUBV and JUMPV.
     CALLDEST_OPCODE: int = 0xBB
     CALLSUB_OPCODE: int = 0xBC
     RETURNSUB_OPCODE: int = 0xBF

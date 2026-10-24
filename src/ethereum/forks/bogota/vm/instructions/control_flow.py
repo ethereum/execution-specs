@@ -9,12 +9,18 @@ Introduction
 ------------
 
 Implementations of the EVM control flow instructions.
+
+EIP-7979 adds a *return stack* of *return addresses*, each the position
+after a `CALLSUB`. A *subroutine* is code entered at a `CALLDEST`, by a
+`CALLSUB`, a `JUMP` or a `JUMPI`; `RETURNSUB` returns from it to the return
+address on top of the return stack. The instructions define the entry and
+the return, not the code between.
 """
 
 from ethereum_types.numeric import U256, Uint, ulen
 
 from ...vm.gas import GasCosts, charge_gas
-from .. import RETURN_STACK_LIMIT, Evm
+from .. import Evm
 from ..exceptions import (
     InvalidJumpDestError,
     ReturnStackOverflowError,
@@ -177,9 +183,9 @@ def jumpdest(evm: Evm) -> None:
 
 def callsub(evm: Evm) -> None:
     """
-    Transfer control to a subroutine (EIP-7979): push the position of the
-    next instruction onto the return stack and jump to the `CALLDEST` whose
-    position is on top of the data stack.
+    Call a subroutine (EIP-7979): push the return address, the position
+    after this instruction, onto the return stack and jump to the `CALLDEST`
+    whose position is on top of the data stack.
 
     Parameters
     ----------
@@ -187,6 +193,8 @@ def callsub(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    from ...vm.interpreter import RETURN_STACK_LIMIT
+
     # STACK
     destination = Uint(pop(evm.stack))
 
@@ -206,10 +214,10 @@ def callsub(evm: Evm) -> None:
 
 def calldest(evm: Evm) -> None:
     """
-    Mark a subroutine entry (EIP-7979). Like `JUMPDEST`, this is a noop:
-    it is the only valid destination of a `CALLSUB`, and also a valid
-    destination of `JUMP` and `JUMPI`, which enter the subroutine without
-    pushing a return address.
+    Mark the destination of a subroutine entry (EIP-7979). Like `JUMPDEST`,
+    this is a noop: it is the only valid destination of a `CALLSUB`, and
+    also a valid destination of `JUMP` and `JUMPI`, which enter the
+    subroutine without pushing a return address.
 
     Parameters
     ----------
@@ -232,8 +240,8 @@ def calldest(evm: Evm) -> None:
 
 def returnsub(evm: Evm) -> None:
     """
-    Return control to the most recent caller (EIP-7979): pop the return
-    stack into the program counter.
+    Return from a subroutine (EIP-7979): pop the return address on top of
+    the return stack into the program counter.
 
     Parameters
     ----------

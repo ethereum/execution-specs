@@ -11,7 +11,7 @@ from execution_testing import (
     Transaction,
 )
 
-from .helpers import MARKER_IN_SUBROUTINE, TX_GAS_LIMIT
+from .helpers import MARKER_IN_SUBROUTINE, TX_GAS_LIMIT, program
 from .spec import ref_spec_7979
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7979.git_path
@@ -20,42 +20,34 @@ REFERENCE_SPEC_VERSION = ref_spec_7979.version
 FORK_TIMESTAMP = 15_000
 
 
+def store_marker_at_block_number() -> Bytecode:
+    """Store the marker at the slot keyed by block NUMBER."""
+    return Op.SSTORE(Op.NUMBER, MARKER_IN_SUBROUTINE)
+
+
 def marker_via_callsub() -> Bytecode:
     """
-    Return code that calls a subroutine and stores the marker at the slot
-    keyed by block NUMBER. Before the fork, CALLSUB is undefined and the
-    frame halts before any write.
+    Return code that calls a subroutine which stores the marker. Before the
+    fork, CALLSUB is undefined and the frame halts before any write.
     """
-    main = Op.PUSH1[0] + Op.CALLSUB + Op.STOP  # patched below
-    offset = len(main)
-    main = Op.PUSH1[offset] + Op.CALLSUB + Op.STOP
-    subroutine = (
-        Op.CALLDEST
-        + Op.PUSH1[MARKER_IN_SUBROUTINE]
-        + Op.NUMBER
-        + Op.SSTORE
-        + Op.RETURNSUB
+    code, _ = program(
+        lambda offset: Op.CALLSUB(offset),
+        Op.CALLDEST + store_marker_at_block_number() + Op.RETURNSUB,
     )
-    return main + subroutine
+    return code
 
 
 def marker_via_jump_to_calldest() -> Bytecode:
     """
-    Return code that JUMPs to a CALLDEST and stores the marker at the slot
-    keyed by block NUMBER. Before the fork a 0xBB byte is not a valid jump
-    destination, so the JUMP halts the frame.
+    Return code that JUMPs to a CALLDEST and stores the marker. Before the
+    fork a 0xBB byte is not a valid jump destination, so the JUMP halts the
+    frame.
     """
-    main = Op.PUSH1[0] + Op.JUMP + Op.STOP
-    offset = len(main)
-    main = Op.PUSH1[offset] + Op.JUMP + Op.STOP
-    subroutine = (
-        Op.CALLDEST
-        + Op.PUSH1[MARKER_IN_SUBROUTINE]
-        + Op.NUMBER
-        + Op.SSTORE
-        + Op.STOP
+    code, _ = program(
+        lambda offset: Op.JUMP(offset),
+        Op.CALLDEST + store_marker_at_block_number() + Op.STOP,
     )
-    return main + subroutine
+    return code
 
 
 @pytest.mark.valid_at_transition_to("EIP7979")

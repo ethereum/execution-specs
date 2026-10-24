@@ -18,7 +18,7 @@ from execution_testing import (
     Transaction,
 )
 
-from .helpers import TX_GAS_LIMIT
+from .helpers import TX_GAS_LIMIT, program
 from .spec import Spec, ref_spec_7979
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7979.git_path
@@ -27,6 +27,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7979.version
 pytestmark = pytest.mark.valid_from("EIP7979")
 
 PUSH1_GAS = 3
+GAS_GAS = 2
 
 
 def measured_program(
@@ -119,4 +120,47 @@ def test_gas_costs(
         sender=pre.fund_eoa(), to=contract, gas_limit=TX_GAS_LIMIT
     )
     post = {contract: Account(storage={0: expected_gas})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_callsub_and_returnsub_gas_separately(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Read GAS before the CALLSUB, on entry to the subroutine and after the
+    RETURNSUB, so that the two costs are measured apart: the sums in
+    ``test_gas_costs`` would not notice them swapped.
+    """
+
+    def main(offset: int) -> Bytecode:
+        return (
+            Op.GAS  # g0
+            + Op.CALLSUB(offset)  # the subroutine reads g1
+            + Op.GAS  # g2; stack: g0 g1 g2
+            + Op.DUP2
+            + Op.SUB  # g1 - g2
+            + Op.PUSH1[1]
+            + Op.SSTORE  # stack: g0 g1
+            + Op.SWAP1
+            + Op.SUB  # g0 - g1
+            + Op.PUSH1[0]
+            + Op.SSTORE
+        )
+
+    code, _ = program(main, Op.CALLDEST + Op.GAS + Op.RETURNSUB)
+    contract = pre.deploy_contract(code)
+    tx = Transaction(
+        sender=pre.fund_eoa(), to=contract, gas_limit=TX_GAS_LIMIT
+    )
+    post = {
+        contract: Account(
+            storage={
+                # g0 - g1: the PUSH1, the CALLSUB, the CALLDEST, the GAS.
+                0: PUSH1_GAS + Spec.CALLSUB_GAS + Spec.CALLDEST_GAS + GAS_GAS,
+                # g1 - g2: the RETURNSUB, the GAS.
+                1: Spec.RETURNSUB_GAS + GAS_GAS,
+            }
+        )
+    }
     state_test(pre=pre, post=post, tx=tx)
