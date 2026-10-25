@@ -687,6 +687,11 @@ class TestLatestValidHash:
             )
 
 
+def _refuse_the_parent(_now: float) -> PayloadStatusEnum:
+    """Refuse the confirmation at the RPC layer, as erigon can."""
+    raise JSONRPCError(-32000, "append with gap blockNum=2")
+
+
 LATEST_VALID_BLOCK_ANSWERS = {
     # A client still fetching the block may answer SYNCING first.
     "valid-after-a-wait": (
@@ -707,6 +712,13 @@ LATEST_VALID_BLOCK_ANSWERS = {
         FIRST_INVALID_PARENT,
         f"never confirmed {Hash(1)}",
         (SYNC_TIMEOUT, SYNC_TIMEOUT + 1),
+    ),
+    # An RPC refusal of the valid parent is a verdict, not a traceback.
+    "refused-at-the-rpc-layer": (
+        _refuse_the_parent,
+        FIRST_INVALID_PARENT,
+        rf"refused {Hash(1)}, the valid parent .* at the RPC layer",
+        (0.0, 0.01),
     ),
     # Genesis is no payload, so nothing is sent for it.
     "genesis-parent": (lambda _now: INVALID, GENESIS_HASH, None, (0.0, 0.01)),

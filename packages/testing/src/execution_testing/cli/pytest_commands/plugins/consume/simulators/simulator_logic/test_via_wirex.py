@@ -429,9 +429,16 @@ def _run_sync_target(
         block_hash = payload.params[0].block_hash
         deadline = time.monotonic() + sync_timeout
         while True:
-            status = engine_rpc.new_payload(
-                *payload.params, version=payload.new_payload_version
-            ).status
+            try:
+                status = engine_rpc.new_payload(
+                    *payload.params, version=payload.new_payload_version
+                ).status
+            except JSONRPCError as error:
+                raise LoggedError(
+                    f"{prefix}Client rejected the invalid head but refused "
+                    f"{block_hash}, the valid parent of the first invalid "
+                    f"block, at the RPC layer ({error})"
+                ) from error
             if status == PayloadStatusEnum.VALID:
                 logger.info(
                     f"{prefix}Client holds the latest valid block "
