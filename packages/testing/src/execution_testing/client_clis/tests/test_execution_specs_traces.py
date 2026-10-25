@@ -12,6 +12,9 @@ from execution_testing.client_clis.cli_types import (
 from execution_testing.client_clis.clis.execution_specs import (
     ExecutionSpecsTransitionTool,
 )
+from execution_testing.evm_tools.t8n.evm_trace.eip3155 import (
+    Eip3155Tracer,
+)
 from execution_testing.forks import Cancun
 from execution_testing.test_types import (
     EOA,
@@ -19,6 +22,7 @@ from execution_testing.test_types import (
     Alloc,
     Environment,
     Transaction,
+    TransactionReceipt,
 )
 from execution_testing.vm import Op
 
@@ -123,3 +127,20 @@ def test_rejected_tx_does_not_drop_other_traces() -> None:
     traces = tool.get_traces()
     assert traces is not None
     assert [len(tx.traces) for tx in traces[0].root] == [4, 4]
+
+
+def test_tx_without_trace_writes_empty_file(tmp_path: Path) -> None:
+    """
+    A tx with a receipt but no trace gets an empty trace and an empty file
+    in the dump directory, so `--verify-traces` loads the same shape.
+    """
+    tool = ExecutionSpecsTransitionTool(trace=True)
+    tool.reset_traces()
+    tracer = Eip3155Tracer(output_basedir=None)
+    receipt = TransactionReceipt(transaction_hash=Hash(1))
+
+    traces = tool.collect_in_memory_traces([receipt], tracer, tmp_path)
+
+    assert traces.root == [TransactionTraces(traces=[])]
+    trace_file = tmp_path / f"trace-0-{receipt.transaction_hash}.jsonl"
+    assert trace_file.read_text() == ""

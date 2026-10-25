@@ -209,8 +209,15 @@ class ExecutionSpecsTransitionTool(TransitionTool):
                 # Transaction was rejected mid-processing (e.g. EIP-3607
                 # collision): the receipt exists but the tracer's
                 # TransactionEnd event never fired. Record an empty trace
-                # for this tx.
+                # for this tx, and write an empty file to the dump dir so
+                # a later --verify-traces run loads the same number of
+                # transactions from disk.
                 traces.append(TransactionTraces(traces=[]))
+                if debug_output_path:
+                    trace_file_name = (
+                        f"trace-{i}-{receipt.transaction_hash}.jsonl"
+                    )
+                    (debug_output_path / trace_file_name).write_text("")
                 continue
             if debug_output_path:
                 output_traces(tx_traces, i, tx_hash, str(debug_output_path))
