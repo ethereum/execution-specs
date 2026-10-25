@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from hive.client import Client
 
 from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.devp2p.chain import Block, Chain
@@ -30,6 +31,7 @@ from execution_testing.test_types.block_types import Withdrawal
 from ..simulators.helpers.exceptions import LoggedError
 from ..simulators.helpers.ruleset import ruleset
 from ..simulators.helpers.timing import TimingData
+from ..simulators.multi_test_client import MultiTestClientManager
 from ..simulators.simulator_logic import test_via_wirex
 from ..simulators.simulator_logic.test_via_wirex import (
     assert_wire_coverage,
@@ -219,26 +221,32 @@ def test_a_reused_client_unwinds_down_to_the_shared_ancestry(
     assert reorg_depth(head_number, head_chain, chain) == depth
 
 
-class _FakeManager:
-    """The manager calls the client fixture makes, recorded in order."""
+class _FakeManager(MultiTestClientManager):
+    """
+    The manager calls the client fixture makes, recorded in order.
+
+    A subclass of the real manager, so a change to its methods'
+    signatures fails type checking here.
+    """
 
     def __init__(self, running: Any) -> None:
         """Hold the group's `running` client, or `None`."""
+        super().__init__()
         self.running = running
         self.calls: list[tuple[str, ...]] = []
 
-    def get_client(self, identifier: str) -> Any:
+    def get_client(self, group_identifier: str) -> Client | None:
         """Record the lookup and return the running client."""
-        self.calls.append(("get", identifier))
-        return self.running
+        self.calls.append(("get", group_identifier))
+        return cast(Client | None, self.running)
 
-    def discard_client(self, identifier: str) -> None:
+    def discard_client(self, group_identifier: str) -> None:
         """Record the discard."""
-        self.calls.append(("discard", identifier))
+        self.calls.append(("discard", group_identifier))
 
-    def mark_test_completed(self, identifier: str, nodeid: str) -> None:
+    def mark_test_completed(self, group_identifier: str, test_id: str) -> None:
         """Record the completion."""
-        self.calls.append(("completed", identifier, nodeid))
+        self.calls.append(("completed", group_identifier, test_id))
 
 
 GROUP = "0xdeadbeef-go-ethereum"
@@ -252,8 +260,9 @@ class TestClientFixture:
         """Stand in for client boots, recording each identifier booted."""
         booted: list[str] = []
 
-        def boot(*args: Any) -> Any:
-            identifier = args[2]
+        def boot(
+            _hive_test: Any, _manager: Any, identifier: str, *_rest: Any
+        ) -> Any:
             booted.append(identifier)
             return SimpleNamespace(id=identifier)
 
