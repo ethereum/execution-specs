@@ -201,6 +201,7 @@ def test_each_target_selects_its_own_path(name: str) -> None:
             for ours, theirs in zip(path.authored, authored, strict=True)
         )
         assert path.announces_scaffolding
+        assert path.checks_wire_coverage
         assert path.served_payloads == [*authored, target]
         assert path.length == len(hashes) + 1
         assert path.expects_rejection == rejected
@@ -292,6 +293,9 @@ class TestNoTargetFallback:
         assert {first.total, second.total} == {2}
         assert not first.announces_scaffolding
         assert not second.announces_scaffolding
+        # Without a sync payload only the valid sibling's coverage counts.
+        assert not first.checks_wire_coverage
+        assert second.checks_wire_coverage
 
     def test_a_bare_leaf_off_genesis_is_refused(self) -> None:
         """A bare ancestry that never reaches genesis is a corpus defect."""

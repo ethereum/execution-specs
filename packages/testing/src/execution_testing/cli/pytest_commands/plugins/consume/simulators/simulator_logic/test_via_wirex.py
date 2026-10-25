@@ -552,7 +552,7 @@ def _run_sync_target(
             f"{statistics.bodies_served} body/bodies"
         )
         check_latest_valid_hash(path, chain, payload_status, prefix)
-        if not path.announces_scaffolding:
+        if not path.checks_wire_coverage:
             logger.info(
                 f"{prefix}Not asserting wire coverage: this chain "
                 "carries no framework sync target, so its own head was "

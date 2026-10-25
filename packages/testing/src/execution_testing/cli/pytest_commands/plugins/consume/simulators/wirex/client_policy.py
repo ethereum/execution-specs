@@ -222,9 +222,10 @@ def replacement_reason(
     `None` means the client may be reused. Reuse fails for a rejection
     below the client's head (clients refuse to walk their head
     backwards, so the ancestry would never travel the wire), for a
-    chain whose ancestry holds a block the client got only over the
-    Engine API (see `engine_only_ancestors`), for a reorg deeper than
-    `MAX_REORG_DEPTH`, and when the client's head cannot be looked up.
+    chain whose wire coverage is checked and whose ancestry holds a
+    block the client got only over the Engine API (see
+    `engine_only_ancestors`), for a reorg deeper than `MAX_REORG_DEPTH`,
+    and when the client's head cannot be looked up.
     """
     try:
         head = client_head(running)
@@ -236,7 +237,13 @@ def replacement_reason(
             f"reused client's head {head.number}, so the verdict would "
             "leave the sync path"
         )
-    engine_only = [] if peer is None else engine_only_ancestors(case, peer)
+    # A chain whose coverage is not checked cannot fail on a block the
+    # client already holds, so replacing the client would buy nothing.
+    engine_only = (
+        engine_only_ancestors(case, peer)
+        if peer is not None and case.path.checks_wire_coverage
+        else []
+    )
     if engine_only:
         return (
             f"Block(s) {', '.join(map(str, engine_only))} of this chain "

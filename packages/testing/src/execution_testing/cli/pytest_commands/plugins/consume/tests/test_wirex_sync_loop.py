@@ -143,6 +143,7 @@ def _case(
         served_payloads=served_payloads,
         expects_rejection=expects_rejection,
         announces_scaffolding=announces_scaffolding,
+        checks_wire_coverage=not expects_rejection or announces_scaffolding,
         invalidities=set(invalidities),
         expected_latest_valid_hash=expected_latest_valid_hash,
         total=total,

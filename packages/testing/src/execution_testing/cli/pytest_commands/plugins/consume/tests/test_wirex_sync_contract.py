@@ -351,12 +351,15 @@ def _reason(
     *,
     expects_rejection: bool = False,
     engine_only: frozenset[int] = frozenset(),
+    checks_coverage: bool = True,
 ) -> str | None:
     """
     Return the verdict for `chain` on a client at `head`'s top.
 
     The peer served `head`'s headers, bar the blocks numbered in
     `engine_only`, which reached the client over the Engine API.
+    `checks_coverage` says whether the chain's run asserts its wire
+    coverage.
     """
     monkeypatch.setattr(
         client_policy,
@@ -375,7 +378,10 @@ def _reason(
     )
     case = SimpleNamespace(
         chain=chain,
-        path=SimpleNamespace(expects_rejection=expects_rejection),
+        path=SimpleNamespace(
+            expects_rejection=expects_rejection,
+            checks_wire_coverage=checks_coverage,
+        ),
     )
     return replacement_reason(
         cast(Any, SimpleNamespace(id="c")),
@@ -391,6 +397,7 @@ REPLACEMENTS = {
         _fork(70, branch=2),
         False,
         frozenset(),
+        True,
         None,
     ),
     # A sibling chain forking at genesis below a 259-block head.
@@ -399,6 +406,7 @@ REPLACEMENTS = {
         _fork(268, branch=2),
         False,
         frozenset(),
+        True,
         "259 blocks",
     ),
     "extension": (
@@ -406,6 +414,7 @@ REPLACEMENTS = {
         _fork(8, branch=1),
         False,
         frozenset(),
+        True,
         None,
     ),
     # A chain extending a head the client got over the Engine API alone
@@ -415,7 +424,18 @@ REPLACEMENTS = {
         _fork(8, branch=1),
         False,
         frozenset({5}),
+        True,
         "Block(s) 5 of this chain",
+    ),
+    # Without a sync payload a rejection's coverage is not checked, so an
+    # Engine-only ancestor cannot fail it and the client is reused.
+    "engine-only-ancestor-of-an-unchecked-rejection": (
+        _fork(5, branch=1),
+        _fork(8, branch=1),
+        True,
+        frozenset({5}),
+        False,
+        None,
     ),
     # A rejection below the head is replaced before depth is checked.
     "rejection-below-the-head": (
@@ -423,17 +443,19 @@ REPLACEMENTS = {
         _fork(5, branch=2),
         True,
         frozenset(),
+        True,
         "below",
     ),
 }
 """
 The reused client's chain, the chain to run, whether it is a rejection,
-the blocks the client got only over the Engine API, and the reason.
+the blocks the client got only over the Engine API, whether the chain's
+wire coverage is checked, and the reason.
 """
 
 
 @pytest.mark.parametrize(
-    "head,chain,expects_rejection,engine_only,reason",
+    "head,chain,expects_rejection,engine_only,checks_coverage,reason",
     REPLACEMENTS.values(),
     ids=REPLACEMENTS.keys(),
 )
@@ -443,6 +465,7 @@ def test_the_reason_a_reused_client_must_be_replaced(
     chain: Chain,
     expects_rejection: bool,
     engine_only: frozenset[int],
+    checks_coverage: bool,
     reason: str | None,
 ) -> None:
     """The reason names why reuse would fail, or there is none."""
@@ -452,6 +475,7 @@ def test_the_reason_a_reused_client_must_be_replaced(
         chain,
         expects_rejection=expects_rejection,
         engine_only=engine_only,
+        checks_coverage=checks_coverage,
     )
     if reason is None:
         assert given is None

@@ -135,6 +135,17 @@ class SyncPath:
         )
 
     @property
+    def checks_wire_coverage(self) -> bool:
+        """
+        Return whether a run of this path asserts its wire coverage.
+
+        A valid path always does. A rejection does only when it
+        announces a framework sync payload: without one the client may
+        judge the announced head without fetching an ancestor.
+        """
+        return not self.expects_rejection or self.announces_scaffolding
+
+    @property
     def expected_latest_valid_hash(self) -> Hash | None:
         """
         Return the `latestValidHash` an INVALID verdict on this path owes.
