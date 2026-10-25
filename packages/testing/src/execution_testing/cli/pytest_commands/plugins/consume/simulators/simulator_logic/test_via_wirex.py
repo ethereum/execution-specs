@@ -336,20 +336,17 @@ def _run_sync_target(
             *head_payload.params, version=head_payload.new_payload_version
         )
 
-    def verdict() -> PayloadStatus | None:
+    def expect_refusal() -> None:
         """
-        Return `poll()`'s status, or `None` for the declared RPC refusal.
+        Require `newPayload` to refuse the head with its declared code.
 
         A head that declares an error code must be refused by
         `newPayload` itself, as EngineX requires: any status fails, and
-        so does another error code. A head that declares none raises any
-        refusal.
+        so does another error code.
         """
         try:
             payload_status = poll()
         except JSONRPCError as error:
-            if head_payload.error_code is None:
-                raise
             if error.code != head_payload.error_code:
                 raise LoggedError(
                     f"{prefix}Client refused the head with the wrong error "
@@ -361,29 +358,27 @@ def _run_sync_target(
                 f"with the expected error code {head_payload.error_code} "
                 f"({error})"
             )
-            return None
-        if head_payload.error_code is not None:
-            raise LoggedError(
-                f"{prefix}Client answered {payload_status.status} instead "
-                "of refusing the head with the expected error code "
-                f"{head_payload.error_code}"
-            )
-        return payload_status
+            return
+        raise LoggedError(
+            f"{prefix}Client answered {payload_status.status} instead "
+            "of refusing the head with the expected error code "
+            f"{head_payload.error_code}"
+        )
 
     forkchoice_status: PayloadStatus | None = None
 
-    def announce() -> PayloadStatus | None:
+    def announce() -> PayloadStatus:
         """
         Send the head payload and name it in a forkchoice update.
 
-        Return the `newPayload` verdict (see `verdict`): SYNCING while
-        the ancestry travels, then VALID or INVALID. The forkchoice
-        reply's status is kept in `forkchoice_status`.
+        Return the `newPayload` verdict: SYNCING while the ancestry
+        travels, then VALID or INVALID. An RPC refusal is raised, since
+        a head declaring an error code never gets here (see
+        `expect_refusal`). The forkchoice reply's status is kept in
+        `forkchoice_status`.
         """
         nonlocal forkchoice_status
-        payload_status = verdict()
-        if payload_status is None:
-            return None
+        payload_status = poll()
         response = engine_rpc.forkchoice_updated(
             forkchoice_state=head_state,
             payload_attributes=None,
@@ -468,9 +463,10 @@ def _run_sync_target(
             f"trigger a sync of {len(chain.blocks) - 1} ancestor "
             "block(s) over devp2p"
         )
-        announce_status = announce()
-        if announce_status is None:
+        if head_payload.error_code is not None:
+            expect_refusal()
             return
+        announce_status = announce()
 
     if expect_rejection:
         with timing_data.time(f"{prefix}Reject invalid chain"):
@@ -518,10 +514,7 @@ def _run_sync_target(
                 # Once the ancestry has arrived over devp2p the client
                 # can judge the head; until then it answers SYNCING (or
                 # ACCEPTED if it merely stored the payload).
-                reply = verdict()
-                if reply is None:
-                    return
-                payload_status = reply
+                payload_status = poll()
                 if rejected(payload_status) or time.monotonic() >= deadline:
                     break
                 if time.monotonic() >= next_announcement:
@@ -532,10 +525,7 @@ def _run_sync_target(
                     logger.info(
                         f"{prefix}Re-announcing the invalid sync target"
                     )
-                    reply = announce()
-                    if reply is None:
-                        return
-                    payload_status = reply
+                    payload_status = announce()
                     refuse_acceptance(
                         forkchoice_status, "engine_forkchoiceUpdated"
                     )
@@ -629,10 +619,7 @@ def _run_sync_target(
                 if not mock_peer.alive:
                     redial("mid-sync")
                 logger.info(f"{prefix}Re-announcing the sync target")
-                reply = announce()
-                if reply is None:
-                    return
-                raise_if_rejected(reply)
+                raise_if_rejected(announce())
                 next_announcement = time.monotonic() + announce_interval
             time.sleep(poll_interval)
         if not synced:
