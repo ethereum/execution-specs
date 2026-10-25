@@ -660,3 +660,39 @@ class TestForkSchedule:
         group = SimpleNamespace(fork=ParisToShanghaiAtTime15k)
         schedule = fixture_body(wirex.wirex_fork_schedule)(group)
         assert schedule.timestamps == (15000,)
+
+    def test_the_peer_is_dialed_with_the_schedule(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The dialed peer computes its Status from the group's schedule."""
+        made: dict[str, Any] = {}
+
+        class _DialedPeer:
+            """Keep the peer's arguments instead of dialing."""
+
+            remote_name = "client"
+
+            def __init__(self, **arguments: Any) -> None:
+                made.update(arguments)
+
+            def connect(self, chain: Chain) -> None:
+                del chain
+
+            def start(self) -> None:
+                pass
+
+        monkeypatch.setattr(wirex, "MockPeer", _DialedPeer)
+        client = SimpleNamespace(
+            ip="127.0.0.1",
+            enode=lambda: SimpleNamespace(port=30303, id="00" * 64),
+        )
+        schedule = wirex.fork_schedule_of(ParisToShanghaiAtTime15k)
+        wirex.dial_mock_peer(
+            cast(Any, client),
+            _chain([_block(1, empty=False)]),
+            (),
+            False,
+            schedule,
+            TimingData("Total"),
+        )
+        assert made["fork_schedule"] is schedule
