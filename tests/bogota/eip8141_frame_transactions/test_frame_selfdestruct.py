@@ -1,0 +1,378 @@
+"""
+`SELFDESTRUCT` state gas tests for
+[EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141).
+
+EIP-8037 assigns no state gas refill to `SELFDESTRUCT`, even when it
+deletes a contract created earlier in the same transaction, so the
+creation's charges stay attributed to the frame that paid them — in the
+executing frame's pool and in an earlier frame's receipt alike. The
+only state gas `SELFDESTRUCT` itself moves is the account creation it
+charges, to the executing frame's pool, when its balance funds a new
+beneficiary.
+
+Bogota on this branch runs `SELFDESTRUCT` under EIP-6780: a contract
+created in the same transaction is deleted, any other keeps its code.
+EIP-4758 (`SELFDESTRUCT` as `SENDALL`, which deletes nothing) is not
+active; the expectations that depend on the deletion check for it.
+"""
+
+from typing import Dict
+
+import pytest
+from execution_testing import (
+    Account,
+    Address,
+    Alloc,
+    Fork,
+    Initcode,
+    Op,
+    StateTestFiller,
+    compute_create_address,
+)
+
+from .helpers import (
+    FrameTransaction,
+    Outcome,
+    default_frame,
+    verify_frame,
+)
+from .spec import Spec, ref_spec_8141
+
+REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8141.version
+
+pytestmark = pytest.mark.valid_from("Bogota")
+
+SLOT_POOL = 0x01
+"""Driver slot recording the frame's remaining state gas pool."""
+
+SLOT_CREATOR_STATE_USED = 0x02
+"""Probe slot recording the creating frame's attributed state gas."""
+
+SLOT_DESTROYER_STATE_USED = 0x03
+"""
+Probe slot recording the self-destructing frame's attributed state gas,
+plus one so the expected zero readback is distinguishable from a slot
+never written.
+"""
+
+SELFDESTRUCT_CODE = Op.SELFDESTRUCT(Op.ADDRESS, address_warm=True)
+"""
+Code destroying its own account, with itself as the beneficiary of its
+zero balance, so the opcode charges no state gas of its own.
+"""
+
+VICTIM_CODE = bytes(SELFDESTRUCT_CODE).ljust(32, b"\x00")
+"""
+`SELFDESTRUCT_CODE` padded to 32 bytes, so the code deposit of a
+victim created in the transaction is a state charge of its own size.
+"""
+
+INIT_CODE = Initcode(deploy_code=VICTIM_CODE)
+"""Init code deploying `VICTIM_CODE`."""
+
+FACTORY_NONCE = 1
+"""Nonce of a contract deployed in the pre-state."""
+
+
+def deletes_created_account(fork: Fork) -> bool:
+    """
+    Check whether `SELFDESTRUCT` deletes an account created in the same
+    transaction: true under EIP-6780, false once EIP-4758 turns it into
+    `SENDALL`.
+    """
+    return fork.is_eip_enabled(6780) and not fork.is_eip_enabled(4758)
+
+
+def created_victim_post(fork: Fork) -> Account | None:
+    """Return the post-state of a victim created in the transaction."""
+    if deletes_created_account(fork):
+        return Account.NONEXISTENT
+    return Account(nonce=1, code=VICTIM_CODE)
+
+
+def creation_state_gas(fork: Fork) -> int:
+    """
+    Return the state gas a creation of the victim charges: the account
+    creation (STATE_BYTES_PER_NEW_ACCOUNT * CPSB) plus the code deposit
+    (CPSB per deployed byte).
+    """
+    account_creation = fork.gas_costs().NEW_ACCOUNT
+    code_deposit = fork.code_deposit_state_gas(code_size=len(VICTIM_CODE))
+    assert INIT_CODE.state_cost(fork) == code_deposit
+    return account_creation + code_deposit
+
+
+@pytest.mark.parametrize(
+    "victim_kind",
+    [
+        pytest.param("created_in_frame", id="created_in_same_frame"),
+        pytest.param("pre_existing", id="pre_existing"),
+    ],
+)
+def test_selfdestruct_no_state_gas_refill(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    victim_kind: str,
+) -> None:
+    """
+    Self-destruct a contract from inside a frame and observe that the
+    frame's pool is not refilled.
+
+    EIP-8141 "EIP-8037 assigns no state-gas refill to `SELFDESTRUCT`,
+    including when it deletes a contract created earlier in the
+    transaction" (State-gas attribution and refills), and "account
+    creation and code-deposit charges are only undone by rolling back
+    the frame that made them" (Rationale: Cross-frame state-gas
+    refills).
+
+    The frame's driver contract calls the victim, which destroys
+    itself, then records the frame's remaining pool. Either the driver
+    created the victim earlier in the same frame — paying its account
+    creation and code deposit from the pool, a budget of exactly that
+    plus the recording write — or the victim is in the pre-state and
+    the budget is only the recording write. Both record one storage
+    write left: the deletion of the created victim gives nothing back,
+    and the receipt keeps the creation's charges.
+
+    Under EIP-6780 the created victim is deleted and the pre-existing
+    one keeps its code.
+    """
+    sender = pre.fund_eoa()
+    storage_set = Op.SSTORE(SLOT_POOL, 1).state_cost(fork)
+    record_pool = Op.SSTORE(SLOT_POOL, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
+
+    post: Dict[Address, Account | None] = {sender: Account(nonce=1)}
+    if victim_kind == "created_in_frame":
+        size = len(INIT_CODE)
+        driver_code = (
+            Op.CALLDATACOPY(
+                0, 0, Op.CALLDATASIZE, data_size=size, new_memory_size=size
+            )
+            + Op.POP(
+                Op.CALL(
+                    gas=Op.GAS,
+                    # The creation warmed the address it returns.
+                    address=Op.CREATE(
+                        value=0,
+                        offset=0,
+                        size=Op.CALLDATASIZE,
+                        init_code_size=size,
+                    ),
+                    address_warm=True,
+                )
+            )
+            + record_pool
+            + Op.STOP
+        )
+        driver = pre.deploy_contract(code=driver_code)
+        victim = compute_create_address(address=driver, nonce=FACTORY_NONCE)
+        data = bytes(INIT_CODE)
+        creation = creation_state_gas(fork)
+        execution_gas = (
+            driver_code.execution_cost(fork)
+            + INIT_CODE.execution_cost(fork)
+            + SELFDESTRUCT_CODE.execution_cost(fork)
+        )
+        post[driver] = Account(
+            nonce=FACTORY_NONCE + 1, storage={SLOT_POOL: storage_set}
+        )
+        post[victim] = created_victim_post(fork)
+    elif victim_kind == "pre_existing":
+        victim = pre.deploy_contract(code=VICTIM_CODE)
+        driver_code = (
+            Op.POP(Op.CALL(gas=Op.GAS, address=victim)) + record_pool + Op.STOP
+        )
+        driver = pre.deploy_contract(code=driver_code)
+        data = b""
+        creation = 0
+        execution_gas = driver_code.execution_cost(
+            fork
+        ) + SELFDESTRUCT_CODE.execution_cost(fork)
+        post[driver] = Account(storage={SLOT_POOL: storage_set})
+        # EIP-6780 deletes only accounts created in the transaction.
+        post[victim] = Account(code=VICTIM_CODE)
+    else:
+        raise ValueError(f"unknown victim kind: {victim_kind}")
+
+    state_budget = creation + storage_set
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=driver,
+                data=data,
+                execution_gas=execution_gas,
+                state_gas_limit=state_budget,
+                state_gas_used=state_budget,
+            ),
+        ],
+    )
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+def test_selfdestruct_keeps_creator_frame_attribution(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Self-destruct, in a later frame, a contract an earlier frame created.
+
+    EIP-8141 "EIP-8037 assigns no state-gas refill to `SELFDESTRUCT`,
+    including when it deletes a contract created earlier in the
+    transaction. Such an operation therefore does not modify the
+    creating frame's `gas_used.state`."
+
+    Frame 1 creates the victim, attributing the account creation and
+    the code deposit to its receipt. Frame 2 targets the victim
+    directly and destroys it. Frame 3 reads frame 1's attribution back
+    unchanged and frame 2's as zero, and both receipts settle that way.
+    The deletion takes effect at the end of the transaction, because
+    EIP-6780 tracks creations per transaction, not per frame.
+    """
+    sender = pre.fund_eoa()
+    size = len(INIT_CODE)
+    factory_code = (
+        Op.CALLDATACOPY(
+            0, 0, Op.CALLDATASIZE, data_size=size, new_memory_size=size
+        )
+        + Op.POP(
+            Op.CREATE(
+                value=0, offset=0, size=Op.CALLDATASIZE, init_code_size=size
+            )
+        )
+        + Op.STOP
+    )
+    factory = pre.deploy_contract(code=factory_code)
+    victim = compute_create_address(address=factory, nonce=FACTORY_NONCE)
+    creation = creation_state_gas(fork)
+    probe_code = (
+        Op.SSTORE(
+            SLOT_CREATOR_STATE_USED,
+            Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED),
+        )
+        + Op.SSTORE(
+            SLOT_DESTROYER_STATE_USED,
+            Op.ADD(1, Op.FRAMEPARAM(2, Spec.FRAMEPARAM_STATE_GAS_USED)),
+        )
+        + Op.STOP
+    )
+    probe = pre.deploy_contract(code=probe_code)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            # Frame 0: approve execution and payment.
+            verify_frame(),
+            # Frame 1: create the victim from exactly its creation's
+            # state gas.
+            default_frame(
+                target=factory,
+                data=bytes(INIT_CODE),
+                execution_gas=factory_code.execution_cost(fork)
+                + INIT_CODE.execution_cost(fork),
+                state_gas_limit=creation,
+                state_gas_used=creation,
+            ),
+            # Frame 2: run the victim's code, destroying it. Frame 1's
+            # creation left the victim's address warm.
+            default_frame(
+                target=victim,
+                code=SELFDESTRUCT_CODE,
+                warm=True,
+                state_gas_limit=0,
+            ),
+            # Frame 3: record frame 1's and frame 2's attributions.
+            default_frame(target=probe, code=probe_code),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            factory: Account(nonce=FACTORY_NONCE + 1),
+            victim: created_victim_post(fork),
+            probe: Account(
+                storage={
+                    SLOT_CREATOR_STATE_USED: creation,
+                    SLOT_DESTROYER_STATE_USED: 1,
+                }
+            ),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "state_gas_limit_delta",
+    [
+        pytest.param(0, id="exact_budget"),
+        pytest.param(-1, id="one_below"),
+    ],
+)
+def test_selfdestruct_new_beneficiary_charges_frame_pool(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    state_gas_limit_delta: int,
+) -> None:
+    """
+    Charge the account creation of a `SELFDESTRUCT` whose balance funds
+    a new beneficiary to the executing frame's pool.
+
+    EIP-8141 "Charge points follow EIP-8037 unchanged", and EIP-8037
+    charges `STATE_BYTES_PER_NEW_ACCOUNT * CPSB` when a `SELFDESTRUCT`
+    sends a non-zero balance to an account that does not exist; "A
+    charge exceeding its remaining pool is an exceptional halt of the
+    current callframe".
+
+    The frame targets a pre-existing contract holding one wei, whose
+    code destroys it in favour of an absent beneficiary. A budget of
+    exactly the account creation succeeds: the beneficiary receives the
+    wei, the receipt attributes the creation, and the victim keeps its
+    code under EIP-6780. One unit below halts the frame exceptionally:
+    the receipt reports the whole execution budget and zero state gas,
+    and the wei stays with the victim.
+    """
+    sender = pre.fund_eoa()
+    beneficiary = pre.fund_eoa(amount=0)
+    victim_code = Op.SELFDESTRUCT(beneficiary, account_new=True)
+    victim = pre.deploy_contract(code=victim_code, balance=1)
+    assert victim_code.state_cost(fork) == fork.gas_costs().NEW_ACCOUNT
+
+    succeeds = state_gas_limit_delta >= 0
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=victim,
+                code=victim_code,
+                state_gas_limit_delta=state_gas_limit_delta,
+                outcome=Outcome.SUCCESS if succeeds else Outcome.HALT,
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            beneficiary: Account(balance=1)
+            if succeeds
+            else Account.NONEXISTENT,
+            # The victim was not created in the transaction, so it keeps
+            # its code.
+            victim: Account(code=victim_code, balance=0 if succeeds else 1),
+        },
+    )
