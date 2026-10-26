@@ -82,7 +82,6 @@ Set with `--sim.buildarg name=value` on the image Dockerfiles. For the separate 
 | `fixtures` | `consume-*` | none | Deprecated. Without `tag`, a `consume --input` value cached at build time, or `/fixtures` with a staged `fixtures.tar.gz`. |
 | `branch` | all | none | Deprecated. Without `tag`, an execution-specs ref whose framework, and for `execute-blobs` whose tests, the image installs at build time. |
 | `disable_strict_exception_matching` | `consume-engine`, `consume-enginex` | `nimbus-el` | Clients exempt from strict exception matching; an empty value exempts none. |
-| `skip_genesis_init` | `consume-engine`, `consume-enginex` | `1` | `0` passes `--no-skip-genesis-init`: hive's client wrappers then initialize the genesis in a separate step instead of loading it when the client starts. Needs the hive simulator Dockerfile to forward it. |
 | `fork` | `execute-blobs` | the image's `EEST_DEFAULT_FORK` | Fork to execute the tests for. |
 
 Without `tag`, `fixtures` and `branch` select the simulator's `latest-legacy` image: `latest` with ONBUILD steps that apply them during hive's build. Builds without them use `latest` or the given tag directly and run no build steps.
@@ -104,7 +103,7 @@ These belong to the images, not to the testing package: the Dockerfiles set them
 
 Fixture and tests images contain data and labels only; they do not set runtime environment variables. The tests image records its source commit as `org.opencontainers.image.revision`; the execute simulator also records it as `org.ethereum.eest.tests-revision`.
 
-Read by the entry point at run time: `DISABLE_STRICT_EXCEPTION_MATCHING`, `FORK`, `SKIP_GENESIS_INIT`, and the `HIVE_*` variables hive sets.
+Read by the entry point at run time: `DISABLE_STRICT_EXCEPTION_MATCHING`, `FORK`, and the `HIVE_*` variables hive sets.
 
 ## Files
 
