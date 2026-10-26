@@ -27,6 +27,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import pytest
 from execution_testing import (
     EOA,
+    SECP256K1_SIGNATURE_LENGTH,
     Account,
     Address,
     Alloc,
@@ -44,6 +45,7 @@ from execution_testing import (
 )
 
 from .helpers import (
+    APPROVE_ALL,
     EXPIRY_VERIFIER_LENGTH_REJECTING_PATH,
     FrameCase,
     FrameTransaction,
@@ -58,10 +60,14 @@ from .signature_helpers import (
     DIGEST,
     P256_S,
     P256_SIGNATURE,
+    P256_SIGNER,
     SECP256K1N,
     SECP256R1N,
+    canonical_entry,
     high_s_complement,
     p256_entry,
+    p256_public_key,
+    p256_sign,
     resized_signature,
     signed_digest_entry,
     valid_p256_entry,
@@ -388,6 +394,89 @@ FRAME_CASES = [
         None,
         id="approval_scope_after_batch_terminator",
     ),
+    # §Constraints: "if frame.flags & ATOMIC_BATCH_FLAG or (i > 0 and
+    # tx.frames[i - 1].flags & ATOMIC_BATCH_FLAG): assert frame.flags &
+    # APPROVE_SCOPE_MASK == 0", where `APPROVE_SCOPE_MASK` covers the
+    # execution bit as well as the payment bit of the three cases above.
+    pytest.param(
+        # The execution bit alone, on a flagged frame whose empty target
+        # keeps the execution scope's own target rule satisfied.
+        [
+            verify_frame(),
+            default_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG | Spec.APPROVE_EXECUTION
+            ),
+            default_frame(),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="execution_scope_on_flagged_batch_frame",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [
+            verify_frame(),
+            default_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG
+                | Spec.APPROVE_EXECUTION_AND_PAYMENT
+            ),
+            default_frame(),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="both_scopes_on_flagged_batch_frame",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [
+            verify_frame(),
+            default_frame(flags=Spec.ATOMIC_BATCH_FLAG),
+            default_frame(flags=Spec.APPROVE_EXECUTION),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="execution_scope_on_batch_terminating_frame",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [
+            verify_frame(),
+            default_frame(flags=Spec.ATOMIC_BATCH_FLAG),
+            default_frame(flags=Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="both_scopes_on_batch_terminating_frame",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [
+            verify_frame(),
+            sender_frame(flags=Spec.ATOMIC_BATCH_FLAG),
+            sender_frame(flags=Spec.APPROVE_PAYMENT),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="payment_scope_on_sender_batch_terminating_frame",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # The nearest-valid counterpart of the case above.
+        [
+            verify_frame(),
+            sender_frame(flags=Spec.ATOMIC_BATCH_FLAG),
+            sender_frame(),
+        ],
+        None,
+        id="sender_batch_without_scope",
+    ),
+    pytest.param(
+        # The execution bit is allowed on the frame after the batch's
+        # terminator, which no longer belongs to the batch.
+        [
+            verify_frame(),
+            default_frame(flags=Spec.ATOMIC_BATCH_FLAG),
+            default_frame(),
+            default_frame(flags=Spec.APPROVE_EXECUTION),
+        ],
+        None,
+        id="execution_scope_after_batch_terminator",
+    ),
     pytest.param(
         # Each frame's gas limit fits into 64 bits, but the total
         # frame gas must as well.
@@ -651,6 +740,139 @@ def test_expiry_verifier_constraints_transaction(
     transaction_test(pre=pre, tx=tx)
 
 
+# Signature vectors on the numeric boundaries of §Signature Validation.
+# A secp256k1 signature with `r = Gx` (the generator's x-coordinate)
+# over `DIGEST` recovers a different public key for every `s` and
+# recovery id, so a chosen `s` determines its signer. Each signer below
+# was computed with plain ECDSA public key recovery,
+# `Q = r^-1 * (s * R - z * G)`, where `R` is the curve point with
+# x-coordinate `r` and the parity given by `v`.
+
+SECP256K1_GX = (
+    0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798
+)
+"""x-coordinate of the secp256k1 generator, used as `r`."""
+
+SECP256K1_HALF_ORDER_SIGNER_V0 = Bytes(
+    "0xd9b25053e1790082384dae367fed99cdcd7fb6cb"
+)
+"""
+Signer recovered from `(v=0, r=Gx, s=SECP256K1N // 2)` over `DIGEST`.
+Its high-`s` complement `(v=1, r=Gx, s=SECP256K1N // 2 + 1)` recovers
+the same signer.
+"""
+
+SECP256K1_HALF_ORDER_SIGNER_V1 = Bytes(
+    "0x940488cbd686a8deea38c50b77f1cbf6b4c0eca8"
+)
+"""Signer recovered from `(v=1, r=Gx, s=SECP256K1N // 2)` over `DIGEST`."""
+
+SECP256K1_S_ZERO_SIGNER = Bytes("0x1c20d20b1fa38c4e38aede97a3f4dd7c3f31c7b0")
+"""
+Signer that plain recovery returns for `(v=0, r=Gx, s=0)` over
+`DIGEST`: with `s = 0` the formula reduces to `-r^-1 * z * G`, a valid
+public key.
+"""
+
+SECP256K1_R_ABOVE_ORDER = SECP256K1N + 2
+"""
+An `r` above the curve order that is still the x-coordinate of a
+secp256k1 point, so recovery that takes `r` without the range check
+finds a point instead of failing.
+"""
+
+SECP256K1_R_ABOVE_ORDER_SIGNER = Bytes(
+    "0xf28a4ea5a1c5a2a33a0fb3adce8e5333b7c77c84"
+)
+"""
+Signer that plain recovery returns for `(v=0, r=SECP256K1N + 2, s=5)`
+over `DIGEST`, using `R = (SECP256K1N + 2, y)` and `r mod SECP256K1N`
+as the scalar.
+"""
+
+KEY_RECOVERY_ID_0 = Hash(2)
+"""A private key whose signature over `DIGEST` has recovery id 0."""
+
+KEY_RECOVERY_ID_1 = Hash(1)
+"""A private key whose signature over `DIGEST` has recovery id 1."""
+
+P256_HALF_ORDER_KEY = (
+    0x28236AD4A209D04E3B97653AD600F431C0C62C68290A9B25629ADD03577BAC65
+)
+"""
+Private key of a P-256 signature over `DIGEST` whose `s` is exactly
+`SECP256R1N // 2`. It was built by picking the nonce `k = 0x1234567`,
+taking `r = x(k * G) mod n` and solving for the private key
+`d = (s * k - z) * r^-1 mod n`.
+"""
+
+P256_HALF_ORDER_NONCE = 0x1234567
+"""The nonce `k` the half-order signature was built from."""
+
+P256_HALF_ORDER_R, P256_HALF_ORDER_S = p256_sign(
+    bytes(DIGEST), P256_HALF_ORDER_KEY, nonce=P256_HALF_ORDER_NONCE
+)
+"""The half-order signature's components, signed over `DIGEST`."""
+assert P256_HALF_ORDER_S == SECP256R1N // 2
+
+P256_HALF_ORDER_QX, P256_HALF_ORDER_QY = p256_public_key(P256_HALF_ORDER_KEY)
+"""The public key words of `P256_HALF_ORDER_KEY`."""
+
+P256_HALF_ORDER_SIGNER = Bytes(
+    keccak256(
+        P256_HALF_ORDER_QX.to_bytes(32, "big")
+        + P256_HALF_ORDER_QY.to_bytes(32, "big")
+    )[12:]
+)
+"""The signer `P256_HALF_ORDER_QX || P256_HALF_ORDER_QY` hashes to."""
+
+
+def secp256k1_vector(v: int, r: int, s: int, signer: Bytes) -> FrameSignature:
+    """Return a secp256k1 entry over `DIGEST` with fixed components."""
+    return FrameSignature(
+        scheme=Spec.SCHEME_SECP256K1,
+        signer=signer,
+        msg=Bytes(DIGEST),
+        signature=Bytes(
+            bytes([v]) + r.to_bytes(32, "big") + s.to_bytes(32, "big")
+        ),
+    )
+
+
+def recovery_id_entry(key: Hash, recovery_id: int) -> FrameSignature:
+    """
+    Return a valid entry over `DIGEST` signed with `key`, whose explicit
+    signer is the key's address, after checking its recovery id.
+    """
+    entry = signed_digest_entry(key, signer=Bytes(EOA(key=key)))
+    assert bytes(entry.signature)[0] == recovery_id
+    return entry
+
+
+def p256_valid_signature(**overrides: Bytes) -> FrameSignature:
+    """
+    Return a P256 entry carrying `P256_SIGNATURE`, which P256VERIFY
+    accepts over `DIGEST`, with an empty signer unless overridden.
+    """
+    return FrameSignature(
+        scheme=Spec.SCHEME_P256,
+        msg=Bytes(DIGEST),
+        signature=Bytes(P256_SIGNATURE),
+        **overrides,
+    )
+
+
+def p256_half_order_entry(s: int) -> FrameSignature:
+    """Return the half-order P-256 vector with the given `s`."""
+    return p256_entry(
+        r=P256_HALF_ORDER_R,
+        s=s,
+        qx=P256_HALF_ORDER_QX,
+        qy=P256_HALF_ORDER_QY,
+        signer=P256_HALF_ORDER_SIGNER,
+    )
+
+
 SIGNATURE_CASES = [
     # secp256k1 entries, built from a valid signature over an
     # explicit digest and tampered in a single component.
@@ -683,6 +905,19 @@ SIGNATURE_CASES = [
         id="secp256k1_signature_empty",
         marks=pytest.mark.exception_test,
     ),
+    # secp256k1 recovery id (§Signature Validation: "v is the recovery
+    # id (0 or 1)"). Each entry's explicit signer is its key's own
+    # address, so only the `v` byte can reject it.
+    pytest.param(
+        [recovery_id_entry(KEY_RECOVERY_ID_0, 0)],
+        None,
+        id="secp256k1_v_0",
+    ),
+    pytest.param(
+        [recovery_id_entry(KEY_RECOVERY_ID_1, 1)],
+        None,
+        id="secp256k1_v_1",
+    ),
     pytest.param(
         lambda _pre, sender: [
             with_tampered_components(signed_digest_entry(sender.key), v=2)
@@ -692,12 +927,26 @@ SIGNATURE_CASES = [
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        # The legacy transaction v encoding is not valid here.
-        lambda _pre, sender: [
-            with_tampered_components(signed_digest_entry(sender.key), v=27)
+        # The legacy transaction `v` encoding, `27` plus the true
+        # recovery id: a client that normalizes it recovers the
+        # explicit signer, so only the recovery id rule rejects it.
+        [
+            with_tampered_components(
+                recovery_id_entry(KEY_RECOVERY_ID_0, 0), v=27
+            )
         ],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
         id="secp256k1_v_27",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [
+            with_tampered_components(
+                recovery_id_entry(KEY_RECOVERY_ID_1, 1), v=28
+            )
+        ],
+        TransactionException.TYPE_6_INVALID_SIGNATURE,
+        id="secp256k1_v_28",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
@@ -719,9 +968,22 @@ SIGNATURE_CASES = [
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        lambda _pre, sender: [
-            with_tampered_components(signed_digest_entry(sender.key), s=0)
+        # `r` above the order is still the x-coordinate of a curve
+        # point, so recovery without the range check (§Signature
+        # Validation: "not (0 < r < SECP256K1N)") returns this signer.
+        [
+            secp256k1_vector(
+                0, SECP256K1_R_ABOVE_ORDER, 5, SECP256K1_R_ABOVE_ORDER_SIGNER
+            )
         ],
+        TransactionException.TYPE_6_INVALID_SIGNATURE,
+        id="secp256k1_r_above_order_on_curve",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # Plain recovery accepts `s = 0` and returns this signer, so only
+        # the lower bound of `s` rejects the entry.
+        [secp256k1_vector(0, SECP256K1_GX, 0, SECP256K1_S_ZERO_SIGNER)],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
         id="secp256k1_s_zero",
         marks=pytest.mark.exception_test,
@@ -732,6 +994,47 @@ SIGNATURE_CASES = [
         ],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
         id="secp256k1_high_s",
+        marks=pytest.mark.exception_test,
+    ),
+    # The upper bound of `s` itself (§Signature Validation: "not (0 < s
+    # <= SECP256K1N // 2)"), accepted for both recovery ids.
+    pytest.param(
+        [
+            secp256k1_vector(
+                0,
+                SECP256K1_GX,
+                SECP256K1N // 2,
+                SECP256K1_HALF_ORDER_SIGNER_V0,
+            )
+        ],
+        None,
+        id="secp256k1_s_half_order_v0",
+    ),
+    pytest.param(
+        [
+            secp256k1_vector(
+                1,
+                SECP256K1_GX,
+                SECP256K1N // 2,
+                SECP256K1_HALF_ORDER_SIGNER_V1,
+            )
+        ],
+        None,
+        id="secp256k1_s_half_order_v1",
+    ),
+    pytest.param(
+        # The complement of `secp256k1_s_half_order_v0`: the same signer
+        # recovers from it, so only the low-`s` bound rejects it.
+        [
+            secp256k1_vector(
+                1,
+                SECP256K1_GX,
+                SECP256K1N // 2 + 1,
+                SECP256K1_HALF_ORDER_SIGNER_V0,
+            )
+        ],
+        TransactionException.TYPE_6_INVALID_SIGNATURE,
+        id="secp256k1_s_half_order_plus_one",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
@@ -898,12 +1201,58 @@ SIGNATURE_CASES = [
         id="p256_high_s",
         marks=pytest.mark.exception_test,
     ),
+    # The upper bound of `s` itself (§Signature Validation: "not (0 < s
+    # <= SECP256R1N // 2)").
     pytest.param(
-        # The empty signer resolves to the sender, which never
-        # matches the hash of the entry's public key words.
-        [p256_entry(r=1, s=1)],
+        [p256_half_order_entry(SECP256R1N // 2)],
+        None,
+        id="p256_s_half_order",
+    ),
+    pytest.param(
+        # The complement `SECP256R1N - SECP256R1N // 2` is the half order
+        # plus one; P256VERIFY accepts it, so only the low-`s` bound
+        # rejects it.
+        [p256_half_order_entry(SECP256R1N - SECP256R1N // 2)],
+        TransactionException.TYPE_6_INVALID_SIGNATURE,
+        id="p256_s_half_order_plus_one",
+        marks=pytest.mark.exception_test,
+    ),
+    # P256 signer binding (§Transaction Signatures: "For `P256`, the
+    # signer address must be `keccak256(qx || qy)[12:]`."). The
+    # signature verifies with P256VERIFY, so only the binding rejects it.
+    pytest.param(
+        # The empty signer resolves to the sender (§Transaction
+        # Signatures: "If absent, `tx.sender` is used").
+        [p256_valid_signature()],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="p256_signer_mismatch",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        lambda _pre, sender: [p256_valid_signature(signer=Bytes(sender))],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="p256_valid_signature_explicit_foreign_signer",
+        marks=pytest.mark.exception_test,
+    ),
+    # P256 signer width (§Constraints: "assert len(sig.signer) == 0 or
+    # len(sig.signer) == 20"), on a signature that verifies.
+    pytest.param(
+        # The matching signer with its first byte removed. No 19-byte
+        # signer equals the 20-byte hash, so a client without the width
+        # rule rejects the entry for the mismatch, with the same error:
+        # the case pins the error, not the width rule.
+        [p256_valid_signature(signer=Bytes(bytes(P256_SIGNER)[:19]))],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="p256_signer_19_bytes",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # The matching signer with a byte appended. A client that reads
+        # the first 20 bytes sees the matching signer, so only the width
+        # rule rejects the entry.
+        [p256_valid_signature(signer=Bytes(bytes(P256_SIGNER) + b"\x00"))],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="p256_signer_21_bytes",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
@@ -978,6 +1327,12 @@ def test_signature_constraints(
     The varied entry is appended after the canonical entry consumed by
     the sender's default code, so every case differs from a valid
     transaction only in the appended entry.
+
+    The boundary cases follow EIP-8141 §Signature Validation: "if v > 1
+    or not (0 < r < SECP256K1N) or not (0 < s <= SECP256K1N // 2):
+    return False" for secp256k1, and "if not (0 < r < SECP256R1N) or
+    not (0 < s <= SECP256R1N // 2): return False" followed by "if
+    resolved_signer != keccak256(qx + qy)[12:]: return False" for P256.
     """
     sender = pre.fund_eoa()
     case_entries = entries(pre, sender) if callable(entries) else entries
@@ -1029,6 +1384,74 @@ def test_signature_constraints_transaction(
     )
 
     transaction_test(pre=pre, tx=tx)
+
+
+def entry_signed_for_next_nonce(pre: Alloc) -> Transaction:
+    """
+    Return a frame transaction whose only entry is the sender's
+    canonical entry, signed over the signature hash of the same
+    transaction with the next nonce.
+
+    The canonical hash elides the entry's raw bytes and commits to
+    their length only, so the two transactions differ in their nonce
+    alone, and the signature recovers the sender only against the other
+    transaction's hash.
+    """
+    sender = pre.fund_eoa()
+
+    def with_entry(signature: bytes, nonce: int) -> Transaction:
+        return Transaction(
+            sender=sender,
+            nonce=nonce,
+            frames=[verify_frame()],
+            signatures=[canonical_entry(sender, signature=Bytes(signature))],
+            error=TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        )
+
+    placeholder = bytes(SECP256K1_SIGNATURE_LENGTH)
+    next_hash = with_entry(placeholder, 1).rlp_signing_bytes().keccak256()
+    assert sender.key is not None
+    entry = FrameSignature(scheme=Spec.SCHEME_SECP256K1)
+    entry.signed_over(bytes(next_hash), sender.key)
+    tx = with_entry(bytes(entry.signature), 0)
+    assert tx.rlp_signing_bytes().keccak256() != next_hash
+    return tx
+
+
+@pytest.mark.exception_test
+def test_canonical_entry_signed_for_other_transaction(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a transaction whose canonical sender entry carries a valid
+    signature by the sender's key over another transaction's signature
+    hash: the same transaction with the next nonce.
+
+    EIP-8141 §Transaction Signatures: "if `len(msg) == 0`, the signature
+    is signed over `compute_sig_hash(tx)`", and §Signature Validation:
+    "if len(sig.msg) == 0: msg = sig_hash" followed by "return
+    resolved_signer == ecrecover(msg, v, r, s)". Recovering against this
+    transaction's hash does not return the sender, so the entry is
+    invalid and so is the transaction.
+    """
+    tx = entry_signed_for_next_nonce(pre)
+    assert tx.sender is not None
+
+    state_test(pre=pre, tx=tx, post={tx.sender: Account(nonce=0)})
+
+
+@pytest.mark.exception_test
+def test_canonical_entry_signed_for_other_transaction_transaction(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Assert the same rejection as
+    `test_canonical_entry_signed_for_other_transaction` on the
+    transaction itself.
+    """
+    transaction_test(pre=pre, tx=entry_signed_for_next_nonce(pre))
 
 
 # The gas boundary tests use a contract sender: contract senders carry
@@ -1194,8 +1617,57 @@ def test_gas_limit_cap_exempts_state_gas_transaction(
     transaction_test(pre=pre, tx=tx)
 
 
+def calldata_floor_cap_frames(
+    fork: Fork, target: Address, cap_excess: int
+) -> List[FrameCase]:
+    """
+    Return frames whose calldata floor equals the per-transaction gas
+    cap, plus `cap_excess` zero bytes of data at the floor price each.
+
+    The floor is the always-paid base costs plus a fixed price per data
+    byte, and the cap is not a multiple of that price. The per-frame
+    cost is odd, so a suitable frame count makes the gap between the cap
+    and the base costs a whole number of bytes. After the `VERIFY`
+    frame, every frame calls `target` with just enough gas for its cold
+    entry, and the last one carries the data.
+    """
+    gas_costs = fork.gas_costs()
+    floor_per_byte = (
+        gas_costs.TX_DATA_TOKEN_STANDARD * gas_costs.TX_DATA_TOKEN_FLOOR
+    )
+    floor_calculator = fork.frame_transaction_data_floor_cost_calculator()
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+    frame_count = next(
+        count
+        for count in range(2, Spec.MAX_FRAMES + 1)
+        if (cap - floor_calculator(frames=count)) % floor_per_byte == 0
+    )
+    data_length = (
+        cap - floor_calculator(frames=frame_count)
+    ) // floor_per_byte + cap_excess
+
+    entry_gas = fork.frame_entry_gas_calculator()()
+    frames = [verify_frame(state_gas_limit=0)] + [
+        default_frame(target=target, gas_limit=entry_gas, state_gas_limit=0)
+        for _ in range(frame_count - 1)
+    ]
+    frames[-1].data = Bytes(b"\x00" * data_length)
+
+    floor = floor_calculator(frames=frames)
+    assert floor == cap + cap_excess * floor_per_byte
+    # The intrinsic cost plus the frame execution budgets stays below
+    # the cap, so only the floor can exceed it.
+    standard = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=frames, return_cost_deducted_prior_execution=True
+    ) + sum(int(frame.gas_limit) for frame in frames)
+    assert standard < cap
+    return frames
+
+
 CALLDATA_FLOOR_CAP_CASES = [
-    pytest.param(0, None, id="below_cap"),
+    pytest.param(-1, None, id="below_cap"),
+    pytest.param(0, None, id="at_cap"),
     pytest.param(
         1,
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM,
@@ -1204,8 +1676,9 @@ CALLDATA_FLOOR_CAP_CASES = [
     ),
 ]
 """
-Gas in excess of the per-transaction cap, driven by the calldata
-floor, with the exception the excess must be rejected with.
+Zero bytes of data in excess of a calldata floor equal to the
+per-transaction cap, with the exception the excess must be rejected
+with.
 """
 
 
@@ -1218,36 +1691,21 @@ def test_gas_limit_cap_from_calldata_floor(
     error: Optional[TransactionException],
 ) -> None:
     """
-    Drive the calldata floor across the per-transaction gas cap with
-    zero-byte frame data while the standard gas limit stays far below
-    it, pinning that the cap applies to the larger of the two anchors.
+    Drive the calldata floor to one data byte below the per-transaction
+    gas cap, exactly onto it, and one byte past it with zero-byte frame
+    data, while the intrinsic cost plus the frame execution budgets
+    stays far below the cap, pinning that the cap applies to the larger
+    of the two anchors and admits a floor equal to it.
 
-    The cap is not a multiple of the per-byte floor cost, so the
-    boundary pair is the largest data length whose floor fits under
-    the cap and the first one whose floor exceeds it.
+    EIP-8141 §Constraints: "assert max(frame_tx_intrinsic_gas +
+    total_frame_execution_gas, calldata_floor_gas) <= TX_MAX_GAS_LIMIT".
     """
-    sender = pre.deploy_contract(
-        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
-        balance=10**18,
-    )
-    gas_costs = fork.gas_costs()
-    floor_per_byte = (
-        gas_costs.TX_DATA_TOKEN_STANDARD * gas_costs.TX_DATA_TOKEN_FLOOR
-    )
-    # With no charged bytes the floor anchor is the always-paid base
-    # costs alone; the data length is solved against it below.
-    base = fork.frame_transaction_data_floor_cost_calculator()(frames=2)
-    cap = fork.transaction_gas_limit_cap()
-    assert cap is not None
-    data_length = (cap - base) // floor_per_byte + cap_excess
-
+    sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
+    target = pre.deploy_contract(code=Op.STOP)
     tx = Transaction(
         sender=sender,
         nonce=1,
-        frames=[
-            verify_frame(),
-            default_frame(gas_limit=0, data=Bytes(b"\x00" * data_length)),
-        ],
+        frames=calldata_floor_cap_frames(fork, target, cap_excess),
         error=error,
     )
 
@@ -1272,165 +1730,14 @@ def test_gas_limit_cap_from_calldata_floor_transaction(
     rather than on a block containing it; see the module docstring for
     why every static case fills both formats.
     """
-    sender = pre.deploy_contract(
-        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
-        balance=10**18,
-    )
-    gas_costs = fork.gas_costs()
-    floor_per_byte = (
-        gas_costs.TX_DATA_TOKEN_STANDARD * gas_costs.TX_DATA_TOKEN_FLOOR
-    )
-    # With no charged bytes the floor anchor is the always-paid base
-    # costs alone; the data length is solved against it below.
-    base = fork.frame_transaction_data_floor_cost_calculator()(frames=2)
-    cap = fork.transaction_gas_limit_cap()
-    assert cap is not None
-    data_length = (cap - base) // floor_per_byte + cap_excess
-
+    sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
+    target = pre.deploy_contract(code=Op.STOP)
     tx = Transaction(
         sender=sender,
         nonce=1,
-        frames=[
-            verify_frame(),
-            default_frame(gas_limit=0, data=Bytes(b"\x00" * data_length)),
-        ],
+        frames=calldata_floor_cap_frames(fork, target, cap_excess),
         error=error,
     )
-
-    transaction_test(pre=pre, tx=tx)
-
-
-BATCH_SCOPE_CASES = [
-    pytest.param(
-        # The execution bit alone, on a flagged frame whose empty target
-        # keeps the execution scope's own target rule satisfied.
-        [
-            verify_frame(),
-            default_frame(
-                flags=Spec.ATOMIC_BATCH_FLAG | Spec.APPROVE_EXECUTION
-            ),
-            default_frame(),
-        ],
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="execution_scope_on_flagged_batch_frame",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        [
-            verify_frame(),
-            default_frame(
-                flags=Spec.ATOMIC_BATCH_FLAG
-                | Spec.APPROVE_EXECUTION_AND_PAYMENT
-            ),
-            default_frame(),
-        ],
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="both_scopes_on_flagged_batch_frame",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        [
-            verify_frame(),
-            default_frame(flags=Spec.ATOMIC_BATCH_FLAG),
-            default_frame(flags=Spec.APPROVE_EXECUTION),
-        ],
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="execution_scope_on_batch_terminating_frame",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        [
-            verify_frame(),
-            default_frame(flags=Spec.ATOMIC_BATCH_FLAG),
-            default_frame(flags=Spec.APPROVE_EXECUTION_AND_PAYMENT),
-        ],
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="both_scopes_on_batch_terminating_frame",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        [
-            verify_frame(),
-            sender_frame(flags=Spec.ATOMIC_BATCH_FLAG),
-            sender_frame(flags=Spec.APPROVE_PAYMENT),
-        ],
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="payment_scope_on_sender_batch_terminating_frame",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        # The nearest-valid counterpart of the case above.
-        [
-            verify_frame(),
-            sender_frame(flags=Spec.ATOMIC_BATCH_FLAG),
-            sender_frame(),
-        ],
-        None,
-        id="sender_batch_without_scope",
-    ),
-    pytest.param(
-        # The execution bit is allowed on the frame after the batch's
-        # terminator, which no longer belongs to the batch.
-        [
-            verify_frame(),
-            default_frame(flags=Spec.ATOMIC_BATCH_FLAG),
-            default_frame(),
-            default_frame(flags=Spec.APPROVE_EXECUTION),
-        ],
-        None,
-        id="execution_scope_after_batch_terminator",
-    ),
-]
-"""
-Atomic batches carrying an approval scope bit other than the payment bit
-alone, which `FRAME_CASES` covers, each with the exception the
-transaction must be rejected with, or `None` for the nearest-valid
-counterpart.
-"""
-
-
-@pytest.mark.parametrize("frames,error", BATCH_SCOPE_CASES)
-def test_batch_approval_scope(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    frames: List[Frame],
-    error: Optional[TransactionException],
-) -> None:
-    """
-    Put the execution scope bit, or both scope bits, on a frame of an
-    atomic batch, flagged or terminating, and the payment bit on the
-    terminator of a batch of `SENDER` frames.
-
-    EIP-8141 §Constraints: "if frame.flags & ATOMIC_BATCH_FLAG or (i > 0
-    and tx.frames[i - 1].flags & ATOMIC_BATCH_FLAG): assert frame.flags
-    & APPROVE_SCOPE_MASK == 0", where `APPROVE_SCOPE_MASK` covers both
-    the payment bit and the execution bit.
-    """
-    sender = pre.fund_eoa()
-    tx = Transaction(sender=sender, frames=frames, error=error)
-
-    state_test(
-        pre=pre,
-        tx=tx,
-        # The sender's nonce only increments if the transaction is
-        # valid and executes.
-        post={sender: Account(nonce=0 if error else 1)},
-    )
-
-
-@pytest.mark.parametrize("frames,error", BATCH_SCOPE_CASES)
-def test_batch_approval_scope_transaction(
-    transaction_test: TransactionTestFiller,
-    pre: Alloc,
-    frames: List[Frame],
-    error: Optional[TransactionException],
-) -> None:
-    """
-    Assert the same batch scope rule as `test_batch_approval_scope` on
-    the transaction itself rather than on a block containing it; see the
-    module docstring for why every static case fills both formats.
-    """
-    tx = Transaction(sender=pre.fund_eoa(), frames=frames, error=error)
 
     transaction_test(pre=pre, tx=tx)
 

@@ -20,6 +20,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytecode,
     Bytes,
     Conditional,
     Environment,
@@ -979,15 +980,26 @@ def test_recreation_after_refill_charges_recreating_frame(
     """
     sender = pre.fund_eoa()
     storage_set = storage_set_cost(fork)
-    worker_code = Op.SSTORE(SLOT_CREATED, Op.CALLDATALOAD(0)) + Op.STOP
+    # The worker's slot; the probe's records of frame 1's and frame 3's
+    # attributed state gas, each plus one so the expected zero readback
+    # is distinguishable from a slot never written.
+    slot, frame_1_used, frame_3_used = 0x01, 0x02, 0x03
+
+    def write(**pricing: Any) -> Bytecode:
+        """Return the worker's write of its frame's data word."""
+        return Op.SSTORE(slot, Op.CALLDATALOAD(0), **pricing) + Op.STOP
+
+    worker_code = write(
+        key_warm=False, original_value=0, current_value=0, new_value=1
+    )
     worker = pre.deploy_contract(code=worker_code)
     probe_code = (
         Op.SSTORE(
-            SLOT_USED_BEFORE,
+            frame_1_used,
             Op.ADD(1, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED)),
         )
         + Op.SSTORE(
-            SLOT_USED_AFTER,
+            frame_3_used,
             Op.ADD(1, Op.FRAMEPARAM(3, Spec.FRAMEPARAM_STATE_GAS_USED)),
         )
         + Op.STOP
@@ -998,13 +1010,11 @@ def test_recreation_after_refill_charges_recreating_frame(
         """Return a frame creating the slot (0 -> 1)."""
         return default_frame(
             target=worker,
-            code=Op.SSTORE(
-                SLOT_CREATED,
-                Op.CALLDATALOAD(0),
+            code=write(
+                key_warm=key_warm,
                 original_value=0,
                 current_value=0,
                 new_value=1,
-                key_warm=key_warm,
             ),
             data=(1).to_bytes(32, "big"),
             state_gas_limit=storage_set,
@@ -1015,9 +1025,7 @@ def test_recreation_after_refill_charges_recreating_frame(
         """Return a frame clearing the slot (1 -> 0), refilling it."""
         return default_frame(
             target=worker,
-            code=Op.SSTORE(
-                SLOT_CREATED,
-                Op.CALLDATALOAD(0),
+            code=write(
                 key_warm=True,
                 original_value=0,
                 current_value=1,
@@ -1059,11 +1067,11 @@ def test_recreation_after_refill_charges_recreating_frame(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            worker: Account(storage={SLOT_CREATED: 0 if cleared_again else 1}),
+            worker: Account(storage={slot: 0 if cleared_again else 1}),
             probe: Account(
                 storage={
-                    SLOT_USED_BEFORE: 1,
-                    SLOT_USED_AFTER: 1 if cleared_again else storage_set + 1,
+                    frame_1_used: 1,
+                    frame_3_used: 1 if cleared_again else storage_set + 1,
                 }
             ),
         },
@@ -1093,30 +1101,35 @@ def test_failed_frame_discards_own_state_charge(
     exceptionally, perform the same state-gas restoration, but consume
     its entire execution-gas pool. Its final `gas_used.state` is zero."
 
-    The frame's slot creation succeeds and is charged, then the frame
-    reverts or halts. Its receipt reports zero state gas and the
-    transaction settles without the charge; the slot stays empty.
+    The frame's slot creation succeeds and is charged, from a state
+    budget of exactly that charge, then the frame reverts or halts. Its
+    receipt reports zero state gas and the transaction settles without
+    the charge; the slot stays empty. A halting frame's receipt cannot
+    tell a halt at `INVALID` from running out of gas before the
+    creation; the reverting case pins the gas of the whole path, which
+    fits the frame's budget.
     """
     sender = pre.fund_eoa()
     ending = Op.REVERT(0, 0) if outcome is Outcome.REVERT else Op.INVALID
-    code = Op.SSTORE(SLOT_CREATED, 1) + ending
+    # Slot 1 of the worker, which starts empty.
+    code = Op.SSTORE(1, 1) + ending
     worker = pre.deploy_contract(code=code)
+    failing = default_frame(
+        target=worker,
+        code=code,
+        state_gas_limit_delta=0,
+        outcome=outcome,
+    )
 
     tx = FrameTransaction.build(
-        fork=fork,
-        sender=sender,
-        frames=[
-            verify_frame(),
-            default_frame(
-                target=worker,
-                code=code,
-                state_gas_limit_delta=0,
-                outcome=outcome,
-            ),
-        ],
+        fork=fork, sender=sender, frames=[verify_frame(), failing]
     )
-    # The premise: the frame's budget was exactly its charge.
-    assert tx.state_gas == 0
+    # The premises: the frame's state budget is exactly its charge, and
+    # the whole path fits its execution budget.
+    assert int(failing.state_gas_limit) == storage_set_cost(fork)
+    assert failing.entry_gas(fork) + failing.code_gas(fork) < int(
+        failing.gas_limit
+    )
 
     state_test(
         pre=pre,

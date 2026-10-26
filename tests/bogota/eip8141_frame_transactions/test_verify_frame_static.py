@@ -244,6 +244,9 @@ def test_verify_frame_nested_call_is_static(
         tx=tx,
         post={
             sender: Account(nonce=2, storage={}),
+            # Under `DELEGATECALL` the callee's code runs in the sender's
+            # context, so this entry is a sanity check there; the oracle
+            # is the transaction's validity and the sender's nonce.
             callee: Account(nonce=1, balance=1, storage={}),
             recipient: Account(balance=0),
         },

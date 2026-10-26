@@ -130,7 +130,9 @@ def creation_state_costs(fork: Fork, create_opcode: Op) -> Tuple[int, int]:
     """
     Return the account creation's state gas and the init code's state
     gas (its storage write plus the code deposit), both checked against
-    the EIP-8037 constants they derive from.
+    the framework's state-gas table: the creating instruction's state
+    cost against the account creation, and the init code's against the
+    storage write and code deposit it sums.
     """
     # STATE_BYTES_PER_NEW_ACCOUNT * CPSB, charged by the creating frame.
     account_creation = account_creation_cost(fork)
@@ -385,6 +387,9 @@ def test_create_in_failing_frame(
     creation, the init code's write and the code deposit are all
     removed — and the payer is charged none of it. The created account
     is absent and the factory's nonce is back at its pre-state value.
+    A halting frame's receipt cannot tell a halt at `INVALID` from
+    running out of gas before the creation; the reverting case pins
+    the gas of the whole path, which fits the frame's budget.
     """
     sender = pre.fund_eoa()
     ending = Op.REVERT(0, 0) if outcome is Outcome.REVERT else Op.INVALID
@@ -392,23 +397,22 @@ def test_create_in_failing_frame(
     factory = pre.deploy_contract(code=code)
     created = created_address(factory, create_opcode, INIT_CODE)
     account_creation, init_state = creation_state_costs(fork, create_opcode)
+    failing = default_frame(
+        target=factory,
+        data=bytes(INIT_CODE),
+        execution_gas=code.execution_cost(fork)
+        + INIT_CODE.execution_cost(fork),
+        # The creation fits the budget; only the frame's end removes it.
+        state_gas_limit=account_creation + init_state,
+        outcome=outcome,
+    )
 
     tx = FrameTransaction.build(
-        fork=fork,
-        sender=sender,
-        frames=[
-            verify_frame(),
-            default_frame(
-                target=factory,
-                data=bytes(INIT_CODE),
-                execution_gas=code.execution_cost(fork)
-                + INIT_CODE.execution_cost(fork),
-                # The creation fits the budget; only the frame's end
-                # removes it.
-                state_gas_limit=account_creation + init_state,
-                outcome=outcome,
-            ),
-        ],
+        fork=fork, sender=sender, frames=[verify_frame(), failing]
+    )
+    # The premise: the whole path fits the frame's budget.
+    assert failing.entry_gas(fork) + failing.code_gas(fork) < int(
+        failing.gas_limit
     )
 
     state_test(

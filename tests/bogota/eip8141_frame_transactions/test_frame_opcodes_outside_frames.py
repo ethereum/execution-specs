@@ -3,12 +3,13 @@ Tests that the instructions of
 [EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141)
 halt exceptionally outside a frame transaction.
 
-`APPROVE` (`0xaa`) halts "if the current transaction is not a frame
-transaction" (EIP-8141 l.768), and the introspection instructions
+EIP-8141 §`APPROVE` Behavior: "If the current transaction is not a
+frame transaction, an exceptional halt occurs." §Introspection, on
 `TXPARAM`, `FRAMEDATALOAD`, `FRAMEDATACOPY`, `FRAMEPARAM`, `SIGPARAM`
-and `SIGDATACOPY` (`0xb0`-`0xb5`) "are defined only during the
-execution of a frame transaction. Executing any of them in the context
-of any other transaction type results in an exceptional halt" (l.798).
+and `SIGDATACOPY` (`0xb0`-`0xb5`): "The instructions in this section
+are defined only during the execution of a frame transaction.
+Executing any of them in the context of any other transaction type
+results in an exceptional halt."
 
 The rule keys on the transaction, not on the call depth: the same
 probe contract halts when a regular transaction of any type calls it,
@@ -108,8 +109,9 @@ def test_frame_opcode_halts_outside_frame_transaction(
 ) -> None:
     """
     Halt exceptionally on each frame instruction executed under every
-    transaction type other than the frame transaction (EIP-8141 l.768,
-    l.798).
+    transaction type other than the frame transaction (EIP-8141
+    §`APPROVE` Behavior and §Introspection, quoted in the module
+    docstring).
 
     The transaction calls a caller contract, which calls the probe with
     `PROBE_GAS` and one wei. An exceptional halt consumes all the gas a
@@ -156,7 +158,8 @@ def test_frame_opcode_halts_outside_frame_transaction(
     # `APPROVE` at depth is covered by `test_frame_transactions.py`:
     # nested approvals through `CALL`, `DELEGATECALL` and `STATICCALL`.
     # Called here by a contract other than the frame's target, it would
-    # revert on `ADDRESS != resolved_target` (l.769), not run.
+    # revert (§`APPROVE` Behavior: "If `ADDRESS != resolved_target`,
+    # revert."), not run.
     [p for p in FRAME_OPCODES if p.id != "approve"],
 )
 def test_frame_opcodes_run_at_depth_in_frame_transaction(
@@ -166,9 +169,9 @@ def test_frame_opcodes_run_at_depth_in_frame_transaction(
 ) -> None:
     """
     Run each introspection instruction one call deep inside a frame
-    transaction: the instructions are defined "during the execution of
-    a frame transaction" (EIP-8141 l.798), with no restriction on the
-    call depth.
+    transaction: the instructions "are defined only during the
+    execution of a frame transaction" (EIP-8141 §Introspection), with
+    no restriction on the call depth.
 
     This is the positive control of
     `test_frame_opcode_halts_outside_frame_transaction`: the same probe

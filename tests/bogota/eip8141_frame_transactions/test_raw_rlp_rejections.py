@@ -34,8 +34,18 @@ valid value. Its sender is a contract, so it carries no signature entry
 whose signer a different sender or target could mismatch; its only
 entry is an `ARBITRARY` one, which the protocol does not verify; and the
 value sits on a `SENDER` frame, the only mode allowed to carry value.
-Each lenient reading of a case is therefore a valid transaction, which
-the case expects to be rejected.
+Any 20-byte sender or target passes the static rules, so whatever
+address a lenient decoder reads, the transaction it decodes is valid and
+the case still expects it to be rejected.
+
+Where possible, the lenient reading is the base transaction itself:
+left-padding the 19-byte or 1-byte frame target, dropping the extra
+leading zero byte of a 21-byte sender or frame target, reducing the
+frame value modulo `2**256`, or keeping the last 32 bytes of the 33-byte
+blob versioned hash. Other readings decode a different address: the
+sender is derived from a hash and has no leading zero byte, so
+left-padding `sender_19_bytes` does not restore it, and keeping the
+first 20 bytes of a 21-byte field shifts the address by one byte.
 
 The malformed bytes cannot be built through the `Transaction` model, so
 they are injected through `rlp_override` and filled as transaction
@@ -76,11 +86,12 @@ pytestmark = [
     pytest.mark.inclusion_test,
 ]
 
-FRAME_TARGET = Address(0x8141)
+FRAME_TARGET = Address(0x41)
 """
-Target of the base transaction's second frame. Its leading zero bytes
-make a 19-byte or 21-byte target read back as this address when a
-decoder pads or truncates it on the left.
+Target of the base transaction's second frame. All its bytes but the
+last are zero, so a 1-byte or 19-byte target reads back as this address
+when a decoder pads it on the left, and a 21-byte one when a decoder
+drops its leading byte.
 """
 
 FRAME_VALUE = 1

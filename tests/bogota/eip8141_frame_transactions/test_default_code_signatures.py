@@ -21,10 +21,12 @@ the default code's choice of entry, or the `APPROVE` it calls, decides
 the verdict.
 """
 
+from functools import cached_property
 from typing import Callable, Dict, List, Optional, Tuple
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -48,6 +50,7 @@ from .helpers import (
 )
 from .signature_helpers import (
     DIGEST,
+    P256_SIGNATURE,
     canonical_entry,
     p256_public_key,
     p256_sign,
@@ -70,10 +73,18 @@ class Accounts:
     """The accounts a default code case refers to."""
 
     def __init__(self, pre: Alloc) -> None:
-        """Fund the sender, a payer and an unrelated third account."""
+        """Fund the sender and a payer."""
+        self.pre = pre
         self.sender = pre.fund_eoa()
         self.payer = pre.fund_eoa(amount=PAYER_FUNDS)
-        self.third = pre.fund_eoa()
+        self.funded: List[EOA] = [self.sender, self.payer]
+
+    @cached_property
+    def third(self) -> EOA:
+        """Fund an unrelated third account on first use."""
+        account = self.pre.fund_eoa()
+        self.funded.append(account)
+        return account
 
 
 Case = Callable[[Accounts], Tuple[List[FrameCase], List[FrameSignature]]]
@@ -255,7 +266,7 @@ def test_default_code_entry_selection(
     # sender's nonce is incremented.
     post: Dict[Address, Account] = {
         account: Account(nonce=0, balance_change=0)
-        for account in (accounts.sender, accounts.payer, accounts.third)
+        for account in accounts.funded
     }
     if payer is not None:
         post[accounts.sender] = Account(nonce=1, balance_change=0)
@@ -424,9 +435,6 @@ P256_SENDER = Address(
 )
 """The address `keccak256(qx || qy)[12:]` of `P256_SENDER_KEY`."""
 
-P256_SIGNATURE_LENGTH = 128
-"""Length of a P256 entry's `r || s || qx || qy` signature bytes."""
-
 
 def p256_sender_entry(signature: bytes) -> FrameSignature:
     """
@@ -505,7 +513,7 @@ def test_default_code_rejects_p256_entry(
         )
 
     sig_hash = (
-        with_signature(bytes(P256_SIGNATURE_LENGTH))
+        with_signature(bytes(len(P256_SIGNATURE)))
         .rlp_signing_bytes()
         .keccak256()
     )

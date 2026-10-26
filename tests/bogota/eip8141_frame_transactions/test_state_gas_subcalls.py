@@ -783,6 +783,12 @@ def test_sstore_stipend_check_ignores_state_pool(
     target = pre.deploy_contract(code=code, storage={1: 1})
     entry = fork.frame_entry_gas_calculator()(target_warm=False)
     succeeds = stipend_margin > 0
+    # The premise: the write itself costs no more than the stipend, so
+    # only the stipend check can halt the frame at exactly the stipend.
+    assert (
+        code.execution_cost(fork) - pushes.execution_cost(fork)
+        <= fork.gas_costs().CALL_STIPEND
+    )
 
     tx = FrameTransaction.build(
         fork=fork,

@@ -92,7 +92,9 @@ def test_delegated_sender_runs_delegated_code(
     could not approve for the sender: the transaction is valid only if
     the `VERIFY` frame ran the delegated `APPROVE`. The `SENDER` frame
     supplies calldata, so the same delegated code records instead of
-    approving.
+    approving. Its value goes to `tx.sender`, so it emits no transfer
+    log (§Behavior: "A non-zero value transfer to an address other than
+    `tx.sender` emits the transfer log specified by EIP-7708.").
     """
     delegated_code = Conditional(
         condition=Op.CALLDATASIZE,
@@ -107,15 +109,13 @@ def test_delegated_sender_runs_delegated_code(
         sender=sender,
         signatures=[],
         frames=[
-            verify_frame(delegated=True, pin_gas=False),
-            # The `VERIFY` frame's success leaves the delegate warm.
+            verify_frame(pin_gas=False),
             sender_frame(
                 value=SENDER_FRAME_VALUE,
                 data=Bytes(b"\x01"),
-                delegated=True,
-                delegation_warm=True,
                 pin_gas=False,
                 state_gas_used=RECORD_ENVIRONMENT.state_cost(fork),
+                logs=[],
             ),
         ],
     )
@@ -220,7 +220,10 @@ def test_delegated_sender_never_runs_default_code(
       or halting exceptionally, the transaction is invalid."
 
     The `delegate_approves` case is the control: the same sender and
-    signature entry, with a delegate whose code approves, is valid.
+    signature entry, with a delegate whose code approves, is valid. Its
+    receipt pins the frame's gas: the entry access, which includes the
+    cold delegate's access, plus the delegated `APPROVE`. An invalid
+    transaction reports no receipt, so the other cases pin none.
     """
     delegate = make_delegate(pre)
     sender = pre.fund_eoa(delegation=delegate)
@@ -228,7 +231,11 @@ def test_delegated_sender_never_runs_default_code(
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
-        frames=[verify_frame(delegated=True, pin_gas=False)],
+        frames=[
+            verify_frame(delegated=True, code=APPROVE_ALL)
+            if approves
+            else verify_frame(pin_gas=False)
+        ],
         error=(
             None
             if approves

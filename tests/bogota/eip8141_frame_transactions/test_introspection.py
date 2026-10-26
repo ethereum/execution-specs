@@ -943,6 +943,7 @@ def test_sigparam_reads_every_scheme(
     )
 
 
+# Funding an EOA with a custom nonce mutates the shared pre-alloc.
 @pytest.mark.pre_alloc_mutable
 def test_txparam_nonce_is_the_transaction_nonce(
     state_test: StateTestFiller,

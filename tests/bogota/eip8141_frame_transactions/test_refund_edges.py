@@ -255,8 +255,10 @@ def test_refund_reversed_by_later_frame(
     later frame's contribution.
     """
     sender = pre.fund_eoa()
-    worker_code = Op.SSTORE(SLOT, Op.CALLDATALOAD(0)) + Op.STOP
-    worker = pre.deploy_contract(code=worker_code, storage={SLOT: 1})
+    clear_code = (
+        worker_write(key_warm=False, original=1, current=1, new=0) + Op.STOP
+    )
+    worker = pre.deploy_contract(code=clear_code, storage={SLOT: 1})
     reverts = second_outcome is Outcome.REVERT
     second_write_code = worker_write(
         key_warm=True, original=1, current=0, new=second_write
@@ -301,9 +303,7 @@ def test_refund_reversed_by_later_frame(
             # Frame 2: clear the slot (1 -> 0).
             default_frame(
                 target=worker,
-                code=worker_write(
-                    key_warm=False, original=1, current=1, new=0
-                ),
+                code=clear_code,
                 data=word(0),
                 state_gas_limit=0,
             ),
@@ -357,28 +357,32 @@ def test_failed_frame_discards_clearing_refund(
     The frame clears a slot holding one and then reverts or halts. The
     slot keeps its value and the transaction settles with no refund,
     while a padding frame keeps the cap above the clearing refund, so a
-    client keeping the refund charges less.
+    client keeping the refund charges less. A halting frame's receipt
+    cannot tell a halt at `INVALID` from running out of gas before the
+    clear; the reverting case pins the gas of the whole path, which
+    fits the frame's budget.
     """
     sender = pre.fund_eoa()
     ending = Op.REVERT(0, 0) if outcome is Outcome.REVERT else Op.INVALID
     code = clear(SLOT) + ending
     worker = pre.deploy_contract(code=code, storage={SLOT: 1})
+    failing = default_frame(
+        target=worker,
+        code=code,
+        state_gas_limit=0,
+        outcome=outcome,
+    )
 
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
-        frames=[
-            verify_frame(),
-            sender_padding_frame(pre, sender),
-            default_frame(
-                target=worker,
-                code=code,
-                state_gas_limit=0,
-                outcome=outcome,
-            ),
-        ],
+        frames=[verify_frame(), sender_padding_frame(pre, sender), failing],
     )
-    # The premise: the cap would let the refund apply in full.
+    # The premises: the whole path fits the frame's budget, and the cap
+    # would let the refund apply in full.
+    assert failing.entry_gas(fork) + failing.code_gas(fork) < int(
+        failing.gas_limit
+    )
     assert clearing_refund(fork) <= tx.gas_before_refund // 5
 
     state_test(
@@ -405,16 +409,19 @@ def test_refunds_accumulate_across_frames(
     their sum by two padding frames.
     """
     sender = pre.fund_eoa()
-    worker_code = Op.SSTORE(Op.CALLDATALOAD(0), 0) + Op.STOP
-    worker = pre.deploy_contract(code=worker_code, storage={1: 1, 2: 1})
-    clear_code = Op.SSTORE(
-        Op.CALLDATALOAD(0),
-        0,
-        key_warm=False,
-        original_value=1,
-        current_value=1,
-        new_value=0,
+    # Each frame clears the slot its data names, cold.
+    clear_code = (
+        Op.SSTORE(
+            Op.CALLDATALOAD(0),
+            0,
+            key_warm=False,
+            original_value=1,
+            current_value=1,
+            new_value=0,
+        )
+        + Op.STOP
     )
+    worker = pre.deploy_contract(code=clear_code, storage={1: 1, 2: 1})
     refund = 2 * clearing_refund(fork)
 
     tx = FrameTransaction.build(
@@ -473,8 +480,10 @@ def test_surviving_refill_is_not_capped(
     more.
     """
     sender = pre.fund_eoa()
-    worker_code = Op.SSTORE(SLOT, Op.CALLDATALOAD(0)) + Op.STOP
-    worker = pre.deploy_contract(code=worker_code)
+    create_code = (
+        worker_write(key_warm=False, original=0, current=0, new=1) + Op.STOP
+    )
+    worker = pre.deploy_contract(code=create_code)
     storage_set = storage_set_cost(fork)
     refund = restoring_refund(fork)
 
@@ -488,9 +497,7 @@ def test_surviving_refill_is_not_capped(
             # Frame 2: create the slot (0 -> 1); frame 3 refills it.
             default_frame(
                 target=worker,
-                code=worker_write(
-                    key_warm=False, original=0, current=0, new=1
-                ),
+                code=create_code,
                 data=word(1),
                 state_gas_limit=storage_set,
                 state_gas_used=0,
@@ -498,7 +505,8 @@ def test_surviving_refill_is_not_capped(
             # Frame 3: clear it (1 -> 0), refilling frame 2's receipt.
             default_frame(
                 target=worker,
-                code=worker_write(key_warm=True, original=0, current=1, new=0),
+                code=worker_write(key_warm=True, original=0, current=1, new=0)
+                + Op.STOP,
                 data=word(0),
                 warm=True,
                 state_gas_limit=0,
@@ -636,10 +644,15 @@ def test_cumulative_gas_after_legacy_transaction(
     the header follows EIP-8037, whose `gas_used` is the larger of the
     two block dimensions.
 
-    A type-2 transaction runs first; the frame transaction after it
-    clears four slots and creates one. Its receipt reports the first
-    transaction's gas plus its own post-refund gas, and the header the
-    larger of the block's pre-refund execution and its state gas.
+    A legacy (type-0) transaction runs first; the frame transaction
+    after it clears four slots and creates one, next to two padding
+    frames that make the block's execution the larger dimension, before
+    and after the refund. Its receipt reports the first transaction's
+    gas plus its own post-refund gas, and the header the first
+    transaction's gas plus the frame transaction's pre-refund
+    execution, which excludes its state gas. A client counting the
+    frame transaction's post-refund execution toward the block reports
+    a header lower by the applied refund.
     """
     first_sender = pre.fund_eoa()
     stop = pre.deploy_contract(code=Op.STOP)
@@ -665,6 +678,8 @@ def test_cumulative_gas_after_legacy_transaction(
         refund=len(CLEARED_SLOTS) * clearing_refund(fork),
         frames=[
             verify_frame(),
+            sender_padding_frame(pre, sender),
+            sender_padding_frame(pre, sender),
             default_frame(
                 target=worker,
                 code=code,
@@ -673,20 +688,24 @@ def test_cumulative_gas_after_legacy_transaction(
         ],
     )
     assert second.expected_receipt is not None
-    assert second.effective_refund > 0 and second.state_gas == storage_set
     second.expected_receipt.cumulative_gas_used = HexNumber(
         first_gas + second.payer_gas_used()
     )
-    block_execution = first_gas + second.block_gas_used() - storage_set
+    block_execution = first_gas + (second.gas_before_refund - second.state_gas)
+    # The premises: a refund applies and the slot's state gas is
+    # charged, the floor does not set the block's execution, and the
+    # execution, before and after the refund, exceeds the state gas, so
+    # the header reports it.
+    assert second.effective_refund > 0 and second.state_gas == storage_set
+    assert not second.floor_binds(after_refund=False)
+    assert block_execution - second.effective_refund > storage_set
 
     blockchain_test(
         pre=pre,
         blocks=[
             Block(
                 txs=[first, second],
-                header_verify=Header(
-                    gas_used=max(block_execution, storage_set)
-                ),
+                header_verify=Header(gas_used=block_execution),
             )
         ],
         post={

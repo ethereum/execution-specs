@@ -535,8 +535,19 @@ def test_state_reservation_after_refilled_transaction(
     refill rejects it and the block.
     """
     sender = pre.fund_eoa()
-    worker_code = Op.SSTORE(SLOT_CREATED, Op.CALLDATALOAD(0)) + Op.STOP
-    worker = pre.deploy_contract(code=worker_code)
+    # The worker writes its frame's data word into slot 1.
+    create_code = (
+        Op.SSTORE(
+            1,
+            Op.CALLDATALOAD(0),
+            key_warm=False,
+            original_value=0,
+            current_value=0,
+            new_value=1,
+        )
+        + Op.STOP
+    )
+    worker = pre.deploy_contract(code=create_code)
     storage_set = storage_set_cost(fork)
     first = FrameTransaction.build(
         fork=fork,
@@ -546,7 +557,7 @@ def test_state_reservation_after_refilled_transaction(
             verify_frame(),
             default_frame(
                 target=worker,
-                code=Op.SSTORE(SLOT_CREATED, Op.CALLDATALOAD(0)),
+                code=create_code,
                 data=(1).to_bytes(32, "big"),
                 state_gas_limit=storage_set,
                 state_gas_used=0,
@@ -554,13 +565,14 @@ def test_state_reservation_after_refilled_transaction(
             default_frame(
                 target=worker,
                 code=Op.SSTORE(
-                    SLOT_CREATED,
+                    1,
                     Op.CALLDATALOAD(0),
                     key_warm=True,
                     original_value=0,
                     current_value=1,
                     new_value=0,
-                ),
+                )
+                + Op.STOP,
                 data=(0).to_bytes(32, "big"),
                 warm=True,
                 state_gas_limit=0,
@@ -645,8 +657,9 @@ def test_state_dominant_block_gas_and_base_fee(
     assert block_state_gas > max(block_execution_gas, target)
 
     # A base fee the genesis block states, from which the first block's
-    # follows.
-    genesis_base_fee = 7
+    # follows; large enough that the update moves it by more than the
+    # one wei minimum increase.
+    genesis_base_fee = 1_000
     calculate_base_fee = fork.base_fee_per_gas_calculator()
     first_base_fee = calculate_base_fee(
         parent_base_fee_per_gas=genesis_base_fee,
@@ -658,7 +671,15 @@ def test_state_dominant_block_gas_and_base_fee(
         parent_gas_used=block_state_gas,
         parent_gas_limit=BLOCK_GAS_LIMIT,
     )
-    assert next_base_fee > first_base_fee
+    execution_only_base_fee = calculate_base_fee(
+        parent_base_fee_per_gas=first_base_fee,
+        parent_gas_used=block_execution_gas,
+        parent_gas_limit=BLOCK_GAS_LIMIT,
+    )
+    # The premise: the state gas raises the base fee by more than the
+    # minimum increase, and the execution gas alone would lower it.
+    assert next_base_fee > first_base_fee + 1
+    assert execution_only_base_fee < first_base_fee
 
     blockchain_test(
         pre=pre,

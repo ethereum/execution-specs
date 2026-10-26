@@ -10,10 +10,8 @@ only state gas `SELFDESTRUCT` itself moves is the account creation it
 charges, to the executing frame's pool, when its balance funds a new
 beneficiary.
 
-Bogota on this branch runs `SELFDESTRUCT` under EIP-6780: a contract
-created in the same transaction is deleted, any other keeps its code.
-EIP-4758 (`SELFDESTRUCT` as `SENDALL`, which deletes nothing) is not
-active; the expectations that depend on the deletion check for it.
+Bogota runs `SELFDESTRUCT` under EIP-6780: a contract created in the
+same transaction is deleted, any other keeps its code.
 """
 
 from typing import Dict
@@ -77,27 +75,12 @@ INIT_CODE = Initcode(deploy_code=VICTIM_CODE)
 """Init code deploying `VICTIM_CODE`."""
 
 
-def deletes_created_account(fork: Fork) -> bool:
-    """
-    Check whether `SELFDESTRUCT` deletes an account created in the same
-    transaction: true under EIP-6780, false once EIP-4758 turns it into
-    `SENDALL`.
-    """
-    return fork.is_eip_enabled(6780) and not fork.is_eip_enabled(4758)
-
-
-def created_victim_post(fork: Fork) -> Account | None:
-    """Return the post-state of a victim created in the transaction."""
-    if deletes_created_account(fork):
-        return Account.NONEXISTENT
-    return Account(nonce=1, code=VICTIM_CODE)
-
-
 def creation_state_gas(fork: Fork) -> int:
     """
-    Return the state gas a creation of the victim charges: the account
-    creation (STATE_BYTES_PER_NEW_ACCOUNT * CPSB) plus the code deposit
-    (CPSB per deployed byte).
+    Return the state gas a creation of the victim charges, as the
+    framework's state-gas table prices it: the account creation
+    (STATE_BYTES_PER_NEW_ACCOUNT * CPSB) plus the code deposit (CPSB per
+    deployed byte).
     """
     account_creation = account_creation_cost(fork)
     code_deposit = fork.code_deposit_state_gas(code_size=len(VICTIM_CODE))
@@ -172,7 +155,8 @@ def test_selfdestruct_no_state_gas_refill(
         post[driver] = Account(
             nonce=FACTORY_NONCE + 1, storage={SLOT_POOL: storage_set}
         )
-        post[victim] = created_victim_post(fork)
+        # EIP-6780 deletes an account created in the same transaction.
+        post[victim] = Account.NONEXISTENT
     elif victim_kind == "pre_existing":
         victim = pre.deploy_contract(code=VICTIM_CODE)
         driver_code = (
@@ -286,7 +270,8 @@ def test_selfdestruct_keeps_creator_frame_attribution(
         post={
             sender: Account(nonce=1),
             factory: Account(nonce=FACTORY_NONCE + 1),
-            victim: created_victim_post(fork),
+            # EIP-6780 deletes an account created in the same transaction.
+            victim: Account.NONEXISTENT,
             probe: Account(
                 storage={
                     SLOT_CREATOR_STATE_USED: creation,

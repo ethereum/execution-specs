@@ -11,8 +11,11 @@ of it, so that a client skipping that check alone fails it:
 - what `APPROVE` returns, what it costs, and that it ends its call;
 - when `max_cost` leaves the payer;
 - that only the `VERIFY`-mode default code approves for a codeless
-  account;
-- that an exceptional halt discards an approval as a revert does.
+  account.
+
+That an exceptional halt discards an approval as a revert does is
+pinned by `test_frame_revert_discards_the_approval_it_granted[halts]`
+in `test_frame_transactions.py`.
 
 A refused `APPROVE` reverts only its own call frame (§`APPROVE`
 Behavior: "revert the current call frame"), so most tests reach it
@@ -140,11 +143,13 @@ def test_approve_reached_through_another_contract(
     revert." Nothing else in the behavior refers to the caller.
 
     Nothing is approved before the helper runs, the frame allows both
-    scopes, and the sender can afford `max_cost`, so in
-    `helper_approves_itself` the `ADDRESS` check is the only one that
-    refuses. Had the helper's approval succeeded, the sender's own
-    `APPROVE` would revert the frame, discarding both approvals, and
-    the transaction would have no payer.
+    scopes, and both the sender and the helper can afford `max_cost`,
+    so in `helper_approves_itself` the `ADDRESS` check is the only one
+    that refuses, even for a client that checks the balance of
+    `ADDRESS` rather than of the resolved target. Had the helper's
+    approval succeeded, the sender's own `APPROVE` would revert the
+    frame, discarding both approvals, and the transaction would have no
+    payer.
     """
     helper_code = (
         Op.POP(
@@ -154,7 +159,7 @@ def test_approve_reached_through_another_contract(
         if reentry
         else APPROVE_ALL
     )
-    helper = pre.deploy_contract(code=helper_code)
+    helper = pre.deploy_contract(code=helper_code, balance=FUNDS)
     record = record_call(SLOT_FIRST_CALL, Op.CALL(gas=Op.GAS, address=helper))
     # The frame supplies no calldata; the helper's call back supplies
     # one byte.
@@ -225,9 +230,12 @@ def test_approve_in_library_code(
     library's own.
 
     The frame reverts unless the library call succeeded, and a failed
-    `VERIFY` frame makes the transaction invalid.
+    `VERIFY` frame makes the transaction invalid. The library can
+    afford `max_cost` too, so under `CALL` the `ADDRESS` check is the
+    only one that refuses, even for a client that checks the balance of
+    `ADDRESS` rather than of the resolved target.
     """
-    library = pre.deploy_contract(code=APPROVE_ALL)
+    library = pre.deploy_contract(code=APPROVE_ALL, balance=FUNDS)
     sender_code = Conditional(
         condition=call_opcode(gas=Op.GAS, address=library),
         if_true=Op.STOP,
@@ -321,6 +329,9 @@ def test_split_approval_order(
         nonce=1,
         payer=sender if execution_first else payer,
         frames=frames,
+        # Both cases carry the same entries, so only the approval order
+        # differs; `execution_then_payment` has no sponsor frame and
+        # never reads entry 1.
         signatures=[PLACEHOLDER_ENTRY, canonical_entry(payer)],
     )
 
@@ -714,87 +725,6 @@ def test_default_code_approves_only_in_verify_frame(
         pre=pre,
         tx=tx,
         post={sender: Account(nonce=1 if approves else 0)},
-    )
-
-
-@pytest.mark.parametrize(
-    "frame_ending,approved",
-    [
-        pytest.param(Op.STOP, True, id="frame_returns"),
-        pytest.param(
-            Op.INVALID,
-            False,
-            id="frame_halts",
-            marks=pytest.mark.exception_test,
-        ),
-    ],
-)
-def test_frame_halt_discards_the_approval_it_granted(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    frame_ending: Bytecode,
-    approved: bool,
-) -> None:
-    """
-    A `DEFAULT` frame approves from a self-call that returns, then
-    halts exceptionally at its top level: the approval is discarded
-    with the frame's state changes, so the transaction has no payer.
-
-    EIP-8141 §Cross-frame interactions: "State-gas ownership records,
-    changes to frame receipts' `gas_used.state` fields, and the
-    approval context (`payer`, `sender_approved`) are journaled
-    alongside the state changes that produced them." An exceptional
-    halt discards the frame's state changes — among them the nonce
-    increment and the `max_cost` collection the approval made — so it
-    discards the approval context journaled with them. §Behavior
-    states the same for a `VERIFY` frame: "If the frame fails by
-    reverting or halting exceptionally, the transaction is invalid.
-    This unrolls any effects of `APPROVE`."
-
-    The `frame_returns` case is the control: the same nested approval,
-    with the frame returning, binds the sender as payer.
-    `test_frame_revert_discards_the_approval_it_granted` in
-    `test_frame_transactions.py` covers a frame that reverts.
-    """
-    record = Op.SSTORE(SLOT_FIRST_CALL, 1)
-    outer = record + Op.POP(CALL_SELF) + frame_ending
-    # The frame supplies calldata, the self-call none.
-    sender_code = Conditional(
-        condition=Op.CALLDATASIZE, if_true=outer, if_false=APPROVE_ALL
-    )
-    sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
-
-    tx = FrameTransaction.build(
-        fork=fork,
-        sender=sender,
-        nonce=1,
-        frames=[
-            default_frame(
-                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-                target=sender,
-                gas_limit=FRAME_GAS,
-                data=Bytes(b"\x01"),
-                pin_gas=False,
-                state_gas_used=record.state_cost(fork),
-            ),
-        ],
-        error=(
-            None
-            if approved
-            else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
-        ),
-    )
-
-    state_test(
-        pre=pre,
-        tx=tx,
-        post={
-            sender: Account(
-                nonce=2 if approved else 1,
-                storage={SLOT_FIRST_CALL: 1 if approved else 0},
-            ),
-        },
     )
 
 

@@ -15,6 +15,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Bytecode,
     Bytes,
     Conditional,
     Fork,
@@ -298,29 +299,38 @@ def test_verify_frame_reverts(
 
 
 @pytest.mark.parametrize(
-    "frame_reverts",
+    "frame_ending,approved",
     [
         pytest.param(
-            True,
+            Op.REVERT(0, 0),
+            False,
             id="reverts",
             marks=pytest.mark.exception_test,
         ),
-        pytest.param(False, id="returns"),
+        pytest.param(Op.STOP, True, id="returns"),
+        pytest.param(
+            Op.INVALID,
+            False,
+            id="halts",
+            marks=pytest.mark.exception_test,
+        ),
     ],
 )
 def test_frame_revert_discards_the_approval_it_granted(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    frame_reverts: bool,
+    frame_ending: Bytecode,
+    approved: bool,
 ) -> None:
     """
-    A frame that reverts discards the approval context it granted.
+    A frame that reverts or halts exceptionally discards the approval
+    context it granted.
 
     `APPROVE` exits its own call context, so a frame cannot approve and
     then revert directly. A nested call back into the frame's target can:
     the inner call approves and returns, and the outer frame decides
-    afterwards whether to revert.
+    afterwards whether to revert, halt or return.
 
     The nonce increment and the `max_cost` collection that `APPROVE`
     performed roll back with the frame's state, so `payer` and
@@ -329,20 +339,27 @@ def test_frame_revert_discards_the_approval_it_granted(
     bound, the transaction is valid, and fees settle against an account
     whose escrow was rolled back.
 
-    The `returns` case is the control, and is what makes the `reverts`
-    case meaningful: the same nested `APPROVE`, with the outer invocation
+    EIP-8141 §Cross-frame interactions: "State-gas ownership records,
+    changes to frame receipts' `gas_used.state` fields, and the
+    approval context (`payer`, `sender_approved`) are journaled
+    alongside the state changes that produced them." An exceptional
+    halt discards the frame's state changes as a revert does, so the
+    `halts` case pins the same discard; a client that restores the
+    approval context only on a revert keeps the payer bound there.
+
+    The `returns` case is the control, and is what makes the other
+    cases meaningful: the same nested `APPROVE`, with the outer invocation
     returning instead. It must be accepted with the payer bound, which
     pins that the approval really was granted from the nested call --
-    otherwise the `reverts` case would be rejected for having never
-    approved at all, and would pass against an implementation that keeps
-    the approval.
+    otherwise the `reverts` and `halts` cases would be rejected for
+    having never approved at all, and would pass against an
+    implementation that keeps the approval.
     """
     # The frame's target must be `tx.sender` for the approval scopes, so
     # both invocations run the sender's code. Calldata distinguishes them:
     # the frame supplies some, the self-call supplies none.
     record = Op.SSTORE(SLOT_EXECUTED, 1)
-    outer = record + Op.CALL(gas=Op.GAS, address=Op.ADDRESS)
-    outer += Op.REVERT(0, 0) if frame_reverts else Op.STOP
+    outer = record + Op.CALL(gas=Op.GAS, address=Op.ADDRESS) + frame_ending
     sender_code = Conditional(
         condition=Op.CALLDATASIZE,
         if_true=outer,
@@ -368,9 +385,9 @@ def test_frame_revert_discards_the_approval_it_granted(
         # Discarding the approval leaves the only frame's transaction with
         # no payer, so it is rejected.
         error=(
-            TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
-            if frame_reverts
-            else None
+            None
+            if approved
+            else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         ),
     )
 
@@ -379,7 +396,8 @@ def test_frame_revert_discards_the_approval_it_granted(
         tx=tx,
         post={
             sender: Account(
-                storage={SLOT_EXECUTED: 0 if frame_reverts else 1}
+                nonce=2 if approved else 1,
+                storage={SLOT_EXECUTED: 1 if approved else 0},
             ),
         },
     )

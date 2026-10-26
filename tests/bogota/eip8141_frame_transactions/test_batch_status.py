@@ -327,7 +327,10 @@ def test_frameparam_reads_batch_outcomes(
     in the frame's receipt."
 
     The probe records each value plus one, so a read of zero is told
-    apart from a slot never written.
+    apart from a slot never written. Reading a completed frame's
+    receipt fields is itself pinned by
+    `test_introspection.py::test_frameparam_gas_used`; this test pins
+    the values an unroll, a revert and a skip leave in them.
     """
     sender = pre.fund_eoa()
     worker_code = Op.SSTORE(SLOT_WRITTEN, 1) + Op.STOP

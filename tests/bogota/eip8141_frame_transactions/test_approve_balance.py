@@ -19,8 +19,11 @@ on approval"), not the `max_fee` budget, which the transaction checks
 against the base fees alone (§Fee budget: "The transaction is invalid if
 `tx.fees.max_fee < required_max_fee`. This check depends only on the
 transaction and the including block's base fees and is performed before
-any frame executes."). `APPROVE` reads the balance when it runs, so
-frames before it that move value change the verdict.
+any frame executes."). These tests read "insufficient balance" as the
+balance the target holds when `APPROVE` runs, since the check is part
+of the instruction; the EIP does not say when the balance is read. On
+that reading, frames before the approval that move value change the
+verdict.
 
 Every approval here goes through the default code of an EOA, whose
 `VERIFY` frame reverts when its `APPROVE` is refused, and a reverting
@@ -244,9 +247,12 @@ def test_payment_approval_reads_balance_after_transfer(
     entry is given twice.
 
     EIP-8141 §APPROVE Behavior, `APPROVE_PAYMENT`: "If `resolved_target`
-    has insufficient balance, revert the current call frame." The check
-    is part of the `APPROVE` instruction, so it reads the balance the
-    target holds when `APPROVE` runs, after the earlier frames.
+    has insufficient balance, revert the current call frame." The EIP
+    does not say when the balance is read. This test follows the literal
+    reading: the check is part of the `APPROVE` instruction, so it reads
+    the balance the target holds when `APPROVE` runs, after the earlier
+    frames. A client that checks the balance before the first frame
+    accepts the `below` case and fails this fixture.
     """
     sender = pre.fund_eoa(amount=0)
     recipient = pre.deploy_contract(code=Op.STOP)
@@ -308,39 +314,59 @@ def test_payment_approval_reads_balance_after_top_up(
     or nothing.
 
     EIP-8141 §APPROVE Behavior, `APPROVE_PAYMENT`: "If `resolved_target`
-    has insufficient balance, revert the current call frame." The check
-    is part of the `APPROVE` instruction, so it reads the balance the
-    target holds when `APPROVE` runs, after the earlier frames.
+    has insufficient balance, revert the current call frame." The EIP
+    does not say when the balance is read. This test follows the literal
+    reading: the check is part of the `APPROVE` instruction, so it reads
+    the balance the target holds when `APPROVE` runs, after the earlier
+    frames. A client that checks the balance before the first frame
+    rejects the topped-up case and fails this fixture.
     """
     sender = pre.fund_eoa()
     payer = pre.fund_eoa(amount=0)
-    donor = pre.deploy_contract(
-        code=Op.CALL(address=payer, value=top_up) + Op.STOP,
-        balance=DONOR_FUNDS,
+    donor_code = (
+        Op.CALL(address=payer, value=top_up, value_transfer=top_up > 0)
+        + Op.STOP
     )
+    donor = pre.deploy_contract(code=donor_code, balance=DONOR_FUNDS)
+    # A `CALL` with value adds the stipend to the gas it forwards. The
+    # payer has no code, so all of it comes back to the donor's frame,
+    # which therefore spends the stipend less than the `CALL` charges.
+    stipend = fork.gas_costs().CALL_STIPEND if top_up else 0
     frames = [
         verify_frame(flags=Spec.APPROVE_EXECUTION),
-        default_frame(target=donor),
-        verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
+        default_frame(
+            target=donor,
+            execution_gas=donor_code.execution_cost(fork) - stipend,
+        ),
+        # The donor's `CALL` has already accessed the payer.
+        verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer, warm=True),
     ]
     signatures = sponsored_signatures(sender, payer)
     max_cost = fee_budget(fork, sender, frames, signatures).max_cost
     pre.fund_address(payer, max_cost - 1)
 
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
+        payer=payer,
         frames=frames,
         signatures=signatures,
         error=None if top_up else EXEC_ERROR,
     )
 
+    if top_up:
+        payer_post = Account(
+            nonce=0, balance=max_cost - tx.payer_gas_used() * BASE_FEE
+        )
+    else:
+        payer_post = Account(nonce=0, balance=max_cost - 1)
     state_test(
         env=Environment(base_fee_per_gas=BASE_FEE),
         pre=pre,
         tx=tx,
         post={
-            sender: Account(nonce=1 if top_up else 0),
-            payer: Account(nonce=0),
+            sender: Account(nonce=1 if top_up else 0, balance_change=0),
+            payer: payer_post,
             donor: Account(balance=DONOR_FUNDS - top_up),
         },
     )

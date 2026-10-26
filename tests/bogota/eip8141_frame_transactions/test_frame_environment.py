@@ -190,6 +190,7 @@ def test_callvalue_is_the_frame_value(
         pre=pre,
         tx=tx,
         post={
+            sender: Account(nonce=1),
             recorder: Account(
                 balance=FRAME_VALUE, storage={1: FRAME_VALUE, 2: 0}
             ),

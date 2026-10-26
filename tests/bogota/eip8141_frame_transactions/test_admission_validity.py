@@ -324,6 +324,11 @@ def test_nonce_checked_only_before_frames(
     Behavior: "Increment the sender's nonce, set `payer =
     resolved_target`, and collect the transaction's `max_cost` from
     `payer`."
+
+    The EIP does not state whether `APPROVE` re-reads the nonce or
+    writes `tx.nonce + 1`. This test follows the literal "Increment the
+    sender's nonce", so a client that writes `tx.nonce + 1` at `APPROVE`
+    fails this fixture.
     """
     sender_code = Conditional(
         condition=Op.CALLDATASIZE,

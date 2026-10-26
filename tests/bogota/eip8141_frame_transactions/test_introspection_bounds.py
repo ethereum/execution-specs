@@ -16,6 +16,11 @@ exceptional halt reports status `0` and consumes the frame's whole
 execution budget, which neither a successful read nor a revert does.
 Wide operands such as `0x100` and `2**256-1` catch clients that narrow
 an operand before checking it.
+
+The `*_first_*` cases restate the boundary values that
+`test_introspection.py::test_introspection_halts` and
+`test_frameparam_halts` already cover, under this receipt oracle: their
+marker oracle cannot tell a halt from a revert.
 """
 
 from typing import List
@@ -363,10 +368,12 @@ def test_copy_and_load_operand_ranges(
     - a 32-byte copy from data offset `2**256-1` writes 32 zero bytes
       over a canary, for frame data and signature bytes alike;
     - a copy straddling the end of the data writes the tail and then
-      zeroes;
+      zeroes over a second canary;
     - `FRAMEDATACOPY(memOffset=64, dataOffset=8, length=16, i)` and its
-      `SIGDATACOPY` twin copy `data[8:24]` to memory offset 64, leaving
-      `MSIZE` at 96, which pins the operand order.
+      `SIGDATACOPY` twin copy `data[8:24]` to memory offset 64; the
+      first leaves `MSIZE` at 96 (`memOffset + length = 80` rounded up
+      to a word), read before anything else touches memory, which pins
+      the operand order.
 
     EIP-8141 §`FRAMEDATALOAD`: "The operation semantics match
     CALLDATALOAD". §`FRAMEDATACOPY`: "The operation semantics match
@@ -392,6 +399,7 @@ def test_copy_and_load_operand_ranges(
         + canary
         + Op.SIGDATACOPY(0, MAX_U256, 32, SIG_ARBITRARY)
         + Op.SSTORE(SLOT_SIG_COPY_FAR, Op.ADD(1, Op.MLOAD(0)))
+        + Op.MSTORE(32, ALL_ONES)
         + Op.FRAMEDATACOPY(0, 8, 64, PROBE_FRAME)
         + Op.SSTORE(SLOT_STRADDLE_HEAD, Op.MLOAD(0))
         + Op.SSTORE(SLOT_STRADDLE_TAIL, Op.ADD(1, Op.MLOAD(32)))
@@ -401,8 +409,8 @@ def test_copy_and_load_operand_ranges(
     # their expansion alone.
     ordered_code = (
         Op.FRAMEDATACOPY(64, 8, 16, PROBE_FRAME)
-        + Op.SSTORE(SLOT_ORDERED_COPY, Op.MLOAD(64))
         + Op.SSTORE(SLOT_ORDERED_MSIZE, Op.MSIZE)
+        + Op.SSTORE(SLOT_ORDERED_COPY, Op.MLOAD(64))
         + Op.SIGDATACOPY(64, 8, 16, SIG_ARBITRARY)
         + Op.SSTORE(SLOT_ORDERED_SIG_COPY, Op.MLOAD(64))
         + Op.STOP
@@ -488,7 +496,9 @@ def test_receipt_field_of_later_frame_halts(
     """
     Read a receipt field of a frame that has not run yet, one after the
     reader's own: the read halts. The same read of an earlier frame is
-    the control and succeeds.
+    the control and succeeds; the values it reads are pinned in
+    `test_introspection.py` (`test_frameparam[status_of_earlier_frame]`
+    and `test_frameparam_gas_used`).
 
     EIP-8141 §`FRAMEPARAM`, Notes: "Like `status`, they are defined
     only for frames that have completed; accessing them for the current

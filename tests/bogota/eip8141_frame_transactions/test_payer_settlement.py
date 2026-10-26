@@ -49,7 +49,9 @@ TRANSFER_VALUE = 10**6
 """Value a `SENDER` frame sends."""
 
 
-def sponsored_frames(fork: Fork, payer: Address, last: FrameCase) -> list:
+def sponsored_frames(
+    fork: Fork, payer: Address, last: FrameCase
+) -> List[FrameCase]:
     """
     Return frames where the sender approves execution, `payer` approves
     payment through its default code, and `last` runs; both approving
@@ -164,7 +166,8 @@ def test_value_after_escrow(
 
     The sender holds its `max_cost` plus the value its `SENDER` frame
     sends, or one wei less. With the full amount the transfer succeeds;
-    one wei short, the frame reverts after its target's cold access
+    one wei short, the frame reverts after its target's cold access,
+    reporting that access and not its whole budget as a halt would,
     and the transaction stays valid. A client checking the value
     against the balance before the escrow sends it in both cases.
     """
@@ -173,10 +176,11 @@ def test_value_after_escrow(
     entry = fork.frame_entry_gas_calculator()
     frames = [
         verify_frame(gas_limit=entry(target_warm=True), state_gas_limit=0),
+        # The default budget exceeds the cold access, so a revert and a
+        # halt report different gas.
         sender_frame(
             target=recipient,
             value=TRANSFER_VALUE,
-            gas_limit=entry(target_warm=False),
             state_gas_limit=0,
             outcome=Outcome.REVERT if shortfall else Outcome.SUCCESS,
         ),
