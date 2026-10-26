@@ -374,6 +374,8 @@ However, in cases where it is difficult to determine the total gas usage, or if 
 
 For `fixed-opcode-count` mode, specify which opcode to target using the `target_opcode` parameter. The benchmark will compare the opcode count of `target_opcode` from test execution to the expected count for verification.
 
+Opcode counts are recorded in a fixture's `_info.metadata` only for benchmark tests (tests under `tests/benchmark`, tests using `benchmark_test`, or any test filled with gas benchmark values). Pass `--count-opcodes` to `fill` to record them for every test.
+
 ```python
 def test_jumpdests(
     benchmark_test: BenchmarkTestFiller,

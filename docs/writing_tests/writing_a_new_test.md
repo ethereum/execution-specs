@@ -285,6 +285,20 @@ It can verify the following properties of an account:
   Setting this property to `{}` (empty `dict`), means that all the keys in the
   account must be unset (equal to zero).
 
+- `nonce_change`: the expected nonce relative to the pre-state, e.g.
+  `nonce_change=1` for a sender of one transaction.
+
+- `balance_change`: the expected balance relative to the pre-state. It can be
+  an integer or combine integers with fee terms that are resolved against the
+  block each transaction landed in: `GasFee(tx, gas=...)` for the fee the
+  sender pays, `Tip(tx, gas=...)` for the priority fee the fee recipient earns
+  and `BlobFee(tx, blob_gas=...)` for the blob fee. For example,
+  `balance_change=-value - GasFee(tx, gas=gas_used)`. Take the gas amounts from
+  the framework's calculators, never from execution results.
+
+`balance` and `balance_change` (and `nonce` and `nonce_change`) cannot be set
+on the same account.
+
 All account's properties are optional, and they can be skipped or set to `None`,
 which means that no check will be performed on that specific account property.
 
@@ -295,8 +309,9 @@ A well written test performs a single verification output at a time.
 A verification output can be a single storage slot, the balance of an account,
 or a newly created contract.
 
-It is not recommended to use balance changes to verify test correctness, as it
-can be easily affected by gas cost changes in future EIPs.
+When verifying a balance, prefer `balance_change` with fee terms over an
+absolute balance computed from hard-coded gas prices, so the expectation keeps
+holding when fees or funding change.
 
 The best way to verify a transaction/block execution outcome is to check its
 storage.

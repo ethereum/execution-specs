@@ -24,7 +24,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -337,7 +336,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_address_opcodes(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -347,18 +345,7 @@ def test_address_opcodes(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x0000000000000000000000000000000000001000)
-    contract_1 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # {
@@ -392,7 +379,7 @@ def test_address_opcodes(
     #
     #    (if (= opcode 0) {
     # ... (47 more lines)
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.JUMPI(
             pc=Op.PUSH2[0x11],
             condition=Op.EQ(Op.CALLDATALOAD(offset=0x0), 0x0),
@@ -522,8 +509,6 @@ def test_address_opcodes(
         + Op.JUMPDEST
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: lll
     # {
@@ -536,13 +521,13 @@ def test_address_opcodes(
     #     [[0]] @0x00
     #     [[1]] @0x20
     # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x100, value=Op.CALLDATALOAD(offset=0x4))
         + Op.MSTORE(offset=0x120, value=Op.CALLDATALOAD(offset=0x24))
         + Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=0x1000,
+                address=contract_0,
                 value=0x0,
                 args_offset=0x100,
                 args_size=0x40,
@@ -554,8 +539,6 @@ def test_address_opcodes(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20))
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
     # Per-opcode warm and cold cost deltas versus Cancun, derived from
@@ -1132,4 +1115,4 @@ def test_address_opcodes(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

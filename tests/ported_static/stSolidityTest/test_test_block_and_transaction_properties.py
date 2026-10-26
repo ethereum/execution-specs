@@ -27,7 +27,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_test_block_and_transaction_properties(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -36,18 +35,9 @@ def test_test_block_and_transaction_properties(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x5F5E100)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
-
     # Source: raw
     # 0x60606040526000357c010000000000000000000000000000000000000000000000000000000090048063c040622614610044578063e97384dc1461006957610042565b005b610051600480505061008e565b60405180821515815260200191505060405180910390f35b61007660048050506100c9565b60405180821515815260200191505060405180910390f35b60006100986100c9565b600060006101000a81548160ff02191690830217905550600060009054906101000a900460ff1690506100c6565b90565b6000600190508050732adc25665018aa1fe0e6bc666dac8fc2697ff9ba4173ffffffffffffffffffffffffffffffffffffffff1614151561010d57600090506101f7565b6302b8feb04414151561012357600090506101f7565b677fffffffffffffff4514151561013d57600090506101f7565b60784314151561015057600090506101f7565b6078405042505a5073<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>3373ffffffffffffffffffffffffffffffffffffffff1614151561019457600090506101f7565b6064341415156101a757600090506101f7565b60013a1415156101ba57600090506101f7565b73<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>3273ffffffffffffffffffffffffffffffffffffffff161415156101f657600090506101f7565b5b9056  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(offset=0x40, value=0x60)
         + Op.CALLDATALOAD(offset=0x0)
         + Op.PUSH29[
@@ -142,7 +132,7 @@ def test_test_block_and_transaction_properties(
                             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                             Op.COINBASE,
                         ),
-                        coinbase,
+                        Op.PUSH20[coinbase],
                     )
                 )
             ),
@@ -192,7 +182,7 @@ def test_test_block_and_transaction_properties(
                             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                             Op.CALLER,
                         ),
-                        sender,
+                        Op.PUSH20[sender],
                     )
                 )
             ),
@@ -227,7 +217,7 @@ def test_test_block_and_transaction_properties(
                             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
                             Op.ORIGIN,
                         ),
-                        sender,
+                        Op.PUSH20[sender],
                     )
                 )
             ),
@@ -240,8 +230,9 @@ def test_test_block_and_transaction_properties(
         + Op.SWAP1
         + Op.JUMP,
         balance=0x186A0,
-        nonce=0,
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,

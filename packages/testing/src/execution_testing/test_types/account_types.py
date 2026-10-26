@@ -1,5 +1,7 @@
 """Account-related types for Ethereum tests."""
 
+import copy
+import hashlib
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -8,6 +10,7 @@ from hashlib import sha256
 from types import ModuleType
 from typing import (
     Any,
+    ClassVar,
     Dict,
     ItemsView,
     Iterator,
@@ -15,6 +18,7 @@ from typing import (
     Literal,
     Optional,
     Self,
+    Tuple,
 )
 
 import ethereum.state as spec_state
@@ -23,12 +27,15 @@ from ethereum.crypto.hash import Hash32
 from ethereum.crypto.hash import keccak256 as spec_keccak256
 from ethereum_types.bytes import Bytes, Bytes20
 from ethereum_types.numeric import U256, Bytes32, Uint
-from pydantic import PrivateAttr
+from pydantic import Field, PrivateAttr, model_validator
 from spec256k1 import PrivateKey
 
 from execution_testing.base_types import (
-    Account,
+    Account as BaseAccount,
+)
+from execution_testing.base_types import (
     Address,
+    CamelModel,
     FixedSizeBytes,
     Hash,
     HashInt,
@@ -36,6 +43,7 @@ from execution_testing.base_types import (
     StateCommitment,
     Storage,
     StorageRootType,
+    ZeroPaddedHexNumber,
 )
 from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.base_types.conversions import (
@@ -44,6 +52,8 @@ from execution_testing.base_types.conversions import (
     NumberConvertible,
 )
 
+from .balance_expectations import BalanceExpression, PostStateContext, Tip
+from .incremental_trie import IncrementalStateTrie
 from .utils import keccak256
 
 
@@ -55,7 +65,10 @@ class _Phase(Enum):
     """
 
     CONSTRUCTION = auto()
-    """Free mutations on `self.root` are allowed; no cache exists."""
+    """
+    Free mutations on `self.root` are allowed. Caches derived from it are
+    rebuilt when it changes.
+    """
     LIVE = auto()
     """Cache built; only `apply_diff` may mutate."""
     FROZEN = auto()
@@ -135,18 +148,330 @@ class AllocGroupHash(FixedSizeBytes[8]):  # type: ignore
         )
 
 
+class Account(BaseAccount):
+    """State associated with an address."""
+
+    nonce_change: int = Field(0, exclude=True)
+    """
+    Used to specify a expectation of increment or decrement in the nonce by the
+    post-state assertions.
+    """
+    balance_change: BalanceExpression = Field(
+        default_factory=BalanceExpression, exclude=True
+    )
+    """
+    Used to specify a expectation of increment or decrement in balance by the
+    post-state assertions.
+
+    Accepts an integer, or an expression combining integers with fee terms
+    (`GasFee`, `Tip`, `BlobFee`) that are resolved against the block in
+    which each transaction landed.
+    """
+
+    NONEXISTENT: ClassVar[None] = None
+    """
+    Sentinel object used to specify when an account should not exist in the
+    state.
+    """
+
+    model_config = {
+        **CamelModel.model_config,
+        "frozen": True,
+    }
+
+    @model_validator(mode="after")
+    def _absolute_or_relative(self) -> Self:
+        """Reject expecting both an absolute value and a change."""
+        for absolute, relative in (
+            ("nonce", "nonce_change"),
+            ("balance", "balance_change"),
+        ):
+            if (
+                absolute in self.model_fields_set
+                and relative in self.model_fields_set
+            ):
+                raise ValueError(
+                    f"`{absolute}` and `{relative}` are mutually exclusive"
+                )
+        return self
+
+    @dataclass(kw_only=True)
+    class NonceMismatchError(Exception):
+        """
+        Test expected a certain nonce value for an account but a different
+        value was found.
+        """
+
+        address: Address
+        want: int | None
+        got: int | None
+
+        def __init__(
+            self,
+            address: Address,
+            want: int | None,
+            got: int | None,
+            *args: Any,
+        ) -> None:
+            """
+            Initialize the exception with the address, wanted and got values.
+            """
+            super().__init__(args)
+            self.address = address
+            self.want = want
+            self.got = got
+
+        def __str__(self) -> str:
+            """Print exception string."""
+            label_str = ""
+            if self.address.label is not None:
+                label_str = f" ({self.address.label})"
+            return (
+                f"unexpected nonce for account {self.address}{label_str}: "
+                + f"want {self.want}, got {self.got}"
+            )
+
+    @dataclass(kw_only=True)
+    class BalanceMismatchError(Exception):
+        """
+        Test expected a certain balance for an account but a different value
+        was found.
+        """
+
+        address: Address
+        want: int | None
+        got: int | None
+        expectation: str | None
+
+        def __init__(
+            self,
+            address: Address,
+            want: int | None,
+            got: int | None,
+            *args: Any,
+            expectation: str | None = None,
+        ) -> None:
+            """
+            Initialize the exception with the address, wanted and got values.
+            """
+            super().__init__(args)
+            self.address = address
+            self.want = want
+            self.got = got
+            self.expectation = expectation
+
+        def __str__(self) -> str:
+            """Print exception string."""
+            label_str = ""
+            if self.address.label is not None:
+                label_str = f" ({self.address.label})"
+            expectation_str = ""
+            if self.expectation is not None:
+                expectation_str = f" ({self.expectation})"
+            return (
+                f"unexpected balance for account {self.address}{label_str}: "
+                + f"want {self.want}{expectation_str}, got {self.got}"
+            )
+
+    @dataclass(kw_only=True)
+    class CodeMismatchError(Exception):
+        """
+        Test expected a certain bytecode for an account but a different one was
+        found.
+        """
+
+        address: Address
+        want: bytes | None
+        got: bytes | None
+
+        def __init__(
+            self,
+            address: Address,
+            want: bytes | None,
+            got: bytes | None,
+            *args: Any,
+        ) -> None:
+            """
+            Initialize the exception with the address, wanted and got values.
+            """
+            super().__init__(args)
+            self.address = address
+            self.want = want
+            self.got = got
+
+        def __str__(self) -> str:
+            """Print exception string."""
+            label_str = ""
+            if self.address.label is not None:
+                label_str = f" ({self.address.label})"
+            return (
+                f"unexpected code for account {self.address}{label_str}: "
+                f"want {self.want.hex() if self.want else self.want}, "
+                f"got {self.got.hex() if self.got else self.got}"
+            )
+
+    def check_alloc(
+        self,
+        *,
+        address: Address,
+        pre_account: Self | BaseAccount | None,
+        account: Self | BaseAccount,
+        context: PostStateContext,
+    ) -> None:
+        """
+        Check the returned alloc against an expected account in post state.
+
+        Balance and nonce changes are relative to `pre_account`, which is
+        treated as empty when `None`. Fee terms in `balance_change` are
+        resolved against `context`. Raises exception on failure.
+        """
+        if pre_account is None:
+            pre_account = Account()
+
+        if "nonce" in self.model_fields_set:
+            want_nonce = self.nonce
+            if want_nonce != account.nonce:
+                raise Account.NonceMismatchError(
+                    address=address,
+                    want=want_nonce,
+                    got=account.nonce,
+                )
+
+        if "nonce_change" in self.model_fields_set:
+            want_nonce = ZeroPaddedHexNumber(
+                pre_account.nonce + self.nonce_change
+            )
+            if want_nonce != account.nonce:
+                raise Account.NonceMismatchError(
+                    address=address,
+                    want=want_nonce,
+                    got=account.nonce,
+                )
+
+        if "balance" in self.model_fields_set:
+            want_balance = self.balance
+            if want_balance != account.balance:
+                raise Account.BalanceMismatchError(
+                    address=address,
+                    want=want_balance,
+                    got=account.balance,
+                )
+
+        if "balance_change" in self.model_fields_set:
+            for _, term in self.balance_change.terms:
+                if isinstance(term, Tip):
+                    term.check_recipient(address, context)
+            want_balance = ZeroPaddedHexNumber(
+                pre_account.balance + self.balance_change.resolve(context)
+            )
+            if want_balance != account.balance:
+                raise Account.BalanceMismatchError(
+                    address=address,
+                    want=want_balance,
+                    got=account.balance,
+                    expectation=(
+                        f"pre {pre_account.balance} + ({self.balance_change})"
+                    ),
+                )
+
+        if "code" in self.model_fields_set:
+            if self.code != account.code:
+                raise Account.CodeMismatchError(
+                    address=address,
+                    want=self.code,
+                    got=account.code,
+                )
+
+        if "storage" in self.model_fields_set:
+            self.storage.must_be_equal(address=address, other=account.storage)
+
+    def expects_only_changes(self) -> bool:
+        """
+        Return whether this account only expects changes relative to the
+        pre-state (`balance_change` and/or `nonce_change`).
+        """
+        return bool(self.model_fields_set) and self.model_fields_set <= {
+            "balance_change",
+            "nonce_change",
+        }
+
+    def __bool__(self) -> bool:
+        """Return True on a non-empty account."""
+        return any((self.nonce, self.balance, self.code, self.storage))
+
+    def hash(self) -> Hash:
+        """Return the hash of the account given its properties."""
+        data = self.model_dump(mode="json")
+        blob = json.dumps(
+            data,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return Hash(hashlib.sha256(blob).digest())
+
+    @classmethod
+    def with_code(cls, code: BytesConvertible) -> Self:
+        """Create account with provided `code` and nonce of `1`."""
+        return cls(nonce=1, code=code)
+
+    @classmethod
+    def merge(
+        cls,
+        account_1: Dict | Self | None,
+        account_2: Dict | Self | None,
+    ) -> Self:
+        """Create a merged account from two sources."""
+
+        def to_kwargs_dict(account: Dict | Self | None) -> Dict:
+            if account is None:
+                return {}
+            if isinstance(account, dict):
+                return account
+            elif isinstance(account, cls):
+                return account.model_dump(exclude_unset=True)
+            raise TypeError(
+                f"Unexpected type for account merge: {type(account)}"
+            )
+
+        kwargs = to_kwargs_dict(account_1)
+        kwargs.update(to_kwargs_dict(account_2))
+
+        return cls(**kwargs)
+
+
+def _spec_account(account: Account) -> spec_state.Account:
+    """Return the spec-side counterpart of `account`, without its storage."""
+    code = bytes(account.code) if account.code else b""
+    return spec_state.Account(
+        nonce=Uint(int(account.nonce)),
+        balance=U256(int(account.balance)),
+        code_hash=spec_keccak256(code) if code else spec_state.EMPTY_CODE_HASH,
+    )
+
+
 class Alloc(BaseAlloc):
     """
     Allocation of accounts in the state, pre and post test execution.
 
     Doubles as a `PreState` provider for the spec's state transition: once
     any `PreState` method is called the instance transitions from
-    `CONSTRUCTION` to `LIVE` (a code-hash → bytes cache is built once) and
+    `CONSTRUCTION` to `LIVE` (the code-hash → bytes cache is built) and
     further free mutations via `__setitem__`/`__delitem__` are rejected.
     The only mutation entry point in `LIVE` is `apply_diff`, which patches
-    `self.root` and updates the cache in lockstep. `freeze` locks the
+    `self.root` and updates the caches in lockstep. `freeze` locks the
     allocation for read-only assertion use.
+
+    Accounts are replaced, never mutated in place: `apply_diff` builds new
+    `Account`s and structural copies share account objects. The derived
+    caches (code store and incremental state trie) notice an account that
+    was added, removed or replaced, but not an in-place write such as
+    `alloc[address].storage[key] = value` made after a state root was
+    computed or the allocation was copied.
     """
+
+    root: Dict[Address, Account | None] = Field(  # type: ignore[assignment]
+        default_factory=dict, validate_default=True
+    )
 
     _phase: _Phase = PrivateAttr(default=_Phase.CONSTRUCTION)
     _code_store: Dict[Hash32, Bytes] = PrivateAttr(default_factory=dict)
@@ -156,6 +481,34 @@ class Alloc(BaseAlloc):
 
     Unset by default: it must be seeded from the accompanying fork before any
     state-root computation.
+    """
+    _derived_from: Dict[Address, "Account | None"] | None = PrivateAttr(
+        default=None
+    )
+    """
+    The `root` that `_code_store` and `_state_trie` were derived from.
+
+    Accounts are replaced rather than mutated, so the comparison with `root`
+    is cheap and detects any account added, removed or replaced since.
+    """
+    _state_trie: IncrementalStateTrie | None = PrivateAttr(default=None)
+    """
+    Incremental MPT of `root`, built on first use, advanced by `apply_diff`
+    and shared with structural copies.
+    """
+    _pending_state_trie: (
+        Tuple[spec_state.BlockDiff, IncrementalStateTrie] | None
+    ) = PrivateAttr(default=None)
+    """Trie computed by `compute_state_root`, for `apply_diff` to reuse."""
+    _zero_storage_addresses: List[Address] = PrivateAttr(default_factory=list)
+    """Accounts in `root` holding zero storage values, for `apply_diff`."""
+    _genesis_accounts: Literal["absent", "seeded", "deferred"] = PrivateAttr(
+        default="absent"
+    )
+    """
+    Where the accounts the fork allocates at genesis come from: already in
+    the allocation (`seeded`), added by the spec when it builds the genesis
+    (`deferred`), or nowhere (`absent`).
     """
 
     @dataclass(kw_only=True)
@@ -332,6 +685,31 @@ class Alloc(BaseAlloc):
             return None
         return account
 
+    def update_account(
+        self, address: Address | FixedSizeBytesConvertible, **fields: Any
+    ) -> None:
+        """
+        Replace the given fields of an account already in the allocation,
+        keeping the rest unchanged.
+        """
+        account = self.get(Address(address))
+        if account is None:
+            raise ValueError(f"No account at {Address(address)} to update.")
+        self[address] = account.copy(**fields)
+
+    @property
+    def genesis_accounts(self) -> Literal["absent", "seeded", "deferred"]:
+        """Return where the fork's genesis accounts come from."""
+        return self._genesis_accounts
+
+    def with_genesis_accounts(self) -> Self:
+        """
+        Have the spec add the accounts the fork allocates at genesis beneath
+        this allocation, for one built outside the `pre` fixture.
+        """
+        self._genesis_accounts = "deferred"
+        return self
+
     def empty_accounts(self) -> List[Address]:
         """Return list of addresses of empty accounts."""
         return [
@@ -340,12 +718,25 @@ class Alloc(BaseAlloc):
 
     def state_root(self) -> Hash:
         """Return state root of the allocation."""
-        return Hash(self._state_module().state_root(self._materialize_state()))
+        state_module = self._state_module()
+        if state_module is spec_state_mpt:
+            return Hash(self._incremental_state_trie().root())
+        return Hash(state_module.state_root(self._materialize_state()))
 
-    def verify_post_alloc(self, got_alloc: "Alloc") -> None:
+    def verify_post_alloc(
+        self,
+        *,
+        pre_alloc: Self | BaseAlloc,
+        got_alloc: Self | BaseAlloc,
+        context: PostStateContext,
+    ) -> None:
         """
         Verify that the allocation matches the expected post in the test.
-        Raises exception on unexpected values.
+
+        `pre_alloc` is the state before any transaction executed, and
+        `context` records where each transaction landed; both are used to
+        resolve balance and nonce changes. Raises exception on unexpected
+        values.
         """
         assert isinstance(got_alloc, Alloc), (
             f"got_alloc is not an Alloc: {got_alloc}"
@@ -359,13 +750,23 @@ class Alloc(BaseAlloc):
                         address=address, account=got_account
                     )
             else:
+                assert isinstance(account, Account)
+                pre_account = pre_alloc.get(address=address)
                 if address in got_alloc.root:
                     got_account = got_alloc.root[address]
                     assert isinstance(got_account, Account)
-                    assert isinstance(account, Account)
-                    account.check_alloc(address, got_account)
+                elif account.expects_only_changes() and pre_account is None:
+                    # An account that was empty before and is absent after
+                    # is still empty, which is what a zero change expects.
+                    got_account = Account()
                 else:
                     raise Alloc.MissingAccountError(address=address)
+                account.check_alloc(
+                    address=address,
+                    pre_account=pre_account,
+                    account=got_account,
+                    context=context,
+                )
 
     def get_alloc_grouping_hash(self) -> AllocGroupHash | None:
         """
@@ -394,13 +795,14 @@ class Alloc(BaseAlloc):
 
         """
         diff: Dict[Address, Account | None] = {}
+        base_root = base_alloc.root
 
-        # Find all addresses that exist in either state
-        all_addresses = set(self.root.keys()) | set(base_alloc.root.keys())
+        for address, post_account in self.root.items():
+            genesis_account = base_root.get(address)
 
-        for address in all_addresses:
-            genesis_account = base_alloc.root.get(address)
-            post_account = self.root.get(address)
+            # Account shared with the base, as after `structural_copy`
+            if genesis_account is post_account:
+                continue
 
             # Account was deleted (exists in genesis but not in post)
             if genesis_account is not None and post_account is None:
@@ -415,6 +817,11 @@ class Alloc(BaseAlloc):
                 diff[address] = post_account
 
             # Account unchanged - don't include in diff
+
+        # Account was deleted (exists in genesis only)
+        for address, genesis_account in base_root.items():
+            if genesis_account is not None and address not in self.root:
+                diff[address] = None
 
         return Alloc(diff)
 
@@ -432,15 +839,82 @@ class Alloc(BaseAlloc):
             )
 
     def _build_cache(self) -> None:
-        """Populate the code-hash → bytes cache from `self.root`."""
+        """
+        Derive the code-hash → bytes cache and the zero-storage list from
+        `self.root` and drop the state trie, unless they were already
+        derived from the same accounts.
+        """
+        if self._derived_from is not None and self._derived_from == self.root:
+            return
         self._code_store = {spec_state.EMPTY_CODE_HASH: Bytes(b"")}
-        for account in self.root.values():
+        self._zero_storage_addresses = []
+        for address, account in self.root.items():
             if account is None:
                 continue
+            if any(int(value) == 0 for value in account.storage.root.values()):
+                self._zero_storage_addresses.append(address)
             code = bytes(account.code) if account.code else b""
             if not code:
                 continue
             self._code_store[spec_keccak256(code)] = Bytes(code)
+        self._state_trie = None
+        self._pending_state_trie = None
+        self._derived_from = dict(self.root)
+
+    def _incremental_state_trie(self) -> IncrementalStateTrie:
+        """Return the incremental MPT of `self.root`, building it if needed."""
+        self._build_cache()
+        if self._state_trie is None:
+            trie = IncrementalStateTrie.build(
+                (
+                    bytes(address),
+                    _spec_account(account),
+                    {
+                        int(key).to_bytes(32, "big"): int(value)
+                        for key, value in account.storage.root.items()
+                    },
+                )
+                for address, account in self.root.items()
+                if account is not None
+            )
+            # Encode every node now, so that copies sharing the trie only
+            # re-encode the paths their blocks touch.
+            trie.root()
+            self._state_trie = trie
+        return self._state_trie
+
+    def structural_copy(self) -> Self:
+        """
+        Return a copy to execute blocks against, cheaper than a deep copy.
+
+        The copy shares account objects and the state trie with `self`.
+        `apply_diff` replaces accounts instead of mutating them and the trie
+        is immutable, so separate account maps, code stores and private
+        attributes are enough to keep the two apart.
+        """
+        if self._state_commitment in (None, StateCommitment.MPT):
+            # Callers like `T8N` seed the commitment on the copy only, so
+            # share a trie unless `self` is committed to another scheme.
+            self._incremental_state_trie()
+        else:
+            self._build_cache()
+        copied = self.model_copy(update={"root": dict(self.root)})
+        # `RootModel.__copy__` leaves the copy sharing the private attribute
+        # dict of `self`, so give it its own: shallow copies, except for the
+        # derived state, which is shared or reset. TODO: rely on
+        # `model_copy` once pydantic/pydantic#13989 is released.
+        derived = {
+            "_derived_from": self._derived_from,
+            "_state_trie": self._state_trie,
+            "_pending_state_trie": None,
+        }
+        own_private: Dict[str, Any] = self.__pydantic_private__ or {}
+        private = {
+            name: derived[name] if name in derived else copy.copy(value)
+            for name, value in own_private.items()
+        }
+        object.__setattr__(copied, "__pydantic_private__", private)
+        return copied
 
     def _ensure_live(self) -> None:
         """Transition from `CONSTRUCTION` to `LIVE`, building the cache."""
@@ -466,9 +940,8 @@ class Alloc(BaseAlloc):
         Build a spec-side `PreState` mirror of `self.root` using the
         implementation module for this allocation's commitment scheme.
 
-        Used as the trie-backed delegate for `compute_state_root` (a
-        cold, once-per-block call). The materialized state is not
-        retained.
+        Used for state roots under commitments that have no incremental
+        trie. The materialized state is not retained.
         """
         mod = self._state_module()
         state: spec_state.PreState = mod.State()
@@ -514,15 +987,7 @@ class Alloc(BaseAlloc):
         account = self.root.get(Address(address))
         if account is None:
             return None
-        code = bytes(account.code) if account.code else b""
-        code_hash = (
-            spec_keccak256(code) if code else spec_state.EMPTY_CODE_HASH
-        )
-        return spec_state.Account(
-            nonce=Uint(int(account.nonce)),
-            balance=U256(int(account.balance)),
-            code_hash=code_hash,
-        )
+        return _spec_account(account)
 
     def get_storage(self, address: Bytes20, key: Bytes32) -> U256:
         """
@@ -557,12 +1022,13 @@ class Alloc(BaseAlloc):
         pre-state.
 
         Conforms to `ethereum.state.PreState.compute_state_root`.
-        Builds the trie inline; `Alloc` does not cache `Trie`
-        instances.
         """
         self._ensure_live()
-        state = self._materialize_state()
-        return state.compute_state_root(block_diff)
+        if self._state_module() is not spec_state_mpt:
+            return self._materialize_state().compute_state_root(block_diff)
+        trie = self._incremental_state_trie().with_diff(block_diff)
+        self._pending_state_trie = (block_diff, trie)
+        return trie.root()
 
     # ------------------------------------------------------------------
     # Lifecycle: apply_diff and freeze
@@ -574,7 +1040,8 @@ class Alloc(BaseAlloc):
 
         The only mutation entry point in the `LIVE` phase. Writes bypass
         `__setitem__` intentionally — `_code_store` is updated additively
-        in lockstep with `self.root`.
+        in lockstep with `self.root`, and the state trie is advanced with
+        them.
         """
         if self._phase is _Phase.FROZEN:
             raise RuntimeError("apply_diff not allowed: Alloc is FROZEN")
@@ -586,15 +1053,27 @@ class Alloc(BaseAlloc):
                 "BlockState) before calling apply_diff."
             )
 
+        # Rebuild the caches if `root` was changed outside `apply_diff`.
+        self._build_cache()
+        state_trie = None
+        if self._state_trie is not None:
+            pending = self._pending_state_trie
+            if pending is not None and pending[0] == diff:
+                state_trie = pending[1]
+            else:
+                state_trie = self._state_trie.with_diff(diff)
+
         for code_hash, code in diff.code_changes.items():
             self._code_store[Hash32(code_hash)] = Bytes(code)
 
+        # `model_copy` skips the validator that freezes an `Account`'s
+        # storage, so each storage swapped in below is frozen explicitly.
         for address in diff.storage_clears:
             addr = Address(address)
             current = self.root.get(addr)
             if current is not None and current.storage.root:
                 self.root[addr] = current.model_copy(
-                    update={"storage": Storage(root={})}
+                    update={"storage": Storage(root={}).freeze()}
                 )
 
         for address, spec_account in diff.account_changes.items():
@@ -632,16 +1111,18 @@ class Alloc(BaseAlloc):
                 else:
                     merged[key_int] = HashInt(value_int)
             self.root[addr] = account.model_copy(
-                update={"storage": Storage(root=merged)}
+                update={"storage": Storage(root=merged).freeze()}
             )
 
-        # Drop zero-valued storage entries from every account. Ethereum
-        # treats an absent slot as zero, so a literal ``{0x00: 0x00}``
-        # pair carried over untouched from the pre-state JSON would
-        # otherwise survive into the post-state dump and produce noise
-        # the spec-state-backed pipeline never had (the spec's
-        # ``set_storage`` drops zeros on insert).
-        for addr, account in list(self.root.items()):
+        # Drop zero-valued storage entries carried over from the
+        # pre-state. Ethereum treats an absent slot as zero, so a literal
+        # `{0x00: 0x00}` pair from the pre-state JSON would otherwise
+        # survive into the post-state dump and produce noise the
+        # spec-state-backed pipeline never had (the spec's `set_storage`
+        # drops zeros on insert). The diff never adds zeros, so only
+        # accounts that held them before can hold them now.
+        for addr in self._zero_storage_addresses:
+            account = self.root.get(addr)
             if account is None or not account.storage.root:
                 continue
             cleaned = {
@@ -651,8 +1132,13 @@ class Alloc(BaseAlloc):
             }
             if len(cleaned) != len(account.storage.root):
                 self.root[addr] = account.model_copy(
-                    update={"storage": Storage(root=cleaned)}
+                    update={"storage": Storage(root=cleaned).freeze()}
                 )
+
+        self._derived_from = dict(self.root)
+        self._state_trie = state_trie
+        self._pending_state_trie = None
+        self._zero_storage_addresses = []
 
     def freeze(self) -> None:
         """Lock the allocation: no further mutations allowed."""

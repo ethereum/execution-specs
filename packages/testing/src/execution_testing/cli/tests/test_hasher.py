@@ -8,13 +8,13 @@ from typing import Generator, List
 import pytest
 from click.testing import CliRunner
 
-from execution_testing.base_types import Account, Address, Hash
+from execution_testing.base_types import Address, Hash
 from execution_testing.cli.gen_index import merge_partial_indexes
 from execution_testing.cli.hasher import HashableItem, hasher
 from execution_testing.fixtures.consume import IndexFile, TestCaseIndexFile
 from execution_testing.fixtures.pre_alloc_groups import PreAllocGroupBuilder
 from execution_testing.forks import Fork, Prague
-from execution_testing.test_types import Alloc, Environment
+from execution_testing.test_types import Account, Alloc, Environment
 
 HASH_1 = 0x1111111111111111111111111111111111111111111111111111111111111111
 HASH_2 = 0x2222222222222222222222222222222222222222222222222222222222222222

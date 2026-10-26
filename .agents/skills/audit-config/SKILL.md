@@ -39,10 +39,10 @@ Spot-check code patterns mentioned in skills against actual code:
 - Does the `Ops` enum exist in `vm/instructions/__init__.py`?
 - Does `FORK_CRITERIA` or equivalent exist in the latest fork's `__init__.py`?
 
-### 4. Verify Fork List
+### 4. Verify Default Branch
 
-Check that the fork order and default branch mentioned in `AGENTS.md` match
-reality by inspecting `src/ethereum/forks/` and git branch configuration.
+Check that the default branch named in `AGENTS.md` matches reality by
+inspecting `src/ethereum/forks/` and git branch configuration.
 
 ### 5. Verify Docs References
 

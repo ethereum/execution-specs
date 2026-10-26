@@ -24,7 +24,7 @@ Each fork lives at `src/ethereum/forks/<fork_name>/`. Explore the latest fork di
 ## Import Isolation (enforced by `ethereum-spec-lint`)
 
 - **Within same fork**: relative imports (`from . import vm`, `from .state import ...`)
-- **Previous fork only**: absolute imports (`from ethereum.cancun import ...`)
+- **Previous fork only**: absolute imports (`from ethereum.forks.<previous_fork>.blocks import ...`)
 - **Shared modules**: always OK (`ethereum.crypto`, `ethereum.utils`, `ethereum.exceptions`)
 - **Future forks**: NEVER allowed
 - **Ancient forks (2+ back)**: NEVER allowed
@@ -59,7 +59,7 @@ Recent forks meter two gas dimensions: execution gas and state gas (for durable 
 ## Adding a New Transaction Type
 
 1. Define `@slotted_freezable @dataclass` class in `transactions.py`
-2. Add to `Transaction` union type at bottom of file
+2. Add to the `Transaction` union type
 3. Handle in `fork.py` validation/processing logic
 4. Add exception type in `exceptions.py` if needed
 
@@ -77,3 +77,6 @@ uv run ethereum-spec-new-fork --new-fork=<name> --template-fork=<template>
 
 - Feature branches: `eips/<fork_name>/eip-<number>`
 - PR targets: `forks/<fork_name>`
+- A feature branch leaves the fork's module docstring unchanged, so that
+  devnet branches can merge any set of feature branches; the EIP's line
+  under `### Changes` is added when it lands on `forks/<fork_name>`.

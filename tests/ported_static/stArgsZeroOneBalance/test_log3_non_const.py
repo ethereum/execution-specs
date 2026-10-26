@@ -8,10 +8,8 @@ state_tests/stArgsZeroOneBalance/log3NonConstFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -47,7 +45,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_log3_non_const(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -57,39 +54,19 @@ def test_log3_non_const(
     v: int,
 ) -> None:
     """Test_log3_non_const."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
 
     # Source: lll
     # { (LOG3 (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>)) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.LOG3(
-            offset=Op.BALANCE(
-                address=0x2724F6CB897BBC3E063A03633D2CE4E83DA8678
-            ),
-            size=Op.BALANCE(address=0x2724F6CB897BBC3E063A03633D2CE4E83DA8678),
-            topic_1=Op.BALANCE(
-                address=0x2724F6CB897BBC3E063A03633D2CE4E83DA8678
-            ),
-            topic_2=Op.BALANCE(
-                address=0x2724F6CB897BBC3E063A03633D2CE4E83DA8678
-            ),
-            topic_3=Op.BALANCE(
-                address=0x2724F6CB897BBC3E063A03633D2CE4E83DA8678
-            ),
+            offset=Op.BALANCE(address=Op.ADDRESS),
+            size=Op.BALANCE(address=Op.ADDRESS),
+            topic_1=Op.BALANCE(address=Op.ADDRESS),
+            topic_2=Op.BALANCE(address=Op.ADDRESS),
+            topic_3=Op.BALANCE(address=Op.ADDRESS),
         )
         + Op.STOP,
-        nonce=0,
-        address=Address(0x02724F6CB897BBC3E063A03633D2CE4E83DA8678),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -122,4 +99,4 @@ def test_log3_non_const(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

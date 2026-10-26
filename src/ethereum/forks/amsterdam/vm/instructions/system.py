@@ -212,6 +212,7 @@ def create(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
     init_code_gas = init_code_cost(Uint(memory_size))
+
     charge_gas(
         evm,
         GasCosts.CREATE_ACCESS + extend_memory.cost + init_code_gas,
@@ -560,7 +561,6 @@ def call(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-
     sender_balance = get_account(tx_state, evm.current_target).balance
 
     generic_call(
@@ -675,7 +675,6 @@ def callcode(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-
     sender_balance = get_account(tx_state, evm.current_target).balance
 
     generic_call(
@@ -856,7 +855,6 @@ def delegatecall(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-
     generic_call(
         evm,
         GenericCall(
@@ -959,7 +957,6 @@ def staticcall(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-
     generic_call(
         evm,
         GenericCall(

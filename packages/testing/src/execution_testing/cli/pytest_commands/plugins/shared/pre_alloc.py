@@ -6,7 +6,6 @@ from typing import Any, Dict, Literal, Set
 from pydantic import PrivateAttr
 
 from execution_testing.base_types import (
-    Account,
     Address,
     Hash,
     Number,
@@ -19,7 +18,7 @@ from execution_testing.base_types.conversions import (
     NumberConvertible,
 )
 from execution_testing.forks import Fork, TransitionFork
-from execution_testing.test_types import EOA
+from execution_testing.test_types import EOA, Account
 from execution_testing.test_types import Alloc as BaseAlloc
 
 

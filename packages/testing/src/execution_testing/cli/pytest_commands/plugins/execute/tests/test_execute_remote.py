@@ -6,6 +6,8 @@ pytest-execute.ini plugin stack, pointing at a real execution client
 spawned via hive.
 
 Requires HIVE_SIMULATOR to be set (e.g. start hive in --dev mode).
+Set E2E_HIVE_CLIENT to pick a client by name when hive runs more
+than one; the first client is used otherwise.
 """
 
 import contextlib
@@ -27,7 +29,6 @@ from hive.simulation import Simulation
 from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
 
 from execution_testing.base_types import (
-    Account,
     Address,
     EmptyOmmersRoot,
     EmptyTrieRoot,
@@ -45,6 +46,7 @@ from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
     DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
+    Account,
     Alloc,
     ChainConfig,
     Environment,
@@ -182,7 +184,17 @@ def hive_client_ip(
         else:
             url = os.environ["HIVE_SIMULATOR"]
             simulator = Simulation(url=url)
-            client_type = simulator.client_types()[0]
+            client_types = simulator.client_types()
+            client_name = os.environ.get("E2E_HIVE_CLIENT")
+            if client_name is None:
+                client_type = client_types[0]
+            else:
+                matching = [c for c in client_types if c.name == client_name]
+                assert matching, (
+                    f"client '{client_name}' not running in hive; "
+                    f"available: {[c.name for c in client_types]}"
+                )
+                client_type = matching[0]
             client_genesis = _build_client_genesis(seed_keys)
 
             assert TEST_FORK in ruleset, (
@@ -387,6 +399,21 @@ def fork_name() -> str:
     return str(TEST_FORK)
 
 
+IMPORTS = [
+    "Account",
+    "Address",
+    "Storage",
+    "Transaction",
+    "Op",
+    "GasFee",
+    "TransactionReceipt",
+    "TransactionLog",
+    "Block",
+    "TransactionException",
+    "Hash",
+]
+
+
 @dataclass(kw_only=True)
 class ExecuteRunner:
     """Formatted runner of a test."""
@@ -417,7 +444,7 @@ class ExecuteRunner:
         test_file = tests_dir.join("test_module.py")
         test_module = (
             "from execution_testing import "
-            + "Account, Address, Storage, Transaction, Op\n"
+            + f"{','.join(IMPORTS)}\n"
             + textwrap.dedent(test_method)
         )
         test_file.write(textwrap.dedent(test_module))
@@ -563,6 +590,24 @@ def test_simple_state_test(execute_runner: ExecuteRunner) -> None:
                     sender=sender,
                     to=None,
                     gas_limit=100_000,
+                ),
+            )
+    """.format()
+
+    execute_runner.run_assert(test_method=test_method)
+
+
+def test_no_gas_limit(execute_runner: ExecuteRunner) -> None:
+    """Execute a state test where the transaction specifies no gas limit."""
+    test_method = """\
+        def test_no_gas_limit(state_test, pre) -> None:
+            sender = pre.fund_eoa()
+            state_test(
+                pre=pre,
+                post={{}},
+                tx=Transaction(
+                    sender=sender,
+                    to=None,
                 ),
             )
     """.format()
@@ -865,3 +910,268 @@ def test_fail_pre_mutation(execute_runner: ExecuteRunner) -> None:
     """.format()
 
     execute_runner.run_assert(test_method=test_method, failed=1)
+
+
+def test_nonce_change(execute_runner: ExecuteRunner) -> None:
+    """
+    Execute a test that verifies the `nonce_change` property of an account
+    in the `post`.
+    """
+    test_method = """\
+        def test_nonce_change(state_test, pre) -> None:
+            sender = pre.fund_eoa()
+            state_test(
+                pre=pre,
+                post={{
+                    sender: Account(nonce_change=1)
+                }},
+                tx=Transaction(
+                    sender=sender,
+                    to=None,
+                    gas_limit=100_000,
+                ),
+            )
+    """.format()
+
+    execute_runner.run_assert(test_method=test_method)
+
+
+def test_balance_change(execute_runner: ExecuteRunner) -> None:
+    """
+    Execute a test that verifies the `balance_change` property of multiple
+    accounts in the `post`.
+    """
+    test_method = """\
+        def test_balance_change(state_test, fork, pre, env) -> None:
+            sender = pre.fund_eoa()
+            recipient = pre.fund_eoa(amount=1)  # So we don't start at zero
+            intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
+            sent_value = 1
+            tx = Transaction(
+                sender=sender,
+                value=sent_value,
+                to=recipient,
+            )
+            state_test(
+                pre=pre,
+                post={{
+                    sender: Account(
+                        balance_change=-sent_value - GasFee(
+                            tx,
+                            gas=intrinsic_gas_cost,
+                        )
+                    ),
+                    recipient: Account(balance_change=sent_value)
+                }},
+                tx=tx,
+            )
+    """.format()
+
+    execute_runner.run_assert(test_method=test_method)
+
+
+@pytest.mark.parametrize(
+    "expected_receipt,receipt_matches",
+    [
+        pytest.param(
+            "TransactionReceipt(\n"
+            "    status=1,\n"
+            "    logs=[\n"
+            "        TransactionLog(\n"
+            "            address=contract,\n"
+            "            topics=[Hash(0xAA)],\n"
+            "            data=Hash(0x42),\n"
+            "        )\n"
+            "    ],\n"
+            ")",
+            True,
+            id="match",
+        ),
+        pytest.param(
+            "TransactionReceipt(status=0)",
+            False,
+            id="wrong_status",
+        ),
+        pytest.param(
+            "TransactionReceipt(logs=[TransactionLog(data=Hash(0x43))])",
+            False,
+            id="wrong_log_data",
+        ),
+        pytest.param(
+            "TransactionReceipt(logs=[])",
+            False,
+            id="wrong_log_count",
+        ),
+    ],
+)
+def test_expected_receipt(
+    execute_runner: ExecuteRunner,
+    expected_receipt: str,
+    receipt_matches: bool,
+) -> None:
+    """
+    Execute a state test that verifies the receipt of its transaction.
+    """
+    expected_receipt = textwrap.indent(expected_receipt, " " * 20).lstrip()
+    test_method = f"""\
+        def test_expected_receipt(state_test, pre) -> None:
+            contract = pre.deploy_contract(
+                Op.MSTORE(0, 0x42) + Op.LOG1(0, 32, 0xAA) + Op.STOP
+            )
+            sender = pre.fund_eoa()
+            state_test(
+                pre=pre,
+                post={{}},
+                tx=Transaction(
+                    sender=sender,
+                    to=contract,
+                    gas_limit=100_000,
+                    expected_receipt={expected_receipt},
+                ),
+            )
+    """
+
+    if receipt_matches:
+        execute_runner.run_assert(test_method=test_method)
+    else:
+        execute_runner.run_assert(test_method=test_method, failed=1)
+
+
+@pytest.mark.parametrize(
+    "second_cumulative_gas_used,receipt_matches",
+    [
+        pytest.param(42_000, True, id="match"),
+        pytest.param(21_000, False, id="mismatch"),
+    ],
+)
+def test_expected_receipt_cumulative_gas_used(
+    execute_runner: ExecuteRunner,
+    second_cumulative_gas_used: int,
+    receipt_matches: bool,
+) -> None:
+    """
+    Execute a blockchain test that verifies the cumulative gas used of
+    its receipts, which restarts at every block.
+    """
+    test_method = f"""\
+        def test_cumulative_gas_used(blockchain_test, pre) -> None:
+            sender = pre.fund_eoa()
+            recipient = pre.fund_eoa(amount=0)
+            blockchain_test(
+                pre=pre,
+                post={{}},
+                blocks=[
+                    Block(
+                        txs=[
+                            Transaction(
+                                sender=sender,
+                                to=recipient,
+                                value=1,
+                                gas_limit=21_000,
+                                expected_receipt=TransactionReceipt(
+                                    status=1,
+                                    gas_used=21_000,
+                                    cumulative_gas_used=21_000,
+                                ),
+                            ),
+                            Transaction(
+                                sender=sender,
+                                to=recipient,
+                                value=1,
+                                gas_limit=21_000,
+                                expected_receipt=TransactionReceipt(
+                                    gas_used=21_000,
+                                    cumulative_gas_used=(
+                                        {second_cumulative_gas_used}
+                                    ),
+                                ),
+                            ),
+                        ]
+                    ),
+                    Block(
+                        txs=[
+                            Transaction(
+                                sender=sender,
+                                to=recipient,
+                                value=1,
+                                gas_limit=21_000,
+                                expected_receipt=TransactionReceipt(
+                                    cumulative_gas_used=21_000,
+                                ),
+                            ),
+                        ]
+                    ),
+                ],
+            )
+    """
+
+    if receipt_matches:
+        execute_runner.run_assert(test_method=test_method)
+    else:
+        execute_runner.run_assert(test_method=test_method, failed=1)
+
+
+def test_expected_receipt_rejected_transaction(
+    execute_runner: ExecuteRunner,
+) -> None:
+    """
+    Execute a blockchain test whose rejected transaction does not count
+    toward the cumulative gas used of the receipts that follow it.
+    """
+    test_method = """\
+        def test_rejected_transaction(blockchain_test, pre) -> None:
+            sender = pre.fund_eoa()
+            recipient = pre.fund_eoa(amount=0)
+            blockchain_test(
+                pre=pre,
+                post={},
+                blocks=[
+                    Block(
+                        txs=[
+                            Transaction(
+                                sender=sender,
+                                to=recipient,
+                                value=1,
+                                gas_limit=21_000,
+                                expected_receipt=TransactionReceipt(
+                                    cumulative_gas_used=21_000,
+                                ),
+                            ),
+                            Transaction(
+                                sender=pre.fund_eoa(),
+                                to=recipient,
+                                value=1,
+                                gas_limit=20_000,
+                                error=(
+                                    TransactionException.INTRINSIC_GAS_TOO_LOW
+                                ),
+                            ),
+                            Transaction(
+                                sender=sender,
+                                to=recipient,
+                                value=1,
+                                gas_limit=21_000,
+                                expected_receipt=TransactionReceipt(
+                                    cumulative_gas_used=42_000,
+                                ),
+                            ),
+                        ]
+                    ),
+                    Block(
+                        txs=[
+                            Transaction(
+                                sender=sender,
+                                to=recipient,
+                                value=1,
+                                gas_limit=21_000,
+                                expected_receipt=TransactionReceipt(
+                                    cumulative_gas_used=21_000,
+                                ),
+                            ),
+                        ]
+                    ),
+                ],
+            )
+    """
+
+    execute_runner.run_assert(test_method=test_method)

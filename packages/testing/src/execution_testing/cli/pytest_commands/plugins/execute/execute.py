@@ -2,6 +2,7 @@
 Test execution plugin for pytest, to run Ethereum tests on live networks.
 """
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Type
@@ -9,17 +10,20 @@ from typing import Any, Dict, Generator, List, Type
 import pytest
 from pytest_metadata.plugin import metadata_key
 
-from execution_testing.base_types import Account
-from execution_testing.base_types.base_types import HexNumber
+from execution_testing.base_types import HexNumber
 from execution_testing.execution import BaseExecute, LabeledExecuteFormat
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.specs import BaseTest
-from execution_testing.test_types import Alloc as BaseAlloc
 from execution_testing.test_types import (
+    Account,
     Environment,
     EnvironmentDefaults,
+)
+from execution_testing.test_types import Alloc as BaseAlloc
+from execution_testing.tools.utility.versioning import (
+    get_current_commit_hash_or_tag,
 )
 
 from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
@@ -27,6 +31,7 @@ from ..shared.helpers import (
     get_spec_format_for_item,
     is_help_or_collectonly_mode,
     option_was_explicitly_set,
+    strip_any_xdist_group_suffix,
 )
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 from .pre_alloc import Alloc
@@ -110,6 +115,19 @@ def pytest_configure(config: pytest.Config) -> None:
     # Configuration for the forks pytest plugin
     config.skip_transition_forks = True  # type: ignore[attr-defined]
     config.single_fork_mode = True  # type: ignore[attr-defined]
+
+
+def pytest_report_header(config: pytest.Config) -> list[str]:
+    """Add the execute version and the tests source to the report header."""
+    del config
+    lines = [f"execute ref: {get_current_commit_hash_or_tag()}"]
+    if release := os.environ.get("EEST_TESTS_RELEASE"):
+        # Tests baked into a docker image built from this repository: the
+        # tests are the release's, the framework is the image's commit.
+        lines.append(f"tests release: {release}")
+    if tests_ref := os.environ.get("EEST_TESTS_GIT_SHA"):
+        lines.append(f"tests ref: {tests_ref}")
+    return lines
 
 
 def pytest_metadata(metadata: dict[str, Any]) -> None:
@@ -361,6 +379,11 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 kwargs["is_exception_test"] = is_exception_test
                 kwargs["is_inclusion_test"] = is_inclusion_test
                 kwargs["invalid_tx_not_last"] = invalid_tx_not_last
+                # The test's own id, independent of how the run was
+                # distributed.
+                kwargs["test_id"] = strip_any_xdist_group_suffix(
+                    request.node.nodeid
+                )
                 kwargs |= {
                     p: request.getfixturevalue(p)
                     for p in cls_fixture_parameters

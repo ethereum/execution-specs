@@ -525,7 +525,6 @@ def check_transaction(
         raise NonceMismatchError("nonce too low")
     elif sender_account.nonce < Uint(tx.nonce):
         raise NonceMismatchError("nonce too high")
-
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
     sender_code = get_code(tx_state, sender_account.code_hash)

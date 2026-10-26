@@ -11,7 +11,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -32,23 +31,11 @@ def test_static_internal_call_store_clears_oog(
     pre: Alloc,
 ) -> None:
     """Test_static_internal_call_store_clears_oog."""
-    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_0 = Address(0x0000000000000000000000000000000000000000)
-    contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0x5F5E100)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
 
     # Source: lll
     # {(SSTORE 0 0)(SSTORE 1 0)(SSTORE 2 0)(SSTORE 3 0)(SSTORE 4 0)(SSTORE 5 0)(SSTORE 6 0)(SSTORE 7 0)(SSTORE 8 0)(SSTORE 9 0)}  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x0)
         + Op.SSTORE(key=0x1, value=0x0)
         + Op.SSTORE(key=0x2, value=0x0)
@@ -72,12 +59,11 @@ def test_static_internal_call_store_clears_oog(
             8: 12,
             9: 12,
         },
-        nonce=0,
         address=Address(0x0000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # { [[ 1 ]] (STATICCALL 40000 0 0 0 0 0) }
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x1,
             value=Op.STATICCALL(
@@ -91,7 +77,6 @@ def test_static_internal_call_store_clears_oog(
         )
         + Op.STOP,
         balance=10,
-        nonce=0,
         address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
@@ -123,4 +108,4 @@ def test_static_internal_call_store_clears_oog(
         contract_1: Account(storage={1: contract_0}, balance=20),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

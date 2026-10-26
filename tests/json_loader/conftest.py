@@ -6,7 +6,7 @@ from typing import Callable
 from _pytest.config.argparsing import Parser
 from _pytest.nodes import Item
 from execution_testing.evm_tools.t8n import ForkCache
-from pytest import Collector, Config, Session, fixture
+from pytest import Collector, Config, fixture
 
 from . import FORKS
 from .helpers import FixturesFile, FixtureTestItem
@@ -179,6 +179,12 @@ def pytest_configure(config: Config) -> None:
 
     config.stash[desired_forks_key] = desired_forks
 
+    # Created here rather than at session start, which never fires for this
+    # conftest unless its directory is named on the command line.
+    fork_cache = ForkCache()
+    fork_cache.__enter__()
+    config.stash[fork_cache_key] = fork_cache
+
 
 def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
     """Filter test items."""
@@ -203,18 +209,11 @@ def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
         items[:] = selected  # keep only what matches
 
 
-def pytest_sessionstart(session: Session) -> None:
-    """Initialize the fork cache at session start."""
-    fork_cache = ForkCache()
-    fork_cache.__enter__()
-    session.stash[fork_cache_key] = fork_cache
-
-
-def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
-    """Clean up the fork cache at session finish."""
-    del exitstatus
-    session.stash[fork_cache_key].__exit__()
-    del session.stash[fork_cache_key]
+def pytest_unconfigure(config: Config) -> None:
+    """Clean up the fork cache."""
+    if fork_cache_key in config.stash:
+        config.stash[fork_cache_key].__exit__()
+        del config.stash[fork_cache_key]
 
 
 def pytest_collect_file(

@@ -5,7 +5,6 @@ from typing import Any, Mapping, Type
 import pytest
 
 from execution_testing.base_types import (
-    Account,
     Address,
     Bytes,
     Hash,
@@ -23,21 +22,22 @@ from execution_testing.fixtures import (
 from execution_testing.forks import Fork, get_deployed_forks
 from execution_testing.specs import Block
 from execution_testing.test_types import (
+    Account,
     Alloc,
     Environment,
+    LogMismatchError,
     Transaction,
     TransactionLog,
     TransactionReceipt,
+    TransactionReceiptMismatchError,
+    verify_log,
 )
 
 from ..blockchain import BlockchainEngineFixture, BlockchainTest
 from ..helpers import (
     ExecutionExceptionMismatchError,
-    LogMismatchError,
-    TransactionReceiptMismatchError,
     UnexpectedExecutionFailError,
     UnexpectedExecutionSuccessError,
-    verify_log,
 )
 from ..state import StateTest
 
@@ -88,7 +88,7 @@ def state_test(  # noqa: D103
 ) -> StateTest:
     return StateTest(
         env=Environment(),
-        pre=pre,
+        pre=Alloc.model_validate(pre).with_genesis_accounts(),
         post=post,
         tx=tx,
         fork=fork,
@@ -526,6 +526,7 @@ def test_block_intermediate_state(
 ) -> None:
     """Validate the state when building blockchain."""
     env = Environment()
+    pre = Alloc.model_validate(pre).with_genesis_accounts()
 
     to = Address(0x01)
     tx = Transaction(
@@ -708,7 +709,7 @@ def test_log_mismatch_during_generation(
 
     state_test = StateTest(
         env=Environment(),
-        pre=pre,
+        pre=pre.with_genesis_accounts(),
         post={},  # Empty post to skip post-state verification
         tx=tx,
         fork=Amsterdam,

@@ -8,10 +8,8 @@ state_tests/stPreCompiledContracts/sec80Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,27 +23,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stPreCompiledContracts/sec80Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_sec80(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_sec80."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: raw
     # 0x601b565b6000555b005b630badf00d6003565b63c001f00d6003565b7319e7e376e7c213b7e7e7e46cc70a5dd086daff2a7f22ae6da6b482f9b1b19b0b897c3fd43884180a1c5ee361e1107a1bc635649dda600052601b603f537f16433dce375ce6dc8151d3f0a22728bc4a1d9fd6ed39dfd18b4609331937367f6040527f306964c0cf5d74f04129fdc60b54d35b596dde1bf89ad92cb4123318f4c0e40060605260206080607f60006000600161fffff21560075760805114601257600956  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.JUMP(pc=0x1B)
         + Op.JUMPDEST
         + Op.PUSH1[0x0]
@@ -91,7 +78,6 @@ def test_sec80(
         + Op.JUMPI(pc=0x12, condition=Op.EQ)
         + Op.JUMP(pc=0x9),
         balance=0x1312D00,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -104,4 +90,4 @@ def test_sec80(
 
     post = {target: Account(storage={0: 0xC001F00D})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

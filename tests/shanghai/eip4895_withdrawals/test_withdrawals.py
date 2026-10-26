@@ -14,6 +14,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Fork,
+    GasFee,
     Hash,
     Op,
     RecipientType,
@@ -128,11 +129,26 @@ class TestUseValueInTx:
         raise Exception("Invalid test case.")
 
     @pytest.fixture
-    def post(self, sender: EOA, test_case: str) -> Dict:  # noqa: D102
+    def post(  # noqa: D102
+        self,
+        sender: EOA,
+        tx: Transaction,
+        withdrawal: Withdrawal,
+        test_case: str,
+    ) -> Dict:
         if test_case == "tx_in_withdrawals_block":
             return {}
         if test_case == "tx_after_withdrawals_block":
-            return {sender: Account(balance=ONE_GWEI + 1)}
+            # The withdrawal (in Gwei) covers the transaction's fee at a
+            # gas price of one Gwei, leaving one Gwei on top of the
+            # sender's initial one wei.
+            return {
+                sender: Account(
+                    nonce=1,
+                    balance_change=withdrawal.amount * ONE_GWEI
+                    - GasFee(tx, gas=tx.gas_limit),
+                )
+            }
         raise Exception("Invalid test case.")
 
     def test_use_value_in_tx(

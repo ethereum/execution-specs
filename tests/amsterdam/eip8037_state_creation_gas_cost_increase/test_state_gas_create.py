@@ -8,6 +8,8 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
 """
 
+from typing import List
+
 import pytest
 from execution_testing import (
     Account,
@@ -16,6 +18,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Fork,
+    GasFee,
     Header,
     Initcode,
     Op,
@@ -818,17 +821,29 @@ def test_create_tx_intrinsic_gas_boundary(
     gas_limit = intrinsic_cost(
         contract_creation=True,
     )
+    standard_cost = intrinsic_cost(
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor_cost = fork.transaction_data_floor_cost_calculator()(
+        data=b"", contract_creation=True
+    )
+    assert floor_cost == standard_cost
+
+    error: List[TransactionException] | None = None
+    if gas_delta < 0:
+        # The spec checks max(standard cost, floor), so either is valid.
+        error = [
+            TransactionException.INTRINSIC_GAS_TOO_LOW,
+            TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST,
+        ]
 
     sender = pre.fund_eoa()
     tx = Transaction(
         to=None,
         gas_limit=gas_limit + gas_delta,
         sender=sender,
-        error=(
-            TransactionException.INTRINSIC_GAS_TOO_LOW
-            if gas_delta < 0
-            else None
-        ),
+        error=error,
     )
 
     post = {
@@ -840,10 +855,14 @@ def test_create_tx_intrinsic_gas_boundary(
 @pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
-    "initcode",
+    "initcode,missed_threshold",
     [
-        pytest.param(Bytecode(), id="empty_initcode"),
-        pytest.param(Op.RETURN(0, 0), id="return_initcode"),
+        pytest.param(
+            Bytecode(),
+            "standard_cost_and_calldata_floor",
+            id="empty_initcode",
+        ),
+        pytest.param(Op.RETURN(0, 0), "calldata_floor", id="return_initcode"),
     ],
 )
 @pytest.mark.valid_from("EIP8037")
@@ -852,35 +871,51 @@ def test_create_tx_below_total_intrinsic(
     pre: Alloc,
     fork: Fork,
     initcode: Bytecode,
+    missed_threshold: str,
 ) -> None:
     """
     Reject a creation tx one gas below the (now execution-only) intrinsic.
 
     Under EIP-2780 the created account's ``NEW_ACCOUNT`` cost moved out
-    of the transaction intrinsic and into the top frame, so the creation
-    intrinsic is entirely execution:
-    ``fork.transaction_intrinsic_cost_calculator()(contract_creation=True,
-    calldata=initcode)``. Pinning ``gas_limit`` at ``intrinsic - 1`` must
-    be rejected as intrinsic-gas-too-low, mirroring the set_code case in
-    ``test_set_code_tx_below_total_intrinsic``.
-
-    This now overlaps ``test_create_tx_intrinsic_gas_boundary``
-    (``gas_delta=-1``), but additionally sweeps the initcode so the
-    per-word init-code cost folded into the execution intrinsic is
-    exercised.
+    of the transaction intrinsic and into the top frame. Empty initcode
+    ties the standard cost and the calldata floor, so the gas limit misses
+    both; any initcode raises the floor above the standard cost, so it
+    misses only the floor.
     """
-    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+    intrinsic_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    gas_limit = (
+        intrinsic_cost_calculator(contract_creation=True, calldata=initcode)
+        - 1
+    )
+    standard_cost = intrinsic_cost_calculator(
         contract_creation=True,
         calldata=initcode,
+        return_cost_deducted_prior_execution=True,
     )
+    floor_cost = fork.transaction_data_floor_cost_calculator()(
+        data=initcode, contract_creation=True
+    )
+    error: List[TransactionException] | TransactionException
+    if missed_threshold == "standard_cost_and_calldata_floor":
+        assert floor_cost == standard_cost
+        # The spec checks max(standard cost, floor), so either is valid.
+        error = [
+            TransactionException.INTRINSIC_GAS_TOO_LOW,
+            TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST,
+        ]
+    elif missed_threshold == "calldata_floor":
+        assert floor_cost > standard_cost
+        error = TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
+    else:
+        raise ValueError(f"Unknown threshold: {missed_threshold}")
 
     sender = pre.fund_eoa()
     tx = Transaction(
         to=None,
         data=initcode,
-        gas_limit=intrinsic - 1,
+        gas_limit=gas_limit,
         sender=sender,
-        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+        error=error,
     )
 
     post = {
@@ -2723,7 +2758,6 @@ def test_create_tx_collision_has_no_net_new_account_charge(
 
 
 @pytest.mark.pre_alloc_mutable()
-@pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
 @pytest.mark.valid_from("EIP8037")
 def test_create_tx_collision_refunds_reservoir(
     blockchain_test: BlockchainTestFiller,
@@ -2748,19 +2782,16 @@ def test_create_tx_collision_refunds_reservoir(
     # +1 above intrinsic_state_gas (= create_state_gas(code_size=0)
     # for empty-code CREATE-tx) makes message.state_gas_reservoir > 0.
     reservoir = fork.create_state_gas(code_size=0) + 1
-    initial_fund = 10**18
 
-    sender = pre.fund_eoa(initial_fund)
+    sender = pre.fund_eoa()
     collision_target = compute_create_address(address=sender, nonce=0)
     pre[collision_target] = Account(nonce=1)
 
-    tx_gas_price = 7
     tx = Transaction(
         to=None,
         data=init_code,
         state_gas_reservoir=reservoir,
         sender=sender,
-        gas_price=tx_gas_price,
     )
 
     blockchain_test(
@@ -2773,7 +2804,7 @@ def test_create_tx_collision_refunds_reservoir(
         ],
         post={
             sender: Account(
-                balance=initial_fund - gas_limit_cap * tx_gas_price,
+                balance_change=-GasFee(tx, gas=gas_limit_cap),
                 nonce=1,
             ),
             collision_target: Account(nonce=1, code=b"", storage={}),

@@ -29,9 +29,10 @@ class Nethtest(EthereumCLI):
     """Nethermind `nethtest` binary base class."""
 
     default_binary = Path("nethtest")
-    # new pattern allows e.g. '1.2.3', in the past that was denied
+    # The tool's name, as in `Nethermind nethtest 1.2.3+abc`, or the bare
+    # version that older builds print.
     detect_binary_pattern = re.compile(
-        r"^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?(\+[a-f0-9]{40})?$"
+        r"\bnethtest\b|^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?(\+[a-f0-9]{40})?$"
     )
     version_flag: str = "--version"
     cached_version: Optional[str] = None
@@ -56,8 +57,6 @@ class Nethtest(EthereumCLI):
                 stderr=subprocess.PIPE,
                 text=True,
             )
-        except subprocess.CalledProcessError as e:
-            raise Exception("Command failed with non-zero status.") from e
         except Exception as e:
             raise Exception("Unexpected exception calling evm tool.") from e
 
@@ -383,6 +382,10 @@ class NethermindExceptionMapper(ExceptionMapper):
             "HeaderBlobGasMismatch: "
             "Blob gas in header does not match calculated"
         ),
+        BlockException.INVALID_GAS_USED: (
+            "HeaderGasUsedMismatch: "
+            "Gas used in header does not match calculated"
+        ),
         BlockException.INVALID_REQUESTS: (
             "InvalidRequestsHash: Requests hash mismatch in block"
         ),
@@ -427,9 +430,12 @@ class NethermindExceptionMapper(ExceptionMapper):
     }
     mapping_regex = {
         # In-range r that is not an x-coordinate on the curve leaves the
-        # transaction without a recovered sender.
+        # transaction without a recovered sender. Nethermind decodes a legacy
+        # v as a 64-bit integer, so a v past that fails RLP decoding.
         TransactionException.INVALID_SIGNATURE_VRS: (
             r"failed with error sender not specified"
+            r"|Transaction \d+ is not valid: "
+            r"Unexpected length of integer value"
         ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             r"insufficient sender balance|"

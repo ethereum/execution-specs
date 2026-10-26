@@ -158,7 +158,11 @@ def create(evm: Evm) -> None:
     )
 
     generic_create(
-        evm, endowment, contract_address, memory_start_position, memory_size
+        evm,
+        endowment,
+        contract_address,
+        memory_start_position,
+        memory_size,
     )
 
     # PROGRAM COUNTER
@@ -205,7 +209,11 @@ def create2(evm: Evm) -> None:
     )
 
     generic_create(
-        evm, endowment, contract_address, memory_start_position, memory_size
+        evm,
+        endowment,
+        contract_address,
+        memory_start_position,
+        memory_size,
     )
 
     # PROGRAM COUNTER
@@ -578,7 +586,11 @@ def delegatecall(evm: Evm) -> None:
         access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
 
     message_call_gas = calculate_message_call_gas(
-        U256(0), gas, Uint(evm.gas_left), extend_memory.cost, access_gas_cost
+        U256(0),
+        gas,
+        Uint(evm.gas_left),
+        extend_memory.cost,
+        access_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 

@@ -8,9 +8,7 @@ state_tests/stStaticCall/static_log_CallerFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -62,7 +60,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_log_caller(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -72,21 +69,11 @@ def test_static_log_caller(
     v: int,
 ) -> None:
     """Test_static_log_caller."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
 
     # Source: lll
     # { [[ 0 ]] (STATICCALL 50000 (CALLDATALOAD 0) 0 0 0 0) }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.STATICCALL(
@@ -100,54 +87,44 @@ def test_static_log_caller(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xD8C1FCDB2990F08E5FE821BF5AF85F34201BA79A),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE8 0 0xff) (LOG0 0 32 ) }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.MSTORE8(offset=0x0, value=0xFF)
         + Op.LOG0(offset=0x0, size=0x20)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xC725ABAE869E29A5448DCA5B51A58F0C960D4069),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE8 0 0xff) (LOG1 0 32 (CALLER) ) }
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.MSTORE8(offset=0x0, value=0xFF)
         + Op.LOG1(offset=0x0, size=0x20, topic_1=Op.CALLER)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x842936958D62030200FBCEF4371460D8A9400D05),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE8 0 0xff) (LOG2 0 32 0 (CALLER) ) }
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.MSTORE8(offset=0x0, value=0xFF)
         + Op.LOG2(offset=0x0, size=0x20, topic_1=0x0, topic_2=Op.CALLER)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x861CCCBD560D81A33AAC05190E986540663C6BBA),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE8 0 0xff) (LOG3 0 32 0 0 (CALLER) ) }
-    addr_4 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(
         code=Op.MSTORE8(offset=0x0, value=0xFF)
         + Op.LOG3(
             offset=0x0, size=0x20, topic_1=0x0, topic_2=0x0, topic_3=Op.CALLER
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x6C5DA6457F756A77C392C72FE884F7F650428AEF),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE8 0 0xff) (LOG4 0 32 0 0 0 (CALLER) )}
-    addr_5 = pre.deploy_contract(  # noqa: F841
+    addr_5 = pre.deploy_contract(
         code=Op.MSTORE8(offset=0x0, value=0xFF)
         + Op.LOG4(
             offset=0x0,
@@ -159,8 +136,6 @@ def test_static_log_caller(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x586CFAA42DB8B743452A87549943AC07A09DE5CC),  # noqa: E501
     )
 
     tx_data = [
@@ -183,4 +158,4 @@ def test_static_log_caller(
 
     post = {target: Account(storage={0: 0})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

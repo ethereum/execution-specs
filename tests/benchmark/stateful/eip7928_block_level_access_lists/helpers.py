@@ -26,6 +26,7 @@ from execution_testing import (
     Bytecode,
     Fork,
     Op,
+    ReceiptStatusExpected,
     TestPhaseManager,
     Transaction,
 )
@@ -334,5 +335,5 @@ def run_bal_benchmark(
         post=post,
         blocks=blocks,
         skip_gas_used_validation=True,
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected()],
     )

@@ -29,7 +29,9 @@ class CountTracer(EvmTracer):
         if not isinstance(event, OpStart):
             return
 
-        self.active_traces[event.op.name] += 1
+        # `_name_` skips the `Enum.name` property, which costs as much as
+        # the count itself.
+        self.active_traces[event.op._name_] += 1
 
     def results(self) -> dict[str, int]:
         """

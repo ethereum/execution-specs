@@ -1,40 +1,178 @@
 """
-Test_eoa_empty_paris.
+Test that code-less accounts, including a zero-balance origin, are not empty.
 
 Ported from:
 state_tests/stSpecialTest/eoaEmptyParisFiller.yml
 
-@manually-enhanced: Do not overwrite. Two measured slots shift under
-EIP-8038. Slot 0xF1 times a CALL that forwards `value` to the (warm)
-origin EOA: when `value` is nonzero it gains the `CALL_VALUE` raise.
-The value-0 cases are unchanged. Slot 0xFF times a value-0 CALL to a
-cold contract and gains the `COLD_ACCOUNT_ACCESS` raise. Both deltas
-come from the fork's own gas model, so each is exactly 0 before
-EIP-8038.
+@manually-enhanced: Do not overwrite. Slots 0xF1 and 0xFF measure the
+CALLs to the origin and to the self-destructing contract with
+`CodeGasMeasure`, and expect the gas their opcode metadata prices, so
+repricings such as EIP-8038 need no per-fork adjustment. `EXTCODEHASH`
+of the code-less accounts other than the origin moved to
+`test_external_account_empty_paris`, one case per account kind, so only
+the nonce-0 account with storage needs a mutable pre-alloc.
 """
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    CodeGasMeasure,
     Hash,
     StateTestFiller,
     Transaction,
     TransactionException,
+    keccak256,
 )
-from execution_testing.forks import Cancun, Fork
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_GAS_LIMIT = 10_000_000
+"""Gas limit the sender's balance pays for in full."""
+
+TX_VALUE = 100
+"""Value of the value-bearing transactions, in wei."""
+
+
+@pytest.mark.ported_from(
+    ["state_tests/stSpecialTest/eoaEmptyParisFiller.yml"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("origin_call_value", [0, 1])
+@pytest.mark.parametrize(
+    "gas_limit_reduction, tx_value",
+    [
+        (0, 0),
+        # Gas takes the whole balance, leaving nothing for the value.
+        pytest.param(0, TX_VALUE, marks=pytest.mark.exception_test),
+        (1, 0),
+        (1, TX_VALUE),
+    ],
+)
+def test_origin_empty_paris(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    origin_call_value: int,
+    gas_limit_reduction: int,
+    tx_value: int,
+) -> None:
+    """
+    Verify the origin as seen from the call it sends, including when the
+    gas and value drain its balance to zero.
+
+    The target stores the origin's address, balance, code size and code
+    hash, and the gas of a `CALL` to it and of a `CALL` to a contract that
+    self-destructs to it. Neither is charged for a new account.
+    """
+    # Reducing the gas limit by one unit leaves the sender one gas price
+    # of balance. Matching the gas price to the value lets that leftover
+    # pay the value exactly, draining the origin to a zero balance.
+    tx_gas_price = TX_VALUE
+
+    sender_amount = TX_GAS_LIMIT * tx_gas_price
+    sender = pre.fund_eoa(amount=sender_amount)
+
+    tx_gas = TX_GAS_LIMIT - gas_limit_reduction
+
+    tx_sender_start_balance = (
+        sender_amount - (tx_gas * tx_gas_price) - tx_value
+    )
+
+    # The origin is warm, and alive even at a zero balance, so no new
+    # account is charged for.
+    selfdestruct_code = Op.SELFDESTRUCT(
+        address=Op.ORIGIN, address_warm=True, account_new=False
+    )
+    selfdestruct_contract = pre.deploy_contract(
+        code=selfdestruct_code,
+        balance=10_000,
+        nonce=1,
+    )
+    slot_origin = 0x0
+    slot_origin_balance = 0x31
+    slot_origin_code_size = 0x3B
+    slot_origin_code_hash = 0x3F
+    slot_call_origin_gas = 0xF1
+    slot_call_selfdestruct_gas = 0xFF
+    # The origin is warm, and alive even at a zero balance, so a value
+    # transfer to it charges no new account.
+    call_origin = Op.CALL(
+        address=Op.ORIGIN,
+        value=Op.CALLDATALOAD(offset=0x0),
+        address_warm=True,
+        value_transfer=origin_call_value > 0,
+        account_new=False,
+    )
+    call_selfdestruct = Op.CALL(address=selfdestruct_contract)
+    target = pre.deploy_contract(
+        code=Op.SSTORE(key=slot_origin, value=Op.ORIGIN)
+        + Op.SSTORE(
+            key=slot_origin_balance, value=Op.BALANCE(address=Op.ORIGIN)
+        )
+        + Op.SSTORE(
+            key=slot_origin_code_size, value=Op.EXTCODESIZE(address=Op.ORIGIN)
+        )
+        + Op.SSTORE(
+            key=slot_origin_code_hash, value=Op.EXTCODEHASH(address=Op.ORIGIN)
+        )
+        + CodeGasMeasure(
+            code=call_origin,
+            extra_stack_items=1,
+            sstore_key=slot_call_origin_gas,
+        )
+        + CodeGasMeasure(
+            code=call_selfdestruct,
+            extra_stack_items=1,
+            sstore_key=slot_call_selfdestruct_gas,
+        ),
+        nonce=1,
+    )
+
+    empty_code_hash = keccak256(b"")
+    # A value-bearing call hands the stipend to the origin, which has no
+    # code to spend it, so it comes back.
+    call_origin_gas = call_origin.gas_cost(fork)
+    if origin_call_value > 0:
+        call_origin_gas -= fork.call_value_stipend()
+    call_selfdestruct_gas = call_selfdestruct.gas_cost(
+        fork
+    ) + selfdestruct_code.gas_cost(fork)
+
+    tx_error: TransactionException | None = None
+    post: dict = {}
+    if tx_sender_start_balance < 0:
+        # The sender cannot pay for both the gas and the value.
+        tx_error = TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
+    else:
+        post = {
+            sender: Account(nonce=1),
+            target: Account(
+                storage={
+                    slot_origin: sender,
+                    slot_origin_balance: tx_sender_start_balance,
+                    slot_origin_code_size: 0,
+                    slot_origin_code_hash: empty_code_hash,
+                    slot_call_origin_gas: call_origin_gas,
+                    slot_call_selfdestruct_gas: call_selfdestruct_gas,
+                },
+            ),
+        }
+
+    tx = Transaction(
+        sender=sender,
+        to=target,
+        data=Hash(origin_call_value),
+        gas_limit=tx_gas,
+        value=tx_value,
+        gas_price=tx_gas_price,
+        error=tx_error,
+    )
+
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.ported_from(
@@ -42,373 +180,59 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "d, g, v",
+    "account_kind",
     [
+        "nonexistent",
+        "balance_only",
+        "nonce_only",
+        "balance_and_nonce",
+        # Storage without code needs a nonce of 0, which only a mutable
+        # pre-allocation can hold.
         pytest.param(
-            0,
-            0,
-            0,
-            id="d0-g0-v0",
-        ),
-        pytest.param(
-            0,
-            0,
-            1,
-            id="d0-g0-v1",
-            marks=pytest.mark.exception_test,
-        ),
-        pytest.param(
-            0,
-            1,
-            0,
-            id="d0-g1-v0",
-        ),
-        pytest.param(
-            0,
-            1,
-            1,
-            id="d0-g1-v1",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="d1-g0-v0",
-        ),
-        pytest.param(
-            1,
-            0,
-            1,
-            id="d1-g0-v1",
-            marks=pytest.mark.exception_test,
-        ),
-        pytest.param(
-            1,
-            1,
-            0,
-            id="d1-g1-v0",
-        ),
-        pytest.param(
-            1,
-            1,
-            1,
-            id="d1-g1-v1",
+            "storage_and_balance", marks=pytest.mark.pre_alloc_mutable
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
-def test_eoa_empty_paris(
+def test_external_account_empty_paris(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    account_kind: str,
 ) -> None:
-    """Test_eoa_empty_paris."""
-    # EIP-8038 deltas, each 0 before EIP-8038. Slot 0xF1's value-bearing
-    # CALL to the warm origin gains the value-transfer reprice; slot
-    # 0xFF's value-0 CALL to a cold contract gains the cold account
-    # reprice.
-    gas_costs = fork.gas_costs()
-    call_value_delta = gas_costs.CALL_VALUE - Cancun.gas_costs().CALL_VALUE
-    cold_account_delta = (
-        gas_costs.COLD_ACCOUNT_ACCESS - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
-    )
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x000000000000000000000000000000000000BAD1)
-    contract_1 = Address(0x000000000000000000000000000000000000BAD2)
-    contract_2 = Address(0x000000000000000000000000000000000000BAD3)
-    contract_3 = Address(0x000000000000000000000000000000000000BAD4)
-    contract_4 = Address(0x000000000000000000000000000000000000DEAD)
-    contract_5 = Address(0x000000000000000000000000000000000000C0DE)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=89128960,
-    )
-
-    pre[sender] = Account(balance=0x3B9ACA00)
-    # Source: hex
-    # 0x
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code="",
-        balance=1,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000BAD1),  # noqa: E501
-    )
-    # Source: hex
-    # 0x
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code="",
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000000BAD2),  # noqa: E501
-    )
-    # Source: hex
-    # 0x
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code="",
-        balance=1,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000000BAD3),  # noqa: E501
-    )
-    # Source: hex
-    # 0x
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code="",
-        storage={57005: 48879},
-        balance=10,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000BAD4),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    selfdestruct(origin())
-    # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(address=Op.ORIGIN),
-        balance=10000,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000000DEAD),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    let eoa := origin()   // external owner account
-    #    sstore(0, eoa)
-    #    sstore(0x31, balance(eoa))   // balance at this point, where it is assumed we used gasLimit gas  # noqa: E501
-    #    sstore(0x3B, extcodesize(eoa))
-    #    sstore(0x3F, extcodehash(eoa))
-    #    sstore(0x013F, extcodehash(add(eoa, 0x1)))
-    #    sstore(0xBAD1, extcodehash(0xBAD1))
-    #    sstore(0xBAD2, extcodehash(0xBAD2))
-    #    sstore(0xBAD3, extcodehash(0xBAD3))
-    #    sstore(0xBAD4, extcodehash(0xBAD4))
-    #    sstore(0xBAD5, extcodehash(0xBAD5))
-    #
-    #    // The gas cost of calling the EOA (it should be warm)
-    #    let gas0 := gas()
-    #    pop(call(gas(), eoa, calldataload(4), 0, 0, 0, 0))
-    #    sstore(0xF1, sub(gas0, gas()))
-    #
-    #    // Gas cost of selfdestruct going to the EOA (should also be warm)
-    #    gas0 := gas()
-    #    pop(call(gas(), 0xDEAD, 0, 0, 0, 0, 0))
-    #    sstore(0xFF, sub(gas0, gas()))
-    # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.ORIGIN
-        + Op.SSTORE(key=0x0, value=Op.DUP1)
-        + Op.SSTORE(key=0x31, value=Op.BALANCE(address=Op.DUP1))
-        + Op.SSTORE(key=0x3B, value=Op.EXTCODESIZE(address=Op.DUP1))
-        + Op.SSTORE(key=0x3F, value=Op.EXTCODEHASH(address=Op.DUP1))
-        + Op.SSTORE(
-            key=0x13F, value=Op.EXTCODEHASH(address=Op.ADD(Op.DUP2, 0x1))
+    """
+    Verify `EXTCODEHASH` of an account without code: the empty code hash
+    when the account exists, and zero when it does not.
+    """
+    expected_code_hash: int | Hash = keccak256(b"")
+    if account_kind == "nonexistent":
+        account = pre.nonexistent_account()
+        expected_code_hash = 0
+    elif account_kind == "balance_only":
+        account = pre.fund_eoa(amount=1)
+    elif account_kind == "nonce_only":
+        account = pre.deploy_contract(code="", nonce=1)
+    elif account_kind == "balance_and_nonce":
+        account = pre.deploy_contract(code="", balance=1, nonce=1)
+    else:
+        account = pre.deploy_contract(
+            code="", storage={0xDEAD: 0xBEEF}, balance=10, nonce=0
         )
-        + Op.SSTORE(key=0xBAD1, value=Op.EXTCODEHASH(address=0xBAD1))
-        + Op.SSTORE(key=0xBAD2, value=Op.EXTCODEHASH(address=0xBAD2))
-        + Op.SSTORE(key=0xBAD3, value=Op.EXTCODEHASH(address=0xBAD3))
-        + Op.SSTORE(key=0xBAD4, value=Op.EXTCODEHASH(address=0xBAD4))
-        + Op.SSTORE(key=0xBAD5, value=Op.EXTCODEHASH(address=0xBAD5))
-        + Op.PUSH1[0x0]
-        + Op.DUP1 * 3
-        + Op.GAS
-        + Op.SWAP5
-        + Op.CALLDATALOAD(offset=0x4)
-        + Op.SWAP1
-        + Op.GAS
-        + Op.POP(Op.CALL)
-        + Op.GAS
-        + Op.SWAP1
-        + Op.SSTORE(key=0xF1, value=Op.SUB)
-        + Op.GAS
-        + Op.POP(
-            Op.CALL(
-                gas=Op.GAS,
-                address=0xDEAD,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=0x0,
-            )
-        )
-        + Op.GAS
-        + Op.SWAP1
-        + Op.SSTORE(key=0xFF, value=Op.SUB)
-        + Op.STOP,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
+
+    # A sentinel in the slot makes a stored zero observable.
+    slot_code_hash = 0x0
+    target = pre.deploy_contract(
+        code=Op.SSTORE(
+            key=slot_code_hash,
+            value=Op.EXTCODEHASH(address=Op.CALLDATALOAD(0)),
+        ),
+        storage={slot_code_hash: 0xDEADBEEF},
     )
-
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": 0, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_5: Account(
-                    storage={
-                        0: sender,
-                        49: 0,
-                        59: 0,
-                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 118,
-                        255: 7626 + cold_account_delta,
-                        319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_5: Account(
-                    storage={
-                        0: sender,
-                        49: 0,
-                        59: 0,
-                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 6818 + call_value_delta,
-                        255: 7626 + cold_account_delta,
-                        319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": -1, "gas": 0, "value": 1},
-            "network": [">=Cancun"],
-            "result": {},
-            "expect_exception": {
-                ">=Cancun": TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
-            },
-        },
-        {
-            "indexes": {"data": 0, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_5: Account(
-                    storage={
-                        0: sender,
-                        49: 100,
-                        59: 0,
-                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 118,
-                        255: 7626 + cold_account_delta,
-                        319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_5: Account(
-                    storage={
-                        0: sender,
-                        49: 100,
-                        59: 0,
-                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 6818 + call_value_delta,
-                        255: 7626 + cold_account_delta,
-                        319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 0, "gas": 1, "value": 1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_5: Account(
-                    storage={
-                        0: sender,
-                        49: 0,
-                        59: 0,
-                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 118,
-                        255: 7626 + cold_account_delta,
-                        319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": 1, "value": 1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_5: Account(
-                    storage={
-                        0: sender,
-                        49: 0,
-                        59: 0,
-                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 6818 + call_value_delta,
-                        255: 7626 + cold_account_delta,
-                        319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Bytes("693c6139") + Hash(0x0),
-        Bytes("693c6139") + Hash(0x1),
-    ]
-    tx_gas = [10000000, 9999999]
-    tx_value = [0, 100]
 
     tx = Transaction(
-        sender=sender,
-        to=contract_5,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        gas_price=100,
-        error=_exc,
+        sender=pre.fund_eoa(), to=target, data=Hash(account, left_padding=True)
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(
+        pre=pre,
+        post={target: Account(storage={slot_code_hash: expected_code_hash})},
+        tx=tx,
+    )

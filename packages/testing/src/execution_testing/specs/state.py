@@ -8,6 +8,7 @@ from typing import (
     Dict,
     Generator,
     List,
+    Mapping,
     Optional,
     Sequence,
     Type,
@@ -46,7 +47,7 @@ from execution_testing.fixtures.state import (
     FixtureTransaction,
     FixtureTransactionReceipt,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import (
     get_logger,
 )
@@ -57,13 +58,15 @@ from execution_testing.test_types import (
     ExecutionWitnessCodesExpectation,
     ExecutionWitnessHeadersExpectation,
     ExecutionWitnessStateExpectation,
+    PostStateContext,
     Transaction,
 )
+from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 
 from .base import BaseTest, FillResult, OpMode
 from .blockchain import Block, BlockchainTest, Header
 from .debugging import print_traces
-from .helpers import verify_transactions
+from .helpers import RecordedPostStateContext, verify_transactions
 
 logger = get_logger(__name__)
 
@@ -96,7 +99,10 @@ class StateTest(BaseTest):
     expected_execution_witness_headers: Optional[
         ExecutionWitnessHeadersExpectation
     ] = None
-    chain_id: int = 1
+    chain_id: int = Field(
+        default_factory=lambda: ChainConfigDefaults.chain_id,
+        validate_default=True,
+    )
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
@@ -123,6 +129,53 @@ class StateTest(BaseTest):
     supported_markers: ClassVar[Dict[str, str]] = {
         "state_test_only": "Only generate a state test fixture",
     }
+
+    @classmethod
+    def genesis_pre_allocation(
+        cls,
+        *,
+        fork: Fork | TransitionFork,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
+    ) -> Mapping:
+        """
+        Return the fork's pre-allocation for a state fixture, and the
+        blockchain pre-allocation for the blockchain fixtures derived from it.
+
+        A state fixture cannot name a transition fork, so it allocates the
+        accounts of the fork the transition starts from.
+        """
+        if fixture_format in BlockchainTest.supported_fixture_formats:
+            return BlockchainTest.genesis_pre_allocation(
+                fork=fork, fixture_format=fixture_format
+            )
+        return fork.transitions_from().pre_allocation()
+
+    def post_state_context(
+        self,
+        *,
+        tx: Transaction,
+        env: Environment,
+        fork: Fork,
+        result: Result,
+    ) -> PostStateContext:
+        """Return the context in which the post-state is resolved."""
+        context = RecordedPostStateContext()
+        context.record_block(
+            txs=[tx],
+            fork=fork,
+            base_fee_per_gas=(
+                result.base_fee_per_gas
+                if result.base_fee_per_gas is not None
+                else env.base_fee_per_gas
+            ),
+            excess_blob_gas=(
+                result.excess_blob_gas
+                if result.excess_blob_gas is not None
+                else env.excess_blob_gas
+            ),
+            fee_recipient=env.fee_recipient,
+        )
+        return context
 
     def verify_modified_gas_limit(
         self,
@@ -171,7 +224,16 @@ class StateTest(BaseTest):
             return False
         modified_tool_alloc = modified_tool_output.alloc.materialize()
         try:
-            self.post.verify_post_alloc(modified_tool_alloc)
+            self.post.verify_post_alloc(
+                pre_alloc=pre_alloc,
+                got_alloc=modified_tool_alloc,
+                context=self.post_state_context(
+                    tx=new_tx,
+                    env=env,
+                    fork=fork,
+                    result=modified_tool_output.result,
+                ),
+            )
         except Exception as e:
             logger.debug(
                 f"Post alloc is not equivalent (gas_limit={current_gas_limit})"
@@ -380,9 +442,8 @@ class StateTest(BaseTest):
                 fork.transaction_total_gas_limit_cap()
             ),
         ).with_signature_and_sender(keep_secret_key=True)
-        pre_alloc = Alloc.merge(
-            Alloc.model_validate(fork.pre_allocation()),
-            self.pre,
+        pre_alloc = self.genesis_alloc(
+            self.pre, fork=self.fork, fixture_format=StateFixture
         )
         if empty_accounts := pre_alloc.empty_accounts():
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
@@ -403,7 +464,16 @@ class StateTest(BaseTest):
         output_alloc = transition_tool_output.alloc.materialize()
 
         try:
-            self.post.verify_post_alloc(output_alloc)
+            self.post.verify_post_alloc(
+                pre_alloc=pre_alloc,
+                got_alloc=output_alloc,
+                context=self.post_state_context(
+                    tx=tx,
+                    env=env,
+                    fork=fork,
+                    result=transition_tool_output.result,
+                ),
+            )
         except Exception as e:
             print_traces(t8n.get_traces())
             raise e

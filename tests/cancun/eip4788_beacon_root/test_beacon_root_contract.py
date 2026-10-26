@@ -707,12 +707,8 @@ def test_no_beacon_root_contract_at_transition(
             ],
         )
     ]
-    pre[Spec.BEACON_ROOTS_ADDRESS] = Account(
-        code=b"",  # Remove the code that is automatically allocated on Cancun
-        # fork
-        nonce=0,
-        balance=0,
-    )
+    # Remove the contract that is automatically allocated on the Cancun fork
+    del pre[Spec.BEACON_ROOTS_ADDRESS]
     post = {
         Spec.BEACON_ROOTS_ADDRESS: Account(
             storage={
@@ -866,12 +862,8 @@ def test_beacon_root_contract_deploy(
     expected_code = fork.transitions_to().pre_allocation_blockchain()[
         Spec.BEACON_ROOTS_ADDRESS
     ]["code"]
-    pre[Spec.BEACON_ROOTS_ADDRESS] = Account(
-        code=b"",  # Remove the code that is automatically allocated on Cancun
-        # fork
-        nonce=0,
-        balance=0,
-    )
+    # Remove the contract that is automatically allocated on the Cancun fork
+    del pre[Spec.BEACON_ROOTS_ADDRESS]
     pre[deployer_address] = Account(
         balance=deployer_required_balance,
     )

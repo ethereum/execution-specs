@@ -8,10 +8,8 @@ state_tests/Cancun/stEIP1153_transientStorage/transStorageResetFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -228,17 +226,7 @@ def test_trans_storage_reset(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: yul
     # {
@@ -272,7 +260,7 @@ def test_trans_storage_reset(
     #
     #     // Don't call anything, just set Trans[0] here.
     # ... (13 more lines)
-    dead = pre.deploy_contract(  # noqa: F841
+    dead = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=Op.PUSH0)
         + Op.CALLDATALOAD(offset=0x20)
         + Op.MSTORE(offset=Op.PUSH0, value=Op.DUP2)
@@ -390,7 +378,7 @@ def test_trans_storage_reset(
     #
     #       // We only send half the gas because the call may spend all
     # ... (22 more lines)
-    reverter = pre.deploy_contract(  # noqa: F841
+    reverter = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=Op.PUSH0)
         + Op.CALLDATALOAD(offset=0x20)
         + Op.SWAP1
@@ -504,7 +492,7 @@ def test_trans_storage_reset(
     #   mstore(64, param)
     #   sstore(1, call(gas(), reverter, 0, 0, 96, 0, 0))
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.PUSH0
         + Op.DUP1
         + Op.PUSH1[0x60]
@@ -732,4 +720,4 @@ def test_trans_storage_reset(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

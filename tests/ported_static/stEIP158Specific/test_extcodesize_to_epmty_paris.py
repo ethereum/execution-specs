@@ -17,10 +17,8 @@ so each is exactly 0 before EIP-8038.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -35,7 +33,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stEIP158Specific/EXTCODESIZE_toEpmtyParisFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_extcodesize_to_epmty_paris(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -58,28 +55,17 @@ def test_extcodesize_to_epmty_paris(
     cold_clear_sstore_delta = (
         cold_clear_sstore.gas_cost(fork) - cancun_clear_sstore_cost
     )
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
-
-    addr = pre.fund_eoa(amount=10)  # noqa: F841
+    addr = pre.fund_eoa(amount=10)
     # Source: lll
     # { [0](GAS) [[1]] (EXTCODESIZE <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) [[100]] (SUB @0 (GAS)) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x1, value=Op.EXTCODESIZE(address=addr))
         + Op.SSTORE(key=0x64, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
         storage={1: 1536},
-        nonce=0,
     )
 
     tx = Transaction(
@@ -96,4 +82,4 @@ def test_extcodesize_to_epmty_paris(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

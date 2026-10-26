@@ -20,7 +20,11 @@ from execution_testing import (
     TransitionFork,
     add_kzg_version,
 )
-from execution_testing.forks import BPO2ToBPO3AtTime15k
+from execution_testing.forks import (
+    BPO_SCENARIOS,
+    Amsterdam,
+    transition_fork_from_to,
+)
 
 from .spec import Spec, ref_spec_7918
 
@@ -48,12 +52,6 @@ def gas_spender_contract(pre: Alloc) -> Address:
     """Contract that exhausts the gas limit of a tx."""
     code = Op.INVALID
     return pre.deploy_contract(code)
-
-
-@pytest.fixture
-def tx_gas() -> int:
-    """Gas limit for blob transactions sent during test."""
-    return 21_000
 
 
 @pytest.fixture
@@ -134,7 +132,7 @@ def genesis_excess_blob_gas(
     if current_excess_blob_gas > parent_excess_blob_gas:
         minimum = 0
         maximum = genesis_excess_blob_gas
-        while minimum < maximum:
+        while minimum <= maximum:
             mid = (minimum + maximum) // 2
             next_excess_blob_gas = excess_blob_gas_calculator(
                 parent_excess_blob_gas=mid,
@@ -233,7 +231,6 @@ def parent_block_txs(
     destination_account: Address,
     gas_spender_contract: Address,
     env: Environment,
-    tx_gas: int,
     tx_value: int,
     parent_blob_count: int,
     parent_base_fee_per_gas: int,
@@ -247,6 +244,7 @@ def parent_block_txs(
     Includes blob transactions to raise the `parent_blob_gas_used` and normal
     transactions to raise/lower the base fee per gas.
     """
+    tx_gas = fork.transitions_from().transaction_intrinsic_cost_calculator()()
     parent_block_blob_txs = get_blob_transactions(
         blob_count=parent_blob_count,
         blob_cap_per_transaction=blob_cap_per_transaction,
@@ -257,7 +255,7 @@ def parent_block_txs(
         block_base_fee_per_gas=parent_base_fee_per_gas * 10,
         tx_max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
     )
-    required_gas_used = fork.transitions_from().base_fee_change_calculator()(
+    required_gas_used = fork.transitions_to().base_fee_change_calculator()(
         parent_gas_limit=env.gas_limit,
         parent_base_fee_per_gas=parent_base_fee_per_gas,
         required_base_fee_per_gas=transition_block_base_fee_per_gas,
@@ -303,8 +301,8 @@ def parent_block(
 @pytest.fixture
 def transition_block_txs(
     sender: EOA,
+    fork: TransitionFork,
     destination_account: Address,
-    tx_gas: int,
     tx_value: int,
     transition_block_blob_count: int,
     blob_cap_per_transaction: int,
@@ -316,6 +314,7 @@ def transition_block_txs(
 
     Includes blob transactions only.
     """
+    tx_gas = fork.transitions_to().transaction_intrinsic_cost_calculator()()
     return get_blob_transactions(
         blob_count=transition_block_blob_count,
         blob_cap_per_transaction=blob_cap_per_transaction,
@@ -534,9 +533,13 @@ def get_fork_scenarios(fork: TransitionFork) -> Iterator[ParameterSet]:
                         ),
                     )
 
-    if fork == BPO2ToBPO3AtTime15k:
-        # Explicitly add the exact scenario that triggered the Fusaka Devnet-4
-        # fork.
+    amsterdam_increase, _ = BPO_SCENARIOS[Amsterdam]
+    if fork == transition_fork_from_to(Amsterdam, amsterdam_increase):
+        # The exact scenario that forked Fusaka Devnet-4 at its BPO2 to BPO3
+        # transition. Amsterdam keeps BPO2's blob schedule and its increase
+        # raises it to BPO3's target and max, so the same blocks reach the
+        # same excess blob gas. The update fraction differs from BPO3's, but
+        # the blob base fee at this excess is the same.
         yield pytest.param(
             0x32,
             0x125BF5F,
@@ -561,7 +564,6 @@ def get_fork_scenarios(fork: TransitionFork) -> Iterator[ParameterSet]:
 )
 @pytest.mark.valid_at_transition_to("Osaka", subsequent_forks=True)
 @pytest.mark.valid_for_bpo_forks()
-@pytest.mark.slow()
 def test_reserve_price_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

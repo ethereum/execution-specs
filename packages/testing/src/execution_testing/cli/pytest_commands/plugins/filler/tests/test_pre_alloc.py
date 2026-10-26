@@ -2,8 +2,9 @@
 
 import pytest
 
-from execution_testing.base_types import Account, Address
+from execution_testing.base_types import Address
 from execution_testing.forks import Fork, Prague
+from execution_testing.test_types import Account
 from execution_testing.vm import Op
 
 from ...shared.pre_alloc import AllocFlags

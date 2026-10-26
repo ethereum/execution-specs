@@ -8,10 +8,8 @@ state_tests/VMTests/vmArithmeticTest/fibFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,23 +23,12 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/VMTests/vmArithmeticTest/fibFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_fib(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: lll
     # {
@@ -56,7 +43,7 @@ def test_fib(
     #    (fib  9)
     #    (fib 10)
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x2,
             value=Op.ADD(
@@ -114,7 +101,6 @@ def test_fib(
         + Op.STOP,
         storage={0: 0, 1: 1},
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -143,4 +129,4 @@ def test_fib(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

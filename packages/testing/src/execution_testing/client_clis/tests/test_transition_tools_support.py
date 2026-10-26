@@ -6,7 +6,6 @@ import pytest
 
 from execution_testing.base_types import (
     AccessList,
-    Account,
     Address,
     Storage,
     TestAddress,
@@ -34,6 +33,7 @@ from execution_testing.forks import (
 )
 from execution_testing.specs import Block, BlockchainTest
 from execution_testing.test_types import (
+    Account,
     Alloc,
     AuthorizationTuple,
     Environment,
@@ -268,7 +268,7 @@ def test_t8n_support(fork: Fork, installed_t8n: TransitionTool) -> None:
     test = BlockchainTest(
         genesis_environment=env,
         fork=fork,
-        pre=pre,
+        pre=pre.with_genesis_accounts(),
         post=block_1.expected_post_state,
         blocks=[block_1, block_2],
     )

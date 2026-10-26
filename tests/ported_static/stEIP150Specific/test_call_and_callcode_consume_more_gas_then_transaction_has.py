@@ -18,10 +18,8 @@ is exactly 0 pre-repricing. Do not hardcode the literal gas_limit.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     StateTestFiller,
     Transaction,
@@ -38,34 +36,22 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_call_and_callcode_consume_more_gas_then_transaction_has(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """Test_call_and_callcode_consume_more_gas_then_transaction_has."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
 
     # Source: lll
     # { (SSTORE 0 0x12) }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x12) + Op.STOP,
-        nonce=0,
     )
     # Source: lll
     # { (SSTORE 8 (GAS)) (SSTORE 9 (CALL 600000 <contract:0x1000000000000000000000000000000000000103> 0 0 0 0 0)) (SSTORE 10 (CALLCODE 600000 <contract:0x1000000000000000000000000000000000000103> 0 0 0 0 0)) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x8, value=Op.GAS)
         + Op.SSTORE(
             key=0x9,
@@ -92,7 +78,6 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has(
             ),
         )
         + Op.STOP,
-        nonce=0,
     )
 
     # The original test was built against Cancun's ``TX_BASE`` of
@@ -112,4 +97,4 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has(
 
     post = {target: Account(storage={0: 18, 8: 0x8D5B6, 9: 1, 10: 1})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

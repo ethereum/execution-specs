@@ -8,10 +8,8 @@ state_tests/stStaticCall/static_CheckCallCostOOGFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -44,7 +42,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_check_call_cost_oog(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -54,29 +51,18 @@ def test_static_check_call_cost_oog(
     v: int,
 ) -> None:
     """Check balance in blackbox, just fill the balance consumed."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x5AF3107A4000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
 
     # Source: lll
     # { (MSTORE 1 1) (KECCAK256 0x00 0x2fffff) }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.MSTORE(offset=0x1, value=0x1)
         + Op.SHA3(offset=0x0, size=0x2FFFFF)
         + Op.STOP,
-        nonce=0,
     )
     # Source: lll
     # { (STATICCALL 100 <contract:0x2000000000000000000000000000000000000000> 0 0 0 0) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.STATICCALL(
             gas=0x64,
             address=addr,
@@ -86,7 +72,6 @@ def test_static_check_call_cost_oog(
             ret_size=0x0,
         )
         + Op.STOP,
-        nonce=0,
     )
 
     tx_data = [
@@ -103,4 +88,4 @@ def test_static_check_call_cost_oog(
 
     post = {sender: Account(nonce=1)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -2,7 +2,7 @@
 
 import pytest
 
-from execution_testing.base_types import Account, Address
+from execution_testing.base_types import Address
 from execution_testing.client_clis import TransitionTool
 from execution_testing.fixtures import (
     StateFixture,
@@ -11,6 +11,7 @@ from execution_testing.forks import get_deployed_forks
 from execution_testing.specs import StateTest
 from execution_testing.test_types import (
     EOA,
+    Account,
     Alloc,
     Transaction,
     compute_create2_address,

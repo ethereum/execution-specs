@@ -14,7 +14,6 @@ from hive.simulation import Simulation
 from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
 
 from execution_testing.base_types import (
-    Account,
     EmptyOmmersRoot,
     EmptyTrieRoot,
     Hash,
@@ -27,6 +26,7 @@ from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
     DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
+    Account,
     Alloc,
     BlockAccessList,
     ChainConfig,

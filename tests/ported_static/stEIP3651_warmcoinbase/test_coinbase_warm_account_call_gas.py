@@ -9,7 +9,6 @@ EXTCODESIZE and EXTCODECOPY charge an extra warm code-read.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -96,21 +95,9 @@ def test_coinbase_warm_account_call_gas(
 ) -> None:
     """Test_coinbase_warm_account_call_gas."""
     coinbase = Address(0x50228C44ED92561D94511E8518A75AA463BD444B)
-    sender = EOA(
-        key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
     pre[coinbase] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -143,7 +130,7 @@ def test_coinbase_warm_account_call_gas(
     #      measureGas := 5
     #      gas0 := gas()
     # ... (54 more lines)
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.COINBASE
         + Op.CALLDATALOAD(offset=0x4)
         + Op.PUSH1[0x0]
@@ -259,7 +246,6 @@ def test_coinbase_warm_account_call_gas(
         + Op.JUMP(pc=0x51),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
-        address=Address(0xA4A48FC5F3526A9BC06A0136AB0BA1D9574D15BA),  # noqa: E501
     )
 
     tx_data = [
@@ -273,11 +259,12 @@ def test_coinbase_warm_account_call_gas(
         Bytes("693c6139") + Hash(0x7),
     ]
 
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
+
     tx = Transaction(
         sender=sender,
         to=target,
         data=tx_data[d],
-        nonce=1,
     )
 
     warm_access = fork.gas_costs().WARM_ACCESS

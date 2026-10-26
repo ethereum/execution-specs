@@ -1,7 +1,5 @@
 """Base composite types for Ethereum test cases."""
 
-import hashlib
-import json
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import (
@@ -11,12 +9,12 @@ from typing import (
     ItemsView,
     Iterator,
     List,
+    Self,
     SupportsBytes,
-    Type,
     TypeAlias,
 )
 
-from pydantic import Field, PrivateAttr, TypeAdapter
+from pydantic import Field, PrivateAttr, TypeAdapter, model_validator
 
 from .base_types import (
     Address,
@@ -26,7 +24,7 @@ from .base_types import (
     HexNumber,
     ZeroPaddedHexNumber,
 )
-from .conversions import BytesConvertible, NumberConvertible
+from .conversions import NumberConvertible
 from .pydantic import CamelModel, EthereumTestRootModel
 from .serialization import RLPSerializable
 
@@ -59,6 +57,11 @@ class Storage(
     _any_map: Dict[StorageKeyValueType, bool] = PrivateAttr(
         default_factory=dict
     )
+    _frozen: bool = PrivateAttr(False)
+    """
+    Set once the storage belongs to an `Account`, which may be shared
+    between allocations, so that no write can reach the others.
+    """
 
     StorageDictType: ClassVar[TypeAlias] = Dict[
         str | int | bytes | SupportsBytes, str | int | bytes | SupportsBytes
@@ -175,12 +178,28 @@ class Storage(
         """Return an item from the storage."""
         return self.root[StorageKeyValueTypeAdapter.validate_python(key)]
 
+    def freeze(self) -> "Storage":
+        """Reject any further writes to the storage, and return it."""
+        self._frozen = True
+        return self
+
+    def _require_mutable(self) -> None:
+        """Raise if the storage is frozen."""
+        if self._frozen:
+            raise TypeError(
+                "Storage is frozen: it belongs to an Account, which may be "
+                "shared between allocations. Build the storage before "
+                "creating the Account, or replace the account with "
+                "`model_copy(update={'storage': ...})`."
+            )
+
     def __setitem__(
         self,
         key: StorageKeyValueTypeConvertible | StorageKeyValueType,
         value: StorageKeyValueTypeConvertible | StorageKeyValueType,
     ) -> None:
         """Set an item in the storage."""
+        self._require_mutable()
         self.root[StorageKeyValueTypeAdapter.validate_python(key)] = (
             StorageKeyValueTypeAdapter.validate_python(value)
         )
@@ -189,6 +208,7 @@ class Storage(
         self, key: StorageKeyValueTypeConvertible | StorageKeyValueType
     ) -> None:
         """Delete an item from the storage."""
+        self._require_mutable()
         del self.root[StorageKeyValueTypeAdapter.validate_python(key)]
 
     def __iter__(self) -> Iterator[StorageKeyValueType]:  # type: ignore [override]
@@ -227,6 +247,7 @@ class Storage(
 
     def set_next_slot(self, slot: int) -> "Storage":
         """Set the next slot to be used by `store_next`."""
+        self._require_mutable()
         self._current_slot = slot
         return self
 
@@ -240,6 +261,7 @@ class Storage(
         """
         Mark key to be able to have any expected value when comparing storages.
         """
+        self._require_mutable()
         self._any_map[StorageKeyValueTypeAdapter.validate_python(key)] = True
 
     def store_next(
@@ -254,6 +276,7 @@ class Storage(
         Increments the key counter so the next time this function is called,
         the next key is used.
         """
+        self._require_mutable()
         slot = StorageKeyValueTypeAdapter.validate_python(self._current_slot)
         self._current_slot += 1
         if hint:
@@ -364,202 +387,19 @@ class Account(CamelModel):
     storage: Storage = Field(default_factory=Storage)
     """Storage within a contract."""
 
-    NONEXISTENT: ClassVar[None] = None
-    """
-    Sentinel object used to specify when an account should not exist in the
-    state.
-    """
-
     model_config = {
         **CamelModel.model_config,
         "frozen": True,
     }
 
-    @dataclass(kw_only=True)
-    class NonceMismatchError(Exception):
+    @model_validator(mode="after")
+    def _freeze_storage(self) -> Self:
         """
-        Test expected a certain nonce value for an account but a different
-        value was found.
+        Freeze the storage along with the account, so that accounts shared
+        between allocations cannot change under any of them.
         """
-
-        address: Address
-        want: int | None
-        got: int | None
-
-        def __init__(
-            self,
-            address: Address,
-            want: int | None,
-            got: int | None,
-            *args: Any,
-        ) -> None:
-            """
-            Initialize the exception with the address, wanted and got values.
-            """
-            super().__init__(args)
-            self.address = address
-            self.want = want
-            self.got = got
-
-        def __str__(self) -> str:
-            """Print exception string."""
-            label_str = ""
-            if self.address.label is not None:
-                label_str = f" ({self.address.label})"
-            return (
-                f"unexpected nonce for account {self.address}{label_str}: "
-                + f"want {self.want}, got {self.got}"
-            )
-
-    @dataclass(kw_only=True)
-    class BalanceMismatchError(Exception):
-        """
-        Test expected a certain balance for an account but a different value
-        was found.
-        """
-
-        address: Address
-        want: int | None
-        got: int | None
-
-        def __init__(
-            self,
-            address: Address,
-            want: int | None,
-            got: int | None,
-            *args: Any,
-        ) -> None:
-            """
-            Initialize the exception with the address, wanted and got values.
-            """
-            super().__init__(args)
-            self.address = address
-            self.want = want
-            self.got = got
-
-        def __str__(self) -> str:
-            """Print exception string."""
-            label_str = ""
-            if self.address.label is not None:
-                label_str = f" ({self.address.label})"
-            return (
-                f"unexpected balance for account {self.address}{label_str}: "
-                + f"want {self.want}, got {self.got}"
-            )
-
-    @dataclass(kw_only=True)
-    class CodeMismatchError(Exception):
-        """
-        Test expected a certain bytecode for an account but a different one was
-        found.
-        """
-
-        address: Address
-        want: bytes | None
-        got: bytes | None
-
-        def __init__(
-            self,
-            address: Address,
-            want: bytes | None,
-            got: bytes | None,
-            *args: Any,
-        ) -> None:
-            """
-            Initialize the exception with the address, wanted and got values.
-            """
-            super().__init__(args)
-            self.address = address
-            self.want = want
-            self.got = got
-
-        def __str__(self) -> str:
-            """Print exception string."""
-            label_str = ""
-            if self.address.label is not None:
-                label_str = f" ({self.address.label})"
-            return (
-                f"unexpected code for account {self.address}{label_str}: "
-                f"want {self.want.hex() if self.want else self.want}, "
-                f"got {self.got.hex() if self.got else self.got}"
-            )
-
-    def check_alloc(
-        self: "Account", address: Address, account: "Account"
-    ) -> None:
-        """
-        Check the returned alloc against an expected account in post state.
-        Raises exception on failure.
-        """
-        if "nonce" in self.model_fields_set:
-            if self.nonce != account.nonce:
-                raise Account.NonceMismatchError(
-                    address=address,
-                    want=self.nonce,
-                    got=account.nonce,
-                )
-
-        if "balance" in self.model_fields_set:
-            if self.balance != account.balance:
-                raise Account.BalanceMismatchError(
-                    address=address,
-                    want=self.balance,
-                    got=account.balance,
-                )
-
-        if "code" in self.model_fields_set:
-            if self.code != account.code:
-                raise Account.CodeMismatchError(
-                    address=address,
-                    want=self.code,
-                    got=account.code,
-                )
-
-        if "storage" in self.model_fields_set:
-            self.storage.must_be_equal(address=address, other=account.storage)
-
-    def __bool__(self: "Account") -> bool:
-        """Return True on a non-empty account."""
-        return any((self.nonce, self.balance, self.code, self.storage))
-
-    def hash(self) -> Hash:
-        """Return the hash of the account given its properties."""
-        data = self.model_dump(mode="json")
-        blob = json.dumps(
-            data,
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
-        return Hash(hashlib.sha256(blob).digest())
-
-    @classmethod
-    def with_code(cls: Type, code: BytesConvertible) -> "Account":
-        """Create account with provided `code` and nonce of `1`."""
-        return Account(nonce=HexNumber(1), code=Bytes(code))
-
-    @classmethod
-    def merge(
-        cls: Type,
-        account_1: "Dict | Account | None",
-        account_2: "Dict | Account | None",
-    ) -> "Account":
-        """Create a merged account from two sources."""
-
-        def to_kwargs_dict(account: "Dict | Account | None") -> Dict:
-            if account is None:
-                return {}
-            if isinstance(account, dict):
-                return account
-            elif isinstance(account, cls):
-                return account.model_dump(exclude_unset=True)
-            raise TypeError(
-                f"Unexpected type for account merge: {type(account)}"
-            )
-
-        kwargs = to_kwargs_dict(account_1)
-        kwargs.update(to_kwargs_dict(account_2))
-
-        return cls(**kwargs)
+        self.storage.freeze()
+        return self
 
 
 class Alloc(EthereumTestRootModel[Dict[Address, Account | None]]):
@@ -568,6 +408,13 @@ class Alloc(EthereumTestRootModel[Dict[Address, Account | None]]):
     root: Dict[Address, Account | None] = Field(
         default_factory=dict, validate_default=True
     )
+
+    def get(self, address: Address) -> Account | None:
+        """Get an account if it's present in the allocation, otherwise None."""
+        account = self.root.get(address)
+        if not account:
+            return None
+        return account
 
 
 class StateCommitment(Enum):

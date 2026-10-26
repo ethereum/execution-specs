@@ -8,10 +8,8 @@ state_tests/stSystemOperationsTest/createNameRegistratorOOG_MemExpansionOOVFille
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -27,27 +25,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_create_name_registrator_oog_mem_expansion_oov(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_create_name_registrator_oog_mem_expansion_oov."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
 
     # Source: lll
     # { (MSTORE 0 0x601080600c6000396000f3006000355415600957005b60203560003555) [[ 0 ]] (CREATE 11000 3 0xffffffffffffffffffffff) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0,
             value=0x601080600C6000396000F3006000355415600957005B60203560003555,
@@ -60,7 +47,6 @@ def test_create_name_registrator_oog_mem_expansion_oov(
         )
         + Op.STOP,
         balance=10000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -71,6 +57,6 @@ def test_create_name_registrator_oog_mem_expansion_oov(
         value=0x186A0,
     )
 
-    post = {target: Account(storage={}, nonce=0)}
+    post = {target: Account(storage={}, nonce=1)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

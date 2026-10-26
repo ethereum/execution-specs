@@ -450,7 +450,7 @@ def test_access_list_sender_balance_boundary(
         expected_receipt = TransactionReceipt(status=1, gas_used=gas_limit)
         post = {
             sender: Account(nonce=1, balance=0),
-            recipient: Account(balance=1 + value),
+            recipient: Account(balance_change=value),
         }
     else:
         error = TransactionException.INSUFFICIENT_ACCOUNT_FUNDS

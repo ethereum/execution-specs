@@ -8,9 +8,7 @@ state_tests/stStaticCall/static_callCreate3Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -27,29 +25,16 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.slow
-@pytest.mark.pre_alloc_mutable
 def test_static_call_create3(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_static_call_create3."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xA000000000000000000000000000000000000000)
-    contract_1 = Address(0x1000000000000000000000000000000000000000)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
 
     # Source: lll
     # {  (CALL 600000 (CALLDATALOAD 0) 0 0 0 0 0) }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.CALL(
             gas=0x927C0,
             address=Op.CALLDATALOAD(offset=0x0),
@@ -61,12 +46,10 @@ def test_static_call_create3(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 0x6d600060006000600030620186a0fa600052600e6012f3) [[ 0 ]] (CREATE 1 9 23)  [[ 1 ]] (STATICCALL 30000 (SLOAD 0) 0 0 0 0) [[ 2 ]] 1 }  # noqa: E501
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0, value=0x6D600060006000600030620186A0FA600052600E6012F3
         )
@@ -85,8 +68,6 @@ def test_static_call_create3(
         + Op.SSTORE(key=0x2, value=0x1)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
 
     tx = Transaction(
@@ -100,11 +81,11 @@ def test_static_call_create3(
     post = {
         contract_1: Account(
             storage={
-                0: compute_create_address(address=contract_1, nonce=0),
+                0: compute_create_address(address=contract_1, nonce=1),
                 1: 1,
                 2: 1,
             },
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

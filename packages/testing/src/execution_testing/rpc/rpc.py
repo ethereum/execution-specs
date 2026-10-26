@@ -34,18 +34,12 @@ from tenacity import (
     wait_fixed as wait_fixed_tenacity,
 )
 
-from execution_testing.base_types import (
-    Account,
-    Address,
-    Bytes,
-    Hash,
-    to_json,
-)
+from execution_testing.base_types import Address, Bytes, Hash, to_json
 from execution_testing.forks import Amsterdam, Fork
 from execution_testing.logging import (
     get_logger,
 )
-from execution_testing.test_types import Alloc
+from execution_testing.test_types import Account, Alloc
 
 from .engine_ssz import encode_witness_request
 from .rpc_types import (

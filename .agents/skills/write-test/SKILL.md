@@ -20,7 +20,8 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 
 - `pre.fund_eoa()` — create funded EOA, returns Address. Accepts `amount=`, `nonce=`. With `amount=0` nothing is added to the pre-alloc; you get a fresh, nonexistent address.
 - `pre.deploy_contract(code=..., storage={...})` — deploy contract, returns Address
-- Do not assign into `pre` directly. The one exception is overriding a predeploy's code, `pre[addr] = Account(...)` under `@pytest.mark.pre_alloc_mutable`. It replaces the whole account, and every field you leave out takes the `Account` default (nonce 0, zero balance, empty storage), so pass the ones the scenario needs. The marker skips the test in execute mode, so reserve it for scenarios a live chain cannot host.
+- `pre` starts out holding the accounts the fork allocates at genesis, such as the system contracts, and the spec uses it as the genesis allocation unchanged.
+- Do not assign into `pre` directly. The one exception is changing one of those genesis accounts under `@pytest.mark.pre_alloc_mutable`. `pre[addr] = Account(...)` replaces the whole account, and every field you leave out takes the `Account` default (nonce 0, zero balance, empty storage), so pass the ones the scenario needs. `del pre[addr]` removes it, for example so a deployment transaction can create it; an all-zero `Account` does not, because the empty account reaches genesis and is rejected. The marker skips the test in execute mode, so reserve it for scenarios a live chain cannot host.
 
 ## Bytecode Construction
 
@@ -53,7 +54,7 @@ Every Amsterdam+ fixture carries a BAL whether or not the test asserts one. An `
 - `@pytest.mark.with_all_tx_types` — parametrize across all tx types
 - `@pytest.mark.with_all_call_opcodes` — parametrize CALL/CALLCODE/DELEGATECALL/STATICCALL
 - `@pytest.mark.with_all_system_contracts`, `with_all_precompiles`, `with_all_system_contract_request_types` (yields the request *class* as `request_class`), … — parametrize over a fork-derived set; `selector=lambda value: ...` narrows any `with_all_*` marker. Check `docs/writing_tests/test_markers.md` for the full list before writing out protocol values by hand.
-- `@pytest.mark.slow` — excluded by default in fill
+- `@pytest.mark.slow` — deselected by `just fill` and CI (`-m "not slow"`); a plain `uv run fill` still runs it
 - `@pytest.mark.exception_test` — marks tests expecting exceptions.
 - A mark that only some cases earn goes on that case, `pytest.param(..., marks=...)`, not the function: `exception_test` on the function fails the passing cases, and a function-level `EIPChecklist` item stays green after the one case that proved it is deleted.
 
@@ -72,7 +73,7 @@ An expectation is what `fill` checks. Each lives on one object:
 | `Transaction` | `error=`, `expected_receipt=TransactionReceipt(...)` |
 | `Block` | `exception=`, `header_verify=Header(...)`, `expected_block_access_list=` |
 | `StateTest` | `blockchain_test_header_verify=Header(...)`, `expected_block_access_list=` |
-| `post` | `Account(storage=..., balance=..., nonce=..., code=...)` |
+| `post` | `Account(storage=..., balance=... \| balance_change=..., nonce=... \| nonce_change=..., code=...)` |
 
 Choose each so it holds only if the behavior under test happened; then the fill fails when that behavior stops instead of writing a fixture that passes for another reason.
 
@@ -102,7 +103,7 @@ Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NE
 
 - Rule: omit `gas_limit`. It auto-fills so the transaction executes in full without running out of gas.
 - Exception: set `gas_limit` explicitly for gas-sensitive tests (intrinsic-gas boundaries, OOG, code-deposit limits, or gas metering).
-- Anti-pattern: the `gas_limit=fork.transaction_gas_limit_cap()` boilerplate is now redundant.
+- Anti-pattern: `gas_limit=fork.transaction_gas_limit_cap()` boilerplate; the auto-filled limit is already clamped to the cap.
 - A transaction that runs out of gas consumes exactly its `gas_limit`, so calling a contract whose code is `GasConsumer.out_of_gas(fork)` fixes its gas used at a chosen value without any cost arithmetic.
 
 ## Exception Testing
@@ -113,7 +114,7 @@ Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NE
 
 ## Test Organization
 
-- Place tests in `tests/<fork>/eip<number>/` where `<fork>` is the fork that introduced the functionality
+- Place tests in `tests/<fork>/eip<number>_<short_name>/` where `<fork>` is the fork that introduced the functionality
 - Each EIP directory has `spec.py` with `ReferenceSpec(git_path=..., version=...)` and test files declaring `REFERENCE_SPEC_GIT_PATH` / `REFERENCE_SPEC_VERSION`. `version` is the EIP file's blob SHA (`gh api repos/ethereum/EIPs/contents/EIPS/eip-N.md --jq .sha`); `uv run check_eip_versions <path>` flags stale versions.
 - **One module per subject, not per scenario.** Start a new test file only for a subject no existing module has: a different parametrization axis, fixture set, or fork validity. A new scenario for an existing subject goes into that subject's module however many tests it already holds, even where neighbouring suites split further.
 - Put a scenario where it earns the most coverage. Before adding a test to a new EIP's module, look in the module that owns the mechanism for one that already runs the case and only needs tightened expectations or an `is_eip_enabled` branch, and amend it; write a new test in the new module only when the branches would cost more readability than the extra fork coverage buys.
@@ -137,6 +138,17 @@ Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NE
 ## Unit Tests (execution_testing package)
 
 Plain pytest. Tests are co-located with each module under `packages/testing/src/execution_testing/` in a sibling `tests/` directory. When adding a guardrail or validation, verify the tests fail without the change and pass with it.
+
+## devp2p Sync Coverage
+
+`blockchain_test_engine_x` fixtures normally append a sync payload so every test payload can be covered by devp2p full-sync testing.
+
+- Do not add `sync_block=False` merely to make a test fill.
+- If sync-payload construction fails, inspect the chained error first. When the framework lacks support for the test's context, extend the sync-payload framework and add regression coverage.
+- Use `sync_block=False` only when the test deliberately leaves a terminal context in which no child block can execute, such as a sabotaged mandatory system contract. Document that reason at the opt-out.
+- Known representational limits are handled by the framework and do not require a test-level opt-out.
+
+See `docs/filling_tests/sync_payloads.md` for the construction and omission rules.
 
 ## After Writing Tests
 

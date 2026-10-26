@@ -540,7 +540,9 @@ module = "remerkleable.*"
 ignore_missing_imports = true
 
 [tool.uv]
-required-version = ">=0.7.0"
+# Older uv versions trust a root CA with a compromised intermediate:
+# https://github.com/astral-sh/uv/security/advisories/GHSA-hq85-5cpj-mr62
+required-version = ">=0.13.4"
 extra-build-dependencies = { ethash = ["setuptools", "cmake>=4.2.1,<5"] }
 
 [tool.uv.workspace]

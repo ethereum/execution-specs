@@ -45,6 +45,51 @@ pytest_plugins = (
 )
 
 
+MAX_REUSED_HEAD_NUMBER: dict[str, int] = {"ethrex": 128}
+"""
+Highest head, by block number, from which a reused client of these
+clients is asked to rewind to genesis.
+
+Each test starts with a forkchoice update to genesis, so the next test
+makes the client unwind the whole chain the previous test left. A
+client listed here is replaced with a fresh one after a test that
+leaves a higher head, keyed by a substring of the Hive client name.
+
+ethrex keeps the state of its latest 128 blocks in memory and rebuilds
+older state from its state-history journal. When two different blocks
+at the same height have the same post-state root (for example an empty
+block and one with only zero-value withdrawals), the journal keeps the
+wrong block hash, the rewind is refused, and ethrex never recovers: all
+later tests in the group time out.
+"""
+
+
+def deepest_head_number(fixture: BlockchainEngineXFixture) -> int:
+    """
+    Return the highest block number among the fixture's valid payloads.
+
+    The simulator moves the head to every valid payload in turn, so this
+    is the deepest head the test leaves the client with; genesis (0) if
+    the fixture has no valid payload.
+    """
+    return max(
+        (int(p.params[0].number) for p in fixture.payloads if p.valid()),
+        default=0,
+    )
+
+
+def max_reused_head_number(client_type_name: str) -> int | None:
+    """
+    Return the `MAX_REUSED_HEAD_NUMBER` limit for a Hive client name.
+
+    Return `None` for a client that is always reused.
+    """
+    for client, max_head in MAX_REUSED_HEAD_NUMBER.items():
+        if client in client_type_name:
+            return max_head
+    return None
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """Set the supported fixture formats for the enginex simulator."""
     config.supported_fixture_formats = [BlockchainEngineXFixture]  # type: ignore[attr-defined]
@@ -265,6 +310,14 @@ def client(
     try:
         yield resolved_client
     finally:
+        max_head = max_reused_head_number(client_type.name)
+        head = deepest_head_number(fixture)
+        if max_head is not None and head > max_head:
+            logger.info(
+                f"Replacing the client of group {group_identifier}: this "
+                f"test left its head at block {head}, above {max_head}"
+            )
+            multi_test_client_manager.discard_client(group_identifier)
         multi_test_client_manager.mark_test_completed(
             group_identifier, test_id
         )

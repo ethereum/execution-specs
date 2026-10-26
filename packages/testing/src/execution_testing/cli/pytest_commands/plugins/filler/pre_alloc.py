@@ -3,13 +3,12 @@
 import inspect
 from functools import cache
 from hashlib import sha256
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Type
 
 import pytest
 from pydantic import PrivateAttr
 
 from execution_testing.base_types import (
-    Account,
     Address,
     Bytes,
     Hash,
@@ -29,6 +28,7 @@ from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
     DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
+    Account,
     AllocGroupHash,
     Environment,
     compute_deterministic_create2_address,
@@ -38,6 +38,7 @@ from execution_testing.test_types import (
 from execution_testing.tools import Initcode
 
 from ..shared.execute_fill import stub_accounts_key, stub_eoas_key
+from ..shared.helpers import strip_any_xdist_group_suffix
 from ..shared.pre_alloc import Alloc as SharedAlloc
 from ..shared.pre_alloc import AllocFlags
 
@@ -76,9 +77,13 @@ class Alloc(SharedAlloc):
         flags: AllocFlags,
         stub_accounts: Dict[str, Account] | None = None,
         stub_eoas: Dict[str, EOA] | None = None,
+        genesis_seeded: bool = False,
         **kwargs: Any,
     ) -> None:
-        """Initialize the pre-alloc."""
+        """
+        Initialize the pre-alloc, `genesis_seeded` when it starts out holding
+        the accounts the fork allocates at genesis.
+        """
         super().__init__(
             *args,
             fork=fork,
@@ -88,6 +93,8 @@ class Alloc(SharedAlloc):
         )
         if stub_accounts is not None:
             self._stub_accounts = stub_accounts
+        if genesis_seeded:
+            self._genesis_accounts = "seeded"
 
     def get_next_account_salt(self, account_hash: Hash) -> int:
         """Retrieve the next salt for this account."""
@@ -441,11 +448,7 @@ def node_id_for_entropy(
     hashing results in the contracts and senders addresses being the same
     across fixture types and forks for the same test.
     """
-    node_id: str = request.node.nodeid
-    # Strip xdist group suffix (e.g., @t8n-cache-abc12345) so entropy is
-    # deterministic regardless of whether xdist is active.
-    if "@" in node_id:
-        node_id = node_id.rsplit("@", 1)[0]
+    node_id: str = strip_any_xdist_group_suffix(request.node.nodeid)
     for fixture_format_name in ALL_FIXTURE_FORMAT_NAMES:
         if fixture_format_name in node_id:
             parts = node_id.split("::")
@@ -486,11 +489,29 @@ def pre(
     fork: Fork | TransitionFork,
     stub_accounts: Dict[str, Account],
     stub_eoas: Dict[str, EOA],
+    spec_type: Type[BaseTest] | None,
+    fixture_format: Any,
 ) -> Alloc:
-    """Return default pre allocation for all tests (Empty alloc)."""
+    """
+    Return the pre allocation of the test, seeded with the accounts the
+    genesis of the fixture being filled holds by default.
+
+    The spec uses the returned allocation as the genesis allocation
+    unchanged, so a test may inspect it, and may override or delete the
+    seeded accounts at its own risk.
+    """
+    seed = (
+        spec_type.genesis_pre_allocation(
+            fork=fork, fixture_format=fixture_format
+        )
+        if spec_type is not None
+        else {}
+    )
     return Alloc(
+        seed,
         flags=alloc_flags,
         fork=fork,
         stub_accounts=stub_accounts,
         stub_eoas=stub_eoas,
+        genesis_seeded=spec_type is not None,
     )

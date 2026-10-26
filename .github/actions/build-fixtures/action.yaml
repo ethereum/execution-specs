@@ -64,13 +64,10 @@ runs:
           EVM_ARGS="--evm-bin=${{ steps.evm-builder.outputs.evm-bin }}"
         fi
 
+        # Every fork range, gas value and full fill contains tests, so any
+        # non-zero exit (including 5, NO_TESTS_COLLECTED) fails the build.
         run_fill() {
-          # Allow exit code 5 (NO_TESTS_COLLECTED) for fork ranges with no tests.
-          EXIT_CODE=0
-          just fill-release $EVM_ARGS ${{ steps.properties.outputs.fill-params }} "$@" --build-name ${{ inputs.release_name }} || EXIT_CODE=$?
-          if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
-            exit "$EXIT_CODE"
-          fi
+          just fill-release $EVM_ARGS ${{ steps.properties.outputs.fill-params }} "$@" --build-name ${{ inputs.release_name }}
         }
 
         if [ -n "$IS_SPLIT" ]; then
@@ -121,6 +118,7 @@ runs:
       with:
         name: fixtures_${{ inputs.release_name }}
         path: fixtures_${{ inputs.release_name }}.tar.gz
+        if-no-files-found: error
     - name: Upload fixture tarballs (one per gas value)
       if: inputs.split_label == '' && steps.properties.outputs.gas-benchmark-values != ''
       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -135,5 +133,5 @@ runs:
         name: fixtures__${{ inputs.split_label }}
         include-hidden-files: true
         path: fixtures_${{ inputs.release_name }}/
-        if-no-files-found: ignore
+        if-no-files-found: error
         retention-days: ${{ inputs.split_retention_days }}

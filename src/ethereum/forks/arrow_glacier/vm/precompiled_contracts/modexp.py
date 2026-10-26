@@ -33,11 +33,16 @@ def modexp(evm: Evm) -> None:
     exp_length = U256.from_be_bytes(buffer_read(data, U256(32), U256(32)))
     modulus_length = U256.from_be_bytes(buffer_read(data, U256(64), U256(32)))
 
-    exp_start = U256(96) + base_length
-
-    exp_head = U256.from_be_bytes(
-        buffer_read(data, exp_start, min(U256(32), exp_length))
-    )
+    if base_length > U256.MAX_VALUE - U256(96):
+        # The exponent would start past the end of any input, where every
+        # byte reads as zero.
+        exp_head = U256(0)
+    else:
+        exp_head = U256.from_be_bytes(
+            buffer_read(
+                data, U256(96) + base_length, min(U256(32), exp_length)
+            )
+        )
 
     charge_gas(
         evm,
@@ -49,6 +54,7 @@ def modexp(evm: Evm) -> None:
         evm.output = Bytes()
         return
 
+    exp_start = U256(96) + base_length
     base = Uint.from_be_bytes(buffer_read(data, U256(96), base_length))
     exp = Uint.from_be_bytes(buffer_read(data, exp_start, exp_length))
 

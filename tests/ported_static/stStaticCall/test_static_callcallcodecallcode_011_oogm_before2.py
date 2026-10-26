@@ -8,9 +8,7 @@ state_tests/stStaticCall/static_callcallcodecallcode_011_OOGMBefore2Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -56,7 +54,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_callcallcodecallcode_011_oogm_before2(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -66,21 +63,11 @@ def test_static_callcallcodecallcode_011_oogm_before2(
     v: int,
 ) -> None:
     """Test_static_callcallcodecallcode_011_oogm_before2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=30000000,
-    )
 
     # Source: lll
     # {  (MSTORE 32 1) (CALLCODE 40080 (CALLDATALOAD 0) 0 0 64 0 64 ) (MSTORE 32 1) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.MSTORE(offset=0x20, value=0x1)
         + Op.POP(
             Op.CALLCODE(
@@ -95,25 +82,21 @@ def test_static_callcallcodecallcode_011_oogm_before2(
         )
         + Op.MSTORE(offset=0x20, value=0x1)
         + Op.STOP,
-        nonce=0,
-        address=Address(0x8BDE6A10A1792232FD09B528800D9AC2A6835424),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 32 1) }
-    addr_5 = pre.deploy_contract(  # noqa: F841
+    addr_5 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x20, value=0x1) + Op.STOP,
-        nonce=0,
-        address=Address(0xD4286AC3FCAC436406BC95F5B0176AD49AED7F7C),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 (CALLDATALOAD 0)) [[ 0 ]] (STATICCALL 150000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) [[ 1 ]] 1 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
         + Op.SSTORE(
             key=0x0,
             value=Op.STATICCALL(
                 gas=0x249F0,
-                address=0x8BDE6A10A1792232FD09B528800D9AC2A6835424,
+                address=addr,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -123,17 +106,15 @@ def test_static_callcallcodecallcode_011_oogm_before2(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x6E143211E9D36EAEEBE65F6ED69D6C28500040D6),  # noqa: E501
     )
     # Source: lll
     # {  (SSTORE 3 1) (CALLCODE 20020 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) (MSTORE 32 1) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.SSTORE(key=0x3, value=0x1)
         + Op.POP(
             Op.CALLCODE(
                 gas=0x4E34,
-                address=0xD4286AC3FCAC436406BC95F5B0176AD49AED7F7C,
+                address=addr_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x40,
@@ -143,16 +124,14 @@ def test_static_callcallcodecallcode_011_oogm_before2(
         )
         + Op.MSTORE(offset=0x20, value=0x1)
         + Op.STOP,
-        nonce=0,
-        address=Address(0x87F0BB05316A8D8146646A151A64F38AE9D25176),  # noqa: E501
     )
     # Source: lll
     # {  (CALLCODE 20020 <contract:0x1000000000000000000000000000000000000003> 1 0 64 0 64 ) (MSTORE 32 1) }  # noqa: E501
-    addr_4 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(
         code=Op.POP(
             Op.CALLCODE(
                 gas=0x4E34,
-                address=0xD4286AC3FCAC436406BC95F5B0176AD49AED7F7C,
+                address=addr_5,
                 value=0x1,
                 args_offset=0x0,
                 args_size=0x40,
@@ -163,12 +142,10 @@ def test_static_callcallcodecallcode_011_oogm_before2(
         + Op.MSTORE(offset=0x20, value=0x1)
         + Op.STOP,
         balance=10,
-        nonce=0,
-        address=Address(0x94C82267A4E8333AFB80073FBAED3FE5973ADC7C),  # noqa: E501
     )
     # Source: lll
     # {  (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) (CALLCODE 20020 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) (MSTORE 32 1) }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.JUMPDEST
         + Op.JUMPI(
             pc=0x1C, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
@@ -180,7 +157,7 @@ def test_static_callcallcodecallcode_011_oogm_before2(
         + Op.POP(
             Op.CALLCODE(
                 gas=0x4E34,
-                address=0xD4286AC3FCAC436406BC95F5B0176AD49AED7F7C,
+                address=Op.PUSH20[addr_5],
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x40,
@@ -190,8 +167,6 @@ def test_static_callcallcodecallcode_011_oogm_before2(
         )
         + Op.MSTORE(offset=0x20, value=0x1)
         + Op.STOP,
-        nonce=0,
-        address=Address(0x1DFFDBFBE33709F17B6E90137242C109917A994B),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -222,4 +197,4 @@ def test_static_callcallcodecallcode_011_oogm_before2(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

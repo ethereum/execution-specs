@@ -7,7 +7,6 @@ state_tests/stEIP1559/tipTooHighFiller.yml
 
 import pytest
 from execution_testing import (
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -32,28 +31,19 @@ def test_tip_too_high(
     pre: Alloc,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=1000,
-        gas_limit=71794957647893862,
-    )
 
     # Source: yul
     # london
     # {
     #     sstore(0, add(1,1))
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
+
+    env = Environment(base_fee_per_gas=1000)
 
     tx = Transaction(
         sender=sender,

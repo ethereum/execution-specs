@@ -39,18 +39,11 @@ def test_transaction_create_suicide_in_initcode(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x3B9ACA00)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
     pre[coinbase] = Account(balance=0, nonce=1)
 
     tx_value = 1
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
+
     tx = Transaction(
         sender=sender,
         to=None,

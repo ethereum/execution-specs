@@ -8,10 +8,8 @@ state_tests/VMTests/vmArithmeticTest/divByZeroFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -620,7 +618,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_div_by_zero(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -630,17 +627,7 @@ def test_div_by_zero(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: lll
     # {
@@ -656,7 +643,7 @@ def test_div_by_zero(
     #     (if (= opcode 0x08) [[0]] (addmod a b 0) NOP)
     #     (if (= opcode 0x09) [[0]] (mulmod a b 0) NOP)
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0xF, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x4)
         )
@@ -707,7 +694,6 @@ def test_div_by_zero(
         + Op.JUMPDEST
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
     )
 
     tx_data = [
@@ -1131,4 +1117,4 @@ def test_div_by_zero(
 
     post = {target: Account(storage={0: 0})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

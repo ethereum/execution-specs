@@ -10,6 +10,7 @@ from typing import (
     Dict,
     Generator,
     List,
+    Mapping,
     Sequence,
     Type,
 )
@@ -38,11 +39,14 @@ from execution_testing.fixtures import (
     FixtureFormat,
     LabeledFixtureFormat,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import Alloc, Environment, Transaction
 from execution_testing.vm import Bytecode, Op
 
-from .base import BaseTest, FillResult
+from .base import (
+    BaseTest,
+    FillResult,
+)
 from .blockchain import Block, BlockchainTest
 
 
@@ -436,6 +440,18 @@ class BenchmarkTest(BaseTest):
             )
 
         self.blocks = blocks
+
+    @classmethod
+    def genesis_pre_allocation(
+        cls,
+        *,
+        fork: Fork | TransitionFork,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
+    ) -> Mapping:
+        """Return the blockchain pre-allocation of the derived fixture."""
+        return BlockchainTest.genesis_pre_allocation(
+            fork=fork, fixture_format=fixture_format
+        )
 
     @classmethod
     def pytest_parameter_name(cls) -> str:

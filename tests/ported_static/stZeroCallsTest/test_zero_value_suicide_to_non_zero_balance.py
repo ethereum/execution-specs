@@ -7,12 +7,10 @@ state_tests/stZeroCallsTest/ZeroValue_SUICIDE_ToNonZeroBalanceFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -34,32 +32,18 @@ def test_zero_value_suicide_to_non_zero_balance(
     pre: Alloc,
 ) -> None:
     """Test_zero_value_suicide_to_non_zero_balance."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     addr = Address(0x9089DA66E8BBC08846842A301905501BC8525DC4)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
-
-    pre[sender] = Account(balance=0xE8D4A51000)
     pre[addr] = Account(balance=100)
     # Source: lll
     # { (SELFDESTRUCT <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(
-            address=0x9089DA66E8BBC08846842A301905501BC8525DC4
-        )
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x888748026558F849C1B2433EA5E1DAF1444DFC60),  # noqa: E501
+    target_code = (
+        Op.SELFDESTRUCT(address=0x9089DA66E8BBC08846842A301905501BC8525DC4)
+        + Op.STOP
+    )
+    target = pre.deploy_contract(
+        code=target_code,
     )
 
     tx = Transaction(
@@ -72,13 +56,11 @@ def test_zero_value_suicide_to_non_zero_balance(
     post = {
         target: Account(
             storage={},
-            code=bytes.fromhex(
-                "739089da66e8bbc08846842a301905501bc8525dc4ff00"
-            ),
+            code=target_code,
             balance=0,
-            nonce=0,
+            nonce=1,
         ),
         addr: Account(balance=100),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

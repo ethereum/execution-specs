@@ -8,10 +8,8 @@ state_tests/stPreCompiledContracts/modexpTestsFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -809,17 +807,7 @@ def test_modexp_tests(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: yul
     # berlin
@@ -845,7 +833,7 @@ def test_modexp_tests(
     #    sstore(0, mload(0x100))
     #    sstore(1, sub(sub(gas0, gas1), 0x14c))
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x4)
         + Op.CALLDATALOAD(offset=0x24)
         + Op.CALLDATALOAD(offset=0x44)
@@ -1231,4 +1219,4 @@ def test_modexp_tests(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

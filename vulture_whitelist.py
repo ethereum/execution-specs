@@ -38,6 +38,9 @@ from ethereum_spec_tools.docc import *
 from ethereum_spec_tools.lint.lints.final_decorator import (
     FinalDecoratorHygiene,
 )
+from ethereum_spec_tools.lint.lints.formatting_hygiene import (
+    FormattingHygiene,
+)
 from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
     GlacierForksHygiene,
 )
@@ -129,6 +132,9 @@ FinalDecoratorHygiene
 
 # src/ethereum_spec_tools/lint/lints/uint_len.py
 UintLenHygiene
+
+# src/ethereum_spec_tools/lint/lints/formatting_hygiene.py
+FormattingHygiene
 
 # src/ethereum_spec_tools/lint/lints/glacier_forks_hygiene.py
 GlacierForksHygiene

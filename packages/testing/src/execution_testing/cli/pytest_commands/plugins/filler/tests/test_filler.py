@@ -1949,14 +1949,70 @@ def test_fill_variables(
         assert properties["build"] == build_name
 
 
-test_module_benchmark = textwrap.dedent(
+test_module_chain_id = textwrap.dedent(
     """\
-    from execution_testing import Account, Environment, TestAddress, Transaction
+    import pytest
 
-    def test_benchmark_one(state_test) -> None:
+    from execution_testing import Account, Environment, Op, Transaction
+
+    @pytest.mark.valid_at("Cancun")
+    def test_chain_id(state_test, pre, chain_config) -> None:
+        contract = pre.deploy_contract(Op.SSTORE(1, Op.CHAINID) + Op.STOP)
+        tx = Transaction(to=contract, gas_limit=100_000, sender=pre.fund_eoa())
         state_test(
             env=Environment(),
-            pre={TestAddress: Account(balance=1_000_000)},
+            pre=pre,
+            post={contract: Account(storage={1: chain_config.chain_id})},
+            tx=tx,
+        )
+    """
+)
+
+
+def test_fill_chain_id_reaches_state_test_fixtures(
+    testdir: pytest.Testdir,
+) -> None:
+    """Test that `--chain-id` reaches the transition tool and the fixture."""
+    tests_dir = testdir.mkdir("tests")
+    cancun_tests_dir = tests_dir.mkdir("cancun")
+    cancun_tests_dir.join("test_module_chain_id.py").write(
+        test_module_chain_id
+    )
+
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    result = testdir.runpytest(
+        "--chain-id",
+        "2",
+        "-c",
+        "pytest-fill.ini",
+        "-m",
+        "state_test",
+        "--no-html",
+    )
+    result.assert_outcomes(passed=1, failed=0, skipped=0, errors=0)
+
+    state_tests_dir = (
+        Path(default_output_directory()).absolute() / "state_tests"
+    )
+    fixture_files = list(state_tests_dir.rglob("*.json"))
+    assert len(fixture_files) == 1, (
+        f"Expected one fixture, got {fixture_files}"
+    )
+
+    (fixture,) = json.loads(fixture_files[0].read_text()).values()
+    assert int(fixture["config"]["chainid"], 16) == 2
+
+
+test_module_benchmark = textwrap.dedent(
+    """\
+    from execution_testing import Environment, TestAddress, Transaction
+
+    def test_benchmark_one(state_test, pre) -> None:
+        pre.fund_address(TestAddress, 1_000_000)
+        state_test(
+            env=Environment(),
             post={},
             tx=Transaction(gas_limit=0x5208),
         )

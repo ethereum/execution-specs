@@ -21,6 +21,7 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    GasFee,
     Initcode,
     Op,
     Transaction,
@@ -1261,8 +1262,12 @@ def test_selfdestruct_send_to_sender(
     """
     alice_initial_balance = 10**18
     alice = pre.fund_eoa(amount=alice_initial_balance)
+    contract_destroyed = fork < Cancun
     victim_code = Op.SELFDESTRUCT(
-        Op.CALLER, address_warm=True, account_new=False
+        Op.CALLER,
+        address_warm=True,
+        account_new=False,
+        self_destructed_account=contract_destroyed,
     )
     victim = pre.deploy_contract(code=victim_code, balance=originator_balance)
 
@@ -1279,11 +1284,19 @@ def test_selfdestruct_send_to_sender(
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
         calldata=b"", contract_creation=False
     )
-    execution_gas = victim_code.gas_cost(fork)
+    # The self-destruct refund (zero from EIP-3529 on) and its cap both
+    # come from the fork.
+    executed = intrinsic_gas + victim_code.gas_cost(fork)
+    refund = min(
+        victim_code.refund(fork), executed // fork.max_refund_quotient()
+    )
+    gas_used = executed - refund
     alice_final_balance = (
-        alice_initial_balance
-        + originator_balance
-        - (intrinsic_gas + execution_gas) * gas_price
+        alice_initial_balance + originator_balance - gas_used * gas_price
+    )
+    alice_post = Account(
+        nonce=1,
+        balance_change=originator_balance - GasFee(tx, gas=gas_used),
     )
 
     expected_bal: BlockAccessListExpectation | None = None
@@ -1315,15 +1328,14 @@ def test_selfdestruct_send_to_sender(
             }
         )
 
-    contract_destroyed = fork < Cancun
     if contract_destroyed:
         post: Dict[Address | EOA, Account | object] = {
-            alice: Account(nonce=1),
+            alice: alice_post,
             victim: Account.NONEXISTENT,
         }
     else:
         post = {
-            alice: Account(nonce=1),
+            alice: alice_post,
             victim: Account(balance=0, code=victim_code),
         }
 

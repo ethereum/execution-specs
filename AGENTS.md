@@ -26,7 +26,7 @@ When done with changes, ask the user if they'd like to run `/lint` before commit
 
 ## Branches
 
-- **There is no `main` branch.** Default branch = most active fork (currently `forks/amsterdam`). Run `git remote show origin | grep HEAD` to check.
+- **There is no `main` branch.** Default branch = most active fork (currently `forks/bogota`). Run `git remote show origin | grep HEAD` to check.
 - `mainnet` = stable specs for forks live on mainnet
 - PRs target the default branch
 - PRs strictly follow the template in `.github/PULL_REQUEST_TEMPLATE.md`.

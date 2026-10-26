@@ -187,6 +187,21 @@ def tx_intrinsic_gas_cost_including_floor_data_cost(
 
 
 @pytest.fixture
+def tx_floor_data_cost(
+    fork: Fork,
+    tx_data: Bytes,
+    access_list: List[AccessList] | None,
+    contract_creating_tx: bool,
+) -> int:
+    """Floor data cost for the given transaction."""
+    return fork.transaction_data_floor_cost_calculator()(
+        data=tx_data,
+        access_list=access_list,
+        contract_creation=contract_creating_tx,
+    )
+
+
+@pytest.fixture
 def tx_gas_surplus() -> int:
     """
     Return the gas added to the limit of a valid transaction.
@@ -202,11 +217,10 @@ def tx_gas_surplus() -> int:
 @pytest.fixture
 def tx_expected_gas_used(
     fork: Fork,
-    tx_data: Bytes,
-    access_list: List[AccessList] | None,
     authorization_list: List[AuthorizationTuple] | None,
     contract_creating_tx: bool,
     tx_intrinsic_gas_cost_before_execution: int,
+    tx_floor_data_cost: int,
 ) -> int:
     """
     Return the gas a valid fixture-built transaction is billed.
@@ -223,13 +237,9 @@ def tx_expected_gas_used(
         contract_creation=contract_creating_tx,
         authorizations=authorization_list or [],
     )
-    floor_gas = fork.transaction_data_floor_cost_calculator()(
-        data=tx_data,
-        access_list=access_list,
-        contract_creation=contract_creating_tx,
-    )
     return max(
-        tx_intrinsic_gas_cost_before_execution + top_frame_gas, floor_gas
+        tx_intrinsic_gas_cost_before_execution + top_frame_gas,
+        tx_floor_data_cost,
     )
 
 
@@ -258,24 +268,30 @@ def tx_error(
     tx_gas_delta: int,
     tx_gas_limit: int,
     tx_intrinsic_gas_cost_before_execution: int,
-) -> TransactionException | None:
+    tx_floor_data_cost: int,
+) -> List[TransactionException] | TransactionException | None:
     """
     Transaction error, only expected if the gas delta is negative.
 
-    The intrinsic gas check runs first, so a gas limit below the intrinsic
-    cost is rejected for that reason. A gas limit at or above it but below
-    the calldata floor is rejected by the floor check.
+    A limit that misses only the standard cost or only the calldata floor
+    is rejected for that threshold. A limit below both can be rejected by
+    either, because the spec checks their max.
     """
     if tx_gas_delta >= 0:
         return None
-    if tx_gas_limit < tx_intrinsic_gas_cost_before_execution:
+    if tx_gas_limit >= tx_intrinsic_gas_cost_before_execution:
+        return TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
+    if tx_gas_limit >= tx_floor_data_cost:
         return TransactionException.INTRINSIC_GAS_TOO_LOW
-    return TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
+    return [
+        TransactionException.INTRINSIC_GAS_TOO_LOW,
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST,
+    ]
 
 
 @pytest.fixture
 def tx_expected_receipt(
-    tx_error: TransactionException | None,
+    tx_error: List[TransactionException] | TransactionException | None,
     tx_expected_gas_used: int,
 ) -> TransactionReceipt | None:
     """Expect success and the exact gas used from a valid transaction."""
@@ -295,7 +311,7 @@ def tx(
     authorization_list: List[AuthorizationTuple] | None,
     blob_versioned_hashes: Sequence[Hash] | None,
     tx_gas_limit: int,
-    tx_error: TransactionException | None,
+    tx_error: List[TransactionException] | TransactionException | None,
     tx_expected_receipt: TransactionReceipt | None,
 ) -> Transaction:
     """Create the transaction used in each test."""

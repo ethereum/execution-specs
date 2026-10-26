@@ -4,20 +4,29 @@ import json
 from pathlib import Path
 from typing import Dict
 
+import ethereum.state as spec_state
 import pytest
+from ethereum_types.bytes import Bytes20
+from ethereum_types.numeric import U256, Uint
 
-from execution_testing.base_types import Account, Address
+from execution_testing.base_types import Address, StateCommitment
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.fixtures.pre_alloc_groups import (
     TEST_GROUP_INDEX_FILE,
     GroupIndexEntry,
+    GroupPreAlloc,
     PreAllocGroupBuilder,
     pack_pre_alloc_groups,
     packed_group_hash_for_test,
     read_test_group_index,
 )
 from execution_testing.forks import Fork, Osaka, Prague, get_forks
-from execution_testing.test_types import Alloc, AllocGroupHash, Environment
+from execution_testing.test_types import (
+    Account,
+    Alloc,
+    AllocGroupHash,
+    Environment,
+)
 
 
 def _write_group(
@@ -531,6 +540,40 @@ def test_pack_isolates_disagreeing_shared_address(tmp_path: Path) -> None:
     ]
 
 
+def test_pack_isolates_funded_default_fee_recipient(tmp_path: Path) -> None:
+    """
+    The default fee recipient funded by one test is never merged into a
+    test that assumes it empty, even when no other group allocates it:
+    every block with the default environment pays its fees there.
+    """
+    env = Environment()
+    fee_recipient = int.from_bytes(env.fee_recipient, "big")
+    _write_group(
+        tmp_path,
+        1,
+        "tests/a.py::test_a",
+        {fee_recipient: Account(balance=1), 0xA000: Account(balance=1)},
+        environment=env,
+    )
+    _write_group(
+        tmp_path,
+        2,
+        "tests/b.py::test_b",
+        {0xB000: Account(balance=2)},
+        environment=env,
+    )
+
+    pack_pre_alloc_groups(tmp_path)
+
+    packed = _packed(tmp_path)
+    assert len(packed) == 2
+    with_fee_recipient = [
+        g for g in packed.values() if str(env.fee_recipient) in g["pre"]
+    ]
+    assert len(with_fee_recipient) == 1
+    assert with_fee_recipient[0]["testIds"] == ["tests/a.py::test_a"]
+
+
 def test_builder_genesis_carries_the_environment() -> None:
     """
     Every `Environment` field the genesis header shares reaches that header.
@@ -584,3 +627,36 @@ def test_builder_genesis_carries_the_environment() -> None:
             f"{field} did not reach the genesis header: "
             f"{getattr(environment, field)} != {getattr(genesis, field)}"
         )
+
+
+def test_structural_copy_drops_group_caches() -> None:
+    """
+    A copy that executes blocks reports its own state root and dump, not the
+    group's cached genesis ones.
+    """
+    address = Address(0x1234)
+    group = GroupPreAlloc.model_validate({address: Account(balance=1)})
+    group.migrate_state_commitment(StateCommitment.MPT)
+    genesis_root = group.state_root()
+    genesis_dump = group.model_dump(mode="json")
+    group._cached_state_root = genesis_root
+
+    copied = group.structural_copy()
+    diff = spec_state.BlockDiff(
+        account_changes={
+            Bytes20(address): spec_state.Account(
+                nonce=Uint(1),
+                balance=U256(2),
+                code_hash=spec_state.EMPTY_CODE_HASH,
+            )
+        }
+    )
+    copied.compute_state_root(diff)
+    copied.apply_diff(diff)
+
+    expected = Alloc.model_validate({address: Account(nonce=1, balance=2)})
+    expected.migrate_state_commitment(StateCommitment.MPT)
+    assert copied.state_root() == expected.state_root() != genesis_root
+    assert copied.model_dump(mode="json") != genesis_dump
+    assert group.state_root() == genesis_root
+    assert group.model_dump(mode="json") == genesis_dump

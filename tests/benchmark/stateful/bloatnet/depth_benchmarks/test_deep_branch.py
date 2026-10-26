@@ -45,6 +45,7 @@ from execution_testing import (
     Hash,
     IteratingBytecode,
     Op,
+    ReceiptStatusExpected,
     TransactionWithCost,
     While,
 )
@@ -663,5 +664,5 @@ def test_worst_depth_get_deepest(
         pre=pre,
         blocks=[Block(txs=read_txs)],
         expected_benchmark_gas_used=total_gas_cost,
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected()],
     )

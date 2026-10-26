@@ -8,10 +8,8 @@ state_tests/stSolidityTest/AmbiguousMethodFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,27 +23,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSolidityTest/AmbiguousMethodFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_ambiguous_method(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_ambiguous_method."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x12A05F200)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: raw
     # 0x60003560e060020a90048063c040622614601557005b601b6021565b60006000f35b61014f60008190555056  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x0)
         + Op.EXP(0x2, 0xE0)
         + Op.SWAP1
@@ -66,7 +53,6 @@ def test_ambiguous_method(
         + Op.POP
         + Op.JUMP,
         balance=0x186A0,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -79,4 +65,4 @@ def test_ambiguous_method(
 
     post = {target: Account(storage={0: 335})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -379,17 +379,25 @@ def _reserved_addresses(builders: List["PreAllocGroupBuilder"]) -> Set[str]:
     A ported state test only declares the accounts it sets and assumes all
     other addresses are empty, so introducing an account at an address it
     quietly depends on (a precompile, a canonical scratch contract, ...)
-    changes its result. Three kinds of address are therefore reserved: the
+    changes its result. Four kinds of address are therefore reserved: the
     blanket low range, the fork's precompile addresses (which extend beyond
-    that range from EIP-7951's P256VERIFY at ``0x100`` on), and any address
-    more than one group allocates (i.e. a shared/canonical address rather
-    than one private to a single test).
+    that range from EIP-7951's P256VERIFY at ``0x100`` on), the default fee
+    recipient, and any address more than one group allocates (i.e. a
+    shared/canonical address rather than one private to a single test).
+
+    The default fee recipient is reserved even when a single group
+    allocates it: every block that keeps the default `Environment` pays
+    its priority fees there, so a test that pre-funds it would shift the
+    coinbase balance of every other test it merges with. A test that sets
+    a custom fee recipient without allocating it is not covered; its
+    address is private to that test unless another test allocates it.
     """
     # Packing buckets by fork, so every builder shares this one; a
     # transition fork reserves the post-transition precompiles, matching
     # the genesis built by `PreAllocGroupBuilders.add_test_pre`.
     fork = builders[0].fork.transitions_to()
     reserved = {str(address) for address in fork.precompiles()}
+    reserved.add(str(Environment().fee_recipient))
     frequency: Dict[str, int] = defaultdict(int)
     for builder in builders:
         for address in builder.pre.root:
@@ -572,12 +580,8 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
                 environment=environment,
                 group_salt=group_salt,
                 group_hash=pre_alloc_hash,
-                pre=Alloc.merge(
-                    Alloc.model_validate(
-                        fork.transitions_to().pre_allocation_blockchain()
-                    ),
-                    pre,
-                ),
+                # Plain `Alloc` copy, so later tests can be merged into it.
+                pre=Alloc(pre.root),
             )
             self.root[pre_alloc_hash] = group
 
@@ -612,6 +616,21 @@ class GroupPreAlloc(Alloc):
     _cached_state_root: Hash | None = PrivateAttr(None)
     _model_dump_cache: ModelDumpCache | None = PrivateAttr(None)
     _pre_alloc_group_hash: AllocGroupHash | None = PrivateAttr(None)
+    _genesis_accounts: Literal["absent", "seeded", "deferred"] = PrivateAttr(
+        "seeded"
+    )
+    """Built from the seeded `pre` of every test in the group."""
+
+    def structural_copy(self) -> Self:
+        """
+        Return a copy to execute blocks against, without the cached state
+        root and model dump, which describe the group's genesis rather than
+        the copy.
+        """
+        copied = super().structural_copy()
+        copied._cached_state_root = None
+        copied._model_dump_cache = None
+        return copied
 
     def state_root(self) -> Hash:
         """On pre-alloc groups, which are normally very big, always cache."""

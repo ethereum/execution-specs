@@ -16,7 +16,6 @@ budget still triggers the same exception path.
 import pytest
 from execution_testing import (
     Alloc,
-    Environment,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -67,15 +66,6 @@ def test_create_transaction_high_nonce(
     """The test check if the create transaction is reject if the origin's..."""
     sender = pre.fund_eoa(amount=0x5AF3107A4000, nonce=18446744073709551615)
 
-    env = Environment(
-        fee_recipient=sender,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": -1, "value": -1},
@@ -113,4 +103,4 @@ def test_create_transaction_high_nonce(
         error=TransactionException.NONCE_IS_MAX,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

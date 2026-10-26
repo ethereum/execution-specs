@@ -18,9 +18,7 @@ the parameter. g=1 (the OoG case) keeps the original budget.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -93,7 +91,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_revert_opcode_calls(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -112,20 +109,11 @@ def test_revert_opcode_calls(
         inner_call_gas_2 = 1000000
         inner_call_gas_3 = 1300000
 
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # {  [[10]] (CALL 260000 (CALLDATALOAD 0) 0 0 0 0 0)}
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0xA,
             value=Op.CALL(
@@ -140,28 +128,24 @@ def test_revert_opcode_calls(
         )
         + Op.STOP,
         balance=1,
-        nonce=0,
-        address=Address(0x1ADA72179309FD8A562E308928E38763A543ED6C),  # noqa: E501
     )
     # Source: lll
     # { [[1]] 12 (REVERT 0 1) [[3]] 13 }
-    addr_6 = pre.deploy_contract(  # noqa: F841
+    addr_6 = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0xC)
         + Op.REVERT(offset=0x0, size=0x1)
         + Op.SSTORE(key=0x3, value=0xD)
         + Op.STOP,
         balance=1,
-        nonce=0,
-        address=Address(0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B),  # noqa: E501
     )
     # Source: lll
     # { [[4]] (CALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[5]] 14 }  # noqa: E501
-    addr_5 = pre.deploy_contract(  # noqa: F841
+    addr_5 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x4,
             value=Op.CALL(
                 gas=inner_call_gas,
-                address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
+                address=addr_6,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -172,17 +156,15 @@ def test_revert_opcode_calls(
         + Op.SSTORE(key=0x5, value=0xE)
         + Op.STOP,
         balance=1,
-        nonce=0,
-        address=Address(0x652761B88018EA027F6F27E456FE55C2DC5D6A91),  # noqa: E501
     )
     # Source: lll
     # { [[0]] (CALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] 14 }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
                 gas=inner_call_gas,
-                address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
+                address=addr_6,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -193,17 +175,15 @@ def test_revert_opcode_calls(
         + Op.SSTORE(key=0x2, value=0xE)
         + Op.STOP,
         balance=1,
-        nonce=0,
-        address=Address(0xCEB48D108C874B5B014ACDD1A2466D65A3D01DE6),  # noqa: E501
     )
     # Source: lll
     # { [[0]] (DELEGATECALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[2]] 14 }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.DELEGATECALL(
                 gas=inner_call_gas,
-                address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
+                address=addr_6,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -213,17 +193,15 @@ def test_revert_opcode_calls(
         + Op.SSTORE(key=0x2, value=0xE)
         + Op.STOP,
         balance=1,
-        nonce=0,
-        address=Address(0x6B8268AC8921E6A6E59A4B1D51A76F4E807E17AF),  # noqa: E501
     )
     # Source: lll
     # { [[0]] (CALLCODE 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] 14 }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALLCODE(
                 gas=inner_call_gas,
-                address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
+                address=addr_6,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -234,17 +212,15 @@ def test_revert_opcode_calls(
         + Op.SSTORE(key=0x2, value=0xE)
         + Op.STOP,
         balance=1,
-        nonce=0,
-        address=Address(0x737F82ED94146E759790D925492DF5A8CED35885),  # noqa: E501
     )
     # Source: lll
     # { [[0]] (CALL 100000 <contract:0xb3305374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]] 14 }  # noqa: E501
-    addr_4 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
                 gas=inner_call_gas_2,
-                address=0x652761B88018EA027F6F27E456FE55C2DC5D6A91,
+                address=addr_5,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -255,8 +231,6 @@ def test_revert_opcode_calls(
         + Op.SSTORE(key=0x2, value=0xE)
         + Op.STOP,
         balance=1,
-        nonce=0,
-        address=Address(0xBF3FC188D9C8D699FFA12F0369E3B2BCF8428F7C),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -266,7 +240,7 @@ def test_revert_opcode_calls(
             "result": {
                 addr_6: Account(storage={}),
                 target: Account(storage={10: 1}),
-                addr: Account(storage={0: 0, 2: 14}, nonce=0),
+                addr: Account(storage={0: 0, 2: 14}, nonce=1),
             },
         },
         {
@@ -283,7 +257,7 @@ def test_revert_opcode_calls(
             "result": {
                 addr_6: Account(storage={}),
                 target: Account(storage={10: 1}),
-                addr_2: Account(storage={0: 0, 2: 14}, nonce=0),
+                addr_2: Account(storage={0: 0, 2: 14}, nonce=1),
             },
         },
         {
@@ -300,7 +274,7 @@ def test_revert_opcode_calls(
             "result": {
                 addr_6: Account(storage={}),
                 target: Account(storage={10: 1}),
-                addr_3: Account(storage={0: 0, 2: 14}, nonce=0),
+                addr_3: Account(storage={0: 0, 2: 14}, nonce=1),
             },
         },
         {
@@ -317,8 +291,8 @@ def test_revert_opcode_calls(
             "result": {
                 addr_6: Account(storage={}),
                 target: Account(storage={10: 1}),
-                addr_4: Account(storage={0: 1, 2: 14}, nonce=0),
-                addr_5: Account(storage={4: 0, 5: 14}, nonce=0),
+                addr_4: Account(storage={0: 1, 2: 14}, nonce=1),
+                addr_5: Account(storage={4: 0, 5: 14}, nonce=1),
             },
         },
         {
@@ -327,8 +301,8 @@ def test_revert_opcode_calls(
             "result": {
                 addr_6: Account(storage={}),
                 target: Account(storage={10: 0}),
-                addr_4: Account(storage={0: 0, 2: 0}, nonce=0),
-                addr_5: Account(storage={4: 0, 5: 0}, nonce=0),
+                addr_4: Account(storage={0: 0, 2: 0}, nonce=1),
+                addr_5: Account(storage={4: 0, 5: 0}, nonce=1),
             },
         },
     ]
@@ -356,4 +330,4 @@ def test_revert_opcode_calls(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

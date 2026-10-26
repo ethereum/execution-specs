@@ -8,10 +8,8 @@ state_tests/stMemoryStressTest/SLOAD_BoundsFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -43,7 +41,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_sload_bounds(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -53,21 +50,11 @@ def test_sload_bounds(
     v: int,
 ) -> None:
     """Test_sload_bounds."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x7FFFFFFFFFFFFFFFFFF)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
     # Source: lll
     # { (SLOAD 0) (SLOAD 0xffffffff) (SLOAD 0xffffffffffffffff) (SLOAD 0xffffffffffffffffffffffffffffffff) (SLOAD 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.POP(Op.SLOAD(key=0x0))
         + Op.POP(Op.SLOAD(key=0xFFFFFFFF))
         + Op.POP(Op.SLOAD(key=0xFFFFFFFFFFFFFFFF))
@@ -76,7 +63,6 @@ def test_sload_bounds(
             key=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
         )
         + Op.STOP,
-        nonce=0,
     )
 
     tx_data = [
@@ -95,4 +81,4 @@ def test_sload_bounds(
 
     post = {target: Account(balance=1)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

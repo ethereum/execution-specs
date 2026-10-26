@@ -20,6 +20,7 @@ from execution_testing import (
     EIPChecklist,
     Environment,
     Fork,
+    GasFee,
     RefundTypes,
     Transaction,
     TransactionException,
@@ -70,16 +71,21 @@ def test_simple_gas_accounting(
     expected_block_access_list = None
     if fork.is_eip_enabled(7928):
         # The refund reaches the sender's balance even though it stays
-        # out of the block's gas accounting.
-        sender_post = post[refund_tx.sender]
-        assert sender_post is not None, "RefundTransaction.post sets it"
+        # out of the block's gas accounting. The BAL records the absolute
+        # post balance, so this depends on the transaction's gas price.
+        receipt_gas_used = refund_tx.expected_receipt.gas_used
+        assert receipt_gas_used is not None
+        assert refund_tx.gas_price is not None
+        sender_post_balance = (
+            INITIAL_FUND - receipt_gas_used * refund_tx.gas_price
+        )
         expected_block_access_list = BlockAccessListExpectation(
             account_expectations={
                 refund_tx.sender: BalAccountExpectation(
                     balance_changes=[
                         BalBalanceChange(
                             block_access_index=1,
-                            post_balance=sender_post.balance,
+                            post_balance=sender_post_balance,
                         )
                     ],
                 ),
@@ -125,7 +131,9 @@ def test_simple_gas_accounting(
     ],
 )
 @pytest.mark.with_all_refund_types()
-@pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
+@pytest.mark.execute(
+    pytest.mark.skip(reason="Requires specific block gas limit")
+)
 def test_multi_transaction_gas_accounting(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -156,7 +164,7 @@ def test_multi_transaction_gas_accounting(
 
     refund_tx = RefundTransaction.build(
         fork=fork,
-        sender=pre.fund_eoa(INITIAL_FUND),
+        sender=pre.fund_eoa(),
         refund_types={refund_type},
         refunds_count=refunds_count,
         tx_failure=refund_tx_failure,
@@ -329,7 +337,7 @@ def test_varying_calldata_costs(
     for _ in range(num_iterations):
         refund_tx = RefundTransaction.build(
             fork=fork,
-            sender=pre.fund_eoa(INITIAL_FUND),
+            sender=pre.fund_eoa(),
             refund_types={refund_type},
             tx_failure=refund_tx_failure,
             call_data=data,
@@ -421,7 +429,9 @@ def test_varying_calldata_costs(
         ),
     ],
 )
-@pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
+@pytest.mark.execute(
+    pytest.mark.skip(reason="Requires specific block gas limit")
+)
 def test_trailing_tx_admission_uses_pre_refund_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -447,7 +457,7 @@ def test_trailing_tx_admission_uses_pre_refund_gas(
 
     refund_tx = RefundTransaction.build(
         fork=fork,
-        sender=pre.fund_eoa(INITIAL_FUND),
+        sender=pre.fund_eoa(),
         refund_types={refund_type},
         refunds_count=refunds_count,
         tx_failure=refund_tx_failure,
@@ -501,7 +511,6 @@ def test_trailing_tx_admission_uses_pre_refund_gas(
 
 
 @TransactionFailure.with_all_tx_failures()
-@pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
 def test_multiple_refund_types_in_one_tx(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -515,7 +524,7 @@ def test_multiple_refund_types_in_one_tx(
 
     refund_tx = RefundTransaction.build(
         fork=fork,
-        sender=pre.fund_eoa(INITIAL_FUND),
+        sender=pre.fund_eoa(),
         refund_types=refund_types,
         refunds_count=refunds_count,
         tx_failure=refund_tx_failure,
@@ -534,7 +543,6 @@ def test_multiple_refund_types_in_one_tx(
     )
 
 
-@pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
 def test_mixed_gas_regimes(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -556,14 +564,13 @@ def test_mixed_gas_regimes(
     """
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
     data_floor_calc = fork.transaction_data_floor_cost_calculator()
-    initial_fund = 10**18
 
     post = Alloc()
 
     # tx1: SSTORE-set to a fresh slot. No refund.
     tx1_code = Op.SSTORE(0, 1, original_value=0, new_value=1)
     tx1_target = pre.deploy_contract(code=tx1_code)
-    tx1_sender = pre.fund_eoa(initial_fund)
+    tx1_sender = pre.fund_eoa()
     tx1_data = b""
     # Full intrinsic + execution gas (execution + state) sizes the gas limit
     # and the balance charged to the sender.
@@ -587,17 +594,15 @@ def test_mixed_gas_regimes(
         data=tx1_data,
         expected_receipt={"gas_used": tx1_contribution},
     )
-    tx1_gas_price = tx1.gas_price if tx1.gas_price else tx1.max_fee_per_gas
-    assert tx1_gas_price is not None
     post[tx1_target] = Account(storage={0: 1})
     post[tx1_sender] = Account(
-        balance=initial_fund - tx1_contribution * tx1_gas_price
+        balance_change=-GasFee(tx1, gas=tx1_contribution)
     )
 
     # tx2: SSTORE-clear with normal refund, refund not clipped to floor.
     tx2 = RefundTransaction.build(
         fork=fork,
-        sender=pre.fund_eoa(INITIAL_FUND),
+        sender=pre.fund_eoa(),
         refund_types={RefundTypes.STORAGE_CLEAR},
         refunds_count=10,
     )
@@ -614,7 +619,7 @@ def test_mixed_gas_regimes(
 
     # tx3: floor-binding via 1000 zero bytes of calldata to STOP.
     tx3_target = pre.deterministic_deploy_contract(deploy_code=Op.STOP)
-    tx3_sender = pre.fund_eoa(initial_fund)
+    tx3_sender = pre.fund_eoa()
     tx3_data = b"\x00" * 1000
     tx3_pre_refund = intrinsic_cost_calc(
         calldata=tx3_data,
@@ -632,11 +637,7 @@ def test_mixed_gas_regimes(
         data=tx3_data,
         expected_receipt={"gas_used": tx3_fee_gas},
     )
-    tx3_gas_price = tx3.gas_price if tx3.gas_price else tx3.max_fee_per_gas
-    assert tx3_gas_price is not None
-    post[tx3_sender] = Account(
-        balance=initial_fund - tx3_fee_gas * tx3_gas_price
-    )
+    post[tx3_sender] = Account(balance_change=-GasFee(tx3, gas=tx3_fee_gas))
 
     total_gas_used = (
         tx1_block_contribution + tx2_contribution + tx3_block_contribution

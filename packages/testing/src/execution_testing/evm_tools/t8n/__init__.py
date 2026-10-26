@@ -21,6 +21,7 @@ from typing import (
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
+from ethereum.merkle_patricia_trie import trie_set
 from ethereum_rlp import rlp
 from ethereum_spec_tools.forks import (
     ForkOverrides,
@@ -135,6 +136,7 @@ class T8N(Load):
     alloc: Any
     env: "TestingEnvironment"
     txs: List["TestingTransaction"]
+    included_txs: List[Any]
     ommers: List[Ommer]
     rejected_transactions: List[Any]
     body: Bytes
@@ -204,8 +206,15 @@ class T8N(Load):
             blob_base_fee_update_fraction=base_fee_update_fraction,
         )
 
+        # The tracer active before this transition, put back by `run`.
+        self._previous_tracer: trace.EvmTracer | None = None
         if tracers is not None:
-            trace.set_evm_trace(tracers)
+            if len(tracers.tracers) == 1:
+                # A group of one would add a call to every trace event.
+                (tracer,) = tracers.tracers
+                self._previous_tracer = trace.set_evm_trace(tracer)
+            else:
+                self._previous_tracer = trace.set_evm_trace(tracers)
         self.tracers = tracers
 
         self.logger = get_stream_logger("T8N")
@@ -219,21 +228,23 @@ class T8N(Load):
 
         from execution_testing.client_clis.cli_types import LazyAlloc
 
-        # Take a defensive copy of the input alloc so ``apply_diff``
-        # (and any other in-place mutation T8N does) never escapes
-        # into the caller's Python object. Without this, multi-block
-        # tests that contain an invalid block would observe a mutated
-        # pre-state — the testing framework expects ``previous_alloc``
-        # to remain unchanged when ``block.exception`` is set.
+        # Copy the input alloc so `apply_diff` never changes the caller's
+        # object: the copy has its own account map, and `apply_diff`
+        # replaces accounts in it instead of mutating the ones it shares
+        # with the input. Without this, multi-block tests that contain an
+        # invalid block would observe a mutated pre-state, while the
+        # testing framework expects `previous_alloc` to remain unchanged
+        # when `block.exception` is set.
         input_alloc = t8n_data.alloc
         if isinstance(input_alloc, LazyAlloc):
             input_alloc = input_alloc.materialize()
-        self.alloc = input_alloc.model_copy(deep=True)
+        self.alloc = input_alloc.structural_copy()
         self.alloc.migrate_state_commitment(t8n_data.fork.state_commitment())
         self.env = t8n_data.env
         self.txs = list(t8n_data.txs)
+        self.included_txs = []
         self.ommers = list(ommers)
-        self.body = Bytes(rlp.encode([tx.rlp() for tx in self.txs]))
+        self.body = Bytes()
         self.rejected_transactions = []
 
     def _tracer(self, type_: Type[T]) -> T:
@@ -327,19 +338,44 @@ class T8N(Load):
         self.fork.incorporate_tx_into_block(rewards_state)
 
     def _process_txs(self, block_env: Any, block_output: Any) -> None:
-        """Execute every transaction in ``self.txs`` against ``block_env``."""
+        """
+        Execute every transaction in ``self.txs`` against ``block_env``.
+
+        Rejected transactions are skipped. They are reported under their
+        position in the input, but they leave no trace in the block: the
+        transactions that follow take the position the rejected one would
+        have had, as if it had never been supplied. Accepted transactions
+        are added to ``self.included_txs``, so its length is the index the
+        next one takes.
+        """
         for tx_index, testing_tx in enumerate(self.txs):
             try:
                 fork_tx = self.convert_transaction(testing_tx)
                 self.fork.process_transaction(
-                    block_env, block_output, fork_tx, Uint(tx_index)
+                    block_env,
+                    block_output,
+                    fork_tx,
+                    Uint(len(self.included_txs)),
                 )
             except (EthereumException, UnsupportedTxError) as e:
                 # `UnsupportedTxError` covers ``convert_transaction``
                 # failures when a typed tx is structurally malformed for
                 # this fork (e.g. a contract-creating BlobTransaction).
+                #
+                # ``process_transaction`` adds the transaction to the
+                # transactions trie before it checks it is admissible, so
+                # take it out again. An error after that point, which
+                # would also have added a receipt, cannot happen: the
+                # fork raises only while admitting the transaction.
+                trie_set(
+                    block_output.transactions_trie,
+                    rlp.encode(Uint(len(self.included_txs))),
+                    None,
+                )
                 record_rejected_tx(self, tx_index, e)
                 self.logger.warning(f"Transaction {tx_index} failed: {e!r}")
+            else:
+                self.included_txs.append(fork_tx)
 
     def run_state_test(self) -> None:
         """
@@ -360,8 +396,15 @@ class T8N(Load):
                     index=Uint(0),
                 )
             except (EthereumException, UnsupportedTxError) as e:
+                trie_set(
+                    self._block_output.transactions_trie,
+                    rlp.encode(Uint(0)),
+                    None,
+                )
                 record_rejected_tx(self, 0, e)
                 self.logger.warning(f"Transaction 0 failed: {e!r}")
+            else:
+                self.included_txs.append(fork_tx)
 
         self._block_exception = None
         self.result = build_result(
@@ -393,7 +436,9 @@ class T8N(Load):
         # EIP-7928: Post-execution operations use index N+1
         if self.fork.has_hash_block_access_list:
             block_env.block_access_list_builder.block_access_index = (
-                self.fork.BlockAccessIndex(Uint(len(self.txs)) + Uint(1))
+                self.fork.BlockAccessIndex(
+                    Uint(len(self.included_txs)) + Uint(1)
+                )
             )
 
         if not self.fork.proof_of_stake and self.state_reward != -1:
@@ -481,15 +526,26 @@ class T8N(Load):
             TransitionToolOutput,
         )
 
-        if self.state_test:
-            self.run_state_test()
-        else:
-            self.run_blockchain_test()
+        try:
+            if self.state_test:
+                self.run_state_test()
+            else:
+                self.run_blockchain_test()
+        finally:
+            if self._previous_tracer is not None:
+                trace.set_evm_trace(self._previous_tracer)
+                self._previous_tracer = None
 
-        # Apply the block diff in place so ``self.alloc`` is the
-        # post-state when the caller reads it. Safe to do
-        # unconditionally — ``self.alloc`` is a defensive copy taken
-        # in ``__init__``, so mutating it never escapes to the caller.
+        self.body = Bytes(
+            rlp.encode(
+                [self.fork.encode_transaction(tx) for tx in self.included_txs]
+            )
+        )
+
+        # Apply the block diff in place so `self.alloc` is the post-state
+        # when the caller reads it. Safe to do unconditionally, as
+        # `self.alloc` is a structural copy taken in `__init__`, so the
+        # diff never reaches the caller.
         diff = self.fork.extract_block_diff(self._block_state)
         self.alloc.apply_diff(diff)
 

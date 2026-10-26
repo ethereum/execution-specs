@@ -203,6 +203,8 @@ class TransitionTool(EthereumCLI):
     call_counter: int = 0
     opcode_count: OpcodeCount | None = None
     opcode_count_per_block: List[OpcodeCount] | None = None
+    count_opcodes: bool = True
+    """Whether `reset_opcode_count` turns on opcode counting for a test."""
 
     supports_opcode_count: ClassVar[bool] = False
     supports_xdist: ClassVar[bool] = True
@@ -313,10 +315,15 @@ class TransitionTool(EthereumCLI):
 
     def reset_opcode_count(self) -> None:
         """
-        Reset the opcode count to zero.
+        Reset the opcode count to zero, or to `None` (no counting) when
+        `count_opcodes` is off.
         """
-        self.opcode_count = OpcodeCount({})
-        self.opcode_count_per_block = []
+        if self.count_opcodes:
+            self.opcode_count = OpcodeCount({})
+            self.opcode_count_per_block = []
+        else:
+            self.opcode_count = None
+            self.opcode_count_per_block = None
 
     @dataclass
     class TransitionToolData:
@@ -759,7 +766,7 @@ class TransitionTool(EthereumCLI):
                     if src.exists():
                         shutil.copyfile(src, debug_output_dir / name)
 
-        if self.supports_opcode_count:
+        if self.supports_opcode_count and self.opcode_count is not None:
             opcode_count_file_path = Path(temp_dir.name) / "opcodes.json"
             if opcode_count_file_path.exists():
                 opcode_count = OpcodeCount.model_validate_json(
@@ -856,7 +863,7 @@ class TransitionTool(EthereumCLI):
 
         if self.trace:
             args.append(trace_flag)
-        if self.supports_opcode_count:
+        if self.supports_opcode_count and self.opcode_count is not None:
             args.extend(["--opcode.count", "opcodes.json"])
 
         return args

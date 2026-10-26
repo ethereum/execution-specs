@@ -35,6 +35,7 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Storage,
+    Tip,
     Transaction,
     TransactionReceipt,
     WhileGas,
@@ -2000,7 +2001,7 @@ def test_call_new_account_no_execution_account_creation_cost(
         pytest.param(
             True,
             marks=pytest.mark.execute(
-                pytest.mark.skip(reason="requires exact base fee")
+                pytest.mark.skip(reason="requires an empty fee recipient")
             ),
         ),
     ],
@@ -2010,6 +2011,7 @@ def test_call_new_account_no_execution_account_creation_cost(
 def test_call_new_account_state_gas_boundary(
     state_test: StateTestFiller,
     pre: Alloc,
+    env: Environment,
     fork: Fork,
     gas_delta: int,
     recipient_is_coinbase: bool,
@@ -2025,7 +2027,10 @@ def test_call_new_account_state_gas_boundary(
     An absent coinbase is still charged: it is warm, but receives its
     priority fee only after execution.
     """
-    target = pre.nonexistent_account()
+    if recipient_is_coinbase:
+        target = env.fee_recipient
+    else:
+        target = pre.nonexistent_account()
     caller_code = (
         Op.CALL(
             gas=0,
@@ -2054,23 +2059,19 @@ def test_call_new_account_state_gas_boundary(
         gas_used = exact_fit + gas_delta
         post = {target: Account.NONEXISTENT, caller: Account(balance=1)}
 
-    gas_price = 10
     tx = Transaction(
         to=caller,
         gas_limit=exact_fit + gas_delta,
-        gas_price=gas_price,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
     )
 
-    env = Environment()
     if recipient_is_coinbase:
-        base_fee = 7
-        env = Environment(fee_recipient=target, base_fee_per_gas=base_fee)
         # The coinbase also receives the priority fee on the gas used.
         transferred = 1 if gas_delta == 0 else 0
-        priority_fee = gas_price - base_fee
-        post[target] = Account(balance=transferred + gas_used * priority_fee)
+        post[target] = Account(
+            balance_change=transferred + Tip(tx, gas=gas_used)
+        )
 
     state_test(env=env, pre=pre, post=post, tx=tx)
 

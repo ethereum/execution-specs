@@ -11,7 +11,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     StateTestFiller,
     Transaction,
@@ -34,21 +33,11 @@ def test_call_low_level_creates_solidity(
     pre: Alloc,
 ) -> None:
     """Test_call_low_level_creates_solidity."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x5F5E100)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: raw
     # 0x60003560e060020a9004806330debb4214610021578063c04062261461003257005b61002c6004356100c7565b60006000f35b61003a610044565b8060005260206000f35b60006000600160008190555073<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>600181905550606a6100d2600039606a60006000f0905080600160a060020a03166319ab453c600060008260e060020a026000526004600154600160a060020a03168152602001600060008660325a03f16100bc57005b505060005491505090565b80600081905550505600605e80600c6000396000f30060003560e060020a9004806319ab453c14601557005b601e6004356024565b60006000f35b80600160a060020a03166330debb42600060008260e060020a02600052600460e18152602001600060008660325a03f1605957005b50505056  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x0)
         + Op.EXP(0x2, 0xE0)
         + Op.SWAP1
@@ -153,7 +142,6 @@ def test_call_low_level_creates_solidity(
         + Op.POP * 3
         + Op.JUMP,
         balance=0x186A0,
-        nonce=0,
         address=Address(0x5DA6FBE439A0C3AB33F813671A4E7767EE0A263B),  # noqa: E501
     )
 
@@ -165,6 +153,6 @@ def test_call_low_level_creates_solidity(
         value=1,
     )
 
-    post = {target: Account(storage={0: 225, 1: target}, nonce=1)}
+    post = {target: Account(storage={0: 225, 1: target}, nonce=2)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

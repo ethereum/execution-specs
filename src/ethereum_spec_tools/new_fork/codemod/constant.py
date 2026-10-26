@@ -124,6 +124,9 @@ class SetConstantCommand(VisitorBasedCodemodCommand):
         self._replaced = True
 
         if len(original_node.targets) != 1:
+            raise NotImplementedError("cannot set value of chained assignment")
+
+        if not isinstance(original_node.targets[0].target, cst.Name):
             raise NotImplementedError(
                 "cannot set value of unpacking assignment"
             )

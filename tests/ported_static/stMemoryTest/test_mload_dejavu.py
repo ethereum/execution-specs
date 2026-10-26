@@ -8,10 +8,8 @@ state_tests/stMemoryTest/mload_dejavuFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,30 +23,18 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stMemoryTest/mload_dejavuFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_mload_dejavu(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_mload_dejavu."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x271000000000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=52949672960,
-    )
 
     # Source: raw
     # 0x630FFFFFFF51
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MLOAD(offset=0xFFFFFFF),
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -60,8 +46,8 @@ def test_mload_dejavu(
     )
 
     post = {
-        target: Account(storage={}, nonce=0),
+        target: Account(storage={}, nonce=1),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

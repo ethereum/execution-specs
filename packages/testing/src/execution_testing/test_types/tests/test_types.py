@@ -6,7 +6,6 @@ import pytest
 
 from execution_testing.base_types import (
     AccessList,
-    Account,
     Address,
     Bytes,
     Storage,
@@ -16,7 +15,8 @@ from execution_testing.base_types import (
 )
 from execution_testing.base_types.pydantic import CopyValidateModel
 
-from ..account_types import EOA, Alloc
+from ..account_types import EOA, Account, Alloc
+from ..balance_expectations import EmptyPostStateContext
 from ..block_types import (
     Environment,
     Withdrawal,
@@ -349,10 +349,20 @@ def test_account_check_alloc(
     """Test `Account.check_alloc` method."""
     alloc_account = Account(**alloc_dict)
     if should_pass:
-        account.check_alloc(Address(1), alloc_account)
+        account.check_alloc(
+            address=Address(1),
+            pre_account=Account(),
+            account=alloc_account,
+            context=EmptyPostStateContext(),
+        )
     else:
         with pytest.raises(Exception) as _:
-            account.check_alloc(Address(1), alloc_account)
+            account.check_alloc(
+                address=Address(1),
+                pre_account=Account(),
+                account=alloc_account,
+                context=EmptyPostStateContext(),
+            )
 
 
 @pytest.mark.parametrize(

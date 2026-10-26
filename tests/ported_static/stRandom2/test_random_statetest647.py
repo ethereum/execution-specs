@@ -33,24 +33,17 @@ def test_random_statetest647(
     coinbase = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0x174876E800)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=18857228215205537,
-    )
-
     # Source: raw
     # 0x6001600160000360003e00
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.RETURNDATACOPY(
             dest_offset=0x0, offset=Op.SUB(0x0, 0x1), size=0x1
         )
         + Op.STOP,
         nonce=7,
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
