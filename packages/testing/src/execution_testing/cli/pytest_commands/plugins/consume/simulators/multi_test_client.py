@@ -275,7 +275,6 @@ def environment(
     fixture: BlockchainEngineXFixture,
     check_live_port: int,
     environment_cache: dict[AllocGroupHash, dict],
-    skip_genesis_init: bool,
 ) -> dict:
     """
     Define environment variables for multi-test client startup.
@@ -305,8 +304,6 @@ def environment(
         # otherwise reject them (e.g. geth's engine API max reorg depth).
         "HIVE_EXPECT_DEEP_REORGS": "1",
     }
-    if skip_genesis_init:
-        env["HIVE_SKIP_GENESIS_INIT"] = "1"
 
     environment_cache[pre_hash] = env
     return env
