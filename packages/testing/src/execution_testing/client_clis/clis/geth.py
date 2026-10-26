@@ -195,7 +195,8 @@ class GethEvm(EthereumCLI):
     """go-ethereum `evm` base class."""
 
     default_binary = Path("evm")
-    detect_binary_pattern = re.compile(r"^evm(.exe)? version\b")
+    # `Besu evm ...` also names `evm`, so the name must lead the line.
+    detect_binary_pattern = re.compile(r"^evm(\.exe)?\b")
     cached_version: Optional[str] = None
     trace: bool
 
@@ -217,8 +218,6 @@ class GethEvm(EthereumCLI):
                 stderr=subprocess.PIPE,
                 text=True,
             )
-        except subprocess.CalledProcessError as e:
-            raise Exception("Command failed with non-zero status.") from e
         except Exception as e:
             raise Exception("Unexpected exception calling evm tool.") from e
 
@@ -294,6 +293,11 @@ class GethTransitionTool(GethEvm, TransitionTool):
         )
         help_command = [str(self.binary), str(self.subcommand), "--help"]
         result = self._run_command(help_command)
+        if result.returncode != 0:
+            raise Exception(
+                "evm process unexpectedly returned a non-zero status "
+                f"code: {result.returncode}. Stderr: {result.stderr}"
+            )
         self.help_string = result.stdout
 
     def is_fork_supported(self, fork: Fork) -> bool:

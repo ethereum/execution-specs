@@ -130,7 +130,7 @@ def test_calldataload(
     )
     benchmark_test(
         target_opcode=Op.CALLDATALOAD,
-        code_generator=JumpLoopGenerator(
+        code_generator=ExtCallGenerator(
             attack_block=Op.CALLDATALOAD(Op.PUSH0),
             tx_kwargs={"data": calldata},
         ),

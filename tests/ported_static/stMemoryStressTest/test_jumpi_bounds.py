@@ -8,10 +8,8 @@ state_tests/stMemoryStressTest/JUMPI_BoundsFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -43,7 +41,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_jumpi_bounds(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -53,30 +50,22 @@ def test_jumpi_bounds(
     v: int,
 ) -> None:
     """Test_jumpi_bounds."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x7FFFFFFFFFFFFFFF)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
     # Source: lll
     # { (JUMPI 0xffffffff 1) (JUMPI 0xffffffffffffffff 1) (JUMPI 0xffffffffffffffffffffffffffffffff 1) (JUMPI 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 1) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(pc=0xFFFFFFFF, condition=0x1)
+    target_code = (
+        Op.JUMPI(pc=0xFFFFFFFF, condition=0x1)
         + Op.JUMPI(pc=0xFFFFFFFFFFFFFFFF, condition=0x1)
         + Op.JUMPI(pc=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, condition=0x1)
         + Op.JUMPI(
             pc=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
             condition=0x1,
         )
-        + Op.STOP,
-        nonce=0,
+        + Op.STOP
+    )
+    target = pre.deploy_contract(
+        code=target_code,
     )
 
     tx_data = [
@@ -95,11 +84,9 @@ def test_jumpi_bounds(
 
     post = {
         target: Account(
-            code=bytes.fromhex(
-                "600163ffffffff57600167ffffffffffffffff5760016fffffffffffffffffffffffffffffffff5760017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5700"  # noqa: E501
-            ),
+            code=target_code,
             balance=0,
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -290,14 +290,6 @@ REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
                 call_success=False,
                 returned_data="0000000000000000000000000000000000000000000000000000000000000000",
             ),
-            # FIXME
-            marks=pytest.mark.skip(
-                reason=(
-                    "EELS bug: U256 overflow in modexp pointer arithmetic "
-                    "before Osaka - see "
-                    "github.com/ethereum/execution-specs/issues/1465"
-                )
-            ),
             id="max-base-length-overflow-out-of-gas",
         ),
         pytest.param(
@@ -307,14 +299,6 @@ REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
             ModExpOutput(
                 call_success=False,
                 returned_data="0000000000000000000000000000000000000000000000000000000000000000",
-            ),
-            # FIXME
-            marks=pytest.mark.skip(
-                reason=(
-                    "EELS bug: U256 overflow in modexp pointer arithmetic "
-                    "before Osaka - see "
-                    "github.com/ethereum/execution-specs/issues/1465"
-                )
             ),
             id="immunefi-38958-by-omik-overflow",
         ),

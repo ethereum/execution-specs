@@ -25,7 +25,7 @@ def test_assert_state_rejects_noncanonical_block(
     """`assertState.at` fails when another block holds the label's height."""
     test = ReorgTest(
         fork=Cancun,
-        pre=Alloc(),
+        pre=Alloc().with_genesis_accounts(),
         blocks=[ReorgBlock(label="a1")],
         steps=[],
     )

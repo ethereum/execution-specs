@@ -8,10 +8,8 @@ state_tests/stMemoryTest/stackLimitPush32_1025Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,37 +23,28 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stMemoryTest/stackLimitPush32_1025Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_stack_limit_push32_1025(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_stack_limit_push32_1025."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x6400000000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=42949672960,
-    )
 
     # Source: lll
     # (asm 1023 0x00 MSTORE JUMPDEST 0x0102030405060708090a0102030405060708090a0102030405060708090a0102 0x01 0x00 MLOAD SUB 0x00 MSTORE 0x00 MLOAD 0x06 JUMPI STOP )  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0x3FF)
+    target_code = (
+        Op.MSTORE(offset=0x0, value=0x3FF)
         + Op.JUMPDEST
         + Op.PUSH32[
             0x102030405060708090A0102030405060708090A0102030405060708090A0102
         ]
         + Op.MSTORE(offset=0x0, value=Op.SUB(Op.MLOAD(offset=0x0), 0x1))
         + Op.JUMPI(pc=0x6, condition=Op.MLOAD(offset=0x0))
-        + Op.STOP * 2,
+        + Op.STOP * 2
+    )
+    target = pre.deploy_contract(
+        code=target_code,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -69,12 +58,10 @@ def test_stack_limit_push32_1025(
     post = {
         target: Account(
             storage={},
-            code=bytes.fromhex(
-                "6103ff6000525b7f0102030405060708090a0102030405060708090a0102030405060708090a01026001600051036000526000516006570000"  # noqa: E501
-            ),
-            nonce=0,
+            code=target_code,
+            nonce=1,
         ),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

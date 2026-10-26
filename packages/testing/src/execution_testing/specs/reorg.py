@@ -228,7 +228,7 @@ class ReorgTest(BlockchainTest):
         """Execute every block against its labeled parent, emit fixture."""
         self.validate_dag()
 
-        pre, genesis = self.make_genesis(apply_pre_allocation_blockchain=True)
+        pre, genesis = self.make_genesis(BlockchainEngineReorgFixture)
 
         # Per-label state needed to build children: environment of the next
         # block and post-state allocation.
@@ -263,9 +263,9 @@ class ReorgTest(BlockchainTest):
                 previous_env=child_env[parent],
                 previous_alloc=child_alloc[parent],
             )
-            if built.result.receipts:
-                self.validate_receipt_status(
-                    receipts=built.result.receipts,
+            if self.verifications:
+                self.run_block_verifications(
+                    result=built.result,
                     block_number=int(built.header.number),
                 )
             payload = built.get_fixture_engine_new_payload()

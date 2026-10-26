@@ -13,7 +13,7 @@ def client_env(t8n: TransitionTool, min_reorg_depth: int | None) -> dict:
     """The client environment for an empty fixture."""
     test = ReorgTest(
         fork=Cancun,
-        pre=Alloc(),
+        pre=Alloc().with_genesis_accounts(),
         blocks=[],
         steps=[],
         min_reorg_depth=min_reorg_depth,

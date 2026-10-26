@@ -11,7 +11,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Storage,
     Transaction,
@@ -57,29 +56,18 @@ def test_static_callcodecallcodecall_110_suicide_end(
     v: int,
 ) -> None:
     """Test_static_callcodecallcodecall_110_suicide_end."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=30000000,
-    )
 
     # Source: lll
     # {  (MSTORE 3 1) }
     addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0x48E2D4C0B593BFEBE5DDB4F13AA355B8BD83DDD3),  # noqa: E501
     )
     # Source: lll
     # {  [[ 0 ]] (DELEGATECALL 150000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) [[ 1 ]] (GAS) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.DELEGATECALL(
@@ -94,7 +82,6 @@ def test_static_callcodecallcodecall_110_suicide_end(
         + Op.SSTORE(key=0x1, value=Op.GAS)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
         address=Address(0x5F7FDF1F0D4F4AD14C6996AE17BB6698D22343D8),  # noqa: E501
     )
     # Source: lll
@@ -110,7 +97,6 @@ def test_static_callcodecallcodecall_110_suicide_end(
         )
         + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0x92D7028788CAA240253B7B2A92386464690CDC72),  # noqa: E501
     )
     # Source: lll
@@ -129,7 +115,6 @@ def test_static_callcodecallcodecall_110_suicide_end(
         + Op.SELFDESTRUCT(address=0x92D7028788CAA240253B7B2A92386464690CDC72)
         + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0xB7770360E0B87603E3D9C87C866451760C95ABCA),  # noqa: E501
     )
 
@@ -151,6 +136,6 @@ def test_static_callcodecallcodecall_110_suicide_end(
     if fork.is_eip_enabled(8037):
         target_storage = Storage.model_validate({0: 1})
         target_storage.set_expect_any(1)
-    post = {target: Account(storage=target_storage, balance=0, nonce=0)}
+    post = {target: Account(storage=target_storage, balance=0, nonce=1)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

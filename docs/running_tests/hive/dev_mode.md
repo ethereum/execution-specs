@@ -65,7 +65,7 @@ The following section details the setup and usage of option 3.
 Within the [`eels/`](https://github.com/ethereum/hive/tree/master/simulators/ethereum/eels) directory of hive, a new dockerfile must be created: `Dockerfile.dev`, with the following contents:
 
 ```docker
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.12-trixie-slim
 ARG branch=""
 
 RUN apt-get update && apt-get install -y git

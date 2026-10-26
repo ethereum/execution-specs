@@ -41,7 +41,7 @@ def test_assert_logs_counts_logs_per_block(
     """`assertLogs` wants exactly one log per listed block, in any order."""
     test = ReorgTest(
         fork=Cancun,
-        pre=Alloc(),
+        pre=Alloc().with_genesis_accounts(),
         blocks=[ReorgBlock(label="a1"), ReorgBlock(label="a2")],
         steps=[],
     )
@@ -73,7 +73,10 @@ def test_assert_logs_accepts_a_hash_bound_to_two_labels(
     keeps the latest bind, but both labels identify the same block.
     """
     test = ReorgTest(
-        fork=Cancun, pre=Alloc(), blocks=[ReorgBlock(label="a1")], steps=[]
+        fork=Cancun,
+        pre=Alloc().with_genesis_accounts(),
+        blocks=[ReorgBlock(label="a1")],
+        steps=[],
     )
     fixture = test.generate(
         t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture

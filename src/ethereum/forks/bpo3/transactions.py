@@ -16,6 +16,7 @@ from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
     InsufficientTransactionGasError,
+    InvalidBlock,
     InvalidSignatureError,
     NonceOverflowError,
 )
@@ -526,6 +527,8 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
     are decoded based on their type identifier prefix.
     """
     if isinstance(tx, Bytes):
+        if len(tx) == 0:
+            raise InvalidBlock("empty transaction")
         if tx[0] == 1:
             return rlp.decode_to(AccessListTransaction, tx[1:])
         elif tx[0] == 2:
@@ -674,7 +677,10 @@ def chain_id(tx: Transaction) -> None | U64:
         if tx.v < U256(35):
             raise InvalidSignatureError("bad v")
 
-        return U64((tx.v - U256(35)) >> U256(1))
+        tx_chain_id = (tx.v - U256(35)) >> U256(1)
+        if tx_chain_id > U256(U64.MAX_VALUE):
+            raise InvalidSignatureError("bad v")
+        return U64(tx_chain_id)
     else:
         return tx.chain_id
 

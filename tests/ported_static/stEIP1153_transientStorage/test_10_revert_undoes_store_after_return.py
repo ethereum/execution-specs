@@ -8,10 +8,8 @@ state_tests/Cancun/stEIP1153_transientStorage/10_revertUndoesStoreAfterReturnFil
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -27,22 +25,12 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_10_revert_undoes_store_after_return(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Revert undoes the transient storage writes after a successful call."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: yul
     # {
@@ -76,7 +64,7 @@ def test_10_revert_undoes_store_after_return(
     #     sstore(3, val)
     #   }
     # ... (23 more lines)
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SHR(0xE0, Op.CALLDATALOAD(offset=Op.PUSH0))
         + Op.JUMPI(pc=0x2F, condition=Op.EQ(0x70AC643E, Op.DUP1))
         + Op.JUMPI(pc=0x2B, condition=Op.EQ(0x76B85D23, Op.DUP1))
@@ -131,7 +119,6 @@ def test_10_revert_undoes_store_after_return(
         + Op.JUMP,
         storage={1: 65535},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -146,4 +133,4 @@ def test_10_revert_undoes_store_after_return(
 
     post = {target: Account(storage={0: 5, 1: 0, 2: 1, 3: 5})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

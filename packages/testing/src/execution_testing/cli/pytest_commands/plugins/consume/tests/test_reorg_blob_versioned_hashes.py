@@ -27,7 +27,10 @@ def test_get_payload_computes_blob_versioned_hashes(
     instead of a duplicated formula.
     """
     test = ReorgTest(
-        fork=Cancun, pre=Alloc(), blocks=[ReorgBlock(label="a1")], steps=[]
+        fork=Cancun,
+        pre=Alloc().with_genesis_accounts(),
+        blocks=[ReorgBlock(label="a1")],
+        steps=[],
     )
     fixture = test.generate(
         t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture

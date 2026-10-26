@@ -19,6 +19,8 @@ from execution_testing import (
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
+from tests.ported_static.constants import HIGH_GAS_LIMIT
+
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
@@ -253,30 +255,7 @@ def test_gas_price_diff_places(
     v: int,
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x000000000000000000000000000000000000C0DE)
-    contract_1 = Address(0x000000000000000000000000000000000020C0DE)
-    contract_2 = Address(0x00000000000000000000000000000000C0DEC0DE)
-    contract_3 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    contract_4 = Address(0x000000000000000000000000000000000000CA11)
-    contract_5 = Address(0x00000000000000000000000000000000CA1100F1)
-    contract_6 = Address(0x00000000000000000000000000000000CA1100F2)
-    contract_7 = Address(0x00000000000000000000000000000000CA1100F4)
-    contract_8 = Address(0x00000000000000000000000000000000CA1100FA)
-    contract_9 = Address(0x0000000000000000000000000000000000060006)
-    contract_10 = Address(0x000000000000000000000000000000000060BACC)
-    contract_11 = Address(0x00000000000000000000000000000000DEADDEAD)
-    contract_12 = Address(0x00000000000000000000000000000060BACCFA57)
     sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000, nonce=1)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=4503599627370496,
-    )
 
     # Source: yul
     # berlin {
@@ -340,7 +319,7 @@ def test_gas_price_diff_places(
     #    sstore(0,mload(0))
     #    invalid()
     # }
-    contract_9 = pre.deploy_contract(  # noqa: F841
+    contract_9 = pre.deploy_contract(
         code=Op.GASPRICE
         + Op.PUSH1[0x0]
         + Op.MSTORE(offset=Op.DUP2, value=Op.DUP2)
@@ -359,7 +338,7 @@ def test_gas_price_diff_places(
     #    sstore(0,mload(0))
     #    revert(0,0x20)
     # }
-    contract_10 = pre.deploy_contract(  # noqa: F841
+    contract_10 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GASPRICE)
         + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
         + Op.REVERT(offset=0x0, size=0x20),
@@ -550,7 +529,7 @@ def test_gas_price_diff_places(
     #    }
     #    case 0xF4 {  // delegate call a contract to run this code
     # ... (269 more lines)
-    contract_3 = pre.deploy_contract(  # noqa: F841
+    contract_3 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0x60A7)
         + Op.PUSH1[0x1]
         + Op.DUP1
@@ -1175,7 +1154,7 @@ def test_gas_price_diff_places(
     #    // Propagate success
     #    return (0, 0x20)
     # }
-    contract_12 = pre.deploy_contract(  # noqa: F841
+    contract_12 = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x0)
         + Op.JUMPI(pc=0x2D, condition=Op.ISZERO(Op.DUP1))
         + Op.PUSH1[0x1]
@@ -1244,6 +1223,8 @@ def test_gas_price_diff_places(
         Bytes("693c6139") + Hash(contract_12, left_padding=True),
     ]
     tx_gas = [4503599627370496]
+
+    env = Environment(base_fee_per_gas=10, gas_limit=HIGH_GAS_LIMIT)
 
     tx = Transaction(
         sender=sender,

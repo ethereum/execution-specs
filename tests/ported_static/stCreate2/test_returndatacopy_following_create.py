@@ -7,11 +7,8 @@ state_tests/stCreate2/returndatacopy_following_createFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -48,7 +45,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_returndatacopy_following_create(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -58,27 +54,11 @@ def test_returndatacopy_following_create(
     v: int,
 ) -> None:
     """Check that create2 does not fill returndata buffer with its return..."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x1AABBCCDD5C57F15886F9B263E2F6D2D6C7B5EC6)
-    contract_1 = Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
-    contract_2 = Address(0x1F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0x6400000000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=47244640256,
-    )
-
-    pre[sender] = Account(balance=0x6400000000)
     # Source: lll
     # { (CALL (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.CALL(
             gas=Op.GAS,
             address=Op.CALLDATALOAD(offset=0x0),
@@ -89,12 +69,10 @@ def test_returndatacopy_following_create(
             ret_size=0x0,
         )
         + Op.STOP,
-        nonce=0,
-        address=Address(0x1AABBCCDD5C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     # Source: lll
     # { (CREATE2 0 0 (lll (seq (MSTORE 0 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff) (RETURN 0 32)) 0) 0) (RETURNDATACOPY 0 0 32) (SSTORE 0 (MLOAD 0)) }  # noqa: E501
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.PUSH1[0x0]
         + Op.PUSH1[0x28]
         + Op.CODECOPY(dest_offset=0x0, offset=0x1F, size=Op.DUP1)
@@ -111,12 +89,10 @@ def test_returndatacopy_following_create(
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP,
         storage={0: 1},
-        nonce=0,
-        address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
     # Source: lll
     # { (seq (create2 0 0 (lll (STOP) 0) 0) (RETURNDATACOPY 0 0 32) (SSTORE 0 (MLOAD 0)) )}  # noqa: E501
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.PUSH1[0x0]
         + Op.PUSH1[0x2]
         + Op.CODECOPY(dest_offset=0x0, offset=0x1F, size=Op.DUP1)
@@ -128,8 +104,6 @@ def test_returndatacopy_following_create(
         + Op.INVALID
         + Op.STOP * 2,
         storage={0: 1},
-        nonce=0,
-        address=Address(0x1F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -161,4 +135,4 @@ def test_returndatacopy_following_create(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

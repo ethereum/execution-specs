@@ -48,7 +48,9 @@ RECIPIENT = Address(0xC0DE)
 
 def pre_alloc() -> Alloc:
     """Funded sender."""
-    return Alloc({SENDER: Account(balance=10**21, nonce=0)})
+    return Alloc(
+        {SENDER: Account(balance=10**21, nonce=0)}
+    ).with_genesis_accounts()
 
 
 def tx(nonce: int, value: int) -> Transaction:
@@ -268,7 +270,7 @@ def test_build_request_version_follows_attributes_fork(
     """A build request across a fork boundary uses the new fork's FCU."""
     test = ReorgTest(
         fork=BPO2ToAmsterdamAtTime15k,
-        pre=Alloc(),
+        pre=Alloc().with_genesis_accounts(),
         blocks=[ReorgBlock(label="a1")],
         steps=[
             NewPayloadStep(block="a1"),
@@ -301,7 +303,7 @@ def test_unsupported_fork_build_request_keeps_the_update(
     """
     test = ReorgTest(
         fork=ShanghaiToCancunAtTime15k,
-        pre=Alloc(),
+        pre=Alloc().with_genesis_accounts(),
         blocks=[ReorgBlock(label="a1", timestamp=14_900)],
         steps=[
             NewPayloadStep(block="a1"),
@@ -398,7 +400,7 @@ def test_get_payload_version_follows_retrieved_build(
     """
     test = ReorgTest(
         fork=BPO2ToAmsterdamAtTime15k,
-        pre=Alloc(),
+        pre=Alloc().with_genesis_accounts(),
         blocks=[ReorgBlock(label="a1", timestamp=14_980)],
         steps=[
             NewPayloadStep(block="a1"),
@@ -425,7 +427,7 @@ def test_bound_head_forkchoice_version_follows_its_build(
     """
     test = ReorgTest(
         fork=BPO2ToAmsterdamAtTime15k,
-        pre=Alloc(),
+        pre=Alloc().with_genesis_accounts(),
         blocks=[ReorgBlock(label="a1", timestamp=14_980)],
         steps=[
             NewPayloadStep(block="a1"),
@@ -453,7 +455,7 @@ def test_fixture_load_rejects_unfilled_step(
     """A fixture whose FCU lacks what filling supplies fails to load."""
     test = ReorgTest(
         fork=Cancun,
-        pre=Alloc(),
+        pre=Alloc().with_genesis_accounts(),
         blocks=[ReorgBlock(label="a1")],
         steps=[NewPayloadStep(block="a1"), ForkchoiceUpdatedStep(head="a1")],
     )

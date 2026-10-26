@@ -8,7 +8,6 @@ state_tests/stMemoryStressTest/MLOAD_Bounds3Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -17,6 +16,8 @@ from execution_testing import (
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
+
+from tests.ported_static.constants import HIGH_GAS_LIMIT
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -44,7 +45,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_mload_bounds3(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -54,23 +54,12 @@ def test_mload_bounds3(
     v: int,
 ) -> None:
     """Test_mload_bounds3."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x7FFFFFFFFFFFFFFFFFF)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
     # Source: lll
     # {  (MLOAD 0x400000) }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MLOAD(offset=0x400000) + Op.STOP,
-        nonce=0,
     )
 
     tx_data = [
@@ -78,6 +67,8 @@ def test_mload_bounds3(
     ]
     tx_gas = [35000000, 250000000]
     tx_value = [1]
+
+    env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
     tx = Transaction(
         sender=sender,

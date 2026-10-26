@@ -67,7 +67,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store",
         dest="eoa_iterator_start",
         default=randint(0, 2**256),
-        type=int,
+        type=HexNumber,
         help="The start private key from which tests will deploy EOAs.",
     )
     pre_alloc_group.addoption(

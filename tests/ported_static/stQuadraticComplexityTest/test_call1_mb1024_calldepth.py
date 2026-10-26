@@ -8,7 +8,6 @@ state_tests/stQuadraticComplexityTest/Call1MB1024CalldepthFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -18,6 +17,7 @@ from execution_testing import (
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
+from tests.ported_static.constants import HIGH_GAS_LIMIT
 from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
@@ -49,7 +49,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_call1_mb1024_calldepth(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -59,32 +58,22 @@ def test_call1_mb1024_calldepth(
     v: int,
 ) -> None:
     """Test_call1_mb1024_calldepth."""
-    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=882500000000,
-    )
-
-    addr = pre.fund_eoa(amount=0xFFFFFFFFFFFFF)  # noqa: F841
+    addr = pre.fund_eoa(amount=0xFFFFFFFFFFFFF)
     # Source: lll
     # { (def 'i 0x80) [[ 0 ]] (+ @@0 1) (if (LT @@0 1024) [[ 1 ]] (CALL (- (GAS) 1005000) <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 1000000 0 0) [[ 2 ]] 1 )  }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
         + Op.JUMPI(pc=0x1B, condition=Op.LT(Op.SLOAD(key=0x0), 0x400))
         + Op.SSTORE(key=0x2, value=0x1)
-        + Op.JUMP(pc=0x47)
+        + Op.JUMP(pc=0x33)
         + Op.JUMPDEST
         + Op.SSTORE(
             key=0x1,
             value=Op.CALL(
                 gas=Op.SUB(Op.GAS, 0xF55C8),
-                address=0x9D15232F6851F9F3A88F88A3B358ED1579977A5A,
+                address=Op.ADDRESS,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0xF4240,
@@ -95,8 +84,6 @@ def test_call1_mb1024_calldepth(
         + Op.JUMPDEST
         + Op.STOP,
         balance=0xFFFFFFFFFFFFF,
-        nonce=0,
-        address=Address(0x9D15232F6851F9F3A88F88A3B358ED1579977A5A),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -106,7 +93,7 @@ def test_call1_mb1024_calldepth(
             "result": {
                 sender: Account(storage={}, code=b"", nonce=1),
                 addr: Account(storage={}, code=b"", nonce=0),
-                target: Account(storage={0: 69, 1: 1}, nonce=0),
+                target: Account(storage={0: 69, 1: 1}, nonce=1),
             },
         },
         {
@@ -115,7 +102,7 @@ def test_call1_mb1024_calldepth(
             "result": {
                 sender: Account(storage={}, code=b"", nonce=1),
                 addr: Account(storage={}, code=b"", nonce=0),
-                target: Account(storage={}, nonce=0),
+                target: Account(storage={}, nonce=1),
             },
         },
     ]
@@ -127,6 +114,8 @@ def test_call1_mb1024_calldepth(
     ]
     tx_gas = [150000, 250000000]
     tx_value = [10]
+
+    env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
     tx = Transaction(
         sender=sender,

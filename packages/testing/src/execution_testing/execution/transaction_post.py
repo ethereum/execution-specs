@@ -21,7 +21,9 @@ from execution_testing.test_types import (
     PostStateContext,
     TestPhase,
     Transaction,
+    TransactionReceipt,
     TransactionTestMetadata,
+    verify_transaction_receipt,
 )
 from execution_testing.test_types.balance_expectations import (
     TransactionKey,
@@ -212,6 +214,52 @@ class TransactionPost(BaseExecute):
         )
         return eth_rpc.get_alloc(relative, skip_code=True)
 
+    def verify_receipts(
+        self, eth_rpc: EthRPC, tx_groups: List[List[Transaction]]
+    ) -> None:
+        """
+        Verify the receipts of the landed transactions of every group.
+
+        A group is the set of transactions the test declared together, not a
+        network block: the node is free to spread them over several blocks,
+        and to pack transactions of its own alongside them. So
+        `cumulative_gas_used` is re-derived by adding up the gas used by the
+        test's own transactions, in the order the test declared them, and
+        restarts at every group.
+        """
+        for tx_group in tx_groups:
+            last_expecting = -1
+            for tx_index, tx in enumerate(tx_group):
+                if tx.expected_receipt is not None:
+                    last_expecting = tx_index
+            if last_expecting < 0:
+                continue
+            verified_txs = tx_group[: last_expecting + 1]
+            receipts = eth_rpc.get_transaction_receipts(
+                [tx.hash for tx in verified_txs]
+            )
+            cumulative_gas_used = 0
+            for tx_index, (tx, receipt_data) in enumerate(
+                zip(verified_txs, receipts, strict=True)
+            ):
+                assert receipt_data is not None, (
+                    f"Failed to get receipt for transaction {tx.hash}"
+                )
+                receipt = TransactionReceipt.model_validate(receipt_data)
+                assert receipt.gas_used is not None, (
+                    f"Receipt of transaction {tx.hash} has no gas used"
+                )
+                previous_cumulative_gas_used = cumulative_gas_used
+                cumulative_gas_used += receipt.gas_used
+                verify_transaction_receipt(
+                    transaction_index=tx_index,
+                    previous_cumulative_gas_used=previous_cumulative_gas_used,
+                    expected_receipt=tx.expected_receipt,
+                    actual_receipt=receipt.copy(
+                        cumulative_gas_used=cumulative_gas_used
+                    ),
+                )
+
     def execute(
         self,
         fork: Fork,
@@ -235,7 +283,7 @@ class TransactionPost(BaseExecute):
 
         # Track transaction hashes for gas validation (benchmarking)
         all_tx_hashes: List[Hash] = []
-        landed_txs: List[Transaction] = []
+        landed_tx_groups: List[List[Transaction]] = []
         last_block_tx_hashes: List[Hash] = []
 
         for block in self.blocks:
@@ -295,11 +343,15 @@ class TransactionPost(BaseExecute):
                 current_block_tx_hashes = [tx.hash for tx in signed_txs]
             all_tx_hashes.extend(current_block_tx_hashes)
             last_block_tx_hashes = current_block_tx_hashes
-            landed_txs.extend(
-                tx.tx if isinstance(tx, NetworkWrappedTransaction) else tx
-                for tx in signed_txs
-                if tx.error is None
+            landed_tx_groups.append(
+                [
+                    tx.tx if isinstance(tx, NetworkWrappedTransaction) else tx
+                    for tx in signed_txs
+                    if tx.error is None
+                ]
             )
+
+        self.verify_receipts(eth_rpc, landed_tx_groups)
 
         # Fetch transaction receipts to get actual gas used
         benchmark_gas_used: int | None = None
@@ -314,7 +366,10 @@ class TransactionPost(BaseExecute):
                 benchmark_gas_used += gas_used
 
         actual_alloc = eth_rpc.get_alloc(self.post)
-        context = RPCPostStateContext(eth_rpc=eth_rpc, txs=landed_txs)
+        context = RPCPostStateContext(
+            eth_rpc=eth_rpc,
+            txs=[tx for group in landed_tx_groups for tx in group],
+        )
         for address, expected_account in self.post.root.items():
             actual_account = actual_alloc.root[address]
             assert actual_account is not None

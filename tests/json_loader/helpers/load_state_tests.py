@@ -48,7 +48,7 @@ class StateTest(FixtureTestItem):
         self.add_marker("evm_tools")
         self.add_marker("json_state_tests")
         eels_fork = FORKS[fork_name].short_name
-        self.fork_cache = self.session.stash[fork_cache_key]
+        self.fork_cache = self.config.stash[fork_cache_key]
 
         # Mark tests with exceptional markers
         test_patterns = exceptional_state_test_patterns(fork_name, eels_fork)
@@ -142,23 +142,22 @@ class StateTest(FixtureTestItem):
         ]
         t8n_options = parser.parse_args(t8n_args)
 
-        with ForkCache() as fork_cache:
-            try:
-                t8n = build_t8n_from_cli_options(
-                    t8n_options, in_stream, fork_cache
-                )
-            except StateWithEmptyAccount as e:
-                pytest.xfail(str(e))
+        try:
+            t8n = build_t8n_from_cli_options(
+                t8n_options, in_stream, self.fork_cache
+            )
+        except StateWithEmptyAccount as e:
+            pytest.xfail(str(e))
 
-            t8n.run_state_test()
+        t8n.run_state_test()
 
-            if "expectException" in post:
-                assert any(
-                    int(rej.index) == 0 for rej in t8n.rejected_transactions
-                )
-                return
+        if "expectException" in post:
+            assert any(
+                int(rej.index) == 0 for rej in t8n.rejected_transactions
+            )
+            return
 
-            assert hex_to_bytes(post_hash) == t8n.result.state_root
+        assert hex_to_bytes(post_hash) == t8n.result.state_root
 
 
 class StateTestFixture(Fixture, Collector):

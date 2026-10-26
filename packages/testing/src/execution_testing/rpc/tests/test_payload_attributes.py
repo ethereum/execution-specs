@@ -134,7 +134,7 @@ def test_reorg_fill_covers_every_amsterdam_payload_attribute(
     )
     test = ReorgTest(
         fork=Amsterdam,
-        pre=Alloc(),
+        pre=Alloc().with_genesis_accounts(),
         blocks=[ReorgBlock(label="a1")],
         steps=[
             NewPayloadStep(block="a1"),

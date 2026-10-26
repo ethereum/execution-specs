@@ -71,7 +71,7 @@ def test_builder_requests_during_fork(
     deposit_predeploy = BuilderDepositRequest.system_contract_address
     exit_predeploy = BuilderExitRequest.system_contract_address
     for predeploy in (deposit_predeploy, exit_predeploy):
-        pre[predeploy] = Account(balance=0, code=b"", nonce=0, storage={})
+        del pre[predeploy]
     predeploys = Alloc.model_validate(
         fork.transitions_to().pre_allocation_blockchain()
     )

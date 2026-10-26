@@ -1,0 +1,7 @@
+# Ignore file of packages/testing/docker/tests/Dockerfile, read by BuildKit from
+# beside the Dockerfile. A checked-out tests/ directory may contain generated
+# fixtures and caches; only the sources belong in the image.
+**/fixtures
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache

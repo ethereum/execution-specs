@@ -30,7 +30,10 @@ def test_send_raw_transaction_reports_a_client_rejection(
 ) -> None:
     """A JSON-RPC error from the client is the `rejected` result."""
     test = ReorgTest(
-        fork=Cancun, pre=Alloc(), blocks=[ReorgBlock(label="a1")], steps=[]
+        fork=Cancun,
+        pre=Alloc().with_genesis_accounts(),
+        blocks=[ReorgBlock(label="a1")],
+        steps=[],
     )
     fixture = test.generate(
         t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture

@@ -8,9 +8,7 @@ state_tests/stStaticCall/static_CREATE_ContractSuicideDuringInit_ThenStoreThenRe
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -46,7 +44,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_create_contract_suicide_during_init_then_store_then_return(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -56,45 +53,27 @@ def test_static_create_contract_suicide_during_init_then_store_then_return(
     v: int,
 ) -> None:
     """Test_static_create_contract_suicide_during_init_then_store_then_return."""  # noqa: E501
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_1 = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_2 = Address(0x094F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_3 = Address(0x194F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
-
     # Source: lll
     # {[[1]]12}
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
-        nonce=0,
     )
     # Source: lll
     # {[[1]]12}
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
-        nonce=0,
     )
     # Source: lll
     # { (MSTORE 1 1) }
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
-        nonce=0,
     )
     # Source: lll
     # {(MSTORE 1 1) }
-    contract_3 = pre.deploy_contract(  # noqa: F841
+    contract_3 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
-        nonce=0,
     )
 
     tx_data = [
@@ -166,4 +145,4 @@ def test_static_create_contract_suicide_during_init_then_store_then_return(
         contract_3: Account(storage={1: 0}, balance=0),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

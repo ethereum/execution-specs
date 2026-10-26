@@ -11,7 +11,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     Hash,
     StateTestFiller,
@@ -38,22 +37,11 @@ def test_recursive_create_contracts_create4_contracts(
     pre: Alloc,
 ) -> None:
     """Test_recursive_create_contracts_create4_contracts."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
     sender = pre.fund_eoa(amount=0x1DCD6500)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: raw
     # 0x60003560e060020a90048063820b13f614610021578063a444f5e91461003257005b61002c600435610093565b60006000f35b61003d600435610043565b60006000f35b600073095e7baea6a6c7c4c2dfeb977efac326af552d8760008190555081600181905550606b6101ad600039606b600054600160a060020a0316815260200182815260200160006000f090505050565b600060c86100e560003960c8600054600160a060020a0316815260200182815260200160006000f0905080600160a060020a0316600060026000600060006000848787f16100dd57005b50505050505600604060c860043960045160245160006001820391508160008190555060008211602657604c565b606b605d600039606b83600160a060020a0316815260200182815260200160006000f090505b505050600180605c6000396000f300006040606b6004396004516024516001810390508060008190555060008111602457605b565b81600160a060020a031663820b13f6600060008260e060020a026000526004858152602001600060008660325a03f1605857005b50505b5050600180606a6000396000f300006040606b6004396004516024516001810390508060008190555060008111602457605b565b81600160a060020a031663820b13f6600060008260e060020a026000526004858152602001600060008660325a03f1605857005b50505b5050600180606a6000396000f30000  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x0)
         + Op.EXP(0x2, 0xE0)
         + Op.SWAP1
@@ -247,7 +235,6 @@ def test_recursive_create_contracts_create4_contracts(
         + Op.RETURN
         + Op.STOP * 2,
         balance=0x314DC6448D9338C15B0A00000000,
-        nonce=0,
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
 
@@ -260,21 +247,21 @@ def test_recursive_create_contracts_create4_contracts(
     )
 
     post = {
-        contract_0: Account(storage={0: contract_0, 1: 4}, nonce=3),
+        contract_0: Account(storage={0: contract_0, 1: 4}, nonce=4),
         compute_create_address(
-            address=compute_create_address(address=contract_0, nonce=1),
+            address=compute_create_address(address=contract_0, nonce=2),
             nonce=1,
         ): Account(storage={0: 1}, nonce=1),
-        compute_create_address(address=contract_0, nonce=2): Account(
+        compute_create_address(address=contract_0, nonce=3): Account(
             balance=2, nonce=1
         ),
         sender: Account(nonce=1),
-        compute_create_address(address=contract_0, nonce=1): Account(
+        compute_create_address(address=contract_0, nonce=2): Account(
             storage={0: 2}, balance=2, nonce=2
         ),
-        compute_create_address(address=contract_0, nonce=0): Account(
+        compute_create_address(address=contract_0, nonce=1): Account(
             storage={0: 3}, nonce=1
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

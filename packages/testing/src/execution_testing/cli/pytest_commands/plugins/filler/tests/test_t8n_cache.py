@@ -17,8 +17,6 @@ from execution_testing.fixtures import (
 )
 from execution_testing.specs.base import labeled_format_parameter_set
 
-from ..filler import _strip_xdist_group_suffix
-
 
 class MockItem:
     """Mock pytest.Item for testing collection sorting behavior."""
@@ -204,38 +202,6 @@ class TestCacheKeyConsistency:
 
         result = strip_fixture_format_from_node(node)
         assert result == base, f"Format {format_name} did not strip correctly"
-
-
-class TestStripXdistGroupSuffix:
-    """Test cases for _strip_xdist_group_suffix function."""
-
-    def test_strips_t8n_cache_suffix(self) -> None:
-        """Test that t8n-cache-* suffixes are stripped."""
-        nodeid = "test.py::test[params]@t8n-cache-12345678"
-        expected = "test.py::test[params]"
-        assert _strip_xdist_group_suffix(nodeid) == expected
-
-    def test_preserves_other_group_suffixes(self) -> None:
-        """Test that non-cache group suffixes (e.g., bigmem) are preserved."""
-        nodeid = "test.py::test[params]@bigmem"
-        assert _strip_xdist_group_suffix(nodeid) == nodeid
-
-    def test_preserves_custom_group_suffixes(self) -> None:
-        """Test that custom xdist_group markers are preserved."""
-        nodeid = "test.py::test[params]@custom_group"
-        assert _strip_xdist_group_suffix(nodeid) == nodeid
-
-    def test_no_suffix_unchanged(self) -> None:
-        """Test that nodeids without @ are unchanged."""
-        nodeid = "test.py::test[params]"
-        assert _strip_xdist_group_suffix(nodeid) == nodeid
-
-    def test_at_in_params_preserved(self) -> None:
-        """Test that @ in params (not suffix) is preserved."""
-        # This tests the rsplit behavior - only the last @ is considered.
-        nodeid = "test.py::test[email@example.com]@t8n-cache-abc"
-        expected = "test.py::test[email@example.com]"
-        assert _strip_xdist_group_suffix(nodeid) == expected
 
 
 class TestCacheExecutionOrder:

@@ -15,7 +15,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -70,27 +69,14 @@ def test_callcode_in_initcode_to_empty_contract(
         outer_tx_gas = 7265405
         inner_call_gas = 1500000
 
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x1100000000000000000000000000000000000000)
-    contract_1 = Address(0x1000000000000000000000000000000000000000)
-    contract_2 = Address(0x2000000000000000000000000000000000000000)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
     )
 
     pre[sender] = Account(balance=0x2386F26FC10000)
     # Source: lll
     # { (CALL 300000 (CALLDATALOAD 0) 0 0 0 0 0) }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.CALL(
             gas=inner_call_gas,
             address=Op.CALLDATALOAD(offset=0x0),
@@ -106,7 +92,7 @@ def test_callcode_in_initcode_to_empty_contract(
     )
     # Source: lll
     # {(seq (CREATE 0 0 (lll (seq  [[1]] (CALLCODE 500000 0x1000000000000000000000000000000000000001 1 0 0 0 0)  [[2]] 1  ) 0)   )           )}  # noqa: E501
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.PUSH1[0x2D]
         + Op.CODECOPY(dest_offset=0x0, offset=0xF, size=Op.DUP1)
         + Op.PUSH1[0x0] * 2
@@ -133,7 +119,7 @@ def test_callcode_in_initcode_to_empty_contract(
     )
     # Source: lll
     # {(seq (CREATE2 0 0 (lll (seq  [[1]] (CALLCODE 500000 0x1000000000000000000000000000000000000001 1 0 0 0 0) [[2]] 1 ) 0)   0)           )}  # noqa: E501
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.PUSH1[0x0]
         + Op.PUSH1[0x2D]
         + Op.CODECOPY(dest_offset=0x0, offset=0x11, size=Op.DUP1)
@@ -197,4 +183,4 @@ def test_callcode_in_initcode_to_empty_contract(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

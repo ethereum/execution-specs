@@ -8,9 +8,7 @@ state_tests/stStaticCall/static_callCreate2Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -55,7 +53,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_call_create2(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -65,25 +62,11 @@ def test_static_call_create2(
     v: int,
 ) -> None:
     """Test_static_call_create2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xA000000000000000000000000000000000000000)
-    contract_1 = Address(0x1000000000000000000000000000000000000000)
-    contract_2 = Address(0x1000000000000000000000000000000000000001)
-    contract_3 = Address(0x1000000000000000000000000000000000000002)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
 
     # Source: lll
     # {  (CALL 600000 (CALLDATALOAD 0) 0 0 0 0 0) }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.CALL(
             gas=0x927C0,
             address=Op.CALLDATALOAD(offset=0x0),
@@ -95,12 +78,10 @@ def test_static_call_create2(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0xA000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {  [[ 0 ]] (CREATE 1 0 0) [[ 1 ]] (STATICCALL 300000 (SLOAD 0) 0 0 0 0) }
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0, value=Op.CREATE(value=0x1, offset=0x0, size=0x0)
         )
@@ -117,12 +98,10 @@ def test_static_call_create2(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 0x6460016001556000526005601bf3 ) [[ 0 ]] (CREATE 1 18 14) [[ 1 ]] (STATICCALL 300000 (SLOAD 0) 0 0 0 0) }  # noqa: E501
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0x6460016001556000526005601BF3)
         + Op.SSTORE(key=0x0, value=Op.CREATE(value=0x1, offset=0x12, size=0xE))
         + Op.SSTORE(
@@ -138,12 +117,10 @@ def test_static_call_create2(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 0x6460016001556000526005601bf3 ) [[ 0 ]] (CREATE 1 18 14) [[ 1 ]] (STATICCALL 300000 (SLOAD 0) 0 0 0 0) (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }  # noqa: E501
-    contract_3 = pre.deploy_contract(  # noqa: F841
+    contract_3 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0x6460016001556000526005601BF3)
         + Op.SSTORE(key=0x0, value=Op.CREATE(value=0x1, offset=0x12, size=0xE))
         + Op.SSTORE(
@@ -167,8 +144,6 @@ def test_static_call_create2(
         + Op.JUMPDEST
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000002),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -178,7 +153,7 @@ def test_static_call_create2(
             "result": {
                 contract_1: Account(
                     storage={
-                        0: compute_create_address(address=contract_1, nonce=0),
+                        0: compute_create_address(address=contract_1, nonce=1),
                         1: 1,
                     },
                 ),
@@ -190,11 +165,11 @@ def test_static_call_create2(
             "result": {
                 contract_2: Account(
                     storage={
-                        0: compute_create_address(address=contract_2, nonce=0),
+                        0: compute_create_address(address=contract_2, nonce=1),
                         1: 0,
                     },
                 ),
-                compute_create_address(address=contract_2, nonce=0): Account(
+                compute_create_address(address=contract_2, nonce=1): Account(
                     storage={}, code=bytes.fromhex("6001600155")
                 ),
             },
@@ -225,4 +200,4 @@ def test_static_call_create2(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

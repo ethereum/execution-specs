@@ -1,11 +1,10 @@
 """
 Pytest fixtures that help create the test case "Description" displayed in the
-Hive UI.
+Hive UI, and the steps to reproduce a failed test.
 """
 
 import logging
-import textwrap
-import urllib
+import urllib.parse
 import warnings
 from typing import List
 
@@ -21,6 +20,12 @@ from execution_testing.fixtures.consume import (
 from ...pytest_hive.hive_info import ClientFile, HiveInfo
 
 logger = logging.getLogger(__name__)
+
+HIVE_DEV_MODE_DOCS_URL = (
+    "https://steel.ethereum.foundation/docs/execution-specs/"
+    "running_tests/hive/dev_mode/"
+)
+"""Docs page on running a simulator against a hive developer backend."""
 
 
 @pytest.fixture(scope="function")
@@ -53,15 +58,11 @@ def hive_clients_yaml_generator_command(
                 f"Client '{client_type.name}' not found in client file"
             )
         try:
-            yaml_content = (
-                ClientFile(root=[client_config[0]])
-                .yaml()
-                .replace(" ", "&nbsp;")
-            )
-            target = hive_clients_yaml_target_filename
-            return f'echo "\\\n{yaml_content}" > {target}'
+            yaml_content = ClientFile(root=[client_config[0]]).yaml()
         except Exception as e:
             raise ValueError(f"Failed to generate YAML: {str(e)}") from e
+        target = hive_clients_yaml_target_filename
+        return f"cat > {target} << 'EOF'\n{yaml_content}EOF"
     except ValueError as e:
         error_message = str(e)
         warnings.warn(
@@ -75,15 +76,13 @@ def hive_clients_yaml_generator_command(
             f"Error: {error_message}\nHive version: {hive_info.commit}\n"
         )
         issue_url = (
-            "https://github.com/ethereum/execution-spec-tests/issues/new"
+            "https://github.com/ethereum/execution-specs/issues/new"
             f"?title={urllib.parse.quote(issue_title)}"
             f"&body={urllib.parse.quote(issue_body)}"
         )
-
         return (
-            f"Error: {error_message}\n"
-            f'Please <a href="{issue_url}">create an issue</a> to report '
-            "this problem."
+            f"# Error: {error_message}\n"
+            f"# Please report this problem: {issue_url}"
         )
 
 
@@ -179,12 +178,15 @@ def eest_consume_command(
 def test_case_description(
     fixture: BaseFixture,
     test_case: TestCaseIndexFile | TestCaseStream,
-    hive_clients_yaml_generator_command: str,
-    hive_consume_command: str,
-    hive_dev_command: str,
-    eest_consume_command: str,
 ) -> str:
-    """Create the description of the current blockchain fixture test case."""
+    """
+    Create the description of the current blockchain fixture test case.
+
+    Hive stores the description of every test in the run's result file, so
+    it holds only what identifies the test. The steps to reproduce the
+    test go into the details of failed tests instead, see
+    `test_case_reproduction`.
+    """
     test_url = fixture.info.get("url", "")
 
     if (
@@ -199,27 +201,46 @@ def test_case_description(
             "Test function documentation:\n", ""
         )
 
-    description = textwrap.dedent(f"""
-        <b>Test Details</b>
-        <code>{test_case.id}</code>
-        {f'<a href="{test_url}">[source]</a>' if test_url else ""}
+    source_link = f' <a href="{test_url}">[source]</a>' if test_url else ""
+    lines = [
+        "<b>Test Details</b>",
+        f"<code>{test_case.id}</code>{source_link}",
+        "",
+        test_docstring.strip(),
+    ]
+    return "<br/>".join(lines).replace("\n", "<br/>")
 
-        {test_docstring}
 
-        <b>Run This Test Locally:</b>
-        To run this test in <a href="https://github.com/ethereum/hive">
-        hive
-        </a></i>:
-        <code>{hive_clients_yaml_generator_command}
-            {hive_consume_command}</code>
+@pytest.fixture(scope="function")
+def test_case_reproduction(
+    hive_clients_yaml_generator_command: str,
+    hive_consume_command: str,
+    hive_dev_command: str,
+    eest_consume_command: str,
+) -> str:
+    """
+    Return plain-text steps to reproduce the current test locally.
 
-        <b>Advanced: Run the test against a hive developer backend using
-        EEST's <code>consume</code> command</b>
-        Create the client YAML file, as above, then:
-        1. Start hive in dev mode: <code>{hive_dev_command}</code>
-        2. In the EEST repository root: <code>{eest_consume_command}</code>
-    """)
-
-    description = description.strip()
-    description = description.replace("\n", "<br/>")
-    return description
+    The hive plugin appends them to the details of a failed test only, which
+    hive stores in the run's test details log rather than in the result
+    file.
+    """
+    return "\n".join(
+        [
+            "# Reproduce this test locally. Lines starting with # are shell",
+            "# comments, so each part can be pasted into a shell as is.",
+            "",
+            "# Run the test in hive (https://github.com/ethereum/hive):",
+            hive_clients_yaml_generator_command,
+            hive_consume_command,
+            "",
+            "# Or debug it with the simulator's consume command against a",
+            f"# hive developer backend, see {HIVE_DEV_MODE_DOCS_URL}",
+            "# 1. Create the client file, as above.",
+            "# 2. Start hive in dev mode:",
+            hive_dev_command,
+            "# 3. In another terminal, in the execution-specs repository "
+            "root:",
+            eest_consume_command,
+        ]
+    )

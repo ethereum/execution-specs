@@ -17,9 +17,17 @@ xdist_workers := env("PYTEST_XDIST_AUTO_NUM_WORKERS", "6")
 export PYTEST_XDIST_AUTO_NUM_WORKERS := ""
 evm_bin := env("EVM_BIN", "evm")
 latest_fork := "Bogota"
+# PyPy 8 (pypy3.11.16+) uses the pp80 ABI tag, and our compiled dependencies
+# ship no pp80 wheels yet. Keep in sync with the PyPy pins in .github.
+pypy := "pypy3.11.15"
 
 # Use the faster sys.monitoring coverage core (default on 3.14, opt-in below).
 export COVERAGE_CORE := "sysmon"
+
+# Test files that use the `eels_base_coverage` marker. Recipes that select
+# the marker collect only these, which takes a third of the time and a
+# quarter of the memory of collecting all of `tests`.
+eels_base_coverage_files := "$(grep -rlI --include='test_*.py' --exclude-dir=ported_static eels_base_coverage tests)"
 
 # --- Helpers ---
 
@@ -191,10 +199,9 @@ fill-release *args:
 # --- Integration Tests ---
 
 # Fill the base coverage consensus tests using EELS with PyPy
-# Four workers leave room for the CI job's 3G heap per worker.
 [group('integration tests')]
 fill-pypy *args: (_tmp-logs "fill-pypy")
-    uv run --python pypy3.11 --no-dev --group test fill \
+    uv run --python {{ pypy }} --no-dev --group test fill \
         --skip-index \
         --output="{{ output_dir }}/fill-pypy/fixtures" \
         --no-html \
@@ -202,37 +209,35 @@ fill-pypy *args: (_tmp-logs "fill-pypy")
         -ra \
         --show-capture=no \
         --disable-warnings \
-        -m "eels_base_coverage and primary_format" \
-        -n auto --maxprocesses 4 \
+        -m eels_base_coverage \
+        --primary-format-only \
+        -n auto --maxprocesses 8 \
         --dist=loadgroup \
         --basetemp="{{ output_dir }}/fill-pypy/tmp" \
         --log-to "{{ output_dir }}/fill-pypy/logs" \
         --clean \
         --until "{{ latest_fork }}" \
-        --ignore=tests/ported_static \
         "$@" \
-        tests
+        {{ eels_base_coverage_files }}
 
 # Fill the base coverage consensus tests and run EELS against the fixtures
-# Eight fill workers: collecting through Bogota with sixteen exhausts the
-# CI runner's memory (workers die during collection, then xdist's
-# scheduler fails on the replacements).
 [group('integration tests')]
 json-loader *args: (_tmp "json-loader")
     uv run fill \
-        -m "eels_base_coverage and primary_format" \
+        -m eels_base_coverage \
+        --primary-format-only \
         --until "{{ latest_fork }}" \
-        -n auto --maxprocesses 8 --dist=loadgroup \
+        -n {{ xdist_workers }} --dist=loadgroup \
         --skip-index \
         --clean \
-        --ignore=tests/ported_static \
         --output="tests/json_loader/fixtures" \
         --cov-config=pyproject.toml \
         --cov=ethereum \
         --cov-branch \
         --cov-report=term \
         --durations=50 \
-        --cov-fail-under=85
+        --cov-fail-under=85 \
+        {{ eels_base_coverage_files }}
     uv run pytest \
         -m "not slow" \
         -n {{ xdist_workers }} --dist=loadfile \
@@ -319,7 +324,7 @@ test-tests *args: (_tmp "test-tests")
 # Run the testing package unit tests (with PyPy)
 [group('unit tests')]
 test-tests-pypy *args: (_tmp "test-tests-pypy")
-    cd packages/testing && uv run --python pypy3.11 --no-dev --group test pytest \
+    cd packages/testing && uv run --python {{ pypy }} --no-dev --group test pytest \
         -n auto --maxprocesses 6 \
         --basetemp="{{ output_dir }}/test-tests-pypy/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
@@ -399,7 +404,8 @@ fill-benchmark *args: (_tmp-logs "fill-benchmark")
     uv run fill \
         --gas-benchmark-values 1 \
         --fork "{{ latest_fork }}" \
-        -m "not slow and primary_format" \
+        -m "not slow" \
+        --primary-format-only \
         -k "not test_return_revert" \
         -n {{ xdist_workers }} --dist=loadgroup \
         --skip-index \
@@ -433,7 +439,8 @@ bench-gas *args: (_tmp-logs "bench-gas")
         --evm-bin="{{ evm_bin }}" \
         --gas-benchmark-values 1 \
         --fork Amsterdam \
-        -m "blockchain_test and primary_format and (not slow)" \
+        -m "blockchain_test and not slow" \
+        --primary-format-only \
         -n auto --maxprocesses 10 --dist=loadgroup \
         --durations=20 \
         --output="{{ output_dir }}/bench-gas/fixtures" \
@@ -445,7 +452,7 @@ bench-gas *args: (_tmp-logs "bench-gas")
     @echo "==> Step 3/3: Running filled fixtures against EELS via json_loader"
     @rm -rf tests/json_loader/bench_gas_fixtures
     ln -sfn "{{ output_dir }}/bench-gas/fixtures" tests/json_loader/bench_gas_fixtures
-    cd tests/json_loader && uv run --python pypy3.11 --no-dev --group test pytest \
+    cd tests/json_loader && uv run --python {{ pypy }} --no-dev --group test pytest \
         --fork Amsterdam \
         --allow-post-state-hash \
         -n auto --maxprocesses 10 --dist=loadfile \

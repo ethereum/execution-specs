@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     AccessList,
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -27,33 +26,24 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stExample/basefeeExampleFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_basefee_example(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """A test shows basefee transaction example."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=70000000,
-    )
 
     # Source: lll
     # {
     #    ; Can also add lll style comments here
     #    [[0]] (ADD 1 1)
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)) + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
+
+    env = Environment(base_fee_per_gas=70000000)
 
     tx = Transaction(
         sender=sender,

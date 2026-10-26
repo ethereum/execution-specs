@@ -8,10 +8,8 @@ state_tests/stSolidityTest/TestOverflowFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,26 +23,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSolidityTest/TestOverflowFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_test_overflow(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_test_overflow."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x12A05F200)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: raw
     # 0x6000357c0100000000000000000000000000000000000000000000000000000000900480638040cac41461003a578063c04062261461004c57005b610042610099565b8060005260206000f35b61005461005e565b8060005260206000f35b6000610068610099565b600060006101000a81548160ff02191690830217905550600060009054906101000a900460ff169050610096565b90565b60006000600060006001935083507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff925060006001840114156100db576100e4565b6000935061013b565b63ffffffff915060006001830163ffffffff1614156101025761010b565b6000935061013b565b67ffffffffffffffff905060006001820167ffffffffffffffff1614156101315761013a565b6000935061013b565b5b5050509056  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x0)
         + Op.PUSH29[
             0x100000000000000000000000000000000000000000000000000000000
@@ -151,7 +139,6 @@ def test_test_overflow(
         + Op.SWAP1
         + Op.JUMP,
         balance=0x186A0,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -162,4 +149,4 @@ def test_test_overflow(
 
     post = {target: Account(storage={0: 1})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

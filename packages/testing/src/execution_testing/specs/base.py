@@ -12,6 +12,7 @@ from typing import (
     Dict,
     Generator,
     List,
+    Mapping,
     Sequence,
     Tuple,
     Type,
@@ -38,10 +39,8 @@ from execution_testing.fixtures import (
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.forks.base_fork import BaseFork
-from execution_testing.test_types import Environment, Withdrawal
-from execution_testing.test_types.receipt_types import (
-    TransactionReceipt,
-)
+from execution_testing.specs.verifications import BlockVerification
+from execution_testing.test_types import Alloc, Environment, Withdrawal
 
 
 class HashMismatchExceptionError(Exception):
@@ -146,10 +145,24 @@ class BaseTest(BaseModel):
         # instead of each test having to set it
     )
     operation_mode: OpMode | None = None
+    sync_block: bool = True
+    """
+    Append an empty block above each of the test's leaf blocks, stored
+    in the fixture's sync payloads for formats that carry them. A test
+    opts out by passing ``sync_block=False``. See "Sync Payloads" in
+    the filling-tests docs.
+    """
+    test_id: str = ""
+    """
+    The test's pytest node id, with any xdist group suffix stripped.
+
+    Set by the test framework; a consumer asserts that it is set
+    rather than trusting the default.
+    """
     gas_optimization_max_gas_limit: int | None = None
     expected_benchmark_gas_used: int | None = None
     skip_gas_used_validation: bool = False
-    expected_receipt_status: int | None = None
+    verifications: List[BlockVerification] = Field(default_factory=list)
     is_tx_gas_heavy_test: bool = False
     is_exception_test: bool = False
     is_inclusion_test: bool = False
@@ -195,6 +208,7 @@ class BaseTest(BaseModel):
         cls,
         *,
         markers: List[pytest.Mark],
+        primary_format_only: bool = False,
     ) -> List[Tuple[FixtureFormat | LabeledFixtureFormat, ParameterSet]]:
         """
         Return one pytest parameter per fixture format this spec type fills,
@@ -205,6 +219,8 @@ class BaseTest(BaseModel):
         the primary and is marked `primary_format`, so `-m primary_format`
         fills each test once. Only sessions that generate a single format per
         test can filter that primary out, and there the marker is moot.
+
+        With `primary_format_only`, return only the primary.
 
         An override that parametrizes further must leave exactly one parameter
         marked `primary_format`.
@@ -223,6 +239,8 @@ class BaseTest(BaseModel):
                 primary_format=not parameters,
             )
             parameters.append((format_with_or_without_label, parameter))
+            if primary_format_only:
+                break
         return parameters
 
     @classmethod
@@ -293,6 +311,53 @@ class BaseTest(BaseModel):
         """
         del execute_format, fork, markers
         return False
+
+    @classmethod
+    @abstractmethod
+    def genesis_pre_allocation(
+        cls,
+        *,
+        fork: Fork | TransitionFork,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
+    ) -> Mapping:
+        """
+        Return the accounts the genesis of `fixture_format` holds by default.
+
+        The `pre` fixture is seeded with these accounts before the test runs,
+        so the test sees, and may modify, the whole genesis allocation. The
+        spec uses the test's `pre` as the genesis allocation unchanged.
+        """
+        pass
+
+    @classmethod
+    def genesis_alloc(
+        cls,
+        pre: Alloc,
+        *,
+        fork: Fork | TransitionFork,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
+    ) -> Alloc:
+        """
+        Return the allocation the genesis of `fixture_format` starts from.
+
+        A `pre` built outside the `pre` fixture must opt into the genesis
+        accounts with `Alloc.with_genesis_accounts()`, so that a genesis
+        never silently lacks them.
+        """
+        if pre.genesis_accounts == "seeded":
+            return pre
+        genesis_accounts = cls.genesis_pre_allocation(
+            fork=fork, fixture_format=fixture_format
+        )
+        if pre.genesis_accounts == "deferred":
+            return Alloc.merge(Alloc.model_validate(genesis_accounts), pre)
+        if genesis_accounts:
+            raise ValueError(
+                f"`pre` lacks the accounts {fork} allocates at genesis: use "
+                "the `pre` fixture, or call `with_genesis_accounts()` on an "
+                "allocation built outside it."
+            )
+        return pre
 
     @abstractmethod
     def generate(
@@ -415,32 +480,23 @@ class BaseTest(BaseModel):
             f"{gas_benchmark_value}"
         )
 
-    def validate_receipt_status(
+    def run_block_verifications(
         self,
         *,
-        receipts: List[TransactionReceipt],
+        result: Result,
         block_number: int,
     ) -> None:
         """
-        Validate receipt status for every transaction in a block.
+        Run all block verification rules.
 
-        When expected_receipt_status is set, verify that all
-        receipts match. Catches silent OOG failures that roll
-        back state and invalidate benchmarks.
+        Dispatch every rule in ``self.verifications``
+        against the transition tool result for a block.
         """
-        if self.expected_receipt_status is None:
-            return
-        for i, receipt in enumerate(receipts):
-            if receipt.status is not None and (
-                int(receipt.status) != self.expected_receipt_status
-            ):
-                raise Exception(
-                    f"Transaction {i} in block "
-                    f"{block_number} has receipt "
-                    f"status {int(receipt.status)}, "
-                    f"expected "
-                    f"{self.expected_receipt_status}."
-                )
+        for v in self.verifications:
+            v.verify(
+                result=result,
+                block_number=block_number,
+            )
 
 
 TestSpec = Callable[[Fork], Generator[BaseTest, None, None]]

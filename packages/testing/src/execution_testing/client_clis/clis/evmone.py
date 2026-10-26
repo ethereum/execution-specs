@@ -96,8 +96,6 @@ class EvmoneFixtureConsumerCommon:
                 stderr=subprocess.PIPE,
                 text=True,
             )
-        except subprocess.CalledProcessError as e:
-            raise Exception("Command failed with non-zero status.") from e
         except Exception as e:
             raise Exception("Unexpected exception calling evm tool.") from e
 

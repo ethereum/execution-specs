@@ -8,7 +8,6 @@ state_tests/stRandom/randomStatetest178Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -16,6 +15,8 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+
+from tests.ported_static.constants import HIGH_GAS_LIMIT
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -26,27 +27,16 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest178(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_random_statetest178."""
-    coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
+    coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,
             condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
@@ -57,12 +47,10 @@ def test_random_statetest178(
             key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
         ),
         balance=46,
-        nonce=0,
-        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
     # Source: raw
     # 0x7d342beabe599e4bc177fd97d36df48d50650ba6129a9a83d4cf809ec21452357c620167f530c3265be9887f6e5b8186decdc00a6a801e5f56dd8d9d36a4806dbccc299e4bbf46ad577e25b5b1fc76b6999cb23a6a03c4035e36b8494135ee170647395da00b6e0a64c43f3358b8bdcf593c89fb70b865ef153b5195c77959256beb4f932095eb8ac80bc2c050f6f550a362aac77f5c4b197151df039d64b77dca22eb8fd4b8cf50fb85a36f1d909d1919a47fe97de5526726b4a47b866b7b13471056439457cd7cbc5060d978056ff5dd24a1f49e50b9f5924f473b2dc5306d67054ca575d0603e616291a3601460106009601f6338a57ddc73<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>630e3319c8f133  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALLDATALOAD(
             offset=0x342BEABE599E4BC177FD97D36DF48D50650BA6129A9A83D4CF809EC21452  # noqa: E501
         )
@@ -87,7 +75,7 @@ def test_random_statetest178(
         )
         + Op.CALL(
             gas=0xE3319C8,
-            address=0x1B0A78BDF6595742D34BF13386BCC01EFADDF68C,
+            address=Op.ADDRESS,
             value=0x38A57DDC,
             args_offset=0x1F,
             args_size=0x9,
@@ -95,8 +83,10 @@ def test_random_statetest178(
             ret_size=0x14,
         )
         + Op.CALLER,
-        nonce=0,
-        address=Address(0x1B0A78BDF6595742D34BF13386BCC01EFADDF68C),  # noqa: E501
+    )
+
+    env = Environment(
+        fee_recipient=coinbase, prev_randao=0x20000, gas_limit=HIGH_GAS_LIMIT
     )
 
     tx = Transaction(
@@ -110,8 +100,8 @@ def test_random_statetest178(
     )
 
     post = {
-        target: Account(storage={}, nonce=0),
-        coinbase: Account(storage={}, nonce=0),
+        target: Account(storage={}, nonce=1),
+        coinbase: Account(storage={}, nonce=1),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 

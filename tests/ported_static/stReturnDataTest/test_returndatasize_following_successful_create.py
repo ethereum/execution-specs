@@ -8,10 +8,8 @@ state_tests/stReturnDataTest/returndatasize_following_successful_createFiller.js
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     StateTestFiller,
     Transaction,
@@ -29,27 +27,17 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_returndatasize_following_successful_create(
     state_test: StateTestFiller,
     fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_returndatasize_following_successful_create."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x6400000000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # { (seq (CREATE 0 0 (lll (seq (mstore 0 0x112233) (RETURN 0 32) (STOP) ) 0)) (SSTORE 0 (RETURNDATASIZE)) (STOP) )}  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.PUSH1[0xE]
         + Op.CODECOPY(dest_offset=0x0, offset=0x15, size=Op.DUP1)
         + Op.PUSH1[0x0] * 2
@@ -61,7 +49,6 @@ def test_returndatasize_following_successful_create(
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP * 2,
         storage={0: 1},
-        nonce=0,
     )
 
     tx = Transaction(
@@ -73,4 +60,4 @@ def test_returndatasize_following_successful_create(
 
     post = {target: Account(storage={0: 0})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

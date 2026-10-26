@@ -7,7 +7,6 @@ state_tests/stCallCreateCallCodeTest/Call1024PreCallsFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -19,6 +18,7 @@ from execution_testing import (
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
+from tests.ported_static.constants import HIGH_GAS_LIMIT
 from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
@@ -59,26 +59,13 @@ def test_call1024_pre_calls(
     v: int,
 ) -> None:
     """Calldepth with subcall."""
-    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     addr = Address(0xD9B97C712EBCE43F3C19179BBEF44B550F9E8BC0)
-    sender = EOA(
-        key=0xCC381C83857B17CA629268ED418E2915A0287B84EFE9CF2204C020302E83CDA0
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
-
-    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     pre[addr] = Account(balance=7000)
     # Source: lll
     # { [[ 2 ]] (CALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0) [[ 3 ]] (CALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0)  [[ 0 ]] (ADD @@0 1) [[ 1 ]] (CALL 0xfffffffffff <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x2,
             value=Op.CALL(
@@ -108,7 +95,7 @@ def test_call1024_pre_calls(
             key=0x1,
             value=Op.CALL(
                 gas=0xFFFFFFFFFFF,
-                address=0x48C20CD83DDBD3908712F4D31C51B3CDAAE287CE,
+                address=Op.ADDRESS,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -118,8 +105,6 @@ def test_call1024_pre_calls(
         )
         + Op.STOP,
         balance=2024,
-        nonce=0,
-        address=Address(0x48C20CD83DDBD3908712F4D31C51B3CDAAE287CE),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -142,6 +127,8 @@ def test_call1024_pre_calls(
     ]
     tx_gas = [9214364837600034817, 11837600034817]
     tx_value = [10]
+
+    env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
     tx = Transaction(
         sender=sender,

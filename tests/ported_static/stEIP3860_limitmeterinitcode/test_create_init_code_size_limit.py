@@ -7,11 +7,9 @@ state_tests/Shanghai/stEIP3860_limitmeterinitcode/createInitCodeSizeLimitFiller.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -56,7 +54,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_create_init_code_size_limit(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -66,23 +63,8 @@ def test_create_init_code_size_limit(
     v: int,
 ) -> None:
     """Test_create_init_code_size_limit."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB)
-    contract_1 = Address(0x000000000000000000000000000000000000C0DE)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBEBC200)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=20000000,
-    )
-
-    pre[sender] = Account(balance=0xBEBC200, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -95,7 +77,7 @@ def test_create_init_code_size_limit(
     #   sstore(10, sub(gas_before, gas()))
     #   sstore(0, create_result)
     # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.SHL(0xB0, 0x600A80600080396000F3)
         + Op.PUSH1[0x0]
         + Op.SWAP1
@@ -115,7 +97,6 @@ def test_create_init_code_size_limit(
         + Op.SSTORE
         + Op.STOP,
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -125,7 +106,7 @@ def test_create_init_code_size_limit(
     #   sstore(0, call_result)
     #   sstore(1, 1)
     # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
         + Op.SSTORE(
             key=0x0,
@@ -142,7 +123,6 @@ def test_create_init_code_size_limit(
         + Op.SSTORE(key=Op.DUP1, value=0x1)
         + Op.STOP,
         nonce=1,
-        address=Address(0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -150,7 +130,7 @@ def test_create_init_code_size_limit(
             "indexes": {"data": [0], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                sender: Account(nonce=2),
+                sender: Account(nonce=1),
                 contract_0: Account(storage={0: 1, 1: 1}),
                 contract_1: Account(
                     storage={
@@ -170,7 +150,7 @@ def test_create_init_code_size_limit(
             "indexes": {"data": [1], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                sender: Account(nonce=2),
+                sender: Account(nonce=1),
                 contract_0: Account(storage={0: 0, 1: 1}, nonce=1),
                 contract_1: Account(storage={}),
                 Address(
@@ -193,8 +173,7 @@ def test_create_init_code_size_limit(
         to=contract_0,
         data=tx_data[d],
         gas_limit=tx_gas[g],
-        nonce=1,
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

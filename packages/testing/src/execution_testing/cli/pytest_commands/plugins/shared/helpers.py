@@ -1,11 +1,33 @@
 """Helpers for pytest plugins."""
 
 import os
+from pathlib import Path
 from typing import Any, Dict, Tuple, Type
 
 import pytest
 
 from execution_testing.specs import BaseTest
+
+BENCHMARK_DIR = Path("tests") / "benchmark"
+
+
+def strip_any_xdist_group_suffix(nodeid: str) -> str:
+    """
+    Return the node id without any xdist group suffix.
+
+    Under ``--dist=loadgroup`` an xdist worker appends ``@<group>`` to
+    a node id, so any value derived from one - a spec's ``test_id``,
+    a fixture's own id, the pre-alloc group keys and entropy - would
+    otherwise depend on whether and how the run was distributed.
+    Every group name the fill or a test sets is a bare word, while a
+    parametrized node id always ends in ``]``, so a trailing ``@``
+    segment without one is a group name and never part of the test's
+    own id.
+    """
+    base, separator, suffix = nodeid.rpartition("@")
+    if separator and base and "]" not in suffix:
+        return base
+    return nodeid
 
 
 def option_was_explicitly_set(config: pytest.Config, option_name: str) -> bool:
@@ -65,7 +87,14 @@ def get_spec_format_for_item(
     params: Dict[str, Any],
 ) -> Tuple[Type[BaseTest], Any]:
     """Return the spec type and execute format for the given test item."""
-    for spec_type in BaseTest.spec_types.values():
-        if spec_type.pytest_parameter_name() in params:
-            return spec_type, params[spec_type.pytest_parameter_name()]
+    # Spec types are registered under their pytest parameter name.
+    for parameter_name, spec_type in BaseTest.spec_types.items():
+        if parameter_name in params:
+            return spec_type, params[parameter_name]
     raise ValueError("No spec type format found in the test item.")
+
+
+def is_benchmark_test(request: pytest.FixtureRequest) -> bool:
+    """Check if the test is under the benchmark directory."""
+    benchmark_path = Path(request.config.rootpath) / BENCHMARK_DIR
+    return benchmark_path in request.node.path.parents

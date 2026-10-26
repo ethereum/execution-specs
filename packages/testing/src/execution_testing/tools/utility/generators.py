@@ -13,6 +13,7 @@ from execution_testing.base_types import (
     Bytes,
     CamelModel,
     Hash,
+    Storage,
 )
 from execution_testing.exceptions import BlockException
 from execution_testing.forks import Berlin, Fork, TransitionFork
@@ -301,12 +302,12 @@ def generate_system_contract_deploy_test(
                 if has_balance == ContractAddressHasBalance.NONZERO_BALANCE
                 else 0
             )
-            pre[expected_deploy_address] = Account(
-                code=b"",  # Remove the code that is automatically allocated on
-                # the fork
-                nonce=0,
-                balance=balance,
-            )
+            # Replace the contract the fork allocates at genesis with a
+            # plain balance, or remove it when there is no balance to keep.
+            if balance:
+                pre[expected_deploy_address] = Account(balance=balance)
+            else:
+                del pre[expected_deploy_address]
 
             expected_deploy_address_int = int.from_bytes(
                 expected_deploy_address, "big"
@@ -352,6 +353,12 @@ def generate_system_contract_deploy_test(
                 pre=pre,
                 blocks=blocks,
                 post=post,
+                # When empty code fails the block, the chain ends at
+                # the fork with the system contract still undeployed,
+                # so the sync block the filler would append above it
+                # cannot execute either.
+                sync_block=not fail_on_empty_code
+                or test_type != DeploymentTestType.DEPLOY_AFTER_FORK,
             )
 
         wrapper.__name__ = func.__name__  # type: ignore
@@ -472,6 +479,14 @@ def generate_system_contract_error_test() -> Callable[
                     )
                 ],
                 post=post,
+                # The error modes leave the system contract
+                # deliberately broken in the chain's canonical state,
+                # and every block after the fork calls it, so the sync
+                # block the filler would append above the chain cannot
+                # execute. The GAS_LIMIT chain is valid and its post
+                # state makes the contract cheaper to re-run, so it
+                # keeps its block.
+                sync_block=test_type == SystemContractTestType.GAS_LIMIT,
             )
 
         wrapper.__name__ = func.__name__  # type: ignore
@@ -644,22 +659,14 @@ def gas_test(
         ),
     )
 
-    post = {
-        address_legacy_harness: Account(
-            storage={
-                slot_warm_gas: warm_gas,
-                slot_cold_gas: cold_gas,
-            },
-        ),
+    harness_storage: Storage.StorageDictType = {
+        slot_warm_gas: warm_gas,
+        slot_cold_gas: cold_gas,
     }
-
     if out_of_gas_testing:
-        post[address_legacy_harness].storage[slot_oog_call_result] = (
-            LEGACY_CALL_FAILURE
-        )
-        post[address_legacy_harness].storage[slot_sanity_call_result] = (
-            LEGACY_CALL_SUCCESS
-        )
+        harness_storage[slot_oog_call_result] = LEGACY_CALL_FAILURE
+        harness_storage[slot_sanity_call_result] = LEGACY_CALL_SUCCESS
+    post = {address_legacy_harness: Account(storage=harness_storage)}
 
     tx = Transaction(
         to=address_legacy_harness, gas_limit=tx_gas, sender=sender

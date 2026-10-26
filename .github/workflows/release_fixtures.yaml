@@ -183,33 +183,28 @@ jobs:
         run: sudo apt-get install -y pigz
       - name: Download and merge split artifacts
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMBINE_LABELS: ${{ needs.setup.outputs.combine_labels }}
         run: |
-          mkdir -p combined
-          for label in ${{ needs.setup.outputs.combine_labels }}; do
+          # Every split uploads an artifact, so a failed download fails
+          # the release instead of silently dropping that fork range.
+          # Re-run the failed job to retry.
+          SPLIT_DIRS=()
+          for label in $COMBINE_LABELS; do
+            dir="split_artifacts/fixtures__${label}"
             echo "Downloading: fixtures__${label}"
-            if gh run download ${{ github.run_id }} -n "fixtures__${label}" --dir "split_artifacts/fixtures__${label}"; then
-              cp -r "split_artifacts/fixtures__${label}"/* combined/
-            else
-              echo "No artifact for ${label} (no tests collected, skipping)"
-            fi
+            gh run download ${{ github.run_id }} -n "fixtures__${label}" --dir "$dir"
+            SPLIT_DIRS+=("$dir")
+          done
+          # Fails on a split without an index.
+          uv run python .github/scripts/merge_index_files.py combined/.meta/index.json "${SPLIT_DIRS[@]}"
+          for dir in "${SPLIT_DIRS[@]}"; do
+            # `.meta` is excluded: the merged index replaces the split ones.
+            find "$dir" -mindepth 1 -maxdepth 1 ! -name .meta -exec cp -r {} combined/ \;
           done
           echo "Combined directory contents:"
           find combined -maxdepth 3 -type d | head -30 || true
-        env:
-          GH_TOKEN: ${{ github.token }}
-      - name: Merge split index files
-        shell: bash
-        run: |
-          SPLIT_DIRS=()
-          for label in ${{ needs.setup.outputs.combine_labels }}; do
-            dir="split_artifacts/fixtures__${label}"
-            if [ -d "$dir" ]; then
-              SPLIT_DIRS+=("$dir")
-            fi
-          done
-          if [ ${#SPLIT_DIRS[@]} -gt 0 ]; then
-            uv run python .github/scripts/merge_index_files.py combined/.meta/index.json "${SPLIT_DIRS[@]}"
-          fi
       - name: Free disk space
         run: rm -rf split_artifacts/
       - name: Create release tarball
@@ -273,10 +268,15 @@ jobs:
           else
             gh run download ${{ github.run_id }} -p "fixtures_*" --dir ./artifacts
             rm -rf ./artifacts/fixtures__*/
-            gh run download ${{ github.run_id }} -p "benchmark_genesis_*" --dir ./artifacts || true
+            # Only benchmark features build genesis files (see
+            # build-fixtures), so any other failure here is real.
+            if [[ "$INPUT_FEATURE" == *benchmark* ]]; then
+              gh run download ${{ github.run_id }} -p "benchmark_genesis_*" --dir ./artifacts
+            fi
           fi
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_FEATURE: ${{ inputs.feature }}
           ARTIFACT_RUN_ID: ${{ needs.setup.outputs.artifact_run_id }}
           ARTIFACT_NAME: ${{ needs.setup.outputs.artifact_name }}
 
@@ -326,3 +326,19 @@ jobs:
 
           # Creates the tag on the target commit and the release on success.
           gh release create "$TAG_NAME" "${RELEASE_ARGS[@]}" ./artifacts/**/*.tar.gz
+
+  # A scheduled fill also becomes the `nightly` hive simulator images: every
+  # image at the filled commit, from the fixtures_<sha> artifact of this run.
+  # Publishing a release triggers the same workflow through its `release`
+  # event instead. See docs/dev/publishing_images.md.
+  hive-images:
+    name: hive simulator images (nightly)
+    needs: [setup, combine]
+    if: github.event_name == 'schedule' && needs.combine.result == 'success'
+    uses: ./.github/workflows/docker-images.yaml
+    with:
+      nightly_sha: ${{ needs.setup.outputs.target_sha }}
+    permissions:
+      contents: read
+      packages: write
+      actions: read

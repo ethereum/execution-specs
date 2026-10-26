@@ -8,10 +8,8 @@ state_tests/stBadOpcode/invalidAddrFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -542,7 +540,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_invalid_addr(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -552,50 +549,34 @@ def test_invalid_addr(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: lll
     # {
     #       [0] 0xDEADBEEF
     #       (return 0 0x120)
     # }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0xDEADBEEF)
         + Op.RETURN(offset=0x0, size=0x120)
         + Op.STOP,
         balance=0x10000,
-        nonce=0,
-        address=Address(0x1C60A961CFF23C82B2F809E76B815D003898E196),  # noqa: E501
     )
     # Source: lll
     # {
     #    (selfdestruct $0)
     # }
-    dead1 = pre.deploy_contract(  # noqa: F841
+    dead1 = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=Op.CALLDATALOAD(offset=0x0)) + Op.STOP,
         balance=4096,
-        nonce=0,
-        address=Address(0x9CB657C71386D578195B90DA7DE545482E0A9440),  # noqa: E501
     )
     # Source: lll
     # {
     #    (selfdestruct $0)
     # }
-    dead2 = pre.deploy_contract(  # noqa: F841
+    dead2 = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=Op.CALLDATALOAD(offset=0x0)) + Op.STOP,
         balance=4096,
-        nonce=0,
-        address=Address(0xE2CFFD6602680D87B7872C3B69F42FA631058CBF),  # noqa: E501
     )
     # Source: lll
     # {
@@ -629,7 +610,7 @@ def test_invalid_addr(
     #    ; addrType  2 is addr1 + 2^254
     #    ; addrType  3 is addr1 + 2^255
     # ... (108 more lines)
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.JUMPI(
             pc=Op.PUSH2[0x11],
             condition=Op.EQ(Op.CALLDATALOAD(offset=0x24), 0x1),
@@ -637,9 +618,7 @@ def test_invalid_addr(
         + Op.POP(0x0)
         + Op.JUMP(pc=Op.PUSH2[0x2B])
         + Op.JUMPDEST
-        + Op.MSTORE(
-            offset=0x2000, value=0x1C60A961CFF23C82B2F809E76B815D003898E196
-        )
+        + Op.MSTORE(offset=0x2000, value=Op.PUSH20[addr])
         + Op.JUMPDEST
         + Op.JUMPI(
             pc=Op.PUSH2[0x3D],
@@ -977,7 +956,7 @@ def test_invalid_addr(
         + Op.POP(
             Op.CALL(
                 gas=0x10000000,
-                address=0x9CB657C71386D578195B90DA7DE545482E0A9440,
+                address=Op.PUSH20[dead1],
                 value=0x0,
                 args_offset=0x2000,
                 args_size=0x20,
@@ -991,7 +970,7 @@ def test_invalid_addr(
         + Op.POP(
             Op.CALL(
                 gas=0x10000000,
-                address=0xE2CFFD6602680D87B7872C3B69F42FA631058CBF,
+                address=Op.PUSH20[dead2],
                 value=0x0,
                 args_offset=0x2040,
                 args_size=0x20,
@@ -1030,8 +1009,6 @@ def test_invalid_addr(
         + Op.STOP,
         storage={256: 24743},
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x2D876FD03A90703F170C256363BA225F9494E604),  # noqa: E501
     )
 
     tx_data = [
@@ -1138,4 +1115,4 @@ def test_invalid_addr(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

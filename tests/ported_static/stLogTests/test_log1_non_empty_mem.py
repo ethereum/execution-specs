@@ -7,12 +7,9 @@ state_tests/stLogTests/log1_nonEmptyMemFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -26,30 +23,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stLogTests/log1_nonEmptyMemFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_log1_non_empty_mem(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_log1_non_empty_mem."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (LOG1 0 32 0) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0,
             value=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
@@ -57,17 +40,15 @@ def test_log1_non_empty_mem(
         + Op.LOG1(offset=0x0, size=0x20, topic_1=0x0)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x6727EA02222B905F7708C2B4CB20898F34DFF1DD),  # noqa: E501
     )
     # Source: lll
     # { [[ 0 ]] (CALL 1000 <contract:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 23 0 0 0 0) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
                 gas=0x3E8,
-                address=0x6727EA02222B905F7708C2B4CB20898F34DFF1DD,
+                address=addr,
                 value=0x17,
                 args_offset=0x0,
                 args_size=0x0,
@@ -77,8 +58,6 @@ def test_log1_non_empty_mem(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x1E5597B6168FE79952CB2DE7AF91C3449BC95BD4),  # noqa: E501
     )
 
     tx = Transaction(
@@ -91,4 +70,4 @@ def test_log1_non_empty_mem(
 
     post = {target: Account(storage={0: 1})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

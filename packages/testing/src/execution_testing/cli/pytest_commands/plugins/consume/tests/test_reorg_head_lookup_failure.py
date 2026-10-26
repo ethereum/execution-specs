@@ -26,7 +26,7 @@ def runner(
     """A `StepRunner` for a single-block fixture, with stubbed RPC."""
     test = ReorgTest(
         fork=Cancun,
-        pre=Alloc(),
+        pre=Alloc().with_genesis_accounts(),
         blocks=[ReorgBlock(label="a1")],
         steps=[],
     )

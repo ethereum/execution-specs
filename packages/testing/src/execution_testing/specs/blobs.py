@@ -1,6 +1,14 @@
 """Test specification for blob tests."""
 
-from typing import Callable, ClassVar, Generator, List, Sequence, Type
+from typing import (
+    Callable,
+    ClassVar,
+    Generator,
+    List,
+    Mapping,
+    Sequence,
+    Type,
+)
 
 from pydantic import model_validator
 from typing_extensions import Self
@@ -13,6 +21,7 @@ from execution_testing.fixtures import (
     FixtureFormat,
     LabeledFixtureFormat,
 )
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import (
     NetworkWrappedTransaction,
     Transaction,
@@ -57,6 +66,17 @@ class BlobsTest(BaseTest):
             "A test that executes a blob transaction",
         ),
     ]
+
+    @classmethod
+    def genesis_pre_allocation(
+        cls,
+        *,
+        fork: Fork | TransitionFork,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
+    ) -> Mapping:
+        """Return no accounts: this spec has no genesis."""
+        del fork, fixture_format
+        return {}
 
     def generate(
         self,

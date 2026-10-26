@@ -7,7 +7,11 @@ import pytest
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp
 
 from . import FORKS
-from .helpers.load_blockchain_tests import TRANSITION_FORKS, ForkTransition
+from .helpers.load_blockchain_tests import (
+    TRANSITION_FORKS,
+    ForkTransition,
+    spec_fork_name,
+)
 
 
 def test_parse_timestamp_transition() -> None:
@@ -42,8 +46,8 @@ def test_every_transition_fork_names_known_forks(network: str) -> None:
     transition = ForkTransition.parse(network)
 
     assert transition is not None
-    assert transition.from_fork in FORKS
-    assert transition.to_fork in FORKS
+    assert spec_fork_name(transition.from_fork) in FORKS
+    assert spec_fork_name(transition.to_fork) in FORKS
 
 
 def decoded_block(number: int, timestamp: int) -> Dict[str, Any]:

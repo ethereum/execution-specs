@@ -18,6 +18,7 @@ from execution_testing import (
     Alloc,
     AuthorizationTuple,
     BalAccountExpectation,
+    BalBalanceChange,
     BalCodeChange,
     BalNonceChange,
     BalStorageChange,
@@ -38,6 +39,7 @@ from execution_testing import (
     Header,
     Initcode,
     Op,
+    ParameterSet,
     RecipientType,
     Requests,
     StateTestFiller,
@@ -52,7 +54,9 @@ from execution_testing import (
 )
 from execution_testing import Macros as Om
 from execution_testing.base_types import HexNumber
+from execution_testing.test_types import ChainConfigDefaults
 
+from ...amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
 from ..eip7685_general_purpose_el_requests.test_multi_type_requests import (
     REQUEST_TYPE_BY_ADDRESS,
@@ -495,13 +499,18 @@ def test_set_code_to_tstore_available_at_correct_address(
     "balance",
     [0, 1],
 )
+@pytest.mark.parametrize("tx_value", [0, 1])
 def test_set_code_to_self_destruct(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     external_sendall_recipient: bool,
     balance: int,
+    tx_value: int,
 ) -> None:
     """Test the executing self-destruct opcode in a set-code transaction."""
+    # With balance 0 the authority does not exist until the authorization
+    # creates it.
     auth_signer = pre.fund_eoa(balance)
     if external_sendall_recipient:
         recipient = pre.fund_eoa(0)
@@ -512,9 +521,10 @@ def test_set_code_to_self_destruct(
         Op.SSTORE(1, 1) + Op.SELFDESTRUCT(recipient)
     )
 
+    sender = pre.fund_eoa()
     tx = Transaction(
         to=auth_signer,
-        value=0,
+        value=tx_value,
         authorization_list=[
             AuthorizationTuple(
                 address=set_code_to_address,
@@ -522,26 +532,95 @@ def test_set_code_to_self_destruct(
                 signer=auth_signer,
             ),
         ],
-        sender=pre.fund_eoa(),
+        sender=sender,
     )
 
-    post = {
+    # The authorization does not make the authority a contract created in
+    # this transaction, so SELFDESTRUCT only moves its balance.
+    total_balance = balance + tx_value
+    final_balance = 0 if external_sendall_recipient else total_balance
+    post: dict[Address, Account | None] = {
         auth_signer: Account(
             nonce=1,
             code=Spec.delegation_designation(set_code_to_address),
             storage={1: 1},
-            balance=balance if not external_sendall_recipient else 0,
+            balance=final_balance,
         ),
     }
 
-    if external_sendall_recipient and balance > 0:
-        post[recipient] = Account(balance=balance)
+    if external_sendall_recipient:
+        if total_balance > 0:
+            post[recipient] = Account(balance=total_balance)
+        else:
+            post[recipient] = Account.NONEXISTENT
+
+    if fork.is_eip_enabled(7708):
+        # SELFDESTRUCT logs nothing when it sends to itself or moves zero.
+        logs = []
+        if tx_value > 0:
+            logs.append(transfer_log(sender, auth_signer, tx_value))
+        if external_sendall_recipient and total_balance > 0:
+            logs.append(transfer_log(auth_signer, recipient, total_balance))
+        tx.expected_receipt = TransactionReceipt(logs=logs)
+
+    expected_block_access_list = None
+    if fork.is_eip_enabled(7928):
+        # A balance that ends the transaction where it started, such as
+        # value received and sent on, records no balance change.
+        authority_balance_changes = []
+        if final_balance != balance:
+            authority_balance_changes.append(
+                BalBalanceChange(
+                    block_access_index=1, post_balance=final_balance
+                )
+            )
+        account_expectations = {
+            auth_signer: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+                code_changes=[
+                    BalCodeChange(
+                        block_access_index=1,
+                        new_code=Spec.delegation_designation(
+                            set_code_to_address
+                        ),
+                    )
+                ],
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=1
+                            )
+                        ],
+                    )
+                ],
+                balance_changes=authority_balance_changes,
+            ),
+        }
+        if external_sendall_recipient:
+            recipient_balance_changes = []
+            if total_balance > 0:
+                recipient_balance_changes.append(
+                    BalBalanceChange(
+                        block_access_index=1, post_balance=total_balance
+                    )
+                )
+            account_expectations[recipient] = BalAccountExpectation(
+                balance_changes=recipient_balance_changes,
+            )
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations=account_expectations
+        )
 
     state_test(
         env=Environment(),
         pre=pre,
         tx=tx,
         post=post,
+        expected_block_access_list=expected_block_access_list,
     )
 
 
@@ -2702,9 +2781,15 @@ class InvalidChainID(StrEnum):
     CORRECT_CHAIN_ID_MINUS_ONE = "correct_chain_id-1"
 
 
-@pytest.mark.parametrize(
-    "invalid_chain_id_case",
-    [
+def invalid_chain_id_cases() -> List[ParameterSet]:
+    """
+    Return the invalid chain id cases that apply to the current chain.
+
+    One less than the correct chain id is only invalid when the correct
+    chain id is greater than one: zero is the wildcard that authorizes the
+    tuple on any chain, so the case cannot be generated on mainnet.
+    """
+    cases = [
         pytest.param(
             InvalidChainID.MAX_AUTH_CHAIN_ID, id="auth_chain_id=2**256-1"
         ),
@@ -2712,12 +2797,18 @@ class InvalidChainID(StrEnum):
             InvalidChainID.CORRECT_CHAIN_ID_PLUS_ONE,
             id="auth_chain_id=correct_chain_id+1",
         ),
-        pytest.param(
-            InvalidChainID.CORRECT_CHAIN_ID_MINUS_ONE,
-            id="auth_chain_id=correct_chain_id-1",
-        ),
-    ],
-)
+    ]
+    if ChainConfigDefaults.chain_id > 1:
+        cases.append(
+            pytest.param(
+                InvalidChainID.CORRECT_CHAIN_ID_MINUS_ONE,
+                id="auth_chain_id=correct_chain_id-1",
+            )
+        )
+    return cases
+
+
+@pytest.mark.parametrize("invalid_chain_id_case", invalid_chain_id_cases())
 def test_valid_tx_invalid_chain_id(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2742,8 +2833,10 @@ def test_valid_tx_invalid_chain_id(
         auth_chain_id = chain_config.chain_id + 1
     elif invalid_chain_id_case == InvalidChainID.CORRECT_CHAIN_ID_MINUS_ONE:
         auth_chain_id = chain_config.chain_id - 1
-        if auth_chain_id == 0:
-            pytest.skip("Cannot use correct_chain_id-1 as invalid chain ID")
+        assert auth_chain_id != 0, (
+            "zero authorizes the tuple on any chain, so the test would pass "
+            "for the wrong reason"
+        )
     else:
         raise ValueError(f"Invalid chain ID case: {invalid_chain_id_case}")
 
