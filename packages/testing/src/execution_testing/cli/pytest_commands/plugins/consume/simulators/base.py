@@ -24,6 +24,27 @@ from .helpers.rejected_blocks import BlockRejectionTracker
 
 logger = logging.getLogger(__name__)
 
+# Simulators whose clients start from a genesis alone (no chain to import), so
+# client wrappers may load it at startup instead of in a separate init step.
+SKIP_GENESIS_INIT_SUITES = {"eels/consume-engine", "eels/consume-enginex"}
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Hive simulator client start-up command line options."""
+    consume_group = parser.getgroup(
+        "consume", "Arguments related to consuming fixtures via a client"
+    )
+    consume_group.addoption(
+        "--no-skip-genesis-init",
+        action="store_true",
+        dest="no_skip_genesis_init",
+        default=False,
+        help=(
+            "Do not set HIVE_SKIP_GENESIS_INIT for the client: its wrapper "
+            "initializes the genesis in a separate step before starting it."
+        ),
+    )
+
 
 @pytest.fixture(scope="function")
 def eth_rpc(client: Client) -> Generator[EthRPC, None, None]:
@@ -56,6 +77,23 @@ def block_rejection_tracker() -> BlockRejectionTracker:
     the expected exception can be verified against it in that case.
     """
     return BlockRejectionTracker()
+
+
+@pytest.fixture(scope="function")
+def skip_genesis_init(
+    request: pytest.FixtureRequest, test_suite_name: str
+) -> bool:
+    """
+    Whether to set HIVE_SKIP_GENESIS_INIT for the client under test.
+
+    The variable lets a client wrapper load the genesis when the client starts
+    instead of running a separate init process first (e.g. geth's
+    `--override.genesis` instead of `geth init`). Wrappers apply it only when
+    there is no chain to import and the client supports it.
+    """
+    return test_suite_name in SKIP_GENESIS_INIT_SUITES and not (
+        request.config.getoption("no_skip_genesis_init")
+    )
 
 
 @pytest.fixture(scope="function")

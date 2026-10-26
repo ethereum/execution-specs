@@ -10,6 +10,8 @@
 #                                       TODO: remove when fixed on nimbus-el side.
 #   FORK                                execute-blobs; defaults to EEST_DEFAULT_FORK, the fork
 #                                       the release was filled for, set when the image is built
+#   SKIP_GENESIS_INIT                   engine and enginex; 0 passes --no-skip-genesis-init, so
+#                                       clients initialize the genesis in a separate step
 set -eu
 
 # Deprecated build arguments applied by eels-legacy-build (legacy_build.sh):
@@ -33,14 +35,20 @@ if [ -d "$legacy" ]; then
 fi
 
 cd /execution-specs/packages/testing
+skip_genesis_init=
+if [ "${SKIP_GENESIS_INIT-1}" = "0" ]; then
+    skip_genesis_init=--no-skip-genesis-init
+fi
 case "${EEST_SIMULATOR:-}" in
 consume-engine)
     exec uv run --no-sync consume engine -v --input "$FIXTURES" \
-        --disable-strict-exception-matching "${DISABLE_STRICT_EXCEPTION_MATCHING-nimbus-el}" "$@"
+        --disable-strict-exception-matching "${DISABLE_STRICT_EXCEPTION_MATCHING-nimbus-el}" \
+        $skip_genesis_init "$@"
     ;;
 consume-enginex)
     exec uv run --no-sync consume enginex -v --input "$FIXTURES" \
-        --disable-strict-exception-matching "${DISABLE_STRICT_EXCEPTION_MATCHING-nimbus-el}" "$@"
+        --disable-strict-exception-matching "${DISABLE_STRICT_EXCEPTION_MATCHING-nimbus-el}" \
+        $skip_genesis_init "$@"
     ;;
 consume-rlp)
     exec uv run --no-sync consume rlp -v --input "$FIXTURES" "$@"
