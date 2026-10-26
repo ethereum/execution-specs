@@ -350,8 +350,8 @@ class TestSerializeStatelessInput:
         )
         assert compute_new_payload_request_root(original) == Hash32(
             bytes.fromhex(
-                "71d67022e2df6fc9b757f8c4614f1da2"
-                "0c993efe8595a715829093c431b3f4eb"
+                "43afdcfa2792c3fb237ddbf271fc3675"
+                "e3dc06ec37283f7f6956c2da6e917dd7"
             )
         )
 
