@@ -35,6 +35,9 @@ from execution_testing.fixtures.consume import (
     TestCases,
 )
 from execution_testing.forks import (
+    Fork,
+    Paris,
+    TransitionFork,
     get_forks,
     get_relative_fork_markers,
     get_transition_forks,
@@ -49,6 +52,12 @@ from .releases import (
     is_url,
     resolve_release,
 )
+
+# The oldest fork each client supports, by hive client name without its
+# nametag. Tests of older forks are deselected for that client.
+CLIENT_OLDEST_SUPPORTED_FORK: dict[str, Fork] = {
+    "ethrex": Paris,
+}
 
 CACHED_DOWNLOADS_DIRECTORY = (
     Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests"))
@@ -685,3 +694,51 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                 )
             )
     metafunc.parametrize("test_case,client_type", combined)
+
+
+def is_fork_supported_by_client(
+    client_name: str, fork: Fork | TransitionFork | None
+) -> bool:
+    """
+    Return whether the hive client `client_name` supports `fork`.
+
+    Hive names a client with a nametag `<client>_<nametag>`, e.g.
+    `ethrex_default`, so the nametag is ignored. A transition fork compares
+    as the fork it transitions to.
+    """
+    oldest_fork = CLIENT_OLDEST_SUPPORTED_FORK.get(client_name.split("_")[0])
+    if oldest_fork is None or fork is None:
+        return True
+    return fork >= oldest_fork
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: List[pytest.Item]
+) -> None:
+    """Deselect the tests of forks that the test's client doesn't support."""
+    selected: List[pytest.Item] = []
+    deselected: List[pytest.Item] = []
+    for item in items:
+        params = getattr(item, "callspec", None)
+        params = params.params if params else {}
+        test_case = params.get("test_case")
+        client_type = params.get("client_type")
+        if (
+            test_case is not None
+            and client_type is not None
+            and not is_fork_supported_by_client(
+                client_type.name, test_case.fork
+            )
+        ):
+            deselected.append(item)
+        else:
+            selected.append(item)
+    if not deselected:
+        return
+    config.hook.pytest_deselected(items=deselected)
+    items[:] = selected
+    # NOTE: leading space keeps pytest from stripping the first character.
+    print(
+        f" Deselected {len(deselected)} tests of forks that their client "
+        "doesn't support"
+    )
