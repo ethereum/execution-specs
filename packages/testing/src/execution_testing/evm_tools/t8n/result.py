@@ -8,11 +8,12 @@ module.
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from ethereum.crypto.hash import keccak256
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidBlock
 from ethereum.merkle_patricia_trie import root, trie_get
 from ethereum.state import BlockDiff
 from ethereum_rlp import rlp
+from ethereum_types.bytes import Bytes
 
 if TYPE_CHECKING:
     from execution_testing.client_clis.cli_types import (
@@ -66,6 +67,53 @@ def get_receipts_from_output(t8n: "T8N", block_output: Any) -> List[Any]:
             receipt_kwargs["post_state"] = decoded_receipt.post_state
         receipts.append(TransactionReceipt(**receipt_kwargs))
     return receipts
+
+
+def _ordered_block_headers(t8n: "T8N") -> List[Bytes]:
+    """
+    Return the preceding block headers in increasing block-number order.
+
+    Once header data is provided, require a contiguous sequence covering
+    the available 256-block history, matching the legacy T8N behavior.
+    """
+    if not t8n.fork.has_execution_witness or not t8n.env.block_headers:
+        return []
+
+    headers_by_number = {
+        int(number): Bytes(bytes(header))
+        for number, header in t8n.env.block_headers.items()
+    }
+    block_number = int(t8n.env.number)
+    max_count = min(256, block_number)
+    headers: List[Bytes] = []
+    for number in range(block_number - max_count, block_number):
+        try:
+            headers.append(headers_by_number[number])
+        except KeyError:
+            raise ValueError(
+                f"missing block header for block {number}"
+            ) from None
+    return headers
+
+
+def _build_execution_witness(
+    t8n: "T8N",
+    block_env: Any,
+    state_root: Hash32,
+) -> Any:
+    """Build an execution witness against the still-unmodified pre-state."""
+    # ``Alloc`` is the live PreState used during execution. Materialize an
+    # independent MPT mirror here because the Amsterdam witness builder needs
+    # the flat pre-state tries. ``T8N.run`` applies the block diff only after
+    # ``build_result`` returns, so this is still the original pre-state.
+    pre_state = t8n.alloc._materialize_state()
+    return t8n.fork.build_execution_witness(
+        block_env.state,
+        expected_post_state_root=state_root,
+        pre_state_accounts_data=pre_state._main_trie,
+        pre_state_storages_data=pre_state._storage_tries,
+        blockchain_headers=_ordered_block_headers(t8n),
+    )
 
 
 def build_result(
@@ -127,6 +175,16 @@ def build_result(
         arguments["block_access_list_hash"] = t8n.fork.hash_block_access_list(
             block_output.block_access_list
         )
+
+    if t8n.fork.has_execution_witness and not t8n.skip_stateless_validation:
+        execution_witness = _build_execution_witness(
+            t8n, block_env, state_root
+        )
+        arguments["execution_witness"] = {
+            "state": [bytes(node) for node in execution_witness.state],
+            "codes": [bytes(code) for code in execution_witness.codes],
+            "headers": [bytes(header) for header in execution_witness.headers],
+        }
 
     context: Optional[Dict[str, Any]] = None
     if t8n.exception_mapper is not None:

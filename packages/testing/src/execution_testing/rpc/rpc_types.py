@@ -2,11 +2,17 @@
 
 import json
 from binascii import crc32
+from dataclasses import dataclass
 from enum import Enum
 from hashlib import sha256
 from typing import Annotated, Any, Dict, List, Protocol, Self
 
+import ethereum_rlp as eth_rlp
 from pydantic import AliasChoices, BaseModel, Field, model_validator
+from remerkleable.basic import uint8
+from remerkleable.byte_arrays import ByteList, ByteVector
+from remerkleable.complex import Container
+from remerkleable.complex import List as SSZList
 
 from execution_testing.base_types import (
     Address,
@@ -30,6 +36,7 @@ from execution_testing.fixtures.blockchain import (
 )
 from execution_testing.forks import Fork
 from execution_testing.test_types import EOA, Transaction, Withdrawal
+from execution_testing.test_types.execution_witness import ExecutionWitness
 
 
 class JSONRPCError(Exception):
@@ -418,6 +425,223 @@ class EthConfigResponse(CamelModel):
     current: ForkConfig
     next: ForkConfig | None = None
     last: ForkConfig | None = None
+
+
+# Wire types from execution-apis PR #885 (REST + SSZ).
+MAX_ERROR_BYTES = 1024
+MAX_WITNESS_ITEMS = 2**20
+MAX_BYTES_PER_WITNESS_NODE = 2**10
+MAX_BYTES_PER_CODE = 2**16
+MAX_BYTES_PER_HEADER = 2**10
+MAX_WITNESS_HEADERS = 256
+
+
+class _SSZExecutionWitness(Container):
+    state: SSZList[ByteList[MAX_BYTES_PER_WITNESS_NODE], MAX_WITNESS_ITEMS]
+    codes: SSZList[ByteList[MAX_BYTES_PER_CODE], MAX_WITNESS_ITEMS]
+    headers: SSZList[ByteList[MAX_BYTES_PER_HEADER], MAX_WITNESS_HEADERS]
+
+
+class _SSZPayloadStatus(Container):
+    status: uint8
+    latest_valid_hash: SSZList[ByteVector[32], 1]
+    validation_error: SSZList[ByteList[MAX_ERROR_BYTES], 1]
+
+
+class _SSZNewPayloadWithWitnessResponse(Container):
+    payload_status: _SSZPayloadStatus
+    witness: SSZList[_SSZExecutionWitness, 1]
+
+
+class _NewPayloadWithWitnessJSONRPCResult(CamelModel):
+    """JSON-RPC result for `engine_newPayloadWithWitnessVX`."""
+
+    model_config = CamelModel.model_config | {"extra": "ignore"}
+
+    status: PayloadStatusEnum
+    latest_valid_hash: Hash | None = None
+    validation_error: str | None = None
+    witness: str | None = None
+
+
+_SSZ_STATUS_TO_ENUM: Dict[int, PayloadStatusEnum] = {
+    0: PayloadStatusEnum.VALID,
+    1: PayloadStatusEnum.INVALID,
+    2: PayloadStatusEnum.SYNCING,
+    3: PayloadStatusEnum.ACCEPTED,
+}
+
+
+def _decode_0x_hex(value: str, field_name: str) -> bytes:
+    """Decode a strict JSON-RPC hex string."""
+    if not value.startswith("0x"):
+        raise ValueError(f"{field_name} must be a 0x-prefixed hex string")
+    hex_value = value[2:]
+    if len(hex_value) % 2 != 0:
+        raise ValueError(
+            f"{field_name} must have an even number of hex digits"
+        )
+    try:
+        return bytes.fromhex(hex_value)
+    except ValueError as e:
+        raise ValueError(f"{field_name} must be valid hex") from e
+
+
+def _is_rlp_value(value: Any) -> bool:
+    """Return True when value can be re-encoded as an RLP value."""
+    if isinstance(value, bytes):
+        return True
+    if isinstance(value, list):
+        return all(_is_rlp_value(item) for item in value)
+    return False
+
+
+def _ensure_rlp_list(value: Any, field_name: str) -> List[Any]:
+    """Return an RLP list or raise a contextual error."""
+    if not isinstance(value, list):
+        raise ValueError(
+            f"execution witness {field_name} must be an RLP list, "
+            f"got {type(value).__name__}"
+        )
+    return value
+
+
+def _bytes_list_from_rlp(value: Any, field_name: str) -> List[Bytes]:
+    """Convert an RLP list of byte strings to `Bytes` values."""
+    values = _ensure_rlp_list(value, field_name)
+    result: List[Bytes] = []
+    for index, item in enumerate(values):
+        if not isinstance(item, bytes):
+            raise ValueError(
+                f"execution witness {field_name}[{index}] must be bytes, "
+                f"got {type(item).__name__}"
+            )
+        result.append(Bytes(item))
+    return result
+
+
+def _headers_from_rlp(value: Any) -> List[Bytes]:
+    """Convert RLP header objects to encoded header bytes."""
+    headers = _ensure_rlp_list(value, "headers")
+    result: List[Bytes] = []
+    for index, header in enumerate(headers):
+        if not _is_rlp_value(header):
+            raise ValueError(
+                f"execution witness headers[{index}] must be an RLP value, "
+                f"got {type(header).__name__}"
+            )
+        result.append(Bytes(eth_rlp.encode(header)))
+    return result
+
+
+def _execution_witness_from_json_rpc_rlp(
+    witness_bytes: bytes,
+) -> ExecutionWitness:
+    """Decode a JSON-RPC RLP execution witness."""
+    parsed = eth_rlp.decode(witness_bytes)
+    if not isinstance(parsed, list):
+        raise ValueError(
+            "Unexpected execution witness RLP structure: "
+            f"{type(parsed).__name__}"
+        )
+    # Some clients append a legacy, non-spec `keys` field. Accept it
+    # temporarily, but ignore it below and only build from the spec fields.
+    if len(parsed) not in (3, 4):
+        raise ValueError(
+            "Unexpected execution witness RLP structure: "
+            f"list of length {len(parsed)}"
+        )
+
+    headers_raw, codes_raw, state_raw = parsed[0:3]
+    return ExecutionWitness(
+        state=_bytes_list_from_rlp(state_raw, "state"),
+        codes=_bytes_list_from_rlp(codes_raw, "codes"),
+        headers=_headers_from_rlp(headers_raw),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class NewPayloadWithWitnessResponse:
+    """Represent a decoded witness response from either Engine transport."""
+
+    status: PayloadStatusEnum
+    latest_valid_hash: Hash | None
+    validation_error: str | None
+    witness: ExecutionWitness | None = None
+
+    @classmethod
+    def from_ssz_bytes(cls, data: bytes) -> Self:
+        """Decode and validate a REST PayloadStatusWithWitness response."""
+        resp = _SSZNewPayloadWithWitnessResponse.decode_bytes(data)
+        # The decoder accepts some offset gaps and unconsumed trailing bytes.
+        # Require the unique canonical encoding before inspecting its fields.
+        if resp.encode_bytes() != data:
+            raise ValueError("Non-canonical SSZ witness response")
+        payload_status = resp.payload_status
+        status_int = int(payload_status.status)
+        try:
+            status = _SSZ_STATUS_TO_ENUM[status_int]
+        except KeyError as e:
+            raise ValueError(f"Unknown SSZ status byte: {status_int}") from e
+
+        witness: ExecutionWitness | None = None
+        if status == PayloadStatusEnum.VALID:
+            if not resp.witness:
+                raise ValueError("VALID SSZ response must contain a witness")
+            inner = resp.witness[0]
+            if not inner.headers:
+                raise ValueError("VALID witness must contain a parent header")
+            witness = ExecutionWitness(
+                state=[Bytes(bytes(x)) for x in inner.state],
+                codes=[Bytes(bytes(x)) for x in inner.codes],
+                headers=[Bytes(bytes(x)) for x in inner.headers],
+            )
+        elif resp.witness:
+            raise ValueError(
+                f"{status.value} SSZ response must not contain a witness"
+            )
+
+        return cls(
+            status=status,
+            latest_valid_hash=(
+                Hash(bytes(payload_status.latest_valid_hash[0]))
+                if payload_status.latest_valid_hash
+                else None
+            ),
+            validation_error=(
+                bytes(payload_status.validation_error[0]).decode("utf-8")
+                if payload_status.validation_error
+                else None
+            ),
+            witness=witness,
+        )
+
+    @classmethod
+    def from_json_rpc_result(cls, data: Dict[str, Any]) -> Self:
+        """
+        Decode a JSON-RPC `engine_newPayloadWithWitnessVX` response.
+
+        The `witness` field is a hex-encoded RLP list
+        `[Headers, Codes, State]` where Headers are RLP-encoded header
+        structures. Some clients append a legacy `Keys` element; it is ignored
+        because it is not part of the current spec. Re-encode each header to
+        RLP bytes so the resulting ExecutionWitness has the same
+        `headers: List[Bytes]` shape as the fixture.
+        """
+        result = _NewPayloadWithWitnessJSONRPCResult.model_validate(data)
+
+        witness: ExecutionWitness | None = None
+        if result.witness is not None:
+            witness_bytes = _decode_0x_hex(result.witness, "witness")
+            if witness_bytes:
+                witness = _execution_witness_from_json_rpc_rlp(witness_bytes)
+
+        return cls(
+            status=result.status,
+            latest_valid_hash=result.latest_valid_hash,
+            validation_error=result.validation_error,
+            witness=witness,
+        )
 
 
 class TransactionProtocol(Protocol):
