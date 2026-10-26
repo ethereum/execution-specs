@@ -41,13 +41,14 @@ def client_genesis(fixture: BlockchainFixtureCommon) -> dict:
 def environment(
     fixture: BlockchainFixtureCommon,
     check_live_port: Literal[8545, 8551],
+    skip_genesis_init: bool,
 ) -> dict:
     """Define the environment that hive will start the client with."""
     assert fixture.fork in ruleset, (
         f"fork '{fixture.fork}' missing in hive ruleset"
     )
     chain_id = str(Number(fixture.config.chain_id))
-    return {
+    env = {
         "HIVE_CHAIN_ID": chain_id,
         # Use same value for P2P network compatibility
         "HIVE_NETWORK_ID": chain_id,
@@ -56,6 +57,9 @@ def environment(
         "HIVE_CHECK_LIVE_PORT": str(check_live_port),
         **{k: f"{v:d}" for k, v in ruleset[fixture.fork].items()},
     }
+    if skip_genesis_init:
+        env["HIVE_SKIP_GENESIS_INIT"] = "1"
+    return env
 
 
 @pytest.fixture(scope="function")
