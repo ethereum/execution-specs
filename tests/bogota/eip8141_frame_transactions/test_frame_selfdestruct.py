@@ -376,3 +376,70 @@ def test_selfdestruct_new_beneficiary_charges_frame_pool(
             victim: Account(code=victim_code, balance=0 if succeeds else 1),
         },
     )
+
+
+def test_selfdestruct_charge_refilled_on_call_revert(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Refill the account creation a `SELFDESTRUCT` charged when a call
+    frame above it reverts.
+
+    EIP-8141 "When an EVM call frame reverts or halts exceptionally,
+    restore the state-gas journal and the active frame's
+    `state_gas_left` to the checkpoint covering that call and any
+    associated pre-call state charge."
+
+    The frame's driver calls a middle contract, which calls the victim
+    and then reverts. The victim holds one wei and destroys itself in
+    favour of an absent beneficiary, charging the account creation to
+    the frame's pool two calls down. The middle contract's revert
+    restores the pool, so the driver records the whole budget, the
+    account creation plus its own recording write, and the receipt
+    reports only that write. The beneficiary never receives the wei.
+    """
+    sender = pre.fund_eoa()
+    beneficiary = pre.fund_eoa(amount=0)
+    victim_code = Op.SELFDESTRUCT(beneficiary, account_new=True)
+    victim = pre.deploy_contract(code=victim_code, balance=1)
+    middle_code = Op.POP(Op.CALL(gas=Op.GAS, address=victim)) + Op.REVERT(0, 0)
+    middle = pre.deploy_contract(code=middle_code)
+    driver_code = (
+        Op.POP(Op.CALL(gas=Op.GAS, address=middle))
+        + Op.SSTORE(SLOT_POOL, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
+        + Op.STOP
+    )
+    driver = pre.deploy_contract(code=driver_code)
+    account_creation = fork.gas_costs().NEW_ACCOUNT
+    assert victim_code.state_cost(fork) == account_creation
+    storage_set = Op.SSTORE(SLOT_POOL, 1).state_cost(fork)
+    state_budget = account_creation + storage_set
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=driver,
+                execution_gas=driver_code.execution_cost(fork)
+                + middle_code.execution_cost(fork)
+                + victim_code.execution_cost(fork),
+                state_gas_limit=state_budget,
+                state_gas_used=storage_set,
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            driver: Account(storage={SLOT_POOL: state_budget}),
+            beneficiary: Account.NONEXISTENT,
+            victim: Account(code=victim_code, balance=1),
+        },
+    )

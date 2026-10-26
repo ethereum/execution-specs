@@ -22,6 +22,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Conditional,
+    Environment,
     Fork,
     FrameSignature,
     Op,
@@ -940,5 +941,269 @@ def test_reversion_restores_charge_ownership(
         post={
             sender: Account(nonce=1),
             worker: Account(storage={SLOT_CREATED: 0, SLOT_SECOND: 1}),
+        },
+    )
+
+
+def restoring_refund(fork: Fork) -> int:
+    """
+    Return EIP-8038's `STORAGE_WRITE`, "refunded if the new value equals
+    the original value and differs from the current value": the write
+    charge of a cold write less its cold access.
+    """
+    gas_costs = fork.gas_costs()
+    return gas_costs.COLD_STORAGE_WRITE - gas_costs.COLD_STORAGE_ACCESS
+
+
+@pytest.mark.parametrize(
+    "cleared_again",
+    [
+        pytest.param(True, id="recreation_refilled"),
+        pytest.param(False, id="recreation_kept"),
+    ],
+)
+def test_recreation_after_refill_charges_recreating_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    cleared_again: bool,
+) -> None:
+    """
+    Attribute a slot created again after a cross-frame refill to the
+    frame that creates it again.
+
+    EIP-8141 "State-gas attribution and refills": "In both cases the
+    storage slot's ownership entry is cleared, so a subsequent creation
+    there is charged and attributed to whichever frame performs it."
+
+    Frame 1 creates the slot and frame 2 clears it, refilling frame 1.
+    Frame 3 creates it again, from exactly one storage write of budget.
+    In `recreation_refilled`, frame 4 clears it once more: the refill
+    goes to frame 3, the new owner, so both creating frames read back
+    zero. In `recreation_kept`, frame 3 keeps its charge. A client that
+    keeps frame 1 as the owner refills frame 1 a second time instead of
+    frame 3.
+    """
+    sender = pre.fund_eoa()
+    storage_set = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    worker_code = Op.SSTORE(SLOT_CREATED, Op.CALLDATALOAD(0)) + Op.STOP
+    worker = pre.deploy_contract(code=worker_code)
+    probe_code = (
+        Op.SSTORE(
+            SLOT_USED_BEFORE,
+            Op.ADD(1, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED)),
+        )
+        + Op.SSTORE(
+            SLOT_USED_AFTER,
+            Op.ADD(1, Op.FRAMEPARAM(3, Spec.FRAMEPARAM_STATE_GAS_USED)),
+        )
+        + Op.STOP
+    )
+    probe = pre.deploy_contract(code=probe_code)
+
+    def create(*, key_warm: bool, **overrides: Any) -> FrameCase:
+        """Return a frame creating the slot (0 -> 1)."""
+        return default_frame(
+            target=worker,
+            code=Op.SSTORE(
+                SLOT_CREATED,
+                Op.CALLDATALOAD(0),
+                original_value=0,
+                current_value=0,
+                new_value=1,
+                key_warm=key_warm,
+            ),
+            data=(1).to_bytes(32, "big"),
+            state_gas_limit=storage_set,
+            **overrides,
+        )
+
+    def clear() -> FrameCase:
+        """Return a frame clearing the slot (1 -> 0), refilling it."""
+        return default_frame(
+            target=worker,
+            code=Op.SSTORE(
+                SLOT_CREATED,
+                Op.CALLDATALOAD(0),
+                key_warm=True,
+                original_value=0,
+                current_value=1,
+                new_value=0,
+            ),
+            data=(0).to_bytes(32, "big"),
+            warm=True,
+            state_gas_limit=0,
+        )
+
+    frames = [
+        verify_frame(),
+        # Frame 1: create the slot; frame 2 refills it.
+        create(key_warm=False, state_gas_used=0),
+        # Frame 2: clear it, refilling frame 1.
+        clear(),
+        # Frame 3: create it again, now owning the charge.
+        create(
+            key_warm=True,
+            warm=True,
+            state_gas_used=0 if cleared_again else storage_set,
+        ),
+    ]
+    if cleared_again:
+        # Frame 4: clear it again, refilling frame 3.
+        frames.append(clear())
+    frames.append(default_frame(target=probe, code=probe_code))
+    clears = 2 if cleared_again else 1
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        refund=clears * restoring_refund(fork),
+        frames=frames,
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            worker: Account(storage={SLOT_CREATED: 0 if cleared_again else 1}),
+            probe: Account(
+                storage={
+                    SLOT_USED_BEFORE: 1,
+                    SLOT_USED_AFTER: 1 if cleared_again else storage_set + 1,
+                }
+            ),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        pytest.param(Outcome.REVERT, id="frame_reverts"),
+        pytest.param(Outcome.HALT, id="frame_halts"),
+    ],
+)
+def test_failed_frame_discards_own_state_charge(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    outcome: Outcome,
+) -> None:
+    """
+    Report no state gas for a frame that created a slot and then failed.
+
+    EIP-8141 "State-gas attribution and refills": "When a frame
+    reverts, restore the journal and `state_gas_left` to frame entry.
+    Its final `gas_used.state` is therefore zero ... Both remaining
+    pools count toward `tx_unused_gas`", and "When a frame halts
+    exceptionally, perform the same state-gas restoration, but consume
+    its entire execution-gas pool. Its final `gas_used.state` is zero."
+
+    The frame's slot creation succeeds and is charged, then the frame
+    reverts or halts. Its receipt reports zero state gas and the
+    transaction settles without the charge; the slot stays empty.
+    """
+    sender = pre.fund_eoa()
+    ending = Op.REVERT(0, 0) if outcome is Outcome.REVERT else Op.INVALID
+    code = Op.SSTORE(SLOT_CREATED, 1) + ending
+    worker = pre.deploy_contract(code=code)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=worker,
+                code=code,
+                state_gas_limit_delta=0,
+                outcome=outcome,
+            ),
+        ],
+    )
+    # The premise: the frame's budget was exactly its charge.
+    assert tx.state_gas == 0
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce=1), worker: Account(storage={})},
+    )
+
+
+@pytest.mark.state_test_only
+@pytest.mark.parametrize(
+    "state_gas_limit_delta",
+    [
+        pytest.param(0, id="exact_budget"),
+        pytest.param(-1, id="one_below", marks=pytest.mark.exception_test),
+    ],
+)
+def test_approve_both_scopes_creates_sender_at_zero_cost(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    state_gas_limit_delta: int,
+) -> None:
+    """
+    Charge the account creation of an absent sender that approves both
+    execution and payment of a transaction costing nothing.
+
+    EIP-8141 `APPROVE` (`APPROVE_EXECUTION_AND_PAYMENT`): "If
+    `resolved_target` has insufficient balance, revert the current call
+    frame" and "Immediately before incrementing the sender's nonce, if
+    `tx.sender` does not exist under the existence rule of
+    [EIP-8037](./eip-8037.md), charge `STATE_BYTES_PER_NEW_ACCOUNT *
+    CPSB` from the current frame's `state_gas_left`. If the pool cannot
+    cover the charge, halt the current call frame exceptionally without
+    applying any approval effects."
+
+    An absent sender holds no balance, so this path is only reachable
+    when `max_cost` is zero: a block with a zero base fee and a
+    transaction with a zero `max_fee`. The sender's single `VERIFY`
+    frame approves both scopes through its default code. With exactly
+    the account creation of state budget the transaction is valid, the
+    sender exists with nonce one, and the receipt reports the creation;
+    one unit short, the frame halts and the transaction is invalid.
+
+    Only a state test is filled: the blocks of the blockchain fixtures
+    generated from it do not carry the zero base fee.
+    """
+    sender = pre.fund_eoa(amount=0)
+    account_creation = fork.gas_costs().NEW_ACCOUNT
+    succeeds = state_gas_limit_delta >= 0
+    frame = verify_frame(
+        state_gas_limit=account_creation + state_gas_limit_delta,
+        state_gas_used=account_creation,
+    )
+    tx: Transaction
+    if succeeds:
+        tx = FrameTransaction.build(
+            fork=fork,
+            sender=sender,
+            frames=[frame],
+            max_fee=0,
+            max_priority_fee_per_gas=0,
+        )
+    else:
+        tx = Transaction(
+            sender=sender,
+            frames=[frame],
+            max_fee=0,
+            max_priority_fee_per_gas=0,
+            error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
+        )
+
+    state_test(
+        env=Environment(base_fee_per_gas=0),
+        pre=pre,
+        tx=tx,
+        post={
+            sender: (
+                Account(nonce=1, balance=0)
+                if succeeds
+                else Account.NONEXISTENT
+            )
         },
     )

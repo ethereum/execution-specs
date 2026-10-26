@@ -19,13 +19,18 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Bytecode,
     Conditional,
+    Environment,
     Fork,
     Header,
     Op,
     StateTestFiller,
+    Transaction,
 )
+from execution_testing.base_types import HexNumber
 
 from .helpers import (
     FrameTransaction,
@@ -499,4 +504,189 @@ def test_frame_revert_refill_restores_spent_gas(
                 }
             ),
         },
+    )
+
+
+BLOCK_GAS_LIMIT = 1_000_000
+"""Gas limit of every block, and of the genesis block before them."""
+
+
+def test_state_reservation_after_refilled_transaction(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Reserve a second transaction's state gas against the first's net
+    state gas, after a cross-frame refill.
+
+    EIP-8141 "Block-level gas accounting": "`block_state_gas_used +=
+    tx_state_gas`", where "`tx_state_gas = sum(fr.gas_used.state for fr
+    in frame_receipts)`" counts state gas after refills ("the state
+    dimension stays net"), and a frame transaction is included only if
+    "`state_reservation <= block_gas_limit -
+    block_output.block_state_gas_used`".
+
+    The first transaction creates a slot in one frame and clears it in
+    the next, so its net state gas is zero although it was charged one
+    storage write. The second reserves the block's whole gas limit in
+    state gas and is included; a client counting the charge before the
+    refill rejects it and the block.
+    """
+    sender = pre.fund_eoa()
+    worker_code = Op.SSTORE(SLOT_CREATED, Op.CALLDATALOAD(0)) + Op.STOP
+    worker = pre.deploy_contract(code=worker_code)
+    storage_set = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    first = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        settle=False,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=worker,
+                code=Op.SSTORE(SLOT_CREATED, Op.CALLDATALOAD(0)),
+                data=(1).to_bytes(32, "big"),
+                state_gas_limit=storage_set,
+                state_gas_used=0,
+            ),
+            default_frame(
+                target=worker,
+                code=Op.SSTORE(
+                    SLOT_CREATED,
+                    Op.CALLDATALOAD(0),
+                    key_warm=True,
+                    original_value=0,
+                    current_value=1,
+                    new_value=0,
+                ),
+                data=(0).to_bytes(32, "big"),
+                warm=True,
+                state_gas_limit=0,
+            ),
+        ],
+    )
+    assert first.state_gas == 0
+
+    approve = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
+    second_sender = pre.deploy_contract(code=approve, balance=10**18)
+    second = Transaction(
+        sender=second_sender,
+        nonce=1,
+        frames=[
+            # The sender is the frame's target, which starts warm.
+            verify_frame(
+                gas_limit=fork.frame_entry_gas_calculator()(target_warm=True)
+                + approve.execution_cost(fork),
+                state_gas_limit=BLOCK_GAS_LIMIT,
+            )
+        ],
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[first, second], gas_limit=BLOCK_GAS_LIMIT)],
+        post={
+            sender: Account(nonce=1),
+            worker: Account(storage={}),
+            second_sender: Account(nonce=2),
+        },
+        genesis_environment=Environment(gas_limit=BLOCK_GAS_LIMIT),
+    )
+
+
+CREATED_SLOTS = 3
+"""Slots each transaction of the state-dominant block creates."""
+
+
+def test_state_dominant_block_gas_and_base_fee(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Report a block's state gas as its `gas_used` when it exceeds the
+    block's execution gas, and update the next base fee from it.
+
+    EIP-8141 "Block-level gas accounting": "Blocks account for the two
+    dimensions separately, per EIP-8037" and "The block header
+    `gas_used`, the block validity condition, and the base fee update
+    rule follow EIP-8037 unchanged"; EIP-8037 sets the header's
+    `gas_used` to the larger of the block's execution and state gas.
+
+    Two frame transactions each create three slots with little
+    execution, so the block's state gas is six storage writes and
+    exceeds both its execution gas and half the block's gas limit. The
+    header reports the state gas, and the next block's base fee rises
+    from it, where a client reporting the execution gas would lower it.
+    """
+    storage_set = Op.SSTORE(0, 1).state_cost(fork)
+    code = sum(
+        (Op.SSTORE(slot, 1) for slot in range(CREATED_SLOTS)), Bytecode()
+    )
+    code += Op.STOP
+    transactions = []
+    for _ in range(2):
+        sender = pre.fund_eoa()
+        worker = pre.deploy_contract(code=code)
+        transactions.append(
+            FrameTransaction.build(
+                fork=fork,
+                sender=sender,
+                frames=[
+                    verify_frame(state_gas_limit=0),
+                    default_frame(
+                        target=worker,
+                        code=code,
+                        state_gas_limit_delta=0,
+                    ),
+                ],
+            )
+        )
+    first, second = transactions
+    assert second.expected_receipt is not None
+    second.expected_receipt.cumulative_gas_used = HexNumber(
+        first.payer_gas_used() + second.payer_gas_used()
+    )
+    block_state_gas = 2 * CREATED_SLOTS * storage_set
+    block_execution_gas = sum(
+        tx.block_gas_used() - tx.state_gas for tx in transactions
+    )
+    # The premise: state dominates, above the base fee target.
+    target = BLOCK_GAS_LIMIT // fork.base_fee_elasticity_multiplier()
+    assert block_state_gas > max(block_execution_gas, target)
+
+    # A base fee the genesis block states, from which the first block's
+    # follows.
+    genesis_base_fee = 7
+    calculate_base_fee = fork.base_fee_per_gas_calculator()
+    first_base_fee = calculate_base_fee(
+        parent_base_fee_per_gas=genesis_base_fee,
+        parent_gas_used=0,
+        parent_gas_limit=BLOCK_GAS_LIMIT,
+    )
+    next_base_fee = calculate_base_fee(
+        parent_base_fee_per_gas=first_base_fee,
+        parent_gas_used=block_state_gas,
+        parent_gas_limit=BLOCK_GAS_LIMIT,
+    )
+    assert next_base_fee > first_base_fee
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=transactions,
+                gas_limit=BLOCK_GAS_LIMIT,
+                header_verify=Header(gas_used=block_state_gas),
+            ),
+            Block(
+                gas_limit=BLOCK_GAS_LIMIT,
+                header_verify=Header(base_fee_per_gas=next_base_fee),
+            ),
+        ],
+        post={tx.sender: Account(nonce=1) for tx in transactions},
+        genesis_environment=Environment(
+            gas_limit=BLOCK_GAS_LIMIT, base_fee_per_gas=genesis_base_fee
+        ),
     )

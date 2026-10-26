@@ -67,12 +67,6 @@ Probe slot recording the creating frame's receipt status, plus one so
 a `FAILURE` readback is distinguishable from a slot never written.
 """
 
-SLOT_CREATED_CODE_SIZE = 0x05
-"""
-Probe slot recording the created address's code size, plus one so the
-expected zero readback is distinguishable from a slot never written.
-"""
-
 RUNTIME_CODE = Op.JUMPDEST * 31 + Op.STOP
 """
 Code the init code deploys: 32 bytes, so its code deposit is a state
@@ -469,9 +463,15 @@ def test_create_in_unrolled_batch(
     reverts. The creating frame's receipt keeps `SUCCESS` and its
     execution gas, but reports zero state gas: the account creation,
     the init code's write and the code deposit are all charged to no
-    one. A later frame reads that attribution, that status and an
-    empty created address back live, and the created account and the
-    factory's nonce bump are gone after the transaction.
+    one. A later frame reads that attribution and that status back
+    live, and the created account and the factory's nonce bump are gone
+    after the transaction.
+
+    The later frame does not touch the created address: the creation
+    warmed it, and the EIP does not say whether an unrolled batch's
+    successful frames keep the addresses they warmed (it rolls warmth
+    back only "If a frame reverts", Cross-frame interactions), so any
+    access to it would price an unspecified rule.
     """
     sender = pre.fund_eoa()
     code, _ = factory_code(create_opcode)
@@ -488,7 +488,6 @@ def test_create_in_unrolled_batch(
             SLOT_CREATOR_STATUS,
             Op.ADD(1, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATUS)),
         )
-        + Op.SSTORE(SLOT_CREATED_CODE_SIZE, Op.ADD(1, Op.EXTCODESIZE(created)))
         + Op.STOP
     )
     probe = pre.deploy_contract(code=probe_code)
@@ -518,10 +517,8 @@ def test_create_in_unrolled_batch(
                 code=Op.REVERT(0, 0),
                 outcome=Outcome.REVERT,
             ),
-            # Frame 3: record frame 1's attribution and status, and the
-            # created address's code size, after the unroll. The
-            # creation warmed the created address, but the unroll
-            # restored the warm set from before the batch.
+            # Frame 3: record frame 1's attribution and status after
+            # the unroll.
             default_frame(target=probe, code=probe_code),
         ],
     )
@@ -537,8 +534,327 @@ def test_create_in_unrolled_batch(
                 storage={
                     SLOT_CREATOR_STATE_USED: 1,
                     SLOT_CREATOR_STATUS: Spec.STATUS_SUCCESS + 1,
-                    SLOT_CREATED_CODE_SIZE: 1,
                 }
+            ),
+        },
+    )
+
+
+CANARY = 0xDEAD
+"""
+Pre-state value of a recording slot, so overwriting it creates no state
+and an untouched slot is distinguishable from a written one.
+"""
+
+
+def overwrite(slot: int, value: Bytecode) -> Bytecode:
+    """Return a cold write of `value` over the canary in `slot`."""
+    return Op.SSTORE(
+        slot,
+        value,
+        key_warm=False,
+        original_value=CANARY,
+        current_value=CANARY,
+        new_value=CANARY + 1,
+    )
+
+
+def test_create_preflight_failure_charges_nothing(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """
+    Charge no account creation to a `CREATE` that fails its endowment
+    check, even with an empty state pool.
+
+    EIP-8141 "Charge points follow EIP-8037 unchanged", and EIP-8037
+    (`CREATE`/`CREATE2` family): "A creation failing those checks
+    [sender balance for the endowment, nonce overflow, and the
+    call-stack depth limit] never reads the destination, and no
+    account-creation state-gas is charged."
+
+    The factory holds no balance and creates with a 1-wei endowment in
+    a frame whose state budget is zero. The creation fails before the
+    account-creation charge, so `CREATE` returns zero and the frame
+    goes on: it records the result and its untouched pool over two
+    canary slots and succeeds with zero state gas. A client charging
+    the account creation before the balance check halts the frame on
+    its empty pool, leaving both canaries in place.
+    """
+    sender = pre.fund_eoa()
+    create_call = create_op(
+        create_opcode, value=1, account_new=False, init_code_size=0
+    )
+    code = (
+        overwrite(SLOT_CREATE_RESULT, Op.ADD(1, create_call))
+        + overwrite(
+            SLOT_POOL, Op.ADD(1, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
+        )
+        + Op.STOP
+    )
+    assert code.state_cost(fork) == 0
+    factory = pre.deploy_contract(
+        code=code, storage={SLOT_CREATE_RESULT: CANARY, SLOT_POOL: CANARY}
+    )
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(target=factory, code=code, state_gas_limit=0),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            # A failed endowment check leaves the nonce alone.
+            factory: Account(
+                nonce=FACTORY_NONCE,
+                storage={SLOT_CREATE_RESULT: 1, SLOT_POOL: 1},
+            ),
+        },
+    )
+
+
+def test_create_at_funded_address_charges_no_account(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """
+    Charge only the init code's state to a creation whose destination
+    already holds a balance.
+
+    EIP-8141 "Charge points follow EIP-8037 unchanged", and EIP-8037:
+    "an address that holds a balance but has no code and a zero nonce
+    is existent ... only the code-deposit cost (`L × CPSB`) applies and
+    the `STATE_BYTES_PER_NEW_ACCOUNT × CPSB` account-creation charge
+    does not", and "If the destination pre-exists (e.g., it holds a
+    balance), nothing is charged."
+
+    The destination holds one wei. The frame's state budget is exactly
+    the init code's storage write, the code deposit and the factory's
+    two recording writes, with nothing for an account creation: the
+    creation succeeds, the recorded pool after the first recording
+    write is one storage write, and the receipt reports the whole
+    budget. A client charging the account creation halts the frame.
+    """
+    sender = pre.fund_eoa()
+    code, _ = factory_code(create_opcode)
+    factory = pre.deploy_contract(code=code)
+    created = created_address(factory, create_opcode)
+    pre.fund_address(created, 1)
+    _, init_state = creation_state_costs(fork, create_opcode)
+    storage_set = storage_set_cost(fork)
+    state_budget = init_state + 2 * storage_set
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=factory,
+                data=bytes(INIT_CODE),
+                execution_gas=code.execution_cost(fork)
+                + INIT_CODE.execution_cost(fork),
+                state_gas_limit=state_budget,
+                state_gas_used=state_budget,
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            factory: Account(
+                nonce=FACTORY_NONCE + 1,
+                storage={
+                    SLOT_CREATE_RESULT: int.from_bytes(created, "big") + 1,
+                    SLOT_POOL: storage_set,
+                },
+            ),
+            created: Account(
+                nonce=1,
+                balance=1,
+                code=RUNTIME_CODE,
+                storage={SLOT_INIT_WRITE: 1},
+            ),
+        },
+    )
+
+
+def test_create_init_code_revert_refills_frame_pool(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """
+    Refill a creation's account charge and its init code's storage
+    write when the init code reverts.
+
+    EIP-8141 "When an EVM call frame reverts or halts exceptionally,
+    restore the state-gas journal and the active frame's
+    `state_gas_left` to the checkpoint covering that call and any
+    associated pre-call state charge", and EIP-8037: "If the create
+    frame reverts or halts exceptionally ... any charged
+    account-creation state-gas is refilled".
+
+    The init code writes a fresh slot, then reverts. The frame's state
+    budget is the account creation, that write and the factory's two
+    recording writes. Both creation charges come back, so the recorded
+    pool after the first recording write is the whole budget less one
+    storage write and the receipt reports only the two recording
+    writes. The reverting child returns its unused execution gas, so
+    the frame is charged only what the factory and the init code ran.
+    """
+    sender = pre.fund_eoa()
+    init_code = Op.SSTORE(SLOT_INIT_WRITE, 1) + Op.REVERT(0, 0)
+    size = len(init_code)
+    create_call = create_op(
+        create_opcode, size=Op.CALLDATASIZE, init_code_size=size
+    )
+    code = (
+        Op.CALLDATACOPY(
+            0, 0, Op.CALLDATASIZE, data_size=size, new_memory_size=size
+        )
+        + Op.SSTORE(SLOT_CREATE_RESULT, Op.ADD(1, create_call))
+        + Op.SSTORE(SLOT_POOL, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
+        + Op.STOP
+    )
+    factory = pre.deploy_contract(code=code)
+    created = compute_create_address(
+        address=factory,
+        nonce=FACTORY_NONCE,
+        salt=0,
+        initcode=init_code,
+        opcode=create_opcode,
+    )
+    account_creation = fork.gas_costs().NEW_ACCOUNT
+    storage_set = storage_set_cost(fork)
+    state_budget = account_creation + 3 * storage_set
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=factory,
+                data=bytes(init_code),
+                execution_gas=code.execution_cost(fork)
+                + init_code.execution_cost(fork),
+                state_gas_limit=state_budget,
+                state_gas_used=2 * storage_set,
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            factory: Account(
+                nonce=FACTORY_NONCE + 1,
+                storage={
+                    SLOT_CREATE_RESULT: 1,
+                    SLOT_POOL: state_budget - storage_set,
+                },
+            ),
+            created: Account.NONEXISTENT,
+        },
+    )
+
+
+def test_create_at_depth_one_charges_frame_pool(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """
+    Charge a creation run one call below the frame's top level to the
+    frame's pool.
+
+    EIP-8141 "`state_gas_left` is frame-scoped. EVM call frames at any
+    depth within the frame draw from it directly. It is not forwarded,
+    split, or divided per callframe like execution gas."
+
+    The frame's target calls the factory, which creates the contract at
+    depth one and records the pool. The budget is exactly the account
+    creation, the init code's write at depth two, the code deposit and
+    the factory's two recording writes: the recorded pool is one
+    storage write and the receipt reports the whole budget. A client
+    that hands a call only part of the pool halts the creation.
+    """
+    sender = pre.fund_eoa()
+    code, _ = factory_code(create_opcode)
+    factory = pre.deploy_contract(code=code)
+    created = created_address(factory, create_opcode)
+    account_creation, init_state = creation_state_costs(fork, create_opcode)
+    storage_set = storage_set_cost(fork)
+    state_budget = account_creation + init_state + 2 * storage_set
+    size = len(INIT_CODE)
+    driver_code = (
+        Op.CALLDATACOPY(
+            0, 0, Op.CALLDATASIZE, data_size=size, new_memory_size=size
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=factory,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+            )
+        )
+        + Op.STOP
+    )
+    driver = pre.deploy_contract(code=driver_code)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=driver,
+                data=bytes(INIT_CODE),
+                execution_gas=driver_code.execution_cost(fork)
+                + code.execution_cost(fork)
+                + INIT_CODE.execution_cost(fork),
+                state_gas_limit=state_budget,
+                state_gas_used=state_budget,
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            factory: Account(
+                nonce=FACTORY_NONCE + 1,
+                storage={
+                    SLOT_CREATE_RESULT: int.from_bytes(created, "big") + 1,
+                    SLOT_POOL: storage_set,
+                },
+            ),
+            created: Account(
+                nonce=1,
+                code=RUNTIME_CODE,
+                storage={SLOT_INIT_WRITE: 1},
             ),
         },
     )

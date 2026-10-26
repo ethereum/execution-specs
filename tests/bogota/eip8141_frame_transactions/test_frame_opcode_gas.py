@@ -66,8 +66,26 @@ zero-filled tail.
 FAR_OFFSET = 0x100
 """A memory offset whose 1-byte copy expands memory to 9 words."""
 
+QUADRATIC_OFFSET = 0x2000
+"""
+A memory offset whose 1-byte copy expands memory to 257 words, where
+the quadratic term of the memory cost, `257**2 // 512 = 129`, is far
+from zero.
+"""
+
+MAX_WORD = 2**256 - 1
+"""The largest stack word."""
+
 ProbeCost = Callable[[Fork], int]
 """The EIP-derived execution gas of the instruction under test."""
+
+
+def push(value: int) -> Bytecode:
+    """
+    Push `value` with the narrowest of `PUSH1` to `PUSH32` that holds
+    it; all of them cost the same.
+    """
+    return getattr(Op, f"PUSH{max(1, (value.bit_length() + 7) // 8)}")[value]
 
 
 def fixed(cost: int) -> ProbeCost:
@@ -109,12 +127,7 @@ def copy_operands(
     Push a copy's operands: `memOffset` on top, then `dataOffset`,
     `length` and the frame or signature index (l.845-850, l.910-915).
     """
-    return (
-        Op.PUSH1[index]
-        + Op.PUSH1[length]
-        + Op.PUSH1[data_offset]
-        + Op.PUSH2[memory_offset]
-    )
+    return push(index) + push(length) + push(data_offset) + push(memory_offset)
 
 
 def copy_cases(opcode: Op, index: int, name: str) -> list:
@@ -136,10 +149,40 @@ def copy_cases(opcode: Op, index: int, name: str) -> list:
             id=f"{name}_expands_to_far_offset",
         ),
         pytest.param(
+            copy_operands(index, 1, memory_offset=QUADRATIC_OFFSET),
+            opcode,
+            copy_cost(1, memory_end=QUADRATIC_OFFSET + 1),
+            id=f"{name}_expands_quadratic",
+        ),
+        pytest.param(
+            # The byte at offset 33 lies in the second word, so memory
+            # grows to 2 words for a 1-word copy.
+            copy_operands(index, 1, memory_offset=33),
+            opcode,
+            copy_cost(1, memory_end=34),
+            id=f"{name}_unaligned_memory_offset",
+        ),
+        pytest.param(
             copy_operands(index, 0, memory_offset=0xFFFF),
             opcode,
             copy_cost(0, memory_end=0xFFFF),
             id=f"{name}_length_0_far_offset_no_expansion",
+        ),
+        pytest.param(
+            # A zero-length copy expands nothing even at the largest
+            # offset, where any region would end beyond 2**256.
+            copy_operands(index, 0, memory_offset=MAX_WORD),
+            opcode,
+            copy_cost(0, memory_end=MAX_WORD),
+            id=f"{name}_length_0_max_memory_offset",
+        ),
+        pytest.param(
+            # Bytes past the end of the source copy as zeroes, so a
+            # source offset beyond any data costs as an ordinary copy.
+            copy_operands(index, 32, data_offset=MAX_WORD),
+            opcode,
+            copy_cost(32, memory_end=32),
+            id=f"{name}_max_data_offset",
         ),
         pytest.param(
             # Memory already spans two words, so the 33-byte copy pays
@@ -160,11 +203,34 @@ GAS_CASES = [
         id="txparam",
     ),
     pytest.param(
+        # The canonical signature hash, which a client may compute
+        # lazily on first read; its cost is still the flat 2.
+        Op.PUSH1[Spec.TXPARAM_SIG_HASH],
+        Op.TXPARAM,
+        fixed(PARAM_INSTRUCTION_GAS),
+        id="txparam_sig_hash",
+    ),
+    pytest.param(
         # `frameIndex` on top, `param` second (l.860).
         Op.PUSH1[Spec.FRAMEPARAM_MODE] + Op.PUSH1[1],
         Op.FRAMEPARAM,
         fixed(PARAM_INSTRUCTION_GAS),
         id="frameparam",
+    ),
+    *(
+        pytest.param(
+            # Frame 0, the completed `VERIFY` frame: these params read
+            # its receipt, at the same flat cost.
+            Op.PUSH1[param] + Op.PUSH1[0],
+            Op.FRAMEPARAM,
+            fixed(PARAM_INSTRUCTION_GAS),
+            id=f"frameparam_{name}",
+        )
+        for param, name in (
+            (Spec.FRAMEPARAM_STATUS, "status"),
+            (Spec.FRAMEPARAM_EXECUTION_GAS_USED, "execution_gas_used"),
+            (Spec.FRAMEPARAM_STATE_GAS_USED, "state_gas_used"),
+        )
     ),
     pytest.param(
         # `signatureIndex` on top, `param` second (l.888).
@@ -172,6 +238,14 @@ GAS_CASES = [
         Op.SIGPARAM,
         fixed(PARAM_INSTRUCTION_GAS),
         id="sigparam",
+    ),
+    pytest.param(
+        # Entry 0 is the sender's `SECP256K1` entry, whose resolved
+        # signer is read at the same flat cost.
+        Op.PUSH1[Spec.SIGPARAM_RESOLVED_SIGNER] + Op.PUSH1[0],
+        Op.SIGPARAM,
+        fixed(PARAM_INSTRUCTION_GAS),
+        id="sigparam_resolved_signer",
     ),
     pytest.param(
         # `offset` on top, `frameIndex` second (l.827-830).
@@ -211,13 +285,19 @@ def test_frame_opcode_gas(
     unit less.
 
     - `TXPARAM`, `FRAMEPARAM`, `SIGPARAM` cost 2 (EIP-8141 l.802, l.860,
-      l.888); `FRAMEDATALOAD` costs 3 (l.823).
+      l.888) whatever the param, including the signature hash, the
+      receipt fields of a completed frame and the resolved signer;
+      `FRAMEDATALOAD` costs 3 (l.823).
     - `FRAMEDATACOPY` and `SIGDATACOPY` cost 3, plus 3 per copied word,
       plus the standard memory expansion (l.839-841, l.906). Lengths 0,
       1, 32 and 33 copy 0, 1, 1 and 2 words and expand memory to 0, 1,
       1 and 2 words. A 1-byte copy at offset 256 expands memory to 9
-      words; a zero-length copy expands nothing whatever its offset; a
-      copy into memory that is already large enough pays no expansion.
+      words, and at offset 0x2000 to 257 words, where the quadratic
+      term of the memory cost counts; a 1-byte copy at offset 33 expands
+      memory to 2 words. A zero-length copy expands nothing whatever its
+      offset, up to 2**256 - 1; a copy from a source offset of 2**256 -
+      1 is priced as any other copy; a copy into memory that is already
+      large enough pays no expansion.
 
     The probe frame's receipt pins its execution gas: the cold access
     to its target at frame entry plus its code when the budget is
@@ -241,6 +321,69 @@ def test_frame_opcode_gas(
                 execution_gas=setup.execution_cost(fork) + opcode_cost(fork),
                 gas_limit_delta=-shortfall,
                 outcome=Outcome.HALT if shortfall else Outcome.SUCCESS,
+            ),
+        ],
+        signatures=[
+            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            FrameSignature(
+                scheme=Spec.SCHEME_ARBITRARY, signature=COPIED_BYTES
+            ),
+        ],
+    )
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+
+
+@pytest.mark.parametrize(
+    "length",
+    [
+        pytest.param(2**64, id="length_2_pow_64"),
+        pytest.param(MAX_WORD, id="length_max_word"),
+    ],
+)
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        pytest.param(Op.FRAMEDATACOPY, id="framedatacopy"),
+        pytest.param(Op.SIGDATACOPY, id="sigdatacopy"),
+    ],
+)
+def test_frame_copy_huge_length_runs_out_of_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    opcode: Op,
+    length: int,
+) -> None:
+    """
+    Halt out of gas on a copy whose length no budget can pay for.
+
+    EIP-8141 `FRAMEDATACOPY` (l.839-841) and `SIGDATACOPY` (l.906): gas
+    "calculated exactly as for `CALLDATACOPY`", so a length of 2**64 or
+    2**256 - 1 bytes costs 3 per word plus the memory expansion to that
+    size, which exceeds any frame budget: the frame halts exceptionally
+    and its receipt reports its whole budget used.
+
+    A client that narrows the length to 64 bits before pricing it
+    copies 0 bytes for 2**64 and succeeds; one whose word count or
+    memory end wraps at 256 bits prices 2**256 - 1 bytes as nearly
+    nothing.
+    """
+    sender = pre.fund_eoa()
+    code = copy_operands(1, length, memory_offset=1) + opcode + Op.STOP
+    probe = pre.deploy_contract(code=code)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=probe,
+                code=code,
+                data=COPIED_BYTES,
+                gas_limit=1_000_000,
+                outcome=Outcome.HALT,
             ),
         ],
         signatures=[
