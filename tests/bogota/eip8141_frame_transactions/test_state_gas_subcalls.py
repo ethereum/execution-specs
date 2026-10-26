@@ -17,19 +17,23 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
-    Bytes,
     Fork,
-    FrameSignature,
     Op,
     StateTestFiller,
 )
 from execution_testing.base_types import StorageRootType
 
 from .helpers import (
+    CANARY,
     FrameTransaction,
     Outcome,
+    account_creation_cost,
     default_frame,
+    overwrite,
+    record_pool,
     sender_frame,
+    sponsored_signatures,
+    storage_set_cost,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -57,12 +61,6 @@ SLOT_CHILD = 0x05
 SLOT_PARENT = 0x09
 """Fresh slot a parent writes after its child returns."""
 
-CANARY = 0xDEAD
-"""
-Pre-state value of each recording slot, so overwriting it creates no
-state and a frame that halts leaves it in place.
-"""
-
 CANARIES: StorageRootType = {SLOT_RESULT: CANARY, SLOT_POOL: CANARY}
 """Pre-state storage of a recording caller."""
 
@@ -76,36 +74,16 @@ SHA256 = Address(0x02)
 """A precompile that holds no balance and accepts empty input."""
 
 
-def overwrite(slot: int, value: Bytecode) -> Bytecode:
-    """Return a cold write of `value` over the canary in `slot`."""
-    return Op.SSTORE(
-        slot,
-        value,
-        key_warm=False,
-        original_value=CANARY,
-        current_value=CANARY,
-        new_value=CANARY + 1,
-    )
-
-
-def record_pool() -> Bytecode:
-    """Return code recording the frame's remaining pool, plus one."""
-    return overwrite(
-        SLOT_POOL, Op.ADD(1, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
-    )
-
-
 def recorder(call: Bytecode) -> Bytecode:
     """
     Return code recording `call`'s result and then the remaining pool,
     each plus one, over the canaries.
     """
-    return overwrite(SLOT_RESULT, Op.ADD(1, call)) + record_pool() + Op.STOP
-
-
-def storage_set_cost(fork: Fork) -> int:
-    """Return the state gas of one fresh storage write."""
-    return Op.SSTORE(0, 1).state_cost(fork)
+    return (
+        overwrite(SLOT_RESULT, Op.ADD(1, call))
+        + record_pool(SLOT_POOL)
+        + Op.STOP
+    )
 
 
 @pytest.mark.parametrize(
@@ -149,7 +127,7 @@ def test_call_value_to_new_account(
             account_new=True,
         )
     )
-    assert code.state_cost(fork) == fork.gas_costs().NEW_ACCOUNT
+    assert code.state_cost(fork) == account_creation_cost(fork)
     caller = pre.deploy_contract(code=code, balance=1, storage=CANARIES)
     succeeds = state_gas_limit_delta >= 0
 
@@ -348,7 +326,7 @@ def test_call_value_child_failure_refills_account_charge(
             account_new=True,
         )
     )
-    account_creation = gas_costs.NEW_ACCOUNT
+    account_creation = account_creation_cost(fork)
     caller = pre.deploy_contract(code=code, balance=1, storage=CANARIES)
     succeeds = state_gas_limit_delta >= 0
 
@@ -427,14 +405,7 @@ def test_frame_value_balance_check_precedes_account_charge(
                 outcome=Outcome.REVERT,
             ),
         ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
+        signatures=sponsored_signatures(sender, payer),
     )
 
     state_test(
@@ -495,8 +466,9 @@ def test_frame_value_to_precompile_charges_account(
                 warm=True,
                 # An empty input hashes no words.
                 execution_gas=gas_costs.PRECOMPILE_SHA256_BASE,
-                state_gas_limit=gas_costs.NEW_ACCOUNT + state_gas_limit_delta,
-                state_gas_used=gas_costs.NEW_ACCOUNT if succeeds else 0,
+                state_gas_limit=account_creation_cost(fork)
+                + state_gas_limit_delta,
+                state_gas_used=account_creation_cost(fork) if succeeds else 0,
                 outcome=Outcome.SUCCESS if succeeds else Outcome.HALT,
             ),
         ],
@@ -536,7 +508,9 @@ def test_subcall_draws_frame_pool(
     child_code = Op.SSTORE(SLOT_CHILD, 1) + Op.STOP
     child = pre.deploy_contract(code=child_code)
     parent_code = (
-        Op.POP(Op.CALL(gas=CHILD_GAS, address=child)) + record_pool() + Op.STOP
+        Op.POP(Op.CALL(gas=CHILD_GAS, address=child))
+        + record_pool(SLOT_POOL)
+        + Op.STOP
     )
     parent = pre.deploy_contract(code=parent_code, storage=CANARIES)
     storage_set = storage_set_cost(fork)
@@ -645,7 +619,7 @@ def test_reverted_subcall_returns_state_gas(
     parent_code = (
         Op.POP(Op.CALL(gas=Op.GAS, address=child))
         + Op.SSTORE(SLOT_PARENT, 1)
-        + record_pool()
+        + record_pool(SLOT_POOL)
         + Op.STOP
     )
     parent = pre.deploy_contract(code=parent_code, storage=CANARIES)

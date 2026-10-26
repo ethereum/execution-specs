@@ -20,21 +20,27 @@ from execution_testing import (
     Conditional,
     Environment,
     Fork,
-    FrameSignature,
     Op,
     StateTestFiller,
     TransactionLog,
-    compute_create_address,
 )
 
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 
 from .helpers import (
+    APPROVE_ALL,
+    BASE_FEE,
+    CURRENT_FRAME_INDEX,
+    PRIORITY_FEE,
     FrameCase,
     FrameTransaction,
     Outcome,
+    account_creation_cost,
+    created_address,
     default_frame,
+    fee_budget,
     sender_frame,
+    sponsored_signatures,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -44,16 +50,8 @@ REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
 
-BASE_FEE = 7
-"""Base fee of the block the transactions land in."""
-
-PRIORITY_FEE = 5
-"""Tip per gas the `GASPRICE` transaction asks for."""
-
 FRAME_GAS = 200_000
 """Execution gas budget of the frames whose code makes nested calls."""
-
-CURRENT_FRAME_INDEX = Op.TXPARAM(Spec.TXPARAM_CURRENT_FRAME_INDEX)
 
 FRAME_VALUE = 10**9
 """Value carried by the value-bearing `SENDER` frames."""
@@ -95,10 +93,10 @@ def test_gasprice_is_the_same_in_every_frame(
         + Op.POP(Op.CREATE(0, 0, Op.CALLDATASIZE))
         + Op.STOP
     )
-    created = compute_create_address(address=factory, nonce=1)
+    created = created_address(factory, Op.CREATE, record)
     sender_code = Conditional(
         condition=Op.EQ(Op.GASPRICE, gas_price),
-        if_true=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        if_true=APPROVE_ALL,
         if_false=Op.REVERT(0, 0),
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
@@ -119,13 +117,11 @@ def test_gasprice_is_the_same_in_every_frame(
             data=Bytes(bytes(record)),
             gas_limit=FRAME_GAS,
             pin_gas=False,
-            state_gas_used=fork.gas_costs().NEW_ACCOUNT + slot_gas,
+            state_gas_used=account_creation_cost(fork) + slot_gas,
         ),
     ]
-    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=frames, signatures=[]
-    )
-    required_max_fee = max_gas * BASE_FEE
+    fees = fee_budget(fork, sender, frames, signatures=[])
+    max_gas, required_max_fee = fees.max_gas, fees.required_max_fee
     max_fee = required_max_fee + PRIORITY_FEE * max_gas // 2
     # The premise: half the full tip, spread over `max_gas`.
     assert (max_fee - required_max_fee) // max_gas == half_tip_per_gas
@@ -351,14 +347,7 @@ def test_self_transfer_exceeding_balance_reverts(
                 outcome=Outcome.REVERT,
             ),
         ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
+        signatures=sponsored_signatures(sender, payer),
     )
 
     state_test(

@@ -27,13 +27,18 @@ from execution_testing import (
     Initcode,
     Op,
     StateTestFiller,
-    compute_create_address,
 )
 
 from .helpers import (
+    FACTORY_NONCE,
     FrameTransaction,
     Outcome,
+    account_creation_cost,
+    created_address,
     default_frame,
+    frame_data_copy,
+    frame_data_create,
+    storage_set_cost,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -71,9 +76,6 @@ victim created in the transaction is a state charge of its own size.
 INIT_CODE = Initcode(deploy_code=VICTIM_CODE)
 """Init code deploying `VICTIM_CODE`."""
 
-FACTORY_NONCE = 1
-"""Nonce of a contract deployed in the pre-state."""
-
 
 def deletes_created_account(fork: Fork) -> bool:
     """
@@ -97,7 +99,7 @@ def creation_state_gas(fork: Fork) -> int:
     creation (STATE_BYTES_PER_NEW_ACCOUNT * CPSB) plus the code deposit
     (CPSB per deployed byte).
     """
-    account_creation = fork.gas_costs().NEW_ACCOUNT
+    account_creation = account_creation_cost(fork)
     code_deposit = fork.code_deposit_state_gas(code_size=len(VICTIM_CODE))
     assert INIT_CODE.state_cost(fork) == code_deposit
     return account_creation + code_deposit
@@ -140,26 +142,18 @@ def test_selfdestruct_no_state_gas_refill(
     one keeps its code.
     """
     sender = pre.fund_eoa()
-    storage_set = Op.SSTORE(SLOT_POOL, 1).state_cost(fork)
+    storage_set = storage_set_cost(fork)
     record_pool = Op.SSTORE(SLOT_POOL, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
 
     post: Dict[Address, Account | None] = {sender: Account(nonce=1)}
     if victim_kind == "created_in_frame":
-        size = len(INIT_CODE)
         driver_code = (
-            Op.CALLDATACOPY(
-                0, 0, Op.CALLDATASIZE, data_size=size, new_memory_size=size
-            )
+            frame_data_copy(INIT_CODE)
             + Op.POP(
                 Op.CALL(
                     gas=Op.GAS,
                     # The creation warmed the address it returns.
-                    address=Op.CREATE(
-                        value=0,
-                        offset=0,
-                        size=Op.CALLDATASIZE,
-                        init_code_size=size,
-                    ),
+                    address=frame_data_create(Op.CREATE, INIT_CODE),
                     address_warm=True,
                 )
             )
@@ -167,7 +161,7 @@ def test_selfdestruct_no_state_gas_refill(
             + Op.STOP
         )
         driver = pre.deploy_contract(code=driver_code)
-        victim = compute_create_address(address=driver, nonce=FACTORY_NONCE)
+        victim = created_address(driver, Op.CREATE, INIT_CODE)
         data = bytes(INIT_CODE)
         creation = creation_state_gas(fork)
         execution_gas = (
@@ -236,20 +230,13 @@ def test_selfdestruct_keeps_creator_frame_attribution(
     EIP-6780 tracks creations per transaction, not per frame.
     """
     sender = pre.fund_eoa()
-    size = len(INIT_CODE)
     factory_code = (
-        Op.CALLDATACOPY(
-            0, 0, Op.CALLDATASIZE, data_size=size, new_memory_size=size
-        )
-        + Op.POP(
-            Op.CREATE(
-                value=0, offset=0, size=Op.CALLDATASIZE, init_code_size=size
-            )
-        )
+        frame_data_copy(INIT_CODE)
+        + Op.POP(frame_data_create(Op.CREATE, INIT_CODE))
         + Op.STOP
     )
     factory = pre.deploy_contract(code=factory_code)
-    victim = compute_create_address(address=factory, nonce=FACTORY_NONCE)
+    victim = created_address(factory, Op.CREATE, INIT_CODE)
     creation = creation_state_gas(fork)
     probe_code = (
         Op.SSTORE(
@@ -345,7 +332,7 @@ def test_selfdestruct_new_beneficiary_charges_frame_pool(
     beneficiary = pre.fund_eoa(amount=0)
     victim_code = Op.SELFDESTRUCT(beneficiary, account_new=True)
     victim = pre.deploy_contract(code=victim_code, balance=1)
-    assert victim_code.state_cost(fork) == fork.gas_costs().NEW_ACCOUNT
+    assert victim_code.state_cost(fork) == account_creation_cost(fork)
 
     succeeds = state_gas_limit_delta >= 0
 
@@ -412,9 +399,9 @@ def test_selfdestruct_charge_refilled_on_call_revert(
         + Op.STOP
     )
     driver = pre.deploy_contract(code=driver_code)
-    account_creation = fork.gas_costs().NEW_ACCOUNT
+    account_creation = account_creation_cost(fork)
     assert victim_code.state_cost(fork) == account_creation
-    storage_set = Op.SSTORE(SLOT_POOL, 1).state_cost(fork)
+    storage_set = storage_set_cost(fork)
     state_budget = account_creation + storage_set
 
     tx = FrameTransaction.build(

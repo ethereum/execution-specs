@@ -38,8 +38,8 @@ from execution_testing import (
     TransactionException,
 )
 
-from .helpers import FrameTransaction, verify_frame
-from .spec import Spec, ref_spec_8141
+from .helpers import APPROVE_ALL, FrameTransaction, verify_frame
+from .spec import ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
@@ -136,7 +136,6 @@ def test_verify_frame_runs_as_staticcall(
     `SELFDESTRUCT` untested, since it ends the frame either way.
     """
     recipient = pre.deploy_contract(code=Op.STOP)
-    approve = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
     # The frame supplies calldata; the self-call, which approves and
     # returns, supplies none.
     sender_code = Conditional(
@@ -144,7 +143,7 @@ def test_verify_frame_runs_as_staticcall(
         if_true=Op.POP(Op.CALL(gas=Op.GAS, address=Op.ADDRESS))
         + operation(recipient)
         + Op.STOP,
-        if_false=approve,
+        if_false=APPROVE_ALL,
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
 
@@ -222,7 +221,7 @@ def test_verify_frame_nested_call_is_static(
             call_opcode(gas=NESTED_CALL_GAS, address=callee),
             1 if allowed else 0,
         ),
-        if_true=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        if_true=APPROVE_ALL,
         if_false=Op.REVERT(0, 0),
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)

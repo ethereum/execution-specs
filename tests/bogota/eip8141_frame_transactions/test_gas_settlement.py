@@ -28,7 +28,6 @@ from execution_testing import (
     Header,
     Op,
     StateTestFiller,
-    Transaction,
 )
 from execution_testing.base_types import HexNumber
 
@@ -37,6 +36,8 @@ from .helpers import (
     Outcome,
     default_frame,
     floor_binding_padding,
+    reserving_frame_tx,
+    storage_set_cost,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -536,7 +537,7 @@ def test_state_reservation_after_refilled_transaction(
     sender = pre.fund_eoa()
     worker_code = Op.SSTORE(SLOT_CREATED, Op.CALLDATALOAD(0)) + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
-    storage_set = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    storage_set = storage_set_cost(fork)
     first = FrameTransaction.build(
         fork=fork,
         sender=sender,
@@ -568,20 +569,7 @@ def test_state_reservation_after_refilled_transaction(
     )
     assert first.state_gas == 0
 
-    approve = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
-    second_sender = pre.deploy_contract(code=approve, balance=10**18)
-    second = Transaction(
-        sender=second_sender,
-        nonce=1,
-        frames=[
-            # The sender is the frame's target, which starts warm.
-            verify_frame(
-                gas_limit=fork.frame_entry_gas_calculator()(target_warm=True)
-                + approve.execution_cost(fork),
-                state_gas_limit=BLOCK_GAS_LIMIT,
-            )
-        ],
-    )
+    second = reserving_frame_tx(pre, fork, state_reservation=BLOCK_GAS_LIMIT)
 
     blockchain_test(
         pre=pre,
@@ -589,7 +577,7 @@ def test_state_reservation_after_refilled_transaction(
         post={
             sender: Account(nonce=1),
             worker: Account(storage={}),
-            second_sender: Account(nonce=2),
+            second.sender: Account(nonce=2),
         },
         genesis_environment=Environment(gas_limit=BLOCK_GAS_LIMIT),
     )
@@ -620,7 +608,7 @@ def test_state_dominant_block_gas_and_base_fee(
     header reports the state gas, and the next block's base fee rises
     from it, where a client reporting the execution gas would lower it.
     """
-    storage_set = Op.SSTORE(0, 1).state_cost(fork)
+    storage_set = storage_set_cost(fork)
     code = sum(
         (Op.SSTORE(slot, 1) for slot in range(CREATED_SLOTS)), Bytecode()
     )

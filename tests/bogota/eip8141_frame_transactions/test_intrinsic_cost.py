@@ -34,9 +34,11 @@ from .helpers import (
     FrameTransaction,
     Outcome,
     default_frame,
+    padding_frame,
     sender_frame,
     verify_frame,
 )
+from .signature_helpers import canonical_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -162,8 +164,7 @@ def test_frame_data_cost_sums_over_frames(
     """
     sender = pre.fund_eoa()
     nonzero_data, zero_data = b"\x01" * 16, b"\x00" * 16
-    padded_code = PADDING + Op.STOP
-    padded = pre.deploy_contract(code=padded_code)
+    padded = padding_frame(pre, PADDING, data=nonzero_data)
     plain = pre.deploy_contract(code=Op.STOP)
 
     tx = FrameTransaction.build(
@@ -171,7 +172,7 @@ def test_frame_data_cost_sums_over_frames(
         sender=sender,
         frames=[
             verify_frame(),
-            default_frame(target=padded, code=padded_code, data=nonzero_data),
+            padded,
             default_frame(target=plain, code=Op.STOP, data=zero_data),
         ],
     )
@@ -214,8 +215,7 @@ def test_value_cost_counts_static_value_frames(
     sender = pre.fund_eoa()
     reverter = pre.deploy_contract(code=Op.REVERT(0, 0))
     skipped = pre.fund_eoa(amount=1)
-    padded_code = PADDING + Op.STOP
-    padded = pre.deploy_contract(code=padded_code)
+    padded = padding_frame(pre, PADDING)
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -232,7 +232,7 @@ def test_value_cost_counts_static_value_frames(
             sender_frame(target=skipped, value=1, outcome=Outcome.SKIPPED),
             sender_frame(value=1),
             sender_frame(target=sender, value=1, warm=True),
-            default_frame(target=padded, code=padded_code),
+            padded,
         ],
     )
     assert tx.signatures is not None
@@ -287,18 +287,15 @@ def test_intrinsic_cost_per_frame_and_entry(
     frames' entry accesses, with padding keeping the floor below it.
     """
     sender = pre.fund_eoa()
-    padded_code = PADDING + Op.STOP
-    padded = pre.deploy_contract(code=padded_code)
+    padded = padding_frame(pre, PADDING)
     empty = pre.deploy_contract(code=Op.STOP)
-    frames = [verify_frame(), default_frame(target=padded, code=padded_code)]
+    frames = [verify_frame(), padded]
     # Every later frame finds the empty contract warm.
     frames += [
         default_frame(target=empty, code=Op.STOP, warm=index > 0)
         for index in range(frame_count - 2)
     ]
-    entries: List[FrameSignature] = [
-        FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender))
-    ]
+    entries: List[FrameSignature] = [canonical_entry(sender)]
     entries += [
         FrameSignature(
             scheme=Spec.SCHEME_ARBITRARY,

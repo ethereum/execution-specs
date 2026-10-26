@@ -44,12 +44,14 @@ from execution_testing import (
 )
 
 from .helpers import (
+    EXPIRY_VERIFIER_LENGTH_REJECTING_PATH,
     FrameCase,
     FrameTransaction,
     Outcome,
     default_frame,
     expiry_frame,
     sender_frame,
+    sponsored_signatures,
     verify_frame,
 )
 from .signature_helpers import (
@@ -1433,22 +1435,6 @@ def test_batch_approval_scope_transaction(
     transaction_test(pre=pre, tx=tx)
 
 
-EXPIRY_VERIFIER_REVERT_PATH = (
-    Op.PUSH1[Spec.EXPIRY_DATA_LENGTH]
-    + Op.CALLDATASIZE
-    + Op.EQ
-    + Op.PUSH1[0x0A]
-    + Op.JUMPI
-    + Op.PUSH0
-    + Op.PUSH0
-    + Op.REVERT
-)
-"""
-The instructions the expiry verifier executes when its calldata is not
-8 bytes long: the length check falls through to `REVERT`.
-"""
-
-
 def sender_frames_to_expiry_verifier() -> List[FrameCase]:
     """
     Return a `VERIFY` frame approving execution and payment, then two
@@ -1461,7 +1447,7 @@ def sender_frames_to_expiry_verifier() -> List[FrameCase]:
             sender_frame(
                 target=Spec.EXPIRY_VERIFIER,
                 data=data,
-                code=EXPIRY_VERIFIER_REVERT_PATH,
+                code=EXPIRY_VERIFIER_LENGTH_REJECTING_PATH,
                 outcome=Outcome.REVERT,
             )
             for data in (b"\xff" * (Spec.EXPIRY_DATA_LENGTH + 1), b"")
@@ -1527,18 +1513,6 @@ def sponsored_max_value_frames(payer: EOA) -> List[FrameCase]:
     ]
 
 
-def payer_entries(sender: EOA, payer: EOA) -> List[FrameSignature]:
-    """Return the sender's and the payer's canonical entries."""
-    return [
-        FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-        FrameSignature(
-            scheme=Spec.SCHEME_SECP256K1,
-            signer=Bytes(payer),
-            secret_key=payer.key,
-        ),
-    ]
-
-
 def test_sender_frame_value_at_max(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1559,7 +1533,7 @@ def test_sender_frame_value_at_max(
         sender=sender,
         payer=payer,
         frames=sponsored_max_value_frames(payer),
-        signatures=payer_entries(sender, payer),
+        signatures=sponsored_signatures(sender, payer),
     )
 
     state_test(
@@ -1585,7 +1559,7 @@ def test_sender_frame_value_at_max_transaction(
     tx = Transaction(
         sender=sender,
         frames=sponsored_max_value_frames(payer),
-        signatures=payer_entries(sender, payer),
+        signatures=sponsored_signatures(sender, payer),
     )
 
     transaction_test(pre=pre, tx=tx)

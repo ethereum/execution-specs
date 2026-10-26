@@ -32,10 +32,13 @@ from execution_testing import (
 )
 
 from .helpers import (
+    APPROVE_ALL,
+    CURRENT_FRAME_INDEX,
     FrameCase,
     FrameTransaction,
     Outcome,
     default_frame,
+    storage_set_cost,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -68,8 +71,6 @@ SLOT_SEEN_AFTER_TSTORE = 0x100
 Base of the storage slots recording the transient value a frame reads
 after writing it; frame `i` records into `SLOT_SEEN_AFTER_TSTORE + i`.
 """
-
-CURRENT_FRAME_INDEX = Op.TXPARAM(Spec.TXPARAM_CURRENT_FRAME_INDEX)
 
 RECORDER_CODE = (
     # The entry read is expected to find the slot empty, so this write
@@ -334,7 +335,7 @@ def test_transient_storage_discarded_before_verify_frame(
     )
     verifier = Conditional(
         condition=Op.ISZERO(Op.TLOAD(TRANSIENT_KEY)),
-        if_true=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        if_true=APPROVE_ALL,
         if_false=Op.REVERT(0, 0),
     )
     # The `DEFAULT` frame supplies calldata, the `VERIFY` frame none.
@@ -402,7 +403,7 @@ def test_transient_storage_discarded_for_called_account(
     reader = pre.deploy_contract(
         code=Op.POP(Op.CALL(gas=Op.GAS, address=callee)) + Op.STOP
     )
-    slot_gas = Op.SSTORE(0, 1).state_cost(fork)
+    slot_gas = storage_set_cost(fork)
     sender = pre.fund_eoa()
 
     tx = FrameTransaction.build(

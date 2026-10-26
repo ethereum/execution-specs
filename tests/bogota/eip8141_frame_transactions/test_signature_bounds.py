@@ -39,6 +39,7 @@ from execution_testing import (
     Transaction,
     TransactionException,
     TransactionTestFiller,
+    keccak256,
 )
 
 from .helpers import verify_frame
@@ -48,7 +49,10 @@ from .signature_helpers import (
     P256_SIGNER,
     SECP256K1N,
     SECP256R1N,
+    canonical_entry,
     p256_entry,
+    p256_public_key,
+    p256_sign,
     signed_digest_entry,
     with_tampered_components,
 )
@@ -107,24 +111,34 @@ KEY_RECOVERY_ID_0 = Hash(2)
 KEY_RECOVERY_ID_1 = Hash(1)
 """A private key whose signature over `DIGEST` has recovery id 1."""
 
-P256_HALF_ORDER_R = (
-    0x088BB9FF22AB291A74C86FC677BA897BAADEE370CC6129B82D170BA3FC26415C
-)
-P256_HALF_ORDER_QX = (
-    0x3EA50F741313B17A67C20F18382E162B06C70399B02767DFAE221BCD15C2EEDD
-)
-P256_HALF_ORDER_QY = (
-    0x5157E3B4AE998A4B2C64E127E86C36D5148C14A28921F26D632AD536188E75B9
+P256_HALF_ORDER_KEY = (
+    0x28236AD4A209D04E3B97653AD600F431C0C62C68290A9B25629ADD03577BAC65
 )
 """
-A P-256 signature over `DIGEST` whose `s` is exactly `SECP256R1N // 2`,
-with its public key words. It was built by picking the nonce
-`k = 0x1234567`, taking `r = x(k * G) mod n` and solving for the private
-key `d = (s * k - z) * r^-1 mod n`, which is
-`0x28236ad4a209d04e3b97653ad600f431c0c62c68290a9b25629add03577bac65`.
+Private key of a P-256 signature over `DIGEST` whose `s` is exactly
+`SECP256R1N // 2`. It was built by picking the nonce `k = 0x1234567`,
+taking `r = x(k * G) mod n` and solving for the private key
+`d = (s * k - z) * r^-1 mod n`.
 """
 
-P256_HALF_ORDER_SIGNER = Bytes("0xdc8854787d4fe8c65c1d1a22ba5da08fbe839dd1")
+P256_HALF_ORDER_NONCE = 0x1234567
+"""The nonce `k` the half-order signature was built from."""
+
+P256_HALF_ORDER_R, P256_HALF_ORDER_S = p256_sign(
+    bytes(DIGEST), P256_HALF_ORDER_KEY, nonce=P256_HALF_ORDER_NONCE
+)
+"""The half-order signature's components, signed over `DIGEST`."""
+assert P256_HALF_ORDER_S == SECP256R1N // 2
+
+P256_HALF_ORDER_QX, P256_HALF_ORDER_QY = p256_public_key(P256_HALF_ORDER_KEY)
+"""The public key words of `P256_HALF_ORDER_KEY`."""
+
+P256_HALF_ORDER_SIGNER = Bytes(
+    keccak256(
+        P256_HALF_ORDER_QX.to_bytes(32, "big")
+        + P256_HALF_ORDER_QY.to_bytes(32, "big")
+    )[12:]
+)
 """The signer `P256_HALF_ORDER_QX || P256_HALF_ORDER_QY` hashes to."""
 
 
@@ -347,7 +361,7 @@ def bound_case_transaction(
         sender=sender,
         frames=[verify_frame()],
         signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            canonical_entry(sender),
             *case_entries,
         ],
         error=error,
@@ -416,13 +430,7 @@ def entry_signed_for_next_nonce(pre: Alloc) -> Transaction:
             sender=sender,
             nonce=nonce,
             frames=[verify_frame()],
-            signatures=[
-                FrameSignature(
-                    scheme=Spec.SCHEME_SECP256K1,
-                    signer=Bytes(sender),
-                    signature=Bytes(signature),
-                )
-            ],
+            signatures=[canonical_entry(sender, signature=Bytes(signature))],
             error=TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         )
 

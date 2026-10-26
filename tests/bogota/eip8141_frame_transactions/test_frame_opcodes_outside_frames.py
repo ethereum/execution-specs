@@ -29,7 +29,8 @@ from execution_testing import (
     Transaction,
 )
 
-from .helpers import default_frame, verify_frame
+from .helpers import APPROVE_ALL, default_frame, verify_frame
+from .signature_helpers import canonical_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -61,9 +62,7 @@ ARBITRARY_WITNESS = Bytes(b"\xab" * 40)
 # both its scheme and its raw bytes are readable. The only difference
 # between that test and the halting one is the transaction type.
 FRAME_OPCODES = [
-    pytest.param(
-        Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT), id="approve"
-    ),
+    pytest.param(APPROVE_ALL, id="approve"),
     pytest.param(Op.POP(Op.TXPARAM(Spec.TXPARAM_TYPE)), id="txparam"),
     pytest.param(Op.POP(Op.FRAMEDATALOAD(0, 1)), id="framedataload"),
     pytest.param(Op.FRAMEDATACOPY(0, 0, 32, 1), id="framedatacopy"),
@@ -190,7 +189,7 @@ def test_frame_opcodes_run_at_depth_in_frame_transaction(
         sender=sender,
         frames=[verify_frame(), default_frame(target=caller)],
         signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            canonical_entry(sender),
             FrameSignature(
                 scheme=Spec.SCHEME_ARBITRARY, signature=ARBITRARY_WITNESS
             ),

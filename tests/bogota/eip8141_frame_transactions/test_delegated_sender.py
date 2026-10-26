@@ -31,8 +31,13 @@ from execution_testing import (
     TransactionException,
 )
 
-from .helpers import FrameTransaction, sender_frame, verify_frame
-from .spec import Spec, ref_spec_8141
+from .helpers import (
+    APPROVE_ALL,
+    FrameTransaction,
+    sender_frame,
+    verify_frame,
+)
+from .spec import ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
@@ -53,9 +58,6 @@ SLOT_CALLVALUE = 0x03
 
 SENDER_FRAME_VALUE = 5
 """Value the `SENDER` frame carries, which `CALLVALUE` reports."""
-
-APPROVE_ALL = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
-"""Approve execution and payment, returning no data."""
 
 RECORD_ENVIRONMENT = (
     Op.SSTORE(SLOT_CALLER, Op.CALLER)

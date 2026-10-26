@@ -25,7 +25,6 @@ from typing import Dict, List
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Alloc,
     Bytecode,
@@ -42,11 +41,19 @@ from execution_testing import (
 )
 
 from .helpers import (
+    APPROVE_ALL,
+    BASE_FEE,
+    PRIORITY_FEE,
     FrameCase,
     FrameTransaction,
+    account_creation_cost,
     default_frame,
+    fee_budget,
+    sponsored_signatures,
+    storage_set_cost,
     verify_frame,
 )
+from .signature_helpers import canonical_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -81,15 +88,6 @@ FRAME_GAS = 400_000
 RETURNED_WORD = 0xBEEF
 """Word an approving call places in memory and returns."""
 
-BASE_FEE = 7
-"""Base fee of the block the `max_cost` probe's transaction lands in."""
-
-PRIORITY_FEE = 5
-"""Tip per gas the `max_cost` probe's transaction asks for."""
-
-APPROVE_ALL = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
-"""Approve execution and payment, returning no data."""
-
 CALL_SELF = Op.CALL(gas=Op.GAS, address=Op.ADDRESS)
 """Call back into the executing account with no calldata."""
 
@@ -114,15 +112,6 @@ def record_call(slot: int, call: Bytecode) -> Bytecode:
     failed one 1, and a slot the code never reached 0.
     """
     return Op.SSTORE(slot, Op.ADD(1, call))
-
-
-def payer_entry(payer: EOA) -> FrameSignature:
-    """Return the payer's signature entry over the canonical hash."""
-    return FrameSignature(
-        scheme=Spec.SCHEME_SECP256K1,
-        signer=Bytes(payer),
-        secret_key=payer.key,
-    )
 
 
 @pytest.mark.parametrize(
@@ -332,7 +321,7 @@ def test_split_approval_order(
         nonce=1,
         payer=sender if execution_first else payer,
         frames=frames,
-        signatures=[PLACEHOLDER_ENTRY, payer_entry(payer)],
+        signatures=[PLACEHOLDER_ENTRY, canonical_entry(payer)],
     )
 
     state_test(
@@ -468,7 +457,7 @@ def test_execution_approval_refused_once_granted(
             ),
             verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
         ],
-        signatures=[PLACEHOLDER_ENTRY, payer_entry(payer)],
+        signatures=[PLACEHOLDER_ENTRY, canonical_entry(payer)],
     )
 
     state_test(
@@ -713,10 +702,7 @@ def test_default_code_approves_only_in_verify_frame(
             verify_frame(flags=Spec.APPROVE_EXECUTION),
             FrameCase(mode=mode, flags=Spec.APPROVE_PAYMENT, target=payer),
         ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            payer_entry(payer),
-        ],
+        signatures=sponsored_signatures(sender, payer),
         error=(
             None
             if approves
@@ -851,20 +837,18 @@ def test_max_cost_collected_at_payment_approval(
                 state_gas_used=probe_code.state_cost(fork),
             ),
         ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            payer_entry(payer),
-        ],
+        signatures=sponsored_signatures(sender, payer),
     )
     assert tx.frames is not None and tx.signatures is not None
-    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=tx.frames, signatures=tx.signatures, sender=sender
-    )
-    required_max_fee = max_gas * BASE_FEE
     assert tx.max_fee is not None
-    max_cost = required_max_fee + min(
-        PRIORITY_FEE * max_gas, int(tx.max_fee) - required_max_fee
-    )
+    max_cost = fee_budget(
+        fork,
+        sender,
+        tx.frames,
+        tx.signatures,
+        max_priority_fee_per_gas=PRIORITY_FEE,
+        max_fee=int(tx.max_fee),
+    ).max_cost
 
     state_test(
         env=Environment(base_fee_per_gas=BASE_FEE),
@@ -907,7 +891,7 @@ def test_sender_creation_shortfall_halts_payment_approval(
     sponsor keeps its balance and the second sponsor's approval
     succeeds, which it could not if the first had set the payer.
     """
-    new_account_gas = fork.gas_costs().NEW_ACCOUNT
+    new_account_gas = account_creation_cost(fork)
     sender = pre.fund_eoa(amount=0)
     second_payer = pre.fund_eoa(amount=FUNDS)
     call = Op.CALL(gas=INNER_CALL_GAS, address=Op.ADDRESS, address_warm=True)
@@ -921,7 +905,7 @@ def test_sender_creation_shortfall_halts_payment_approval(
         if_false=Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT),
     )
     sponsor = pre.deploy_contract(code=sponsor_code, balance=FUNDS)
-    record_gas = Op.SSTORE(SLOT_CALL_GAS, 1).state_cost(fork)
+    record_gas = storage_set_cost(fork)
     assert record_gas <= new_account_gas - 1
 
     tx = FrameTransaction.build(
@@ -945,10 +929,7 @@ def test_sender_creation_shortfall_halts_payment_approval(
                 state_gas_used=new_account_gas,
             ),
         ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            payer_entry(second_payer),
-        ],
+        signatures=sponsored_signatures(sender, second_payer),
     )
 
     state_test(

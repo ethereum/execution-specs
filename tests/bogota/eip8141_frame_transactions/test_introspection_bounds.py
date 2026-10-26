@@ -22,6 +22,7 @@ from typing import List
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Address,
     Alloc,
@@ -37,6 +38,7 @@ from execution_testing import (
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 
 from .helpers import (
+    APPROVE_ALL,
     FrameCase,
     FrameTransaction,
     Outcome,
@@ -45,6 +47,7 @@ from .helpers import (
     verify_frame,
 )
 from .signature_helpers import (
+    canonical_entry,
     valid_p256_entry,
 )
 from .spec import Spec, ref_spec_8141
@@ -80,14 +83,14 @@ PROBE_FRAME = 1
 FRAME_COUNT = 2
 
 
-def probe_signatures(sender: Address) -> List[FrameSignature]:
+def probe_signatures(sender: EOA) -> List[FrameSignature]:
     """
     Return the halting probe's signature entries: the sender's entry
     over the canonical hash, a valid P256 entry and an `ARBITRARY`
     entry, one per scheme.
     """
     return [
-        FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+        canonical_entry(sender),
         valid_p256_entry(),
         FrameSignature(
             scheme=Spec.SCHEME_ARBITRARY,
@@ -564,7 +567,7 @@ def test_verify_frame_reads_later_frame(
         condition = Op.AND(condition, check)
     sender_code = Conditional(
         condition=condition,
-        if_true=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        if_true=APPROVE_ALL,
         if_false=Op.REVERT(0, 0),
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
@@ -608,10 +611,7 @@ def test_sigparam_with_no_signature_entries_halts(
     list, every index is out of bounds. The sender is a contract that
     approves through its code, so the transaction needs no entry.
     """
-    sender = pre.deploy_contract(
-        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
-        balance=10**18,
-    )
+    sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
     probe_code = Op.POP(Op.SIGPARAM(0, Spec.SIGPARAM_SCHEME)) + Op.STOP
     probe = pre.deploy_contract(code=probe_code)
 

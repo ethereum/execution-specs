@@ -27,19 +27,12 @@ Every approval here goes through the default code of an EOA, whose
 `VERIFY` frame makes the transaction invalid.
 """
 
-from typing import List
-
 import pytest
 from execution_testing import (
-    EOA,
-    SECP256K1_SIGNATURE_LENGTH,
     Account,
-    Address,
     Alloc,
-    Bytes,
     Environment,
     Fork,
-    FrameSignature,
     Op,
     StateTestFiller,
     Transaction,
@@ -47,24 +40,22 @@ from execution_testing import (
 )
 
 from .helpers import (
-    FrameCase,
+    BASE_FEE,
+    PRIORITY_FEE,
     FrameTransaction,
     default_frame,
+    fee_budget,
     sender_frame,
+    sponsored_signatures,
     verify_frame,
 )
+from .signature_helpers import canonical_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
-
-BASE_FEE = 7
-"""Base fee of the block every transaction lands in."""
-
-PRIORITY_FEE = 5
-"""Tip per gas of the cases that ask for one."""
 
 EXEC_ERROR = TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
 """A `VERIFY` frame failed, which invalidates the transaction."""
@@ -74,42 +65,6 @@ TRANSFER_VALUE = 10**6
 
 DONOR_FUNDS = 10**18
 """Balance of the contract that tops the payer up."""
-
-
-def entry(account: EOA) -> FrameSignature:
-    """
-    Return the canonical secp256k1 entry of `account`, which the default
-    code of a frame targeting `account` accepts.
-    """
-    return FrameSignature(
-        scheme=Spec.SCHEME_SECP256K1,
-        signer=Bytes(account),
-        secret_key=account.key,
-    )
-
-
-def worst_case_gas(
-    fork: Fork,
-    sender: Address,
-    frames: List[FrameCase],
-    signatures: List[FrameSignature],
-) -> int:
-    """
-    Return the transaction's `max_gas`.
-
-    Every entry has an empty `msg`, so only the length of its raw bytes
-    enters the cost, and the entries can be priced before they are
-    signed. The sender prices a value-bearing frame's transfer cost.
-    """
-    priced = [
-        signature.model_copy(
-            update={"signature": Bytes(bytes(SECP256K1_SIGNATURE_LENGTH))}
-        )
-        for signature in signatures
-    ]
-    return fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=frames, signatures=priced, sender=sender
-    )
 
 
 @pytest.mark.parametrize(
@@ -122,7 +77,7 @@ def worst_case_gas(
     ],
 )
 @pytest.mark.parametrize(
-    "fee_budget",
+    "budget",
     [
         # `max_fee` is exactly the base fee cost, so `max_cost` equals
         # `max_fee`.
@@ -139,7 +94,7 @@ def test_sender_balance_covers_max_cost(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    fee_budget: str,
+    budget: str,
     balance_delta: int,
 ) -> None:
     """
@@ -156,26 +111,30 @@ def test_sender_balance_covers_max_cost(
     """
     frames = [verify_frame()]
     sender = pre.fund_eoa(amount=0)
-    max_gas = worst_case_gas(fork, sender, frames, [entry(sender)])
-    required_max_fee = max_gas * BASE_FEE
-    priority_fee = PRIORITY_FEE if fee_budget == "surplus_with_tip" else 0
+    fees = fee_budget(fork, sender, frames)
+    max_gas, required_max_fee = fees.max_gas, fees.required_max_fee
+    priority_fee = PRIORITY_FEE if budget == "surplus_with_tip" else 0
     full_tip = PRIORITY_FEE * max_gas
     max_fee = {
         "exact_budget": required_max_fee,
         "surplus_without_tip": required_max_fee + full_tip,
         "surplus_with_tip": required_max_fee + 2 * full_tip,
-    }[fee_budget]
-    max_cost = required_max_fee + min(
-        priority_fee * max_gas, max_fee - required_max_fee
-    )
-    assert (max_cost < max_fee) == (fee_budget != "exact_budget")
+    }[budget]
+    max_cost = fee_budget(
+        fork,
+        sender,
+        frames,
+        max_priority_fee_per_gas=priority_fee,
+        max_fee=max_fee,
+    ).max_cost
+    assert (max_cost < max_fee) == (budget != "exact_budget")
     pre.fund_address(sender, max_cost + balance_delta)
 
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
         frames=frames,
-        signatures=[entry(sender)],
+        signatures=[canonical_entry(sender)],
         max_fee=max_fee,
         max_priority_fee_per_gas=priority_fee,
         error=EXEC_ERROR if balance_delta else None,
@@ -228,8 +187,8 @@ def test_payer_balance_covers_max_cost(
         verify_frame(flags=Spec.APPROVE_EXECUTION),
         verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
     ]
-    signatures = [entry(sender), entry(payer)]
-    max_cost = worst_case_gas(fork, sender, frames, signatures) * BASE_FEE
+    signatures = sponsored_signatures(sender, payer)
+    max_cost = fee_budget(fork, sender, frames, signatures).max_cost
     pre.fund_address(payer, max_cost + balance_delta)
 
     tx = FrameTransaction.build(
@@ -296,8 +255,8 @@ def test_payment_approval_reads_balance_after_transfer(
         sender_frame(target=recipient, value=TRANSFER_VALUE, code=Op.STOP),
         verify_frame(flags=Spec.APPROVE_PAYMENT),
     ]
-    signatures = [entry(sender), entry(sender)]
-    max_cost = worst_case_gas(fork, sender, frames, signatures) * BASE_FEE
+    signatures = [canonical_entry(sender), canonical_entry(sender)]
+    max_cost = fee_budget(fork, sender, frames, signatures).max_cost
     pre.fund_address(sender, TRANSFER_VALUE + max_cost + balance_delta)
 
     tx = FrameTransaction.build(
@@ -364,8 +323,8 @@ def test_payment_approval_reads_balance_after_top_up(
         default_frame(target=donor),
         verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
     ]
-    signatures = [entry(sender), entry(payer)]
-    max_cost = worst_case_gas(fork, sender, frames, signatures) * BASE_FEE
+    signatures = sponsored_signatures(sender, payer)
+    max_cost = fee_budget(fork, sender, frames, signatures).max_cost
     pre.fund_address(payer, max_cost - 1)
 
     tx = Transaction(
@@ -405,13 +364,12 @@ def test_max_fee_checked_before_frames(
     """
     sender = pre.deploy_contract(code=Op.REVERT(0, 0), balance=10**18)
     frames = [verify_frame()]
-    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(frames=frames)
 
     tx = Transaction(
         sender=sender,
         nonce=1,
         frames=frames,
-        max_fee=max_gas * BASE_FEE - 1,
+        max_fee=fee_budget(fork, sender, frames).required_max_fee - 1,
         error=TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS,
     )
 

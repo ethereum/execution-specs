@@ -33,19 +33,22 @@ from execution_testing import (
 )
 
 from ...cancun.eip4844_blobs.spec import SpecHelpers as BlobSpecHelpers
-from .helpers import FrameCase, FrameTransaction, default_frame, verify_frame
+from .helpers import (
+    BASE_FEE,
+    PRIORITY_FEE,
+    FrameCase,
+    FrameTransaction,
+    default_frame,
+    fee_budget,
+    verify_frame,
+)
+from .signature_helpers import canonical_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
-
-BASE_FEE = 7
-"""Base fee of the block every transaction lands in."""
-
-PRIORITY_FEE = 5
-"""Tip per gas each transaction asks for."""
 
 FUNDS = 10**18
 """Sender balance before the transaction, which pays and escrows."""
@@ -55,37 +58,6 @@ PROBE_GAS = 100_000
 
 PROBE_STATE_GAS = 1_000_000
 """State budget of a probe frame, covering the slot it creates."""
-
-
-def worst_case(
-    fork: Fork,
-    sender: EOA,
-    frames: List[FrameCase],
-    blob_count: int = 0,
-    excess_blob_gas: int = 0,
-) -> tuple[int, int]:
-    """
-    Return the transaction's `max_gas` and the fee its `max_fee` must
-    cover, `max_gas` at the base fee plus the blob gas at the blob base
-    fee of `excess_blob_gas`.
-
-    The sender's default signature entry has an empty `msg`, so only its
-    length enters the intrinsic cost and the entry can be priced before
-    it is signed.
-    """
-    signature = FrameSignature(
-        scheme=Spec.SCHEME_SECP256K1,
-        signer=Bytes(sender),
-        signature=Bytes(bytes(SECP256K1_SIGNATURE_LENGTH)),
-    )
-    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=frames, signatures=[signature]
-    )
-    blob_gas = blob_count * fork.blob_gas_per_blob()
-    blob_base_fee = fork.blob_gas_price_calculator()(
-        excess_blob_gas=excess_blob_gas
-    )
-    return max_gas, max_gas * BASE_FEE + blob_gas * blob_base_fee
 
 
 def blob_versioned_hashes(count: int) -> List[Hash]:
@@ -125,7 +97,9 @@ def test_max_fee_boundary(
     sender = pre.fund_eoa(amount=FUNDS)
     target = pre.deploy_contract(code=Op.STOP)
     frames = [verify_frame(state_gas_limit=0), default_frame(target=target)]
-    _, required_max_fee = worst_case(fork, sender, frames, blob_count)
+    required_max_fee = fee_budget(
+        fork, sender, frames, blob_count=blob_count
+    ).required_max_fee
 
     tx = Transaction(
         sender=sender,
@@ -185,7 +159,8 @@ def test_escrow(
             state_gas_limit=PROBE_STATE_GAS,
         ),
     ]
-    max_gas, required_max_fee = worst_case(fork, sender, frames)
+    fees = fee_budget(fork, sender, frames)
+    max_gas, required_max_fee = fees.max_gas, fees.required_max_fee
     full_tip = PRIORITY_FEE * max_gas
     max_fee = {
         "full_tip": required_max_fee + full_tip,
@@ -251,7 +226,8 @@ def test_tip_settlement(
             state_gas_limit=0,
         ),
     ]
-    max_gas, required_max_fee = worst_case(fork, sender, frames)
+    fees = fee_budget(fork, sender, frames)
+    max_gas, required_max_fee = fees.max_gas, fees.required_max_fee
     full_tip = PRIORITY_FEE * max_gas
     max_fee = {
         "full_tip": required_max_fee + full_tip,
@@ -342,7 +318,7 @@ def test_gasprice(
             state_gas_limit=PROBE_STATE_GAS,
         ),
     ]
-    max_gas, _ = worst_case(fork, sender, frames)
+    max_gas = fee_budget(fork, sender, frames).max_gas
     # A blob fee of at least a wei per unit of `max_gas`, so folding it
     # into `GASPRICE` would show.
     excess_blob_gas = (
@@ -353,9 +329,13 @@ def test_gasprice(
         if blob_count
         else 0
     )
-    _, required_max_fee = worst_case(
-        fork, sender, frames, blob_count, excess_blob_gas
-    )
+    required_max_fee = fee_budget(
+        fork,
+        sender,
+        frames,
+        blob_count=blob_count,
+        excess_blob_gas=excess_blob_gas,
+    ).required_max_fee
     assert required_max_fee - max_gas * BASE_FEE >= blob_count * max_gas
     max_fee, gas_price = {
         "full_tip": (
@@ -474,7 +454,8 @@ def test_priority_fee_product_exceeds_256_bits(
             state_gas_limit=0,
         ),
     ]
-    max_gas, required_max_fee = worst_case(fork, sender, frames)
+    fees = fee_budget(fork, sender, frames)
+    max_gas, required_max_fee = fees.max_gas, fees.required_max_fee
     max_cost = required_max_fee + TIP_BUDGET
     tx = FrameTransaction.build(
         fork=fork,
@@ -546,10 +527,8 @@ def standard_gas_limit(
     Return the intrinsic cost plus every frame budget: the first operand
     of `max_gas`.
     """
-    signature = FrameSignature(
-        scheme=Spec.SCHEME_SECP256K1,
-        signer=Bytes(sender),
-        signature=Bytes(bytes(SECP256K1_SIGNATURE_LENGTH)),
+    signature = canonical_entry(
+        sender, signature=Bytes(bytes(SECP256K1_SIGNATURE_LENGTH))
     )
     intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
         frames=frames,
@@ -596,7 +575,8 @@ def test_max_fee_boundary_floor_branch(
     sender = pre.fund_eoa(amount=FUNDS)
     target = pre.deploy_contract(code=Op.STOP)
     frames = floor_branch_frames(fork, target, Op.STOP)
-    max_gas, required_max_fee = worst_case(fork, sender, frames)
+    fees = fee_budget(fork, sender, frames)
+    max_gas, required_max_fee = fees.max_gas, fees.required_max_fee
     # The premise: the floor operand of `max_gas` is the larger one.
     assert max_gas > standard_gas_limit(fork, sender, frames)
 
@@ -641,7 +621,8 @@ def test_gasprice_floor_branch_divisor(
     frames = floor_branch_frames(
         fork, probe, Op.SSTORE(0, Op.GASPRICE) + Op.STOP
     )
-    max_gas, required_max_fee = worst_case(fork, sender, frames)
+    fees = fee_budget(fork, sender, frames)
+    max_gas, required_max_fee = fees.max_gas, fees.required_max_fee
     tip_budget = 2 * max_gas - 1
     # The premise: the standard gas limit would report a larger tip.
     assert tip_budget // standard_gas_limit(fork, sender, frames) >= 2

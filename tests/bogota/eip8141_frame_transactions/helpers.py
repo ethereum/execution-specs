@@ -1,23 +1,43 @@
 """Helpers for EIP-8141 frame transaction tests."""
 
 from enum import Enum, auto, unique
-from typing import Any, Callable, Dict, List, Optional, Self
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Self,
+    Sequence,
+)
 
 from execution_testing import (
     EOA,
+    SECP256K1_SIGNATURE_LENGTH,
     Address,
+    Alloc,
     Bytecode,
+    Bytes,
     Fork,
     Frame,
     FrameReceipt,
+    FrameSignature,
     Op,
     Transaction,
+    TransactionException,
     TransactionLog,
     TransactionReceipt,
+    compute_create_address,
+    create_op,
 )
 from execution_testing.base_types import HexNumber
+from execution_testing.forks.forks.eips.bogota.eip_8141 import (
+    EXPIRY_VERIFIER_BYTECODE,
+)
 from pydantic import Field
 
+from .signature_helpers import canonical_entry
 from .spec import Spec
 
 MAX_FLOOR_PADDING = 1 << 16
@@ -69,6 +89,54 @@ class Outcome(Enum):
         return self is Outcome.SUCCESS
 
 
+EXPIRY_LENGTH_CHECK = (
+    Op.PUSH1[Spec.EXPIRY_DATA_LENGTH]
+    + Op.CALLDATASIZE
+    + Op.EQ
+    + Op.PUSH1[0x0A]
+    + Op.JUMPI
+)
+"""The verifier's jump past its first `REVERT` on 8 bytes of calldata."""
+
+EXPIRY_TIMESTAMP_CHECK = (
+    Op.JUMPDEST
+    + Op.PUSH0
+    + Op.CALLDATALOAD
+    + Op.PUSH1[0xC0]
+    + Op.SHR
+    + Op.TIMESTAMP
+    + Op.GT
+    + Op.PUSH1[0x16]
+    + Op.JUMPI
+)
+"""The verifier's jump to its second `REVERT` once the expiry passed."""
+
+EXPIRY_REJECT = Op.PUSH0 + Op.PUSH0 + Op.REVERT
+"""The verifier's `REVERT`, reached when either check fails."""
+
+EXPIRY_VERIFIER_CODE = (
+    EXPIRY_LENGTH_CHECK
+    + EXPIRY_REJECT
+    + EXPIRY_TIMESTAMP_CHECK
+    + Op.STOP
+    + Op.JUMPDEST
+    + EXPIRY_REJECT
+)
+"""The expiry verifier predeploy's code, as the EIP defines it."""
+assert bytes(EXPIRY_VERIFIER_CODE) == EXPIRY_VERIFIER_BYTECODE
+
+EXPIRY_VERIFIER_ACCEPTING_PATH = (
+    EXPIRY_LENGTH_CHECK + EXPIRY_TIMESTAMP_CHECK + Op.STOP
+)
+"""The instructions the verifier runs accepting an unexpired timestamp."""
+
+EXPIRY_VERIFIER_LENGTH_REJECTING_PATH = EXPIRY_LENGTH_CHECK + EXPIRY_REJECT
+"""
+The instructions the verifier runs when its calldata is not 8 bytes
+long: the length check falls through to `REVERT`.
+"""
+
+
 def expiry_verifier_gas(fork: Fork) -> int:
     """
     Return the execution gas the verifier draws accepting its expiry.
@@ -76,24 +144,7 @@ def expiry_verifier_gas(fork: Fork) -> int:
     Its rejecting paths are never priced: a reverting `VERIFY` frame
     invalidates the whole transaction, which then reports no receipt.
     """
-    accepting = (
-        Op.PUSH1[0x08]
-        + Op.CALLDATASIZE
-        + Op.EQ
-        + Op.PUSH1[0x0A]
-        + Op.JUMPI
-        + Op.JUMPDEST
-        + Op.PUSH0
-        + Op.CALLDATALOAD
-        + Op.PUSH1[0xC0]
-        + Op.SHR
-        + Op.TIMESTAMP
-        + Op.GT
-        + Op.PUSH1[0x16]
-        + Op.JUMPI
-        + Op.STOP
-    )
-    return accepting.execution_cost(fork)
+    return EXPIRY_VERIFIER_ACCEPTING_PATH.execution_cost(fork)
 
 
 class FrameCase(Frame):
@@ -365,3 +416,267 @@ class FrameTransaction(Transaction):
     def block_gas_used(self) -> int:
         """Return the gas the block accounts for, before refunds."""
         return max(self.execution_gas, self.calldata_floor) + self.state_gas
+
+
+APPROVE_ALL = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
+"""Approve execution and payment, returning no data."""
+
+CURRENT_FRAME_INDEX = Op.TXPARAM(Spec.TXPARAM_CURRENT_FRAME_INDEX)
+"""Push the executing frame's index, which keys per-frame records."""
+
+
+def sponsored_signatures(sender: EOA, payer: EOA) -> List[FrameSignature]:
+    """
+    Return the signature entries of a sponsored transaction: the
+    sender's canonical entry at index 0, which its default code reads to
+    approve execution, and the payer's at index 1, which its default
+    code reads to approve payment.
+    """
+    return [canonical_entry(sender), canonical_entry(payer)]
+
+
+BASE_FEE = 7
+"""Base fee of the block a fee budget case's transaction lands in."""
+
+PRIORITY_FEE = 5
+"""Tip per gas a fee budget case's transaction asks for when it tips."""
+
+
+class FeeBudget(NamedTuple):
+    """The amounts §Fee budget derives for a frame transaction."""
+
+    max_gas: int
+    """The gas limit in both dimensions, which the fee budget prices."""
+
+    required_max_fee: int
+    """`max_gas` at the base fee plus the blob gas at the blob base fee."""
+
+    max_cost: int
+    """
+    `required_max_fee` plus the largest tip `max_fee` leaves room for:
+    what the payer escrows when it approves payment.
+    """
+
+
+def fee_budget(
+    fork: Fork,
+    sender: EOA | Address,
+    frames: Sequence[Frame],
+    signatures: Optional[Sequence[FrameSignature]] = None,
+    *,
+    max_priority_fee_per_gas: int = 0,
+    max_fee: Optional[int] = None,
+    blob_count: int = 0,
+    excess_blob_gas: int = 0,
+) -> FeeBudget:
+    """
+    Return the fee budget of a transaction `sender` sends with `frames`
+    and `signatures` in a block at `BASE_FEE` and the blob base fee of
+    `excess_blob_gas`.
+
+    `signatures` defaults to the entries a transaction defaults to: the
+    sender's canonical entry, or none for a contract sender. An unsigned
+    entry over the canonical hash is priced at its signed length, since
+    only the length of its raw bytes enters the cost, so the budget is
+    known before the transaction is signed. `max_fee` defaults to one
+    with room for the whole tip.
+    """
+    if signatures is None:
+        signatures = (
+            [canonical_entry(sender)]
+            if isinstance(sender, EOA) and sender.key is not None
+            else []
+        )
+    priced = [
+        entry.model_copy(
+            update={"signature": Bytes(bytes(SECP256K1_SIGNATURE_LENGTH))}
+        )
+        if entry.scheme == Spec.SCHEME_SECP256K1
+        and len(entry.msg) == 0
+        and len(entry.signature) == 0
+        else entry
+        for entry in signatures
+    ]
+    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=frames, signatures=priced, sender=sender
+    )
+    blob_gas = blob_count * fork.blob_gas_per_blob()
+    blob_base_fee = fork.blob_gas_price_calculator()(
+        excess_blob_gas=excess_blob_gas
+    )
+    required_max_fee = max_gas * BASE_FEE + blob_gas * blob_base_fee
+    full_tip = max_priority_fee_per_gas * max_gas
+    if max_fee is None:
+        max_fee = required_max_fee + full_tip
+    max_cost = required_max_fee + min(full_tip, max_fee - required_max_fee)
+    return FeeBudget(max_gas, required_max_fee, max_cost)
+
+
+def storage_set_cost(fork: Fork) -> int:
+    """
+    Return the state gas of one fresh storage write,
+    `STATE_BYTES_PER_STORAGE_SET * CPSB`.
+    """
+    return Op.SSTORE(0, 1).state_cost(fork)
+
+
+def account_creation_cost(fork: Fork) -> int:
+    """
+    Return the state gas of one account creation,
+    `STATE_BYTES_PER_NEW_ACCOUNT * CPSB`.
+    """
+    return fork.gas_costs().NEW_ACCOUNT
+
+
+def clearing_refund(fork: Fork) -> int:
+    """
+    Return EIP-8038's `STORAGE_CLEAR_REFUND`: "added if the original
+    value is non-zero, the current value is non-zero and the new value
+    is zero", and subtracted when such a cleared slot is set non-zero
+    again.
+    """
+    return fork.gas_costs().REFUND_STORAGE_CLEAR
+
+
+def restoring_refund(fork: Fork) -> int:
+    """
+    Return EIP-8038's `STORAGE_WRITE`, "refunded if the new value equals
+    the original value and differs from the current value": the write
+    charge of a cold write less its cold access.
+    """
+    gas_costs = fork.gas_costs()
+    return gas_costs.COLD_STORAGE_WRITE - gas_costs.COLD_STORAGE_ACCESS
+
+
+CANARY = 0xDEAD
+"""
+Pre-state value of a recording slot, so overwriting it creates no state
+and a slot left untouched, by a frame that halts or never reaches the
+write, is distinguishable from a written one.
+"""
+
+
+def overwrite(slot: int, value: Bytecode) -> Bytecode:
+    """Return a cold write of `value` over the canary in `slot`."""
+    return Op.SSTORE(
+        slot,
+        value,
+        key_warm=False,
+        original_value=CANARY,
+        current_value=CANARY,
+        new_value=CANARY + 1,
+    )
+
+
+def record_pool(slot: int) -> Bytecode:
+    """
+    Return code recording the frame's remaining state gas pool, plus one
+    so an empty pool is distinguishable from the canary, over the canary
+    in `slot`.
+    """
+    return overwrite(slot, Op.ADD(1, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT)))
+
+
+FACTORY_NONCE = 1
+"""Nonce of a contract deployed in the pre-state, which it creates at."""
+
+
+def frame_data_copy(init_code: Bytecode) -> Bytecode:
+    """
+    Return code copying the frame data, which holds `init_code`, to
+    memory offset zero.
+    """
+    size = len(init_code)
+    return Op.CALLDATACOPY(
+        0, 0, Op.CALLDATASIZE, data_size=size, new_memory_size=size
+    )
+
+
+def frame_data_create(
+    create_opcode: Op, init_code: Bytecode, **metadata: Any
+) -> Bytecode:
+    """
+    Return a `create_opcode` creation from the `init_code` that
+    `frame_data_copy` placed in memory, with zero endowment and salt.
+
+    Keyword arguments are passed on as the creation's gas metadata.
+    """
+    return create_op(
+        create_opcode,
+        size=Op.CALLDATASIZE,
+        init_code_size=len(init_code),
+        **metadata,
+    )
+
+
+def created_address(
+    factory: Address, create_opcode: Op, init_code: Bytecode
+) -> Address:
+    """
+    Return the address a pre-state factory's first `create_opcode`
+    creation from `init_code` lands at.
+    """
+    return compute_create_address(
+        address=factory,
+        nonce=FACTORY_NONCE,
+        salt=0,
+        initcode=init_code,
+        opcode=create_opcode,
+    )
+
+
+def padding_frame(
+    pre: Alloc, padding: Bytecode, **overrides: Any
+) -> FrameCase:
+    """
+    Return a `DEFAULT` frame running `padding`, then `STOP`, in a fresh
+    contract: it spends execution gas and changes nothing, so the
+    calldata floor stays unbound or a refund stays under its cap.
+    """
+    code = padding + Op.STOP
+    return default_frame(
+        target=pre.deploy_contract(code=code), code=code, **overrides
+    )
+
+
+def reserving_frame_tx(
+    pre: Alloc,
+    fork: Fork,
+    *,
+    execution_reservation: Optional[int] = None,
+    state_reservation: int = 0,
+    error: Optional[TransactionException] = None,
+) -> Transaction:
+    """
+    Return a frame transaction reserving `execution_reservation` of a
+    block's execution gas and `state_reservation` of its state gas.
+
+    A fresh contract sender approving execution and payment sends it,
+    with no signature entries and a single `VERIFY` frame without data,
+    so the intrinsic cost is that of one bare frame and the frame's
+    execution budget is the rest of the execution reservation. Without
+    an execution reservation the frame is budgeted exactly what its
+    approval spends.
+    """
+    sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
+    if execution_reservation is None:
+        gas_limit = fork.frame_entry_gas_calculator()(
+            target_warm=True
+        ) + APPROVE_ALL.execution_cost(fork)
+    else:
+        gas_limit = (
+            execution_reservation
+            - fork.frame_transaction_intrinsic_cost_calculator()(
+                frames=1, return_cost_deducted_prior_execution=True
+            )
+        )
+    return Transaction(
+        sender=sender,
+        nonce=1,
+        frames=[
+            verify_frame(
+                gas_limit=gas_limit, state_gas_limit=state_reservation
+            )
+        ],
+        error=error,
+    )

@@ -30,9 +30,12 @@ from execution_testing import (
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 
 from .helpers import (
+    APPROVE_ALL,
+    CURRENT_FRAME_INDEX,
     FrameTransaction,
     default_frame,
     sender_frame,
+    storage_set_cost,
     verify_frame,
 )
 from .signature_helpers import (
@@ -1066,15 +1069,18 @@ def test_frameparam_mode_and_value_of_own_frame(
     `DEFAULT` frame's mode and value are both 0.
     """
     sender = pre.fund_eoa()
-    index = Op.TXPARAM(Spec.TXPARAM_CURRENT_FRAME_INDEX)
     probe_code = (
         Op.SSTORE(
-            Op.ADD(SLOT_MODE, index),
-            Op.ADD(1, Op.FRAMEPARAM(index, Spec.FRAMEPARAM_MODE)),
+            Op.ADD(SLOT_MODE, CURRENT_FRAME_INDEX),
+            Op.ADD(
+                1, Op.FRAMEPARAM(CURRENT_FRAME_INDEX, Spec.FRAMEPARAM_MODE)
+            ),
         )
         + Op.SSTORE(
-            Op.ADD(SLOT_VALUE, index),
-            Op.ADD(1, Op.FRAMEPARAM(index, Spec.FRAMEPARAM_VALUE)),
+            Op.ADD(SLOT_VALUE, CURRENT_FRAME_INDEX),
+            Op.ADD(
+                1, Op.FRAMEPARAM(CURRENT_FRAME_INDEX, Spec.FRAMEPARAM_VALUE)
+            ),
         )
         + Op.STOP
     )
@@ -1144,7 +1150,7 @@ def test_frameparam_state_gas_used_is_live(
     reads back as frame 2's state gas. Values are stored plus one.
     """
     sender = pre.fund_eoa()
-    slot_gas = Op.SSTORE(0, 1).state_cost(fork)
+    slot_gas = storage_set_cost(fork)
     read_first = Op.ADD(1, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED))
     clearer = (
         Op.SSTORE(SLOT_BEFORE_REFILL, read_first)
@@ -1217,14 +1223,16 @@ def test_txparam_current_frame_index_in_every_frame(
     frame approves only if it reads 0; the probe records, under its
     frame's index, that index plus one.
     """
-    current_index = Op.TXPARAM(Spec.TXPARAM_CURRENT_FRAME_INDEX)
     sender_code = Conditional(
-        condition=Op.ISZERO(current_index),
-        if_true=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        condition=Op.ISZERO(CURRENT_FRAME_INDEX),
+        if_true=APPROVE_ALL,
         if_false=Op.REVERT(0, 0),
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
-    probe_code = Op.SSTORE(current_index, Op.ADD(1, current_index)) + Op.STOP
+    probe_code = (
+        Op.SSTORE(CURRENT_FRAME_INDEX, Op.ADD(1, CURRENT_FRAME_INDEX))
+        + Op.STOP
+    )
     probe = pre.deploy_contract(code=probe_code)
     probe_frames = [1, 2, 3]
 

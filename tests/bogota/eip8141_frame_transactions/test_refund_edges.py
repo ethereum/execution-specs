@@ -35,10 +35,15 @@ from .helpers import (
     FrameCase,
     FrameTransaction,
     Outcome,
+    clearing_refund,
     default_frame,
+    padding_frame,
+    reserving_frame_tx,
+    restoring_refund,
+    storage_set_cost,
     verify_frame,
 )
-from .spec import Spec, ref_spec_8141
+from .spec import ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
@@ -65,31 +70,6 @@ the refunds the test expects to apply in full.
 
 BLOCK_GAS_LIMIT = 1_000_000
 """Gas limit of the block, and of the genesis block before it."""
-
-
-def clearing_refund(fork: Fork) -> int:
-    """
-    Return EIP-8038's `STORAGE_CLEAR_REFUND`: "added if the original
-    value is non-zero, the current value is non-zero and the new value
-    is zero", and subtracted when such a cleared slot is set non-zero
-    again.
-    """
-    return fork.gas_costs().REFUND_STORAGE_CLEAR
-
-
-def restoring_refund(fork: Fork) -> int:
-    """
-    Return EIP-8038's `STORAGE_WRITE`, "refunded if the new value equals
-    the original value and differs from the current value": the write
-    charge of a cold write less its cold access.
-    """
-    gas_costs = fork.gas_costs()
-    return gas_costs.COLD_STORAGE_WRITE - gas_costs.COLD_STORAGE_ACCESS
-
-
-def storage_set_cost(fork: Fork) -> int:
-    """Return the state gas of one fresh storage write."""
-    return Op.SSTORE(0, 1).state_cost(fork)
 
 
 def clear(slot: int) -> Bytecode:
@@ -126,18 +106,14 @@ def word(value: int) -> bytes:
     return value.to_bytes(32, "big")
 
 
-def padding_frame(pre: Alloc, sender: Address) -> FrameCase:
+def sender_padding_frame(pre: Alloc, sender: Address) -> FrameCase:
     """
     Return a frame spending execution gas on warm reads of the sender,
     which seeds the warm set, and nothing else.
     """
-    code = (
-        Op.POP(Op.BALANCE(address=sender, address_warm=True)) * PADDING_READS
-        + Op.STOP
-    )
-    return default_frame(
-        target=pre.deploy_contract(code=code),
-        code=code,
+    return padding_frame(
+        pre,
+        Op.POP(Op.BALANCE(address=sender, address_warm=True)) * PADDING_READS,
         gas_limit_delta=0,
         state_gas_limit=0,
     )
@@ -321,7 +297,7 @@ def test_refund_reversed_by_later_frame(
         refund=refund,
         frames=[
             verify_frame(),
-            padding_frame(pre, sender),
+            sender_padding_frame(pre, sender),
             # Frame 2: clear the slot (1 -> 0).
             default_frame(
                 target=worker,
@@ -393,7 +369,7 @@ def test_failed_frame_discards_clearing_refund(
         sender=sender,
         frames=[
             verify_frame(),
-            padding_frame(pre, sender),
+            sender_padding_frame(pre, sender),
             default_frame(
                 target=worker,
                 code=code,
@@ -447,8 +423,8 @@ def test_refunds_accumulate_across_frames(
         refund=refund,
         frames=[
             verify_frame(),
-            padding_frame(pre, sender),
-            padding_frame(pre, sender),
+            sender_padding_frame(pre, sender),
+            sender_padding_frame(pre, sender),
             default_frame(
                 target=worker,
                 code=clear_code,
@@ -508,7 +484,7 @@ def test_surviving_refill_is_not_capped(
         refund=refund,
         frames=[
             verify_frame(),
-            padding_frame(pre, sender),
+            sender_padding_frame(pre, sender),
             # Frame 2: create the slot (0 -> 1); frame 3 refills it.
             default_frame(
                 target=worker,
@@ -605,27 +581,10 @@ def test_next_transaction_capacity_after_refund(
     first_block_gas = first.block_gas_used()
     assert first_block_gas > first.payer_gas_used()
 
-    # A contract sender carries no signature entries and its frame no
-    # data, so a frame count prices the intrinsic cost exactly.
-    second_sender = pre.deploy_contract(
-        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
-        balance=10**18,
-    )
-    intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=1, return_cost_deducted_prior_execution=True
-    )
-    second = Transaction(
-        sender=second_sender,
-        nonce=1,
-        frames=[
-            verify_frame(
-                gas_limit=BLOCK_GAS_LIMIT
-                - first_block_gas
-                - intrinsic
-                + excess,
-                state_gas_limit=0,
-            )
-        ],
+    second = reserving_frame_tx(
+        pre,
+        fork,
+        execution_reservation=BLOCK_GAS_LIMIT - first_block_gas + excess,
         error=(
             TransactionException.GAS_ALLOWANCE_EXCEEDED if excess else None
         ),
@@ -652,7 +611,7 @@ def test_next_transaction_capacity_after_refund(
             worker: Account(
                 storage=dict.fromkeys(CLEARED_SLOTS, 1 if excess else 0)
             ),
-            second_sender: Account(nonce=1 if excess else 2),
+            second.sender: Account(nonce=1 if excess else 2),
         },
         genesis_environment=Environment(gas_limit=BLOCK_GAS_LIMIT),
     )

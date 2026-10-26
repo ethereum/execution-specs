@@ -14,15 +14,11 @@ from typing import List
 
 import pytest
 from execution_testing import (
-    EOA,
-    SECP256K1_SIGNATURE_LENGTH,
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     Fork,
-    FrameSignature,
     Hash,
     Op,
     StateTestFiller,
@@ -31,11 +27,15 @@ from execution_testing import (
 
 from ...cancun.eip4844_blobs.spec import SpecHelpers as BlobSpecHelpers
 from .helpers import (
+    BASE_FEE,
+    PRIORITY_FEE,
     FrameCase,
     FrameTransaction,
     Outcome,
     default_frame,
+    fee_budget,
     sender_frame,
+    sponsored_signatures,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -45,51 +45,8 @@ REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
 
-BASE_FEE = 7
-"""Base fee of the block every transaction lands in."""
-
-PRIORITY_FEE = 5
-"""Tip per gas a transaction asks for when it tips."""
-
 TRANSFER_VALUE = 10**6
 """Value a `SENDER` frame sends."""
-
-
-def signature_entries(signers: List[EOA]) -> List[FrameSignature]:
-    """
-    Return the signature entries `signers` sign over the signature hash.
-    Each has an empty `msg`, so only its signature's length is priced
-    and the entries price the transaction before it is signed.
-    """
-    return [
-        FrameSignature(
-            scheme=Spec.SCHEME_SECP256K1,
-            signer=Bytes(signer),
-            signature=Bytes(bytes(SECP256K1_SIGNATURE_LENGTH)),
-        )
-        for signer in signers
-    ]
-
-
-def max_gas(fork: Fork, frames: List[FrameCase], signers: List[EOA]) -> int:
-    """Return the `max_gas` of the transaction `signers[0]` sends."""
-    return fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=frames,
-        signatures=signature_entries(signers),
-        sender=signers[0],
-    )
-
-
-def signed_entries(sender: EOA, payer: EOA) -> List[FrameSignature]:
-    """Return the sender's and the payer's entries, to be signed."""
-    return [
-        FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-        FrameSignature(
-            scheme=Spec.SCHEME_SECP256K1,
-            signer=Bytes(payer),
-            secret_key=payer.key,
-        ),
-    ]
 
 
 def sponsored_frames(fork: Fork, payer: Address, last: FrameCase) -> list:
@@ -151,8 +108,10 @@ def test_sponsor_pays_its_whole_escrow(
             outcome=Outcome.HALT,
         ),
     )
-    worst_gas = max_gas(fork, frames, [sender, payer])
-    max_cost = worst_gas * BASE_FEE
+    fees = fee_budget(
+        fork, sender, frames, sponsored_signatures(sender, payer)
+    )
+    max_cost = fees.max_cost
     pre.fund_address(payer, max_cost + 1)
 
     tx = FrameTransaction.build(
@@ -160,12 +119,12 @@ def test_sponsor_pays_its_whole_escrow(
         sender=sender,
         payer=payer,
         frames=frames,
-        signatures=signed_entries(sender, payer),
+        signatures=sponsored_signatures(sender, payer),
         max_fee=max_cost,
         max_priority_fee_per_gas=0,
     )
     # The premise: every unit of `max_gas` is used.
-    assert tx.payer_gas_used() == worst_gas
+    assert tx.payer_gas_used() == fees.max_gas
 
     state_test(
         env=Environment(base_fee_per_gas=BASE_FEE),
@@ -222,7 +181,7 @@ def test_value_after_escrow(
             outcome=Outcome.REVERT if shortfall else Outcome.SUCCESS,
         ),
     ]
-    max_cost = max_gas(fork, frames, [sender]) * BASE_FEE
+    max_cost = fee_budget(fork, sender, frames).max_cost
     pre.fund_address(sender, max_cost + TRANSFER_VALUE - shortfall)
 
     tx = FrameTransaction.build(
@@ -294,8 +253,15 @@ def test_sponsor_pays_blob_fee(
         excess_blob_gas=excess_blob_gas
     )
     assert blob_base_fee > 1
-    worst_gas = max_gas(fork, frames, [sender, payer])
-    max_fee = worst_gas * (BASE_FEE + PRIORITY_FEE) + blob_gas * blob_base_fee
+    max_fee = fee_budget(
+        fork,
+        sender,
+        frames,
+        sponsored_signatures(sender, payer),
+        max_priority_fee_per_gas=PRIORITY_FEE,
+        blob_count=blob_count,
+        excess_blob_gas=excess_blob_gas,
+    ).max_cost
     blob_hashes: List[Hash] = add_kzg_version(
         list(range(1, blob_count + 1)), 1
     )
@@ -305,7 +271,7 @@ def test_sponsor_pays_blob_fee(
         sender=sender,
         payer=payer,
         frames=frames,
-        signatures=signed_entries(sender, payer),
+        signatures=sponsored_signatures(sender, payer),
         max_fee=max_fee,
         max_priority_fee_per_gas=PRIORITY_FEE,
         blob_versioned_hashes=blob_hashes,

@@ -31,6 +31,7 @@ from execution_testing import (
 )
 
 from .helpers import FrameTransaction, Outcome, default_frame, verify_frame
+from .signature_helpers import canonical_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -324,7 +325,7 @@ def test_frame_opcode_gas(
             ),
         ],
         signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            canonical_entry(sender),
             FrameSignature(
                 scheme=Spec.SCHEME_ARBITRARY, signature=COPIED_BYTES
             ),
@@ -387,7 +388,7 @@ def test_frame_copy_huge_length_runs_out_of_gas(
             ),
         ],
         signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            canonical_entry(sender),
             FrameSignature(
                 scheme=Spec.SCHEME_ARBITRARY, signature=COPIED_BYTES
             ),

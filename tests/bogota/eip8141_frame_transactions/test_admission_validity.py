@@ -31,7 +31,7 @@ from execution_testing import (
     compute_create_address,
 )
 
-from .helpers import default_frame, verify_frame
+from .helpers import APPROVE_ALL, default_frame, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -328,7 +328,7 @@ def test_nonce_checked_only_before_frames(
     sender_code = Conditional(
         condition=Op.CALLDATASIZE,
         if_true=Op.POP(Op.CREATE(0, 0, 0)) + Op.STOP,
-        if_false=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        if_false=APPROVE_ALL,
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
     created = compute_create_address(address=sender, nonce=1)

@@ -48,8 +48,14 @@ from execution_testing import (
     TransactionException,
 )
 
-from .helpers import FrameTransaction, default_frame, verify_frame
-from .spec import Spec, ref_spec_8141
+from .helpers import (
+    APPROVE_ALL,
+    FrameTransaction,
+    default_frame,
+    reserving_frame_tx,
+    verify_frame,
+)
+from .spec import ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
@@ -71,9 +77,6 @@ Zero bytes of frame data in the second transaction of the floor case:
 enough for its calldata floor to exceed its intrinsic cost plus frame
 execution budgets by far.
 """
-
-APPROVE_ALL = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
-"""Code of a contract sender that approves execution and payment."""
 
 WRITE_SLOT = Op.SSTORE(0, 1)
 """Code that writes one fresh storage slot."""
@@ -144,31 +147,33 @@ def test_second_transaction_reservation(
     state_used = first_tx.state_gas
     assert state_used > 0
 
-    second_sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
-    # A contract sender carries no signature entries and the frames no
-    # data, so a frame count prices the intrinsic cost exactly.
-    one_frame_intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=1, return_cost_deducted_prior_execution=True
-    )
+    error = TransactionException.GAS_ALLOWANCE_EXCEEDED if excess else None
     block_gas_limit = BLOCK_GAS_LIMIT
     if dimension == "execution":
-        frames = [
-            verify_frame(
-                gas_limit=block_gas_limit
-                - execution_used
-                - one_frame_intrinsic
-                + excess,
-                state_gas_limit=0,
-            )
-        ]
+        second_tx = reserving_frame_tx(
+            pre,
+            fork,
+            execution_reservation=block_gas_limit - execution_used + excess,
+            error=error,
+        )
     elif dimension == "state":
-        frames = [
-            verify_frame(
-                gas_limit=SECOND_TX_EXECUTION_GAS,
-                state_gas_limit=block_gas_limit - state_used + excess,
+        # A contract sender carries no signature entries and the frame no
+        # data, so a frame count prices the intrinsic cost exactly.
+        one_frame_intrinsic = (
+            fork.frame_transaction_intrinsic_cost_calculator()(
+                frames=1, return_cost_deducted_prior_execution=True
             )
-        ]
+        )
+        second_tx = reserving_frame_tx(
+            pre,
+            fork,
+            execution_reservation=one_frame_intrinsic
+            + SECOND_TX_EXECUTION_GAS,
+            state_reservation=block_gas_limit - state_used + excess,
+            error=error,
+        )
     else:
+        second_sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
         frames = [
             verify_frame(
                 code=APPROVE_ALL, gas_limit_delta=0, state_gas_limit=0
@@ -194,14 +199,9 @@ def test_second_transaction_reservation(
         # Only the floor operand can exceed the remaining capacity.
         assert standard < floor - 1
         block_gas_limit = execution_used + floor - excess
-    second_tx = Transaction(
-        sender=second_sender,
-        nonce=1,
-        frames=frames,
-        error=(
-            TransactionException.GAS_ALLOWANCE_EXCEEDED if excess else None
-        ),
-    )
+        second_tx = Transaction(
+            sender=second_sender, nonce=1, frames=frames, error=error
+        )
 
     blockchain_test(
         pre=pre,
@@ -222,7 +222,7 @@ def test_second_transaction_reservation(
         post={
             first_sender: Account(nonce=1 if excess else 2),
             written: Account(storage={} if excess else {0: 1}),
-            second_sender: Account(nonce=1 if excess else 2),
+            second_tx.sender: Account(nonce=1 if excess else 2),
         },
         genesis_environment=Environment(gas_limit=block_gas_limit),
     )

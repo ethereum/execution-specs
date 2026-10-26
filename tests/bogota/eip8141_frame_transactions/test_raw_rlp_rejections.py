@@ -60,13 +60,12 @@ from execution_testing import (
     Bytes,
     FrameSignature,
     Hash,
-    Op,
     Transaction,
     TransactionException,
     TransactionTestFiller,
 )
 
-from .helpers import sender_frame, verify_frame
+from .helpers import APPROVE_ALL, sender_frame, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -165,10 +164,7 @@ def base_transaction(pre: Alloc, **overrides: Any) -> Transaction:
     every field of the payload is present and every frame field is
     non-empty in one of the two frames.
     """
-    sender = pre.deploy_contract(
-        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
-        balance=10**18,
-    )
+    sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
     return Transaction(
         sender=sender,
         nonce=1,

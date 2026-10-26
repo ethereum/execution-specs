@@ -25,10 +25,20 @@ from execution_testing import (
     Op,
     Opcode,
     StateTestFiller,
-    compute_create_address,
 )
 
-from .helpers import FrameCase, FrameTransaction, sender_frame, verify_frame
+from .helpers import (
+    APPROVE_ALL,
+    CURRENT_FRAME_INDEX,
+    FrameCase,
+    FrameTransaction,
+    account_creation_cost,
+    created_address,
+    frame_data_copy,
+    frame_data_create,
+    sender_frame,
+    verify_frame,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -105,9 +115,8 @@ def test_caller_and_origin_at_frame_top_level(
     frames originate calls where `tx.sender` is a contract account."
     """
     if contract_sender:
-        approve = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
-        sender: Address = pre.deploy_contract(code=approve, balance=10**18)
-        verify = verify_frame(code=approve)
+        sender: Address = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
+        verify = verify_frame(code=APPROVE_ALL)
     else:
         sender = pre.fund_eoa()
         verify = verify_frame()
@@ -241,7 +250,7 @@ def test_caller_and_origin_in_verify_frame(
             Op.EQ(observed_caller, expected_caller),
             Op.EQ(observed_origin, Spec.ENTRY_POINT),
         ),
-        if_true=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        if_true=APPROVE_ALL,
         if_false=Op.REVERT(0, 0),
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
@@ -274,10 +283,9 @@ def test_origin_follows_each_frame(
     transactions, returning the frame's caller rather than the
     traditional transaction origin."
     """
-    frame_index = Op.TXPARAM(Spec.TXPARAM_CURRENT_FRAME_INDEX)
     code = (
-        Op.SSTORE(Op.MUL(2, frame_index), Op.CALLER)
-        + Op.SSTORE(Op.ADD(Op.MUL(2, frame_index), 1), Op.ORIGIN)
+        Op.SSTORE(Op.MUL(2, CURRENT_FRAME_INDEX), Op.CALLER)
+        + Op.SSTORE(Op.ADD(Op.MUL(2, CURRENT_FRAME_INDEX), 1), Op.ORIGIN)
         + Op.STOP
     )
     sender = pre.fund_eoa()
@@ -392,11 +400,11 @@ def test_caller_and_origin_in_create_initcode(
     """
     sender = pre.fund_eoa()
     factory = pre.deploy_contract(
-        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.POP(Op.CREATE(0, 0, Op.CALLDATASIZE))
+        code=frame_data_copy(RECORDER_CODE)
+        + Op.POP(frame_data_create(Op.CREATE, RECORDER_CODE))
         + Op.STOP
     )
-    created = compute_create_address(address=factory, nonce=1)
+    created = created_address(factory, Op.CREATE, RECORDER_CODE)
     caller = frame_caller(mode, sender)
 
     tx = FrameTransaction.build(
@@ -410,7 +418,7 @@ def test_caller_and_origin_in_create_initcode(
                 data=Bytes(bytes(RECORDER_CODE)),
                 gas_limit=FRAME_GAS,
                 pin_gas=False,
-                state_gas_used=fork.gas_costs().NEW_ACCOUNT
+                state_gas_used=account_creation_cost(fork)
                 + RECORDER_CODE.state_cost(fork),
             ),
         ],

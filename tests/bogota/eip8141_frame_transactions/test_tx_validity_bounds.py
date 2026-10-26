@@ -37,19 +37,20 @@ from execution_testing import (
     TransactionTestFiller,
 )
 
-from .helpers import FrameCase, default_frame, verify_frame
+from .helpers import (
+    APPROVE_ALL,
+    BASE_FEE,
+    FrameCase,
+    default_frame,
+    fee_budget,
+    verify_frame,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
-
-BASE_FEE = 7
-"""Base fee of the block the state test cases land in."""
-
-APPROVE_ALL = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
-"""Code of a contract sender that approves execution and payment."""
 
 FRAME_EXECUTION_GAS = 10_000
 """Execution budget of each frame of the frame gas sum cases."""
@@ -138,14 +139,11 @@ def test_frame_gas_sum_bound_in_block(
     """
     sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
     frames = frame_gas_sum_frames(0)
-    # A contract sender carries no signature entries, so the frames
-    # price the worst case exactly.
-    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(frames=frames)
     tx = Transaction(
         sender=sender,
         nonce=1,
         frames=frames,
-        max_fee=max_gas * BASE_FEE,
+        max_fee=fee_budget(fork, sender, frames).required_max_fee,
         error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
     )
 

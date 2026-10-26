@@ -20,19 +20,20 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
-    Bytes,
     Fork,
-    FrameSignature,
     Op,
     StateTestFiller,
 )
 
 from .helpers import (
+    CURRENT_FRAME_INDEX,
     FrameCase,
     FrameTransaction,
     Outcome,
+    account_creation_cost,
     default_frame,
     sender_frame,
+    sponsored_signatures,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -41,8 +42,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
-
-CURRENT_FRAME_INDEX = Op.TXPARAM(Spec.TXPARAM_CURRENT_FRAME_INDEX)
 
 WRITER_CODE = Op.SSTORE(CURRENT_FRAME_INDEX, 1) + Op.STOP
 """Mark the frame running it: write one into the slot of its index."""
@@ -226,14 +225,7 @@ def test_value_shortfall_unrolls_batch(
                 outcome=Outcome.REVERT,
             ),
         ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
+        signatures=sponsored_signatures(sender, payer),
     )
 
     state_test(
@@ -286,7 +278,7 @@ def test_new_account_charge_halt_unrolls_batch(
             sender_frame(
                 target=absent,
                 value=1,
-                state_gas_limit=fork.gas_costs().NEW_ACCOUNT - 1,
+                state_gas_limit=account_creation_cost(fork) - 1,
                 outcome=Outcome.HALT,
             ),
         ],

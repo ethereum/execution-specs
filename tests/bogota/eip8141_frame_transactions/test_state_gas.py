@@ -35,8 +35,11 @@ from .helpers import (
     FrameCase,
     FrameTransaction,
     Outcome,
+    account_creation_cost,
     default_frame,
+    restoring_refund,
     sender_frame,
+    storage_set_cost,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -945,16 +948,6 @@ def test_reversion_restores_charge_ownership(
     )
 
 
-def restoring_refund(fork: Fork) -> int:
-    """
-    Return EIP-8038's `STORAGE_WRITE`, "refunded if the new value equals
-    the original value and differs from the current value": the write
-    charge of a cold write less its cold access.
-    """
-    gas_costs = fork.gas_costs()
-    return gas_costs.COLD_STORAGE_WRITE - gas_costs.COLD_STORAGE_ACCESS
-
-
 @pytest.mark.parametrize(
     "cleared_again",
     [
@@ -985,7 +978,7 @@ def test_recreation_after_refill_charges_recreating_frame(
     frame 3.
     """
     sender = pre.fund_eoa()
-    storage_set = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    storage_set = storage_set_cost(fork)
     worker_code = Op.SSTORE(SLOT_CREATED, Op.CALLDATALOAD(0)) + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
     probe_code = (
@@ -1171,7 +1164,7 @@ def test_approve_both_scopes_creates_sender_at_zero_cost(
     generated from it do not carry the zero base fee.
     """
     sender = pre.fund_eoa(amount=0)
-    account_creation = fork.gas_costs().NEW_ACCOUNT
+    account_creation = account_creation_cost(fork)
     succeeds = state_gas_limit_delta >= 0
     frame = verify_frame(
         state_gas_limit=account_creation + state_gas_limit_delta,

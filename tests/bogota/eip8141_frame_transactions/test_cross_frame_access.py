@@ -15,9 +15,7 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
-    Bytes,
     Fork,
-    FrameSignature,
     Op,
     StateTestFiller,
 )
@@ -27,6 +25,7 @@ from .helpers import (
     Outcome,
     default_frame,
     sender_frame,
+    sponsored_signatures,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -152,14 +151,7 @@ def test_target_cold_after_value_balance_failure(
             ),
             default_frame(target=probe, code=probe_code, state_gas_limit=0),
         ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
+        signatures=sponsored_signatures(sender, payer),
     )
 
     state_test(

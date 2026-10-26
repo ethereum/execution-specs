@@ -24,14 +24,7 @@ the verdict.
 from typing import Callable, Dict, List, Optional, Tuple
 
 import pytest
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.asymmetric.utils import (
-    Prehashed,
-    decode_dss_signature,
-)
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -40,15 +33,25 @@ from execution_testing import (
     Fork,
     FrameSignature,
     GasFee,
-    Op,
     StateTestFiller,
     Transaction,
     TransactionException,
     keccak256,
 )
 
-from .helpers import FrameCase, FrameTransaction, expiry_frame, verify_frame
-from .signature_helpers import DIGEST, SECP256R1N
+from .helpers import (
+    APPROVE_ALL,
+    FrameCase,
+    FrameTransaction,
+    expiry_frame,
+    verify_frame,
+)
+from .signature_helpers import (
+    DIGEST,
+    canonical_entry,
+    p256_public_key,
+    p256_sign,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -72,19 +75,6 @@ class Accounts:
         self.payer = pre.fund_eoa(amount=PAYER_FUNDS)
         self.third = pre.fund_eoa()
 
-    @staticmethod
-    def entry(account: EOA, **overrides: Bytes) -> FrameSignature:
-        """
-        Return a secp256k1 entry signed by `account` with `account` as
-        its explicit signer, over the canonical signature hash unless
-        `msg` is overridden.
-        """
-        fields: Dict[str, Bytes] = dict(signer=Bytes(account))
-        fields.update(overrides)
-        return FrameSignature(
-            scheme=Spec.SCHEME_SECP256K1, secret_key=account.key, **fields
-        )
-
 
 Case = Callable[[Accounts], Tuple[List[FrameCase], List[FrameSignature]]]
 """Build a case's frames and signature entries from its accounts."""
@@ -104,7 +94,7 @@ ENTRY_SELECTION_CASES = [
     pytest.param(
         lambda a: (
             [approve_execution(), approve_payment(a.payer)],
-            [a.entry(a.sender), a.entry(a.payer)],
+            [canonical_entry(a.sender), canonical_entry(a.payer)],
         ),
         "payer",
         id="payer_entry_at_index_1",
@@ -114,7 +104,7 @@ ENTRY_SELECTION_CASES = [
         # at index `sig_index` [...] revert."
         lambda a: (
             [approve_execution(), approve_payment(a.payer)],
-            [a.entry(a.sender)],
+            [canonical_entry(a.sender)],
         ),
         None,
         id="payer_entry_missing",
@@ -125,7 +115,7 @@ ENTRY_SELECTION_CASES = [
         # sender, whose entry sits at index 0.
         lambda a: (
             [approve_execution(), approve_payment()],
-            [a.entry(a.sender)],
+            [canonical_entry(a.sender)],
         ),
         None,
         id="sender_pays_separately_without_index_1",
@@ -135,7 +125,7 @@ ENTRY_SELECTION_CASES = [
         # The same entry twice gives the payment frame its index 1.
         lambda a: (
             [approve_execution(), approve_payment()],
-            [a.entry(a.sender), a.entry(a.sender)],
+            [canonical_entry(a.sender), canonical_entry(a.sender)],
         ),
         "sender",
         id="sender_pays_separately_duplicate_entry",
@@ -147,7 +137,7 @@ ENTRY_SELECTION_CASES = [
         lambda a: (
             [approve_execution(), approve_payment()],
             [
-                a.entry(a.sender),
+                canonical_entry(a.sender),
                 FrameSignature(
                     scheme=Spec.SCHEME_ARBITRARY,
                     signature=Bytes(b"\x01" * 65),
@@ -163,7 +153,7 @@ ENTRY_SELECTION_CASES = [
         # entry from an account other than the payer.
         lambda a: (
             [approve_execution(), approve_payment(a.payer)],
-            [a.entry(a.sender), a.entry(a.third)],
+            [canonical_entry(a.sender), canonical_entry(a.third)],
         ),
         None,
         id="index_1_signed_by_third_account",
@@ -174,7 +164,7 @@ ENTRY_SELECTION_CASES = [
         # signs an explicit digest instead of the signature hash.
         lambda a: (
             [verify_frame()],
-            [a.entry(a.sender, msg=Bytes(DIGEST))],
+            [canonical_entry(a.sender, msg=Bytes(DIGEST))],
         ),
         None,
         id="sender_entry_with_explicit_msg",
@@ -183,7 +173,10 @@ ENTRY_SELECTION_CASES = [
     pytest.param(
         lambda a: (
             [approve_execution(), approve_payment(a.payer)],
-            [a.entry(a.sender), a.entry(a.payer, msg=Bytes(DIGEST))],
+            [
+                canonical_entry(a.sender),
+                canonical_entry(a.payer, msg=Bytes(DIGEST)),
+            ],
         ),
         None,
         id="payer_entry_with_explicit_msg",
@@ -194,7 +187,7 @@ ENTRY_SELECTION_CASES = [
         # entry's empty signer resolves to the sender.
         lambda a: (
             [verify_frame()],
-            [a.entry(a.sender, signer=Bytes())],
+            [canonical_entry(a.sender, signer=Bytes())],
         ),
         "sender",
         id="sender_entry_with_empty_signer",
@@ -210,7 +203,10 @@ ENTRY_SELECTION_CASES = [
                     flags=Spec.APPROVE_PAYMENT, target=a.sender, warm=True
                 ),
             ],
-            [a.entry(a.sender), a.entry(a.sender, signer=Bytes())],
+            [
+                canonical_entry(a.sender),
+                canonical_entry(a.sender, signer=Bytes()),
+            ],
         ),
         "sender",
         id="explicit_sender_target_empty_signer_entry",
@@ -274,7 +270,7 @@ APPROVAL_REFUSAL_CASES = [
     pytest.param(
         lambda a: (
             [approve_execution(), approve_payment(a.payer)],
-            [a.entry(a.sender), a.entry(a.payer)],
+            [canonical_entry(a.sender), canonical_entry(a.payer)],
         ),
         False,
         id="execution_then_payment",
@@ -284,7 +280,7 @@ APPROVAL_REFUSAL_CASES = [
         # false`, revert the current call frame."
         lambda a: (
             [approve_payment(a.payer), approve_execution()],
-            [a.entry(a.sender), a.entry(a.payer)],
+            [canonical_entry(a.sender), canonical_entry(a.payer)],
         ),
         True,
         id="payment_before_execution",
@@ -296,7 +292,7 @@ APPROVAL_REFUSAL_CASES = [
         # afford `max_cost`, so only the first approval refuses it.
         lambda a: (
             [verify_frame(), approve_payment(a.payer)],
-            [a.entry(a.sender), a.entry(a.payer)],
+            [canonical_entry(a.sender), canonical_entry(a.payer)],
         ),
         True,
         id="second_payment_approval",
@@ -311,7 +307,7 @@ APPROVAL_REFUSAL_CASES = [
                 approve_execution(),
                 approve_payment(a.payer),
             ],
-            [a.entry(a.sender), a.entry(a.payer)],
+            [canonical_entry(a.sender), canonical_entry(a.payer)],
         ),
         True,
         id="second_execution_approval",
@@ -323,7 +319,7 @@ APPROVAL_REFUSAL_CASES = [
         # current call frame."
         lambda a: (
             [approve_execution(), verify_frame()],
-            [a.entry(a.sender)],
+            [canonical_entry(a.sender)],
         ),
         True,
         id="execution_and_payment_after_execution",
@@ -415,16 +411,15 @@ def test_default_code_warm_sender_entry_charge(
     )
 
 
-P256_SENDER_KEY = ec.derive_private_key(0x8141, ec.SECP256R1())
-"""P-256 key whose public key words hash to `P256_SENDER`."""
+P256_SENDER_KEY = 0x8141
+"""P-256 private key whose public key words hash to `P256_SENDER`."""
 
-P256_SENDER_PUBLIC = P256_SENDER_KEY.public_key().public_numbers()
+P256_SENDER_QX, P256_SENDER_QY = p256_public_key(P256_SENDER_KEY)
 """The public key words `qx` and `qy` of `P256_SENDER_KEY`."""
 
 P256_SENDER = Address(
     keccak256(
-        P256_SENDER_PUBLIC.x.to_bytes(32, "big")
-        + P256_SENDER_PUBLIC.y.to_bytes(32, "big")
+        P256_SENDER_QX.to_bytes(32, "big") + P256_SENDER_QY.to_bytes(32, "big")
     )[12:]
 )
 """The address `keccak256(qx || qy)[12:]` of `P256_SENDER_KEY`."""
@@ -441,7 +436,7 @@ def p256_sender_entry(signature: bytes) -> FrameSignature:
     return FrameSignature(scheme=Spec.SCHEME_P256, signature=Bytes(signature))
 
 
-def p256_sign(digest: bytes) -> bytes:
+def p256_sender_signature(digest: bytes) -> bytes:
     """
     Sign `digest` with `P256_SENDER_KEY` and return the entry's
     `r || s || qx || qy` bytes, with `s` normalized to the low half.
@@ -449,15 +444,10 @@ def p256_sign(digest: bytes) -> bytes:
     The nonce is derived deterministically (RFC 6979), so the fixture
     does not change between fills.
     """
-    der = P256_SENDER_KEY.sign(
-        digest,
-        ec.ECDSA(Prehashed(hashes.SHA256()), deterministic_signing=True),
-    )
-    r, s = decode_dss_signature(der)
-    s = min(s, SECP256R1N - s)
+    r, s = p256_sign(digest, P256_SENDER_KEY)
     return b"".join(
         word.to_bytes(32, "big")
-        for word in (r, s, P256_SENDER_PUBLIC.x, P256_SENDER_PUBLIC.y)
+        for word in (r, s, P256_SENDER_QX, P256_SENDER_QY)
     )
 
 
@@ -470,7 +460,7 @@ def p256_sign(digest: bytes) -> bytes:
             None, id="default_code", marks=pytest.mark.exception_test
         ),
         pytest.param(
-            Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+            APPROVE_ALL,
             id="approving_code",
         ),
     ],
@@ -519,7 +509,7 @@ def test_default_code_rejects_p256_entry(
         .rlp_signing_bytes()
         .keccak256()
     )
-    tx = with_signature(p256_sign(bytes(sig_hash)))
+    tx = with_signature(p256_sender_signature(bytes(sig_hash)))
     assert tx.rlp_signing_bytes().keccak256() == sig_hash
 
     state_test(
