@@ -1,5 +1,5 @@
 """
-Test the new contributor gate script.
+Test the outside contributor gate script.
 
 The `gh` CLI is replaced by a fake that serves fixtures and records
 writes, so no test touches the network.
@@ -13,17 +13,16 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
 from typing import Any
-from urllib.parse import unquote_plus
 
 import pytest
 
-SCRIPT = Path(__file__).parent.parent / "new_contributor_gate.py"
+SCRIPT = Path(__file__).parent.parent / "outside_contributor_gate.py"
 
 
 def load_script() -> ModuleType:
     """Import the script as a module."""
     spec = importlib.util.spec_from_file_location(
-        "new_contributor_gate", SCRIPT
+        "outside_contributor_gate", SCRIPT
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -58,12 +57,12 @@ def test_referenced_issues(body: str | None, numbers: list[int]) -> None:
 
 
 @pytest.mark.parametrize(
-    "association,user_type,sender,new",
+    "association,user_type,sender,outside",
     [
         ("NONE", "User", "alice", True),
         ("FIRST_TIMER", "User", "alice", True),
         ("FIRST_TIME_CONTRIBUTOR", "User", "alice", True),
-        ("CONTRIBUTOR", "User", "alice", False),
+        ("CONTRIBUTOR", "User", "alice", True),
         ("MEMBER", "User", "alice", False),
         ("COLLABORATOR", "User", "alice", False),
         ("OWNER", "User", "alice", False),
@@ -71,24 +70,24 @@ def test_referenced_issues(body: str | None, numbers: list[int]) -> None:
         ("NONE", "User", "maintainer", False),
     ],
 )
-def test_is_new_contributor(
-    association: str, user_type: str, sender: str, new: bool
+def test_is_outside_contributor(
+    association: str, user_type: str, sender: str, outside: bool
 ) -> None:
-    """Gate only new, human authors acting on their own items."""
+    """Gate human outsiders acting on their own items, whatever they merged."""
     item = {
         "author_association": association,
         "user": {"login": "alice", "type": user_type},
     }
-    assert m.is_new_contributor(item, sender, set()) is new
+    assert m.is_outside_contributor(item, sender, set()) is outside
 
 
-def test_bypassed_author_is_not_new() -> None:
+def test_bypassed_author_is_not_gated() -> None:
     """Skip an author on the bypass list, whatever the login's case."""
     item = {
         "author_association": "NONE",
         "user": {"login": "Bob", "type": "User"},
     }
-    assert not m.is_new_contributor(item, "Bob", {"bob"})
+    assert not m.is_outside_contributor(item, "Bob", {"bob"})
 
 
 def test_bypassed_skips_comments_and_blank_lines(tmp_path: Path) -> None:
@@ -146,14 +145,12 @@ class FakeGh:
         self,
         issues: list[dict[str, Any]] | None = None,
         history: list[dict[str, Any]] | None = None,
-        merged: int = 0,
         pulls: list[dict[str, Any]] | None = None,
         comments: dict[int, list[str]] | None = None,
     ):
-        """Serve issues, opened items, merged count, pulls and comments."""
+        """Serve issues, opened items, pulls and comments."""
         self.issues = {item["number"]: item for item in issues or []}
         self.history = history or []
-        self.merged = merged
         self.pulls = pulls or []
         self.comments = comments or {}
         self.reads: list[tuple[str, ...]] = []
@@ -166,10 +163,6 @@ class FakeGh:
             self.writes.append(call)
             return ""
         self.reads.append(call)
-        if "search/issues" in path:
-            search = unquote_plus(path)
-            assert "q=repo:o/r is:pr is:merged author:alice" in search
-            return json.dumps({"total_count": self.merged})
         if path == "repos/o/r":
             return json.dumps({"default_branch": "forks/bogota"})
         if path.startswith("repos/o/r/pulls?"):
@@ -202,7 +195,7 @@ def run_event(
     monkeypatch.setattr(m, "bypassed", lambda: {"bob"})
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setenv("GITHUB_EVENT_PATH", str(path))
-    monkeypatch.setattr(sys, "argv", ["new_contributor_gate.py", *flags])
+    monkeypatch.setattr(sys, "argv", ["outside_contributor_gate.py", *flags])
     m.main()
 
 
@@ -307,7 +300,7 @@ def test_messages_name_the_author_and_link_the_guide() -> None:
 def test_pr_without_reference_is_closed(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Close a new contributor's pull request that references nothing."""
+    """Close an outside contributor's pull request that references nothing."""
     fake = FakeGh()
     run_event(monkeypatch, tmp_path, fake, pr_event("Fix a typo."))
     assert fake.writes == closed(7, PR_MESSAGE)
@@ -350,14 +343,13 @@ def test_pr_references_are_capped(
     body = " ".join(f"#{n}" for n in range(1, m.MAX_REFERENCES + 5))
     fake = FakeGh()
     run_event(monkeypatch, tmp_path, fake, pr_event(body))
-    lookups = [read for read in fake.reads if "search/issues" not in read[0]]
-    assert len(lookups) == m.MAX_REFERENCES
+    assert len(fake.reads) == m.MAX_REFERENCES
     assert fake.writes == closed(7, PR_MESSAGE)
 
 
 @pytest.mark.parametrize(
     "association,sender",
-    [("MEMBER", "alice"), ("CONTRIBUTOR", "alice"), ("NONE", "maintainer")],
+    [("MEMBER", "alice"), ("COLLABORATOR", "alice"), ("NONE", "maintainer")],
 )
 def test_pr_from_others_is_left_alone(
     monkeypatch: pytest.MonkeyPatch,
@@ -365,7 +357,7 @@ def test_pr_from_others_is_left_alone(
     association: str,
     sender: str,
 ) -> None:
-    """Skip known authors and pull requests a maintainer reopened."""
+    """Skip collaborators, members and pull requests a maintainer reopened."""
     fake = FakeGh()
     event = pr_event("", association=association, sender=sender)
     run_event(monkeypatch, tmp_path, fake, event)
@@ -374,15 +366,19 @@ def test_pr_from_others_is_left_alone(
 
 
 @pytest.mark.parametrize("is_pr", [True, False], ids=["pr", "issue"])
-def test_author_with_a_merged_pr_is_left_alone(
+def test_prior_contributor_is_gated(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, is_pr: bool
 ) -> None:
-    """Trust a merged pull request over a lagging `author_association`."""
-    history = [opened(3), opened(5), opened(9)]
-    fake = FakeGh(history=history, merged=1)
-    event = pr_event("Fix a typo.") if is_pr else issue_event()
+    """Gate an author with merged pull requests like any other outsider."""
+    fake = FakeGh(history=[opened(3), opened(5), opened(9)])
+    if is_pr:
+        event = pr_event("Fix a typo.", association="CONTRIBUTOR")
+        expected = closed(7, PR_MESSAGE)
+    else:
+        event = issue_event(association="CONTRIBUTOR")
+        expected = closed(9, ISSUE_MESSAGE, *NOT_PLANNED)
     run_event(monkeypatch, tmp_path, fake, event)
-    assert fake.writes == []
+    assert fake.writes == expected
 
 
 @pytest.mark.parametrize(
@@ -452,7 +448,7 @@ def run_sweep(
     monkeypatch.setattr(m, "bypassed", lambda: {"bob"})
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setattr(
-        sys, "argv", ["new_contributor_gate.py", "--sweep", *flags]
+        sys, "argv", ["outside_contributor_gate.py", "--sweep", *flags]
     )
     m.main()
 
@@ -460,7 +456,7 @@ def run_sweep(
 def test_sweep_closes_pr_into_another_branch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Close a recent new contributor pull request into any other branch."""
+    """Close a recent outside pull request into any other branch."""
     fake = FakeGh(pulls=[pull(11, "forks/amsterdam", 1)])
     run_sweep(monkeypatch, fake)
     assert fake.writes == closed(11, PR_MESSAGE)
@@ -471,17 +467,17 @@ def test_sweep_closes_pr_into_another_branch(
     [
         (pull(11, "forks/bogota", 1), {}),
         (pull(11, "forks/amsterdam", m.SWEEP_HOURS + 1), {}),
-        (pull(11, "forks/amsterdam", 1, association="CONTRIBUTOR"), {}),
+        (pull(11, "forks/amsterdam", 1, association="COLLABORATOR"), {}),
         (pull(11, "forks/amsterdam", 1), {11: [f"Closed.\n\n{m.MARKER}"]}),
     ],
-    ids=["default-branch", "too-old", "known-author", "reopened"],
+    ids=["default-branch", "too-old", "collaborator", "reopened"],
 )
 def test_sweep_leaves_others_alone(
     monkeypatch: pytest.MonkeyPatch,
     pr: dict[str, Any],
     comments: dict[int, list[str]],
 ) -> None:
-    """Skip the default branch, old and known pull requests, and reopens."""
+    """Skip the default branch, old pull requests, collaborators, reopens."""
     fake = FakeGh(pulls=[pr], comments=comments)
     run_sweep(monkeypatch, fake)
     assert fake.writes == []

@@ -4,18 +4,18 @@
 # requires-python = ">=3.12"
 # ///
 """
-Close pull requests and issues from new contributors that skip the rules.
+Close pull requests and issues from outside contributors that skip the rules.
 
-Usage: `new_contributor_gate.py [--pr N | --issue N | --sweep] [--dry-run]`.
+Usage: `outside_contributor_gate.py [--pr N | --issue N | --sweep] [--dry-run]`.
 
-New contributors are authors with nothing merged into the repository
-yet, going by `author_association` and confirmed by a search, since the
-association can lag days behind a merge. Their pull requests must
-reference an issue they are assigned to, and they may have at most
-`MAX_OPEN_ISSUES` open issues. Anything else is closed with a comment
-linking the rule in CONTRIBUTING.md. Everyone else is left alone,
-and so are bots, items a maintainer reopened and authors listed in
-`.github/configs/new-contributor-gate-bypass.txt`.
+Outside contributors are authors who are neither collaborators nor
+members of the organization, going by `author_association`, whatever
+they have merged before. Their pull requests must reference an issue
+they are assigned to, and they may have at most `MAX_OPEN_ISSUES` open
+issues. Anything else is closed with a comment linking the rule in
+CONTRIBUTING.md. Collaborators and members are left alone, and so are
+bots, items a maintainer reopened and authors listed in
+`.github/configs/outside-contributor-gate-bypass.txt`.
 
 A pull request event runs the workflow of the pull request's base
 branch, so `--sweep` gates the pull requests opened into every other
@@ -38,11 +38,12 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
-# `author_association` of an author with nothing merged yet.
-NEW_CONTRIBUTOR = ("NONE", "FIRST_TIMER", "FIRST_TIME_CONTRIBUTOR")
+# `author_association` of collaborators and organization members, the
+# authors the gate never checks.
+INSIDE = ("OWNER", "MEMBER", "COLLABORATOR")
 
 CONFIGS = Path(__file__).parent.parent / "configs"
-BYPASS = CONFIGS / "new-contributor-gate-bypass.txt"
+BYPASS = CONFIGS / "outside-contributor-gate-bypass.txt"
 
 MAX_OPEN_ISSUES = 2
 
@@ -51,7 +52,7 @@ SWEEP_HOURS = 3
 
 # Hidden in every comment the gate posts, so the sweep can tell a pull
 # request a maintainer reopened from one the gate has not seen yet.
-MARKER = "<!-- new-contributor-gate -->"
+MARKER = "<!-- outside-contributor-gate -->"
 
 # Most issue references looked up per pull request, to bound API calls.
 MAX_REFERENCES = 10
@@ -77,7 +78,7 @@ resources are constrained, so this pull request was closed automatically \
 because it does not link an issue assigned to you. Your branch is \
 untouched.
 
-See [First-time contributors]({{contributing}}#first-time-contributors) \
+See [Outside contributors]({{contributing}}#outside-contributors) \
 for the steps to follow. {BYPASS_HELP}"""
 
 ISSUE_MESSAGE = f"""\
@@ -99,13 +100,13 @@ def message(template: str, **fields: str) -> str:
     return f"{template.format(**fields)}\n\n{MARKER}"
 
 
-def is_new_contributor(
+def is_outside_contributor(
     item: dict[str, Any], sender: str, bypass: set[str]
 ) -> bool:
-    """Return whether a new contributor opened or reopened `item`."""
+    """Return whether an outside contributor opened or reopened `item`."""
     author = item["user"]
     return (
-        item["author_association"] in NEW_CONTRIBUTOR
+        item["author_association"] not in INSIDE
         and author["type"] != "Bot"
         and author["login"] == sender
         and author["login"].lower() not in bypass
@@ -181,13 +182,6 @@ def assigned_issue(repo: str, pr: dict[str, Any]) -> int | None:
     return None
 
 
-def has_merged_pr(repo: str, author: str) -> bool:
-    """Return whether `author` has a merged pull request in `repo`."""
-    search = f"repo:{repo} is:pr is:merged author:{author}"
-    found = api("search/issues", q=search, per_page="1")
-    return int(found["total_count"]) > 0
-
-
 def earlier_open_issues(repo: str, author: str, number: int) -> list[int]:
     """Return the open issues `author` opened before issue `number`."""
     items = api_list(f"repos/{repo}/issues", creator=author, state="open")
@@ -259,14 +253,10 @@ def gate(
     dry_run: bool,
     swept: bool = False,
 ) -> None:
-    """Close `item` if a new contributor opened it against the rules."""
+    """Close `item` if an outside contributor opened it against the rules."""
     number = item["number"]
-    if not is_new_contributor(item, sender, bypassed()):
+    if not is_outside_contributor(item, sender, bypassed()):
         print(f"#{number}: skipped, {item['author_association']} by {sender}")
-        return
-    author = item["user"]["login"]
-    if has_merged_pr(repo, author):
-        print(f"#{number}: skipped, {author} has a merged pull request")
         return
     if swept and already_gated(repo, number):
         print(f"#{number}: skipped, reopened after the gate closed it")

@@ -6,7 +6,7 @@ Ethereum Execution Layer Specification written in Python. This is a **specificat
 
 Read `CONTRIBUTING.md` before opening an issue or pull request.
 
-- Before a first pull request, get a maintainer to assign you to an issue, then reference it with `Closes #<issue>`. A bot closes first pull requests without one.
+- Before every pull request, get a maintainer to assign you to an issue, then reference it with `Closes #<issue>`. A bot closes pull requests without one, unless you have write access, are an Ethereum organization member, or are on the bypass list.
 - Without write access, keep at most two pull requests open, drafts included.
 - EIP authors and EL client or tooling team members can ask in `#el-testing` on the [Ethereum R&D Discord](https://discord.com/invite/qGpsxSA) to be added to the bypass list.
 - Keep new EIP features on your fork until the EIP is PFI or CFI, and open an issue that links your branch.

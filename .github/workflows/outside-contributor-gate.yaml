@@ -1,8 +1,10 @@
-name: New contributor gate
+name: Outside contributor gate
 
-# Closes a new contributor's pull request unless it references an issue
-# they are assigned to, and closes their issues beyond 2 open at once. New
-# contributors are authors with nothing merged yet. See CONTRIBUTING.md.
+# Closes an outside contributor's pull request unless it references an
+# issue they are assigned to, and closes their issues beyond 2 open at once.
+# Outside contributors are authors who are neither collaborators nor
+# organization members, unless they are on the bypass list in
+# .github/configs/outside-contributor-gate-bypass.txt. See CONTRIBUTING.md.
 #
 # Runs from the base branch via `pull_request_target`, so fork pull requests
 # get a write token. The pull request's code is never checked out, and its
@@ -30,12 +32,12 @@ permissions:
 jobs:
   gate:
     name: Gate
-    # Skip known authors before a runner starts.
+    # Skip collaborators and members before a runner starts.
     if: >-
       github.event_name == 'schedule'
       || (
-        contains(
-          fromJSON('["NONE", "FIRST_TIMER", "FIRST_TIME_CONTRIBUTOR"]'),
+        !contains(
+          fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
           github.event.pull_request.author_association
             || github.event.issue.author_association
         )
@@ -63,9 +65,9 @@ jobs:
         if: github.event_name != 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: uv run -q .github/scripts/new_contributor_gate.py
+        run: uv run -q .github/scripts/outside_contributor_gate.py
       - name: Sweep pull requests into other branches
         if: github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: uv run -q .github/scripts/new_contributor_gate.py --sweep
+        run: uv run -q .github/scripts/outside_contributor_gate.py --sweep

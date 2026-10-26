@@ -1,5 +1,0 @@
-# Authors the new contributor gate never closes, one GitHub login per line.
-# List people we trust who have nothing merged here yet, such as EIP authors.
-# Keep it in step with the bypass list for the open pull request limit in the
-# repository settings.
-gcolvin
