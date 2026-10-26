@@ -7,8 +7,12 @@ many times as it needs, with whatever inputs it needs, and asserts on the
 results in plain Python. The outcome of the test is the result.
 """
 
+import operator
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Sequence
+from enum import Enum
+from typing import Any, Dict, List, Sequence, SupportsIndex
+
+from pydantic import BaseModel
 
 from execution_testing.base_types import Address
 from execution_testing.client_clis import LazyAlloc, TransitionTool
@@ -175,5 +179,49 @@ class SpecRunner:
         )
 
     def record(self, **values: Any) -> None:
-        """Record values in the evaluation report of the current test."""
-        self.records.update(values)
+        """
+        Record values in the evaluation report of the current test.
+
+        Values are converted to built-in types as they are recorded, so a
+        value of a type that cannot be converted fails the test here.
+        """
+        self.records.update(
+            {name: _to_primitive(value) for name, value in values.items()}
+        )
+
+
+def _to_primitive(value: Any) -> Any:
+    """
+    Convert a recorded value to built-in types.
+
+    Pytest-xdist workers send reports to the controller through execnet,
+    which only serializes built-in types, so subclasses such as `HexNumber`
+    or `Address` are converted to the built-in type they derive from,
+    integer-like values such as `Uint` (anything that supports
+    `operator.index`) to `int`, enums to their value and pydantic models to
+    their JSON form. A value of any other type raises `TypeError`.
+    """
+    if value is None or type(value) in (bool, int, float, str):
+        return value
+    if isinstance(value, Enum):
+        return _to_primitive(value.value)
+    if isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, SupportsIndex):
+        return operator.index(value)
+    if isinstance(value, float):
+        return float(value)
+    if isinstance(value, str):
+        return str(value)
+    if isinstance(value, bytes):
+        return "0x" + bytes(value).hex()
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json")
+    if isinstance(value, dict):
+        return {str(k): _to_primitive(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return [_to_primitive(v) for v in value]
+    raise TypeError(
+        f"cannot record a value of type `{type(value).__name__}`: convert "
+        "it to a built-in type first"
+    )
