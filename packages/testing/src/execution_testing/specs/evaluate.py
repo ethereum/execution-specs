@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Sequence, SupportsIndex
 from pydantic import BaseModel
 
 from execution_testing.base_types import Address
-from execution_testing.client_clis import LazyAlloc, TransitionTool
+from execution_testing.client_clis import TransitionTool
 from execution_testing.client_clis.cli_types import Result, Traces
 from execution_testing.fixtures import BlockchainFixture
 from execution_testing.forks import Fork, TransitionFork
@@ -30,13 +30,7 @@ from execution_testing.test_types.chain_config_types import (
     ChainConfigDefaults,
 )
 
-from .blockchain import (
-    Block,
-    BlockchainTest,
-    BuiltBlock,
-    apply_new_parent,
-    environment_from_parent_header,
-)
+from .blockchain import Block, BlockchainTest, BuiltBlock
 
 
 @dataclass(kw_only=True)
@@ -119,7 +113,8 @@ class SpecRunner:
         `genesis_environment` sets no number, the genesis is block `N - 1`.
 
         A transaction or block that the spec rejects and that is not
-        expected to fail (`error` / `exception`) raises an exception.
+        expected to fail (`error` / `exception`) raises an exception, as
+        does a block whose `expected_post_state` does not match.
         """
         if (txs is None) == (blocks is None):
             raise ValueError("pass exactly one of `txs` or `blocks`")
@@ -143,11 +138,7 @@ class SpecRunner:
             fork=self.fork,
             chain_id=self.chain_id,
         )
-        alloc: Alloc | LazyAlloc
-        alloc, genesis = test.make_genesis(BlockchainFixture)
-        env = environment_from_parent_header(genesis.header)
-        parent_number = int(genesis.header.number)
-        built_blocks: List[BuiltBlock] = []
+        parent_number = int(test.get_genesis_environment().number)
         for i, block in enumerate(test.blocks):
             if block.number is not None and int(block.number) != (
                 parent_number + 1
@@ -159,24 +150,13 @@ class SpecRunner:
                     "`number=N` on the first block only, or pass "
                     "`genesis_environment=Environment(number=N - 1)`."
                 )
-            built_block = test.generate_block_data(
-                t8n=self.t8n,
-                block=block,
-                previous_env=env,
-                previous_alloc=alloc,
-            )
-            built_blocks.append(built_block)
             if block.exception is None:
-                alloc = built_block.alloc
-                env = apply_new_parent(built_block.env, built_block.header)
-                parent_number = int(built_block.header.number)
-        self.run_count += 1
-        return SpecRun(
-            blocks=built_blocks,
-            post=alloc.materialize()
-            if isinstance(alloc, LazyAlloc)
-            else alloc,
+                parent_number += 1
+        chain = test.run_blocks(
+            self.t8n, BlockchainFixture, check_exception_test=False
         )
+        self.run_count += 1
+        return SpecRun(blocks=chain.blocks, post=chain.alloc)
 
     def record(self, **values: Any) -> None:
         """
