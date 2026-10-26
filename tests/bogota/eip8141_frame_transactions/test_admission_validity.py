@@ -20,15 +20,18 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     BlockException,
+    ChainConfig,
+    Conditional,
     Environment,
     Fork,
     Op,
     StateTestFiller,
     Transaction,
     TransactionException,
+    compute_create_address,
 )
 
-from .helpers import verify_frame
+from .helpers import default_frame, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -223,4 +226,125 @@ def test_block_capacity_reservations(
         ],
         post={sender: Account(nonce=1 if excess else 2)},
         genesis_environment=Environment(gas_limit=BLOCK_GAS_LIMIT),
+    )
+
+
+@pytest.mark.exception_test
+def test_wrong_chain_id(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    chain_config: ChainConfig,
+) -> None:
+    """
+    Reject a frame transaction signed for another chain: its chain ID is
+    one above the chain's, and its signature entry is valid over its own
+    signature hash, which commits to that chain ID.
+
+    EIP-8141 §Outer transaction payload: "`chain_id` -- the chain ID in
+    which the transaction is valid."
+    """
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        sender=sender,
+        chain_id=chain_config.chain_id + 1,
+        frames=[verify_frame()],
+        error=TransactionException.INVALID_CHAINID,
+    )
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=0)})
+
+
+SENDER_NONCE = 5
+"""Nonce of the sender of the nonce match cases."""
+
+
+# Funding an EOA with a custom nonce mutates the shared pre-alloc.
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize(
+    "tx_nonce,error",
+    [
+        pytest.param(SENDER_NONCE, None, id="nonce_matches"),
+        pytest.param(
+            SENDER_NONCE - 1,
+            TransactionException.NONCE_MISMATCH_TOO_LOW,
+            id="nonce_too_low",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            SENDER_NONCE + 1,
+            TransactionException.NONCE_MISMATCH_TOO_HIGH,
+            id="nonce_too_high",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+def test_nonce_mismatch(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx_nonce: int,
+    error: Optional[TransactionException],
+) -> None:
+    """
+    Send a frame transaction whose nonce is the sender's nonce, one
+    below it, or one above it.
+
+    EIP-8141 §Behavior: "Ensure `tx.nonce == state[tx.sender].nonce`".
+    """
+    sender = pre.fund_eoa(nonce=SENDER_NONCE)
+    tx = Transaction(
+        sender=sender,
+        nonce=tx_nonce,
+        frames=[verify_frame()],
+        error=error,
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce=SENDER_NONCE if error else tx_nonce + 1)},
+    )
+
+
+def test_nonce_checked_only_before_frames(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Let a contract sender's code create a contract in a `DEFAULT` frame
+    before its `VERIFY` frame approves, so the sender's nonce has
+    already moved past `tx.nonce` when `APPROVE` increments it.
+
+    The transaction's nonce is matched once, before any frame runs, so
+    the earlier increment does not invalidate it, and `APPROVE`
+    increments the nonce the sender holds at that point: the sender
+    ends at `tx.nonce + 2`, not `tx.nonce + 1`.
+
+    EIP-8141 §Behavior: "To begin processing a frame transaction:
+    Ensure `tx.nonce == state[tx.sender].nonce`", and §APPROVE
+    Behavior: "Increment the sender's nonce, set `payer =
+    resolved_target`, and collect the transaction's `max_cost` from
+    `payer`."
+    """
+    sender_code = Conditional(
+        condition=Op.CALLDATASIZE,
+        if_true=Op.POP(Op.CREATE(0, 0, 0)) + Op.STOP,
+        if_false=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+    )
+    sender = pre.deploy_contract(code=sender_code, balance=10**18)
+    created = compute_create_address(address=sender, nonce=1)
+    tx = Transaction(
+        sender=sender,
+        nonce=1,
+        frames=[
+            # With calldata, the sender's code creates a contract.
+            default_frame(target=sender, data=b"\x01"),
+            # Without calldata, it approves.
+            verify_frame(),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce=3), created: Account(nonce=1)},
     )

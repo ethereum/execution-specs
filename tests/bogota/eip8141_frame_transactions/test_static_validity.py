@@ -44,6 +44,9 @@ from execution_testing import (
 )
 
 from .helpers import (
+    FrameCase,
+    FrameTransaction,
+    Outcome,
     default_frame,
     expiry_frame,
     sender_frame,
@@ -1290,6 +1293,299 @@ def test_gas_limit_cap_from_calldata_floor_transaction(
             default_frame(gas_limit=0, data=Bytes(b"\x00" * data_length)),
         ],
         error=error,
+    )
+
+    transaction_test(pre=pre, tx=tx)
+
+
+BATCH_SCOPE_CASES = [
+    pytest.param(
+        # The execution bit alone, on a flagged frame whose empty target
+        # keeps the execution scope's own target rule satisfied.
+        [
+            verify_frame(),
+            default_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG | Spec.APPROVE_EXECUTION
+            ),
+            default_frame(),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="execution_scope_on_flagged_batch_frame",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [
+            verify_frame(),
+            default_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG
+                | Spec.APPROVE_EXECUTION_AND_PAYMENT
+            ),
+            default_frame(),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="both_scopes_on_flagged_batch_frame",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [
+            verify_frame(),
+            default_frame(flags=Spec.ATOMIC_BATCH_FLAG),
+            default_frame(flags=Spec.APPROVE_EXECUTION),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="execution_scope_on_batch_terminating_frame",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [
+            verify_frame(),
+            default_frame(flags=Spec.ATOMIC_BATCH_FLAG),
+            default_frame(flags=Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="both_scopes_on_batch_terminating_frame",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [
+            verify_frame(),
+            sender_frame(flags=Spec.ATOMIC_BATCH_FLAG),
+            sender_frame(flags=Spec.APPROVE_PAYMENT),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="payment_scope_on_sender_batch_terminating_frame",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # The nearest-valid counterpart of the case above.
+        [
+            verify_frame(),
+            sender_frame(flags=Spec.ATOMIC_BATCH_FLAG),
+            sender_frame(),
+        ],
+        None,
+        id="sender_batch_without_scope",
+    ),
+    pytest.param(
+        # The execution bit is allowed on the frame after the batch's
+        # terminator, which no longer belongs to the batch.
+        [
+            verify_frame(),
+            default_frame(flags=Spec.ATOMIC_BATCH_FLAG),
+            default_frame(),
+            default_frame(flags=Spec.APPROVE_EXECUTION),
+        ],
+        None,
+        id="execution_scope_after_batch_terminator",
+    ),
+]
+"""
+Atomic batches carrying an approval scope bit other than the payment bit
+alone, which `FRAME_CASES` covers, each with the exception the
+transaction must be rejected with, or `None` for the nearest-valid
+counterpart.
+"""
+
+
+@pytest.mark.parametrize("frames,error", BATCH_SCOPE_CASES)
+def test_batch_approval_scope(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    frames: List[Frame],
+    error: Optional[TransactionException],
+) -> None:
+    """
+    Put the execution scope bit, or both scope bits, on a frame of an
+    atomic batch, flagged or terminating, and the payment bit on the
+    terminator of a batch of `SENDER` frames.
+
+    EIP-8141 §Constraints: "if frame.flags & ATOMIC_BATCH_FLAG or (i > 0
+    and tx.frames[i - 1].flags & ATOMIC_BATCH_FLAG): assert frame.flags
+    & APPROVE_SCOPE_MASK == 0", where `APPROVE_SCOPE_MASK` covers both
+    the payment bit and the execution bit.
+    """
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, frames=frames, error=error)
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        # The sender's nonce only increments if the transaction is
+        # valid and executes.
+        post={sender: Account(nonce=0 if error else 1)},
+    )
+
+
+@pytest.mark.parametrize("frames,error", BATCH_SCOPE_CASES)
+def test_batch_approval_scope_transaction(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+    frames: List[Frame],
+    error: Optional[TransactionException],
+) -> None:
+    """
+    Assert the same batch scope rule as `test_batch_approval_scope` on
+    the transaction itself rather than on a block containing it; see the
+    module docstring for why every static case fills both formats.
+    """
+    tx = Transaction(sender=pre.fund_eoa(), frames=frames, error=error)
+
+    transaction_test(pre=pre, tx=tx)
+
+
+EXPIRY_VERIFIER_REVERT_PATH = (
+    Op.PUSH1[Spec.EXPIRY_DATA_LENGTH]
+    + Op.CALLDATASIZE
+    + Op.EQ
+    + Op.PUSH1[0x0A]
+    + Op.JUMPI
+    + Op.PUSH0
+    + Op.PUSH0
+    + Op.REVERT
+)
+"""
+The instructions the expiry verifier executes when its calldata is not
+8 bytes long: the length check falls through to `REVERT`.
+"""
+
+
+def sender_frames_to_expiry_verifier() -> List[FrameCase]:
+    """
+    Return a `VERIFY` frame approving execution and payment, then two
+    `SENDER` frames calling the expiry verifier with 9 bytes of data
+    and with none, both of which revert.
+    """
+    return [
+        verify_frame(),
+        *(
+            sender_frame(
+                target=Spec.EXPIRY_VERIFIER,
+                data=data,
+                code=EXPIRY_VERIFIER_REVERT_PATH,
+                outcome=Outcome.REVERT,
+            )
+            for data in (b"\xff" * (Spec.EXPIRY_DATA_LENGTH + 1), b"")
+        ),
+    ]
+
+
+def test_sender_frame_to_expiry_verifier(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Call the expiry verifier from `SENDER` frames with calldata that is
+    not 8 bytes long. The frames are not expiry verifier frames, so its
+    shape rules do not apply and the transaction is valid; the contract
+    itself rejects the calldata length, so both frames revert.
+
+    EIP-8141 §Expiry Verifier Frame: "A `VERIFY` frame whose
+    `frame.target` equals `EXPIRY_VERIFIER` is an **expiry verifier
+    frame**." and "if len(evm.calldata) != EXPIRY_DATA_LENGTH:
+    revert()".
+    """
+    sender = pre.fund_eoa()
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=sender_frames_to_expiry_verifier(),
+    )
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+
+
+def test_sender_frame_to_expiry_verifier_transaction(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Accept the transaction of `test_sender_frame_to_expiry_verifier` on
+    the transaction itself.
+    """
+    tx = Transaction(
+        sender=pre.fund_eoa(), frames=sender_frames_to_expiry_verifier()
+    )
+
+    transaction_test(pre=pre, tx=tx)
+
+
+MAX_FRAME_VALUE = 2**256 - 1
+"""The largest value a frame may carry."""
+
+
+def sponsored_max_value_frames(payer: EOA) -> List[FrameCase]:
+    """
+    Return frames in which the sender approves execution, `payer`
+    approves payment, and a `SENDER` frame with an empty target sends
+    the largest frame value from the sender to itself.
+    """
+    return [
+        verify_frame(flags=Spec.APPROVE_EXECUTION),
+        verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
+        sender_frame(value=MAX_FRAME_VALUE),
+    ]
+
+
+def payer_entries(sender: EOA, payer: EOA) -> List[FrameSignature]:
+    """Return the sender's and the payer's canonical entries."""
+    return [
+        FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+        FrameSignature(
+            scheme=Spec.SCHEME_SECP256K1,
+            signer=Bytes(payer),
+            secret_key=payer.key,
+        ),
+    ]
+
+
+def test_sender_frame_value_at_max(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Accept a `SENDER` frame carrying `2**256 - 1`, the largest value the
+    bound allows. A separate payer covers the fees, so the sender holds
+    the whole value and the transfer to itself succeeds.
+
+    EIP-8141 §Constraints: "assert frame.value < 2**256" and "assert
+    frame.mode == SENDER or frame.value == 0".
+    """
+    sender = pre.fund_eoa(amount=MAX_FRAME_VALUE)
+    payer = pre.fund_eoa()
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        payer=payer,
+        frames=sponsored_max_value_frames(payer),
+        signatures=payer_entries(sender, payer),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1, balance=MAX_FRAME_VALUE),
+            payer: Account(nonce=0),
+        },
+    )
+
+
+def test_sender_frame_value_at_max_transaction(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Accept the transaction of `test_sender_frame_value_at_max` on the
+    transaction itself.
+    """
+    sender = pre.fund_eoa()
+    payer = pre.fund_eoa()
+    tx = Transaction(
+        sender=sender,
+        frames=sponsored_max_value_frames(payer),
+        signatures=payer_entries(sender, payer),
     )
 
     transaction_test(pre=pre, tx=tx)
