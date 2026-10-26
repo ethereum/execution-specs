@@ -636,8 +636,8 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     )
     is_enginex = BlockchainEngineXFixture in supported_fixture_formats
     if not is_enginex:
-        # EngineX orders its collection by pre-alloc group instead, see
-        # `pytest_collection_modifyitems` in the enginex plugin.
+        # EngineX orders its collection by pre-alloc group, then by fixture
+        # file, see `pytest_collection_modifyitems` in the enginex plugin.
         test_cases = group_test_cases_by_fixture_file(test_cases)
     param_list = []
     for test_case in test_cases:

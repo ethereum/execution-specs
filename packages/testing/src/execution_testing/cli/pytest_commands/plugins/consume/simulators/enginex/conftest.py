@@ -19,6 +19,7 @@ from hive.testing import HiveTest
 
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.fixtures.consume import TestCaseIndexFile
 from execution_testing.fixtures.pre_alloc_groups import PreAllocGroup
 
 from ..helpers.test_tracker import (
@@ -95,6 +96,22 @@ def pytest_configure(config: pytest.Config) -> None:
     config.supported_fixture_formats = [BlockchainEngineXFixture]  # type: ignore[attr-defined]
 
 
+def _fixture_file(item: pytest.Item) -> str:
+    """
+    Return the path of the fixture file that holds an item's test case.
+
+    Return an empty string for a test case read from stdin, which has no
+    file.
+    """
+    callspec = getattr(item, "callspec", None)
+    if callspec is None:
+        return ""
+    test_case = callspec.params.get("test_case")
+    if isinstance(test_case, TestCaseIndexFile):
+        return str(test_case.json_path)
+    return ""
+
+
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: list[pytest.Item]
@@ -132,16 +149,24 @@ def pytest_collection_modifyitems(
         f"{sum(group_counts.values())} total tests"
     )
 
-    def sort_key(item: pytest.Item) -> tuple[int, str]:
-        """Return sort key: largest group first, then by group id."""
+    def sort_key(item: pytest.Item) -> tuple[int, str, str]:
+        """
+        Return sort key: largest group first, then by group id, then by
+        fixture file.
+
+        Keeping the tests of a fixture file contiguous within a group lets
+        the worker's fixture file cache load each file once per group.
+        """
         for marker in item.iter_markers("xdist_group"):
             if "name" in marker.kwargs:
                 gid = marker.kwargs["name"]
-                return (-group_counts[gid], gid)
-        return (0, "")
+                return (-group_counts[gid], gid, _fixture_file(item))
+        return (0, "", "")
 
     items.sort(key=sort_key)
-    logger.info("Sorted tests by pre-alloc group (largest first)")
+    logger.info(
+        "Sorted tests by pre-alloc group (largest first) and fixture file"
+    )
 
 
 class _GroupDispatchTracker:
