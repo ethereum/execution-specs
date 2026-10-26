@@ -21,7 +21,6 @@ New EIP features stay on your own fork until the EIP is Proposed or Considered f
 We close the following without review:
 
 - Pull requests from outside contributors that don't link an issue assigned to them. These are closed automatically.
-- Issues from outside contributors beyond the limit below. These are closed automatically.
 - New EIP features for EIPs that are not yet PFI or CFI.
 - Changes without a concrete reason, such as refactors, renames or style changes nobody asked for.
 - Changes that only fix spelling, grammar or formatting.
@@ -41,7 +40,6 @@ Pull requests without a linked issue assigned to their author are closed automat
 ### Limits
 
 - Contributors without write access can have at most 2 open pull requests, drafts included.
-- Outside contributors can have at most 2 open issues. Further issues are closed automatically.
 
 If you are an EIP author or part of an EL client or tooling team, message us in `#el-testing` on the [Ethereum R&D Discord](https://discord.com/invite/qGpsxSA) to get added to the bypass list.
 

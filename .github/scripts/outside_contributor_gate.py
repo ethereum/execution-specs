@@ -4,17 +4,17 @@
 # requires-python = ">=3.12"
 # ///
 """
-Close pull requests and issues from outside contributors that skip the rules.
+Close pull requests from outside contributors that skip the rules.
 
-Usage: `outside_contributor_gate.py [--pr N | --issue N | --sweep] [--dry-run]`.
+Usage: `outside_contributor_gate.py [--pr N | --sweep] [--dry-run]`.
 
 Outside contributors are authors who are neither collaborators nor
 members of the organization, going by `author_association`, whatever
 they have merged before. Their pull requests must reference an issue
-they are assigned to, and they may have at most `MAX_OPEN_ISSUES` open
-issues. Anything else is closed with a comment linking the rule in
-CONTRIBUTING.md. Collaborators and members are left alone, and so are
-bots, items a maintainer reopened and authors listed in
+they are assigned to, or they are closed with a comment linking the
+rule in CONTRIBUTING.md. Issues are never closed. Collaborators and
+members are left alone, and so are bots, pull requests a maintainer
+reopened and authors listed in
 `.github/configs/outside-contributor-gate-bypass.txt`.
 
 A pull request event runs the workflow of the pull request's base
@@ -22,8 +22,8 @@ branch, so `--sweep` gates the pull requests opened into every other
 branch in the last `SWEEP_HOURS` hours from a schedule on the default
 branch instead.
 
-Read the event from `GITHUB_EVENT_PATH` (or the item from `--pr` or
-`--issue`) and the repository from `GITHUB_REPOSITORY`, and query GitHub
+Read the event from `GITHUB_EVENT_PATH` (or the pull request from
+`--pr`) and the repository from `GITHUB_REPOSITORY`, and query GitHub
 via the `gh` CLI (authenticated by `GH_TOKEN`).
 """
 
@@ -44,8 +44,6 @@ INSIDE = ("OWNER", "MEMBER", "COLLABORATOR")
 
 CONFIGS = Path(__file__).parent.parent / "configs"
 BYPASS = CONFIGS / "outside-contributor-gate-bypass.txt"
-
-MAX_OPEN_ISSUES = 2
 
 # The sweep runs hourly, so this window also covers late or dropped runs.
 SWEEP_HOURS = 3
@@ -81,13 +79,6 @@ untouched.
 See [Outside contributors]({{contributing}}#outside-contributors) \
 for the steps to follow. {BYPASS_HELP}"""
 
-ISSUE_MESSAGE = f"""\
-Thanks for opening this issue, @{{author}}! Our review resources are \
-constrained, so it was closed automatically because you already have \
-{{max_issues}} open issues. Please wait for a reply on those.
-
-See [Limits]({{contributing}}#limits) for the rule. {BYPASS_HELP}"""
-
 
 def bypassed(path: Path = BYPASS) -> set[str]:
     """Return the lowercase logins listed in the bypass file."""
@@ -101,12 +92,12 @@ def message(template: str, **fields: str) -> str:
 
 
 def is_outside_contributor(
-    item: dict[str, Any], sender: str, bypass: set[str]
+    pr: dict[str, Any], sender: str, bypass: set[str]
 ) -> bool:
-    """Return whether an outside contributor opened or reopened `item`."""
-    author = item["user"]
+    """Return whether an outside contributor opened or reopened `pr`."""
+    author = pr["user"]
     return (
-        item["author_association"] not in INSIDE
+        pr["author_association"] not in INSIDE
         and author["type"] != "Bot"
         and author["login"] == sender
         and author["login"].lower() not in bypass
@@ -182,91 +173,59 @@ def assigned_issue(repo: str, pr: dict[str, Any]) -> int | None:
     return None
 
 
-def earlier_open_issues(repo: str, author: str, number: int) -> list[int]:
-    """Return the open issues `author` opened before issue `number`."""
-    items = api_list(f"repos/{repo}/issues", creator=author, state="open")
-    return sorted(
-        item["number"]
-        for item in items
-        if "pull_request" not in item and item["number"] < number
-    )
-
-
 def already_gated(repo: str, number: int) -> bool:
     """Return whether the gate has commented on `number` before."""
     path = f"repos/{repo}/issues/{number}/comments"
     return any(MARKER in item["body"] for item in api_list(path))
 
 
-def load_item(
-    args: argparse.Namespace, repo: str
-) -> tuple[dict[str, Any], bool, str]:
-    """Return the item to check, whether it is a PR, and who acted."""
-    if args.pr is not None or args.issue is not None:
-        kind = "pulls" if args.pr is not None else "issues"
-        number = args.pr if args.pr is not None else args.issue
-        item = api(f"repos/{repo}/{kind}/{number}")
-        return item, args.pr is not None, item["user"]["login"]
+def load_pr(args: argparse.Namespace, repo: str) -> tuple[dict[str, Any], str]:
+    """Return the pull request to check and who acted."""
+    if args.pr is not None:
+        pr = api(f"repos/{repo}/pulls/{args.pr}")
+        return pr, pr["user"]["login"]
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
-    is_pr = "pull_request" in event
-    item = event["pull_request"] if is_pr else event["issue"]
-    return item, is_pr, event["sender"]["login"]
+    return event["pull_request"], event["sender"]["login"]
 
 
-def close(repo: str, number: int, message: str, is_pr: bool) -> None:
-    """Comment `message` on an issue or pull request and close it."""
+def close(repo: str, number: int, message: str) -> None:
+    """Comment `message` on pull request `number` and close it."""
     api_write("POST", f"repos/{repo}/issues/{number}/comments", body=message)
-    fields = {"state": "closed"}
-    if not is_pr:
-        fields["state_reason"] = "not_planned"
-    api_write("PATCH", f"repos/{repo}/issues/{number}", **fields)
+    api_write("PATCH", f"repos/{repo}/issues/{number}", state="closed")
 
 
-def violation(repo: str, item: dict[str, Any], is_pr: bool) -> str | None:
-    """Return the message to close `item` with, or `None` to leave it."""
-    number = item["number"]
-    author = item["user"]["login"]
-    contributing = f"https://github.com/{repo}/blob/HEAD/CONTRIBUTING.md"
-    if is_pr:
-        issue = assigned_issue(repo, item)
-        if issue is not None:
-            print(f"#{number}: author is assigned to #{issue}")
-            return None
-        return message(PR_MESSAGE, author=author, contributing=contributing)
-    earlier = earlier_open_issues(repo, author, number)
-    if len(earlier) < MAX_OPEN_ISSUES:
-        print(f"#{number}: {len(earlier)} earlier open issues")
+def violation(repo: str, pr: dict[str, Any]) -> str | None:
+    """Return the message to close `pr` with, or `None` to leave it."""
+    issue = assigned_issue(repo, pr)
+    if issue is not None:
+        print(f"#{pr['number']}: author is assigned to #{issue}")
         return None
-    return message(
-        ISSUE_MESSAGE,
-        author=author,
-        max_issues=str(MAX_OPEN_ISSUES),
-        contributing=contributing,
-    )
+    contributing = f"https://github.com/{repo}/blob/HEAD/CONTRIBUTING.md"
+    author = pr["user"]["login"]
+    return message(PR_MESSAGE, author=author, contributing=contributing)
 
 
 def gate(
     repo: str,
-    item: dict[str, Any],
-    is_pr: bool,
+    pr: dict[str, Any],
     sender: str,
     dry_run: bool,
     swept: bool = False,
 ) -> None:
-    """Close `item` if an outside contributor opened it against the rules."""
-    number = item["number"]
-    if not is_outside_contributor(item, sender, bypassed()):
-        print(f"#{number}: skipped, {item['author_association']} by {sender}")
+    """Close `pr` if an outside contributor opened it against the rules."""
+    number = pr["number"]
+    if not is_outside_contributor(pr, sender, bypassed()):
+        print(f"#{number}: skipped, {pr['author_association']} by {sender}")
         return
     if swept and already_gated(repo, number):
         print(f"#{number}: skipped, reopened after the gate closed it")
         return
-    comment = violation(repo, item, is_pr)
+    comment = violation(repo, pr)
     if comment is None:
         return
     print(f"#{number}: closing")
     if not dry_run:
-        close(repo, number, comment, is_pr)
+        close(repo, number, comment)
 
 
 def sweep(repo: str, now: datetime, dry_run: bool) -> None:
@@ -282,15 +241,14 @@ def sweep(repo: str, now: datetime, dry_run: bool) -> None:
     for pr in pulls:
         recent = datetime.fromisoformat(pr["created_at"]) >= since
         if recent and pr["base"]["ref"] != default:
-            gate(repo, pr, True, pr["user"]["login"], dry_run, swept=True)
+            gate(repo, pr, pr["user"]["login"], dry_run, swept=True)
 
 
 def main() -> None:
-    """Gate one pull request or issue, or sweep recent pull requests."""
+    """Gate one pull request, or sweep recent pull requests."""
     parser = argparse.ArgumentParser(description=__doc__)
     target = parser.add_mutually_exclusive_group()
     target.add_argument("--pr", type=int, help="pull request number")
-    target.add_argument("--issue", type=int, help="issue number")
     target.add_argument(
         "--sweep",
         action="store_true",
@@ -303,8 +261,8 @@ def main() -> None:
     if args.sweep:
         sweep(repo, datetime.now(UTC), args.dry_run)
         return
-    item, is_pr, sender = load_item(args, repo)
-    gate(repo, item, is_pr, sender, args.dry_run)
+    pr, sender = load_pr(args, repo)
+    gate(repo, pr, sender, args.dry_run)
 
 
 if __name__ == "__main__":

@@ -1,15 +1,15 @@
 name: Outside contributor gate
 
 # Closes an outside contributor's pull request unless it references an
-# issue they are assigned to, and closes their issues beyond 2 open at once.
-# Outside contributors are authors who are neither collaborators nor
-# organization members, unless they are on the bypass list in
+# issue they are assigned to. Issues are never closed. Outside contributors
+# are authors who are neither collaborators nor organization members,
+# unless they are on the bypass list in
 # .github/configs/outside-contributor-gate-bypass.txt. See CONTRIBUTING.md.
 #
 # Runs from the base branch via `pull_request_target`, so fork pull requests
 # get a write token. The pull request's code is never checked out, and its
 # body only reaches the script through the event payload, never a `run:`
-# expression. A maintainer overrides the gate by reopening the item.
+# expression. A maintainer overrides the gate by reopening the pull request.
 #
 # A pull request event runs the workflow of the pull request's base branch,
 # so the event only gates pull requests into the default branch. A schedule,
@@ -17,8 +17,6 @@ name: Outside contributor gate
 
 on:
   pull_request_target:
-    types: [ opened, reopened ]
-  issues:
     types: [ opened, reopened ]
   schedule:
     # Avoid the top of the hour, when scheduled runs are most often delayed.
@@ -39,19 +37,14 @@ jobs:
         !contains(
           fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
           github.event.pull_request.author_association
-            || github.event.issue.author_association
         )
-        && (
-          github.event_name == 'issues'
-          || github.event.pull_request.base.ref
-            == github.event.repository.default_branch
-        )
+        && github.event.pull_request.base.ref
+          == github.event.repository.default_branch
       )
     concurrency:
       group: >-
         ${{ github.workflow }}-${{
-          github.event.pull_request.number || github.event.issue.number
-            || 'sweep'
+          github.event.pull_request.number || 'sweep'
         }}
     runs-on: ubuntu-latest
     steps:
@@ -61,7 +54,7 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           enable-cache: "false"
-      - name: Close items that break the rules
+      - name: Close pull requests that break the rules
         if: github.event_name != 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}

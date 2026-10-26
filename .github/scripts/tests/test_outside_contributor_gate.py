@@ -112,14 +112,6 @@ def issue(number: int, assignees: list[str]) -> dict[str, Any]:
     }
 
 
-def opened(number: int, pull_request: bool = False) -> dict[str, Any]:
-    """Return open item `number` that `alice` opened."""
-    item: dict[str, Any] = {"number": number}
-    if pull_request:
-        item["pull_request"] = {}
-    return item
-
-
 def pull(
     number: int,
     base: str,
@@ -144,13 +136,11 @@ class FakeGh:
     def __init__(
         self,
         issues: list[dict[str, Any]] | None = None,
-        history: list[dict[str, Any]] | None = None,
         pulls: list[dict[str, Any]] | None = None,
         comments: dict[int, list[str]] | None = None,
     ):
-        """Serve issues, opened items, pulls and comments."""
+        """Serve issues, pulls and comments."""
         self.issues = {item["number"]: item for item in issues or []}
-        self.history = history or []
         self.pulls = pulls or []
         self.comments = comments or {}
         self.reads: list[tuple[str, ...]] = []
@@ -171,9 +161,6 @@ class FakeGh:
             number = int(path.split("/")[-2])
             bodies = self.comments.get(number, [])
             return "\n".join(json.dumps({"body": b}) for b in bodies)
-        if path.startswith("repos/o/r/issues?"):
-            assert "creator=alice&state=open" in path
-            return "\n".join(json.dumps(item) for item in self.history)
         number = int(path.rsplit("/", 1)[1])
         if number in self.issues:
             return json.dumps(self.issues[number])
@@ -217,23 +204,7 @@ def pr_event(
     }
 
 
-def issue_event(
-    number: int = 9, association: str = "NONE", sender: str = "alice"
-) -> dict[str, Any]:
-    """Return an event for issue `number` from `alice`."""
-    return {
-        "action": "opened",
-        "sender": {"login": sender},
-        "issue": {
-            "number": number,
-            "body": "",
-            "author_association": association,
-            "user": {"login": "alice", "type": "User"},
-        },
-    }
-
-
-def closed(number: int, message: str, *reason: str) -> list[tuple[str, ...]]:
+def closed(number: int, message: str) -> list[tuple[str, ...]]:
     """Return the writes that comment `message` and close `number`."""
     return [
         (
@@ -249,7 +220,6 @@ def closed(number: int, message: str, *reason: str) -> list[tuple[str, ...]]:
             "PATCH",
             "-f",
             "state=closed",
-            *reason,
         ),
     ]
 
@@ -257,13 +227,6 @@ def closed(number: int, message: str, *reason: str) -> list[tuple[str, ...]]:
 CONTRIBUTING = "https://github.com/o/r/blob/HEAD/CONTRIBUTING.md"
 CONTRIBUTING_MD = Path(__file__).parents[3] / "CONTRIBUTING.md"
 PR_MESSAGE = m.message(m.PR_MESSAGE, author="alice", contributing=CONTRIBUTING)
-ISSUE_MESSAGE = m.message(
-    m.ISSUE_MESSAGE,
-    author="alice",
-    max_issues=str(m.MAX_OPEN_ISSUES),
-    contributing=CONTRIBUTING,
-)
-NOT_PLANNED = ("-f", "state_reason=not_planned")
 
 
 def headings(text: str) -> set[str]:
@@ -279,7 +242,7 @@ def test_messages_link_sections_that_still_exist() -> None:
     """Point every anchor at a heading CONTRIBUTING.md still has."""
     anchors = re.findall(
         rf"{re.escape(CONTRIBUTING)}#([\w-]+)\)",
-        PR_MESSAGE + ISSUE_MESSAGE,
+        PR_MESSAGE,
     )
     assert anchors
     assert set(anchors) <= headings(CONTRIBUTING_MD.read_text())
@@ -287,14 +250,12 @@ def test_messages_link_sections_that_still_exist() -> None:
 
 def test_messages_name_the_author_and_link_the_guide() -> None:
     """Mention the author, link the guide and end with the marker."""
-    for message in (PR_MESSAGE, ISSUE_MESSAGE):
-        assert message.startswith("Thanks")
-        assert "@alice" in message
-        assert CONTRIBUTING in message
-        assert f"{CONTRIBUTING}#" in message
-        assert m.RND_DISCORD in message
-        assert message.endswith(m.MARKER)
-        assert "{" not in message
+    assert PR_MESSAGE.startswith("Thanks")
+    assert "@alice" in PR_MESSAGE
+    assert f"{CONTRIBUTING}#" in PR_MESSAGE
+    assert m.RND_DISCORD in PR_MESSAGE
+    assert PR_MESSAGE.endswith(m.MARKER)
+    assert "{" not in PR_MESSAGE
 
 
 def test_pr_without_reference_is_closed(
@@ -365,70 +326,14 @@ def test_pr_from_others_is_left_alone(
     assert fake.writes == []
 
 
-@pytest.mark.parametrize("is_pr", [True, False], ids=["pr", "issue"])
 def test_prior_contributor_is_gated(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, is_pr: bool
-) -> None:
-    """Gate an author with merged pull requests like any other outsider."""
-    fake = FakeGh(history=[opened(3), opened(5), opened(9)])
-    if is_pr:
-        event = pr_event("Fix a typo.", association="CONTRIBUTOR")
-        expected = closed(7, PR_MESSAGE)
-    else:
-        event = issue_event(association="CONTRIBUTOR")
-        expected = closed(9, ISSUE_MESSAGE, *NOT_PLANNED)
-    run_event(monkeypatch, tmp_path, fake, event)
-    assert fake.writes == expected
-
-
-@pytest.mark.parametrize(
-    "number,history",
-    [
-        (9, [opened(9)]),
-        (9, [opened(5), opened(9)]),
-        (9, [opened(3, pull_request=True), opened(5), opened(9)]),
-        (5, [opened(3), opened(5), opened(9)]),
-    ],
-    ids=["first", "second", "prs-ignored", "later-ones-ignored"],
-)
-def test_issue_within_limit_is_left_open(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    number: int,
-    history: list[dict[str, Any]],
-) -> None:
-    """Leave an issue alone while the author is within the limit."""
-    fake = FakeGh(history=history)
-    run_event(monkeypatch, tmp_path, fake, issue_event(number))
-    assert fake.writes == []
-
-
-@pytest.mark.parametrize(
-    "history",
-    [
-        [opened(3), opened(5), opened(9)],
-        [opened(3), opened(5)],
-    ],
-    ids=["third", "not-listed-yet"],
-)
-def test_issue_over_limit_is_closed(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    history: list[dict[str, Any]],
-) -> None:
-    """Close an issue while two earlier ones are still open."""
-    fake = FakeGh(history=history)
-    run_event(monkeypatch, tmp_path, fake, issue_event())
-    assert fake.writes == closed(9, ISSUE_MESSAGE, *NOT_PLANNED)
-
-
-def test_issue_reopened_by_maintainer_is_left_alone(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Let a maintainer override the limit by reopening the issue."""
-    fake = FakeGh(history=[opened(3), opened(5), opened(9)])
-    run_event(monkeypatch, tmp_path, fake, issue_event(sender="maintainer"))
-    assert fake.writes == []
+    """Gate an author with merged pull requests like any other outsider."""
+    fake = FakeGh()
+    event = pr_event("Fix a typo.", association="CONTRIBUTOR")
+    run_event(monkeypatch, tmp_path, fake, event)
+    assert fake.writes == closed(7, PR_MESSAGE)
 
 
 def test_dry_run_writes_nothing(
