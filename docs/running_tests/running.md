@@ -185,7 +185,7 @@ The `consume sync` command:
 | Nomenclature   |                            |
 | -------------- | -------------------------- |
 | Command        | `consume wirex`            |
-| Simulator      | None yet, dev mode only    |
+| Simulator      | `eels/consume-wirex`       |
 | Fixture format | `blockchain_test_engine_x` |
 
 The WireX method makes the client under test full sync each test's chain from a mock devp2p peer, reusing one client per pre-allocation group as `consume enginex` does. It intends to replace `consume rlp` for post-Merge forks: the same blocks travel the client's production peer-to-peer path instead of a client-specific offline import.

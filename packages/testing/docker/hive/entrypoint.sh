@@ -5,7 +5,7 @@
 # Overridable at run time (hive passes environment variables from its
 # --sim.buildarg values through the simulator Dockerfile):
 #   FIXTURES                            fixture directory, /fixtures in the image
-#   DISABLE_STRICT_EXCEPTION_MATCHING   engine and enginex; defaults to nimbus-el when
+#   DISABLE_STRICT_EXCEPTION_MATCHING   engine, enginex and wirex; defaults to nimbus-el when
 #                                       unset; an empty value exempts no client
 #                                       TODO: remove when fixed on nimbus-el side.
 #   FORK                                execute-blobs; defaults to EEST_DEFAULT_FORK, the fork
@@ -40,6 +40,10 @@ consume-engine)
     ;;
 consume-enginex)
     exec uv run --no-sync consume enginex -v --input "$FIXTURES" \
+        --disable-strict-exception-matching "${DISABLE_STRICT_EXCEPTION_MATCHING-nimbus-el}" "$@"
+    ;;
+consume-wirex)
+    exec uv run --no-sync consume wirex -v --input "$FIXTURES" \
         --disable-strict-exception-matching "${DISABLE_STRICT_EXCEPTION_MATCHING-nimbus-el}" "$@"
     ;;
 consume-rlp)

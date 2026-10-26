@@ -25,7 +25,7 @@ If the branch moves during a build, the simulator publication step checks again:
 
 Nightly publication uses the mainnet queue because it also moves `nightly` on the fixture and tests images that its simulator builds read. The scheduled fill itself remains serialized by the release workflow. Manual nightly publication joins the same image queue.
 
-The five simulator images are pushed by independent jobs, so a channel tag can point at the new release on four of them and the old one on the fifth while a job is failing. The step summary of every run lists each pushed tag with its digest, commit and release, and the `digests-*` artifacts hold the same as JSON, so what a tag pointed to at any time can be traced.
+The six simulator images are pushed by independent jobs, so a channel tag can point at the new release on five of them and the old one on the sixth while a job is failing. The step summary of every run lists each pushed tag with its digest, commit and release, and the `digests-*` artifacts hold the same as JSON, so what a tag pointed to at any time can be traced.
 
 ## Jobs
 

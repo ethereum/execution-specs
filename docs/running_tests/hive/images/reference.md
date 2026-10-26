@@ -37,6 +37,7 @@ Only the simulator images are a stable interface. The repository, fixture and te
 | `consume-rlp` | `hive/consume-rlp` | `consume rlp` | `blockchain_tests` fixtures |
 | `consume-engine` | `hive/consume-engine` | `consume engine` | `blockchain_tests_engine` fixtures |
 | `consume-enginex` | `hive/consume-enginex` | `consume enginex` | `blockchain_tests_engine_x` fixtures, pre-alloc groups included |
+| `consume-wirex` | `hive/consume-wirex` | `consume wirex` | `blockchain_tests_engine_x` fixtures, pre-alloc groups included |
 | `consume-sync` | `hive/consume-sync` | `consume sync` | `blockchain_tests_sync` fixtures |
 | `execute-blobs` | `hive/execute-blobs` | `execute hive -m blob_transaction_test` | the test sources of the release or fill |
 
@@ -68,7 +69,7 @@ Rules behind the table:
 - No tag on any image is named after a fork, because the default branch is renamed at every fork. The default branch's channel is `latest`.
 - Only the default branch publishes the mainnet tags, and a release is only ever paired with the branch it was cut from.
 - The nightly fill covers the main line only, so `nightly` is a mainnet channel. Only the latest fill is tagged; the simulator log header and the image labels name the fill by its commit, `nightly-<commit>`, and the publishing run records its digest. Should the fill ever cover devnet branches, their nightly would be `glamsterdam-devnet-8-nightly`.
-- The five simulator images move independently: a failed build leaves one image's channel tag on the previous release while the others advance.
+- The six simulator images move independently: a failed build leaves one image's channel tag on the previous release while the others advance.
 - Channel tags and `nightly` name sources, not bytes: they are pushed again whenever their sources are rebuilt. A release tag keeps the bytes its release run published. The byte-exact identity of an image is its digest, `ghcr.io/ethereum/execution-specs/hive/consume-engine@sha256:…`, which the publishing run records; see [Reproduce a run exactly](how_to.md#reproduce-a-run-exactly).
 
 ## Hive build arguments
@@ -81,7 +82,7 @@ Set with `--sim.buildarg name=value` on the image Dockerfiles. For the separate 
 | `image` | all | the simulator's published image | Another registry namespace or a locally built image. |
 | `fixtures` | `consume-*` | none | Deprecated. Without `tag`, a `consume --input` value cached at build time, or `/fixtures` with a staged `fixtures.tar.gz`. |
 | `branch` | all | none | Deprecated. Without `tag`, an execution-specs ref whose framework, and for `execute-blobs` whose tests, the image installs at build time. |
-| `disable_strict_exception_matching` | `consume-engine`, `consume-enginex` | `nimbus-el` | Clients exempt from strict exception matching; an empty value exempts none. |
+| `disable_strict_exception_matching` | `consume-engine`, `consume-enginex`, `consume-wirex` | `nimbus-el` | Clients exempt from strict exception matching; an empty value exempts none. |
 | `fork` | `execute-blobs` | the image's `EEST_DEFAULT_FORK` | Fork to execute the tests for. |
 
 Without `tag`, `fixtures` and `branch` select the simulator's `latest-legacy` image: `latest` with ONBUILD steps that apply them during hive's build. Builds without them use `latest` or the given tag directly and run no build steps.
