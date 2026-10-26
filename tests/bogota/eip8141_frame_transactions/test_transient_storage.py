@@ -54,6 +54,9 @@ TRANSIENT_VALUE = 0x2A
 FAILED_FRAME_TRANSIENT_VALUE = 0x99
 """Value a failing frame writes into the slot before it fails."""
 
+CALLING_FRAME_GAS = 200_000
+"""Execution gas budget of the frames whose target calls another account."""
+
 SLOT_SEEN_AT_ENTRY = 0x00
 """
 Base of the storage slots recording the transient value a frame reads
@@ -240,19 +243,25 @@ def test_transient_storage_discarded_after_failed_frame(
     A frame fails after the recorder's first frame wrote the transient
     slot; the recorder's last frame still finds the slot empty.
 
-    The failing frame writes its own value into the same slot first,
-    so the last frame's entry read tells all three outcomes apart:
-    `TRANSIENT_VALUE` if the first frame's write survived,
-    `FAILED_FRAME_TRANSIENT_VALUE` if the failed frame's write did, and
-    zero only if transient storage is discarded between frames
-    (EIP-8141 §Cross-frame interactions: "Discard the `TSTORE` and
-    `TLOAD` transient storage between frames").
+    The last frame's entry read is zero only if transient storage is
+    discarded between frames (EIP-8141 §Cross-frame interactions:
+    "Discard the `TSTORE` and `TLOAD` transient storage between
+    frames"); `TRANSIENT_VALUE` there means the first frame's write
+    survived. The failing frame also writes the slot, with
+    `FAILED_FRAME_TRANSIENT_VALUE`, but its own failure already undoes
+    that write under EIP-1153's journaling, so reading it back would
+    expose a client that does not journal transient storage, not one
+    that skips the discard.
 
     In the `atomic_batch_unrolls` case the failing frame terminates an
     atomic batch whose first frame runs the recorder too, so the batch
     unroll (§Behavior: "If a frame is part of an atomic batch and it
     fails, unroll the associated atomic batch") restores the state from
     before the batch, and the unrolled batch frame's records go with it.
+    A client whose unroll restores transient storage as it stood when
+    the first frame ended would bring that frame's write back; the
+    last frame finds the slot empty only if the discard still applies
+    after the unroll.
     """
     # Frames supplying calldata fail, the others record.
     code = Conditional(
@@ -347,3 +356,85 @@ def test_transient_storage_discarded_before_verify_frame(
     )
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=2)})
+
+
+SLOT_SEEN_BY_CALLEE = 0x200
+"""
+Base of the storage slots recording the transient value a called
+account reads; frame `i` records into `SLOT_SEEN_BY_CALLEE + i`.
+"""
+
+
+def test_transient_storage_discarded_for_called_account(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A frame's target calls a second account, which writes its own
+    transient slot, then calls it again to read the slot back. In the
+    next frame another target calls the same account to read the slot:
+    it is empty, although the account was never a frame's target.
+
+    EIP-8141 §Cross-frame interactions: "Discard the `TSTORE` and
+    `TLOAD` transient storage between frames." The discard covers all
+    transient storage, not only the frame target's. The read within
+    the first frame shows the write was made and survived its call.
+
+    The called account records each read plus one, so an empty slot
+    reads as 1.
+    """
+    callee_code = Conditional(
+        condition=Op.CALLDATASIZE,
+        if_true=Op.TSTORE(TRANSIENT_KEY, TRANSIENT_VALUE),
+        if_false=Op.SSTORE(
+            Op.ADD(SLOT_SEEN_BY_CALLEE, CURRENT_FRAME_INDEX),
+            Op.ADD(1, Op.TLOAD(TRANSIENT_KEY)),
+        ),
+    )
+    callee = pre.deploy_contract(code=callee_code)
+    writer_code = (
+        Op.POP(Op.CALL(gas=Op.GAS, address=callee, args_size=1))
+        + Op.POP(Op.CALL(gas=Op.GAS, address=callee))
+        + Op.STOP
+    )
+    writer = pre.deploy_contract(code=writer_code)
+    reader = pre.deploy_contract(
+        code=Op.POP(Op.CALL(gas=Op.GAS, address=callee)) + Op.STOP
+    )
+    slot_gas = Op.SSTORE(0, 1).state_cost(fork)
+    sender = pre.fund_eoa()
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=writer,
+                gas_limit=CALLING_FRAME_GAS,
+                pin_gas=False,
+                state_gas_used=slot_gas,
+            ),
+            default_frame(
+                target=reader,
+                gas_limit=CALLING_FRAME_GAS,
+                pin_gas=False,
+                state_gas_used=slot_gas,
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            callee: Account(
+                storage={
+                    SLOT_SEEN_BY_CALLEE + 1: TRANSIENT_VALUE + 1,
+                    SLOT_SEEN_BY_CALLEE + 2: 1,
+                }
+            ),
+        },
+    )

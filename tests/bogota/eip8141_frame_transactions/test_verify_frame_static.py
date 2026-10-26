@@ -15,7 +15,9 @@ frame makes the transaction invalid, unrolling its approvals
 (§Behavior: "If the frame fails by reverting or halting exceptionally,
 the transaction is invalid. This unrolls any effects of `APPROVE`.").
 A halt in a nested call only fails that call, which returns zero to the
-`VERIFY` frame's code like any failed call. Reads stay allowed.
+`VERIFY` frame's code like any failed call. Reads stay allowed, and so
+does a `CALLCODE` carrying value, which `STATICCALL` does not forbid:
+it sends the value to the calling account itself.
 """
 
 from typing import Callable, List
@@ -31,6 +33,7 @@ from execution_testing import (
     Conditional,
     Fork,
     Op,
+    Opcode,
     StateTestFiller,
     TransactionException,
 )
@@ -84,6 +87,13 @@ READS = [
     pytest.param(
         lambda to: Op.POP(Op.CALL(gas=0, address=to, value=0)),
         id="CALL_without_value",
+    ),
+    # EIP-214 bans only `CALL` with value in a static context: a
+    # `CALLCODE` with value sends the value to the calling account
+    # itself, which changes no balance.
+    pytest.param(
+        lambda to: Op.POP(Op.CALLCODE(gas=0, address=to, value=1)),
+        id="CALLCODE_with_value",
     ),
 ]
 """Opcodes a static context allows, the controls."""
@@ -170,28 +180,38 @@ def test_verify_frame_runs_as_staticcall(
 
 
 @pytest.mark.parametrize("operation,allowed", static_cases(invalidating=False))
+@pytest.mark.parametrize(
+    "call_opcode",
+    [
+        pytest.param(Op.CALL, id="CALL"),
+        pytest.param(Op.DELEGATECALL, id="DELEGATECALL"),
+    ],
+)
 def test_verify_frame_nested_call_is_static(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     operation: Operation,
     allowed: bool,
+    call_opcode: Opcode,
 ) -> None:
     """
     Run an opcode in a contract the `VERIFY` frame's code calls with a
-    plain `CALL`: the static restriction carries into the call, so a
-    state change halts the call, which returns zero, and the frame
-    still succeeds.
+    plain `CALL`, or runs in its own context with `DELEGATECALL`: the
+    static restriction carries into either, so a state change halts
+    the call, which returns zero, and the frame still succeeds.
 
     EIP-8141 §Behavior, `VERIFY` mode: "Execute the frame as a
     `STATICCALL`, disallowing state manipulation." As for any
-    `STATICCALL`, the restriction holds at every depth below it.
+    `STATICCALL`, the restriction holds at every depth below it,
+    whichever call opcode reaches that depth.
 
     The frame approves only if the call's result matches the expected
     verdict (zero for a state change, one for a read), so the
     transaction is valid only if the callee halted exactly when it
-    tried to change state. The callee holds a balance, so a `CALL`
-    with value can only fail on the static restriction.
+    tried to change state. The callee, and under `DELEGATECALL` the
+    sender whose context it runs in, hold a balance, so a `CALL` with
+    value can only fail on the static restriction.
     """
     recipient = pre.deploy_contract(code=Op.STOP)
     callee = pre.deploy_contract(
@@ -199,7 +219,7 @@ def test_verify_frame_nested_call_is_static(
     )
     sender_code = Conditional(
         condition=Op.EQ(
-            Op.CALL(gas=NESTED_CALL_GAS, address=callee),
+            call_opcode(gas=NESTED_CALL_GAS, address=callee),
             1 if allowed else 0,
         ),
         if_true=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
@@ -224,7 +244,7 @@ def test_verify_frame_nested_call_is_static(
         pre=pre,
         tx=tx,
         post={
-            sender: Account(nonce=2),
+            sender: Account(nonce=2, storage={}),
             callee: Account(nonce=1, balance=1, storage={}),
             recipient: Account(balance=0),
         },

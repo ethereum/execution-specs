@@ -19,14 +19,16 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Bytes,
     Conditional,
     Fork,
     Op,
     Opcode,
     StateTestFiller,
+    compute_create_address,
 )
 
-from .helpers import FrameCase, FrameTransaction, verify_frame
+from .helpers import FrameCase, FrameTransaction, sender_frame, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -76,32 +78,48 @@ def caller_and_origin(caller: Address, origin: Address) -> Dict[int, Address]:
 
 
 @pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize(
+    "contract_sender",
+    [
+        pytest.param(False, id="eoa_sender"),
+        pytest.param(True, id="contract_sender"),
+    ],
+)
 def test_caller_and_origin_at_frame_top_level(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     mode: int,
+    contract_sender: bool,
 ) -> None:
     """
     Record `CALLER` and `ORIGIN` at a frame's top level: both are the
     frame's `caller`, the sender in a `SENDER` frame and `ENTRY_POINT`
-    in a `DEFAULT` frame.
+    in a `DEFAULT` frame, whether the sender is an EOA or a contract.
 
     EIP-8141 §Behavior: "If mode is `SENDER`: [...] Set `caller` to
     `tx.sender`. If mode is `DEFAULT` or `VERIFY`: Set `caller` to
     `ENTRY_POINT`. The `ORIGIN` opcode returns frame's `caller`
     throughout all call depths." §Constants: `ENTRY_POINT` is
-    `address(0xaa)`.
+    `address(0xaa)`. §Transaction origination: "Specifically, `SENDER`
+    frames originate calls where `tx.sender` is a contract account."
     """
-    sender = pre.fund_eoa()
+    if contract_sender:
+        approve = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
+        sender: Address = pre.deploy_contract(code=approve, balance=10**18)
+        verify = verify_frame(code=approve)
+    else:
+        sender = pre.fund_eoa()
+        verify = verify_frame()
     recorder = pre.deploy_contract(code=RECORDER_CODE)
     caller = frame_caller(mode, sender)
 
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
+        nonce=1 if contract_sender else 0,
         frames=[
-            verify_frame(),
+            verify,
             FrameCase(mode=mode, target=recorder, code=RECORDER_CODE),
         ],
     )
@@ -110,7 +128,7 @@ def test_caller_and_origin_at_frame_top_level(
         pre=pre,
         tx=tx,
         post={
-            sender: Account(nonce=1),
+            sender: Account(nonce_change=1),
             recorder: Account(storage=caller_and_origin(caller, caller)),
         },
     )
@@ -298,5 +316,111 @@ def test_origin_follows_each_frame(
         post={
             sender: Account(nonce=1),
             recorder: Account(storage=storage),
+        },
+    )
+
+
+def test_origin_returns_to_entry_point_in_verify_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Run a `VERIFY` frame right after a `SENDER` frame: the sponsor it
+    targets approves payment only if it sees `ENTRY_POINT` as both
+    `CALLER` and `ORIGIN`, not the sender the previous frame ran as.
+
+    EIP-8141 §Behavior: "If mode is `DEFAULT` or `VERIFY`: Set
+    `caller` to `ENTRY_POINT`. The `ORIGIN` opcode returns frame's
+    `caller` throughout all call depths." The `caller` is set for each
+    frame, so `ORIGIN` changes from the `SENDER` frame's sender back to
+    `ENTRY_POINT`. A `VERIFY` frame cannot write storage, so it checks
+    the values in place: any other value reverts the frame, which
+    makes the transaction invalid.
+    """
+    sender = pre.fund_eoa()
+    recorder = pre.deploy_contract(code=RECORDER_CODE)
+    sponsor_code = Conditional(
+        condition=Op.AND(
+            Op.EQ(Op.CALLER, Spec.ENTRY_POINT),
+            Op.EQ(Op.ORIGIN, Spec.ENTRY_POINT),
+        ),
+        if_true=Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT),
+        if_false=Op.REVERT(0, 0),
+    )
+    sponsor = pre.deploy_contract(code=sponsor_code, balance=10**18)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        payer=sponsor,
+        frames=[
+            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            sender_frame(target=recorder, code=RECORDER_CODE),
+            verify_frame(
+                flags=Spec.APPROVE_PAYMENT, target=sponsor, pin_gas=False
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            recorder: Account(storage=caller_and_origin(sender, sender)),
+        },
+    )
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_caller_and_origin_in_create_initcode(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    mode: int,
+) -> None:
+    """
+    A frame's target creates a contract whose initcode records `CALLER`
+    and `ORIGIN`: `CALLER` is the creating contract, and `ORIGIN` is
+    still the frame's `caller`.
+
+    EIP-8141 §Behavior: "The `ORIGIN` opcode returns frame's `caller`
+    throughout all call depths." Initcode run by `CREATE` is one call
+    depth below the creating contract, which `CREATE` makes its
+    `CALLER`.
+    """
+    sender = pre.fund_eoa()
+    factory = pre.deploy_contract(
+        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.POP(Op.CREATE(0, 0, Op.CALLDATASIZE))
+        + Op.STOP
+    )
+    created = compute_create_address(address=factory, nonce=1)
+    caller = frame_caller(mode, sender)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            FrameCase(
+                mode=mode,
+                target=factory,
+                data=Bytes(bytes(RECORDER_CODE)),
+                gas_limit=FRAME_GAS,
+                pin_gas=False,
+                state_gas_used=fork.gas_costs().NEW_ACCOUNT
+                + RECORDER_CODE.state_cost(fork),
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            created: Account(storage=caller_and_origin(factory, caller)),
         },
     )

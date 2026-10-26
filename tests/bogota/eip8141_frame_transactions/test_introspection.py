@@ -7,7 +7,7 @@ and `SIGDATACOPY` are exercised from a `DEFAULT` frame that stores what
 it reads, so the post state pins the value each selector returns.
 """
 
-from typing import List
+from typing import Dict, List
 
 import pytest
 from execution_testing import (
@@ -19,6 +19,7 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Bytes,
+    Conditional,
     Fork,
     FrameSignature,
     Op,
@@ -26,7 +27,20 @@ from execution_testing import (
     Transaction,
 )
 
-from .helpers import FrameTransaction, default_frame, verify_frame
+from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
+
+from .helpers import (
+    FrameTransaction,
+    default_frame,
+    sender_frame,
+    verify_frame,
+)
+from .signature_helpers import (
+    DIGEST,
+    P256_SIGNER,
+    signed_digest_entry,
+    valid_p256_entry,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -816,5 +830,428 @@ def test_sigdatacopy(
                 }
             ),
             refused: Account(storage={SLOT_RESULT: 0}),
+        },
+    )
+
+
+ARBITRARY_MSG = Bytes(b"\x5a" * 32)
+"""Explicit `msg` of an `ARBITRARY` signature entry."""
+
+FRAME_VALUE = 123
+"""Value a value-bearing `SENDER` frame carries."""
+
+SLOT_SIGNER = 0x00
+"""Base of the slots recording each entry's resolved signer."""
+
+SLOT_SCHEME = 0x10
+"""Base of the slots recording each entry's scheme, plus one."""
+
+SLOT_MSG = 0x20
+"""Base of the slots recording each entry's `msg`, plus one."""
+
+
+def test_sigparam_reads_every_scheme(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Read the resolved signer, scheme and `msg` of four entries: the
+    sender's secp256k1 entry with an empty signer and `msg`, a
+    secp256k1 entry from another key with an explicit signer and
+    `msg`, a P256 entry, and an `ARBITRARY` entry with a `msg`.
+
+    EIP-8141 §Transaction Signatures: "For `SECP256K1` and `P256`, the
+    `signer` is a 20-byte Ethereum address. If absent, `tx.sender` is
+    used (for introspections as well)." and "The explicit 32-byte zero
+    digest is invalid. This reserves the zero stack value as the
+    EVM-visible representation of the transaction signing hash case."
+    §`SIGPARAM`: `SIGPARAM_RESOLVED_SIGNER` returns `resolved_signer`,
+    `SIGPARAM_SCHEME` returns `scheme`, `SIGPARAM_MSG` returns `msg`.
+    `ARBITRARY` entries have no resolved signer, so theirs is not read.
+
+    Scheme and `msg` are stored plus one, since `ARBITRARY` is scheme 0
+    and an empty `msg` reads as 0.
+    """
+    sender = pre.fund_eoa()
+    other = pre.fund_eoa()
+    assert other.key is not None
+    signatures = [
+        FrameSignature(scheme=Spec.SCHEME_SECP256K1, secret_key=sender.key),
+        signed_digest_entry(other.key, signer=Bytes(other)),
+        valid_p256_entry(),
+        FrameSignature(
+            scheme=Spec.SCHEME_ARBITRARY,
+            msg=ARBITRARY_MSG,
+            signature=ARBITRARY_WITNESS,
+        ),
+    ]
+    signers: List[Address | Bytes] = [sender, other, P256_SIGNER]
+    schemes = [
+        Spec.SCHEME_SECP256K1,
+        Spec.SCHEME_SECP256K1,
+        Spec.SCHEME_P256,
+        Spec.SCHEME_ARBITRARY,
+    ]
+    msgs = [0, int.from_bytes(DIGEST, "big"), int.from_bytes(DIGEST, "big")]
+    msgs.append(int.from_bytes(ARBITRARY_MSG, "big"))
+
+    probe_code = Bytecode()
+    expected: Dict[int, int] = {}
+    for index in range(len(signatures)):
+        if index < len(signers):
+            probe_code += Op.SSTORE(
+                SLOT_SIGNER + index,
+                Op.SIGPARAM(index, Spec.SIGPARAM_RESOLVED_SIGNER),
+            )
+            expected[SLOT_SIGNER + index] = int.from_bytes(
+                bytes(signers[index]), "big"
+            )
+        probe_code += Op.SSTORE(
+            SLOT_SCHEME + index,
+            Op.ADD(1, Op.SIGPARAM(index, Spec.SIGPARAM_SCHEME)),
+        ) + Op.SSTORE(
+            SLOT_MSG + index, Op.ADD(1, Op.SIGPARAM(index, Spec.SIGPARAM_MSG))
+        )
+        expected[SLOT_SCHEME + index] = int(schemes[index]) + 1
+        expected[SLOT_MSG + index] = msgs[index] + 1
+    probe_code += Op.STOP
+    probe = pre.deploy_contract(code=probe_code)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=probe,
+                code=probe_code,
+                gas_limit_delta=fork.gas_costs().CALL_STIPEND + 1,
+                state_gas_limit_delta=0,
+            ),
+        ],
+        signatures=signatures,
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={probe: Account(storage=expected)},
+    )
+
+
+@pytest.mark.pre_alloc_mutable
+def test_txparam_nonce_is_the_transaction_nonce(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    After the sender's approval incremented its account nonce, read
+    `TXPARAM_NONCE`: it still reports the transaction's nonce.
+
+    EIP-8141 §`TXPARAM`: `TXPARAM_NONCE` returns `nonce`, the
+    transaction field. §`APPROVE` Behavior increments "the sender's
+    nonce" in the state, which is one higher by the time the probe
+    runs.
+    """
+    tx_nonce = 5
+    sender = pre.fund_eoa(nonce=tx_nonce)
+    probe_code = (
+        Op.SSTORE(SLOT_SIGNER, Op.TXPARAM(Spec.TXPARAM_NONCE)) + Op.STOP
+    )
+    probe = pre.deploy_contract(code=probe_code)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        nonce=tx_nonce,
+        frames=[
+            verify_frame(),
+            default_frame(target=probe, code=probe_code),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=tx_nonce + 1),
+            probe: Account(storage={SLOT_SIGNER: tx_nonce}),
+        },
+    )
+
+
+def test_frameparam_allowed_scope_masks_batch_flag(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A probe in an atomic batch frame reads its own allowed scope and
+    flags, and the first frame's: the allowed scope drops the batch
+    flag, which the flags keep.
+
+    EIP-8141 §`FRAMEPARAM`: `FRAMEPARAM_ALLOWED_SCOPE` returns
+    "`allowed_scope` (`frame.flags & APPROVE_SCOPE_MASK`)" and
+    `FRAMEPARAM_FLAGS` returns `flags`. The probe's flags are
+    `ATOMIC_BATCH_FLAG` alone, so its allowed scope is 0; values are
+    stored plus one.
+    """
+    sender = pre.fund_eoa()
+    probe_code = Bytecode()
+    for index in (0, 1):
+        probe_code += Op.SSTORE(
+            index,
+            Op.ADD(1, Op.FRAMEPARAM(index, Spec.FRAMEPARAM_ALLOWED_SCOPE)),
+        ) + Op.SSTORE(
+            0x10 + index,
+            Op.ADD(1, Op.FRAMEPARAM(index, Spec.FRAMEPARAM_FLAGS)),
+        )
+    probe_code += Op.STOP
+    probe = pre.deploy_contract(code=probe_code)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG,
+                target=probe,
+                code=probe_code,
+                gas_limit_delta=fork.gas_costs().CALL_STIPEND + 1,
+            ),
+            # The batch terminator, codeless at the warm sender.
+            default_frame(target=sender, warm=True),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            probe: Account(
+                storage={
+                    0: Spec.APPROVE_EXECUTION_AND_PAYMENT + 1,
+                    1: 1,
+                    0x10: Spec.APPROVE_EXECUTION_AND_PAYMENT + 1,
+                    0x11: Spec.ATOMIC_BATCH_FLAG + 1,
+                }
+            )
+        },
+    )
+
+
+SLOT_MODE = 0x00
+"""Base of the slots recording each frame's mode, plus one."""
+
+SLOT_VALUE = 0x10
+"""Base of the slots recording each frame's value, plus one."""
+
+
+def test_frameparam_mode_and_value_of_own_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    One probe runs in a `SENDER` frame carrying value and in a
+    `DEFAULT` frame, and each time records its own frame's mode and
+    value, keyed by its frame index.
+
+    EIP-8141 §`FRAMEPARAM`: `FRAMEPARAM_MODE` returns `mode` and
+    `FRAMEPARAM_VALUE` returns `value`. §Mode: mode 0 is `DEFAULT`, 2
+    is `SENDER`. Values are stored plus one, since the
+    `DEFAULT` frame's mode and value are both 0.
+    """
+    sender = pre.fund_eoa()
+    index = Op.TXPARAM(Spec.TXPARAM_CURRENT_FRAME_INDEX)
+    probe_code = (
+        Op.SSTORE(
+            Op.ADD(SLOT_MODE, index),
+            Op.ADD(1, Op.FRAMEPARAM(index, Spec.FRAMEPARAM_MODE)),
+        )
+        + Op.SSTORE(
+            Op.ADD(SLOT_VALUE, index),
+            Op.ADD(1, Op.FRAMEPARAM(index, Spec.FRAMEPARAM_VALUE)),
+        )
+        + Op.STOP
+    )
+    probe = pre.deploy_contract(code=probe_code)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            sender_frame(
+                target=probe,
+                value=FRAME_VALUE,
+                code=probe_code,
+                logs=[transfer_log(sender, probe, FRAME_VALUE)],
+            ),
+            default_frame(target=probe, code=probe_code, warm=True),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            probe: Account(
+                balance=FRAME_VALUE,
+                storage={
+                    SLOT_MODE + 1: Spec.MODE_SENDER + 1,
+                    SLOT_VALUE + 1: FRAME_VALUE + 1,
+                    SLOT_MODE + 2: Spec.MODE_DEFAULT + 1,
+                    SLOT_VALUE + 2: 1,
+                },
+            )
+        },
+    )
+
+
+SLOT_REFILLED = 0x05
+"""Storage slot the first frame creates and the second clears."""
+
+SLOT_BEFORE_REFILL = 0x10
+"""Slot recording the first frame's state gas before the refill."""
+
+SLOT_AFTER_REFILL = 0x11
+"""Slot recording the first frame's state gas after the refill."""
+
+
+def test_frameparam_state_gas_used_is_live(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Frame 1 creates a storage slot; frame 2 reads frame 1's state gas,
+    clears the slot, and reads it again; frame 3 reads both frames'
+    state gas. The refill lowers frame 1's reported state gas at once,
+    inside frame 2, not at the end of frame 2.
+
+    EIP-8141 §`FRAMEPARAM`, Notes: "The `gas_used.execution` (0x0A)
+    and `gas_used.state` (0x0B) fields return the current values
+    recorded in the frame's receipt. [...] A completed frame's
+    `gas_used.state` may subsequently decrease when another frame
+    refills state gas attributed to it". §Receipt Encoding: "A later
+    frame may therefore reduce an earlier frame's `gas_used.state`."
+
+    Frame 2's two records create two slots of its own, which frame 3
+    reads back as frame 2's state gas. Values are stored plus one.
+    """
+    sender = pre.fund_eoa()
+    slot_gas = Op.SSTORE(0, 1).state_cost(fork)
+    read_first = Op.ADD(1, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED))
+    clearer = (
+        Op.SSTORE(SLOT_BEFORE_REFILL, read_first)
+        + Op.SSTORE(SLOT_REFILLED, 0)
+        + Op.SSTORE(SLOT_AFTER_REFILL, read_first)
+    )
+    # The first frame supplies no calldata, the second one byte.
+    worker_code = Conditional(
+        condition=Op.CALLDATASIZE,
+        if_true=clearer + Op.STOP,
+        if_false=Op.SSTORE(SLOT_REFILLED, 1) + Op.STOP,
+    )
+    worker = pre.deploy_contract(code=worker_code)
+    probe_code = (
+        Op.SSTORE(1, read_first)
+        + Op.SSTORE(
+            2, Op.ADD(1, Op.FRAMEPARAM(2, Spec.FRAMEPARAM_STATE_GAS_USED))
+        )
+        + Op.STOP
+    )
+    probe = pre.deploy_contract(code=probe_code)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            # Frame 2's refill leaves frame 1 with no state gas.
+            default_frame(target=worker, pin_gas=False, state_gas_used=0),
+            default_frame(
+                target=worker,
+                data=Bytes(b"\x01"),
+                pin_gas=False,
+                state_gas_used=2 * slot_gas,
+            ),
+            default_frame(
+                target=probe, pin_gas=False, state_gas_used=2 * slot_gas
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            worker: Account(
+                storage={
+                    SLOT_REFILLED: 0,
+                    SLOT_BEFORE_REFILL: slot_gas + 1,
+                    SLOT_AFTER_REFILL: 1,
+                }
+            ),
+            probe: Account(storage={1: 1, 2: 2 * slot_gas + 1}),
+        },
+    )
+
+
+def test_txparam_current_frame_index_in_every_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Read `TXPARAM_CURRENT_FRAME_INDEX` in a `VERIFY` frame and in three
+    `DEFAULT` frames running the same probe: each read is the index of
+    the frame running it.
+
+    EIP-8141 §`TXPARAM`: `TXPARAM_CURRENT_FRAME_INDEX` returns the
+    "currently executing frame index". The contract sender's `VERIFY`
+    frame approves only if it reads 0; the probe records, under its
+    frame's index, that index plus one.
+    """
+    current_index = Op.TXPARAM(Spec.TXPARAM_CURRENT_FRAME_INDEX)
+    sender_code = Conditional(
+        condition=Op.ISZERO(current_index),
+        if_true=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        if_false=Op.REVERT(0, 0),
+    )
+    sender = pre.deploy_contract(code=sender_code, balance=10**18)
+    probe_code = Op.SSTORE(current_index, Op.ADD(1, current_index)) + Op.STOP
+    probe = pre.deploy_contract(code=probe_code)
+    probe_frames = [1, 2, 3]
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        nonce=1,
+        frames=[
+            verify_frame(pin_gas=False),
+            *(
+                default_frame(
+                    target=probe,
+                    pin_gas=False,
+                    state_gas_used=probe_code.state_cost(fork),
+                )
+                for _ in probe_frames
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=2),
+            probe: Account(
+                storage={index: index + 1 for index in probe_frames}
+            ),
         },
     )
