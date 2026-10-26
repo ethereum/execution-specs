@@ -15,6 +15,7 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.state import Root
 from ethereum.utils.ssz import (
+    ProgressiveSszContainer,
     SszContainer,
     byte_list,
     progressive_list,
@@ -168,11 +169,12 @@ class StatelessInput(SszContainer):
 @final
 @slotted_freezable
 @dataclass
-class StatelessValidationResult(SszContainer):
+class StatelessValidationResult(ProgressiveSszContainer):
     """
     Result returned by stateless validation.
 
-    Note: We use return values to denote "public inputs".
+    Note: We use return values to denote "public inputs". This mirrors the
+    consensus-layer `PublicInput` container.
 
     If ``schema_id`` is zero, the guest could not decode the input or
     produce a validation result, and the remaining fields have sentinel

@@ -13,10 +13,10 @@ from ethereum.crypto.hash import Hash32
 from ethereum.state import Address, Root
 from ethereum.utils.ssz import (
     ProgressiveSszContainer,
-    SszContainer,
     byte_list,
     progressive_byte_list,
     progressive_list,
+    ssz_list,
     uint,
 )
 
@@ -31,6 +31,11 @@ ExecutionEngine = BlockChain
 PayloadId = Bytes8
 _ZERO_HASH32 = Hash32(b"\x00" * 32)
 MAX_EXTRA_DATA_BYTES = 32
+MAX_BLOB_COMMITMENTS_PER_BLOCK = 4096
+"""
+Maximum number of versioned hashes in a `NewPayloadRequest`, matching the
+consensus-layer `VersionedHashes` limit.
+"""
 
 
 @final
@@ -75,7 +80,7 @@ class ExecutionPayload(ProgressiveSszContainer):
 @final
 @slotted_freezable
 @dataclass
-class NewPayloadRequest(SszContainer):
+class NewPayloadRequest(ProgressiveSszContainer):
     """
     Contains an execution payload along with versioned hashes, the
     parent beacon block root, and execution requests for the
@@ -88,10 +93,14 @@ class NewPayloadRequest(SszContainer):
     https://ethereum.github.io/consensus-specs/specs/bellatrix/beacon-chain/#newpayloadrequest
     [Electra modified `NewPayloadRequest`]:
     https://ethereum.github.io/consensus-specs/specs/electra/beacon-chain/#modified-newpayloadrequest
+    [Gloas modified `NewPayloadRequest`]:
+    https://ethereum.github.io/consensus-specs/specs/gloas/beacon-chain/#newpayloadrequest
     """
 
     execution_payload: ExecutionPayload
-    versioned_hashes: Annotated[Tuple[VersionedHash, ...], progressive_list()]
+    versioned_hashes: Annotated[
+        Tuple[VersionedHash, ...], ssz_list(MAX_BLOB_COMMITMENTS_PER_BLOCK)
+    ]
     parent_beacon_block_root: Root
     execution_requests: ExecutionRequests
 
