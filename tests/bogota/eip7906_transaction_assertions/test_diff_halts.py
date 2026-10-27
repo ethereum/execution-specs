@@ -100,7 +100,10 @@ pytestmark = pytest.mark.valid_from("EIP7906")
             id="nonce_after_index_out_of_bounds",
         ),
         pytest.param(
-            Bytecode(
+            # The operands of an in-range copy, so the dropped opcode
+            # halts only because it is undefined.
+            Op.PUSH0 * 4
+            + Bytecode(
                 bytes([Spec.UNDEFINED_OPCODE]),
                 popped_stack_items=0,
                 pushed_stack_items=0,
