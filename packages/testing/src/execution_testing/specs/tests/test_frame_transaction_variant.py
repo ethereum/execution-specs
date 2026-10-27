@@ -1,5 +1,7 @@
 """Tests for the frame-transaction state-test variant."""
 
+import pytest
+
 from execution_testing.base_types import Address
 from execution_testing.forks import Bogota
 from execution_testing.test_types import (
@@ -118,3 +120,33 @@ def test_frame_transaction_variant_keeps_genesis() -> None:
     assert variant.tx is not test.tx
     assert variant.pre is test.pre
     assert variant.env is test.env
+
+
+@pytest.mark.parametrize(
+    "env",
+    [
+        pytest.param(Environment(), id="default_base_fee"),
+        pytest.param(
+            Environment(base_fee_per_gas=100), id="explicit_base_fee"
+        ),
+    ],
+)
+def test_frame_transaction_variant_keeps_gas_price(env: Environment) -> None:
+    """
+    Take the tip above the base fee the fill applies, the fork's default
+    when the test sets none, so `GASPRICE` reads the original gas price.
+    """
+    base_fee = env.set_fork_requirements(Bogota).base_fee_per_gas
+    assert base_fee is not None
+    tip = 3
+    test = StateTest(
+        fork=Bogota,
+        env=env,
+        pre=Alloc(),
+        post=Alloc(),
+        tx=Transaction(gas_price=int(base_fee) + tip),
+    )
+
+    variant = convert_to_frame_transaction_variant(test)
+
+    assert variant.tx.max_priority_fee_per_gas == tip
