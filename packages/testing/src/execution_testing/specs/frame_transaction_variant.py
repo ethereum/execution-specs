@@ -339,7 +339,11 @@ def convert_to_frame_transaction_variant(test: "StateTest") -> "StateTest":
         fork=fork,
         env_gas_limit=int(env.gas_limit),
         chain_id=test.chain_id,
-        base_fee_per_gas=int(env.base_fee_per_gas or 0),
+        # The fill applies the fork's default base fee when the test
+        # sets none, so the tip is taken above that same base fee.
+        base_fee_per_gas=int(
+            env.set_fork_requirements(fork).base_fee_per_gas or 0
+        ),
         pre=test.pre,
     )
     update["tx"] = tx
