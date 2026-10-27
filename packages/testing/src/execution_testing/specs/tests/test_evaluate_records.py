@@ -17,9 +17,10 @@ from execution_testing.base_types import (
     Number,
 )
 from execution_testing.client_clis import TransitionTool
-from execution_testing.forks import Cancun
+from execution_testing.forks import Cancun, WithdrawalRequest
+from execution_testing.vm import Op
 
-from ..evaluate import SpecRunner, _to_primitive
+from ..evaluate import SpecRunner, to_primitive
 
 
 class Color(Enum):
@@ -45,6 +46,12 @@ class CustomValue:
     """A value of a type the converter does not know."""
 
 
+class ModelWithCallable(BaseModel):
+    """A pydantic model with a field pydantic cannot serialize."""
+
+    callback: Any = lambda: None
+
+
 @pytest.mark.parametrize(
     "value,expected",
     [
@@ -65,6 +72,18 @@ class CustomValue:
         pytest.param(Hash(2), "0x" + "00" * 31 + "02", id="hash"),
         pytest.param(Bytes(b"\x01\x02"), "0x0102", id="base_bytes"),
         pytest.param(b"\x01\x02", "0x0102", id="bytes"),
+        pytest.param(Op.STOP, "0x00", id="opcode"),
+        pytest.param(Op.ADD(1, 2), "0x6002600101", id="bytecode"),
+        pytest.param(
+            WithdrawalRequest(source_address=1, validator_pubkey=2, amount=3),
+            "0x"
+            + bytes(
+                WithdrawalRequest(
+                    source_address=1, validator_pubkey=2, amount=3
+                )
+            ).hex(),
+            id="request",
+        ),
         pytest.param(Color.RED, "red", id="enum"),
         pytest.param(Level.HIGH, 2, id="int_enum"),
         pytest.param(
@@ -90,27 +109,36 @@ class CustomValue:
 )
 def test_to_primitive(value: Any, expected: Any) -> None:
     """Test that values are converted to the expected built-in values."""
-    converted = _to_primitive(value)
+    converted = to_primitive(value)
     assert converted == expected
     assert type(converted) is type(expected)
 
 
 def test_to_primitive_keeps_bool() -> None:
     """Test that a `bool` is not converted to an `int`."""
-    assert _to_primitive(False) is False
+    assert to_primitive(False) is False
 
 
 @pytest.mark.parametrize(
-    "value",
+    "value,type_name",
     [
-        pytest.param(CustomValue(), id="unknown_type"),
-        pytest.param([1, CustomValue()], id="nested_unknown_type"),
+        pytest.param(CustomValue(), "CustomValue", id="unknown_type"),
+        pytest.param(
+            [1, CustomValue()], "CustomValue", id="nested_unknown_type"
+        ),
+        pytest.param(
+            ModelWithCallable(),
+            "ModelWithCallable",
+            id="unserializable_model",
+        ),
     ],
 )
-def test_to_primitive_rejects_unknown_types(value: Any) -> None:
+def test_to_primitive_rejects_unknown_types(
+    value: Any, type_name: str
+) -> None:
     """Test that a value of an unknown type raises instead of a string."""
-    with pytest.raises(TypeError, match="CustomValue"):
-        _to_primitive(value)
+    with pytest.raises(TypeError, match=type_name):
+        to_primitive(value)
 
 
 def test_to_primitive_is_serializable_by_xdist() -> None:
@@ -127,7 +155,7 @@ def test_to_primitive_is_serializable_by_xdist() -> None:
     }
     with pytest.raises(execnet.DumpError):
         execnet.dumps(records)
-    converted = _to_primitive(records)
+    converted = to_primitive(records)
     assert execnet.loads(execnet.dumps(converted)) == converted
 
 

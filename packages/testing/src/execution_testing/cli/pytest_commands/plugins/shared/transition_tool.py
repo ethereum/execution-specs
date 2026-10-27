@@ -53,13 +53,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "framework tests/ci; not intended for regular CLI use."
         ),
     )
-    evm_group.addoption(
-        "--traces",
-        action="store_true",
-        dest="evm_collect_traces",
-        default=None,
-        help="Collect traces of execution info from the transition tool.",
-    )
 
     debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
     debug_group.addoption(
@@ -85,7 +78,9 @@ def configure_transition_tool(config: pytest.Config) -> TransitionTool:
     for every test.
     """
     evm_bin = config.getoption("evm_bin")
-    trace = config.getoption("evm_collect_traces")
+    # `--traces` belongs to the commands that offer it (not `evaluate`,
+    # where a run asks for its own traces).
+    trace = config.getoption("evm_collect_traces", default=False)
     t8n_server_url = config.getoption("t8n_server_url")
     kwargs = {
         "trace": trace,

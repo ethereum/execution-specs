@@ -7,7 +7,8 @@ and asserts on the results. The outcome of the test is the outcome of the
 evaluation: no fixture is written.
 
 Values a test passes to `spec.record(...)` are shown in the terminal
-summary and, with `--eval-report`, written to a JSON file.
+summary and, with `--eval-report`, written to a JSON file together with the
+test's parameters.
 """
 
 import json
@@ -22,9 +23,13 @@ from execution_testing.fixtures import BlockchainFixture
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.specs import BaseTest, BlockchainTest, SpecRunner
 from execution_testing.specs.base import OpMode
+from execution_testing.specs.evaluate import to_primitive
 from execution_testing.test_types.chain_config_types import (
     DEFAULT_CHAIN_ID,
     ChainConfigDefaults,
+)
+from execution_testing.tools.utility.versioning import (
+    get_current_commit_hash_or_tag,
 )
 
 from ..shared.helpers import is_help_or_collectonly_mode
@@ -32,6 +37,9 @@ from ..shared.pre_alloc import AllocFlags
 from ..shared.transition_tool import configure_transition_tool
 
 EVALUATION_PROPERTY = "evaluation"
+
+EVALUATION_REPORT_VERSION = 1
+"""Version of the format of the evaluation report."""
 
 evaluation_results: List[Dict[str, Any]] = []
 """Results of the session's evaluation tests, collected by the controller."""
@@ -71,6 +79,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
     ChainConfigDefaults.chain_id = DEFAULT_CHAIN_ID
     config.op_mode = OpMode.CONSENSUS  # type: ignore[attr-defined]
+    evaluation_results.clear()
 
     if is_help_or_collectonly_mode(config):
         return
@@ -142,11 +151,33 @@ def pytest_runtest_makereport(
             EVALUATION_PROPERTY,
             {
                 "fork": fork.name() if fork is not None else None,
+                "params": _test_params(item),
                 "runs": runner.run_count,
                 "records": runner.records,
             },
         )
     )
+
+
+def _test_params(item: pytest.Item) -> Dict[str, Any]:
+    """
+    Return the parameters of the test, other than its fork.
+
+    A parameter that cannot be converted to built-in types is left out,
+    since a report must never fail the session.
+    """
+    callspec = getattr(item, "callspec", None)
+    if callspec is None:
+        return {}
+    params: Dict[str, Any] = {}
+    for name, value in callspec.params.items():
+        if name == "fork":
+            continue
+        try:
+            params[name] = to_primitive(value)
+        except TypeError:
+            continue
+    return params
 
 
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:
@@ -203,6 +234,14 @@ def pytest_sessionfinish(session: pytest.Session) -> None:
     path: Path | None = config.getoption("eval_report")
     if path is None:
         return
-    results = sorted(evaluation_results, key=lambda r: r["test"])
+    t8n = getattr(config, "t8n", None)
+    report = {
+        "version": EVALUATION_REPORT_VERSION,
+        "env": {
+            "t8n": t8n.version() if t8n is not None else None,
+            "commit": get_current_commit_hash_or_tag(),
+        },
+        "results": sorted(evaluation_results, key=lambda r: r["test"]),
+    }
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(results, indent=2, default=str) + "\n")
+    path.write_text(json.dumps(report, indent=2, default=str) + "\n")

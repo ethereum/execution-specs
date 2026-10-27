@@ -375,6 +375,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "evm", "Arguments defining evm executable behavior"
     )
     evm_group.addoption(
+        "--traces",
+        action="store_true",
+        dest="evm_collect_traces",
+        default=None,
+        help="Collect traces of execution info from the transition tool.",
+    )
+    evm_group.addoption(
         "--chain-id",
         action="store",
         dest="chain_id",
