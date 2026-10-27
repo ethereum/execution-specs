@@ -16,6 +16,7 @@ from execution_testing.fixtures import (
 from execution_testing.test_types import AllocGroupHash
 
 from ..consume import FixturesSource
+from .helpers.chain_config import chain_config_environment
 from .helpers.ruleset import ruleset
 from .helpers.test_tracker import PreAllocGroupTestTracker
 
@@ -298,6 +299,7 @@ def environment(
         "HIVE_CHECK_LIVE_PORT": str(check_live_port),
         **{k: f"{v:d}" for k, v in ruleset[fork].items()},
         "HIVE_FORK": pre_alloc_group.fork.name(),
+        **chain_config_environment(fixture.config),
         # Tell client wrapper scripts this workload performs deep reorgs:
         # clients are reused across a group's tests with a rewind to genesis
         # in between, so wrappers can raise client-specific limits that would

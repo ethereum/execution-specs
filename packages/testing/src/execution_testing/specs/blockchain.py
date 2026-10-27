@@ -929,6 +929,11 @@ class BlockchainTest(BaseTest):
         default_factory=lambda: ChainConfigDefaults.chain_id,
         validate_default=True,
     )
+    zero_nonce_storage_accounts: List[Address] = Field(default_factory=list)
+    """
+    Accounts whose nonce is set to one at the fork block, as listed in the
+    chain configuration. Empty by default.
+    """
     include_full_post_state_in_output: bool = True
     """
     Include the post state in the fixture output. Otherwise, the state
@@ -1182,10 +1187,11 @@ class BlockchainTest(BaseTest):
                 alloc=previous_alloc,
                 txs=txs,
                 env=env,
-                fork=fork,
+                fork=self.fork,
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
+                zero_nonce_storage_accounts=self.zero_nonce_storage_accounts,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -1650,6 +1656,9 @@ class BlockchainTest(BaseTest):
                     self.fork.transitions_to().blob_schedule()
                 ),
                 chain_id=self.chain_id,
+                zero_nonce_storage_accounts=(
+                    self.zero_nonce_storage_accounts or None
+                ),
             ),
         )
         return FillResult(
@@ -1894,6 +1903,9 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
                 blob_schedule=FixtureBlobSchedule.from_blob_schedule(
                     self.fork.transitions_to().blob_schedule()
+                ),
+                zero_nonce_storage_accounts=(
+                    self.zero_nonce_storage_accounts or None
                 ),
             ),
         }

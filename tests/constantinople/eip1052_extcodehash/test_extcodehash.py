@@ -196,6 +196,20 @@ def test_extcodehash_empty_send_value(
             id="balance-storage",
         ),
         pytest.param(
+            Account(
+                nonce=1,
+                balance=10,
+                storage={0x00: 0x01000000, 0xFFFFFFF: 0xFFFFFFFF},
+            ),
+            False,
+            keccak256(b""),
+            0,
+            0,
+            # With a nonce the account fails the EIP-684 creation check, so
+            # its storage can never be adopted by a `CREATE`.
+            id="nonce-balance-storage",
+        ),
+        pytest.param(
             Account(code=Op.STOP),
             False,
             keccak256(bytes(Op.STOP)),

@@ -935,6 +935,7 @@ class FixtureConfig(CamelModel):
         ZeroPaddedHexNumber(1), alias="chainid"
     )
     blob_schedule: FixtureBlobSchedule | None = None
+    zero_nonce_storage_accounts: List[Address] | None = None
 
 
 class InvalidFixtureBlock(CamelModel):

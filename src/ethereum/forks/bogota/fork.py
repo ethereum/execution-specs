@@ -31,7 +31,7 @@ from ethereum.merkle_patricia_trie import root, trie_set
 from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff
 from ethereum.state_mpt import State, apply_changes_to_state
 
-from . import vm
+from . import FORK_CRITERIA, vm
 from .block_access_lists import (
     BlockAccessListBuilder,
     build_block_access_list,
@@ -105,6 +105,7 @@ from .vm.gas import (
     settle_transaction_gas,
 )
 from .vm.interpreter import TransactionOutput, process_top_level
+from .zero_nonce_storage_accounts import bump_zero_nonce_storage_accounts
 
 BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
 ELASTICITY_MULTIPLIER = Uint(2)
@@ -139,6 +140,9 @@ class ChainContext:
     parent_header: Header | PreviousHeader
     """Parent header used for header validation and system contracts."""
 
+    zero_nonce_storage_accounts: Tuple[Address, ...]
+    """Accounts whose nonce is set to one at the fork block."""
+
 
 @final
 @dataclass
@@ -150,6 +154,7 @@ class BlockChain:
     blocks: List[Block]
     state: State
     chain_id: U64
+    zero_nonce_storage_accounts: Tuple[Address, ...] = ()
 
 
 def apply_fork(old: BlockChain) -> BlockChain:
@@ -172,7 +177,11 @@ def apply_fork(old: BlockChain) -> BlockChain:
         Upgraded block chain object for this hard fork.
 
     """
-    return old
+    return BlockChain(
+        blocks=old.blocks,
+        state=old.state,
+        chain_id=old.chain_id,
+    )
 
 
 def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
@@ -242,6 +251,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         chain_id=chain.chain_id,
         block_hashes=get_last_256_block_hashes(chain),
         parent_header=chain.blocks[-1].header,
+        zero_nonce_storage_accounts=chain.zero_nonce_storage_accounts,
     )
 
     block_diff = execute_block(block, chain.state, chain_context)
@@ -306,6 +316,11 @@ def execute_block(
         slot_number=block.header.slot_number,
     )
 
+    if is_fork_block(parent_header, block.header):
+        bump_zero_nonce_storage_accounts(
+            block_env, chain_context.zero_nonce_storage_accounts
+        )
+
     block_output = apply_body(
         block_env=block_env,
         transactions=block.transactions,
@@ -346,6 +361,36 @@ def execute_block(
         raise InvalidBlock("Invalid block access list hash")
 
     return block_diff
+
+
+def is_fork_block(
+    parent_header: Header | PreviousHeader, header: Header
+) -> bool:
+    """
+    Check whether `header` is the first block of this fork.
+
+    The fork block is the first block that meets `FORK_CRITERIA` while its
+    parent does not. An unscheduled fork never activates, so no block is its
+    fork block.
+
+    Parameters
+    ----------
+    parent_header :
+        The header of the parent block.
+    header :
+        The header of the block being executed.
+
+    Returns
+    -------
+    is_fork_block : `bool`
+        True if `header` activates this fork.
+
+    """
+    return FORK_CRITERIA.check(
+        header.number, header.timestamp
+    ) and not FORK_CRITERIA.check(
+        parent_header.number, parent_header.timestamp
+    )
 
 
 def calculate_base_fee_per_gas(

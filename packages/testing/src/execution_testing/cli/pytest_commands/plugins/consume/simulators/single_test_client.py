@@ -16,6 +16,7 @@ from execution_testing.base_types import Number, to_json
 from execution_testing.fixtures import BlockchainFixtureCommon
 from execution_testing.fixtures.blockchain import FixtureHeader
 
+from .helpers.chain_config import chain_config_environment
 from .helpers.ruleset import (
     ruleset,  # TODO: generate dynamically
 )
@@ -55,6 +56,7 @@ def environment(
         "HIVE_NODETYPE": "full",
         "HIVE_CHECK_LIVE_PORT": str(check_live_port),
         **{k: f"{v:d}" for k, v in ruleset[fixture.fork].items()},
+        **chain_config_environment(fixture.config),
     }
 
 
