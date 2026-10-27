@@ -349,11 +349,6 @@ class ForkLoad:
         return self._module("state_tracker").BlockState
 
     @property
-    def encode_transaction(self) -> Any:
-        """encode_transaction function of the fork."""
-        return self._module("transactions").encode_transaction
-
-    @property
     def TransactionState(self) -> Any:
         """TransactionState class of the fork."""
         return self._module("state_tracker").TransactionState
