@@ -58,8 +58,9 @@ def prepare_suffix(opcode: Opcode) -> Bytecode:
     return Op.STOP
 
 
-# EIP-8141's instructions are valid opcodes from Bogota, but outside a
-# frame transaction they exceptionally halt.
+# EIP-8141's and EIP-7906's instructions are valid opcodes from Bogota,
+# but outside a frame transaction, or an `ASSERT` frame for EIP-7906's,
+# they exceptionally halt.
 FRAME_TRANSACTION_OPCODES = [
     Op.APPROVE,
     Op.TXPARAM,
@@ -68,6 +69,8 @@ FRAME_TRANSACTION_OPCODES = [
     Op.FRAMEPARAM,
     Op.SIGPARAM,
     Op.SIGDATACOPY,
+    Op.TXTRACE,
+    Op.EVENTDATACOPY,
 ]
 
 

@@ -71,10 +71,15 @@ OPERATIONS_BY_OPCODE = {
 SPECIAL_CASED = {Op.REVERT}
 
 # Memory-touching opcodes that execute only inside an EIP-8141 frame
-# transaction. This test's legacy transaction halts them before they
-# touch memory, so the success flag observes nothing; the frame
-# transaction suite prices them.
-FRAME_TRANSACTION_ONLY = {Op.APPROVE, Op.FRAMEDATACOPY, Op.SIGDATACOPY}
+# transaction, or an `ASSERT` frame for EIP-7906's. This test's legacy
+# transaction halts them before they touch memory, so the success flag
+# observes nothing. The frame transaction suites price them.
+FRAME_TRANSACTION_ONLY = {
+    Op.APPROVE,
+    Op.FRAMEDATACOPY,
+    Op.SIGDATACOPY,
+    Op.EVENTDATACOPY,
+}
 
 
 def operations_by_fork(fork: Fork) -> Generator[str, None, None]:
