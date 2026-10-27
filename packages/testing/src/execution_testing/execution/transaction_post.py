@@ -389,9 +389,9 @@ class TransactionPost(BaseExecute):
     @staticmethod
     def total_gas_used(eth_rpc: EthRPC, tx_hashes: List[Hash]) -> int:
         """Return the gas the given transactions used in total."""
+        receipts = eth_rpc.get_transaction_receipts(tx_hashes)
         gas_used = 0
-        for tx_hash in tx_hashes:
-            receipt = eth_rpc.get_transaction_receipt(tx_hash)
+        for tx_hash, receipt in zip(tx_hashes, receipts, strict=True):
             assert receipt is not None, (
                 f"Failed to get receipt for transaction {tx_hash}"
             )
