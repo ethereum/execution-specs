@@ -526,7 +526,7 @@ def test_first_undefined_frame_mode(
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame(), default_frame(mode=fork.frame_mode_count())],
+        frames=[verify_frame(), Frame(mode=fork.frame_mode_count())],
         error=TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
     )
 
@@ -546,7 +546,7 @@ def test_first_undefined_frame_mode_transaction(
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame(), default_frame(mode=fork.frame_mode_count())],
+        frames=[verify_frame(), Frame(mode=fork.frame_mode_count())],
         error=TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
     )
 

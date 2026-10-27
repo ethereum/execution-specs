@@ -87,6 +87,17 @@ FRAME_MESSAGES: List[Tuple[str, TransactionException]] = [
     ("frame transaction validation prefix never set a payer", EXECUTION),
 ]
 
+# EIP-7906 renamed the `POST_TX` frame mode to `ASSERT`, so each wording
+# naming the mode must also match once the client adopts the new name.
+RENAMED_MODE_MESSAGES = [
+    (
+        message.replace("a POST_TX", "an ASSERT").replace("POST_TX", "ASSERT"),
+        label,
+    )
+    for message, label in FRAME_MESSAGES
+    if "POST_TX" in message
+]
+
 
 def matched(message: str) -> Set[ExceptionBase]:
     """Return the exceptions the mapper reports for a client message."""
@@ -96,7 +107,9 @@ def matched(message: str) -> Set[ExceptionBase]:
 
 
 @pytest.mark.parametrize(
-    "message, expected", FRAME_MESSAGES, ids=[m for m, _ in FRAME_MESSAGES]
+    "message, expected",
+    FRAME_MESSAGES + RENAMED_MODE_MESSAGES,
+    ids=[m for m, _ in FRAME_MESSAGES + RENAMED_MODE_MESSAGES],
 )
 @pytest.mark.parametrize("wrapped", [False, True])
 def test_frame_message_maps_to_exactly_one_type_6_exception(

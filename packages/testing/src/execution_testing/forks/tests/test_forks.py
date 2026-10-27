@@ -446,7 +446,7 @@ def test_system_contract_call_phases(fork: Fork) -> None:
 def test_frame_mode_count() -> None:
     """
     Count no frame modes before frame transactions, the three EIP-8141
-    modes, and EIP-7906's `POST_TX` on top of them.
+    modes, and EIP-7906's `ASSERT` on top of them.
     """
     assert Osaka.frame_mode_count() == 0
     assert Amsterdam.frame_mode_count() == 0

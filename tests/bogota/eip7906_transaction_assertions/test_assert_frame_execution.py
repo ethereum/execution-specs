@@ -1,5 +1,5 @@
 """
-Shape and execution context of `POST_TX` frames (EIP-7906): read-only
+Shape and execution context of `ASSERT` frames (EIP-7906): read-only
 trailing frames run by the entry point, the only context the diff
 instructions run in, and the approval scope they cannot use.
 """
@@ -35,12 +35,12 @@ from .helpers import (
     SLOT_A,
     SLOT_B,
     SLOT_MARKER,
+    assert_frame,
     assertion_transaction,
     body_frame,
     expect_eq,
     frame_gas,
     measured_gas,
-    post_tx_frame,
     probe_overhead,
     reverted_body_receipts,
     success_receipts,
@@ -54,9 +54,6 @@ pytestmark = pytest.mark.valid_from("EIP7906")
 
 DIFF_INSTRUCTIONS = [
     pytest.param(Op.TXTRACE(Spec.TXTRACE_BALANCES_CHANGED, 0), id="txtrace"),
-    pytest.param(
-        Op.TXDIFF(Spec.TXDIFF_ADDRESS_SLOTS_COUNT, 0, 0), id="txdiff"
-    ),
     pytest.param(Op.EVENTDATACOPY(0, 0, 0, 0), id="eventdatacopy"),
 ]
 """One minimal use of each diff instruction."""
@@ -65,13 +62,13 @@ EVENT_WORD = 0x7906
 """The data word a body event carries."""
 
 
-def test_post_tx_success_commits_body(
+def test_assert_frame_success_commits_body(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Commit the execution body when the trailing `POST_TX` frame
+    Commit the execution body when the trailing `ASSERT` frame
     succeeds: the assertion observes the body's single slot change and
     accepts it.
     """
@@ -115,14 +112,14 @@ def test_post_tx_success_commits_body(
         ),
     ],
 )
-def test_post_tx_is_static(
+def test_assert_frame_is_static(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     violation: Bytecode,
 ) -> None:
     """
-    Execute the `POST_TX` frame as a `STATICCALL`: any state-changing
+    Execute the `ASSERT` frame as a `STATICCALL`: any state-changing
     instruction halts it exceptionally, consuming its budget, `APPROVE`
     included, since the `VERIFY` frames' approval exception is not
     granted here. The halt reverts the body like any other assertion
@@ -151,13 +148,13 @@ def test_post_tx_is_static(
     )
 
 
-def test_post_tx_nested_approve_halts(
+def test_assert_frame_nested_approve_halts(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Halt `APPROVE` reached through a call from a `POST_TX` frame's
+    Halt `APPROVE` reached through a call from an `ASSERT` frame's
     target: the static violation precedes the caller check that would
     revert, so the callee consumes all the gas it was given.
     """
@@ -195,13 +192,13 @@ def test_post_tx_nested_approve_halts(
     )
 
 
-def test_post_tx_caller_and_origin(
+def test_assert_frame_caller_and_origin(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Execute a `POST_TX` frame as `ENTRY_POINT`, like `DEFAULT` and
+    Execute an `ASSERT` frame as `ENTRY_POINT`, like `DEFAULT` and
     `VERIFY` frames: both the caller and the origin the frame observes
     are the entry point, not the sender.
     """
@@ -229,13 +226,13 @@ def test_post_tx_caller_and_origin(
     )
 
 
-def test_post_tx_codeless_target(
+def test_assert_frame_codeless_target(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Run a `POST_TX` frame targeting an account without code like a
+    Run an `ASSERT` frame targeting an account without code like a
     `DEFAULT` frame would: the call has nothing to execute and
     succeeds, so the body commits.
     """
@@ -267,15 +264,15 @@ def test_post_tx_codeless_target(
         pytest.param(Spec8141.APPROVE_EXECUTION_AND_PAYMENT, id="full_scope"),
     ],
 )
-def test_post_tx_approval_scope_is_inert(
+def test_assert_frame_approval_scope_is_inert(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     scope: int,
 ) -> None:
     """
-    Run a `POST_TX` frame carrying an approval scope on the codeless
-    sender like any other `POST_TX` frame: the default code runs only
+    Run an `ASSERT` frame carrying an approval scope on the codeless
+    sender like any other `ASSERT` frame: the default code runs only
     in `VERIFY` frames, so the frame succeeds without approving
     anything and the body commits.
     """
@@ -289,7 +286,7 @@ def test_post_tx_approval_scope_is_inert(
             frames=[
                 verify_frame(),
                 body_frame(fork, target=writer),
-                post_tx_frame(fork, flags=scope),
+                assert_frame(fork, flags=scope),
             ],
             expected_receipt=TransactionReceipt(
                 payer=sender, frame_receipts=success_receipts(3)
@@ -302,13 +299,13 @@ def test_post_tx_approval_scope_is_inert(
     )
 
 
-def test_post_tx_approval_scope_does_not_lift_static(
+def test_assert_frame_approval_scope_does_not_lift_static(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Halt `APPROVE` in a `POST_TX` frame whose flags carry the payment
+    Halt `APPROVE` in an `ASSERT` frame whose flags carry the payment
     scope it requests: the scope grants no exception to the static
     context, so the would-be sponsor never becomes the payer.
     """
@@ -325,7 +322,7 @@ def test_post_tx_approval_scope_does_not_lift_static(
             frames=[
                 verify_frame(),
                 body_frame(fork, target=writer),
-                post_tx_frame(
+                assert_frame(
                     fork, target=sponsor, flags=Spec8141.APPROVE_PAYMENT
                 ),
             ],
@@ -344,21 +341,21 @@ def test_post_tx_approval_scope_does_not_lift_static(
     )
 
 
-def test_frameparam_reads_post_tx_mode(
+def test_frameparam_reads_assert_mode(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Report a `POST_TX` frame's mode through `FRAMEPARAM`, read by an
-    earlier frame and by the `POST_TX` frame itself.
+    Report an `ASSERT` frame's mode through `FRAMEPARAM`, read by an
+    earlier frame and by the `ASSERT` frame itself.
     """
     sender = pre.fund_eoa()
-    post_tx_index = 2
-    mode = Op.FRAMEPARAM(post_tx_index, Spec8141.FRAMEPARAM_MODE)
+    assert_index = 2
+    mode = Op.FRAMEPARAM(assert_index, Spec8141.FRAMEPARAM_MODE)
     recorder = pre.deploy_contract(code=Op.SSTORE(SLOT_A, mode) + Op.STOP)
     assertion = pre.deploy_contract(
-        code=expect_eq(mode, Spec.MODE_POST_TX) + Op.STOP
+        code=expect_eq(mode, Spec.MODE_ASSERT) + Op.STOP
     )
 
     state_test(
@@ -372,19 +369,19 @@ def test_frameparam_reads_post_tx_mode(
         ),
         post={
             sender: Account(nonce=1),
-            recorder: Account(storage={SLOT_A: Spec.MODE_POST_TX}),
+            recorder: Account(storage={SLOT_A: Spec.MODE_ASSERT}),
         },
     )
 
 
-def test_blobhash_in_post_tx_frame(
+def test_blobhash_in_assert_frame(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
     Return the transaction's blob versioned hashes through `BLOBHASH` in
-    a `POST_TX` frame, as EIP-8141 does in every frame: the assertion
+    an `ASSERT` frame, as EIP-8141 does in every frame: the assertion
     accepts the body only when each index returns its hash and the index
     past the last one returns zero.
     """
@@ -429,7 +426,7 @@ def test_diff_instructions_in_subcall(
     call_opcode: Op,
 ) -> None:
     """
-    Allow the diff instructions anywhere in a `POST_TX` frame's call
+    Allow the diff instructions anywhere in an `ASSERT` frame's call
     subtree: a contract the assertion reaches through any call
     instruction reads the same diff on its behalf.
     """
@@ -442,7 +439,7 @@ def test_diff_instructions_in_subcall(
     )
     reader = pre.deploy_contract(
         code=Op.MSTORE(0, Op.TXTRACE(Spec.TXTRACE_SLOTS_CHANGED, 0))
-        + Op.MSTORE(32, Op.TXDIFF(Spec.TXDIFF_SLOT_AFTER, writer, SLOT_A))
+        + Op.MSTORE(32, Op.TXTRACE(Spec.TXTRACE_SLOT_AFTER, 0))
         + Op.EVENTDATACOPY(0, 64, 0, 32)
         + Op.RETURN(0, 96)
     )
@@ -481,7 +478,7 @@ def test_diff_instructions_in_subcall(
         pytest.param(default_frame, id="default_frame"),
     ],
 )
-def test_diff_instructions_outside_post_tx(
+def test_diff_instructions_outside_assert(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -534,7 +531,7 @@ def test_diff_instructions_in_legacy_transaction(
 ) -> None:
     """
     Halt the diff instructions exceptionally in a transaction that is
-    not a frame transaction, which has no `POST_TX` frame to run in,
+    not a frame transaction, which has no `ASSERT` frame to run in,
     consuming the transaction's gas.
     """
     sender = pre.fund_eoa()
@@ -584,13 +581,13 @@ def test_diff_instructions_in_verify_frame(
 
 
 @pytest.mark.exception_test
-def test_post_tx_without_payment(
+def test_assert_frame_without_payment(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Invalidate a transaction whose only frames are `POST_TX` frames:
+    Invalidate a transaction whose only frames are `ASSERT` frames:
     nothing approves payment, so the transaction fails the end-of-frames
     rule regardless of the assertion's outcome.
     """
@@ -598,7 +595,7 @@ def test_post_tx_without_payment(
     assertion = pre.deploy_contract(code=Op.STOP)
     tx = Transaction(
         sender=sender,
-        frames=[post_tx_frame(fork, target=assertion)],
+        frames=[assert_frame(fork, target=assertion)],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )
     state_test(pre=pre, tx=tx, post={})

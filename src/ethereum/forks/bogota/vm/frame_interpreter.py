@@ -7,7 +7,7 @@ in order, each as its own top-level call with a fresh gas meter
 holding the frame's gas limit. The frames share the transaction's
 state, a `FrameJournal` of the effects accrued across frames, and
 the approval context that the `APPROVE` instruction advances. The
-[EIP-7906] `POST_TX` frames that may trail the list assert the
+[EIP-7906] `ASSERT` frames that may trail the list assert the
 transaction's outcome: one failing reverts the execution body that
 followed the validation prefix.
 
@@ -161,7 +161,7 @@ class ValidationPrefixCheckpoint:
 
     The validation prefix is the frames up to and including the first
     frame after whose execution `payer` is set, and every frame after
-    it is the execution body ([EIP-8141]). When a `POST_TX` frame
+    it is the execution body ([EIP-8141]). When an `ASSERT` frame
     fails, `revert_execution_body` restores everything captured here,
     the same three rollback domains an atomic batch captures, so the
     transaction keeps the prefix's effects, the gas payment included,
@@ -289,11 +289,11 @@ def revert_execution_body(
     checkpoint: ValidationPrefixCheckpoint,
 ) -> FrameJournal:
     """
-    Revert the execution body after a `POST_TX` frame failed.
+    Revert the execution body after an `ASSERT` frame failed.
 
     The transaction state and the frame context are restored to the
     condition at the end of the validation prefix, and the receipts of
-    the executed body frames, the failed `POST_TX` frame's included,
+    the executed body frames, the failed `ASSERT` frame's included,
     are re-appended keeping their status and execution gas, with their
     logs emptied and their state gas zeroed, as an atomic batch unroll
     does. The payer stays charged for the gas the body consumed up to
@@ -377,7 +377,7 @@ def create_evm_from_frame(
         value=frame.value,
         call_data=frame.data,
         should_transfer_value=True,
-        is_static=frame.mode in (FrameMode.VERIFY, FrameMode.POST_TX),
+        is_static=frame.mode in (FrameMode.VERIFY, FrameMode.ASSERT),
         disable_precompiles=disable_precompiles,
         # Code
         code_address=code_address,
@@ -667,9 +667,9 @@ def process_frames(
     the caller of the frame about to run.
 
     A failing frame of an atomic batch unrolls the batch, and the
-    remaining batch frames are skipped. A failing `POST_TX` frame
+    remaining batch frames are skipped. A failing `ASSERT` frame
     reverts the whole execution body instead, whatever batches it
-    held. The remaining frames, all `POST_TX` frames since the mode
+    held. The remaining frames, all `ASSERT` frames since the mode
     forms a trailing suffix, are skipped: the transaction's outcome is
     already reverted, so they have nothing left to assert.
 
@@ -765,7 +765,7 @@ def process_frames(
         frame_context.frame_receipts.append(receipt)
 
         if (
-            frame.mode == FrameMode.POST_TX
+            frame.mode == FrameMode.ASSERT
             and receipt.status == FrameStatus.FAILURE
         ):
             # The assertion failed: the execution body is reverted
@@ -798,7 +798,7 @@ def process_frames(
 
         if prefix_checkpoint is None and frame_context.payer is not None:
             # The validation prefix ended with this frame: checkpoint
-            # the state a failing `POST_TX` frame restores to.
+            # the state a failing `ASSERT` frame restores to.
             # `validate_frame_transaction` bans approval scope on batch
             # frames, so no batch is open.
             assert open_batch is None
