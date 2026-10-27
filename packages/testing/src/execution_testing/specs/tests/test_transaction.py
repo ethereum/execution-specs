@@ -1,13 +1,12 @@
 """Test suite for the transaction spec test generation."""
 
 import json
-import sys
 from os.path import realpath
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
-from ethereum_spec_tools.utils import resolve_fork
 
 from execution_testing import TestAddress
 from execution_testing.base_types import Bytes
@@ -27,6 +26,7 @@ from execution_testing.forks import (
 )
 from execution_testing.test_types import Transaction
 
+from .. import transaction as transaction_module
 from ..helpers import (
     UnexpectedExecutionFailError,
     UnexpectedExecutionSuccessError,
@@ -212,27 +212,34 @@ def test_reference_check_skipped_for_other_transition_tools() -> None:
     assert fixture.transaction == UNDECODABLE_RLP
 
 
+class FrameTransaction:
+    """Stand-in for a fork's frame transaction class."""
+
+
 def test_reference_check_rejects_accepted_frame_transaction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
     Reject `error=` on a frame transaction the fork accepts.
 
-    No fork on this branch ships `FrameTransaction`, so Cancun's type-2
-    class stands in for it and frame validation accepts everything.
+    No fork on this branch ships `FrameTransaction`, so a fake fork
+    stands in: its decoder returns a frame transaction and its
+    validation accepts it.
     """
-    transactions = resolve_fork(Cancun.transition_tool_name()).module(
-        "transactions"
-    )
+    validate_frame_transaction = Mock()
+    modules = {
+        "transactions": SimpleNamespace(
+            decode_transaction=lambda _raw: FrameTransaction(),
+            FrameTransaction=FrameTransaction,
+        ),
+        "transactions.frame_transaction": SimpleNamespace(
+            validate_frame_transaction=validate_frame_transaction
+        ),
+    }
     monkeypatch.setattr(
-        transactions,
-        "FrameTransaction",
-        transactions.FeeMarketTransaction,
-        raising=False,
-    )
-    frame_module = Mock(spec=["validate_frame_transaction"])
-    monkeypatch.setitem(
-        sys.modules, f"{transactions.__name__}.frame_transaction", frame_module
+        transaction_module,
+        "resolve_fork",
+        lambda _name: SimpleNamespace(module=modules.__getitem__),
     )
     tx = Transaction(
         ty=2,
@@ -242,4 +249,4 @@ def test_reference_check_rejects_accepted_frame_transaction(
 
     with pytest.raises(UnexpectedExecutionSuccessError):
         fill_transaction_test(tx, Cancun, ExecutionSpecsTransitionTool())
-    frame_module.validate_frame_transaction.assert_called_once()
+    validate_frame_transaction.assert_called_once()
