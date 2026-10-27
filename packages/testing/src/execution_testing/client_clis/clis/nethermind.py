@@ -405,7 +405,6 @@ class NethermindExceptionMapper(ExceptionMapper):
             "InvalidTimestamp: "
             "Timestamp in header cannot be lower than ancestor"
         ),
-        BlockException.INVALID_SLOT_NUMBER: "SlotNumberNotAfterParent",
         BlockException.INVALID_BLOCK_NUMBER: (
             "InvalidBlockNumber: Block number does not match the parent"
         ),

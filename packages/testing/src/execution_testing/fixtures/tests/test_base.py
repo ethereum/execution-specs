@@ -185,9 +185,7 @@ class VetoingLabel(LabeledFixtureFormat):
 
 def test_with_label_suffix_on_plain_format() -> None:
     """Test that a plain format derives its label from `format_id()`."""
-    derived = LabeledFixtureFormat.with_label_suffix(
-        BlockchainFixture, "from_state_test"
-    )
+    derived = BlockchainFixture.with_label_suffix("from_state_test")
 
     assert derived.format_id() == "blockchain_test_from_state_test"
     assert derived.format_class() is BlockchainFixture
@@ -213,12 +211,8 @@ def test_with_label_suffix_keeps_labels_distinct() -> None:
         BlockchainFixture, "alt_two", "d", transition_tool_cache_key="other"
     )
 
-    derived_one = LabeledFixtureFormat.with_label_suffix(
-        one, "from_state_test"
-    )
-    derived_two = LabeledFixtureFormat.with_label_suffix(
-        two, "from_state_test"
-    )
+    derived_one = one.with_label_suffix("from_state_test")
+    derived_two = two.with_label_suffix("from_state_test")
 
     assert derived_one.format_id() == "alt_one_from_state_test"
     assert derived_two.format_id() == "alt_two_from_state_test"
@@ -242,15 +236,13 @@ def test_with_label_suffix_keeps_transition_tool_cache_key() -> None:
     )
 
     assert (
-        LabeledFixtureFormat.with_label_suffix(
-            opted_out, "from_state_test"
+        opted_out.with_label_suffix(
+            "from_state_test"
         ).transition_tool_cache_key
         == ""
     )
     assert (
-        LabeledFixtureFormat.with_label_suffix(
-            own_key, "from_state_test"
-        ).transition_tool_cache_key
+        own_key.with_label_suffix("from_state_test").transition_tool_cache_key
         == "own"
     )
 
@@ -264,10 +256,9 @@ def test_with_label_suffix_own_transition_tool_cache_key() -> None:
     needs its own key so it does not share cached output with the format or
     label it was derived from.
     """
-    variant = LabeledFixtureFormat.with_label_suffix(
-        BlockchainEngineFixture,
+    variant = BlockchainEngineFixture.with_label_suffix(
         "inclusion_list",
-        transition_tool_cache_key_suffix="inclusion_list",
+        transition_tool_cache_key="blockchain_test_inclusion_list",
     )
 
     assert variant.format_id() == "blockchain_test_engine_inclusion_list"
@@ -281,17 +272,15 @@ def test_with_label_suffix_own_transition_tool_cache_key() -> None:
     )
 
     # The key survives a further re-label, and can be overridden again.
-    derived = LabeledFixtureFormat.with_label_suffix(
-        variant, "from_state_test"
-    )
+    derived = variant.with_label_suffix("from_state_test")
     assert (
         derived.transition_tool_cache_key == "blockchain_test_inclusion_list"
     )
     assert (
-        LabeledFixtureFormat.with_label_suffix(
-            variant, "from_state_test"
+        variant.with_label_suffix(
+            "from_state_test", transition_tool_cache_key=""
         ).transition_tool_cache_key
-        == "blockchain_test_inclusion_list"
+        == ""
     )
 
 
@@ -306,7 +295,7 @@ def test_with_label_suffix_keeps_vetoes() -> None:
         BlockchainFixture, "veto", "d", transition_tool_cache_key=""
     )
 
-    derived = LabeledFixtureFormat.with_label_suffix(veto, "from_state_test")
+    derived = veto.with_label_suffix("from_state_test")
 
     assert derived.base is veto
     assert not derived.supports_fork(Prague)
@@ -323,8 +312,8 @@ def mark_names(
 def test_is_variant_on_plain_format() -> None:
     """Test that a plain format is never a variant."""
     assert not BlockchainEngineFixture.is_variant("inclusion_list")
-    assert not LabeledFixtureFormat.with_label_suffix(
-        BlockchainEngineFixture, "from_state_test"
+    assert not BlockchainEngineFixture.with_label_suffix(
+        "from_state_test"
     ).is_variant("inclusion_list")
 
 
@@ -335,15 +324,12 @@ def test_variant_survives_re_labeling() -> None:
     A spec type queries `is_variant()` rather than comparing formats, which
     cannot tell a variant from the plain format it wraps.
     """
-    variant = LabeledFixtureFormat.with_label_suffix(
-        BlockchainEngineFixture,
+    variant = BlockchainEngineFixture.with_label_suffix(
         "inclusion_list",
-        transition_tool_cache_key_suffix="inclusion_list",
+        transition_tool_cache_key="blockchain_test_inclusion_list",
         variant="inclusion_list",
     )
-    derived = LabeledFixtureFormat.with_label_suffix(
-        variant, "from_state_test"
-    )
+    derived = variant.with_label_suffix("from_state_test")
 
     assert variant.is_variant("inclusion_list")
     assert derived.is_variant("inclusion_list")
@@ -355,12 +341,12 @@ def test_variant_survives_re_labeling() -> None:
 
 def test_with_label_suffix_overrides_variant() -> None:
     """Test that a passed variant replaces the one it derives from."""
-    variant = LabeledFixtureFormat.with_label_suffix(
-        BlockchainEngineFixture, "inclusion_list", variant="inclusion_list"
+    variant = BlockchainEngineFixture.with_label_suffix(
+        "inclusion_list", variant="inclusion_list"
     )
 
-    overridden = LabeledFixtureFormat.with_label_suffix(
-        variant, "narrowed", variant="narrowed_inclusion_list"
+    overridden = variant.with_label_suffix(
+        "narrowed", variant="narrowed_inclusion_list"
     )
 
     assert overridden.variant == "narrowed_inclusion_list"
@@ -374,15 +360,12 @@ def test_marks_include_every_derived_label() -> None:
     Selecting the variant's own label must also select the labels other spec
     types derived from it, so `-m <variant>` does not silently miss them.
     """
-    variant = LabeledFixtureFormat.with_label_suffix(
-        BlockchainEngineFixture,
+    variant = BlockchainEngineFixture.with_label_suffix(
         "inclusion_list",
-        transition_tool_cache_key_suffix="inclusion_list",
+        transition_tool_cache_key="blockchain_test_inclusion_list",
         variant="inclusion_list",
     )
-    derived = LabeledFixtureFormat.with_label_suffix(
-        variant, "from_state_test"
-    )
+    derived = variant.with_label_suffix("from_state_test")
 
     assert mark_names(variant) == [
         "blockchain_test_engine",
@@ -403,9 +386,7 @@ def test_marks_include_every_derived_label() -> None:
 
 def test_marks_of_label_over_plain_format() -> None:
     """Test that a label over a plain format marks only its own label."""
-    derived = LabeledFixtureFormat.with_label_suffix(
-        BlockchainFixture, "from_state_test"
-    )
+    derived = BlockchainFixture.with_label_suffix("from_state_test")
 
     assert derived.labels() == ["blockchain_test_from_state_test"]
     assert mark_names(derived) == [

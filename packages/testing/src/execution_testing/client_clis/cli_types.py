@@ -546,7 +546,6 @@ class Result(CamelModel):
     requests: List[Bytes] | None = None
     block_access_list: Bytes | None = None
     block_access_list_hash: Hash | None = None
-    inclusion_list_satisfied: bool | None = None
     block_exception: Annotated[
         BlockExceptionWithMessage | UndefinedException | None,
         ExceptionMapperValidator,
@@ -747,7 +746,6 @@ class TransitionToolInput:
     txs: List[Transaction]
     env: Environment
     blob_params: ForkBlobSchedule | None = None
-    inclusion_list_txs: List[Bytes] | None = None
 
     def to_files(
         self, directory_path: Path, **model_dump_config: Any

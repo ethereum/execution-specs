@@ -48,8 +48,6 @@ class BlockException(ExceptionBase):
     """Block header's number != parent header's number + 1."""
     INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT = auto()
     """Block header's timestamp <= parent header's timestamp."""
-    INVALID_SLOT_NUMBER = auto()
-    """Block header's slot number <= parent header's slot number."""
     INVALID_DIFFICULTY = auto()
     """
     Block header's difficulty does not match the difficulty formula calculated

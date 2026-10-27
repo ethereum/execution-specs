@@ -89,13 +89,6 @@ class TransactionDataFloorCostCalculator(Protocol):
         pass
 
 
-DEFAULT_SECONDS_ELAPSED = 12
-"""Seconds between a block and its parent unless a test spaces them."""
-
-DEFAULT_SLOTS_ELAPSED = 1
-"""Slots between a block and its parent unless a test spaces them."""
-
-
 class BaseFeePerGasCalculator(Protocol):
     """A protocol to calculate the base fee per gas at a given fork."""
 
@@ -105,8 +98,6 @@ class BaseFeePerGasCalculator(Protocol):
         parent_base_fee_per_gas: int,
         parent_gas_used: int,
         parent_gas_limit: int,
-        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
-        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
     ) -> int:
         """Return the base fee per gas at a given fork."""
         pass
@@ -124,8 +115,6 @@ class BaseFeeChangeCalculator(Protocol):
         parent_base_fee_per_gas: int,
         parent_gas_limit: int,
         required_base_fee_per_gas: int,
-        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
-        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
     ) -> int:
         """Return the gas that needs to be used to change the base fee."""
         pass
@@ -402,7 +391,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     _engine_forkchoice_updated_version_bump: ClassVar[bool] = False
     _engine_get_payload_version_bump: ClassVar[bool] = False
     _engine_get_blobs_version_bump: ClassVar[bool] = False
-    _engine_get_inclusion_list_version_bump: ClassVar[bool] = False
 
     def __init_subclass__(
         cls,
@@ -418,7 +406,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         engine_forkchoice_updated_version_bump: Optional[bool] = None,
         engine_get_payload_version_bump: Optional[bool] = None,
         engine_get_blobs_version_bump: Optional[bool] = None,
-        engine_get_inclusion_list_version_bump: Optional[bool] = None,
     ) -> None:
         """
         Initialize new fork with values that don't carry over to subclass
@@ -491,16 +478,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         else:
             cls._engine_get_blobs_version_bump = any(
                 eip_base._engine_get_blobs_version_bump
-                for eip_base in eip_bases
-            )
-
-        if engine_get_inclusion_list_version_bump is not None:
-            cls._engine_get_inclusion_list_version_bump = (
-                engine_get_inclusion_list_version_bump
-            )
-        else:
-            cls._engine_get_inclusion_list_version_bump = any(
-                eip_base._engine_get_inclusion_list_version_bump
                 for eip_base in eip_bases
             )
 
@@ -594,12 +571,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @abstractmethod
     def header_slot_number_required(cls) -> bool:
         """Return true if the header must contain slot number (EIP-7843)."""
-        pass
-
-    @classmethod
-    @abstractmethod
-    def header_slot_number_must_increase(cls) -> bool:
-        """Return true if a block's slot number must exceed its parent's."""
         pass
 
     # Gas related abstract methods
@@ -810,33 +781,8 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     # Fee helpers
     @classmethod
     @abstractmethod
-    def base_fee_max_change_numerator(
-        cls,
-        *,
-        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
-        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
-    ) -> int:
-        """Return the base fee max change numerator at a given fork."""
-        pass
-
-    @classmethod
-    @abstractmethod
-    def base_fee_max_change_denominator(
-        cls,
-        *,
-        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
-        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
-    ) -> int:
+    def base_fee_max_change_denominator(cls) -> int:
         """Return the base fee max change denominator at a given fork."""
-        pass
-
-    @classmethod
-    @abstractmethod
-    def base_fee_follows_slot_spacing(cls) -> bool:
-        """
-        Return whether the maximum base fee change follows the slot duration
-        read from the spacing of a block and its parent.
-        """
         pass
 
     @classmethod
@@ -1168,26 +1114,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def inclusion_list_transactions_size_limit(cls) -> int | None:
-        """
-        Return the maximum total size in bytes of the transactions in one
-        committee member's inclusion list, or None if the fork has no
-        inclusion lists.
-        """
-        pass
-
-    @classmethod
-    @abstractmethod
-    def inclusion_list_merged_transactions_size_limit(cls) -> int | None:
-        """
-        Return the maximum total size in bytes of the transactions in the
-        merged inclusion list the consensus layer sends with a payload, or
-        None if the fork has no inclusion lists.
-        """
-        pass
-
-    @classmethod
-    @abstractmethod
     def precompiles(cls) -> List[Address]:
         """Return list of precompiles supported by the fork."""
         pass
@@ -1268,15 +1194,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @classmethod
     @abstractmethod
     def engine_new_payload_requests(cls) -> bool:
-        """
-        Return true if the engine api version requires new payload calls to
-        include requests.
-        """
-        pass
-
-    @classmethod
-    @abstractmethod
-    def engine_new_payload_inclusion_list_transactions(cls) -> bool:
         """
         Return true if the engine api version requires new payload calls to
         include requests.
@@ -1387,20 +1304,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         current_cls: Type["BaseFork"] | None = cls
         while current_cls is not None:
             if current_cls._engine_get_blobs_version_bump:
-                current_version += 1
-            current_cls = current_cls.parent()
-        return current_version if current_version > 0 else None
-
-    @classmethod
-    def engine_get_inclusion_list_version(cls) -> Optional[int]:
-        """
-        Return the `engine_getInclusionList` method version, or `None` if the
-        fork has no inclusion lists.
-        """
-        current_version = 0
-        current_cls: Type["BaseFork"] | None = cls
-        while current_cls is not None:
-            if current_cls._engine_get_inclusion_list_version_bump:
                 current_version += 1
             current_cls = current_cls.parent()
         return current_version if current_version > 0 else None

@@ -27,14 +27,12 @@ from execution_testing.rpc import (
     EngineRPC,
     EthRPC,
     ForkchoiceUpdateTimeoutError,
-    SendTransactionExceptionError,
 )
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     JSONRPCError,
     PayloadStatusEnum,
 )
-from execution_testing.test_types import TransactionType
 
 from ..helpers.exceptions import (
     GenesisBlockMismatchExceptionError,
@@ -75,8 +73,6 @@ def test_blockchain_via_engine(
        done once per client and skipped for later tests in the group.
     3. Execute test fixture blocks using engine_newPayloadVX.
     4. For valid payloads, send FCU to advance the chain head.
-    5. If the head carries an inclusion list verdict, check the list the
-       client builds with `engine_getInclusionListVX`.
 
     A client's bad-block cache persists across the tests of a pre-alloc
     group in enginex mode: a block that an earlier test already got
@@ -164,35 +160,6 @@ def test_blockchain_via_engine(
                                 f"unexpected status: want {expected_validity},"
                                 f" got {payload_response.status}"
                             )
-                        response_ils = (
-                            payload_response.inclusion_list_satisfied
-                        )
-                        if not payload.valid():
-                            # `PayloadStatusV2` requires a null
-                            # `inclusionListSatisfied` unless the payload
-                            # is deemed VALID, and no earlier payload
-                            # status carries the field at all.
-                            if response_ils is not None:
-                                raise LoggedError(
-                                    "expected null "
-                                    "`inclusionListSatisfied` on a payload "
-                                    f"not deemed VALID, got {response_ils}"
-                                )
-                        elif payload.inclusion_list_satisfied is not None:
-                            if response_ils is None:
-                                raise LoggedError(
-                                    "expected `inclusion_list_satisfied` in "
-                                    "response."
-                                )
-                            if (
-                                payload.inclusion_list_satisfied
-                                != response_ils
-                            ):
-                                raise LoggedError(
-                                    f"unexpected inclusion list satisfied: "
-                                    f"want {payload.inclusion_list_satisfied},"
-                                    f" got {response_ils}"
-                                )
                         if payload.error_code is not None:
                             raise LoggedError(
                                 "Client failed to raise expected Engine API "
@@ -263,66 +230,4 @@ def test_blockchain_via_engine(
                                 f"unexpected status: want "
                                 f"{PayloadStatusEnum.VALID}, got {status}"
                             )
-                        if payload.inclusion_list_satisfied is not None:
-                            fcu_status = forkchoice_response.payload_status
-                            fcu_ils = fcu_status.inclusion_list_satisfied
-                            # The client must evaluate the retained
-                            # inclusion lists when the forkchoice head is
-                            # deemed VALID.
-                            if fcu_ils is None:
-                                raise LoggedError(
-                                    "expected `inclusionListSatisfied` in "
-                                    "forkchoice response."
-                                )
-                            if payload.inclusion_list_satisfied != fcu_ils:
-                                raise LoggedError(
-                                    f"unexpected inclusion list satisfied "
-                                    f"in forkchoice response: want "
-                                    f"{payload.inclusion_list_satisfied}, "
-                                    f"got {fcu_ils}"
-                                )
         logger.info("All payloads processed successfully.")
-
-    head_payload = next(
-        (p for p in reversed(fixture.payloads) if p.valid()), None
-    )
-    if (
-        head_payload is not None
-        and head_payload.inclusion_list_satisfied is not None
-    ):
-        head = head_payload.params[0]
-        head_fork = fixture.fork.fork_at(
-            block_number=head.number, timestamp=head.timestamp
-        )
-        il_version = head_fork.engine_get_inclusion_list_version()
-        size_limit = head_fork.inclusion_list_transactions_size_limit()
-        assert il_version is not None and size_limit is not None
-        with timing_data.time(f"engine_getInclusionListV{il_version}"):
-            if head_payload.inclusion_list_satisfied is False:
-                # The unsatisfied list holds a transaction still appendable
-                # on the head state, so the client has a candidate to pick.
-                inclusion_list_param = head_payload.params[-1]
-                assert isinstance(inclusion_list_param, list)
-                for raw_tx in inclusion_list_param:
-                    try:
-                        eth_rpc.send_raw_transaction(raw_tx)
-                    except SendTransactionExceptionError:
-                        # Entries may be deliberately invalid.
-                        pass
-            logger.info(f"Sending engine_getInclusionListV{il_version}...")
-            inclusion_list = engine_rpc.get_inclusion_list(version=il_version)
-            # Which transactions to pick is up to the client; only the
-            # list's form is specified.
-            transactions_size = sum(len(entry) for entry in inclusion_list)
-            if transactions_size > size_limit:
-                raise LoggedError(
-                    f"inclusion list transactions total {transactions_size} "
-                    f"bytes, over the {size_limit}-byte limit"
-                )
-            for entry in inclusion_list:
-                if len(entry) == 0:
-                    raise LoggedError("empty inclusion list entry")
-                if entry[0] == TransactionType.BLOB_TRANSACTION:
-                    raise LoggedError(
-                        f"blob transaction in inclusion list: {entry.hex()}"
-                    )

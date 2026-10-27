@@ -106,17 +106,6 @@ class ForkLoad:
         return hasattr(self._module("fork"), "calculate_base_fee_per_gas")
 
     @property
-    def has_slot_spaced_base_fee(self) -> bool:
-        """
-        Check if the fork scales the base fee change by the slot duration
-        read from the block spacing (EIP-8198).
-        """
-        if not self.has_calculate_base_fee_per_gas:
-            return False
-        inspected = signature(self.calculate_base_fee_per_gas)
-        return "slots_elapsed" in inspected.parameters
-
-    @property
     def logs_bloom(self) -> Any:
         """logs_bloom function of the given fork."""
         return self._module("bloom").logs_bloom
@@ -216,18 +205,6 @@ class ForkLoad:
     def process_transaction(self) -> Any:
         """process_transaction function of the fork."""
         return self._module("fork").process_transaction
-
-    @property
-    def check_inclusion_list_transactions(self) -> Any:
-        """check_inclusion_list_transactions function of the fork."""
-        return self._module("fork").check_inclusion_list_transactions
-
-    @property
-    def has_inclusion_list_satisfied(self) -> bool:
-        """
-        Check if the block output has an `inclusion_list_satisfied` field.
-        """
-        return hasattr(self.BlockOutput, "inclusion_list_satisfied")
 
     @property
     def Block(self) -> Any:
@@ -358,11 +335,6 @@ class ForkLoad:
     def BlockState(self) -> Any:
         """BlockState class of the fork."""
         return self._module("state_tracker").BlockState
-
-    @property
-    def encode_transaction(self) -> Any:
-        """encode_transaction function of the fork."""
-        return self._module("transactions").encode_transaction
 
     @property
     def TransactionState(self) -> Any:

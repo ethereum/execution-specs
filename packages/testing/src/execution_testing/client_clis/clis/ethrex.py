@@ -59,9 +59,6 @@ class EthrexExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BASEFEE_PER_GAS: (
             "Base fee per gas is incorrect"
         ),
-        BlockException.INVALID_SLOT_NUMBER: (
-            "Slot number is not greater than parent slot number"
-        ),
     }
     mapping_regex = {
         TransactionException.INVALID_SIGNATURE_VRS: (
