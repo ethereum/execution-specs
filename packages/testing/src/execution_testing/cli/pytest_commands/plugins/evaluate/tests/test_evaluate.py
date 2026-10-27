@@ -77,6 +77,18 @@ EVALUATION_MODULE = textwrap.dedent(
                 pre=pre,
                 blocks=[Block(number=1000, txs=[tx]), Block(number=1005)],
             )
+        with pytest.raises(ValueError, match="at least one block"):
+            spec.run(pre=pre, blocks=[])
+
+
+    @pytest.fixture
+    def broken() -> None:
+        raise RuntimeError("broken fixture")
+
+
+    @pytest.mark.valid_at("Cancun")
+    def eval_setup_error(spec: SpecRunner, broken: None) -> None:
+        raise AssertionError("never runs")
     """
 )
 
@@ -339,7 +351,7 @@ def test_evaluate(evaluation_tests: pytest.Pytester) -> None:
         str(report_path),
         "tests/",
     )
-    result.assert_outcomes(passed=3, failed=1)
+    result.assert_outcomes(passed=3, failed=1, errors=1)
     assert any("evaluation results" in line for line in result.outlines)
 
     report_json = json.loads(report_path.read_text())
@@ -354,6 +366,7 @@ def test_evaluate(evaluation_tests: pytest.Pytester) -> None:
         "eval_store_value[Cancun-2]",
         "eval_receipts_and_traces[Cancun]",
         "eval_block_numbers[Cancun]",
+        "eval_setup_error[Cancun]",
     }
     passed = report["eval_store_value[Cancun-1]"]
     assert passed["outcome"] == "passed"
@@ -367,6 +380,11 @@ def test_evaluate(evaluation_tests: pytest.Pytester) -> None:
     assert failed["records"] == {"value": 2}
     assert "value is 2" in failed["failure"]
     assert report["eval_block_numbers[Cancun]"]["params"] == {}
+    setup_error = report["eval_setup_error[Cancun]"]
+    assert setup_error["outcome"] == "error"
+    assert setup_error["runs"] == 0
+    assert setup_error["records"] == {}
+    assert "broken fixture" in setup_error["failure"]
 
 
 class ModelWithCallable(BaseModel):

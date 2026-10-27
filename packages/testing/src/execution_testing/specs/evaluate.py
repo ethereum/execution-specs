@@ -335,6 +335,8 @@ class SpecRunner:
         if blocks is None:
             assert txs is not None
             blocks = [Block(txs=list(txs))]
+        if not blocks:
+            raise ValueError("pass at least one block in `blocks`")
         genesis_environment = genesis_environment or Environment()
         first_number = blocks[0].number
         if (
@@ -411,8 +413,6 @@ def to_primitive(value: Any) -> Any:
         return value
     if isinstance(value, Enum):
         return to_primitive(value.value)
-    if isinstance(value, bool):
-        return bool(value)
     if isinstance(value, SupportsIndex):
         return operator.index(value)
     if isinstance(value, float):

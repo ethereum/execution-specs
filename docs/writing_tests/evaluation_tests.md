@@ -194,4 +194,4 @@ uv run evaluate tests/ --fork Prague --eval-report results.json
 }
 ```
 
-Each result holds the outcome, fork, parameters, number of runs and recorded values of a test, and the failure message of a failed test. `params` holds the parameters of the test other than its fork, converted as recorded values are; a parameter that cannot be converted is left out.
+Each result holds the outcome, fork, parameters, number of runs and recorded values of a test, and the failure message of a failed test. A test whose setup failed, for example because a fixture raised, is reported with the outcome `error`. `params` holds the parameters of the test other than its fork, converted as recorded values are; a parameter that cannot be converted is left out.

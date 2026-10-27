@@ -135,16 +135,20 @@ def spec(
 def pytest_runtest_makereport(
     item: pytest.Item, call: pytest.CallInfo[None]
 ) -> Generator[None, Any, None]:
-    """Attach the evaluation's runs and records to the report of the call."""
+    """
+    Attach the evaluation's runs and records to the report of the call, or
+    to the report of a setup that failed, so the evaluation is reported
+    although it never ran.
+    """
     del call
     outcome = yield
     report: pytest.TestReport = outcome.get_result()
-    if report.when != "call":
+    if not _is_evaluation_report(report):
+        return
+    if "spec" not in getattr(item, "fixturenames", ()):
         return
     funcargs = getattr(item, "funcargs", {})
     runner = funcargs.get("spec")
-    if not isinstance(runner, SpecRunner):
-        return
     fork = funcargs.get("fork")
     report.user_properties.append(
         (
@@ -152,11 +156,16 @@ def pytest_runtest_makereport(
             {
                 "fork": fork.name() if fork is not None else None,
                 "params": _test_params(item),
-                "runs": runner.run_count,
-                "records": runner.records,
+                "runs": runner.run_count if runner is not None else 0,
+                "records": runner.records if runner is not None else {},
             },
         )
     )
+
+
+def _is_evaluation_report(report: pytest.TestReport) -> bool:
+    """Return whether `report` is the call of a test or a failed setup."""
+    return report.when == "call" or (report.when == "setup" and report.failed)
 
 
 def _test_params(item: pytest.Item) -> Dict[str, Any]:
@@ -182,14 +191,15 @@ def _test_params(item: pytest.Item) -> Dict[str, Any]:
 
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:
     """Collect the evaluation results (also from xdist workers)."""
-    if report.when != "call":
+    if not _is_evaluation_report(report):
         return
     for name, value in report.user_properties:
         if name != EVALUATION_PROPERTY or not isinstance(value, dict):
             continue
         result: Dict[str, Any] = {
             "test": report.nodeid,
-            "outcome": report.outcome,
+            # pytest reports a failed setup as an error.
+            "outcome": "error" if report.when == "setup" else report.outcome,
             **value,
         }
         if report.failed:
