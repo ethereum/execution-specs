@@ -42,6 +42,9 @@ consume-enginex)
     exec uv run --no-sync consume enginex -v --input "$FIXTURES" \
         --disable-strict-exception-matching "${DISABLE_STRICT_EXCEPTION_MATCHING-nimbus-el}" "$@"
     ;;
+consume-wirex)
+    exec uv run --no-sync consume wirex -v --input "$FIXTURES" "$@"
+    ;;
 consume-rlp)
     exec uv run --no-sync consume rlp -v --input "$FIXTURES" "$@"
     ;;
