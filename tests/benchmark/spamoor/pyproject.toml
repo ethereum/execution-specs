@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=77.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eels-spamoor-builders"
+version = "0.1.0"
+description = "Standalone Ethereum tx builders extracted from execution-specs Spamoor scenarios."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "CC0-1.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Testing",
+    "Topic :: System :: Benchmark",
+]
+dependencies = [
+    "eth-abi>=4,<6",
+    "eth-utils>=2,<6",
+]
+
+# No [project.optional-dependencies] — `helpers.py` also defines two pytest-only
+# helpers (`spamoor_signer_context`, `broadcast_and_assert_receipts`) that import
+# `pytest` and `execution_testing.test_types` lazily. They are *not* part of the
+# `build_*` public API exposed by this package; consumers that need them should
+# install pytest + the execution-specs test infrastructure manually (see README).
+
+[project.urls]
+Homepage = "https://github.com/ethereum/execution-specs"
+
+[tool.setuptools]
+packages = ["eels_spamoor_builders"]
+
+[tool.setuptools.package-dir]
+eels_spamoor_builders = "."
