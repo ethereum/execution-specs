@@ -520,55 +520,6 @@ def fee_budget(
     return FeeBudget(max_gas, required_max_fee, max_cost)
 
 
-STATE_BYTES_PER_STORAGE_SET = 64
-"""EIP-8037: the state bytes one fresh storage slot adds."""
-
-STATE_BYTES_PER_NEW_ACCOUNT = 120
-"""EIP-8037: the state bytes one new account adds."""
-
-
-def storage_set_cost(fork: Fork) -> int:
-    """
-    Return the state gas of one fresh storage write,
-    `STATE_BYTES_PER_STORAGE_SET * CPSB`, checked against the
-    framework's pricing of `SSTORE`.
-    """
-    cost = STATE_BYTES_PER_STORAGE_SET * fork.cost_per_state_byte()
-    assert Op.SSTORE(0, 1).state_cost(fork) == cost
-    return cost
-
-
-def account_creation_cost(fork: Fork) -> int:
-    """
-    Return the state gas of one account creation,
-    `STATE_BYTES_PER_NEW_ACCOUNT * CPSB`, checked against the
-    framework's state-gas table.
-    """
-    cost = STATE_BYTES_PER_NEW_ACCOUNT * fork.cost_per_state_byte()
-    assert fork.gas_costs().NEW_ACCOUNT == cost
-    return cost
-
-
-def clearing_refund(fork: Fork) -> int:
-    """
-    Return EIP-8038's `STORAGE_CLEAR_REFUND`: "added if the original
-    value is non-zero, the current value is non-zero and the new value
-    is zero", and subtracted when such a cleared slot is set non-zero
-    again.
-    """
-    return fork.gas_costs().REFUND_STORAGE_CLEAR
-
-
-def restoring_refund(fork: Fork) -> int:
-    """
-    Return EIP-8038's `STORAGE_WRITE`, "refunded if the new value equals
-    the original value and differs from the current value": the write
-    charge of a cold write less its cold access.
-    """
-    gas_costs = fork.gas_costs()
-    return gas_costs.COLD_STORAGE_WRITE - gas_costs.COLD_STORAGE_ACCESS
-
-
 CANARY = 0xDEAD
 """
 Pre-state value of a recording slot, so overwriting it creates no state

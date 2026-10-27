@@ -38,7 +38,6 @@ from .helpers import (
     FrameTransaction,
     Outcome,
     default_frame,
-    storage_set_cost,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -385,13 +384,14 @@ def test_transient_storage_discarded_for_called_account(
     The called account records each read plus one, so an empty slot
     reads as 1.
     """
+    record = Op.SSTORE(
+        Op.ADD(SLOT_SEEN_BY_CALLEE, CURRENT_FRAME_INDEX),
+        Op.ADD(1, Op.TLOAD(TRANSIENT_KEY)),
+    )
     callee_code = Conditional(
         condition=Op.CALLDATASIZE,
         if_true=Op.TSTORE(TRANSIENT_KEY, TRANSIENT_VALUE),
-        if_false=Op.SSTORE(
-            Op.ADD(SLOT_SEEN_BY_CALLEE, CURRENT_FRAME_INDEX),
-            Op.ADD(1, Op.TLOAD(TRANSIENT_KEY)),
-        ),
+        if_false=record,
     )
     callee = pre.deploy_contract(code=callee_code)
     writer_code = (
@@ -403,7 +403,8 @@ def test_transient_storage_discarded_for_called_account(
     reader = pre.deploy_contract(
         code=Op.POP(Op.CALL(gas=Op.GAS, address=callee)) + Op.STOP
     )
-    slot_gas = storage_set_cost(fork)
+    # Each frame is charged the callee's record of its read.
+    slot_gas = record.state_cost(fork)
     sender = pre.fund_eoa()
 
     tx = FrameTransaction.build(

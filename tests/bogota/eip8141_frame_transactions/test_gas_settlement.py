@@ -37,7 +37,6 @@ from .helpers import (
     default_frame,
     floor_binding_padding,
     reserving_frame_tx,
-    storage_set_cost,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -286,7 +285,7 @@ def test_batch_unroll_refill_restores_spent_gas(
     settled from the restored receipts.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = storage_set_cost(fork)
+    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
 
     # A passive worker that writes whichever value its frame passes: the
     # creating frame passes one, the refilling frame passes zero.
@@ -405,7 +404,7 @@ def test_frame_revert_refill_restores_spent_gas(
     the restored receipts.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = storage_set_cost(fork)
+    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
 
     # A worker that writes whichever value its frame passes and then
     # reverts when called with empty data: the creating frame passes a
@@ -555,7 +554,6 @@ def test_state_reservation_after_refilled_transaction(
         + Op.STOP
     )
     worker = pre.deploy_contract(code=create_code)
-    storage_set = storage_set_cost(fork)
     first = FrameTransaction.build(
         fork=fork,
         sender=sender,
@@ -566,7 +564,7 @@ def test_state_reservation_after_refilled_transaction(
                 target=worker,
                 code=create_code,
                 data=(1).to_bytes(32, "big"),
-                state_gas_limit=storage_set,
+                state_gas_limit=create_code.state_cost(fork),
                 state_gas_used=0,
             ),
             default_frame(
@@ -627,7 +625,6 @@ def test_state_dominant_block_gas_and_base_fee(
     header reports the state gas, and the next block's base fee rises
     from it, where a client reporting the execution gas would lower it.
     """
-    storage_set = storage_set_cost(fork)
     code = sum(
         (Op.SSTORE(slot, 1) for slot in range(CREATED_SLOTS)), Bytecode()
     )
@@ -655,7 +652,7 @@ def test_state_dominant_block_gas_and_base_fee(
     second.expected_receipt.cumulative_gas_used = HexNumber(
         first.payer_gas_used() + second.payer_gas_used()
     )
-    block_state_gas = 2 * CREATED_SLOTS * storage_set
+    block_state_gas = sum(tx.state_gas for tx in transactions)
     block_execution_gas = sum(
         tx.block_gas_used() - tx.state_gas for tx in transactions
     )

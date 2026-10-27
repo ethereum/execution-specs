@@ -36,10 +36,11 @@ from .helpers import (
     FrameCase,
     FrameTransaction,
     Outcome,
-    account_creation_cost,
     created_address,
     default_frame,
     fee_budget,
+    frame_data_copy,
+    frame_data_create,
     sender_frame,
     sponsored_signatures,
     verify_frame,
@@ -58,10 +59,12 @@ FRAME_VALUE = 10**9
 """Value carried by the value-bearing `SENDER` frames."""
 
 
+@pytest.mark.with_all_create_opcodes
 def test_gasprice_is_the_same_in_every_frame(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    create_opcode: Op,
 ) -> None:
     """
     Read `GASPRICE` in a `VERIFY` frame, a `SENDER` frame, a `DEFAULT`
@@ -89,12 +92,13 @@ def test_gasprice_is_the_same_in_every_frame(
     caller = pre.deploy_contract(
         code=Op.POP(Op.CALL(gas=Op.GAS, address=recorder)) + Op.STOP
     )
-    factory = pre.deploy_contract(
-        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.POP(Op.CREATE(0, 0, Op.CALLDATASIZE))
+    factory_code = (
+        frame_data_copy(record)
+        + Op.POP(frame_data_create(create_opcode, record))
         + Op.STOP
     )
-    created = created_address(factory, Op.CREATE, record)
+    factory = pre.deploy_contract(code=factory_code)
+    created = created_address(factory, create_opcode, record)
     sender_code = Conditional(
         condition=Op.EQ(Op.GASPRICE, gas_price),
         if_true=APPROVE_ALL,
@@ -118,7 +122,8 @@ def test_gasprice_is_the_same_in_every_frame(
             data=Bytes(bytes(record)),
             gas_limit=FRAME_GAS,
             pin_gas=False,
-            state_gas_used=account_creation_cost(fork) + slot_gas,
+            # The creation's new account and the initcode's write.
+            state_gas_used=factory_code.state_cost(fork) + slot_gas,
         ),
     ]
     fees = fee_budget(fork, sender, frames, signatures=[])

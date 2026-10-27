@@ -51,7 +51,6 @@ from .helpers import (
     PRIORITY_FEE,
     FrameCase,
     FrameTransaction,
-    account_creation_cost,
     default_frame,
     fee_budget,
     sponsored_signatures,
@@ -199,43 +198,49 @@ def test_approve_reached_through_another_contract(
     )
 
 
-@pytest.mark.parametrize(
-    "call_opcode,approves",
-    [
-        pytest.param(Op.DELEGATECALL, True, id="DELEGATECALL"),
-        pytest.param(Op.CALLCODE, True, id="CALLCODE"),
-        pytest.param(
-            Op.CALL, False, id="CALL", marks=pytest.mark.exception_test
-        ),
-    ],
+@pytest.mark.with_all_call_opcodes(
+    # `CALL` and `STATICCALL` run the library at its own `ADDRESS`, so
+    # its `APPROVE` is refused and the transaction is invalid.
+    marks=lambda call_opcode: (
+        pytest.mark.exception_test
+        if call_opcode in (Op.CALL, Op.STATICCALL)
+        else None
+    ),
 )
 def test_approve_in_library_code(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     call_opcode: Opcode,
-    approves: bool,
 ) -> None:
     """
     A contract sender's `VERIFY` frame runs a library's `APPROVE`
     through `DELEGATECALL` or `CALLCODE`, and the approval succeeds;
-    through `CALL`, the library's `APPROVE` is refused and the frame
-    reverts.
+    through `CALL` or `STATICCALL`, the library's `APPROVE` is refused
+    and the frame reverts.
 
     EIP-8141 §`APPROVE` Behavior: "If `ADDRESS != resolved_target`,
     revert." §Rationale, `APPROVE` calling convention: "Because
     `DELEGATECALL` preserves `ADDRESS`, code executed via
     `DELEGATECALL` from the resolved target may also execute `APPROVE`
-    successfully." `CALLCODE` also runs
-    the library's code at the caller's `ADDRESS`; `CALL` runs it at the
-    library's own.
+    successfully." `CALLCODE` also runs the library's code at the
+    caller's `ADDRESS`; `CALL` and `STATICCALL` run it at the library's
+    own. A `VERIFY` frame is already static and `APPROVE` writes past
+    that restriction, so `STATICCALL` adds no check of its own.
 
     The frame reverts unless the library call succeeded, and a failed
     `VERIFY` frame makes the transaction invalid. The library can
-    afford `max_cost` too, so under `CALL` the `ADDRESS` check is the
-    only one that refuses, even for a client that checks the balance of
-    `ADDRESS` rather than of the resolved target.
+    afford `max_cost` too, so under `CALL` and `STATICCALL` the
+    `ADDRESS` check is the only one that refuses, even for a client
+    that checks the balance of `ADDRESS` rather than of the resolved
+    target.
     """
+    if call_opcode in (Op.DELEGATECALL, Op.CALLCODE):
+        approves = True
+    elif call_opcode in (Op.CALL, Op.STATICCALL):
+        approves = False
+    else:
+        raise ValueError(f"unknown call_opcode: {call_opcode!r}")
     library = pre.deploy_contract(code=APPROVE_ALL, balance=FUNDS)
     sender_code = Conditional(
         condition=call_opcode(gas=Op.GAS, address=library),
@@ -817,15 +822,15 @@ def test_sender_creation_shortfall_halts_payment_approval(
 ) -> None:
     """
     The sender does not exist yet. A sponsor contract approves payment
-    from a self-call, with a state budget of exactly the creation of
-    the sender, or one gas less.
+    from a self-call, with a state budget of exactly the new account's
+    state gas for the sender, or one gas less.
 
     EIP-8141 §`APPROVE` Behavior, `APPROVE_PAYMENT`: "Immediately
     before incrementing the sender's nonce, if `tx.sender` does not
-    exist [...], charge `STATE_BYTES_PER_NEW_ACCOUNT * CPSB` from the
-    current frame's `state_gas_left`. If the pool cannot cover the
-    charge, halt the current call frame exceptionally without applying
-    any approval effects."
+    exist [...], charge" the new account's state gas "from the current
+    frame's `state_gas_left`. If the pool cannot cover the charge, halt
+    the current call frame exceptionally without applying any approval
+    effects."
 
     The sponsor measures its self-call and records the gas over a
     canary, a write that creates no state, so the sender's creation is
@@ -842,7 +847,9 @@ def test_sender_creation_shortfall_halts_payment_approval(
       approval succeeds, which it could not if the first had set the
       payer.
     """
-    new_account_gas = account_creation_cost(fork)
+    # No opcode makes this charge: `APPROVE` creates the sender, priced
+    # as `NEW_ACCOUNT` (the state gas of one new account).
+    new_account_gas = fork.gas_costs().NEW_ACCOUNT
     sender = pre.fund_eoa(amount=0)
     call = Op.CALL(gas=INNER_CALL_GAS, address=Op.ADDRESS, address_warm=True)
     measure = CodeGasMeasure(
@@ -866,7 +873,12 @@ def test_sender_creation_shortfall_halts_payment_approval(
     sponsor = pre.deploy_contract(
         code=sponsor_code, balance=FUNDS, storage={SLOT_CALL_GAS: CANARY}
     )
-    approves = budget_delta >= 0
+    if budget_delta == 0:
+        approves = True
+    elif budget_delta == -1:
+        approves = False
+    else:
+        raise ValueError(f"unknown budget_delta: {budget_delta!r}")
 
     sponsor_frame = default_frame(
         flags=Spec.APPROVE_PAYMENT,

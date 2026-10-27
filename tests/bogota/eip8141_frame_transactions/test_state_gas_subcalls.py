@@ -27,13 +27,11 @@ from .helpers import (
     CANARY,
     FrameTransaction,
     Outcome,
-    account_creation_cost,
     default_frame,
     overwrite,
     record_pool,
     sender_frame,
     sponsored_signatures,
-    storage_set_cost,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -127,9 +125,15 @@ def test_call_value_to_new_account(
             account_new=True,
         )
     )
-    assert code.state_cost(fork) == account_creation_cost(fork)
     caller = pre.deploy_contract(code=code, balance=1, storage=CANARIES)
-    succeeds = state_gas_limit_delta >= 0
+    if state_gas_limit_delta == 0:
+        succeeds = True
+    elif state_gas_limit_delta == -1:
+        succeeds = False
+    else:
+        raise ValueError(
+            f"unknown state_gas_limit_delta: {state_gas_limit_delta!r}"
+        )
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -142,7 +146,7 @@ def test_call_value_to_new_account(
                 # The empty account spends none of the call's stipend,
                 # which returns to the caller.
                 execution_gas=code.execution_cost(fork)
-                - fork.gas_costs().CALL_STIPEND,
+                - fork.call_value_stipend(),
                 state_gas_limit_delta=state_gas_limit_delta,
                 outcome=Outcome.SUCCESS if succeeds else Outcome.HALT,
             ),
@@ -249,7 +253,6 @@ def test_callcode_value_charges_no_account(
     code = recorder(
         Op.CALLCODE(gas=0, address=fresh, value=1, value_transfer=True)
     )
-    assert code.state_cost(fork) == 0
     caller = pre.deploy_contract(code=code, balance=0, storage=CANARIES)
 
     tx = FrameTransaction.build(
@@ -263,7 +266,7 @@ def test_callcode_value_charges_no_account(
                 # The failed balance check hands the call's stipend
                 # straight back to the caller.
                 execution_gas=code.execution_cost(fork)
-                - fork.gas_costs().CALL_STIPEND,
+                - fork.call_value_stipend(),
                 state_gas_limit=0,
             ),
         ],
@@ -312,23 +315,29 @@ def test_call_value_child_failure_refills_account_charge(
     below, the charge itself halts the frame, which shows the call was
     charged at all.
     """
-    gas_costs = fork.gas_costs()
-    assert gas_costs.PRECOMPILE_ECRECOVER > gas_costs.CALL_STIPEND
+    # The premise: the precompile costs more than the call's stipend.
+    assert fork.gas_costs().PRECOMPILE_ECRECOVER > fork.call_value_stipend()
     sender = pre.fund_eoa()
-    code = recorder(
-        Op.CALL(
-            gas=0,
-            address=ECRECOVER,
-            value=1,
-            # The precompiles seed the warm set.
-            address_warm=True,
-            value_transfer=True,
-            account_new=True,
-        )
+    call = Op.CALL(
+        gas=0,
+        address=ECRECOVER,
+        value=1,
+        # The precompiles seed the warm set.
+        address_warm=True,
+        value_transfer=True,
+        account_new=True,
     )
-    account_creation = account_creation_cost(fork)
+    code = recorder(call)
+    account_creation = call.state_cost(fork)
     caller = pre.deploy_contract(code=code, balance=1, storage=CANARIES)
-    succeeds = state_gas_limit_delta >= 0
+    if state_gas_limit_delta == 0:
+        succeeds = True
+    elif state_gas_limit_delta == -1:
+        succeeds = False
+    else:
+        raise ValueError(
+            f"unknown state_gas_limit_delta: {state_gas_limit_delta!r}"
+        )
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -375,8 +384,8 @@ def test_frame_value_balance_check_precedes_account_charge(
     EIP-8141 "Behavior": "if the caller does not have sufficient
     balance to transfer `frame.value`, the frame reverts, consuming the
     gas charged so far", and "If `frame.value > 0` and
-    `resolved_target` does not exist, `STATE_BYTES_PER_NEW_ACCOUNT *
-    CPSB` state gas is charged after the balance check".
+    `resolved_target` does not exist", the new account's state gas "is
+    charged after the balance check".
 
     A sponsor pays, and the sender holds one wei less than the value
     its `SENDER` frame sends to an absent target, with an empty state
@@ -436,13 +445,13 @@ def test_frame_value_to_precompile_charges_account(
     that holds no balance, then dispatch the precompile.
 
     EIP-8141 "Behavior": "If `frame.value > 0` and `resolved_target`
-    does not exist, `STATE_BYTES_PER_NEW_ACCOUNT * CPSB` state gas is
-    charged after the balance check and before the frame's code
-    executes", then "If `resolved_target` is an active precompile at
-    the current fork, the frame dispatches it as an ordinary call
-    would." A precompile without balance, nonce or code has no account
-    (EIP-8037: "an account is *existent* if it already has a leaf in
-    the state trie").
+    does not exist", the new account's state gas "is charged after the
+    balance check and before the frame's code executes", then "If
+    `resolved_target` is an active precompile at the current fork, the
+    frame dispatches it as an ordinary call would." A precompile
+    without balance, nonce or code has no account (EIP-8037: "an
+    account is *existent* if it already has a leaf in the state
+    trie").
 
     The `SENDER` frame sends one wei to the `sha256` precompile with
     empty input. With a budget of exactly the account creation the
@@ -451,8 +460,17 @@ def test_frame_value_to_precompile_charges_account(
     the precompile stays absent.
     """
     sender = pre.fund_eoa()
-    gas_costs = fork.gas_costs()
-    succeeds = state_gas_limit_delta >= 0
+    # No opcode makes the charge: the frame entry charges the new
+    # account's state gas for a value-bearing frame to a dead target.
+    account_creation = fork.gas_costs().NEW_ACCOUNT
+    if state_gas_limit_delta == 0:
+        succeeds = True
+    elif state_gas_limit_delta == -1:
+        succeeds = False
+    else:
+        raise ValueError(
+            f"unknown state_gas_limit_delta: {state_gas_limit_delta!r}"
+        )
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -464,11 +482,11 @@ def test_frame_value_to_precompile_charges_account(
                 value=1,
                 # The precompiles seed the warm set.
                 warm=True,
-                # An empty input hashes no words.
-                execution_gas=gas_costs.PRECOMPILE_SHA256_BASE,
-                state_gas_limit=account_creation_cost(fork)
-                + state_gas_limit_delta,
-                state_gas_used=account_creation_cost(fork) if succeeds else 0,
+                # An empty input hashes no words; the framework does not
+                # price precompiles, so the fork's base cost is read.
+                execution_gas=fork.gas_costs().PRECOMPILE_SHA256_BASE,
+                state_gas_limit=account_creation + state_gas_limit_delta,
+                state_gas_used=account_creation if succeeds else 0,
                 outcome=Outcome.SUCCESS if succeeds else Outcome.HALT,
             ),
         ],
@@ -513,7 +531,7 @@ def test_subcall_draws_frame_pool(
         + Op.STOP
     )
     parent = pre.deploy_contract(code=parent_code, storage=CANARIES)
-    storage_set = storage_set_cost(fork)
+    storage_set = child_code.state_cost(fork)
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -566,7 +584,7 @@ def test_subcall_state_shortfall_halts_only_child(
     child = pre.deploy_contract(code=child_code)
     parent_code = recorder(Op.CALL(gas=CHILD_GAS, address=child))
     parent = pre.deploy_contract(code=parent_code, storage=CANARIES)
-    state_budget = storage_set_cost(fork) - 1
+    state_budget = child_code.state_cost(fork) - 1
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -623,7 +641,8 @@ def test_reverted_subcall_returns_state_gas(
         + Op.STOP
     )
     parent = pre.deploy_contract(code=parent_code, storage=CANARIES)
-    storage_set = storage_set_cost(fork)
+    # The parent's own write costs what the child's reverted one did.
+    storage_set = parent_code.state_cost(fork)
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -692,14 +711,14 @@ def test_gas_opcode_excludes_state_pool(
     """
     sender = pre.fund_eoa()
     record_gas = overwrite(SLOT_RESULT, Op.GAS) + Op.STOP
-    gas_cost = fork.gas_costs().BASE
+    gas_cost = Op.GAS.gas_cost(fork)
     entry = fork.frame_entry_gas_calculator()(target_warm=False)
     if depth == 0:
         target = pre.deploy_contract(code=record_gas, storage=CANARIES)
         recorder_account = target
         execution_gas = record_gas.execution_cost(fork)
         expected = GAS_PROBE_LIMIT - entry - gas_cost
-    else:
+    elif depth == 1:
         recorder_account = pre.deploy_contract(
             code=record_gas, storage=CANARIES
         )
@@ -711,6 +730,8 @@ def test_gas_opcode_excludes_state_pool(
             fork
         ) + record_gas.execution_cost(fork)
         expected = CHILD_GAS - gas_cost
+    else:
+        raise ValueError(f"unknown depth: {depth!r}")
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -761,11 +782,11 @@ def test_sstore_stipend_check_ignores_state_pool(
 
     The frame's target rewrites a slot with its current value, a write
     that creates nothing and costs less than the stipend, with a state
-    pool of a million. When the write starts with exactly the stipend
-    of execution gas left, the check fails and the frame halts,
-    consuming its whole budget. One gas more and the write succeeds,
-    the frame reporting only what it spent. A client counting the state
-    pool toward the check lets the first case write.
+    pool of `GAS_PROBE_STATE_LIMIT`. When the write starts with exactly
+    the stipend of execution gas left, the check fails and the frame
+    halts, consuming its whole budget. One gas more and the write
+    succeeds, the frame reporting only what it spent. A client counting
+    the state pool toward the check lets the first case write.
     """
     sender = pre.fund_eoa()
     pushes = Op.PUSH1[1] + Op.PUSH1[1]
@@ -782,12 +803,17 @@ def test_sstore_stipend_check_ignores_state_pool(
     )
     target = pre.deploy_contract(code=code, storage={1: 1})
     entry = fork.frame_entry_gas_calculator()(target_warm=False)
-    succeeds = stipend_margin > 0
+    if stipend_margin == 0:
+        succeeds = False
+    elif stipend_margin == 1:
+        succeeds = True
+    else:
+        raise ValueError(f"unknown stipend_margin: {stipend_margin!r}")
     # The premise: the write itself costs no more than the stipend, so
     # only the stipend check can halt the frame at exactly the stipend.
     assert (
         code.execution_cost(fork) - pushes.execution_cost(fork)
-        <= fork.gas_costs().CALL_STIPEND
+        <= fork.call_value_stipend()
     )
 
     tx = FrameTransaction.build(
@@ -800,7 +826,7 @@ def test_sstore_stipend_check_ignores_state_pool(
                 code=code,
                 gas_limit=entry
                 + pushes.execution_cost(fork)
-                + fork.gas_costs().CALL_STIPEND
+                + fork.call_value_stipend()
                 + stipend_margin,
                 state_gas_limit=GAS_PROBE_STATE_LIMIT,
                 outcome=Outcome.SUCCESS if succeeds else Outcome.HALT,

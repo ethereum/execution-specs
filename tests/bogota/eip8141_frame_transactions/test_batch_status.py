@@ -30,7 +30,6 @@ from .helpers import (
     FrameCase,
     FrameTransaction,
     Outcome,
-    account_creation_cost,
     default_frame,
     sender_frame,
     sponsored_signatures,
@@ -179,15 +178,24 @@ def test_batch_before_any_approval_unrolls(
     )
 
 
+@pytest.mark.parametrize(
+    "unrolls",
+    [
+        pytest.param(False, id="balance_covers_value"),
+        pytest.param(True, id="value_one_wei_above_balance"),
+    ],
+)
 def test_value_shortfall_unrolls_batch(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    unrolls: bool,
 ) -> None:
     """
-    End an atomic batch with a `SENDER` frame carrying one wei more
-    than the sender holds: the frame reverts on the balance check,
-    which unrolls the batch frame before it.
+    End an atomic batch with a `SENDER` frame carrying the sender's
+    whole balance, which commits the batch, or one wei more: that frame
+    reverts on the balance check, which unrolls the batch frame before
+    it.
 
     EIP-8141 §Behavior: "As with an ordinary `CALL`, if the caller does
     not have sufficient balance to transfer `frame.value`, the frame
@@ -205,6 +213,14 @@ def test_value_shortfall_unrolls_batch(
     recipient = pre.fund_eoa(amount=1)
     worker_code = Op.SSTORE(SLOT_WRITTEN, 1) + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
+    if unrolls:
+        value = sender_balance + 1
+        batch_outcome, value_outcome = Outcome.UNROLLED, Outcome.REVERT
+        transferred = 0
+    else:
+        value = sender_balance
+        batch_outcome, value_outcome = Outcome.SUCCESS, Outcome.SUCCESS
+        transferred = value
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -217,12 +233,12 @@ def test_value_shortfall_unrolls_batch(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=worker,
                 code=worker_code,
-                outcome=Outcome.UNROLLED,
+                outcome=batch_outcome,
             ),
             sender_frame(
                 target=recipient,
-                value=sender_balance + 1,
-                outcome=Outcome.REVERT,
+                value=value,
+                outcome=value_outcome,
             ),
         ],
         signatures=sponsored_signatures(sender, payer),
@@ -232,37 +248,66 @@ def test_value_shortfall_unrolls_batch(
         pre=pre,
         tx=tx,
         post={
-            sender: Account(nonce=1, balance=sender_balance),
-            recipient: Account(balance=1),
-            worker: Account(storage={SLOT_WRITTEN: 0}),
+            sender: Account(nonce=1, balance=sender_balance - transferred),
+            recipient: Account(balance=1 + transferred),
+            worker: Account(storage={SLOT_WRITTEN: 0 if unrolls else 1}),
         },
     )
 
 
+@pytest.mark.parametrize(
+    "unrolls",
+    [
+        pytest.param(False, id="budget_covers_new_account"),
+        pytest.param(True, id="budget_one_short_of_new_account"),
+    ],
+)
 def test_new_account_charge_halt_unrolls_batch(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    unrolls: bool,
 ) -> None:
     """
     End an atomic batch with a `SENDER` frame sending value to an
-    address with no account, budgeted one state gas less than the
-    account creation: the frame halts exceptionally, which unrolls the
-    batch frame before it.
+    address with no account, budgeted exactly the new account's state
+    gas, which commits the batch, or one state gas less: that frame
+    halts exceptionally, which unrolls the batch frame before it.
 
-    EIP-8141 §Behavior: "If `frame.value > 0` and `resolved_target`
-    does not exist, `STATE_BYTES_PER_NEW_ACCOUNT * CPSB` state gas is
-    charged after the balance check and before the frame's code
-    executes [...]. If `state_gas_left` cannot cover the charge, the
-    frame halts exceptionally." and "If a frame is part of an atomic
-    batch and it fails, unroll the associated atomic batch." The
-    halting frame forfeits its whole execution budget and the new
-    account is never created.
+    EIP-8141 §Behavior: if `frame.value > 0` and `resolved_target`
+    does not exist, the new account's state gas is "charged after the
+    balance check and before the frame's code executes [...]. If
+    `state_gas_left` cannot cover the charge, the frame halts
+    exceptionally." and "If a frame is part of an atomic batch and it
+    fails, unroll the associated atomic batch." The halting frame
+    forfeits its whole execution budget and the new account is never
+    created.
     """
     sender = pre.fund_eoa()
     absent = pre.nonexistent_account()
     worker_code = Op.SSTORE(SLOT_WRITTEN, 1) + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
+    # No opcode makes this charge: the frame's own value transfer creates
+    # the account, priced as `NEW_ACCOUNT` (`frame_entry_gas_calculator`).
+    new_account_gas = fork.gas_costs().NEW_ACCOUNT
+    if unrolls:
+        batch_outcome = Outcome.UNROLLED
+        value_frame = sender_frame(
+            target=absent,
+            value=1,
+            state_gas_limit=new_account_gas - 1,
+            outcome=Outcome.HALT,
+        )
+        absent_post = Account.NONEXISTENT
+    else:
+        batch_outcome = Outcome.SUCCESS
+        value_frame = sender_frame(
+            target=absent,
+            value=1,
+            state_gas_limit=new_account_gas,
+            state_gas_used=new_account_gas,
+        )
+        absent_post = Account(nonce=0, balance=1, code=b"")
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -273,14 +318,9 @@ def test_new_account_charge_halt_unrolls_batch(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=worker,
                 code=worker_code,
-                outcome=Outcome.UNROLLED,
+                outcome=batch_outcome,
             ),
-            sender_frame(
-                target=absent,
-                value=1,
-                state_gas_limit=account_creation_cost(fork) - 1,
-                outcome=Outcome.HALT,
-            ),
+            value_frame,
         ],
     )
 
@@ -289,8 +329,8 @@ def test_new_account_charge_halt_unrolls_batch(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            absent: Account.NONEXISTENT,
-            worker: Account(storage={SLOT_WRITTEN: 0}),
+            absent: absent_post,
+            worker: Account(storage={SLOT_WRITTEN: 0 if unrolls else 1}),
         },
     )
 
@@ -386,9 +426,10 @@ def test_frameparam_reads_batch_outcomes(
             default_frame(
                 target=probe,
                 code=probe_code,
-                # Headroom keeps the last write clear of the call
-                # stipend check, which an exact budget would trip.
-                gas_limit_delta=fork.gas_costs().CALL_STIPEND + 1,
+                # Headroom keeps the last write clear of the `SSTORE`
+                # check that refuses a write with no more than the call
+                # stipend left, which an exact budget would trip.
+                gas_limit_delta=fork.call_value_stipend() + 1,
                 state_gas_limit_delta=0,
             ),
         ],

@@ -10,7 +10,7 @@ own charges to the pool, while a reverting frame or an unrolled atomic
 batch removes the creation together with its attribution.
 """
 
-from typing import Tuple
+from typing import Any, Tuple
 
 import pytest
 from execution_testing import (
@@ -29,14 +29,12 @@ from .helpers import (
     FACTORY_NONCE,
     FrameTransaction,
     Outcome,
-    account_creation_cost,
     created_address,
     default_frame,
     frame_data_copy,
     frame_data_create,
     overwrite,
     record_pool,
-    storage_set_cost,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -58,6 +56,12 @@ failed creation's zero is distinguishable from a slot never written.
 SLOT_POOL = 0x02
 """Factory slot recording the frame's remaining state gas pool."""
 
+RECORD_POOL = Op.SSTORE(SLOT_POOL, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
+"""
+Factory code recording the frame's remaining state gas pool, a fresh
+storage write.
+"""
+
 SLOT_INIT_WRITE = 0x00
 """Slot the init code writes in the account it creates."""
 
@@ -74,7 +78,7 @@ Probe slot recording the creating frame's receipt status, plus one so
 a `FAILURE` readback is distinguishable from a slot never written.
 """
 
-RUNTIME_CODE = Op.JUMPDEST * 31 + Op.STOP
+RUNTIME_CODE = Op.STOP * 32
 """
 Code the init code deploys: 32 bytes, so its code deposit is a state
 charge of its own size next to the account creation.
@@ -91,7 +95,7 @@ returning `RUNTIME_CODE`.
 
 
 def factory_code(
-    create_opcode: Op, init_code: Bytecode = INIT_CODE
+    create_opcode: Op, init_code: Bytecode = INIT_CODE, **metadata: Any
 ) -> Tuple[Bytecode, Bytecode]:
     """
     Return the factory code that creates a contract from the frame data,
@@ -100,13 +104,14 @@ def factory_code(
 
     After the creation the factory records the address returned and the
     frame's remaining state gas pool, each a fresh storage write.
+    Keyword arguments are passed on as the creation's gas metadata.
     """
-    create_call = frame_data_create(create_opcode, init_code)
+    create_call = frame_data_create(create_opcode, init_code, **metadata)
     copy = frame_data_copy(init_code)
     code = (
         copy
         + Op.SSTORE(SLOT_CREATE_RESULT, Op.ADD(1, create_call))
-        + Op.SSTORE(SLOT_POOL, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
+        + RECORD_POOL
         + Op.STOP
     )
     # `Op.ADD(1, create_call)` pushes its second operand first, so the
@@ -128,25 +133,23 @@ def plain_factory_code(create_opcode: Op, ending: Bytecode) -> Bytecode:
 
 def creation_state_costs(fork: Fork, create_opcode: Op) -> Tuple[int, int]:
     """
-    Return the account creation's state gas and the init code's state
-    gas (its storage write plus the code deposit), both derived from the
-    EIP-8037 constants and checked against the framework's pricing: the
-    creating instruction's state cost against the account creation, and
-    the init code's against the storage write and code deposit it sums.
+    Return the state gas of the factory's creating instruction, the
+    account creation, and of the init code it runs, the storage write
+    plus the code deposit of its `RETURN`.
     """
-    # STATE_BYTES_PER_NEW_ACCOUNT * CPSB, charged by the creating frame.
-    account_creation = account_creation_cost(fork)
-    create_call = create_op(create_opcode, init_code_size=len(INIT_CODE))
-    assert create_call.state_cost(fork) == account_creation
-    # STATE_BYTES_PER_STORAGE_SET * CPSB for the init code's write, plus
-    # CPSB per deployed byte for the deposit.
-    code_deposit = len(RUNTIME_CODE) * fork.cost_per_state_byte()
-    assert fork.code_deposit_state_gas(code_size=len(RUNTIME_CODE)) == (
-        code_deposit
+    create_call = frame_data_create(create_opcode, INIT_CODE)
+    return create_call.state_cost(fork), INIT_CODE.state_cost(fork)
+
+
+def recording_state_costs(fork: Fork) -> Tuple[int, int]:
+    """
+    Return the state gas of the factory's two recording writes: the
+    fresh write of the creation's result, then `RECORD_POOL`.
+    """
+    return (
+        Op.SSTORE(SLOT_CREATE_RESULT, 1).state_cost(fork),
+        RECORD_POOL.state_cost(fork),
     )
-    init_state = INIT_CODE.state_cost(fork)
-    assert init_state == storage_set_cost(fork) + code_deposit
-    return account_creation, init_state
 
 
 def test_create_charges_frame_pool(
@@ -178,10 +181,9 @@ def test_create_charges_frame_pool(
     code, _ = factory_code(create_opcode)
     factory = pre.deploy_contract(code=code)
     created = created_address(factory, create_opcode, INIT_CODE)
-    account_creation, init_state = creation_state_costs(fork, create_opcode)
-    storage_set = storage_set_cost(fork)
-    state_budget = account_creation + init_state + 2 * storage_set
-    assert code.state_cost(fork) + init_state == state_budget
+    # The creation, the init code's write and deposit, and the factory's
+    # two recording writes.
+    state_budget = code.state_cost(fork) + INIT_CODE.state_cost(fork)
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -208,7 +210,7 @@ def test_create_charges_frame_pool(
                 nonce=FACTORY_NONCE + 1,
                 storage={
                     SLOT_CREATE_RESULT: int.from_bytes(created, "big") + 1,
-                    SLOT_POOL: storage_set,
+                    SLOT_POOL: RECORD_POOL.state_cost(fork),
                 },
             ),
             created: Account(
@@ -255,14 +257,15 @@ def test_create_code_deposit_exceeds_frame_pool(
     factory = pre.deploy_contract(code=code)
     created = created_address(factory, create_opcode, INIT_CODE)
     account_creation, init_state = creation_state_costs(fork, create_opcode)
-    storage_set = storage_set_cost(fork)
+    result_write, pool_write = recording_state_costs(fork)
     state_budget = account_creation + init_state - 1
     # The recording writes fit the budget once the creation is refilled.
-    assert state_budget >= 2 * storage_set
+    assert state_budget >= result_write + pool_write
 
-    # The factory keeps one 64th of its gas across the child grant
-    # (`max_message_call_gas`), and the code after the `CREATE` runs on
-    # exactly that.
+    # EIP-150: a call or creation forwards all but one 64th of the
+    # caller's remaining gas (`max_message_call_gas`), so a factory left
+    # with 64 times what the code after the `CREATE` costs keeps exactly
+    # that cost.
     after_create = code.execution_cost(fork) - up_to_create.execution_cost(
         fork
     )
@@ -283,7 +286,7 @@ def test_create_code_deposit_exceeds_frame_pool(
                 gas_limit=gas_limit,
                 gas_used=gas_limit,
                 state_gas_limit=state_budget,
-                state_gas_used=2 * storage_set,
+                state_gas_used=result_write + pool_write,
             ),
         ],
     )
@@ -299,7 +302,7 @@ def test_create_code_deposit_exceeds_frame_pool(
                 nonce=FACTORY_NONCE + 1,
                 storage={
                     SLOT_CREATE_RESULT: 1,
-                    SLOT_POOL: state_budget - storage_set,
+                    SLOT_POOL: state_budget - result_write,
                 },
             ),
             created: Account.NONEXISTENT,
@@ -394,18 +397,24 @@ def test_create_in_failing_frame(
     the gas of the whole path, which fits the frame's budget.
     """
     sender = pre.fund_eoa()
-    ending = Op.REVERT(0, 0) if outcome is Outcome.REVERT else Op.INVALID
+    if outcome is Outcome.REVERT:
+        ending = Op.REVERT(0, 0)
+    elif outcome is Outcome.HALT:
+        ending = Op.INVALID
+    else:
+        raise ValueError(f"unknown outcome: {outcome!r}")
     code = plain_factory_code(create_opcode, ending)
     factory = pre.deploy_contract(code=code)
     created = created_address(factory, create_opcode, INIT_CODE)
-    account_creation, init_state = creation_state_costs(fork, create_opcode)
+    # The creation, the init code's write and its deposit.
+    creation_state = code.state_cost(fork) + INIT_CODE.state_cost(fork)
     failing = default_frame(
         target=factory,
         data=bytes(INIT_CODE),
         execution_gas=code.execution_cost(fork)
         + INIT_CODE.execution_cost(fork),
         # The creation fits the budget; only the frame's end removes it.
-        state_gas_limit=account_creation + init_state,
+        state_gas_limit=creation_state,
         outcome=outcome,
     )
 
@@ -464,7 +473,6 @@ def test_create_in_unrolled_batch(
     code, _ = factory_code(create_opcode)
     factory = pre.deploy_contract(code=code)
     created = created_address(factory, create_opcode, INIT_CODE)
-    account_creation, init_state = creation_state_costs(fork, create_opcode)
     reverter = pre.deploy_contract(code=Op.REVERT(0, 0))
     probe_code = (
         Op.SSTORE(
@@ -493,9 +501,10 @@ def test_create_in_unrolled_batch(
                 data=bytes(INIT_CODE),
                 execution_gas=code.execution_cost(fork)
                 + INIT_CODE.execution_cost(fork),
-                state_gas_limit=account_creation
-                + init_state
-                + 2 * storage_set_cost(fork),
+                # The creation, the init code's write and deposit, and
+                # the factory's two recording writes.
+                state_gas_limit=code.state_cost(fork)
+                + INIT_CODE.state_cost(fork),
                 outcome=Outcome.UNROLLED,
             ),
             # Frame 2: terminate the batch with a revert, unrolling it.
@@ -599,11 +608,10 @@ def test_create_at_funded_address_charges_no_account(
     already holds a balance.
 
     EIP-8141 "Charge points follow EIP-8037 unchanged", and EIP-8037:
-    "an address that holds a balance but has no code and a zero nonce
-    is existent ... only the code-deposit cost (`L × CPSB`) applies and
-    the `STATE_BYTES_PER_NEW_ACCOUNT × CPSB` account-creation charge
-    does not", and "If the destination pre-exists (e.g., it holds a
-    balance), nothing is charged."
+    an address that holds a balance but has no code and a zero nonce
+    exists, so a creation there pays only the code deposit and not the
+    new account's state gas; "If the destination pre-exists (e.g., it
+    holds a balance), nothing is charged."
 
     The destination holds one wei. The frame's state budget is exactly
     the init code's storage write, the code deposit and the factory's
@@ -613,13 +621,14 @@ def test_create_at_funded_address_charges_no_account(
     budget. A client charging the account creation halts the frame.
     """
     sender = pre.fund_eoa()
-    code, _ = factory_code(create_opcode)
+    # The creating instruction charges no account creation here.
+    code, _ = factory_code(create_opcode, account_new=False)
     factory = pre.deploy_contract(code=code)
     created = created_address(factory, create_opcode, INIT_CODE)
     pre.fund_address(created, 1)
-    _, init_state = creation_state_costs(fork, create_opcode)
-    storage_set = storage_set_cost(fork)
-    state_budget = init_state + 2 * storage_set
+    # The init code's write and deposit, and the factory's two recording
+    # writes.
+    state_budget = code.state_cost(fork) + INIT_CODE.state_cost(fork)
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -646,7 +655,7 @@ def test_create_at_funded_address_charges_no_account(
                 nonce=FACTORY_NONCE + 1,
                 storage={
                     SLOT_CREATE_RESULT: int.from_bytes(created, "big") + 1,
-                    SLOT_POOL: storage_set,
+                    SLOT_POOL: RECORD_POOL.state_cost(fork),
                 },
             ),
             created: Account(
@@ -689,9 +698,10 @@ def test_create_init_code_revert_refills_frame_pool(
     code, _ = factory_code(create_opcode, init_code)
     factory = pre.deploy_contract(code=code)
     created = created_address(factory, create_opcode, init_code)
-    account_creation = account_creation_cost(fork)
-    storage_set = storage_set_cost(fork)
-    state_budget = account_creation + 3 * storage_set
+    result_write, pool_write = recording_state_costs(fork)
+    # The creation, the init code's write, and the factory's two
+    # recording writes.
+    state_budget = code.state_cost(fork) + init_code.state_cost(fork)
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -704,7 +714,7 @@ def test_create_init_code_revert_refills_frame_pool(
                 execution_gas=code.execution_cost(fork)
                 + init_code.execution_cost(fork),
                 state_gas_limit=state_budget,
-                state_gas_used=2 * storage_set,
+                state_gas_used=result_write + pool_write,
             ),
         ],
     )
@@ -718,7 +728,7 @@ def test_create_init_code_revert_refills_frame_pool(
                 nonce=FACTORY_NONCE + 1,
                 storage={
                     SLOT_CREATE_RESULT: 1,
-                    SLOT_POOL: state_budget - storage_set,
+                    SLOT_POOL: state_budget - result_write,
                 },
             ),
             created: Account.NONEXISTENT,
@@ -751,9 +761,9 @@ def test_create_at_depth_one_charges_frame_pool(
     code, _ = factory_code(create_opcode)
     factory = pre.deploy_contract(code=code)
     created = created_address(factory, create_opcode, INIT_CODE)
-    account_creation, init_state = creation_state_costs(fork, create_opcode)
-    storage_set = storage_set_cost(fork)
-    state_budget = account_creation + init_state + 2 * storage_set
+    # The creation, the init code's write and deposit, and the factory's
+    # two recording writes.
+    state_budget = code.state_cost(fork) + INIT_CODE.state_cost(fork)
     driver_code = (
         frame_data_copy(INIT_CODE)
         + Op.POP(
@@ -794,7 +804,7 @@ def test_create_at_depth_one_charges_frame_pool(
                 nonce=FACTORY_NONCE + 1,
                 storage={
                     SLOT_CREATE_RESULT: int.from_bytes(created, "big") + 1,
-                    SLOT_POOL: storage_set,
+                    SLOT_POOL: RECORD_POOL.state_cost(fork),
                 },
             ),
             created: Account(

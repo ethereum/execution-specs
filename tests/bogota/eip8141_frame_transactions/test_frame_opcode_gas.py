@@ -11,12 +11,9 @@ halts out of gas and its receipt reports its whole budget used. A cost
 one unit too high fails the first case; one unit too low passes the
 second.
 
-The instruction's cost is derived here from the EIP text rather than
-from the framework's gas table; only the operand pushes before it are
-priced by the framework.
+Each instruction's cost is read off the framework's gas table, the
+copies' through their copy-size and memory-size metadata.
 """
-
-from typing import Callable
 
 import pytest
 from execution_testing import (
@@ -39,28 +36,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
 
-PARAM_INSTRUCTION_GAS = 2
-"""
-EIP-8141 "`TXPARAM` Instruction", "`FRAMEPARAM` Instruction" and
-"`SIGPARAM` Instruction": "The gas cost of this operation is `2`".
-"""
-
-FRAMEDATALOAD_GAS = 3
-"""
-EIP-8141 "`FRAMEDATALOAD` Instruction": "Gas cost: 3 (matches
-CALLDATALOAD)".
-"""
-
-COPY_BASE_GAS = 3
-"""
-EIP-8141 "`FRAMEDATACOPY` Instruction" and "`SIGDATACOPY` Instruction":
-gas "calculated exactly as for `CALLDATACOPY`, including the fixed cost
-of 3".
-"""
-
-COPY_PER_WORD_GAS = 3
-"""The per-word copy cost of `CALLDATACOPY`, which both copies reuse."""
-
 COPIED_BYTES = Bytes(bytes(range(1, 41)))
 """
 Data of the probe frame and raw bytes of the `ARBITRARY` signature
@@ -74,15 +49,11 @@ FAR_OFFSET = 0x100
 QUADRATIC_OFFSET = 0x2000
 """
 A memory offset whose 1-byte copy expands memory to 257 words, where
-the quadratic term of the memory cost, `257**2 // 512 = 129`, is far
-from zero.
+the quadratic term of the memory cost is far from zero.
 """
 
 MAX_WORD = 2**256 - 1
 """The largest stack word."""
-
-ProbeCost = Callable[[Fork], int]
-"""The EIP-derived execution gas of the instruction under test."""
 
 
 def push(value: int) -> Bytecode:
@@ -93,36 +64,20 @@ def push(value: int) -> Bytecode:
     return getattr(Op, f"PUSH{max(1, (value.bit_length() + 7) // 8)}")[value]
 
 
-def fixed(cost: int) -> ProbeCost:
-    """Return a fixed instruction cost."""
-
-    def fixed_cost(fork: Fork) -> int:
-        del fork
-        return cost
-
-    return fixed_cost
-
-
-def copy_cost(
-    length: int, memory_end: int, memory_before: int = 0
-) -> ProbeCost:
+def copy_instruction(
+    opcode: Op, length: int, memory_end: int, memory_before: int = 0
+) -> Bytecode:
     """
-    Return the cost of a `CALLDATACOPY`-shaped copy of `length` bytes
-    whose destination region ends at byte `memory_end`: the fixed cost,
-    the per-word copy cost, and the standard memory expansion from
-    `memory_before` bytes. A zero-length copy expands nothing.
+    Return `opcode` carrying the metadata of a copy of `length` bytes
+    whose destination region ends at byte `memory_end`, into memory
+    already `memory_before` bytes long. A zero-length copy expands
+    nothing.
     """
-
-    def cost(fork: Fork) -> int:
-        words = (length + 31) // 32
-        expansion = 0
-        if length > 0:
-            expansion = fork.memory_expansion_gas_calculator()(
-                new_bytes=memory_end, previous_bytes=memory_before
-            )
-        return COPY_BASE_GAS + COPY_PER_WORD_GAS * words + expansion
-
-    return cost
+    return opcode.with_metadata(
+        data_size=length,
+        new_memory_size=memory_end if length > 0 else memory_before,
+        old_memory_size=memory_before,
+    )
 
 
 def copy_operands(
@@ -142,85 +97,70 @@ def copy_cases(opcode: Op, index: int, name: str) -> list:
         *(
             pytest.param(
                 copy_operands(index, length),
-                opcode,
-                copy_cost(length, memory_end=length),
+                copy_instruction(opcode, length, memory_end=length),
                 id=f"{name}_length_{length}",
             )
             for length in (0, 1, 32, 33)
         ),
         pytest.param(
             copy_operands(index, 1, memory_offset=FAR_OFFSET),
-            opcode,
-            copy_cost(1, memory_end=FAR_OFFSET + 1),
+            copy_instruction(opcode, 1, memory_end=FAR_OFFSET + 1),
             id=f"{name}_expands_to_far_offset",
         ),
         pytest.param(
             copy_operands(index, 1, memory_offset=QUADRATIC_OFFSET),
-            opcode,
-            copy_cost(1, memory_end=QUADRATIC_OFFSET + 1),
+            copy_instruction(opcode, 1, memory_end=QUADRATIC_OFFSET + 1),
             id=f"{name}_expands_quadratic",
         ),
         pytest.param(
             # The byte at offset 33 lies in the second word, so memory
             # grows to 2 words for a 1-word copy.
             copy_operands(index, 1, memory_offset=33),
-            opcode,
-            copy_cost(1, memory_end=34),
+            copy_instruction(opcode, 1, memory_end=34),
             id=f"{name}_unaligned_memory_offset",
         ),
         pytest.param(
             copy_operands(index, 0, memory_offset=0xFFFF),
-            opcode,
-            copy_cost(0, memory_end=0xFFFF),
+            copy_instruction(opcode, 0, memory_end=0xFFFF),
             id=f"{name}_length_0_far_offset_no_expansion",
         ),
         pytest.param(
             # A zero-length copy expands nothing even at the largest
             # offset, where any region would end beyond 2**256.
             copy_operands(index, 0, memory_offset=MAX_WORD),
-            opcode,
-            copy_cost(0, memory_end=MAX_WORD),
+            copy_instruction(opcode, 0, memory_end=MAX_WORD),
             id=f"{name}_length_0_max_memory_offset",
         ),
         pytest.param(
             # Bytes past the end of the source copy as zeroes, so a
             # source offset beyond any data costs as an ordinary copy.
             copy_operands(index, 32, data_offset=MAX_WORD),
-            opcode,
-            copy_cost(32, memory_end=32),
+            copy_instruction(opcode, 32, memory_end=32),
             id=f"{name}_max_data_offset",
         ),
         pytest.param(
             # Memory already spans two words, so the 33-byte copy pays
             # its copy cost and no expansion.
             Op.MSTORE8(63, 0, new_memory_size=64) + copy_operands(index, 33),
-            opcode,
-            copy_cost(33, memory_end=33, memory_before=64),
+            copy_instruction(opcode, 33, memory_end=33, memory_before=64),
             id=f"{name}_into_expanded_memory",
         ),
     ]
 
 
 GAS_CASES = [
-    pytest.param(
-        Op.PUSH1[Spec.TXPARAM_TYPE],
-        Op.TXPARAM,
-        fixed(PARAM_INSTRUCTION_GAS),
-        id="txparam",
-    ),
+    pytest.param(Op.PUSH1[Spec.TXPARAM_TYPE], Op.TXPARAM, id="txparam"),
     pytest.param(
         # The canonical signature hash, which a client may compute
-        # lazily on first read; its cost is still the flat 2.
+        # lazily on first read; its cost is still the flat one.
         Op.PUSH1[Spec.TXPARAM_SIG_HASH],
         Op.TXPARAM,
-        fixed(PARAM_INSTRUCTION_GAS),
         id="txparam_sig_hash",
     ),
     pytest.param(
         # `frameIndex` on top, `param` second ("`FRAMEPARAM` Instruction").
         Op.PUSH1[Spec.FRAMEPARAM_MODE] + Op.PUSH1[1],
         Op.FRAMEPARAM,
-        fixed(PARAM_INSTRUCTION_GAS),
         id="frameparam",
     ),
     *(
@@ -229,7 +169,6 @@ GAS_CASES = [
             # its receipt, at the same flat cost.
             Op.PUSH1[param] + Op.PUSH1[0],
             Op.FRAMEPARAM,
-            fixed(PARAM_INSTRUCTION_GAS),
             id=f"frameparam_{name}",
         )
         for param, name in (
@@ -243,7 +182,6 @@ GAS_CASES = [
         # Instruction").
         Op.PUSH1[Spec.SIGPARAM_SCHEME] + Op.PUSH1[1],
         Op.SIGPARAM,
-        fixed(PARAM_INSTRUCTION_GAS),
         id="sigparam",
     ),
     pytest.param(
@@ -251,7 +189,6 @@ GAS_CASES = [
         # signer is read at the same flat cost.
         Op.PUSH1[Spec.SIGPARAM_RESOLVED_SIGNER] + Op.PUSH1[0],
         Op.SIGPARAM,
-        fixed(PARAM_INSTRUCTION_GAS),
         id="sigparam_resolved_signer",
     ),
     pytest.param(
@@ -259,7 +196,6 @@ GAS_CASES = [
         # Instruction").
         Op.PUSH1[1] + Op.PUSH1[0],
         Op.FRAMEDATALOAD,
-        fixed(FRAMEDATALOAD_GAS),
         id="framedataload",
     ),
     # Frame 1 is the probe frame, which carries `COPIED_BYTES`.
@@ -268,11 +204,12 @@ GAS_CASES = [
     *copy_cases(Op.SIGDATACOPY, 1, "sigdatacopy"),
 ]
 """
-The operand pushes, the bare instruction, and its EIP-derived cost.
+The operand pushes and the instruction, carrying the metadata that
+prices it.
 """
 
 
-@pytest.mark.parametrize("setup,opcode,opcode_cost", GAS_CASES)
+@pytest.mark.parametrize("setup,instruction", GAS_CASES)
 @pytest.mark.parametrize(
     "shortfall",
     [pytest.param(0, id="exact_gas"), pytest.param(1, id="one_short")],
@@ -282,8 +219,7 @@ def test_frame_opcode_gas(
     pre: Alloc,
     fork: Fork,
     setup: Bytecode,
-    opcode: Op,
-    opcode_cost: ProbeCost,
+    instruction: Bytecode,
     shortfall: int,
 ) -> None:
     """
@@ -292,22 +228,11 @@ def test_frame_opcode_gas(
     `SIGDATACOPY`, between the budget that covers it exactly and one
     unit less.
 
-    - `TXPARAM`, `FRAMEPARAM`, `SIGPARAM` cost 2 (EIP-8141 "`TXPARAM`
-      Instruction", "`FRAMEPARAM` Instruction", "`SIGPARAM`
-      Instruction") whatever the param, including the signature hash,
-      the receipt fields of a completed frame and the resolved signer;
-      `FRAMEDATALOAD` costs 3 ("`FRAMEDATALOAD` Instruction").
-    - `FRAMEDATACOPY` and `SIGDATACOPY` cost 3, plus 3 per copied word,
-      plus the standard memory expansion ("`FRAMEDATACOPY` Instruction",
-      "`SIGDATACOPY` Instruction"). Lengths 0, 1, 32 and 33 copy 0, 1, 1
-      and 2 words and expand memory to 0, 1, 1 and 2 words. A 1-byte
-      copy at offset 256 expands memory to 9 words, and at offset
-      0x2000 to 257 words, where the quadratic term of the memory cost
-      counts; a 1-byte copy at offset 33 expands memory to 2 words. A
-      zero-length copy expands nothing whatever its offset, up to
-      2**256 - 1; a copy from a source offset of 2**256 - 1 is priced as
-      any other copy; a copy into memory that is already large enough
-      pays no expansion.
+    EIP-8141 prices `TXPARAM`, `FRAMEPARAM` and `SIGPARAM` at a flat
+    cost whatever the param, `FRAMEDATALOAD` as `CALLDATALOAD`, and both
+    copies "exactly as for `CALLDATACOPY`": a fixed cost, a cost per
+    copied word and the standard memory expansion, which a zero-length
+    copy never pays whatever its offset.
 
     The probe frame's receipt pins its execution gas: the cold access
     to its target at frame entry plus its code when the budget is
@@ -315,8 +240,14 @@ def test_frame_opcode_gas(
     `DEFAULT` frame halting leaves the transaction valid, so both
     outcomes settle and the sender's nonce increments either way.
     """
+    if shortfall == 0:
+        outcome = Outcome.SUCCESS
+    elif shortfall == 1:
+        outcome = Outcome.HALT
+    else:
+        raise ValueError(f"unknown shortfall: {shortfall!r}")
     sender = pre.fund_eoa()
-    code = setup + opcode + Op.STOP
+    code = setup + instruction + Op.STOP
     probe = pre.deploy_contract(code=code)
 
     tx = FrameTransaction.build(
@@ -326,10 +257,10 @@ def test_frame_opcode_gas(
             verify_frame(),
             default_frame(
                 target=probe,
+                code=code,
                 data=COPIED_BYTES,
-                execution_gas=setup.execution_cost(fork) + opcode_cost(fork),
                 gas_limit_delta=-shortfall,
-                outcome=Outcome.HALT if shortfall else Outcome.SUCCESS,
+                outcome=outcome,
             ),
         ],
         signatures=[
@@ -369,9 +300,10 @@ def test_frame_copy_huge_length_runs_out_of_gas(
 
     EIP-8141 "`FRAMEDATACOPY` Instruction" and "`SIGDATACOPY`
     Instruction": gas "calculated exactly as for `CALLDATACOPY`", so a
-    length of 2**64 or 2**256 - 1 bytes costs 3 per word plus the memory
-    expansion to that size, which exceeds any frame budget: the frame
-    halts exceptionally and its receipt reports its whole budget used.
+    length of 2**64 or 2**256 - 1 bytes pays the per-word copy cost and
+    the memory expansion to that size, which exceed any frame budget:
+    the frame halts exceptionally and its receipt reports its whole
+    budget used.
 
     A client that narrows the length to 64 bits before pricing it
     copies 0 bytes for 2**64 and succeeds; one whose word count or

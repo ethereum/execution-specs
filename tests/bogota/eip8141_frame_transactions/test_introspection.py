@@ -35,7 +35,6 @@ from .helpers import (
     FrameTransaction,
     default_frame,
     sender_frame,
-    storage_set_cost,
     verify_frame,
 )
 from .signature_helpers import (
@@ -929,7 +928,7 @@ def test_sigparam_reads_every_scheme(
             default_frame(
                 target=probe,
                 code=probe_code,
-                gas_limit_delta=fork.gas_costs().CALL_STIPEND + 1,
+                gas_limit_delta=fork.call_value_stipend() + 1,
                 state_gas_limit_delta=0,
             ),
         ],
@@ -1024,7 +1023,7 @@ def test_frameparam_allowed_scope_masks_batch_flag(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=probe,
                 code=probe_code,
-                gas_limit_delta=fork.gas_costs().CALL_STIPEND + 1,
+                gas_limit_delta=fork.call_value_stipend() + 1,
             ),
             # The batch terminator, codeless at the warm sender.
             default_frame(target=sender, warm=True),
@@ -1151,19 +1150,20 @@ def test_frameparam_state_gas_used_is_live(
     reads back as frame 2's state gas. Values are stored plus one.
     """
     sender = pre.fund_eoa()
-    slot_gas = storage_set_cost(fork)
     read_first = Op.ADD(1, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED))
-    clearer = (
-        Op.SSTORE(SLOT_BEFORE_REFILL, read_first)
-        + Op.SSTORE(SLOT_REFILLED, 0)
-        + Op.SSTORE(SLOT_AFTER_REFILL, read_first)
-    )
+    create = Op.SSTORE(SLOT_REFILLED, 1)
+    record_before = Op.SSTORE(SLOT_BEFORE_REFILL, read_first)
+    record_after = Op.SSTORE(SLOT_AFTER_REFILL, read_first)
+    clearer = record_before + Op.SSTORE(SLOT_REFILLED, 0) + record_after
     # The first frame supplies no calldata, the second one byte.
     worker_code = Conditional(
         condition=Op.CALLDATASIZE,
         if_true=clearer + Op.STOP,
-        if_false=Op.SSTORE(SLOT_REFILLED, 1) + Op.STOP,
+        if_false=create + Op.STOP,
     )
+    # Frame 1 is charged its creation; frame 2 its two records.
+    created_gas = create.state_cost(fork)
+    records_gas = (record_before + record_after).state_cost(fork)
     worker = pre.deploy_contract(code=worker_code)
     probe_code = (
         Op.SSTORE(1, read_first)
@@ -1185,10 +1185,12 @@ def test_frameparam_state_gas_used_is_live(
                 target=worker,
                 data=Bytes(b"\x01"),
                 pin_gas=False,
-                state_gas_used=2 * slot_gas,
+                state_gas_used=records_gas,
             ),
             default_frame(
-                target=probe, pin_gas=False, state_gas_used=2 * slot_gas
+                target=probe,
+                pin_gas=False,
+                state_gas_used=probe_code.state_cost(fork),
             ),
         ],
     )
@@ -1200,11 +1202,11 @@ def test_frameparam_state_gas_used_is_live(
             worker: Account(
                 storage={
                     SLOT_REFILLED: 0,
-                    SLOT_BEFORE_REFILL: slot_gas + 1,
+                    SLOT_BEFORE_REFILL: created_gas + 1,
                     SLOT_AFTER_REFILL: 1,
                 }
             ),
-            probe: Account(storage={1: 1, 2: 2 * slot_gas + 1}),
+            probe: Account(storage={1: 1, 2: records_gas + 1}),
         },
     )
 

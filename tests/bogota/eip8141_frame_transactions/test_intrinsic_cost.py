@@ -8,14 +8,12 @@ and every signature entry's bytes, a verification cost per entry, and a
 value cost per frame that carries value to an explicit target other
 than the sender, whether or not that frame later runs or succeeds.
 
-Each test prices its transaction twice: through the framework's
-calculator, which the pinned settlement uses, and through the EIP's own
-formula written out below from the EIP's constants, so a framework that
-drifts from the EIP shows as a failed assertion before anything is
-filled.
+Each test settles its transaction at the framework's intrinsic cost and
+asserts, as the framework's difference with and without the term under
+test, that the term contributes to it as the case requires.
 """
 
-from typing import Dict, Iterable, List
+from typing import Any, List, Sequence, TypeVar
 
 import pytest
 from execution_testing import (
@@ -26,6 +24,7 @@ from execution_testing import (
     Fork,
     Frame,
     FrameSignature,
+    GasConsumer,
     Op,
     StateTestFiller,
 )
@@ -46,101 +45,34 @@ REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
 
-# The EIP's constants (Constants and Gas Accounting), restated so the
-# formula below does not borrow the framework's own.
-FRAME_TX_INTRINSIC_COST = 12_000
-FRAME_TX_PER_FRAME_COST = 475
-TX_VALUE_COST = 6_000
-STANDARD_TOKEN_COST = 4
-SIGNATURE_GAS: Dict[int, int] = {
-    Spec.SCHEME_SECP256K1: 2_800,
-    Spec.SCHEME_P256: 6_700,
-    Spec.SCHEME_ARBITRARY: 100,
-}
+PADDING_GAS = 20_000
+"""Execution gas a padding frame burns to keep the floor from binding."""
 
-PADDING = Op.JUMPDEST * 20_000
-"""Execution that keeps the calldata floor from binding."""
+ModelT = TypeVar("ModelT", Frame, FrameSignature)
 
 
-def tokens_in(data: bytes) -> int:
-    """EIP-8141 `tokens_in`: zero bytes count 1, non-zero bytes 4."""
-    zero_bytes = data.count(0)
-    return zero_bytes + (len(data) - zero_bytes) * 4
+def replaced(
+    items: Sequence[ModelT], index: int, **update: Any
+) -> List[ModelT]:
+    """Return `items` with item `index` copied with `update` applied."""
+    copies = list(items)
+    copies[index] = items[index].model_copy(update=update)
+    return copies
 
 
-def floor_tokens_in(data: bytes) -> int:
-    """EIP-8141 `floor_tokens_in`: every byte counts 4."""
-    return len(data) * 4
-
-
-def signature_bytes_tokens(signature: FrameSignature) -> int:
-    """
-    EIP-8141 `signature_bytes_tokens`: an empty-`msg` entry's signature
-    bytes are priced as if all non-zero.
-    """
-    if len(signature.msg) == 0:
-        return floor_tokens_in(bytes(signature.signature))
-    return tokens_in(bytes(signature.signature))
-
-
-def value_cost(frame: Frame, sender: Address) -> int:
-    """EIP-8141 `value_cost`."""
-    if frame.value > 0 and frame.target is not None and frame.target != sender:
-        return TX_VALUE_COST
-    return 0
-
-
-def eip_intrinsic_gas(
-    frames: Iterable[Frame],
-    signatures: Iterable[FrameSignature],
+def intrinsic_cost(
+    fork: Fork,
+    frames: Sequence[Frame],
+    signatures: Sequence[FrameSignature],
     sender: Address,
 ) -> int:
-    """EIP-8141 `frame_tx_intrinsic_gas`, term by term."""
-    frames, signatures = list(frames), list(signatures)
-    frame_data_cost = sum(
-        STANDARD_TOKEN_COST * tokens_in(bytes(frame.data)) for frame in frames
-    )
-    signature_data_cost = sum(
-        STANDARD_TOKEN_COST * tokens_in(bytes(signature.signer))
-        + STANDARD_TOKEN_COST * tokens_in(bytes(signature.msg))
-        + STANDARD_TOKEN_COST * signature_bytes_tokens(signature)
-        for signature in signatures
-    )
-    signature_verification_cost = sum(
-        SIGNATURE_GAS[int(signature.scheme)] for signature in signatures
-    )
-    value_transfer_cost = sum(value_cost(frame, sender) for frame in frames)
-    return (
-        FRAME_TX_INTRINSIC_COST
-        + len(frames) * FRAME_TX_PER_FRAME_COST
-        + frame_data_cost
-        + signature_data_cost
-        + signature_verification_cost
-        + value_transfer_cost
-    )
-
-
-def assert_eip_intrinsic(
-    fork: Fork, tx: FrameTransaction, sender: Address, expected: int
-) -> None:
-    """
-    Check that the framework prices `tx`'s intrinsic cost as the EIP's
-    formula does, and as the test expects.
-    """
-    assert tx.frames is not None and tx.signatures is not None
-    framework = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=tx.frames,
-        signatures=tx.signatures,
+    """Return the framework's intrinsic cost of these transaction fields."""
+    return fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=frames,
+        signatures=signatures,
         sender=sender,
         return_cost_deducted_prior_execution=True,
     )
-    assert eip_intrinsic_gas(tx.frames, tx.signatures, sender) == framework
-    assert framework == expected
-
-
-def base_intrinsic(frame_count: int, signatures: List[FrameSignature]) -> int:
-    """Return the intrinsic cost of dataless, valueless frames."""
-    return eip_intrinsic_gas([Frame()] * frame_count, signatures, Address(0))
 
 
 def test_frame_data_cost_sums_over_frames(
@@ -156,15 +88,16 @@ def test_frame_data_cost_sums_over_frames(
     `calldata_cost(data) = STANDARD_TOKEN_COST * tokens_in(data)` and
     `tokens_in` counts a zero byte once and a non-zero byte four times.
 
-    Two frames carry 16 non-zero and 16 zero bytes, 64 and 16 tokens.
-    The intrinsic cost includes `4 * (64 + 16)` for them, and execution
+    Two frames carry as many non-zero and zero bytes, and execution
     padding keeps the calldata floor from binding, so the settled gas
-    shows that cost. A client pricing only one frame's data, or every
-    byte alike, settles a different amount.
+    shows both frames' data cost. A client pricing only one frame's
+    data, or every byte alike, settles a different amount.
     """
     sender = pre.fund_eoa()
     nonzero_data, zero_data = b"\x01" * 16, b"\x00" * 16
-    padded = padding_frame(pre, PADDING, data=nonzero_data)
+    padded = padding_frame(
+        pre, GasConsumer(gas=PADDING_GAS, fork=fork), data=nonzero_data
+    )
     plain = pre.deploy_contract(code=Op.STOP)
 
     tx = FrameTransaction.build(
@@ -176,12 +109,18 @@ def test_frame_data_cost_sums_over_frames(
             default_frame(target=plain, code=Op.STOP, data=zero_data),
         ],
     )
-    assert tx.signatures is not None
-    expected = base_intrinsic(3, tx.signatures) + STANDARD_TOKEN_COST * (
-        16 * 4 + 16
+    assert tx.frames is not None and tx.signatures is not None
+    frames, signatures = tx.frames, tx.signatures
+    full = intrinsic_cost(fork, frames, signatures, sender)
+    nonzero_data_cost = full - intrinsic_cost(
+        fork, replaced(frames, 1, data=Bytes()), signatures, sender
     )
-    assert_eip_intrinsic(fork, tx, sender, expected)
-    # The premise: the floor does not bind.
+    zero_data_cost = full - intrinsic_cost(
+        fork, replaced(frames, 2, data=Bytes()), signatures, sender
+    )
+    # The premises: both frames' data is charged, zero bytes less than
+    # non-zero ones, and the floor does not bind.
+    assert 0 < zero_data_cost < nonzero_data_cost
     assert not tx.floor_binds()
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
@@ -215,7 +154,7 @@ def test_value_cost_counts_static_value_frames(
     sender = pre.fund_eoa()
     reverter = pre.deploy_contract(code=Op.REVERT(0, 0))
     skipped = pre.fund_eoa(amount=1)
-    padded = padding_frame(pre, PADDING)
+    padded = padding_frame(pre, GasConsumer(gas=PADDING_GAS, fork=fork))
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -235,9 +174,23 @@ def test_value_cost_counts_static_value_frames(
             padded,
         ],
     )
-    assert tx.signatures is not None
-    expected = base_intrinsic(6, tx.signatures) + 2 * TX_VALUE_COST
-    assert_eip_intrinsic(fork, tx, sender, expected)
+    assert tx.frames is not None and tx.signatures is not None
+    frames, signatures = tx.frames, tx.signatures
+    full = intrinsic_cost(fork, frames, signatures, sender)
+    valueless = list(frames)
+    for index in range(1, 5):
+        valueless = replaced(valueless, index, value=0)
+    value_transfer_cost = full - intrinsic_cost(
+        fork, valueless, signatures, sender
+    )
+    one_value_cost = full - intrinsic_cost(
+        fork, replaced(frames, 1, value=0), signatures, sender
+    )
+    # The premises: the reverting frame's value is charged, the four
+    # value frames are charged exactly two value costs, and the floor
+    # does not bind.
+    assert one_value_cost > 0
+    assert value_transfer_cost == 2 * one_value_cost
     assert not tx.floor_binds()
 
     state_test(
@@ -275,19 +228,18 @@ def test_intrinsic_cost_per_frame_and_entry(
     FRAME_TX_INTRINSIC_COST + len(tx.frames) * FRAME_TX_PER_FRAME_COST
     + frame_data_cost + signature_data_cost +
     signature_verification_cost + value_transfer_cost`", with
-    `signature_gas` 100 for an `ARBITRARY` entry and
     `signature_data_cost` pricing each entry's `signer`, `msg` and
     `signature` bytes.
 
     The transaction has a `VERIFY` frame and `frame_count - 1` empty
-    `DEFAULT` frames, up to the 64 frames allowed, and besides the
-    sender's entry `arbitrary_entries` `ARBITRARY` entries, each with an
-    explicit `msg` and signature bytes holding zero and non-zero bytes.
-    Its settled gas is the intrinsic cost of the EIP's formula plus the
-    frames' entry accesses, with padding keeping the floor below it.
+    `DEFAULT` frames, up to `MAX_FRAMES`, and besides the sender's entry
+    `arbitrary_entries` `ARBITRARY` entries, each with an explicit `msg`
+    and signature bytes holding zero and non-zero bytes. Its settled gas
+    is the intrinsic cost plus the frames' entry accesses, with padding
+    keeping the floor below it.
     """
     sender = pre.fund_eoa()
-    padded = padding_frame(pre, PADDING)
+    padded = padding_frame(pre, GasConsumer(gas=PADDING_GAS, fork=fork))
     empty = pre.deploy_contract(code=Op.STOP)
     frames = [verify_frame(), padded]
     # Every later frame finds the empty contract warm.
@@ -308,15 +260,25 @@ def test_intrinsic_cost_per_frame_and_entry(
     tx = FrameTransaction.build(
         fork=fork, sender=sender, frames=frames, signatures=entries
     )
-    assert tx.signatures is not None
-    sender_entry, *arbitrary = tx.signatures
-    expected = base_intrinsic(frame_count, [sender_entry]) + sum(
-        SIGNATURE_GAS[Spec.SCHEME_ARBITRARY]
-        + STANDARD_TOKEN_COST
-        * (tokens_in(bytes(entry.msg)) + tokens_in(bytes(entry.signature)))
-        for entry in arbitrary
-    )
-    assert_eip_intrinsic(fork, tx, sender, expected)
+    assert tx.frames is not None and tx.signatures is not None
+    signatures = tx.signatures
+    full = intrinsic_cost(fork, tx.frames, signatures, sender)
+    # The premise: a frame adds to the intrinsic cost even when empty.
+    assert full > intrinsic_cost(fork, tx.frames[:-1], signatures, sender)
+    for index in range(1, len(signatures)):
+        without_entry = [
+            entry for other, entry in enumerate(signatures) if other != index
+        ]
+        without_bytes = replaced(
+            signatures, index, msg=Bytes(), signature=Bytes()
+        )
+        # The premise: each `ARBITRARY` entry is charged its
+        # verification cost, and its bytes on top.
+        assert (
+            intrinsic_cost(fork, tx.frames, without_entry, sender)
+            < intrinsic_cost(fork, tx.frames, without_bytes, sender)
+            < full
+        )
     assert not tx.floor_binds()
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})

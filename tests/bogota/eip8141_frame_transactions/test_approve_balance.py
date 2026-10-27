@@ -331,7 +331,7 @@ def test_payment_approval_reads_balance_after_top_up(
     # A `CALL` with value adds the stipend to the gas it forwards. The
     # payer has no code, so all of it comes back to the donor's frame,
     # which therefore spends the stipend less than the `CALL` charges.
-    stipend = fork.gas_costs().CALL_STIPEND if top_up else 0
+    stipend = fork.call_value_stipend() if top_up else 0
     frames = [
         verify_frame(flags=Spec.APPROVE_EXECUTION),
         default_frame(

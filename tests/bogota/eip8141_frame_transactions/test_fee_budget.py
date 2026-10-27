@@ -24,6 +24,7 @@ from execution_testing import (
     Environment,
     Fork,
     FrameSignature,
+    GasConsumer,
     Hash,
     Op,
     StateTestFiller,
@@ -441,7 +442,11 @@ def test_priority_fee_product_exceeds_256_bits(
         + (probe_store + Op.STOP).execution_cost(fork)
     )
     # One extra gas makes an odd gas used even.
-    probe_code = Op.JUMPDEST * (unpadded_gas_used % 2) + probe_store + Op.STOP
+    probe_code = (
+        GasConsumer(gas=unpadded_gas_used % 2, fork=fork)
+        + probe_store
+        + Op.STOP
+    )
     probe = pre.deploy_contract(code=probe_code, storage={0: 1})
     probe_gas = probe_entry_gas + probe_code.execution_cost(fork)
     frames = [
@@ -566,11 +571,11 @@ def test_max_fee_boundary_floor_branch(
     tx.frames))`"; "Fee budget": "The transaction is invalid if
     `tx.fees.max_fee < required_max_fee`".
 
-    The frame data is zero bytes, priced 4 gas each in the intrinsic
-    cost but 64 gas each in the floor, so the floor operand wins by tens
-    of thousands of gas. A `max_fee` of exactly that `max_gas` at the
-    base fee is admitted; one wei less is rejected, which a client
-    pricing only the standard gas limit admits.
+    The frame data is zero bytes, priced at the standard token cost in
+    the intrinsic cost but at the floor price per byte in the floor, so
+    the floor operand wins by a wide margin. A `max_fee` of exactly that
+    `max_gas` at the base fee is admitted; one wei less is rejected,
+    which a client pricing only the standard gas limit admits.
     """
     sender = pre.fund_eoa(amount=FUNDS)
     target = pre.deploy_contract(code=Op.STOP)

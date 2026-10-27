@@ -36,11 +36,8 @@ from .helpers import (
     FrameCase,
     FrameTransaction,
     Outcome,
-    account_creation_cost,
     default_frame,
-    restoring_refund,
     sender_frame,
-    storage_set_cost,
     verify_frame,
 )
 from .spec import Spec, ref_spec_8141
@@ -191,7 +188,7 @@ def test_cross_frame_refill(
     and credits nothing to the executing frame's pool.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = storage_set_cost(fork)
+    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
 
     observe_before = Op.SSTORE(
         SLOT_USED_BEFORE,
@@ -337,7 +334,7 @@ def test_approve_creates_sender(
     """
     sender, spend_frames, recipient = unfunded_sender(pre, sender_state)
     payer = pre.fund_eoa()
-    sender_creation = account_creation_cost(fork)
+    sender_creation = fork.gas_costs().NEW_ACCOUNT
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -398,7 +395,7 @@ def test_approve_sender_creation_unaffordable(
             verify_frame(
                 flags=Spec.APPROVE_PAYMENT,
                 target=payer,
-                state_gas_limit=account_creation_cost(fork) - 1,
+                state_gas_limit=fork.gas_costs().NEW_ACCOUNT - 1,
             ),
         ],
         signatures=[
@@ -437,7 +434,7 @@ def test_refill_after_intermediate_modification(
     observed the value that frame wrote.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = storage_set_cost(fork)
+    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
 
     modify = Op.SSTORE(
         SLOT_CREATED,
@@ -530,7 +527,7 @@ def test_batch_unroll_restores_refilled_receipt(
     re-appended receipt keeps its status with its state gas zeroed.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = storage_set_cost(fork)
+    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
 
     modify = Op.SSTORE(
         SLOT_CREATED,
@@ -652,7 +649,7 @@ def test_frame_revert_restores_refilled_receipt(
     and the reverting frame's own receipt reports zero state gas.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = storage_set_cost(fork)
+    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
 
     clear = Op.SSTORE(
         SLOT_CREATED,
@@ -749,7 +746,7 @@ def test_call_revert_restores_refilled_receipt(
     a slot from a budget of exactly one slot creation.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = storage_set_cost(fork)
+    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
 
     clear = Op.SSTORE(
         SLOT_CREATED,
@@ -843,7 +840,7 @@ def test_reversion_restores_charge_ownership(
     owner.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = storage_set_cost(fork)
+    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
 
     clear = Op.SSTORE(
         SLOT_CREATED,
@@ -979,7 +976,6 @@ def test_recreation_after_refill_charges_recreating_frame(
     frame 3.
     """
     sender = pre.fund_eoa()
-    storage_set = storage_set_cost(fork)
     # The probe's records of frame 1's and frame 3's attributed state
     # gas, each plus one so the expected zero readback is
     # distinguishable from a slot never written.
@@ -993,6 +989,14 @@ def test_recreation_after_refill_charges_recreating_frame(
         key_warm=False, original_value=0, current_value=0, new_value=1
     )
     worker = pre.deploy_contract(code=worker_code)
+    # Every creation is charged the state gas of the worker's first write.
+    storage_set = worker_code.state_cost(fork)
+    clear_code = write(
+        key_warm=True, original_value=0, current_value=1, new_value=0
+    )
+    # A clear refills the creation's state charge to its owner frame;
+    # only its execution refund reaches the transaction refund.
+    clear_refund = clear_code.refund(fork) - clear_code.state_refund(fork)
     probe_code = (
         Op.SSTORE(
             frame_1_used,
@@ -1025,12 +1029,7 @@ def test_recreation_after_refill_charges_recreating_frame(
         """Return a frame clearing the slot (1 -> 0), refilling it."""
         return default_frame(
             target=worker,
-            code=write(
-                key_warm=True,
-                original_value=0,
-                current_value=1,
-                new_value=0,
-            ),
+            code=clear_code,
             data=(0).to_bytes(32, "big"),
             warm=True,
             state_gas_limit=0,
@@ -1058,7 +1057,7 @@ def test_recreation_after_refill_charges_recreating_frame(
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
-        refund=clears * restoring_refund(fork),
+        refund=clears * clear_refund,
         frames=frames,
     )
 
@@ -1110,9 +1109,15 @@ def test_failed_frame_discards_own_state_charge(
     fits the frame's budget.
     """
     sender = pre.fund_eoa()
-    ending = Op.REVERT(0, 0) if outcome is Outcome.REVERT else Op.INVALID
+    if outcome is Outcome.REVERT:
+        ending = Op.REVERT(0, 0)
+    elif outcome is Outcome.HALT:
+        ending = Op.INVALID
+    else:
+        raise ValueError(f"unknown outcome: {outcome!r}")
     # The worker's slot starts empty.
-    code = Op.SSTORE(SLOT_CREATED, 1) + ending
+    create = Op.SSTORE(SLOT_CREATED, 1)
+    code = create + ending
     worker = pre.deploy_contract(code=code)
     failing = default_frame(
         target=worker,
@@ -1126,7 +1131,7 @@ def test_failed_frame_discards_own_state_charge(
     )
     # The premises: the frame's state budget is exactly its charge, and
     # the whole path fits its execution budget.
-    assert int(failing.state_gas_limit) == storage_set_cost(fork)
+    assert int(failing.state_gas_limit) == create.state_cost(fork)
     assert failing.entry_gas(fork) + failing.code_gas(fork) < int(
         failing.gas_limit
     )
@@ -1160,8 +1165,8 @@ def test_approve_both_scopes_creates_sender_at_zero_cost(
     `resolved_target` has insufficient balance, revert the current call
     frame" and "Immediately before incrementing the sender's nonce, if
     `tx.sender` does not exist under the existence rule of
-    [EIP-8037](./eip-8037.md), charge `STATE_BYTES_PER_NEW_ACCOUNT *
-    CPSB` from the current frame's `state_gas_left`. If the pool cannot
+    [EIP-8037](./eip-8037.md)", charge the state gas of one new account
+    "from the current frame's `state_gas_left`. If the pool cannot
     cover the charge, halt the current call frame exceptionally without
     applying any approval effects."
 
@@ -1177,8 +1182,17 @@ def test_approve_both_scopes_creates_sender_at_zero_cost(
     generated from it do not carry the zero base fee.
     """
     sender = pre.fund_eoa(amount=0)
-    account_creation = account_creation_cost(fork)
-    succeeds = state_gas_limit_delta >= 0
+    # No opcode prices the sender's creation by `APPROVE`; the frame
+    # entry charges it as the fork's new-account state gas.
+    account_creation = fork.gas_costs().NEW_ACCOUNT
+    if state_gas_limit_delta == 0:
+        succeeds = True
+    elif state_gas_limit_delta == -1:
+        succeeds = False
+    else:
+        raise ValueError(
+            f"unknown state_gas_limit_delta: {state_gas_limit_delta!r}"
+        )
     frame = verify_frame(
         state_gas_limit=account_creation + state_gas_limit_delta,
         state_gas_used=account_creation,

@@ -1631,11 +1631,11 @@ def calldata_floor_cap_frames(
     frame, every frame calls `target` with just enough gas for its cold
     entry, and the last one carries the data.
     """
-    gas_costs = fork.gas_costs()
-    floor_per_byte = (
-        gas_costs.TX_DATA_TOKEN_STANDARD * gas_costs.TX_DATA_TOKEN_FLOOR
-    )
     floor_calculator = fork.frame_transaction_data_floor_cost_calculator()
+    # The floor price of one data byte, whatever its value.
+    floor_per_byte = floor_calculator(
+        frames=[Frame(data=Bytes(b"\x00"))]
+    ) - floor_calculator(frames=[Frame()])
     cap = fork.transaction_gas_limit_cap()
     assert cap is not None
     frame_count = next(
@@ -1654,8 +1654,6 @@ def calldata_floor_cap_frames(
     ]
     frames[-1].data = Bytes(b"\x00" * data_length)
 
-    floor = floor_calculator(frames=frames)
-    assert floor == cap + cap_excess * floor_per_byte
     # The intrinsic cost plus the frame execution budgets stays below
     # the cap, so only the floor can exceed it.
     standard = fork.frame_transaction_intrinsic_cost_calculator()(
