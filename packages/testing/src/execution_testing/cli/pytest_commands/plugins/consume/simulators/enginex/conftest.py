@@ -17,6 +17,7 @@ from hive.client import Client, ClientType
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.consume import TestCaseIndexFile
 
+from ..helpers.group_splitter import split_oversized_groups
 from ..helpers.test_tracker import count_tests_per_group, xdist_group_of
 
 if TYPE_CHECKING:
@@ -107,18 +108,22 @@ def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: list[pytest.Item]
 ) -> None:
     """
-    Count tests per xdist_group and sort largest groups first.
+    Split oversized groups, then count and sort the groups by size.
 
     The xdist_group markers are set during parametrization in
-    `pytest_generate_tests`. This hook reads them to count tests
-    per group and sort for optimal xdist scheduling.
+    `pytest_generate_tests`. Split any group too large for a single
+    worker to finish in step with the others, then count the tests per
+    (sub-)group and sort largest first for optimal xdist scheduling.
 
-    Use `trylast=True` to run after test deselection
-    (from `-k`, `-m` filters).
+    Use `trylast=True` to run after test deselection (from `-k`, `-m` and
+    `--sim.limit` filters), so that the split is sized against the tests
+    that will actually run.
     """
     supported_formats = getattr(config, "supported_fixture_formats", [])
     if BlockchainEngineXFixture not in supported_formats:
         return
+
+    split_oversized_groups(config, items)
 
     group_counts = count_tests_per_group(session, items)
 

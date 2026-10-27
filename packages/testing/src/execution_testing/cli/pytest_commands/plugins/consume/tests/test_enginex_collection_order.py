@@ -53,7 +53,12 @@ def _sorted_ids(items: List[pytest.Item]) -> List[str]:
     session = cast(pytest.Session, SimpleNamespace(stash={}))
     config = cast(
         pytest.Config,
-        SimpleNamespace(supported_fixture_formats=[BlockchainEngineXFixture]),
+        SimpleNamespace(
+            supported_fixture_formats=[BlockchainEngineXFixture],
+            # Not distributed with `--dist loadgroup`: nothing is split,
+            # even when this suite itself runs under xdist.
+            getoption=lambda _name, default=None: default,
+        ),
     )
     pytest_collection_modifyitems(session, config, items)
     return [cast(Any, item).name for item in items]
