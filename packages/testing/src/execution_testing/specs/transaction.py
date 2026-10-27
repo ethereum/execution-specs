@@ -118,8 +118,10 @@ class TransactionTest(BaseTest):
 
     def check_reference_verdict(self) -> None:
         """
-        Decode the fixture's transaction bytes with the reference
-        implementation and check that its verdict agrees with `tx.error`.
+        Check the reference implementation's verdict on the fixture bytes.
+
+        The fixture's transaction bytes are decoded with the reference
+        implementation, and its verdict must agree with `tx.error`.
 
         A transaction fixture records `tx.error` without running any
         transition tool, and the t8n's JSON loader (`TransactionLoad`)

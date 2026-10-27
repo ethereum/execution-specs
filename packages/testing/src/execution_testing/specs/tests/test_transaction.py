@@ -163,7 +163,7 @@ UNDECODABLE_RLP = b"\x02\xc1\x80"
 def test_reference_check_accepts_valid_transaction(
     tx: Transaction, fork: Fork
 ) -> None:
-    """A transaction the reference implementation decodes fills."""
+    """Fill a transaction the reference implementation decodes."""
     fill_transaction_test(
         tx.with_signature_and_sender(), fork, ExecutionSpecsTransitionTool()
     )
@@ -182,8 +182,8 @@ def test_reference_check_accepts_valid_transaction(
 )
 def test_reference_check_undecodable_bytes(rlp: bytes, fork: Fork) -> None:
     """
-    Bytes the reference implementation cannot decode fill only when the
-    test expects the transaction to fail.
+    Fill undecodable bytes only when the test expects the transaction to
+    fail.
     """
     t8n = ExecutionSpecsTransitionTool()
     fixture = fill_transaction_test(
@@ -198,7 +198,7 @@ def test_reference_check_undecodable_bytes(rlp: bytes, fork: Fork) -> None:
 
 
 def test_reference_check_skipped_for_other_transition_tools() -> None:
-    """Only the in-process reference implementation runs the check."""
+    """Run the check only with the in-process reference implementation."""
     fixture = fill_transaction_test(
         with_rlp_override(UNDECODABLE_RLP, None),
         Cancun,
