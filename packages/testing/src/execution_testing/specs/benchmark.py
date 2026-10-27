@@ -41,10 +41,8 @@ from execution_testing.vm import Bytecode, Op
 
 from .base import BaseTest, FillResult
 from .blockchain import (
-    BLOCK_EXCEPTION_TYPE,
     Block,
     BlockchainTest,
-    Header,
 )
 
 

@@ -875,25 +875,21 @@ class TestingBuildBlock(BuiltBlock):
         """Return whether the client imported the block it built."""
         return self.expected_exception is None
 
-    def corrupted_execution_payload(self) -> "FixtureExecutionPayload":
+    def sealed_header(self) -> FixtureHeader:
         """
-        Apply ``rlp_modifier`` to the payload the client sealed.
+        Rebuild the header of the block the client sealed.
 
-        The header is rebuilt from that payload and checked against the
-        client's hash, so the recomputed ``block_hash`` describes the
-        block the client actually built. The payload therefore passes the
-        hash check, and a client must reach the corrupted field before it
-        can reject the block.
+        ``self.header`` already carries the test's corruption; the payload
+        holds what the client sealed, but carries the block access list
+        itself rather than its hash.
         """
-        modifier = self.rlp_modifier
-        assert modifier is not None, "validate_stateful_blocks() first"
         built = self.engine_payload.payload_response.execution_payload
-        # ``self.header`` takes client-chosen fields (gas_limit, ...) from
-        # the test environment and already has the modifier applied; the
-        # client's payload holds the values it sealed.
-        header = self.header.copy(
-            **{f: getattr(built, f) for f in PAYLOAD_HEADER_FIELDS}
-        )
+        fields = {f: getattr(built, f) for f in PAYLOAD_HEADER_FIELDS}
+        if built.block_access_list is not None:
+            fields["block_access_list_hash"] = Hash(
+                built.block_access_list.keccak256()
+            )
+        header = self.header.copy(**fields)
         if header.block_hash != built.block_hash:
             raise ValueError(
                 f"header rebuilt from the client payload hashes to "
@@ -901,14 +897,34 @@ class TestingBuildBlock(BuiltBlock):
                 f"{built.block_hash}; a header field outside the payload "
                 "differs from the client's"
             )
-        modified = modifier.apply(header)
-        return built.copy(
-            **{
-                field: getattr(modified, field)
-                for field in modifier.model_dump(exclude_none=True)
-            },
-            block_hash=modified.block_hash,
-        )
+        return header
+
+    def corrupted_execution_payload(self) -> "FixtureExecutionPayload":
+        """
+        Corrupt the payload the client sealed, and re-seal it.
+
+        ``block_hash`` is recomputed over the corrupted header, so a client
+        must reach the corrupted field before it can reject the block.
+        """
+        built = self.engine_payload.payload_response.execution_payload
+        header = self.sealed_header()
+        changes: Dict[str, Any] = {}
+
+        if self.block_access_list is not None:
+            bal = self.block_access_list.rlp
+            if bal != built.block_access_list:
+                changes["block_access_list"] = bal
+                header = header.copy(
+                    block_access_list_hash=Hash(bal.keccak256())
+                )
+
+        if self.rlp_modifier is not None:
+            header = self.rlp_modifier.apply(header)
+            for field in self.rlp_modifier.model_dump(exclude_none=True):
+                changes[field] = getattr(header, field)
+
+        assert changes, "validate_stateful_blocks() first"
+        return built.copy(**changes, block_hash=header.block_hash)
 
     def get_fixture_engine_new_payload(
         self, *, phase: TestPhase | None = None
@@ -1024,15 +1040,22 @@ def _unsupported_stateful_reasons(block: Block) -> List[str]:
 
     The client builds every block, so it only ever seals a valid one. An
     invalid block is that block with header fields overridden by
-    ``rlp_modifier``; anything that must change the block body, or that
-    the execution payload cannot carry, is out of reach.
+    ``rlp_modifier``, or with its block access list rewritten by
+    ``expected_block_access_list.modify``; anything else that must change
+    the block body, or that the execution payload cannot carry, is out of
+    reach.
     """
     reasons: List[str] = []
+    rewrites_bal = (
+        block.expected_block_access_list is not None
+        and block.expected_block_access_list.has_modifier
+    )
     if block.rlp_modifier is None:
-        if block.exception is not None:
+        if block.exception is not None and not rewrites_bal:
             reasons.append(
-                "it has no `rlp_modifier` (a transaction-level exception "
-                "needs the client to build an invalid block)"
+                "it has no `rlp_modifier` and does not rewrite the block "
+                "access list (a transaction-level exception needs the "
+                "client to build an invalid block)"
             )
     else:
         if block.exception is None:
@@ -1057,11 +1080,6 @@ def _unsupported_stateful_reasons(block: Block) -> List[str]:
     payload_only = block.engine_payload_only_overrides()
     if payload_only:
         reasons.append(f"it sets {payload_only}")
-    if (
-        block.expected_block_access_list is not None
-        and block.expected_block_access_list.has_modifier
-    ):
-        reasons.append("it modifies the block access list")
     if block.exception is not None and block.phase == TestPhase.SETUP:
         reasons.append("it is a setup-phase block")
     return reasons
