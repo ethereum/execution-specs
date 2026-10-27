@@ -1998,8 +1998,8 @@ def test_approve_both_scopes_creates_sender_at_zero_cost(
     generated from it do not carry the zero base fee.
     """
     sender = pre.fund_eoa(amount=0)
-    # No opcode prices the sender's creation by `APPROVE`; the frame
-    # entry charges it as the fork's new-account state gas.
+    # No opcode prices the sender's creation: approving payment charges
+    # it to the frame's state gas as the fork's new-account cost.
     account_creation = fork.gas_costs().NEW_ACCOUNT
     if state_gas_limit_delta == 0:
         succeeds = True

@@ -288,7 +288,7 @@ def test_new_account_charge_halt_unrolls_batch(
     worker_code = Op.SSTORE(SLOT_WRITTEN, 1) + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
     # No opcode makes this charge: the frame's own value transfer creates
-    # the account, priced as `NEW_ACCOUNT` (`frame_entry_gas_calculator`).
+    # the account, priced as `NEW_ACCOUNT`.
     new_account_gas = fork.gas_costs().NEW_ACCOUNT
     if unrolls:
         batch_outcome = Outcome.UNROLLED
