@@ -34,6 +34,40 @@ Python 3.11–3.14 are supported; 3.12 tends to be the smoothest for local setup
 
 `ethereum-spec-evm` — a `t8n` transition tool, `b11r` block builder, and state-test runner that execute the spec directly — is provided by the `ethereum-execution-testing` workspace package rather than by `ethereum-execution`. Within a checkout it is available as `uv run ethereum-spec-evm`; for standalone installation (e.g. in client CI or fuzzing setups), see [packages/testing/README.md](packages/testing/README.md).
 
+## Fork Status
+
+### Stable specifications
+
+| Seq. | Code Name | Fork Block / Timestamp | Link |
+| ---- | --------- | ---------------------- | ---- |
+| 1 | **Frontier** | Block `0` | [Spec](src/ethereum/forks/frontier) |
+| 2 | **Homestead** | Block `1150000` | [Spec](src/ethereum/forks/homestead) |
+| 3 | **DAO Fork** | Block `1920000` | [Spec](src/ethereum/forks/dao_fork) |
+| 4 | **Tangerine Whistle** | Block `2463000` | [Spec](src/ethereum/forks/tangerine_whistle) |
+| 5 | **Spurious Dragon** | Block `2675000` | [Spec](src/ethereum/forks/spurious_dragon) |
+| 6 | **Byzantium** | Block `4370000` | [Spec](src/ethereum/forks/byzantium) |
+| 7 | **Constantinople** | Block `7280000` | [Spec](src/ethereum/forks/constantinople) |
+| 8 | **Istanbul** | Block `9069000` | [Spec](src/ethereum/forks/istanbul) |
+| 9 | **Muir Glacier** | Block `9200000` | [Spec](src/ethereum/forks/muir_glacier) |
+| 10 | **Berlin** | Block `12244000` | [Spec](src/ethereum/forks/berlin) |
+| 11 | **London** | Block `12965000` | [Spec](src/ethereum/forks/london) |
+| 12 | **Arrow Glacier** | Block `13773000` | [Spec](src/ethereum/forks/arrow_glacier) |
+| 13 | **Gray Glacier** | Block `15050000` | [Spec](src/ethereum/forks/gray_glacier) |
+| 14 | **Paris** | Block `15537394` | [Spec](src/ethereum/forks/paris) |
+| 15 | **Shanghai** | Timestamp `1681338455` | [Spec](src/ethereum/forks/shanghai) |
+| 16 | **Cancun** | Timestamp `1710338135` | [Spec](src/ethereum/forks/cancun) |
+| 17 | **Prague** | Timestamp `1746612311` | [Spec](src/ethereum/forks/prague) |
+| 18 | **Osaka** | Timestamp `1764798551` | [Spec](src/ethereum/forks/osaka) |
+| 19 | **BPO1** | Timestamp `1765290071` | [Spec](src/ethereum/forks/bpo1) |
+| 20 | **BPO2** | Timestamp `1767747671` | [Spec](src/ethereum/forks/bpo2) |
+
+### Unstable specifications
+
+| Seq. | Code Name | Fork Block / Timestamp | Link |
+| ---- | --------- | ---------------------- | ---- |
+| 21 | **Amsterdam** | TBD | [Spec](src/ethereum/forks/amsterdam) |
+| 22 | **Bogota** | TBD | [Spec](src/ethereum/forks/bogota) |
+
 ## Documentation
 
 - **Repo documentation (default branch/fork)**: <https://steel.ethereum.foundation/docs/execution-specs/>
