@@ -1,11 +1,13 @@
 """Test suite for the transaction spec test generation."""
 
 import json
+import sys
 from os.path import realpath
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from ethereum_spec_tools.utils import resolve_fork
 
 from execution_testing import TestAddress
 from execution_testing.base_types import Bytes
@@ -25,7 +27,10 @@ from execution_testing.forks import (
 )
 from execution_testing.test_types import Transaction
 
-from ..helpers import UnexpectedExecutionFailError
+from ..helpers import (
+    UnexpectedExecutionFailError,
+    UnexpectedExecutionSuccessError,
+)
 from ..transaction import TransactionTest
 from .helpers import remove_info_metadata
 
@@ -205,3 +210,36 @@ def test_reference_check_skipped_for_other_transition_tools() -> None:
         Mock(spec=TransitionTool),
     )
     assert fixture.transaction == UNDECODABLE_RLP
+
+
+def test_reference_check_rejects_accepted_frame_transaction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Reject `error=` on a frame transaction the fork accepts.
+
+    No fork on this branch ships `FrameTransaction`, so Cancun's type-2
+    class stands in for it and frame validation accepts everything.
+    """
+    transactions = resolve_fork(Cancun.transition_tool_name()).module(
+        "transactions"
+    )
+    monkeypatch.setattr(
+        transactions,
+        "FrameTransaction",
+        transactions.FeeMarketTransaction,
+        raising=False,
+    )
+    frame_module = Mock(spec=["validate_frame_transaction"])
+    monkeypatch.setitem(
+        sys.modules, f"{transactions.__name__}.frame_transaction", frame_module
+    )
+    tx = Transaction(
+        ty=2,
+        gas_limit=0x5208,
+        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+    ).with_signature_and_sender()
+
+    with pytest.raises(UnexpectedExecutionSuccessError):
+        fill_transaction_test(tx, Cancun, ExecutionSpecsTransitionTool())
+    frame_module.validate_frame_transaction.assert_called_once()
