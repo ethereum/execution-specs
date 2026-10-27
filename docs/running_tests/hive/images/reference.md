@@ -82,7 +82,7 @@ Set with `--sim.buildarg name=value` on the image Dockerfiles. For the separate 
 | `image` | all | the simulator's published image | Another registry namespace or a locally built image. |
 | `fixtures` | `consume-*` | none | Deprecated. Without `tag`, a `consume --input` value cached at build time, or `/fixtures` with a staged `fixtures.tar.gz`. |
 | `branch` | all | none | Deprecated. Without `tag`, an execution-specs ref whose framework, and for `execute-blobs` whose tests, the image installs at build time. |
-| `disable_strict_exception_matching` | `consume-engine`, `consume-enginex`, `consume-wirex` | `nimbus-el` | Clients exempt from strict exception matching; an empty value exempts none. |
+| `disable_strict_exception_matching` | `consume-engine`, `consume-enginex` | `nimbus-el` | Clients exempt from strict exception matching; an empty value exempts none. |
 | `fork` | `execute-blobs` | the image's `EEST_DEFAULT_FORK` | Fork to execute the tests for. |
 
 Without `tag`, `fixtures` and `branch` select the simulator's `latest-legacy` image: `latest` with ONBUILD steps that apply them during hive's build. Builds without them use `latest` or the given tag directly and run no build steps.
