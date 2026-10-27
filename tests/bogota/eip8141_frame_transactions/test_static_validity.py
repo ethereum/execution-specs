@@ -1744,6 +1744,9 @@ def calldata_floor_cap_frames(
         for _ in range(frame_count - 1)
     ]
     frames[-1].data = Bytes(b"\x00" * data_length)
+    # The premise: the floor sits exactly `cap_excess` byte prices from
+    # the cap.
+    assert floor_calculator(frames=frames) == cap + cap_excess * floor_per_byte
 
     # The intrinsic cost plus the frame execution budgets stays below
     # the cap, so only the floor can exceed it.

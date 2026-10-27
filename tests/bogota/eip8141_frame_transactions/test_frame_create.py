@@ -78,10 +78,12 @@ Probe slot recording the creating frame's receipt status, plus one so
 a `FAILURE` readback is distinguishable from a slot never written.
 """
 
-RUNTIME_CODE = Op.STOP * 32
+RUNTIME_CODE = Op.JUMPDEST * 31 + Op.STOP
 """
 Code the init code deploys: 32 bytes, so its code deposit is a state
-charge of its own size next to the account creation.
+charge of its own size next to the account creation. The bytes are
+non-zero, so `code=RUNTIME_CODE` fails for an init code that returns
+memory it never copied the code into.
 """
 
 INIT_CODE = Initcode(

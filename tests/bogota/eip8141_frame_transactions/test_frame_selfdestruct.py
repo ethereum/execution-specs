@@ -25,6 +25,7 @@ from execution_testing import (
     Initcode,
     Op,
     StateTestFiller,
+    Transaction,
 )
 
 from .helpers import (
@@ -84,97 +85,20 @@ def creation_state_gas(fork: Fork, create_opcode: Op) -> int:
     return create_call.state_cost(fork) + INIT_CODE.state_cost(fork)
 
 
-@pytest.mark.with_all_create_opcodes
-@pytest.mark.parametrize(
-    "victim_kind",
-    [
-        pytest.param("created_in_frame", id="created_in_same_frame"),
-        pytest.param("pre_existing", id="pre_existing"),
-    ],
-)
-def test_selfdestruct_no_state_gas_refill(
-    state_test: StateTestFiller,
-    pre: Alloc,
+def pool_recording_tx(
     fork: Fork,
-    create_opcode: Op,
-    victim_kind: str,
-) -> None:
+    sender: Address,
+    driver: Address,
+    data: bytes,
+    execution_gas: int,
+    state_budget: int,
+) -> Transaction:
     """
-    Self-destruct a contract from inside a frame and observe that the
-    frame's pool is not refilled.
-
-    EIP-8141 "EIP-8037 assigns no state-gas refill to `SELFDESTRUCT`,
-    including when it deletes a contract created earlier in the
-    transaction" (State-gas attribution and refills), and "account
-    creation and code-deposit charges are only undone by rolling back
-    the frame that made them" (Rationale: Cross-frame state-gas
-    refills).
-
-    The frame's driver contract calls the victim, which destroys
-    itself, then records the frame's remaining pool. Either the driver
-    created the victim earlier in the same frame — paying its account
-    creation and code deposit from the pool, a budget of exactly that
-    plus the recording write — or the victim is in the pre-state and
-    the budget is only the recording write. Both record one storage
-    write left: the deletion of the created victim gives nothing back,
-    and the receipt keeps the creation's charges.
-
-    Under EIP-6780 the created victim is deleted and the pre-existing
-    one keeps its code. The pre-existing case runs no creation, so it is
-    the same for every `create_opcode`.
+    Return a transaction whose `DEFAULT` frame runs `driver` with
+    `data`, from exactly `state_budget` state gas, all of it attributed
+    to the frame.
     """
-    sender = pre.fund_eoa()
-    record_pool = Op.SSTORE(SLOT_POOL, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
-    pool_write = record_pool.state_cost(fork)
-
-    post: Dict[Address, Account | None] = {sender: Account(nonce=1)}
-    if victim_kind == "created_in_frame":
-        driver_code = (
-            frame_data_copy(INIT_CODE)
-            + Op.POP(
-                Op.CALL(
-                    gas=Op.GAS,
-                    # The creation warmed the address it returns.
-                    address=frame_data_create(create_opcode, INIT_CODE),
-                    address_warm=True,
-                )
-            )
-            + record_pool
-            + Op.STOP
-        )
-        driver = pre.deploy_contract(code=driver_code)
-        victim = created_address(driver, create_opcode, INIT_CODE)
-        data = bytes(INIT_CODE)
-        creation = creation_state_gas(fork, create_opcode)
-        execution_gas = (
-            driver_code.execution_cost(fork)
-            + INIT_CODE.execution_cost(fork)
-            + SELFDESTRUCT_CODE.execution_cost(fork)
-        )
-        post[driver] = Account(
-            nonce=FACTORY_NONCE + 1, storage={SLOT_POOL: pool_write}
-        )
-        # EIP-6780 deletes an account created in the same transaction.
-        post[victim] = Account.NONEXISTENT
-    elif victim_kind == "pre_existing":
-        victim = pre.deploy_contract(code=VICTIM_CODE)
-        driver_code = (
-            Op.POP(Op.CALL(gas=Op.GAS, address=victim)) + record_pool + Op.STOP
-        )
-        driver = pre.deploy_contract(code=driver_code)
-        data = b""
-        creation = 0
-        execution_gas = driver_code.execution_cost(
-            fork
-        ) + SELFDESTRUCT_CODE.execution_cost(fork)
-        post[driver] = Account(storage={SLOT_POOL: pool_write})
-        # EIP-6780 deletes only accounts created in the transaction.
-        post[victim] = Account(code=VICTIM_CODE)
-    else:
-        raise ValueError(f"unknown victim kind: {victim_kind}")
-
-    state_budget = creation + pool_write
-    tx = FrameTransaction.build(
+    return FrameTransaction.build(
         fork=fork,
         sender=sender,
         frames=[
@@ -189,6 +113,107 @@ def test_selfdestruct_no_state_gas_refill(
         ],
     )
 
+
+@pytest.mark.with_all_create_opcodes
+def test_selfdestruct_no_state_gas_refill(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """
+    Self-destruct, from inside a frame, a contract the same frame
+    created, and observe that the frame's pool is not refilled.
+
+    EIP-8141 "EIP-8037 assigns no state-gas refill to `SELFDESTRUCT`,
+    including when it deletes a contract created earlier in the
+    transaction" (State-gas attribution and refills), and "account
+    creation and code-deposit charges are only undone by rolling back
+    the frame that made them" (Rationale: Cross-frame state-gas
+    refills).
+
+    The frame's driver creates the victim, paying its account creation
+    and code deposit from a pool of exactly that plus the recording
+    write, calls it so it destroys itself, then records the pool: one
+    storage write left, and the receipt keeps the creation's charges.
+    """
+    sender = pre.fund_eoa()
+    record_pool = Op.SSTORE(SLOT_POOL, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
+    pool_write = record_pool.state_cost(fork)
+    driver_code = (
+        frame_data_copy(INIT_CODE)
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                # The creation warmed the address it returns.
+                address=frame_data_create(create_opcode, INIT_CODE),
+                address_warm=True,
+            )
+        )
+        + record_pool
+        + Op.STOP
+    )
+    driver = pre.deploy_contract(code=driver_code)
+    victim = created_address(driver, create_opcode, INIT_CODE)
+    tx = pool_recording_tx(
+        fork,
+        sender,
+        driver,
+        data=bytes(INIT_CODE),
+        execution_gas=driver_code.execution_cost(fork)
+        + INIT_CODE.execution_cost(fork)
+        + SELFDESTRUCT_CODE.execution_cost(fork),
+        state_budget=creation_state_gas(fork, create_opcode) + pool_write,
+    )
+
+    post: Dict[Address, Account | None] = {
+        sender: Account(nonce=1),
+        driver: Account(
+            nonce=FACTORY_NONCE + 1, storage={SLOT_POOL: pool_write}
+        ),
+        # EIP-6780 deletes an account created in the same transaction.
+        victim: Account.NONEXISTENT,
+    }
+    state_test(pre=pre, tx=tx, post=post)
+
+
+def test_selfdestruct_no_state_gas_refill_pre_existing(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Self-destruct, from inside a frame, a contract in the pre-state, and
+    observe that the frame's pool is not refilled.
+
+    The control for `test_selfdestruct_no_state_gas_refill`: the frame's
+    budget is only the recording write, and the pool records one
+    storage write left. Under EIP-6780 the victim keeps its code.
+    """
+    sender = pre.fund_eoa()
+    record_pool = Op.SSTORE(SLOT_POOL, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
+    pool_write = record_pool.state_cost(fork)
+    victim = pre.deploy_contract(code=VICTIM_CODE)
+    driver_code = (
+        Op.POP(Op.CALL(gas=Op.GAS, address=victim)) + record_pool + Op.STOP
+    )
+    driver = pre.deploy_contract(code=driver_code)
+    tx = pool_recording_tx(
+        fork,
+        sender,
+        driver,
+        data=b"",
+        execution_gas=driver_code.execution_cost(fork)
+        + SELFDESTRUCT_CODE.execution_cost(fork),
+        state_budget=pool_write,
+    )
+
+    post: Dict[Address, Account | None] = {
+        sender: Account(nonce=1),
+        driver: Account(storage={SLOT_POOL: pool_write}),
+        # EIP-6780 deletes only accounts created in the transaction.
+        victim: Account(code=VICTIM_CODE),
+    }
     state_test(pre=pre, tx=tx, post=post)
 
 
