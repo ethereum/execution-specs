@@ -22,6 +22,7 @@ case "$simulator" in
 consume-rlp) format=blockchain_tests ;;
 consume-engine) format=blockchain_tests_engine ;;
 consume-enginex) format=blockchain_tests_engine_x ;;
+consume-wirex) format=blockchain_tests_engine_x ;;
 consume-sync) format=blockchain_tests_sync ;;
 execute-blobs) ;;
 *)
