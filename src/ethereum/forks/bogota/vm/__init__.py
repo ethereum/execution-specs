@@ -13,7 +13,16 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass, field, replace
-from typing import Dict, List, Optional, Set, Tuple, final
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    final,
+)
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import slotted_freezable
@@ -52,6 +61,9 @@ from .gas import (
     charge_frame_state_gas,
     repay_state_gas_spill,
 )
+
+if TYPE_CHECKING:
+    from ..inclusion_lists import InclusionListSnapshot
 
 __all__ = ("Environment", "Evm")
 TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
@@ -140,6 +152,9 @@ class BlockOutput:
     requests: List[Bytes] = field(default_factory=list)
     block_access_list: BlockAccessList = field(default_factory=list)
     inclusion_list_satisfied: bool = True
+    inclusion_list_snapshots: Dict[Uint, "InclusionListSnapshot"] = field(
+        default_factory=dict
+    )
 
 
 @final
@@ -318,6 +333,17 @@ class TransactionEnvironment:
     """
     Present iff this is a frame transaction. The frame-only opcodes
     exceptionally halt when this is `None`.
+    """
+
+    validation_opcode_hook: Optional[Callable[["Evm", int], None]] = None
+    """
+    Check validation replay access before opcode execution. This observer
+    belongs to the transaction and is not part of rollback snapshots.
+    """
+
+    validation_create_hook: Optional[Callable[[Address], None]] = None
+    """
+    Check a validation replay's proposed creation before account access.
     """
 
 

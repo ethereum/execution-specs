@@ -291,6 +291,16 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             block_number=payload.execution_payload.number,
             timestamp=payload.execution_payload.timestamp,
         )
+        # This chain builder supplies an empty selected inclusion list in
+        # PayloadAttributes. Retain the builder's exact committed claims.
+        if payload_fork.engine_new_payload_omission_claims():
+            if payload.omission_claims is None:
+                raise ValueError("getPayloadV7 must return omission claims")
+            new_payload_args.extend(
+                [[[] for _ in range(16)], payload.omission_claims]
+            )
+        elif payload_fork.engine_new_payload_inclusion_list_transactions():
+            new_payload_args.append([])
         new_payload_version = payload_fork.engine_new_payload_version()
         assert new_payload_version is not None, (
             "Fork does not support engine new_payload"
@@ -298,6 +308,15 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         new_payload_response = self.engine_rpc.new_payload(
             *new_payload_args, version=new_payload_version
         )
+        if payload_fork.engine_new_payload_omission_claims():
+            new_payload_response = self.engine_rpc.wait_for_inclusion_list(
+                new_payload_response,
+                *new_payload_args,
+                version=new_payload_version,
+            )
+            assert new_payload_response.inclusion_list_satisfied is True, (
+                "Built payload did not satisfy its inclusion list"
+            )
         assert new_payload_response.status == PayloadStatusEnum.VALID, (
             "Payload was invalid"
         )

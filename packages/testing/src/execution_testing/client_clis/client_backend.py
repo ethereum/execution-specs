@@ -36,8 +36,12 @@ from execution_testing.rpc.rpc_types import (
 from execution_testing.test_types import (
     Alloc,
     Environment,
+    OmissionClaim,
     Transaction,
     Withdrawal,
+)
+from execution_testing.test_types.inclusion_list import (
+    validate_inclusion_list_metadata,
 )
 from execution_testing.test_types.receipt_types import TransactionReceipt
 
@@ -255,7 +259,19 @@ class ClientBackend:
         txs = transition_tool_data.txs
         block_fork = transition_tool_data.fork
 
-        payload_attributes = self._payload_attributes(env, block_fork)
+        inclusion_transactions = [
+            tx.rlp() for tx in transition_tool_data.inclusion_list_txs or []
+        ]
+        payload_attributes = self._payload_attributes(
+            env,
+            block_fork,
+            [
+                [tx.rlp() for tx in il]
+                for il in transition_tool_data.inclusion_lists
+            ]
+            if transition_tool_data.inclusion_lists is not None
+            else None,
+        )
         parent_block_hash = Hash(env.parent_hash or 0)
         get_payload_response = self.testing_rpc.build_block(
             parent_block_hash=parent_block_hash,
@@ -263,12 +279,15 @@ class ClientBackend:
             transactions=txs,
             extra_data=Bytes(env.extra_data),
         )
-        self._finalize(
+        inclusion_list_satisfied = self._finalize(
             get_payload_response,
             parent_beacon_block_root=(
                 payload_attributes.parent_beacon_block_root
             ),
             block_fork=block_fork,
+            inclusion_list_transactions=inclusion_transactions,
+            inclusion_lists=payload_attributes.inclusion_lists,
+            omission_claims=transition_tool_data.omission_claims,
         )
         np_version = block_fork.engine_new_payload_version()
         fcu_version = block_fork.engine_forkchoice_updated_version()
@@ -285,6 +304,7 @@ class ClientBackend:
             withdrawals=env.withdrawals,
             block_fork=block_fork,
         )
+        result.inclusion_list_satisfied = inclusion_list_satisfied
         alloc = LazyAllocJson(raw={}, _state_root=result.state_root)
         return TransitionToolOutput(
             alloc=alloc,
@@ -349,6 +369,7 @@ class ClientBackend:
         self,
         env: Environment,
         block_fork: Fork,
+        inclusion_lists: List[List[Bytes]] | None = None,
     ) -> PayloadAttributes:
         """Build ``PayloadAttributes`` from the test's environment."""
         withdrawals: List[Withdrawal] | None = None
@@ -369,6 +390,7 @@ class ClientBackend:
             withdrawals=withdrawals,
             parent_beacon_block_root=parent_beacon_block_root,
             slot_number=slot_number,
+            inclusion_lists=inclusion_lists,
         )
 
     def _finalize(
@@ -377,7 +399,10 @@ class ClientBackend:
         *,
         parent_beacon_block_root: Hash | None,
         block_fork: Fork,
-    ) -> None:
+        inclusion_list_transactions: List[Bytes] | None = None,
+        inclusion_lists: List[List[Bytes]] | None = None,
+        omission_claims: List[OmissionClaim] | None = None,
+    ) -> bool | None:
         """
         Advance the chain with engine_newPayload + forkchoiceUpdated.
 
@@ -399,10 +424,27 @@ class ClientBackend:
             new_payload_args.append(parent_beacon_block_root)
         if payload_response.execution_requests is not None:
             new_payload_args.append(payload_response.execution_requests)
+        if block_fork.engine_new_payload_omission_claims():
+            if inclusion_lists is None:
+                raise ValueError("Separate inclusion lists are required")
+            if payload_response.omission_claims is None:
+                raise ValueError("getPayloadV7 must return omission claims")
+            if omission_claims is None:
+                omission_claims = payload_response.omission_claims
+            validate_inclusion_list_metadata(inclusion_lists, omission_claims)
+            new_payload_args.extend([inclusion_lists, omission_claims])
+        elif block_fork.engine_new_payload_inclusion_list_transactions():
+            new_payload_args.append(inclusion_list_transactions or [])
 
         new_payload_response = self.engine_rpc.new_payload_with_retry(
             *new_payload_args, version=new_payload_version
         )
+        if block_fork.engine_new_payload_omission_claims():
+            new_payload_response = self.engine_rpc.wait_for_inclusion_list(
+                new_payload_response,
+                *new_payload_args,
+                version=new_payload_version,
+            )
         assert new_payload_response.status == PayloadStatusEnum.VALID, (
             f"Block was rejected by engine_newPayloadV{new_payload_version}: "
             f"{new_payload_response.status}"
@@ -418,6 +460,7 @@ class ClientBackend:
             "engine_forkchoiceUpdated rejected the built payload: "
             f"{fcu_response.payload_status.status}"
         )
+        return new_payload_response.inclusion_list_satisfied
 
     def _fetch_receipts(
         self,

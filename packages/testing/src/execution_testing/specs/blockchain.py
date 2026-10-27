@@ -100,6 +100,9 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessListExpectation,
 )
 from execution_testing.test_types.chain_config_types import ChainConfigDefaults
+from execution_testing.test_types.inclusion_list import (
+    OmissionClaim,
+)
 
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
@@ -361,6 +364,10 @@ class Block(Header):
     """Expected gas used for the block."""
     inclusion_list_txs: List[Transaction] | None = None
     """Transactions supplied as the block's inclusion list."""
+    inclusion_lists: List[List[Transaction]] | None = None
+    """Separate inclusion lists in committee-position order."""
+    omission_claims: List[OmissionClaim] | None = None
+    """Committed omission claims, preserving their order and duplicates."""
     expected_inclusion_list_satisfied: bool | None = None
     """Expected outcome of the inclusion list verification for this block."""
 
@@ -497,6 +504,8 @@ class BuiltBlock(CamelModel):
     block_access_list: BlockAccessList | None
     inclusion_list_txs: List[Transaction] | None
     inclusion_list_satisfied: bool | None
+    inclusion_lists: List[List[Transaction]] | None = None
+    omission_claims: List[OmissionClaim] | None = None
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
 
@@ -627,6 +636,8 @@ class BuiltBlock(CamelModel):
             if self.block_access_list
             else None,
             inclusion_list_transactions=self.inclusion_list_txs,
+            inclusion_lists=self.inclusion_lists,
+            omission_claims=self.omission_claims,
             inclusion_list_satisfied=(
                 self.inclusion_list_satisfied
                 if self.expected_exception is None
@@ -1068,20 +1079,23 @@ class BlockchainTest(BaseTest):
         env = env.set_fork_requirements(fork)
         env.check_fork_fields(fork)
         txs = block.txs[:]
+        inclusion_lists = block.inclusion_lists
         inclusion_list_txs: List[Transaction] | None = None
-        if block.inclusion_list_txs is not None:
+        if inclusion_lists is not None:
+            if block.inclusion_list_txs is not None:
+                raise ValueError(
+                    "Cannot combine flat and separate inclusion lists"
+                )
+            inclusion_list_txs = [tx for il in inclusion_lists for tx in il]
+        elif block.inclusion_list_txs is not None:
             inclusion_list_txs = block.inclusion_list_txs[:]
         elif fork.engine_new_payload_inclusion_list_transactions():
             inclusion_list_txs = []
-        # Deduplicate by identity: a tx reused in both the block body and
-        # the inclusion list is executed only once, so the gas-limit budget
-        # below must count it once.
-        all_txs = txs[:]
-        if inclusion_list_txs is not None:
-            seen = {id(tx) for tx in txs}
-            all_txs += [
-                il_tx for il_tx in inclusion_list_txs if id(il_tx) not in seen
-            ]
+        # A shared transaction needs one gas-limit allocation, regardless
+        # of how many ILs or block-body entries reference it.
+        all_txs = list(
+            {id(tx): tx for tx in txs + (inclusion_list_txs or [])}.values()
+        )
         if any("gas_limit" not in tx.model_fields_set for tx in all_txs):
             max_tx_gas_limit = Transaction.calculate_max_gas_limit(
                 txs=all_txs,
@@ -1126,6 +1140,21 @@ class BlockchainTest(BaseTest):
             if inclusion_list_txs is not None
             else None
         )
+        omission_claims = block.omission_claims
+        if fork.engine_new_payload_omission_claims():
+            if inclusion_lists is None:
+                # Legacy tests describe one synthetic committee position.
+                inclusion_lists = [inclusion_list_txs or []] + [
+                    [] for _ in range(15)
+                ]
+            else:
+                signed_entries = iter(inclusion_list_txs or [])
+                inclusion_lists = [
+                    [next(signed_entries) for _ in il]
+                    for il in inclusion_lists
+                ]
+            if omission_claims is None:
+                omission_claims = []
         il_size_limit = fork.inclusion_list_transactions_size_limit()
         for il_tx in inclusion_list_txs or []:
             il_tx_size = len(il_tx.rlp())
@@ -1166,6 +1195,8 @@ class BlockchainTest(BaseTest):
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
                 inclusion_list_txs=inclusion_list_txs,
+                inclusion_lists=inclusion_lists,
+                omission_claims=omission_claims,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -1232,6 +1263,7 @@ class BlockchainTest(BaseTest):
         if (
             fork.engine_new_payload_inclusion_list_transactions()
             and transition_tool_output.result.block_exception is None
+            and not transition_tool_output.result.rejected_transactions
             and actual_inclusion_list_satisfied is None
         ):
             raise Exception(
@@ -1384,6 +1416,8 @@ class BlockchainTest(BaseTest):
             block_access_list=bal,
             inclusion_list_txs=inclusion_list_txs,
             inclusion_list_satisfied=actual_inclusion_list_satisfied,
+            inclusion_lists=inclusion_lists,
+            omission_claims=omission_claims,
             engine_new_payload_block_access_list=(
                 block.engine_new_payload_block_access_list
                 if block.engine_new_payload_block_access_list is not None

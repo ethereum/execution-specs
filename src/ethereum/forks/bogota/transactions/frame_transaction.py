@@ -533,6 +533,52 @@ def compute_frame_signature_hash(tx: FrameTransaction) -> Hash32:
     return keccak256(b"\x06" + rlp.encode(elided_tx))
 
 
+def validate_signature_encoding(frame_signature: FrameSignature) -> None:
+    """
+    Check signature metadata and canonical scalars without cryptography.
+    """
+    message = frame_signature.message
+    signer = frame_signature.signer
+    signature = frame_signature.signature
+    if len(message) not in (0, 32):
+        raise InvalidFrameError("Invalid signature message length")
+    if message == b"\0" * 32:
+        raise InvalidFrameError("frame signature message cannot be all zeros")
+    if len(signer) not in (0, Address.LENGTH):
+        raise InvalidFrameError("invalid frame signer length")
+    match frame_signature.scheme:
+        case FrameSignatureScheme.SECP256K1:
+            if len(signature) != 65:
+                raise InvalidSignatureError(
+                    "SECP256K1 signature must be 65 bytes"
+                )
+            v = U256(signature[0])
+            r = U256.from_be_bytes(signature[1:33])
+            s = U256.from_be_bytes(signature[33:65])
+            if v not in (U256(0), U256(1)):
+                raise InvalidSignatureError("bad v in secp256k1 scheme")
+            if not U256(0) < r < SECP256K1N:
+                raise InvalidSignatureError("bad r in secp256k1 scheme")
+            if not U256(0) < s <= SECP256K1N // U256(2):
+                raise InvalidSignatureError("bad s in secp256k1 scheme")
+        case FrameSignatureScheme.P256:
+            if len(signature) != 128:
+                raise InvalidSignatureError("P256 signature must be 128 bytes")
+            r = U256.from_be_bytes(signature[0:32])
+            s = U256.from_be_bytes(signature[32:64])
+            if not U256(0) < r < SECP256R1N:
+                raise InvalidSignatureError("bad r in p256 scheme")
+            if not U256(0) < s <= SECP256R1N // U256(2):
+                raise InvalidSignatureError("bad s in p256 scheme")
+        case FrameSignatureScheme.ARBITRARY:
+            if signer:
+                raise InvalidFrameError(
+                    "signer length should be zero for arbitrary schemes"
+                )
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
 def validate_signature(
     frame_signature: FrameSignature, sender: Address, sig_hash: Hash32
 ) -> Optional[Address]:
@@ -561,82 +607,44 @@ def validate_signature(
     [p256]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.P256
     [arb]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.ARBITRARY
     """  # noqa: E501
-    signature_scheme = frame_signature.scheme
-    signer = frame_signature.signer
+    validate_signature_encoding(frame_signature)
     signature = frame_signature.signature
-
-    if len(frame_signature.message) == 0:
-        message = sig_hash
-    elif len(frame_signature.message) == 32:
-        if frame_signature.message == b"\0" * 32:
-            raise InvalidFrameError(
-                "frame signature message cannot be all zeros"
-            )
-        message = Hash32(frame_signature.message)
-    else:
-        raise InvalidFrameError("Invalid signature message length")
-
-    if len(signer) not in [0, Address.LENGTH]:
-        raise InvalidFrameError("invalid frame signer length")
-    resolved_signer: Bytes
-    if len(signer) == 0:
-        resolved_signer = sender
-    else:
-        resolved_signer = signer
-
-    match signature_scheme:
+    message = (
+        sig_hash
+        if not frame_signature.message
+        else Hash32(frame_signature.message)
+    )
+    resolved_signer = (
+        sender
+        if not frame_signature.signer
+        else Address(frame_signature.signer)
+    )
+    match frame_signature.scheme:
         case FrameSignatureScheme.SECP256K1:
-            if len(signature) != 65:
-                raise InvalidSignatureError(
-                    "SECP256K1 signature must be 65 bytes"
-                )
-
             v = U256(signature[0])
             r = U256.from_be_bytes(signature[1:33])
             s = U256.from_be_bytes(signature[33:65])
-            if v not in (U256(0), U256(1)):
-                raise InvalidSignatureError("bad v in secp256k1 scheme")
-            if U256(0) >= r or r >= SECP256K1N:
-                raise InvalidSignatureError("bad r in secp256k1 scheme")
-            if U256(0) >= s or s > SECP256K1N // U256(2):
-                raise InvalidSignatureError("bad s in secp256k1 scheme")
-
             public_key = secp256k1_recover(r, s, v, message)
-
             if resolved_signer != keccak256(public_key)[12:]:
                 raise InvalidFrameError(
                     "signer does not match in secp256k1 scheme"
                 )
-
-            return Address(resolved_signer)
-
+            return resolved_signer
         case FrameSignatureScheme.P256:
-            if len(signature) != 128:
-                raise InvalidSignatureError("P256 signature must be 128 bytes")
-
             r = U256.from_be_bytes(signature[0:32])
             s = U256.from_be_bytes(signature[32:64])
             qx = U256.from_be_bytes(signature[64:96])
             qy = U256.from_be_bytes(signature[96:128])
-
-            if U256(0) >= r or r >= SECP256R1N:
-                raise InvalidSignatureError("bad r in p256 scheme")
-            if U256(0) >= s or s > SECP256R1N // U256(2):
-                raise InvalidSignatureError("bad s in p256 scheme")
             if resolved_signer != keccak256(signature[64:128])[12:]:
                 raise InvalidFrameError("signer does not match in p256 scheme")
             try:
                 secp256r1_verify(r, s, qx, qy, message)
-            except ValueError as e:
-                raise InvalidSignatureError("invalid p256 public key") from e
-
-            return Address(resolved_signer)
-
+            except ValueError as error:
+                raise InvalidSignatureError(
+                    "invalid p256 public key"
+                ) from error
+            return resolved_signer
         case FrameSignatureScheme.ARBITRARY:
-            if len(signer) != 0:
-                raise InvalidFrameError(
-                    "signer length should be zero for arbitrary schemes"
-                )
             return None
         case _ as unreachable:
             assert_never(unreachable)
@@ -682,6 +690,8 @@ class FrameTransactionValidation:
 
 def validate_frame_transaction(
     tx: FrameTransaction,
+    *,
+    verify_signatures: bool = True,
 ) -> FrameTransactionValidation:
     """
     Check the statically determinable validity constraints of a frame
@@ -696,6 +706,10 @@ def validate_frame_transaction(
     suffix of the frame list.
 
     [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
+
+    Set `verify_signatures` to false only for candidate classification;
+    the returned empty signer tuple cannot authorize execution. Signature
+    verification must precede using those artifacts for replay.
 
     A frame transaction has no gas limit field; its two gas anchors are
     derived instead. The per-transaction gas cap of [EIP-7825] bounds
@@ -739,10 +753,17 @@ def validate_frame_transaction(
     if frame_count < Uint(1) or frame_count > MAX_FRAMES_PER_TX:
         raise FrameCountError(actual=frame_count, maximum=MAX_FRAMES_PER_TX)
 
+    if not verify_signatures:
+        for signature in tx.signatures:
+            validate_signature_encoding(signature)
     signature_hash = compute_frame_signature_hash(tx)
-    resolved_signers = tuple(
-        validate_signature(signature, tx.sender, signature_hash)
-        for signature in tx.signatures
+    resolved_signers = (
+        tuple(
+            validate_signature(signature, tx.sender, signature_hash)
+            for signature in tx.signatures
+        )
+        if verify_signatures
+        else ()
     )
 
     has_expiry_verifier_frame = False

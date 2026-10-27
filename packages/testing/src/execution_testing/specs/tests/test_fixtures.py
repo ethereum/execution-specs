@@ -133,9 +133,11 @@ def test_make_genesis(  # noqa: D103
 
 
 @pytest.mark.parametrize("inclusion_list_satisfied", [False, True])
+@pytest.mark.parametrize("separate_lists", [False, True])
 def test_blockchain_fixtures_include_inclusion_lists(
     default_t8n: TransitionTool,
     inclusion_list_satisfied: bool,
+    separate_lists: bool,
 ) -> None:
     """Test inclusion list plumbing across classic and engine fixtures."""
     tx = Transaction(
@@ -149,10 +151,13 @@ def test_blockchain_fixtures_include_inclusion_lists(
 
     pre = Alloc({sender: Account(balance=10**18)})
 
-    if inclusion_list_satisfied:
-        block = Block(txs=[tx], inclusion_list_txs=[tx])
+    block = Block(txs=[tx] if inclusion_list_satisfied else [])
+    if separate_lists:
+        block.inclusion_lists = [
+            [tx, tx] if i in (0, 15) else [] for i in range(16)
+        ]
     else:
-        block = Block(txs=[], inclusion_list_txs=[tx])
+        block.inclusion_list_txs = [tx]
 
     engine_fixture = (
         BlockchainTest(
@@ -166,7 +171,14 @@ def test_blockchain_fixtures_include_inclusion_lists(
         .fixture
     )
     assert isinstance(engine_fixture, BlockchainEngineFixture)
-    assert engine_fixture.payloads[0].params[-1] == [signed_il_tx.rlp()]
+    params = engine_fixture.payloads[0].params
+    assert len(params) == 6
+    assert params[4] == (
+        [[signed_il_tx.rlp()] * 2 if i in (0, 15) else [] for i in range(16)]
+        if separate_lists
+        else [[signed_il_tx.rlp()]] + [[]] * 15
+    )
+    assert params[5] == []
     assert engine_fixture.payloads[0].valid()
     assert (
         engine_fixture.payloads[0].inclusion_list_satisfied
@@ -282,7 +294,9 @@ def test_inclusion_list_entry_size_limit(
         except pytest.skip.Exception as e:
             pytest.fail(f"an entry at the limit was skipped: {e}")
         assert isinstance(fixture, BlockchainEngineFixture)
-        assert fixture.payloads[0].params[-1] == [tx.rlp()]
+        params = fixture.payloads[0].params
+        assert len(params) == 6
+        assert params[4] == [[tx.rlp()]] + [[]] * 15
     elif list_source == "written":
         with pytest.raises(Exception, match="test correctness"):
             test.generate(t8n=default_t8n, fixture_format=fixture_format)

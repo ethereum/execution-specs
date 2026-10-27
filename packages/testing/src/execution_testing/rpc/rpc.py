@@ -1445,6 +1445,39 @@ class EngineRPC(BaseJwtRPC):
         ).result_or_raise()
         return [Bytes(tx) for tx in response]
 
+    def wait_for_inclusion_list(
+        self,
+        response: PayloadStatus,
+        *params: Any,
+        version: int,
+        max_attempts: int = 30,
+        wait_fixed: float = 1.0,
+    ) -> PayloadStatus:
+        """
+        Retry incomplete execution with the original inclusion inputs.
+
+        Require a completed inclusion verdict with VALID execution. Raise on
+        inconsistent responses or timeout.
+        """
+        for attempt in range(max_attempts + 1):
+            if response.status in (
+                PayloadStatusEnum.INVALID,
+                PayloadStatusEnum.INVALID_BLOCK_HASH,
+            ):
+                return response
+            if response.status == PayloadStatusEnum.VALID:
+                if response.inclusion_list_satisfied is None:
+                    raise ValueError("VALID response lacks inclusion verdict")
+                return response
+            elif response.inclusion_list_satisfied is not None:
+                raise ValueError("Inclusion result precedes valid execution")
+            if attempt == max_attempts:
+                break
+            if attempt:
+                time.sleep(wait_fixed)
+            response = self.new_payload(*params, version=version)
+        raise TimeoutError("Execution validation remained pending")
+
     def new_payload_with_retry(
         self,
         *params: Any,
@@ -1528,12 +1561,13 @@ class EngineRPC(BaseJwtRPC):
             assert version >= 4, "custodyColumns requires forkchoiceUpdatedV4."
             params.append(None)
 
-        return ForkchoiceUpdateResponse.model_validate(
+        response = ForkchoiceUpdateResponse.model_validate(
             self.post_request(
                 request=RPCCall(method=method, params=params),
             ).result_or_raise(),
             context=self.response_validation_context,
         )
+        return response
 
     def get_payload(
         self,

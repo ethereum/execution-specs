@@ -80,6 +80,8 @@ def generic_create(
     from ...vm.runtime import get_valid_jump_destinations
 
     tx_state = evm.tx_env.state
+    if evm.tx_env.validation_create_hook is not None:
+        evm.tx_env.validation_create_hook(contract_address)
 
     init_code = memory_read_bytes(
         evm.memory, memory_start_position, memory_size

@@ -921,7 +921,7 @@ def test_method_versions() -> None:  # noqa: D103
     assert Amsterdam.engine_new_payload_version() == 5
     assert Amsterdam.engine_get_inclusion_list_version() is None
 
-    assert Bogota.engine_get_payload_version() == 6
+    assert Bogota.engine_get_payload_version() == 7
     assert Bogota.engine_new_payload_version() == 6
     assert Bogota.engine_forkchoice_updated_version() == 5
     assert Bogota.engine_get_inclusion_list_version() == 1

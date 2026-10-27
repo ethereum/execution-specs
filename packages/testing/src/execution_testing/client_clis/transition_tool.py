@@ -41,7 +41,12 @@ from execution_testing.forks.helpers import (
     get_development_forks,
     get_forks,
 )
-from execution_testing.test_types import Alloc, Environment, Transaction
+from execution_testing.test_types import (
+    Alloc,
+    Environment,
+    OmissionClaim,
+    Transaction,
+)
 
 from .cli_types import (
     LazyAlloc,
@@ -331,6 +336,8 @@ class TransitionTool(EthereumCLI):
         blob_schedule: BlobSchedule | None
         state_test: bool = False
         inclusion_list_txs: List[Transaction] | None = None
+        inclusion_lists: List[List[Transaction]] | None = None
+        omission_claims: List[OmissionClaim] | None = None
 
         @property
         def fork_name(self) -> str:
@@ -372,6 +379,8 @@ class TransitionTool(EthereumCLI):
                 env=self.env,
                 blob_params=self.blob_params,
                 inclusion_list_txs=self.inclusion_list_txs,
+                inclusion_lists=self.inclusion_lists,
+                omission_claims=self.omission_claims,
             )
 
         def get_request_data(self) -> TransitionToolRequest:
