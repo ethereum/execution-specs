@@ -12,7 +12,7 @@ https://eips.ethereum.org/EIPS/eip-7906
 """
 
 from dataclasses import replace
-from typing import Callable, Dict
+from typing import Callable, Dict, List
 
 from execution_testing.vm import OpcodeBase, Opcodes
 
@@ -32,6 +32,17 @@ class EIP7906(BaseFork):
         count = super(EIP7906, cls).frame_mode_count()
         assert count == ASSERT_MODE, "ASSERT must be the next frame mode"
         return count + 1
+
+    @classmethod
+    def valid_opcodes(cls) -> List[Opcodes]:
+        """
+        Add the transaction assertion instructions. Outside an `ASSERT`
+        frame they halt exceptionally.
+        """
+        return [
+            Opcodes.TXTRACE,
+            Opcodes.EVENTDATACOPY,
+        ] + super(EIP7906, cls).valid_opcodes()
 
     @classmethod
     def gas_costs(cls) -> GasCosts:
