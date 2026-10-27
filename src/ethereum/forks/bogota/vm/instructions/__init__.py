@@ -219,8 +219,7 @@ class Ops(enum.Enum):
     SIGPARAM = 0xB4
     SIGDATACOPY = 0xB5
     TXTRACE = 0xB6
-    TXDIFF = 0xB7
-    EVENTDATACOPY = 0xB8
+    EVENTDATACOPY = 0xB7
 
     # System Operations
     CREATE = 0xF0
@@ -387,7 +386,6 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.SIGPARAM: frame_instructions.sigparam,
     Ops.SIGDATACOPY: frame_instructions.sigdatacopy,
     Ops.TXTRACE: assertion_instructions.txtrace,
-    Ops.TXDIFF: assertion_instructions.txdiff,
     Ops.EVENTDATACOPY: assertion_instructions.eventdatacopy,
     Ops.CREATE: system_instructions.create,
     Ops.RETURN: system_instructions.return_,

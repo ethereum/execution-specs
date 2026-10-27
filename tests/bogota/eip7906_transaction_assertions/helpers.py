@@ -41,14 +41,14 @@ FUNDS = 10**18
 """Funding of a sender or sponsor whose balance a test pins."""
 
 FEE_PER_GAS = 7
-"""Gas price of a transaction whose payer balance a test pins."""
+"""
+Base fee of the default block, and so the gas price of a transaction
+that tips nothing, whose payer balance a test pins.
+"""
 
 BOB_FUNDS = 1_000
 CAROL_FUNDS = 1
 """Funding of an account the body never touches."""
-
-NEVER_EXISTED = Address(0x7906000000000000000000000000000000000001)
-"""An address with no account before or after the transaction."""
 
 VALUE = 7
 
@@ -126,7 +126,7 @@ FACTORY_CODE = (
 )
 """
 Deploy one contract with runtime code and one whose initcode returns
-nothing, so only the first appears in `contracts_deployed`.
+nothing, so only the first appears in `codes_changed`.
 """
 
 
@@ -137,7 +137,7 @@ def as_int(address: Address | EOA) -> int:
 
 def frame_gas(fork: Fork) -> int:
     """
-    Return the execution gas budget of a body or `POST_TX` frame: an
+    Return the execution gas budget of a body or `ASSERT` frame: an
     equal share of the transaction gas cap among the most frames a
     transaction may carry.
     """
@@ -146,15 +146,15 @@ def frame_gas(fork: Fork) -> int:
     return cap // Spec8141.MAX_FRAMES
 
 
-def post_tx_frame(fork: Fork, **overrides: Any) -> Frame:
+def assert_frame(fork: Fork, **overrides: Any) -> Frame:
     """
-    Return a `POST_TX` frame, the trailing assertion frame.
+    Return an `ASSERT` frame, the trailing assertion frame.
 
     Keyword arguments override the corresponding frame fields, for
     variants that differ from the canonical frame in a single field.
     """
     kwargs: Dict[str, Any] = dict(
-        mode=Spec.MODE_POST_TX,
+        mode=Spec.MODE_ASSERT,
         gas_limit=frame_gas(fork),
     )
     kwargs.update(overrides)
@@ -180,7 +180,7 @@ def expect_eq(value: Bytecode | Op, expected: Any) -> Bytecode:
     Return bytecode that reverts unless `value` evaluates to `expected`.
 
     An assertion contract is a sequence of these checks followed by
-    `STOP`: the `POST_TX` frame succeeds only when every check holds,
+    `STOP`: the `ASSERT` frame succeeds only when every check holds,
     which the body's committed effects and the frame's receipt status
     then make observable.
     """
@@ -233,7 +233,7 @@ def assertion_transaction(
     """
     Return a frame transaction whose validation prefix is the sender's
     default-code `VERIFY` frame, followed by the body frames and one
-    `POST_TX` frame per assertion contract, a single one usually.
+    `ASSERT` frame per assertion contract, a single one usually.
     """
     assertions = assertion if isinstance(assertion, list) else [assertion]
     kwargs: Dict[str, Any] = dict(
@@ -241,7 +241,7 @@ def assertion_transaction(
         frames=[
             verify_frame(),
             *body,
-            *[post_tx_frame(fork, target=target) for target in assertions],
+            *[assert_frame(fork, target=target) for target in assertions],
         ],
     )
     if frame_receipts is not None:
@@ -261,7 +261,7 @@ def reverted_body_receipts(
     fork: Fork, body_count: int, *, assertion_halts: bool = False
 ) -> List[FrameReceipt]:
     """
-    Return the receipts of a transaction whose single `POST_TX` frame
+    Return the receipts of a transaction whose single `ASSERT` frame
     failed: the `VERIFY` frame succeeded, the body frames keep their
     success status with their logs emptied, and the assertion frame
     failed.
@@ -336,16 +336,29 @@ def frame_max_gas(fork: Fork, tx: Transaction) -> Tuple[int, int]:
     return max_gas, floor + state_gas
 
 
-def frame_max_cost(fork: Fork, tx: Transaction) -> int:
+def frame_required_max_fee(fork: Fork, tx: Transaction) -> int:
     """
-    Return the escrow a signed frame transaction collects from its payer
-    when payment is approved: its derived gas limit at the maximum fee
-    per gas, plus its blob gas at the blob base fee of an empty excess.
+    Return the fee a signed frame transaction's `max_fee` must cover: its
+    derived gas limit at the base fee `FEE_PER_GAS`, plus its blob gas at
+    the blob base fee of an empty excess.
     """
     max_gas, _ = frame_max_gas(fork, tx)
     blob_gas = fork.blob_gas_per_blob() * len(tx.blob_versioned_hashes or [])
     blob_base_fee = fork.blob_gas_price_calculator()(excess_blob_gas=0)
-    return max_gas * int(tx.max_fee_per_gas or 0) + blob_gas * blob_base_fee
+    return max_gas * FEE_PER_GAS + blob_gas * blob_base_fee
+
+
+def frame_max_cost(fork: Fork, tx: Transaction) -> int:
+    """
+    Return the escrow a signed frame transaction collects from its payer
+    when payment is approved: the fee its `max_fee` must cover, plus the
+    largest tip on its derived gas limit that the rest of the budget
+    allows.
+    """
+    max_gas, _ = frame_max_gas(fork, tx)
+    required_max_fee = frame_required_max_fee(fork, tx)
+    tip = int(tx.max_priority_fee_per_gas or 0) * max_gas
+    return required_max_fee + min(tip, int(tx.max_fee or 0) - required_max_fee)
 
 
 def calldata_floor_data(fork: Fork, tx: Transaction) -> Bytes:
@@ -451,72 +464,6 @@ def factory_state_gas(fork: Fork) -> int:
     return creation_state_gas(
         fork, creations=2, deposited_bytes=len(DEPLOYED_RUNTIME)
     )
-
-
-@dataclass
-class MixedBody:
-    """
-    The accounts of an execution body that writes slots, writes and
-    restores one, transfers value and deploys contracts.
-    """
-
-    sender: EOA
-    recipient: EOA
-    untouched: EOA
-    writer: Address
-    restorer: Address
-    factory: Address
-    deployed: Address
-    frames: List[Frame] = field(default_factory=list)
-
-    def transaction(self, fork: Fork, assertion: Address) -> Transaction:
-        """Return the body followed by one `POST_TX` frame that holds."""
-        return assertion_transaction(
-            fork,
-            self.sender,
-            body=self.frames,
-            assertion=assertion,
-            frame_receipts=success_receipts(len(self.frames) + 2),
-        )
-
-    def post(self) -> Dict[Address, Account]:
-        """Return the post state the body leaves when it commits."""
-        return {
-            self.sender: Account(nonce=1),
-            self.writer: Account(storage=WRITER_POST),
-            self.restorer: Account(storage={KEY_A: 0}),
-            self.recipient: Account(balance=BOB_FUNDS + VALUE),
-            self.untouched: Account(balance=CAROL_FUNDS),
-            self.factory: Account(nonce=3),
-            self.deployed: Account(nonce=1, code=DEPLOYED_RUNTIME),
-        }
-
-
-def mixed_body(pre: Alloc, fork: Fork) -> MixedBody:
-    """
-    Return a body whose writer updates and sets slots, whose restorer
-    leaves a slot unchanged, which pays a recipient and whose factory
-    deploys a contract, beside an account the body never touches.
-    """
-    factory = pre.deploy_contract(code=FACTORY_CODE)
-    body = MixedBody(
-        sender=pre.fund_eoa(amount=FUNDS),
-        recipient=pre.fund_eoa(amount=BOB_FUNDS),
-        untouched=pre.fund_eoa(amount=CAROL_FUNDS),
-        writer=pre.deploy_contract(code=WRITER_CODE, storage=WRITER_STORAGE),
-        restorer=pre.deploy_contract(code=RESTORER_CODE),
-        factory=factory,
-        deployed=compute_create_address(address=factory, nonce=1),
-    )
-    body.frames = [
-        body_frame(fork, target=body.writer),
-        body_frame(fork, target=body.restorer),
-        body_frame(fork, target=body.recipient, value=VALUE),
-        body_frame(
-            fork, target=body.factory, state_gas_limit=factory_state_gas(fork)
-        ),
-    ]
-    return body
 
 
 DEPLOYER_CODE = (
