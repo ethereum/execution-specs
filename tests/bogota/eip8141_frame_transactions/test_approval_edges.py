@@ -22,6 +22,10 @@ Behavior: "revert the current call frame"), so most tests reach it
 through a call back into the frame's target and record the call's
 result: the recorded value pins the refusal, and the transaction stays
 valid through an approval made elsewhere.
+
+The default code of a codeless account calls `APPROVE` at the top level
+of its `VERIFY` frame instead, so its refusals revert that frame and
+invalidate the transaction.
 """
 
 from typing import Dict, List
@@ -38,6 +42,7 @@ from execution_testing import (
     Environment,
     Fork,
     FrameSignature,
+    GasFee,
     Op,
     Opcode,
     StateTestFiller,
@@ -49,8 +54,12 @@ from .helpers import (
     BASE_FEE,
     CANARY,
     PRIORITY_FEE,
+    DefaultCodeAccounts,
+    DefaultCodeCase,
     FrameCase,
     FrameTransaction,
+    approve_execution,
+    approve_payment,
     default_frame,
     fee_budget,
     sponsored_signatures,
@@ -486,6 +495,116 @@ def test_execution_approval_refused_once_granted(
             ),
         },
     )
+
+
+APPROVAL_REFUSAL_CASES = [
+    pytest.param(
+        lambda a: (
+            [approve_execution(), approve_payment(a.payer)],
+            [canonical_entry(a.sender), canonical_entry(a.payer)],
+        ),
+        False,
+        id="execution_then_payment",
+    ),
+    pytest.param(
+        # §APPROVE Behavior, `APPROVE_PAYMENT`: "If `sender_approved ==
+        # false`, revert the current call frame."
+        lambda a: (
+            [approve_payment(a.payer), approve_execution()],
+            [canonical_entry(a.sender), canonical_entry(a.payer)],
+        ),
+        True,
+        id="payment_before_execution",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # §APPROVE Behavior, `APPROVE_PAYMENT`: "If `payer` was already
+        # set, revert the current call frame." The second payer can
+        # afford `max_cost`, so only the first approval refuses it.
+        lambda a: (
+            [verify_frame(), approve_payment(a.payer)],
+            [canonical_entry(a.sender), canonical_entry(a.payer)],
+        ),
+        True,
+        id="second_payment_approval",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # §APPROVE Behavior, `APPROVE_EXECUTION`: "If `sender_approved ==
+        # true`, revert the current call frame."
+        lambda a: (
+            [
+                approve_execution(),
+                approve_execution(),
+                approve_payment(a.payer),
+            ],
+            [canonical_entry(a.sender), canonical_entry(a.payer)],
+        ),
+        True,
+        id="second_execution_approval",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # §APPROVE Behavior, `APPROVE_EXECUTION_AND_PAYMENT`: "If
+        # `sender_approved` or `payer` was already set, revert the
+        # current call frame."
+        lambda a: (
+            [approve_execution(), verify_frame()],
+            [canonical_entry(a.sender)],
+        ),
+        True,
+        id="execution_and_payment_after_execution",
+        marks=pytest.mark.exception_test,
+    ),
+]
+"""
+Sequences of default code approvals, each with whether one of them
+must be refused, which reverts its `VERIFY` frame.
+"""
+
+
+@pytest.mark.parametrize("case,refused", APPROVAL_REFUSAL_CASES)
+def test_default_code_approval_refusals(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    case: DefaultCodeCase,
+    refused: bool,
+) -> None:
+    """
+    Order default code approvals so that the `APPROVE` one of them
+    calls must be refused, and check the refusal reverts its `VERIFY`
+    frame and invalidates the transaction.
+
+    EIP-8141 §Default code: "Call `APPROVE(allowed_scope)`." The
+    default code's `APPROVE` is subject to every check of §APPROVE
+    Behavior, and a refusal reverts the frame.
+    """
+    accounts = DefaultCodeAccounts(pre)
+    frames, signatures = case(accounts)
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=accounts.sender,
+        payer=accounts.payer,
+        frames=frames,
+        signatures=signatures,
+        error=(
+            TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+            if refused
+            else None
+        ),
+    )
+
+    post = {
+        accounts.sender: Account(nonce=0 if refused else 1),
+        accounts.payer: Account(
+            nonce=0,
+            balance_change=(
+                0 if refused else -GasFee(tx, gas=tx.payer_gas_used())
+            ),
+        ),
+    }
+    state_test(pre=pre, tx=tx, post=post)
 
 
 @pytest.mark.parametrize(

@@ -9,6 +9,20 @@ the transaction alone and may accept such a transaction at that level.
 Rules decidable from the transaction alone are in
 `test_static_validity.py`, where every case is also pinned at the
 transaction level.
+
+A block accounts for execution gas and state gas separately, and a frame
+transaction is includable only if its worst case fits what the earlier
+transactions left of each dimension (§Block-level gas accounting): its
+execution reservation, the larger of its intrinsic cost plus its frame
+execution budgets and its calldata floor, and its state reservation,
+the sum of its frame state budgets. The block capacity tests reserve
+exactly what an empty block, or one holding a first transaction that
+used both dimensions, has left, or one unit more. The same reservation
+after a refunding first transaction is in
+`test_gas_settlement.py::test_next_transaction_capacity_after_refund`
+(pre-refund execution), and after a refilled one in
+`test_gas_settlement.py::test_state_reservation_after_refilled_transaction`
+(net state gas).
 """
 
 from typing import Any, Dict, Optional
@@ -18,6 +32,7 @@ from execution_testing import (
     Account,
     Alloc,
     BlockchainTestFiller,
+    Bytes,
     ChainConfig,
     Conditional,
     Environment,
@@ -31,7 +46,12 @@ from execution_testing import (
 
 from .helpers import (
     APPROVE_ALL,
+    BASE_FEE,
+    FrameTransaction,
+    approving_contract_sender,
     default_frame,
+    fee_budget,
+    frame_gas_sum_frames,
     reservation_block,
     reservation_error,
     reserving_frame_tx,
@@ -144,7 +164,10 @@ cross it in either dimension.
 """
 
 CAPACITY_EXECUTION_GAS = 50_000
-"""Execution budget of the state-dimension capacity cases."""
+"""
+Execution budget of the transaction reserving state in the
+state-dimension capacity cases.
+"""
 
 
 @pytest.mark.parametrize(
@@ -208,6 +231,199 @@ def test_block_capacity_reservations(
         ],
         post={tx.sender: Account(nonce=1 if excess else 2)},
         genesis_environment=Environment(gas_limit=BLOCK_GAS_LIMIT),
+    )
+
+
+SECOND_TX_BLOCK_GAS_LIMIT = 400_000
+"""
+Block gas limit of the second transaction's execution and state cases,
+above the first transaction's usage in both dimensions.
+"""
+
+FLOOR_DATA_LENGTH = 4_096
+"""
+Zero bytes of frame data in the second transaction of the floor case:
+enough for its calldata floor to exceed its intrinsic cost plus frame
+execution budgets by far.
+"""
+
+WRITE_SLOT = Op.SSTORE(0, 1)
+"""Code that writes one fresh storage slot."""
+
+
+@pytest.mark.parametrize(
+    "excess",
+    [
+        pytest.param(0, id="fits"),
+        pytest.param(1, id="one_over", marks=pytest.mark.exception_test),
+    ],
+)
+@pytest.mark.parametrize(
+    "dimension",
+    [
+        pytest.param("execution", id="execution_reservation"),
+        pytest.param("state", id="state_reservation"),
+        pytest.param("floor", id="calldata_floor_reservation"),
+    ],
+)
+def test_second_transaction_reservation(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    dimension: str,
+    excess: int,
+) -> None:
+    """
+    Include a frame transaction after a first frame transaction that
+    used both gas dimensions, reserving exactly the block's remaining
+    capacity in one dimension, or one unit more.
+
+    The first transaction writes a fresh storage slot, so it leaves both
+    counters above zero: the block counts its execution gas as
+    `max(gas_used_before_refund - tx_state_gas, calldata_floor_gas)` and
+    its state gas as `tx_state_gas`.
+
+    - `execution_reservation`: the second transaction's intrinsic cost
+      plus its frame execution budgets.
+    - `state_reservation`: the second transaction's frame state budgets.
+    - `calldata_floor_reservation`: the second transaction's calldata
+      floor, which exceeds its intrinsic cost plus frame execution
+      budgets. Here the block gas limit is set to the first
+      transaction's execution gas plus that floor.
+
+    EIP-8141 §Block-level gas accounting: "A frame transaction may be
+    included in a block only if its worst case fits the remaining
+    capacity of **each** dimension", with `execution_reservation <=
+    block_gas_limit - block_output.block_execution_gas_used` and
+    `state_reservation <= block_gas_limit -
+    block_output.block_state_gas_used`.
+    """
+    first_sender = approving_contract_sender(pre)
+    written = pre.deploy_contract(code=WRITE_SLOT)
+    first_tx = FrameTransaction.build(
+        fork=fork,
+        sender=first_sender,
+        nonce=1,
+        frames=[
+            verify_frame(
+                code=APPROVE_ALL, gas_limit_delta=0, state_gas_limit=0
+            ),
+            default_frame(
+                target=written,
+                code=WRITE_SLOT,
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            ),
+        ],
+    )
+    # The block's counters after the first transaction.
+    execution_used = max(first_tx.execution_gas, first_tx.calldata_floor)
+    state_used = first_tx.state_gas
+    assert state_used > 0
+
+    error = reservation_error(excess)
+    block_gas_limit = SECOND_TX_BLOCK_GAS_LIMIT
+    if dimension == "execution":
+        second_tx = reserving_frame_tx(
+            pre,
+            fork,
+            execution_reservation=block_gas_limit - execution_used + excess,
+            error=error,
+        )
+    elif dimension == "state":
+        second_tx = reserving_frame_tx(
+            pre,
+            fork,
+            frame_execution_gas=CAPACITY_EXECUTION_GAS,
+            state_reservation=block_gas_limit - state_used + excess,
+            error=error,
+        )
+    elif dimension == "floor":
+        second_sender = approving_contract_sender(pre)
+        frames = [
+            verify_frame(
+                code=APPROVE_ALL, gas_limit_delta=0, state_gas_limit=0
+            ),
+            # The frame only carries the data: with no execution budget
+            # it halts at entry, which a non-`VERIFY` frame may do
+            # without invalidating the transaction.
+            default_frame(
+                target=written,
+                data=Bytes(b"\x00" * FLOOR_DATA_LENGTH),
+                gas_limit=0,
+                state_gas_limit=0,
+            ),
+        ]
+        for frame in frames:
+            frame.settle_budgets(fork)
+        floor = fork.frame_transaction_data_floor_cost_calculator()(
+            frames=frames
+        )
+        standard = fork.frame_transaction_intrinsic_cost_calculator()(
+            frames=frames, return_cost_deducted_prior_execution=True
+        ) + sum(int(frame.gas_limit) for frame in frames)
+        # Only the floor operand can exceed the remaining capacity.
+        assert standard < floor - 1
+        block_gas_limit = execution_used + floor - excess
+        second_tx = Transaction(
+            sender=second_sender, nonce=1, frames=frames, error=error
+        )
+    else:
+        raise ValueError(f"unknown dimension: {dimension!r}")
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            reservation_block(
+                [first_tx, second_tx], gas_limit=block_gas_limit, excess=excess
+            )
+        ],
+        post={
+            first_sender: Account(nonce=1 if excess else 2),
+            written: Account(storage={} if excess else {0: 1}),
+            second_tx.sender: Account(nonce=1 if excess else 2),
+        },
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+    )
+
+
+@pytest.mark.exception_test
+def test_frame_gas_sum_bound_in_block(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Send the valid transaction of
+    `test_static_validity.py::test_frame_gas_sum_bound_transaction` in a
+    block. No block holds `2**64 - 1` of state gas, so it is rejected,
+    but for not fitting the block's state capacity: its frame gas sum
+    passes the static bound.
+
+    EIP-8141 §Constraints: "assert total_frame_gas < 2**64", and
+    §Block-level gas accounting: "assert state_reservation <=
+    block_gas_limit - block_output.block_state_gas_used".
+
+    The `max_fee` budget covers the worst case at the base fee, so the
+    fee check cannot reject the transaction either. The transaction one
+    past the bound breaks both rules, which the EIP does not order, so
+    it is pinned by the transaction test alone.
+    """
+    sender = approving_contract_sender(pre)
+    frames = frame_gas_sum_frames(0)
+    tx = Transaction(
+        sender=sender,
+        nonce=1,
+        frames=frames,
+        max_fee=fee_budget(fork, sender, frames).required_max_fee,
+        error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
+    )
+
+    state_test(
+        env=Environment(base_fee_per_gas=BASE_FEE),
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce=1)},
     )
 
 

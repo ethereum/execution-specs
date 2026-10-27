@@ -17,20 +17,20 @@ A reverting `VERIFY` frame makes the whole transaction invalid
 (§Behavior: "If the frame fails by reverting or halting exceptionally,
 the transaction is invalid."). Every signature entry in these cases is
 itself valid, so the transaction passes signature validation and only
-the default code's choice of entry, or the `APPROVE` it calls, decides
-the verdict.
+the default code's choice of entry decides the verdict. That a refused
+`APPROVE` called by the default code reverts its `VERIFY` frame is
+pinned by `test_default_code_approval_refusals` in
+`test_approval_edges.py`.
 
 That the default code's only execution charge is the warm sender's
 entry access is pinned by the `verify_frame_on_warm_sender_*` cases of
 `test_frame_entry_gas_boundary` in `test_target_resolution.py`.
 """
 
-from functools import cached_property
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict, Optional
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -47,8 +47,12 @@ from execution_testing import (
 
 from .helpers import (
     APPROVE_ALL,
-    FrameCase,
+    PAYER_FUNDS,
+    DefaultCodeAccounts,
+    DefaultCodeCase,
     FrameTransaction,
+    approve_execution,
+    approve_payment,
     expiry_frame,
     verify_frame,
 )
@@ -68,42 +72,6 @@ pytestmark = pytest.mark.valid_from("Bogota")
 
 EXEC_ERROR = TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
 """A `VERIFY` frame failed, which invalidates the transaction."""
-
-PAYER_FUNDS = 10**18
-"""Balance of the payer EOA, far above any transaction's `max_cost`."""
-
-
-class Accounts:
-    """The accounts a default code case refers to."""
-
-    def __init__(self, pre: Alloc) -> None:
-        """Fund the sender and a payer."""
-        self.pre = pre
-        self.sender = pre.fund_eoa()
-        self.payer = pre.fund_eoa(amount=PAYER_FUNDS)
-        self.funded: List[EOA] = [self.sender, self.payer]
-
-    @cached_property
-    def third(self) -> EOA:
-        """Fund an unrelated third account on first use."""
-        account = self.pre.fund_eoa()
-        self.funded.append(account)
-        return account
-
-
-Case = Callable[[Accounts], Tuple[List[FrameCase], List[FrameSignature]]]
-"""Build a case's frames and signature entries from its accounts."""
-
-
-def approve_execution() -> FrameCase:
-    """Return a `VERIFY` frame on the sender approving execution only."""
-    return verify_frame(flags=Spec.APPROVE_EXECUTION)
-
-
-def approve_payment(target: Optional[Address] = None) -> FrameCase:
-    """Return a `VERIFY` frame approving payment only."""
-    return verify_frame(flags=Spec.APPROVE_PAYMENT, target=target)
-
 
 ENTRY_SELECTION_CASES = [
     pytest.param(
@@ -239,7 +207,7 @@ def test_default_code_entry_selection(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    case: Case,
+    case: DefaultCodeCase,
     expected_payer: Optional[str],
 ) -> None:
     """
@@ -254,7 +222,7 @@ def test_default_code_entry_selection(
     `resolved_signer == resolved_target` and `sig.msg == Bytes()`,
     revert."
     """
-    accounts = Accounts(pre)
+    accounts = DefaultCodeAccounts(pre)
     frames, signatures = case(accounts)
     payer = getattr(accounts, expected_payer) if expected_payer else None
     tx = FrameTransaction.build(
@@ -278,112 +246,6 @@ def test_default_code_entry_selection(
             nonce=1 if payer == accounts.sender else 0,
             balance_change=-GasFee(tx, gas=tx.payer_gas_used()),
         )
-    state_test(pre=pre, tx=tx, post=post)
-
-
-APPROVAL_REFUSAL_CASES = [
-    pytest.param(
-        lambda a: (
-            [approve_execution(), approve_payment(a.payer)],
-            [canonical_entry(a.sender), canonical_entry(a.payer)],
-        ),
-        False,
-        id="execution_then_payment",
-    ),
-    pytest.param(
-        # §APPROVE Behavior, `APPROVE_PAYMENT`: "If `sender_approved ==
-        # false`, revert the current call frame."
-        lambda a: (
-            [approve_payment(a.payer), approve_execution()],
-            [canonical_entry(a.sender), canonical_entry(a.payer)],
-        ),
-        True,
-        id="payment_before_execution",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        # §APPROVE Behavior, `APPROVE_PAYMENT`: "If `payer` was already
-        # set, revert the current call frame." The second payer can
-        # afford `max_cost`, so only the first approval refuses it.
-        lambda a: (
-            [verify_frame(), approve_payment(a.payer)],
-            [canonical_entry(a.sender), canonical_entry(a.payer)],
-        ),
-        True,
-        id="second_payment_approval",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        # §APPROVE Behavior, `APPROVE_EXECUTION`: "If `sender_approved ==
-        # true`, revert the current call frame."
-        lambda a: (
-            [
-                approve_execution(),
-                approve_execution(),
-                approve_payment(a.payer),
-            ],
-            [canonical_entry(a.sender), canonical_entry(a.payer)],
-        ),
-        True,
-        id="second_execution_approval",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        # §APPROVE Behavior, `APPROVE_EXECUTION_AND_PAYMENT`: "If
-        # `sender_approved` or `payer` was already set, revert the
-        # current call frame."
-        lambda a: (
-            [approve_execution(), verify_frame()],
-            [canonical_entry(a.sender)],
-        ),
-        True,
-        id="execution_and_payment_after_execution",
-        marks=pytest.mark.exception_test,
-    ),
-]
-"""
-Sequences of default code approvals, each with whether one of them
-must be refused, which reverts its `VERIFY` frame.
-"""
-
-
-@pytest.mark.parametrize("case,refused", APPROVAL_REFUSAL_CASES)
-def test_default_code_approval_refusals(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    case: Case,
-    refused: bool,
-) -> None:
-    """
-    Order default code approvals so that the `APPROVE` one of them
-    calls must be refused, and check the refusal reverts its `VERIFY`
-    frame and invalidates the transaction.
-
-    EIP-8141 §Default code: "Call `APPROVE(allowed_scope)`." The
-    default code's `APPROVE` is subject to every check of §APPROVE
-    Behavior, and a refusal reverts the frame.
-    """
-    accounts = Accounts(pre)
-    frames, signatures = case(accounts)
-    tx = FrameTransaction.build(
-        fork=fork,
-        sender=accounts.sender,
-        payer=accounts.payer,
-        frames=frames,
-        signatures=signatures,
-        error=EXEC_ERROR if refused else None,
-    )
-
-    post = {
-        accounts.sender: Account(nonce=0 if refused else 1),
-        accounts.payer: Account(
-            nonce=0,
-            balance_change=(
-                0 if refused else -GasFee(tx, gas=tx.payer_gas_used())
-            ),
-        ),
-    }
     state_test(pre=pre, tx=tx, post=post)
 
 

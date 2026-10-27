@@ -1,6 +1,7 @@
 """Helpers for EIP-8141 frame transaction tests."""
 
 from enum import Enum, auto, unique
+from functools import cached_property
 from typing import (
     Any,
     Callable,
@@ -10,6 +11,7 @@ from typing import (
     Optional,
     Self,
     Sequence,
+    Tuple,
 )
 
 from execution_testing import (
@@ -700,3 +702,66 @@ def reservation_block(
             else None
         ),
     )
+
+
+PAYER_FUNDS = 10**18
+"""Balance of the payer EOA, far above any transaction's `max_cost`."""
+
+
+class DefaultCodeAccounts:
+    """The accounts a default code case refers to."""
+
+    def __init__(self, pre: Alloc) -> None:
+        """Fund the sender and a payer."""
+        self.pre = pre
+        self.sender = pre.fund_eoa()
+        self.payer = pre.fund_eoa(amount=PAYER_FUNDS)
+        self.funded: List[EOA] = [self.sender, self.payer]
+
+    @cached_property
+    def third(self) -> EOA:
+        """Fund an unrelated third account on first use."""
+        account = self.pre.fund_eoa()
+        self.funded.append(account)
+        return account
+
+
+DefaultCodeCase = Callable[
+    [DefaultCodeAccounts], Tuple[List[FrameCase], List[FrameSignature]]
+]
+"""Build a default code case's frames and signature entries."""
+
+
+def approve_execution() -> FrameCase:
+    """Return a `VERIFY` frame on the sender approving execution only."""
+    return verify_frame(flags=Spec.APPROVE_EXECUTION)
+
+
+def approve_payment(target: Optional[Address] = None) -> FrameCase:
+    """Return a `VERIFY` frame approving payment only."""
+    return verify_frame(flags=Spec.APPROVE_PAYMENT, target=target)
+
+
+FRAME_GAS_SUM_EXECUTION_GAS = 10_000
+"""Execution budget of each frame of the frame gas sum cases."""
+
+FRAME_GAS_SUM_BOUND = 2**64
+"""The bound the running sum of frame gas budgets stays below."""
+
+
+def frame_gas_sum_frames(excess: int) -> List[FrameCase]:
+    """
+    Return two frames whose execution and state budgets sum to one below
+    `FRAME_GAS_SUM_BOUND`, plus `excess`. Only the second frame's state
+    budget makes the sum large, so each budget fits 64 bits on its own.
+    """
+    return [
+        verify_frame(gas_limit=FRAME_GAS_SUM_EXECUTION_GAS, state_gas_limit=0),
+        default_frame(
+            gas_limit=FRAME_GAS_SUM_EXECUTION_GAS,
+            state_gas_limit=FRAME_GAS_SUM_BOUND
+            - 1
+            - 2 * FRAME_GAS_SUM_EXECUTION_GAS
+            + excess,
+        ),
+    ]

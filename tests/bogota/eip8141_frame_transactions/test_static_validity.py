@@ -18,6 +18,13 @@ not the implementation enforces the rule — and a transaction fixture
 is recorded without a reference-implementation check, so sharing the
 state test's cases is what keeps its expectations honest.
 
+Two bound tests fill the transaction format only, since no block can
+isolate their bound: no account nonce reaches `2**64`
+(`test_nonce_at_bound_transaction`), and a frame gas sum near `2**64`
+holds a state budget no block fits
+(`test_frame_gas_sum_bound_transaction`). The valid side of that sum in
+a block is `test_admission_validity.py::test_frame_gas_sum_bound_in_block`.
+
 Rules that also need block context or pre-state are in
 `test_admission_validity.py`.
 """
@@ -52,6 +59,7 @@ from .helpers import (
     approving_contract_sender,
     default_frame,
     expiry_frame,
+    frame_gas_sum_frames,
     sender_frame,
     sponsored_signatures,
     verify_frame,
@@ -235,6 +243,50 @@ def test_invalid_tx_fields_transaction(
     )
 
     transaction_test(pre=pre, tx=Transaction(**tx_kwargs))
+
+
+NONCE_BOUND = 2**64
+"""The bound §Constraints writes for a frame transaction's nonce."""
+
+
+@pytest.mark.exception_test
+def test_nonce_at_bound_transaction(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a frame transaction whose nonce is `2**64`, the value
+    §Constraints bounds the nonce by and the first that does not fit in
+    64 bits.
+
+    It is not the first nonce rejected: the nonce must also leave room
+    for the sender's increment, so `2**64 - 1` is already invalid. That
+    boundary's pair is `test_admission_validity.py::test_nonce_at_maximum`
+    (`2**64 - 2`, accepted) and the `nonce_overflow` case of
+    `TX_FIELD_CASES` (`2**64 - 1`, rejected).
+
+    No account nonce reaches `2**64`, so in a block the transaction would
+    also mismatch its sender's nonce, and the EIP does not order the two
+    checks. Only the transaction itself isolates the bound.
+
+    EIP-8141 §Constraints: "assert tx.nonce < 2**64".
+    """
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        nonce=NONCE_BOUND,
+        frames=[verify_frame()],
+        # The EIP does not say whether the nonce field is decoded as a
+        # 64-bit integer. A client that does fails to decode this one
+        # (`NONCE_OVERFLOW`); one that decodes a wider integer, as the
+        # reference implementation does, rejects it at the
+        # room-for-increment check (`NONCE_IS_MAX`).
+        error=[
+            TransactionException.NONCE_IS_MAX,
+            TransactionException.NONCE_OVERFLOW,
+        ],
+    )
+
+    transaction_test(pre=pre, tx=tx)
 
 
 ZERO_ADDRESS = Address(0)
@@ -604,6 +656,45 @@ def test_frame_constraints_transaction(
     tx = Transaction(
         sender=sender,
         frames=frames(pre, sender) if callable(frames) else frames,
+        error=error,
+    )
+
+    transaction_test(pre=pre, tx=tx)
+
+
+FRAME_GAS_SUM_CASES = [
+    pytest.param(0, None, id="sum_2_pow_64_minus_one"),
+    pytest.param(
+        1,
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="sum_2_pow_64",
+        marks=pytest.mark.exception_test,
+    ),
+]
+"""
+Excess of the frame gas sum over `2**64 - 1`, with the exception the
+transaction must be rejected with, or `None` if it is valid.
+"""
+
+
+@pytest.mark.parametrize("excess,error", FRAME_GAS_SUM_CASES)
+def test_frame_gas_sum_bound_transaction(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+    excess: int,
+    error: Optional[TransactionException],
+) -> None:
+    """
+    Sum the frames' execution and state budgets to exactly `2**64 - 1`,
+    which is valid, or to `2**64`, which is not.
+
+    EIP-8141 §Constraints: "total_frame_gas += frame.limits.execution +
+    frame.limits.state" and "assert total_frame_gas < 2**64".
+    """
+    tx = Transaction(
+        sender=approving_contract_sender(pre),
+        nonce=1,
+        frames=frame_gas_sum_frames(excess),
         error=error,
     )
 
