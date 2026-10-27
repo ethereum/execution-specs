@@ -191,7 +191,7 @@ def test_cross_frame_refill(
     and credits nothing to the executing frame's pool.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    fresh_write_state_cost = storage_set_cost(fork)
 
     observe_before = Op.SSTORE(
         SLOT_USED_BEFORE,
@@ -337,7 +337,7 @@ def test_approve_creates_sender(
     """
     sender, spend_frames, recipient = unfunded_sender(pre, sender_state)
     payer = pre.fund_eoa()
-    sender_creation = fork.gas_costs().NEW_ACCOUNT
+    sender_creation = account_creation_cost(fork)
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -398,7 +398,7 @@ def test_approve_sender_creation_unaffordable(
             verify_frame(
                 flags=Spec.APPROVE_PAYMENT,
                 target=payer,
-                state_gas_limit=fork.gas_costs().NEW_ACCOUNT - 1,
+                state_gas_limit=account_creation_cost(fork) - 1,
             ),
         ],
         signatures=[
@@ -437,7 +437,7 @@ def test_refill_after_intermediate_modification(
     observed the value that frame wrote.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    fresh_write_state_cost = storage_set_cost(fork)
 
     modify = Op.SSTORE(
         SLOT_CREATED,
@@ -530,7 +530,7 @@ def test_batch_unroll_restores_refilled_receipt(
     re-appended receipt keeps its status with its state gas zeroed.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    fresh_write_state_cost = storage_set_cost(fork)
 
     modify = Op.SSTORE(
         SLOT_CREATED,
@@ -652,7 +652,7 @@ def test_frame_revert_restores_refilled_receipt(
     and the reverting frame's own receipt reports zero state gas.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    fresh_write_state_cost = storage_set_cost(fork)
 
     clear = Op.SSTORE(
         SLOT_CREATED,
@@ -749,7 +749,7 @@ def test_call_revert_restores_refilled_receipt(
     a slot from a budget of exactly one slot creation.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    fresh_write_state_cost = storage_set_cost(fork)
 
     clear = Op.SSTORE(
         SLOT_CREATED,
@@ -843,7 +843,7 @@ def test_reversion_restores_charge_ownership(
     owner.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    fresh_write_state_cost = storage_set_cost(fork)
 
     clear = Op.SSTORE(
         SLOT_CREATED,

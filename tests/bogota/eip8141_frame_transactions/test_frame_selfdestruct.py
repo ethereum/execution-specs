@@ -14,7 +14,7 @@ Bogota runs `SELFDESTRUCT` under EIP-6780: a contract created in the
 same transaction is deleted, any other keeps its code.
 """
 
-from typing import Dict
+from typing import Dict, List, Tuple
 
 import pytest
 from execution_testing import (
@@ -29,6 +29,7 @@ from execution_testing import (
 
 from .helpers import (
     FACTORY_NONCE,
+    FrameCase,
     FrameTransaction,
     Outcome,
     account_creation_cost,
@@ -77,13 +78,16 @@ INIT_CODE = Initcode(deploy_code=VICTIM_CODE)
 
 def creation_state_gas(fork: Fork) -> int:
     """
-    Return the state gas a creation of the victim charges, as the
-    framework's state-gas table prices it: the account creation
-    (STATE_BYTES_PER_NEW_ACCOUNT * CPSB) plus the code deposit (CPSB per
-    deployed byte).
+    Return the state gas a creation of the victim charges, derived from
+    the EIP-8037 constants and checked against the framework's pricing:
+    the account creation (STATE_BYTES_PER_NEW_ACCOUNT * CPSB) plus the
+    code deposit (CPSB per deployed byte).
     """
     account_creation = account_creation_cost(fork)
-    code_deposit = fork.code_deposit_state_gas(code_size=len(VICTIM_CODE))
+    code_deposit = len(VICTIM_CODE) * fork.cost_per_state_byte()
+    assert fork.code_deposit_state_gas(code_size=len(VICTIM_CODE)) == (
+        code_deposit
+    )
     assert INIT_CODE.state_cost(fork) == code_deposit
     return account_creation + code_deposit
 
@@ -193,6 +197,48 @@ def test_selfdestruct_no_state_gas_refill(
     state_test(pre=pre, tx=tx, post=post)
 
 
+def created_then_destroyed(
+    pre: Alloc, fork: Fork
+) -> Tuple[Address, Address, List[FrameCase]]:
+    """
+    Return a factory, the victim it creates and the frames of a
+    transaction in which frame 0 approves, frame 1 creates the victim
+    from exactly its creation's state gas, and frame 2 runs the
+    victim's code, destroying it.
+    """
+    factory_code = (
+        frame_data_copy(INIT_CODE)
+        + Op.POP(frame_data_create(Op.CREATE, INIT_CODE))
+        + Op.STOP
+    )
+    factory = pre.deploy_contract(code=factory_code)
+    victim = created_address(factory, Op.CREATE, INIT_CODE)
+    creation = creation_state_gas(fork)
+    frames = [
+        # Frame 0: approve execution and payment.
+        verify_frame(),
+        # Frame 1: create the victim from exactly its creation's state
+        # gas.
+        default_frame(
+            target=factory,
+            data=bytes(INIT_CODE),
+            execution_gas=factory_code.execution_cost(fork)
+            + INIT_CODE.execution_cost(fork),
+            state_gas_limit=creation,
+            state_gas_used=creation,
+        ),
+        # Frame 2: run the victim's code, destroying it. Frame 1's
+        # creation left the victim's address warm.
+        default_frame(
+            target=victim,
+            code=SELFDESTRUCT_CODE,
+            warm=True,
+            state_gas_limit=0,
+        ),
+    ]
+    return factory, victim, frames
+
+
 def test_selfdestruct_keeps_creator_frame_attribution(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -210,18 +256,11 @@ def test_selfdestruct_keeps_creator_frame_attribution(
     the code deposit to its receipt. Frame 2 targets the victim
     directly and destroys it. Frame 3 reads frame 1's attribution back
     unchanged and frame 2's as zero, and both receipts settle that way.
-    The deletion takes effect at the end of the transaction, because
-    EIP-6780 tracks creations per transaction, not per frame.
+    Whether the victim is deleted is pinned separately, in
+    `test_selfdestruct_deletes_account_created_in_earlier_frame`.
     """
     sender = pre.fund_eoa()
-    factory_code = (
-        frame_data_copy(INIT_CODE)
-        + Op.POP(frame_data_create(Op.CREATE, INIT_CODE))
-        + Op.STOP
-    )
-    factory = pre.deploy_contract(code=factory_code)
-    victim = created_address(factory, Op.CREATE, INIT_CODE)
-    creation = creation_state_gas(fork)
+    factory, _victim, frames = created_then_destroyed(pre, fork)
     probe_code = (
         Op.SSTORE(
             SLOT_CREATOR_STATE_USED,
@@ -239,26 +278,7 @@ def test_selfdestruct_keeps_creator_frame_attribution(
         fork=fork,
         sender=sender,
         frames=[
-            # Frame 0: approve execution and payment.
-            verify_frame(),
-            # Frame 1: create the victim from exactly its creation's
-            # state gas.
-            default_frame(
-                target=factory,
-                data=bytes(INIT_CODE),
-                execution_gas=factory_code.execution_cost(fork)
-                + INIT_CODE.execution_cost(fork),
-                state_gas_limit=creation,
-                state_gas_used=creation,
-            ),
-            # Frame 2: run the victim's code, destroying it. Frame 1's
-            # creation left the victim's address warm.
-            default_frame(
-                target=victim,
-                code=SELFDESTRUCT_CODE,
-                warm=True,
-                state_gas_limit=0,
-            ),
+            *frames,
             # Frame 3: record frame 1's and frame 2's attributions.
             default_frame(target=probe, code=probe_code),
         ],
@@ -270,14 +290,46 @@ def test_selfdestruct_keeps_creator_frame_attribution(
         post={
             sender: Account(nonce=1),
             factory: Account(nonce=FACTORY_NONCE + 1),
-            # EIP-6780 deletes an account created in the same transaction.
-            victim: Account.NONEXISTENT,
             probe: Account(
                 storage={
-                    SLOT_CREATOR_STATE_USED: creation,
+                    SLOT_CREATOR_STATE_USED: creation_state_gas(fork),
                     SLOT_DESTROYER_STATE_USED: 1,
                 }
             ),
+        },
+    )
+
+
+def test_selfdestruct_deletes_account_created_in_earlier_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Self-destruct, in a later frame, a contract an earlier frame created,
+    and observe that the contract is deleted.
+
+    EIP-8141 does not say whether "created in the same transaction"
+    spans frames. This test follows EIP-6780, which tracks creations per
+    transaction: `SELFDESTRUCT` deletes the account when it "is executed
+    in the same transaction as the contract was created", and every
+    frame belongs to the one frame transaction. A client that tracks
+    creations per frame keeps the victim's code and fails this test.
+
+    Frame 1 creates the victim and frame 2 destroys it, as in
+    `test_selfdestruct_keeps_creator_frame_attribution`.
+    """
+    sender = pre.fund_eoa()
+    factory, victim, frames = created_then_destroyed(pre, fork)
+    tx = FrameTransaction.build(fork=fork, sender=sender, frames=frames)
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            factory: Account(nonce=FACTORY_NONCE + 1),
+            victim: Account.NONEXISTENT,
         },
     )
 

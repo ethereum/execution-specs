@@ -18,7 +18,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    BlockException,
     Bytecode,
     Environment,
     Fork,
@@ -26,7 +25,6 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Transaction,
-    TransactionException,
     TransactionReceipt,
 )
 from execution_testing.base_types import HexNumber, StorageRootType
@@ -38,6 +36,8 @@ from .helpers import (
     clearing_refund,
     default_frame,
     padding_frame,
+    reservation_block,
+    reservation_error,
     reserving_frame_tx,
     restoring_refund,
     storage_set_cost,
@@ -69,7 +69,11 @@ the refunds the test expects to apply in full.
 """
 
 BLOCK_GAS_LIMIT = 1_000_000
-"""Gas limit of the block, and of the genesis block before it."""
+"""
+Gas limit of the block, and of the genesis block before it: room for
+the refunding transaction and a reserving one with a non-empty frame
+budget behind it.
+"""
 
 
 def clear(slot: int) -> Bytecode:
@@ -583,7 +587,9 @@ def test_next_transaction_capacity_after_refund(
     The first transaction clears four slots and earns a refund. The
     second reserves exactly what the block has left after the first's
     pre-refund execution, or one gas more. A client subtracting the
-    first's post-refund gas admits the second in both cases.
+    first's post-refund gas admits the second in both cases. The same
+    reservation after a first transaction without a refund is in
+    `test_block_limits.py::test_second_transaction_reservation`.
     """
     first, worker = refunding_frame_transaction(pre, fork)
     first_block_gas = first.block_gas_used()
@@ -593,25 +599,14 @@ def test_next_transaction_capacity_after_refund(
         pre,
         fork,
         execution_reservation=BLOCK_GAS_LIMIT - first_block_gas + excess,
-        error=(
-            TransactionException.GAS_ALLOWANCE_EXCEEDED if excess else None
-        ),
+        error=reservation_error(excess),
     )
 
     blockchain_test(
         pre=pre,
         blocks=[
-            Block(
-                txs=[first, second],
-                gas_limit=BLOCK_GAS_LIMIT,
-                exception=(
-                    [
-                        BlockException.GAS_USED_OVERFLOW,
-                        TransactionException.GAS_ALLOWANCE_EXCEEDED,
-                    ]
-                    if excess
-                    else None
-                ),
+            reservation_block(
+                [first, second], gas_limit=BLOCK_GAS_LIMIT, excess=excess
             )
         ],
         post={

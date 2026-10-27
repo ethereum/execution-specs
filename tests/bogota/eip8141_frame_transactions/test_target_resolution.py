@@ -374,16 +374,26 @@ def test_delegated_to_precompile_target(
 
 
 @pytest.mark.parametrize(
-    "affordable",
+    "mode,affordable",
     [
-        pytest.param(True, id="affordable"),
-        pytest.param(False, id="one_gas_short"),
+        pytest.param(Spec.MODE_DEFAULT, True, id="affordable"),
+        pytest.param(Spec.MODE_DEFAULT, False, id="one_gas_short"),
+        pytest.param(
+            Spec.MODE_VERIFY, True, id="verify_frame_on_warm_sender_affordable"
+        ),
+        pytest.param(
+            Spec.MODE_VERIFY,
+            False,
+            id="verify_frame_on_warm_sender_one_gas_short",
+            marks=pytest.mark.exception_test,
+        ),
     ],
 )
 def test_frame_entry_gas_boundary(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    mode: int,
     affordable: bool,
 ) -> None:
     """
@@ -393,12 +403,40 @@ def test_frame_entry_gas_boundary(
     The target holds no code, so the entry access is the whole of the
     frame's execution: at the exact budget the frame succeeds having
     spent all of it, and one gas short it halts exceptionally,
-    forfeiting the budget. A `DEFAULT` frame's failure is its own, so
-    the transaction stays valid either way.
+    forfeiting the budget.
+
+    - `DEFAULT` frame on a cold funded account: the frame's failure is
+      its own, so the transaction stays valid either way.
+    - `VERIFY` frame on the warm sender, which runs the default code:
+      EIP-8141 §Default code, "The default code draws no execution gas
+      of its own: the frame's only execution charge is the resolved
+      target's access, taken at frame entry" and "A frame whose
+      `limits.execution` cannot cover the entry access charge halts
+      exceptionally before the default code is evaluated — which, for a
+      `VERIFY` frame, invalidates the transaction."
     """
     sender = pre.fund_eoa()
-    target = pre.fund_eoa(amount=1)
+    gas_limit_delta = 0 if affordable else -1
 
+    if mode == Spec.MODE_VERIFY:
+        tx = FrameTransaction.build(
+            fork=fork,
+            sender=sender,
+            frames=[verify_frame(gas_limit_delta=gas_limit_delta)],
+            error=(
+                None
+                if affordable
+                else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+            ),
+        )
+        state_test(
+            pre=pre,
+            tx=tx,
+            post={sender: Account(nonce=1 if affordable else 0)},
+        )
+        return
+
+    target = pre.fund_eoa(amount=1)
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
@@ -406,7 +444,7 @@ def test_frame_entry_gas_boundary(
             verify_frame(),
             default_frame(
                 target=target,
-                gas_limit_delta=0 if affordable else -1,
+                gas_limit_delta=gas_limit_delta,
                 outcome=Outcome.SUCCESS if affordable else Outcome.HALT,
             ),
         ],

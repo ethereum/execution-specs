@@ -47,6 +47,7 @@ from .helpers import (
     FrameCase,
     FrameTransaction,
     Outcome,
+    approving_contract_sender,
     default_frame,
     sender_frame,
     verify_frame,
@@ -621,7 +622,7 @@ def test_sigparam_with_no_signature_entries_halts(
     list, every index is out of bounds. The sender is a contract that
     approves through its code, so the transaction needs no entry.
     """
-    sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
+    sender = approving_contract_sender(pre)
     probe_code = Op.POP(Op.SIGPARAM(0, Spec.SIGPARAM_SCHEME)) + Op.STOP
     probe = pre.deploy_contract(code=probe_code)
 

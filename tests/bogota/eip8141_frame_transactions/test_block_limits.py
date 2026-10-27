@@ -31,27 +31,34 @@ it leaves both counters above zero: its execution gas is counted as
 state gas as `tx_state_gas`. The second transaction then reserves
 exactly what is left of one dimension, or one unit more. A block holding
 a transaction that does not fit is invalid.
+
+The same reservation after a refunding first transaction is in
+`test_refund_edges.py::test_next_transaction_capacity_after_refund`
+(pre-refund execution), and after a refilled one in
+`test_gas_settlement.py::test_state_reservation_after_refilled_transaction`
+(net state gas); a single transaction's reservation against an empty
+block is in `test_admission_validity.py::test_block_capacity_reservations`.
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Block,
     BlockchainTestFiller,
-    BlockException,
     Bytes,
     Environment,
     Fork,
     Op,
     Transaction,
-    TransactionException,
 )
 
 from .helpers import (
     APPROVE_ALL,
     FrameTransaction,
+    approving_contract_sender,
     default_frame,
+    reservation_block,
+    reservation_error,
     reserving_frame_tx,
     verify_frame,
 )
@@ -124,7 +131,7 @@ def test_second_transaction_reservation(
     `state_reservation <= block_gas_limit -
     block_output.block_state_gas_used`.
     """
-    first_sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
+    first_sender = approving_contract_sender(pre)
     written = pre.deploy_contract(code=WRITE_SLOT)
     first_tx = FrameTransaction.build(
         fork=fork,
@@ -147,7 +154,7 @@ def test_second_transaction_reservation(
     state_used = first_tx.state_gas
     assert state_used > 0
 
-    error = TransactionException.GAS_ALLOWANCE_EXCEEDED if excess else None
+    error = reservation_error(excess)
     block_gas_limit = BLOCK_GAS_LIMIT
     if dimension == "execution":
         second_tx = reserving_frame_tx(
@@ -173,7 +180,7 @@ def test_second_transaction_reservation(
             error=error,
         )
     else:
-        second_sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
+        second_sender = approving_contract_sender(pre)
         frames = [
             verify_frame(
                 code=APPROVE_ALL, gas_limit_delta=0, state_gas_limit=0
@@ -206,17 +213,8 @@ def test_second_transaction_reservation(
     blockchain_test(
         pre=pre,
         blocks=[
-            Block(
-                txs=[first_tx, second_tx],
-                gas_limit=block_gas_limit,
-                exception=(
-                    [
-                        BlockException.GAS_USED_OVERFLOW,
-                        TransactionException.GAS_ALLOWANCE_EXCEEDED,
-                    ]
-                    if excess
-                    else None
-                ),
+            reservation_block(
+                [first_tx, second_tx], gas_limit=block_gas_limit, excess=excess
             )
         ],
         post={

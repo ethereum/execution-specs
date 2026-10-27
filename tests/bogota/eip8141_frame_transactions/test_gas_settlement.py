@@ -286,7 +286,7 @@ def test_batch_unroll_refill_restores_spent_gas(
     settled from the restored receipts.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    fresh_write_state_cost = storage_set_cost(fork)
 
     # A passive worker that writes whichever value its frame passes: the
     # creating frame passes one, the refilling frame passes zero.
@@ -405,7 +405,7 @@ def test_frame_revert_refill_restores_spent_gas(
     the restored receipts.
     """
     sender = pre.fund_eoa()
-    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+    fresh_write_state_cost = storage_set_cost(fork)
 
     # A worker that writes whichever value its frame passes and then
     # reverts when called with empty data: the creating frame passes a
@@ -509,7 +509,12 @@ def test_frame_revert_refill_restores_spent_gas(
 
 
 BLOCK_GAS_LIMIT = 1_000_000
-"""Gas limit of every block, and of the genesis block before them."""
+"""
+Gas limit of every block, and of the genesis block before them. Its
+base fee target, half of it, lies between the execution gas and the
+state gas of the state-dominant block, so the two move the next base
+fee in opposite directions.
+"""
 
 
 def test_state_reservation_after_refilled_transaction(
@@ -532,7 +537,9 @@ def test_state_reservation_after_refilled_transaction(
     the next, so its net state gas is zero although it was charged one
     storage write. The second reserves the block's whole gas limit in
     state gas and is included; a client counting the charge before the
-    refill rejects it and the block.
+    refill rejects it and the block. The same reservation after a first
+    transaction that keeps its state gas is in
+    `test_block_limits.py::test_second_transaction_reservation`.
     """
     sender = pre.fund_eoa()
     # The worker writes its frame's data word into slot 1.

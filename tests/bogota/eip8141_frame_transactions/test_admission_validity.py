@@ -17,9 +17,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Block,
     BlockchainTestFiller,
-    BlockException,
     ChainConfig,
     Conditional,
     Environment,
@@ -31,8 +29,15 @@ from execution_testing import (
     compute_create_address,
 )
 
-from .helpers import APPROVE_ALL, default_frame, verify_frame
-from .spec import Spec, ref_spec_8141
+from .helpers import (
+    APPROVE_ALL,
+    default_frame,
+    reservation_block,
+    reservation_error,
+    reserving_frame_tx,
+    verify_frame,
+)
+from .spec import ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
@@ -178,53 +183,34 @@ def test_block_capacity_reservations(
     one unit above leaves the transaction unincludable and the block
     invalid.
     """
-    sender = pre.deploy_contract(
-        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
-        balance=10**18,
-    )
-    # A contract sender carries no signature entries and the frame no
-    # data, so a frame count prices the intrinsic cost exactly.
-    intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=1,
-        return_cost_deducted_prior_execution=True,
-    )
     if dimension == "execution":
-        execution_budget = BLOCK_GAS_LIMIT - intrinsic + excess
-        state_budget = 0
+        tx = reserving_frame_tx(
+            pre,
+            fork,
+            execution_reservation=BLOCK_GAS_LIMIT + excess,
+            error=reservation_error(excess),
+        )
     else:
-        execution_budget = CAPACITY_EXECUTION_GAS
-        state_budget = BLOCK_GAS_LIMIT + excess
-
-    tx = Transaction(
-        sender=sender,
-        nonce=1,
-        frames=[
-            verify_frame(
-                gas_limit=execution_budget, state_gas_limit=state_budget
-            )
-        ],
-        error=(
-            TransactionException.GAS_ALLOWANCE_EXCEEDED if excess else None
-        ),
-    )
+        # A contract sender carries no signature entries and the frame
+        # no data, so a frame count prices the intrinsic cost exactly.
+        intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
+            frames=1,
+            return_cost_deducted_prior_execution=True,
+        )
+        tx = reserving_frame_tx(
+            pre,
+            fork,
+            execution_reservation=intrinsic + CAPACITY_EXECUTION_GAS,
+            state_reservation=BLOCK_GAS_LIMIT + excess,
+            error=reservation_error(excess),
+        )
 
     blockchain_test(
         pre=pre,
         blocks=[
-            Block(
-                txs=[tx],
-                gas_limit=BLOCK_GAS_LIMIT,
-                exception=(
-                    [
-                        BlockException.GAS_USED_OVERFLOW,
-                        TransactionException.GAS_ALLOWANCE_EXCEEDED,
-                    ]
-                    if excess
-                    else None
-                ),
-            )
+            reservation_block([tx], gas_limit=BLOCK_GAS_LIMIT, excess=excess)
         ],
-        post={sender: Account(nonce=1 if excess else 2)},
+        post={tx.sender: Account(nonce=1 if excess else 2)},
         genesis_environment=Environment(gas_limit=BLOCK_GAS_LIMIT),
     )
 

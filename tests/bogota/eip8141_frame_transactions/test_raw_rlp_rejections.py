@@ -42,10 +42,11 @@ Where possible, the lenient reading is the base transaction itself:
 left-padding the 19-byte or 1-byte frame target, dropping the extra
 leading zero byte of a 21-byte sender or frame target, reducing the
 frame value modulo `2**256`, or keeping the last 32 bytes of the 33-byte
-blob versioned hash. Other readings decode a different address: the
-sender is derived from a hash and has no leading zero byte, so
-left-padding `sender_19_bytes` does not restore it, and keeping the
-first 20 bytes of a 21-byte field shifts the address by one byte.
+blob versioned hash. The 19-byte sender gets its own test,
+`test_raw_rlp_sender_19_bytes`, whose base sender is deployed at an
+address with a leading zero byte, so left-padding it restores that
+sender too. Keeping the first 20 bytes of a 21-byte field instead
+decodes a different address, shifted by one byte.
 
 The malformed bytes cannot be built through the `Transaction` model, so
 they are injected through `rlp_override` and filled as transaction
@@ -61,7 +62,7 @@ other value-level rules are in `test_static_validity.py`.
 """
 
 from copy import deepcopy
-from typing import Any, Callable, List, Sequence, Union
+from typing import Any, Callable, List, Optional, Sequence, Union
 
 import pytest
 from execution_testing import (
@@ -75,7 +76,7 @@ from execution_testing import (
     TransactionTestFiller,
 )
 
-from .helpers import APPROVE_ALL, sender_frame, verify_frame
+from .helpers import approving_contract_sender, sender_frame, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -105,6 +106,13 @@ ARBITRARY_SIGNATURE = Bytes(b"\xab" * 5)
 
 BLOB_HASH = Hash(bytes([1]) + bytes(31))
 """The base transaction's only blob versioned hash, of version 1."""
+
+LEADING_ZERO_SENDER = Address(bytes(1) + bytes([0x81]) * 19)
+"""
+Address of the base sender in `test_raw_rlp_sender_19_bytes`. Its first
+byte is zero, so dropping it and left-padding the 19 bytes left reads
+back this address.
+"""
 
 # Positions in the payload (§Payload Encoding).
 CHAIN_ID, NONCE, SENDER, FRAMES, SIGNATURES, FEES, BLOB_HASHES = range(7)
@@ -166,16 +174,19 @@ def payload_items(element: Any) -> Item:
     return int_payload(int(element))
 
 
-def base_transaction(pre: Alloc, **overrides: Any) -> Transaction:
+def base_transaction(
+    pre: Alloc, *, sender_address: Optional[Address] = None, **overrides: Any
+) -> Transaction:
     """
     Return the base transaction, sent by a contract that approves
     execution and payment: a `VERIFY` frame running the sender's code,
     a `SENDER` frame carrying a target, a value and data, an `ARBITRARY`
     signature entry with raw bytes, and one blob versioned hash, so that
     every field of the payload is present and every frame field is
-    non-empty in one of the two frames.
+    non-empty in one of the two frames. `sender_address` pins where the
+    sender is deployed.
     """
-    sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
+    sender = approving_contract_sender(pre, address=sender_address)
     return Transaction(
         sender=sender,
         nonce=1,
@@ -571,7 +582,7 @@ RAW_RLP_CASES = [
         for name, path, change, extra in [
             # §Constraints: "assert len(tx.sender) == 20".
             ("sender_empty", [SENDER], lambda _b: b"", []),
-            ("sender_19_bytes", [SENDER], lambda b: b[1:], []),
+            # A 19-byte sender is in `test_raw_rlp_sender_19_bytes`.
             ("sender_21_bytes", [SENDER], lambda b: b"\x00" + b, []),
             # §Constraints: "assert frame.target is None or
             # len(frame.target) == 20".
@@ -657,4 +668,32 @@ def test_raw_rlp_decode_rejections(
     raw = mutation(base_items(tx))
     assert raw != bytes(tx.rlp())
     tx.rlp_override = Bytes(raw)
+    transaction_test(pre=pre, tx=tx)
+
+
+@pytest.mark.exception_test
+# Deploying the sender at a fixed address mutates the shared pre-alloc.
+@pytest.mark.pre_alloc_mutable
+def test_raw_rlp_sender_19_bytes(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a sender one byte short: the base transaction's sender, which
+    starts with a zero byte, without that byte.
+
+    EIP-8141 §Constraints: "assert len(tx.sender) == 20".
+
+    A decoder that left-pads the 19 bytes reads back the base sender, so
+    the transaction it decodes is the valid base transaction, and only
+    the width rule rejects it.
+    """
+    tx = base_transaction(
+        pre, sender_address=LEADING_ZERO_SENDER, error=FRAME_FORMAT
+    )
+    items = base_items(tx)
+    assert with_type(encode(items)) == bytes(tx.rlp())
+    short_sender = items[SENDER][1:]
+    assert bytes(1) + short_sender == bytes(LEADING_ZERO_SENDER)
+    tx.rlp_override = Bytes(replaced([SENDER], short_sender)(items))
     transaction_test(pre=pre, tx=tx)

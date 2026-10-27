@@ -45,11 +45,11 @@ from execution_testing import (
 )
 
 from .helpers import (
-    APPROVE_ALL,
     EXPIRY_VERIFIER_LENGTH_REJECTING_PATH,
     FrameCase,
     FrameTransaction,
     Outcome,
+    approving_contract_sender,
     default_frame,
     expiry_frame,
     sender_frame,
@@ -1700,7 +1700,7 @@ def test_gas_limit_cap_from_calldata_floor(
     EIP-8141 §Constraints: "assert max(frame_tx_intrinsic_gas +
     total_frame_execution_gas, calldata_floor_gas) <= TX_MAX_GAS_LIMIT".
     """
-    sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
+    sender = approving_contract_sender(pre)
     target = pre.deploy_contract(code=Op.STOP)
     tx = Transaction(
         sender=sender,
@@ -1730,7 +1730,7 @@ def test_gas_limit_cap_from_calldata_floor_transaction(
     rather than on a block containing it; see the module docstring for
     why every static case fills both formats.
     """
-    sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
+    sender = approving_contract_sender(pre)
     target = pre.deploy_contract(code=Op.STOP)
     tx = Transaction(
         sender=sender,

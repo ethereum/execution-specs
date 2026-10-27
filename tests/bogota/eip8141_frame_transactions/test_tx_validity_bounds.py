@@ -36,9 +36,9 @@ from execution_testing import (
 )
 
 from .helpers import (
-    APPROVE_ALL,
     BASE_FEE,
     FrameCase,
+    approving_contract_sender,
     default_frame,
     fee_budget,
     verify_frame,
@@ -105,7 +105,7 @@ def test_frame_gas_sum_bound_transaction(
     frame.limits.state" and "assert total_frame_gas < 2**64".
     """
     tx = Transaction(
-        sender=pre.deploy_contract(code=APPROVE_ALL, balance=10**18),
+        sender=approving_contract_sender(pre),
         nonce=1,
         frames=frame_gas_sum_frames(excess),
         error=error,
@@ -135,7 +135,7 @@ def test_frame_gas_sum_bound_in_block(
     past the bound breaks both rules, which the EIP does not order, so
     it is pinned by the transaction test alone.
     """
-    sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
+    sender = approving_contract_sender(pre)
     frames = frame_gas_sum_frames(0)
     tx = Transaction(
         sender=sender,

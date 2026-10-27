@@ -129,10 +129,10 @@ def plain_factory_code(create_opcode: Op, ending: Bytecode) -> Bytecode:
 def creation_state_costs(fork: Fork, create_opcode: Op) -> Tuple[int, int]:
     """
     Return the account creation's state gas and the init code's state
-    gas (its storage write plus the code deposit), both checked against
-    the framework's state-gas table: the creating instruction's state
-    cost against the account creation, and the init code's against the
-    storage write and code deposit it sums.
+    gas (its storage write plus the code deposit), both derived from the
+    EIP-8037 constants and checked against the framework's pricing: the
+    creating instruction's state cost against the account creation, and
+    the init code's against the storage write and code deposit it sums.
     """
     # STATE_BYTES_PER_NEW_ACCOUNT * CPSB, charged by the creating frame.
     account_creation = account_creation_cost(fork)
@@ -140,10 +140,12 @@ def creation_state_costs(fork: Fork, create_opcode: Op) -> Tuple[int, int]:
     assert create_call.state_cost(fork) == account_creation
     # STATE_BYTES_PER_STORAGE_SET * CPSB for the init code's write, plus
     # CPSB per deployed byte for the deposit.
-    init_state = INIT_CODE.state_cost(fork)
-    assert init_state == storage_set_cost(fork) + fork.code_deposit_state_gas(
-        code_size=len(RUNTIME_CODE)
+    code_deposit = len(RUNTIME_CODE) * fork.cost_per_state_byte()
+    assert fork.code_deposit_state_gas(code_size=len(RUNTIME_CODE)) == (
+        code_deposit
     )
+    init_state = INIT_CODE.state_cost(fork)
+    assert init_state == storage_set_cost(fork) + code_deposit
     return account_creation, init_state
 
 

@@ -17,6 +17,8 @@ from execution_testing import (
     SECP256K1_SIGNATURE_LENGTH,
     Address,
     Alloc,
+    Block,
+    BlockException,
     Bytecode,
     Bytes,
     Fork,
@@ -512,20 +514,33 @@ def fee_budget(
     return FeeBudget(max_gas, required_max_fee, max_cost)
 
 
+STATE_BYTES_PER_STORAGE_SET = 64
+"""EIP-8037: the state bytes one fresh storage slot adds."""
+
+STATE_BYTES_PER_NEW_ACCOUNT = 120
+"""EIP-8037: the state bytes one new account adds."""
+
+
 def storage_set_cost(fork: Fork) -> int:
     """
     Return the state gas of one fresh storage write,
-    `STATE_BYTES_PER_STORAGE_SET * CPSB`.
+    `STATE_BYTES_PER_STORAGE_SET * CPSB`, checked against the
+    framework's pricing of `SSTORE`.
     """
-    return Op.SSTORE(0, 1).state_cost(fork)
+    cost = STATE_BYTES_PER_STORAGE_SET * fork.cost_per_state_byte()
+    assert Op.SSTORE(0, 1).state_cost(fork) == cost
+    return cost
 
 
 def account_creation_cost(fork: Fork) -> int:
     """
     Return the state gas of one account creation,
-    `STATE_BYTES_PER_NEW_ACCOUNT * CPSB`.
+    `STATE_BYTES_PER_NEW_ACCOUNT * CPSB`, checked against the
+    framework's state-gas table.
     """
-    return fork.gas_costs().NEW_ACCOUNT
+    cost = STATE_BYTES_PER_NEW_ACCOUNT * fork.cost_per_state_byte()
+    assert fork.gas_costs().NEW_ACCOUNT == cost
+    return cost
 
 
 def clearing_refund(fork: Fork) -> int:
@@ -639,6 +654,19 @@ def padding_frame(
     )
 
 
+def approving_contract_sender(
+    pre: Alloc, *, address: Optional[Address] = None
+) -> Address:
+    """
+    Deploy a contract sender whose code approves execution and payment
+    unconditionally, funded far above any `max_cost` here. `address`
+    pins where it is deployed, which needs a mutable pre-alloc.
+    """
+    return pre.deploy_contract(
+        code=APPROVE_ALL, balance=10**18, address=address
+    )
+
+
 def reserving_frame_tx(
     pre: Alloc,
     fork: Fork,
@@ -658,7 +686,7 @@ def reserving_frame_tx(
     an execution reservation the frame is budgeted exactly what its
     approval spends.
     """
-    sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
+    sender = approving_contract_sender(pre)
     if execution_reservation is None:
         gas_limit = fork.frame_entry_gas_calculator()(
             target_warm=True
@@ -679,4 +707,34 @@ def reserving_frame_tx(
             )
         ],
         error=error,
+    )
+
+
+def reservation_error(excess: int) -> Optional[TransactionException]:
+    """
+    Return the error of a frame transaction that reserves `excess` more
+    than a block has left in one dimension: none when it fits exactly.
+    """
+    return TransactionException.GAS_ALLOWANCE_EXCEEDED if excess else None
+
+
+def reservation_block(
+    txs: List[Transaction], *, gas_limit: int, excess: int
+) -> Block:
+    """
+    Return a block of `txs` whose last transaction reserves exactly what
+    the block has left in one dimension, plus `excess`. One unit over
+    makes that transaction unincludable and the block invalid.
+    """
+    return Block(
+        txs=txs,
+        gas_limit=gas_limit,
+        exception=(
+            [
+                BlockException.GAS_USED_OVERFLOW,
+                TransactionException.GAS_ALLOWANCE_EXCEEDED,
+            ]
+            if excess
+            else None
+        ),
     )

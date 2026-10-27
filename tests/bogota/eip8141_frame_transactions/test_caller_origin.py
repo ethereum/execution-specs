@@ -33,6 +33,7 @@ from .helpers import (
     FrameCase,
     FrameTransaction,
     account_creation_cost,
+    approving_contract_sender,
     created_address,
     frame_data_copy,
     frame_data_create,
@@ -115,7 +116,7 @@ def test_caller_and_origin_at_frame_top_level(
     frames originate calls where `tx.sender` is a contract account."
     """
     if contract_sender:
-        sender: Address = pre.deploy_contract(code=APPROVE_ALL, balance=10**18)
+        sender: Address = approving_contract_sender(pre)
         verify = verify_frame(code=APPROVE_ALL)
     else:
         sender = pre.fund_eoa()

@@ -19,6 +19,10 @@ the transaction is invalid."). Every signature entry in these cases is
 itself valid, so the transaction passes signature validation and only
 the default code's choice of entry, or the `APPROVE` it calls, decides
 the verdict.
+
+That the default code's only execution charge is the warm sender's
+entry access is pinned by the `verify_frame_on_warm_sender_*` cases of
+`test_frame_entry_gas_boundary` in `test_target_resolution.py`.
 """
 
 from functools import cached_property
@@ -381,45 +385,6 @@ def test_default_code_approval_refusals(
         ),
     }
     state_test(pre=pre, tx=tx, post=post)
-
-
-@pytest.mark.parametrize(
-    "gas_short",
-    [
-        pytest.param(0, id="entry_charge_covered"),
-        pytest.param(1, id="one_below", marks=pytest.mark.exception_test),
-    ],
-)
-def test_default_code_warm_sender_entry_charge(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    gas_short: int,
-) -> None:
-    """
-    Give a `VERIFY` frame on the warm sender exactly the warm access the
-    frame is charged at entry, or one unit less.
-
-    EIP-8141 §Default code: "The default code draws no execution gas of
-    its own: the frame's only execution charge is the resolved target's
-    access, taken at frame entry" and "A frame whose `limits.execution`
-    cannot cover the entry access charge halts exceptionally before the
-    default code is evaluated — which, for a `VERIFY` frame,
-    invalidates the transaction."
-    """
-    sender = pre.fund_eoa()
-    tx = FrameTransaction.build(
-        fork=fork,
-        sender=sender,
-        frames=[verify_frame(gas_limit_delta=-gas_short)],
-        error=EXEC_ERROR if gas_short else None,
-    )
-
-    state_test(
-        pre=pre,
-        tx=tx,
-        post={sender: Account(nonce=0 if gas_short else 1)},
-    )
 
 
 P256_SENDER_KEY = 0x8141
