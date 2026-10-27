@@ -1,5 +1,6 @@
 """Simple transaction-send then post-check execution format."""
 
+from itertools import groupby
 from typing import Any, ClassVar, Dict, List
 
 import pytest
@@ -268,7 +269,8 @@ class TransactionPost(BaseExecute):
     ) -> None:
         """Verify the block access list of the landed transaction's block."""
         expectation = self.expected_block_access_list
-        assert expectation is not None
+        if expectation is None:
+            return
         txs = [tx for tx_group in tx_groups for tx in tx_group]
         assert len(txs) == 1, (
             "Block access list verification expects a single transaction, "
@@ -305,6 +307,135 @@ class TransactionPost(BaseExecute):
             BlockAccessList.from_rpc(block_access_list)
         )
 
+    def verify_blob_txs_wrapped(self) -> None:
+        """Assert every blob transaction arrived together with its blobs."""
+        for block in self.blocks:
+            for tx in block:
+                if not isinstance(tx, NetworkWrappedTransaction):
+                    assert tx.ty != 3, (
+                        "Unwrapped transaction type 3 is not supported in "
+                        "execute mode."
+                    )
+
+    @staticmethod
+    def sign_and_annotate(
+        block: List[Transaction], request: FixtureRequest
+    ) -> List[Transaction]:
+        """Sign every transaction of a group and tag it for reporting."""
+        signed_txs: List[Transaction] = []
+        for tx_index, tx in enumerate(block):
+            tx = tx.with_signature_and_sender()
+            to_address = tx.to
+            label = (
+                to_address.label if isinstance(to_address, Address) else None
+            )
+            phase = (
+                tx.test_phase
+                if tx.test_phase is not None
+                else TestPhase.EXECUTION
+            )
+            tx.metadata = TransactionTestMetadata(
+                test_id=request.node.nodeid,
+                phase=phase,
+                target=label,
+                tx_index=tx_index,
+            )
+            signed_txs.append(tx)
+        return signed_txs
+
+    @staticmethod
+    def send_group(
+        eth_rpc: EthRPC, signed_txs: List[Transaction]
+    ) -> List[Hash]:
+        """
+        Send a group of transactions and return the hashes that landed.
+
+        A transaction the test expects to be rejected never lands, so the
+        transactions declared before it are sent and waited for first: the
+        ones that do land have to land in the order the test declared them.
+        """
+        landed_hashes: List[Hash] = []
+        for sendable, run in groupby(
+            signed_txs, key=lambda tx: tx.error is None
+        ):
+            txs = list(run)
+            if sendable:
+                eth_rpc.send_wait_transactions(txs)
+                landed_hashes.extend(tx.hash for tx in txs)
+                continue
+            for tx in txs:
+                logger.info(
+                    "Sending transaction expecting rejection "
+                    f"(expected error: {tx.error})..."
+                )
+                with pytest.raises(SendTransactionExceptionError) as exc_info:
+                    eth_rpc.send_transaction(tx)
+                logger.info(
+                    f"Transaction rejected as expected: {exc_info.value}"
+                )
+        return landed_hashes
+
+    @staticmethod
+    def landed_transactions(
+        signed_txs: List[Transaction],
+    ) -> List[Transaction]:
+        """Return the transactions of a group that are expected to land."""
+        return [
+            tx.tx if isinstance(tx, NetworkWrappedTransaction) else tx
+            for tx in signed_txs
+            if tx.error is None
+        ]
+
+    @staticmethod
+    def total_gas_used(eth_rpc: EthRPC, tx_hashes: List[Hash]) -> int:
+        """Return the gas the given transactions used in total."""
+        gas_used = 0
+        for tx_hash in tx_hashes:
+            receipt = eth_rpc.get_transaction_receipt(tx_hash)
+            assert receipt is not None, (
+                f"Failed to get receipt for transaction {tx_hash}"
+            )
+            gas_used += int(receipt["gasUsed"], 16)
+        return gas_used
+
+    @staticmethod
+    def verify_account_empty(address: Address, account: Account) -> None:
+        """Assert an account the test excluded from the post state is empty."""
+        assert account.balance == 0, (
+            f"Balance of {address} is {account.balance}, expected 0."
+        )
+        assert account.code == b"", (
+            f"Code of {address} is {account.code}, expected 0x."
+        )
+        assert account.nonce == 0, (
+            f"Nonce of {address} is {account.nonce}, expected 0."
+        )
+
+    def verify_post(
+        self,
+        eth_rpc: EthRPC,
+        landed_tx_groups: List[List[Transaction]],
+        pre_state: Alloc,
+    ) -> None:
+        """Verify the post state of every account the test named."""
+        actual_alloc = eth_rpc.get_alloc(self.post)
+        context = RPCPostStateContext(
+            eth_rpc=eth_rpc,
+            txs=[tx for group in landed_tx_groups for tx in group],
+        )
+        for address, expected_account in self.post.root.items():
+            actual_account = actual_alloc.root[address]
+            assert actual_account is not None
+            if expected_account is None:
+                self.verify_account_empty(address, actual_account)
+            else:
+                expected_account.check_alloc(
+                    address=address,
+                    pre_account=pre_state.root.get(address),
+                    account=actual_account,
+                    context=context,
+                )
+
     def execute(
         self,
         fork: Fork,
@@ -316,130 +447,26 @@ class TransactionPost(BaseExecute):
         del fork
         del engine_rpc
 
-        for block in self.blocks:
-            for tx in block:
-                if not isinstance(tx, NetworkWrappedTransaction):
-                    assert tx.ty != 3, (
-                        "Unwrapped transaction type 3 is not supported in "
-                        "execute mode."
-                    )
-
+        self.verify_blob_txs_wrapped()
         pre_state = self.snapshot_pre_state(eth_rpc)
 
-        # Track transaction hashes for gas validation (benchmarking)
-        all_tx_hashes: List[Hash] = []
         landed_tx_groups: List[List[Transaction]] = []
-        last_block_tx_hashes: List[Hash] = []
-
+        last_group_hashes: List[Hash] = []
         for block in self.blocks:
-            signed_txs: List[Transaction] = []
-            for tx_index, tx in enumerate(block):
-                # Add metadata
-                tx = tx.with_signature_and_sender()
-                to_address = tx.to
-                label = (
-                    to_address.label
-                    if isinstance(to_address, Address)
-                    else None
-                )
-                phase = (
-                    tx.test_phase
-                    if tx.test_phase is not None
-                    else TestPhase.EXECUTION
-                )
-                tx.metadata = TransactionTestMetadata(
-                    test_id=request.node.nodeid,
-                    phase=phase,
-                    target=label,
-                    tx_index=tx_index,
-                )
-                signed_txs.append(tx)
-            current_block_tx_hashes: List[Hash] = []
-            if any(tx.error is not None for tx in signed_txs):
-                tx_queue: List[Transaction] = []
-                for transaction in signed_txs:
-                    if transaction.error is None:
-                        tx_queue.append(transaction)
-                    else:
-                        if tx_queue:
-                            eth_rpc.send_wait_transactions(tx_queue)
-                            current_block_tx_hashes.extend(
-                                tx.hash for tx in tx_queue
-                            )
-                            tx_queue = []
-                        logger.info(
-                            f"Sending transaction expecting rejection "
-                            f"(expected error: {transaction.error})..."
-                        )
-                        with pytest.raises(
-                            SendTransactionExceptionError
-                        ) as exc_info:
-                            eth_rpc.send_transaction(transaction)
-                        logger.info(
-                            "Transaction rejected as expected: "
-                            f"{exc_info.value}"
-                        )
-                if tx_queue:
-                    eth_rpc.send_wait_transactions(tx_queue)
-                    current_block_tx_hashes.extend(tx.hash for tx in tx_queue)
-            else:
-                # Send transactions (batching is handled by eth_rpc internally)
-                eth_rpc.send_wait_transactions(signed_txs)
-                current_block_tx_hashes = [tx.hash for tx in signed_txs]
-            all_tx_hashes.extend(current_block_tx_hashes)
-            last_block_tx_hashes = current_block_tx_hashes
-            landed_tx_groups.append(
-                [
-                    tx.tx if isinstance(tx, NetworkWrappedTransaction) else tx
-                    for tx in signed_txs
-                    if tx.error is None
-                ]
-            )
+            signed_txs = self.sign_and_annotate(block, request)
+            last_group_hashes = self.send_group(eth_rpc, signed_txs)
+            landed_tx_groups.append(self.landed_transactions(signed_txs))
 
         self.verify_receipts(eth_rpc, landed_tx_groups)
+        self.verify_block_access_list(eth_rpc, landed_tx_groups)
 
-        if self.expected_block_access_list is not None:
-            self.verify_block_access_list(eth_rpc, landed_tx_groups)
-
-        # Fetch transaction receipts to get actual gas used
         benchmark_gas_used: int | None = None
         if self.benchmark_mode:
-            benchmark_gas_used = 0
-            for tx_hash in last_block_tx_hashes:
-                receipt = eth_rpc.get_transaction_receipt(tx_hash)
-                assert receipt is not None, (
-                    f"Failed to get receipt for transaction {tx_hash}"
-                )
-                gas_used = int(receipt["gasUsed"], 16)
-                benchmark_gas_used += gas_used
+            benchmark_gas_used = self.total_gas_used(
+                eth_rpc, last_group_hashes
+            )
 
-        actual_alloc = eth_rpc.get_alloc(self.post)
-        context = RPCPostStateContext(
-            eth_rpc=eth_rpc,
-            txs=[tx for group in landed_tx_groups for tx in group],
-        )
-        for address, expected_account in self.post.root.items():
-            actual_account = actual_alloc.root[address]
-            assert actual_account is not None
-            if expected_account is None:
-                assert actual_account.balance == 0, (
-                    f"Balance of {address} is "
-                    f"{actual_account.balance}, expected 0."
-                )
-                assert actual_account.code == b"", (
-                    f"Code of {address} is {actual_account.code}, expected 0x."
-                )
-                assert actual_account.nonce == 0, (
-                    f"Nonce of {address} is "
-                    f"{actual_account.nonce}, expected 0."
-                )
-            else:
-                expected_account.check_alloc(
-                    address=address,
-                    pre_account=pre_state.root.get(address),
-                    account=actual_account,
-                    context=context,
-                )
+        self.verify_post(eth_rpc, landed_tx_groups, pre_state)
 
         return ExecuteResult(
             benchmark_gas_used=benchmark_gas_used,
