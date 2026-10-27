@@ -6,7 +6,6 @@ from ethereum_rlp import rlp
 from ethereum_types.numeric import U256
 from execution_testing import Account, Alloc, Fork, Op, Transaction
 
-from ..eip8141_frame_transactions.helpers import default_code_frame_gas
 from .spec import Spec, keyed_nonce_slot
 
 NONCE_KEY = 0xBEEF
@@ -78,9 +77,8 @@ def verify_only_tx_gas_used(
         nonce_keys=nonce_keys,
         nonce_seq=nonce_seq,
     )
-    execution_used = intrinsic + len(tx.frames) * default_code_frame_gas(
-        fork, target_warm=True
-    )
+    frame_gas = fork.frame_entry_gas_calculator()(target_warm=True)
+    execution_used = intrinsic + len(tx.frames) * frame_gas
     state_used = first_uses * keyed_nonce_first_use(fork)
     return max(execution_used, floor) + state_used
 
