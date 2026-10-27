@@ -405,6 +405,13 @@ def test_reused_callable_does_not_carry_found_state(
             id="block_access_index",
         ),
         pytest.param("nonce", ALICE, (0, 4, 0, 1), b"\x01", id="nonce"),
+        pytest.param(
+            "nonce_block_access_index",
+            ALICE,
+            (0, 4, 0, 0),
+            b"\x01",
+            id="nonce_block_access_index",
+        ),
     ],
 )
 def test_encode_scalar_non_minimally(
@@ -435,6 +442,7 @@ def test_encode_scalar_non_minimally(
         "balance",
         "block_access_index",
         "nonce",
+        "nonce_block_access_index",
     ],
 )
 def test_encode_scalar_non_minimally_missing_entry_raises(

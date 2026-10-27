@@ -28,6 +28,7 @@ from .client_start_pipeline import (
     pipeline_client_start,
     queued_items,
 )
+from .helpers.chain_config import chain_config_environment
 from .helpers.ruleset import ruleset
 from .helpers.test_tracker import (
     PreAllocGroupTestTracker,
@@ -457,11 +458,17 @@ def environment(
 
     Parallel to single_test_client.environment but uses
     PreAllocGroup. Use caching to avoid redundant computation
-    for tests sharing the same pre_hash.
+    for tests sharing the same pre_hash. The fixture's chain
+    configuration is added on top of the group's cached environment,
+    which must stay unmodified.
     """
-    return build_environment(
+    group_environment = build_environment(
         fixture.pre_hash, pre_alloc_group, check_live_port, environment_cache
     )
+    chain_config = chain_config_environment(fixture.config)
+    if not chain_config:
+        return group_environment
+    return {**group_environment, **chain_config}
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -514,7 +521,8 @@ def _start_next_group_client(
     turns it off), and only when no client is already started ahead.
     The next group's environment is this test's with the group-specific
     part swapped, so it keeps what a simulator adds to the environment
-    fixture (as wirex does).
+    fixture (as wirex does). This test's chain configuration is its
+    own, so it is left out.
     """
     del client  # requested only so this runs once the client is ready
     if not pipeline_client_start(request.config):
@@ -537,7 +545,10 @@ def _start_next_group_client(
             pre_hash, fixtures_source, pre_alloc_group_cache
         )
         genesis = build_client_genesis(pre_hash, group, client_genesis_cache)
-        current_base = environment_cache[fixture.pre_hash]
+        current_base = {
+            **environment_cache[fixture.pre_hash],
+            **chain_config_environment(fixture.config),
+        }
         next_environment = {
             **build_environment(
                 pre_hash, group, check_live_port, environment_cache

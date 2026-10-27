@@ -17,6 +17,7 @@ from execution_testing.fixtures import BlockchainFixtureCommon
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.forks import Fork, TransitionFork
 
+from .helpers.chain_config import chain_config_environment
 from .helpers.ruleset import (
     ruleset,  # TODO: generate dynamically
 )
@@ -70,9 +71,12 @@ def environment(
     check_live_port: Literal[8545, 8551],
 ) -> dict:
     """Define the environment that hive will start the client with."""
-    return client_environment(
-        fixture.fork, fixture.config.chain_id, check_live_port
-    )
+    return {
+        **client_environment(
+            fixture.fork, fixture.config.chain_id, check_live_port
+        ),
+        **chain_config_environment(fixture.config),
+    }
 
 
 @pytest.fixture(scope="function")
