@@ -141,6 +141,11 @@ def _run(t8n: TransitionTool, fork: Fork, txs: List[Transaction]) -> Any:
             chain_id=1,
             reward=0,
             blob_schedule=fork.blob_schedule(),
+            inclusion_list_txs=(
+                []
+                if fork.engine_new_payload_inclusion_list_transactions()
+                else None
+            ),
         ),
     )
 
