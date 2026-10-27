@@ -23,6 +23,7 @@ from .account_changes import (
     BalCodeChange,
     BalNonceChange,
     BalStorageSlot,
+    remap_change_indices,
 )
 from .exceptions import BlockAccessListValidationError
 from .t8n import BlockAccessList
@@ -84,6 +85,33 @@ class BalAccountExpectation(CamelModel):
                 storage_reads=[],
             )
         return cls._EMPTY
+
+    def with_remapped_indices(
+        self, remap: Callable[[int], int]
+    ) -> "BalAccountExpectation":
+        """
+        Return this expectation with its block access indices remapped.
+
+        Which fields the expectation set is kept, since only those are
+        verified, and `empty()` is returned as is so that it stays
+        recognizable by identity.
+        """
+        if self is BalAccountExpectation.empty():
+            return self
+
+        update: Dict[str, Any] = {}
+        for name in ("nonce_changes", "balance_changes", "code_changes"):
+            if name in self.model_fields_set:
+                update[name] = remap_change_indices(getattr(self, name), remap)
+        if "storage_changes" in self.model_fields_set:
+            update["storage_changes"] = [
+                slot.with_remapped_indices(remap)
+                for slot in self.storage_changes
+            ]
+        absent = self.absent_values
+        if absent is not None:
+            update["absent_values"] = absent.with_remapped_indices(remap)
+        return self.model_copy(update=update)
 
 
 def compose(
@@ -239,6 +267,33 @@ class BlockAccessListExpectation(CamelModel):
     def has_rlp_modifier(self) -> bool:
         """Return whether this expectation re-encodes the payload BAL."""
         return self._rlp_modifier is not None
+
+    def with_remapped_indices(
+        self, remap: Callable[[int], int]
+    ) -> "BlockAccessListExpectation":
+        """
+        Return an expectation with every block access index replaced by
+        `remap(index)`.
+
+        A test pins the index its transaction takes in a block of its own.
+        The same transaction sent to a live network takes whichever index
+        the block it is packed into gives it, so the expected indices have
+        to move with it.
+        """
+        return self.model_copy(
+            update={
+                "account_expectations": {
+                    address: (
+                        expectation.with_remapped_indices(remap)
+                        if expectation is not None
+                        else None
+                    )
+                    for address, expectation in (
+                        self.account_expectations.items()
+                    )
+                }
+            }
+        )
 
     def verify_against(self, actual_bal: "BlockAccessList") -> None:
         """

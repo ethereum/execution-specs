@@ -8,7 +8,7 @@ For checking complete absence, use BalAccountExpectation with empty lists
 instead.
 """
 
-from typing import Any, List
+from typing import Any, Callable, List
 
 from pydantic import Field, model_validator
 
@@ -20,6 +20,7 @@ from .account_changes import (
     BalCodeChange,
     BalNonceChange,
     BalStorageSlot,
+    remap_change_indices,
 )
 from .exceptions import BlockAccessListValidationError
 
@@ -148,6 +149,26 @@ class BalAccountAbsentValues(CamelModel):
                 )
 
         return self
+
+    def with_remapped_indices(
+        self, remap: Callable[[int], int]
+    ) -> "BalAccountAbsentValues":
+        """Return these absent values with their indices remapped."""
+        return self.model_copy(
+            update={
+                "nonce_changes": remap_change_indices(
+                    self.nonce_changes, remap
+                ),
+                "balance_changes": remap_change_indices(
+                    self.balance_changes, remap
+                ),
+                "code_changes": remap_change_indices(self.code_changes, remap),
+                "storage_changes": [
+                    slot.with_remapped_indices(remap)
+                    for slot in self.storage_changes
+                ],
+            }
+        )
 
     @staticmethod
     def _validate_forbidden_changes(

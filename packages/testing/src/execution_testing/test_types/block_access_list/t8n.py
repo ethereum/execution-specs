@@ -1,7 +1,7 @@
 """Block Access List (BAL) for t8n tool communication and fixtures."""
 
 from functools import cached_property
-from typing import Any, Callable, List, Self, Sequence, Union
+from typing import Any, Callable, Dict, List, Self, Sequence, Union
 
 import ethereum_rlp as eth_rlp
 from ethereum_rlp import Simple
@@ -56,6 +56,11 @@ IndexedChange = Union[
 def _hex_from_rlp(data: Simple) -> ZeroPaddedHexNumber:
     """Decode an RLP Simple value to ZeroPaddedHexNumber."""
     return ZeroPaddedHexNumber(_int_from_rlp(data))
+
+
+def _hex_from_json(data: str) -> ZeroPaddedHexNumber:
+    """Decode a JSON-RPC hex quantity to ZeroPaddedHexNumber."""
+    return ZeroPaddedHexNumber(int(data, 16))
 
 
 def _decode_indexed_changes(
@@ -156,6 +161,61 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
 
         return cls(root=accounts)
 
+    @classmethod
+    def from_rpc(cls, data: List[Dict[str, Any]]) -> "BlockAccessList":
+        """
+        Decode an `eth_getBlockAccessList` result into a BlockAccessList.
+        """
+        accounts = []
+        for account in data:
+            accounts.append(
+                BalAccountChange(
+                    address=Address(account["address"]),
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=_hex_from_json(slot["key"]),
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=_hex_from_json(
+                                        change["index"]
+                                    ),
+                                    post_value=_hex_from_json(change["value"]),
+                                )
+                                for change in slot["changes"]
+                            ],
+                        )
+                        for slot in account["storageChanges"]
+                    ],
+                    storage_reads=[
+                        _hex_from_json(slot)
+                        for slot in account["storageReads"]
+                    ],
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=_hex_from_json(change["index"]),
+                            post_balance=_hex_from_json(change["value"]),
+                        )
+                        for change in account["balanceChanges"]
+                    ],
+                    nonce_changes=[
+                        BalNonceChange(
+                            block_access_index=_hex_from_json(change["index"]),
+                            post_nonce=_hex_from_json(change["value"]),
+                        )
+                        for change in account["nonceChanges"]
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=_hex_from_json(change["index"]),
+                            new_code=Bytes(change["code"]),
+                        )
+                        for change in account["codeChanges"]
+                    ],
+                )
+            )
+
+        return cls(root=accounts)
+
     def to_list(self) -> List[Any]:
         """Return the list for RLP encoding per EIP-7928."""
         return to_serializable_element(self.root)
@@ -231,37 +291,9 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
         ``remap(index)``. The remapping must be strictly increasing so the
         changes stay ordered.
         """
-
-        def remapped(changes: Sequence[Any]) -> List[Any]:
-            return [
-                change.model_copy(
-                    update={
-                        "block_access_index": ZeroPaddedHexNumber(
-                            remap(int(change.block_access_index))
-                        )
-                    }
-                )
-                for change in changes
-            ]
-
         return type(self)(
             root=[
-                account.model_copy(
-                    update={
-                        "nonce_changes": remapped(account.nonce_changes),
-                        "balance_changes": remapped(account.balance_changes),
-                        "code_changes": remapped(account.code_changes),
-                        "storage_changes": [
-                            slot.model_copy(
-                                update={
-                                    "slot_changes": remapped(slot.slot_changes)
-                                }
-                            )
-                            for slot in account.storage_changes
-                        ],
-                    }
-                )
-                for account in self.root
+                account.with_remapped_indices(remap) for account in self.root
             ]
         )
 

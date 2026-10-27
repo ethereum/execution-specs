@@ -16,6 +16,8 @@ from execution_testing.rpc import (
 from execution_testing.test_types import (
     Account,
     Alloc,
+    BlockAccessList,
+    BlockAccessListExpectation,
     Environment,
     NetworkWrappedTransaction,
     PostStateContext,
@@ -136,6 +138,7 @@ class TransactionPost(BaseExecute):
 
     blocks: List[List[Transaction]]
     post: Alloc
+    expected_block_access_list: BlockAccessListExpectation | None = None
 
     format_name: ClassVar[str] = "transaction_post_test"
     description: ClassVar[str] = (
@@ -260,6 +263,48 @@ class TransactionPost(BaseExecute):
                     ),
                 )
 
+    def verify_block_access_list(
+        self, eth_rpc: EthRPC, tx_groups: List[List[Transaction]]
+    ) -> None:
+        """Verify the block access list of the landed transaction's block."""
+        expectation = self.expected_block_access_list
+        assert expectation is not None
+        txs = [tx for tx_group in tx_groups for tx in tx_group]
+        assert len(txs) == 1, (
+            "Block access list verification expects a single transaction, "
+            f"got {len(txs)}"
+        )
+        receipt = eth_rpc.get_transaction_receipt(txs[0].hash)
+        assert receipt is not None, (
+            f"Failed to get receipt for transaction {txs[0].hash}"
+        )
+        transaction_index = int(receipt["transactionIndex"], 16)
+
+        def live_index(index: int) -> int:
+            """
+            Return the place a block access index takes on a live network.
+
+            A test numbers its indices for a block holding only its own
+            transaction: zero is the block's system operations, which do
+            not move; one is the transaction, which does.
+            """
+            if index > 1:
+                raise NotImplementedError(
+                    f"Block access index {index} cannot be located on a "
+                    "live network: only a block's system operations (0) "
+                    "and the test's own transaction (1) can be."
+                )
+            return 0 if index == 0 else transaction_index + 1
+
+        block_hash = Hash(receipt["blockHash"])
+        block_access_list = eth_rpc.get_block_access_list(block_hash)
+        assert block_access_list is not None, (
+            f"Node served no block access list for block {block_hash}"
+        )
+        expectation.with_remapped_indices(live_index).verify_against(
+            BlockAccessList.from_rpc(block_access_list)
+        )
+
     def execute(
         self,
         fork: Fork,
@@ -352,6 +397,9 @@ class TransactionPost(BaseExecute):
             )
 
         self.verify_receipts(eth_rpc, landed_tx_groups)
+
+        if self.expected_block_access_list is not None:
+            self.verify_block_access_list(eth_rpc, landed_tx_groups)
 
         # Fetch transaction receipts to get actual gas used
         benchmark_gas_used: int | None = None
