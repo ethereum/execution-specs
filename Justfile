@@ -199,9 +199,13 @@ fill-release *args:
 # --- Integration Tests ---
 
 # Fill the base coverage consensus tests using EELS with PyPy
+# Skip the synthetic BPO scenarios: EELS has no spec fork for them, so each
+# worker builds a patched clone of the parent fork. The clone runs from a
+# temporary directory, so it adds no coverage of `src/ethereum`.
 [group('integration tests')]
 fill-pypy *args: (_tmp-logs "fill-pypy")
     uv run --python {{ pypy }} --no-dev --group test fill \
+        -k "not BPOIncrease and not BPODecrease" \
         --skip-index \
         --output="{{ output_dir }}/fill-pypy/fixtures" \
         --no-html \

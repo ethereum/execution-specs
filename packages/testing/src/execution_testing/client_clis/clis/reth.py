@@ -50,7 +50,28 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.EXTRA_DATA_TOO_BIG: "invalid payload extra data",
         BlockException.INVALID_LOG_BLOOM: "header bloom filter mismatch",
     }
+    # Reth replaced revm with evm2 in paradigmxyz/reth#25002, which changed
+    # most transaction validation messages (evm2 rev 4a53ec08). The revm
+    # messages are kept as alternatives for reth images that predate it.
+    #
+    # evm2 reports the intrinsic and calldata floor checks with the same
+    # "intrinsic gas too low" message, and both nonce mismatch directions
+    # with the same "invalid nonce" message, so each of these messages maps
+    # to both exceptions.
     mapping_regex = {
+        TransactionException.SENDER_NOT_EOA: r"caller has code",
+        TransactionException.INVALID_CHAINID: (
+            r"invalid chain id: expected \d+, got \d+"
+        ),
+        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
+            r"fee cap less than base fee"
+        ),
+        TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
+            r"priority fee greater than max fee"
+        ),
+        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
+            r"EIP-7702 authorization list is empty"
+        ),
         # alloy drops the parity error for an out-of-range legacy `v` and
         # reports the failed untagged decode ("Unexpected type flag") instead.
         TransactionException.INVALID_SIGNATURE_VRS: (
@@ -59,27 +80,32 @@ class RethExceptionMapper(ExceptionMapper):
             r"Unexpected type flag"
         ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: (
-            r"nonce \d+ too low, expected \d+"
+            r"nonce \d+ too low, expected \d+|"
+            r"invalid nonce: expected \d+, got \d+"
         ),
         TransactionException.NONCE_MISMATCH_TOO_HIGH: (
-            r"nonce \d+ too high, expected \d+"
+            r"nonce \d+ too high, expected \d+|"
+            r"invalid nonce: expected \d+, got \d+"
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             r"blob gas price \(\d+\) is greater than "
-            r"max fee per blob gas \(\d+\)"
+            r"max fee per blob gas \(\d+\)|"
+            r"blob fee cap less than blob base fee"
         ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
             r"call gas cost \(\d+\) exceeds the gas limit \(\d+\)|"
-            r"gas floor \(\d+\) exceeds the gas limit \(\d+\)"
+            r"gas floor \(\d+\) exceeds the gas limit \(\d+\)|"
+            r"intrinsic gas too low: required \d+, got \d+"
         ),
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
-            r"gas floor \(\d+\) exceeds the gas limit \(\d+\)"
+            r"gas floor \(\d+\) exceeds the gas limit \(\d+\)|"
+            r"intrinsic gas too low: required \d+, got \d+"
         ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"blob gas used \d+ exceeds maximum allowance \d+"
         ),
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
-            r"too many blobs, have \d+, max \d+"
+            r"too many blobs(, |: )have \d+, max \d+"
         ),
         TransactionException.TYPE_3_TX_PRE_FORK: (
             r"blob transactions present in pre-cancun payload|empty blobs"
@@ -89,10 +115,12 @@ class RethExceptionMapper(ExceptionMapper):
             r"caller gas limit exceeds the block gas limit"
         ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
-            r"transaction gas limit.*is greater than the cap"
+            r"transaction gas limit.*is greater than the cap|"
+            r"transaction gas limit \d+ exceeds cap \d+"
         ),
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: (
-            r"failed to apply .* requests contract call"
+            r"failed to apply .* requests contract call|"
+            r"EVM system call to 0x[0-9a-fA-F]+ failed"
         ),
         BlockException.INCORRECT_BLOB_GAS_USED: (
             r"blob gas used mismatch|"
@@ -127,8 +155,8 @@ class RethExceptionMapper(ExceptionMapper):
             r"failed to decode block access list|"
             r"block access list hash mismatch|"
             r"BAL rejection: FinalHashMismatch|"
-            r"Bal error: Account .* not found in BAL|"
-            r"Bal error: Slot .* not found in BAL for account .*"
+            r"(Bal|database) error: Account .* not found in BAL|"
+            r"(Bal|database) error: Slot .* not found in BAL for account .*"
         ),
         BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
             r"block access list item cost exceeds gas limit"

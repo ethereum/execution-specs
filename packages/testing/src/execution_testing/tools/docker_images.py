@@ -100,6 +100,7 @@ IMAGES: tuple[Image, ...] = (
     Image("consume-rlp", "hive", "blockchain_tests"),
     Image("consume-engine", "hive", "blockchain_tests_engine"),
     Image("consume-enginex", "hive", "blockchain_tests_engine_x"),
+    Image("consume-wirex", "hive", "blockchain_tests_engine_x"),
     Image("consume-sync", "hive", "blockchain_tests_sync"),
     Image("execute-blobs", "hive", tests=True),
 )

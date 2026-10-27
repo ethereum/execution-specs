@@ -21,6 +21,7 @@ from execution_testing.cli.gen_index import (
     generate_fixtures_index,
 )
 from execution_testing.cli.pytest_commands.plugins.consume.simulators.helpers.test_tracker import (  # noqa: E501
+    group_variants_key,
     make_group_identifier,
 )
 from execution_testing.fixtures import (
@@ -35,6 +36,9 @@ from execution_testing.fixtures.consume import (
     TestCases,
 )
 from execution_testing.forks import (
+    Fork,
+    Paris,
+    TransitionFork,
     get_forks,
     get_relative_fork_markers,
     get_transition_forks,
@@ -49,6 +53,12 @@ from .releases import (
     is_url,
     resolve_release,
 )
+
+# The oldest fork each client supports, by hive client name without its
+# nametag. Tests of older forks are deselected for that client.
+CLIENT_OLDEST_SUPPORTED_FORK: dict[str, Fork] = {
+    "ethrex": Paris,
+}
 
 CACHED_DOWNLOADS_DIRECTORY = (
     Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests"))
@@ -519,6 +529,11 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     index = IndexFile.model_validate_json(index_file.read_text())
     config.test_cases = index.test_cases  # type: ignore[attr-defined]
 
+    config.addinivalue_line(
+        "markers",
+        "group_variant(name): the client configuration a test runs under, "
+        "when a simulator runs one fixture under several",
+    )
     for fixture_format in BaseFixture.formats.values():
         config.addinivalue_line(
             "markers",
@@ -636,8 +651,8 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     )
     is_enginex = BlockchainEngineXFixture in supported_fixture_formats
     if not is_enginex:
-        # EngineX orders its collection by pre-alloc group instead, see
-        # `pytest_collection_modifyitems` in the enginex plugin.
+        # EngineX orders its collection by pre-alloc group, then by fixture
+        # file, see `pytest_collection_modifyitems` in the enginex plugin.
         test_cases = group_test_cases_by_fixture_file(test_cases)
     param_list = []
     for test_case in test_cases:
@@ -664,24 +679,86 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         return
 
     clients = metafunc.config.hive_execution_clients  # type: ignore[attr-defined]
+    # A simulator may stash `group_variants_key` to run a fixture under
+    # several client configurations (see `make_group_identifier`).
+    group_variants = metafunc.config.stash.get(group_variants_key, None)
     combined = []
     for param in param_list:
         tc = cast(TestCaseBase, param.values[0])
         for ct in clients:
-            marks = list(param.marks)
-            if is_enginex:
-                assert tc.pre_hash is not None
-                marks.append(
-                    pytest.mark.xdist_group(
-                        name=make_group_identifier(tc.pre_hash, ct.name)
+            variants = (
+                group_variants(tc, ct)
+                if is_enginex and group_variants
+                else ("",)
+            )
+            for variant in variants:
+                marks = list(param.marks)
+                if is_enginex:
+                    assert tc.pre_hash is not None
+                    marks.append(
+                        pytest.mark.xdist_group(
+                            name=make_group_identifier(
+                                tc.pre_hash, ct.name, variant
+                            )
+                        )
+                    )
+                if variant:
+                    marks.append(pytest.mark.group_variant(variant))
+                combined.append(
+                    pytest.param(
+                        tc,
+                        ct,
+                        id=f"{tc.id}-{ct.name}"
+                        + (f"-{variant}" if variant else ""),
+                        marks=marks,
                     )
                 )
-            combined.append(
-                pytest.param(
-                    tc,
-                    ct,
-                    id=f"{tc.id}-{ct.name}",
-                    marks=marks,
-                )
-            )
     metafunc.parametrize("test_case,client_type", combined)
+
+
+def is_fork_supported_by_client(
+    client_name: str, fork: Fork | TransitionFork | None
+) -> bool:
+    """
+    Return whether the hive client `client_name` supports `fork`.
+
+    Hive names a client with a nametag `<client>_<nametag>`, e.g.
+    `ethrex_default`, so the nametag is ignored. A transition fork compares
+    as the fork it transitions to.
+    """
+    oldest_fork = CLIENT_OLDEST_SUPPORTED_FORK.get(client_name.split("_")[0])
+    if oldest_fork is None or fork is None:
+        return True
+    return fork >= oldest_fork
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: List[pytest.Item]
+) -> None:
+    """Deselect the tests of forks that the test's client doesn't support."""
+    selected: List[pytest.Item] = []
+    deselected: List[pytest.Item] = []
+    for item in items:
+        params = getattr(item, "callspec", None)
+        params = params.params if params else {}
+        test_case = params.get("test_case")
+        client_type = params.get("client_type")
+        if (
+            test_case is not None
+            and client_type is not None
+            and not is_fork_supported_by_client(
+                client_type.name, test_case.fork
+            )
+        ):
+            deselected.append(item)
+        else:
+            selected.append(item)
+    if not deselected:
+        return
+    config.hook.pytest_deselected(items=deselected)
+    items[:] = selected
+    # NOTE: leading space keeps pytest from stripping the first character.
+    print(
+        f" Deselected {len(deselected)} tests of forks that their client "
+        "doesn't support"
+    )
