@@ -11,10 +11,11 @@ from ..simulators.helpers.group_splitter import (
     SUB_GROUPS_PER_WORKER,
     max_group_size,
     plan_sub_group_counts,
+    sub_group_indices,
 )
 
 GROUP_NAME = "group-a"
-FILE_COUNT = 8
+FILE_COUNT = 6
 TESTS_PER_FILE = 10
 GROUP_SIZE = FILE_COUNT * TESTS_PER_FILE
 WORKER_COUNT = 2
@@ -119,6 +120,26 @@ def test_only_oversized_groups_are_split() -> None:
     assert plan_sub_group_counts(group_sizes, 2_250) == {"large": 4}
 
 
+def test_cuts_move_back_to_file_starts() -> None:
+    """A cut inside a file moves back to the start of that file."""
+    files = ["a"] * 4 + ["b"] * 4 + ["c"] * 4
+    # Even cuts would fall at tests 4 and 8 for three pieces: on file
+    # starts here. For two pieces the cut at test 6 is inside `b`.
+    assert sub_group_indices(files, 3) == [0] * 4 + [1] * 4 + [2] * 4
+    assert sub_group_indices(files, 2) == [0] * 8 + [1] * 4
+
+
+def test_tests_without_a_file_are_cut_evenly() -> None:
+    """Stdin tests have no file to keep together and are cut evenly."""
+    assert sub_group_indices([""] * 6, 3) == [0, 0, 1, 1, 2, 2]
+
+
+def test_file_larger_than_a_sub_group_stays_whole() -> None:
+    """A file spanning several pieces stays whole; they stay empty."""
+    indices = sub_group_indices(["a"] * 2 + ["b"] * 8 + ["c"] * 2, 4)
+    assert indices == [0] * 2 + [0] * 8 + [3] * 2
+
+
 def test_split_group_runs_on_several_workers(
     pytester: pytest.Pytester,
 ) -> None:
@@ -158,9 +179,14 @@ def test_fixture_files_stay_in_one_sub_group(
     )
 
 
+@pytest.mark.parametrize(
+    "args",
+    [("-n", "1"), ("-n", str(WORKER_COUNT), "--dist", "load")],
+    ids=["single_worker", "no_loadgroup"],
+)
 def test_groups_are_untouched_without_distribution(
-    pytester: pytest.Pytester,
+    pytester: pytest.Pytester, args: tuple[str, ...]
 ) -> None:
-    """A run with a single worker has nothing to gain from a split."""
-    result = run_split(pytester, "-n", "1")
+    """A run without group-aware distribution has nothing to gain."""
+    result = run_split(pytester, *args)
     assert f"{GROUP_NAME}#" not in "\n".join(result.outlines)

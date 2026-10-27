@@ -73,6 +73,26 @@ def plan_sub_group_counts(
     }
 
 
+def sub_group_indices(files: list[str], sub_group_count: int) -> list[int]:
+    """
+    Return the sub-group of each test of a group sorted by `files`.
+
+    Cut the group into `sub_group_count` balanced pieces, but move each
+    cut back to the start of the file it falls in, so that a fixture
+    file never spans two sub-groups and its worker loads it once. A
+    test without a file (`""`, read from stdin) has nothing to keep
+    together and is cut where it falls. Whole files make the pieces
+    uneven by at most a file each, and a file larger than a piece
+    leaves the pieces whose cut falls inside it empty.
+    """
+    file_starts: dict[str, int] = {}
+    indices = []
+    for index, file in enumerate(files):
+        start = file_starts.setdefault(file, index) if file else index
+        indices.append(start * sub_group_count // len(files))
+    return indices
+
+
 def xdist_worker_count() -> int:
     """
     Return the number of xdist workers, or zero if not running under xdist.
@@ -93,10 +113,11 @@ def _split_order_key(item: pytest.Item) -> tuple[str, str]:
     Return the key that orders a group's tests before it is cut.
 
     Order by fixture file first, the order the group's tests run in, so
-    each sub-group gets whole files and the worker's fixture file cache
-    loads a file once. Break ties by node ID: every worker collects and
-    splits on its own, and they must all arrive at the same partition,
-    otherwise xdist rejects the run for having collected differing tests.
+    that `sub_group_indices` can cut the group along whole files and the
+    worker's fixture file cache loads a file once. Break ties by node
+    ID: every worker collects and splits on its own, and they must all
+    arrive at the same partition, otherwise xdist rejects the run for
+    having collected differing tests.
     """
     callspec = getattr(item, "callspec", None)
     test_case = callspec.params.get("test_case") if callspec else None
@@ -141,17 +162,20 @@ def split_oversized_groups(
         {identifier: len(group) for identifier, group in groups.items()},
         max_size,
     )
+    sub_groups = 0
     for group_identifier, sub_group_count in sub_group_counts.items():
         group = sorted(groups[group_identifier], key=_split_order_key)
-        for index, item in enumerate(group):
-            _assign_sub_group(
-                item, group_identifier, index * sub_group_count // len(group)
-            )
+        indices = sub_group_indices(
+            [_split_order_key(item)[0] for item in group], sub_group_count
+        )
+        for item, sub_group_index in zip(group, indices, strict=True):
+            _assign_sub_group(item, group_identifier, sub_group_index)
+        sub_groups += len(set(indices))
 
     logger.info(
         f"Pre-alloc group cap {max_size} tests across {worker_count} "
         f"workers: split {len(sub_group_counts)} group(s) into "
-        f"{sum(sub_group_counts.values())} sub-groups"
+        f"{sub_groups} sub-groups"
     )
 
 
