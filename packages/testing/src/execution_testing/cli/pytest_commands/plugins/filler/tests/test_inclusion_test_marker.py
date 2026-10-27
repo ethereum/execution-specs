@@ -35,7 +35,6 @@ MODULE_TEMPLATE = textwrap.dedent(
     from execution_testing import (
         Alloc,
         Block,
-        BlockException,
         BlockchainTestFiller,
         Fork,
         Transaction,
@@ -84,13 +83,6 @@ INVALID_TX_BEFORE_LAST_IN_LAST_BLOCK = (
 INVALID_TX_LAST_IN_LAST_BLOCK = (
     "[Block(txs=[valid_tx()]), "
     "Block(txs=[valid_tx(), invalid_tx()], exception=INVALID)]"
-)
-# No transaction left at the end of the chain to move into the inclusion list.
-EMPTY_LAST_BLOCK = "[Block(txs=[valid_tx()]), Block(txs=[])]"
-# A last block that stays invalid once its last transaction is moved out.
-BLOCK_EXCEPTION_ONLY = (
-    "[Block(txs=[valid_tx()]), Block(txs=[valid_tx()], "
-    "exception=BlockException.INCORRECT_BLOCK_FORMAT)]"
 )
 
 
@@ -165,39 +157,6 @@ def test_misplaced_invalid_tx_is_rejected(
     assert f"but block {expected_block_number} contains" in output, (
         f"Expected block {expected_block_number} to be reported:\n{output}"
     )
-
-
-@pytest.mark.parametrize(
-    "blocks,expected_message",
-    [
-        pytest.param(
-            EMPTY_LAST_BLOCK,
-            "needs a transaction at the end of its last block",
-            id="empty_last_block",
-        ),
-        pytest.param(
-            BLOCK_EXCEPTION_ONLY,
-            "but it declares only block exceptions",
-            id="block_exception_only",
-        ),
-    ],
-)
-def test_last_block_the_variant_cannot_use_is_rejected(
-    pytester: pytest.Pytester,
-    blocks: str,
-    expected_message: str,
-) -> None:
-    """
-    Fill an inclusion test whose last block cannot become the valid block the
-    inclusion-list variant expects, and assert it fails naming the reason.
-    """
-    module_path = write_test_module(pytester, INCLUSION_TEST_MARKERS, blocks)
-
-    result = run_fill(pytester, module_path)
-
-    result.assert_outcomes(passed=0, failed=1)
-    output = "\n".join(result.outlines + result.errlines)
-    assert expected_message in output, output
 
 
 @pytest.mark.parametrize(

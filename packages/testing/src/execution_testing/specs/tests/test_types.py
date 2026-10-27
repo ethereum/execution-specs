@@ -193,8 +193,6 @@ def built_block(
         fork=fork,
         rlp_modifier=rlp_modifier,
         block_access_list=block_access_list,
-        inclusion_list_txs=None,
-        inclusion_list_satisfied=None,
         engine_new_payload_block_access_list=engine_new_payload_block_access_list,
     )
 

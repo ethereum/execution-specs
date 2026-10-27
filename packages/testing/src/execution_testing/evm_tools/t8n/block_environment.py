@@ -53,9 +53,7 @@ def build_block_environment(
     block_timestamp = U256(int(env.timestamp))
     coinbase = Bytes20(env.fee_recipient)
 
-    base_fee_per_gas = _resolve_base_fee_per_gas(
-        env, fork, block_gas_limit, block_timestamp
-    )
+    base_fee_per_gas = _resolve_base_fee_per_gas(env, fork, block_gas_limit)
 
     kw_arguments: dict[str, Any] = {
         "block_hashes": _resolve_block_hashes(env.block_hashes, block_number),
@@ -99,10 +97,7 @@ def build_block_environment(
 
 
 def _resolve_base_fee_per_gas(
-    env: "TestingEnvironment",
-    fork: "ForkLoad",
-    block_gas_limit: Uint,
-    block_timestamp: U256,
+    env: "TestingEnvironment", fork: "ForkLoad", block_gas_limit: Uint
 ) -> Optional[Uint]:
     """Use ``currentBaseFee`` if present; otherwise derive from parent."""
     if not fork.has_calculate_base_fee_per_gas:
@@ -112,21 +107,12 @@ def _resolve_base_fee_per_gas(
     assert env.parent_gas_limit is not None
     assert env.parent_gas_used is not None
     assert env.parent_base_fee_per_gas is not None
-    arguments = [
+    return fork.calculate_base_fee_per_gas(
         block_gas_limit,
         Uint(int(env.parent_gas_limit)),
         Uint(int(env.parent_gas_used)),
         Uint(int(env.parent_base_fee_per_gas)),
-    ]
-    if fork.has_slot_spaced_base_fee:
-        assert env.parent_timestamp is not None
-        assert env.slot_number is not None
-        assert env.parent_slot_number is not None
-        arguments += [
-            Uint(int(block_timestamp) - int(env.parent_timestamp)),
-            Uint(int(env.slot_number) - int(env.parent_slot_number)),
-        ]
-    return fork.calculate_base_fee_per_gas(*arguments)
+    )
 
 
 def _resolve_excess_blob_gas(

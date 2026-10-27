@@ -2647,7 +2647,6 @@ def test_set_code_using_valid_synthetic_signatures(
     ],
 )
 @pytest.mark.eels_base_coverage
-@pytest.mark.inclusion_test
 def test_valid_tx_invalid_auth_signature(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2810,7 +2809,6 @@ def invalid_chain_id_cases() -> List[ParameterSet]:
 
 
 @pytest.mark.parametrize("invalid_chain_id_case", invalid_chain_id_cases())
-@pytest.mark.inclusion_test
 def test_valid_tx_invalid_chain_id(
     state_test: StateTestFiller,
     pre: Alloc,

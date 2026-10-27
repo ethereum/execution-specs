@@ -1,7 +1,5 @@
 """Tests for EIP-7843 (SLOTNUM)."""
 
-from typing import List
-
 import pytest
 from execution_testing import (
     Account,
@@ -13,7 +11,6 @@ from execution_testing import (
     Environment,
     Fork,
     Op,
-    ParameterSet,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -28,22 +25,17 @@ REFERENCE_SPEC_VERSION = ref_spec_7843.version
 pytestmark = pytest.mark.valid_from("EIP7843")
 
 
-def slot_number_cases(fork: Fork) -> List[ParameterSet]:
-    """Return slot numbers for a block that follows the genesis block."""
-    cases = [
+@EIPChecklist.Opcode.Test.GasUsage.ExtraGas()
+@pytest.mark.parametrize(
+    "slot_number",
+    [
+        pytest.param(0, id="slot_zero"),
         pytest.param(1, id="slot_one"),
         pytest.param(0x1000, id="slot_4096"),
         pytest.param(2**32, id="slot_large"),
         pytest.param(2**64 - 1, id="slot_max_u64"),
-    ]
-    # Where slot numbers must increase, the genesis block takes slot zero.
-    if not fork.header_slot_number_must_increase():
-        cases.insert(0, pytest.param(0, id="slot_zero"))
-    return cases
-
-
-@EIPChecklist.Opcode.Test.GasUsage.ExtraGas()
-@pytest.mark.parametrize_by_fork("slot_number", slot_number_cases)
+    ],
+)
 def test_slotnum_value(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -135,24 +127,21 @@ def test_slotnum_gas_cost(
 def test_slotnum_distinct_per_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test that SLOTNUM returns each block's own slot number.
 
-    Runs four consecutive blocks with slot numbers that do not follow one
-    another, decreasing where the fork allows it, to disprove any caching or
-    ordering assumption in the opcode implementation. Each block runs the
-    same contract, which keys storage by block ``NUMBER`` so every block's
-    outcome is independently visible in the final post-state.
+    Runs four consecutive blocks with deliberately non-monotonic slot
+    numbers to disprove any caching or ordering assumption in the opcode
+    implementation. Each block runs the same contract, which keys storage
+    by block ``NUMBER`` so every block's outcome is independently visible
+    in the final post-state.
     """
     sender = pre.fund_eoa()
     contract = pre.deploy_contract(Op.SSTORE(Op.NUMBER, Op.SLOTNUM) + Op.STOP)
 
-    if fork.header_slot_number_must_increase():
-        slot_numbers = [7, 42, 100, 2**32]
-    else:
-        slot_numbers = [100, 42, 7, 2**32]
+    # Non-monotonic on purpose: decrease, increase, jump to large value.
+    slot_numbers = [100, 42, 7, 2**32]
 
     blocks = [
         Block(
