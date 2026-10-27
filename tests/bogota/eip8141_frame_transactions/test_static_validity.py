@@ -1237,7 +1237,7 @@ SIGNATURE_CASES = [
     # P256 signer width (§Constraints: "assert len(sig.signer) == 0 or
     # len(sig.signer) == 20"), on a signature that verifies.
     pytest.param(
-        # The matching signer with its first byte removed. No 19-byte
+        # The matching signer with its last byte removed. No 19-byte
         # signer equals the 20-byte hash, so a client without the width
         # rule rejects the entry for the mismatch, with the same error:
         # the case pins the error, not the width rule.

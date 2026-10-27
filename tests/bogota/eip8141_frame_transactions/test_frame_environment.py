@@ -30,6 +30,7 @@ from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 from .helpers import (
     APPROVE_ALL,
     BASE_FEE,
+    CANARY,
     CURRENT_FRAME_INDEX,
     PRIORITY_FEE,
     FrameCase,
@@ -168,7 +169,7 @@ def test_callvalue_is_the_frame_value(
     """
     sender = pre.fund_eoa()
     record = Op.SSTORE(CURRENT_FRAME_INDEX, Op.CALLVALUE) + Op.STOP
-    recorder = pre.deploy_contract(code=record, storage={2: 0xDEAD})
+    recorder = pre.deploy_contract(code=record, storage={2: CANARY})
 
     tx = FrameTransaction.build(
         fork=fork,

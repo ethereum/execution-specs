@@ -980,14 +980,14 @@ def test_recreation_after_refill_charges_recreating_frame(
     """
     sender = pre.fund_eoa()
     storage_set = storage_set_cost(fork)
-    # The worker's slot; the probe's records of frame 1's and frame 3's
-    # attributed state gas, each plus one so the expected zero readback
-    # is distinguishable from a slot never written.
-    slot, frame_1_used, frame_3_used = 0x01, 0x02, 0x03
+    # The probe's records of frame 1's and frame 3's attributed state
+    # gas, each plus one so the expected zero readback is
+    # distinguishable from a slot never written.
+    frame_1_used, frame_3_used = 0x02, 0x03
 
     def write(**pricing: Any) -> Bytecode:
         """Return the worker's write of its frame's data word."""
-        return Op.SSTORE(slot, Op.CALLDATALOAD(0), **pricing) + Op.STOP
+        return Op.SSTORE(SLOT_CREATED, Op.CALLDATALOAD(0), **pricing) + Op.STOP
 
     worker_code = write(
         key_warm=False, original_value=0, current_value=0, new_value=1
@@ -1067,7 +1067,7 @@ def test_recreation_after_refill_charges_recreating_frame(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            worker: Account(storage={slot: 0 if cleared_again else 1}),
+            worker: Account(storage={SLOT_CREATED: 0 if cleared_again else 1}),
             probe: Account(
                 storage={
                     frame_1_used: 1,
@@ -1111,8 +1111,8 @@ def test_failed_frame_discards_own_state_charge(
     """
     sender = pre.fund_eoa()
     ending = Op.REVERT(0, 0) if outcome is Outcome.REVERT else Op.INVALID
-    # Slot 1 of the worker, which starts empty.
-    code = Op.SSTORE(1, 1) + ending
+    # The worker's slot starts empty.
+    code = Op.SSTORE(SLOT_CREATED, 1) + ending
     worker = pre.deploy_contract(code=code)
     failing = default_frame(
         target=worker,

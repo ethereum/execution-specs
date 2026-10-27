@@ -143,8 +143,10 @@ def expiry_verifier_gas(fork: Fork) -> int:
     """
     Return the execution gas the verifier draws accepting its expiry.
 
-    Its rejecting paths are never priced: a reverting `VERIFY` frame
-    invalidates the whole transaction, which then reports no receipt.
+    Only the accepting path is priced here: a reverting expiry `VERIFY`
+    frame invalidates the transaction and reports no receipt. The
+    length-rejecting path, which `SENDER` frames may run, is
+    `EXPIRY_VERIFIER_LENGTH_REJECTING_PATH`.
     """
     return EXPIRY_VERIFIER_ACCEPTING_PATH.execution_cost(fork)
 
@@ -482,6 +484,10 @@ def fee_budget(
     only the length of its raw bytes enters the cost, so the budget is
     known before the transaction is signed. `max_fee` defaults to one
     with room for the whole tip.
+
+    `frames` are priced as given: a `FrameCase` with budget deltas must
+    be settled first (`FrameTransaction.build` does), or pass
+    `tx.frames` after building.
     """
     if signatures is None:
         signatures = (
@@ -672,6 +678,7 @@ def reserving_frame_tx(
     fork: Fork,
     *,
     execution_reservation: Optional[int] = None,
+    frame_execution_gas: Optional[int] = None,
     state_reservation: int = 0,
     error: Optional[TransactionException] = None,
 ) -> Transaction:
@@ -682,12 +689,16 @@ def reserving_frame_tx(
     A fresh contract sender approving execution and payment sends it,
     with no signature entries and a single `VERIFY` frame without data,
     so the intrinsic cost is that of one bare frame and the frame's
-    execution budget is the rest of the execution reservation. Without
-    an execution reservation the frame is budgeted exactly what its
+    execution budget is the rest of the execution reservation.
+    `frame_execution_gas` gives the frame's execution budget directly
+    instead. Without either, the frame is budgeted exactly what its
     approval spends.
     """
     sender = approving_contract_sender(pre)
-    if execution_reservation is None:
+    if frame_execution_gas is not None:
+        assert execution_reservation is None, "give one execution budget"
+        gas_limit = frame_execution_gas
+    elif execution_reservation is None:
         gas_limit = fork.frame_entry_gas_calculator()(
             target_warm=True
         ) + APPROVE_ALL.execution_cost(fork)

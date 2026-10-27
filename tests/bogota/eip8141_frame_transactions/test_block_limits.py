@@ -164,18 +164,10 @@ def test_second_transaction_reservation(
             error=error,
         )
     elif dimension == "state":
-        # A contract sender carries no signature entries and the frame no
-        # data, so a frame count prices the intrinsic cost exactly.
-        one_frame_intrinsic = (
-            fork.frame_transaction_intrinsic_cost_calculator()(
-                frames=1, return_cost_deducted_prior_execution=True
-            )
-        )
         second_tx = reserving_frame_tx(
             pre,
             fork,
-            execution_reservation=one_frame_intrinsic
-            + SECOND_TX_EXECUTION_GAS,
+            frame_execution_gas=SECOND_TX_EXECUTION_GAS,
             state_reservation=block_gas_limit - state_used + excess,
             error=error,
         )

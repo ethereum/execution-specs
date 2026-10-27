@@ -418,39 +418,29 @@ def test_frame_entry_gas_boundary(
     sender = pre.fund_eoa()
     gas_limit_delta = 0 if affordable else -1
 
+    error: Optional[TransactionException] = None
     if mode == Spec.MODE_VERIFY:
-        tx = FrameTransaction.build(
-            fork=fork,
-            sender=sender,
-            frames=[verify_frame(gas_limit_delta=gas_limit_delta)],
-            error=(
-                None
-                if affordable
-                else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
-            ),
-        )
-        state_test(
-            pre=pre,
-            tx=tx,
-            post={sender: Account(nonce=1 if affordable else 0)},
-        )
-        return
-
-    target = pre.fund_eoa(amount=1)
-    tx = FrameTransaction.build(
-        fork=fork,
-        sender=sender,
-        frames=[
+        frames = [verify_frame(gas_limit_delta=gas_limit_delta)]
+        if not affordable:
+            error = TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+        sender_nonce = 1 if affordable else 0
+    else:
+        target = pre.fund_eoa(amount=1)
+        frames = [
             verify_frame(),
             default_frame(
                 target=target,
                 gas_limit_delta=gas_limit_delta,
                 outcome=Outcome.SUCCESS if affordable else Outcome.HALT,
             ),
-        ],
+        ]
+        sender_nonce = 1
+
+    tx = FrameTransaction.build(
+        fork=fork, sender=sender, frames=frames, error=error
     )
 
-    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=sender_nonce)})
 
 
 def test_entry_charge_halt_unrolls_batch(

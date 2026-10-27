@@ -191,16 +191,10 @@ def test_block_capacity_reservations(
             error=reservation_error(excess),
         )
     else:
-        # A contract sender carries no signature entries and the frame
-        # no data, so a frame count prices the intrinsic cost exactly.
-        intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
-            frames=1,
-            return_cost_deducted_prior_execution=True,
-        )
         tx = reserving_frame_tx(
             pre,
             fork,
-            execution_reservation=intrinsic + CAPACITY_EXECUTION_GAS,
+            frame_execution_gas=CAPACITY_EXECUTION_GAS,
             state_reservation=BLOCK_GAS_LIMIT + excess,
             error=reservation_error(excess),
         )

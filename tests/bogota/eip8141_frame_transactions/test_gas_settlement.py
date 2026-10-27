@@ -542,10 +542,10 @@ def test_state_reservation_after_refilled_transaction(
     `test_block_limits.py::test_second_transaction_reservation`.
     """
     sender = pre.fund_eoa()
-    # The worker writes its frame's data word into slot 1.
+    # The worker writes its frame's data word into `SLOT_CREATED`.
     create_code = (
         Op.SSTORE(
-            1,
+            SLOT_CREATED,
             Op.CALLDATALOAD(0),
             key_warm=False,
             original_value=0,
@@ -572,7 +572,7 @@ def test_state_reservation_after_refilled_transaction(
             default_frame(
                 target=worker,
                 code=Op.SSTORE(
-                    1,
+                    SLOT_CREATED,
                     Op.CALLDATALOAD(0),
                     key_warm=True,
                     original_value=0,

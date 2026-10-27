@@ -25,9 +25,9 @@ P256_SIGNATURE = bytes.fromhex(
 )
 """
 A valid P256 signature payload over `DIGEST`: `r || s || qx || qy`
-with low `s`, produced with the NIST P-256 private key `1`. Embedded
-as a constant because P256 signing is randomized and fixtures must be
-deterministic.
+with low `s`, produced with the NIST P-256 private key `1`. Kept as
+the literal vector the released fixtures were filled with; new vectors
+are derived deterministically with `p256_sign`.
 """
 
 P256_R, P256_S, P256_QX, P256_QY = (
