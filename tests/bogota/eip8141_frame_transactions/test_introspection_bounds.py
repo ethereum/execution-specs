@@ -304,13 +304,27 @@ def test_scheme_restricted_read_halts(
 
 
 @pytest.mark.parametrize(
-    "copy",
+    "copy,outcome",
     [
         pytest.param(
-            Op.FRAMEDATACOPY(MAX_U256, 0, 1, PROBE_FRAME), id="frame"
+            Op.FRAMEDATACOPY(MAX_U256, 0, 1, PROBE_FRAME),
+            Outcome.HALT,
+            id="frame",
         ),
         pytest.param(
-            Op.SIGDATACOPY(MAX_U256, 0, 1, SIG_ARBITRARY), id="signature"
+            Op.SIGDATACOPY(MAX_U256, 0, 1, SIG_ARBITRARY),
+            Outcome.HALT,
+            id="signature",
+        ),
+        pytest.param(
+            Op.FRAMEDATACOPY(MAX_U256, 0, 0, PROBE_FRAME),
+            Outcome.SUCCESS,
+            id="frame_zero_length",
+        ),
+        pytest.param(
+            Op.SIGDATACOPY(MAX_U256, 0, 0, SIG_ARBITRARY),
+            Outcome.SUCCESS,
+            id="signature_zero_length",
         ),
     ],
 )
@@ -319,10 +333,12 @@ def test_copy_to_unreachable_memory_halts(
     pre: Alloc,
     fork: Fork,
     copy: Bytecode,
+    outcome: Outcome,
 ) -> None:
     """
     Copy one byte to memory offset `2**256-1`: the memory expansion
-    cannot be paid, so the copy halts out of gas.
+    cannot be paid, so the copy halts out of gas. The same copy of zero
+    bytes expands no memory and succeeds, the passing side of the pair.
 
     EIP-8141 §`FRAMEDATACOPY`: "Its gas cost is calculated exactly as
     for `CALLDATACOPY`, including [...] the standard EVM memory
@@ -330,7 +346,7 @@ def test_copy_to_unreachable_memory_halts(
     region, `2**256`, overflows a 256-bit sum, so a client wrapping it
     to zero would skip the expansion and copy instead.
     """
-    run_probe(state_test, pre, fork, copy + Op.STOP, Outcome.HALT)
+    run_probe(state_test, pre, fork, copy + Op.STOP, outcome)
 
 
 SLOT_ZERO_LENGTH_COPY = 0x01
@@ -364,7 +380,7 @@ def test_copy_and_load_operand_ranges(
     The probes check that:
 
     - a zero-length copy to memory offset `2**256-1` succeeds without
-      expanding memory (`MSIZE` stays 0);
+      expanding memory (`MSIZE` stays unchanged);
     - `FRAMEDATALOAD` at offset `2**256-1` reads zero;
     - a 32-byte copy from data offset `2**256-1` writes 32 zero bytes
       over a canary, for frame data and signature bytes alike;
@@ -372,8 +388,8 @@ def test_copy_and_load_operand_ranges(
       zeroes over a second canary;
     - `FRAMEDATACOPY(memOffset=64, dataOffset=8, length=16, i)` and its
       `SIGDATACOPY` twin copy `data[8:24]` to memory offset 64; the
-      first leaves `MSIZE` at 96 (`memOffset + length = 80` rounded up
-      to a word), read before anything else touches memory, which pins
+      first leaves `MSIZE` at `memOffset + length` rounded up to a
+      whole word, read before anything else touches memory, which pins
       the operand order.
 
     EIP-8141 §`FRAMEDATALOAD`: "The operation semantics match
@@ -461,6 +477,7 @@ def test_copy_and_load_operand_ranges(
             ordered: Account(
                 storage={
                     SLOT_ORDERED_COPY: word(PROBE_DATA[8:24]),
+                    # `memOffset + length` rounded up to a whole word.
                     SLOT_ORDERED_MSIZE: 96,
                     SLOT_ORDERED_SIG_COPY: word(ARBITRARY_WITNESS[8:24]),
                 }
@@ -473,6 +490,9 @@ def test_copy_and_load_operand_ranges(
     "frame_index,outcome",
     [
         pytest.param(0, Outcome.SUCCESS, id="earlier_frame"),
+        # The reader's own frame: the first index whose receipt is not
+        # yet defined.
+        pytest.param(PROBE_FRAME, Outcome.HALT, id="current_frame"),
         pytest.param(2, Outcome.HALT, id="later_frame"),
     ],
 )
@@ -495,9 +515,10 @@ def test_receipt_field_of_later_frame_halts(
     param: int,
 ) -> None:
     """
-    Read a receipt field of a frame that has not run yet, one after the
-    reader's own: the read halts. The same read of an earlier frame is
-    the control and succeeds; the values it reads are pinned in
+    Read a receipt field of a frame that has not completed, the
+    reader's own or the one after it: the read halts. The same read of
+    the frame before the reader's is the passing side of the boundary
+    and succeeds; the values it reads are pinned in
     `test_introspection.py` (`test_frameparam[status_of_earlier_frame]`
     and `test_frameparam_gas_used`).
 

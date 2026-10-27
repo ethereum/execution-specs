@@ -190,7 +190,7 @@ def test_block_capacity_reservations(
             execution_reservation=BLOCK_GAS_LIMIT + excess,
             error=reservation_error(excess),
         )
-    else:
+    elif dimension == "state":
         tx = reserving_frame_tx(
             pre,
             fork,
@@ -198,6 +198,8 @@ def test_block_capacity_reservations(
             state_reservation=BLOCK_GAS_LIMIT + excess,
             error=reservation_error(excess),
         )
+    else:
+        raise ValueError(f"unknown dimension: {dimension!r}")
 
     blockchain_test(
         pre=pre,

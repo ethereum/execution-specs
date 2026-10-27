@@ -154,7 +154,7 @@ def test_frame_gas_sum_bound_in_block(
 
 
 NONCE_BOUND = 2**64
-"""The bound a frame transaction's nonce stays below."""
+"""The bound §Constraints writes for a frame transaction's nonce."""
 
 
 @pytest.mark.exception_test
@@ -163,8 +163,15 @@ def test_nonce_at_bound_transaction(
     pre: Alloc,
 ) -> None:
     """
-    Reject a frame transaction whose nonce is `2**64`, the first value
-    the nonce bound excludes.
+    Reject a frame transaction whose nonce is `2**64`, the value
+    §Constraints bounds the nonce by and the first that does not fit in
+    64 bits.
+
+    It is not the first nonce rejected: the nonce must also leave room
+    for the sender's increment, so `2**64 - 1` is already invalid. That
+    boundary's pair is `test_admission_validity.py::test_nonce_at_maximum`
+    (`2**64 - 2`, accepted) and `test_static_validity.py`'s
+    `nonce_overflow` case (`2**64 - 1`, rejected).
 
     No account nonce reaches `2**64`, so in a block the transaction would
     also mismatch its sender's nonce, and the EIP does not order the two
@@ -176,6 +183,11 @@ def test_nonce_at_bound_transaction(
         sender=pre.fund_eoa(),
         nonce=NONCE_BOUND,
         frames=[verify_frame()],
+        # The EIP does not say whether the nonce field is decoded as a
+        # 64-bit integer. A client that does fails to decode this one
+        # (`NONCE_OVERFLOW`); one that decodes a wider integer, as the
+        # reference implementation does, rejects it at the
+        # room-for-increment check (`NONCE_IS_MAX`).
         error=[
             TransactionException.NONCE_IS_MAX,
             TransactionException.NONCE_OVERFLOW,

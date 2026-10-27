@@ -32,7 +32,6 @@ from .helpers import (
     CURRENT_FRAME_INDEX,
     FrameCase,
     FrameTransaction,
-    account_creation_cost,
     approving_contract_sender,
     created_address,
     frame_data_copy,
@@ -80,7 +79,11 @@ def frame_caller(mode: int, sender: Address) -> Address:
     Return the frame's `caller`: the sender in a `SENDER` frame, the
     entry point in a `DEFAULT` or `VERIFY` frame.
     """
-    return sender if mode == Spec.MODE_SENDER else Spec.ENTRY_POINT
+    if mode == Spec.MODE_SENDER:
+        return sender
+    if mode in (Spec.MODE_DEFAULT, Spec.MODE_VERIFY):
+        return Spec.ENTRY_POINT
+    raise ValueError(f"unknown mode: {mode!r}")
 
 
 def caller_and_origin(caller: Address, origin: Address) -> Dict[int, Address]:
@@ -145,15 +148,7 @@ def test_caller_and_origin_at_frame_top_level(
 
 
 @pytest.mark.parametrize("mode", MODES)
-@pytest.mark.parametrize(
-    "call_opcode",
-    [
-        pytest.param(Op.CALL, id="CALL"),
-        pytest.param(Op.CALLCODE, id="CALLCODE"),
-        pytest.param(Op.DELEGATECALL, id="DELEGATECALL"),
-        pytest.param(Op.STATICCALL, id="STATICCALL"),
-    ],
-)
+@pytest.mark.with_all_call_opcodes
 def test_caller_and_origin_in_nested_call(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -181,7 +176,12 @@ def test_caller_and_origin_in_nested_call(
     )
     target = pre.deploy_contract(code=target_code)
     caller = frame_caller(mode, sender)
-    nested_caller = caller if call_opcode == Op.DELEGATECALL else target
+    if call_opcode == Op.DELEGATECALL:
+        nested_caller = caller
+    elif call_opcode in (Op.CALL, Op.CALLCODE, Op.STATICCALL):
+        nested_caller = target
+    else:
+        raise ValueError(f"unknown call_opcode: {call_opcode!r}")
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -383,11 +383,13 @@ def test_origin_returns_to_entry_point_in_verify_frame(
 
 
 @pytest.mark.parametrize("mode", MODES)
+@pytest.mark.with_all_create_opcodes
 def test_caller_and_origin_in_create_initcode(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     mode: int,
+    create_opcode: Op,
 ) -> None:
     """
     A frame's target creates a contract whose initcode records `CALLER`
@@ -395,17 +397,16 @@ def test_caller_and_origin_in_create_initcode(
     still the frame's `caller`.
 
     EIP-8141 §Behavior: "The `ORIGIN` opcode returns frame's `caller`
-    throughout all call depths." Initcode run by `CREATE` is one call
-    depth below the creating contract, which `CREATE` makes its
-    `CALLER`.
+    throughout all call depths." Initcode run by a create opcode is one
+    call depth below the creating contract, which the create opcode
+    makes its `CALLER`.
     """
     sender = pre.fund_eoa()
+    create = frame_data_create(create_opcode, RECORDER_CODE)
     factory = pre.deploy_contract(
-        code=frame_data_copy(RECORDER_CODE)
-        + Op.POP(frame_data_create(Op.CREATE, RECORDER_CODE))
-        + Op.STOP
+        code=frame_data_copy(RECORDER_CODE) + Op.POP(create) + Op.STOP
     )
-    created = created_address(factory, Op.CREATE, RECORDER_CODE)
+    created = created_address(factory, create_opcode, RECORDER_CODE)
     caller = frame_caller(mode, sender)
 
     tx = FrameTransaction.build(
@@ -419,7 +420,8 @@ def test_caller_and_origin_in_create_initcode(
                 data=Bytes(bytes(RECORDER_CODE)),
                 gas_limit=FRAME_GAS,
                 pin_gas=False,
-                state_gas_used=account_creation_cost(fork)
+                # The new account, then the initcode's two writes.
+                state_gas_used=create.state_cost(fork)
                 + RECORDER_CODE.state_cost(fork),
             ),
         ],

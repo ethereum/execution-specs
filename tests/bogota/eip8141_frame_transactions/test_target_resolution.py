@@ -424,7 +424,7 @@ def test_frame_entry_gas_boundary(
         if not affordable:
             error = TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         sender_nonce = 1 if affordable else 0
-    else:
+    elif mode == Spec.MODE_DEFAULT:
         target = pre.fund_eoa(amount=1)
         frames = [
             verify_frame(),
@@ -435,6 +435,8 @@ def test_frame_entry_gas_boundary(
             ),
         ]
         sender_nonce = 1
+    else:
+        raise ValueError(f"unknown mode: {mode!r}")
 
     tx = FrameTransaction.build(
         fork=fork, sender=sender, frames=frames, error=error

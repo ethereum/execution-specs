@@ -171,7 +171,7 @@ def test_second_transaction_reservation(
             state_reservation=block_gas_limit - state_used + excess,
             error=error,
         )
-    else:
+    elif dimension == "floor":
         second_sender = approving_contract_sender(pre)
         frames = [
             verify_frame(
@@ -201,6 +201,8 @@ def test_second_transaction_reservation(
         second_tx = Transaction(
             sender=second_sender, nonce=1, frames=frames, error=error
         )
+    else:
+        raise ValueError(f"unknown dimension: {dimension!r}")
 
     blockchain_test(
         pre=pre,

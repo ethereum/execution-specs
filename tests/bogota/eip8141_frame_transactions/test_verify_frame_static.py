@@ -179,13 +179,7 @@ def test_verify_frame_runs_as_staticcall(
 
 
 @pytest.mark.parametrize("operation,allowed", static_cases(invalidating=False))
-@pytest.mark.parametrize(
-    "call_opcode",
-    [
-        pytest.param(Op.CALL, id="CALL"),
-        pytest.param(Op.DELEGATECALL, id="DELEGATECALL"),
-    ],
-)
+@pytest.mark.with_all_call_opcodes
 def test_verify_frame_nested_call_is_static(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -195,22 +189,25 @@ def test_verify_frame_nested_call_is_static(
     call_opcode: Opcode,
 ) -> None:
     """
-    Run an opcode in a contract the `VERIFY` frame's code calls with a
-    plain `CALL`, or runs in its own context with `DELEGATECALL`: the
-    static restriction carries into either, so a state change halts
-    the call, which returns zero, and the frame still succeeds.
+    Run an opcode in a contract the `VERIFY` frame's code calls with
+    each call opcode: the static restriction carries into the call, so
+    a state change halts the call, which returns zero, and the frame
+    still succeeds.
 
     EIP-8141 §Behavior, `VERIFY` mode: "Execute the frame as a
     `STATICCALL`, disallowing state manipulation." As for any
     `STATICCALL`, the restriction holds at every depth below it,
-    whichever call opcode reaches that depth.
+    whichever call opcode reaches that depth. A nested `STATICCALL` is
+    static on its own as well, so its case shows only that the two
+    restrictions give the same verdicts.
 
     The frame approves only if the call's result matches the expected
     verdict (zero for a state change, one for a read), so the
     transaction is valid only if the callee halted exactly when it
-    tried to change state. The callee, and under `DELEGATECALL` the
-    sender whose context it runs in, hold a balance, so a `CALL` with
-    value can only fail on the static restriction.
+    tried to change state. The callee, and under `DELEGATECALL` and
+    `CALLCODE` the sender whose context its code runs in, hold a
+    balance, so a `CALL` with value can only fail on the static
+    restriction.
     """
     recipient = pre.deploy_contract(code=Op.STOP)
     callee = pre.deploy_contract(
@@ -244,9 +241,10 @@ def test_verify_frame_nested_call_is_static(
         tx=tx,
         post={
             sender: Account(nonce=2, storage={}),
-            # Under `DELEGATECALL` the callee's code runs in the sender's
-            # context, so this entry is a sanity check there; the oracle
-            # is the transaction's validity and the sender's nonce.
+            # Under `DELEGATECALL` and `CALLCODE` the callee's code runs
+            # in the sender's context, so this entry is a sanity check
+            # there; the oracle is the transaction's validity and the
+            # sender's nonce.
             callee: Account(nonce=1, balance=1, storage={}),
             recipient: Account(balance=0),
         },

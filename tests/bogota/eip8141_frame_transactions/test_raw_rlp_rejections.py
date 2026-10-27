@@ -82,10 +82,7 @@ from .spec import Spec, ref_spec_8141
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
-pytestmark = [
-    pytest.mark.valid_from("Bogota"),
-    pytest.mark.inclusion_test,
-]
+pytestmark = pytest.mark.valid_from("Bogota")
 
 FRAME_TARGET = Address(0x41)
 """
@@ -325,8 +322,21 @@ def typed(payload: bytes) -> Mutation:
     return lambda _items: with_type(payload)
 
 
+# The EIP names no exception for bytes that fail to decode, so every case
+# accepts `FRAME_FORMAT`, from a client whose frame transaction decoder
+# files any decode failure as a format error, and, where an exception
+# names the failure, the RLP error a generic decoder raises, from a
+# client that passes it through. A case lists more than one RLP error
+# only where decoders differ in which check they reach first, as its
+# group's comment says.
 RAW_RLP_CASES = [
-    # Truncated input and broken list headers.
+    # Truncated input and broken list headers. Input that ends inside a
+    # field runs out (`RLP_ERROR_EOF`). A list header that disagrees
+    # with its content leaves the enclosing list either cut short or
+    # with bytes left over, depending on whether the decoder reads on
+    # into the next item (`RLP_ERROR_EOF`) or first compares the inner
+    # length with the space the enclosing list has left
+    # (`RLP_ERROR_SIZE`).
     pytest.param(
         truncated_inside(FRAMES),
         [FRAME_FORMAT, TransactionException.RLP_ERROR_EOF],
@@ -359,7 +369,8 @@ RAW_RLP_CASES = [
         ],
         id="frame_header_declares_less",
     ),
-    # Bytes after the payload.
+    # Bytes after the payload: the payload decodes, then the input has
+    # bytes left over (`RLP_ERROR_SIZE`).
     pytest.param(
         trailing(b"\x00"),
         [FRAME_FORMAT, TransactionException.RLP_ERROR_SIZE],
@@ -370,7 +381,9 @@ RAW_RLP_CASES = [
         [FRAME_FORMAT, TransactionException.RLP_ERROR_SIZE],
         id="trailing_empty_list",
     ),
-    # No payload, or an empty one.
+    # No payload, or an empty one: the input ends before a list header
+    # (`RLP_ERROR_EOF`), or the list holds no fields
+    # (`RLP_TOO_FEW_ELEMENTS`).
     pytest.param(
         typed(b""),
         [FRAME_FORMAT, TransactionException.RLP_ERROR_EOF],
@@ -381,7 +394,8 @@ RAW_RLP_CASES = [
         [FRAME_FORMAT, TransactionException.RLP_TOO_FEW_ELEMENTS],
         id="empty_payload_list",
     ),
-    # Lists with the wrong number of elements.
+    # Lists with the wrong number of elements: the element-count check
+    # (`RLP_TOO_FEW_ELEMENTS`, `RLP_TOO_MANY_ELEMENTS`).
     pytest.param(
         dropped_last([]),
         [FRAME_FORMAT, TransactionException.RLP_TOO_FEW_ELEMENTS],
@@ -432,7 +446,8 @@ RAW_RLP_CASES = [
         [FRAME_FORMAT, TransactionException.RLP_TOO_MANY_ELEMENTS],
         id="fees_extra_element",
     ),
-    # Lists encoded as byte strings.
+    # Lists encoded as byte strings: the decoder finds a string header
+    # where it expects a list header (`RLP_INVALID_HEADER`).
     *(
         pytest.param(
             as_byte_string(path),
@@ -450,7 +465,9 @@ RAW_RLP_CASES = [
             ("blob_hash_list", [BLOB_HASHES]),
         ]
     ),
-    # Byte strings and integers encoded as lists.
+    # Byte strings and integers encoded as lists: the decoder finds a
+    # list header where it expects a string header
+    # (`RLP_INVALID_HEADER`).
     *(
         pytest.param(
             as_list(path),
@@ -470,7 +487,9 @@ RAW_RLP_CASES = [
     ),
     # Non-canonical integers: a leading zero byte. The priority fee and
     # the `ARBITRARY` scheme are zero in the base transaction, so theirs
-    # is the single byte `0x00` instead of `0x80`.
+    # is the single byte `0x00` instead of `0x80`. A field that has its
+    # own leading-zero exception lists it as the generic decoder's
+    # error; the others have none, so only `FRAME_FORMAT` applies.
     *(
         pytest.param(
             leading_zero(path),
@@ -514,7 +533,8 @@ RAW_RLP_CASES = [
             ),
         ]
     ),
-    # Non-canonical byte strings.
+    # Non-canonical byte strings. No exception names these, so only
+    # `FRAME_FORMAT` applies.
     pytest.param(
         # The frame mode `1` as a one-byte string, `0x8101`, where RLP
         # encodes a single byte below `0x80` as itself.
@@ -539,7 +559,10 @@ RAW_RLP_CASES = [
         [FRAME_FORMAT],
         id="frame_data_long_header_for_short_string",
     ),
-    # Integers wider than their field.
+    # Integers wider than their field. Where the EIP bounds a field by a
+    # value rule, a client may decode it into a wider integer and reject
+    # it by that rule instead of failing to decode it; the rule's
+    # exception is listed with the case.
     pytest.param(
         # The EIP bounds the chain ID by 2**256 only (§Constraints:
         # "assert tx.chain_id < 2**256"), so a client may decode 2**64
@@ -563,7 +586,11 @@ RAW_RLP_CASES = [
     ),
     pytest.param(
         # Above the nonce bound of §Constraints ("assert tx.nonce <
-        # 2**64") as well as the width of any integer field.
+        # 2**64") as well as the width of any integer field. A decoder
+        # typing the nonce as 64 bits fails on its width
+        # (`NONCE_OVERFLOW`); one decoding an unbounded integer rejects
+        # it at the nonce bound (`NONCE_IS_MAX`); one typing it as 256
+        # bits fails to decode it (`FRAME_FORMAT`).
         replaced([NONCE], int_payload(2**256)),
         [
             FRAME_FORMAT,
@@ -572,7 +599,9 @@ RAW_RLP_CASES = [
         ],
         id="nonce_above_256_bits",
     ),
-    # Fixed-width byte fields of the wrong width.
+    # Fixed-width byte fields of the wrong width. A decoder typing the
+    # field by its width fails to decode it; only the blob versioned
+    # hash has a value rule a client may reject it by after decoding.
     *(
         pytest.param(
             transformed(path, change),
@@ -624,7 +653,8 @@ RAW_RLP_CASES = [
 Byte-level malformations of the base transaction, each with the
 exceptions a client may report: the frame format error, the RLP
 decoding error its decoder raises first, or the error of the value rule
-a decoded field breaks.
+a decoded field breaks. The comments above each group say why each
+listed exception is valid.
 """
 
 
