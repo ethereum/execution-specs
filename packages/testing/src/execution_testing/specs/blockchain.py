@@ -280,6 +280,37 @@ def rejected_transactions_accessed_addresses(
     return addresses
 
 
+def engine_new_payload_params(
+    meta: EnginePayloadMetadata,
+    *,
+    execution_payload: "FixtureExecutionPayload | None" = None,
+) -> Tuple[Any, ...]:
+    """
+    Build the ``engine_newPayload`` parameters for a client-built payload.
+
+    ``execution_payload`` replaces the one the client sealed; the trailing
+    parameters are the same either way.
+    """
+    version = meta.new_payload_version
+    response = meta.payload_response
+    params: List[Any] = [
+        execution_payload
+        if execution_payload is not None
+        else response.execution_payload
+    ]
+    if version >= 3:
+        blob_hashes = (
+            response.blobs_bundle.blob_versioned_hashes()
+            if response.blobs_bundle is not None
+            else []
+        )
+        params.append(blob_hashes)
+        params.append(meta.parent_beacon_block_root)
+    if version >= 4 and response.execution_requests is not None:
+        params.append(response.execution_requests)
+    return tuple(params)
+
+
 def payload_metadata_to_fixture(
     meta: EnginePayloadMetadata,
     *,
@@ -292,22 +323,9 @@ def payload_metadata_to_fixture(
     from fill's ``FixtureHeader`` would disagree on client-chosen fields
     (``gas_limit``, etc.) and produce a mismatched ``block_hash``.
     """
-    version = meta.new_payload_version
-    response = meta.payload_response
-    params: List[Any] = [response.execution_payload]
-    if version >= 3:
-        blob_hashes = (
-            response.blobs_bundle.blob_versioned_hashes()
-            if response.blobs_bundle is not None
-            else []
-        )
-        params.append(blob_hashes)
-        params.append(meta.parent_beacon_block_root)
-    if version >= 4 and response.execution_requests is not None:
-        params.append(response.execution_requests)
     return FixtureEngineNewPayload(
-        params=tuple(params),
-        new_payload_version=version,
+        params=engine_new_payload_params(meta),
+        new_payload_version=meta.new_payload_version,
         forkchoice_updated_version=meta.forkchoice_updated_version,
         phase=phase,
     )
@@ -751,7 +769,9 @@ class BuiltBlock(CamelModel):
         # an explicit engine_new_payload_block_access_list override.
         return None
 
-    def get_fixture_engine_new_payload(self) -> FixtureEngineNewPayload:
+    def get_fixture_engine_new_payload(
+        self, *, phase: TestPhase | None = None
+    ) -> FixtureEngineNewPayload:
         """Get a FixtureEngineNewPayload from the built block."""
         return FixtureEngineNewPayload.from_fixture_header(
             fork=self.fork,
@@ -765,7 +785,13 @@ class BuiltBlock(CamelModel):
             execution_payload_modifier=self.engine_payload_modifier(),
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
+            phase=phase,
         )
+
+    @property
+    def transactions_evaluated(self) -> bool:
+        """Return whether the backend ran the block's transactions."""
+        return True
 
     def verify_transactions(
         self, transition_tool_exceptions_reliable: bool
@@ -826,6 +852,12 @@ class BuiltBlock(CamelModel):
         )
 
 
+PAYLOAD_HEADER_FIELDS = frozenset(FixtureHeader.model_fields) & frozenset(
+    FixtureExecutionPayload.model_fields
+)
+"""Header fields that the engine ``ExecutionPayload`` carries by name."""
+
+
 class TestingBuildBlock(BuiltBlock):
     """
     ``BuiltBlock`` from a live-client backend; carries the engine payload
@@ -837,6 +869,73 @@ class TestingBuildBlock(BuiltBlock):
     model_config = CamelModel.model_config | {"arbitrary_types_allowed": True}
 
     engine_payload: EnginePayloadMetadata
+
+    @property
+    def transactions_evaluated(self) -> bool:
+        """Return whether the client imported the block it built."""
+        return self.expected_exception is None
+
+    def corrupted_execution_payload(self) -> "FixtureExecutionPayload":
+        """
+        Apply ``rlp_modifier`` to the payload the client sealed.
+
+        The header is rebuilt from that payload and checked against the
+        client's hash, so the recomputed ``block_hash`` describes the
+        block the client actually built. The payload therefore passes the
+        hash check, and a client must reach the corrupted field before it
+        can reject the block.
+        """
+        modifier = self.rlp_modifier
+        assert modifier is not None, "validate_stateful_blocks() first"
+        built = self.engine_payload.payload_response.execution_payload
+        # ``self.header`` takes client-chosen fields (gas_limit, ...) from
+        # the test environment and already has the modifier applied; the
+        # client's payload holds the values it sealed.
+        header = self.header.copy(
+            **{f: getattr(built, f) for f in PAYLOAD_HEADER_FIELDS}
+        )
+        if header.block_hash != built.block_hash:
+            raise ValueError(
+                f"header rebuilt from the client payload hashes to "
+                f"{header.block_hash}, but the client sealed "
+                f"{built.block_hash}; a header field outside the payload "
+                "differs from the client's"
+            )
+        modified = modifier.apply(header)
+        return built.copy(
+            **{
+                field: getattr(modified, field)
+                for field in modifier.model_dump(exclude_none=True)
+            },
+            block_hash=modified.block_hash,
+        )
+
+    def get_fixture_engine_new_payload(
+        self, *, phase: TestPhase | None = None
+    ) -> FixtureEngineNewPayload:
+        """
+        Forward what the client sealed, corrupted if the test says so.
+
+        Rebuilding from ``self.header`` would disagree with the client on
+        the fields it chose (``gas_limit``, ...) and hash to a different
+        block.
+        """
+        meta = self.engine_payload
+        return FixtureEngineNewPayload(
+            params=engine_new_payload_params(
+                meta,
+                execution_payload=(
+                    self.corrupted_execution_payload()
+                    if self.expected_exception is not None
+                    else None
+                ),
+            ),
+            new_payload_version=meta.new_payload_version,
+            forkchoice_updated_version=meta.forkchoice_updated_version,
+            validation_error=self.expected_exception,
+            error_code=self.engine_api_error_code,
+            phase=phase,
+        )
 
 
 GENESIS_ENVIRONMENT_DEFAULTS: Dict[str, Any] = {
@@ -919,28 +1018,28 @@ def _split_blocks_by_phase(blocks: List[Block]) -> List[Block]:
     return out
 
 
-PAYLOAD_HEADER_FIELDS = frozenset(FixtureHeader.model_fields) & frozenset(
-    FixtureExecutionPayload.model_fields
-)
-"""Header fields that the engine ``ExecutionPayload`` carries by name."""
-
-
-def check_stateful_invalid_block(block: Block) -> None:
+def _unsupported_stateful_reasons(block: Block) -> List[str]:
     """
-    Reject an invalid block that ``fill-stateful`` cannot produce.
+    Return the reasons ``fill-stateful`` cannot fill ``block``.
 
-    The client builds every block, so it only ever seals a valid one. The
+    The client builds every block, so it only ever seals a valid one. An
     invalid block is that block with header fields overridden by
     ``rlp_modifier``; anything that must change the block body, or that
     the execution payload cannot carry, is out of reach.
     """
     reasons: List[str] = []
     if block.rlp_modifier is None:
-        reasons.append(
-            "it has no `rlp_modifier` (a transaction-level exception "
-            "needs the client to build an invalid block)"
-        )
+        if block.exception is not None:
+            reasons.append(
+                "it has no `rlp_modifier` (a transaction-level exception "
+                "needs the client to build an invalid block)"
+            )
     else:
+        if block.exception is None:
+            reasons.append(
+                "it has an `rlp_modifier` but no `exception`, so the "
+                "payload would be forwarded as the client sealed it"
+            )
         overrides = block.rlp_modifier.model_dump(exclude_none=True)
         not_in_payload = sorted(overrides.keys() - PAYLOAD_HEADER_FIELDS)
         if not_in_payload:
@@ -963,61 +1062,25 @@ def check_stateful_invalid_block(block: Block) -> None:
         and block.expected_block_access_list.has_modifier
     ):
         reasons.append("it modifies the block access list")
-    if block.phase == TestPhase.SETUP:
+    if block.exception is not None and block.phase == TestPhase.SETUP:
         reasons.append("it is a setup-phase block")
-    if reasons:
-        raise NotImplementedError(
-            "fill-stateful cannot fill this invalid block: "
-            + "; ".join(reasons)
-        )
+    return reasons
 
 
-def invalid_payload_to_fixture(
-    built_block: TestingBuildBlock,
-    *,
-    phase: TestPhase | None = None,
-) -> FixtureEngineNewPayload:
+def validate_stateful_blocks(blocks: List[Block]) -> None:
     """
-    Turn a client-built block into the invalid payload the test describes.
+    Refuse a block sequence ``fill-stateful`` cannot fill.
 
-    The header is rebuilt from the client's payload and checked against
-    the client's hash. ``rlp_modifier`` then applies to it, and the payload
-    gets the modified fields and a ``block_hash`` recomputed over them. The
-    payload passes the hash check, so a client must reach the corrupted
-    field before it can reject the block.
+    Checked before any block reaches the client: a rejection halfway
+    through would leave it on a half-built test chain.
     """
-    modifier = built_block.rlp_modifier
-    assert modifier is not None, "check_stateful_invalid_block() first"
-    built = built_block.engine_payload.payload_response.execution_payload
-    # ``built_block.header`` takes client-chosen fields (gas_limit, ...)
-    # from the test environment and already has the modifier applied; the
-    # client's payload holds the values it sealed.
-    header = built_block.header.copy(
-        **{field: getattr(built, field) for field in PAYLOAD_HEADER_FIELDS}
-    )
-    if header.block_hash != built.block_hash:
-        raise ValueError(
-            f"header rebuilt from the client payload hashes to "
-            f"{header.block_hash}, but the client sealed {built.block_hash}; "
-            "a header field outside the payload differs from the client's"
-        )
-    modified = modifier.apply(header)
-    payload = built.copy(
-        **{
-            field: getattr(modified, field)
-            for field in modifier.model_dump(exclude_none=True)
-        },
-        block_hash=modified.block_hash,
-    )
-    valid = payload_metadata_to_fixture(built_block.engine_payload)
-    return FixtureEngineNewPayload(
-        params=(payload, *valid.params[1:]),
-        new_payload_version=valid.new_payload_version,
-        forkchoice_updated_version=valid.forkchoice_updated_version,
-        validation_error=built_block.expected_exception,
-        error_code=built_block.engine_api_error_code,
-        phase=phase,
-    )
+    for index, block in enumerate(blocks):
+        reasons = _unsupported_stateful_reasons(block)
+        if reasons:
+            raise NotImplementedError(
+                f"fill-stateful cannot fill block {index}: "
+                + "; ".join(reasons)
+            )
 
 
 class BlockchainTest(BaseTest):
@@ -1223,11 +1286,11 @@ class BlockchainTest(BaseTest):
         previous_alloc: Alloc | LazyAlloc,
     ) -> BuiltBlock:
         """
-        Generate common block data for both make_fixture and make_hive_fixture.
+        Generate the block data every ``make_*_fixture`` builds from.
 
-        ``t8n`` is any backend satisfying ``FillerBackend``. The
-        default compute path passes a concrete ``TransitionTool``; stateful
-        filling will pass an ``ClientBackend`` that drives
+        ``t8n`` is any backend satisfying ``FillerBackend``. The default
+        compute path passes a concrete ``TransitionTool``; stateful
+        filling passes a ``ClientBackend`` that drives
         ``testing_buildBlockV1`` against a live client.
         """
         env = block.set_environment(previous_env)
@@ -1556,12 +1619,7 @@ class BlockchainTest(BaseTest):
 
         try:
             rejected_txs: List[int] = []
-            # A client backend leaves an expected-invalid block out of its
-            # chain, so it has no receipts to check the transactions against.
-            if not (
-                isinstance(built_block, TestingBuildBlock)
-                and block.exception is not None
-            ):
+            if built_block.transactions_evaluated:
                 rejected_txs = built_block.verify_transactions(
                     transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
                 )
@@ -2186,11 +2244,7 @@ class BlockchainTest(BaseTest):
         # split into contiguous phase runs so benchmark gas isn't
         # swallowed into ``setupEngineNewPayloads``.
         blocks_to_process.extend(_split_blocks_by_phase(self.blocks))
-        # Before any block reaches the client: a rejection halfway through
-        # would leave the client on a half-built test chain.
-        for block in blocks_to_process:
-            if block.exception is not None:
-                check_stateful_invalid_block(block)
+        validate_stateful_blocks(blocks_to_process)
 
         # Chain off the session start_block. We pull parent_* from a
         # FixtureHeader-validated copy of the client's block dict, but
@@ -2243,16 +2297,12 @@ class BlockchainTest(BaseTest):
                 f"{type(built_block).__name__}"
             )
             invalid = block.exception is not None
-            if invalid:
+            if not invalid:
                 # A rejected block's transactions do not land.
-                payload = invalid_payload_to_fixture(
-                    built_block, phase=block.phase
-                )
-            else:
                 built_block.record_landings(context)
-                payload = payload_metadata_to_fixture(
-                    built_block.engine_payload, phase=block.phase
-                )
+            payload = built_block.get_fixture_engine_new_payload(
+                phase=block.phase
+            )
             # The client's authoritative block hash (the FixtureHeader RLP
             # hash diverges — the client picks fields like gas_limit).
             client_hash = Hash(
