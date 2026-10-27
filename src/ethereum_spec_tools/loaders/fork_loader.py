@@ -106,6 +106,17 @@ class ForkLoad:
         return hasattr(self._module("fork"), "calculate_base_fee_per_gas")
 
     @property
+    def has_slot_spaced_base_fee(self) -> bool:
+        """
+        Check if the fork scales the base fee change by the slot duration
+        read from the block spacing (EIP-8198).
+        """
+        if not self.has_calculate_base_fee_per_gas:
+            return False
+        inspected = signature(self.calculate_base_fee_per_gas)
+        return "slots_elapsed" in inspected.parameters
+
+    @property
     def logs_bloom(self) -> Any:
         """logs_bloom function of the given fork."""
         return self._module("bloom").logs_bloom

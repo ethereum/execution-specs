@@ -11,6 +11,8 @@ https://eips.ethereum.org/EIPS/eip-1559
 from typing import List
 
 from ....base_fork import (
+    DEFAULT_SECONDS_ELAPSED,
+    DEFAULT_SLOTS_ELAPSED,
     BaseFeeChangeCalculator,
     BaseFeePerGasCalculator,
     BaseFork,
@@ -37,8 +39,25 @@ class EIP1559(BaseFork):
         return [2] + super(EIP1559, cls).contract_creating_tx_types()
 
     @classmethod
-    def base_fee_max_change_denominator(cls) -> int:
+    def base_fee_max_change_numerator(
+        cls,
+        *,
+        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
+        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
+    ) -> int:
+        """Return the base fee max change numerator."""
+        del seconds_elapsed, slots_elapsed
+        return 1
+
+    @classmethod
+    def base_fee_max_change_denominator(
+        cls,
+        *,
+        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
+        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
+    ) -> int:
         """Return the base fee max change denominator."""
+        del seconds_elapsed, slots_elapsed
         return 8
 
     @classmethod
@@ -74,7 +93,6 @@ class EIP1559(BaseFork):
             expected_base_fee_per_gas = parent_base_fee_per_gas -
                                         base_fee_per_gas_delta
         """
-        base_fee_max_change_denominator = cls.base_fee_max_change_denominator()
         elasticity_multiplier = cls.base_fee_elasticity_multiplier()
 
         def fn(
@@ -82,7 +100,18 @@ class EIP1559(BaseFork):
             parent_base_fee_per_gas: int,
             parent_gas_used: int,
             parent_gas_limit: int,
+            seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
+            slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
         ) -> int:
+            base_fee_max_change_numerator = cls.base_fee_max_change_numerator(
+                seconds_elapsed=seconds_elapsed, slots_elapsed=slots_elapsed
+            )
+            base_fee_max_change_denominator = (
+                cls.base_fee_max_change_denominator(
+                    seconds_elapsed=seconds_elapsed,
+                    slots_elapsed=slots_elapsed,
+                )
+            )
             parent_gas_target = parent_gas_limit // elasticity_multiplier
             if parent_gas_used == parent_gas_target:
                 return parent_base_fee_per_gas
@@ -92,6 +121,7 @@ class EIP1559(BaseFork):
                     parent_base_fee_per_gas
                     * gas_used_delta
                     // parent_gas_target
+                    * base_fee_max_change_numerator
                     // base_fee_max_change_denominator,
                     1,
                 )
@@ -102,6 +132,7 @@ class EIP1559(BaseFork):
                     parent_base_fee_per_gas
                     * gas_used_delta
                     // parent_gas_target
+                    * base_fee_max_change_numerator
                     // base_fee_max_change_denominator
                 )
                 return parent_base_fee_per_gas - base_fee_per_gas_delta
@@ -114,7 +145,6 @@ class EIP1559(BaseFork):
         Return a callable that calculates the gas that needs to be used
         to change the base fee.
         """
-        base_fee_max_change_denominator = cls.base_fee_max_change_denominator()
         elasticity_multiplier = cls.base_fee_elasticity_multiplier()
         base_fee_per_gas_calculator = cls.base_fee_per_gas_calculator()
 
@@ -123,7 +153,18 @@ class EIP1559(BaseFork):
             parent_base_fee_per_gas: int,
             parent_gas_limit: int,
             required_base_fee_per_gas: int,
+            seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
+            slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
         ) -> int:
+            base_fee_max_change_numerator = cls.base_fee_max_change_numerator(
+                seconds_elapsed=seconds_elapsed, slots_elapsed=slots_elapsed
+            )
+            base_fee_max_change_denominator = (
+                cls.base_fee_max_change_denominator(
+                    seconds_elapsed=seconds_elapsed,
+                    slots_elapsed=slots_elapsed,
+                )
+            )
             parent_gas_target = parent_gas_limit // elasticity_multiplier
 
             if parent_base_fee_per_gas == required_base_fee_per_gas:
@@ -138,7 +179,9 @@ class EIP1559(BaseFork):
                         * base_fee_max_change_denominator
                         * parent_gas_target
                     )
-                    // parent_base_fee_per_gas
+                    // (
+                        parent_base_fee_per_gas * base_fee_max_change_numerator
+                    )
                 ) + parent_gas_target
                 # When the proportional increase rounds down to zero, the
                 # base fee still rises by one, and the estimate above can
@@ -151,6 +194,8 @@ class EIP1559(BaseFork):
                         parent_base_fee_per_gas=parent_base_fee_per_gas,
                         parent_gas_used=parent_gas_used,
                         parent_gas_limit=parent_gas_limit,
+                        seconds_elapsed=seconds_elapsed,
+                        slots_elapsed=slots_elapsed,
                     )
                     < required_base_fee_per_gas
                 ):
@@ -166,8 +211,21 @@ class EIP1559(BaseFork):
                     base_fee_per_gas_delta
                     * base_fee_max_change_denominator
                     * parent_gas_target,
-                    parent_base_fee_per_gas,
+                    parent_base_fee_per_gas * base_fee_max_change_numerator,
                 )
+                # Flooring twice in the forward calculation can leave the
+                # estimate a little short when the numerator is not one.
+                while (
+                    base_fee_per_gas_calculator(
+                        parent_base_fee_per_gas=parent_base_fee_per_gas,
+                        parent_gas_used=parent_gas_used,
+                        parent_gas_limit=parent_gas_limit,
+                        seconds_elapsed=seconds_elapsed,
+                        slots_elapsed=slots_elapsed,
+                    )
+                    > required_base_fee_per_gas
+                ):
+                    parent_gas_used -= 1
 
             assert 0 <= parent_gas_used <= parent_gas_limit, (
                 "required base fee is not reachable in one block"
@@ -177,6 +235,8 @@ class EIP1559(BaseFork):
                     parent_base_fee_per_gas=parent_base_fee_per_gas,
                     parent_gas_used=parent_gas_used,
                     parent_gas_limit=parent_gas_limit,
+                    seconds_elapsed=seconds_elapsed,
+                    slots_elapsed=slots_elapsed,
                 )
                 == required_base_fee_per_gas
             )
