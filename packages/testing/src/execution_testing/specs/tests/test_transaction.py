@@ -3,14 +3,29 @@
 import json
 from os.path import realpath
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
 from execution_testing import TestAddress
+from execution_testing.base_types import Bytes
+from execution_testing.client_clis import (
+    ExecutionSpecsTransitionTool,
+    TransitionTool,
+)
+from execution_testing.exceptions import TransactionException
 from execution_testing.fixtures import TransactionFixture
-from execution_testing.forks import Amsterdam, Fork, Shanghai
+from execution_testing.forks import (
+    Amsterdam,
+    Berlin,
+    Cancun,
+    Fork,
+    Frontier,
+    Shanghai,
+)
 from execution_testing.test_types import Transaction
 
+from ..helpers import UnexpectedExecutionFailError
 from ..transaction import TransactionTest
 from .helpers import remove_info_metadata
 
@@ -93,3 +108,100 @@ def test_amsterdam_transaction_fixture_intrinsic_gas(
     assert isinstance(fixture, TransactionFixture)
     result = next(iter(fixture.result.values()))
     assert result.intrinsic_gas == expected_intrinsic_gas
+
+
+def fill_transaction_test(
+    tx: Transaction, fork: Fork, t8n: TransitionTool
+) -> TransactionFixture:
+    """Fill a transaction test, marked as an exception test if needed."""
+    fixture = (
+        TransactionTest(
+            tx=tx,
+            fork=fork,
+            is_exception_test=tx.error is not None,
+        )
+        .generate(t8n=t8n, fixture_format=TransactionFixture)
+        .fixture
+    )
+    assert isinstance(fixture, TransactionFixture)
+    return fixture
+
+
+def with_rlp_override(
+    rlp: bytes, error: TransactionException | None
+) -> Transaction:
+    """Return a transaction whose serialization is the given bytes."""
+    tx = Transaction(gas_limit=0x5208, error=error)
+    tx.rlp_override = Bytes(rlp)
+    return tx
+
+
+# A type-2 transaction whose payload is a one-element list.
+UNDECODABLE_RLP = b"\x02\xc1\x80"
+
+
+@pytest.mark.parametrize(
+    "tx,fork",
+    [
+        pytest.param(
+            Transaction(gas_limit=0x5208), Frontier, id="legacy_frontier"
+        ),
+        pytest.param(
+            Transaction(gas_limit=0x5208), Berlin, id="legacy_berlin"
+        ),
+        pytest.param(
+            Transaction(gas_limit=0x5208), Amsterdam, id="legacy_amsterdam"
+        ),
+        pytest.param(
+            Transaction(ty=1, gas_limit=0x5208), Berlin, id="type_1_berlin"
+        ),
+        pytest.param(
+            Transaction(ty=2, gas_limit=0x5208), Cancun, id="type_2_cancun"
+        ),
+    ],
+)
+def test_reference_check_accepts_valid_transaction(
+    tx: Transaction, fork: Fork
+) -> None:
+    """A transaction the reference implementation decodes fills."""
+    fill_transaction_test(
+        tx.with_signature_and_sender(), fork, ExecutionSpecsTransitionTool()
+    )
+
+
+@pytest.mark.parametrize(
+    "rlp,fork",
+    [
+        pytest.param(UNDECODABLE_RLP, Cancun, id="typed_cancun"),
+        pytest.param(UNDECODABLE_RLP, Frontier, id="typed_frontier"),
+        pytest.param(b"\xc1\x80", Cancun, id="legacy_cancun"),
+        pytest.param(b"\x02", Cancun, id="type_byte_only_cancun"),
+        pytest.param(b"", Frontier, id="empty_frontier"),
+        pytest.param(b"", Cancun, id="empty_cancun"),
+    ],
+)
+def test_reference_check_undecodable_bytes(rlp: bytes, fork: Fork) -> None:
+    """
+    Bytes the reference implementation cannot decode fill only when the
+    test expects the transaction to fail.
+    """
+    t8n = ExecutionSpecsTransitionTool()
+    fixture = fill_transaction_test(
+        with_rlp_override(rlp, TransactionException.RLP_TOO_FEW_ELEMENTS),
+        fork,
+        t8n,
+    )
+    assert fixture.transaction == rlp
+
+    with pytest.raises(UnexpectedExecutionFailError):
+        fill_transaction_test(with_rlp_override(rlp, None), fork, t8n)
+
+
+def test_reference_check_skipped_for_other_transition_tools() -> None:
+    """Only the in-process reference implementation runs the check."""
+    fixture = fill_transaction_test(
+        with_rlp_override(UNDECODABLE_RLP, None),
+        Cancun,
+        Mock(spec=TransitionTool),
+    )
+    assert fixture.transaction == UNDECODABLE_RLP
