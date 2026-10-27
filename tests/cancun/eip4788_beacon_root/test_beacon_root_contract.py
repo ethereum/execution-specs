@@ -435,6 +435,9 @@ def test_multi_block_beacon_root_timestamp_calls(
     all_timestamps: List[int] = []
 
     sender = pre.fund_eoa()
+    # Withdrawal indices are a global counter (EIP-4895), so one counter
+    # spans every block of the test.
+    withdraw_index = count(0)
 
     for timestamp, beacon_root, _i in zip(
         timestamps,
@@ -447,8 +450,6 @@ def test_multi_block_beacon_root_timestamp_calls(
         roots_storage[timestamp_index] = beacon_root
 
         all_timestamps.append(timestamp)
-
-        withdraw_index = count(0)
 
         current_call_account_code = Bytecode()
         current_call_account_expected_storage = Storage()
@@ -564,6 +565,9 @@ def test_beacon_root_transition(
     timestamps_in_beacon_root_contract: List[int] = []
 
     sender = pre.fund_eoa()
+    # Withdrawal indices are a global counter (EIP-4895), so one counter
+    # spans every block of the test.
+    withdraw_index = count(0)
 
     for timestamp, beacon_root, i in zip(
         timestamps, beacon_roots, range(block_count), strict=False
@@ -581,8 +585,6 @@ def test_beacon_root_transition(
             roots_storage[timestamp_index] = beacon_root
 
         all_timestamps.append(timestamp)
-
-        withdraw_index = count(0)
 
         current_call_account_code = Bytecode()
         current_call_account_expected_storage = Storage()
