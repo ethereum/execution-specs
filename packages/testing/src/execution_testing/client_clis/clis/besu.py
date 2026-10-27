@@ -378,6 +378,9 @@ class BesuExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
             "block timestamp not greater than parent"
         ),
+        BlockException.INVALID_SLOT_NUMBER: (
+            "block slot number not greater than parent"
+        ),
         BlockException.INVALID_LOG_BLOOM: (
             "failed to validate output of imported block"
         ),
