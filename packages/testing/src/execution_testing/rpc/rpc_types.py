@@ -209,7 +209,6 @@ class PayloadStatus(CamelModel):
         | None
     )
     inclusion_list_satisfied: bool | None = None
-    inclusion_check_id: Hash | None = None
 
 
 class ForkchoiceUpdateResponse(CamelModel):
