@@ -142,6 +142,7 @@ class T8N(Load):
     state_test: bool
     state_reward: int
     exception_mapper: Optional["ExceptionMapper"]
+    inclusion_list_txs: Optional[List[bytes]]
     _block_exception: Optional[str]
 
     def __init__(
@@ -243,6 +244,12 @@ class T8N(Load):
         self.ommers = list(ommers)
         self.body = Bytes()
         self.rejected_transactions = []
+        self.inclusion_list_txs = (
+            list(t8n_data.inclusion_list_txs)
+            if t8n_data.inclusion_list_txs is not None
+            else None
+        )
+        self.inclusion_list_satisfied: bool | None = None
 
     def _tracer(self, type_: Type[T]) -> T:
         group = self.tracers
@@ -445,6 +452,30 @@ class T8N(Load):
             # ``--state.reward=None`` to the fork's ``BLOCK_REWARD``
             # before constructing the data).
             self.pay_block_rewards(U256(self.state_reward), block_env)
+
+        # Report a verdict only when the check runs, never a default;
+        # `BlockchainTest` fails the fill when a fork with lists gets none.
+        if self.fork.has_inclusion_list_satisfied:
+            if self.inclusion_list_txs is None:
+                raise Exception(
+                    f"the `{self.fork.hardfork.short_name}` fork spec "
+                    "tracks `inclusion_list_satisfied`, so inclusion list "
+                    "transactions are required; a block without an "
+                    "inclusion list must pass an empty one"
+                )
+            self.inclusion_list_satisfied = (
+                self.fork.check_inclusion_list_transactions(
+                    block_env,
+                    block_output,
+                    tuple(
+                        self.fork.encode_transaction(
+                            self.convert_transaction(tx)
+                        )
+                        for tx in self.txs
+                    ),
+                    tuple(Bytes(entry) for entry in self.inclusion_list_txs),
+                )
+            )
 
         if self.fork.has_withdrawal:
             withdrawals = self.env.withdrawals or []

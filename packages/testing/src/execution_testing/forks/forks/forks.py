@@ -35,6 +35,8 @@ from execution_testing.vm import (
 
 from ...recipient_type import RecipientType
 from ..base_fork import (
+    DEFAULT_SECONDS_ELAPSED,
+    DEFAULT_SLOTS_ELAPSED,
     BaseFeeChangeCalculator,
     BaseFeePerGasCalculator,
     BaseFork,
@@ -826,7 +828,31 @@ class Frontier(BaseFork):
         return 0
 
     @classmethod
-    def base_fee_max_change_denominator(cls) -> int:
+    def base_fee_follows_slot_spacing(cls) -> bool:
+        """
+        Return whether the maximum base fee change follows the block spacing.
+        """
+        return False
+
+    @classmethod
+    def base_fee_max_change_numerator(
+        cls,
+        *,
+        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
+        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
+    ) -> int:
+        """Return the base fee max change numerator at a given fork."""
+        raise NotImplementedError(
+            f"Base fee max change numerator is not supported in {cls.name()}"
+        )
+
+    @classmethod
+    def base_fee_max_change_denominator(
+        cls,
+        *,
+        seconds_elapsed: int = DEFAULT_SECONDS_ELAPSED,
+        slots_elapsed: int = DEFAULT_SLOTS_ELAPSED,
+    ) -> int:
         """Return the base fee max change denominator at a given fork."""
         raise NotImplementedError(
             f"Base fee max change denominator is not supported in {cls.name()}"
@@ -970,6 +996,11 @@ class Frontier(BaseFork):
         return False
 
     @classmethod
+    def header_slot_number_must_increase(cls) -> bool:
+        """At genesis, slot numbers need not increase."""
+        return False
+
+    @classmethod
     def engine_new_payload_blob_hashes(cls) -> bool:
         """At genesis, payloads do not have blob hashes."""
         return False
@@ -982,6 +1013,13 @@ class Frontier(BaseFork):
     @classmethod
     def engine_new_payload_requests(cls) -> bool:
         """At genesis, payloads do not have requests."""
+        return False
+
+    @classmethod
+    def engine_new_payload_inclusion_list_transactions(cls) -> bool:
+        """
+        At genesis, payloads do not have inclusion lists.
+        """
         return False
 
     @classmethod
@@ -1078,6 +1116,16 @@ class Frontier(BaseFork):
     @classmethod
     def block_rlp_size_limit(cls) -> int | None:
         """At Genesis, no RLP block size limit is imposed."""
+        return None
+
+    @classmethod
+    def inclusion_list_transactions_size_limit(cls) -> int | None:
+        """At Genesis, there are no inclusion lists."""
+        return None
+
+    @classmethod
+    def inclusion_list_merged_transactions_size_limit(cls) -> int | None:
+        """At Genesis, there are no inclusion lists."""
         return None
 
     @classmethod

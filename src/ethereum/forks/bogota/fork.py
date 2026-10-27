@@ -14,6 +14,7 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, final
 
+from ethereum_rlp import exceptions as rlp_exceptions
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.frozen import slotted_freezable
@@ -98,6 +99,22 @@ from .vm.gas import (
 from .vm.interpreter import TransactionOutput, process_top_level
 
 BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
+"""
+Inverse of the largest fraction by which the base fee can change from one
+block to the next at [`BASE_FEE_REFERENCE_SLOT_SECONDS`].
+
+[`BASE_FEE_REFERENCE_SLOT_SECONDS`]: ref:ethereum.forks.bogota.fork.BASE_FEE_REFERENCE_SLOT_SECONDS
+"""  # noqa: E501
+BASE_FEE_REFERENCE_SLOT_SECONDS = Uint(12)
+"""
+Slot duration, in seconds, at which the base fee changes by at most
+`1 / BASE_FEE_MAX_CHANGE_DENOMINATOR` per block. The largest change scales
+with the slot duration, read from the spacing of a block and its parent, so
+the base fee reacts to congestion at about the same rate per unit of
+wall-clock time whatever the slot duration. Spacing beyond this duration per
+slot is ignored, so no block changes the base fee by more than
+`1 / BASE_FEE_MAX_CHANGE_DENOMINATOR`.
+"""
 ELASTICITY_MULTIPLIER = Uint(2)
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 SYSTEM_ADDRESS = hex_to_address("0xfffffffffffffffffffffffffffffffffffffffe")
@@ -225,7 +242,11 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     return recent_block_hashes
 
 
-def state_transition(chain: BlockChain, block: Block) -> None:
+def state_transition(
+    chain: BlockChain,
+    block: Block,
+    inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...] = (),
+) -> None:
     """
     Attempts to apply a block to an existing block chain.
 
@@ -246,6 +267,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         History and current state.
     block :
         Block to apply to `chain`.
+    inclusion_list_transactions :
+        Inclusion list transactions against which the block will be checked.
 
     """
     chain_context = ChainContext(
@@ -254,7 +277,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         parent_header=chain.blocks[-1].header,
     )
 
-    block_diff = execute_block(block, chain.state, chain_context)
+    block_diff = execute_block(
+        block, chain.state, chain_context, inclusion_list_transactions
+    )
 
     apply_changes_to_state(chain.state, block_diff)
     chain.blocks.append(block)
@@ -268,6 +293,7 @@ def execute_block(
     block: Block,
     pre_state: State,
     chain_context: ChainContext,
+    inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...] = (),
 ) -> BlockDiff:
     """
     Execute a block and validate the resulting roots against the header.
@@ -282,6 +308,8 @@ def execute_block(
         Pre-execution state provider.
     chain_context :
         Chain context that the block may need during execution.
+    inclusion_list_transactions :
+        Inclusion list transactions against which the block will be checked.
 
     Returns
     -------
@@ -320,6 +348,7 @@ def execute_block(
         block_env=block_env,
         transactions=block.transactions,
         withdrawals=block.withdrawals,
+        inclusion_list_transactions=inclusion_list_transactions,
     )
     block_diff = extract_block_diff(block_state)
     block_state_root = pre_state.compute_state_root(block_diff)
@@ -363,6 +392,8 @@ def calculate_base_fee_per_gas(
     parent_gas_limit: Uint,
     parent_gas_used: Uint,
     parent_base_fee_per_gas: Uint,
+    seconds_elapsed: Uint,
+    slots_elapsed: Uint,
 ) -> Uint:
     """
     Calculates the base fee per gas for the block.
@@ -377,6 +408,10 @@ def calculate_base_fee_per_gas(
         Gas used in the parent block.
     parent_base_fee_per_gas :
         Base fee per gas of the parent block.
+    seconds_elapsed :
+        Seconds between the parent block and the block.
+    slots_elapsed :
+        Slots between the parent block and the block.
 
     Returns
     -------
@@ -388,6 +423,15 @@ def calculate_base_fee_per_gas(
     if not check_gas_limit(block_gas_limit, parent_gas_limit):
         raise InvalidBlock
 
+    base_fee_max_change_denominator = (
+        BASE_FEE_MAX_CHANGE_DENOMINATOR
+        * BASE_FEE_REFERENCE_SLOT_SECONDS
+        * slots_elapsed
+    )
+    seconds_elapsed = min(
+        seconds_elapsed, BASE_FEE_REFERENCE_SLOT_SECONDS * slots_elapsed
+    )
+
     if parent_gas_used == parent_gas_target:
         expected_base_fee_per_gas = parent_base_fee_per_gas
     elif parent_gas_used > parent_gas_target:
@@ -397,7 +441,9 @@ def calculate_base_fee_per_gas(
         target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
 
         base_fee_per_gas_delta = max(
-            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR,
+            target_fee_gas_delta
+            * seconds_elapsed
+            // base_fee_max_change_denominator,
             Uint(1),
         )
 
@@ -411,7 +457,9 @@ def calculate_base_fee_per_gas(
         target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
 
         base_fee_per_gas_delta = (
-            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR
+            target_fee_gas_delta
+            * seconds_elapsed
+            // base_fee_max_change_denominator
         )
 
         expected_base_fee_per_gas = (
@@ -432,7 +480,9 @@ def validate_header(
     For example the header timestamp should be greater than the block's parent
     timestamp because the block was created *after* the parent block.
     Additionally, the block's number should be directly following the parent
-    block's number since it is the next block in the sequence.
+    block's number since it is the next block in the sequence. The block's
+    slot number must also exceed its parent's, since the base fee change
+    divides by the slots elapsed between them.
 
     Parameters
     ----------
@@ -451,16 +501,20 @@ def validate_header(
 
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
+    if header.timestamp <= parent_header.timestamp:
+        raise InvalidBlock
+    if header.slot_number <= parent_header.slot_number:
+        raise InvalidBlock
 
     expected_base_fee_per_gas = calculate_base_fee_per_gas(
         header.gas_limit,
         parent_header.gas_limit,
         parent_header.gas_used,
         parent_header.base_fee_per_gas,
+        Uint(header.timestamp - parent_header.timestamp),
+        Uint(header.slot_number - parent_header.slot_number),
     )
     if expected_base_fee_per_gas != header.base_fee_per_gas:
-        raise InvalidBlock
-    if header.timestamp <= parent_header.timestamp:
         raise InvalidBlock
     if header.number != parent_header.number + Uint(1):
         raise InvalidBlock
@@ -784,6 +838,7 @@ def apply_body(
     block_env: vm.BlockEnvironment,
     transactions: Tuple[LegacyTransaction | Bytes, ...],
     withdrawals: Tuple[Withdrawal, ...],
+    inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...],
 ) -> vm.BlockOutput:
     """
     Executes a block.
@@ -803,6 +858,8 @@ def apply_body(
         Transactions included in the block.
     withdrawals :
         Withdrawals to be processed in the current block.
+    inclusion_list_transactions :
+        Inclusion list transactions against which the block will be checked.
 
     Returns
     -------
@@ -826,6 +883,14 @@ def apply_body(
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
         process_transaction(block_env, block_output, tx, Uint(i))
+
+    # Check if the block satisfies the inclusion list constraints (EIP-7805)
+    block_output.inclusion_list_satisfied = check_inclusion_list_transactions(
+        block_env=block_env,
+        block_output=block_output,
+        transactions=transactions,
+        inclusion_list_transactions=inclusion_list_transactions,
+    )
 
     # EIP-7928: Post-execution operations use index N+1
     block_env.block_access_list_builder.block_access_index = BlockAccessIndex(
@@ -1151,5 +1216,74 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
         return False
     if gas_limit < GasCosts.LIMIT_MINIMUM:
         return False
+
+    return True
+
+
+def check_inclusion_list_transactions(
+    block_env: vm.BlockEnvironment,
+    block_output: vm.BlockOutput,
+    transactions: Tuple[LegacyTransaction | Bytes, ...],
+    inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...],
+) -> bool:
+    """
+    Check whether the block satisfies the inclusion list constraints.
+
+    For each inclusion list transaction not present in the block,
+    check whether it could have been validly appended to the end of the block.
+    Entries that do not decode, that are signed for another chain, or that
+    are blob transactions are skipped. If any other such transaction could
+    have been appended, the block fails the inclusion list check.
+
+    The inclusion list compliance does not affect any other block outputs.
+
+    Parameters
+    ----------
+    block_env :
+        The block scoped environment.
+    block_output :
+        The block output for the current block.
+    transactions :
+        Transactions included in the block.
+    inclusion_list_transactions :
+        Inclusion list transactions against which the block will be checked.
+
+    Returns
+    -------
+    inclusion_list_satisfied : `bool`
+        True if the block passes the inclusion list check, False otherwise.
+
+    """
+    tx_hashes = {get_transaction_hash(raw_tx) for raw_tx in transactions}
+
+    for raw_tx in inclusion_list_transactions:
+        if get_transaction_hash(raw_tx) in tx_hashes:
+            continue
+
+        try:
+            tx = decode_transaction(raw_tx)
+        except EthereumException:
+            continue
+        except rlp_exceptions.DecodingError:
+            continue
+
+        if isinstance(tx, BlobTransaction):
+            continue
+
+        try:
+            tx_chain_id = chain_id(tx)
+            if tx_chain_id is not None and tx_chain_id != block_env.chain_id:
+                continue
+            check_transaction(
+                block_env=block_env,
+                block_output=block_output,
+                tx=tx,
+                index=ulen(transactions),
+            )
+        except EthereumException:
+            continue
+        else:
+            # This inclusion list transaction could have been included.
+            return False
 
     return True

@@ -1,0 +1,41 @@
+"""
+EIP-7805: Fork-choice enforced Inclusion Lists (FOCIL).
+
+Adds an ``inclusionListTransactions`` parameter to ``engine_newPayloadV6`` and
+bumps ``engine_forkchoiceUpdated`` to V5 so the CL can pass per-committee ILs
+to the EL on the forkchoice-update path.
+
+https://eips.ethereum.org/EIPS/eip-7805
+"""
+
+from ....base_fork import BaseFork
+
+
+class EIP7805(
+    BaseFork,
+    # Engine API method version bumps
+    # New `inclusionListTransactions` parameter on newPayload, and
+    # `engine_getInclusionListV1` introduced on the GET side.
+    engine_new_payload_version_bump=True,
+    engine_forkchoice_updated_version_bump=True,
+    engine_get_inclusion_list_version_bump=True,
+):
+    """EIP-7805 class."""
+
+    @classmethod
+    def engine_new_payload_inclusion_list_transactions(cls) -> bool:
+        """Payload attributes include the inclusion list transactions."""
+        return True
+
+    @classmethod
+    def inclusion_list_transactions_size_limit(cls) -> int | None:
+        """A committee member's list carries at most 8 KiB of transactions."""
+        return 8192
+
+    @classmethod
+    def inclusion_list_merged_transactions_size_limit(cls) -> int | None:
+        """The merged list holds one full list per IL committee member."""
+        inclusion_list_committee_size = 16  # INCLUSION_LIST_COMMITTEE_SIZE
+        list_limit = cls.inclusion_list_transactions_size_limit()
+        assert list_limit is not None
+        return inclusion_list_committee_size * list_limit

@@ -11,7 +11,7 @@ import ijson  # type: ignore[import-untyped]
 import pytest
 from tenacity import retry, retry_if_exception_type, stop_after_attempt
 
-from execution_testing.base_types import StateCommitment
+from execution_testing.base_types import Bloom, Hash, StateCommitment
 from execution_testing.client_clis import (
     BesuTransitionTool,
     CLINotFoundInPathError,
@@ -31,7 +31,8 @@ from execution_testing.client_clis.cli_types import (
     TransitionToolInput,
     TransitionToolOutput,
 )
-from execution_testing.test_types import Alloc, Environment
+from execution_testing.forks import Berlin
+from execution_testing.test_types import Alloc, Environment, Transaction
 
 
 def test_default_tool() -> None:
@@ -582,3 +583,43 @@ def test_an_opcode_count_accepts_every_name_geth_reports() -> None:
         "ADD": 3,
         "0xb8": 2,
     }
+
+
+def test_transition_tool_data_inclusion_list_transactions() -> None:
+    """Test that inclusion list entries are passed to the transition tool."""
+    il_tx = Transaction(gas_limit=21_000).with_signature_and_sender().rlp()
+
+    transition_tool_data = TransitionTool.TransitionToolData(
+        alloc=TEST_ALLOC,
+        txs=[],
+        env=Environment(),
+        fork=Berlin,
+        chain_id=1,
+        reward=0,
+        blob_schedule=Berlin.blob_schedule(),
+        inclusion_list_txs=[il_tx],
+    )
+
+    transition_tool_input = transition_tool_data.to_input()
+    assert transition_tool_input.inclusion_list_txs == [il_tx]
+
+
+def test_transition_tool_output_parses_inclusion_list_satisfaction() -> None:
+    """Test that the transition tool output parses IL satisfaction results."""
+    output = TransitionToolOutput.model_validate(
+        {
+            "alloc": TEST_ALLOC.model_dump(),
+            "result": {
+                "stateRoot": TEST_ALLOC_STATE_ROOT.hex(),
+                "txRoot": Hash(1).hex(),
+                "receiptsRoot": Hash(2).hex(),
+                "logsHash": Hash(3).hex(),
+                "logsBloom": Bloom(0).hex(),
+                "receipts": [],
+                "gasUsed": hex(0),
+                "inclusionListSatisfied": False,
+            },
+        }
+    )
+
+    assert output.result.inclusion_list_satisfied is False

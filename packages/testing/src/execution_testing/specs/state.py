@@ -48,6 +48,7 @@ from execution_testing.fixtures.state import (
     FixtureTransactionReceipt,
 )
 from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks.base_fork import DEFAULT_SECONDS_ELAPSED
 from execution_testing.logging import (
     get_logger,
 )
@@ -97,9 +98,11 @@ class StateTest(BaseTest):
     ] = [
         StateFixture,
     ] + [
-        fixture_format.with_label_suffix(
-            "from_state_test",
-            f"A {fixture_format.format_id()} generated from a state_test",
+        LabeledFixtureFormat.with_label_suffix(
+            fixture_format=fixture_format,
+            suffix="from_state_test",
+            description=f"A {fixture_format.format_id()} generated from a "
+            "state_test",
         )
         for fixture_format in BlockchainTest.supported_fixture_formats
         # Exclude sync fixtures from state tests - they don't make sense for
@@ -291,8 +294,14 @@ class StateTest(BaseTest):
         Discard a fixture format from filling if the appropriate marker is
         used.
         """
-        if "state_test_only" in [m.name for m in markers]:
+        marker_names = [m.name for m in markers]
+        if "state_test_only" in marker_names:
             return fixture_format != StateFixture
+        if (
+            fixture_format.is_variant("inclusion_list")
+            and "inclusion_test" not in marker_names
+        ):
+            return True
         return False
 
     def _generate_blockchain_genesis_environment(self) -> Environment:
@@ -318,6 +327,19 @@ class StateTest(BaseTest):
         #                    the parent's value
         genesis_block_number = self.env.number - 1
         genesis_timestamp = 0
+        block_fork = self.fork.fork_at(
+            block_number=self.env.number, timestamp=self.env.timestamp
+        )
+        if block_fork.base_fee_follows_slot_spacing():
+            # The block's base fee follows its spacing from the genesis, so
+            # the genesis is one twelve-second slot before it.
+            assert self.env.timestamp >= DEFAULT_SECONDS_ELAPSED, (
+                "set state test env.timestamp to at least "
+                f"{DEFAULT_SECONDS_ELAPSED}"
+            )
+            genesis_timestamp = (
+                int(self.env.timestamp) - DEFAULT_SECONDS_ELAPSED
+            )
         genesis_fork = self.fork.fork_at(
             block_number=genesis_block_number, timestamp=genesis_timestamp
         )
@@ -325,14 +347,29 @@ class StateTest(BaseTest):
             "number": genesis_block_number,
             "timestamp": genesis_timestamp,
         }
+        slot_number = self._slot_number()
+        if slot_number is not None and slot_number >= 1:
+            kwargs["slot_number"] = slot_number - 1
+        else:
+            assert not block_fork.header_slot_number_must_increase(), (
+                "set state test env.slot_number to at least 1"
+            )
 
         if "gas_limit" in self.env.model_fields_set:
             kwargs["gas_limit"] = self.env.gas_limit
 
         if self.env.base_fee_per_gas:
-            # Calculate genesis base fee per gas from state test's block#1 env
+            # Calculate genesis base fee per gas from state test's block#1
+            # env: the empty genesis block lowers the base fee by the fork's
+            # maximum change.
+            numerator, denominator = 1, 8
+            if genesis_fork.header_base_fee_required():
+                numerator = genesis_fork.base_fee_max_change_numerator()
+                denominator = genesis_fork.base_fee_max_change_denominator()
             kwargs["base_fee_per_gas"] = HexNumber(
-                int(str(self.env.base_fee_per_gas), 0) * 8 // 7
+                int(str(self.env.base_fee_per_gas), 0)
+                * denominator
+                // (denominator - numerator)
             )
 
         if self.env.excess_blob_gas:
@@ -349,6 +386,21 @@ class StateTest(BaseTest):
             )
 
         return Environment(**kwargs)
+
+    def _slot_number(self) -> int | None:
+        """
+        Return the slot number of the state test's block, which the state
+        fixture and the blockchain fixture generated from it share.
+        """
+        fork = self.fork.fork_at(
+            block_number=self.env.number, timestamp=self.env.timestamp
+        )
+        if not fork.header_slot_number_required():
+            return None
+        if self.env.slot_number is not None:
+            return int(self.env.slot_number)
+        # One slot after the genesis block, as in a blockchain test.
+        return 1
 
     def _generate_blockchain_blocks(self) -> List[Block]:
         """
@@ -367,7 +419,7 @@ class StateTest(BaseTest):
             "extra_data": self.env.extra_data,
             "withdrawals": self.env.withdrawals,
             "parent_beacon_block_root": self.env.parent_beacon_block_root,
-            "slot_number": self.env.slot_number,
+            "slot_number": self._slot_number(),
             "txs": [self.tx],
             "ommers": [],
             "header_verify": self.blockchain_test_header_verify,
@@ -412,6 +464,8 @@ class StateTest(BaseTest):
         )
 
         env = self.env.set_fork_requirements(fork)
+        if env.slot_number is not None:
+            env = env.copy(slot_number=self._slot_number())
         env.check_fork_fields(fork)
         tx = self.tx.with_gas_limit(
             max_gas_limit=env.gas_limit,
