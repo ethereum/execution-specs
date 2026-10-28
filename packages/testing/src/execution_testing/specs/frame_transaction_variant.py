@@ -334,12 +334,20 @@ def convert_to_frame_transaction_variant(test: "StateTest") -> "StateTest":
     fork = test.fork.fork_at(
         block_number=test.env.number, timestamp=test.env.timestamp
     )
+    # The fill applies the fork's default base fee when the test
+    # sets none, so the tip is taken above that same base fee. A base
+    # fee derived from the parent block is only known to the
+    # transition tool, so the rewrite cannot measure the tip.
+    base_fee_per_gas = env.set_fork_requirements(fork).base_fee_per_gas
+    if base_fee_per_gas is None:
+        skip_frame_variant("the base fee is not set")
+    assert base_fee_per_gas is not None
     tx = as_frame_transaction(
         test.tx,
         fork=fork,
         env_gas_limit=int(env.gas_limit),
         chain_id=test.chain_id,
-        base_fee_per_gas=int(env.base_fee_per_gas or 0),
+        base_fee_per_gas=int(base_fee_per_gas),
         pre=test.pre,
     )
     update["tx"] = tx

@@ -1,5 +1,7 @@
 """Tests for the frame-transaction state-test variant."""
 
+import pytest
+
 from execution_testing.base_types import Address
 from execution_testing.forks import Bogota
 from execution_testing.test_types import (
@@ -118,3 +120,63 @@ def test_frame_transaction_variant_keeps_genesis() -> None:
     assert variant.tx is not test.tx
     assert variant.pre is test.pre
     assert variant.env is test.env
+
+
+@pytest.mark.parametrize(
+    "env",
+    [
+        pytest.param(Environment(), id="default_base_fee"),
+        pytest.param(
+            Environment(base_fee_per_gas=100), id="explicit_base_fee"
+        ),
+    ],
+)
+@pytest.mark.parametrize("fee_shape", ["legacy", "dynamic_fee"])
+def test_frame_transaction_variant_keeps_gas_price(
+    env: Environment, fee_shape: str
+) -> None:
+    """
+    Take the tip above the base fee the fill applies, the fork's default
+    when the test sets none, so `GASPRICE` reads the original gas price.
+
+    A dynamic-fee transaction whose `max_fee_per_gas` binds pays the
+    same tip as a legacy transaction with that gas price.
+    """
+    base_fee = env.set_fork_requirements(Bogota).base_fee_per_gas
+    assert base_fee is not None
+    tip = 3
+    gas_price = int(base_fee) + tip
+    if fee_shape == "legacy":
+        tx = Transaction(gas_price=gas_price)
+    else:
+        tx = Transaction(
+            max_fee_per_gas=gas_price, max_priority_fee_per_gas=tip + 1
+        )
+    test = StateTest(
+        fork=Bogota,
+        env=env,
+        pre=Alloc(),
+        post=Alloc(),
+        tx=tx,
+    )
+
+    variant = convert_to_frame_transaction_variant(test)
+
+    assert variant.tx.max_priority_fee_per_gas == tip
+
+
+def test_frame_transaction_variant_skips_parent_base_fee() -> None:
+    """
+    Skip the variant when the block's base fee is derived from the
+    parent, which only the transition tool computes.
+    """
+    test = StateTest(
+        fork=Bogota,
+        env=Environment(parent_base_fee_per_gas=7),
+        pre=Alloc(),
+        post=Alloc(),
+        tx=Transaction(),
+    )
+
+    with pytest.raises(pytest.skip.Exception, match="base fee is not set"):
+        convert_to_frame_transaction_variant(test)
