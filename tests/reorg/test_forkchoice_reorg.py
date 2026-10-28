@@ -19,6 +19,7 @@ from execution_testing import (
     EngineAPIError,
     Hash,
     Header,
+    Op,
     Transaction,
 )
 from execution_testing.fixtures.reorg import (
@@ -135,6 +136,105 @@ def test_sibling_reorg(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
         ),
     ]
 
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
+
+
+@pytest.mark.valid_from("Shanghai")
+def test_storage_across_multi_block_reorgs(
+    reorg_test: ReorgTestFiller, pre: Alloc
+) -> None:
+    r"""
+    Storage written on two multi-block branches follows every reorg.
+
+    Erigon ``TestReorgOverStateChange`` and hive's reorg state checks: one
+    contract, starting with slot0 = 7 and slot1 = 5, written on two 2-block
+    branches. Every call first copies slot0 into slot2, then stores a value:
+
+    genesis <- a1 (slot0 = 17) <- a2 (slot1 cleared)
+            \\- b1 (slot0 = 19) <- b2 (slot0 = 29) <- b3 (slot0 = 41)
+
+    Storage is checked after each switch (A, B, A, B), after b3 continues
+    execution from the restored state, and after a rewind to b1 and the
+    redo to b3.
+
+    reth's Ethereum engine answers a rewind to a canonical ancestor VALID
+    and keeps its head (``apply_chain_update``), which #786 does not allow,
+    so it is expected to fail the last two checks:
+    https://github.com/paradigmxyz/reth/blob/7c1ffbe6619ef07a53256489c5f5fd89a602202d/crates/engine/tree/src/tree/mod.rs#L1299-L1352
+    """
+    contract = pre.deploy_contract(
+        Op.SSTORE(2, Op.SLOAD(0))
+        + Op.SSTORE(Op.CALLDATALOAD(0), Op.CALLDATALOAD(32)),
+        storage={0: 7, 1: 5},
+    )
+
+    def branch(writes: List[tuple[str, int, int]]) -> List[ReorgBlock]:
+        sender = pre.fund_eoa()
+        return [
+            ReorgBlock(
+                label=label,
+                parent="genesis" if nonce == 0 else None,
+                txs=[
+                    Transaction(
+                        sender=sender,
+                        nonce=nonce,
+                        to=contract,
+                        data=Hash(slot) + Hash(value),
+                    )
+                ],
+            )
+            for nonce, (label, slot, value) in enumerate(writes)
+        ]
+
+    blocks = branch([("a1", 0, 17), ("a2", 1, 0)]) + branch(
+        [("b1", 0, 19), ("b2", 0, 29), ("b3", 0, 41)]
+    )
+
+    def select(
+        label: str, storage: tuple[int, int, int], rewind: bool = False
+    ) -> ForkchoiceUpdatedStep:
+        return ForkchoiceUpdatedStep(
+            head=label,
+            expect=[
+                Outcome(
+                    id="applied",
+                    status="VALID",
+                    latest_valid_hash=label,
+                    head_moved=True if rewind else None,
+                )
+            ],
+            branches={
+                "applied": [
+                    AssertStateStep(
+                        accounts={
+                            contract: AccountExpectation(
+                                storage={
+                                    Hash(slot): Hash(value)
+                                    for slot, value in enumerate(storage)
+                                }
+                            )
+                        }
+                    )
+                ]
+            },
+        )
+
+    a, b, b1, b3 = (17, 0, 17), (29, 5, 19), (19, 5, 7), (41, 5, 29)
+    steps: List[Step] = [
+        NewPayloadStep(block="a1"),
+        ForkchoiceUpdatedStep(head="a1"),
+        NewPayloadStep(block="a2"),
+        select("a2", a),
+        NewPayloadStep(block="b1"),
+        NewPayloadStep(block="b2"),
+        select("b2", b),
+        select("a2", a),
+        select("b2", b),
+        NewPayloadStep(block="b3"),
+        select("b3", b3),
+        select("b1", b1, rewind=True),
+        select("b3", b3),
+    ]
     reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
