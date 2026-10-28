@@ -28,7 +28,6 @@ from execution_testing.fixtures.reorg import (
     NewPayloadStep,
 )
 from execution_testing.forks import (
-    Amsterdam,
     Fork,
     get_deployed_forks,
     get_development_forks,
@@ -125,15 +124,16 @@ def test_fixture_payload_covers_every_engine_payload_attribute(
     assert_attributes_cover_fork(payload.get_payload_attributes(), fork)
 
 
-def test_reorg_fill_covers_every_amsterdam_payload_attribute(
-    default_t8n: TransitionTool,
+@pytest.mark.parametrize("fork", ENGINE_FORKS, ids=lambda fork: fork.name())
+def test_reorg_fill_covers_every_engine_payload_attribute(
+    default_t8n: TransitionTool, fork: Fork
 ) -> None:
-    """Chained reorg build requests carry every Amsterdam attribute."""
+    """Chained reorg build requests carry every attribute the fork needs."""
     attributes = PayloadAttributes(
         timestamp=0, prev_randao=Hash(0), suggested_fee_recipient=Address(0)
     )
     test = ReorgTest(
-        fork=Amsterdam,
+        fork=fork,
         pre=Alloc().with_genesis_accounts(),
         blocks=[ReorgBlock(label="a1")],
         steps=[
@@ -153,6 +153,7 @@ def test_reorg_fill_covers_every_amsterdam_payload_attribute(
         for step in fixture.steps
         if isinstance(step, ForkchoiceUpdatedStep) and step.payload_attributes
     ]
-    assert [request.slot_number for request in requests] == [1, 2]
+    if fork.engine_payload_attribute_slot_number():
+        assert [request.slot_number for request in requests] == [1, 2]
     for request in requests:
-        assert_attributes_cover_fork(request, Amsterdam)
+        assert_attributes_cover_fork(request, fork)

@@ -586,42 +586,72 @@ def _continue(
         )
 
 
+def _fork_taking_fcu_version(
+    fork: Fork | TransitionFork, attrs_fork: Fork, version: int
+) -> Fork:
+    """
+    The fork whose ``forkchoiceUpdated`` takes ``version``: the attributes'
+    fork, either side of a transition, or a fork before the attributes'.
+    """
+    candidates: List[Fork] = [
+        attrs_fork,
+        fork.transitions_from(),
+        fork.transitions_to(),
+    ]
+    parent = attrs_fork.parent()
+    while parent is not None:
+        candidates.append(parent)
+        parent = parent.parent()
+    for candidate in candidates:
+        if candidate.engine_forkchoice_updated_version() == version:
+            return candidate
+    raise ValueError(
+        f"no fork in {fork} or before {attrs_fork} takes "
+        f"forkchoiceUpdatedV{version}"
+    )
+
+
 def _default_build_request(
     step: ForkchoiceUpdatedStep,
     dag: ModelDag,
     fork: Fork | TransitionFork,
 ) -> None:
     """
-    Fill a build request's unset attribute fields, and its version, from
-    the head block and the fork of the requested timestamp.
+    Fill a build request's unset attribute fields, and its version.
+
+    The timestamp defaults to 12 seconds after the head block, and its fork
+    gives the version. The fields follow the method sent: a pinned version
+    shapes them by a fork whose ``forkchoiceUpdated`` takes it, so a test
+    can send a method that does not match the timestamp. Authored fields
+    pass through unchanged.
     """
     attrs = step.payload_attributes
     assert attrs is not None
     head = dag.blocks[step.head]
-    if int(attrs.timestamp) == 0:
-        attrs.timestamp = HexNumber(head.timestamp + 12)
-    attrs_fork = fork.fork_at(block_number=0, timestamp=int(attrs.timestamp))
-    if attrs.withdrawals is None and attrs_fork.header_withdrawals_required():
-        attrs.withdrawals = []
-    if (
-        attrs.parent_beacon_block_root is None
-        and attrs_fork.header_beacon_root_required()
-    ):
-        attrs.parent_beacon_block_root = Hash(0xBEAC0)
-    if (
-        attrs.slot_number is None
-        and attrs_fork.engine_payload_attribute_slot_number()
-    ):
-        attrs.slot_number = HexNumber(head.slot + 1)
-    if (
-        attrs.target_gas_limit is None
-        and attrs_fork.engine_payload_attribute_target_gas_limit()
-    ):
-        attrs.target_gas_limit = HexNumber(head.gas_limit)
+    timestamp = int(attrs.timestamp) or head.timestamp + 12
+    attrs_fork = fork.fork_at(block_number=0, timestamp=timestamp)
     if step.version is None:
         version = attrs_fork.engine_forkchoice_updated_version()
         assert version is not None
         step.version = Number(version)
+    shape = _fork_taking_fcu_version(fork, attrs_fork, int(step.version))
+    defaults = PayloadAttributes.for_fork(
+        shape,
+        timestamp=timestamp,
+        target_gas_limit=head.gas_limit,
+        slot_number=head.slot + 1,
+        parent_beacon_block_root=(
+            Hash(0xBEAC0) if shape.header_beacon_root_required() else None
+        ),
+    )
+    step.payload_attributes = attrs.model_copy(
+        update={
+            name: getattr(defaults, name)
+            for name in PayloadAttributes.model_fields
+            if getattr(attrs, name) is None
+        }
+        | {"timestamp": HexNumber(timestamp)}
+    )
 
 
 def _bind_payload(

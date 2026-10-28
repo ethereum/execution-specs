@@ -293,6 +293,58 @@ def test_build_request_version_follows_attributes_fork(
     assert fcu.version == Amsterdam.engine_forkchoice_updated_version()
 
 
+@pytest.mark.parametrize(
+    "timestamp,version,shaped_like",
+    [
+        pytest.param(15_000, 3, BPO2ToAmsterdamAtTime15k.transitions_from()),
+        pytest.param(14_990, 4, Amsterdam),
+    ],
+    ids=["v3_at_amsterdam_time", "v4_before_amsterdam"],
+)
+def test_build_request_fields_follow_the_pinned_version(
+    default_t8n: TransitionTool,
+    timestamp: int,
+    version: int,
+    shaped_like: Fork,
+) -> None:
+    """
+    A build request pinned to a method that does not match its timestamp
+    carries that method's attribute fields, so the client's answer is the
+    fork mismatch rather than a malformed structure.
+    """
+    test = ReorgTest(
+        fork=BPO2ToAmsterdamAtTime15k,
+        pre=Alloc().with_genesis_accounts(),
+        blocks=[ReorgBlock(label="a1", timestamp=14_980)],
+        steps=[
+            NewPayloadStep(block="a1"),
+            build_on_a1(
+                timestamp,
+                version=version,
+                expect=[
+                    Outcome(
+                        id="unsupported",
+                        error_code=EngineAPIError.UnsupportedFork,
+                    )
+                ],
+            ),
+        ],
+    )
+    fixture = test.generate(
+        t8n=default_t8n, fixture_format=BlockchainEngineReorgFixture
+    ).fixture
+    assert isinstance(fixture, BlockchainEngineReorgFixture)
+    fcu = fixture.steps[1]
+    assert isinstance(fcu, ForkchoiceUpdatedStep)
+    assert fcu.payload_attributes is not None
+    for field in ("slot_number", "target_gas_limit"):
+        present = getattr(fcu.payload_attributes, field) is not None
+        assert (
+            present
+            == getattr(shaped_like, f"engine_payload_attribute_{field}")()
+        )
+
+
 def test_unsupported_fork_build_request_keeps_the_update(
     default_t8n: TransitionTool,
 ) -> None:
