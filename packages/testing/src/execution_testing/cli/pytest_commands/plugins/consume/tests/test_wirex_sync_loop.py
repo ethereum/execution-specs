@@ -49,6 +49,7 @@ from ..simulators.simulator_logic import test_via_wirex
 from ..simulators.wirex.sync_targets import SyncPath, SyncTargetCase
 
 SYNC_TIMEOUT = 30.0
+VERDICT_GRACE = 5.0
 ANNOUNCE_INTERVAL = 3.0
 POLL_INTERVAL = 0.005
 
@@ -363,6 +364,7 @@ def _run(
     peer: FakePeer | None = None,
     overrides: dict[int | str, Any] | None = None,
     genesis_header: FixtureHeader | None = None,
+    verdict_grace: float = 0.0,
     **case_knobs: Any,
 ) -> None:
     """
@@ -389,6 +391,7 @@ def _run(
         sync_timeout=SYNC_TIMEOUT,
         poll_interval=POLL_INTERVAL,
         announce_interval=ANNOUNCE_INTERVAL,
+        verdict_grace=verdict_grace,
     )
 
 
@@ -468,6 +471,49 @@ class TestDeadline:
         with pytest.raises(LoggedError, match=never):
             _run(clock, _engine(clock), expects_rejection=expects_rejection)
         assert SYNC_TIMEOUT <= clock.now < SYNC_TIMEOUT + 1
+
+    def test_a_served_silent_client_fails_after_the_grace(
+        self, clock: FakeClock, expects_rejection: bool
+    ) -> None:
+        """A client holding every block it needs fails once the grace ends."""
+        with pytest.raises(LoggedError, match="of being served every block"):
+            _run(
+                clock,
+                _engine(clock),
+                expects_rejection=expects_rejection,
+                verdict_grace=VERDICT_GRACE,
+            )
+        assert VERDICT_GRACE <= clock.now < VERDICT_GRACE + 1
+
+    def test_an_unserved_client_waits_for_the_timeout(
+        self, clock: FakeClock, expects_rejection: bool
+    ) -> None:
+        """The grace starts only once every needed block has been served."""
+        with pytest.raises(LoggedError, match=f"within {SYNC_TIMEOUT}s"):
+            _run(
+                clock,
+                _engine(clock),
+                expects_rejection=expects_rejection,
+                peer=FakePeer(CHAIN, unserved_bodies={1, 2}),
+                verdict_grace=VERDICT_GRACE,
+            )
+        assert SYNC_TIMEOUT <= clock.now < SYNC_TIMEOUT + 1
+
+    def test_a_verdict_within_the_grace_passes(
+        self, clock: FakeClock, expects_rejection: bool
+    ) -> None:
+        """A client that answers before the grace ends is not failed."""
+        verdict_at = VERDICT_GRACE - 1
+        verdict = INVALID if expects_rejection else VALID
+        _run(
+            clock,
+            _engine(
+                clock, lambda now: verdict if now >= verdict_at else SYNCING
+            ),
+            expects_rejection=expects_rejection,
+            imported_at=verdict_at,
+            verdict_grace=VERDICT_GRACE,
+        )
 
 
 ACCEPTANCE_SITES = {
@@ -1174,5 +1220,6 @@ def test_every_target_of_a_fixture_runs_and_is_judged(
             wirex_sync_timeout=SYNC_TIMEOUT,
             wirex_poll_interval=POLL_INTERVAL,
             wirex_announce_interval=ANNOUNCE_INTERVAL,
+            wirex_verdict_grace=0.0,
         )
     assert entered == [second]
