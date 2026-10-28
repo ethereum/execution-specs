@@ -2,7 +2,7 @@
 
 from typing import List, Tuple
 
-from execution_testing import Address, Alloc, Hash, Transaction
+from execution_testing import Address, Alloc, EngineAPIError, Hash, Transaction
 from execution_testing.fixtures.reorg import (
     ForkchoiceUpdatedStep,
     NewPayloadStep,
@@ -11,6 +11,13 @@ from execution_testing.fixtures.reorg import (
     Step,
 )
 from execution_testing.specs import ReorgBlock
+
+MIN_APPLIED_REORG_DEPTH = 8
+"""
+Reorgs at most this deep must be applied; ``-38006`` is accepted only for
+deeper ones. No client caps lower by default (geth 32, nethermind 64,
+erigon and besu 512, reth none).
+"""
 
 
 def applied(head: str, payload_id: bool = False) -> List[Outcome]:
@@ -23,6 +30,27 @@ def applied(head: str, payload_id: bool = False) -> List[Outcome]:
             payload_id="nonNull" if payload_id else None,
         )
     ]
+
+
+def reorg_outcomes(head: str, depth: int) -> List[Outcome]:
+    """
+    Outcomes of an FCU that moves the head ``depth`` blocks back, to a
+    canonical ancestor or onto a side chain: applied, or beyond
+    ``MIN_APPLIED_REORG_DEPTH`` refused as too deep.
+    """
+    outcomes = [
+        Outcome(
+            id="applied",
+            status="VALID",
+            latest_valid_hash=head,
+            head_moved=True,
+        )
+    ]
+    if depth > MIN_APPLIED_REORG_DEPTH:
+        outcomes.append(
+            Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg)
+        )
+    return outcomes
 
 
 def build_attrs(prev_randao: int, timestamp: int = 0) -> PayloadAttributes:

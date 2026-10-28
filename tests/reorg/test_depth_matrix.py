@@ -1,6 +1,6 @@
 """
-Reorg depth matrix: side-chain reorgs of depth D at client-default and tuned
-depth caps.
+Reorg depth matrix: side-chain reorgs and canonical-ancestor rewinds of depth
+D at client-default and tuned depth caps.
 
 Ports of:
 
@@ -30,10 +30,11 @@ the geth and erigon wrappers, and only with ethereum/hive#1608.
 
 These are capability measurements as much as conformance tests: how deep a
 side chain a client can still execute is not fixed by the specification, and
-a client that answers ``-38006`` is behaving correctly. A depth that no
-client can serve is therefore reported per client rather than treated as a
-single expected answer, and the per-step ``Outcomes`` list in the consumer
-log is what the capability table for EIP-8252 is derived from.
+a client that answers ``-38006`` beyond ``MIN_APPLIED_REORG_DEPTH`` is
+behaving correctly. A depth that no client can serve is therefore reported
+per client rather than treated as a single expected answer, and the
+per-step ``Outcomes`` list in the consumer log is what the capability table
+for EIP-8252 is derived from.
 """
 
 from typing import List
@@ -42,25 +43,34 @@ import pytest
 from execution_testing import Address, Alloc, EngineAPIError
 from execution_testing.fixtures.reorg import (
     AssertCanonicalStep,
+    AssertHeadStep,
     ForkchoiceUpdatedStep,
+    NewPayloadStep,
     Outcome,
     Step,
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
 
-from .helpers import chain
+from .helpers import MIN_APPLIED_REORG_DEPTH, chain, reorg_outcomes
 
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
 
+DISPUTED_STATE_WINDOW = (
+    "execution-apis: no state retention depth is specified; go-ethereum "
+    "keeps 128 state layers and cannot execute a side chain forking off "
+    "below them"
+)
+
 
 def two_branches(
-    pre: Alloc, depth: int
+    pre: Alloc, depth: int, probe: bool = False
 ) -> tuple[List[ReorgBlock], List[Step]]:
     """
     Fork point a1; canonical a2..a{depth+1} (depth blocks); side chain
     s2..s{depth+2} (depth+1 blocks). Steps deliver and apply the canonical
-    chain then deliver every side payload.
+    chain then deliver every side payload; a ``probe`` also accepts SYNCING
+    for them, disputed.
     """
     sink = Address(0xC0DE)
     blocks, steps = chain(pre, "a", depth + 1, recipient=sink)
@@ -74,11 +84,38 @@ def two_branches(
         recipient=sink,
         with_fcu=False,
     )
+    if probe:
+        side_steps = [
+            NewPayloadStep(
+                block=b.label,
+                expect=[
+                    Outcome(
+                        id="valid", status="VALID", latest_valid_hash=b.label
+                    ),
+                    Outcome(
+                        id="accepted",
+                        status="ACCEPTED",
+                        latest_valid_hash="null",
+                    ),
+                    Outcome(
+                        id="syncing",
+                        status="SYNCING",
+                        disputed=DISPUTED_STATE_WINDOW,
+                    ),
+                ],
+            )
+            for b in side
+        ]
     return blocks + side, steps + side_steps
 
 
-def matrix_steps(depth: int, applied_only: bool) -> List[Step]:
-    """FCU to the side tip, then (if applied) back to the canonical tip."""
+def matrix_steps(
+    depth: int, applied_only: bool, probe: bool = False
+) -> List[Step]:
+    """
+    FCU to the side tip, then (if applied) back to the canonical tip; a
+    ``probe`` also accepts SYNCING for the first, disputed.
+    """
     side_tip = f"s{depth + 2}"
     canon_tip = f"a{depth + 1}"
     expect = [
@@ -87,6 +124,12 @@ def matrix_steps(depth: int, applied_only: bool) -> List[Step]:
     if not applied_only:
         expect.append(
             Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg)
+        )
+    if probe:
+        expect.append(
+            Outcome(
+                id="syncing", status="SYNCING", disputed=DISPUTED_STATE_WINDOW
+            )
         )
     # Only reachable once the side reorg was applied; if refused, the head
     # is already the canonical tip.
@@ -143,6 +186,11 @@ def matrix_steps(depth: int, applied_only: bool) -> List[Step]:
                         ],
                     }
                 ),
+                **(
+                    {"syncing": [AssertHeadStep(latest=canon_tip)]}
+                    if probe
+                    else {}
+                ),
             },
         ),
     ]
@@ -154,12 +202,46 @@ def test_side_chain_reorg_depth_default(
     reorg_test: ReorgTestFiller, pre: Alloc, depth: int
 ) -> None:
     """
-    Client defaults: depth ≤ 8 must be applied by every client; deeper
-    reorgs may be refused with ``-38006`` (recorded per client) but must
-    never corrupt the canonical mapping.
+    Client defaults: a reorg within ``MIN_APPLIED_REORG_DEPTH`` must be
+    applied by every client; deeper reorgs may be refused with ``-38006``
+    (recorded per client) but must never corrupt the canonical mapping.
     """
     blocks, steps = two_branches(pre, depth)
-    steps += matrix_steps(depth, applied_only=depth <= 8)
+    steps += matrix_steps(depth, applied_only=depth <= MIN_APPLIED_REORG_DEPTH)
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("depth", [1, 8, 31, 32, 64, 128])
+def test_canonical_ancestor_reorg_depth_default(
+    reorg_test: ReorgTestFiller, pre: Alloc, depth: int
+) -> None:
+    """
+    Client defaults, rewinding instead of switching branches: FCU from
+    a{depth+1} back to its canonical ancestor a1, finalizing genesis.
+
+    A side-chain head never meets go-ethereum's depth cap, which it checks
+    only when the requested head is canonical and below the current one, so
+    this row is the one where geth may answer ``-38006``. Within
+    ``MIN_APPLIED_REORG_DEPTH`` the rewind must be applied.
+
+    reth's Ethereum engine answers such a rewind VALID and keeps its head
+    (``apply_chain_update``), which #786 does not allow, so it is expected
+    to fail here:
+    https://github.com/paradigmxyz/reth/blob/7c1ffbe6619ef07a53256489c5f5fd89a602202d/crates/engine/tree/src/tree/mod.rs#L1299-L1352
+    """
+    blocks, steps = chain(pre, "a", depth + 1, recipient=Address(0xC0DE))
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="a1",
+            safe="genesis",
+            finalized="genesis",
+            expect=reorg_outcomes("a1", depth),
+            branches={
+                "applied": [AssertCanonicalStep(blocks={1: "a1", 2: None})]
+            },
+        )
+    )
     reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
@@ -174,7 +256,10 @@ def test_side_chain_reorg_depth_tuned(
     knob run their defaults here (reth: unlimited; nethermind: 64; besu 512).
 
     Depths above 128 are capability probes rather than conformance
-    assertions. Measured 2026-09-16 (Cancun, five clients):
+    assertions: no state retention depth is specified, so a client that
+    cannot execute the side chain may answer its payloads and the FCU to
+    its tip with SYNCING, accepted as disputed. Measured 2026-09-16 (Cancun,
+    five clients, client defaults):
 
     ===== ======= ======= ========== ======= =======
     depth geth    reth    nethermind besu    erigon
@@ -200,10 +285,12 @@ def test_side_chain_reorg_depth_tuned(
     ``SYNCING``. Archive mode makes no difference - the layer window, not
     history retention, is the limit.
 
-    No client returned ``-38006`` at any depth, which is the datum EIP-8252
-    needs: the specified refusal code is unused, and clients instead degrade
-    into sync states (or, for besu, into ``INVALID``).
+    No client returned ``-38006`` here: on side chains clients degrade into
+    sync states (or, for besu, into ``INVALID``). go-ethereum checks its
+    depth cap only for canonical-ancestor rewinds, which
+    ``test_canonical_ancestor_reorg_depth_default`` covers.
     """
-    blocks, steps = two_branches(pre, depth)
-    steps += matrix_steps(depth, applied_only=True)
+    probe = depth > 128
+    blocks, steps = two_branches(pre, depth, probe=probe)
+    steps += matrix_steps(depth, applied_only=True, probe=probe)
     reorg_test(pre=pre, blocks=blocks, steps=steps, min_reorg_depth=depth + 8)

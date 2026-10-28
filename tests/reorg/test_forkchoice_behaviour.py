@@ -158,7 +158,7 @@ from execution_testing.fixtures.reorg import (
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
 
-from .helpers import applied, chain
+from .helpers import applied, chain, reorg_outcomes
 
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
@@ -167,24 +167,6 @@ DISPUTED_ZERO_SAFE = (
     "execution-apis#892: whether a zero safeBlockHash is legal once a block "
     "is finalized"
 )
-
-
-def rewind_outcomes(head: str) -> List[Outcome]:
-    """
-    FCU to a canonical ancestor: applied, or refused as too deep.
-
-    Skipping the update is only permitted for an ancestor of the latest known
-    finalized block, which is not the case for these rewinds.
-    """
-    return [
-        Outcome(
-            id="applied",
-            status="VALID",
-            latest_valid_hash=head,
-            head_moved=True,
-        ),
-        Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg),
-    ]
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -352,8 +334,9 @@ def test_reorg_to_older_canonical_ancestor_and_forward(
     nethermind
     ``forkchoiceUpdatedV1_processed_skips_reorg_only_when_head_is_ancestor_of_finalized``:
     after every new block, FCU back to a5 (a canonical ancestor above
-    finalized) then forward to the tip. #786: the rewind is applied or
-    refused (-38006); the forward FCU must always be VALID.
+    finalized) then forward to the tip. #786: the rewind, at most 5 deep
+    and so within ``MIN_APPLIED_REORG_DEPTH``, must be applied; the forward
+    FCU must always be VALID.
 
     reth's Ethereum engine answers such a rewind VALID and keeps its head
     (``apply_chain_update``), which #786 does not allow, so it is expected
@@ -383,14 +366,10 @@ def test_reorg_to_older_canonical_ancestor_and_forward(
                 head="a5",
                 safe="a5",
                 finalized="a1",
-                expect=rewind_outcomes("a5"),
+                expect=reorg_outcomes("a5", depth=i - 5),
                 branches={
                     "applied": [
                         AssertCanonicalStep(blocks={5: "a5", 6: None}),
-                        forward_fcu(tip),
-                    ],
-                    "refused": [
-                        AssertCanonicalStep(blocks={5: "a5", i: tip}),
                         forward_fcu(tip),
                     ],
                 },
@@ -894,8 +873,9 @@ def test_fcu_rewind_with_no_finalized(
 
     The no-reorg shortcut is conditional on a known ``finalizedBlockHash`` and
     on the head being an ancestor of it; with a zero finalized hash neither
-    holds, so the client must either apply the rewind or refuse it as too
-    deep. A VALID answer that leaves the head where it was is not legal here.
+    holds, so the client must apply the rewind, which is within
+    ``MIN_APPLIED_REORG_DEPTH``. A VALID answer that leaves the head where it
+    was is not legal here.
 
     reth's Ethereum engine answers such a rewind VALID and keeps its head
     (``apply_chain_update``), which #786 does not allow, so it is expected
@@ -907,15 +887,7 @@ def test_fcu_rewind_with_no_finalized(
         ForkchoiceUpdatedStep(
             head="a5",
             safe="a5",
-            expect=[
-                Outcome(
-                    id="applied",
-                    status="VALID",
-                    latest_valid_hash="a5",
-                    head_moved=True,
-                ),
-                Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg),
-            ],
+            expect=reorg_outcomes("a5", depth=3),
             branches={
                 "applied": [AssertCanonicalStep(blocks={5: "a5", 6: None})],
             },

@@ -34,7 +34,7 @@ from execution_testing.fixtures.reorg import (
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
 
-from .helpers import build_attrs, chain
+from .helpers import build_attrs, chain, reorg_outcomes
 
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
@@ -458,9 +458,10 @@ def test_fcu_rewind_to_canonical_ancestor_above_finalized(
     finalized=a5).
 
     a7 is above finalized: the client MUST rewind to a7 (VALID, latest = a7)
-    or refuse with ``-38006``; a pre-#786 VALID no-op that leaves the head at
-    a10 fails. Afterwards FCU(a10) must be VALID in either case and the chain
-    must continue.
+    rather than refuse with ``-38006``, as the rewind is within
+    ``MIN_APPLIED_REORG_DEPTH``; a pre-#786 VALID no-op that leaves the head
+    at a10 fails. Afterwards FCU(a10) must be VALID and the chain must
+    continue.
 
     reth's Ethereum engine answers such a rewind VALID and keeps its head
     (``apply_chain_update``), which #786 does not allow, so it is expected
@@ -478,43 +479,34 @@ def test_fcu_rewind_to_canonical_ancestor_above_finalized(
             ],
         )
     )
-    resume = [
-        ForkchoiceUpdatedStep(
-            head="a10",
-            safe="a10",
-            finalized="a5",
-            expect=[
-                Outcome(id="applied", status="VALID", latest_valid_hash="a10")
-            ],
-            branches={
-                "applied": [
-                    AssertCanonicalStep(blocks={7: "a7", 8: "a8", 10: "a10"}),
-                ]
-            },
-        )
-    ]
     steps.append(
         ForkchoiceUpdatedStep(
             head="a7",
             safe="a7",
             finalized="a5",
-            expect=[
-                Outcome(
-                    id="applied",
-                    status="VALID",
-                    latest_valid_hash="a7",
-                    head_moved=True,
-                ),
-                Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg),
-            ],
+            expect=reorg_outcomes("a7", depth=3),
             branches={
                 "applied": [
                     AssertCanonicalStep(blocks={7: "a7", 8: None, 10: None}),
-                    *resume,
-                ],
-                "refused": [
-                    AssertCanonicalStep(blocks={7: "a7", 10: "a10"}),
-                    *resume,
+                    ForkchoiceUpdatedStep(
+                        head="a10",
+                        safe="a10",
+                        finalized="a5",
+                        expect=[
+                            Outcome(
+                                id="applied",
+                                status="VALID",
+                                latest_valid_hash="a10",
+                            )
+                        ],
+                        branches={
+                            "applied": [
+                                AssertCanonicalStep(
+                                    blocks={7: "a7", 8: "a8", 10: "a10"}
+                                ),
+                            ]
+                        },
+                    ),
                 ],
             },
         )
