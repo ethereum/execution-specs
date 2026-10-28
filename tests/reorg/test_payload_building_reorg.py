@@ -231,6 +231,8 @@ def test_pool_tx_reorged_out_of_built_payload(
         NewPayloadStep(block="b1"),
         ForkchoiceUpdatedStep(head="a1"),
         SendRawTransactionStep(tx=pool_tx),
+        # Pending: no receipt yet.
+        AssertReceiptStep(tx=pool_tx, block=None),
         ForkchoiceUpdatedStep(
             head="a1",
             payload_attributes=build_attrs(0x0A),
@@ -241,6 +243,8 @@ def test_pool_tx_reorged_out_of_built_payload(
                         bind="p", parent="a1", transactions_include=[pool_tx]
                     ),
                     NewPayloadStep(block="p"),
+                    # Delivered but not canonical: still no receipt.
+                    AssertReceiptStep(tx=pool_tx, block=None),
                     ForkchoiceUpdatedStep(
                         head="p",
                         expect=applied("p"),

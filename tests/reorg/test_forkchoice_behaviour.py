@@ -223,7 +223,14 @@ def test_head_follows_fcu_regardless_of_length(
     canonical_after.update({i: f"a{i}" for i in range(1, fork_point + 1)})
     for i in range(fork_point + fork_len + 1, canonical_len + 1):
         canonical_after[i] = None  # type: ignore[assignment]
+    a_tip = f"a{canonical_len}"
+    a_canonical = {i: f"a{i}" for i in range(1, canonical_len + 1)}
     steps += [NewPayloadStep(block=b.label) for b in b_blocks]
+    # Delivering the fork moves neither the head nor the canonical chain.
+    steps += [
+        AssertHeadStep(latest=a_tip),
+        AssertCanonicalStep(blocks=a_canonical),
+    ]
     steps.append(
         ForkchoiceUpdatedStep(
             head=fork_tip,
@@ -234,20 +241,11 @@ def test_head_follows_fcu_regardless_of_length(
         )
     )
     # And back to the original tip.
-    a_tip = f"a{canonical_len}"
     steps.append(
         ForkchoiceUpdatedStep(
             head=a_tip,
             expect=applied(a_tip),
-            branches={
-                "applied": [
-                    AssertCanonicalStep(
-                        blocks={
-                            i: f"a{i}" for i in range(1, canonical_len + 1)
-                        }
-                    )
-                ]
-            },
+            branches={"applied": [AssertCanonicalStep(blocks=a_canonical)]},
         )
     )
     _ = b_steps
@@ -306,13 +304,12 @@ def test_reorg_back_and_forth_between_branches(
     b_ext, _ = chain(pre, "b", 6, parent="a3", start=4, value=2)
     blocks = base + a_ext + b_ext
     steps += [NewPayloadStep(block=b.label) for b in a_ext + b_ext]
+    a_canonical = {i: f"a{i}" for i in range(1, 10)}
     steps.append(
         ForkchoiceUpdatedStep(
             head="a9",
             expect=applied("a9"),
-            branches={
-                "applied": [AssertCanonicalStep(blocks={9: "a9", 4: "a4"})]
-            },
+            branches={"applied": [AssertCanonicalStep(blocks=a_canonical)]},
         )
     )
     for i in range(4, 10):
@@ -324,8 +321,8 @@ def test_reorg_back_and_forth_between_branches(
                     "applied": [
                         AssertCanonicalStep(
                             blocks={
-                                i: f"b{i}",
-                                3: "a3",
+                                **{h: f"a{h}" for h in range(1, 4)},
+                                **{h: f"b{h}" for h in range(4, i + 1)},
                                 **({i + 1: None} if i < 9 else {}),
                             }
                         )
@@ -338,9 +335,7 @@ def test_reorg_back_and_forth_between_branches(
                 head="a9",
                 expect=applied("a9"),
                 branches={
-                    "applied": [
-                        AssertCanonicalStep(blocks={9: "a9", i: f"a{i}"})
-                    ]
+                    "applied": [AssertCanonicalStep(blocks=a_canonical)]
                 },
             )
         )
