@@ -93,8 +93,9 @@ def test_bad_block_hash_on_new_payload(
     """
     Hive ``BadHashOnNewPayload``: a payload whose ``blockHash`` does not match
     its contents is ``INVALID`` with a null latestValidHash (shanghai.md
-    supplants V1's ``INVALID_BLOCK_HASH``); the head does not move; a valid
-    child of the *real* block remains deliverable.
+    supplants V1's ``INVALID_BLOCK_HASH``); the head does not move. The same
+    payload with its correct hash is then deliverable and becomes the head,
+    so the client recorded neither the claimed hash nor the contents as bad.
     """
     blocks, steps = chain(pre, "a", 3, recipient=SINK)
     parent = "a3"
@@ -104,14 +105,16 @@ def test_bad_block_hash_on_new_payload(
         steps.append(NewPayloadStep(block="s3"))
         parent = "s3"
     sender = pre.fund_eoa()
-    blocks.append(
+    tx = Transaction(sender=sender, nonce=0, to=sender, value=1)
+    blocks += [
         ReorgBlock(
             label="badhash",
             parent=parent,
-            txs=[Transaction(sender=sender, nonce=0, to=sender, value=1)],
+            txs=[tx],
             engine_new_payload_block_hash=Hash(0xBAD),
-        )
-    )
+        ),
+        ReorgBlock(label="real", parent=parent, txs=[tx]),
+    ]
     steps += [
         NewPayloadStep(
             block="badhash",
@@ -130,6 +133,8 @@ def test_bad_block_hash_on_new_payload(
             ],
         ),
         AssertHeadStep(latest="a3"),
+        NewPayloadStep(block="real"),
+        ForkchoiceUpdatedStep(head="real", expect=applied("real")),
     ]
     reorg_test(pre=pre, blocks=blocks, steps=steps)
 
