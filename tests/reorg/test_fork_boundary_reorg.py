@@ -24,13 +24,15 @@ withdrawals or execution requests). A reorg may move the head from a
 post-fork block to a pre-fork block and back.
 """
 
-from typing import List
+from typing import Any, Dict, List
 
 import pytest
-from execution_testing import Address, Alloc, Transaction
+from execution_testing import EOA, Address, Alloc, Transaction, Withdrawal
 from execution_testing.fixtures.reorg import (
+    AccountExpectation,
     AssertCanonicalStep,
     AssertHeadStep,
+    AssertStateStep,
     ForkchoiceUpdatedStep,
     NewPayloadStep,
     Outcome,
@@ -46,51 +48,104 @@ REFERENCE_SPEC_VERSION = "execution-apis#786"
 FORK_TS = 15_000
 
 
+def withdrawn(gwei_to: Dict[EOA, int]) -> AssertStateStep:
+    """Balances of withdrawal recipients, from the gwei credited to each."""
+    return AssertStateStep(
+        accounts={
+            address: AccountExpectation(balance=gwei * 10**9)
+            for address, gwei in gwei_to.items()
+        }
+    )
+
+
 @pytest.mark.valid_at_transition_to("Shanghai", subsequent_forks=True)
+@pytest.mark.parametrize("side_activates", ["later", "earlier"])
 def test_reorg_across_fork_boundary(
-    reorg_test: ReorgTestFiller, pre: Alloc
+    reorg_test: ReorgTestFiller, pre: Alloc, side_activates: str
 ) -> None:
     """
-    Canonical: a1..a3 pre-fork, a4 the first post-fork block (ts 15000),
-    a5 post-fork. Side chain off a3: s4 pre-fork (ts 14988), s5 post-fork.
-    Head moves a5 -> s4 (back before the fork) -> s5 -> a5. Every FCU is
-    VALID and the canonical mapping follows.
+    Canonical a1..a5 and a side chain s4, s5 off a3 cross the fork at
+    different heights. ``later``: a4 is the first post-fork block (ts
+    15000) and s4 is still pre-fork (ts 14988). ``earlier``, hive's
+    "canonical block 8, side block 7" mirror: a4 is pre-fork and s4
+    post-fork, so a post-fork side block is imported at a height where the
+    canonical chain is still pre-fork. Every post-fork block credits a
+    withdrawal to its branch's recipient. Head moves a5 -> s4 -> s5 -> a5;
+    every FCU is VALID, and the canonical mapping and both recipients'
+    balances follow, so withdrawals of the losing branch are reverted.
     """
+    later = side_activates == "later"
     ca = pre.fund_eoa()
     cs = pre.fund_eoa()
     sink = Address(0xC0DE)
+    payee_a = pre.fund_eoa(amount=0)
+    payee_s = pre.fund_eoa(amount=0)
+
+    def block(
+        label: str,
+        sender: EOA,
+        nonce: int,
+        withdrawal_to: Address | None = None,
+        **kwargs: Any,
+    ) -> ReorgBlock:
+        return ReorgBlock(
+            label=label,
+            txs=[Transaction(sender=sender, nonce=nonce, to=sink, value=1)],
+            withdrawals=(
+                [
+                    Withdrawal(
+                        index=nonce,
+                        validator_index=0,
+                        address=withdrawal_to,
+                        amount=1,
+                    )
+                ]
+                if withdrawal_to is not None
+                else None
+            ),
+            **kwargs,
+        )
+
     blocks = [
-        ReorgBlock(
-            label="a1",
-            parent="genesis",
-            txs=[Transaction(sender=ca, nonce=0, to=sink, value=1)],
+        block("a1", ca, 0, parent="genesis"),
+        block("a2", ca, 1),
+        block("a3", ca, 2),
+        block(
+            "a4",
+            ca,
+            3,
+            payee_a if later else None,
+            timestamp=FORK_TS if later else FORK_TS - 12,
         ),
-        ReorgBlock(
-            label="a2", txs=[Transaction(sender=ca, nonce=1, to=sink, value=1)]
-        ),
-        ReorgBlock(
-            label="a3", txs=[Transaction(sender=ca, nonce=2, to=sink, value=1)]
-        ),
-        ReorgBlock(
-            label="a4",
-            timestamp=FORK_TS,
-            txs=[Transaction(sender=ca, nonce=3, to=sink, value=1)],
-        ),
-        ReorgBlock(
-            label="a5", txs=[Transaction(sender=ca, nonce=4, to=sink, value=1)]
-        ),
-        ReorgBlock(
-            label="s4",
+        block("a5", ca, 4, payee_a),
+        block(
+            "s4",
+            cs,
+            0,
+            None if later else payee_s,
             parent="a3",
-            timestamp=FORK_TS - 12,
-            txs=[Transaction(sender=cs, nonce=0, to=sink, value=2)],
+            timestamp=FORK_TS - 12 if later else FORK_TS,
         ),
-        ReorgBlock(
-            label="s5",
-            timestamp=FORK_TS,
-            txs=[Transaction(sender=cs, nonce=1, to=sink, value=2)],
-        ),
+        block("s5", cs, 1, payee_s),
     ]
+    # Gwei withdrawn to each recipient with each head.
+    credited = (
+        {
+            "a5": {payee_a: 2, payee_s: 0},
+            "s4": {payee_a: 0, payee_s: 0},
+            "s5": {payee_a: 0, payee_s: 1},
+        }
+        if later
+        else {
+            "a5": {payee_a: 1, payee_s: 0},
+            "s4": {payee_a: 0, payee_s: 1},
+            "s5": {payee_a: 0, payee_s: 2},
+        }
+    )
+
+    def balances(head: str) -> AssertStateStep:
+        return withdrawn(credited[head])
+
     steps: List[Step] = []
     for label in ("a1", "a2", "a3", "a4", "a5"):
         steps += [
@@ -98,20 +153,27 @@ def test_reorg_across_fork_boundary(
             ForkchoiceUpdatedStep(head=label),
         ]
     steps += [
+        balances("a5"),
         NewPayloadStep(block="s4"),
         NewPayloadStep(block="s5"),
         ForkchoiceUpdatedStep(
             head="s4",
             expect=applied("s4"),
             branches={
-                "applied": [AssertCanonicalStep(blocks={4: "s4", 5: None})]
+                "applied": [
+                    AssertCanonicalStep(blocks={4: "s4", 5: None}),
+                    balances("s4"),
+                ]
             },
         ),
         ForkchoiceUpdatedStep(
             head="s5",
             expect=applied("s5"),
             branches={
-                "applied": [AssertCanonicalStep(blocks={4: "s4", 5: "s5"})]
+                "applied": [
+                    AssertCanonicalStep(blocks={4: "s4", 5: "s5"}),
+                    balances("s5"),
+                ]
             },
         ),
         ForkchoiceUpdatedStep(
@@ -119,7 +181,8 @@ def test_reorg_across_fork_boundary(
             expect=applied("a5"),
             branches={
                 "applied": [
-                    AssertCanonicalStep(blocks={3: "a3", 4: "a4", 5: "a5"})
+                    AssertCanonicalStep(blocks={3: "a3", 4: "a4", 5: "a5"}),
+                    balances("a5"),
                 ]
             },
         ),
@@ -136,11 +199,18 @@ def test_sibling_first_fork_blocks(
     Two competing *first* post-fork blocks on the last pre-fork block (hive
     ``WithdrawalsReorgSpec`` "Fork on Block 8 - 10 Block Re-Org" reduced):
     both VALID, head switches between them, then a child of the loser
-    extends and takes the head.
+    extends and takes the head. Each first post-fork block credits a
+    withdrawal to its own recipient, checked after every head move.
     """
     ca = pre.fund_eoa()
     cs = pre.fund_eoa()
     sink = Address(0xC0DE)
+    payee_a = pre.fund_eoa(amount=0)
+    payee_b = pre.fund_eoa(amount=0)
+
+    def withdrawal(to: Address) -> List[Withdrawal]:
+        return [Withdrawal(index=0, validator_index=0, address=to, amount=1)]
+
     blocks = [
         ReorgBlock(
             label="a1",
@@ -151,17 +221,29 @@ def test_sibling_first_fork_blocks(
             label="a2",
             timestamp=FORK_TS,
             txs=[Transaction(sender=ca, nonce=1, to=sink, value=1)],
+            withdrawals=withdrawal(payee_a),
         ),
         ReorgBlock(
             label="b2",
             parent="a1",
             timestamp=FORK_TS + 12,
             txs=[Transaction(sender=cs, nonce=0, to=sink, value=2)],
+            withdrawals=withdrawal(payee_b),
         ),
         ReorgBlock(
             label="b3", txs=[Transaction(sender=cs, nonce=1, to=sink, value=2)]
         ),
     ]
+
+    def select(
+        head: str, gwei_to: Dict[EOA, int], *checks: Step
+    ) -> ForkchoiceUpdatedStep:
+        return ForkchoiceUpdatedStep(
+            head=head,
+            expect=applied(head),
+            branches={"applied": [*checks, withdrawn(gwei_to)]},
+        )
+
     steps: List[Step] = [
         NewPayloadStep(block="a1"),
         ForkchoiceUpdatedStep(head="a1"),
@@ -177,20 +259,18 @@ def test_sibling_first_fork_blocks(
                 Outcome(id="valid", status="VALID", latest_valid_hash="b2")
             ],
         ),
-        ForkchoiceUpdatedStep(head="a2", expect=applied("a2")),
-        ForkchoiceUpdatedStep(
-            head="b2",
-            expect=applied("b2"),
-            branches={"applied": [AssertCanonicalStep(blocks={2: "b2"})]},
+        select("a2", {payee_a: 1, payee_b: 0}),
+        select(
+            "b2",
+            {payee_a: 0, payee_b: 1},
+            AssertCanonicalStep(blocks={2: "b2"}),
         ),
-        ForkchoiceUpdatedStep(head="a2", expect=applied("a2")),
+        select("a2", {payee_a: 1, payee_b: 0}),
         NewPayloadStep(block="b3"),
-        ForkchoiceUpdatedStep(
-            head="b3",
-            expect=applied("b3"),
-            branches={
-                "applied": [AssertCanonicalStep(blocks={2: "b2", 3: "b3"})]
-            },
+        select(
+            "b3",
+            {payee_a: 0, payee_b: 1},
+            AssertCanonicalStep(blocks={2: "b2", 3: "b3"}),
         ),
     ]
     reorg_test(pre=pre, blocks=blocks, steps=steps)
