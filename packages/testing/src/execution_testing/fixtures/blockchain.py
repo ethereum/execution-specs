@@ -700,6 +700,37 @@ class FixtureNewPayloadRequest(CamelModel):
     new_payload_version: Number
 
 
+def engine_new_payload_params(
+    fork: Fork,
+    payload: FixtureExecutionPayload,
+    *,
+    blob_hashes: List[Hash] | None,
+    parent_beacon_block_root: Hash | None,
+    requests: List[Bytes] | None,
+) -> EngineNewPayloadParameters:
+    """
+    Build the ``engine_newPayloadVX`` parameters ``fork`` takes: the payload,
+    then the blob versioned hashes, the parent beacon block root and the
+    execution requests from the fork that added each.
+    """
+    params: List[Any] = [payload]
+    if fork.engine_new_payload_blob_hashes():
+        if blob_hashes is None:
+            raise ValueError(f"Blob hashes are required for {fork}.")
+        params.append(blob_hashes)
+    if fork.engine_new_payload_beacon_root():
+        if parent_beacon_block_root is None:
+            raise ValueError(
+                f"Parent beacon block root is required for {fork}."
+            )
+        params.append(parent_beacon_block_root)
+    if fork.engine_new_payload_requests():
+        if requests is None:
+            raise ValueError(f"Requests are required for {fork}.")
+        params.append(requests)
+    return cast(EngineNewPayloadParameters, tuple(params))
+
+
 class FixtureEngineNewPayload(FixtureNewPayloadRequest):
     """
     Representation of the `engine_newPayloadVX` information to be sent using
@@ -833,29 +864,12 @@ class FixtureEngineNewPayload(FixtureNewPayloadRequest):
                 execution_payload
             )
 
-        params: List[Any] = [execution_payload]
-        if fork.engine_new_payload_blob_hashes():
-            blob_hashes = Transaction.list_blob_versioned_hashes(transactions)
-            if blob_hashes is None:
-                raise ValueError(f"Blob hashes are required for ${fork}.")
-            params.append(blob_hashes)
-
-        if fork.engine_new_payload_beacon_root():
-            parent_beacon_block_root = header.parent_beacon_block_root
-            if parent_beacon_block_root is None:
-                raise ValueError(
-                    f"Parent beacon block root is required for ${fork}."
-                )
-            params.append(parent_beacon_block_root)
-
-        if fork.engine_new_payload_requests():
-            if requests is None:
-                raise ValueError(f"Requests are required for ${fork}.")
-            params.append(requests)
-
-        payload_params: EngineNewPayloadParameters = cast(
-            EngineNewPayloadParameters,
-            tuple(params),
+        payload_params = engine_new_payload_params(
+            fork,
+            execution_payload,
+            blob_hashes=Transaction.list_blob_versioned_hashes(transactions),
+            parent_beacon_block_root=header.parent_beacon_block_root,
+            requests=requests,
         )
         # Auto-derive phase from transactions if the caller did not pass one.
         kwargs.setdefault("phase", cls.derive_phase(transactions))

@@ -22,6 +22,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureHeader,
     PayloadAttributes,
     PayloadStatusEnum,
+    engine_new_payload_params,
 )
 from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
@@ -280,14 +281,14 @@ class StepRunner:
         )
         version = fork.engine_new_payload_version()
         assert version is not None
-        params: list = [bound.payload]
-        if fork.engine_new_payload_blob_hashes():
-            params.append(bound.versioned_hashes)
-        if fork.engine_new_payload_beacon_root():
-            params.append(bound.parent_beacon_block_root)
-        if fork.engine_new_payload_requests():
-            params.append(bound.execution_requests or [])
-        return params, version
+        params = engine_new_payload_params(
+            fork,
+            bound.payload,
+            blob_hashes=bound.versioned_hashes,
+            parent_beacon_block_root=bound.parent_beacon_block_root,
+            requests=bound.execution_requests,
+        )
+        return list(params), version
 
     def new_payload(self, name: str, step: NewPayloadStep, depth: int) -> None:
         """Send ``engine_newPayloadVX`` and check the outcome."""
