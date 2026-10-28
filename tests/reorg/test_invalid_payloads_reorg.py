@@ -224,18 +224,18 @@ def test_invalid_payload_field(
                 Outcome(
                     id="invalid", status="INVALID", latest_valid_hash=parent
                 ),
-                # Some clients reject malformed number/timestamp before
-                # linking the parent and answer with a null lvh.
-                Outcome(
-                    id="invalid_unlinked",
-                    status="INVALID",
-                    latest_valid_hash="null",
-                ),
-                # A wrong number breaks (parentHash, number-1) linking: the
-                # client may treat the parent as unknown (hive allows SYNCING
-                # for InvalidNumber).
                 *(
-                    [Outcome(id="syncing", status="SYNCING")]
+                    [
+                        Outcome(
+                            id="syncing",
+                            status="SYNCING",
+                            disputed=(
+                                "go-ethereum looks the parent up by "
+                                "(parentHash, number - 1), so a wrong number "
+                                "reads as an unknown parent"
+                            ),
+                        )
+                    ]
                     if field == "number"
                     else []
                 ),
