@@ -47,6 +47,7 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_GAS_USED: "block gas used mismatch",
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: "block is too large: ",
         BlockException.INVALID_BASEFEE_PER_GAS: "block base fee mismatch",
+        BlockException.INVALID_SLOT_NUMBER: "invalid slot number:",
         BlockException.EXTRA_DATA_TOO_BIG: "invalid payload extra data",
         BlockException.INVALID_LOG_BLOOM: "header bloom filter mismatch",
     }
