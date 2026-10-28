@@ -7,8 +7,9 @@ A fixture announcing several sync targets runs each target on its own
 isolated client. The "Rejection Tests" and "Test Ordering and Client
 Reuse" sections of `docs/running_tests/consume/wirex.md` explain why.
 
-This module overrides `multi_test_client`'s `client` fixture, so the
-wirex conftest lists it after `multi_test_client` in `pytest_plugins`.
+This module overrides `multi_test_client`'s `client` fixture and
+`engine_api`'s `engine_rpc` fixture, so the wirex conftest lists it
+after both in `pytest_plugins`.
 It cannot live in the conftest itself: the conftest registers before
 the plugins it lists, and pytest prefers the fixture of the most
 recently registered plugin.
@@ -149,6 +150,20 @@ def build_engine_rpc(
         response_validation_context=context,
         request_timeout=ENGINE_REQUEST_TIMEOUT,
     )
+
+
+@pytest.fixture(scope="function")
+def engine_rpc(
+    client: Client, client_exception_mapper: ExceptionMapper | None
+) -> Generator[EngineRPC, None, None]:
+    """
+    Provide the Engine RPC handle of this test's client.
+
+    Overrides `engine_api`'s fixture, so a test's first target is
+    bounded by `ENGINE_REQUEST_TIMEOUT` like every further one.
+    """
+    with build_engine_rpc(client, client_exception_mapper) as rpc:
+        yield rpc
 
 
 @pytest.fixture(scope="function")

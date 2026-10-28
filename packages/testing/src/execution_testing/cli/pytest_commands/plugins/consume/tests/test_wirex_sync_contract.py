@@ -569,6 +569,26 @@ class TestEngineRequestTimeout:
             assert engine_rpc.url == "http://10.0.0.2:8551"
             assert engine_rpc.request_timeout == ENGINE_REQUEST_TIMEOUT
 
+    def test_a_test_s_first_target_uses_the_engine_timeout(self) -> None:
+        """The `engine_rpc` fixture of a test's own client is bounded too."""
+        client = cast(Any, SimpleNamespace(id="c", ip="10.0.0.2"))
+        fixture = fixture_body(client_policy.engine_rpc)(
+            client=client, client_exception_mapper=None
+        )
+        engine_rpc = next(fixture)
+        assert engine_rpc.request_timeout == ENGINE_REQUEST_TIMEOUT
+        fixture.close()
+
+    def test_the_override_registers_after_the_shared_fixture(self) -> None:
+        """
+        `client_policy` follows `engine_api` in the wirex plugins.
+
+        Pytest prefers the fixture of the most recently registered
+        plugin, so this order makes the override win.
+        """
+        plugins = [name.rsplit(".", 1)[-1] for name in wirex.pytest_plugins]
+        assert plugins.index("client_policy") > plugins.index("engine_api")
+
 
 class _DroppedPeer:
     """A group's peer whose client hung up after the previous test."""
