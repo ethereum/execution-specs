@@ -28,7 +28,7 @@ from typing import (
 
 from pydantic import Field
 
-from execution_testing.base_types import Hash, Number
+from execution_testing.base_types import Number
 from execution_testing.client_clis import FillerBackend, LazyAlloc
 from execution_testing.fixtures import (
     BlockchainEngineReorgFixture,
@@ -74,17 +74,13 @@ class ReorgBlock(Block):
 
     label: BlockLabel
     parent: BlockRef | None = None
-    payload_block_hash: Hash | None = None
-    """Override ``blockHash`` in the engine payload only (hash mismatch)."""
-    payload_parent_hash: Hash | None = None
-    """Override ``parentHash`` in the engine payload only."""
 
     @property
     def payload_corrupted(self) -> bool:
-        """Whether the engine payload is deliberately inconsistent."""
+        """Whether the engine payload's hashes are deliberately wrong."""
         return (
-            self.payload_block_hash is not None
-            or self.payload_parent_hash is not None
+            self.engine_new_payload_block_hash is not None
+            or self.engine_new_payload_parent_hash is not None
         )
 
 
@@ -281,15 +277,6 @@ class ReorgTest(BlockchainTest):
                     block_number=int(built.header.number),
                 )
             payload = built.get_fixture_engine_new_payload()
-            if block.payload_corrupted:
-                overrides: Dict[str, Hash] = {}
-                if block.payload_block_hash is not None:
-                    overrides["block_hash"] = block.payload_block_hash
-                if block.payload_parent_hash is not None:
-                    overrides["parent_hash"] = block.payload_parent_hash
-                params: List[Any] = list(payload.params)
-                params[0] = params[0].model_copy(update=overrides)
-                payload = payload.model_copy(update={"params": tuple(params)})
             fixture_blocks[block.label] = FixtureReorgBlock(
                 parent=parent,
                 payload=FixtureNewPayloadRequest(

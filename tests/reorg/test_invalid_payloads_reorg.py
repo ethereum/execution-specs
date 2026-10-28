@@ -108,7 +108,7 @@ def test_bad_block_hash_on_new_payload(
             label="badhash",
             parent=parent,
             txs=[Transaction(sender=sender, nonce=0, to=sender, value=1)],
-            payload_block_hash=Hash(0xBAD),
+            engine_new_payload_block_hash=Hash(0xBAD),
         )
     )
     steps += [
@@ -150,8 +150,8 @@ def test_parent_hash_equals_block_hash(
             label="selfparent",
             parent="a2",
             txs=[Transaction(sender=sender, nonce=0, to=sender, value=1)],
-            payload_parent_hash=Hash(0x5E1F),
-            payload_block_hash=Hash(0x5E1F),
+            engine_new_payload_parent_hash=Hash(0x5E1F),
+            engine_new_payload_block_hash=Hash(0x5E1F),
         )
     )
     steps += [

@@ -1,6 +1,6 @@
 """Test types from execution_testing.specs."""
 
-from typing import List
+from typing import Any, List
 from unittest.mock import sentinel
 
 import pytest
@@ -11,6 +11,7 @@ from execution_testing.base_types import (
     Bytes,
     Hash,
     HeaderNonce,
+    HexNumber,
 )
 from execution_testing.client_clis import Result
 from execution_testing.client_clis.cli_types import LazyAllocStr
@@ -178,6 +179,7 @@ def built_block(
     engine_new_payload_block_access_list: Bytes | None = None,
     txs: List[Transaction] | None = None,
     withdrawals: List[Withdrawal] | None = None,
+    **overrides: Any,
 ) -> BuiltBlock:
     """Generate a dummy built block with all default values."""
     return BuiltBlock(
@@ -194,6 +196,7 @@ def built_block(
         rlp_modifier=rlp_modifier,
         block_access_list=block_access_list,
         engine_new_payload_block_access_list=engine_new_payload_block_access_list,
+        **overrides,
     )
 
 
@@ -314,6 +317,16 @@ class TestDeriveEnginePayloadModifier:
         ).engine_payload_modifier()
         assert isinstance(modifier, FixtureExecutionPayloadModifier)
         assert modifier.block_access_list == Bytes(b"")
+
+    def test_explicit_overrides_combine(self) -> None:
+        """Every explicit payload override applies, not only the first."""
+        modifier = built_block(
+            engine_new_payload_slot_number=HexNumber(7),
+            engine_new_payload_block_hash=Hash(0xBAD),
+        ).engine_payload_modifier()
+        assert isinstance(modifier, FixtureExecutionPayloadModifier)
+        assert modifier.slot_number == 7
+        assert modifier.block_hash == Hash(0xBAD)
 
 
 class TestEnginePayloadOnlyOverrides:

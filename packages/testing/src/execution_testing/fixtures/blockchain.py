@@ -553,6 +553,8 @@ class FixtureExecutionPayloadModifier(CamelModel):
 
     block_access_list: Removable | Bytes | None = None
     slot_number: Removable | HexNumber | None = None
+    block_hash: Hash | None = None
+    parent_hash: Hash | None = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """Sentinel to specify that a payload field should be removed."""
