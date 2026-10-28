@@ -1449,7 +1449,7 @@ class BlockchainTest(BaseTest):
             # state before it calls the contract, so the transition tool
             # leaves an empty contract out of the BAL. List it; otherwise the
             # BAL would be a second defect.
-            bal = bal.with_accounts(
+            augmented_bal = bal.with_accounts(
                 empty_system_contracts(
                     fork,
                     previous_alloc.materialize()
@@ -1457,7 +1457,21 @@ class BlockchainTest(BaseTest):
                     else previous_alloc,
                 )
             )
-            header.block_access_list_hash = Hash(bal.rlp.keccak256())
+            if augmented_bal is not bal:
+                bal = augmented_bal
+                header.block_access_list_hash = Hash(bal.rlp.keccak256())
+            max_items = (
+                header.gas_limit // fork.gas_costs().BLOCK_ACCESS_LIST_ITEM
+            )
+            if bal.item_count() > max_items:
+                raise Exception(
+                    f"test correctness: block number {int(env.number)} has "
+                    "an empty system contract, and listing the accounts it "
+                    f"touches takes the block access list to "
+                    f"{bal.item_count()} items, over the EIP-7928 cap of "
+                    f"{max_items} at this gas limit. The fixture would carry "
+                    "two defects and name one. Raise the block gas limit."
+                )
 
         built_block_kwargs: Dict[str, Any] = dict(
             header=header,
