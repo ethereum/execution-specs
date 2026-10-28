@@ -25,8 +25,8 @@ Ports of:
 Client depth knobs (as run in hive wrappers): geth ``--engine.maxreorgdepth``
 (default 32, 0 = unlimited), erigon ``MAX_REORG_DEPTH`` (512), nethermind
 ``Reorganization.MaxDepth`` (64), besu ``--bonsai-historical-block-limit``
-(512 trie logs), reth: none. ``HIVE_ENGINE_MAX_REORG_DEPTH`` is honoured by
-the geth and erigon wrappers.
+(512 trie logs), reth: none. ``HIVE_ENGINE_MAX_REORG_DEPTH`` reaches only
+the geth and erigon wrappers, and only with ethereum/hive#1608.
 
 These are capability measurements as much as conformance tests: how deep a
 side chain a client can still execute is not fixed by the specification, and

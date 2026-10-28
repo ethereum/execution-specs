@@ -25,7 +25,7 @@ For each [`HiveFixture`](#hivefixture) test object in the JSON fixture file, per
     - [`network`](#-network-fork) to configure the execution fork schedule according to the [`Fork`](./common_types.md#fork) type definition.
     - [`pre`](#-pre-alloc) as the starting state allocation of the execution environment for the test.
     - [`genesisBlockHeader`](#-genesisblockheader-fixtureheader) as the genesis block header.
-    - `HIVE_ENGINE_MAX_REORG_DEPTH`, derived from [`minReorgDepth`](#-minreorgdepth-optionalnumber), if present.
+    - `HIVE_ENGINE_MAX_REORG_DEPTH`, derived from [`minReorgDepth`](#-minreorgdepth-optionalnumber), if present. Only the geth and erigon hive wrappers read it, and only from [ethereum/hive#1608](https://github.com/ethereum/hive/pull/1608) on.
 
 2. Send an initial `engine_forkchoiceUpdatedVX` to the genesis block and verify it returns `VALID`; verify the client's genesis block hash via `eth_getBlockByNumber(0)`.
 

@@ -3,20 +3,18 @@ Pytest fixtures for the `consume reorg` simulator.
 
 One fresh client per fixture; the client environment is the standard engine
 environment plus ``HIVE_ENGINE_MAX_REORG_DEPTH`` derived from the fixture's
-``minReorgDepth``, if set.
+``minReorgDepth``, if set (see ``reorg_depth``).
 """
 
 import io
 import logging
-from typing import Literal, Mapping
+from typing import Mapping
 
 import pytest
 
 from execution_testing.fixtures import BlockchainEngineReorgFixture
-from execution_testing.fixtures.blockchain import FixtureHeader
 
 from ....shared.live_client_flags import add_get_payload_wait_time_option
-from ..single_test_client import client_environment
 
 pytest_plugins = (
     "execution_testing.cli.pytest_commands.plugins.pytest_hive.pytest_hive",
@@ -26,6 +24,9 @@ pytest_plugins = (
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.timing_data",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.exceptions",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.engine_api",
+    # After `single_test_client`, whose `environment` fixture this module
+    # extends: pytest prefers the most recently registered plugin.
+    "execution_testing.cli.pytest_commands.plugins.consume.simulators.reorg.reorg_depth",
 )
 
 logger = logging.getLogger(__name__)
@@ -67,28 +68,8 @@ def test_suite_description() -> str:
 
 
 @pytest.fixture(scope="function")
-def environment(
-    fixture: BlockchainEngineReorgFixture,
-    check_live_port: Literal[8545, 8551],
-) -> dict:
-    """Standard engine environment plus the fixture's reorg-depth cap."""
-    env = client_environment(
-        fixture.fork, fixture.config.chain_id, check_live_port
-    )
-    if fixture.min_reorg_depth is not None:
-        env["HIVE_ENGINE_MAX_REORG_DEPTH"] = str(int(fixture.min_reorg_depth))
-    return env
-
-
-@pytest.fixture(scope="function")
 def client_files(
     buffered_genesis: io.BufferedReader,
 ) -> Mapping[str, io.BufferedReader]:
     """Define the files that hive will start the client with."""
     return {"/genesis.json": buffered_genesis}
-
-
-@pytest.fixture(scope="function")
-def genesis_header(fixture: BlockchainEngineReorgFixture) -> FixtureHeader:
-    """Provide the genesis header from the fixture."""
-    return fixture.genesis
