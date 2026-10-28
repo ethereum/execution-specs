@@ -39,7 +39,7 @@ author-provided set.
 from collections import Counter
 from dataclasses import dataclass, field, replace
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from execution_testing.base_types import Alloc, Hash, HexNumber, Number
 from execution_testing.exceptions import EngineAPIError
@@ -167,6 +167,12 @@ class ClientModel:
     label -> the step whose outcomes leave that block in different states;
     generating an outcome that depends on it is rejected.
     """
+    syncing: Set[str] = field(default_factory=set)
+    """
+    Blocks answered SYNCING and not learned since. Once a block's parent is
+    known a client may have connected it, so generating an outcome that
+    depends on it is rejected.
+    """
     head: str = GENESIS_LABEL
     safe: str = ZERO_LABEL
     finalized: str = ZERO_LABEL
@@ -196,7 +202,21 @@ class ClientModel:
                 "depend on it: author that step's expect or move it into "
                 "each branch"
             )
-        return self.known.get(label)
+        state = self.known.get(label)
+        if state is None and self._connectable(label):
+            raise ValueError(
+                f"block {label!r} was answered SYNCING and its parent is "
+                "known now, so a client may have connected it: author the "
+                "expect of the later step that depends on it"
+            )
+        return state
+
+    def _connectable(self, label: str) -> bool:
+        """Whether ``label`` was answered SYNCING and its parent is known."""
+        if label not in self.syncing:
+            return False
+        parent = self.dag.parent(label)
+        return parent in self.known or self._connectable(parent)
 
     def new_payload_outcomes(self, block: str) -> List[Outcome]:
         """Legal outcomes of ``newPayload(block)``."""
@@ -217,6 +237,19 @@ class ClientModel:
                     id="invalid_block_hash",
                     status=PayloadStatusEnum.INVALID_BLOCK_HASH,
                 ),
+            ]
+        if (
+            block not in self.diverged
+            and self.known.get(block) == Validity.VALID
+        ):
+            # Validation is idempotent: a VALID payload stays VALID, and
+            # ACCEPTED needs a payload that was not fully validated.
+            return [
+                Outcome(
+                    id="valid",
+                    status=PayloadStatusEnum.VALID,
+                    latest_valid_hash=block,
+                )
             ]
         parent_state = self._known(parent)
         if parent_state is None:
@@ -273,8 +306,12 @@ class ClientModel:
     def apply_new_payload(self, block: str, outcome: Outcome) -> None:
         """
         Record what ``outcome`` reveals about ``block``: VALID and INVALID
-        confirm it, ACCEPTED only that it was received, SYNCING nothing.
+        confirm it, ACCEPTED only that it was received, SYNCING that the
+        client holds it unconnected.
         """
+        if outcome.status == PayloadStatusEnum.SYNCING:
+            self.syncing.add(block)
+            return
         if outcome.status == PayloadStatusEnum.VALID:
             self.known[block] = Validity.VALID
         elif outcome.status == PayloadStatusEnum.INVALID:
@@ -283,6 +320,7 @@ class ClientModel:
             self.known[block] = Validity.RECEIVED
         else:
             return
+        self.syncing.discard(block)
         self.diverged.pop(block, None)
 
     # -- forkchoiceUpdated ----------------------------------------------
@@ -504,7 +542,10 @@ class ClientModel:
     def copy(self) -> "ClientModel":
         """Independent copy for branch exploration."""
         return replace(
-            self, known=dict(self.known), diverged=dict(self.diverged)
+            self,
+            known=dict(self.known),
+            diverged=dict(self.diverged),
+            syncing=set(self.syncing),
         )
 
 
@@ -783,7 +824,9 @@ def annotate_steps(
             if step.payload_attributes is not None:
                 _default_build_request(step, model.dag, fork)
             if step.version is None:
-                step.version = Number(model.dag.blocks[step.head].fcu_version)
+                # A zero head has no block: take the current head's method.
+                head = model.head if step.head == ZERO_LABEL else step.head
+                step.version = Number(model.dag.blocks[head].fcu_version)
             if not step.expect:
                 if step.payload_attributes is not None:
                     _refuse_attribute_errors(step, model.dag, fork)

@@ -208,6 +208,21 @@ class NewPayloadStep(OutcomeStep):
         """The delivered block."""
         return [self.block]
 
+    @model_validator(mode="after")
+    def _check_observable(self) -> Self:
+        """
+        Reject ``headMoved`` and ``payloadId``, which a ``newPayload``
+        response cannot show: they would fail, or check nothing, on every
+        client.
+        """
+        for outcome in self.expect:
+            if outcome.head_moved is not None or outcome.payload_id:
+                raise ValueError(
+                    f"newPayload({self.block!r}) outcome {outcome.id!r}: "
+                    "headMoved and payloadId are forkchoiceUpdated-only"
+                )
+        return self
+
 
 class ForkchoiceUpdatedStep(OutcomeStep):
     """Send ``engine_forkchoiceUpdatedVX`` with labeled hashes."""
@@ -233,6 +248,22 @@ class ForkchoiceUpdatedStep(OutcomeStep):
     def label_refs(self) -> List[str]:
         """Head, safe and finalized."""
         return [self.head, self.safe, self.finalized]
+
+    @model_validator(mode="after")
+    def _check_observable(self) -> Self:
+        """
+        Reject a non-null ``payloadId`` on a request without payload
+        attributes, which no client returns.
+        """
+        if self.payload_attributes is None:
+            for outcome in self.expect:
+                if outcome.payload_id == "nonNull":
+                    raise ValueError(
+                        f"forkchoiceUpdated(head={self.head!r}) outcome "
+                        f"{outcome.id!r}: payloadId nonNull needs payload "
+                        "attributes"
+                    )
+        return self
 
 
 class GetPayloadStep(StepBase):

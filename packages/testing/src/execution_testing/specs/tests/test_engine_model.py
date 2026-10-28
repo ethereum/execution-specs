@@ -832,3 +832,37 @@ def test_annotate_rejects_assertions_the_model_contradicts(
     )
     with pytest.raises(ValueError, match=match):
         annotate_steps([assertion], model, Cancun)
+
+
+def test_new_payload_resent_valid_block_is_valid_only() -> None:
+    """A fully validated payload cannot be answered ACCEPTED again."""
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.known.update(
+        {"a1": Validity.VALID, "a2": Validity.VALID, "b2": Validity.VALID}
+    )
+    model.head = "a2"
+    assert ids(model.new_payload_outcomes("b2")) == ["valid"]
+
+
+def test_generated_outcomes_refuse_a_connectable_syncing_block() -> None:
+    """
+    Once the parent of a payload answered SYNCING is known, a client may
+    have connected the payload, so a generated FCU to it is refused.
+    """
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.apply_new_payload("a2", Outcome(id="syncing", status="SYNCING"))
+    assert ids(
+        model.forkchoice_outcomes(ForkchoiceUpdatedStep(head="a2"))
+    ) == ["syncing"]
+    model.apply_new_payload("a1", Outcome(id="valid", status="VALID"))
+    with pytest.raises(ValueError, match="may have connected it"):
+        model.forkchoice_outcomes(ForkchoiceUpdatedStep(head="a2"))
+
+
+def test_annotate_defaults_version_of_a_zero_head() -> None:
+    """An FCU to the zero hash takes the current head's method version."""
+    model = ClientModel(dag=dag_linear_with_fork())
+    step = ForkchoiceUpdatedStep(head="zero")
+    annotate_steps([step], model, Cancun)
+    assert step.version == 3
+    assert ids(step.expect) == ["syncing"]

@@ -580,6 +580,31 @@ def test_engine_api_error_code_rejected_on_block() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {"exception": BlockException.INVALID_STATE_ROOT},
+        {"engine_new_payload_block_hash": Hash(0xBAD)},
+    ],
+    ids=["exception", "corrupted_payload"],
+)
+def test_expected_post_state_rejected_on_invalid_block(invalid: dict) -> None:
+    """An invalid block's own post-state never becomes canonical."""
+    with pytest.raises(ValueError, match="invalid block is not supported"):
+        ReorgTest(
+            fork=Cancun,
+            pre=pre_alloc(),
+            blocks=[
+                ReorgBlock(
+                    label="a1",
+                    expected_post_state=Alloc({RECIPIENT: Account(balance=1)}),
+                    **invalid,
+                )
+            ],
+            steps=[],
+        )
+
+
 def test_expected_post_state_mismatch_fails_fill(
     default_t8n: TransitionTool,
 ) -> None:

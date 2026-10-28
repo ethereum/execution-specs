@@ -109,8 +109,10 @@ class ReorgTest(BlockchainTest):
     def model_post_init(self, __context: Any, /) -> None:
         """
         Reject inherited inputs a DAG cannot honor: inclusion tests and a
-        fixture-wide ``post`` assume one final block, and a block's Engine
-        API error belongs on the ``newPayload`` step that delivers it.
+        fixture-wide ``post`` assume one final block, a block's Engine API
+        error belongs on the ``newPayload`` step that delivers it, and an
+        invalid block's ``expected_post_state`` would be compared with the
+        state its rejected execution left, not its parent's.
         """
         if self.is_inclusion_test:
             raise ValueError("ReorgTest does not support inclusion tests")
@@ -126,6 +128,14 @@ class ReorgTest(BlockchainTest):
                     f"block {block.label!r}: engine_api_error_code is not "
                     "supported; expect the error on the newPayload step "
                     "that delivers this block instead"
+                )
+            if block.expected_post_state and (
+                block.exception is not None or block.payload_corrupted
+            ):
+                raise ValueError(
+                    f"block {block.label!r}: expected_post_state on an "
+                    "invalid block is not supported; check the parent's "
+                    "state with an assertState step instead"
                 )
         super().model_post_init(__context)
 
