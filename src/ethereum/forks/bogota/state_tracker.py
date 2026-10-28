@@ -98,6 +98,13 @@ class TransactionState:
     transient_storage: Dict[Tuple[Address, Bytes32], U256] = field(
         default_factory=dict
     )
+    # EIP-8360: addresses created by TCREATE in this transaction. Journaled
+    # (deep-copied on snapshot) so a reverted frame drops membership.
+    tcreate_accounts: Set[Address] = field(default_factory=set)
+    # Addresses about to enter process_create via TCREATE. Shared across
+    # snapshots like created_accounts; moved into tcreate_accounts after the
+    # create-frame snapshot is taken.
+    tcreate_initiating: Set[Address] = field(default_factory=set)
 
 
 def get_pre_state_account_optional(
@@ -515,6 +522,41 @@ def destroy_storage(tx_state: TransactionState, address: Address) -> None:
     tx_state.storage_clears.add(address)
 
 
+def is_tcreate_account(tx_state: TransactionState, address: Address) -> bool:
+    """
+    Return whether ``address`` is a TCREATE account in this transaction.
+
+    Per EIP-8360, membership runs from the start of initcode execution at
+    that address until the end of the transaction (or until the creating
+    frame reverts).
+    """
+    return address in tx_state.tcreate_accounts
+
+
+def finalize_tcreate_accounts(tx_state: TransactionState) -> None:
+    """
+    Apply EIP-8360 end-of-transaction finalization for every TCREATE account.
+
+    Nonce and code from the transaction are not written to the post-state;
+    balance is preserved. Empty accounts are removed per EIP-161 via
+    ``modify_state``. Must run before the BAL is updated from this
+    transaction so TCREATE accounts have no ``nonce_changes`` or
+    ``code_changes``.
+    """
+
+    def clear_nonce_and_code(account: Account) -> None:
+        account.nonce = Uint(0)
+        account.code_hash = EMPTY_CODE_HASH
+
+    for address in list(tx_state.tcreate_accounts):
+        # TCREATE accounts have no storage (SLOAD/SSTORE halt), but clear
+        # any edge-case leftover so nothing persists.
+        destroy_storage(tx_state, address)
+        modify_state(tx_state, address, clear_nonce_and_code)
+    tx_state.tcreate_accounts.clear()
+    tx_state.tcreate_initiating.clear()
+
+
 def mark_account_created(tx_state: TransactionState, address: Address) -> None:
     """
     Mark an account as having been created in the current transaction.
@@ -710,9 +752,9 @@ def copy_tx_state(tx_state: TransactionState) -> TransactionState:
     """
     Create a snapshot of the transaction state for rollback.
 
-    Deep-copy writes and transient storage.  The parent reference,
-    ``created_accounts``, ``storage_reads``, and ``account_reads``
-    are shared (not rolled back).
+    Deep-copy writes, transient storage, and ``tcreate_accounts``.  The
+    parent reference, ``created_accounts``, ``tcreate_initiating``,
+    ``storage_reads``, and ``account_reads`` are shared (not rolled back).
 
     Parameters
     ----------
@@ -736,6 +778,8 @@ def copy_tx_state(tx_state: TransactionState) -> TransactionState:
         created_accounts=tx_state.created_accounts,
         storage_clears=set(tx_state.storage_clears),
         transient_storage=dict(tx_state.transient_storage),
+        tcreate_accounts=set(tx_state.tcreate_accounts),
+        tcreate_initiating=tx_state.tcreate_initiating,
         storage_reads=tx_state.storage_reads,
         account_reads=tx_state.account_reads,
     )
@@ -760,6 +804,7 @@ def restore_tx_state(
     tx_state.code_writes = snapshot.code_writes
     tx_state.storage_clears = snapshot.storage_clears
     tx_state.transient_storage = snapshot.transient_storage
+    tx_state.tcreate_accounts = snapshot.tcreate_accounts
 
 
 # -- Lifecycle --------------------------------------------------------------
@@ -816,6 +861,8 @@ def incorporate_tx_into_block(
     tx_state.created_accounts.clear()
     tx_state.storage_clears.clear()
     tx_state.transient_storage.clear()
+    tx_state.tcreate_accounts.clear()
+    tx_state.tcreate_initiating.clear()
     tx_state.storage_reads = set()
     tx_state.account_reads = set()
 

@@ -82,6 +82,8 @@ def compute_create_address(
         return Address(hash_bytes[-20:])
     if opcode == Op.CREATE2:
         return compute_create2_address(address, salt, initcode)
+    if opcode == Op.TCREATE:
+        return compute_tcreate_address(address, salt, initcode)
     raise ValueError("Unsupported opcode")
 
 
@@ -100,6 +102,26 @@ def compute_create2_address(
         initcode_hash = Bytes(initcode).keccak256()
     hash_bytes = Bytes(
         b"\xff" + Address(address) + Hash(salt) + initcode_hash
+    ).keccak256()
+    return Address(hash_bytes[-20:])
+
+
+def compute_tcreate_address(
+    address: FixedSizeBytesConvertible,
+    salt: FixedSizeBytesConvertible,
+    initcode: Bytecode | BytesConvertible,
+) -> Address:
+    """
+    Compute address of the resulting contract created using ``TCREATE``.
+
+    Same as ``CREATE2`` except the domain separator is ``0xfe`` (EIP-8360).
+    """
+    if isinstance(initcode, Bytecode):
+        initcode_hash = initcode.keccak256()
+    else:
+        initcode_hash = Bytes(initcode).keccak256()
+    hash_bytes = Bytes(
+        b"\xfe" + Address(address) + Hash(salt) + initcode_hash
     ).keccak256()
     return Address(hash_bytes[-20:])
 

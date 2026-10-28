@@ -43,6 +43,7 @@ from ..state_tracker import (
     get_pre_state_account,
     increment_nonce,
     is_account_alive,
+    is_tcreate_account,
     mark_account_created,
     move_ether,
     restore_tx_state,
@@ -57,6 +58,7 @@ from ..vm.gas import (
     charge_state_gas,
     charge_state_gas_from_meter,
     commit_state_gas,
+    credit_state_gas_refund,
     forfeit_remaining_gas,
     restore_state_gas,
     restore_state_gas_to_entry,
@@ -364,6 +366,13 @@ def process_create(evm: Evm) -> Evm:
     snapshot = copy_tx_state(tx_state)
     frame_context_snapshot = copy_frame_context(evm.tx_env)
 
+    # EIP-8360: mark TCREATE membership after the snapshot so a failed
+    # create (or a later revert of a parent frame) drops it on restore.
+    is_tcreate = evm.current_target in tx_state.tcreate_initiating
+    if is_tcreate:
+        tx_state.tcreate_initiating.discard(evm.current_target)
+        tx_state.tcreate_accounts.add(evm.current_target)
+
     # If the address where the account is being created has storage, it is
     # destroyed. This can only happen in the following highly unlikely
     # circumstances:
@@ -396,10 +405,13 @@ def process_create(evm: Evm) -> Evm:
                 // Uint(32)
             )
             charge_gas(evm, code_hash_gas)
-            code_deposit_state_gas = (
-                ulen(contract_code) * StateGasCosts.COST_PER_STATE_BYTE
-            )
-            charge_state_gas(evm, code_deposit_state_gas)
+            # EIP-8360: TCREATE waives per-byte code-deposit state gas; the
+            # hash cost above is still charged.
+            if not is_tcreate:
+                code_deposit_state_gas = (
+                    ulen(contract_code) * StateGasCosts.COST_PER_STATE_BYTE
+                )
+                charge_state_gas(evm, code_deposit_state_gas)
         except ExceptionalHalt as error:
             restore_tx_state(tx_state, snapshot)
             restore_frame_context(evm.tx_env, frame_context_snapshot)
@@ -442,6 +454,46 @@ def process_call(evm: Evm) -> Evm:
     # Execute message code and handle errors
     try:
         if evm.should_transfer_value and evm.value != 0:
+            # EIP-8360: state-gas for balance changes on TCREATE accounts.
+            # Rows are evaluated in order; the first match applies.
+            if is_tcreate_account(tx_state, evm.current_target):
+                original = get_pre_state_account(
+                    tx_state, evm.current_target
+                ).balance
+                current = get_account(tx_state, evm.current_target).balance
+                new = current + evm.value
+                if (
+                    original == U256(0)
+                    and current != U256(0)
+                    and new == U256(0)
+                ):
+                    credit_state_gas_refund(
+                        evm.gas_meter, StateGasCosts.NEW_ACCOUNT
+                    )
+                elif (
+                    original == U256(0)
+                    and current == U256(0)
+                    and new != U256(0)
+                ):
+                    charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
+            if is_tcreate_account(tx_state, evm.caller):
+                original = get_pre_state_account(tx_state, evm.caller).balance
+                current = get_account(tx_state, evm.caller).balance
+                new = current - evm.value
+                if (
+                    original == U256(0)
+                    and current != U256(0)
+                    and new == U256(0)
+                ):
+                    credit_state_gas_refund(
+                        evm.gas_meter, StateGasCosts.NEW_ACCOUNT
+                    )
+                elif (
+                    original == U256(0)
+                    and current == U256(0)
+                    and new != U256(0)
+                ):
+                    charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
             move_ether(
                 tx_state,
                 evm.caller,

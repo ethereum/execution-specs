@@ -18,11 +18,12 @@ from ...state_tracker import (
     get_storage,
     get_storage_original,
     get_transient_storage,
+    is_tcreate_account,
     set_storage,
     set_transient_storage,
 )
 from .. import Evm
-from ..exceptions import WriteInStaticContext
+from ..exceptions import InvalidOpcode, WriteInStaticContext
 from ..gas import (
     GasCosts,
     StateGasCosts,
@@ -46,6 +47,13 @@ def sload(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    from . import Ops
+
+    # EIP-8360: SLOAD in a TCREATE account context exceptional-halts
+    # without accessing the slot or recording a BAL entry.
+    if is_tcreate_account(evm.tx_env.state, evm.current_target):
+        raise InvalidOpcode(Ops.SLOAD.value)
+
     # STACK
     key = pop(evm.stack).to_be_bytes32()
 
@@ -76,8 +84,15 @@ def sstore(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    from . import Ops
+
     if evm.is_static:
         raise WriteInStaticContext
+
+    # EIP-8360: SSTORE in a TCREATE account context exceptional-halts
+    # without accessing the slot or recording a BAL entry.
+    if is_tcreate_account(evm.tx_env.state, evm.current_target):
+        raise InvalidOpcode(Ops.SSTORE.value)
 
     # STACK
     key = pop(evm.stack).to_be_bytes32()
