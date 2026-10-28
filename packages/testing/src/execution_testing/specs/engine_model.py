@@ -654,6 +654,38 @@ def _default_build_request(
     )
 
 
+def _refuse_attribute_errors(
+    step: ForkchoiceUpdatedStep,
+    dag: ModelDag,
+    fork: Fork | TransitionFork,
+) -> None:
+    """
+    Refuse to generate the outcomes of a build request whose attributes the
+    spec rejects: a timestamp not after the head's (-38003), or a method
+    that does not take attributes at that timestamp (-38005 from
+    ``forkchoiceUpdatedV3``). The author sets ``expect`` instead.
+    """
+    attrs = step.payload_attributes
+    assert attrs is not None and step.version is not None
+    where = f"forkchoiceUpdated(head={step.head!r})"
+    timestamp = int(attrs.timestamp)
+    head_timestamp = dag.blocks[step.head].timestamp
+    if timestamp <= head_timestamp:
+        raise ValueError(
+            f"{where}: payloadAttributes.timestamp {timestamp} is not after "
+            f"the head's {head_timestamp} (-38003); set expect"
+        )
+    version = fork.fork_at(
+        block_number=0, timestamp=timestamp
+    ).engine_forkchoice_updated_version()
+    if int(step.version) != version:
+        raise ValueError(
+            f"{where}: attributes at timestamp {timestamp} take "
+            f"forkchoiceUpdatedV{version}, not V{int(step.version)}; set "
+            "expect"
+        )
+
+
 def _bind_payload(
     step: GetPayloadStep,
     model: ClientModel,
@@ -753,6 +785,8 @@ def annotate_steps(
             if step.version is None:
                 step.version = Number(model.dag.blocks[step.head].fcu_version)
             if not step.expect:
+                if step.payload_attributes is not None:
+                    _refuse_attribute_errors(step, model.dag, fork)
                 step.expect = model.forkchoice_outcomes(step)
             _reject_unmatched_branches(
                 step, f"forkchoiceUpdated(head={step.head!r})"

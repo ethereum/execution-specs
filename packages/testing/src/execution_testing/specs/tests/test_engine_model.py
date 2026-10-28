@@ -378,6 +378,35 @@ def test_annotate_marks_head_moved_for_applied_vs_noop() -> None:  # noqa: D103
     assert by_id["noop"].payload_id == "null"
 
 
+@pytest.mark.parametrize(
+    "timestamp,version,match",
+    [
+        pytest.param(12, 3, "not after the head's 12", id="same_timestamp"),
+        pytest.param(24, 2, "take forkchoiceUpdatedV3, not V2", id="version"),
+    ],
+)
+def test_annotate_refuses_to_generate_attribute_errors(
+    timestamp: int, version: int, match: str
+) -> None:
+    """
+    A build request the spec rejects (-38003, -38005) gets no generated
+    successful build: the author sets its expected error.
+    """
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.known["a1"] = Validity.VALID
+    step = ForkchoiceUpdatedStep(
+        head="a1",
+        version=version,
+        payload_attributes=PayloadAttributes(
+            timestamp=timestamp,
+            prev_randao=Hash(0),
+            suggested_fee_recipient=Address(0),
+        ),
+    )
+    with pytest.raises(ValueError, match=match):
+        annotate_steps([step], model, Cancun)
+
+
 def test_np_hash_invalid_precedes_parent_lookup() -> None:
     """
     A payload that does not hash to its blockHash is rejected regardless of
