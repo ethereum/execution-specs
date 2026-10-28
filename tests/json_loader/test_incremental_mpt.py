@@ -608,6 +608,41 @@ class TestLazyWitnessDecoding:
         ):
             mpt_get(mpt, Bytes(b"\x12"))
 
+    def test_extension_child_check_skipped_after_split(self) -> None:
+        """
+        A read rejects a leaf under an extension, but accepts it after an
+        insert splits the extension right above the leaf, because the split
+        moves the undecoded leaf into a branch slot.
+        """
+        leaf = [nibble_list_to_compact(Bytes(b"\x03\x04"), True), b"value"]
+        extension: list[Any] = [
+            nibble_list_to_compact(Bytes(b"\x01\x02"), False),
+            leaf,
+        ]
+        root_rlp = Bytes(rlp.encode(extension))
+        root_hash = Root(keccak256(root_rlp))
+
+        def decode() -> IncrementalMPT[Bytes, Bytes]:
+            return decode_witness_to_mpt(
+                {root_hash: root_rlp}, root_hash, secured=False, default=b""
+            )
+
+        with pytest.raises(
+            AssertionError, match="ExtensionNode child must be a BranchNode"
+        ):
+            mpt_get(decode(), Bytes(b"\x12\x34"))
+
+        mpt = decode()
+        # The new key leaves the extension after nibble 1, so the split
+        # leaves an extension along nibble 1 over a branch, and slot 2 of the
+        # branch takes the undecoded leaf.
+        mpt_set(mpt, Bytes(b"\x13"), b"new")
+        assert isinstance(mpt.root_node, MutableExtensionNode)
+        assert isinstance(mpt.root_node.child, MutableBranchNode)
+        assert isinstance(mpt.root_node.child.children[2], EmbeddedNode)
+
+        assert mpt_get(mpt, Bytes(b"\x12\x34")) == b"value"
+
 
 class TestDecodeWitnessToMptMore:
     """Additional decode_witness_to_mpt roundtrip coverage."""

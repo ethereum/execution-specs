@@ -1047,8 +1047,11 @@ def _resolve(
     operation reaches it.
 
     The caller stores the decoded node in place of the placeholder, so each
-    node is decoded and checked once. That is enough, because a node stays at
-    the same depth however the trie changes around it.
+    node is decoded and checked once. That is enough, because changes
+    elsewhere in the trie never move a subtree to another nibble depth, even
+    when they add or remove nodes above it. When a split or a collapse
+    rebuilds a leaf or an extension, the new node may start at another
+    nibble depth, but its path still ends at the same nibble depth.
     """
     if isinstance(node, HashedNode):
         assert node._hash in mpt.node_db, "Witness is missing a trie node"
