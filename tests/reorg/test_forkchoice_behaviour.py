@@ -615,13 +615,19 @@ def test_reexecute_payloads(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
 
 
 @pytest.mark.valid_from("Shanghai")
+@pytest.mark.parametrize(
+    "canonical_first", [False, True], ids=["siblings_first", "canonical_first"]
+)
 def test_many_siblings_same_parent(
-    reorg_test: ReorgTestFiller, pre: Alloc
+    reorg_test: ReorgTestFiller, pre: Alloc, canonical_first: bool
 ) -> None:
     """
-    Hive ``MultiplePayloadsExtendingCanonicalChainTest``: 40 sibling payloads
-    (differing prevRandao) on the current head are all VALID/ACCEPTED; the
-    canonical block at that height is then applied without error.
+    Hive ``MultiplePayloadsExtendingCanonicalChainTest``, both registrations:
+    sibling payloads (differing prevRandao) on the current head are all
+    VALID, and FCU to the canonical block at that height is then applied.
+    ``canonical_first`` delivers that block before the siblings, as hive's
+    ``SetHeadToFirstPayloadReceived`` does, so the client selects a block
+    it received before many others. The port sends 40 siblings, hive 80.
     """
     blocks, steps = chain(pre, "a", 3)
     sender = pre.fund_eoa()
@@ -644,9 +650,13 @@ def test_many_siblings_same_parent(
         txs=[Transaction(sender=sender, nonce=0, to=recipient, value=2)],
     )
     blocks += siblings + [canonical]
-    steps += [NewPayloadStep(block=s.label) for s in siblings]
+    sibling_steps = [NewPayloadStep(block=s.label) for s in siblings]
+    canonical_step = NewPayloadStep(block="a4")
+    if canonical_first:
+        steps += [canonical_step, *sibling_steps]
+    else:
+        steps += [*sibling_steps, canonical_step]
     steps += [
-        NewPayloadStep(block="a4"),
         ForkchoiceUpdatedStep(
             head="a4",
             expect=applied("a4"),
