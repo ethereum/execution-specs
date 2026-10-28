@@ -19,6 +19,7 @@ clients.
 """
 
 from typing import (
+    TYPE_CHECKING,
     Annotated,
     Any,
     ClassVar,
@@ -172,8 +173,29 @@ class StepBase(CamelModel):
 
     description: str | None = None
 
+    def label_refs(self) -> List[str]:
+        """Block labels (or ``"zero"``) this step references."""
+        return []
 
-class NewPayloadStep(StepBase):
+    def tx_refs(self) -> List[TxRef]:
+        """Fixture transactions this step references."""
+        return []
+
+
+class OutcomeStep(StepBase):
+    """
+    A step whose response is matched against its ``expect`` outcomes.
+
+    Subclasses declare ``expect`` and ``branches`` after their own fields,
+    so a serialized step starts with its type and target.
+    """
+
+    if TYPE_CHECKING:
+        expect: List[Outcome]
+        branches: Dict[str, List["Step"]]
+
+
+class NewPayloadStep(OutcomeStep):
     """Send ``engine_newPayloadVX`` for a labeled (or bound) block."""
 
     type: Literal["newPayload"] = "newPayload"
@@ -182,8 +204,12 @@ class NewPayloadStep(StepBase):
     """Legal outcomes; filled by the reference model when left empty."""
     branches: Dict[str, List["Step"]] = Field(default_factory=dict)
 
+    def label_refs(self) -> List[str]:
+        """The delivered block."""
+        return [self.block]
 
-class ForkchoiceUpdatedStep(StepBase):
+
+class ForkchoiceUpdatedStep(OutcomeStep):
     """Send ``engine_forkchoiceUpdatedVX`` with labeled hashes."""
 
     type: Literal["forkchoiceUpdated"] = "forkchoiceUpdated"
@@ -203,6 +229,10 @@ class ForkchoiceUpdatedStep(StepBase):
     expect: List[Outcome] = Field(default_factory=list)
     """Legal outcomes; filled by the reference model when left empty."""
     branches: Dict[str, List["Step"]] = Field(default_factory=dict)
+
+    def label_refs(self) -> List[str]:
+        """Head, safe and finalized."""
+        return [self.head, self.safe, self.finalized]
 
 
 class GetPayloadStep(StepBase):
@@ -224,6 +254,14 @@ class GetPayloadStep(StepBase):
     transactions_exclude: List[TxRef] = Field(default_factory=list)
     """Transactions that must not be in the built payload."""
 
+    def label_refs(self) -> List[str]:
+        """The expected parent."""
+        return [self.parent]
+
+    def tx_refs(self) -> List[TxRef]:
+        """Transactions required in or excluded from the payload."""
+        return self.transactions_include + self.transactions_exclude
+
 
 class AssertHeadStep(StepBase):
     """Assert ``eth_getBlockByNumber`` for latest / safe / finalized."""
@@ -232,6 +270,11 @@ class AssertHeadStep(StepBase):
     latest: BlockRef | None = None
     safe: BlockRef | None = None
     finalized: BlockRef | None = None
+
+    def label_refs(self) -> List[str]:
+        """The asserted latest, safe and finalized blocks."""
+        tags = (self.latest, self.safe, self.finalized)
+        return [x for x in tags if x is not None]
 
 
 class AssertCanonicalStep(StepBase):
@@ -243,6 +286,10 @@ class AssertCanonicalStep(StepBase):
 
     type: Literal["assertCanonical"] = "assertCanonical"
     blocks: Dict[HexNumber, BlockRef | None]
+
+    def label_refs(self) -> List[str]:
+        """The blocks asserted canonical."""
+        return [x for x in self.blocks.values() if x is not None]
 
 
 class AccountExpectation(CamelModel):
@@ -260,6 +307,10 @@ class AssertStateStep(StepBase):
     at: BlockRef | Literal["latest"] = "latest"
     """Block whose own state is read; it must be canonical at that point."""
     accounts: Dict[Address, AccountExpectation]
+
+    def label_refs(self) -> List[str]:
+        """The block whose state is read, unless ``latest``."""
+        return [] if self.at == "latest" else [self.at]
 
     def verify(self, label: str, state: Alloc) -> None:
         """
@@ -297,6 +348,14 @@ class AssertReceiptStep(StepBase):
     block: BlockLabel | None = None
     status: HexNumber | None = None
 
+    def label_refs(self) -> List[str]:
+        """The block the receipt must point to, if any."""
+        return [self.block] if self.block is not None else []
+
+    def tx_refs(self) -> List[TxRef]:
+        """The transaction looked up."""
+        return [self.tx]
+
 
 class AssertLogsStep(StepBase):
     """
@@ -312,6 +371,10 @@ class AssertLogsStep(StepBase):
     to_block: HexNumber | Literal["latest"] = "latest"
     blocks: List[BlockLabel]
 
+    def label_refs(self) -> List[str]:
+        """The blocks whose logs must appear."""
+        return list(self.blocks)
+
 
 class SendRawTransactionStep(StepBase):
     """Send a fixture transaction via ``eth_sendRawTransaction``."""
@@ -320,6 +383,10 @@ class SendRawTransactionStep(StepBase):
     tx: TxRef
     expect: List[Literal["accepted", "rejected"]] = ["accepted"]
     """``rejected`` = any JSON-RPC error (e.g. already known)."""
+
+    def tx_refs(self) -> List[TxRef]:
+        """The transaction sent."""
+        return [self.tx]
 
 
 class AssertTxStatusStep(StepBase):
@@ -334,6 +401,14 @@ class AssertTxStatusStep(StepBase):
     expect: List[Literal["included", "pending", "dropped"]]
     included_in: BlockLabel | None = None
     """If ``included`` matches, the block label it must be included in."""
+
+    def label_refs(self) -> List[str]:
+        """The block the transaction must be included in, if any."""
+        return [self.included_in] if self.included_in else []
+
+    def tx_refs(self) -> List[TxRef]:
+        """The transaction looked up."""
+        return [self.tx]
 
 
 Step = Annotated[

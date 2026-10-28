@@ -38,7 +38,7 @@ author-provided set.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from execution_testing.base_types import Alloc, Hash, HexNumber, Number
 from execution_testing.exceptions import EngineAPIError
@@ -53,6 +53,7 @@ from execution_testing.fixtures.reorg import (
     GetPayloadStep,
     NewPayloadStep,
     Outcome,
+    OutcomeStep,
     Step,
 )
 from execution_testing.forks import Fork, TransitionFork
@@ -483,9 +484,7 @@ class ClientModel:
         )
 
 
-def _reject_unmatched_branches(
-    step: Union[NewPayloadStep, ForkchoiceUpdatedStep], where: str
-) -> None:
+def _reject_unmatched_branches(step: OutcomeStep, where: str) -> None:
     """
     Reject a ``branches`` key that names no outcome id, once ``expect`` is
     final. A typo or partial rename here would otherwise silently drop the
@@ -500,9 +499,7 @@ def _reject_unmatched_branches(
         )
 
 
-def _reject_duplicate_outcome_ids(
-    step: Union[NewPayloadStep, ForkchoiceUpdatedStep], where: str
-) -> None:
+def _reject_duplicate_outcome_ids(step: OutcomeStep, where: str) -> None:
     """
     Reject two outcomes sharing an id in the same step's ``expect``, once it
     is final. Both would modify the same ``branches`` entry, producing a

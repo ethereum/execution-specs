@@ -44,21 +44,12 @@ from execution_testing.fixtures.blockchain import (
 from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
     ZERO_LABEL,
-    AssertCanonicalStep,
-    AssertHeadStep,
-    AssertLogsStep,
-    AssertReceiptStep,
-    AssertStateStep,
-    AssertTxStatusStep,
     BlockLabel,
     BlockRef,
     FixtureReorgBlock,
-    ForkchoiceUpdatedStep,
     GetPayloadStep,
-    NewPayloadStep,
-    SendRawTransactionStep,
+    OutcomeStep,
     Step,
-    TxRef,
 )
 from execution_testing.test_types import Alloc, Environment
 
@@ -165,43 +156,14 @@ class ReorgTest(BlockchainTest):
         tx_counts: Dict[str, int],
     ) -> None:
         for step in steps:
-            refs: List[str] = []
-            tx_refs: List[TxRef] = []
-            if isinstance(step, NewPayloadStep):
-                refs = [step.block]
-            elif isinstance(step, ForkchoiceUpdatedStep):
-                refs = [step.head, step.safe, step.finalized]
-            elif isinstance(step, GetPayloadStep):
-                refs = [step.parent]
-                if step.bind in labels:
-                    raise ValueError(
-                        f"getPayload bind label {step.bind!r} already used"
-                    )
-                tx_refs = step.transactions_include + step.transactions_exclude
-            elif isinstance(step, AssertHeadStep):
-                refs = [
-                    x
-                    for x in (step.latest, step.safe, step.finalized)
-                    if x is not None
-                ]
-            elif isinstance(step, AssertCanonicalStep):
-                refs = [x for x in step.blocks.values() if x is not None]
-            elif isinstance(step, AssertStateStep):
-                refs = [] if step.at == "latest" else [step.at]
-            elif isinstance(step, AssertReceiptStep):
-                refs = [step.block] if step.block is not None else []
-                tx_refs = [step.tx]
-            elif isinstance(step, AssertLogsStep):
-                refs = list(step.blocks)
-            elif isinstance(step, SendRawTransactionStep):
-                tx_refs = [step.tx]
-            elif isinstance(step, AssertTxStatusStep):
-                refs = [step.included_in] if step.included_in else []
-                tx_refs = [step.tx]
-            for ref in refs:
+            if isinstance(step, GetPayloadStep) and step.bind in labels:
+                raise ValueError(
+                    f"getPayload bind label {step.bind!r} already used"
+                )
+            for ref in step.label_refs():
                 if ref not in labels and ref != ZERO_LABEL:
                     raise ValueError(f"step references unknown label {ref!r}")
-            for tx_ref in tx_refs:
+            for tx_ref in step.tx_refs():
                 if tx_ref.block not in labels:
                     raise ValueError(
                         f"step references transaction of unknown block "
@@ -221,8 +183,9 @@ class ReorgTest(BlockchainTest):
                     )
             if isinstance(step, GetPayloadStep):
                 labels.add(step.bind)
-            for branch in getattr(step, "branches", {}).values():
-                self._validate_step_labels(branch, set(labels), tx_counts)
+            if isinstance(step, OutcomeStep):
+                for branch in step.branches.values():
+                    self._validate_step_labels(branch, set(labels), tx_counts)
 
     def make_reorg_fixture(self, t8n: FillerBackend) -> FillResult:
         """Execute every block against its labeled parent, emit fixture."""
