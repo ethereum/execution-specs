@@ -426,9 +426,10 @@ def test_inconsistent_forkchoice_state(
     Hive ``InconsistentForkchoiceTest``,
     nethermind ``inconsistent_finalized_hash`` /
     ``inconsistent_safe_hash``, besu invalid-forkchoice-state variants: with
-    canonical a1..a3 and a validated sibling chain b1..b3, an FCU whose
-    ``field`` points into the other chain is ``-38002``; the canonical FCU
-    afterwards is VALID.
+    canonical a1..a3 (safe a2, finalized a1) and a validated sibling chain
+    b1..b3, an FCU whose ``field`` points into the other chain is
+    ``-38002`` and leaves head, safe and finalized as they were; the
+    canonical FCU afterwards is VALID.
     """
     blocks, steps = chain(pre, "a", 3)
     side, _ = chain(pre, "b", 3, value=2)
@@ -437,6 +438,9 @@ def test_inconsistent_forkchoice_state(
     state = {"head": "a3", "safe": "a2", "finalized": "a1"}
     state[field] = {"head": "b3", "safe": "b2", "finalized": "b1"}[field]
     steps += [
+        ForkchoiceUpdatedStep(
+            head="a3", safe="a2", finalized="a1", expect=applied("a3")
+        ),
         ForkchoiceUpdatedStep(
             head=state["head"],
             safe=state["safe"],
@@ -788,15 +792,22 @@ def test_forkchoice_state_unchanged_on_invalid_state(
     A forkchoice update that fails the safe/finalized consistency check must
     leave the forkchoice state untouched.
 
-    Canonical a1..a3 (head a3) plus a validated sibling pair b1, b2. The call
-    names b2 as head while safe and finalized stay on the ``a`` chain, so it
-    must be answered with ``-38002``; every update resulting from the call is
-    then required to have been applied atomically, i.e. not at all.
+    Canonical a1..a3 (head a3, safe a2, finalized a1) plus a validated
+    sibling pair b1, b2. The call names b2 as head while safe and finalized
+    stay on the ``a`` chain, so it must be answered with ``-38002``; every
+    update resulting from the call is then required to have been applied
+    atomically, i.e. not at all.
     """
     blocks, steps = chain(pre, "a", 3)
     side, _ = chain(pre, "b", 2, value=2)
     blocks += side
-    steps += [NewPayloadStep(block="b1"), NewPayloadStep(block="b2")]
+    steps += [
+        NewPayloadStep(block="b1"),
+        NewPayloadStep(block="b2"),
+        ForkchoiceUpdatedStep(
+            head="a3", safe="a2", finalized="a1", expect=applied("a3")
+        ),
+    ]
     steps.append(
         ForkchoiceUpdatedStep(
             head="b2",
@@ -810,8 +821,7 @@ def test_forkchoice_state_unchanged_on_invalid_state(
             ],
             branches={
                 "inconsistent": [
-                    AssertHeadStep(latest="a3"),
-                    AssertCanonicalStep(blocks={1: "a1", 2: "a2"}),
+                    AssertCanonicalStep(blocks={1: "a1", 2: "a2"})
                 ]
             },
         )
