@@ -366,53 +366,40 @@ def test_fcu_to_unknown_block_is_syncing(
     Hive ``ReOrgBackFromSyncingTest`` +
     ``ForkchoiceUpdatedUnknownBlockHashTest``, nethermind
     ``forkChoiceUpdatedV1_to_unknown_block_is_syncing_and_records_forkchoice``
-    / ``forkChoiceUpdatedV1_to_unknown_safeBlock_hash_should_fail``, reth
+    / ``forkChoiceUpdatedV1_to_unknown_safeBlock_hash_should_fail`` /
+    ``payloadV1_invalid_parent_hash``, reth
     ``test_engine_tree_fcu_missing_head``.
 
-    A 10-deep side chain exists but only its leaf is ever delivered: the leaf
-    is SYNCING (its ancestors are unknown, so ACCEPTED is not legal), FCU to
-    it is SYNCING, FCU with an unknown safe or finalized hash is an error,
-    and FCU back to the canonical tip is VALID.
+    A 10-deep side chain exists but only its leaf is ever delivered. FCU to
+    a block never delivered (s14) is SYNCING and leaves the head; the leaf
+    is SYNCING (its ancestors are unknown, so ACCEPTED is not legal), and so
+    is FCU to it; FCU naming s14 as safe or finalized is ``-38002``; FCU
+    back to the canonical tip is VALID and the next canonical block a6 is
+    VALID and becomes the head.
     """
-    blocks, steps = chain(pre, "a", 5)
+    blocks, steps = chain(pre, "a", 6)
+    steps, next_canonical = steps[:-2], steps[-2:]
     side, _ = chain(pre, "s", 10, parent="a5", start=6, value=3)
     blocks += side
+    syncing = [Outcome(id="syncing", status="SYNCING")]
+    unknown = [
+        Outcome(
+            id="inconsistent", error_code=EngineAPIError.InvalidForkchoiceState
+        )
+    ]
     steps += [
-        NewPayloadStep(
-            block="s15", expect=[Outcome(id="syncing", status="SYNCING")]
-        ),
         ForkchoiceUpdatedStep(
-            head="s15",
-            expect=[
-                Outcome(
-                    id="syncing", status="SYNCING", latest_valid_hash="null"
-                )
-            ],
+            head="s14",
+            expect=syncing,
+            branches={"syncing": [AssertHeadStep(latest="a5")]},
         ),
+        NewPayloadStep(block="s15", expect=syncing),
+        ForkchoiceUpdatedStep(head="s15", expect=syncing),
         AssertHeadStep(latest="a5"),
-        ForkchoiceUpdatedStep(
-            head="a5",
-            safe="s15",
-            expect=[
-                Outcome(
-                    id="inconsistent",
-                    error_code=EngineAPIError.InvalidForkchoiceState,
-                ),
-                Outcome(id="error", any_error=True),
-            ],
-        ),
-        ForkchoiceUpdatedStep(
-            head="a5",
-            finalized="s15",
-            expect=[
-                Outcome(
-                    id="inconsistent",
-                    error_code=EngineAPIError.InvalidForkchoiceState,
-                ),
-                Outcome(id="error", any_error=True),
-            ],
-        ),
+        ForkchoiceUpdatedStep(head="a5", safe="s14", expect=unknown),
+        ForkchoiceUpdatedStep(head="a5", finalized="s14", expect=unknown),
         ForkchoiceUpdatedStep(head="a5", expect=applied("a5")),
+        *next_canonical,
     ]
     reorg_test(pre=pre, blocks=blocks, steps=steps)
 
@@ -631,10 +618,9 @@ def test_out_of_order_payload_delivery(
 ) -> None:
     """
     Hive ``NewPayloadOnSyncingClientTest``, reth
-    ``test_engine_tree_buffered_blocks_are_eventually_connected_e2e``,
-    nethermind ``payloadV1_invalid_parent_hash``: a payload whose parent is
-    unknown is SYNCING and FCU to it is SYNCING; once the gap is filled the
-    payload and the FCU are VALID.
+    ``test_engine_tree_buffered_blocks_are_eventually_connected_e2e``: a
+    payload whose parent is unknown is SYNCING and FCU to it is SYNCING;
+    once the gap is filled the payload and the FCU are VALID.
     """
     blocks, steps = chain(pre, "a", 4)
     steps = steps[:4]  # a1, a2 delivered and canonical.
