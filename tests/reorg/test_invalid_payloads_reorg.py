@@ -126,7 +126,6 @@ def test_bad_block_hash_on_new_payload(
             expect=[
                 Outcome(id="syncing", status="SYNCING"),
                 Outcome(id="invalid", status="INVALID"),
-                Outcome(id="error", any_error=True),
             ],
         ),
         AssertHeadStep(latest="a3"),
@@ -259,7 +258,6 @@ def test_invalid_payload_field(
                     id="invalid", status="INVALID", latest_valid_hash=parent
                 ),
                 Outcome(id="syncing", status="SYNCING"),
-                Outcome(id="error", any_error=True),
             ],
         ),
         AssertHeadStep(latest="a3"),
