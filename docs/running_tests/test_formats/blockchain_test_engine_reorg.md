@@ -147,7 +147,7 @@ The wait before `engine_getPayloadVX` is the consumer's `--get-payload-wait-time
 #### `assertTxStatus`
 
 - `tx`: [`TxRef`](#txref).
-- `expect`: [`List`](./common_types.md#list)`[String]` — subset of `["included", "pending", "dropped"]`.
+- `expect`: [`List`](./common_types.md#list)`[String]` — non-empty subset of `["included", "pending", "dropped"]`, preferred first. The consumer polls `eth_getTransactionByHash` until the status is the first listed one; once its deadline passes, any listed status is accepted.
 - `includedIn`: [`Optional`](./common_types.md#optional)`[String]` — required block label when `included` matches.
 
 ### `Outcome`

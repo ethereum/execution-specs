@@ -227,23 +227,22 @@ def test_txpool_reinjection_after_reorg(
     ``LegacyPool.reset``.
 
     genesis <- a1(tx1)
-            \\- b1(tx2, same sender+nonce, conflicting)
+            \\- b1(tx2, another sender)
 
     tx1 is sent through the pool, then included in a1. After the reorg to b1
-    (which contains the conflicting tx2), tx1 is no longer canonical; whether
+    tx1 is no longer canonical but still executable on b1's state; whether
     the client re-injects it into the pool (``pending``) or drops it is
-    client policy and is recorded. tx2 must be ``included`` in b1. Reorging
-    back to a1 must restore tx1's receipt.
+    client policy and is recorded, waiting for ``pending`` first. tx2 must
+    be ``included`` in b1. Reorging back to a1 must restore tx1's receipt.
     """
-    sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=0)
     # Explicit gas limit: raw-sent txs must not inherit the block-filling
     # default the filler assigns to payload txs.
     tx1 = Transaction(
-        sender=sender, nonce=0, to=recipient, value=1, gas_limit=21_000
+        sender=pre.fund_eoa(), nonce=0, to=recipient, value=1, gas_limit=21_000
     )
     tx2 = Transaction(
-        sender=sender, nonce=0, to=recipient, value=2, gas_limit=21_000
+        sender=pre.fund_eoa(), nonce=0, to=recipient, value=2, gas_limit=21_000
     )
     blocks = [
         ReorgBlock(label="a1", txs=[tx1]),

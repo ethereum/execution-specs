@@ -572,10 +572,12 @@ class StepRunner:
         """
         Check ``eth_getTransactionByHash`` pool/chain status.
 
-        Re-injecting the transactions of an orphaned block into the pool is
-        asynchronous in several clients, so the status is polled until it is
-        one of the expected values or the deadline passes. A status that is
-        already correct costs a single call.
+        ``expect`` lists the accepted statuses, preferred first. Re-injecting
+        the transactions of an orphaned block into the pool is asynchronous
+        in several clients, so the status is polled until it is the
+        preferred one; once the deadline passes any listed status is
+        accepted. A status that is already the preferred one costs a single
+        call.
         """
         ref = f"{step.tx.block}:{step.tx.index}"
         tx_hash = self.tx_hash(step.tx)
@@ -588,7 +590,7 @@ class StepRunner:
                 status = "pending"
             else:
                 status = "included"
-            if status in step.expect or time.monotonic() >= deadline:
+            if status == step.expect[0] or time.monotonic() >= deadline:
                 break
             time.sleep(TX_STATUS_POLL_INTERVAL)
         if status not in step.expect:

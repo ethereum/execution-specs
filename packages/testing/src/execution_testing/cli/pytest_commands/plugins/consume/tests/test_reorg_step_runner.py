@@ -12,6 +12,7 @@ from execution_testing.fixtures.blockchain import PayloadStatusEnum
 from execution_testing.fixtures.reorg import (
     AssertLogsStep,
     AssertStateStep,
+    AssertTxStatusStep,
     BlockchainEngineReorgFixture,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
@@ -27,6 +28,7 @@ from execution_testing.test_types import Alloc
 
 from ..simulators.helpers.exceptions import LoggedError
 from ..simulators.helpers.timing import TimingData
+from ..simulators.simulator_logic import test_via_reorg as reorg_logic
 from ..simulators.simulator_logic.test_via_reorg import (
     BoundPayload,
     StepRunner,
@@ -225,6 +227,36 @@ def test_send_raw_transaction_reports_a_client_rejection(
         else:
             with pytest.raises(LoggedError, match="rejected .-32000"):
                 step_runner.send_raw_transaction("send", step)
+
+
+@pytest.mark.parametrize(
+    "replies,timeout,status",
+    [
+        ([None, MagicMock(block_hash=None)], 5.0, "pending"),
+        ([None], 0.0, "dropped"),
+    ],
+    ids=["waits_for_preferred", "accepts_later_at_deadline"],
+)
+def test_assert_tx_status_prefers_the_first_listed_status(
+    make_runner: MakeRunner,
+    replies: List[MagicMock | None],
+    timeout: float,
+    status: str,
+) -> None:
+    """A later-listed status passes only once the deadline has passed."""
+    eth = MagicMock()
+    eth.get_transaction_by_hash.side_effect = replies
+    step_runner = make_runner(eth=eth)
+    step_runner.tx_hash = MagicMock(return_value=Hash(1))  # type: ignore[method-assign]
+    step = AssertTxStatusStep(
+        tx=TxRef(block="a1"), expect=["pending", "dropped"]
+    )
+    with (
+        patch.object(reorg_logic, "TX_STATUS_TIMEOUT", timeout),
+        patch.object(reorg_logic, "TX_STATUS_POLL_INTERVAL", 0),
+    ):
+        step_runner.assert_tx_status("status", step)
+    assert step_runner.matched[-1] == f"status:{status}"
 
 
 def test_assert_state_rejects_noncanonical_block(

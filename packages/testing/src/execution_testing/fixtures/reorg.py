@@ -446,7 +446,10 @@ class AssertTxStatusStep(StepBase):
 
     type: Literal["assertTxStatus"] = "assertTxStatus"
     tx: TxRef
-    expect: List[Literal["included", "pending", "dropped"]]
+    expect: List[Literal["included", "pending", "dropped"]] = Field(
+        min_length=1
+    )
+    """Accepted statuses, preferred first: the consumer waits for that one."""
     included_in: BlockLabel | None = None
     """If ``included`` matches, the block label it must be included in."""
 
