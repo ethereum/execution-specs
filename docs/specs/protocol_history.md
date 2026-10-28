@@ -27,7 +27,7 @@ The tables below list every Ethereum hardfork, its mainnet activation, the EIPs 
 | Cancun | Timestamp `1710338135` | [EIP-1153] <br/> [EIP-4788] <br/> [EIP-4844] <br/> [EIP-5656] <br/> [EIP-6780] <br/> [EIP-7044] <br/> [EIP-7045] <br/> [EIP-7514] <br/> [EIP-7516] | [EIP-7569] | [Spec](https://github.com/ethereum/execution-specs/tree/HEAD/src/ethereum/forks/cancun) | [Blog](https://blog.ethereum.org/2024/02/27/dencun-mainnet-announcement) |
 | Prague | Timestamp `1746612311` | [EIP-2537] <br/> [EIP-2935] <br/> [EIP-6110] <br/> [EIP-7002] <br/> [EIP-7251] <br/> [EIP-7549] <br/> [EIP-7623] <br/> [EIP-7685] <br/> [EIP-7691] <br/> [EIP-7702] | [EIP-7600] | [Spec](https://github.com/ethereum/execution-specs/tree/HEAD/src/ethereum/forks/prague) | [Blog](https://blog.ethereum.org/2025/04/23/pectra-mainnet) |
 | Osaka | Timestamp `1764798551` | [EIP-7594] <br/> [EIP-7642] <br/> [EIP-7823] <br/> [EIP-7825] <br/> [EIP-7883] <br/> [EIP-7892] <br/> [EIP-7910] <br/> [EIP-7917] <br/> [EIP-7918] <br/> [EIP-7934] <br/> [EIP-7935] <br/> [EIP-7939] <br/> [EIP-7951] | [EIP-7607] | [Spec](https://github.com/ethereum/execution-specs/tree/HEAD/src/ethereum/forks/osaka) | [Blog](https://blog.ethereum.org/2025/11/06/fusaka-mainnet-announcement) |
-| BPO1 | Timestamp `1765290071` | [EIP-7892] |  | [Spec](https://github.com/ethereum/execution-specs/tree/HEAD/src/ethereum/forks/bpo1) |  |
+| BPO1 | Timestamp `1765290071` | [EIP-7892] | [EIP-8134] | [Spec](https://github.com/ethereum/execution-specs/tree/HEAD/src/ethereum/forks/bpo1) |  |
 | BPO2 | Timestamp `1767747671` | [EIP-7892] | [EIP-8135] | [Spec](https://github.com/ethereum/execution-specs/tree/HEAD/src/ethereum/forks/bpo2) |  |
 
 !!! note "Activation mechanism"
@@ -146,6 +146,7 @@ The tables below list every Ethereum hardfork, its mainnet activation, the EIPs 
 [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
 [EIP-8038]: https://eips.ethereum.org/EIPS/eip-8038
 [EIP-8081]: https://eips.ethereum.org/EIPS/eip-8081
+[EIP-8134]: https://eips.ethereum.org/EIPS/eip-8134
 [EIP-8135]: https://eips.ethereum.org/EIPS/eip-8135
 [EIP-8246]: https://eips.ethereum.org/EIPS/eip-8246
 [EIP-8282]: https://eips.ethereum.org/EIPS/eip-8282
