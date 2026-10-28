@@ -152,13 +152,16 @@ class ErigonExceptionMapper(ExceptionMapper):
             r"|invalid expiry verifier frame"
             r"|frame gas limit overflow"
             r"|blob fee without blobs"
+            r"|invalid nonce key count"
+            r"|nonce keys not strictly increasing"
+            r"|zero nonce key alongside other keys"
             r"|invalid frame signature \d+: (?:"
             r"unknown scheme|invalid signer length"
             r"|arbitrary signature has signer"
             r"|invalid message length|zero message digest|signer mismatch)"
             r"|rlp: input string too long for (?:\*uint256.Int|uint64), "
             r"decoding into \(types\.frameTransactionRLP\)\.(?:"
-            r"Nonce|Frames\[\d+\]\.Limits\.(?:Execution|State))$"
+            r"Nonce(?:Keys\[\d+\])?|Frames\[\d+\]\.Limits\.(?:Execution|State))$"
         ),
         TransactionException.TYPE_6_INVALID_SIGNATURE: (
             r"invalid frame signature \d+: (?:"
