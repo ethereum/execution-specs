@@ -89,9 +89,31 @@ class MutableBranchNode:
 @final
 @dataclass
 class HashedNode:
-    """Placeholder for a trie subtree known only by its hash."""
+    """
+    Placeholder for a trie subtree known only by its hash.
+
+    A trie decoded from a witness starts with its nodes in this form. Each
+    node is decoded from the witness when a trie operation first reaches it,
+    and the operation fails if the witness lacks the node.
+    """
 
     _hash: Bytes
+
+
+@final
+@dataclass
+class EmbeddedNode:
+    """
+    Placeholder for a node embedded in its parent's encoding.
+
+    A node whose encoding is shorter than a hash is stored inside its parent
+    instead of being referenced by hash. Like a [`HashedNode`], it is decoded
+    only when a trie operation first reaches it.
+
+    [`HashedNode`]: ref:ethereum.forks.amsterdam.incremental_mpt.HashedNode
+    """
+
+    _rlp: Bytes
 
 
 MutableNode = Union[
@@ -99,6 +121,7 @@ MutableNode = Union[
     MutableExtensionNode,
     MutableBranchNode,
     HashedNode,
+    EmbeddedNode,
     None,
 ]
 
@@ -125,6 +148,18 @@ class IncrementalMPT(Generic[K, V]):
     default: V
     root_node: MutableNode = None
     witness: Witness = field(default_factory=Witness)
+    """
+    Nodes that trie operations visit, which the host collects into the
+    execution witness. The guest records them too, but does not use them.
+    """
+    node_db: Dict[Bytes, Bytes] = field(default_factory=dict)
+    """
+    Witness nodes by hash, from which the guest decodes a [`HashedNode`] when
+    a trie operation reaches it. A trie that the host builds holds every node
+    already, so its `node_db` stays empty.
+
+    [`HashedNode`]: ref:ethereum.forks.amsterdam.incremental_mpt.HashedNode
+    """
 
 
 def _build_mutable_tree(
@@ -233,7 +268,9 @@ def build_mpt(
 
 def _invalidate_hash(node: MutableNode) -> None:
     """Invalidate the cached hash of a node."""
-    assert not isinstance(node, HashedNode), "HashedNode cannot be invalidated"
+    assert not isinstance(node, (HashedNode, EmbeddedNode)), (
+        "Placeholder node cannot be invalidated"
+    )
     if node is None:
         return
     node._hash = None
@@ -245,7 +282,9 @@ def _record_witness(
     node: MutableNode,
 ) -> None:
     """Record a node access in the witness."""
-    assert not isinstance(node, HashedNode), "HashedNode cannot be witnessed"
+    assert not isinstance(node, (HashedNode, EmbeddedNode)), (
+        "Placeholder node cannot be witnessed"
+    )
     if node is None:
         return
 
@@ -265,8 +304,8 @@ def _encode_mutable_node(node: MutableNode) -> Extended:
     """
     if node is None:
         return b""
-    elif isinstance(node, HashedNode):
-        raise AssertionError("HashedNode cannot be inline-encoded")
+    elif isinstance(node, (HashedNode, EmbeddedNode)):
+        raise AssertionError("Placeholder node cannot be inline-encoded")
     elif isinstance(node, MutableLeafNode):
         return (
             nibble_list_to_compact(node.rest_of_key, True),
@@ -302,6 +341,9 @@ def _encode_mutable_node_to_extended(
     if isinstance(node, HashedNode):
         return node._hash
 
+    if isinstance(node, EmbeddedNode):
+        return rlp.decode(node._rlp)
+
     if not node._dirty and node._hash is not None:
         return node._hash
 
@@ -327,8 +369,8 @@ def _compute_node_hash_and_rlp(
     if node is None:
         return None, b""
 
-    assert not isinstance(node, HashedNode), (
-        "HashedNode cannot appear in _compute_node_hash_and_rlp"
+    assert not isinstance(node, (HashedNode, EmbeddedNode)), (
+        "Placeholder node cannot appear in _compute_node_hash_and_rlp"
     )
 
     if node._rlp is not None:
@@ -358,23 +400,19 @@ def mpt_get(mpt: IncrementalMPT[K, V], key: K) -> Optional[Bytes]:
     walk to build the witness, and the guest uses it to read the pre-state
     from a decoded witness.
 
-    The lookup fails on a [`HashedNode`], because the witness is missing a
-    node on the path.
-
-    [`HashedNode`]: ref:ethereum.forks.amsterdam.incremental_mpt.HashedNode
+    The guest decodes each node on the path as the lookup reaches it, so the
+    lookup fails if the witness is missing one of them.
     """
     if mpt.secured:
         nibble_key = bytes_to_nibble_list(keccak256(key))
     else:
         nibble_key = bytes_to_nibble_list(key)
 
+    mpt.root_node = _resolve(mpt, mpt.root_node, Uint(0))
     node = mpt.root_node
     pos = 0
 
     while node is not None:
-        assert not isinstance(node, HashedNode), (
-            "Encountered unresolved HashedNode during witness lookup"
-        )
         _record_witness(mpt.witness, node)
 
         if isinstance(node, MutableLeafNode):
@@ -387,7 +425,7 @@ def mpt_get(mpt: IncrementalMPT[K, V], key: K) -> Optional[Bytes]:
             if nibble_key[pos : pos + len(segment)] != segment:
                 return None
             pos += len(segment)
-            node = node.child
+            node = _resolve_extension_child(mpt, node, Uint(pos))
             continue
 
         assert isinstance(node, MutableBranchNode), (
@@ -396,8 +434,10 @@ def mpt_get(mpt: IncrementalMPT[K, V], key: K) -> Optional[Bytes]:
 
         if pos == len(nibble_key):
             return node.value or None
-        node = node.children[nibble_key[pos]]
+        index = nibble_key[pos]
         pos += 1
+        node.children[index] = _resolve(mpt, node.children[index], Uint(pos))
+        node = node.children[index]
 
     return None
 
@@ -432,6 +472,7 @@ def mpt_set(
     else:
         encoded_value = encode_node(value)
 
+    mpt.root_node = _resolve(mpt, mpt.root_node, Uint(0))
     if encoded_value == b"":
         mpt.root_node = _mpt_delete_node(
             mpt, mpt.root_node, nibble_key, Uint(0)
@@ -578,12 +619,13 @@ def _insert_into_extension(
     prefix_len = common_prefix_length(segment, remaining_key)
 
     if prefix_len == len(segment):
+        child_level = level + Uint(prefix_len)
         node.child = _mpt_insert_node(
             mpt,
-            node.child,
+            _resolve_extension_child(mpt, node, child_level),
             key,
             value,
-            level + Uint(prefix_len),
+            child_level,
         )
         node._dirty = True
         return node
@@ -661,7 +703,7 @@ def _insert_into_branch(
     child_idx = remaining_key[0]
     node.children[child_idx] = _mpt_insert_node(
         mpt,
-        node.children[child_idx],
+        _resolve(mpt, node.children[child_idx], level + Uint(1)),
         key,
         value,
         level + Uint(1),
@@ -712,8 +754,9 @@ def _delete_from_extension(
     if prefix_len < len(segment):
         return node
 
-    old_child = node.child
-    new_child = _mpt_delete_node(mpt, old_child, key, level + ulen(segment))
+    child_level = level + ulen(segment)
+    old_child = _resolve_extension_child(mpt, node, child_level)
+    new_child = _mpt_delete_node(mpt, old_child, key, child_level)
 
     if new_child is None:
         return None
@@ -731,7 +774,7 @@ def _delete_from_extension(
             _dirty=True,
         )
 
-    assert not isinstance(new_child, HashedNode)
+    assert not isinstance(new_child, (HashedNode, EmbeddedNode))
     child_changed = new_child is not old_child or (
         new_child is not None and new_child._dirty
     )
@@ -758,14 +801,15 @@ def _delete_from_branch(
         node.value = b""
     else:
         child_idx = remaining_key[0]
-        old_child = node.children[child_idx]
+        old_child = _resolve(mpt, node.children[child_idx], level + Uint(1))
+        node.children[child_idx] = old_child
         new_child = _mpt_delete_node(
             mpt,
             old_child,
             key,
             level + Uint(1),
         )
-        assert not isinstance(new_child, HashedNode)
+        assert not isinstance(new_child, (HashedNode, EmbeddedNode))
         child_changed = new_child is not old_child or (
             new_child is not None and new_child._dirty
         )
@@ -774,19 +818,20 @@ def _delete_from_branch(
         node.children[child_idx] = new_child
 
     node._dirty = True
-    return _collapse_branch(mpt, node)
+    return _collapse_branch(mpt, node, level)
 
 
 def _collapse_branch(
-    mpt: IncrementalMPT, node: MutableBranchNode
+    mpt: IncrementalMPT, node: MutableBranchNode, level: Uint
 ) -> MutableNode:
-    """Collapse a branch node if it has only one child."""
+    """Collapse a branch node at `level` if it has only one child."""
     non_empty = [(i, c) for i, c in enumerate(node.children) if c is not None]
 
     assert len(non_empty) > 0 or node.value != b""
 
     if len(non_empty) == 1 and node.value == b"":
-        idx, child = non_empty[0]
+        idx, remaining_child = non_empty[0]
+        child = _resolve(mpt, remaining_child, level + Uint(1))
         _record_witness(mpt.witness, child)
         nibble = Bytes([idx])
 
@@ -797,6 +842,8 @@ def _collapse_branch(
                 _dirty=True,
             )
         elif isinstance(child, MutableExtensionNode):
+            # The merged extension only needs the reference to `child.child`,
+            # so the collapse doesn't decode it.
             return MutableExtensionNode(
                 key_segment=nibble + child.key_segment,
                 child=child.child,
@@ -882,16 +929,12 @@ def compact_to_nibbles(compact: Bytes) -> Tuple[Bytes, bool]:
     return Bytes(nibbles), is_leaf
 
 
-def _resolve_child_ref(
-    node_db: Dict[Bytes, Bytes],
-    child_ref: Extended,
-) -> MutableNode:
+def _decode_child_ref(child_ref: Extended) -> MutableNode:
     """
-    Resolve a child reference from an RLP-decoded trie node.
+    Turn a child reference from an RLP-decoded trie node into a placeholder.
 
-    Handle three cases: empty string (no child), 32-byte hash
-    (look up in node_db or create a ``HashedNode``), and inline RLP list
-    (decode directly).
+    An empty string means there is no child, a 32-byte string is the hash of
+    the child, and a list is a child embedded in its parent.
     """
     if isinstance(child_ref, (bytes, bytearray)):
         ref_bytes = Bytes(child_ref)
@@ -900,27 +943,17 @@ def _resolve_child_ref(
         assert len(ref_bytes) == 32, (
             f"Unexpected child ref length: {len(ref_bytes)}"
         )
-        if ref_bytes in node_db:
-            return _decode_witness_node(node_db, node_db[ref_bytes])
         return HashedNode(_hash=ref_bytes)
     else:
-        return _decode_witness_node(node_db, rlp.encode(child_ref))
+        return EmbeddedNode(_rlp=rlp.encode(child_ref))
 
 
-def _decode_witness_node(
-    node_db: Dict[Bytes, Bytes],
-    rlp_bytes: Bytes,
-) -> MutableNode:
+def _decode_witness_node(rlp_bytes: Bytes) -> MutableNode:
     """
-    Decode an RLP-encoded trie node into a ``MutableNode``.
+    Decode one RLP-encoded trie node from the witness.
 
-    Parameters
-    ----------
-    node_db :
-        Mapping from node hash to RLP-encoded node data.
-    rlp_bytes :
-        The RLP-encoded node to decode.
-
+    The children of the node stay placeholders until a trie operation reaches
+    them, so only what the node's own encoding shows is checked here.
     """
     node_hash: Optional[Bytes] = None
     if len(rlp_bytes) >= 32:
@@ -950,8 +983,8 @@ def _decode_witness_node(
             )
         else:
             assert len(nibbles) > 0, "ExtensionNode must have a non-empty path"
-            child = _resolve_child_ref(node_db, decoded[1])
-            assert isinstance(child, (MutableBranchNode, HashedNode)), (
+            child = _decode_child_ref(decoded[1])
+            assert child is not None, (
                 "ExtensionNode child must be a BranchNode"
             )
             return MutableExtensionNode(
@@ -964,7 +997,7 @@ def _decode_witness_node(
     elif len(decoded) == 17:
         children: List[Optional[MutableNode]] = []
         for i in range(16):
-            children.append(_resolve_child_ref(node_db, decoded[i]))
+            children.append(_decode_child_ref(decoded[i]))
         value_raw = decoded[16]
         if isinstance(value_raw, (bytes, bytearray)):
             value = Bytes(value_raw)
@@ -984,14 +1017,14 @@ def _decode_witness_node(
         raise AssertionError(f"Invalid RLP node length: {len(decoded)}")
 
 
-def _validate_secured_trie_paths(
-    node: MutableNode,
-    remaining_key_nibbles: int,
-) -> None:
-    """Validate path lengths in the decoded portion of a secured trie."""
-    if node is None or isinstance(node, HashedNode):
-        return
+def _check_secured_path(node: MutableNode, depth: Uint) -> None:
+    """
+    Check that `node`, `depth` nibbles below the root, fits a secured key.
 
+    Every key in a secured trie is a hash, so every path from the root must
+    end at a leaf after exactly `SECURED_TRIE_KEY_NIBBLES` nibbles.
+    """
+    remaining_key_nibbles = SECURED_TRIE_KEY_NIBBLES - int(depth)
     if isinstance(node, MutableLeafNode):
         assert len(node.rest_of_key) == remaining_key_nibbles, (
             "LeafNode path does not terminate at the secured key length"
@@ -1000,17 +1033,55 @@ def _validate_secured_trie_paths(
         assert len(node.key_segment) < remaining_key_nibbles, (
             "ExtensionNode path exceeds the secured key length"
         )
-        _validate_secured_trie_paths(
-            node.child,
-            remaining_key_nibbles - len(node.key_segment),
-        )
-    else:
-        assert isinstance(node, MutableBranchNode)
+    elif isinstance(node, MutableBranchNode):
         assert remaining_key_nibbles > 0, (
             "BranchNode exceeds the secured key length"
         )
-        for child in node.children:
-            _validate_secured_trie_paths(child, remaining_key_nibbles - 1)
+
+
+def _resolve(
+    mpt: IncrementalMPT, node: MutableNode, depth: Uint
+) -> MutableNode:
+    """
+    Decode a placeholder `node`, `depth` nibbles below the root, when a trie
+    operation reaches it.
+
+    The caller stores the decoded node in place of the placeholder, so each
+    node is decoded and checked once. That is enough, because a node stays at
+    the same depth however the trie changes around it.
+    """
+    if isinstance(node, HashedNode):
+        assert node._hash in mpt.node_db, "Witness is missing a trie node"
+        node = _decode_witness_node(mpt.node_db[node._hash])
+        # A missing child is an empty string, and an empty trie has no root
+        # node, so a hash never stands for the empty node.
+        assert node is not None, "Hash reference points to an empty node"
+    elif isinstance(node, EmbeddedNode):
+        node = _decode_witness_node(node._rlp)
+    else:
+        return node
+
+    if mpt.secured:
+        _check_secured_path(node, depth)
+    return node
+
+
+def _resolve_extension_child(
+    mpt: IncrementalMPT, node: MutableExtensionNode, depth: Uint
+) -> MutableBranchNode:
+    """
+    Decode the child, `depth` nibbles below the root, that a trie operation
+    reaches through the extension `node`.
+
+    The child of an extension must be a branch, since a leaf or an extension
+    below it would make the two path segments one.
+    """
+    child = _resolve(mpt, node.child, depth)
+    assert isinstance(child, MutableBranchNode), (
+        "ExtensionNode child must be a BranchNode"
+    )
+    node.child = child
+    return child
 
 
 def decode_witness_to_mpt(
@@ -1020,46 +1091,22 @@ def decode_witness_to_mpt(
     default: V,
 ) -> IncrementalMPT[K, V]:
     """
-    Build an ``IncrementalMPT`` from a witness node database.
+    Build an `IncrementalMPT` over the witness nodes in `node_db`.
 
-    Decode the trie starting at ``root_hash``, resolving child
-    references from ``node_db``. Unknown children become
-    ``HashedNode`` placeholders.
+    Nothing is decoded up front. The root at `root_hash` starts as a
+    [`HashedNode`], and each node is decoded and checked only when a trie
+    operation first reaches it. A malformed witness node that no operation
+    reaches therefore has no effect on the result.
 
-    Parameters
-    ----------
-    node_db :
-        Mapping from node hash to RLP-encoded node data.
-    root_hash :
-        Root hash of the trie to decode.
-    secured :
-        Whether keys are hashed before insertion.
-    default :
-        Default value for missing keys.
-
-    Returns
-    -------
-    mpt : `IncrementalMPT[K, V]`
-        The decoded incremental MPT.
-
+    [`HashedNode`]: ref:ethereum.forks.amsterdam.incremental_mpt.HashedNode
     """
-    if root_hash == EMPTY_TRIE_ROOT:
-        return IncrementalMPT(
-            secured=secured,
-            default=default,
-            root_node=None,
-        )
-
-    root_rlp = node_db[root_hash]
-    root_node = _decode_witness_node(node_db, root_rlp)
-    if secured:
-        _validate_secured_trie_paths(
-            root_node,
-            SECURED_TRIE_KEY_NIBBLES,
-        )
+    root_node: MutableNode = None
+    if root_hash != EMPTY_TRIE_ROOT:
+        root_node = HashedNode(_hash=root_hash)
 
     return IncrementalMPT(
         secured=secured,
         default=default,
         root_node=root_node,
+        node_db=node_db,
     )
