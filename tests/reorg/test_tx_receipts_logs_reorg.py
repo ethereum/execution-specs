@@ -66,9 +66,11 @@ def test_tx_reorg_shared_dropped_postponed_added(
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=0)
     other = pre.fund_eoa()
+    # Own sender: ``added`` must not consume the dropped transaction's nonce.
+    dropper = pre.fund_eoa()
 
     shared = Transaction(sender=sender, nonce=0, to=recipient, value=1)
-    dropped = Transaction(sender=sender, nonce=1, to=recipient, value=2)
+    dropped = Transaction(sender=dropper, nonce=0, to=recipient, value=2)
     postponed = Transaction(sender=other, nonce=0, to=recipient, value=3)
     added = Transaction(sender=sender, nonce=1, to=recipient, value=4)
     filler_b2 = Transaction(sender=other, nonce=1, to=recipient, value=5)
@@ -99,6 +101,11 @@ def test_tx_reorg_shared_dropped_postponed_added(
     after_b = [
         # shared: same hash, now in b1.
         AssertReceiptStep(tx=TxRef(block="a1", index=0), block="b1"),
+        AssertTxStatusStep(
+            tx=TxRef(block="a1", index=0),
+            expect=["included"],
+            included_in="b1",
+        ),
         # dropped: gone from the canonical chain; pool re-injection is policy.
         AssertReceiptStep(tx=TxRef(block="a2", index=0), block=None),
         AssertTxStatusStep(
@@ -106,8 +113,18 @@ def test_tx_reorg_shared_dropped_postponed_added(
         ),
         # postponed: now in b4.
         AssertReceiptStep(tx=TxRef(block="a2", index=1), block="b4"),
+        AssertTxStatusStep(
+            tx=TxRef(block="a2", index=1),
+            expect=["included"],
+            included_in="b4",
+        ),
         # added: now included.
         AssertReceiptStep(tx=TxRef(block="b2", index=0), block="b2"),
+        AssertTxStatusStep(
+            tx=TxRef(block="b2", index=0),
+            expect=["included"],
+            included_in="b2",
+        ),
         AssertCanonicalStep(blocks={1: "b1", 2: "b2", 3: "b3", 4: "b4"}),
     ]
 
