@@ -125,7 +125,7 @@ def test_build_on_previously_validated_side_payload(
             branches={"applied": [AssertCanonicalStep(blocks={3: "a3"})]},
         ),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -203,7 +203,7 @@ def test_two_built_payloads_same_parent(
             },
         ),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -284,4 +284,4 @@ def test_pool_tx_reorged_out_of_built_payload(
             },
         ),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)

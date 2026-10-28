@@ -132,7 +132,7 @@ def test_bad_block_hash_on_new_payload(
         ),
         AssertHeadStep(latest="a3"),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -166,7 +166,7 @@ def test_parent_hash_equals_block_hash(
         ),
         AssertHeadStep(latest="a2"),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -260,7 +260,7 @@ def test_invalid_payload_field(
             ],
         ),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -377,12 +377,7 @@ def test_invalid_missing_ancestor_reorg(
             ],
         ),
     ]
-    reorg_test(
-        pre=pre,
-        blocks=blocks,
-        steps=steps,
-        meta={"class": "shallow", "reorgDepth": 5},
-    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -450,4 +445,4 @@ def test_invalid_ancestor_descendants_delivered_first(
         ),
         AssertHeadStep(latest="a3"),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)

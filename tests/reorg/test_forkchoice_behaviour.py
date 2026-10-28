@@ -245,7 +245,7 @@ def test_head_follows_fcu_regardless_of_length(
         )
     )
     _ = b_steps
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -301,7 +301,7 @@ def test_reorg_back_and_forth_between_branches(
                 },
             )
         )
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -355,12 +355,7 @@ def test_reorg_to_older_canonical_ancestor_and_forward(
     steps.append(
         AssertCanonicalStep(blocks={i: f"a{i}" for i in range(1, 11)})
     )
-    reorg_test(
-        pre=pre,
-        blocks=blocks,
-        steps=steps,
-        meta={"class": "shallow", "reorgDepth": 5},
-    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -424,7 +419,7 @@ def test_fcu_to_unknown_block_is_syncing(
         ),
         ForkchoiceUpdatedStep(head="a5", expect=applied("a5")),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -462,7 +457,7 @@ def test_inconsistent_forkchoice_state(
             head="a3", safe="a2", finalized="a1", expect=applied("a3")
         ),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -518,7 +513,7 @@ def test_safe_finalized_labels_follow_fcu(
             },
         ),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -541,7 +536,7 @@ def test_newpayload_does_not_move_head(
         ),
         AssertCanonicalStep(blocks={i: f"a{i}" for i in range(1, 6)}),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -587,7 +582,7 @@ def test_reexecute_payloads(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
         ),
         AssertHeadStep(latest="a5"),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -629,7 +624,7 @@ def test_many_siblings_same_parent(
             branches={"applied": [AssertCanonicalStep(blocks={4: "a4"})]},
         ),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -672,7 +667,7 @@ def test_out_of_order_payload_delivery(
         ),
         ForkchoiceUpdatedStep(head="a4", expect=applied("a4")),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -705,9 +700,7 @@ def test_alternating_canonical_and_depth1_forks(
             ForkchoiceUpdatedStep(head=f"f{i}", expect=applied(f"f{i}")),
             ForkchoiceUpdatedStep(head=f"a{i}", expect=applied(f"a{i}")),
         ]
-    reorg_test(
-        pre=pre, blocks=blocks, steps=interleaved, meta={"class": "shallow"}
-    )
+    reorg_test(pre=pre, blocks=blocks, steps=interleaved)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -760,7 +753,7 @@ def test_valid_and_invalid_forks_with_older_canonical_head(
         ),
         AssertCanonicalStep(blocks={14: "x14", 15: None}),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -795,7 +788,7 @@ def test_reorg_to_fork_behind_finalized(
             ],
         )
     )
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -834,7 +827,7 @@ def test_forkchoice_state_unchanged_on_invalid_state(
             },
         )
     )
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -868,9 +861,4 @@ def test_fcu_rewind_with_no_finalized(
             },
         )
     )
-    reorg_test(
-        pre=pre,
-        blocks=blocks,
-        steps=steps,
-        meta={"class": "shallow", "reorgDepth": 3, "rewind": True},
-    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps)

@@ -68,10 +68,6 @@ Ordered, branching script of Engine API / JSON-RPC steps.
 
 Minimum side-chain reorg depth (in blocks) the client must apply without refusing for capacity reasons; the consumer sets the client's cap (`HIVE_ENGINE_MAX_REORG_DEPTH`) to it. `None` keeps client defaults.
 
-#### - `meta`: [`Mapping`](./common_types.md#mapping)`[String,``Any``]`
-
-Free-form metadata about the test (e.g. `class`,`reorgDepth`) for offline analysis; not consumed by the runner. A `reorgDepth` of `1` states a suite requirement: every client must apply a same-height sibling reorg.
-
 ### `FixtureReorgBlock`
 
 #### - `parent`: `String`

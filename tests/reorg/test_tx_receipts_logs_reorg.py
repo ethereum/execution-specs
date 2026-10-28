@@ -125,7 +125,7 @@ def test_tx_reorg_shared_dropped_postponed_added(
             head="b4", expect=applied("b4"), branches={"applied": after_b}
         )
     )
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -198,7 +198,7 @@ def test_logs_follow_reorg(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
             },
         ),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -282,4 +282,4 @@ def test_txpool_reinjection_after_reorg(
             },
         ),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)

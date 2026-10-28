@@ -137,7 +137,7 @@ def test_reorg_over_same_tx_selfdestruct(
         AssertHeadStep(latest="x2"),
         AssertStateStep(accounts={contract: ALIVE}),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Cancun")
@@ -193,4 +193,4 @@ def test_reorg_over_same_block_destroy_and_recreate(
         AssertStateStep(accounts={contract: ALIVE}),
         AssertHeadStep(latest="z1"),
     ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)

@@ -394,7 +394,6 @@ class BlockchainEngineReorgFixture(EngineFixtureCommon):
     without refusing for capacity reasons; the consumer sets the client's
     cap to it. ``None`` keeps client defaults.
     """
-    meta: Dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check_filled(self) -> Self:

@@ -160,12 +160,7 @@ def test_side_chain_reorg_depth_default(
     """
     blocks, steps = two_branches(pre, depth)
     steps += matrix_steps(depth, applied_only=depth <= 8)
-    reorg_test(
-        pre=pre,
-        blocks=blocks,
-        steps=steps,
-        meta={"class": "deep", "reorgDepth": depth, "variant": "default"},
-    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Cancun")
@@ -211,21 +206,4 @@ def test_side_chain_reorg_depth_tuned(
     """
     blocks, steps = two_branches(pre, depth)
     steps += matrix_steps(depth, applied_only=True)
-    reorg_test(
-        pre=pre,
-        blocks=blocks,
-        steps=steps,
-        min_reorg_depth=depth + 8,
-        meta={
-            "class": "deep",
-            "reorgDepth": depth,
-            "variant": "tuned",
-            # Beyond the in-memory trie window no client is required to serve
-            # the reorg; the result is a capability measurement.
-            **(
-                {"capabilityProbe": "beyond the in-memory trie window"}
-                if depth > 128
-                else {}
-            ),
-        },
-    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps, min_reorg_depth=depth + 8)

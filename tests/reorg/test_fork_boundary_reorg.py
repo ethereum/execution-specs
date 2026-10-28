@@ -125,12 +125,7 @@ def test_reorg_across_fork_boundary(
         ),
         AssertHeadStep(latest="a5"),
     ]
-    reorg_test(
-        pre=pre,
-        blocks=blocks,
-        steps=steps,
-        meta={"class": "shallow", "forkBoundary": True},
-    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_at_transition_to("Shanghai", subsequent_forks=True)
@@ -198,9 +193,4 @@ def test_sibling_first_fork_blocks(
             },
         ),
     ]
-    reorg_test(
-        pre=pre,
-        blocks=blocks,
-        steps=steps,
-        meta={"class": "shallow", "forkBoundary": True},
-    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps)

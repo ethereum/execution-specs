@@ -138,12 +138,7 @@ def test_sibling_reorg(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
         ),
     ]
 
-    reorg_test(
-        pre=pre,
-        blocks=blocks,
-        steps=steps,
-        meta={"class": "shallow", "reorgDepth": 1},
-    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -226,16 +221,7 @@ def test_invalid_side_chain(
         )
     )
 
-    reorg_test(
-        pre=pre,
-        blocks=blocks,
-        steps=steps,
-        meta={
-            "class": "shallow",
-            "sideLength": 5,
-            "invalidIndex": invalid_index,
-        },
-    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -288,7 +274,7 @@ def test_fcu_below_finalized_with_inconsistent_state(
             },
         )
     )
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -327,7 +313,7 @@ def test_fcu_finalized_regression(
             ],
         )
     )
-    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -390,9 +376,4 @@ def test_fcu_rewind_to_canonical_ancestor_above_finalized(
             },
         )
     )
-    reorg_test(
-        pre=pre,
-        blocks=blocks,
-        steps=steps,
-        meta={"class": "shallow", "reorgDepth": 3, "rewind": True},
-    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps)

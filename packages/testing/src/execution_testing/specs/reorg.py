@@ -111,8 +111,6 @@ class ReorgTest(BlockchainTest):
     cap to it.
     """
 
-    meta: Dict[str, str | int] = Field(default_factory=dict)
-
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
     ] = [BlockchainEngineReorgFixture]
@@ -361,7 +359,6 @@ class ReorgTest(BlockchainTest):
             blocks=fixture_blocks,
             steps=steps,
             min_reorg_depth=self.min_reorg_depth,
-            meta=dict(self.meta),
             config=FixtureConfig(
                 fork=self.fork,
                 chain_id=self.chain_id,
