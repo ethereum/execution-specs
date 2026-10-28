@@ -255,6 +255,43 @@ def test_head_follows_fcu_regardless_of_length(
 
 
 @pytest.mark.valid_from("Shanghai")
+def test_forks_going_back_and_forward_in_height(
+    reorg_test: ReorgTestFiller, pre: Alloc
+) -> None:
+    """
+    Erigon
+    ``TestValidateChainAndUpdateForkChoiceWithSideForksThatGoBackAndForwardInHeight``:
+    three forks from genesis of 2, 1 and 2 blocks, each block delivered and
+    then made the head, so the head drops from height 2 to 1 and climbs
+    back. Every update is applied and nothing above the head stays
+    canonical: a client that keeps canonical hashes above a lower head
+    executes the next fork on a stale state and gets its state root wrong.
+    """
+    blocks: List[ReorgBlock] = []
+    steps: List[Step] = []
+    for prefix, length in (("a", 2), ("b", 1), ("c", 2)):
+        fork, _ = chain(pre, prefix, length)
+        blocks += fork
+        for height, b in enumerate(fork, start=1):
+            canonical = {i: f"{prefix}{i}" for i in range(1, height + 1)}
+            steps += [
+                NewPayloadStep(block=b.label),
+                ForkchoiceUpdatedStep(
+                    head=b.label,
+                    expect=applied(b.label),
+                    branches={
+                        "applied": [
+                            AssertCanonicalStep(
+                                blocks={**canonical, height + 1: None}
+                            )
+                        ]
+                    },
+                ),
+            ]
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
+
+
+@pytest.mark.valid_from("Shanghai")
 def test_reorg_back_and_forth_between_branches(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
