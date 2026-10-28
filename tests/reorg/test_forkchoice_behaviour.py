@@ -429,22 +429,23 @@ def test_inconsistent_forkchoice_state(
     canonical a1..a3 (safe a2, finalized a1) and a validated sibling chain
     b1..b3, an FCU whose ``field`` points into the other chain is
     ``-38002`` and leaves head, safe and finalized as they were; the
-    canonical FCU afterwards is VALID.
+    canonical FCU afterwards is VALID. The ``safe`` variant finalizes
+    genesis instead, an ancestor of both chains, so safe being off the
+    head's chain is the only reason for ``-38002``.
     """
     blocks, steps = chain(pre, "a", 3)
     side, _ = chain(pre, "b", 3, value=2)
     blocks += side
     steps += [NewPayloadStep(block=b.label) for b in side]
-    state = {"head": "a3", "safe": "a2", "finalized": "a1"}
+    canonical = {"head": "a3", "safe": "a2", "finalized": "a1"}
+    if field == "safe":
+        canonical["finalized"] = "genesis"
+    state = dict(canonical)
     state[field] = {"head": "b3", "safe": "b2", "finalized": "b1"}[field]
     steps += [
+        ForkchoiceUpdatedStep(**canonical, expect=applied("a3")),
         ForkchoiceUpdatedStep(
-            head="a3", safe="a2", finalized="a1", expect=applied("a3")
-        ),
-        ForkchoiceUpdatedStep(
-            head=state["head"],
-            safe=state["safe"],
-            finalized=state["finalized"],
+            **state,
             expect=[
                 Outcome(
                     id="inconsistent",
@@ -452,9 +453,7 @@ def test_inconsistent_forkchoice_state(
                 )
             ],
         ),
-        ForkchoiceUpdatedStep(
-            head="a3", safe="a2", finalized="a1", expect=applied("a3")
-        ),
+        ForkchoiceUpdatedStep(**canonical, expect=applied("a3")),
     ]
     reorg_test(pre=pre, blocks=blocks, steps=steps)
 
