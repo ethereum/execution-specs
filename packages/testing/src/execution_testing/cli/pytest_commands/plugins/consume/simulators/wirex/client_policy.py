@@ -78,6 +78,19 @@ decision needs. The RPC client retries a timed out request, so a client
 that never answers is given up on after about a minute.
 """
 
+ENGINE_REQUEST_TIMEOUT = (5.0, 10.0)
+"""
+(connect, read) timeout of each attempt of an Engine API request.
+
+A syncing client answers `engine_newPayload` and
+`engine_forkchoiceUpdated` without waiting for the sync, executing at
+most the payload's own block, and the Engine API gives a consensus
+client 8 seconds for either. The RPC client retries a timed out request, so a
+client whose Engine API stops answering is given up on after about a
+minute, in line with the sync timeout, instead of after the default
+read timeout of several minutes per attempt.
+"""
+
 
 class ClientHead(NamedTuple):
     """The number and hash of a client's current head block."""
@@ -132,7 +145,9 @@ def build_engine_rpc(
         else None
     )
     return EngineRPC(
-        f"http://{client.ip}:8551", response_validation_context=context
+        f"http://{client.ip}:8551",
+        response_validation_context=context,
+        request_timeout=ENGINE_REQUEST_TIMEOUT,
     )
 
 
