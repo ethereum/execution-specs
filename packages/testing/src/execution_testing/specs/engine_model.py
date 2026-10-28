@@ -63,36 +63,55 @@ DISPUTED_HEAD_EQUALS_FINALIZED = (
 )
 
 
-@dataclass
-class ModelDag:
-    """Block DAG known at fill time."""
+@dataclass(frozen=True)
+class DagBlock:
+    """What the model knows about one block of the DAG at fill time."""
 
-    parent: Dict[str, str]
-    """label -> parent label (``genesis`` has no entry)."""
-    valid: Dict[str, bool]
-    """label -> whether the block passes execution validation."""
-    hash_invalid: Set[str] = field(default_factory=set)
+    parent: str | None
+    """Parent label; ``None`` for ``genesis``."""
+    timestamp: int
+    gas_limit: int
+    slot: int
+    """Slot number (0 before Amsterdam)."""
+    fcu_version: int
+    """``forkchoiceUpdated`` version of a request whose head is this block."""
+    valid: bool = True
+    """Whether the block passes execution validation."""
+    hash_invalid: bool = False
     """
-    Labels whose engine payload does not hash to its own ``blockHash``.
+    Whether the engine payload does not hash to its own ``blockHash``.
 
     Such a payload is rejected by the block-hash check, which the client has
     to run in all cases, before and independently of any parent lookup or
     execution.
     """
+
+
+@dataclass
+class ModelDag:
+    """Block DAG known at fill time."""
+
+    blocks: Dict[str, DagBlock]
+    """label -> block, ``genesis`` included."""
     post_state: Optional[Callable[[str], Optional[Alloc]]] = None
     """label -> that block's post-state (``None`` if unknown), if checked."""
-    timestamp: Dict[str, int] = field(default_factory=dict)
-    """label -> timestamp; with the next two, the build-request defaults."""
-    gas_limit: Dict[str, int] = field(default_factory=dict)
-    """label -> gas limit."""
-    slot: Dict[str, int] = field(default_factory=dict)
-    """label -> slot number (0 before Amsterdam)."""
+
+    def parent(self, label: str) -> str:
+        """Parent label of a block other than ``genesis``."""
+        parent = self.blocks[label].parent
+        assert parent is not None, f"{label!r} has no parent"
+        return parent
+
+    def hash_invalid(self, label: str) -> bool:
+        """Whether ``label`` is a block whose payload fails the hash check."""
+        block = self.blocks.get(label)
+        return block is not None and block.hash_invalid
 
     def ancestors(self, label: str) -> List[str]:
         """Labels from ``label`` (inclusive) back to genesis."""
         chain = [label]
         while label != GENESIS_LABEL:
-            label = self.parent[label]
+            label = self.parent(label)
             chain.append(label)
         return chain
 
@@ -111,7 +130,7 @@ class ModelDag:
 
     def fully_valid(self, label: str) -> bool:
         """Block and all its ancestors are execution-valid."""
-        return all(self.valid.get(a, True) for a in self.ancestors(label))
+        return all(self.blocks[a].valid for a in self.ancestors(label))
 
 
 class Validity(Enum):
@@ -175,8 +194,8 @@ class ClientModel:
 
     def new_payload_outcomes(self, block: str) -> List[Outcome]:
         """Legal outcomes of ``newPayload(block)``."""
-        parent = self.dag.parent[block]
-        if block in self.dag.hash_invalid:
+        parent = self.dag.parent(block)
+        if self.dag.blocks[block].hash_invalid:
             # The block-hash check runs in all cases, so the answer does not
             # depend on the parent being known. Pre-Shanghai clients report
             # INVALID_BLOCK_HASH; from Shanghai on, INVALID with a null
@@ -203,7 +222,7 @@ class ClientModel:
                 Outcome(id="invalid", status="INVALID", latest_valid_hash=lva),
                 Outcome(id="syncing", status="SYNCING"),
             ]
-        if not self.dag.valid.get(block, True):
+        if not self.dag.blocks[block].valid:
             # The spec only says validationError MAY be set; required here
             # (unlike the propagated-invalid-parent and FCU-invalid-head
             # cases) because this is the block a client itself executed and
@@ -276,7 +295,7 @@ class ClientModel:
         self, step: ForkchoiceUpdatedStep
     ) -> List[Outcome]:
         head = step.head
-        if head in self.dag.hash_invalid:
+        if self.dag.hash_invalid(head):
             # No block is stored under the payload's claimed hash; the client
             # answers INVALID only if it remembers rejecting that hash.
             return [
@@ -563,8 +582,9 @@ def _default_build_request(
     """
     attrs = step.payload_attributes
     assert attrs is not None
+    head = dag.blocks[step.head]
     if int(attrs.timestamp) == 0:
-        attrs.timestamp = HexNumber(dag.timestamp[step.head] + 12)
+        attrs.timestamp = HexNumber(head.timestamp + 12)
     attrs_fork = fork.fork_at(block_number=0, timestamp=int(attrs.timestamp))
     if attrs.withdrawals is None and attrs_fork.header_withdrawals_required():
         attrs.withdrawals = []
@@ -577,12 +597,12 @@ def _default_build_request(
         attrs.slot_number is None
         and attrs_fork.engine_payload_attribute_slot_number()
     ):
-        attrs.slot_number = HexNumber(dag.slot[step.head] + 1)
+        attrs.slot_number = HexNumber(head.slot + 1)
     if (
         attrs.target_gas_limit is None
         and attrs_fork.engine_payload_attribute_target_gas_limit()
     ):
-        attrs.target_gas_limit = HexNumber(dag.gas_limit[step.head])
+        attrs.target_gas_limit = HexNumber(head.gas_limit)
     if step.version is None:
         version = attrs_fork.engine_forkchoice_updated_version()
         assert version is not None
@@ -592,8 +612,7 @@ def _default_build_request(
 def _bind_payload(
     step: GetPayloadStep,
     model: ClientModel,
-    fork: Fork | TransitionFork | None,
-    fcu_version: Optional[Dict[str, int]],
+    fork: Fork | TransitionFork,
 ) -> None:
     """
     Add the payload ``getPayload`` binds to the DAG as a valid child of its
@@ -618,34 +637,21 @@ def _bind_payload(
             f"{where}: the build in progress is on {parent!r}, not "
             f"{step.parent!r}"
         )
-    dag = model.dag
-    dag.parent[step.bind] = parent
-    dag.valid[step.bind] = True
-    dag.timestamp[step.bind] = int(attrs.timestamp)
-    dag.slot[step.bind] = (
-        0 if attrs.slot_number is None else int(attrs.slot_number)
+    build_fork = fork.fork_at(block_number=0, timestamp=int(attrs.timestamp))
+    fcu_version = build_fork.engine_forkchoice_updated_version()
+    assert fcu_version is not None
+    model.dag.blocks[step.bind] = DagBlock(
+        parent=parent,
+        timestamp=int(attrs.timestamp),
+        gas_limit=(
+            model.dag.blocks[parent].gas_limit
+            if attrs.target_gas_limit is None
+            else int(attrs.target_gas_limit)
+        ),
+        slot=0 if attrs.slot_number is None else int(attrs.slot_number),
+        fcu_version=fcu_version,
     )
-    dag.gas_limit[step.bind] = (
-        dag.gas_limit[parent]
-        if attrs.target_gas_limit is None
-        else int(attrs.target_gas_limit)
-    )
-    build_fork = (
-        None
-        if fork is None
-        else fork.fork_at(block_number=0, timestamp=int(attrs.timestamp))
-    )
-    if fcu_version is not None:
-        bound_fcu = (
-            fcu_version[parent]
-            if build_fork is None
-            else build_fork.engine_forkchoice_updated_version()
-        )
-        assert bound_fcu is not None
-        fcu_version[step.bind] = bound_fcu
     if step.version is None:
-        if build_fork is None:
-            raise ValueError(f"{where} without version and no fork provided")
         version = build_fork.engine_get_payload_version()
         assert version is not None
         step.version = Number(version)
@@ -654,8 +660,7 @@ def _bind_payload(
 def annotate_steps(
     steps: List[Step],
     model: ClientModel,
-    fcu_version: Optional[Dict[str, int]] = None,
-    fork: Fork | TransitionFork | None = None,
+    fork: Fork | TransitionFork,
     more_follow: bool = False,
 ) -> List[Step]:
     """
@@ -665,11 +670,10 @@ def annotate_steps(
 
     Each outcome's branch is annotated with its own copy of the model;
     ``more_follow`` says a step follows in an enclosing list (see
-    ``_continue``). With ``fork``, build requests get their unset attribute
-    fields and version from it. ``getPayload`` binds the build its
-    preceding steps leave in progress (see ``ClientModel.build``).
-    ``assertState`` is checked against the DAG's post-states where they
-    are known.
+    ``_continue``). Build requests get their unset attribute fields and
+    version from ``fork``. ``getPayload`` binds the build its preceding
+    steps leave in progress (see ``ClientModel.build``). ``assertState`` is
+    checked against the DAG's post-states where they are known.
     """
     for i, step in enumerate(steps):
         has_continuation = i + 1 < len(steps) or more_follow
@@ -686,7 +690,6 @@ def annotate_steps(
                     annotate_steps(
                         step.branches[outcome.id],
                         branch_model,
-                        fcu_version,
                         fork,
                         has_continuation,
                     )
@@ -698,15 +701,10 @@ def annotate_steps(
                 has_continuation,
             )
         elif isinstance(step, ForkchoiceUpdatedStep):
-            if step.payload_attributes is not None and fork is not None:
+            if step.payload_attributes is not None:
                 _default_build_request(step, model.dag, fork)
             if step.version is None:
-                if fcu_version is None:
-                    raise ValueError(
-                        "forkchoiceUpdated step without version and no "
-                        "version map provided"
-                    )
-                step.version = Number(fcu_version[step.head])
+                step.version = Number(model.dag.blocks[step.head].fcu_version)
             if not step.expect:
                 step.expect = model.forkchoice_outcomes(step)
             _reject_unmatched_branches(
@@ -722,9 +720,7 @@ def annotate_steps(
                 branch = step.branches.setdefault(outcome.id, [])
                 if outcome.status != "SYNCING":
                     branch.insert(0, branch_model.head_assertion())
-                annotate_steps(
-                    branch, branch_model, fcu_version, fork, has_continuation
-                )
+                annotate_steps(branch, branch_model, fork, has_continuation)
                 branches.append((outcome.id, branch_model))
             _continue(
                 model,
@@ -738,12 +734,13 @@ def annotate_steps(
             if state is not None:
                 step.verify(label, state)
         elif isinstance(step, GetPayloadStep):
-            _bind_payload(step, model, fork, fcu_version)
+            _bind_payload(step, model, fork)
     return steps
 
 
 __all__ = [
     "ClientModel",
+    "DagBlock",
     "ModelDag",
     "annotate_steps",
 ]

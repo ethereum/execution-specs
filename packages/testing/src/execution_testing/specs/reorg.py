@@ -22,6 +22,7 @@ from typing import (
     List,
     Sequence,
     Set,
+    Tuple,
     Type,
 )
 
@@ -37,6 +38,7 @@ from execution_testing.fixtures import (
 from execution_testing.fixtures.blockchain import (
     FixtureBlobSchedule,
     FixtureConfig,
+    FixtureHeader,
     FixtureNewPayloadRequest,
 )
 from execution_testing.fixtures.reorg import (
@@ -67,7 +69,7 @@ from .blockchain import (
     apply_new_parent,
     environment_from_parent_header,
 )
-from .engine_model import ClientModel, ModelDag, annotate_steps
+from .engine_model import ClientModel, DagBlock, ModelDag, annotate_steps
 from .helpers import RecordedPostStateContext
 
 
@@ -225,13 +227,72 @@ class ReorgTest(BlockchainTest):
     def make_reorg_fixture(self, t8n: FillerBackend) -> FillResult:
         """Execute every block against its labeled parent, emit fixture."""
         self.validate_dag()
-
         pre, genesis = self.make_genesis(BlockchainEngineReorgFixture)
+        fixture_blocks, dag_blocks, post_states = self._build_blocks(
+            t8n, pre, genesis.header
+        )
 
+        def post_state(label: str) -> Alloc | None:
+            alloc = post_states.get(label)
+            if isinstance(alloc, LazyAlloc):
+                return alloc.materialize()
+            return alloc
+
+        model = ClientModel(
+            dag=ModelDag(blocks=dag_blocks, post_state=post_state)
+        )
+        steps = annotate_steps(
+            [s.model_copy(deep=True) for s in self.steps], model, self.fork
+        )
+        fixture = BlockchainEngineReorgFixture(
+            fork=self.fork,
+            genesis=genesis.header,
+            pre=pre,
+            blocks=fixture_blocks,
+            steps=steps,
+            min_reorg_depth=self.min_reorg_depth,
+            config=FixtureConfig(
+                fork=self.fork,
+                chain_id=self.chain_id,
+                blob_schedule=FixtureBlobSchedule.from_blob_schedule(
+                    self.fork.transitions_to().blob_schedule()
+                ),
+            ),
+        )
+        return FillResult(
+            fixture=fixture,
+            gas_optimization=None,
+        )
+
+    def _build_blocks(
+        self, t8n: FillerBackend, pre: Alloc, genesis: FixtureHeader
+    ) -> Tuple[
+        Dict[str, FixtureReorgBlock],
+        Dict[str, DagBlock],
+        Dict[str, Alloc | LazyAlloc],
+    ]:
+        """
+        Execute every block on its labeled parent's post-state; return the
+        fixture blocks, the reference model's record of each block, and each
+        label's post-state.
+        """
+        genesis_fcu = (
+            self.fork.transitions_from().engine_forkchoice_updated_version()
+        )
+        assert genesis_fcu is not None, "reorg tests require the Engine API"
+        dag_blocks: Dict[str, DagBlock] = {
+            GENESIS_LABEL: DagBlock(
+                parent=None,
+                timestamp=int(genesis.timestamp),
+                gas_limit=int(genesis.gas_limit),
+                slot=int(genesis.slot_number or 0),
+                fcu_version=genesis_fcu,
+            )
+        }
         # Per-label state needed to build children: environment of the next
         # block and post-state allocation.
         child_env: Dict[str, Environment] = {
-            GENESIS_LABEL: environment_from_parent_header(genesis.header)
+            GENESIS_LABEL: environment_from_parent_header(genesis)
         }
         child_alloc: Dict[str, Alloc | LazyAlloc] = {GENESIS_LABEL: pre}
         # Landings of the transactions in each label's post-state: siblings
@@ -241,16 +302,6 @@ class ReorgTest(BlockchainTest):
             GENESIS_LABEL: RecordedPostStateContext()
         }
         fixture_blocks: Dict[str, FixtureReorgBlock] = {}
-        dag_parent: Dict[str, str] = {}
-        dag_valid: Dict[str, bool] = {}
-        dag_hash_invalid: Set[str] = set()
-        fcu_version: Dict[str, int] = {}
-
-        genesis_fcu = (
-            self.fork.transitions_from().engine_forkchoice_updated_version()
-        )
-        assert genesis_fcu is not None, "reorg tests require the Engine API"
-        fcu_version[GENESIS_LABEL] = genesis_fcu
 
         previous_label = GENESIS_LABEL
         for block in self.blocks:
@@ -283,13 +334,15 @@ class ReorgTest(BlockchainTest):
                     new_payload_version=payload.new_payload_version,
                 ),
             )
-            dag_parent[block.label] = parent
-            dag_valid[block.label] = (
-                block.exception is None and not block.payload_corrupted
+            dag_blocks[block.label] = DagBlock(
+                parent=parent,
+                timestamp=int(built.header.timestamp),
+                gas_limit=int(built.header.gas_limit),
+                slot=int(built.header.slot_number or 0),
+                fcu_version=int(payload.forkchoice_updated_version),
+                valid=block.exception is None and not block.payload_corrupted,
+                hash_invalid=block.payload_corrupted,
             )
-            if block.payload_corrupted:
-                dag_hash_invalid.add(block.label)
-            fcu_version[block.label] = int(payload.forkchoice_updated_version)
             # Children of an invalid block are built on the (correct)
             # post-state of its execution and on its (modified) header.
             child_env[block.label] = apply_new_parent(built.env, built.header)
@@ -309,68 +362,7 @@ class ReorgTest(BlockchainTest):
                     expected_state=block.expected_post_state,
                 )
             previous_label = block.label
-
-        timestamps: Dict[str, int] = {
-            GENESIS_LABEL: int(genesis.header.timestamp),
-            **{
-                label: int(b.payload.params[0].timestamp)
-                for label, b in fixture_blocks.items()
-            },
-        }
-        gas_limits: Dict[str, int] = {
-            GENESIS_LABEL: int(genesis.header.gas_limit),
-            **{
-                label: int(b.payload.params[0].gas_limit)
-                for label, b in fixture_blocks.items()
-            },
-        }
-        slots: Dict[str, int] = {
-            GENESIS_LABEL: int(genesis.header.slot_number or 0),
-            **{
-                label: int(b.payload.params[0].slot_number or 0)
-                for label, b in fixture_blocks.items()
-            },
-        }
-        steps = [s.model_copy(deep=True) for s in self.steps]
-
-        def post_state(label: str) -> Alloc | None:
-            alloc = child_alloc.get(label)
-            if isinstance(alloc, LazyAlloc):
-                return alloc.materialize()
-            return alloc
-
-        model = ClientModel(
-            dag=ModelDag(
-                parent=dag_parent,
-                valid=dag_valid,
-                hash_invalid=dag_hash_invalid,
-                post_state=post_state,
-                timestamp=timestamps,
-                gas_limit=gas_limits,
-                slot=slots,
-            )
-        )
-        steps = annotate_steps(steps, model, fcu_version, self.fork)
-
-        fixture = BlockchainEngineReorgFixture(
-            fork=self.fork,
-            genesis=genesis.header,
-            pre=pre,
-            blocks=fixture_blocks,
-            steps=steps,
-            min_reorg_depth=self.min_reorg_depth,
-            config=FixtureConfig(
-                fork=self.fork,
-                chain_id=self.chain_id,
-                blob_schedule=FixtureBlobSchedule.from_blob_schedule(
-                    self.fork.transitions_to().blob_schedule()
-                ),
-            ),
-        )
-        return FillResult(
-            fixture=fixture,
-            gas_optimization=None,
-        )
+        return fixture_blocks, dag_blocks, child_alloc
 
     def generate(
         self,

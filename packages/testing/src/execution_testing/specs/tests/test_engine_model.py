@@ -1,6 +1,6 @@
 """Unit tests for the Engine API reference model used by reorg tests."""
 
-from typing import List
+from typing import Dict, Iterable, List
 
 import pytest
 
@@ -8,6 +8,7 @@ from execution_testing.base_types import Address, Hash
 from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures.blockchain import PayloadAttributes
 from execution_testing.fixtures.reorg import (
+    GENESIS_LABEL,
     AssertHeadStep,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
@@ -15,28 +16,80 @@ from execution_testing.fixtures.reorg import (
     Outcome,
     Step,
 )
+from execution_testing.forks import Cancun
 
-from ..engine_model import ClientModel, ModelDag, Validity, annotate_steps
-
-ATTRIBUTES = PayloadAttributes(
-    timestamp=0, prev_randao=Hash(0), suggested_fee_recipient=Address(0)
+from ..engine_model import (
+    ClientModel,
+    DagBlock,
+    ModelDag,
+    Validity,
+    annotate_steps,
 )
 
 
-def dag_linear_with_fork() -> ModelDag:
+def attributes() -> PayloadAttributes:
+    """Build-request attributes; filling defaults the rest in place."""
+    return PayloadAttributes(
+        timestamp=0, prev_randao=Hash(0), suggested_fee_recipient=Address(0)
+    )
+
+
+def add_block(
+    dag: ModelDag,
+    label: str,
+    parent: str,
+    valid: bool = True,
+    hash_invalid: bool = False,
+) -> None:
+    """Add a Cancun block 12 s after ``parent``."""
+    dag.blocks[label] = DagBlock(
+        parent=parent,
+        timestamp=dag.blocks[parent].timestamp + 12,
+        gas_limit=30_000_000,
+        slot=0,
+        fcu_version=3,
+        valid=valid,
+        hash_invalid=hash_invalid,
+    )
+
+
+def make_dag(
+    parents: Dict[str, str],
+    invalid: Iterable[str] = (),
+    hash_invalid: Iterable[str] = (),
+) -> ModelDag:
+    """A Cancun DAG from ``label -> parent``, parents listed first."""
+    dag = ModelDag(
+        blocks={
+            GENESIS_LABEL: DagBlock(
+                parent=None,
+                timestamp=0,
+                gas_limit=30_000_000,
+                slot=0,
+                fcu_version=3,
+            )
+        }
+    )
+    for label, parent in parents.items():
+        add_block(
+            dag,
+            label,
+            parent,
+            valid=label not in invalid,
+            hash_invalid=label in hash_invalid,
+        )
+    return dag
+
+
+def dag_linear_with_fork(hash_invalid: Iterable[str] = ()) -> ModelDag:
     r"""
     Genesis <- a1 <- a2 <- a3.
                  \\- b2 <- b3      (b3 execution-invalid).
     """
-    return ModelDag(
-        parent={
-            "a1": "genesis",
-            "a2": "a1",
-            "a3": "a2",
-            "b2": "a1",
-            "b3": "b2",
-        },
-        valid={"a1": True, "a2": True, "a3": True, "b2": True, "b3": False},
+    return make_dag(
+        {"a1": "genesis", "a2": "a1", "a3": "a2", "b2": "a1", "b3": "b2"},
+        invalid={"b3"},
+        hash_invalid=hash_invalid,
     )
 
 
@@ -84,8 +137,7 @@ def test_new_payload_invalid_block() -> None:  # noqa: D103
 
 def test_new_payload_child_of_known_invalid() -> None:  # noqa: D103
     dag = dag_linear_with_fork()
-    dag.parent["b4"] = "b3"
-    dag.valid["b4"] = True
+    add_block(dag, "b4", "b3")
     model = ClientModel(dag=dag)
     model.known.update(
         {"a1": Validity.VALID, "b2": Validity.VALID, "b3": Validity.INVALID}
@@ -96,8 +148,7 @@ def test_new_payload_child_of_known_invalid() -> None:  # noqa: D103
     # A grandchild of the invalid block is also INVALID-or-SYNCING, never
     # SYNCING-only: clients with a bad-block cache answer INVALID.
     model.apply_new_payload("b4", outcomes[0])
-    dag.parent["b5"] = "b4"
-    dag.valid["b5"] = True
+    add_block(dag, "b5", "b4")
     outcomes = model.new_payload_outcomes("b5")
     assert ids(outcomes) == ["invalid", "syncing"]
     assert outcomes[0].latest_valid_hash == "b2"
@@ -229,8 +280,7 @@ def test_annotate_fills_expect_and_head_assertions() -> None:  # noqa: D103
         NewPayloadStep(block="b2"),
         ForkchoiceUpdatedStep(head="b2"),
     ]
-    versions = {"a1": 3, "a2": 3, "b2": 3}
-    annotate_steps(steps, model, versions)
+    annotate_steps(steps, model, Cancun)
 
     np_a1, fcu_a1, np_a2, fcu_a2, np_b2, fcu_b2 = steps
     assert isinstance(np_a1, NewPayloadStep)
@@ -261,26 +311,15 @@ def test_annotate_does_not_widen_author_expectations() -> None:  # noqa: D103
         version=3,
         expect=[Outcome(id="applied", status="VALID")],
     )
-    annotate_steps([step], model)
+    annotate_steps([step], model, Cancun)
     assert ids(step.expect) == ["applied"]
     assert model.head == "b2"
 
 
-def test_annotate_requires_version_map_when_unset() -> None:  # noqa: D103
-    model = ClientModel(dag=dag_linear_with_fork())
-    model.known["a1"] = Validity.VALID
-    with pytest.raises(ValueError):
-        annotate_steps([ForkchoiceUpdatedStep(head="a1")], model)
-
-
 def test_annotate_checks_each_forkchoice_before_its_own_branch() -> None:
     """Each FCU's head check precedes its branch's own steps."""
-    dag = ModelDag(
-        parent={"a1": "genesis", "p": "a1", "q": "a1"},
-        valid={"a1": True, "p": True, "q": True},
-    )
+    dag = make_dag({"a1": "genesis", "p": "a1", "q": "a1"})
     model = ClientModel(dag=dag)
-    versions = {"genesis": 3, "a1": 3, "p": 3, "q": 3}
     steps: List[Step] = [
         NewPayloadStep(block="a1"),
         ForkchoiceUpdatedStep(
@@ -293,7 +332,7 @@ def test_annotate_checks_each_forkchoice_before_its_own_branch() -> None:
             },
         ),
     ]
-    annotate_steps(steps, model, versions)
+    annotate_steps(steps, model, Cancun)
     outer = steps[1]
     assert isinstance(outer, ForkchoiceUpdatedStep)
     outer_branch = outer.branches["applied"]
@@ -322,10 +361,11 @@ def test_annotate_marks_head_moved_for_applied_vs_noop() -> None:  # noqa: D103
                 head="a1",
                 finalized="a1",
                 version=3,
-                payload_attributes=ATTRIBUTES,
+                payload_attributes=attributes(),
             )
         ],
         model,
+        Cancun,
     )
     fcu = steps[0]
     assert isinstance(fcu, ForkchoiceUpdatedStep)
@@ -341,8 +381,7 @@ def test_np_hash_invalid_precedes_parent_lookup() -> None:
     A payload that does not hash to its blockHash is rejected regardless of
     whether its parent is known.
     """
-    dag = dag_linear_with_fork()
-    dag.hash_invalid.add("b3")
+    dag = dag_linear_with_fork(hash_invalid={"b3"})
     model = ClientModel(dag=dag)
     # b2, b3's parent, was never delivered.
     assert "b2" not in model.known
@@ -359,8 +398,7 @@ def test_np_hash_invalid_precedes_parent_lookup() -> None:
 
 def test_fcu_to_hash_mismatched_payload_allows_syncing() -> None:
     """No block is stored under a rejected payload's hash: SYNCING is legal."""
-    dag = dag_linear_with_fork()
-    dag.hash_invalid.add("b3")
+    dag = dag_linear_with_fork(hash_invalid={"b3"})
     model = ClientModel(dag=dag)
     model.known.update({"a1": Validity.VALID, "b2": Validity.VALID})
     model.apply_new_payload("b3", Outcome(id="invalid", status="INVALID"))
@@ -375,7 +413,7 @@ def test_annotate_rejects_unmatched_new_payload_branch_key() -> None:
         NewPayloadStep(block="a1", branches={"valid_typo": []}),
     ]
     with pytest.raises(ValueError, match="valid_typo"):
-        annotate_steps(steps, model)
+        annotate_steps(steps, model, Cancun)
 
 
 def test_annotate_rejects_unmatched_forkchoice_branch_key() -> None:
@@ -388,7 +426,7 @@ def test_annotate_rejects_unmatched_forkchoice_branch_key() -> None:
         ),
     ]
     with pytest.raises(ValueError, match="applied_typo"):
-        annotate_steps(steps, model)
+        annotate_steps(steps, model, Cancun)
 
 
 def test_annotate_rejects_duplicate_outcome_ids() -> None:
@@ -410,7 +448,7 @@ def test_annotate_rejects_duplicate_outcome_ids() -> None:
         ),
     ]
     with pytest.raises(ValueError, match="either"):
-        annotate_steps(steps, model)
+        annotate_steps(steps, model, Cancun)
 
 
 def test_forkchoice_effect_follows_head_moved_not_id() -> None:
@@ -467,10 +505,10 @@ def test_invalid_payload_attributes_still_applies_forkchoice(
     step = ForkchoiceUpdatedStep(
         head="a1",
         version=3,
-        payload_attributes=ATTRIBUTES,
+        payload_attributes=attributes(),
         expect=[Outcome(id=outcome_id, error_code=error_code)],
     )
-    annotate_steps([step], model)
+    annotate_steps([step], model, Cancun)
     head_check = step.branches[outcome_id][0]
     assert isinstance(head_check, AssertHeadStep)
     assert head_check.latest == "a1"
@@ -478,7 +516,7 @@ def test_invalid_payload_attributes_still_applies_forkchoice(
 
 @pytest.mark.parametrize(
     "version,attributes",
-    [(2, ATTRIBUTES), (3, None)],
+    [(2, attributes()), (3, None)],
     ids=["v2_with_attributes", "v3_without_attributes"],
 )
 def test_unordered_unsupported_fork_is_rejected(
@@ -501,7 +539,7 @@ def test_unordered_unsupported_fork_is_rejected(
         ],
     )
     with pytest.raises(ValueError, match="head after it is unknown"):
-        annotate_steps([step], model)
+        annotate_steps([step], model, Cancun)
 
 
 def test_any_error_on_a_build_request_is_rejected() -> None:
@@ -511,11 +549,11 @@ def test_any_error_on_a_build_request_is_rejected() -> None:
     step = ForkchoiceUpdatedStep(
         head="a1",
         version=3,
-        payload_attributes=ATTRIBUTES,
+        payload_attributes=attributes(),
         expect=[Outcome(id="error", any_error=True)],
     )
     with pytest.raises(ValueError, match="set errorCode"):
-        annotate_steps([step], model)
+        annotate_steps([step], model, Cancun)
 
 
 BUILT = Outcome(id="built", status="VALID", payload_id="nonNull")
@@ -562,30 +600,26 @@ def test_get_payload_rejects_a_build_it_cannot_retrieve(
         ForkchoiceUpdatedStep(
             head="a1",
             version=3,
-            payload_attributes=ATTRIBUTES,
+            payload_attributes=attributes(),
             expect=[o.model_copy() for o in outcomes],
         ),
         GetPayloadStep(bind="p", parent=parent, version=3),
     ]
     with pytest.raises(ValueError, match=match):
-        annotate_steps(steps, model)
+        annotate_steps(steps, model, Cancun)
 
 
 def test_annotate_single_outcome_branch_updates_known_map() -> None:
     """Later steps see blocks learned inside a single-outcome branch."""
-    dag = ModelDag(
-        parent={"a1": "genesis", "p": "a1"},
-        valid={"a1": True, "p": True},
-    )
+    dag = make_dag({"a1": "genesis", "p": "a1"})
     model = ClientModel(dag=dag)
-    versions = {"genesis": 3, "a1": 3, "p": 3}
     steps: List[Step] = [
         NewPayloadStep(
             block="a1", branches={"valid": [NewPayloadStep(block="p")]}
         ),
         ForkchoiceUpdatedStep(head="p"),
     ]
-    annotate_steps(steps, model, versions)
+    annotate_steps(steps, model, Cancun)
     fcu = steps[1]
     assert isinstance(fcu, ForkchoiceUpdatedStep)
     assert ids(fcu.expect) == ["applied"]
@@ -593,10 +627,7 @@ def test_annotate_single_outcome_branch_updates_known_map() -> None:
 
 def test_accepted_does_not_establish_validity() -> None:
     """ACCEPTED leaves a later FCU to an invalid block able to fail."""
-    dag = ModelDag(
-        parent={"a1": "genesis", "bad": "a1"},
-        valid={"a1": True, "bad": False},
-    )
+    dag = make_dag({"a1": "genesis", "bad": "a1"}, invalid={"bad"})
     model = ClientModel(dag=dag)
     model.known["a1"] = Validity.VALID
     model.apply_new_payload("bad", Outcome(id="accepted", status="ACCEPTED"))
@@ -608,10 +639,7 @@ def test_accepted_does_not_establish_validity() -> None:
 
 def test_received_ground_truth_valid_acts_like_valid() -> None:
     """A truly valid ACCEPTED block has a VALID block's outcomes."""
-    dag = ModelDag(
-        parent={"a1": "genesis", "b1": "a1", "b2": "b1"},
-        valid={"a1": True, "b1": True, "b2": True},
-    )
+    dag = make_dag({"a1": "genesis", "b1": "a1", "b2": "b1"})
     model = ClientModel(dag=dag)
     model.known["a1"] = Validity.VALID
     model.apply_new_payload("b1", Outcome(id="accepted", status="ACCEPTED"))
@@ -624,9 +652,7 @@ def test_received_ground_truth_valid_acts_like_valid() -> None:
 
 def test_annotate_rejects_diverging_multi_outcome_continuation() -> None:
     """A later step cannot follow outcomes that leave different heads."""
-    dag = ModelDag(
-        parent={"a1": "genesis", "p": "a1"}, valid={"a1": True, "p": True}
-    )
+    dag = make_dag({"a1": "genesis", "p": "a1"})
     model = ClientModel(dag=dag)
     model.known["a1"] = Validity.VALID
     steps: List[Step] = [
@@ -641,21 +667,19 @@ def test_annotate_rejects_diverging_multi_outcome_continuation() -> None:
         AssertHeadStep(latest="p"),
     ]
     with pytest.raises(ValueError, match="different forkchoice states"):
-        annotate_steps(steps, model)
+        annotate_steps(steps, model, Cancun)
 
 
 def test_annotate_allows_agreeing_multi_outcome_continuation() -> None:
     """VALID and ACCEPTED leave a truly valid block in one effective state."""
-    dag = ModelDag(
-        parent={"a1": "genesis", "b2": "a1"}, valid={"a1": True, "b2": True}
-    )
+    dag = make_dag({"a1": "genesis", "b2": "a1"})
     model = ClientModel(dag=dag)
     model.known["a1"] = Validity.VALID
     steps: List[Step] = [
         NewPayloadStep(block="b2"),
         ForkchoiceUpdatedStep(head="b2", version=3),
     ]
-    annotate_steps(steps, model)
+    annotate_steps(steps, model, Cancun)
     np_step, fcu = steps
     assert isinstance(np_step, NewPayloadStep)
     assert isinstance(fcu, ForkchoiceUpdatedStep)
@@ -678,18 +702,18 @@ def test_annotate_rejects_outcomes_of_a_diverged_block(
         "syncing": Outcome(id="syncing", status="SYNCING"),
         "valid": Outcome(id="valid", status="VALID", latest_valid_hash="a1"),
     }
-    model = ClientModel(dag=ModelDag(parent={"a1": "genesis"}, valid={}))
+    model = ClientModel(dag=make_dag({"a1": "genesis"}))
     steps: List[Step] = [
         NewPayloadStep(block="a1", expect=[outcomes[o] for o in order]),
         ForkchoiceUpdatedStep(head="a1", version=3),
     ]
     with pytest.raises(ValueError, match="'a1' in different states"):
-        annotate_steps(steps, model)
+        annotate_steps(steps, model, Cancun)
 
 
 def test_annotate_redelivery_resolves_a_diverged_block() -> None:
     """A definite outcome for a diverged block settles its state."""
-    model = ClientModel(dag=ModelDag(parent={"a1": "genesis"}, valid={}))
+    model = ClientModel(dag=make_dag({"a1": "genesis"}))
     steps: List[Step] = [
         NewPayloadStep(
             block="a1",
@@ -701,7 +725,7 @@ def test_annotate_redelivery_resolves_a_diverged_block() -> None:
         NewPayloadStep(block="a1"),
         ForkchoiceUpdatedStep(head="a1", version=3),
     ]
-    annotate_steps(steps, model)
+    annotate_steps(steps, model, Cancun)
     fcu = steps[2]
     assert isinstance(fcu, ForkchoiceUpdatedStep)
     assert ids(fcu.expect) == ["applied"]
@@ -709,9 +733,7 @@ def test_annotate_redelivery_resolves_a_diverged_block() -> None:
 
 def test_annotate_rejects_divergence_used_by_enclosing_continuation() -> None:
     """A step after the enclosing branch counts as a later step."""
-    dag = ModelDag(
-        parent={"a1": "genesis", "p": "a1"}, valid={"a1": True, "p": True}
-    )
+    dag = make_dag({"a1": "genesis", "p": "a1"})
     model = ClientModel(dag=dag)
     model.known["a1"] = Validity.VALID
     steps: List[Step] = [
@@ -741,4 +763,4 @@ def test_annotate_rejects_divergence_used_by_enclosing_continuation() -> None:
         AssertHeadStep(latest="p"),
     ]
     with pytest.raises(ValueError, match="different forkchoice states"):
-        annotate_steps(steps, model)
+        annotate_steps(steps, model, Cancun)
