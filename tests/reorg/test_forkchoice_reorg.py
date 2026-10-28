@@ -46,10 +46,6 @@ DISPUTED_SHORTCUT_VS_38006 = (
     "execution-apis#891: order of the no-reorg shortcut (step 2) and -38006 "
     "(step 6) when head is below finalized"
 )
-DISPUTED_FINALIZED_REGRESSION = (
-    "execution-apis: forkchoiceUpdated with finalizedBlockHash older than "
-    "the previously finalized block is not addressed by the specification"
-)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -297,8 +293,10 @@ def test_fcu_finalized_regression(
     """
     #786 case (b): finalized = a9, then FCU(head=a10, finalized=a1).
 
-    Moving finalized backwards is not addressed by the specification;
-    accepting it (VALID) or rejecting it (``-38002``) are both recorded.
+    a1 is on the head's chain, so paris.md step 5 does not apply and step 7
+    requires the update; EIP-3675 sets finalized to the block the event
+    names, with no rule that finality only moves forward. VALID, and a1 is
+    the finalized block afterwards.
     """
     blocks, steps = chain(pre, "a", 10)
     steps.append(
@@ -317,12 +315,7 @@ def test_fcu_finalized_regression(
             safe="a10",
             finalized="a1",
             expect=[
-                Outcome(id="applied", status="VALID", latest_valid_hash="a10"),
-                Outcome(
-                    id="rejected",
-                    error_code=EngineAPIError.InvalidForkchoiceState,
-                    disputed=DISPUTED_FINALIZED_REGRESSION,
-                ),
+                Outcome(id="applied", status="VALID", latest_valid_hash="a10")
             ],
         )
     )
