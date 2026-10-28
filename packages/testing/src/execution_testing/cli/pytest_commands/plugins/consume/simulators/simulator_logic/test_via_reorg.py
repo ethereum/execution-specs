@@ -354,6 +354,10 @@ class StepRunner:
         """
         Retrieve the payload of the last ``forkchoiceUpdated`` that did not
         error and bind it.
+
+        The payload must carry the requested timestamp and prevRandao
+        (paris.md payload building; its ``feeRecipient`` may deviate) and
+        must not be a payload already built for another label.
         """
         name = f"{name}(bind={step.bind})"
         payload_id = self.last_payload_id
@@ -373,6 +377,22 @@ class StepRunner:
                 f"{name}: built payload parent is "
                 f"{self.label_of(payload.parent_hash)}, expected {step.parent}"
             )
+        attributes = self.last_payload_attributes
+        if attributes is not None and (
+            int(payload.timestamp) != int(attributes.timestamp)
+            or payload.prev_randao != attributes.prev_randao
+        ):
+            raise LoggedError(
+                f"{name}: built payload has timestamp "
+                f"{int(payload.timestamp)} and prevRandao "
+                f"{payload.prev_randao}, requested "
+                f"{int(attributes.timestamp)} and {attributes.prev_randao}"
+            )
+        previous = self.labels_by_hash.get(payload.block_hash)
+        if previous in self.bound and previous != step.bind:
+            raise LoggedError(
+                f"{name}: built payload is the one bound to {previous}"
+            )
         included = {Hash(tx.keccak256()) for tx in payload.transactions}
         for ref in step.transactions_include:
             if self.tx_hash(ref) not in included:
@@ -388,7 +408,6 @@ class StepRunner:
         versioned_hashes: List[Hash] = []
         if response.blobs_bundle is not None:
             versioned_hashes = response.blobs_bundle.blob_versioned_hashes()
-        attributes = self.last_payload_attributes
         self.bound[step.bind] = BoundPayload(
             payload=payload,
             versioned_hashes=versioned_hashes,

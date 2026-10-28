@@ -19,10 +19,12 @@ Ports of:
 from typing import List
 
 import pytest
-from execution_testing import Alloc, Transaction
+from execution_testing import Alloc, Fork, Hash, Op, Transaction
 from execution_testing.fixtures.reorg import (
+    AccountExpectation,
     AssertCanonicalStep,
     AssertReceiptStep,
+    AssertStateStep,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
     NewPayloadStep,
@@ -118,72 +120,90 @@ def test_build_on_previously_validated_side_payload(
 
 @pytest.mark.valid_from("Shanghai")
 def test_two_built_payloads_same_parent(
-    reorg_test: ReorgTestFiller, pre: Alloc
+    reorg_test: ReorgTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """
-    Port of hive ``SidechainReOrgTest``: build two payloads on the same
-    parent with different ``prevRandao``, switch head between them, verify
-    ``latest`` and the canonical mapping each time.
+    Port of hive ``SidechainReOrgTest``: a pending transaction stores
+    PREVRANDAO at its block number; two payloads built on the same parent
+    with different ``prevRandao`` both include it, and each switch of the
+    head between them must switch ``latest``, the canonical mapping and the
+    stored value.
     """
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=0)
+    store = Op.SSTORE(Op.NUMBER, Op.PREVRANDAO)
+    randao_store = pre.deploy_contract(store)
+    # Raw-sent transactions carry an explicit gas limit and a tip above
+    # geth's default ``--miner.gasprice``. The limit is the exact gas of the
+    # call: setting a fresh slot costs 107,920 gas from Amsterdam on.
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        nonce=0,
+        to=randao_store,
+        gas_limit=fork.transaction_intrinsic_cost_calculator()()
+        + fork.transaction_top_frame_gas_calculator()()
+        + store.gas_cost(fork),
+        gas_price=30 * 10**9,
+    )
     blocks = [
         ReorgBlock(
             label="a1",
             txs=[Transaction(sender=sender, nonce=0, to=recipient, value=1)],
-        )
+        ),
+        # Carrier block for the raw tx bytes (never sent as a payload).
+        ReorgBlock(
+            label="carrier", parent="genesis", txs=[tx], extra_data=b"c"
+        ),
     ]
+    pool_tx = TxRef(block="carrier", index=0)
+
+    def select(label: str, prev_randao: int) -> ForkchoiceUpdatedStep:
+        return ForkchoiceUpdatedStep(
+            head=label,
+            expect=applied(label),
+            branches={
+                "applied": [
+                    AssertCanonicalStep(blocks={2: label}),
+                    AssertStateStep(
+                        accounts={
+                            randao_store: AccountExpectation(
+                                storage={Hash(2): Hash(prev_randao)}
+                            )
+                        }
+                    ),
+                ]
+            },
+        )
+
     steps: List[Step] = [
         NewPayloadStep(block="a1"),
+        ForkchoiceUpdatedStep(head="a1"),
+        SendRawTransactionStep(tx=pool_tx),
         ForkchoiceUpdatedStep(
             head="a1",
             payload_attributes=build_attrs(0x01),
             expect=applied("a1", payload_id=True),
             branches={
                 "applied": [
-                    GetPayloadStep(bind="p", parent="a1"),
+                    GetPayloadStep(
+                        bind="p", parent="a1", transactions_include=[pool_tx]
+                    ),
                     ForkchoiceUpdatedStep(
                         head="a1",
                         payload_attributes=build_attrs(0x02),
                         expect=applied("a1", payload_id=True),
                         branches={
                             "applied": [
-                                GetPayloadStep(bind="q", parent="a1"),
+                                GetPayloadStep(
+                                    bind="q",
+                                    parent="a1",
+                                    transactions_include=[pool_tx],
+                                ),
                                 NewPayloadStep(block="p"),
                                 NewPayloadStep(block="q"),
-                                ForkchoiceUpdatedStep(
-                                    head="p",
-                                    expect=applied("p"),
-                                    branches={
-                                        "applied": [
-                                            AssertCanonicalStep(
-                                                blocks={2: "p"}
-                                            )
-                                        ]
-                                    },
-                                ),
-                                ForkchoiceUpdatedStep(
-                                    head="q",
-                                    expect=applied("q"),
-                                    branches={
-                                        "applied": [
-                                            AssertCanonicalStep(
-                                                blocks={2: "q"}
-                                            )
-                                        ]
-                                    },
-                                ),
-                                ForkchoiceUpdatedStep(
-                                    head="p",
-                                    expect=applied("p"),
-                                    branches={
-                                        "applied": [
-                                            AssertCanonicalStep(
-                                                blocks={2: "p"}
-                                            )
-                                        ]
-                                    },
-                                ),
+                                select("p", 0x01),
+                                select("q", 0x02),
+                                select("p", 0x01),
                             ]
                         },
                     ),

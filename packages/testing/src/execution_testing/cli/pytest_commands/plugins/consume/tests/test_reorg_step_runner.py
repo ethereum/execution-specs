@@ -17,6 +17,7 @@ from execution_testing.fixtures.reorg import (
     ForkchoiceUpdatedStep,
     GetPayloadStep,
     Outcome,
+    PayloadAttributes,
     SendRawTransactionStep,
     TxRef,
 )
@@ -95,6 +96,46 @@ def test_get_payload_computes_blob_versioned_hashes(
         "gp", GetPayloadStep(bind="p1", parent="genesis", version=3)
     )
     assert step_runner.bound["p1"].versioned_hashes == [expected_hash]
+
+
+@pytest.mark.parametrize(
+    "prev_randao_offset,binds,error",
+    [
+        (1, ["p1"], "prevRandao"),
+        (0, ["p1", "p2"], "the one bound to p1"),
+    ],
+    ids=["wrong_prev_randao", "duplicate_build"],
+)
+def test_get_payload_rejects_a_build_off_the_request(
+    make_runner: MakeRunner,
+    prev_randao_offset: int,
+    binds: List[str],
+    error: str,
+) -> None:
+    """A build must honor the requested attributes and be a new payload."""
+    engine = MagicMock()
+    step_runner = make_runner(engine=engine)
+    payload = step_runner.fixture.blocks["a1"].payload.params[0]
+    engine.get_payload.return_value = MagicMock(
+        execution_payload=payload, blobs_bundle=None, execution_requests=None
+    )
+    step_runner.last_payload_id = Bytes(b"\x01" * 8)
+    step_runner.last_payload_attributes = PayloadAttributes(
+        timestamp=payload.timestamp,
+        prev_randao=Hash(
+            int.from_bytes(payload.prev_randao, "big") + prev_randao_offset
+        ),
+        suggested_fee_recipient=0x1234,
+    )
+    *earlier, last = binds
+    for bind in earlier:
+        step_runner.get_payload(
+            "gp", GetPayloadStep(bind=bind, parent="genesis", version=3)
+        )
+    with pytest.raises(LoggedError, match=error):
+        step_runner.get_payload(
+            "gp", GetPayloadStep(bind=last, parent="genesis", version=3)
+        )
 
 
 @pytest.mark.parametrize(
