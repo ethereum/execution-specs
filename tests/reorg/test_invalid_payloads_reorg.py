@@ -51,12 +51,13 @@ from execution_testing.fixtures.reorg import (
     AssertCanonicalStep,
     AssertHeadStep,
     ForkchoiceUpdatedStep,
+    GetPayloadStep,
     NewPayloadStep,
     Outcome,
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
 
-from .helpers import chain
+from .helpers import applied, build_attrs, chain
 
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
@@ -179,8 +180,9 @@ def test_invalid_payload_field(
     Hive ``InvalidPayloadTestCase``: a payload with one corrupted header
     field (hash recomputed, so it is a *well-formed* invalid block) is
     INVALID with ``latestValidHash`` = its parent; on a side chain, where
-    the client may skip validation, ACCEPTED as well. A valid sibling
-    afterwards is fine.
+    the client may skip validation, ACCEPTED as well. In the canonical
+    ``state_root`` variant the client then builds, imports and selects a
+    payload on the same head. A valid sibling afterwards is fine.
     """
     blocks, steps = chain(pre, "a", 3, recipient=SINK)
     parent = "a3"
@@ -261,6 +263,26 @@ def test_invalid_payload_field(
             ],
         ),
         AssertHeadStep(latest="a3"),
+    ]
+    if not on_side_chain and field == "state_root":
+        # The payload builder still works after a rejected payload.
+        steps.append(
+            ForkchoiceUpdatedStep(
+                head="a3",
+                payload_attributes=build_attrs(0x01),
+                expect=applied("a3", payload_id=True),
+                branches={
+                    "applied": [
+                        GetPayloadStep(bind="built", parent="a3"),
+                        NewPayloadStep(block="built"),
+                        ForkchoiceUpdatedStep(
+                            head="built", expect=applied("built")
+                        ),
+                    ]
+                },
+            )
+        )
+    steps += [
         NewPayloadStep(block="good"),
         ForkchoiceUpdatedStep(
             head="good",

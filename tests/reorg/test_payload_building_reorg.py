@@ -19,35 +19,23 @@ Ports of:
 from typing import List
 
 import pytest
-from execution_testing import Alloc, Hash, Transaction
+from execution_testing import Alloc, Transaction
 from execution_testing.fixtures.reorg import (
     AssertCanonicalStep,
     AssertReceiptStep,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
     NewPayloadStep,
-    PayloadAttributes,
     SendRawTransactionStep,
     Step,
     TxRef,
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
 
-from .helpers import applied
+from .helpers import applied, build_attrs
 
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
-
-FEE_RECIPIENT = 0x1234
-
-
-def build_attrs(prev_randao: int) -> PayloadAttributes:
-    """Payload attributes; timestamp/withdrawals/beacon root filled at fill."""
-    return PayloadAttributes(
-        timestamp=0,
-        prev_randao=Hash(prev_randao),
-        suggested_fee_recipient=FEE_RECIPIENT,
-    )
 
 
 @pytest.mark.valid_from("Shanghai")

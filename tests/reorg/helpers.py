@@ -2,11 +2,12 @@
 
 from typing import List, Tuple
 
-from execution_testing import Address, Alloc, Transaction
+from execution_testing import Address, Alloc, Hash, Transaction
 from execution_testing.fixtures.reorg import (
     ForkchoiceUpdatedStep,
     NewPayloadStep,
     Outcome,
+    PayloadAttributes,
     Step,
 )
 from execution_testing.specs import ReorgBlock
@@ -22,6 +23,15 @@ def applied(head: str, payload_id: bool = False) -> List[Outcome]:
             payload_id="nonNull" if payload_id else None,
         )
     ]
+
+
+def build_attrs(prev_randao: int) -> PayloadAttributes:
+    """Payload attributes; timestamp/withdrawals/beacon root filled at fill."""
+    return PayloadAttributes(
+        timestamp=0,
+        prev_randao=Hash(prev_randao),
+        suggested_fee_recipient=0x1234,
+    )
 
 
 def chain(
