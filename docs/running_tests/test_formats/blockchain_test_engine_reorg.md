@@ -168,7 +168,7 @@ Expected `payloadStatus.status` (`VALID`,`INVALID`,`SYNCING`,`ACCEPTED`,`INVALID
 
 #### - `latestValidHash`: [`Optional`](./common_types.md#optional)`[String]`
 
-Expected `latestValidHash` as a block label, `"null"`, or `"any"`.
+Expected `latestValidHash` as a block label, `"null"`, or `"any"`. A `SYNCING` outcome always expects `"null"`.
 
 #### - `errorCode`: [`Optional`](./common_types.md#optional)`[`[`Number`](./common_types.md#number)`]`
 

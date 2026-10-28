@@ -370,21 +370,16 @@ def test_fcu_to_unknown_block_is_syncing(
     ``test_engine_tree_fcu_missing_head``.
 
     A 10-deep side chain exists but only its leaf is ever delivered: the leaf
-    is SYNCING/ACCEPTED, FCU to it is SYNCING, FCU with an unknown safe or
-    finalized hash is an error, and FCU back to the canonical tip is VALID.
+    is SYNCING (its ancestors are unknown, so ACCEPTED is not legal), FCU to
+    it is SYNCING, FCU with an unknown safe or finalized hash is an error,
+    and FCU back to the canonical tip is VALID.
     """
     blocks, steps = chain(pre, "a", 5)
     side, _ = chain(pre, "s", 10, parent="a5", start=6, value=3)
     blocks += side
     steps += [
         NewPayloadStep(
-            block="s15",
-            expect=[
-                Outcome(id="syncing", status="SYNCING"),
-                Outcome(
-                    id="accepted", status="ACCEPTED", latest_valid_hash="null"
-                ),
-            ],
+            block="s15", expect=[Outcome(id="syncing", status="SYNCING")]
         ),
         ForkchoiceUpdatedStep(
             head="s15",
@@ -635,20 +630,14 @@ def test_out_of_order_payload_delivery(
     Hive ``NewPayloadOnSyncingClientTest``, reth
     ``test_engine_tree_buffered_blocks_are_eventually_connected_e2e``,
     nethermind ``payloadV1_invalid_parent_hash``: a payload whose parent is
-    unknown is SYNCING/ACCEPTED and FCU to it is SYNCING; once the gap is
-    filled the payload and the FCU are VALID.
+    unknown is SYNCING and FCU to it is SYNCING; once the gap is filled the
+    payload and the FCU are VALID.
     """
     blocks, steps = chain(pre, "a", 4)
     steps = steps[:4]  # a1, a2 delivered and canonical.
     steps += [
         NewPayloadStep(
-            block="a4",
-            expect=[
-                Outcome(id="syncing", status="SYNCING"),
-                Outcome(
-                    id="accepted", status="ACCEPTED", latest_valid_hash="null"
-                ),
-            ],
+            block="a4", expect=[Outcome(id="syncing", status="SYNCING")]
         ),
         ForkchoiceUpdatedStep(
             head="a4", expect=[Outcome(id="syncing", status="SYNCING")]

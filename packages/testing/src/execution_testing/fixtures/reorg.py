@@ -160,6 +160,23 @@ class Outcome(CamelModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _pin_syncing_latest_valid_hash(self) -> Self:
+        """
+        Pin the null ``latestValidHash`` every SYNCING response carries
+        (paris.md), so a SYNCING answer with a stale hash fails.
+        """
+        if self.status != PayloadStatusEnum.SYNCING:
+            return self
+        if self.latest_valid_hash is None:
+            self.latest_valid_hash = LATEST_VALID_HASH_NULL
+        elif self.latest_valid_hash != LATEST_VALID_HASH_NULL:
+            raise ValueError(
+                f"outcome {self.id!r}: a SYNCING response has a null "
+                "latestValidHash"
+            )
+        return self
+
 
 class TxRef(CamelModel):
     """Reference to a transaction of a fixture block."""

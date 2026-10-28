@@ -104,8 +104,15 @@ def test_fill_sibling_and_invalid_child(
             NewPayloadStep(block="a2"),
             ForkchoiceUpdatedStep(head="a2"),
             NewPayloadStep(block="b2"),
-            NewPayloadStep(block="i2"),
-            NewPayloadStep(block="i3"),
+            # i2 may be INVALID or, off the canonical chain, ACCEPTED; i3's
+            # legal answers differ, so each outcome gets its own i3.
+            NewPayloadStep(
+                block="i2",
+                branches={
+                    "invalid": [NewPayloadStep(block="i3")],
+                    "accepted": [NewPayloadStep(block="i3")],
+                },
+            ),
             # Last: nothing may follow its applied/refused divergence.
             ForkchoiceUpdatedStep(head="b2"),
         ],
@@ -142,12 +149,16 @@ def test_fill_sibling_and_invalid_child(
     assert [o.id for o in np_b2.expect] == ["valid", "accepted"]
     np_i2 = steps[5]
     assert isinstance(np_i2, NewPayloadStep)
-    assert [o.id for o in np_i2.expect] == ["invalid"]
+    assert [o.id for o in np_i2.expect] == ["invalid", "accepted"]
     assert np_i2.expect[0].latest_valid_hash == "a1"
-    np_i3 = steps[6]
-    assert isinstance(np_i3, NewPayloadStep)
-    assert [o.id for o in np_i3.expect] == ["invalid", "syncing"]
-    fcu_b2 = steps[7]
+    for outcome_id, i3_ids in (
+        ("invalid", ["invalid", "syncing"]),
+        ("accepted", ["invalid", "syncing", "accepted"]),
+    ):
+        (np_i3,) = np_i2.branches[outcome_id]
+        assert isinstance(np_i3, NewPayloadStep)
+        assert [o.id for o in np_i3.expect] == i3_ids
+    fcu_b2 = steps[6]
     assert isinstance(fcu_b2, ForkchoiceUpdatedStep)
     assert [o.id for o in fcu_b2.expect] == ["applied", "refused"]
     assert fcu_b2.version == fork.engine_forkchoice_updated_version()
@@ -159,7 +170,7 @@ def test_fill_sibling_and_invalid_child(
     )
     assert reloaded.resolve("b2") == p["b2"].block_hash
     assert reloaded.resolve("genesis") == fixture.genesis.block_hash
-    assert isinstance(reloaded.steps[7], ForkchoiceUpdatedStep)
+    assert isinstance(reloaded.steps[6], ForkchoiceUpdatedStep)
 
 
 def test_dag_validation_rejects_unknown_parent() -> None:  # noqa: D103

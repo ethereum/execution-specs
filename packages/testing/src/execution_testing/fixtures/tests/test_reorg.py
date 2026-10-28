@@ -96,3 +96,10 @@ def test_forkchoice_rejects_payload_id_without_attributes() -> None:
             head="a1",
             expect=[Outcome(id="x", status="VALID", payload_id="nonNull")],
         )
+
+
+def test_syncing_outcome_pins_a_null_latest_valid_hash() -> None:
+    """Every SYNCING response has a null latestValidHash, so it is pinned."""
+    assert Outcome(id="x", status="SYNCING").latest_valid_hash == "null"
+    with pytest.raises(ValidationError, match="null latestValidHash"):
+        Outcome(id="x", status="SYNCING", latest_valid_hash="a1")

@@ -179,8 +179,9 @@ def test_invalid_payload_field(
     """
     Hive ``InvalidPayloadTestCase``: a payload with one corrupted header
     field (hash recomputed, so it is a *well-formed* invalid block) is
-    INVALID with ``latestValidHash`` = its parent, on the canonical chain
-    and on a side chain. A valid sibling afterwards is fine.
+    INVALID with ``latestValidHash`` = its parent; on a side chain, where
+    the client may skip validation, ACCEPTED as well. A valid sibling
+    afterwards is fine.
     """
     blocks, steps = chain(pre, "a", 3, recipient=SINK)
     parent = "a3"
@@ -236,6 +237,17 @@ def test_invalid_payload_field(
                 *(
                     [Outcome(id="syncing", status="SYNCING")]
                     if field == "number"
+                    else []
+                ),
+                *(
+                    [
+                        Outcome(
+                            id="accepted",
+                            status="ACCEPTED",
+                            latest_valid_hash="null",
+                        )
+                    ]
+                    if on_side_chain
                     else []
                 ),
             ],
@@ -386,9 +398,9 @@ def test_invalid_ancestor_descendants_delivered_first(
     """
     Reth ``test_engine_tree_reorg_with_missing_ancestor_expecting_valid_e2e``:
     the *descendants* of an invalid block are delivered before the invalid
-    block itself (buffered as SYNCING/ACCEPTED); once the invalid ancestor
-    arrives it is INVALID and the buffered descendants, re-sent, are INVALID
-    with lvh = the invalid block's parent.
+    block itself (SYNCING: an ancestor is unknown); once the invalid
+    ancestor arrives it is INVALID and the buffered descendants, re-sent,
+    are INVALID with lvh = the invalid block's parent.
     """
     blocks, steps = chain(pre, "a", 3, recipient=SINK)
     sender = pre.fund_eoa()
@@ -401,11 +413,12 @@ def test_invalid_ancestor_descendants_delivered_first(
     )
     kids, _ = chain(pre, "k", 3, parent="bad", start=5, recipient=SINK)
     blocks += [bad] + kids
-    buffered = [
-        Outcome(id="syncing", status="SYNCING"),
-        Outcome(id="accepted", status="ACCEPTED", latest_valid_hash="null"),
+    steps += [
+        NewPayloadStep(
+            block=k.label, expect=[Outcome(id="syncing", status="SYNCING")]
+        )
+        for k in kids
     ]
-    steps += [NewPayloadStep(block=k.label, expect=buffered) for k in kids]
     steps += [
         ForkchoiceUpdatedStep(
             head="k7", expect=[Outcome(id="syncing", status="SYNCING")]

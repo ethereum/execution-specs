@@ -150,9 +150,11 @@ def test_invalid_side_chain(
     Genesis <- a1 .. a5                 (canonical).
            \\- s1 .. s5                 (side chain, s_k invalid).
 
-    ``newPayload(s_k)`` must be INVALID with ``latestValidHash`` = s_{k-1};
-    later side blocks are INVALID or SYNCING; ``forkchoiceUpdated(s5)`` must
-    not make the side chain canonical; the canonical chain keeps working.
+    ``newPayload(s_k)`` is INVALID with ``latestValidHash`` = s_{k-1}, or
+    ACCEPTED (the side chain does not extend the canonical one, so the
+    client may skip validation); later side blocks are INVALID, SYNCING or
+    ACCEPTED; ``forkchoiceUpdated(s5)`` must not make the side chain
+    canonical; the canonical chain keeps working.
     """
     blocks, steps = chain(pre, "a", 5)
 
@@ -189,13 +191,17 @@ def test_invalid_side_chain(
         Outcome(id="invalid", status="INVALID", latest_valid_hash=last_valid),
         Outcome(id="syncing", status="SYNCING"),
     ]
+    after_invalid = [
+        *invalid_or_syncing,
+        Outcome(id="accepted", status="ACCEPTED", latest_valid_hash="null"),
+    ]
     for i in range(1, 6):
         # Model-derived up to the invalid block; after it, whether the parent
-        # was seen as INVALID or SYNCING, INVALID-or-SYNCING.
+        # was seen as INVALID, ACCEPTED or not at all.
         steps.append(
             NewPayloadStep(
                 block=f"s{i}",
-                expect=invalid_or_syncing if i > invalid_index else [],
+                expect=after_invalid if i > invalid_index else [],
             )
         )
     steps.append(ForkchoiceUpdatedStep(head="s5", expect=invalid_or_syncing))

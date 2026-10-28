@@ -13,11 +13,13 @@ Rules follow `execution-apis` ``paris.md`` as amended by PR #786:
 - ``newPayload``: payload that does not hash to its own ``blockHash`` →
   ``INVALID_BLOCK_HASH`` from ``newPayloadV1``, INVALID from V2 on, both
   with a null ``latestValidHash`` and checked before the parent is looked
-  up; unknown parent → SYNCING; execution-invalid
-  → INVALID with ``latestValidHash`` = last valid ancestor; child of a
-  known-invalid (confirmed, or received-but-unconfirmed and ground-truth
-  invalid) block → INVALID (lvh = last valid ancestor) or SYNCING; extends
-  head → VALID; known parent on a side chain → VALID or ACCEPTED.
+  up; unknown parent → SYNCING; execution-invalid → INVALID with
+  ``latestValidHash`` = last valid ancestor, or ACCEPTED off the canonical
+  chain, where the client may skip validation; child of a known-invalid
+  block → INVALID (lvh = last valid ancestor) or SYNCING, and ACCEPTED too
+  if that block was only received, never validated; extends head → VALID;
+  known parent on a side chain → VALID or ACCEPTED. SYNCING always comes
+  with a null ``latestValidHash``.
 - ``forkchoiceUpdated``: head whose payload failed the block-hash check →
   INVALID or SYNCING; unknown head → SYNCING; received-but-unconfirmed
   ground-truth-invalid head → INVALID or SYNCING; confirmed-invalid head →
@@ -261,13 +263,21 @@ class ClientModel:
         parent_state = self._known(parent)
         if parent_state is None:
             return [Outcome(id="syncing", status=PayloadStatusEnum.SYNCING)]
-        if parent_state == Validity.RECEIVED and not self.dag.fully_valid(
-            parent
+        # ACCEPTED: the payload does not extend the canonical chain, was not
+        # fully validated, and its ancestors are known (paris.md
+        # newPayload 6); off the canonical chain the client may skip
+        # validation altogether (newPayload 5).
+        accepted = Outcome(
+            id="accepted",
+            status=PayloadStatusEnum.ACCEPTED,
+            latest_valid_hash=LATEST_VALID_HASH_NULL,
+        )
+        if parent_state == Validity.INVALID or (
+            parent_state == Validity.RECEIVED
+            and not self.dag.fully_valid(parent)
         ):
-            parent_state = Validity.INVALID
-        if parent_state == Validity.INVALID:
             lva = self.dag.last_valid_ancestor(parent)
-            return [
+            outcomes = [
                 Outcome(
                     id="invalid",
                     status=PayloadStatusEnum.INVALID,
@@ -275,40 +285,31 @@ class ClientModel:
                 ),
                 Outcome(id="syncing", status=PayloadStatusEnum.SYNCING),
             ]
+            # A client that only received the invalid parent may store this
+            # child unvalidated too.
+            if parent_state == Validity.RECEIVED:
+                outcomes.append(accepted)
+            return outcomes
+        extends_head = parent == self.head
         if not self.dag.blocks[block].valid:
             # The spec only says validationError MAY be set; required here
             # (unlike the propagated-invalid-parent and FCU-invalid-head
             # cases) because this is the block a client itself executed and
             # rejected, matching the stricter check test_via_engine.py and
             # test_via_sync.py already apply to every own-block INVALID.
-            return [
-                Outcome(
-                    id="invalid",
-                    status=PayloadStatusEnum.INVALID,
-                    latest_valid_hash=parent,
-                    validation_error="required",
-                )
-            ]
-        if parent == self.head:
-            return [
-                Outcome(
-                    id="valid",
-                    status=PayloadStatusEnum.VALID,
-                    latest_valid_hash=block,
-                )
-            ]
-        return [
-            Outcome(
-                id="valid",
-                status=PayloadStatusEnum.VALID,
-                latest_valid_hash=block,
-            ),
-            Outcome(
-                id="accepted",
-                status=PayloadStatusEnum.ACCEPTED,
-                latest_valid_hash=LATEST_VALID_HASH_NULL,
-            ),
-        ]
+            invalid = Outcome(
+                id="invalid",
+                status=PayloadStatusEnum.INVALID,
+                latest_valid_hash=parent,
+                validation_error="required",
+            )
+            return [invalid] if extends_head else [invalid, accepted]
+        valid = Outcome(
+            id="valid",
+            status=PayloadStatusEnum.VALID,
+            latest_valid_hash=block,
+        )
+        return [valid] if extends_head else [valid, accepted]
 
     def apply_new_payload(self, block: str, outcome: Outcome) -> None:
         """
