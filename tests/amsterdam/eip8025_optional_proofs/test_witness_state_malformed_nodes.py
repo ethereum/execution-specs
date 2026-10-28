@@ -363,18 +363,24 @@ def _state_root_slot(address: Address) -> int:
 
 def _absent_target(pre: Alloc) -> Tuple[Address, int]:
     """
-    Pick an absent account whose path leaves the state trie root through a
-    slot that no account uses, and another such slot.
+    Pick an absent account, and an empty slot of the state trie root other
+    than the one that the account's first nibble selects.
 
-    The account's path continues with a zero nibble, so that a node built
-    along zero nibbles, like the extension from `_extension_to_leaf`, lies on
-    it. Return the account and the other slot.
+    The account's own slot is empty too. A read of the account reaches a
+    malformed node put in its own slot, but never one put in the returned
+    slot.
+
+    The account's second nibble is zero, which is the nibble the extension
+    from `_extension_to_leaf` runs along. A read of the account then goes
+    through the extension into its child, and doesn't stop at the extension
+    where the paths would otherwise part.
     """
     used_slots = {
         _state_root_slot(address)
         for address in merge_with_amsterdam_pre_alloc(pre)
     }
     free_slots = [slot for slot in range(16) if slot not in used_slots]
+    assert len(free_slots) >= 2, "the state trie root needs two empty slots"
     target = next(
         Address(value)
         for value in range(0x1000, 0x2000)
@@ -394,10 +400,13 @@ def _storage_root_slot(key: int) -> int:
 
 def _absent_storage_key() -> Tuple[int, int]:
     """
-    Pick an absent storage key whose path leaves the storage trie root
-    through a slot that `STORAGE_SLOT` doesn't use, and another such slot.
+    Pick an absent storage key, and a slot of the storage trie root other
+    than the ones that the first nibbles of the key and of `STORAGE_SLOT`
+    select.
 
-    Return the key and the other slot.
+    The key doesn't share a slot with `STORAGE_SLOT` either. A read of the
+    key reaches a malformed node put in its own slot, but never one put in
+    the returned slot.
     """
     used_slot = _storage_root_slot(STORAGE_SLOT)
     key = next(
