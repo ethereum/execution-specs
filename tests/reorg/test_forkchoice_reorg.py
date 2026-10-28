@@ -33,7 +33,7 @@ from execution_testing.fixtures.reorg import (
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
 
-from .helpers import chain
+from .helpers import build_attrs, chain
 
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
@@ -246,6 +246,12 @@ def test_fcu_below_finalized_with_inconsistent_state(
     treat the request as a backwards reorg and refuse with ``-38006`` (step
     6). Which applies is unspecified (execution-apis#891), so the errors
     are disputed. Either way the head must not move.
+
+    First FCU(head=a2) with zero safe and finalized, without and with
+    payload attributes, takes the shortcut on its own: VALID with
+    ``latestValidHash`` = a2, the head stays a10 and no build starts; a
+    client that skips the shortcut refuses with ``-38006`` (disputed, as
+    above).
     """
     blocks, steps = chain(pre, "a", 10)
     steps.append(
@@ -258,6 +264,27 @@ def test_fcu_below_finalized_with_inconsistent_state(
             ],
         )
     )
+    for attributes in (None, build_attrs(0x02)):
+        steps.append(
+            ForkchoiceUpdatedStep(
+                head="a2",
+                payload_attributes=attributes,
+                expect=[
+                    Outcome(
+                        id="noop",
+                        status="VALID",
+                        latest_valid_hash="a2",
+                        payload_id="null",
+                        head_moved=False,
+                    ),
+                    Outcome(
+                        id="refused",
+                        error_code=EngineAPIError.TooDeepReorg,
+                        disputed=DISPUTED_SHORTCUT_VS_38006,
+                    ),
+                ],
+            )
+        )
     steps.append(
         ForkchoiceUpdatedStep(
             head="a2",
