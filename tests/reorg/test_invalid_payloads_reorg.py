@@ -315,11 +315,13 @@ def test_invalid_missing_ancestor_reorg(
     """
     Hive ``InvalidMissingAncestorReOrgTest`` (NewPayload delivery): a side
     chain of 10 blocks with block ``invalid_index`` invalid; payloads are
-    delivered in order. The invalid one is INVALID (lvh = its parent), all
-    descendants INVALID (lvh = last valid) or SYNCING/ACCEPTED if the client
-    dropped the invalid block; the head never moves to the side chain.
-    ``reorg_from_canonical`` branches the side chain off a4 rather than
-    genesis.
+    delivered in order and, as in hive, each valid one is made the head. The
+    invalid one then extends the head and is INVALID (lvh = its parent),
+    or, as the first side block, also ACCEPTED; all descendants are INVALID
+    (lvh = last valid) or SYNCING/ACCEPTED if the client dropped the invalid
+    block; the head stays on the last valid block and the reorg back to a5
+    is applied. ``reorg_from_canonical`` branches the side chain off a4
+    rather than genesis.
     """
     blocks, steps = chain(pre, "a", 5, recipient=SINK)
     parent = "a4" if reorg_from_canonical else "genesis"
@@ -348,31 +350,12 @@ def test_invalid_missing_ancestor_reorg(
     )
     for i, b in enumerate(side):
         if i + 1 < invalid_index:
-            steps.append(
-                NewPayloadStep(
-                    block=b.label,
-                    expect=[
-                        Outcome(
-                            id="valid",
-                            status="VALID",
-                            latest_valid_hash=b.label,
-                        )
-                    ],
-                )
-            )
+            steps += [
+                NewPayloadStep(block=b.label),
+                ForkchoiceUpdatedStep(head=b.label, expect=applied(b.label)),
+            ]
         elif i + 1 == invalid_index:
-            steps.append(
-                NewPayloadStep(
-                    block=b.label,
-                    expect=[
-                        Outcome(
-                            id="invalid",
-                            status="INVALID",
-                            latest_valid_hash=last_valid,
-                        )
-                    ],
-                )
-            )
+            steps.append(NewPayloadStep(block=b.label))
         else:
             steps.append(
                 NewPayloadStep(
@@ -404,14 +387,9 @@ def test_invalid_missing_ancestor_reorg(
                 Outcome(id="syncing", status="SYNCING"),
             ],
         ),
-        AssertHeadStep(latest="a5"),
+        AssertHeadStep(latest="a5" if invalid_index == 1 else last_valid),
+        ForkchoiceUpdatedStep(head="a5", expect=applied("a5")),
         AssertCanonicalStep(blocks={5: "a5"}),
-        ForkchoiceUpdatedStep(
-            head="a5",
-            expect=[
-                Outcome(id="applied", status="VALID", latest_valid_hash="a5")
-            ],
-        ),
     ]
     reorg_test(pre=pre, blocks=blocks, steps=steps)
 
