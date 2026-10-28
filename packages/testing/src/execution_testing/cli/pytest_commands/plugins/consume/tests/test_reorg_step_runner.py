@@ -73,8 +73,7 @@ def test_get_payload_computes_blob_versioned_hashes(
 ) -> None:
     """
     A built payload's blob commitments are converted to versioned hashes
-    per EIP-4844 (PR3556-R0023), now via `BlobsBundle.blob_versioned_hashes`
-    instead of a duplicated formula.
+    per EIP-4844.
     """
     engine = MagicMock()
     step_runner = make_runner(engine=engine)
@@ -227,8 +226,8 @@ def test_assert_logs_accepts_a_hash_bound_to_two_labels(
 ) -> None:
     """
     A label whose hash was later rebound to a second label must still match
-    `assertLogs` (PR3556-R0021): the reverse `labels_by_hash` lookup only
-    keeps the latest bind, but both labels identify the same block.
+    `assertLogs`: the reverse `labels_by_hash` lookup only keeps the latest
+    bind, but both labels identify the same block.
     """
     eth = MagicMock()
     step_runner = make_runner(eth=eth)

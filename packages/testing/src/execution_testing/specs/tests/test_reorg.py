@@ -361,8 +361,7 @@ def test_unsupported_fork_build_request_keeps_the_update(
 ) -> None:
     """
     ``forkchoiceUpdatedV3`` with pre-Cancun attributes fails their
-    validation with -38005 after the update applied, so the head moves
-    (PR3556-F3-01).
+    validation with -38005 after the update applied, so the head moves.
     """
     test = ReorgTest(
         fork=ShanghaiToCancunAtTime15k,
@@ -459,7 +458,7 @@ def test_get_payload_version_follows_retrieved_build(
     """
     ``getPayload`` takes the version of the build the consumer retrieves:
     the last one a non-error ``forkchoiceUpdated`` started, wherever it
-    sits (PR3556-GQ-01).
+    sits.
     """
     test = ReorgTest(
         fork=BPO2ToAmsterdamAtTime15k,

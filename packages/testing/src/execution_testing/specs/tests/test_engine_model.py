@@ -468,9 +468,8 @@ def test_annotate_rejects_unmatched_forkchoice_branch_key() -> None:
 
 def test_annotate_rejects_duplicate_outcome_ids() -> None:
     """
-    Two outcomes sharing an id in one step's expect are rejected
-    (PR3556-F3-02): both would modify the same branch, leaving it with
-    contradictory assertions.
+    Two outcomes sharing an id in one step's expect are rejected: both
+    would modify the same branch, leaving it with contradictory assertions.
     """
     model = ClientModel(dag=dag_linear_with_fork())
     model.known["a1"] = Validity.VALID
@@ -534,8 +533,8 @@ def test_invalid_payload_attributes_still_applies_forkchoice(
     outcome_id: str, error_code: EngineAPIError
 ) -> None:
     """
-    A -38003/-38005 branch asserts the updated head, whatever the outcome id
-    (PR3556-F3-01).
+    A -38003/-38005 branch asserts the updated head, whatever the outcome
+    id.
     """
     model = ClientModel(dag=dag_linear_with_fork())
     model.known["a1"] = Validity.VALID
@@ -629,7 +628,7 @@ def test_get_payload_rejects_a_build_it_cannot_retrieve(
 ) -> None:
     """
     ``getPayload`` must retrieve the build in progress, on its parent, and
-    one that does not depend on which outcome occurred (PR3556-GQ-01).
+    one that does not depend on which outcome occurred.
     """
     model = ClientModel(dag=dag_linear_with_fork())
     model.known["a1"] = Validity.VALID

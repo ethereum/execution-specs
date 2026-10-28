@@ -46,7 +46,7 @@ def test_get_payload_v1_accepts_bare_execution_payload(
 ) -> None:
     """
     A conforming V1 result (the execution payload itself, not wrapped in
-    `executionPayload`) parses (PR3556-R0022).
+    `executionPayload`) parses.
     """
     with patch.object(
         engine.session,
