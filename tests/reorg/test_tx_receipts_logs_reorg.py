@@ -35,7 +35,6 @@ from execution_testing.fixtures.reorg import (
     AssertTxStatusStep,
     ForkchoiceUpdatedStep,
     NewPayloadStep,
-    Outcome,
     SendRawTransactionStep,
     Step,
     TxRef,
@@ -43,13 +42,10 @@ from execution_testing.fixtures.reorg import (
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
 from execution_testing.vm import Opcodes as Op
 
+from .helpers import applied
+
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
-
-
-def applied(head: str) -> List[Outcome]:
-    """Single legal outcome: the forkchoice update is applied."""
-    return [Outcome(id="applied", status="VALID", latest_valid_hash=head)]
 
 
 @pytest.mark.valid_from("Shanghai")

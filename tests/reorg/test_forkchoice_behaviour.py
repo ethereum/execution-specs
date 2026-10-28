@@ -136,7 +136,7 @@ Ports of:
   https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/payload_execution.go#L300
 """
 
-from typing import List, Tuple
+from typing import List
 
 import pytest
 from execution_testing import (
@@ -156,6 +156,8 @@ from execution_testing.fixtures.reorg import (
     Step,
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
+
+from .helpers import applied, chain
 
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
@@ -177,48 +179,6 @@ def rewind_outcomes(head: str) -> List[Outcome]:
         Outcome(id="applied", status="VALID", latest_valid_hash=head),
         Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg),
     ]
-
-
-def applied(head: str) -> List[Outcome]:
-    """Single legal outcome: applied."""
-    return [Outcome(id="applied", status="VALID", latest_valid_hash=head)]
-
-
-def chain(
-    pre: Alloc,
-    prefix: str,
-    length: int,
-    parent: str = "genesis",
-    start: int = 1,
-    value: int = 1,
-) -> Tuple[List[ReorgBlock], List[Step]]:
-    """
-    ``length`` blocks ``{prefix}{start}..`` on ``parent``, each with one value
-    transfer from a fresh sender (nonces independent per chain), plus the
-    NP/FCU steps that make the last one the head.
-    """
-    sender = pre.fund_eoa()
-    recipient = pre.fund_eoa(amount=0)
-    blocks: List[ReorgBlock] = []
-    steps: List[Step] = []
-    for i in range(length):
-        label = f"{prefix}{start + i}"
-        blocks.append(
-            ReorgBlock(
-                label=label,
-                parent=parent if i == 0 else None,
-                txs=[
-                    Transaction(
-                        sender=sender, nonce=i, to=recipient, value=value
-                    )
-                ],
-            )
-        )
-        steps += [
-            NewPayloadStep(block=label),
-            ForkchoiceUpdatedStep(head=label),
-        ]
-    return blocks, steps
 
 
 @pytest.mark.valid_from("Shanghai")

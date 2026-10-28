@@ -39,15 +39,16 @@ log is what the capability table for EIP-8252 is derived from.
 from typing import List
 
 import pytest
-from execution_testing import Address, Alloc, EngineAPIError, Transaction
+from execution_testing import Address, Alloc, EngineAPIError
 from execution_testing.fixtures.reorg import (
     AssertCanonicalStep,
     ForkchoiceUpdatedStep,
-    NewPayloadStep,
     Outcome,
     Step,
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
+
+from .helpers import chain
 
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
@@ -61,43 +62,19 @@ def two_branches(
     s2..s{depth+2} (depth+1 blocks). Steps deliver and apply the canonical
     chain then deliver every side payload.
     """
-    ca = pre.fund_eoa()
-    cs = pre.fund_eoa()
     sink = Address(0xC0DE)
-    blocks = [
-        ReorgBlock(
-            label="a1",
-            parent="genesis",
-            txs=[Transaction(sender=ca, nonce=0, to=sink, value=1)],
-        )
-    ]
-    steps: List[Step] = [
-        NewPayloadStep(block="a1"),
-        ForkchoiceUpdatedStep(head="a1"),
-    ]
-    for i in range(depth):
-        label = f"a{i + 2}"
-        blocks.append(
-            ReorgBlock(
-                label=label,
-                txs=[Transaction(sender=ca, nonce=i + 1, to=sink, value=1)],
-            )
-        )
-        steps += [
-            NewPayloadStep(block=label),
-            ForkchoiceUpdatedStep(head=label),
-        ]
-    for i in range(depth + 1):
-        label = f"s{i + 2}"
-        blocks.append(
-            ReorgBlock(
-                label=label,
-                parent="a1" if i == 0 else None,
-                txs=[Transaction(sender=cs, nonce=i, to=sink, value=2)],
-            )
-        )
-        steps.append(NewPayloadStep(block=label))
-    return blocks, steps
+    blocks, steps = chain(pre, "a", depth + 1, recipient=sink)
+    side, side_steps = chain(
+        pre,
+        "s",
+        depth + 1,
+        parent="a1",
+        start=2,
+        value=2,
+        recipient=sink,
+        with_fcu=False,
+    )
+    return blocks + side, steps + side_steps
 
 
 def matrix_steps(depth: int, applied_only: bool) -> List[Step]:

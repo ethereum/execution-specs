@@ -36,7 +36,7 @@ Ports of:
   https://github.com/ethereum/go-ethereum/blob/93d4038b088fd7a3102d90ad5feda5e50f6aaebf/core/blockchain_test.go#L2498
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import pytest
 from execution_testing import (
@@ -53,9 +53,10 @@ from execution_testing.fixtures.reorg import (
     ForkchoiceUpdatedStep,
     NewPayloadStep,
     Outcome,
-    Step,
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
+
+from .helpers import chain
 
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
@@ -77,35 +78,8 @@ STATEROOT_OR_HASH = [
     BlockException.INVALID_BLOCK_HASH,
 ]
 
-
-def linear(
-    pre: Alloc,
-    n: int,
-    prefix: str = "a",
-    parent: str = "genesis",
-    start: int = 1,
-) -> tuple[List[ReorgBlock], List[Step]]:
-    """Linear chain with one value transfer per block."""
-    sender = pre.fund_eoa()
-    blocks = [
-        ReorgBlock(
-            label=f"{prefix}{start + i}",
-            parent=parent if i == 0 else None,
-            txs=[
-                Transaction(
-                    sender=sender, nonce=i, to=Address(0xC0DE), value=1
-                )
-            ],
-        )
-        for i in range(n)
-    ]
-    steps: List[Step] = []
-    for b in blocks:
-        steps += [
-            NewPayloadStep(block=b.label),
-            ForkchoiceUpdatedStep(head=b.label),
-        ]
-    return blocks, steps
+SINK = Address(0xC0DE)
+"""Recipient of every value transfer in this module's chains."""
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -121,10 +95,10 @@ def test_bad_block_hash_on_new_payload(
     latestValidHash (Shanghai+); the head does not move; a valid child of
     the *real* block remains deliverable.
     """
-    blocks, steps = linear(pre, 3)
+    blocks, steps = chain(pre, "a", 3, recipient=SINK)
     parent = "a3"
     if on_side_chain:
-        side, _ = linear(pre, 1, prefix="s", parent="a2", start=3)
+        side, _ = chain(pre, "s", 1, parent="a2", start=3, recipient=SINK)
         blocks += side
         steps.append(NewPayloadStep(block="s3"))
         parent = "s3"
@@ -169,7 +143,7 @@ def test_parent_hash_equals_block_hash(
     Hive ``ParentHashOnNewPayload``: ``parentHash == blockHash`` (self
     parent) cannot be a valid block hash: INVALID / INVALID_BLOCK_HASH.
     """
-    blocks, steps = linear(pre, 2)
+    blocks, steps = chain(pre, "a", 2, recipient=SINK)
     sender = pre.fund_eoa()
     blocks.append(
         ReorgBlock(
@@ -209,10 +183,10 @@ def test_invalid_payload_field(
     INVALID with ``latestValidHash`` = its parent, on the canonical chain
     and on a side chain. A valid sibling afterwards is fine.
     """
-    blocks, steps = linear(pre, 3)
+    blocks, steps = chain(pre, "a", 3, recipient=SINK)
     parent = "a3"
     if on_side_chain:
-        side, _ = linear(pre, 1, prefix="s", parent="a2", start=3)
+        side, _ = chain(pre, "s", 1, parent="a2", start=3, recipient=SINK)
         blocks += side
         steps.append(NewPayloadStep(block="s3"))
         parent = "s3"
@@ -311,7 +285,7 @@ def test_invalid_missing_ancestor_reorg(
     ``reorg_from_canonical`` branches the side chain off a4 rather than
     genesis.
     """
-    blocks, steps = linear(pre, 5)
+    blocks, steps = chain(pre, "a", 5, recipient=SINK)
     parent = "a4" if reorg_from_canonical else "genesis"
     start = 5 if reorg_from_canonical else 1
     sender = pre.fund_eoa()
@@ -328,11 +302,7 @@ def test_invalid_missing_ancestor_reorg(
             ReorgBlock(
                 label=label,
                 parent=parent if i == 0 else None,
-                txs=[
-                    Transaction(
-                        sender=sender, nonce=i, to=Address(0xC0DE), value=3
-                    )
-                ],
+                txs=[Transaction(sender=sender, nonce=i, to=SINK, value=3)],
                 **kwargs,
             )
         )
@@ -426,7 +396,7 @@ def test_invalid_ancestor_descendants_delivered_first(
     arrives it is INVALID and the buffered descendants, re-sent, are INVALID
     with lvh = the invalid block's parent.
     """
-    blocks, steps = linear(pre, 3)
+    blocks, steps = chain(pre, "a", 3, recipient=SINK)
     sender = pre.fund_eoa()
     bad = ReorgBlock(
         label="bad",
@@ -435,7 +405,7 @@ def test_invalid_ancestor_descendants_delivered_first(
         rlp_modifier=Header(state_root=Hash(1)),
         exception=STATEROOT_OR_HASH,
     )
-    kids, _ = linear(pre, 3, prefix="k", parent="bad", start=5)
+    kids, _ = chain(pre, "k", 3, parent="bad", start=5, recipient=SINK)
     blocks += [bad] + kids
     buffered = [
         Outcome(id="syncing", status="SYNCING"),

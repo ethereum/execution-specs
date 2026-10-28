@@ -38,15 +38,12 @@ from execution_testing.fixtures.reorg import (
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
 
+from .helpers import applied
+
 REFERENCE_SPEC_GIT_PATH = "src/engine/cancun.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
 
 FORK_TS = 15_000
-
-
-def applied(head: str) -> List[Outcome]:
-    """Single legal outcome."""
-    return [Outcome(id="applied", status="VALID", latest_valid_hash=head)]
 
 
 @pytest.mark.valid_at_transition_to("Shanghai", subsequent_forks=True)

@@ -26,13 +26,14 @@ from execution_testing.fixtures.reorg import (
     ForkchoiceUpdatedStep,
     GetPayloadStep,
     NewPayloadStep,
-    Outcome,
     PayloadAttributes,
     SendRawTransactionStep,
     Step,
     TxRef,
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
+
+from .helpers import applied
 
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
@@ -47,18 +48,6 @@ def build_attrs(prev_randao: int) -> PayloadAttributes:
         prev_randao=Hash(prev_randao),
         suggested_fee_recipient=FEE_RECIPIENT,
     )
-
-
-def applied(head: str, payload_id: bool = False) -> List[Outcome]:
-    """Single legal outcome: applied (optionally with a payload id)."""
-    return [
-        Outcome(
-            id="applied",
-            status="VALID",
-            latest_valid_hash=head,
-            payload_id="nonNull" if payload_id else None,
-        )
-    ]
 
 
 @pytest.mark.valid_from("Shanghai")

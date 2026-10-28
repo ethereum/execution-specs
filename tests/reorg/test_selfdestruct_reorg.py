@@ -38,10 +38,11 @@ from execution_testing.fixtures.reorg import (
     AssertStateStep,
     ForkchoiceUpdatedStep,
     NewPayloadStep,
-    Outcome,
     Step,
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
+
+from .helpers import applied
 
 SALT = 0
 SLOT = 0
@@ -78,11 +79,6 @@ DESTROYED = AccountExpectation(balance=0, storage={Hash(SLOT): Hash(0)})
 ALIVE = AccountExpectation(
     balance=ENDOWMENT, storage={Hash(SLOT): Hash(STORED)}
 )
-
-
-def applied(head: str) -> List[Outcome]:
-    """Single legal outcome: applied."""
-    return [Outcome(id="applied", status="VALID", latest_valid_hash=head)]
 
 
 def _factory(pre: Alloc) -> Tuple[Address, Address]:

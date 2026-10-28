@@ -14,7 +14,6 @@ from typing import List
 
 import pytest
 from execution_testing import (
-    Account,
     Alloc,
     BlockException,
     EngineAPIError,
@@ -33,6 +32,8 @@ from execution_testing.fixtures.reorg import (
 )
 from execution_testing.specs import ReorgBlock, ReorgTestFiller
 
+from .helpers import chain
+
 REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
 REFERENCE_SPEC_VERSION = "execution-apis#786"
 
@@ -48,31 +49,6 @@ DISPUTED_FINALIZED_REGRESSION = (
     "execution-apis: forkchoiceUpdated with finalizedBlockHash older than "
     "the previously finalized block is not addressed by the specification"
 )
-
-
-def linear_chain(
-    pre: Alloc, length: int, prefix: str = "a"
-) -> tuple[List[ReorgBlock], Account, List[Step]]:
-    """
-    ``length`` blocks, each with one value transfer, plus the newPayload/FCU
-    steps that make the last one the head.
-    """
-    sender = pre.fund_eoa()
-    recipient = pre.fund_eoa(amount=0)
-    blocks = [
-        ReorgBlock(
-            label=f"{prefix}{i}",
-            txs=[
-                Transaction(sender=sender, nonce=i - 1, to=recipient, value=1)
-            ],
-        )
-        for i in range(1, length + 1)
-    ]
-    steps: List[Step] = []
-    for i in range(1, length + 1):
-        steps.append(NewPayloadStep(block=f"{prefix}{i}"))
-        steps.append(ForkchoiceUpdatedStep(head=f"{prefix}{i}"))
-    return blocks, Account(balance=length), steps
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -183,7 +159,7 @@ def test_invalid_side_chain(
     later side blocks are INVALID or SYNCING; ``forkchoiceUpdated(s5)`` must
     not make the side chain canonical; the canonical chain keeps working.
     """
-    blocks, _, steps = linear_chain(pre, 5, prefix="a")
+    blocks, steps = chain(pre, "a", 5)
 
     side_sender = pre.fund_eoa()
     side_recipient = pre.fund_eoa(amount=0)
@@ -276,7 +252,7 @@ def test_fcu_below_finalized_with_inconsistent_state(
     6). Which applies is unspecified (execution-apis#891), so the errors
     are disputed. Either way the head must not move.
     """
-    blocks, _, steps = linear_chain(pre, 10)
+    blocks, steps = chain(pre, "a", 10)
     steps.append(
         ForkchoiceUpdatedStep(
             head="a10",
@@ -325,7 +301,7 @@ def test_fcu_finalized_regression(
     Moving finalized backwards is not addressed by the specification;
     accepting it (VALID) or rejecting it (``-38002``) are both recorded.
     """
-    blocks, _, steps = linear_chain(pre, 10)
+    blocks, steps = chain(pre, "a", 10)
     steps.append(
         ForkchoiceUpdatedStep(
             head="a10",
@@ -367,7 +343,7 @@ def test_fcu_rewind_to_canonical_ancestor_above_finalized(
     a10 fails. Afterwards FCU(a10) must be VALID in either case and the chain
     must continue.
     """
-    blocks, expected_recipient, steps = linear_chain(pre, 10)
+    blocks, steps = chain(pre, "a", 10)
     steps.append(
         ForkchoiceUpdatedStep(
             head="a10",
