@@ -24,6 +24,7 @@ from execution_testing import (
 from execution_testing.fixtures.reorg import (
     AccountExpectation,
     AssertCanonicalStep,
+    AssertHeadStep,
     AssertStateStep,
     ForkchoiceUpdatedStep,
     NewPayloadStep,
@@ -204,7 +205,13 @@ def test_invalid_side_chain(
                 expect=after_invalid if i > invalid_index else [],
             )
         )
-    steps.append(ForkchoiceUpdatedStep(head="s5", expect=invalid_or_syncing))
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="s5",
+            expect=invalid_or_syncing,
+            branches={"syncing": [AssertHeadStep(latest="a5")]},
+        )
+    )
     # Canonical chain is unaffected and still progresses.
     steps.append(
         ForkchoiceUpdatedStep(
