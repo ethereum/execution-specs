@@ -91,9 +91,9 @@ def test_bad_block_hash_on_new_payload(
 ) -> None:
     """
     Hive ``BadHashOnNewPayload``: a payload whose ``blockHash`` does not match
-    its contents is ``INVALID_BLOCK_HASH`` (Paris) / ``INVALID`` with null
-    latestValidHash (Shanghai+); the head does not move; a valid child of
-    the *real* block remains deliverable.
+    its contents is ``INVALID`` with a null latestValidHash (shanghai.md
+    supplants V1's ``INVALID_BLOCK_HASH``); the head does not move; a valid
+    child of the *real* block remains deliverable.
     """
     blocks, steps = chain(pre, "a", 3, recipient=SINK)
     parent = "a3"
@@ -118,7 +118,6 @@ def test_bad_block_hash_on_new_payload(
                 Outcome(
                     id="invalid", status="INVALID", latest_valid_hash="null"
                 ),
-                Outcome(id="invalid_block_hash", status="INVALID_BLOCK_HASH"),
             ],
         ),
         AssertHeadStep(latest="a3"),
@@ -141,7 +140,8 @@ def test_parent_hash_equals_block_hash(
 ) -> None:
     """
     Hive ``ParentHashOnNewPayload``: ``parentHash == blockHash`` (self
-    parent) cannot be a valid block hash: INVALID / INVALID_BLOCK_HASH.
+    parent) cannot be a valid block hash: ``INVALID`` with a null
+    latestValidHash.
     """
     blocks, steps = chain(pre, "a", 2, recipient=SINK)
     sender = pre.fund_eoa()
@@ -161,7 +161,6 @@ def test_parent_hash_equals_block_hash(
                 Outcome(
                     id="invalid", status="INVALID", latest_valid_hash="null"
                 ),
-                Outcome(id="invalid_block_hash", status="INVALID_BLOCK_HASH"),
             ],
         ),
         AssertHeadStep(latest="a2"),

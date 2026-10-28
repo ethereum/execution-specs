@@ -300,6 +300,7 @@ class ReorgTest(BlockchainTest):
                 gas_limit=int(built.header.gas_limit),
                 slot=int(built.header.slot_number or 0),
                 fcu_version=int(payload.forkchoice_updated_version),
+                new_payload_version=int(payload.new_payload_version),
                 valid=block.exception is None and not block.payload_corrupted,
                 hash_invalid=block.payload_corrupted,
             )

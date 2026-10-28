@@ -11,8 +11,9 @@ branch, so the head is verified after every forkchoice update.
 Rules follow `execution-apis` ``paris.md`` as amended by PR #786:
 
 - ``newPayload``: payload that does not hash to its own ``blockHash`` →
-  INVALID with a null ``latestValidHash`` (or ``INVALID_BLOCK_HASH``), checked
-  before the parent is looked up; unknown parent → SYNCING; execution-invalid
+  ``INVALID_BLOCK_HASH`` from ``newPayloadV1``, INVALID from V2 on, both
+  with a null ``latestValidHash`` and checked before the parent is looked
+  up; unknown parent → SYNCING; execution-invalid
   → INVALID with ``latestValidHash`` = last valid ancestor; child of a
   known-invalid (confirmed, or received-but-unconfirmed and ground-truth
   invalid) block → INVALID (lvh = last valid ancestor) or SYNCING; extends
@@ -81,6 +82,8 @@ class DagBlock:
     """Slot number (0 before Amsterdam)."""
     fcu_version: int
     """``forkchoiceUpdated`` version of a request whose head is this block."""
+    new_payload_version: int | None = None
+    """``newPayload`` version delivering the block (``None`` for genesis)."""
     valid: bool = True
     """Whether the block passes execution validation."""
     hash_invalid: bool = False
@@ -223,20 +226,24 @@ class ClientModel:
         parent = self.dag.parent(block)
         if self.dag.blocks[block].hash_invalid:
             # The block-hash check runs in all cases, so the answer does not
-            # depend on the parent being known. Pre-Shanghai clients report
-            # INVALID_BLOCK_HASH; from Shanghai on, INVALID with a null
-            # latestValidHash, since no ancestor of an unhashable payload can
-            # be determined.
+            # depend on the parent being known. newPayloadV1 reports
+            # INVALID_BLOCK_HASH; shanghai.md supplants it from V2 on with
+            # INVALID and a null latestValidHash, since no ancestor of an
+            # unhashable payload can be determined.
+            if self.dag.blocks[block].new_payload_version == 1:
+                return [
+                    Outcome(
+                        id="invalid_block_hash",
+                        status=PayloadStatusEnum.INVALID_BLOCK_HASH,
+                        latest_valid_hash=LATEST_VALID_HASH_NULL,
+                    )
+                ]
             return [
                 Outcome(
                     id="invalid",
                     status=PayloadStatusEnum.INVALID,
                     latest_valid_hash=LATEST_VALID_HASH_NULL,
-                ),
-                Outcome(
-                    id="invalid_block_hash",
-                    status=PayloadStatusEnum.INVALID_BLOCK_HASH,
-                ),
+                )
             ]
         if (
             block not in self.diverged
@@ -768,6 +775,7 @@ def _bind_payload(
         ),
         slot=0 if attrs.slot_number is None else int(attrs.slot_number),
         fcu_version=fcu_version,
+        new_payload_version=build_fork.engine_new_payload_version(),
     )
     if step.version is None:
         version = build_fork.engine_get_payload_version()

@@ -1,5 +1,6 @@
 """Unit tests for the Engine API reference model used by reorg tests."""
 
+from dataclasses import replace
 from typing import Dict, Iterable, List
 
 import pytest
@@ -50,6 +51,7 @@ def add_block(
         gas_limit=30_000_000,
         slot=0,
         fcu_version=3,
+        new_payload_version=3,
         valid=valid,
         hash_invalid=hash_invalid,
     )
@@ -407,24 +409,28 @@ def test_annotate_refuses_to_generate_attribute_errors(
         annotate_steps([step], model, Cancun)
 
 
-def test_np_hash_invalid_precedes_parent_lookup() -> None:
+@pytest.mark.parametrize(
+    "version,outcome_id", [(1, "invalid_block_hash"), (2, "invalid")]
+)
+def test_np_hash_invalid_precedes_parent_lookup(
+    version: int, outcome_id: str
+) -> None:
     """
     A payload that does not hash to its blockHash is rejected regardless of
-    whether its parent is known.
+    whether its parent is known: INVALID_BLOCK_HASH from newPayloadV1,
+    INVALID from V2 on, both with a null latestValidHash.
     """
     dag = dag_linear_with_fork(hash_invalid={"b3"})
+    dag.blocks["b3"] = replace(dag.blocks["b3"], new_payload_version=version)
     model = ClientModel(dag=dag)
     # b2, b3's parent, was never delivered.
     assert "b2" not in model.known
     outcomes = model.new_payload_outcomes("b3")
-    assert ids(outcomes) == ["invalid", "invalid_block_hash"]
+    assert ids(outcomes) == [outcome_id]
     assert outcomes[0].latest_valid_hash == "null"
     # Same answer once the parent is known and valid.
     model.known.update({"a1": Validity.VALID, "b2": Validity.VALID})
-    assert ids(model.new_payload_outcomes("b3")) == [
-        "invalid",
-        "invalid_block_hash",
-    ]
+    assert ids(model.new_payload_outcomes("b3")) == [outcome_id]
 
 
 def test_fcu_to_hash_mismatched_payload_allows_syncing() -> None:
