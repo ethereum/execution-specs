@@ -1,5 +1,8 @@
 """
-P0 reorg conformance tests.
+Sibling, invalid-side-chain and finalized-boundary forkchoice tests.
+
+Source mapping and port limitations: ``tests/reorg/README.md``
+(test_forkchoice_reorg.py section).
 
 - Sibling reorg: switch head between two blocks at the same height and verify
   state, head labels and canonical mapping follow the forkchoice.

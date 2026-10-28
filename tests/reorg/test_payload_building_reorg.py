@@ -2,18 +2,8 @@
 Payload building on reorganized heads (client-built payloads bound via
 ``getPayload``).
 
-Ports of:
-
-- hive ``ReOrgPrevValidatedPayloadOnSideChainTest`` (reorg to a previously
-  validated non-leaf side payload and build a new payload on top of it):
-  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/reorg.go#L629
-- hive ``SidechainReOrgTest`` (build two payloads on the same parent with
-  different attributes, switch between them):
-  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/reorg.go#L20
-- hive ``TransactionReOrgTest`` (``ReOrgOut``: a transaction sent to the pool
-  is included when building on one head and absent from a payload built on a
-  sibling head):
-  https://github.com/ethereum/hive/blob/ae173f1ce15aed785e6c0945c2156a95819d21bf/simulators/ethereum/engine/suites/engine/reorg.go#L124
+Source mapping and port limitations: ``tests/reorg/README.md``
+(test_payload_building_reorg.py section).
 """
 
 from typing import List
@@ -262,7 +252,7 @@ def test_pool_tx_reorged_out_of_built_payload(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Port of hive ``TransactionReOrgTest`` (``ReOrgOut`` / ``ReOrgBackIn``).
+    Partial port of hive ``TransactionReOrgTest`` (``ReOrgOut``).
 
     A pool transaction is included in a payload built on a1 (bound ``p``);
     after FCU to ``p`` its receipt exists. Reorg to sibling b1 (which does

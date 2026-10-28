@@ -1,14 +1,15 @@
 """
 Accounts created and destroyed, across a reorg.
 
-Port of erigon ``TestReorgOverSelfDestruct``
-(https://github.com/erigontech/erigon/blob/76167d7987af908e88391a40dfd054c275c6e04d/execution/tests/state_database_test.go#L503).
-Before EIP-6780 (Paris, Shanghai) its shape is kept: a contract created,
-changed and destroyed in three blocks comes back with its first value after
-a reorg to a branch off its creation. From EIP-6780 on a ``SELFDESTRUCT``
-only deletes the account when it runs in the transaction that created it,
-so the destroyed account is built by a factory that creates the contract
-and calls it back within one transaction.
+Source mapping and port limitations: ``tests/reorg/README.md``
+(test_selfdestruct_reorg.py section).
+
+Before EIP-6780 (Paris, Shanghai) the original shape is kept: a contract
+created, changed and destroyed in three blocks comes back with its first
+value after a reorg to a branch off its creation. From EIP-6780 on a
+``SELFDESTRUCT`` only deletes the account when it runs in the transaction
+that created it, so the destroyed account is built by a factory that
+creates the contract and calls it back within one transaction.
 
 The ``CREATE2`` salt and initcode are the same on every branch, so the
 contract always lands on the same address and the branches differ only in
@@ -16,9 +17,8 @@ whether it survives. Two shapes are covered:
 
 - the account is destroyed on one branch and alive on its sibling, with the
   head moving between them;
-- the account is destroyed and recreated inside a single block, the pattern
-  erigon's own comment says its parallel executor does not yet handle:
-  https://github.com/erigontech/erigon/blob/76167d7987af908e88391a40dfd054c275c6e04d/execution/execmodule/execmoduletester/exec_module_tester.go#L315
+- the account is destroyed and recreated inside a single block, a pattern
+  Erigon's own comment says its parallel executor does not yet handle.
 """
 
 from typing import List, Tuple
