@@ -100,8 +100,9 @@ Ports of:
   https://github.com/paradigmxyz/reth/blob/b224494e257deb41b3b99e388c14580816a7552d/crates/engine/tree/tests/e2e-testsuite/fcu_finalized_blocks.rs#L44
 - reth ``test_engine_tree_fcu_missing_head``:
   https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/src/tree/tests.rs#L1673
-- reth ``test_fcu_with_canonical_ancestor_updates_latest_block``:
-  https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/src/tree/tests.rs#L1778
+- nethermind
+  ``forkchoiceUpdatedV1_processed_skips_reorg_only_when_head_is_ancestor_of_finalized``:
+  https://github.com/NethermindEth/nethermind/blob/e735e6edfeed57de898c898f0b517fbd627f3a21/src/Nethermind/Nethermind.Merge.Plugin.Test/EngineModuleTests.V1.cs#L2742
 - reth ``test_find_invalid_ancestor_detects_block_itself``:
   https://github.com/paradigmxyz/reth/blob/8458973f25fec5e2bc1a51992da041620c266e62/crates/engine/tree/src/tree/tests.rs#L2444
 - reth ``test_testsuite_create_fork``:
@@ -176,7 +177,12 @@ def rewind_outcomes(head: str) -> List[Outcome]:
     finalized block, which is not the case for these rewinds.
     """
     return [
-        Outcome(id="applied", status="VALID", latest_valid_hash=head),
+        Outcome(
+            id="applied",
+            status="VALID",
+            latest_valid_hash=head,
+            head_moved=True,
+        ),
         Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg),
     ]
 
@@ -310,11 +316,17 @@ def test_reorg_to_older_canonical_ancestor_and_forward(
 ) -> None:
     """
     Hive ``ReOrgBackToCanonicalTest`` (depth 1..5) / erigon
-    ``TestFcuAllowsReorgBackOnCanonicalChainWhenAfterFinalisedHash`` / reth
-    ``test_fcu_with_canonical_ancestor_updates_latest_block``: after every
-    new block, FCU back to a5 (a canonical ancestor above finalized) then
-    forward to the tip. #786: the rewind is applied or refused (-38006); the
-    forward FCU must always be VALID.
+    ``TestFcuAllowsReorgBackOnCanonicalChainWhenAfterFinalisedHash`` /
+    nethermind
+    ``forkchoiceUpdatedV1_processed_skips_reorg_only_when_head_is_ancestor_of_finalized``:
+    after every new block, FCU back to a5 (a canonical ancestor above
+    finalized) then forward to the tip. #786: the rewind is applied or
+    refused (-38006); the forward FCU must always be VALID.
+
+    reth's Ethereum engine answers such a rewind VALID and keeps its head
+    (``apply_chain_update``), which #786 does not allow, so it is expected
+    to fail here:
+    https://github.com/paradigmxyz/reth/blob/7c1ffbe6619ef07a53256489c5f5fd89a602202d/crates/engine/tree/src/tree/mod.rs#L1299-L1352
     """
     blocks, steps = chain(pre, "a", 5)
     more, _ = chain(pre, "a", 5, parent="a5", start=6)
@@ -690,6 +702,11 @@ def test_valid_and_invalid_forks_with_older_canonical_head(
     ``valid_and_invalid`` variant: canonical to a6; head moved back to a1;
     two 8-block forks A/B off a6 delivered; FCU(B tip) applied; FCU(A tip)
     also VALID; an invalid block on top of A is INVALID and the head stays.
+
+    reth's Ethereum engine answers the rewind to a1 VALID and keeps its head
+    (``apply_chain_update``), which #786 does not allow, so it is expected
+    to fail here:
+    https://github.com/paradigmxyz/reth/blob/7c1ffbe6619ef07a53256489c5f5fd89a602202d/crates/engine/tree/src/tree/mod.rs#L1299-L1352
     """
     blocks, steps = chain(pre, "a", 6)
     fa, _ = chain(pre, "x", 8, parent="a6", start=7, value=2)
@@ -706,7 +723,19 @@ def test_valid_and_invalid_forks_with_older_canonical_head(
         ],
     )
     blocks += fa + fb + [bad]
-    steps.append(ForkchoiceUpdatedStep(head="a1", expect=applied("a1")))
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="a1",
+            expect=[
+                Outcome(
+                    id="applied",
+                    status="VALID",
+                    latest_valid_hash="a1",
+                    head_moved=True,
+                )
+            ],
+        )
+    )
     steps += [NewPayloadStep(block=b.label) for b in fa + fb]
     steps += [
         ForkchoiceUpdatedStep(
@@ -825,6 +854,11 @@ def test_fcu_rewind_with_no_finalized(
     on the head being an ancestor of it; with a zero finalized hash neither
     holds, so the client must either apply the rewind or refuse it as too
     deep. A VALID answer that leaves the head where it was is not legal here.
+
+    reth's Ethereum engine answers such a rewind VALID and keeps its head
+    (``apply_chain_update``), which #786 does not allow, so it is expected
+    to fail here:
+    https://github.com/paradigmxyz/reth/blob/7c1ffbe6619ef07a53256489c5f5fd89a602202d/crates/engine/tree/src/tree/mod.rs#L1299-L1352
     """
     blocks, steps = chain(pre, "a", 8)
     steps.append(
