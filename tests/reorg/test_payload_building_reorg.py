@@ -19,7 +19,14 @@ Ports of:
 from typing import List
 
 import pytest
-from execution_testing import Alloc, Fork, Hash, Op, Transaction
+from execution_testing import (
+    Alloc,
+    EngineAPIError,
+    Fork,
+    Hash,
+    Op,
+    Transaction,
+)
 from execution_testing.fixtures.reorg import (
     AccountExpectation,
     AssertCanonicalStep,
@@ -28,6 +35,8 @@ from execution_testing.fixtures.reorg import (
     ForkchoiceUpdatedStep,
     GetPayloadStep,
     NewPayloadStep,
+    Outcome,
+    PayloadAttributes,
     SendRawTransactionStep,
     Step,
     TxRef,
@@ -42,7 +51,7 @@ REFERENCE_SPEC_VERSION = "execution-apis#786"
 
 @pytest.mark.valid_from("Shanghai")
 def test_build_on_previously_validated_side_payload(
-    reorg_test: ReorgTestFiller, pre: Alloc
+    reorg_test: ReorgTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     r"""
     Port of hive ``ReOrgPrevValidatedPayloadOnSideChainTest``.
@@ -53,6 +62,12 @@ def test_build_on_previously_validated_side_payload(
     Reorg to the non-leaf side payload s2 while requesting a build; the built
     payload must have s2 as parent; sending it back is VALID and FCU to it is
     applied. Then the canonical chain must still be re-appliable.
+
+    Then FCU to s2 with build attributes the client must reject: a
+    timestamp equal to s2's (``-38003``) and, from ``forkchoiceUpdatedV4``
+    on, ``forkchoiceUpdatedV3`` with this fork's attributes (``-38005``).
+    Both checks run after the forkchoice update, which must stand
+    (paris.md forkchoiceUpdated step 8), so s2 is the head afterwards.
     """
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=0)
@@ -115,6 +130,34 @@ def test_build_on_previously_validated_side_payload(
             branches={"applied": [AssertCanonicalStep(blocks={3: "a3"})]},
         ),
     ]
+
+    def rejected_build(
+        attributes: PayloadAttributes,
+        error: EngineAPIError,
+        version: int | None = None,
+    ) -> List[Step]:
+        return [
+            ForkchoiceUpdatedStep(
+                head="s2",
+                payload_attributes=attributes,
+                version=version,
+                expect=[Outcome(id="rejected", error_code=error)],
+                branches={"rejected": [AssertCanonicalStep(blocks={2: "s2"})]},
+            ),
+            ForkchoiceUpdatedStep(head="a3", expect=applied("a3")),
+        ]
+
+    # 12 seconds per block from a genesis at 0: s2's own timestamp.
+    steps += rejected_build(
+        build_attrs(0xBB, timestamp=24),
+        EngineAPIError.InvalidPayloadAttributes,
+    )
+    fcu_version = fork.engine_forkchoice_updated_version()
+    assert fcu_version is not None
+    if fcu_version > 3:
+        steps += rejected_build(
+            build_attrs(0xCC), EngineAPIError.UnsupportedFork, version=3
+        )
     reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 

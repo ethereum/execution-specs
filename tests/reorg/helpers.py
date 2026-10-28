@@ -25,10 +25,13 @@ def applied(head: str, payload_id: bool = False) -> List[Outcome]:
     ]
 
 
-def build_attrs(prev_randao: int) -> PayloadAttributes:
-    """Payload attributes; timestamp/withdrawals/beacon root filled at fill."""
+def build_attrs(prev_randao: int, timestamp: int = 0) -> PayloadAttributes:
+    """
+    Payload attributes; withdrawals, beacon root and, if 0, the timestamp
+    are filled at fill.
+    """
     return PayloadAttributes(
-        timestamp=0,
+        timestamp=timestamp,
         prev_randao=Hash(prev_randao),
         suggested_fee_recipient=0x1234,
     )
