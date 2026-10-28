@@ -1,12 +1,14 @@
 """
-Accounts created and destroyed in the same transaction, across a reorg.
+Accounts created and destroyed, across a reorg.
 
 Port of erigon ``TestReorgOverSelfDestruct``
-(https://github.com/erigontech/erigon/blob/76167d7987af908e88391a40dfd054c275c6e04d/execution/tests/state_database_test.go#L503)
-adjusted for EIP-6780: a ``SELFDESTRUCT`` only deletes the account when it
-runs in the transaction that created it, so the destroyed account here is
-built by a factory that creates the contract and calls it back within one
-transaction.
+(https://github.com/erigontech/erigon/blob/76167d7987af908e88391a40dfd054c275c6e04d/execution/tests/state_database_test.go#L503).
+Before EIP-6780 (Paris, Shanghai) its shape is kept: a contract created,
+changed and destroyed in three blocks comes back with its first value after
+a reorg to a branch off its creation. From EIP-6780 on a ``SELFDESTRUCT``
+only deletes the account when it runs in the transaction that created it,
+so the destroyed account is built by a factory that creates the contract
+and calls it back within one transaction.
 
 The ``CREATE2`` salt and initcode are the same on every branch, so the
 contract always lands on the same address and the branches differ only in
@@ -31,6 +33,7 @@ from execution_testing import (
     Op,
     Transaction,
     compute_create2_address,
+    compute_create_address,
 )
 from execution_testing.fixtures.reorg import (
     AccountExpectation,
@@ -75,10 +78,24 @@ FACTORY = (
     )
 )
 
-DESTROYED = AccountExpectation(balance=0, storage={Hash(SLOT): Hash(0)})
-ALIVE = AccountExpectation(
-    balance=ENDOWMENT, storage={Hash(SLOT): Hash(STORED)}
+#: Deleted, not just empty: a live contract has nonce 1 (EIP-161) and code.
+DESTROYED = AccountExpectation(
+    balance=0, nonce=0, code=b"", storage={Hash(SLOT): Hash(0)}
 )
+ALIVE = AccountExpectation(
+    balance=ENDOWMENT,
+    nonce=1,
+    code=bytes(RUNTIME),
+    storage={Hash(SLOT): Hash(STORED)},
+)
+
+#: Before EIP-6780: calldata sets the slot, an empty call self-destructs.
+LEGACY_RUNTIME = Conditional(
+    condition=Op.CALLDATASIZE,
+    if_true=Op.SSTORE(SLOT, Op.CALLDATALOAD(0)),
+    if_false=Op.SELFDESTRUCT(BENEFICIARY),
+)
+CHANGED = 0x2B
 
 
 def _factory(pre: Alloc) -> Tuple[Address, Address]:
@@ -192,5 +209,80 @@ def test_reorg_over_same_block_destroy_and_recreate(
         ForkchoiceUpdatedStep(head="z1", expect=applied("z1")),
         AssertStateStep(accounts={contract: ALIVE}),
         AssertHeadStep(latest="z1"),
+    ]
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
+
+
+@pytest.mark.valid_at("Paris", "Shanghai")
+def test_reorg_over_selfdestruct_in_a_later_block(
+    reorg_test: ReorgTestFiller, pre: Alloc
+) -> None:
+    """
+    Erigon's original shape, which needs ``SELFDESTRUCT`` before EIP-6780.
+
+    ``x1`` creates the contract with slot = 0x2A, ``x2`` changes the slot,
+    ``x3`` destroys the contract. A reorg to ``y2``, a branch off ``x1``,
+    undoes both the destroy and the change: the contract is back with the
+    value ``x1`` stored.
+    """
+    deployer = pre.fund_eoa()
+    other = pre.fund_eoa()
+    contract = compute_create_address(address=deployer, nonce=0)
+
+    def call(nonce: int, data: bytes) -> Transaction:
+        return Transaction(
+            sender=deployer, nonce=nonce, to=contract, data=data, gas_limit=GAS
+        )
+
+    blocks = [
+        ReorgBlock(
+            label="x1",
+            parent="genesis",
+            txs=[
+                Transaction(
+                    sender=deployer,
+                    nonce=0,
+                    to=None,
+                    value=ENDOWMENT,
+                    data=Initcode(
+                        deploy_code=LEGACY_RUNTIME,
+                        initcode_prefix=Op.SSTORE(SLOT, STORED),
+                    ),
+                    gas_limit=GAS,
+                )
+            ],
+        ),
+        ReorgBlock(label="x2", txs=[call(1, Hash(CHANGED))]),
+        ReorgBlock(label="x3", txs=[call(2, b"")]),
+        ReorgBlock(
+            label="y2",
+            parent="x1",
+            txs=[Transaction(sender=other, nonce=0, to=BENEFICIARY, value=1)],
+        ),
+    ]
+    created = AccountExpectation(
+        balance=ENDOWMENT,
+        nonce=1,
+        code=bytes(LEGACY_RUNTIME),
+        storage={Hash(SLOT): Hash(STORED)},
+    )
+    changed = created.model_copy(
+        update={"storage": {Hash(SLOT): Hash(CHANGED)}}
+    )
+    steps: List[Step] = []
+    for label, expected in (
+        ("x1", created),
+        ("x2", changed),
+        ("x3", DESTROYED),
+    ):
+        steps += [
+            NewPayloadStep(block=label),
+            ForkchoiceUpdatedStep(head=label),
+            AssertStateStep(accounts={contract: expected}),
+        ]
+    steps += [
+        NewPayloadStep(block="y2"),
+        ForkchoiceUpdatedStep(head="y2", expect=applied("y2")),
+        AssertStateStep(accounts={contract: created}),
     ]
     reorg_test(pre=pre, blocks=blocks, steps=steps)

@@ -200,6 +200,10 @@ Payload attributes sent with `forkchoiceUpdated` to start a build; fields match 
 
 #### - `storage`: [`Optional`](./common_types.md#optional)`[`[`Mapping`](./common_types.md#mapping)`[`[`Hash`](./common_types.md#hash)`,`[`Hash`](./common_types.md#hash)`]]`
 
+#### - `code`: [`Optional`](./common_types.md#optional)`[`[`Bytes`](./common_types.md#bytes)`]`
+
+Expected `eth_getCode` result; `0x` for an account without code.
+
 ### `TxRef`
 
 Reference to a transaction of a fixture block.

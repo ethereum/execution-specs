@@ -346,6 +346,8 @@ class AccountExpectation(CamelModel):
     balance: HexNumber | None = None
     nonce: HexNumber | None = None
     storage: Dict[Hash, Hash] | None = None
+    code: Bytes | None = None
+    """Expected ``eth_getCode`` result; empty for a deleted account."""
 
 
 class AssertStateStep(StepBase):
@@ -371,6 +373,7 @@ class AssertStateStep(StepBase):
             checks: List[Tuple[str, Any, Any]] = [
                 ("balance", want.balance, got.balance),
                 ("nonce", want.nonce, got.nonce),
+                ("code", want.code, got.code),
             ]
             for key, value in (want.storage or {}).items():
                 stored = got.storage[key] if key in got.storage else 0

@@ -494,6 +494,13 @@ class StepRunner:
                         f"{name}: nonce of {address} at {step.at} is "
                         f"{got_nonce}, expected {int(expected.nonce)}"
                     )
+            if expected.code is not None:
+                got_code = self.eth.get_code(address, at)
+                if got_code != expected.code:
+                    raise LoggedError(
+                        f"{name}: code of {address} at {step.at} is "
+                        f"{got_code}, expected {expected.code}"
+                    )
             if expected.storage:
                 for key, value in expected.storage.items():
                     got = self.eth.get_storage_at(address, key, at)
