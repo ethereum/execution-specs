@@ -51,6 +51,7 @@ from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
     LATEST_VALID_HASH_NULL,
     ZERO_LABEL,
+    AssertCanonicalStep,
     AssertHeadStep,
     AssertStateStep,
     ForkchoiceUpdatedStep,
@@ -686,8 +687,10 @@ def annotate_steps(
     ``more_follow`` says a step follows in an enclosing list (see
     ``_continue``). Build requests get their unset attribute fields and
     version from ``fork``. ``getPayload`` binds the build its preceding
-    steps leave in progress (see ``ClientModel.build``). ``assertState`` is
-    checked against the DAG's post-states where they are known.
+    steps leave in progress (see ``ClientModel.build``). Authored
+    ``assertHead``, ``assertCanonical`` and ``assertState`` steps are checked
+    against the model, ``assertState`` values against the DAG's post-states
+    where they are known.
     """
     for i, step in enumerate(steps):
         has_continuation = i + 1 < len(steps) or more_follow
@@ -742,11 +745,40 @@ def annotate_steps(
                 branches,
                 has_continuation,
             )
-        elif isinstance(step, AssertStateStep) and model.dag.post_state:
+        elif isinstance(step, AssertHeadStep):
+            for tag, want, have in (
+                ("latest", step.latest, model.head),
+                ("safe", step.safe, model.safe),
+                ("finalized", step.finalized, model.finalized),
+            ):
+                # What a client reports for a zero safe or finalized hash is
+                # open (execution-apis#892).
+                if want is not None and have != ZERO_LABEL and want != have:
+                    raise ValueError(
+                        f"assertHead {tag}={want!r} contradicts the model, "
+                        f"which has {have!r}"
+                    )
+        elif isinstance(step, AssertCanonicalStep):
+            canonical = model.dag.ancestors(model.head)[::-1]
+            for number, want in step.blocks.items():
+                height = int(number)
+                block = canonical[height] if height < len(canonical) else None
+                if want != block:
+                    raise ValueError(
+                        f"assertCanonical {height}={want!r} contradicts the "
+                        f"model's canonical chain, which has {block!r}"
+                    )
+        elif isinstance(step, AssertStateStep):
             label = model.head if step.at == "latest" else step.at
-            state = model.dag.post_state(label)
-            if state is not None:
-                step.verify(label, state)
+            if label not in model.dag.ancestors(model.head):
+                raise ValueError(
+                    f"assertState at {step.at!r}: not canonical in the model "
+                    f"(head {model.head!r})"
+                )
+            if model.dag.post_state is not None:
+                state = model.dag.post_state(label)
+                if state is not None:
+                    step.verify(label, state)
         elif isinstance(step, GetPayloadStep):
             _bind_payload(step, model, fork)
     return steps

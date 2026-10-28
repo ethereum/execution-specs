@@ -9,7 +9,9 @@ from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures.blockchain import PayloadAttributes
 from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
+    AssertCanonicalStep,
     AssertHeadStep,
+    AssertStateStep,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
     NewPayloadStep,
@@ -764,3 +766,40 @@ def test_annotate_rejects_divergence_used_by_enclosing_continuation() -> None:
     ]
     with pytest.raises(ValueError, match="different forkchoice states"):
         annotate_steps(steps, model, Cancun)
+
+
+@pytest.mark.parametrize(
+    "assertion,match",
+    [
+        pytest.param(
+            AssertHeadStep(latest="b2"), "assertHead latest", id="head"
+        ),
+        pytest.param(
+            AssertCanonicalStep(blocks={2: "b2"}),
+            "assertCanonical 2",
+            id="canonical_sibling",
+        ),
+        pytest.param(
+            AssertCanonicalStep(blocks={3: "a3"}),
+            "assertCanonical 3",
+            id="canonical_above_head",
+        ),
+        pytest.param(
+            AssertStateStep(at="b2", accounts={}),
+            "not canonical",
+            id="state_at_sibling",
+        ),
+    ],
+)
+def test_annotate_rejects_assertions_the_model_contradicts(
+    assertion: Step, match: str
+) -> None:
+    """An authored assertion no conformant client can pass fails filling."""
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.known.update({"a1": Validity.VALID, "a2": Validity.VALID})
+    model.head = "a2"
+    annotate_steps(
+        [AssertCanonicalStep(blocks={2: "a2", 3: None})], model, Cancun
+    )
+    with pytest.raises(ValueError, match=match):
+        annotate_steps([assertion], model, Cancun)
