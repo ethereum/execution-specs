@@ -36,13 +36,17 @@ Authors may always provide ``expect`` explicitly; the model never widens an
 author-provided set.
 """
 
-from dataclasses import dataclass, field
+from collections import Counter
+from dataclasses import dataclass, field, replace
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from execution_testing.base_types import Alloc, Hash, HexNumber, Number
 from execution_testing.exceptions import EngineAPIError
-from execution_testing.fixtures.blockchain import PayloadAttributes
+from execution_testing.fixtures.blockchain import (
+    PayloadAttributes,
+    PayloadStatusEnum,
+)
 from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
     LATEST_VALID_HASH_NULL,
@@ -205,14 +209,17 @@ class ClientModel:
             return [
                 Outcome(
                     id="invalid",
-                    status="INVALID",
+                    status=PayloadStatusEnum.INVALID,
                     latest_valid_hash=LATEST_VALID_HASH_NULL,
                 ),
-                Outcome(id="invalid_block_hash", status="INVALID_BLOCK_HASH"),
+                Outcome(
+                    id="invalid_block_hash",
+                    status=PayloadStatusEnum.INVALID_BLOCK_HASH,
+                ),
             ]
         parent_state = self._known(parent)
         if parent_state is None:
-            return [Outcome(id="syncing", status="SYNCING")]
+            return [Outcome(id="syncing", status=PayloadStatusEnum.SYNCING)]
         if parent_state == Validity.RECEIVED and not self.dag.fully_valid(
             parent
         ):
@@ -220,8 +227,12 @@ class ClientModel:
         if parent_state == Validity.INVALID:
             lva = self.dag.last_valid_ancestor(parent)
             return [
-                Outcome(id="invalid", status="INVALID", latest_valid_hash=lva),
-                Outcome(id="syncing", status="SYNCING"),
+                Outcome(
+                    id="invalid",
+                    status=PayloadStatusEnum.INVALID,
+                    latest_valid_hash=lva,
+                ),
+                Outcome(id="syncing", status=PayloadStatusEnum.SYNCING),
             ]
         if not self.dag.blocks[block].valid:
             # The spec only says validationError MAY be set; required here
@@ -232,20 +243,28 @@ class ClientModel:
             return [
                 Outcome(
                     id="invalid",
-                    status="INVALID",
+                    status=PayloadStatusEnum.INVALID,
                     latest_valid_hash=parent,
                     validation_error="required",
                 )
             ]
         if parent == self.head:
             return [
-                Outcome(id="valid", status="VALID", latest_valid_hash=block)
+                Outcome(
+                    id="valid",
+                    status=PayloadStatusEnum.VALID,
+                    latest_valid_hash=block,
+                )
             ]
         return [
-            Outcome(id="valid", status="VALID", latest_valid_hash=block),
+            Outcome(
+                id="valid",
+                status=PayloadStatusEnum.VALID,
+                latest_valid_hash=block,
+            ),
             Outcome(
                 id="accepted",
-                status="ACCEPTED",
+                status=PayloadStatusEnum.ACCEPTED,
                 latest_valid_hash=LATEST_VALID_HASH_NULL,
             ),
         ]
@@ -255,11 +274,11 @@ class ClientModel:
         Record what ``outcome`` reveals about ``block``: VALID and INVALID
         confirm it, ACCEPTED only that it was received, SYNCING nothing.
         """
-        if outcome.status == "VALID":
+        if outcome.status == PayloadStatusEnum.VALID:
             self.known[block] = Validity.VALID
-        elif outcome.status == "INVALID":
+        elif outcome.status == PayloadStatusEnum.INVALID:
             self.known[block] = Validity.INVALID
-        elif outcome.status == "ACCEPTED":
+        elif outcome.status == PayloadStatusEnum.ACCEPTED:
             self.known[block] = Validity.RECEIVED
         else:
             return
@@ -287,7 +306,7 @@ class ClientModel:
         outcomes = self._forkchoice_outcomes(step)
         if step.payload_attributes is not None:
             for outcome in outcomes:
-                if outcome.status == "VALID":
+                if outcome.status == PayloadStatusEnum.VALID:
                     applied = self._forkchoice_effect(step, outcome)
                     outcome.payload_id = "nonNull" if applied else "null"
         return outcomes
@@ -300,20 +319,22 @@ class ClientModel:
             # No block is stored under the payload's claimed hash; the client
             # answers INVALID only if it remembers rejecting that hash.
             return [
-                Outcome(id="invalid", status="INVALID"),
-                Outcome(id="syncing", status="SYNCING"),
+                Outcome(id="invalid", status=PayloadStatusEnum.INVALID),
+                Outcome(id="syncing", status=PayloadStatusEnum.SYNCING),
             ]
         head_state = self._known(head)
         if head_state is None:
-            return [Outcome(id="syncing", status="SYNCING")]
+            return [Outcome(id="syncing", status=PayloadStatusEnum.SYNCING)]
         if head_state == Validity.RECEIVED:
             if not self.dag.fully_valid(head):
                 lva = self.dag.last_valid_ancestor(head)
                 return [
                     Outcome(
-                        id="invalid", status="INVALID", latest_valid_hash=lva
+                        id="invalid",
+                        status=PayloadStatusEnum.INVALID,
+                        latest_valid_hash=lva,
                     ),
-                    Outcome(id="syncing", status="SYNCING"),
+                    Outcome(id="syncing", status=PayloadStatusEnum.SYNCING),
                 ]
             # Ground-truth valid: SYNCING is never legal once received, so
             # this falls through to the same outcomes as a confirmed VALID.
@@ -322,7 +343,7 @@ class ClientModel:
             return [
                 Outcome(
                     id="invalid",
-                    status="INVALID",
+                    status=PayloadStatusEnum.INVALID,
                     latest_valid_hash=self.dag.last_valid_ancestor(head),
                 )
             ]
@@ -331,19 +352,23 @@ class ClientModel:
         if self.finalized != ZERO_LABEL:
             if self.dag.is_ancestor(head, self.finalized):
                 return [
-                    Outcome(id="noop", status="VALID", latest_valid_hash=head)
+                    Outcome(
+                        id="noop",
+                        status=PayloadStatusEnum.VALID,
+                        latest_valid_hash=head,
+                    )
                 ]
             if head == self.finalized and head != self.head:
                 return [
                     Outcome(
                         id="applied",
-                        status="VALID",
+                        status=PayloadStatusEnum.VALID,
                         latest_valid_hash=head,
                         head_moved=True,
                     ),
                     Outcome(
                         id="noop",
-                        status="VALID",
+                        status=PayloadStatusEnum.VALID,
                         latest_valid_hash=head,
                         head_moved=False,
                         disputed=DISPUTED_HEAD_EQUALS_FINALIZED,
@@ -362,13 +387,21 @@ class ClientModel:
         # Extending the current head (or re-sending it): always applied.
         if head == self.head or self.dag.is_ancestor(self.head, head):
             return [
-                Outcome(id="applied", status="VALID", latest_valid_hash=head)
+                Outcome(
+                    id="applied",
+                    status=PayloadStatusEnum.VALID,
+                    latest_valid_hash=head,
+                )
             ]
         # Rewind to a canonical ancestor, or a side-chain reorg: the update is
         # applied, or refused with the client's own depth limit. Skipping it is
         # only legal for an ancestor of finalized, handled above.
         return [
-            Outcome(id="applied", status="VALID", latest_valid_hash=head),
+            Outcome(
+                id="applied",
+                status=PayloadStatusEnum.VALID,
+                latest_valid_hash=head,
+            ),
             Outcome(id="refused", error_code=EngineAPIError.TooDeepReorg),
         ]
 
@@ -408,7 +441,10 @@ class ClientModel:
             )
         if outcome.error_code is not None or outcome.any_error:
             return False
-        if outcome.status in ("SYNCING", "INVALID"):
+        if outcome.status in (
+            PayloadStatusEnum.SYNCING,
+            PayloadStatusEnum.INVALID,
+        ):
             return False
         if outcome.head_moved is not None:
             return outcome.head_moved
@@ -461,26 +497,13 @@ class ClientModel:
         )
 
     def assign(self, other: "ClientModel") -> None:
-        """Take over another model's state (same DAG)."""
-        self.known = dict(other.known)
-        self.diverged = dict(other.diverged)
-        self.head = other.head
-        self.safe = other.safe
-        self.finalized = other.finalized
-        self.build = other.build
-        self.build_diverged = other.build_diverged
+        """Take over another model's state (same DAG), in place."""
+        vars(self).update(vars(other.copy()))
 
     def copy(self) -> "ClientModel":
         """Independent copy for branch exploration."""
-        return ClientModel(
-            dag=self.dag,
-            known=dict(self.known),
-            diverged=dict(self.diverged),
-            head=self.head,
-            safe=self.safe,
-            finalized=self.finalized,
-            build=self.build,
-            build_diverged=self.build_diverged,
+        return replace(
+            self, known=dict(self.known), diverged=dict(self.diverged)
         )
 
 
@@ -506,17 +529,11 @@ def _reject_duplicate_outcome_ids(step: OutcomeStep, where: str) -> None:
     branch that asserts the state each of them leaves, so whichever
     matched, its other checks fail.
     """
-    seen: Set[str] = set()
-    duplicates: Set[str] = set()
-    for outcome in step.expect:
-        if outcome.id in seen:
-            duplicates.add(outcome.id)
-        else:
-            seen.add(outcome.id)
+    duplicates = sorted(
+        oid for oid, n in Counter(o.id for o in step.expect).items() if n > 1
+    )
     if duplicates:
-        raise ValueError(
-            f"{where}: repeated outcome id(s) {sorted(duplicates)}"
-        )
+        raise ValueError(f"{where}: repeated outcome id(s) {duplicates}")
 
 
 def _state_class(model: ClientModel, label: str) -> Optional[Validity]:
@@ -715,7 +732,7 @@ def annotate_steps(
                 branch_model = model.copy()
                 branch_model.apply_forkchoice(step, outcome)
                 branch = step.branches.setdefault(outcome.id, [])
-                if outcome.status != "SYNCING":
+                if outcome.status != PayloadStatusEnum.SYNCING:
                     branch.insert(0, branch_model.head_assertion())
                 annotate_steps(branch, branch_model, fork, has_continuation)
                 branches.append((outcome.id, branch_model))

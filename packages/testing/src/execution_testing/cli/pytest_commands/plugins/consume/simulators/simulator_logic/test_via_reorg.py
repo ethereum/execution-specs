@@ -11,7 +11,7 @@ decision is in the fixture.
 
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Literal, Tuple
 
 from hive.client import Client
 
@@ -21,8 +21,10 @@ from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayload,
     FixtureHeader,
     PayloadAttributes,
+    PayloadStatusEnum,
 )
 from execution_testing.fixtures.reorg import (
+    GENESIS_LABEL,
     LATEST_VALID_HASH_ANY,
     LATEST_VALID_HASH_NULL,
     AssertCanonicalStep,
@@ -61,12 +63,19 @@ TX_STATUS_TIMEOUT = 5.0
 """Seconds to wait for a transaction to reach an expected pool/chain status."""
 TX_STATUS_POLL_INTERVAL = 0.25
 
+HEAD_TAGS: Tuple[Literal["latest", "safe", "finalized"], ...] = (
+    "latest",
+    "safe",
+    "finalized",
+)
+"""The ``eth_getBlockByNumber`` tags ``assertHead`` checks, in order."""
+
 
 @dataclass
 class Observed:
     """Normalized observation of an Engine API response."""
 
-    status: str | None = None
+    status: PayloadStatusEnum | None = None
     latest_valid_hash: Hash | None = None
     validation_error: Any = None
     error_code: int | None = None
@@ -98,7 +107,6 @@ class BoundPayload:
     versioned_hashes: List[Hash]
     parent_beacon_block_root: Hash | None
     execution_requests: List[Bytes] | None
-    label_parent: str
 
 
 class StepRunner:
@@ -136,13 +144,13 @@ class StepRunner:
     def label_of(self, block_hash: Hash | str | None) -> str:
         """Block label for a hash (or the hash itself if unknown)."""
         if block_hash is None:
-            return "null"
+            return LATEST_VALID_HASH_NULL
         h = Hash(block_hash)
         return self.labels_by_hash.get(h, str(h))
 
     def block_number(self, label: str) -> int:
         """Height of a labeled block."""
-        if label == "genesis":
+        if label == GENESIS_LABEL:
             return int(self.fixture.genesis.number)
         if label in self.bound:
             return int(self.bound[label].payload.number)
@@ -291,7 +299,7 @@ class StepRunner:
             try:
                 response = self.engine.new_payload(*params, version=version)
                 observed = Observed(
-                    status=response.status.value,
+                    status=response.status,
                     latest_valid_hash=response.latest_valid_hash,
                     validation_error=response.validation_error,
                 )
@@ -323,7 +331,7 @@ class StepRunner:
                 )
                 ps = response.payload_status
                 observed = Observed(
-                    status=ps.status.value,
+                    status=ps.status,
                     latest_valid_hash=ps.latest_valid_hash,
                     validation_error=ps.validation_error,
                     payload_id=response.payload_id,
@@ -387,7 +395,6 @@ class StepRunner:
                 attributes.parent_beacon_block_root if attributes else None
             ),
             execution_requests=response.execution_requests,
-            label_parent=step.parent,
         )
         self.labels_by_hash[payload.block_hash] = step.bind
         logger.info(
@@ -395,14 +402,16 @@ class StepRunner:
             f"({len(payload.transactions)} txs) on {step.parent}"
         )
 
-    def _head_hash(self, name: str, tag: str) -> Hash:
+    def _head_hash(
+        self, name: str, tag: Literal["latest", "safe", "finalized"]
+    ) -> Hash:
         """
         Hash of the ``tag`` block; fail the step if the lookup errors or
         returns no block, which establishes nothing about the head.
         """
         call = f"{name}: eth_getBlockByNumber({tag!r})"
         try:
-            block = self.eth.get_block_by_number(tag)  # type: ignore[arg-type]
+            block = self.eth.get_block_by_number(tag)
         except JSONRPCError as e:
             raise LoggedError(f"{call} error {e.code}: {e.message}") from e
         if not block:
@@ -411,10 +420,8 @@ class StepRunner:
 
     def assert_head(self, name: str, step: AssertHeadStep) -> None:
         """Check latest/safe/finalized via ``eth_getBlockByNumber``."""
-        for tag, label in (
-            ("latest", step.latest),
-            ("safe", step.safe),
-            ("finalized", step.finalized),
+        for tag, label in zip(
+            HEAD_TAGS, (step.latest, step.safe, step.finalized), strict=True
         ):
             if label is None:
                 continue
@@ -511,21 +518,15 @@ class StepRunner:
 
     def assert_logs(self, name: str, step: AssertLogsStep) -> None:
         """Check ``eth_getLogs`` returns exactly the expected blocks' logs."""
-        params: Dict[str, Any] = {
-            "fromBlock": step.from_block
+        logs = self.eth.get_logs(
+            from_block=step.from_block
             if isinstance(step.from_block, str)
-            else hex(int(step.from_block)),
-            "toBlock": step.to_block
+            else int(step.from_block),
+            to_block=step.to_block
             if isinstance(step.to_block, str)
-            else hex(int(step.to_block)),
-        }
-        if step.address is not None:
-            params["address"] = f"{step.address}"
-        from execution_testing.rpc.rpc_types import RPCCall
-
-        logs = self.eth.post_request(
-            request=RPCCall(method="getLogs", params=[params])
-        ).result_or_raise()
+            else int(step.to_block),
+            address=step.address,
+        )
         got_hashes = sorted(Hash(log["blockHash"]) for log in logs)
         want_hashes = []
         for label in step.blocks:

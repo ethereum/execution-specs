@@ -59,7 +59,9 @@ from .rpc_types import (
 )
 
 logger = get_logger(__name__)
-BlockNumberType = int | Literal["latest", "earliest", "pending"]
+BlockNumberType = (
+    int | Literal["latest", "earliest", "pending", "safe", "finalized"]
+)
 TimeoutType = float | tuple[float, float] | None
 
 # Default (connect, read) timeout for JSON-RPC requests. Without one, a
@@ -498,7 +500,9 @@ class EthRPC(BaseRPC):
     _gas_information_cache: Dict[str, int]
     _gas_information_cache_timestamp: Dict[str, float]
 
-    BlockNumberType = int | Literal["latest", "earliest", "pending"]
+    BlockNumberType = (
+        int | Literal["latest", "earliest", "pending", "safe", "finalized"]
+    )
 
     def __init__(
         self,
@@ -600,6 +604,28 @@ class EthRPC(BaseRPC):
             request=RPCCall(
                 method="getBlockReceipts", params=[f"{block_hash}"]
             )
+        ).result_or_raise()
+
+    def get_logs(
+        self,
+        from_block: BlockNumberType = "earliest",
+        to_block: BlockNumberType = "latest",
+        address: Address | None = None,
+    ) -> List[dict[str, Any]]:
+        """`eth_getLogs`: Returns the logs in a block range."""
+        params: Dict[str, Any] = {
+            "fromBlock": hex(from_block)
+            if isinstance(from_block, int)
+            else from_block,
+            "toBlock": hex(to_block)
+            if isinstance(to_block, int)
+            else to_block,
+        }
+        if address is not None:
+            params["address"] = f"{address}"
+        logger.info(f"Requesting logs for {params}..")
+        return self.post_request(
+            request=RPCCall(method="getLogs", params=[params])
         ).result_or_raise()
 
     def get_block_by_hash(
