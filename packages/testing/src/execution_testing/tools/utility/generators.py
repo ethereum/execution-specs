@@ -20,7 +20,12 @@ from execution_testing.forks import Berlin, Fork, TransitionFork
 from execution_testing.forks.base_fork import BaseFork
 from execution_testing.specs import BlockchainTestFiller, StateTestFiller
 from execution_testing.specs.blockchain import Block
-from execution_testing.test_types import Account, Alloc, Transaction
+from execution_testing.test_types import (
+    Account,
+    Alloc,
+    BlockAccessListExpectation,
+    Transaction,
+)
 from execution_testing.vm import Bytecode, Op
 
 
@@ -171,6 +176,15 @@ def generate_system_contract_deploy_test(
             "a subclass of Fork"
         )
 
+    # The transition tool reads an empty system contract's code outside the
+    # tracked state, so it leaves the contract out of the block access list.
+    # List it; otherwise the list would be a second defect of the block.
+    empty_contract_bal: BlockAccessListExpectation | None = None
+    if fail_on_empty_code and fork.header_bal_hash_required():
+        empty_contract_bal = BlockAccessListExpectation().modify(
+            lambda bal: bal.with_accounts([expected_deploy_address])
+        )
+
     tx_json: Dict | None = None
     factory_json: FactoryDeployment | None = None
 
@@ -282,6 +296,7 @@ def generate_system_contract_deploy_test(
                         exception=BlockException.SYSTEM_CONTRACT_EMPTY
                         if fail_on_empty_code
                         else None,
+                        expected_block_access_list=empty_contract_bal,
                     )
                 ]
                 if not fail_on_empty_code:

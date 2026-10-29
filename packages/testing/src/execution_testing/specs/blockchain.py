@@ -86,12 +86,7 @@ from execution_testing.fixtures.common import (
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
-from execution_testing.forks import (
-    Fork,
-    Requests,
-    SystemCallPhase,
-    TransitionFork,
-)
+from execution_testing.forks import Fork, Requests, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.test_types import (
     Account,
@@ -281,21 +276,6 @@ def rejected_transactions_accessed_addresses(
         for authorization in tx.authorization_list or []:
             if authorization.signer is not None:
                 addresses.append(Address(authorization.signer))
-    return addresses
-
-
-def empty_system_contracts(fork: Fork, alloc: Alloc) -> List[Address]:
-    """
-    Return the system contracts that the block calls after its transactions
-    and that have no code in ``alloc``.
-    """
-    addresses: List[Address] = []
-    for address, phase in fork.system_contract_call_phases().items():
-        if phase != SystemCallPhase.AFTER_TRANSACTIONS:
-            continue
-        account = alloc.get(address)
-        if account is None or not account.code:
-            addresses.append(address)
     return addresses
 
 
@@ -1432,41 +1412,6 @@ class BlockchainTest(BaseTest):
                 raise Exception(
                     f"test correctness: block number {int(env.number)} "
                     "rejects a transaction, and listing the accounts it "
-                    f"touches takes the block access list to "
-                    f"{bal.item_count()} items, over the EIP-7928 cap of "
-                    f"{max_items} at this gas limit. The fixture would carry "
-                    "two defects and name one. Raise the block gas limit."
-                )
-
-        if (
-            bal is not None
-            and block.exception is not None
-            and BlockException.SYSTEM_CONTRACT_EMPTY in block.exception
-            and not block.sets_block_access_list()
-            and transition_tool_output.engine_payload is None
-        ):
-            # The block reads a system contract's code outside the tracked
-            # state before it calls the contract, so the transition tool
-            # leaves an empty contract out of the BAL. List it; otherwise the
-            # BAL would be a second defect.
-            augmented_bal = bal.with_accounts(
-                empty_system_contracts(
-                    fork,
-                    previous_alloc.materialize()
-                    if isinstance(previous_alloc, LazyAlloc)
-                    else previous_alloc,
-                )
-            )
-            if augmented_bal is not bal:
-                bal = augmented_bal
-                header.block_access_list_hash = Hash(bal.rlp.keccak256())
-            max_items = (
-                header.gas_limit // fork.gas_costs().BLOCK_ACCESS_LIST_ITEM
-            )
-            if bal.item_count() > max_items:
-                raise Exception(
-                    f"test correctness: block number {int(env.number)} has "
-                    "an empty system contract, and listing the accounts it "
                     f"touches takes the block access list to "
                     f"{bal.item_count()} items, over the EIP-7928 cap of "
                     f"{max_items} at this gas limit. The fixture would carry "
