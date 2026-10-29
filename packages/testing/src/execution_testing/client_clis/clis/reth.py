@@ -71,6 +71,9 @@ class RethExceptionMapper(ExceptionMapper):
     # with the same "invalid nonce" message, so each of these messages maps
     # to both exceptions.
     mapping_regex = {
+        TransactionException.NONCE_IS_MAX: (
+            r"EIP-8250 legacy nonce sequence is exhausted"
+        ),
         TransactionException.SENDER_NOT_EOA: r"caller has code",
         TransactionException.INVALID_CHAINID: (
             r"invalid chain id: expected \d+, got \d+"
@@ -223,7 +226,7 @@ class RethExceptionMapper(ExceptionMapper):
             r"EIP-8141 signature signer does not match|"
             r"EIP-8250 nonce key zero must be the only key|"
             r"EIP-8250 nonce keys must be strictly increasing|"
-            r"EIP-8250 requires between 1 and 16 nonce keys|"
+            r"EIP-8250 requires (?:between 1 and|at most) 16 nonce keys|"
             r"EIP-8250 nonce key exceeds 256 bits|"
             r"EIP-8250 nonce sequence exceeds 64 bits"
         ),
