@@ -402,6 +402,15 @@ class ForkBuilder:
     When the new fork is scheduled.
     """
 
+    jobs: int | None
+    """
+    Number of processes each codemod may use, or `None` for libcst's
+    default of one per CPU.
+
+    Set to `1` when building inside a large, long-lived process: on start
+    methods that `fork`, every codemod worker would duplicate that process.
+    """
+
     @property
     def new_fork_path(self) -> Path:
         """
@@ -420,6 +429,7 @@ class ForkBuilder:
         new_fork: str,
     ) -> None:
         self.force = False
+        self.jobs = None
 
         forks = Hardfork.discover()
 
@@ -527,6 +537,8 @@ class ForkBuilder:
     def _modify(self, working_directory: TemporaryDirectory) -> None:
         for modifier in self.modifiers:
             for args in modifier._to_args(self, Path(working_directory.name)):
+                if self.jobs is not None:
+                    args = [args[0], f"-j{self.jobs}", *args[1:]]
                 with TemporaryDirectory() as config_directory:
                     with chdir(config_directory):
                         self._write_config(config_directory, working_directory)

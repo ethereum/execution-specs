@@ -36,6 +36,9 @@ class ErigonExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             "insufficient funds for gas * price + value"
         ),
+        TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
+            "frame transaction gas cost overflow"
+        ),
         TransactionException.NONCE_IS_MAX: "nonce has max value",
         TransactionException.INTRINSIC_GAS_TOO_LOW: "intrinsic gas too low",
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
@@ -134,7 +137,52 @@ class ErigonExceptionMapper(ExceptionMapper):
             r"block access list too large"
         ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
-            r"gas limit too high"
+            r"gas limit too high|frame transaction exceeds execution gas cap"
+        ),
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
+            r"too many frame transaction blobs"
+        ),
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
+            r"invalid frame count"
+            r"|invalid frame \d+ mode or flags"
+            r"|frame \d+ value requires sender mode"
+            r"|frame \d+ execution approval requires sender target"
+            r"|invalid atomic batch at frame \d+"
+            r"|approval in atomic batch at frame \d+"
+            r"|invalid expiry verifier frame"
+            r"|frame gas limit overflow"
+            r"|blob fee without blobs"
+            r"|invalid nonce key count"
+            r"|nonce keys not strictly increasing"
+            r"|zero nonce key alongside other keys"
+            r"|invalid frame signature \d+: (?:"
+            r"unknown scheme|invalid signer length"
+            r"|arbitrary signature has signer"
+            r"|invalid message length|zero message digest|signer mismatch)"
+            r"|rlp: input string too long for (?:\*uint256.Int|uint64), "
+            r"decoding into \(types\.frameTransactionRLP\)\.(?:"
+            r"Nonce(?:Keys\[\d+\])?|Frames\[\d+\]\.Limits\.(?:Execution|State))$"
+        ),
+        TransactionException.TYPE_6_INVALID_SIGNATURE: (
+            r"invalid frame signature \d+: (?:"
+            r"invalid signature length|signature verification failed)"
+        ),
+        TransactionException.TYPE_6_INVALID_FRAME_EXECUTION: (
+            r"verification frame \d+ failed:"
+            r"|frame transaction without payment approval"
+            r"|sender frame without execution approval"
+        ),
+        TransactionException.GASPRICE_OVERFLOW: (
+            r"rlp: input string too long for \*uint256.Int, "
+            r"decoding into \(types\.frameTransactionRLP\)\.Fees\.FeeCap$"
+        ),
+        TransactionException.PRIORITY_OVERFLOW: (
+            r"rlp: input string too long for \*uint256.Int, "
+            r"decoding into \(types\.frameTransactionRLP\)\.Fees\.TipCap$"
+        ),
+        BlockException.RLP_STRUCTURES_ENCODING: (
+            r"rlp: expected input string or byte for \*uint256.Int, "
+            r"decoding into \(types\.frameTransactionRLP\)\.ChainID$"
         ),
         BlockException.INCORRECT_BLOB_GAS_USED: (
             r"blobGasUsed by execution: \d+, in header: \d+"
