@@ -193,6 +193,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--wirex-verdict-grace",
+        action="store",
+        dest="wirex_verdict_grace",
+        type=float,
+        default=15.0,
+        help=(
+            "Seconds a client may go without a verdict once the peer has "
+            "served every block the verdict needs, before the test fails. "
+            "0 waits for --wirex-sync-timeout only. Default: 15."
+        ),
+    )
+    group.addoption(
         "--wirex-announce-interval",
         action="store",
         dest="wirex_announce_interval",
@@ -397,6 +409,12 @@ def wirex_serve_bals(request: pytest.FixtureRequest) -> bool:
 def wirex_sync_timeout(request: pytest.FixtureRequest) -> float:
     """Return how long to wait for a client to reach the fixture head."""
     return float(request.config.getoption("wirex_sync_timeout"))
+
+
+@pytest.fixture(scope="session")
+def wirex_verdict_grace(request: pytest.FixtureRequest) -> float:
+    """Return how long a fully served client may go without a verdict."""
+    return float(request.config.getoption("wirex_verdict_grace"))
 
 
 @pytest.fixture(scope="session")
