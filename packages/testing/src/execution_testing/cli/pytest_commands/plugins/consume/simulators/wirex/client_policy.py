@@ -224,7 +224,9 @@ def client(
         return
 
     (case,) = sync_target_cases
-    running = multi_test_client_manager.get_client(group_identifier)
+    running = multi_test_client_manager.get_client(
+        group_identifier, environment
+    )
     if running is not None:
         reason = replacement_reason(running, case, mock_peers.get(running.id))
         if reason is not None:

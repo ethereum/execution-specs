@@ -51,6 +51,8 @@ class MultiTestClientManager:
     def __init__(self) -> None:
         """Initialize the multi-test client manager."""
         self.clients: dict[str, Client] = {}  # group_identifier -> Client
+        self.environments: dict[str, dict[str, str]] = {}
+        """The environment each group's client was started with."""
         self.test_tracker: PreAllocGroupTestTracker | None = None
         self.stop_callbacks: list[Callable[[Client], None]] = []
         """
@@ -68,19 +70,45 @@ class MultiTestClientManager:
         self.test_tracker = tracker
         logger.debug("Test tracker registered with MultiTestClientManager")
 
-    def get_client(self, group_identifier: str) -> Client | None:
+    def get_client(
+        self,
+        group_identifier: str,
+        environment: dict[str, str] | None = None,
+    ) -> Client | None:
         """
         Get the client instance for a group.
 
+        A client started with another `environment` is discarded and
+        `None` returned, so the caller starts one with the test's own.
+        Tests of a pre-allocation group can differ in chain
+        configuration the group does not key on, such as the EIP-8253
+        zero-nonce storage accounts.
         """
         if group_identifier in self.clients:
+            started_with = self.environments.get(group_identifier)
+            if (
+                environment is not None
+                and started_with is not None
+                and started_with != environment
+            ):
+                logger.info(
+                    f"Group {group_identifier} needs another client "
+                    "environment; replacing its client"
+                )
+                self.discard_client(group_identifier)
+                return None
             logger.debug(f"Found existing client for group {group_identifier}")
             return self.clients[group_identifier]
 
         logger.debug(f"No existing client for group {group_identifier}")
         return None
 
-    def register_client(self, group_identifier: str, client: Client) -> None:
+    def register_client(
+        self,
+        group_identifier: str,
+        client: Client,
+        environment: dict[str, str] | None = None,
+    ) -> None:
         """
         Register a newly started client for a group.
 
@@ -91,6 +119,8 @@ class MultiTestClientManager:
             )
 
         self.clients[group_identifier] = client
+        if environment is not None:
+            self.environments[group_identifier] = environment
         logger.info(f"Registered client for group {group_identifier}")
 
     def discard_client(self, group_identifier: str) -> None:
@@ -103,6 +133,7 @@ class MultiTestClientManager:
         call is the one stopped when the group completes.
         """
         client = self.clients.pop(group_identifier, None)
+        self.environments.pop(group_identifier, None)
         if client is None:
             return
         logger.info(f"🛑 Discarding client for group {group_identifier}")
@@ -161,6 +192,7 @@ class MultiTestClientManager:
                 finally:
                     # Always remove from tracking, even if stop failed
                     del self.clients[group_identifier]
+                    self.environments.pop(group_identifier, None)
                     self._notify_stopped(client)
 
     def stop_all_clients(self) -> None:
@@ -181,6 +213,7 @@ class MultiTestClientManager:
             self._notify_stopped(client)
 
         self.clients.clear()
+        self.environments.clear()
         logger.info("All clients stopped")
 
 
@@ -213,8 +246,12 @@ def client_genesis_cache() -> dict[AllocGroupHash, dict]:
     return {}
 
 
+EnvironmentKey = tuple[AllocGroupHash, tuple[tuple[str, str], ...]]
+"""A pre-alloc group hash and the chain configuration environment."""
+
+
 @pytest.fixture(scope="session")
-def environment_cache() -> dict[AllocGroupHash, dict]:
+def environment_cache() -> dict[EnvironmentKey, dict]:
     """Cache for environment configs to avoid redundant computation."""
     return {}
 
@@ -303,19 +340,21 @@ def environment(
     pre_alloc_group: PreAllocGroup,
     fixture: BlockchainEngineXFixture,
     check_live_port: int,
-    environment_cache: dict[AllocGroupHash, dict],
+    environment_cache: dict[EnvironmentKey, dict],
 ) -> dict:
     """
     Define environment variables for multi-test client startup.
 
     Parallel to single_test_client.environment but uses
     PreAllocGroup. Use caching to avoid redundant computation
-    for tests sharing the same pre_hash.
+    for tests sharing the same pre_hash and chain configuration.
     """
     pre_hash = fixture.pre_hash
+    chain_config = chain_config_environment(fixture.config)
+    cache_key = (pre_hash, tuple(sorted(chain_config.items())))
 
-    if pre_hash in environment_cache:
-        return environment_cache[pre_hash]
+    if cache_key in environment_cache:
+        return environment_cache[cache_key]
 
     fork = pre_alloc_group.fork
     assert fork in ruleset, f"fork '{fork}' missing in hive ruleset"
@@ -327,7 +366,7 @@ def environment(
         "HIVE_CHECK_LIVE_PORT": str(check_live_port),
         **{k: f"{v:d}" for k, v in ruleset[fork].items()},
         "HIVE_FORK": pre_alloc_group.fork.name(),
-        **chain_config_environment(fixture.config),
+        **chain_config,
         # Tell client wrapper scripts this workload performs deep reorgs:
         # clients are reused across a group's tests with a rewind to genesis
         # in between, so wrappers can raise client-specific limits that would
@@ -340,7 +379,7 @@ def environment(
         "HIVE_OMIT_GENESIS_ALLOC": "1",
     }
 
-    environment_cache[pre_hash] = env
+    environment_cache[cache_key] = env
     return env
 
 
@@ -422,7 +461,9 @@ def boot_managed_client(
     )
     logger.info(f"Client ({client_type.name}) ready for {identifier}")
 
-    multi_test_client_manager.register_client(identifier, resolved_client)
+    multi_test_client_manager.register_client(
+        identifier, resolved_client, environment
+    )
     resolved_client.multi_test = True
     return resolved_client
 
@@ -445,7 +486,9 @@ def group_client(
     group_identifier = group_identifier_of(request.node)
     test_id = request.node.nodeid
 
-    resolved_client = multi_test_client_manager.get_client(group_identifier)
+    resolved_client = multi_test_client_manager.get_client(
+        group_identifier, environment
+    )
     if resolved_client is not None:
         logger.info(f"♻️  Reusing client for group {group_identifier}")
     else:

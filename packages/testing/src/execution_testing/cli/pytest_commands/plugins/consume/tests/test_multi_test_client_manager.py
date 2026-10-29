@@ -121,6 +121,47 @@ class TestStopCallbacks:
         assert len(stopped) == 1
 
 
+BUMP_A = {"HIVE_ZERO_NONCE_STORAGE_ACCOUNTS": "0x" + "aa" * 20}
+BUMP_B = {"HIVE_ZERO_NONCE_STORAGE_ACCOUNTS": "0x" + "bb" * 20}
+
+
+class TestClientEnvironment:
+    """A group's client serves only tests of its starting environment."""
+
+    def test_another_environment_replaces_the_client(self) -> None:
+        """
+        A lookup with the client's own environment, or none, reuses it.
+        Another environment, such as another EIP-8253 account list,
+        stops it and frees the slot.
+        """
+        manager, stopped = _manager({"group": 3})
+        stub = _StubClient()
+        manager.register_client("group", cast(Client, stub), BUMP_A)
+        assert manager.get_client("group", BUMP_A) is cast(Client, stub)
+        assert manager.get_client("group") is cast(Client, stub)
+        assert manager.get_client("group", BUMP_B) is None
+        assert stub.stopped
+        assert stopped == [stub]
+        assert "group" not in manager.environments
+
+    def test_a_client_registered_without_environment_is_reused(self) -> None:
+        """Only a recorded environment can rule a client out."""
+        manager = MultiTestClientManager()
+        stub = _register(manager, "group")
+        assert manager.get_client("group", BUMP_A) is cast(Client, stub)
+        assert not stub.stopped
+
+    def test_stopping_forgets_the_environment(self) -> None:
+        """Group completion and session end drop the recorded environment."""
+        manager, _ = _manager({"group": 1, "other": 1})
+        manager.register_client("group", cast(Client, _StubClient()), BUMP_A)
+        manager.register_client("other", cast(Client, _StubClient()), BUMP_B)
+        manager.mark_test_completed("group", "test-a")
+        assert "group" not in manager.environments
+        manager.stop_all_clients()
+        assert manager.environments == {}
+
+
 GROUP = make_group_identifier(PRE_HASH, "geth")
 VARIANT_GROUP = make_group_identifier(PRE_HASH, "geth", "bal_served")
 
@@ -158,14 +199,18 @@ class TestGroupClient:
 
     @staticmethod
     def _run(
-        hive: _Hive, manager: MultiTestClientManager, group: str, test: str
+        hive: _Hive,
+        manager: MultiTestClientManager,
+        group: str,
+        test: str,
+        environment: dict[str, str] | None = None,
     ) -> _StubClient:
         """Set up and tear down the `client` fixture for one test."""
         fixture = group_client(
             cast(Any, hive),
             manager,
             cast(Any, SimpleNamespace(name="geth")),
-            {},
+            {} if environment is None else environment,
             {},
             cast(Any, SimpleNamespace(time=nullcontext)),
             cast(Any, SimpleNamespace(node=_Node(group, test))),
@@ -184,6 +229,24 @@ class TestGroupClient:
         assert second is first
         assert hive.booted == [first]
         assert first.stopped
+        assert manager.get_client(GROUP) is None
+
+    def test_another_chain_config_boots_a_fresh_client(self) -> None:
+        """
+        A test whose EIP-8253 account list differs from the running
+        client's gets a fresh client; the next test with that list reuses
+        it, and the group's last test stops it.
+        """
+        hive = _Hive()
+        manager, _ = _manager({GROUP: 3})
+        first = self._run(hive, manager, GROUP, "test-a", BUMP_A)
+        second = self._run(hive, manager, GROUP, "test-b", BUMP_B)
+        assert second is not first
+        assert first.stopped and not second.stopped
+        third = self._run(hive, manager, GROUP, "test-c", BUMP_B)
+        assert third is second
+        assert hive.booted == [first, second]
+        assert second.stopped
         assert manager.get_client(GROUP) is None
 
     def test_a_variant_group_boots_its_own_client(self) -> None:

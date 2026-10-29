@@ -236,8 +236,13 @@ class _FakeManager(MultiTestClientManager):
         self.running = running
         self.calls: list[tuple[str, ...]] = []
 
-    def get_client(self, group_identifier: str) -> Client | None:
+    def get_client(
+        self,
+        group_identifier: str,
+        environment: dict[str, str] | None = None,
+    ) -> Client | None:
         """Record the lookup and return the running client."""
+        del environment
         self.calls.append(("get", group_identifier))
         return cast(Client | None, self.running)
 
