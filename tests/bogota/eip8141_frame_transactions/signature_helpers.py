@@ -1,7 +1,8 @@
 """Signature entry helpers for EIP-8141 frame transaction tests."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
+from cryptography.hazmat.primitives.asymmetric import ec
 from execution_testing import EOA, Bytes, FrameSignature, Hash, keccak256
 
 from .spec import Spec
@@ -132,3 +133,10 @@ def canonical_entry(account: EOA, **overrides: Any) -> FrameSignature:
     )
     fields.update(overrides)
     return FrameSignature(**fields)
+
+
+def p256_public_key(private_key: int) -> Tuple[int, int]:
+    """Return the coordinates `(qx, qy)` of `private_key * G` on P-256."""
+    key = ec.derive_private_key(private_key, ec.SECP256R1())
+    numbers = key.public_key().public_numbers()
+    return numbers.x, numbers.y
