@@ -365,3 +365,10 @@ class FrameTransaction(Transaction):
     def block_gas_used(self) -> int:
         """Return the gas the block accounts for, before refunds."""
         return max(self.execution_gas, self.calldata_floor) + self.state_gas
+
+
+APPROVE_ALL = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
+"""Approve execution and payment, returning no data."""
+
+CURRENT_FRAME_INDEX = Op.TXPARAM(Spec.TXPARAM_CURRENT_FRAME_INDEX)
+"""Push the executing frame's index, which keys per-frame records."""
