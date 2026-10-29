@@ -74,6 +74,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureBlockBase,
     FixtureConfig,
     FixtureEngineNewPayload,
+    FixtureExecutionPayload,
     FixtureExecutionPayloadModifier,
     FixtureHeader,
     FixtureTransaction,
@@ -279,6 +280,37 @@ def rejected_transactions_accessed_addresses(
     return addresses
 
 
+def engine_new_payload_params(
+    meta: EnginePayloadMetadata,
+    *,
+    execution_payload: "FixtureExecutionPayload | None" = None,
+) -> Tuple[Any, ...]:
+    """
+    Build the ``engine_newPayload`` parameters for a client-built payload.
+
+    ``execution_payload`` replaces the one the client sealed; the trailing
+    parameters are the same either way.
+    """
+    version = meta.new_payload_version
+    response = meta.payload_response
+    params: List[Any] = [
+        execution_payload
+        if execution_payload is not None
+        else response.execution_payload
+    ]
+    if version >= 3:
+        blob_hashes = (
+            response.blobs_bundle.blob_versioned_hashes()
+            if response.blobs_bundle is not None
+            else []
+        )
+        params.append(blob_hashes)
+        params.append(meta.parent_beacon_block_root)
+    if version >= 4 and response.execution_requests is not None:
+        params.append(response.execution_requests)
+    return tuple(params)
+
+
 def payload_metadata_to_fixture(
     meta: EnginePayloadMetadata,
     *,
@@ -291,22 +323,9 @@ def payload_metadata_to_fixture(
     from fill's ``FixtureHeader`` would disagree on client-chosen fields
     (``gas_limit``, etc.) and produce a mismatched ``block_hash``.
     """
-    version = meta.new_payload_version
-    response = meta.payload_response
-    params: List[Any] = [response.execution_payload]
-    if version >= 3:
-        blob_hashes = (
-            response.blobs_bundle.blob_versioned_hashes()
-            if response.blobs_bundle is not None
-            else []
-        )
-        params.append(blob_hashes)
-        params.append(meta.parent_beacon_block_root)
-    if version >= 4 and response.execution_requests is not None:
-        params.append(response.execution_requests)
     return FixtureEngineNewPayload(
-        params=tuple(params),
-        new_payload_version=version,
+        params=engine_new_payload_params(meta),
+        new_payload_version=meta.new_payload_version,
         forkchoice_updated_version=meta.forkchoice_updated_version,
         phase=phase,
     )
@@ -750,7 +769,9 @@ class BuiltBlock(CamelModel):
         # an explicit engine_new_payload_block_access_list override.
         return None
 
-    def get_fixture_engine_new_payload(self) -> FixtureEngineNewPayload:
+    def get_fixture_engine_new_payload(
+        self, *, phase: TestPhase | None = None
+    ) -> FixtureEngineNewPayload:
         """Get a FixtureEngineNewPayload from the built block."""
         return FixtureEngineNewPayload.from_fixture_header(
             fork=self.fork,
@@ -764,7 +785,13 @@ class BuiltBlock(CamelModel):
             execution_payload_modifier=self.engine_payload_modifier(),
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
+            phase=phase,
         )
+
+    @property
+    def transactions_evaluated(self) -> bool:
+        """Return whether the backend ran the block's transactions."""
+        return True
 
     def verify_transactions(
         self, transition_tool_exceptions_reliable: bool
@@ -825,6 +852,12 @@ class BuiltBlock(CamelModel):
         )
 
 
+PAYLOAD_HEADER_FIELDS = frozenset(FixtureHeader.model_fields) & frozenset(
+    FixtureExecutionPayload.model_fields
+)
+"""Header fields that the engine ``ExecutionPayload`` carries by name."""
+
+
 class TestingBuildBlock(BuiltBlock):
     """
     ``BuiltBlock`` from a live-client backend; carries the engine payload
@@ -836,6 +869,89 @@ class TestingBuildBlock(BuiltBlock):
     model_config = CamelModel.model_config | {"arbitrary_types_allowed": True}
 
     engine_payload: EnginePayloadMetadata
+
+    @property
+    def transactions_evaluated(self) -> bool:
+        """Return whether the client imported the block it built."""
+        return self.expected_exception is None
+
+    def sealed_header(self) -> FixtureHeader:
+        """
+        Rebuild the header of the block the client sealed.
+
+        ``self.header`` already carries the test's corruption; the payload
+        holds what the client sealed, but carries the block access list
+        itself rather than its hash.
+        """
+        built = self.engine_payload.payload_response.execution_payload
+        fields = {f: getattr(built, f) for f in PAYLOAD_HEADER_FIELDS}
+        if built.block_access_list is not None:
+            fields["block_access_list_hash"] = Hash(
+                built.block_access_list.keccak256()
+            )
+        header = self.header.copy(**fields)
+        if header.block_hash != built.block_hash:
+            raise ValueError(
+                f"header rebuilt from the client payload hashes to "
+                f"{header.block_hash}, but the client sealed "
+                f"{built.block_hash}; a header field outside the payload "
+                "differs from the client's"
+            )
+        return header
+
+    def corrupted_execution_payload(self) -> "FixtureExecutionPayload":
+        """
+        Corrupt the payload the client sealed, and re-seal it.
+
+        ``block_hash`` is recomputed over the corrupted header, so a client
+        must reach the corrupted field before it can reject the block.
+        """
+        built = self.engine_payload.payload_response.execution_payload
+        header = self.sealed_header()
+        changes: Dict[str, Any] = {}
+
+        if self.block_access_list is not None:
+            bal = self.block_access_list.rlp
+            if bal != built.block_access_list:
+                changes["block_access_list"] = bal
+                header = header.copy(
+                    block_access_list_hash=Hash(bal.keccak256())
+                )
+
+        if self.rlp_modifier is not None:
+            header = self.rlp_modifier.apply(header)
+            for field in self.rlp_modifier.model_dump(exclude_none=True):
+                changes[field] = getattr(header, field)
+
+        assert changes, "validate_stateful_blocks() first"
+        return built.copy(**changes, block_hash=header.block_hash)
+
+    def get_fixture_engine_new_payload(
+        self, *, phase: TestPhase | None = None
+    ) -> FixtureEngineNewPayload:
+        """
+        Forward what the client sealed, corrupted if the test says so.
+
+        Rebuilding from ``self.header`` would disagree with the client on
+        the fields it chose (``gas_limit``, ...) and hash to a different
+        block.
+        """
+        meta = self.engine_payload
+        return FixtureEngineNewPayload(
+            params=engine_new_payload_params(
+                meta,
+                execution_payload=(
+                    self.corrupted_execution_payload()
+                    if self.expected_exception is not None
+                    else None
+                ),
+            ),
+            new_payload_version=meta.new_payload_version,
+            forkchoice_updated_version=meta.forkchoice_updated_version,
+            validation_error=self.expected_exception,
+            error_code=self.engine_api_error_code,
+            phase=phase,
+        )
 
 
 GENESIS_ENVIRONMENT_DEFAULTS: Dict[str, Any] = {
@@ -916,6 +1032,73 @@ def _split_blocks_by_phase(blocks: List[Block]) -> List[Block]:
                     )
                 )
     return out
+
+
+def _unsupported_stateful_reasons(block: Block) -> List[str]:
+    """
+    Return the reasons ``fill-stateful`` cannot fill ``block``.
+
+    The client builds every block, so it only ever seals a valid one. An
+    invalid block is that block with header fields overridden by
+    ``rlp_modifier``, or with its block access list rewritten by
+    ``expected_block_access_list.modify``; anything else that must change
+    the block body, or that the execution payload cannot carry, is out of
+    reach.
+    """
+    reasons: List[str] = []
+    rewrites_bal = (
+        block.expected_block_access_list is not None
+        and block.expected_block_access_list.has_modifier
+    )
+    if block.rlp_modifier is None:
+        if block.exception is not None and not rewrites_bal:
+            reasons.append(
+                "it has no `rlp_modifier` and does not rewrite the block "
+                "access list (a transaction-level exception needs the "
+                "client to build an invalid block)"
+            )
+    else:
+        if block.exception is None:
+            reasons.append(
+                "it has an `rlp_modifier` but no `exception`, so the "
+                "payload would be forwarded as the client sealed it"
+            )
+        overrides = block.rlp_modifier.model_dump(exclude_none=True)
+        not_in_payload = sorted(overrides.keys() - PAYLOAD_HEADER_FIELDS)
+        if not_in_payload:
+            reasons.append(
+                f"`rlp_modifier` sets {not_in_payload}, which the "
+                "execution payload does not carry"
+            )
+        removed = sorted(
+            k for k, v in overrides.items() if isinstance(v, Removable)
+        )
+        if removed:
+            reasons.append(f"`rlp_modifier` removes {removed}")
+    if block.requests is not None:
+        reasons.append("it overrides `requests`")
+    payload_only = block.engine_payload_only_overrides()
+    if payload_only:
+        reasons.append(f"it sets {payload_only}")
+    if block.exception is not None and block.phase == TestPhase.SETUP:
+        reasons.append("it is a setup-phase block")
+    return reasons
+
+
+def validate_stateful_blocks(blocks: List[Block]) -> None:
+    """
+    Refuse a block sequence ``fill-stateful`` cannot fill.
+
+    Checked before any block reaches the client: a rejection halfway
+    through would leave it on a half-built test chain.
+    """
+    for index, block in enumerate(blocks):
+        reasons = _unsupported_stateful_reasons(block)
+        if reasons:
+            raise NotImplementedError(
+                f"fill-stateful cannot fill block {index}: "
+                + "; ".join(reasons)
+            )
 
 
 class BlockchainTest(BaseTest):
@@ -1121,11 +1304,11 @@ class BlockchainTest(BaseTest):
         previous_alloc: Alloc | LazyAlloc,
     ) -> BuiltBlock:
         """
-        Generate common block data for both make_fixture and make_hive_fixture.
+        Generate the block data every ``make_*_fixture`` builds from.
 
-        ``t8n`` is any backend satisfying ``FillerBackend``. The
-        default compute path passes a concrete ``TransitionTool``; stateful
-        filling will pass an ``ClientBackend`` that drives
+        ``t8n`` is any backend satisfying ``FillerBackend``. The default
+        compute path passes a concrete ``TransitionTool``; stateful
+        filling passes a ``ClientBackend`` that drives
         ``testing_buildBlockV1`` against a live client.
         """
         env = block.set_environment(previous_env)
@@ -1186,6 +1369,7 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
+                expect_invalid=block.exception is not None,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -1452,9 +1636,11 @@ class BlockchainTest(BaseTest):
             built_block = BuiltBlock(**built_block_kwargs)
 
         try:
-            rejected_txs = built_block.verify_transactions(
-                transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
-            )
+            rejected_txs: List[int] = []
+            if built_block.transactions_evaluated:
+                rejected_txs = built_block.verify_transactions(
+                    transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
+                )
             if (
                 not rejected_txs
                 and block.rlp_modifier is None
@@ -2076,6 +2262,7 @@ class BlockchainTest(BaseTest):
         # split into contiguous phase runs so benchmark gas isn't
         # swallowed into ``setupEngineNewPayloads``.
         blocks_to_process.extend(_split_blocks_by_phase(self.blocks))
+        validate_stateful_blocks(blocks_to_process)
 
         # Chain off the session start_block. We pull parent_* from a
         # FixtureHeader-validated copy of the client's block dict, but
@@ -2127,9 +2314,12 @@ class BlockchainTest(BaseTest):
                 "ClientBackend must return TestingBuildBlock; got "
                 f"{type(built_block).__name__}"
             )
-            built_block.record_landings(context)
-            payload = payload_metadata_to_fixture(
-                built_block.engine_payload, phase=block.phase
+            invalid = block.exception is not None
+            if not invalid:
+                # A rejected block's transactions do not land.
+                built_block.record_landings(context)
+            payload = built_block.get_fixture_engine_new_payload(
+                phase=block.phase
             )
             # The client's authoritative block hash (the FixtureHeader RLP
             # hash diverges — the client picks fields like gas_limit).
@@ -2142,8 +2332,12 @@ class BlockchainTest(BaseTest):
                     pre_state_block_number = int(built_block.header.number)
             else:
                 execution_payloads.append(payload)
-                block_opcode_count = t8n.extract_block_opcode_count(
-                    client_hash
+                # The client never imports an invalid block, so there is
+                # nothing to trace.
+                block_opcode_count = (
+                    None
+                    if invalid
+                    else t8n.extract_block_opcode_count(client_hash)
                 )
                 execution_opcode_counts.append(
                     block_opcode_count.model_dump()
@@ -2163,6 +2357,10 @@ class BlockchainTest(BaseTest):
                     benchmark_block_gas_used = built_block.block_gas_used()
                     # Consumed by BenchmarkTest's opcode-count verification.
                     benchmark_opcode_count = block_opcode_count
+            if invalid:
+                # A rejected block is not a parent: the next block, and
+                # ``last_block_hash``, stay on the last valid one.
+                continue
             # apply_new_parent records the RLP hash; the next block's
             # parent_hash must point at what the client actually built.
             env = apply_new_parent(built_block.env, built_block.header)
