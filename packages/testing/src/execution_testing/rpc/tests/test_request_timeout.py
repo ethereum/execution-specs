@@ -14,6 +14,7 @@ from execution_testing.cli.pytest_commands.plugins.execute.rpc.chain_builder_eth
 from execution_testing.forks import Cancun
 from execution_testing.rpc import (
     DEFAULT_REQUEST_TIMEOUT,
+    EngineRPC,
     EthRPC,
     RPCCall,
     SendTransactionExceptionError,
@@ -213,3 +214,29 @@ def test_send_transactions_recover_duplicate_batch_items() -> None:
         results = rpc.send_transactions(transactions)
     assert results == [tx.hash for tx in transactions]
     get_transaction.assert_called_once_with(transactions[0].hash)
+
+
+def test_retried_request_carries_a_fresh_jwt() -> None:
+    """A retry after a read timeout is signed anew, not with a stale JWT."""
+    rpc = EngineRPC("http://localhost:8551")
+    tokens = [
+        {"Authorization": "Bearer first"},
+        {"Authorization": "Bearer second"},
+    ]
+    with (
+        patch("time.sleep"),
+        patch.object(rpc, "namespace_extra_headers", side_effect=tokens),
+        patch.object(
+            rpc.session,
+            "post",
+            side_effect=[
+                requests.ReadTimeout("read timed out"),
+                response_mock(),
+            ],
+        ) as post,
+    ):
+        rpc.post_request(request=RPCCall(method="exchangeCapabilities"))
+    sent = [
+        call.kwargs["headers"]["Authorization"] for call in post.call_args_list
+    ]
+    assert sent == ["Bearer first", "Bearer second"]
