@@ -499,6 +499,23 @@ class TestDeadline:
             )
         assert SYNC_TIMEOUT <= clock.now < SYNC_TIMEOUT + 1
 
+    def test_a_header_judgeable_rejection_owes_no_body_for_the_grace(
+        self, clock: FakeClock, expects_rejection: bool
+    ) -> None:
+        """Only a header-judgeable rejection starts the grace bodiless."""
+        judgeable = frozenset({BlockException.INCORRECT_EXCESS_BLOB_GAS})
+        limit = VERDICT_GRACE if expects_rejection else SYNC_TIMEOUT
+        with pytest.raises(LoggedError, match=f"within {limit}s"):
+            _run(
+                clock,
+                _engine(clock),
+                expects_rejection=expects_rejection,
+                invalidities=judgeable,
+                peer=FakePeer(CHAIN, unserved_bodies={1, 2}),
+                verdict_grace=VERDICT_GRACE,
+            )
+        assert limit <= clock.now < limit + 1
+
     def test_a_verdict_within_the_grace_passes(
         self, clock: FakeClock, expects_rejection: bool
     ) -> None:
