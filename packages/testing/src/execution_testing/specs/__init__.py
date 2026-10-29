@@ -15,6 +15,13 @@ from .blockchain import (
     BlockchainTestSpec,
     Header,
 )
+from .evaluate import (
+    SpecRun,
+    SpecRunBlock,
+    SpecRunner,
+    SpecRunTransaction,
+)
+from .evaluate_trace import Trace, TraceError
 from .state import StateTest, StateTestFiller, StateTestSpec
 from .transaction import (
     TransactionTest,
@@ -29,6 +36,12 @@ from .verifications import (
 
 __all__ = (
     "BaseTest",
+    "SpecRun",
+    "SpecRunBlock",
+    "SpecRunner",
+    "SpecRunTransaction",
+    "Trace",
+    "TraceError",
     "BlockVerification",
     "BenchmarkTest",
     "BenchmarkTestFiller",

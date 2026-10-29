@@ -26,6 +26,7 @@
           * [Exception Tests](writing_tests/exception_tests.md)
           * [Using and Extending Fork Methods](writing_tests/fork_methods.md)
           * [Gas Optimization](writing_tests/gas_optimization.md)
+          * [Evaluation Tests](writing_tests/evaluation_tests.md)
           * [Referencing an EIP Spec Version](writing_tests/reference_specification.md)
           * [EIP Checklist Generation](writing_tests/eip_checklist.md)
           * [Testing Checklist Templates](writing_tests/checklist_templates/index.md)
