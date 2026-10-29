@@ -69,14 +69,16 @@ class EthrexExceptionMapper(ExceptionMapper):
         # EIP-8141 permits fee fields up to 2**256, so a fixture testing
         # overflow encodes more than 256 bits and ethrex rejects it while
         # decoding the field rather than while validating the transaction.
-        TransactionException.GASPRICE_OVERFLOW: (
-            "Error decoding field 'max_fee_per_gas'"
-        ),
         TransactionException.PRIORITY_OVERFLOW: (
             "Error decoding field 'max_priority_fee_per_gas'"
         ),
     }
     mapping_regex = {
+        # The frame transaction names its fee cap `max_fee`, the other
+        # transaction types `max_fee_per_gas`.
+        TransactionException.GASPRICE_OVERFLOW: (
+            r"Error decoding field 'max_fee(_per_gas)?'"
+        ),
         TransactionException.INVALID_SIGNATURE_VRS: (
             r"Couldn't recover addresses with error: "
             r"(invalid signature|recovery failed)|"

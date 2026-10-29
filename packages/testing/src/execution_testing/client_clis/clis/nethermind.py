@@ -445,6 +445,7 @@ class NethermindExceptionMapper(ExceptionMapper):
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
             r"max fee per gas less than block base fee"
+            r"|max fee less than required max fee"
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             r"max fee per blob gas less than block blob gas fee"
