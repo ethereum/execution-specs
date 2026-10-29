@@ -10,7 +10,7 @@ N/A.
 <!-- Please check off all items before marking the PR ready for review. -->
 
 - [ ] Ran fast static checks to avoid CI fails, see [Code Standards](https://steel.ethereum.foundation/docs/execution-specs/getting_started/code_standards/) & [Verifying Changes](https://steel.ethereum.foundation/docs/execution-specs/getting_started/verifying_changes/): `just static`
-- [ ] PR title has the form `<type>(<area>): <description>`, where `<type>` and `<area>` come from an appropriate [`C-<type>`](https://github.com/ethereum/execution-specs/labels?q=C-), respectively [`A-<area>`](https://github.com/ethereum/execution-specs/labels?q=A-), label. The title should match the target squash commit message.
+- [ ] PR title has the form `<type>(<area>): <description>`, see [Commit messages and PR titles](https://github.com/ethereum/execution-specs/blob/HEAD/CONTRIBUTING.md#commit-messages-and-pr-titles). A bot fixes titles that don't and labels the PR from the files it changes.
 
 ### Cute Animal Picture
 
