@@ -37,19 +37,27 @@ def test_legacy_chain_id_over_64_bits(
     case: str,
 ) -> None:
     """
-    A legacy transaction whose v encodes a chain ID too large for 64 bits has
-    an invalid v, while one that fits is only a chain ID mismatch.
+    A legacy transaction whose v encodes a chain ID too large for 64 bits may
+    be rejected as an invalid v or as a chain ID mismatch depending on client
+    implementation, while one that fits in 64 bits is a chain ID mismatch.
     """
+    error: TransactionException | list[TransactionException]
     if case == "largest_64_bit_chain_id":
         signed_for = encoded_in_v = 2**64 - 1
         error = TransactionException.INVALID_CHAINID
     elif case == "smallest_65_bit_chain_id":
         signed_for = encoded_in_v = 2**64
-        error = TransactionException.INVALID_SIGNATURE_VRS
+        error = [
+            TransactionException.INVALID_SIGNATURE_VRS,
+            TransactionException.INVALID_CHAINID,
+        ]
     elif case == "chain_id_plus_2_64":
         signed_for = chain_config.chain_id
         encoded_in_v = chain_config.chain_id + 2**64
-        error = TransactionException.INVALID_SIGNATURE_VRS
+        error = [
+            TransactionException.INVALID_SIGNATURE_VRS,
+            TransactionException.INVALID_CHAINID,
+        ]
     else:
         raise ValueError(f"Unknown case: {case}")
 
