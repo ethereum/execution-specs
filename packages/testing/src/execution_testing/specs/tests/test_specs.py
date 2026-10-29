@@ -4,6 +4,7 @@ from typing import ClassVar, Dict, Protocol, Sequence, Tuple, Type
 
 import pytest
 
+from execution_testing.execution import GetBlobs, MempoolAdmission
 from execution_testing.fixtures import (
     BaseFixture,
     BlockchainFixture,
@@ -17,6 +18,7 @@ from execution_testing.test_types import Alloc, Environment, Transaction
 from ..base import BaseTest
 from ..blobs import BlobsTest
 from ..blockchain import BlockchainTest
+from ..mempool import MempoolTest
 from ..state import StateTest
 
 
@@ -25,6 +27,25 @@ def test_spec_types() -> None:
     assert len(BaseTest.spec_types.items()) > 0
     assert "state_test" in BaseTest.spec_types
     assert "blockchain_test" in BaseTest.spec_types
+    assert "mempool_test" in BaseTest.spec_types
+
+
+@pytest.mark.parametrize(
+    "spec,marks",
+    [
+        ("mempool_test", {"mempool_admission", "mempool_test"}),
+        ("transaction_test", {"mempool_admission", "transaction_test"}),
+        ("blobs_test", {"mempool_admission", "blob_transaction_test"}),
+        ("state_test", {"transaction_post_test", "state_test"}),
+    ],
+)
+def test_execute_format_marks(spec: str, marks: set) -> None:
+    """
+    Test that the specs sending transactions to the mempool share the
+    `mempool_admission` mark, so a single marker selects them all.
+    """
+    (execute_format,) = BaseTest.spec_types[spec].supported_execute_formats
+    assert {mark.name for mark in execute_format.marks()} == marks
 
 
 class SpecType(Protocol):
@@ -215,6 +236,17 @@ def test_state_test_conversion_checks_the_env_first() -> None:
         state_test.generate_blockchain_test()
 
 
+def test_mempool_test_runs_its_checks() -> None:
+    """Test that a mempool test hands its checks to the execute format."""
+    check = GetBlobs(version=3)
+    (execute_format,) = MempoolTest.supported_execute_formats
+    admission = MempoolTest(
+        pre=Alloc(), txs=[], checks=[check], fork=Amsterdam
+    ).execute(execute_format=execute_format)
+    assert isinstance(admission, MempoolAdmission)
+    assert admission.checks == [check]
+
+
 def test_blobs_test_rejects_empty_custody_columns_updates() -> None:
     """
     Verify a blobs test accepts any non-empty sequence of `custodyColumns`
@@ -233,3 +265,18 @@ def test_blobs_test_rejects_empty_custody_columns_updates() -> None:
         BlobsTest(
             pre=Alloc(), txs=[], fork=Amsterdam, custody_columns_updates=[]
         )
+
+
+def test_blobs_test_executes_its_txs_as_admitted() -> None:
+    """
+    Test that a blobs test sends every transaction expecting the
+    mempool to admit it, then checks the blobs.
+    """
+    tx = Transaction(gas_limit=21_000)
+    (execute_format,) = BlobsTest.supported_execute_formats
+    admission = BlobsTest(
+        pre=Alloc(), txs=[tx], fork=Amsterdam, get_blobs_version=4, cell_mask=1
+    ).execute(execute_format=execute_format)
+    assert isinstance(admission, MempoolAdmission)
+    assert [(e.tx, e.accepted) for e in admission.txs] == [(tx, True)]
+    assert admission.checks == [GetBlobs(version=4, cell_mask=1)]

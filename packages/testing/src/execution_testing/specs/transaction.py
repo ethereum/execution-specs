@@ -7,7 +7,7 @@ from execution_testing.execution import (
     BaseExecute,
     ExecuteFormat,
     LabeledExecuteFormat,
-    TransactionPost,
+    MempoolAdmission,
 )
 from execution_testing.fixtures import (
     FixtureFormat,
@@ -17,7 +17,11 @@ from execution_testing.fixtures import (
 from execution_testing.fixtures.transaction import FixtureResult
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.recipient_type import RecipientType
-from execution_testing.test_types import Alloc, Transaction
+from execution_testing.test_types import (
+    Alloc,
+    MempoolTransaction,
+    Transaction,
+)
 
 from .base import BaseTest, FillResult, OpMode
 
@@ -37,9 +41,10 @@ class TransactionTest(BaseTest):
     ]
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
-            TransactionPost,
+            MempoolAdmission,
             "transaction_test",
-            "An execute test derived from a transaction test",
+            "An execute test sending the transaction to the client's "
+            "public mempool, which must reject an invalid one",
         ),
     ]
 
@@ -121,13 +126,21 @@ class TransactionTest(BaseTest):
         *,
         execute_format: ExecuteFormat | LabeledExecuteFormat,
     ) -> BaseExecute:
-        """Execute the transaction test by sending it to the live network."""
-        if execute_format == TransactionPost:
-            benchmark_mode = self.operation_mode == OpMode.BENCHMARKING
-            return TransactionPost(
-                blocks=[[self.tx]],
-                post={},
-                benchmark_mode=benchmark_mode,
+        """
+        Execute the transaction test by sending it to the client's public
+        mempool, which must admit a valid transaction and reject an
+        invalid one.
+        """
+        if execute_format == MempoolAdmission:
+            accepted: bool | None = self.tx.error is None
+            if accepted and self.tx.frames is not None:
+                # A valid frame transaction may still break the public
+                # mempool's validation prefix rules, which a transaction
+                # test does not model.
+                accepted = None
+            return MempoolAdmission(
+                txs=[MempoolTransaction(tx=self.tx, accepted=accepted)],
+                benchmark_mode=self.operation_mode == OpMode.BENCHMARKING,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
 

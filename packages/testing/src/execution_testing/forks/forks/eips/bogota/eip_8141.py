@@ -19,6 +19,7 @@ from ....base_fork import (
     FrameEntryGasCalculator,
     FrameGasInfo,
     FrameSignatureGasInfo,
+    FrameSignatureVerificationGasCalculator,
     FrameTransactionDataFloorCostCalculator,
     FrameTransactionIntrinsicCostCalculator,
 )
@@ -152,11 +153,6 @@ class EIP8141(BaseFork):
         sender, and any nonce key access cost priced by a later EIP.
         """
         gas_costs = cls.gas_costs()
-        scheme_gas = {
-            0: gas_costs.FRAME_SIGNATURE_SCHEME_ARBITRARY,
-            1: gas_costs.FRAME_SIGNATURE_SCHEME_SECP256K1,
-            2: gas_costs.FRAME_SIGNATURE_SCHEME_P256,
-        }
         value_transfer_cost = 0
         for frame in frames:
             if int(frame.value) == 0 or frame.target is None:
@@ -170,10 +166,35 @@ class EIP8141(BaseFork):
         return (
             gas_costs.TX_FRAME_INTRINSIC
             + len(frames) * gas_costs.TX_PER_FRAME
-            + sum(scheme_gas[int(sig.scheme)] for sig in signatures)
+            + cls.frame_signature_verification_gas_calculator()(
+                signatures=signatures
+            )
             + value_transfer_cost
             + cls._frame_transaction_nonce_access_cost(nonce_keys)
         )
+
+    @classmethod
+    def frame_signature_verification_gas_calculator(
+        cls,
+    ) -> FrameSignatureVerificationGasCalculator:
+        """
+        Frame signature verification gas is introduced.
+
+        Each signature entry is charged the verification cost of its
+        scheme, which the public mempool counts against its validation
+        budget.
+        """
+        gas_costs = cls.gas_costs()
+        scheme_gas = {
+            0: gas_costs.FRAME_SIGNATURE_SCHEME_ARBITRARY,
+            1: gas_costs.FRAME_SIGNATURE_SCHEME_SECP256K1,
+            2: gas_costs.FRAME_SIGNATURE_SCHEME_P256,
+        }
+
+        def fn(*, signatures: Sequence[FrameSignatureGasInfo]) -> int:
+            return sum(scheme_gas[int(sig.scheme)] for sig in signatures)
+
+        return fn
 
     @classmethod
     def frame_transaction_data_floor_cost_calculator(
