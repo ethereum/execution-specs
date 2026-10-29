@@ -86,6 +86,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "and exit."
         ),
     )
+    help_group.addoption(
+        "--execute-deploy-required-contracts-help",
+        action="store_true",
+        dest="show_execute_deploy_required_contracts_help",
+        default=False,
+        help=(
+            "Show help options specific to the execute "
+            "deploy-required-contracts command and exit."
+        ),
+    )
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -187,6 +197,16 @@ def pytest_configure(config: pytest.Config) -> None:
             [
                 "eth_config",
                 "chain configuration",
+            ],
+        )
+    elif config.getoption("show_execute_deploy_required_contracts_help"):
+        show_specific_help(
+            config,
+            "pytest-execute-deploy-required-contracts.ini",
+            [
+                "chain configuration",
+                "remote RPC configuration",
+                "remote seed sender",
             ],
         )
 
