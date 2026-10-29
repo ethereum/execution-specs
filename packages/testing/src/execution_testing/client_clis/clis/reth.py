@@ -170,6 +170,9 @@ class RethExceptionMapper(ExceptionMapper):
             r"failed to decode deposit requests from receipts|"
             r"mismatched block requests hash"
         ),
+        TransactionException.GASPRICE_OVERFLOW: (
+            r"EIP-8141 max fee exceeds 256 bits"
+        ),
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
             r"invalid EIP-8141 frame format:|"
             r"invalid EIP-8141 address length|"
