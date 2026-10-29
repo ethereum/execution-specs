@@ -1,15 +1,29 @@
 """Helpers for EIP-8141 frame transaction tests."""
 
 from enum import Enum, auto, unique
-from typing import Any, Callable, Dict, List, Optional, Self
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Self,
+    Sequence,
+    Tuple,
+)
 
 from execution_testing import (
     EOA,
+    SECP256K1_SIGNATURE_LENGTH,
     Address,
+    Alloc,
     Bytecode,
+    Bytes,
     Fork,
     Frame,
     FrameReceipt,
+    FrameSignature,
     Op,
     Transaction,
     TransactionLog,
@@ -18,6 +32,7 @@ from execution_testing import (
 from execution_testing.base_types import HexNumber
 from pydantic import Field
 
+from .signature_helpers import canonical_entry
 from .spec import Spec
 
 MAX_FLOOR_PADDING = 1 << 16
@@ -378,3 +393,131 @@ be able to pay from is funded with exactly this much.
 
 CURRENT_FRAME_INDEX = Op.TXPARAM(Spec.TXPARAM_CURRENT_FRAME_INDEX)
 """Push the executing frame's index, which keys per-frame records."""
+
+
+def sponsored_signatures(sender: EOA, payer: EOA) -> List[FrameSignature]:
+    """
+    Return the signature entries of a sponsored transaction: the
+    sender's canonical entry at index 0, which its default code reads to
+    approve execution, and the payer's at index 1, which its default
+    code reads to approve payment.
+    """
+    return [canonical_entry(sender), canonical_entry(payer)]
+
+
+BASE_FEE = 7
+"""Base fee of the block a fee-sensitive test's transaction lands in."""
+
+PRIORITY_FEE = 5
+"""Tip per gas a fee-sensitive test's transaction asks for when it tips."""
+
+
+class FeeBudget(NamedTuple):
+    """The amounts §Fee budget derives for a frame transaction."""
+
+    max_gas: int
+    """The gas limit in both dimensions, which the fee budget prices."""
+
+    required_max_fee: int
+    """`max_gas` at the base fee plus the blob gas at the blob base fee."""
+
+    max_cost: int
+    """
+    `required_max_fee` plus the largest tip `max_fee` leaves room for:
+    what the payer escrows when it approves payment.
+    """
+
+
+def fee_budget(
+    fork: Fork,
+    sender: EOA | Address,
+    frames: Sequence[Frame],
+    signatures: Optional[Sequence[FrameSignature]] = None,
+    *,
+    max_priority_fee_per_gas: int = 0,
+    max_fee: Optional[int] = None,
+    blob_count: int = 0,
+    excess_blob_gas: int = 0,
+) -> FeeBudget:
+    """
+    Return the fee budget of a transaction `sender` sends with `frames`
+    and `signatures` in a block at `BASE_FEE` and the blob base fee of
+    `excess_blob_gas`.
+
+    `signatures` defaults to the entries a transaction defaults to: the
+    sender's canonical entry, or none for a contract sender. An unsigned
+    entry over the canonical hash is priced at its signed length, since
+    only the length of its raw bytes enters the cost, so the budget is
+    known before the transaction is signed. `max_fee` defaults to one
+    with room for the whole tip.
+
+    `frames` are priced as given: a `FrameCase` with budget deltas must
+    be settled first (`FrameTransaction.build` does), or pass
+    `tx.frames` after building.
+    """
+    if signatures is None:
+        signatures = (
+            [canonical_entry(sender)]
+            if isinstance(sender, EOA) and sender.key is not None
+            else []
+        )
+    priced = [
+        entry.model_copy(
+            update={"signature": Bytes(bytes(SECP256K1_SIGNATURE_LENGTH))}
+        )
+        if entry.scheme == Spec.SCHEME_SECP256K1
+        and len(entry.msg) == 0
+        and len(entry.signature) == 0
+        else entry
+        for entry in signatures
+    ]
+    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=frames, signatures=priced, sender=sender
+    )
+    blob_gas = blob_count * fork.blob_gas_per_blob()
+    blob_base_fee = fork.blob_gas_price_calculator()(
+        excess_blob_gas=excess_blob_gas
+    )
+    required_max_fee = max_gas * BASE_FEE + blob_gas * blob_base_fee
+    full_tip = max_priority_fee_per_gas * max_gas
+    if max_fee is None:
+        max_fee = required_max_fee + full_tip
+    max_cost = required_max_fee + min(full_tip, max_fee - required_max_fee)
+    return FeeBudget(max_gas, required_max_fee, max_cost)
+
+
+CANARY = 0xDEAD
+"""
+Pre-state value of a recording slot, so overwriting it creates no state
+and a slot left untouched, by a frame that halts or never reaches the
+write, is distinguishable from a written one.
+"""
+
+
+PAYER_FUNDS = 10**18
+"""Balance of the payer EOA, far above any transaction's `max_cost`."""
+
+
+class DefaultCodeAccounts:
+    """The accounts a default code case refers to."""
+
+    def __init__(self, pre: Alloc) -> None:
+        """Fund the sender and a payer."""
+        self.sender = pre.fund_eoa()
+        self.payer = pre.fund_eoa(amount=PAYER_FUNDS)
+
+
+DefaultCodeCase = Callable[
+    [DefaultCodeAccounts], Tuple[List[FrameCase], List[FrameSignature]]
+]
+"""Build a default code case's frames and signature entries."""
+
+
+def approve_execution() -> FrameCase:
+    """Return a `VERIFY` frame on the sender approving execution only."""
+    return verify_frame(flags=Spec.APPROVE_EXECUTION)
+
+
+def approve_payment(target: Optional[Address] = None) -> FrameCase:
+    """Return a `VERIFY` frame approving payment only."""
+    return verify_frame(flags=Spec.APPROVE_PAYMENT, target=target)
