@@ -308,9 +308,14 @@ class BaseRPC:
         - 4xx errors are client errors (permanent failures, no point retrying)
         - 5xx errors are server errors that typically indicate
           application-level issues rather than transient network problems
+
+        The namespace headers are built for each attempt rather than once
+        per call: a JWT issued before a timed out attempt can be too old
+        for the client to accept on the retry.
         """
         if timeout is None:
             timeout = self.request_timeout
+        headers = headers | self.namespace_extra_headers()
         logger.debug(f"Making HTTP request to {url}, timeout={timeout}")
         return self.session.post(
             url, json=json_payload, headers=headers, timeout=timeout
@@ -362,7 +367,7 @@ class BaseRPC:
         base_header = {
             "Content-Type": "application/json",
         }
-        headers = base_header | extra_headers | self.namespace_extra_headers()
+        headers = base_header | extra_headers
 
         logger.debug(
             f"Sending RPC request to {self.url}, "
@@ -390,7 +395,7 @@ class BaseRPC:
         base_header = {
             "Content-Type": "application/json",
         }
-        headers = base_header | extra_headers | self.namespace_extra_headers()
+        headers = base_header | extra_headers
 
         logger.debug(
             f"Sending batch RPC request to {self.url}, "

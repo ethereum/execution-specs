@@ -7,8 +7,9 @@ A fixture announcing several sync targets runs each target on its own
 isolated client. The "Rejection Tests" and "Test Ordering and Client
 Reuse" sections of `docs/running_tests/consume/wirex.md` explain why.
 
-This module overrides `multi_test_client`'s `client` fixture, so the
-wirex conftest lists it after `multi_test_client` in `pytest_plugins`.
+This module overrides `multi_test_client`'s `client` fixture and
+`engine_api`'s `engine_rpc` fixture, so the wirex conftest lists it
+after both in `pytest_plugins`.
 It cannot live in the conftest itself: the conftest registers before
 the plugins it lists, and pytest prefers the fixture of the most
 recently registered plugin.
@@ -78,6 +79,19 @@ decision needs. The RPC client retries a timed out request, so a client
 that never answers is given up on after about a minute.
 """
 
+ENGINE_REQUEST_TIMEOUT = (5.0, 10.0)
+"""
+(connect, read) timeout of each attempt of an Engine API request.
+
+A syncing client answers `engine_newPayload` and
+`engine_forkchoiceUpdated` without waiting for the sync, executing at
+most the payload's own block, and the Engine API gives a consensus
+client 8 seconds for either. The RPC client retries a timed out request, so a
+client whose Engine API stops answering is given up on after about a
+minute, in line with the sync timeout, instead of after the default
+read timeout of several minutes per attempt.
+"""
+
 
 class ClientHead(NamedTuple):
     """The number and hash of a client's current head block."""
@@ -132,8 +146,24 @@ def build_engine_rpc(
         else None
     )
     return EngineRPC(
-        f"http://{client.ip}:8551", response_validation_context=context
+        f"http://{client.ip}:8551",
+        response_validation_context=context,
+        request_timeout=ENGINE_REQUEST_TIMEOUT,
     )
+
+
+@pytest.fixture(scope="function")
+def engine_rpc(
+    client: Client, client_exception_mapper: ExceptionMapper | None
+) -> Generator[EngineRPC, None, None]:
+    """
+    Provide the Engine RPC handle of this test's client.
+
+    Overrides `engine_api`'s fixture, so a test's first target is
+    bounded by `ENGINE_REQUEST_TIMEOUT` like every further one.
+    """
+    with build_engine_rpc(client, client_exception_mapper) as rpc:
+        yield rpc
 
 
 @pytest.fixture(scope="function")
