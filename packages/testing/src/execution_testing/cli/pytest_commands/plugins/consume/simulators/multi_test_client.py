@@ -331,6 +331,11 @@ def environment(
         # in between, so wrappers can raise client-specific limits that would
         # otherwise reject them (e.g. geth's engine API max reorg depth).
         "HIVE_EXPECT_DEEP_REORGS": "1",
+        # Tell client wrapper scripts to leave the alloc out of the genesis
+        # they print at start: it is the whole pre-alloc group shared by many
+        # tests (up to thousands of accounts), so dumping it floods the client
+        # log without saying much about any single test.
+        "HIVE_OMIT_GENESIS_ALLOC": "1",
     }
 
     environment_cache[pre_hash] = env
