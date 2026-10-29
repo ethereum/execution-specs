@@ -63,6 +63,12 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_LOG_BLOOM: "header bloom filter mismatch",
     }
     mapping_regex = {
+        TransactionException.GASPRICE_OVERFLOW: (
+            r"EIP-8141 max fee exceeds 256 bits"
+        ),
+        TransactionException.NONCE_IS_MAX: (
+            r"EIP-8250 legacy nonce sequence is exhausted"
+        ),
         # alloy drops the parity error for an out-of-range legacy `v` and
         # reports the failed untagged decode ("Unexpected type flag") instead.
         TransactionException.INVALID_SIGNATURE_VRS: (
@@ -192,7 +198,7 @@ class RethExceptionMapper(ExceptionMapper):
             r"EIP-8141 signature signer does not match|"
             r"EIP-8250 nonce key zero must be the only key|"
             r"EIP-8250 nonce keys must be strictly increasing|"
-            r"EIP-8250 requires between 1 and 16 nonce keys|"
+            r"EIP-8250 requires (?:between 1 and|at most) 16 nonce keys|"
             r"EIP-8250 nonce key exceeds 256 bits|"
             r"EIP-8250 nonce sequence exceeds 64 bits|"
             r"EIP-7906 atomic flag is invalid on (?:POST_TX|ASSERT) frames|"

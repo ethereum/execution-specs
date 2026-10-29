@@ -153,6 +153,11 @@ class GethExceptionMapper(ExceptionMapper):
         # In-range r that is not an x-coordinate on the curve: the range
         # check passes and recovery itself fails.
         TransactionException.INVALID_SIGNATURE_VRS: r"recovery failed",
+        # A transaction whose RLP has the wrong shape, such as a frame
+        # transaction carried in its network wrapper, fails while decoding.
+        BlockException.RLP_STRUCTURES_ENCODING: (
+            r"rlp: expected input (string or byte|list) for"
+        ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"blob gas used \d+ exceeds maximum allowance \d+"
         ),
