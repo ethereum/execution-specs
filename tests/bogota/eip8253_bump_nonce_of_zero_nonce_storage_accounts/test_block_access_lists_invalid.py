@@ -6,7 +6,7 @@ Each test corrupts the fork block's BAL around the nonce change of a
 targeted account and expects the block to be rejected.
 """
 
-from typing import Callable
+from typing import Callable, List
 
 import pytest
 from execution_testing import (
@@ -108,7 +108,9 @@ def fork_block_with_invalid_bal(
     pre: Alloc,
     address: Address,
     expectation: BlockAccessListExpectation,
-    exception: BlockException = BlockException.INVALID_BLOCK_ACCESS_LIST,
+    exception: BlockException | List[BlockException] = (
+        BlockException.INVALID_BLOCK_ACCESS_LIST
+    ),
     value: int = 0,
     withdrawal: int = 0,
 ) -> None:
@@ -429,11 +431,21 @@ def test_bal_invalid_bump_index_zero_encoding(
     expectation = BlockAccessListExpectation(
         account_expectations={address: BUMP_EXPECTATION}
     )
+    exception: BlockException | List[BlockException]
     if header_commits_to == "canonical_rlp":
         expectation = expectation.modify_rlp(encoder)
+        # The header commits to the canonical bytes, so a client that hashes
+        # the payload's bytes rejects the block hash before it decodes them.
+        exception = [
+            BlockException.INVALID_BLOCK_ACCESS_LIST,
+            BlockException.INVALID_BLOCK_HASH,
+        ]
     elif header_commits_to == "payload_rlp":
         expectation = expectation.modify(override_rlp(encoder))
+        exception = BlockException.INVALID_BLOCK_ACCESS_LIST
     else:
         raise ValueError(f"Unhandled header commitment: {header_commits_to}")
 
-    fork_block_with_invalid_bal(blockchain_test, pre, address, expectation)
+    fork_block_with_invalid_bal(
+        blockchain_test, pre, address, expectation, exception=exception
+    )
