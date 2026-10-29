@@ -17,6 +17,7 @@ Both `consume` and `execute` provide sub-commands which correspond to different 
 | [`consume enginex`](#enginex)           | Client imports blocks via Engine API in Hive, optimized by client reuse            | EVM, block processing, Engine API, chain reorgs (implicit\*\*) | Staging, Hive | System test                       |
 | [`consume sync`](#sync)                 | Client syncs from another client using Engine API in Hive                               | EVM, block processing, Engine API, P2P sync                  | Staging, Hive | System test                       |
 | [`consume wirex`](#wirex)               | Client full syncs fixture blocks from a mock devp2p peer in Hive, with client reuse     | EVM, block processing, Engine API (sync trigger), devp2p     | Staging, Hive | System test                       |
+| [`consume reorg`](#reorg)               | Client is driven through a DAG of payloads and forkchoice updates in Hive                | EVM, block processing, Engine API, chain reorgs               | Staging, Hive | System test                       |
 | [`consume rlp`](#rlp)                   | Client imports RLP-encoded blocks upon start-up in Hive                                 | EVM, block processing, RLP import (sync\*)                   | Staging, Hive | System test                       |
 | [`build-block`](#block-building)        | Client builds blocks via `testing_buildBlockV1` in Hive, validated against fixture       | EVM, block production, Engine API (testing namespace)        | Staging, Hive | System test                       |
 | [`execute hive`](./execute/hive.md)     | Tests executed against a client via JSON RPC `eth_sendRawTransaction` in Hive           | EVM, JSON RPC, mempool                                       | Staging, Hive | System test                       |
@@ -198,6 +199,25 @@ The `consume wirex` command, for each pre-allocation group:
 4. **Stops the client** when all tests in the group complete.
 
 Hive has no `eels/consume-wirex` simulator image yet, so WireX runs only against `./hive --dev`. `eels/consume-wirex` is the name its results are reported under. See [Consume WireX](./consume/wirex.md) for options, the full flow and the exceptions to client reuse.
+
+## Reorg
+
+| Nomenclature   |                                 |
+| -------------- | ------------------------------- |
+| Command        | `consume reorg`                 |
+| Simulator      | `eels/consume-reorg`            |
+| Fixture format | `blockchain_test_engine_reorg`  |
+
+The consume reorg method drives a client through a DAG of Engine API payloads and forkchoice updates to test chain reorganization behavior directly, rather than as a side effect of client reuse (see [Implicit Chain Reorg Coverage](#implicit-chain-reorg-coverage)). Each test describes a block DAG (side chains are first-class, identified by label) and an ordered, branching script of `engine_newPayloadVX`/`engine_forkchoiceUpdatedVX`/JSON-RPC steps together with every outcome the [execution-apis](https://github.com/ethereum/execution-apis) specification allows a conformant client to return.
+
+The `consume reorg` command:
+
+1. **Initializes the client under test** with genesis state.
+2. **Sends an initial forkchoice update** to genesis and verifies the client's genesis block hash via `eth_getBlockByNumber(0)`.
+3. **Runs the fixture's step script**: sends each request verbatim, selects the first outcome (of possibly several spec-legal ones) that matches the observed response, and runs that outcome's branch steps.
+4. **Fails** on the first step whose observed result matches none of its listed outcomes.
+
+Unlike `consume engine`, which sends a linear payload list and always follows each valid payload with a forkchoice update to it, `consume reorg` fixtures describe explicit forkchoice states (head, safe, finalized), client-built payloads bound to new labels via `engine_getPayloadVX`, and assertions of observable state (`eth_getBalance`, `eth_getLogs`, `eth_getTransactionReceipt`, ...) after each forkchoice update. See the [Blockchain Engine Reorg Tests](./test_formats/blockchain_test_engine_reorg.md) format page for the full fixture structure.
 
 ## Block Building
 
