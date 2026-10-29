@@ -47,6 +47,16 @@ def _manager(counts: dict[str, int]) -> MultiTestClientManager:
     return manager
 
 
+GROUP_ONLY = {"HIVE_FORK": "Bogota"}
+"""A client environment with no test's chain configuration."""
+
+WITH_CHAIN_CONFIG = {
+    **GROUP_ONLY,
+    "HIVE_ZERO_NONCE_STORAGE_ACCOUNTS": "0x" + "aa" * 20,
+}
+"""The same environment for a test that names zero-nonce storage accounts."""
+
+
 class TestStartAhead:
     """A client started ahead is claimed by its group's first test."""
 
@@ -126,6 +136,44 @@ class TestStartAhead:
         manager.start_ahead("next", lambda: cast(Client, stub))
         manager.stop_all_clients()
         assert stub.stopped
+
+    def test_a_test_with_the_same_environment_claims_the_client(self) -> None:
+        """
+        The client started ahead is recorded with the environment it was
+        given, and a first test asking with that environment keeps it.
+        """
+        manager = _manager({"next": 2})
+        stub = _StubClient()
+        manager.start_ahead("next", lambda: cast(Client, stub), GROUP_ONLY)
+        assert manager.get_client("next", dict(GROUP_ONLY)) is stub
+        assert manager.environments == {"next": GROUP_ONLY}
+        assert manager.pending_environment is None
+        assert not stub.stopped
+
+    def test_a_test_with_another_environment_replaces_the_client(self) -> None:
+        """
+        A client is started ahead without any test's chain configuration,
+        so a first test that has one stops it and starts its own.
+        """
+        manager = _manager({"next": 2})
+        stub = _StubClient()
+        manager.start_ahead("next", lambda: cast(Client, stub), GROUP_ONLY)
+        assert manager.get_client("next", WITH_CHAIN_CONFIG) is None
+        assert stub.stopped
+        assert manager.pending_start is None
+        assert manager.environments == {}
+
+    def test_a_failed_start_forgets_its_environment(self) -> None:
+        """A dropped start leaves no environment for a later start."""
+        manager = _manager({"next": 1})
+
+        def start() -> Client:
+            raise RuntimeError("hive refused the client")
+
+        manager.start_ahead("next", start, GROUP_ONLY)
+        assert manager.get_client("next", GROUP_ONLY) is None
+        assert manager.pending_environment is None
+        assert manager.environments == {}
 
 
 class _Node:
@@ -392,7 +440,7 @@ class TestStartNextGroupClient:
         monkeypatch.setattr(
             manager,
             "start_ahead",
-            lambda group, start: started.append((group, start)),
+            lambda *arguments: started.append(arguments),
         )
         request = SimpleNamespace(
             config=SimpleNamespace(
@@ -413,7 +461,9 @@ class TestStartNextGroupClient:
             environment_cache=cache,
             request=request,
         )
-        ((group, start),) = started
+        ((group, start, recorded),) = started
+        # The manager is told the environment the client starts with.
+        assert recorded == start.args[3]
         return group, start.args[3], start.args[4]
 
     def test_simulator_additions_carry_over(
