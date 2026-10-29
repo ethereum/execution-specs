@@ -20,12 +20,15 @@ from execution_testing import (
     AuthorizationTuple,
     BalAccountExpectation,
     BalNonceChange,
+    Block,
     BlockAccessListExpectation,
+    BlockchainTestFiller,
     Bytecode,
     ChainConfig,
     CodeGasMeasure,
     Environment,
     Fork,
+    GasConsumer,
     Header,
     Op,
     RecipientType,
@@ -1503,4 +1506,106 @@ def test_call_to_pre_authorized_oog(
             delegation: Account(storage=Storage()),
         },
         expected_block_access_list=expected_block_access_list,
+    )
+
+
+@pytest.mark.parametrize(
+    "probe_gas_delta",
+    [
+        pytest.param(0, id="fits_gas_used_after_refund"),
+        pytest.param(
+            1,
+            id="exceeds_gas_used_after_refund",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+@pytest.mark.valid_before("EIP7778")
+def test_tx_gas_limit_after_existing_authority_refund(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    probe_gas_delta: int,
+) -> None:
+    """
+    Test that a transaction must fit the block gas left after an earlier
+    set-code transaction's existing-authority refund.
+
+    Until EIP-7778 the block counts a transaction's gas after its refund, so
+    the probe fits only when the refund is subtracted.
+    """
+    gas_costs = fork.gas_costs()
+    refund = (
+        gas_costs.AUTH_PER_EMPTY_ACCOUNT
+        - gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT
+    )
+    # One more than the refund under the EIP-3529 cap, so the whole refund
+    # applies and a client refunding more than it lowers the block gas used.
+    gas_used_before_refund = (refund + 1) * fork.max_refund_quotient()
+    burn = (
+        gas_used_before_refund
+        - fork.transaction_intrinsic_cost_calculator()(
+            authorization_list_or_count=1
+        )
+    )
+    gas_used = gas_used_before_refund - refund
+
+    burner = pre.deploy_contract(GasConsumer(gas=burn, fork=fork))
+    authority = pre.fund_eoa()
+    set_code_tx = Transaction(
+        to=burner,
+        gas_limit=gas_used_before_refund,
+        authorization_list=[
+            AuthorizationTuple(
+                address=burner, nonce=authority.nonce, signer=authority
+            )
+        ],
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(gas_used=gas_used),
+    )
+
+    probe_gas = fork.transaction_intrinsic_cost_calculator()(sends_value=True)
+    block_gas_limit = gas_used + probe_gas
+    assert set_code_tx.gas_limit <= block_gas_limit
+    # Counting the set-code transaction before its refund leaves too little
+    # gas for even the probe that fits.
+    assert block_gas_limit - gas_used_before_refund < probe_gas
+
+    probe_receiver = pre.fund_eoa(amount=0)
+    if probe_gas_delta == 0:
+        exception = None
+        post = {
+            authority: Account(
+                nonce=authority.nonce + 1,
+                code=Spec.delegation_designation(burner),
+            ),
+            probe_receiver: Account(balance=1),
+        }
+        header_verify = Header(gas_used=gas_used + probe_gas)
+    elif probe_gas_delta == 1:
+        exception = TransactionException.GAS_ALLOWANCE_EXCEEDED
+        post = {}
+        header_verify = None
+    else:
+        raise ValueError(f"Unknown probe_gas_delta: {probe_gas_delta}")
+
+    probe_tx = Transaction(
+        to=probe_receiver,
+        value=1,
+        gas_limit=probe_gas + probe_gas_delta,
+        sender=pre.fund_eoa(),
+        error=exception,
+    )
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        post=post,
+        blocks=[
+            Block(
+                txs=[set_code_tx, probe_tx],
+                exception=exception,
+                header_verify=header_verify,
+            )
+        ],
     )
