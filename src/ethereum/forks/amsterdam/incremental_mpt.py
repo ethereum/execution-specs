@@ -934,7 +934,9 @@ def _decode_child_ref(child_ref: Extended) -> MutableNode:
     Turn a child reference from an RLP-decoded trie node into a placeholder.
 
     An empty string means there is no child, a 32-byte string is the hash of
-    the child, and a list is a child embedded in its parent.
+    the child, and a list is a child embedded in its parent. A child is
+    embedded exactly when its encoding is shorter than a hash, so a longer
+    embedded child is rejected here.
     """
     if isinstance(child_ref, (bytes, bytearray)):
         ref_bytes = Bytes(child_ref)
@@ -945,7 +947,9 @@ def _decode_child_ref(child_ref: Extended) -> MutableNode:
         )
         return HashedNode(_hash=ref_bytes)
     else:
-        return EmbeddedNode(_rlp=rlp.encode(child_ref))
+        child_rlp = rlp.encode(child_ref)
+        assert len(child_rlp) < 32, "Embedded node must be shorter than a hash"
+        return EmbeddedNode(_rlp=child_rlp)
 
 
 def _decode_witness_node(rlp_bytes: Bytes) -> MutableNode:
@@ -999,10 +1003,10 @@ def _decode_witness_node(rlp_bytes: Bytes) -> MutableNode:
         for i in range(16):
             children.append(_decode_child_ref(decoded[i]))
         value_raw = decoded[16]
-        if isinstance(value_raw, (bytes, bytearray)):
-            value = Bytes(value_raw)
-        else:
-            value = b""
+        assert isinstance(value_raw, (bytes, bytearray)), (
+            "BranchNode value must be a byte string"
+        )
+        value = Bytes(value_raw)
         occupied = 16 - children.count(None) + (value != b"")
         assert occupied >= 2, (
             "BranchNode must have at least 2 occupied entries"
@@ -1022,7 +1026,8 @@ def _check_secured_path(node: MutableNode, depth: Uint) -> None:
     Check that `node`, `depth` nibbles below the root, fits a secured key.
 
     Every key in a secured trie is a hash, so every path from the root must
-    end at a leaf after exactly `SECURED_TRIE_KEY_NIBBLES` nibbles.
+    end at a leaf after exactly `SECURED_TRIE_KEY_NIBBLES` nibbles, and no
+    key ends at a branch.
     """
     remaining_key_nibbles = SECURED_TRIE_KEY_NIBBLES - int(depth)
     if isinstance(node, MutableLeafNode):
@@ -1037,6 +1042,7 @@ def _check_secured_path(node: MutableNode, depth: Uint) -> None:
         assert remaining_key_nibbles > 0, (
             "BranchNode exceeds the secured key length"
         )
+        assert node.value == b"", "BranchNode in a secured trie has a value"
 
 
 def _resolve(
@@ -1055,10 +1061,14 @@ def _resolve(
     """
     if isinstance(node, HashedNode):
         assert node._hash in mpt.node_db, "Witness is missing a trie node"
-        node = _decode_witness_node(mpt.node_db[node._hash])
-        # A missing child is an empty string, and an empty trie has no root
-        # node, so a hash never stands for the empty node.
-        assert node is not None, "Hash reference points to an empty node"
+        node_rlp = mpt.node_db[node._hash]
+        # A node shorter than a hash is embedded in its parent, so only the
+        # root is referenced by hash regardless of its length. This also
+        # rules out the empty node, which an empty string stands for instead.
+        assert depth == Uint(0) or len(node_rlp) >= 32, (
+            "Hash reference points to a node short enough to embed"
+        )
+        node = _decode_witness_node(node_rlp)
     elif isinstance(node, EmbeddedNode):
         node = _decode_witness_node(node._rlp)
     else:

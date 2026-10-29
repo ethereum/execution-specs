@@ -99,12 +99,15 @@ def _leaf(path_nibbles: int, value: bytes) -> TrieBytes:
     return TrieBytes(rlp.encode([nibble_list_to_compact(path, True), value]))
 
 
-def _reference(nodes: Set[TrieBytes], node_rlp: TrieBytes) -> rlp.Extended:
+def _reference(
+    nodes: Set[TrieBytes], node_rlp: TrieBytes, *, by_hash: bool = False
+) -> rlp.Extended:
     """
     Return how a parent refers to the node encoded as `node_rlp`, adding the
-    node to `nodes` unless it is short enough to embed in the parent.
+    node to `nodes` unless it is short enough to embed in the parent and
+    `by_hash` is not set.
     """
-    if len(node_rlp) < 32:
+    if len(node_rlp) < 32 and not by_hash:
         return rlp.decode(node_rlp)
     nodes.add(node_rlp)
     return keccak256(node_rlp)
@@ -137,11 +140,14 @@ def _in_state_root_slot(
     slot: int,
     node_rlp: TrieBytes,
     children: Tuple[TrieBytes, ...] = (),
+    *,
+    by_hash: bool = False,
 ) -> StateMutation:
     """
     Return a mutation that puts the node encoded as `node_rlp`, with the
     hashed `children` it refers to, in an empty slot of the root branch of
-    the state trie.
+    the state trie. The root refers to the node by hash if `by_hash` is set,
+    however short it is.
     """
 
     def mutate(
@@ -154,7 +160,7 @@ def _in_state_root_slot(
         assert decoded_root[slot] == b"", "the slot must be empty"
         root: list[rlp.Extended] = list(decoded_root)
         nodes = set(children)
-        root[slot] = _reference(nodes, node_rlp)
+        root[slot] = _reference(nodes, node_rlp, by_hash=by_hash)
         root_rlp = TrieBytes(rlp.encode(root))
         nodes.add(root_rlp)
         return Root(keccak256(root_rlp)), nodes
@@ -370,9 +376,9 @@ def _absent_target(pre: Alloc) -> Tuple[Address, int]:
     malformed node put in its own slot, but never one put in the returned
     slot.
 
-    The account's second nibble is zero, which is the nibble the extension
-    from `_extension_to_leaf` runs along. A read of the account then goes
-    through the extension into its child, and doesn't stop at the extension
+    The account's second nibble is zero. A read of the account then takes
+    slot zero of a branch put in its slot, and runs along the zero-nibble
+    extension from `_extension_to_leaf` into its child instead of stopping
     where the paths would otherwise part.
     """
     used_slots = {
@@ -427,6 +433,7 @@ def _target_read_block(
     *,
     on_target_path: bool,
     expected_success: bool,
+    by_hash: bool = False,
 ) -> Block:
     """
     Build a block that calls an absent target account, on a parent state
@@ -435,7 +442,7 @@ def _target_read_block(
 
     The node goes in the slot that the target's path leaves the root through
     if `on_target_path` is set, and in a slot that the block doesn't read
-    otherwise.
+    otherwise. The root refers to the node by hash if `by_hash` is set.
     """
     sender = pre.fund_eoa()
     target, unread_slot = _absent_target(pre)
@@ -446,7 +453,7 @@ def _target_read_block(
         # absent accounts that the block reads.
         fee_recipient=sender,
         stateless_input_bytes_modifier=_with_malformed_parent_state(
-            _in_state_root_slot(slot, node_rlp, children)
+            _in_state_root_slot(slot, node_rlp, children, by_hash=by_hash)
         ),
         expected_stateless_validation_success=expected_success,
     )
@@ -601,6 +608,50 @@ def _extension_to_leaf(
     return extension, (leaf,)
 
 
+def _branch_with_value() -> TrieBytes:
+    """
+    Encode a branch that holds a value, which no secured key ends at, with
+    its children out of slot zero.
+    """
+    branch: list[rlp.Extended] = [b""] * 17
+    branch[16] = b"\x01"
+    branch[1] = keccak256(b"left")
+    branch[2] = keccak256(b"right")
+    return TrieBytes(rlp.encode(branch))
+
+
+def _branch_with_oversized_embedded_leaf() -> TrieBytes:
+    """
+    Encode a branch that embeds, in slot zero, a leaf long enough to hash.
+    The leaf ends at the secured key length one level below the root.
+    """
+    branch: list[rlp.Extended] = [b""] * 17
+    branch[0] = [
+        nibble_list_to_compact(b"\x00" * 62, True),
+        ACCOUNT_LEAF_VALUE,
+    ]
+    branch[1] = keccak256(b"sibling")
+    return TrieBytes(rlp.encode(branch))
+
+
+def _short_branch() -> TrieBytes:
+    """
+    Encode a branch short enough to embed, with two tiny embedded leaves out
+    of slot zero.
+
+    The branch passes every check on its own encoding. Its leaves are too
+    short for a secured key, but a read through slot zero never reaches
+    them.
+    """
+    tiny_leaf = [nibble_list_to_compact(b"\x00", True), b"\x01"]
+    branch: list[rlp.Extended] = [b""] * 17
+    branch[1] = tiny_leaf
+    branch[2] = tiny_leaf
+    branch_rlp = TrieBytes(rlp.encode(branch))
+    assert len(branch_rlp) < 32
+    return branch_rlp
+
+
 @pytest.mark.parametrize(
     "child_in_witness",
     [True, False],
@@ -666,6 +717,12 @@ def test_witness_state_collapse_onto_extension_skips_its_child(
         pytest.param(
             *_extension_to_leaf(ACCOUNT_LEAF_VALUE), id="extension_to_leaf"
         ),
+        pytest.param(_branch_with_value(), (), id="branch_with_value"),
+        pytest.param(
+            _branch_with_oversized_embedded_leaf(),
+            (),
+            id="oversized_embedded_leaf",
+        ),
     ],
 )
 @pytest.mark.parametrize("read", [False, True], ids=["unread", "read"])
@@ -686,6 +743,31 @@ def test_witness_state_malformed_node(
                 children,
                 on_target_path=read,
                 expected_success=not read,
+            )
+        ],
+        post={},
+    )
+
+
+@pytest.mark.parametrize("read", [False, True], ids=["unread", "read"])
+def test_witness_state_hash_reference_to_short_node(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    read: bool,
+) -> None:
+    """
+    Reject a state node referenced by hash although it is short enough to
+    embed, only when the block reads through it.
+    """
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            _target_read_block(
+                pre,
+                _short_branch(),
+                on_target_path=read,
+                expected_success=not read,
+                by_hash=True,
             )
         ],
         post={},

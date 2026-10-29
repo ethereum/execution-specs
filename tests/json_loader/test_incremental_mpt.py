@@ -312,9 +312,10 @@ class TestMalformedWitnessNodes:
 
     def test_extension_pointing_to_extension(self) -> None:
         """Extensions may not point directly to other extensions."""
+        # Short values keep every embedded node shorter than a hash.
         branch: list[Any] = [b""] * 17
-        branch[0] = [nibble_list_to_compact(Bytes(b"\x03"), True), b"left"]
-        branch[1] = [nibble_list_to_compact(Bytes(b"\x04"), True), b"right"]
+        branch[0] = [nibble_list_to_compact(Bytes(b"\x03"), True), b"l"]
+        branch[1] = [nibble_list_to_compact(Bytes(b"\x04"), True), b"r"]
         inner_extension: list[Any] = [
             nibble_list_to_compact(Bytes(b"\x02"), False),
             branch,
@@ -362,6 +363,32 @@ class TestMalformedWitnessNodes:
         with pytest.raises(
             AssertionError,
             match="BranchNode must have at least 2 occupied entries",
+        ):
+            _read_from_root_rlp(Bytes(rlp.encode(branch)))
+
+    def test_branch_with_list_value(self) -> None:
+        """A branch value must be a byte string, like a leaf value."""
+        branch: list[Any] = [b""] * 16 + [[b"\x01"]]
+        branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
+        branch[1] = [nibble_list_to_compact(Bytes(b"\x02"), True), b"right"]
+
+        with pytest.raises(
+            AssertionError, match="BranchNode value must be a byte string"
+        ):
+            _read_from_root_rlp(Bytes(rlp.encode(branch)))
+
+    def test_oversized_embedded_child(self) -> None:
+        """A child long enough to hash must not be embedded."""
+        branch: list[Any] = [b""] * 17
+        branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
+        branch[1] = [
+            nibble_list_to_compact(Bytes(b"\x02" * 62), True),
+            b"right",
+        ]
+        assert len(rlp.encode(branch[1])) >= 32
+
+        with pytest.raises(
+            AssertionError, match="Embedded node must be shorter than a hash"
         ):
             _read_from_root_rlp(Bytes(rlp.encode(branch)))
 
@@ -423,6 +450,17 @@ def _extension_to_leaf(path: Bytes) -> Any:
     ]
 
 
+def _branch_with_value(_: Bytes) -> Any:
+    """Return a branch holding a value, which no secured key ends at."""
+    return [b"", b"\x11" * 32, b"\x22" * 32] + [b""] * 13 + [b"\x01"]
+
+
+def _oversized_embedded_child(_: Bytes) -> Any:
+    """Return a branch that embeds a child long enough to hash."""
+    leaf = [nibble_list_to_compact(Bytes(b"\x00" * 62), True), b"value"]
+    return [leaf, b"\x11" * 32] + [b""] * 15
+
+
 class TestLazyWitnessDecoding:
     """
     Test that a witness node is decoded and checked only when a trie
@@ -476,6 +514,12 @@ class TestLazyWitnessDecoding:
                 id="embedded_single_entry",
             ),
             pytest.param(False, _extension_to_leaf, id="extension_to_leaf"),
+            pytest.param(True, _branch_with_value, id="branch_with_value"),
+            pytest.param(
+                False,
+                _oversized_embedded_child,
+                id="oversized_embedded_child",
+            ),
         ],
     )
     def test_unreached_node_is_not_decoded(
@@ -524,6 +568,18 @@ class TestLazyWitnessDecoding:
                 _embedded_single_entry_branch,
                 "BranchNode must have at least 2 occupied entries",
                 id="embedded_single_entry",
+            ),
+            pytest.param(
+                True,
+                _branch_with_value,
+                "BranchNode in a secured trie has a value",
+                id="branch_with_value",
+            ),
+            pytest.param(
+                False,
+                _oversized_embedded_child,
+                "Embedded node must be shorter than a hash",
+                id="oversized_embedded_child",
             ),
         ],
     )
@@ -583,20 +639,37 @@ class TestLazyWitnessDecoding:
         assert isinstance(mpt.root_node.child, EmbeddedNode)
         mpt_root(mpt)
 
-    def test_reached_hash_of_empty_node_is_rejected(self) -> None:
+    @pytest.mark.parametrize(
+        "child_rlp",
+        [
+            pytest.param(Bytes(rlp.encode(b"")), id="empty_node"),
+            pytest.param(
+                Bytes(
+                    rlp.encode(
+                        [nibble_list_to_compact(Bytes(b"\x02"), True), b"v"]
+                    )
+                ),
+                id="short_leaf",
+            ),
+        ],
+    )
+    def test_reached_hash_of_short_node_is_rejected(
+        self, child_rlp: Bytes
+    ) -> None:
         """
-        A child referenced by the hash of the empty node is rejected when an
-        operation reaches it, even though the witness holds the empty node.
+        A child referenced by hash although its encoding is short enough to
+        embed is rejected when an operation reaches it, even though the
+        witness holds the child.
         """
-        empty_node = Bytes(rlp.encode(b""))
-        assert keccak256(empty_node) == EMPTY_TRIE_ROOT
+        assert len(child_rlp) < 32
+        child_hash = keccak256(child_rlp)
         branch: list[Any] = [b""] * 17
         branch[0] = [nibble_list_to_compact(Bytes(b"\x02"), True), b"left"]
-        branch[1] = EMPTY_TRIE_ROOT
+        branch[1] = child_hash
         root_rlp = Bytes(rlp.encode(branch))
         root_hash = Root(keccak256(root_rlp))
         mpt: IncrementalMPT[Bytes, Bytes] = decode_witness_to_mpt(
-            {root_hash: root_rlp, EMPTY_TRIE_ROOT: empty_node},
+            {root_hash: root_rlp, child_hash: child_rlp},
             root_hash,
             secured=False,
             default=b"",
@@ -604,7 +677,8 @@ class TestLazyWitnessDecoding:
 
         assert mpt_get(mpt, Bytes(b"\x02")) == b"left"
         with pytest.raises(
-            AssertionError, match="Hash reference points to an empty node"
+            AssertionError,
+            match="Hash reference points to a node short enough to embed",
         ):
             mpt_get(mpt, Bytes(b"\x12"))
 
