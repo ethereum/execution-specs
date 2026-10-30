@@ -5,6 +5,7 @@ import json
 from enum import Enum, auto
 from functools import cached_property
 from typing import (
+    IO,
     Annotated,
     Any,
     ClassVar,
@@ -152,6 +153,10 @@ class BaseFixture(CamelModel):
         )
         h = hashlib.sha256(json_str.encode("utf-8")).hexdigest()
         return f"0x{h}"
+
+    def write_json(self, f: IO[str], hash_only: bool = False) -> None:
+        """Write the fixture document to `f`."""
+        json.dump(self.json_dict_with_info(hash_only=hash_only), f, indent=4)
 
     def json_dict_with_info(self, hash_only: bool = False) -> Dict[str, Any]:
         """Return JSON representation of the fixture with the info field."""
