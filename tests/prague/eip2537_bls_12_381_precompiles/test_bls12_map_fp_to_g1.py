@@ -136,6 +136,41 @@ def test_isogeny_kernel_values(
             FP((Spec.P - 1) | Spec.MAX_FP_BIT_SET),
             id="non_zero_byte_16_boundary_violation",
         ),
+        # Boundary validation for top-16 zero padding
+        pytest.param(
+            b"\x00" * 15 + b"\x01" + bytes(FP(0))[16:],
+            id="non_zero_byte_15_padding_violation",
+        ),
+        pytest.param(
+            b"\x00" * 15 + b"\x80" + bytes(FP(0))[16:],
+            id="non_zero_byte_15_high_bit_padding_violation",
+        ),
+        pytest.param(
+            b"\x00" * 15 + b"\x01" + bytes(FP(Spec.P - 1))[16:],
+            id="non_zero_byte_15_with_valid_fp",
+        ),
+        pytest.param(
+            b"\x00" * 8 + b"\x01" + b"\x00" * 7 + bytes(FP(0))[16:],
+            id="non_zero_mid_padding_byte_8_violation",
+        ),
+        # Modulus boundary tests
+        pytest.param(
+            FP(2**381 - 1),
+            id="fp_max_381_bit_above_modulus",
+        ),
+        pytest.param(
+            FP(2**384 - 1),
+            id="fp_max_384_bit_above_modulus",
+        ),
+        pytest.param(
+            FP(Spec.P + 2**128),
+            id="fp_modulus_plus_2_128",
+        ),
+        # Calldata length boundary tests
+        pytest.param(
+            b"\x00" * 32,
+            id="single_word_32_bytes_input",
+        ),
     ],
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
