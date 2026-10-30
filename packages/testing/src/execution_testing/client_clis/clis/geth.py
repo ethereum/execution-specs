@@ -130,6 +130,9 @@ class GethExceptionMapper(ExceptionMapper):
         BlockException.GAS_USED_OVERFLOW: "bal validation failure",
     }
     mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
+        # Geth finds the parent by hash and number minus one, so a block
+        # whose number is off from its parent's reads as a missing parent.
+        BlockException.INVALID_BLOCK_NUMBER: r"unknown ancestor",
         # In-range r that is not an x-coordinate on the curve: the range
         # check passes and recovery itself fails.
         TransactionException.INVALID_SIGNATURE_VRS: r"recovery failed",

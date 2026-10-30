@@ -120,6 +120,11 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.GAS_USED_OVERFLOW: "block gas used overflow",
     }
     mapping_regex = {
+        # Erigon looks the parent's total difficulty up by number minus
+        # one, so a block whose number is off from its parent's finds none.
+        BlockException.INVALID_BLOCK_NUMBER: (
+            r"total difficulty not found (for parent|with hash)"
+        ),
         # In-range r that is not an x-coordinate on the curve: the range
         # check passes and libsecp256k1 recovery itself fails.
         TransactionException.INVALID_SIGNATURE_VRS: r"recovery failed",
