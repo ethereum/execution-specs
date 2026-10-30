@@ -76,6 +76,10 @@ CALL_SUCCEEDED = 1
 POP_TOP = 0xE1
 POP_UNDER = 0xE2
 JUMP_MARKER = 0x7A
+# EIP-7979: one marker pushed inside a called subroutine, the other at
+# the point a RETURNSUB must return to.
+CALLSUB_MARKER = 0x8A
+RETURNSUB_MARKER = 0x9A
 
 STORER_CODE = Op.SSTORE(key=0x0, value=0x1) + Op.STOP
 """Pre-deployed target whose code EXTCODE* arms read."""
@@ -120,6 +124,35 @@ def _jump_over_revert(conditional: bool) -> Bytecode:
     )
     code = jump + revert + Op.JUMPDEST + Op.PUSH1[JUMP_MARKER]
     code.substitute(target=len(jump) + len(revert))
+    return code
+
+
+def _subroutine_round_trip(marker_in_callee: bool) -> Bytecode:
+    """
+    Call a subroutine and return from it (EIP-7979).
+
+    The callee is reached only by CALLSUB and left only by RETURNSUB:
+    a REVERT follows the RETURNSUB, so falling through faults, and the
+    code after the call jumps over the callee. With `marker_in_callee`
+    the marker is pushed inside the callee, so its arrival in the
+    deployed code proves the call was made; otherwise it is pushed at
+    the return point, proving the return landed there. Valid only with
+    an empty `prefix`, which puts this body at offset 0.
+    """
+    call = Op.CALLSUB(pc=Op.PUSH1(data_placeholder="callee"))
+    after_call = Bytecode()
+    if not marker_in_callee:
+        after_call += Op.PUSH1[RETURNSUB_MARKER]
+    after_call += Op.JUMP(pc=Op.PUSH1(data_placeholder="end"))
+    callee = Bytecode() + Op.CALLDEST
+    if marker_in_callee:
+        callee += Op.PUSH1[CALLSUB_MARKER]
+    callee += Op.RETURNSUB + Op.REVERT(offset=0x0, size=0x0)
+    code = call + after_call + callee + Op.JUMPDEST
+    code.substitute(
+        callee=len(call) + len(after_call),
+        end=len(call) + len(after_call) + len(callee),
+    )
     return code
 
 
@@ -326,6 +359,14 @@ CASES: dict[Opcodes, Case] = {
     # --- Jumps must clear the REVERT they skip over.
     Op.JUMP: Case(_jump_over_revert(conditional=False), JUMP_MARKER),
     Op.JUMPI: Case(_jump_over_revert(conditional=True), JUMP_MARKER),
+    # --- EIP-7979 subroutines. CALLSUB must enter the callee, and
+    # RETURNSUB must come back to the instruction after the call.
+    Op.CALLSUB: Case(
+        _subroutine_round_trip(marker_in_callee=True), CALLSUB_MARKER
+    ),
+    Op.RETURNSUB: Case(
+        _subroutine_round_trip(marker_in_callee=False), RETURNSUB_MARKER
+    ),
     # A creation frame has no calldata: the transaction's `data` is this
     # init code, and it is code here, not input. An implementation that
     # also exposed it as calldata would read a non-zero word.
@@ -467,6 +508,7 @@ CASES: dict[Opcodes, Case] = {
     # --- Arms with no value of their own: they must simply run.
     Op.STOP: Case(Op.STOP),
     Op.JUMPDEST: Case(Op.JUMPDEST),
+    Op.CALLDEST: Case(Op.CALLDEST),
     Op.PC: Case(Op.POP(Op.PC)),
     Op.GAS: Case(Op.POP(Op.GAS)),
     Op.GASPRICE: Case(Op.POP(Op.GASPRICE)),
