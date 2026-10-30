@@ -38,7 +38,7 @@ from execution_testing import (
     TransactionException,
 )
 
-from .helpers import APPROVE_ALL, FrameTransaction, verify_frame
+from .helpers import APPROVE_ALL, CALL_VALUE, FrameTransaction, verify_frame
 from .spec import ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -71,7 +71,7 @@ STATE_CHANGES = [
     pytest.param(lambda _: Op.LOG3(0, 0, 1, 2, 3), id="LOG3"),
     pytest.param(lambda _: Op.LOG4(0, 0, 1, 2, 3, 4), id="LOG4"),
     pytest.param(
-        lambda to: Op.POP(Op.CALL(gas=0, address=to, value=1)),
+        lambda to: Op.POP(Op.CALL(gas=0, address=to, value=CALL_VALUE)),
         id="CALL_with_value",
     ),
     pytest.param(lambda _: Op.POP(Op.CREATE(0, 0, 0)), id="CREATE"),
@@ -92,7 +92,7 @@ READS = [
     # `CALLCODE` with value sends the value to the calling account
     # itself, which changes no balance.
     pytest.param(
-        lambda to: Op.POP(Op.CALLCODE(gas=0, address=to, value=1)),
+        lambda to: Op.POP(Op.CALLCODE(gas=0, address=to, value=CALL_VALUE)),
         id="CALLCODE_with_value",
     ),
 ]
@@ -207,11 +207,12 @@ def test_verify_frame_nested_call_is_static(
     tried to change state.
     """
     recipient = pre.deploy_contract(code=Op.STOP)
-    # The callee, and under `DELEGATECALL` and `CALLCODE` the sender whose
-    # context its code runs in, hold a balance, so a `CALL` with value can
-    # only fail on the static restriction.
+    # The callee holds `CALL_VALUE`, and under `DELEGATECALL` and
+    # `CALLCODE` the sender, whose context the callee's code runs in,
+    # holds more, so a `CALL` with value can only fail on the static
+    # restriction.
     callee = pre.deploy_contract(
-        code=operation(recipient) + Op.STOP, balance=1
+        code=operation(recipient) + Op.STOP, balance=CALL_VALUE
     )
     sender_code = Conditional(
         condition=Op.EQ(
@@ -245,7 +246,7 @@ def test_verify_frame_nested_call_is_static(
             # in the sender's context, so this entry is a sanity check
             # there; the oracle is the transaction's validity and the
             # sender's nonce.
-            callee: Account(nonce=1, balance=1, storage={}),
+            callee: Account(nonce=1, balance=CALL_VALUE, storage={}),
             recipient: Account(balance=0),
         },
     )

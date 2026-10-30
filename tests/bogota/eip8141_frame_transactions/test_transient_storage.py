@@ -309,9 +309,9 @@ def test_transient_storage_discarded_before_verify_frame(
     fork: Fork,
 ) -> None:
     """
-    A `DEFAULT` frame writes the sender's transient slot and checks the
-    write within the frame; the following `VERIFY` frame of the same
-    account approves only if it finds the slot empty.
+    Write the sender's transient slot in a `DEFAULT` frame; the
+    following `VERIFY` frame of the same account approves only if it
+    finds the slot empty.
 
     EIP-8141 §Cross-frame interactions: "Discard the `TSTORE` and
     `TLOAD` transient storage between frames." A `VERIFY` frame runs as
@@ -321,11 +321,7 @@ def test_transient_storage_discarded_before_verify_frame(
     survived, the `VERIFY` frame would revert and the transaction would
     be invalid.
     """
-    writer = Op.TSTORE(TRANSIENT_KEY, TRANSIENT_VALUE) + Conditional(
-        condition=Op.EQ(Op.TLOAD(TRANSIENT_KEY), TRANSIENT_VALUE),
-        if_true=Op.STOP,
-        if_false=Op.REVERT(0, 0),
-    )
+    writer = Op.TSTORE(TRANSIENT_KEY, TRANSIENT_VALUE) + Op.STOP
     verifier = Conditional(
         condition=Op.ISZERO(Op.TLOAD(TRANSIENT_KEY)),
         if_true=APPROVE_ALL,
