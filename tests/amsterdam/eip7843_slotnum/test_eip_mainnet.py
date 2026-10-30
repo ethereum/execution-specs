@@ -8,6 +8,7 @@ from execution_testing import (
     Account,
     Alloc,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -24,6 +25,7 @@ pytestmark = [pytest.mark.valid_at("EIP7843"), pytest.mark.mainnet]
 def test_slotnum_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test that SLOTNUM executes and pushes one stack item.
@@ -34,15 +36,25 @@ def test_slotnum_mainnet(
     whatever the consensus layer transmits and cannot be controlled by
     the test.
     """
+    code = Op.POP(Op.SLOTNUM) + Op.SSTORE(
+        0,
+        1,
+        # gas accounting
+        original_value=0xDEADBEEF,
+    )
     contract = pre.deploy_contract(
-        code=Op.POP(Op.SLOTNUM) + Op.SSTORE(0, 1),
+        code=code,
         storage={"0x00": "0xdeadbeef"},
     )
+
+    gas_limit = fork.transaction_intrinsic_cost_calculator()() + code.gas_cost(
+        fork
+    )
+
     tx = Transaction(
-        ty=0x02,
         to=contract,
         sender=pre.fund_eoa(),
-        gas_limit=200_000,
+        gas_limit=gas_limit,
     )
     post = {contract: Account(storage={"0x00": 1})}
 
