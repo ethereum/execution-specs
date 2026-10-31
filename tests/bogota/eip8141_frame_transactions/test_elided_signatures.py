@@ -20,16 +20,13 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from .helpers import default_frame, verify_frame
+from .helpers import APPROVE_ALL, default_frame, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
-
-APPROVE_ALL = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
-"""Validation code of a contract sender that approves unconditionally."""
 
 
 @pytest.mark.parametrize(
