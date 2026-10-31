@@ -116,7 +116,7 @@ Genesis and blocks rejected before execution print nothing. Clients MAY add keys
 | go-ethereum | `evm blocktest` | `evm enginetest` | always | `1` |
 | Besu | `evmtool block-test` | `evmtool engine-test` | `--json-array` | `1` |
 | Nethermind | `nethtest blocktest` | `nethtest enginetest` | always | `0`, which its CI relies on |
-| Erigon | `evm blocktest` | `evm enginetest` | `--jsonout` | `0`, which its CI relies on |
+| Erigon | `evm blocktest` | `evm enginetest` | `--jsonout` | `1` |
 | Reth | `ef-test-runner blocktest` | `ef-test-runner enginetest` | always | `1` |
 | ethrex | `blocktest` (package `ef_tests-runners`) | `enginetest` (package `ef_tests-runners`) | `--json` | `1` |
 
