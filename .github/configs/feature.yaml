@@ -25,6 +25,8 @@ benchmark_fast:
   feature_only: true
 
 # Shared entry for all `<feat>-devnet` releases; matched by `-devnet` suffix.
+# devnets/frames/0: fill every fork through Bogota, split
+# across the fork ranges so the fill parallelizes.
 devnet:
   evm-type: eels
-  fill-params: --until=Amsterdam --generate-all-formats
+  fill-params: --until=Bogota --generate-all-formats

@@ -54,9 +54,18 @@ def transaction_key(tx: "Transaction") -> TransactionKey:
 
 
 def effective_gas_price(tx: "Transaction", base_fee_per_gas: int) -> int:
-    """Return the price per gas that `tx` pays given the block base fee."""
+    """
+    Return the price per gas that `tx` pays given the block base fee.
+
+    A frame transaction pays the base fee plus its tip per gas as long as
+    its `max_fee` budget does not bind; a test that binds the budget
+    spells out the charges instead.
+    """
     if tx.gas_price is not None:
         return int(tx.gas_price)
+    if tx.frames is not None:
+        assert tx.max_priority_fee_per_gas is not None
+        return base_fee_per_gas + int(tx.max_priority_fee_per_gas)
     assert tx.max_fee_per_gas is not None
     assert tx.max_priority_fee_per_gas is not None
     return min(

@@ -17,6 +17,7 @@ from execution_testing.forks import Fork
 from execution_testing.test_types import (
     PostStateContext,
     Transaction,
+    verify_frame_transaction_receipt,
     verify_transaction_receipt,
 )
 from execution_testing.test_types.balance_expectations import (
@@ -259,6 +260,10 @@ def verify_transactions(
                 expected_receipt=tx.expected_receipt,
                 actual_receipt=actual_receipt,
             )
+            if tx.frames is not None:
+                verify_frame_transaction_receipt(
+                    i, tx.expected_receipt, actual_receipt
+                )
             previous_cumulative_gas_used = actual_receipt.cumulative_gas_used
             receipt_index += 1
 
