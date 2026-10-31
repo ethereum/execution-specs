@@ -26,7 +26,7 @@ from execution_testing import (
     add_kzg_version,
 )
 
-from .helpers import verify_frame
+from .helpers import BASE_FEE, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -38,9 +38,6 @@ BLOB_COUNT = 2
 """Blobs the probed transaction carries, so an index past the first."""
 
 BLOB_COMMITMENT_VERSION_KZG = 1
-
-BASE_FEE = 7
-"""Base fee of the block the probed transaction lands in."""
 
 MAX_PRIORITY_FEE = 3
 """A tip, so the escrow includes the largest tip the budget allows."""
