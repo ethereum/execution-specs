@@ -1,0 +1,151 @@
+{
+  "exp-tx-cap-halved": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    TX_MAX_GAS_LIMIT: Final[Uint] = Uint(16_777_216)",
+    "replace": "    TX_MAX_GAS_LIMIT: Final[Uint] = Uint(8_388_608)  # MUTATION",
+    "why": "EIP-7825 cap 2**24 -> 2**23: the per-transaction work ceiling halves (tx_gas_cap_ceiling)"
+  },
+  "exp-tx-cap-doubled": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    TX_MAX_GAS_LIMIT: Final[Uint] = Uint(16_777_216)\n",
+    "replace": "    TX_MAX_GAS_LIMIT: Final[Uint] = Uint(33_554_432)  # MUTATION\n",
+    "why": "EIP-7825 cap 2**24 -> 2**25, the LOOSER direction: the ceiling rises and the reservoir starts later (tx_gas_cap_ceiling)"
+  },
+  "exp-tx-cap-not-applied-to-execution": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    execution_gas = ExecutionGas(min(execution_gas_budget, evm_gas))",
+    "replace": "    execution_gas = ExecutionGas(evm_gas)  # MUTATION: cap dropped",
+    "why": "remove the min() so tx.gas above the cap becomes execution gas again: EIP-7825 reverted in the allocation, reservoir always zero (tx_gas_cap_ceiling)"
+  },
+  "exp-tx-reservoir-gets-all-evm-gas": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    state_gas_reservoir = StateGas(evm_gas - execution_gas)",
+    "replace": "    state_gas_reservoir = StateGas(evm_gas)  # MUTATION",
+    "why": "reservoir no longer the EXCESS above the cap but the whole EVM gas: the cap/reservoir boundary moves to zero (tx_gas_cap_ceiling arm 3 only)"
+  },
+  "exp-tx-block-state-dim-capped": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    if tx_gas > state_gas_available:",
+    "replace": "    if min(GasCosts.TX_MAX_GAS_LIMIT, tx_gas) > state_gas_available:  # MUTATION",
+    "why": "let the EIP-7825 cap soften the BLOCK state-gas dimension too, so a transaction may oversubscribe the block (tx_gas_cap_ceiling arm 5)"
+  },
+  "exp-tx-al-address-2400": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    TX_ACCESS_LIST_ADDRESS: Final[ExecutionGas] = (\n        COLD_ACCOUNT_ACCESS - WARM_ACCESS\n    )",
+    "replace": "    TX_ACCESS_LIST_ADDRESS: Final[ExecutionGas] = ExecutionGas(Uint(2400))  # MUTATION",
+    "why": "restore the exact pre-EIP-7981 per-address charge 2,400 (cheaper direction) (tx_gas_cap_ceiling arm 4)"
+  },
+  "exp-tx-al-key-1900": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    TX_ACCESS_LIST_STORAGE_KEY: Final[ExecutionGas] = (\n        COLD_STORAGE_ACCESS - WARM_ACCESS\n    )",
+    "replace": "    TX_ACCESS_LIST_STORAGE_KEY: Final[ExecutionGas] = ExecutionGas(Uint(1900))  # MUTATION",
+    "why": "restore the exact pre-EIP-7981 per-storage-key charge 1,900 (cheaper direction) (tx_gas_cap_ceiling arm 4)"
+  },
+  "exp-tx-al-address-floor-tokens-40": {
+    "file": "amsterdam/transactions.py",
+    "find": "ACCESS_LIST_ADDRESS_FLOOR_TOKENS = Uint(80)",
+    "replace": "ACCESS_LIST_ADDRESS_FLOOR_TOKENS = Uint(40)  # MUTATION",
+    "why": "halve the EIP-7981 per-address floor-token surcharge (cheaper direction) (tx_gas_cap_ceiling arm 4)"
+  },
+  "exp-tx-al-key-floor-tokens-256": {
+    "file": "amsterdam/transactions.py",
+    "find": "ACCESS_LIST_STORAGE_KEY_FLOOR_TOKENS = Uint(128)",
+    "replace": "ACCESS_LIST_STORAGE_KEY_FLOOR_TOKENS = Uint(256)  # MUTATION",
+    "why": "double the EIP-7981 per-storage-key floor-token surcharge (dearer direction) (tx_gas_cap_ceiling arm 4)"
+  },
+  "exp-tx-al-surcharge-not-in-execution": {
+    "file": "amsterdam/transactions.py",
+    "find": "            + access_list_cost\n            + access_list_data_cost\n            + auth_cost",
+    "replace": "            + access_list_cost\n            + auth_cost  # MUTATION: surcharge dropped from execution",
+    "why": "charge the EIP-7981 access-list data surcharge into the calldata floor ONLY, not 'on both sides of the gas-used maximum': the exact half of the double charge that the floor-side tests cannot see (tx_gas_cap_ceiling arm 4)"
+  },
+  "exp-tx-max-code-size-24576": {
+    "file": "amsterdam/vm/interpreter.py",
+    "find": "MAX_CODE_SIZE = 0x10000",
+    "replace": "MAX_CODE_SIZE = 0x6000  # MUTATION",
+    "why": "EIP-7954 reverted to the EIP-170 limit: 24,577 bytes stop deploying (code_size_gate)"
+  },
+  "exp-tx-max-code-size-doubled": {
+    "file": "amsterdam/vm/interpreter.py",
+    "find": "MAX_CODE_SIZE = 0x10000\n",
+    "replace": "MAX_CODE_SIZE = 0x20000  # MUTATION\n",
+    "why": "EIP-7954 limit doubled to 131,072, the LOOSER direction: 65,537 bytes become deployable (code_size_gate)"
+  },
+  "exp-tx-code-deposit-free": {
+    "file": "amsterdam/vm/interpreter.py",
+    "find": "            charge_state_gas(evm, code_deposit_state_gas)",
+    "replace": "            pass  # MUTATION: code deposit costs no state gas",
+    "why": "drop EIP-8037's 1,530 state gas per deposited byte, so a maximum-size EIP-7954 contract becomes deployable in a 60M block (code_size_gate arm 4)"
+  },
+  "exp-tx-transfer-log-suppressed": {
+    "file": "amsterdam/vm/interpreter.py",
+    "find": "            if evm.caller != evm.current_target:\n                emit_transfer_log(\n                    evm,\n                    evm.caller,\n                    evm.current_target,\n                    evm.value,\n                )",
+    "replace": "            if False:  # MUTATION: EIP-7708 emission removed\n                pass",
+    "why": "EIP-7708 reverted: a value-bearing call emits no system log, so the callee's event returns to index 0 (transfer_log_count)"
+  },
+  "exp-tx-transfer-log-on-zero-value-call-site": {
+    "file": "amsterdam/vm/interpreter.py",
+    "find": "        if evm.should_transfer_value and evm.value != 0:",
+    "replace": "        if evm.should_transfer_value:  # MUTATION: zero value logs too",
+    "why": "EXPLAINED SURVIVAL, both directions tried. Drop the `value != 0` guard at the CALL SITE (interpreter.py:418), the LOOSER direction. It survives because the rule is guarded TWICE: `emit_transfer_log` opens with its own `if transfer_amount == 0: return`, which still blocks the log. Paired with exp-tx-transfer-log-on-zero-value-inner-guard below, this measures the redundancy rather than a coverage gap (transfer_log_count arm 3)"
+  },
+  "exp-tx-transfer-log-on-zero-value-inner-guard": {
+    "file": "amsterdam/vm/__init__.py",
+    "find": "    if transfer_amount == 0:\n        return",
+    "replace": "    if transfer_amount == 0:\n        pass  # MUTATION: zero-amount early return removed",
+    "why": "EXPLAINED SURVIVAL, the other half of the pair. Remove the zero-amount early return inside `emit_transfer_log`; it survives because the CALL SITE still gates on `evm.value != 0`. Neither single-site mutation can falsify 'a zero-value call emits no log', because either guard alone is sufficient -- so arm 3 is a control against a single-site regression and `mutate.py` would need a two-site mutation to falsify it. Stating that is the result"
+  },
+  "exp-tx-transfer-topic-disambiguated": {
+    "file": "amsterdam/vm/__init__.py",
+    "find": "TRANSFER_TOPIC = keccak256(b\"Transfer(address,address,uint256)\")",
+    "replace": "TRANSFER_TOPIC = keccak256(b\"EthTransfer(address,address,uint256)\")  # MUTATION",
+    "why": "give the system log its own signature instead of colliding with ERC-20 Transfer: the repair a later fork might ship, which would silently change every topic0 subscription again (transfer_log_count arm 4)"
+  },
+  "exp-tx-transfer-log-from-the-sender": {
+    "file": "amsterdam/vm/__init__.py",
+    "find": "        address=SYSTEM_ADDRESS,\n        topics=(\n            TRANSFER_TOPIC,",
+    "replace": "        address=sender,  # MUTATION\n        topics=(\n            TRANSFER_TOPIC,",
+    "why": "emit the system log from the sender rather than SYSTEM_ADDRESS, removing the only field that distinguishes it from a token's own Transfer (transfer_log_count arm 4)"
+  },
+  "exp-tx-budget-ignores-intrinsic": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    execution_gas_budget = GasCosts.TX_MAX_GAS_LIMIT - intrinsic.execution",
+    "replace": "    execution_gas_budget = ExecutionGas(GasCosts.TX_MAX_GAS_LIMIT)  # MUTATION",
+    "why": "stop subtracting the intrinsic cost from the execution budget: the ceiling rises to a flat 2**24 and the reservoir origin shifts by the intrinsic cost, so the cancellation this archetype pins is broken (tx_gas_cap_ceiling)"
+  },
+  "exp-tx-osaka-cap-halved": {
+    "file": "osaka/vm/gas.py",
+    "find": "    TX_MAX_GAS_LIMIT: Final[Uint] = Uint(16_777_216)",
+    "replace": "    TX_MAX_GAS_LIMIT: Final[Uint] = Uint(8_388_608)  # MUTATION",
+    "why": "EIP-7825 cap halved on the fork where it is a VALIDITY bound: a transaction at the real cap becomes invalid (tx_gas_cap_ceiling, Osaka arm)",
+    "fork": "Osaka"
+  },
+  "exp-tx-osaka-tx-base-20000": {
+    "file": "osaka/vm/gas.py",
+    "find": "    TX_BASE: Final[Uint] = Uint(21000)",
+    "replace": "    TX_BASE: Final[Uint] = Uint(20000)  # MUTATION",
+    "why": "move the pre-EIP-2780 flat intrinsic charge, which is subtracted from the work ceiling (tx_gas_cap_ceiling pre-fork arms)",
+    "fork": "Osaka"
+  },
+  "exp-tx-osaka-al-address-2000": {
+    "file": "osaka/vm/gas.py",
+    "find": "    TX_ACCESS_LIST_ADDRESS: Final[Uint] = Uint(2400)",
+    "replace": "    TX_ACCESS_LIST_ADDRESS: Final[Uint] = Uint(2000)  # MUTATION",
+    "why": "move the pre-EIP-7981 per-address access-list charge (tx_gas_cap_ceiling arm 4, pre-fork half)",
+    "fork": "Osaka"
+  },
+  "exp-tx-osaka-max-code-size-32768": {
+    "file": "osaka/vm/interpreter.py",
+    "find": "MAX_CODE_SIZE = 0x6000",
+    "replace": "MAX_CODE_SIZE = 0x8000  # MUTATION",
+    "why": "raise the EIP-170 limit on a pre-EIP-7954 fork: 24,577 bytes become deployable and the hardcoded gate starts refusing live contracts a fork early (code_size_gate arm 1)",
+    "fork": "Osaka"
+  },
+  "exp-tx-osaka-log-address-is-the-caller": {
+    "file": "osaka/vm/instructions/log.py",
+    "find": "        address=evm.message.current_target,",
+    "replace": "        address=evm.message.caller,  # MUTATION",
+    "why": "attribute a LOG to the caller rather than the emitting contract: the `logs[0] is mine` invariant fails on identity rather than on count (transfer_log_count pre-fork arms)",
+    "fork": "Osaka"
+  }
+}

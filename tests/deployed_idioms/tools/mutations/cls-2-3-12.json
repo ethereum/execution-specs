@@ -1,0 +1,51 @@
+{
+  "cls2-cpsb-250": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "StateGasPerByte(Uint(1530))",
+    "replace": "StateGasPerByte(Uint(250))",
+    "why": "COST_PER_STATE_BYTE 1530->250 (a CHEAPER reprice): a fresh slot falls to 2,100+10,000+16,000 = 28,100, so the 30,000 and 50,000 sub-floor budgets become write-capable and archetype 2's 'cannot create state' arm must fail",
+    "fork": "Amsterdam"
+  },
+  "cls12-cold-read-5000": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "COLD_STORAGE_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(2100))",
+    "replace": "COLD_STORAGE_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(5000))",
+    "why": "COLD_STORAGE_ACCESS 2100->5000 (reads get DEARER, EIP-1884-shaped): a capable probe target at the 5,000 literal stops answering, and ERC-7579 postCheck's 3,229-gas read-only body no longer fits",
+    "fork": "Amsterdam"
+  },
+  "cls12-cold-read-700": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "COLD_STORAGE_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(2100))",
+    "replace": "COLD_STORAGE_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(700))",
+    "why": "COLD_STORAGE_ACCESS 2100->700 (reads get CHEAPER, EIP-1108-scale 3x cut): an overrunning target now fits both probe literals and answers 'yes', so an incapable target is read as capable",
+    "fork": "Amsterdam"
+  },
+  "cls2-storage-set-osaka-60000": {
+    "file": "osaka/vm/gas.py",
+    "find": "STORAGE_SET: Final[Uint] = Uint(20000)",
+    "replace": "STORAGE_SET: Final[Uint] = Uint(60000)",
+    "why": "pre-8037 STORAGE_SET 20000->60000: the pre-EIP-8037 slot floor rises to 62,100, so the 30,000 and 50,000 budgets lose the write capability archetype 2 pins them as having on those forks",
+    "fork": "Osaka"
+  },
+  "cls3-cold-storage-write-4500": {
+    "file": "osaka/vm/gas.py",
+    "find": "COLD_STORAGE_WRITE: Final[Uint] = Uint(5000)",
+    "replace": "COLD_STORAGE_WRITE: Final[Uint] = Uint(4500)",
+    "why": "pre-8037 COLD_STORAGE_WRITE 5000->4500: the cold total EIP-2929 deliberately preserved moves, so the hardcoded-5000 equality for a replacing write stops holding. Isolates the reset term from STORAGE_SET, which this does not touch",
+    "fork": "Osaka"
+  },
+  "cls3-storage-write-9000": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "STORAGE_WRITE: Final[ExecutionGas] = ExecutionGas(Uint(10000))",
+    "replace": "STORAGE_WRITE: Final[ExecutionGas] = ExecutionGas(Uint(9000))",
+    "why": "Amsterdam STORAGE_WRITE 10000->9000: the execution part of every storage write moves, so both post-8037 charges (110,020 creating and 12,100 replacing) move with it",
+    "fork": "Amsterdam"
+  },
+  "cls2-storage-set-osaka-1000": {
+    "file": "osaka/vm/gas.py",
+    "find": "STORAGE_SET: Final[Uint] = Uint(20000)",
+    "replace": "STORAGE_SET: Final[Uint] = Uint(1000)",
+    "why": "pre-8037 STORAGE_SET 20000->1000 (a CHEAPER reprice): the slot floor falls to 3,100, below ERC-7579 postCheck's 3,229, so the one budget that was never write-capable becomes write-capable",
+    "fork": "Osaka"
+  }
+}

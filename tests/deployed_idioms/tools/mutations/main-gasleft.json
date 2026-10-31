@@ -1,0 +1,14 @@
+{
+  "drain-no-reservoir": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    reservoir = gas_meter.state_gas_left\n    gas_meter.state_gas_left = StateGas(Uint(0))",
+    "replace": "    reservoir = StateGas(Uint(0))  # MUTATION\n    gas_meter.state_gas_left = StateGas(Uint(0))",
+    "why": "a child frame no longer receives the parent's state gas reservoir"
+  },
+  "gas-reports-reservoir": {
+    "file": "amsterdam/vm/instructions/control_flow.py",
+    "find": "push(evm.stack, U256(evm.gas_meter.gas_left))",
+    "replace": "push(evm.stack, U256(evm.gas_meter.gas_left + Uint(evm.gas_meter.state_gas_left)))  # MUTATION",
+    "why": "GAS reports gas_left PLUS the reservoir instead of gas_left alone"
+  }
+}

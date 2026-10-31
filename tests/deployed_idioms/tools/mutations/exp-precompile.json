@@ -1,0 +1,173 @@
+{
+  "exp-pre-ecadd-200": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    PRECOMPILE_ECADD: Final[ExecutionGas] = ExecutionGas(Uint(150))",
+    "replace": "    PRECOMPILE_ECADD: Final[ExecutionGas] = ExecutionGas(Uint(200))  # MUTATION",
+    "why": "DEARER. PRECOMPILE_ECADD 150 -> 200. The upper rail of the ECADD bracket must fail; the lower rail (149) must stay green, so the signature says 'rose' rather than merely 'moved'."
+  },
+  "exp-pre-ecadd-50": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    PRECOMPILE_ECADD: Final[ExecutionGas] = ExecutionGas(Uint(150))",
+    "replace": "    PRECOMPILE_ECADD: Final[ExecutionGas] = ExecutionGas(Uint(50))  # MUTATION",
+    "why": "CHEAPER. PRECOMPILE_ECADD 150 -> 50, continuing EIP-1108's own 500 -> 150 direction. Only the lower rail can see it: class #1's frozen-budget survival shape is structurally blind to a reduction."
+  },
+  "exp-pre-ecmul-6500": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    PRECOMPILE_ECMUL: Final[ExecutionGas] = ExecutionGas(Uint(6000))",
+    "replace": "    PRECOMPILE_ECMUL: Final[ExecutionGas] = ExecutionGas(Uint(6500))  # MUTATION",
+    "why": "DEARER. PRECOMPILE_ECMUL 6,000 -> 6,500. Breaks the bracket's upper rail AND the deployed zero-margin literal in a deployed Groth16 verifier <address withheld> (staticcall(6000, 7, ...)), while a deployed zk protocol's 8,000 'safety buffer' still holds -- a graded result showing which deployed contract dies first."
+  },
+  "exp-pre-ecmul-1000": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    PRECOMPILE_ECMUL: Final[ExecutionGas] = ExecutionGas(Uint(6000))",
+    "replace": "    PRECOMPILE_ECMUL: Final[ExecutionGas] = ExecutionGas(Uint(1000))  # MUTATION",
+    "why": "CHEAPER. PRECOMPILE_ECMUL 6,000 -> 1,000, the same shape as EIP-1108's measured 40,000 -> 6,000 reduction. Detectable only from the lower rail."
+  },
+  "exp-pre-ecpairing-base-50000": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    PRECOMPILE_ECPAIRING_BASE: Final[ExecutionGas] = ExecutionGas(Uint(45000))",
+    "replace": "    PRECOMPILE_ECPAIRING_BASE: Final[ExecutionGas] = ExecutionGas(Uint(50000))  # MUTATION",
+    "why": "DEARER. ECPAIRING_BASE 45,000 -> 50,000. Must break BOTH pairing brackets' upper rails (0-pair and 1-pair), which is the signature that identifies the base term rather than the per-point term."
+  },
+  "exp-pre-ecpairing-base-20000": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    PRECOMPILE_ECPAIRING_BASE: Final[ExecutionGas] = ExecutionGas(Uint(45000))",
+    "replace": "    PRECOMPILE_ECPAIRING_BASE: Final[ExecutionGas] = ExecutionGas(Uint(20000))  # MUTATION",
+    "why": "CHEAPER. ECPAIRING_BASE 45,000 -> 20,000, half again beyond EIP-1108's 100,000 -> 45,000. Breaks both pairing lower rails."
+  },
+  "exp-pre-ecpairing-per-point-40000": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    PRECOMPILE_ECPAIRING_PER_POINT: Final[ExecutionGas] = ExecutionGas(\n        Uint(34000)\n    )",
+    "replace": "    PRECOMPILE_ECPAIRING_PER_POINT: Final[ExecutionGas] = ExecutionGas(\n        Uint(40000)  # MUTATION\n    )",
+    "why": "DEARER. ECPAIRING_PER_POINT 34,000 -> 40,000. Must break the ONE-pair bracket and leave the ZERO-pair bracket untouched -- the complementary signature to exp-pre-ecpairing-base-*, so the two constants are discriminated rather than merely both covered."
+  },
+  "exp-pre-ecpairing-per-point-10000": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    PRECOMPILE_ECPAIRING_PER_POINT: Final[ExecutionGas] = ExecutionGas(\n        Uint(34000)\n    )",
+    "replace": "    PRECOMPILE_ECPAIRING_PER_POINT: Final[ExecutionGas] = ExecutionGas(\n        Uint(10000)  # MUTATION\n    )",
+    "why": "CHEAPER. ECPAIRING_PER_POINT 34,000 -> 10,000, the EIP-1108 direction (80,000 -> 34,000) continued. One-pair lower rail only."
+  },
+  "exp-pre-p256verify-7000": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    PRECOMPILE_P256VERIFY: Final[ExecutionGas] = ExecutionGas(Uint(6900))",
+    "replace": "    PRECOMPILE_P256VERIFY: Final[ExecutionGas] = ExecutionGas(Uint(7000))  # MUTATION",
+    "why": "DEARER. PRECOMPILE_P256VERIFY 6,900 -> 7,000. The newest precompile's price, which nothing else in the corpus pins; a brand-new constant is the one most likely to be tuned in its first few forks."
+  },
+  "exp-pre-p256verify-3450": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    PRECOMPILE_P256VERIFY: Final[ExecutionGas] = ExecutionGas(Uint(6900))",
+    "replace": "    PRECOMPILE_P256VERIFY: Final[ExecutionGas] = ExecutionGas(Uint(3450))  # MUTATION",
+    "why": "CHEAPER. PRECOMPILE_P256VERIFY halved to 3,450. Lower rail only."
+  },
+  "exp-pre-modexp-restore-gquaddivisor": {
+    "file": "amsterdam/vm/precompiled_contracts/modexp.py",
+    "find": "    return ExecutionGas(max(Uint(500), cost))",
+    "replace": "    return ExecutionGas(max(Uint(200), cost // Uint(3)))  # MUTATION",
+    "why": "CHEAPER, and it restores a REAL historical value exactly rather than inventing one: EIP-2565's `cost // GQUADDIVISOR(3)` with the old 200 floor, i.e. EIP-7883's pricing half reverted. The p-2 inverse goes 4,080 -> 1,360, so the Osaka arm's lower rail (4,079) starts succeeding AND a deployed account-abstraction stack's frozen 1,500 starts fitting again -- two slots, one of them a deployed literal."
+  },
+  "exp-pre-modexp-floor-5000": {
+    "file": "amsterdam/vm/precompiled_contracts/modexp.py",
+    "find": "    return ExecutionGas(max(Uint(500), cost))",
+    "replace": "    return ExecutionGas(max(Uint(5000), cost))  # MUTATION",
+    "why": "DEARER. The EIP-7883 minimum charge 500 -> 5,000. Chosen to sit just above the measured 4,080 p-2 inverse, so it breaks the 32-byte bracket's upper rail while leaving both large-operand brackets (32,768 and 253,952) untouched -- the floor is discriminated from the coefficients."
+  },
+  "exp-pre-modexp-small-complexity-32": {
+    "file": "amsterdam/vm/precompiled_contracts/modexp.py",
+    "find": "    complexity = Uint(16)\n    if max_length > Uint(32):",
+    "replace": "    complexity = Uint(32)  # MUTATION\n    if max_length > Uint(32):",
+    "why": "DEARER. EIP-7883's flat small-operand complexity 16 -> 32. Doubles the p-2 inverse to 8,160 and the 1024-byte EXPONENT shape to 507,904, but leaves the 1024-byte BASE shape alone (it takes the `max_length > 32` branch). Precisely the graded signature that separates the two code paths."
+  },
+  "exp-pre-modexp-small-complexity-8": {
+    "file": "amsterdam/vm/precompiled_contracts/modexp.py",
+    "find": "    complexity = Uint(16)\n    if max_length > Uint(32):",
+    "replace": "    complexity = Uint(8)  # MUTATION\n    if max_length > Uint(32):",
+    "why": "CHEAPER. Flat small-operand complexity 16 -> 8. The p-2 inverse falls to 2,040, so the lower rail (4,079) starts succeeding while a deployed account-abstraction stack's 1,500 still does not fit -- a graded cheaper result rather than a blanket one."
+  },
+  "exp-pre-modexp-word-complexity-x4": {
+    "file": "amsterdam/vm/precompiled_contracts/modexp.py",
+    "find": "        complexity = Uint(2) * words ** Uint(2)",
+    "replace": "        complexity = Uint(4) * words ** Uint(2)  # MUTATION",
+    "why": "DEARER. EIP-7883's word coefficient 2 -> 4 for operands over 32 bytes. Must break the 1024-byte BASE bracket (32,768 -> 65,536) and NOT the 32-byte inverse, the complement of exp-pre-modexp-small-complexity-32."
+  },
+  "exp-pre-modexp-word-complexity-x1": {
+    "file": "amsterdam/vm/precompiled_contracts/modexp.py",
+    "find": "        complexity = Uint(2) * words ** Uint(2)",
+    "replace": "        complexity = Uint(1) * words ** Uint(2)  # MUTATION",
+    "why": "CHEAPER. Word coefficient 2 -> 1, restoring EIP-2565's `words**2` term without the divisor. 1024-byte base lower rail only."
+  },
+  "exp-pre-modexp-exponent-length-term-8": {
+    "file": "amsterdam/vm/precompiled_contracts/modexp.py",
+    "find": "        length_part = Uint(16) * (Uint(exponent_length) - Uint(32))",
+    "replace": "        length_part = Uint(8) * (Uint(exponent_length) - Uint(32))  # MUTATION",
+    "why": "CHEAPER, restoring EIP-2565's exact value: the exponent length term 16 -> 8. The 1024-byte exponent shape halves, 253,952 -> 126,976, so only its lower rail can see it. This is the coefficient EIP-7883 raised by the largest factor (96x once the flat complexity is included), and no other archetype in the corpus reaches it."
+  },
+  "exp-pre-modexp-exponent-length-term-32": {
+    "file": "amsterdam/vm/precompiled_contracts/modexp.py",
+    "find": "        length_part = Uint(16) * (Uint(exponent_length) - Uint(32))",
+    "replace": "        length_part = Uint(32) * (Uint(exponent_length) - Uint(32))  # MUTATION",
+    "why": "DEARER. Exponent length term 16 -> 32. 1024-byte exponent shape 253,952 -> 507,904; must leave the base and 32-byte shapes green."
+  },
+  "exp-pre-modexp-bound-512": {
+    "file": "amsterdam/vm/precompiled_contracts/modexp.py",
+    "find": "> U256(1024):",
+    "replace": "> U256(512):  # MUTATION",
+    "why": "ADMISSIBILITY, TIGHTER. EIP-7823's bound 1,024 -> 512 on all three length fields. No gas constant moves, so only an admissibility test can see it: the three `*_at_1024_is_admissible` slots must go red while every price bracket stays green."
+  },
+  "exp-pre-modexp-bound-2048": {
+    "file": "amsterdam/vm/precompiled_contracts/modexp.py",
+    "find": "> U256(1024):",
+    "replace": "> U256(2048):  # MUTATION",
+    "why": "ADMISSIBILITY, LOOSER. The bound 1,024 -> 2,048, i.e. EIP-7823 half-repealed. A loosening rather than a tightening, following class #23's precedent that for a non-numeric rule the two-sidedness comes from relaxing as well as restricting: the three `*_at_1025_is_rejected` slots must go red."
+  },
+  "exp-pre-modexp-base-bound-removed": {
+    "file": "amsterdam/vm/precompiled_contracts/modexp.py",
+    "find": "    if base_length > U256(1024):\n        raise ExceptionalHalt(\"Mod-exp base length is too large\")",
+    "replace": "    if False:  # MUTATION: EIP-7823's base bound removed\n        raise ExceptionalHalt(\"Mod-exp base length is too large\")",
+    "why": "ADMISSIBILITY, PER FIELD. Removes only the base check and leaves the exponent and modulus checks in place, so a correct archetype reports exactly 1 of its 3 field slots red. A single-field test would have read 'detected' and hidden the fact that the other two bounds were never covered."
+  },
+  "exp-pre-noop-canary": {
+    "file": "amsterdam/vm/precompiled_contracts/modexp.py",
+    "find": "        raise ExceptionalHalt(\"Mod-exp base length is too large\")",
+    "replace": "        raise ExceptionalHalt(\"Mod-exp base length is too large\")  # MUTATION-NOOP",
+    "why": "CONTROL: a comment-only edit that changes no behaviour. Registered deliberately so the matrix carries one row that MUST survive everywhere; a mutation harness that reports DETECTED here is itself broken (e.g. nondeterministic fills or a leaked tree). The corpus has no such canary row yet."
+  },
+  "exp-pre-p256-halts-on-malformed-length": {
+    "file": "amsterdam/vm/precompiled_contracts/p256verify.py",
+    "find": "    if len(data) != 160:\n        return",
+    "replace": "    if len(data) != 160:\n        from ...vm.exceptions import OutOfGasError  # MUTATION\n\n        raise OutOfGasError(\"MUTATION\")",
+    "why": "SEMANTIC. p256verify halts instead of returning success-with-empty-output for a malformed input. This is the single property that makes an assigned P256VERIFY indistinguishable from an empty account on the success channel -- a widely used contract library's source says so verbatim ('RIP-7212 precompiles return empty bytes when an invalid signature is passed, making it impossible to distinguish the presence of the precompile') -- and nothing else in the corpus asserts it. No gas constant moves."
+  },
+  "exp-pre-unassign-p256verify": {
+    "file": "amsterdam/vm/precompiled_contracts/mapping.py",
+    "find": "    P256VERIFY_ADDRESS: p256verify,",
+    "replace": "    # MUTATION: P256VERIFY_ADDRESS unassigned again",
+    "why": "SEMANTIC, ADDRESS ASSIGNMENT. 0x100 reverts to being an empty account at Amsterdam. a widely used contract library's deployed probe must flip back to 'precompile absent' (returndatasize 32 -> 0, isValid 1 -> 0), and the P256VERIFY price bracket's lower rail must start succeeding because an empty account answers on any budget. No gas constant moves."
+  },
+  "exp-pre-assign-0x12": {
+    "file": "amsterdam/vm/precompiled_contracts/__init__.py",
+    "find": "BLS12_MAP_FP2_TO_G2_ADDRESS = hex_to_address(\"0x11\")",
+    "replace": "BLS12_MAP_FP2_TO_G2_ADDRESS = hex_to_address(\"0x12\")  # MUTATION",
+    "why": "SEMANTIC, ADDRESS ASSIGNMENT, the opposite direction. An address this corpus asserts is still an empty account (0x12, the first above the EIP-2537 block) becomes a precompile. The `control_0x12_still_succeeds` slot must go red. Paired with exp-pre-unassign-p256verify, the two cover both directions of assignment, which is the two-sidedness a semantic rule admits."
+  },
+  "exp-pre-prague-assign-0x100": {
+    "file": "prague/vm/precompiled_contracts/__init__.py",
+    "find": "BLS12_MAP_FP2_TO_G2_ADDRESS = hex_to_address(\"0x11\")",
+    "replace": "BLS12_MAP_FP2_TO_G2_ADDRESS = hex_to_address(\"0x100\")  # MUTATION",
+    "fork": "Prague",
+    "why": "SEMANTIC, run on PRAGUE because the pre-assignment arms are `valid_until(\"Prague\")` and an Amsterdam-only mutation can never reach them. 0x100 becomes a precompile one fork early, so a widely used contract library's probe gets a FAILED call (bls12_map_fp2_to_g2 rejects a 160-byte input) and its `invalid()` guard discards the whole frame -- every slot in that arm disappears at once, which is the concrete harm the guard inflicts."
+  },
+  "exp-pre-shanghai-assign-0x0a": {
+    "file": "shanghai/vm/precompiled_contracts/__init__.py",
+    "find": "BLAKE2F_ADDRESS = hex_to_address(\"0x09\")",
+    "replace": "BLAKE2F_ADDRESS = hex_to_address(\"0x0a\")  # MUTATION",
+    "fork": "Shanghai",
+    "why": "SEMANTIC, run on SHANGHAI, the last fork on which all of 0x0a, 0x0b and 0x100 are still empty accounts. Moving blake2f to 0x0a makes that address reject the empty probe input, so the `point_evaluation_0x0a_succeeds_with_no_returndata` slot flips 1 -> 0. This is the only mutation that reaches the all-unassigned arm at all."
+  },
+  "exp-pre-prague-modexp-restore-no-divisor": {
+    "file": "prague/vm/precompiled_contracts/modexp.py",
+    "find": "    cost //= GQUADDIVISOR\n    return max(Uint(200), cost)",
+    "replace": "    return max(Uint(500), cost)  # MUTATION",
+    "fork": "Prague",
+    "why": "DEARER, run on PRAGUE so it reaches the `..._before_eip7883` arms: EIP-7883's divisor removal applied one fork early. The p-2 inverse goes 1,360 -> 4,080, which breaks that arm's upper rail AND the deployed a deployed account-abstraction stack literal slot (`aamodule_passkey_1500_still_fits`). Without a pre-Amsterdam mutation the whole pre-fork half of this archetype would be unprotected."
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "rdcopy-per-word-2000": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "OPCODE_RETURNDATACOPY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))",
+    "replace": "OPCODE_RETURNDATACOPY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(2000))",
+    "why": "RETURNDATACOPY 3->2000 per word: bubbling a 4 KiB reason costs 256,000, past a frozen 200,000 proxy budget"
+  },
+  "returndatasize-halved": {
+    "file": "amsterdam/vm/instructions/environment.py",
+    "find": "push(evm.stack, U256(len(evm.return_data)))",
+    "replace": "push(evm.stack, U256(len(evm.return_data) // 2))  # MUTATION",
+    "why": "RETURNDATASIZE under-reports, so a bubbled payload is silently truncated"
+  }
+}

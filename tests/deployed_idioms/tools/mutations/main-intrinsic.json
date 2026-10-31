@@ -1,0 +1,20 @@
+{
+  "tx-base-11000": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "TX_BASE: Final[ExecutionGas] = ExecutionGas(Uint(12000))",
+    "replace": "TX_BASE: Final[ExecutionGas] = ExecutionGas(Uint(11000))",
+    "why": "TX_BASE 12000->11000: the decomposed intrinsic base moves"
+  },
+  "tx-value-cost-5000": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "TX_VALUE_COST: Final[ExecutionGas] = ExecutionGas(Uint(6000))",
+    "replace": "TX_VALUE_COST: Final[ExecutionGas] = ExecutionGas(Uint(5000))",
+    "why": "TX_VALUE_COST 6000->5000: only the value-bearing intrinsic arm moves"
+  },
+  "cold-account-2600": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "COLD_ACCOUNT_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(3000))",
+    "replace": "COLD_ACCOUNT_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(2600))",
+    "why": "revert EIP-8038's COLD_ACCOUNT_ACCESS 2600->3000 (a CHEAPER reprice)"
+  }
+}

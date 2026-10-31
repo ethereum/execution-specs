@@ -1,0 +1,56 @@
+{
+  "exec-gas-applies-refund": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "            gas_used_before_refund - settled_state_gas_used,",
+    "replace": "            gas_used_after_refund - settled_state_gas_used,  # MUTATION",
+    "why": "EIP-7778 reverted: the block counts post-refund gas, so the receipt figure and the block figure merge again (class 13)"
+  },
+  "exec-gas-no-state-subtraction": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "            gas_used_before_refund - settled_state_gas_used,\n            calldata_floor,",
+    "replace": "            gas_used_before_refund,  # MUTATION: state term dropped\n            calldata_floor,",
+    "why": "drop `- settled_state_gas_used`: state gas is counted in both block dimensions instead of one (class 14)"
+  },
+  "state-clamp-min": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "settled_state_gas_used = StateGas(Uint(max(0, state_gas_used)))",
+    "replace": "settled_state_gas_used = StateGas(Uint(min(0, state_gas_used)))  # MUTATION",
+    "why": "invert the net-state-gas clamp (max -> min): state creation stops reaching block accounting (class 14)"
+  },
+  "state-clamp-off": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "settled_state_gas_used = StateGas(Uint(max(0, state_gas_used)))",
+    "replace": "settled_state_gas_used = StateGas(Uint(state_gas_used))  # MUTATION: clamp removed",
+    "why": "remove the max(0, ...) clamp entirely. EXPECTED TO SURVIVE: measured `state_gas_used` is never negative under the reference refund rules (10 adversarial shapes, all 0 or +97,920), so the clamp is an identity -- see tests/state_gas_clamp/README.md for the arithmetic"
+  },
+  "state-free-credit": {
+    "file": "amsterdam/vm/instructions/storage.py",
+    "find": "    if current_value != new_value and original_value == new_value:\n        if original_value == 0:\n            # Slot set then cleared: refund the state gas charge.\n            credit_state_gas_refund(evm.gas_meter, StateGasCosts.STORAGE_SET)",
+    "replace": "    if current_value != new_value and original_value == new_value:\n        if original_value == 0:\n            # Slot set then cleared: refund the state gas charge.\n            credit_state_gas_refund(evm.gas_meter, StateGasCosts.STORAGE_SET)\n    if current_value != new_value and new_value == 0 and original_value != 0:\n        # MUTATION: clearing state that pre-dates the transaction earns a\n        # state-gas credit, i.e. a fork that decided to PAY for freeing\n        # state. Deliberately a sixteenth of a storage set (6,120) so the\n        # resulting negative net stays representable in\n        # `gas_used_before_refund` rather than underflowing a Uint.\n        credit_state_gas_refund(\n            evm.gas_meter, StateGas(StateGasCosts.STORAGE_SET // Uint(16))\n        )",
+    "why": "make freeing state generous, the one rule change that can actually drive `state_gas_used` negative: it is the mutation the class-14 invariant is defined against (class 14)"
+  },
+  "floor-not-a-max": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    gas_used = max(gas_used_after_refund, calldata_floor)",
+    "replace": "    gas_used = gas_used_after_refund  # MUTATION: the floor stops binding",
+    "why": "the calldata floor is no longer a floor on the sender-facing charge, so a refund becomes visible again (class 15)"
+  },
+  "floor-token-8": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "TX_DATA_TOKEN_FLOOR: Final[ExecutionGas] = ExecutionGas(Uint(16))",
+    "replace": "TX_DATA_TOKEN_FLOOR: Final[ExecutionGas] = ExecutionGas(Uint(8))",
+    "why": "EIP-7976 half-reverted (16 -> 8 per floor token). EXPECTED TO SURVIVE, and the surviving side of a located cliff: at 4,096 calldata bytes the floor becomes 15,000 + 16,384*8 = 146,072, still above the refunding transaction's post-refund 141,908, so the floor keeps binding (class 15)"
+  },
+  "floor-token-7": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "TX_DATA_TOKEN_FLOOR: Final[ExecutionGas] = ExecutionGas(Uint(16))",
+    "replace": "TX_DATA_TOKEN_FLOOR: Final[ExecutionGas] = ExecutionGas(Uint(7))",
+    "why": "the biting side of the same cliff: 15,000 + 16,384*7 = 129,688 falls below the post-refund 141,908, the floor stops binding for the refunding transaction only, and the refund becomes visible in the sender's balance (class 15)"
+  },
+  "refund-divisor-4": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "gas_refund = min(gas_used_before_refund // Uint(5), Uint(refund_counter))",
+    "replace": "gas_refund = min(gas_used_before_refund // Uint(4), Uint(refund_counter))  # MUTATION",
+    "why": "refund cap divisor 5 -> 4, the EIP-3529 lever: it moves the sender-facing figure and therefore the size of the block-versus-sender gap (class 13)"
+  }
+}

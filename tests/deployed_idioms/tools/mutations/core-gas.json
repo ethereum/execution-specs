@@ -1,0 +1,44 @@
+{
+  "cpsb-x2.6": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "StateGasPerByte(Uint(1530))",
+    "replace": "StateGasPerByte(Uint(4000))",
+    "why": "COST_PER_STATE_BYTE 1530->4000: a fresh slot 97,920 -> 256,000"
+  },
+  "sload-cold-2300": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "COLD_STORAGE_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(2100))",
+    "replace": "COLD_STORAGE_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(2300))",
+    "why": "cold SLOAD 2100->2300, an EIP-1884-shaped access reprice"
+  },
+  "stipend-2000": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "CALL_STIPEND: Final[ExecutionGas] = ExecutionGas(Uint(2300))",
+    "replace": "CALL_STIPEND: Final[ExecutionGas] = ExecutionGas(Uint(2000))",
+    "why": "CALL_STIPEND 2300->2000"
+  },
+  "retention-128": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "return ExecutionGas(gas - (gas // Uint(64)))",
+    "replace": "return ExecutionGas(gas - (gas // Uint(128)))",
+    "why": "63/64 retention -> 127/128: caller keeps half as much back"
+  },
+  "retention-256": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "return ExecutionGas(gas - (gas // Uint(64)))",
+    "replace": "return ExecutionGas(gas - (gas // Uint(256)))",
+    "why": "63/64 retention -> 255/256: caller keeps a quarter as much back"
+  },
+  "m2-no-inframe-refill": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "gas_meter.gas_left = ExecutionGas(gas_meter.gas_left + Uint(from_gas_left))",
+    "replace": "gas_meter.gas_left = ExecutionGas(gas_meter.gas_left)  # MUTATION",
+    "why": "M2: an in-frame clear no longer refills gas_left"
+  },
+  "m4-no-merge-repay": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "gas_meter.gas_left = ExecutionGas(gas_meter.gas_left + Uint(repayment))",
+    "replace": "gas_meter.gas_left = ExecutionGas(gas_meter.gas_left)  # MUTATION",
+    "why": "M4: a merging child's repayment no longer reaches the parent's gas_left"
+  }
+}

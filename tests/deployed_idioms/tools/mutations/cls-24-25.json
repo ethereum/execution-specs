@@ -1,0 +1,50 @@
+{
+  "cls24-tstore-charges-state-gas": {
+    "file": "amsterdam/vm/instructions/storage.py",
+    "find": "    charge_gas(evm, GasCosts.OPCODE_TSTORE)\n    set_transient_storage(",
+    "replace": "    charge_gas(evm, GasCosts.OPCODE_TSTORE)\n    charge_state_gas(evm, StateGasCosts.STORAGE_SET)  # MUTATION\n    set_transient_storage(",
+    "why": "TSTORE acquires a full state-gas cost (97,920, the same as a fresh storage slot), i.e. a fork decides transient storage is state after all. This is the mutation class #24's immunity arm exists to catch: the immunity is load-bearing for 14,167 deployed addresses and nothing else in the corpus asserts it."
+  },
+  "cls24-tstore-charges-one-state-byte": {
+    "file": "amsterdam/vm/instructions/storage.py",
+    "find": "    charge_gas(evm, GasCosts.OPCODE_TSTORE)\n    set_transient_storage(",
+    "replace": "    charge_gas(evm, GasCosts.OPCODE_TSTORE)\n    charge_state_gas(evm, StateGas(Uint(1530)))  # MUTATION\n    set_transient_storage(",
+    "why": "TSTORE acquires a state cost of one single state byte (COST_PER_STATE_BYTE = 1530), the smallest state charge the schedule can express. Paired with cls24-tstore-charges-state-gas to grade how small a state charge each arm can see: a tight-literal survival arm cannot, an exact-threshold or reservoir-exhaustion arm can."
+  },
+  "cls24-transient-revert-not-rolled-back": {
+    "file": "amsterdam/state_tracker.py",
+    "find": "    tx_state.transient_storage = snapshot.transient_storage",
+    "replace": "    pass  # MUTATION: a reverted frame's transient writes survive",
+    "why": "restore_tx_state no longer rolls transient storage back, so a reverted frame's TSTORE survives. A deployed 'set once per transaction' guard (L2: 2,005 runtimes / 5,478 addresses) would then be bricked for the rest of the transaction by one tolerated failure."
+  },
+  "cls24-tload-always-zero": {
+    "file": "amsterdam/state_tracker.py",
+    "find": "    return tx_state.transient_storage.get((address, key), U256(0))",
+    "replace": "    return U256(0)  # MUTATION: transient storage has no visibility",
+    "why": "TLOAD always reads zero, i.e. transient storage has no lifetime at all. The coarse end of the lifetime pair: every transient reentrancy lock (L2: 2,315 runtimes / 4,528 addresses) stops excluding anything, and no gas number moves."
+  },
+  "cls25-origin-is-the-current-caller": {
+    "file": "amsterdam/vm/instructions/environment.py",
+    "find": "    push(evm.stack, U256.from_be_bytes(evm.tx_env.origin))",
+    "replace": "    push(evm.stack, U256.from_be_bytes(evm.caller))  # MUTATION",
+    "why": "ORIGIN reports the current frame's caller instead of the transaction sender, so tx.origin == msg.sender becomes a tautology. Every 'called directly by a wallet' gate (L2: 8,097 runtimes / 6,126 addresses) then admits any contract."
+  },
+  "cls25-caller-is-the-tx-origin": {
+    "file": "amsterdam/vm/instructions/environment.py",
+    "find": "    push(evm.stack, U256.from_be_bytes(evm.caller))",
+    "replace": "    push(evm.stack, U256.from_be_bytes(evm.tx_env.origin))  # MUTATION",
+    "why": "CALLER reports the transaction sender instead of the calling frame. The other direction of the same equality: the gate still admits everything, but msg.sender-based authorisation breaks too. Paired with cls25-origin-is-the-current-caller so the equality is mutated from both sides."
+  },
+  "cls25-delegatecall-rewrites-the-caller": {
+    "file": "amsterdam/vm/instructions/system.py",
+    "find": "            caller=evm.caller,",
+    "replace": "            caller=evm.current_target,  # MUTATION",
+    "why": "DELEGATECALL stops passing its own caller through and becomes opaque like CALL. This is the only call-like instruction that preserves the caller (system.py:866), and it is why the invariant has to be stated as 'no frame that rewrites the caller' rather than 'no contract frame'. A fork that 'repaired' tx.origin == msg.sender this way would break every deployed proxy."
+  },
+  "cls25-delegation-length-24": {
+    "file": "amsterdam/vm/eoa_delegation.py",
+    "find": "EOA_DELEGATED_CODE_LENGTH = 23",
+    "replace": "EOA_DELEGATED_CODE_LENGTH = 24  # MUTATION",
+    "why": "is_valid_delegation stops recognising the 23-byte designator that set_delegation writes, so the delegation never resolves and the delegated code never runs. Stands in for 'the designator format moved' -- the EIP-7702 hazard that classes #22 (callee side) and #25 (caller side) both depend on is keyed to this one magic number."
+  }
+}

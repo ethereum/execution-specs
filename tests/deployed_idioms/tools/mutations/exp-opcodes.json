@@ -1,0 +1,118 @@
+{
+  "exp-op-undefined-is-a-noop-paris": {
+    "file": "paris/vm/interpreter.py",
+    "find": "                    raise InvalidOpcode(evm.code[evm.pc]) from e",
+    "replace": "                    evm.pc += Uint(1)  # MUTATION: undefined byte is a no-op\n                    continue",
+    "why": "An undefined opcode byte no longer halts the frame; the interpreter skips it and keeps running. This is the direct revert of the invariant the deployed guaranteed-halt idiom relies on, and it is the only shape that can falsify a rule whose content is 'nothing after this byte ever runs'. Scoped to Paris so it meets the PUSH0 (0x5F) invariant arm, which is valid_until Paris.",
+    "fork": "Paris"
+  },
+  "exp-op-undefined-is-a-noop-prague": {
+    "file": "prague/vm/interpreter.py",
+    "find": "                    raise InvalidOpcode(evm.code[evm.pc]) from e",
+    "replace": "                    evm.pc += Uint(1)  # MUTATION: undefined byte is a no-op\n                    continue",
+    "why": "As exp-op-undefined-is-a-noop-paris, at Prague, where the CLZ (0x1E) invariant arm lives (valid_until Prague).",
+    "fork": "Prague"
+  },
+  "exp-op-undefined-is-a-noop-osaka": {
+    "file": "osaka/vm/interpreter.py",
+    "find": "                    raise InvalidOpcode(evm.code[evm.pc]) from e",
+    "replace": "                    evm.pc += Uint(1)  # MUTATION: undefined byte is a no-op\n                    continue",
+    "why": "As exp-op-undefined-is-a-noop-paris, at Osaka, where the SLOTNUM (0x4B) and EIP-8024 (0xE6-0xE8) invariant arms live (valid_until Osaka).",
+    "fork": "Osaka"
+  },
+  "exp-op-undefined-is-a-noop-amsterdam": {
+    "file": "amsterdam/vm/interpreter.py",
+    "find": "                    raise InvalidOpcode(evm.code[evm.pc]) from e",
+    "replace": "                    evm.pc += Uint(1)  # MUTATION: undefined byte is a no-op\n                    continue",
+    "why": "As exp-op-undefined-is-a-noop-paris, at Amsterdam. The only arms live here are the ones carrying bytes nobody has claimed -- 0xfe, reserved as INVALID forever and the byte the deployed idiom actually uses, and 0x0c, unassigned on every fork in range. So this cell asks the question the real population cares about: would the corpus notice if a fork claimed one of those two?",
+    "fork": "Amsterdam"
+  },
+
+  "exp-op-slotnum-moved-off-4b": {
+    "file": "amsterdam/vm/instructions/__init__.py",
+    "find": "    SLOTNUM = 0x4B",
+    "replace": "    SLOTNUM = 0x4C  # MUTATION",
+    "why": "EIP-7843 assigns SLOTNUM to 0x4C instead of 0x4B, so 0x4B is undefined again at Amsterdam. The 'un-assign the byte' direction: it must break the violation arms, which assert that the guard is gone.",
+    "fork": "Amsterdam"
+  },
+  "exp-op-dupn-moved-off-e6": {
+    "file": "amsterdam/vm/instructions/__init__.py",
+    "find": "    DUPN = 0xE6",
+    "replace": "    DUPN = 0xE9  # MUTATION",
+    "why": "EIP-8024 assigns DUPN to 0xE9 instead of 0xE6. Graded by design: it can only reach the dupn_e6 params, so its failure count identifies the byte rather than the class.",
+    "fork": "Amsterdam"
+  },
+  "exp-op-swapn-moved-off-e7": {
+    "file": "amsterdam/vm/instructions/__init__.py",
+    "find": "    SWAPN = 0xE7",
+    "replace": "    SWAPN = 0xEA  # MUTATION",
+    "why": "EIP-8024 assigns SWAPN to 0xEA instead of 0xE7.",
+    "fork": "Amsterdam"
+  },
+  "exp-op-exchange-moved-off-e8": {
+    "file": "amsterdam/vm/instructions/__init__.py",
+    "find": "    EXCHANGE = 0xE8",
+    "replace": "    EXCHANGE = 0xEB  # MUTATION",
+    "why": "EIP-8024 assigns EXCHANGE to 0xEB instead of 0xE8.",
+    "fork": "Amsterdam"
+  },
+  "exp-op-clz-moved-off-1e-osaka": {
+    "file": "osaka/vm/instructions/__init__.py",
+    "find": "    CLZ = 0x1E",
+    "replace": "    CLZ = 0x1F  # MUTATION",
+    "why": "EIP-7939 assigns CLZ to 0x1F instead of 0x1E, at Osaka -- the fork where the clz violation arm first becomes valid.",
+    "fork": "Osaka"
+  },
+  "exp-op-clz-moved-off-1e-amsterdam": {
+    "file": "amsterdam/vm/instructions/__init__.py",
+    "find": "    CLZ = 0x1E",
+    "replace": "    CLZ = 0x1F  # MUTATION",
+    "why": "As exp-op-clz-moved-off-1e-osaka, at Amsterdam. Both are registered because each fork directory carries its own opcode table, so an Osaka edit is invisible to an Amsterdam fill.",
+    "fork": "Amsterdam"
+  },
+  "exp-op-push0-moved-off-5f-shanghai": {
+    "file": "shanghai/vm/instructions/__init__.py",
+    "find": "    PUSH0 = 0x5F",
+    "replace": "    PUSH0 = 0x1F  # MUTATION",
+    "why": "EIP-3855 assigns PUSH0 to 0x1F instead of 0x5F, at Shanghai -- where both the push0 violation arm and the code-identity comparison first become valid.",
+    "fork": "Shanghai"
+  },
+  "exp-op-push0-moved-off-5f-amsterdam": {
+    "file": "amsterdam/vm/instructions/__init__.py",
+    "find": "    PUSH0 = 0x5F",
+    "replace": "    PUSH0 = 0x1F  # MUTATION",
+    "why": "As exp-op-push0-moved-off-5f-shanghai, at Amsterdam.",
+    "fork": "Amsterdam"
+  },
+
+  "exp-op-code-validated-at-frame-entry": {
+    "file": "amsterdam/vm/interpreter.py",
+    "find": "            while evm.running and evm.pc < ulen(evm.code):",
+    "replace": "            _vpc = 0  # MUTATION: EIP-3670-style validation of legacy code\n            while _vpc < len(evm.code):\n                try:\n                    _vop = Ops(evm.code[_vpc])\n                except ValueError as _ve:\n                    raise InvalidOpcode(evm.code[_vpc]) from _ve\n                if Ops.PUSH1.value <= _vop.value <= Ops.PUSH32.value:\n                    _vpc += _vop.value - Ops.PUSH1.value + 1\n                _vpc += 1\n            while evm.running and evm.pc < ulen(evm.code):",
+    "replace_note": "walks the code with the same PUSH-data skip jumpdest analysis uses, so PUSH immediates are exempt and only genuine code positions are validated",
+    "why": "Legacy code acquires EOF-style static validation (EIP-3670): a frame refuses to start if the code contains an undefined opcode byte at any non-PUSH-data position. This is the mutation the 'unreachable bytes are harmless' invariant exists to catch, and it is the one rule change that would break essentially every deployed contract at once, because solc appends an arbitrary CBOR metadata blob to every runtime.",
+    "fork": "Amsterdam"
+  },
+
+  "exp-op-halt-keeps-its-gas-amsterdam": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    gas_meter.gas_left = ExecutionGas(Uint(0))",
+    "replace": "    pass  # MUTATION: a halted frame keeps its gas_left",
+    "why": "An exceptional halt stops forfeiting the frame's remaining gas, so a halt returns gas like a revert. Same reference site as the main wave's cls11-halt-returns-gas (tools/mutations/cls-8-9-11.json) and registered here only because --root expansion reads a separate mutation set; the overlap is deliberate and cited rather than hidden. The new content is the TRIGGER, not the rule: class #11 reaches this site through 0xfe, which is reserved forever, while undefined_opcode_gas_forfeit reaches it through bytes that forks actually claim.",
+    "fork": "Amsterdam"
+  },
+  "exp-op-halt-keeps-its-gas-prague": {
+    "file": "prague/vm/interpreter.py",
+    "find": "    except ExceptionalHalt as error:\n        evm_trace(evm, OpException(error))\n        evm.gas_left = Uint(0)",
+    "replace": "    except ExceptionalHalt as error:\n        evm_trace(evm, OpException(error))\n        pass  # MUTATION: halted frame keeps its gas_left",
+    "why": "As exp-op-halt-keeps-its-gas-amsterdam, at Prague, so the pre-assignment forfeit arms for PUSH0 and CLZ are reached on a fork where they are still valid.",
+    "fork": "Prague"
+  },
+  "exp-op-halt-keeps-its-gas-paris": {
+    "file": "paris/vm/interpreter.py",
+    "find": "    except ExceptionalHalt as error:\n        evm_trace(evm, OpException(error))\n        evm.gas_left = Uint(0)",
+    "replace": "    except ExceptionalHalt as error:\n        evm_trace(evm, OpException(error))\n        pass  # MUTATION: halted frame keeps its gas_left",
+    "why": "As exp-op-halt-keeps-its-gas-amsterdam, at Paris, the last fork on which the PUSH0 (0x5F) forfeit arm is valid.",
+    "fork": "Paris"
+  }
+}
