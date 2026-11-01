@@ -11,6 +11,10 @@ from execution_testing.client_clis import (
     GethTransitionTool,
     TransitionTool,
 )
+from execution_testing.test_types.chain_config_types import (
+    DEFAULT_CHAIN_ID,
+    ChainConfigDefaults,
+)
 
 DEFAULT_TRANSITION_TOOL_FOR_UNIT_TESTS = ExecutionSpecsTransitionTool
 
@@ -107,3 +111,17 @@ def default_t8n(
 def running_in_ci() -> bool:
     """Return whether the test is running in a CI environment."""
     return "CI" in os.environ
+
+
+@pytest.fixture(autouse=True)
+def restore_chain_config_defaults() -> Generator[None, None, None]:
+    """
+    Reset ChainConfigDefaults.chain_id around each test.
+
+    `--chain-id` is applied by nested in-process fill and execute sessions
+    (e.g. pytester runs), so without this it leaks into later tests on the
+    same worker.
+    """
+    ChainConfigDefaults.chain_id = DEFAULT_CHAIN_ID
+    yield
+    ChainConfigDefaults.chain_id = DEFAULT_CHAIN_ID
