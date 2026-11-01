@@ -9,7 +9,7 @@ The Mempool Test fixture format would be stored in the fixtures subdirectory `me
 
 The mempool test fixture format checks transaction pool admission: given a chain head, a state, and a single transaction received from the network, should the client accept the transaction into its pool and broadcast it to its peers?
 
-Each test vector contains exactly one transaction and a binary expectation. There are no transactions in the pool before the test starts, so the result never depends on previously pooled transactions, replacement rules, eviction, or ordering. Scenarios that need prior pool content (replace-by-fee, per-account slot limits, overdraft across queued transactions, the in-flight limit for delegated accounts) are out of scope for this format.
+Each test vector contains exactly one transaction and a binary expectation. There are no transactions in the pool before the test starts, so the result never depends on previously pooled transactions, replacement rules, eviction, or ordering. Scenarios that need prior pool content (replace-by-fee, per-account slot limits, overdraft across queued transactions, the in-flight limit for delegated accounts), as well as the frame transaction rules that count pending transactions per sender or paymaster) are out of scope for this format. The format works with every transaction type, including frame transactions (see [Frame transactions](#frame-transactions)).
 
 The format reuses most of the [State Test](./state_test.md) building blocks (`pre`, `config`, a signed transaction, and an expected exception). The main difference is that the environment describes the **current chain head**, not the block in which the transaction executes. A transaction pool validates incoming transactions against the head state and derives the values of the next block from the head.
 
@@ -90,9 +90,9 @@ State at the head block.
 
 Network encoding of the transaction under test. For blob transactions, this is the wrapper with blobs, commitments, and proofs, using the sidecar version of `network`.
 
-#### - `transaction`: [`FixtureTransaction`](./state_test.md#fixturetransaction)
+#### - `transaction`: `Mapping`
 
-Decoded fields of the transaction, for readability and debugging. Each list-valued field contains exactly one element.
+Decoded fields of the transaction, for readability and debugging, in the representation the framework uses for the transaction's type. For types 0–4 this is a [`FixtureTransaction`](./state_test.md#fixturetransaction) where each list-valued field contains exactly one element. For frame transactions it contains `sender`, `nonce`, `frames`, `signatures`, `fees`, and `blobVersionedHashes`. Consumers use only `txbytes` as input.
 
 #### - `policy`: [`FixturePolicy`](#fixturepolicy)
 
@@ -121,6 +121,49 @@ Expected reason for the rejection. The field is missing when `broadcast` is `tru
 #### - `minTip`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
 
 Minimum priority fee per gas the pool requires. Fixtures in the first iteration set it to `0x00`, and all transactions pay a tip well above common client defaults, so a client that cannot lower its minimum still passes.
+
+## Frame transactions
+
+The format does not depend on the transaction type: `txbytes` carries any [EIP-2718](https://eips.ethereum.org/EIPS/eip-2718) transaction, including frame transactions (type `0x06`, [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)). Frame transactions are where this format is most useful. For types 0–4, the pool checks the transaction's fields against the sender's account. A frame transaction's validity is decided by EVM code, so the pool has to simulate its validation prefix before it can propagate the transaction. Unlike most legacy pool behavior, EIP-8141 writes these public mempool rules into the EIP. Every client is expected to apply them the same way, which makes them good candidates for shared tests.
+
+### Rules that fit a single-transaction test
+
+Most of the EIP's public mempool rules depend only on the transaction and the head state, so the format can test them without changes:
+
+- **Prefix recognition.** The validation prefix must match one of the recognized shapes (`[self_verify]`, `[deploy, self_verify]`, `[only_verify, pay]`, `[deploy, only_verify, pay]`, optionally preceded by an expiry verifier). No `VERIFY` frame may follow it, no prefix frame may carry `ATOMIC_BATCH_FLAG`, and `deploy` must come first. Each shape is a positive test, and each violation is a negative test.
+- **Validation gas caps.** `MAX_VERIFY_GAS` (execution limits in the prefix plus signature verification cost) and `MAX_VERIFY_STATE_GAS`. These need boundary tests at the cap and one unit over it.
+- **Banned opcodes.** One parametrized test per banned opcode (`GASPRICE`, `BLOCKHASH`, `COINBASE`, `TIMESTAMP`, `NUMBER`, `PREVRANDAO`, `GASLIMIT`, `BASEFEE`, `BLOBBASEFEE`, `SLOTNUM`, `GAS`, `CREATE`, `CREATE2`, `SETDELEGATE`, `INVALID`, `SELFDESTRUCT`, `BALANCE`, `SELFBALANCE`, `SSTORE`) executed in a verify frame, directly or through a nested call. Each exception gets a positive test: `GAS` directly before a `*CALL`, `TIMESTAMP` in the canonical expiry verifier, and `CREATE`/`CREATE2`/`SETDELEGATE`/`SSTORE` to `tx.sender` in the first `deploy` frame.
+- **State access.** `SLOAD` outside `tx.sender`'s storage, including through transitive calls. Writes other than the allowed deploy writes. `CALL*`/`EXTCODE*` to an address that is empty or delegated through EIP-7702. The contracts that the verify frames call are deployed in `pre`.
+- **Approval outcome.** A prefix frame reverts, exits without its required `APPROVE`, uses a scope its flags do not allow, or never sets the payer. Some of these cases also make the transaction invalid by consensus, so the filler can check them against the specification (see below).
+- **Expiry.** The canonical expiry verifier with a deadline before, at, and after the head timestamp. The EIP refers to the node's view of the current block timestamp, so the fixture defines that view as `head.timestamp`. A consumer must use the head timestamp, not the wall clock. This needs care in Hive, where the wall clock is far ahead of the genesis timestamp.
+- **Paymaster solvency with an empty pool.** With nothing pending, `available_paymaster_balance` reduces to `balance - pending_withdrawal_amount`. Both values come from `pre`, where the canonical paymaster is deployed with its exact runtime code. The tests cover a canonical paymaster that is solvent, one that is insolvent only because of a pending withdrawal, a non-canonical paymaster subject to the trace rules, and a default-code payer.
+- **Signatures.** Each signature scheme (`ARBITRARY`, `SECP256K1`, `P256`) with a valid and an invalid signature, and the all-zero explicit digest.
+
+### Rules that need pool content
+
+The following rules depend on transactions that are already pending, so this format does not cover them. A future multi-transaction format could:
+
+- At most one pending transaction per sender, and replacement by `(sender, nonce)` with the fee bump.
+- `MAX_PENDING_TXS_USING_NON_CANONICAL_PAYMASTER` and the `reserved_pending_cost` term of paymaster solvency.
+- The per-payer exposure rule for default-code payers.
+- Eviction order and re-simulation after a new head.
+
+Re-simulation after a new head could fit a two-step extension of this format: admit the transaction, apply one block that touches a dependency (for example a sender storage slot that the prefix read), and expect the transaction to be dropped. That is still one transaction under test, but it is not part of the first iteration.
+
+### Fixture additions
+
+- `MempoolException` gains frame-specific values, for example `FRAME_PREFIX_NOT_RECOGNIZED`, `FRAME_VALIDATION_BANNED_OPCODE`, `FRAME_VALIDATION_STORAGE_ACCESS`, `FRAME_VALIDATION_GAS_EXCEEDED`, `FRAME_EXPIRED`, and `PAYMASTER_INSUFFICIENT_BALANCE`.
+- No new fixture fields are needed. Every input is already in `head`, `pre`, and `txbytes`, and the gas caps are protocol constants of the fork.
+
+### Specification oracle
+
+The consensus check in `fill` still applies: a frame transaction with `broadcast: true` must pass the specification's frame transaction check against the next block environment. However, the trace rules (banned opcodes, storage access, gas caps, prefix shapes) are not consensus, so the specification cannot verify those expectations today.
+
+The FOCIL-with-frames work already contains a related specification. `inclusion_list_frames.py` in the `eips/bogota/focil-frames` branch classifies frame candidates and replays their validation prefix on a disposable state. Its constants and rules differ from the mempool rules (for example `MAX_VERIFY_GAS_PER_TX = 2**18` against the mempool's `MAX_VERIFY_GAS = 100_000`), so it cannot be used as the oracle as it is. Still, it shows that a `validate_pooled_frame_transaction` function using the same frame interpreter with a trace hook is feasible. With such a function, `fill` could compute `broadcast` and `exception` for every frame test instead of relying on the test author. This is the strongest argument for the "specification for mempool rules" open question below.
+
+### Consumer impact
+
+The format adds no consumer work for frame transactions: a direct consumer still decodes `txbytes`, submits the transaction as remote, and checks whether it is pending. The cost is in the client's own frame transaction pool, which has to simulate the prefix with a tracer. A geth consumer would register the frame subpool next to the legacy and blob subpools when building `txpool.New`, and needs no other changes. The local go-ethereum checkout used for this estimate has no frame transaction support yet.
 
 ## Writing tests
 
@@ -180,6 +223,6 @@ These are places where geth's behavior and the format's definition may diverge. 
 
 - **Fork transitions.** Should the pool use the head fork or the next block's fork? A transition variant (for example `network: "PragueToOsakaAtTime15k"` with the head just before the boundary) would make the expectation explicit, but clients first need to agree on the answer.
 - **Fee cap below base fee.** Should this rule move from policy to the uniform category, and in which direction?
-- **A specification for mempool rules.** The mempool-only rules could be written down in the specification as non-consensus helpers (for example a `validate_pooled_transaction` function next to `check_transaction`). The filler could then verify every expectation instead of relying on review.
+- **A specification for mempool rules.** The mempool-only rules could be written down in the specification as non-consensus helpers (for example a `validate_pooled_transaction` function next to `check_transaction`). The filler could then verify every expectation instead of relying on review. Frame transactions need this the most, because their admission rules are long, written in the EIP, and depend on tracing EVM execution.
 - **Rejection reasons.** Should the exception become a hard check once client mappers exist, or always stay informational?
 - **Relation to the devp2p `eth` suite.** Hive's `devp2p` simulator already has `TestInvalidTxs` and `TestBlobViolations`, which send transactions over the wire and check that they are not propagated. A Hive consumer for this format could reuse that connection code.
