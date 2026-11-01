@@ -38,7 +38,42 @@ A mempool admission check contains three kinds of rules, and the format handles 
 | Mempool-only, but uniform across clients | Nonce gap (not executable), missing or malformed blob sidecar, wrong sidecar version for the fork, invalid KZG proofs, set-code transaction with an empty authorization list | Asserted by the test author with a mempool-specific exception |
 | Node policy | Minimum tip, maximum transaction size, `maxFeePerGas` below the next base fee, pool capacity | Not tested in the first iteration; fixtures stay clear of these limits (see [`policy`](#-policy-fixturepolicy)) |
 
-The consensus-derived category gives `fill` an oracle. For every fixture with `broadcast: true`, the filler runs the transaction through the specification's `check_transaction` against the next block environment and fails the fill if the transaction is invalid. For every rejection whose exception is a `TransactionException`, the filler checks that the specification raises it. Mempool-only rejections are new `MempoolException` values that the specification cannot verify, so they rely on review.
+Only the consensus-derived category can be checked against the specification. The next section discusses what that means for the correctness of the tests.
+
+## Correctness of expected outcomes
+
+The specification describes consensus only, so it has no place for mempool rules today and cannot simulate a mempool test. For a state test, `fill` runs the specification and writes down the result, so the expected outcome is correct by construction. For a mempool test, the test author decides the outcome in most cases. The outcome is only confirmed when the fixture runs against a client that implements the rule. If the author's reading of the rule is wrong, the fixture is wrong, and the first client to run it may get a failure that is the test's fault.
+
+This is the largest risk of the format. The rest of this section looks at how much of it remains and how to reduce it.
+
+### How much can be checked when filling
+
+| Expectation | Check available when filling | Remaining risk |
+| --- | --- | --- |
+| `broadcast: true` | Necessary condition: the specification's `check_transaction` (or the frame transaction check) passes against the next block environment. It does not prove that no mempool-only rule rejects the transaction. | Low to medium |
+| `broadcast: false` with a `TransactionException` | Full: the specification rejects the transaction for the next block, so the transaction cannot be executable. | Low |
+| Nonce gap | Full: computed from `pre`. | Low |
+| Blob sidecar format and KZG proofs | Partial: the framework's blob helpers can recompute cells, commitments, and proofs, which confirms that the sidecar is valid or invalid as claimed. Whether clients reject a given malformation is still the author's reading. | Medium |
+| EIP-8141 trace rules (prefix shapes, banned opcodes, state access, validation gas caps, expiry, paymaster) | None. | High |
+
+The risk is highest for frame transactions, which are also the main reason for having the format.
+
+### Reducing the risk without a mempool specification
+
+- **Record where each expectation comes from.** Each fixture's `_info` states the source of its expectation: `specification`, `framework` (computed from the inputs, such as a nonce gap or a KZG check), or `author`. When a client fails an `author` fixture, the client team and the test author both know that the test itself is one of the suspects.
+- **Minimal pairs.** Every `author` negative test comes with a positive twin that differs only in the rule under test, for example the same verify frame without the banned opcode. The twin's `broadcast: true` is checked against the specification, so the negative test cannot fail for an unrelated reason, such as a balance too low to pay for the transaction. A wrong assumption is then limited to the one rule the pair is about.
+- **Cite the rule.** Every `author` test references the normative text it implements, for example the relevant part of the EIP-8141 mempool section. For types 0–4, a rule with no normative text is a sign that it is client policy and should not be tested in this format.
+- **Agreement between clients before release.** `author` fixtures are released as candidates and become part of a release only after at least two independent client implementations pass them. A disagreement is triaged as a test bug, a client bug, or an ambiguity in the EIP. The last case is useful in itself, because it means the EIP needs clarifying. This is weaker than a specification check: two clients can share a misreading, and early on only one client may implement the frame transaction pool.
+
+### Writing the rules down
+
+The rules can only be checked mechanically if they are written as code somewhere. There are three options:
+
+1. **A non-consensus module in the specification**, for example a `mempool.py` next to `fork.py` in each fork, defining `validate_pooled_transaction`. It would get the same review as the specification and would follow its fork-by-fork copying. It also expands the repository beyond consensus, and that decision belongs to the specification maintainers.
+2. **A reference checker in the testing framework** (`execution_testing`). It would reuse the specification's frame interpreter with a trace hook to apply the EIP-8141 prefix rules, and `fill` would use it to compute or verify `broadcast` and `exception`. The bar is lower and it can start now, but it is test code: a bug in it produces wrong fixtures with confidence, so it needs the same agreement between clients as above until it has proven itself.
+3. **No code.** The rules stay in EIP text, and every non-consensus expectation is `author`.
+
+The recommendation is to start with option 3 plus the mitigations above for the first fixtures. In parallel, build option 2 for the EIP-8141 trace rules, which are the most error-prone to hand-write and the most valuable to automate. Option 2 can later move into the specification (option 1) if the maintainers want mempool rules there. The FOCIL-with-frames work (see [Specification oracle](#specification-oracle)) shows that replaying a validation prefix on top of the specification's interpreter is practical.
 
 ## Scope: single transaction versus existing pool content
 
@@ -85,6 +120,7 @@ These affect feasibility but do not block it:
 - **Policy defaults.** Minimum tip and size limits differ between clients. The format avoids their boundaries instead of testing them (see [`policy`](#-policy-fixturepolicy)).
 - **Head versus next block.** Clients may use the fork rules or gas limit of the head where the specification uses the next block. This is why transitions are excluded at first.
 - **The network path is not tested.** The command skips wire decoding, the transaction fetcher, and the announcement logic. These are outside admission and are better covered by the devp2p `eth` suite in Hive.
+- **Expected outcomes the specification cannot check.** Outside the consensus-derived rules, the test author decides the expected outcome, and it is only confirmed by running a client. See [Correctness of expected outcomes](#correctness-of-expected-outcomes).
 - **Coverage, not correctness.** A client that ignores a pool-content rule (for example, it accepts a second pending frame transaction from the same sender) passes every single-transaction test. The single-transaction format does not catch that. The later format does.
 
 ### Keeping the pool-content format possible
@@ -187,6 +223,10 @@ Whether the client must admit the transaction as executable and announce it to i
 
 Expected reason for the rejection. The field is missing when `broadcast` is `true`, and optional for nonce-gap tests, where a client may keep the transaction queued instead of rejecting it.
 
+#### - `_info.expectationSource`: `str`
+
+Where the expected outcome comes from: `specification` (checked against the specification when filling), `framework` (computed from the fixture's inputs, such as a nonce gap or a KZG proof check), or `author` (asserted by the test author only). Consumers do not use it. It helps triage failures (see [Correctness of expected outcomes](#correctness-of-expected-outcomes)).
+
 ### `FixtureNextBlock`
 
 #### - `number`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
@@ -240,7 +280,7 @@ Re-simulation after a new head could fit a two-step extension of this format: ad
 
 The consensus check in `fill` still applies: a frame transaction with `broadcast: true` must pass the specification's frame transaction check against the next block environment. However, the trace rules (banned opcodes, storage access, gas caps, prefix shapes) are not consensus, so the specification cannot verify those expectations today.
 
-The FOCIL-with-frames work already contains a related specification. `inclusion_list_frames.py` in the `eips/bogota/focil-frames` branch classifies frame candidates and replays their validation prefix on a disposable state. Its constants and rules differ from the mempool rules (for example `MAX_VERIFY_GAS_PER_TX = 2**18` against the mempool's `MAX_VERIFY_GAS = 100_000`), so it cannot be used as the oracle as it is. Still, it shows that a `validate_pooled_frame_transaction` function using the same frame interpreter with a trace hook is feasible. With such a function, `fill` could compute `broadcast` and `exception` for every frame test instead of relying on the test author. This is the strongest argument for the "specification for mempool rules" open question below.
+The FOCIL-with-frames work already contains a related specification. `inclusion_list_frames.py` in the `eips/bogota/focil-frames` branch classifies frame candidates and replays their validation prefix on a disposable state. Its constants and rules differ from the mempool rules (for example `MAX_VERIFY_GAS_PER_TX = 2**18` against the mempool's `MAX_VERIFY_GAS = 100_000`), so it cannot be used as the oracle as it is. Still, it shows that a `validate_pooled_frame_transaction` function using the same frame interpreter with a trace hook is feasible. With such a function, `fill` could compute `broadcast` and `exception` for every frame test instead of relying on the test author. See [Writing the rules down](#writing-the-rules-down) for where that function could live.
 
 ### Consumer impact
 
@@ -304,6 +344,7 @@ These are places where geth's behavior and the format's definition may diverge. 
 
 - **Fork transitions.** Should the pool use the head fork or the next block's fork? A transition variant (for example `network: "PragueToOsakaAtTime15k"` with the head just before the boundary) would make the expectation explicit, but clients first need to agree on the answer.
 - **Fee cap below base fee.** Should this rule move from policy to the uniform category, and in which direction?
-- **A specification for mempool rules.** The mempool-only rules could be written down in the specification as non-consensus helpers (for example a `validate_pooled_transaction` function next to `check_transaction`). The filler could then verify every expectation instead of relying on review. Frame transactions need this the most, because their admission rules are long, written in the EIP, and depend on tracing EVM execution.
+- **Where mempool rules live.** Should they be written as a non-consensus module in the specification, a reference checker in the testing framework, or stay in EIP text only? See [Correctness of expected outcomes](#correctness-of-expected-outcomes). Frame transactions need an answer the most, because their admission rules are long and depend on tracing EVM execution.
+- **Release policy for `author` fixtures.** How many independent client implementations must pass a fixture before it leaves candidate status, and what happens when only one client implements a rule?
 - **Rejection reasons.** Should the exception become a hard check once client mappers exist, or always stay informational?
 - **Relation to the devp2p `eth` suite.** Hive's `devp2p` simulator already has `TestInvalidTxs` and `TestBlobViolations`, which send transactions over the wire and check that they are not propagated. If a Hive smoke test is added later (see [Why not Hive (for now)](#why-not-hive-for-now)), it could reuse that connection code.
