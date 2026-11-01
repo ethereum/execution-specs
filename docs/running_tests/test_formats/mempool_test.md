@@ -42,19 +42,21 @@ Only the consensus-derived category can be checked against the specification. Th
 
 ## Correctness of expected outcomes
 
-The specification describes consensus only, so it has no place for mempool rules today and cannot simulate a mempool test. For a state test, `fill` runs the specification and writes down the result, so the expected outcome is correct by construction. For a mempool test, the test author decides the outcome in most cases. The outcome is only confirmed when the fixture runs against a client that implements the rule. If the author's reading of the rule is wrong, the fixture is wrong, and the first client to run it may get a failure that is the test's fault.
+The specification describes consensus only, so it has no place for mempool rules today and cannot simulate a mempool test. For a state test, the framework runs the specification (through `t8n`) and writes down the result, so the expected outcome is correct by construction. For a mempool test, the test author decides the outcome in most cases. The outcome is only confirmed when the fixture runs against a client that implements the rule. If the author's reading of the rule is wrong, the fixture is wrong, and the first client to run it may get a failure that is the test's fault.
 
 This is the largest risk of the format. The rest of this section looks at how much of it remains and how to reduce it.
 
-### How much can be checked when filling
+### How much can be checked when generating fixtures
 
-| Expectation | Check available when filling | Remaining risk |
+This table assumes only what the specification exposes through `t8n` today. [Using the specification beyond `t8n`](#using-the-specification-beyond-t8n) looks at what a new interface would add.
+
+| Expectation | Check available through `t8n` | Remaining risk |
 | --- | --- | --- |
 | `broadcast: true` | Necessary condition: the specification's `check_transaction` (or the frame transaction check) passes against the next block environment. It does not prove that no mempool-only rule rejects the transaction. | Low to medium |
 | `broadcast: false` with a `TransactionException` | Full: the specification rejects the transaction for the next block, so the transaction cannot be executable. | Low |
 | Nonce gap | Full: computed from `pre`. | Low |
 | Blob sidecar format and KZG proofs | Partial: the framework's blob helpers can recompute cells, commitments, and proofs, which confirms that the sidecar is valid or invalid as claimed. Whether clients reject a given malformation is still the author's reading. | Medium |
-| EIP-8141 trace rules (prefix shapes, banned opcodes, state access, validation gas caps, expiry, paymaster) | None. | High |
+| EIP-8141 trace rules (prefix shapes, banned opcodes, state access, validation gas caps, expiry, paymaster) | None through `t8n`. A new interface could check most of them. | High (medium with the new interface) |
 
 The risk is highest for frame transactions, which are also the main reason for having the format.
 
@@ -65,12 +67,31 @@ The risk is highest for frame transactions, which are also the main reason for h
 - **Cite the rule.** Every `author` test references the normative text it implements, for example the relevant part of the EIP-8141 mempool section. For types 0–4, a rule with no normative text is a sign that it is client policy and should not be tested in this format.
 - **Agreement between clients before release.** `author` fixtures are released as candidates and become part of a release only after at least two independent client implementations pass them. A disagreement is triaged as a test bug, a client bug, or an ambiguity in the EIP. The last case is useful in itself, because it means the EIP needs clarifying. This is weaker than a specification check: two clients can share a misreading, and early on only one client may implement the frame transaction pool.
 
+### Using the specification beyond `t8n`
+
+Today the framework reaches the specification through `t8n`: it hands over a block's worth of transactions and gets back the post-state, receipts, rejected transactions, and optional EIP-3155 traces. Nothing forces the mempool format to use the same interface. The framework already imports the specification in-process, so it could call specification functions directly, through a new interface built for this format. Such an interface is worth adding only where it gives a check that `t8n` cannot.
+
+**Where `t8n` is already enough.** Asking whether a transaction is valid for the next block is the same as asking `t8n` to build that block with the transaction in it, and reading the rejected list and its exception. The format describes the head, so the framework builds the next block environment from it and calls `t8n` with the transaction. A dedicated `check_transaction` interface would be slightly more direct, but it would add little. The consensus-derived rows of the table above therefore stay on `t8n`.
+
+**Where `t8n` is not enough: EIP-8141 trace rules.** The trace rules talk about what happens inside the validation prefix: which opcodes run, whose storage `SLOAD` reads, which addresses `CALL*` and `EXTCODE*` touch, how much gas the prefix uses, and which frame sets the payer. EIP-3155 traces from `t8n` show opcodes, stack, and depth, but not the executing address, frame boundaries, or approval state. They cover the whole transaction, not the prefix. Rebuilding the rules from them would mean partly re-implementing the interpreter in the test framework, which is the error-prone part.
+
+The specification already has what a direct interface needs:
+
+- `ethereum.trace.set_evm_trace` installs a tracer that receives the live `Evm` with every event (`OpStart`, `OpEnd`, `OpException`, `EvmStop`, and others). The tracer can read the executing address, the stack (for `SLOAD` keys and call targets), the remaining gas, and the depth, without any change to the specification.
+- The frame transaction implementation (on the EIP-8141 branches) has the per-frame entry points (`check_frame_transaction`, `process_frames`). An interface could run the frames one at a time and stop once the payer is set.
+
+The interface, for example `simulate_validation_prefix(fork, head, pre, tx)`, would build the next block environment from `head`, run the prefix on a disposable state with a recording tracer, and return a structured trace: the frames run, the opcodes per frame, the storage reads with their owners, the call targets, the gas used, the approvals, and whether the payer was set. The EIP-8141 rules are then a short function over that structured trace, written in the testing framework and kept separate from the specification.
+
+**Costs.** The interface depends on internal, fork-specific function names. Because each fork is a full copy, it would need an adapter per fork that has frame transactions, and spec refactors can break it. `t8n` is a stable boundary, and this interface is not. The scope should therefore stay narrow: one entry point for the frame transaction validation prefix, and no general-purpose mempool engine.
+
+**Not worth a new interface:** policy rules and pool-content rules have no specification counterpart. Nonce gaps are computed from `pre`. The blob sidecar checks already use the framework's blob helpers.
+
 ### Writing the rules down
 
 The rules can only be checked mechanically if they are written as code somewhere. There are three options:
 
 1. **A non-consensus module in the specification**, for example a `mempool.py` next to `fork.py` in each fork, defining `validate_pooled_transaction`. It would get the same review as the specification and would follow its fork-by-fork copying. It also expands the repository beyond consensus, and that decision belongs to the specification maintainers.
-2. **A reference checker in the testing framework** (`execution_testing`). It would reuse the specification's frame interpreter with a trace hook to apply the EIP-8141 prefix rules, and `fill` would use it to compute or verify `broadcast` and `exception`. The bar is lower and it can start now, but it is test code: a bug in it produces wrong fixtures with confidence, so it needs the same agreement between clients as above until it has proven itself.
+2. **A reference checker in the testing framework** (`execution_testing`). It would use the interface from [Using the specification beyond `t8n`](#using-the-specification-beyond-t8n) to run the prefix on the specification's interpreter, apply the EIP-8141 rules to the resulting trace, and compute or verify `broadcast` and `exception` when generating fixtures. The interpreter, and with it gas accounting and opcode semantics, comes from the specification. Only the rules over the trace are new code. The bar is lower and it can start now, but it is test code: a bug in it produces wrong fixtures with confidence, so it needs the same agreement between clients as above until it has proven itself.
 3. **No code.** The rules stay in EIP text, and every non-consensus expectation is `author`.
 
 The recommendation is to start with option 3 plus the mitigations above for the first fixtures. In parallel, build option 2 for the EIP-8141 trace rules, which are the most error-prone to hand-write and the most valuable to automate. Option 2 can later move into the specification (option 1) if the maintainers want mempool rules there. The FOCIL-with-frames work (see [Specification oracle](#specification-oracle)) shows that replaying a validation prefix on top of the specification's interpreter is practical.
@@ -108,7 +129,7 @@ Most of the rules a client checks when a transaction arrives are in the first co
 
 - **The starting point is the same for every client.** An empty pool on top of a given head and state is the same starting point in every client. With prior content, the starting point depends on how each client stored, ordered, and possibly already evicted the earlier transactions.
 - **The outcome is one observation.** The test reads whether the pool holds the transaction as executable. It needs no second query, no ordering, and no knowledge of the pool's internal tiers. A queued or dropped future-nonce transaction passes in both cases.
-- **The spec can check the expected results.** For consensus-derived rules, `fill` checks every expectation against `check_transaction`. Pool-content rules have no consensus counterpart at all.
+- **The spec can check the expected results.** For consensus-derived rules, the framework checks every expectation against the specification through `t8n`. Pool-content rules have no consensus counterpart at all.
 - **Clients already validate this way.** Geth calls `ValidateTransaction` without state and `ValidateTransactionWithState` with state, and with an empty pool the pool callbacks return zero or nothing. A consumer adds no new behavior to the client: it calls the code the network path already uses.
 - **The format reuses existing building blocks.** `pre`, `config`, the headers, and the exception mappers already exist for state and blockchain tests.
 
@@ -255,7 +276,7 @@ Most of the EIP's public mempool rules depend only on the transaction and the he
 - **Validation gas caps.** `MAX_VERIFY_GAS` (execution limits in the prefix plus signature verification cost) and `MAX_VERIFY_STATE_GAS`. These need boundary tests at the cap and one unit over it.
 - **Banned opcodes.** One parametrized test per banned opcode (`GASPRICE`, `BLOCKHASH`, `COINBASE`, `TIMESTAMP`, `NUMBER`, `PREVRANDAO`, `GASLIMIT`, `BASEFEE`, `BLOBBASEFEE`, `SLOTNUM`, `GAS`, `CREATE`, `CREATE2`, `SETDELEGATE`, `INVALID`, `SELFDESTRUCT`, `BALANCE`, `SELFBALANCE`, `SSTORE`) executed in a verify frame, directly or through a nested call. Each exception gets a positive test: `GAS` directly before a `*CALL`, `TIMESTAMP` in the canonical expiry verifier, and `CREATE`/`CREATE2`/`SETDELEGATE`/`SSTORE` to `tx.sender` in the first `deploy` frame.
 - **State access.** `SLOAD` outside `tx.sender`'s storage, including through transitive calls. Writes other than the allowed deploy writes. `CALL*`/`EXTCODE*` to an address that is empty or delegated through EIP-7702. The contracts that the verify frames call are deployed in `pre`.
-- **Approval outcome.** A prefix frame reverts, exits without its required `APPROVE`, uses a scope its flags do not allow, or never sets the payer. Some of these cases also make the transaction invalid by consensus, so the filler can check them against the specification (see below).
+- **Approval outcome.** A prefix frame reverts, exits without its required `APPROVE`, uses a scope its flags do not allow, or never sets the payer. Some of these cases also make the transaction invalid by consensus, so the framework can check them against the specification (see below).
 - **Expiry.** The canonical expiry verifier with a deadline before, at, and after the head timestamp. The EIP refers to the node's view of the current block timestamp, so the fixture defines that view as `head.timestamp`. The consumer command must use the head timestamp, not the wall clock.
 - **Paymaster solvency with an empty pool.** With nothing pending, `available_paymaster_balance` reduces to `balance - pending_withdrawal_amount`. Both values come from `pre`, where the canonical paymaster is deployed with its exact runtime code. The tests cover a canonical paymaster that is solvent, one that is insolvent only because of a pending withdrawal, a non-canonical paymaster subject to the trace rules, and a default-code payer.
 - **Signatures.** Each signature scheme (`ARBITRARY`, `SECP256K1`, `P256`) with a valid and an invalid signature, and the all-zero explicit digest.
@@ -278,9 +299,9 @@ Re-simulation after a new head could fit a two-step extension of this format: ad
 
 ### Specification oracle
 
-The consensus check in `fill` still applies: a frame transaction with `broadcast: true` must pass the specification's frame transaction check against the next block environment. However, the trace rules (banned opcodes, storage access, gas caps, prefix shapes) are not consensus, so the specification cannot verify those expectations today.
+The consensus check through `t8n` still applies: a frame transaction with `broadcast: true` must pass the specification's frame transaction check against the next block environment. However, the trace rules (banned opcodes, storage access, gas caps, prefix shapes) are not consensus, so the specification cannot verify those expectations today.
 
-The FOCIL-with-frames work already contains a related specification. `inclusion_list_frames.py` in the `eips/bogota/focil-frames` branch classifies frame candidates and replays their validation prefix on a disposable state. Its constants and rules differ from the mempool rules (for example `MAX_VERIFY_GAS_PER_TX = 2**18` against the mempool's `MAX_VERIFY_GAS = 100_000`), so it cannot be used as the oracle as it is. Still, it shows that a `validate_pooled_frame_transaction` function using the same frame interpreter with a trace hook is feasible. With such a function, `fill` could compute `broadcast` and `exception` for every frame test instead of relying on the test author. See [Writing the rules down](#writing-the-rules-down) for where that function could live.
+The FOCIL-with-frames work already contains a related specification. `inclusion_list_frames.py` in the `eips/bogota/focil-frames` branch classifies frame candidates and replays their validation prefix on a disposable state. Its constants and rules differ from the mempool rules (for example `MAX_VERIFY_GAS_PER_TX = 2**18` against the mempool's `MAX_VERIFY_GAS = 100_000`), so it cannot be used as the oracle as it is. Still, it shows that a `validate_pooled_frame_transaction` function using the same frame interpreter with a trace hook is feasible. With such a function, the framework could compute `broadcast` and `exception` for every frame test instead of relying on the test author. See [Writing the rules down](#writing-the-rules-down) for where that function could live.
 
 ### Consumer impact
 
