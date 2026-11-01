@@ -336,6 +336,13 @@ def environment(
         # tests (up to thousands of accounts), so dumping it floods the client
         # log without saying much about any single test.
         "HIVE_OMIT_GENESIS_ALLOC": "1",
+        # Tell client wrapper scripts that the client needs no KZG at start:
+        # it only verifies KZG proofs, in the point-evaluation precompile,
+        # and computes none (nothing sends it blob transactions with
+        # sidecars). Scripts may make the trusted setup load cheaper: later
+        # or in the background. Results do not change; the first
+        # point-evaluation call may wait for the load.
+        "HIVE_KZG_FAST_SETUP": "1",
     }
 
     environment_cache[pre_hash] = env

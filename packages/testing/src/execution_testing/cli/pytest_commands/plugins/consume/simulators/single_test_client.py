@@ -55,6 +55,13 @@ def environment(
         "HIVE_NODETYPE": "full",
         "HIVE_CHECK_LIVE_PORT": str(check_live_port),
         **{k: f"{v:d}" for k, v in ruleset[fixture.fork].items()},
+        # Tell client wrapper scripts that the client needs no KZG at start:
+        # it only verifies KZG proofs, in the point-evaluation precompile,
+        # and computes none (nothing sends it blob transactions with
+        # sidecars). Scripts may make the trusted setup load cheaper: later
+        # or in the background. Results do not change; the first
+        # point-evaluation call may wait for the load.
+        "HIVE_KZG_FAST_SETUP": "1",
     }
 
 
