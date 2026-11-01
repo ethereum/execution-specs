@@ -1,0 +1,156 @@
+{
+  "cls18-memory-per-word-6": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "MEMORY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))",
+    "replace": "MEMORY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(6))",
+    "why": "MEMORY_PER_WORD 3->6 (DEARER): the linear half of the memory formula doubles, so a contract reimplementing `3 * words` under-quotes by 3 gas per word. Error scales with size: 3 gas at 32 bytes, 6,144 at 64 KiB",
+    "fork": "Amsterdam"
+  },
+  "cls18-memory-per-word-2": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "MEMORY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))",
+    "replace": "MEMORY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(2))",
+    "why": "MEMORY_PER_WORD 3->2 (CHEAPER): the direction five of the fifteen mainnet constant changes actually took. A frozen-budget survival test cannot see it; an equality or a two-sided bracket can",
+    "fork": "Amsterdam"
+  },
+  "cls18-memory-quadratic-256": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "quadratic_cost = size_in_words ** Uint(2) // Uint(512)",
+    "replace": "quadratic_cost = size_in_words ** Uint(2) // Uint(256)  # MUTATION",
+    "why": "memory quadratic divisor 512->256 (DEARER): the one mutation whose error grows with the SQUARE of the size. Zero below 16 words (floor(w**2/512) == floor(w**2/256) == 0 for w <= 15), +8,192 gas at 2,048 words. This is the mutation that distinguishes class #18 from class #3",
+    "fork": "Amsterdam"
+  },
+  "cls18-memory-quadratic-1024": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "quadratic_cost = size_in_words ** Uint(2) // Uint(512)",
+    "replace": "quadratic_cost = size_in_words ** Uint(2) // Uint(1024)  # MUTATION",
+    "why": "memory quadratic divisor 512->1024 (CHEAPER): large memory halves in price, so a contract that refused a copy as unaffordable would now have been able to afford it",
+    "fork": "Amsterdam"
+  },
+  "cls18-copy-per-word-6": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "OPCODE_COPY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))",
+    "replace": "OPCODE_COPY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(6))",
+    "why": "OPCODE_COPY_PER_WORD 3->6 (DEARER): MCOPY/CALLDATACOPY/CODECOPY all double their per-word charge. Witnessed shape: MCOPY for memory movement, 108,056 runtimes / 730,841 addresses (L2, FP 0.0003)",
+    "fork": "Amsterdam"
+  },
+  "cls18-copy-per-word-1": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "OPCODE_COPY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))",
+    "replace": "OPCODE_COPY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(1))",
+    "why": "OPCODE_COPY_PER_WORD 3->1 (CHEAPER): a 3x cut, the scale of EIP-1108's precompile reductions",
+    "fork": "Amsterdam"
+  },
+  "cls18-copy-per-word-osaka-6": {
+    "file": "osaka/vm/gas.py",
+    "find": "OPCODE_COPY_PER_WORD: Final[Uint] = Uint(3)",
+    "replace": "OPCODE_COPY_PER_WORD: Final[Uint] = Uint(6)",
+    "why": "the same reprice on the pre-EIP-8037 band, where the coefficient is identical. Confirms the archetype's Berlin..Osaka arms are live rather than merely collected",
+    "fork": "Osaka"
+  },
+  "cls18-keccak-per-word-12": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "OPCODE_KECCAK256_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(6))",
+    "replace": "OPCODE_KECCAK256_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(12))",
+    "why": "OPCODE_KECCAK256_PER_WORD 6->12 (DEARER): every contract pricing a hash over a variable-length payload -- merkle proofs, EIP-712 structs, L2 batches -- under-quotes by 6 per word. Also moves the CREATE2 init-code hashing term",
+    "fork": "Amsterdam"
+  },
+  "cls18-keccak-per-word-3": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "OPCODE_KECCAK256_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(6))",
+    "replace": "OPCODE_KECCAK256_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))",
+    "why": "OPCODE_KECCAK256_PER_WORD 6->3 (CHEAPER): halves hashing, which also halves the per-word part of a CREATE2 init-code charge",
+    "fork": "Amsterdam"
+  },
+  "cls18-log-byte-10": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "OPCODE_LOG_DATA_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(8))",
+    "replace": "OPCODE_LOG_DATA_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(10))",
+    "why": "OPCODE_LOG_DATA_PER_BYTE 8->10 (DEARER): per BYTE, so a 25% rise costs 2 gas for every byte of event data. The smallest relative change in this file and still worth 131,072 gas on a 64 KiB log",
+    "fork": "Amsterdam"
+  },
+  "cls18-exp-per-byte-10": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "OPCODE_EXP_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(50))",
+    "replace": "OPCODE_EXP_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(10))",
+    "why": "OPCODE_EXP_PER_BYTE 50->10 (CHEAPER): literally undoes EIP-160, which raised it 10->50 at Spurious Dragon. The only mutation in the corpus that restores a historical value rather than inventing one, and the historical precedent class #18 exists for",
+    "fork": "Amsterdam"
+  },
+  "cls18-init-code-per-word-4": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "CODE_INIT_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(2))",
+    "replace": "CODE_INIT_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(4))",
+    "why": "CODE_INIT_PER_WORD 2->4 (DEARER): EIP-3860's init-code word charge doubles. Only reachable by a differencing instrument -- 8 gas against a 195,624-gas CREATE2 charge at Amsterdam",
+    "fork": "Amsterdam"
+  },
+  "cls18-identity-per-word-4": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "PRECOMPILE_IDENTITY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))",
+    "replace": "PRECOMPILE_IDENTITY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(4))",
+    "why": "PRECOMPILE_IDENTITY_PER_WORD 3->4 (DEARER): the identity precompile used as a memcpy (3,367 runtimes / 92,537 addresses, L2 FP 0.0) stops fitting the frozen literal it was sized against, and the copy silently returns 0",
+    "fork": "Amsterdam"
+  },
+  "cls18-identity-per-word-2": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "PRECOMPILE_IDENTITY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))",
+    "replace": "PRECOMPILE_IDENTITY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(2))",
+    "why": "PRECOMPILE_IDENTITY_PER_WORD 3->2 (CHEAPER): a copy the contract's own formula declared unaffordable now succeeds. Detectable only from the negative side of a two-sided bracket",
+    "fork": "Amsterdam"
+  },
+  "cls23-create2-prefix-fe": {
+    "file": "amsterdam/utils/address.py",
+    "find": "preimage = b\"\\xff\" + address + salt + keccak256(call_data)",
+    "replace": "preimage = b\"\\xfe\" + address + salt + keccak256(call_data)  # MUTATION",
+    "why": "CREATE2 domain-separation byte 0xff->0xfe: the preimage's first byte is a protocol constant every deployed computeAddress hardcodes, so the landing site moves and the derivation does not",
+    "fork": "Amsterdam"
+  },
+  "cls23-create2-salt-ignored": {
+    "file": "amsterdam/utils/address.py",
+    "find": "preimage = b\"\\xff\" + address + salt + keccak256(call_data)",
+    "replace": "preimage = b\"\\xff\" + address + keccak256(call_data)  # MUTATION",
+    "why": "the salt leaves the CREATE2 preimage: every salt collapses to one address per (deployer, initcode). Pins the salt as a load-bearing derivation input rather than decoration",
+    "fork": "Amsterdam"
+  },
+  "cls23-create2-raw-initcode": {
+    "file": "amsterdam/utils/address.py",
+    "find": "preimage = b\"\\xff\" + address + salt + keccak256(call_data)",
+    "replace": "preimage = b\"\\xff\" + address + salt + call_data  # MUTATION",
+    "why": "the init code enters the preimage raw instead of hashed: still deterministic, still collision-resistant in practice, and still wrong. Pins the inner keccak separately from the outer one",
+    "fork": "Amsterdam"
+  },
+  "cls23-create2-high-20-bytes": {
+    "file": "amsterdam/utils/address.py",
+    "find": "    preimage = b\"\\xff\" + address + salt + keccak256(call_data)\n    computed_address = keccak256(preimage)\n    canonical_address = computed_address[-20:]",
+    "replace": "    preimage = b\"\\xff\" + address + salt + keccak256(call_data)\n    computed_address = keccak256(preimage)\n    canonical_address = computed_address[:20]  # MUTATION",
+    "why": "CREATE2 truncates the hash from the high end instead of the low end. Scoped to the CREATE2 function only (the same line exists in compute_contract_address), so it discriminates the two derivations",
+    "fork": "Amsterdam"
+  },
+  "cls23-create-nonce-plus-one": {
+    "file": "amsterdam/utils/address.py",
+    "find": "computed_address = keccak256(rlp.encode([address, nonce]))",
+    "replace": "computed_address = keccak256(rlp.encode([address, nonce + Uint(1)]))  # MUTATION",
+    "why": "CREATE derives from nonce+1: an off-by-one in the RLP preimage, the most plausible real mistake in this derivation, and invisible to anything that does not predict the address in advance",
+    "fork": "Amsterdam"
+  },
+  "cls23-create-no-nonce": {
+    "file": "amsterdam/utils/address.py",
+    "find": "computed_address = keccak256(rlp.encode([address, nonce]))",
+    "replace": "computed_address = keccak256(rlp.encode([address]))  # MUTATION",
+    "why": "the nonce leaves the CREATE preimage entirely, so every contract a deployer creates collides at one address",
+    "fork": "Amsterdam"
+  },
+  "cls23-create-nonce-not-incremented": {
+    "file": "amsterdam/vm/instructions/system.py",
+    "find": "    increment_nonce(tx_state, sender_address)\n\n    # DISPATCH",
+    "replace": "    pass  # MUTATION: nonce not incremented on a successful create\n\n    # DISPATCH",
+    "why": "a successful CREATE no longer advances the creator's nonce (a LOOSENING, not a reprice). Expected to be GRADED: nonce_1 is unaffected and nonce_2/nonce_3 collide, so the failure pattern locates the rule the way retention-128 vs retention-256 does",
+    "fork": "Amsterdam"
+  },
+  "cls23-sha3-opcode-salted": {
+    "file": "amsterdam/vm/instructions/keccak.py",
+    "find": "    hashed = keccak256(data)",
+    "replace": "    hashed = keccak256(data + b\"\\x00\")  # MUTATION",
+    "why": "the KECCAK256 *opcode* disagrees with the hash the address derivation uses, so the CONTRACT's side of the equality moves while the landing site stays put. The official suite derives counterfactual addresses in Python and is structurally blind to this direction; only an in-EVM derivation can see it",
+    "fork": "Amsterdam"
+  }
+}

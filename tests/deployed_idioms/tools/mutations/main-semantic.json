@@ -1,0 +1,8 @@
+{
+  "extcodesize-hides-delegation": {
+    "file": "amsterdam/vm/instructions/environment.py",
+    "find": "codesize = U256(len(code))",
+    "replace": "codesize = U256(0 if code[:3] == bytes([0xEF, 0x01, 0x00]) else len(code))  # MUTATION",
+    "why": "EXTCODESIZE reports 0 for a delegation designator, i.e. the EIP-7702 identity hazard is repaired"
+  }
+}

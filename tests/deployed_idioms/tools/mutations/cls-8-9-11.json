@@ -1,0 +1,113 @@
+{
+  "cls8-refund-div-10": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "gas_refund = min(gas_used_before_refund // Uint(5), Uint(refund_counter))",
+    "replace": "gas_refund = min(gas_used_before_refund // Uint(10), Uint(refund_counter))  # MUTATION",
+    "why": "TIGHTER refund cap at Amsterdam: 1/5 -> 1/10 of gas used"
+  },
+  "cls8-refund-div-2-amsterdam": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "gas_refund = min(gas_used_before_refund // Uint(5), Uint(refund_counter))",
+    "replace": "gas_refund = min(gas_used_before_refund // Uint(2), Uint(refund_counter))  # MUTATION",
+    "why": "LOOSER refund cap at Amsterdam: 1/5 -> 1/2, i.e. EIP-3529 undone"
+  },
+  "cls8-refund-div-10-london": {
+    "file": "london/fork.py",
+    "find": "tx_gas_used_before_refund // Uint(5), Uint(tx_output.refund_counter)",
+    "replace": "tx_gas_used_before_refund // Uint(10), Uint(tx_output.refund_counter)  # MUTATION",
+    "why": "TIGHTER refund cap at London: 1/5 -> 1/10",
+    "fork": "London"
+  },
+  "cls8-refund-div-2-london": {
+    "file": "london/fork.py",
+    "find": "tx_gas_used_before_refund // Uint(5), Uint(tx_output.refund_counter)",
+    "replace": "tx_gas_used_before_refund // Uint(2), Uint(tx_output.refund_counter)  # MUTATION",
+    "why": "LOOSER refund cap at London: EIP-3529's divisor change reverted to Berlin's 1/2",
+    "fork": "London"
+  },
+  "cls8-refund-div-5-berlin": {
+    "file": "berlin/fork.py",
+    "find": "tx_gas_used_before_refund // Uint(2), Uint(tx_output.refund_counter)",
+    "replace": "tx_gas_used_before_refund // Uint(5), Uint(tx_output.refund_counter)  # MUTATION",
+    "why": "TIGHTER refund cap at Berlin: EIP-3529's 1/5 applied a fork early",
+    "fork": "Berlin"
+  },
+  "cls8-refund-div-1-berlin": {
+    "file": "berlin/fork.py",
+    "find": "tx_gas_used_before_refund // Uint(2), Uint(tx_output.refund_counter)",
+    "replace": "tx_gas_used_before_refund // Uint(1), Uint(tx_output.refund_counter)  # MUTATION",
+    "why": "LOOSER refund cap at Berlin: cap removed entirely (1/1)",
+    "fork": "Berlin"
+  },
+  "cls8-clear-refund-halved-amsterdam": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "(STORAGE_WRITE + COLD_STORAGE_ACCESS) * Uint(4800) // Uint(5000)",
+    "replace": "(STORAGE_WRITE + COLD_STORAGE_ACCESS) * Uint(2400) // Uint(5000)  # MUTATION",
+    "why": "Amsterdam REFUND_STORAGE_CLEAR 11,616 -> 5,808 (the counter term of the min)"
+  },
+  "cls8-clear-refund-2400-london": {
+    "file": "london/vm/gas.py",
+    "find": "REFUND_STORAGE_CLEAR: Final[int] = 4800",
+    "replace": "REFUND_STORAGE_CLEAR: Final[int] = 2400  # MUTATION",
+    "why": "TIGHTER clear refund at London: EIP-3529's 4,800 halved",
+    "fork": "London"
+  },
+  "cls8-clear-refund-30000-berlin": {
+    "file": "berlin/vm/gas.py",
+    "find": "REFUND_STORAGE_CLEAR: Final[int] = 15000",
+    "replace": "REFUND_STORAGE_CLEAR: Final[int] = 30000  # MUTATION",
+    "why": "LOOSER clear refund at Berlin: 15,000 -> 30,000",
+    "fork": "Berlin"
+  },
+  "cls9-refund-funds-gas-left-osaka": {
+    "file": "osaka/vm/instructions/storage.py",
+    "find": "                evm.refund_counter += int(\n                    GasCosts.STORAGE_SET - GasCosts.WARM_ACCESS\n                )",
+    "replace": "                evm.gas_left += (\n                    GasCosts.STORAGE_SET - GasCosts.WARM_ACCESS\n                )  # MUTATION\n                evm.refund_counter += int(\n                    GasCosts.STORAGE_SET - GasCosts.WARM_ACCESS\n                )",
+    "why": "Pre-8037 inversion: a set-then-clear's 19,900 refund also credits gas_left, so the refund funds in-frame execution",
+    "fork": "Osaka"
+  },
+  "cls9-inframe-refund-to-reservoir": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    from_gas_left = min(amount, gas_meter.state_gas_spilled)",
+    "replace": "    from_gas_left = StateGas(Uint(0))  # MUTATION",
+    "why": "M2 routed wrongly: an in-frame state refund credits the reservoir instead of gas_left, so the clearing frame cannot spend it"
+  },
+  "cls11-halt-returns-gas": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    gas_meter.gas_left = ExecutionGas(Uint(0))",
+    "replace": "    pass  # MUTATION: halted frame keeps its gas_left",
+    "why": "An exceptional halt no longer burns the frame's remaining gas at Amsterdam"
+  },
+  "cls11-halt-returns-gas-osaka": {
+    "file": "osaka/vm/interpreter.py",
+    "find": "    except ExceptionalHalt as error:\n        evm_trace(evm, OpException(error))\n        evm.gas_left = Uint(0)",
+    "replace": "    except ExceptionalHalt as error:\n        evm_trace(evm, OpException(error))\n        pass  # MUTATION: halted frame keeps its gas_left",
+    "why": "An exceptional halt no longer burns the frame's remaining gas at Osaka",
+    "fork": "Osaka"
+  },
+  "cls11-revert-burns-gas": {
+    "file": "amsterdam/vm/interpreter.py",
+    "find": "        restore_state_gas(evm.gas_meter)\n        evm.error = error",
+    "replace": "        restore_state_gas(evm.gas_meter)\n        forfeit_remaining_gas(evm.gas_meter)  # MUTATION\n        evm.error = error",
+    "why": "A REVERT burns the frame's remaining gas like a halt, at Amsterdam"
+  },
+  "cls11-revert-burns-gas-osaka": {
+    "file": "osaka/vm/interpreter.py",
+    "find": "    except Revert as error:\n        evm_trace(evm, OpException(error))\n        evm.error = error",
+    "replace": "    except Revert as error:\n        evm_trace(evm, OpException(error))\n        evm.gas_left = Uint(0)  # MUTATION\n        evm.error = error",
+    "why": "A REVERT burns the frame's remaining gas like a halt, at Osaka",
+    "fork": "Osaka"
+  },
+  "cls11-revert-no-spill-restore": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    gas_meter.gas_left = ExecutionGas(\n        gas_meter.gas_left + Uint(gas_meter.state_gas_spilled)\n    )\n    gas_meter.state_gas_spilled = StateGas(Uint(0))\n    gas_meter.state_gas_left = gas_meter.state_gas_baseline\n    gas_meter.refund_counter = 0",
+    "replace": "    gas_meter.state_gas_spilled = StateGas(Uint(0))  # MUTATION\n    gas_meter.state_gas_left = gas_meter.state_gas_baseline\n    gas_meter.refund_counter = 0",
+    "why": "restore_state_gas no longer refills the spill into gas_left, so a reverting frame returns no state gas"
+  },
+  "cls11-no-child-gas-return": {
+    "file": "amsterdam/vm/__init__.py",
+    "find": "    gas_meter.gas_left += child_meter.gas_left",
+    "replace": "    pass  # MUTATION: a child's unspent gas never reaches the parent",
+    "why": "A returning child's unspent execution gas is not absorbed by the parent"
+  }
+}

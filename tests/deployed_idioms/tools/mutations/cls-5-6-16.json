@@ -1,0 +1,33 @@
+{
+  "retention-32": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "return ExecutionGas(gas - (gas // Uint(64)))",
+    "replace": "return ExecutionGas(gas - (gas // Uint(32)))  # MUTATION",
+    "why": "63/64 retention -> 31/32: the child gets LESS, the caller keeps twice as much. core-gas.json only loosens the fraction; this tightens it, which is the direction a forwarding-prediction pre-check and a depth chain's leaf feel."
+  },
+  "retention-osaka-256": {
+    "file": "osaka/vm/gas.py",
+    "find": "return gas - (gas // Uint(64))",
+    "replace": "return gas - (gas // Uint(256))  # MUTATION",
+    "fork": "Osaka",
+    "why": "63/64 -> 255/256 on Osaka, so the pre-Amsterdam arms of the fork-split canaries (valid_until(Osaka)) are mutation-validated too; an Amsterdam-only mutation never selects them."
+  },
+  "cold-account-6000": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "COLD_ACCOUNT_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(3000))",
+    "replace": "COLD_ACCOUNT_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(6000))  # MUTATION",
+    "why": "COLD_ACCOUNT_ACCESS 3000 -> 6000, an EIP-2929/EIP-8038-shaped access reprice. This is the `extra_gas` term of calculate_message_call_gas, which a forwarding-prediction slack has to cover."
+  },
+  "reservoir-6364": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    reservoir = gas_meter.state_gas_left\n    gas_meter.state_gas_left = StateGas(Uint(0))\n    return reservoir",
+    "replace": "    reservoir = StateGas(  # MUTATION\n        gas_meter.state_gas_left - (gas_meter.state_gas_left // Uint(64))\n    )\n    gas_meter.state_gas_left = StateGas(\n        gas_meter.state_gas_left - reservoir\n    )\n    return reservoir",
+    "why": "drain_state_gas_reservoir applies the all-but-one-64th rule to state gas as well, i.e. a later fork 'fixes' the asymmetry its own docstring declares. This is the mutation class #16 exists to catch."
+  },
+  "reservoir-half": {
+    "file": "amsterdam/vm/gas.py",
+    "find": "    reservoir = gas_meter.state_gas_left\n    gas_meter.state_gas_left = StateGas(Uint(0))\n    return reservoir",
+    "replace": "    reservoir = StateGas(gas_meter.state_gas_left // Uint(2))  # MUTATION\n    gas_meter.state_gas_left = StateGas(\n        gas_meter.state_gas_left - reservoir\n    )\n    return reservoir",
+    "why": "the parent keeps half the reservoir back. A coarse version of reservoir-6364, so the pair grades how large a change each archetype can see."
+  }
+}
