@@ -9,7 +9,7 @@ The Mempool Test fixture format would be stored in the fixtures subdirectory `me
 
 The mempool test fixture format checks transaction pool admission: given a chain head, a state, and a single transaction received from the network, should the client accept the transaction into its pool and broadcast it to its peers?
 
-Each test vector contains exactly one transaction and a binary expectation. There are no transactions in the pool before the test starts, so the result never depends on previously pooled transactions, replacement rules, eviction, or ordering. Scenarios that need prior pool content (replace-by-fee, per-account slot limits, overdraft across queued transactions, the in-flight limit for delegated accounts, and the frame transaction rules that count pending transactions per sender or paymaster) are out of scope for this format. The format works with every transaction type, including frame transactions (see [Frame transactions](#frame-transactions)).
+Each test vector contains exactly one transaction and a binary expectation. There are no transactions in the pool before the test starts, so the result never depends on previously pooled transactions, replacement rules, eviction, or ordering. Scenarios that need prior pool content are left to a separate, later format (see [Scope: single transaction versus existing pool content](#scope-single-transaction-versus-existing-pool-content)). The format works with every transaction type, including frame transactions (see [Frame transactions](#frame-transactions)).
 
 The format reuses most of the [State Test](./state_test.md) building blocks (`pre`, `config`, a signed transaction, and an expected exception). The main difference is that the environment describes the **current chain head**, not the block in which the transaction executes. A transaction pool validates incoming transactions against the head state and derives the values of the next block from the head.
 
@@ -39,6 +39,71 @@ A mempool admission check contains three kinds of rules, and the format handles 
 | Node policy | Minimum tip, maximum transaction size, `maxFeePerGas` below the next base fee, pool capacity | Not tested in the first iteration; fixtures stay clear of these limits (see [`policy`](#-policy-fixturepolicy)) |
 
 The consensus-derived category gives `fill` an oracle. For every fixture with `broadcast: true`, the filler runs the transaction through the specification's `check_transaction` against the next block environment and fails the fill if the transaction is invalid. For every rejection whose exception is a `TransactionException`, the filler checks that the specification raises it. Mempool-only rejections are new `MempoolException` values that the specification cannot verify, so they rely on review.
+
+## Scope: single transaction versus existing pool content
+
+Mempool behavior splits into two families of tests:
+
+- **Single-transaction admission**: the pool is empty, one transaction arrives, and the test checks whether the client broadcasts it. This document defines that format.
+- **Pool-content tests**: the pool already holds transactions, or receives several in sequence, and the outcome of the new transaction depends on them. Examples are replacement, per-sender limits, and eviction.
+
+The two families differ enough to justify separate formats. This document studies only the feasibility of the first. The second needs its own analysis. The sections below explain where the line falls, why the single-transaction format is feasible now, and what this format does to keep the pool-content format possible.
+
+### What each family covers
+
+| Rule | Single transaction | Needs pool content |
+| --- | --- | --- |
+| Signature, intrinsic gas, fee fields, type active in the fork, gas caps | Yes | |
+| Nonce too low, nonce gap (not broadcast), balance against maximum cost | Yes | |
+| Blob sidecar format, version, and KZG proofs | Yes | |
+| EIP-8141 prefix shapes, validation gas caps, banned opcodes, state access, expiry | Yes | |
+| EIP-8141 paymaster solvency with nothing reserved | Yes | |
+| Replacement by `(sender, nonce)` and the minimum fee bump | | Yes |
+| Overdraft across several pending transactions from one sender | | Yes |
+| Per-sender and per-account slot limits | | Yes |
+| In-flight limit for EIP-7702 delegated senders | | Yes |
+| EIP-8141 one pending transaction per sender, `MAX_PENDING_TXS_USING_NON_CANONICAL_PAYMASTER`, reserved paymaster cost, per-payer exposure | | Yes |
+| Promotion of a queued transaction once its nonce gap is filled | | Yes |
+| Eviction order when the pool is full | | Yes |
+| Re-validation and removal after a new head | | Yes (or one transaction plus one block) |
+
+Most of the rules a client checks when a transaction arrives are in the first column. The rules that need pool content are mostly about how the pool manages its resources over time.
+
+### Why the single-transaction format is feasible
+
+- **The starting point is the same for every client.** An empty pool on top of a given head and state is the same starting point in every client. With prior content, the starting point depends on how each client stored, ordered, and possibly already evicted the earlier transactions.
+- **The outcome is one observation.** The test checks whether the transaction is pending (direct) or announced (Hive). It needs no second query, no ordering, and no knowledge of the pool's internal tiers. A queued or dropped future-nonce transaction passes in both cases.
+- **The spec can check the expected results.** For consensus-derived rules, `fill` checks every expectation against `check_transaction`. Pool-content rules have no consensus counterpart at all.
+- **Clients already validate this way.** Geth calls `ValidateTransaction` without state and `ValidateTransactionWithState` with state, and with an empty pool the pool callbacks return zero or nothing. A consumer adds no new behavior to the client: it calls the code the network path already uses.
+- **The format reuses existing building blocks.** `pre`, `config`, the headers, and the exception mappers already exist for state and blockchain tests.
+
+### Remaining risks for the single-transaction format
+
+These affect feasibility but do not block it:
+
+- **The pool must be truly empty.** Consumers must turn off local transaction journals and any re-injection of locally submitted transactions. Hive genesis starts with an empty pool, but a client restarted with a data directory might not.
+- **Policy defaults.** Minimum tip and size limits differ between clients. The format avoids their boundaries instead of testing them (see [`policy`](#-policy-fixturepolicy)).
+- **Head versus next block.** Clients may use the fork rules or gas limit of the head where the specification uses the next block. This is why transitions are excluded at first.
+- **Negative results in Hive depend on a timeout.** A missing announcement is inferred by waiting. Direct consumption has no such problem.
+- **Coverage, not correctness.** A client that ignores a pool-content rule (for example, it accepts a second pending frame transaction from the same sender) passes every single-transaction test. The single-transaction format does not catch that. The later format does.
+
+### Keeping the pool-content format possible
+
+The single-transaction format should be a special case of the later format, not a dead end. These choices in this draft are meant to keep that possible:
+
+- **Shared inputs.** `network`, `config`, `head`, `pre`, and `policy` describe the node before any transaction arrives. A pool-content fixture needs exactly the same inputs, so it should reuse these structures unchanged.
+- **The result belongs to one transaction.** `txbytes`, `broadcast`, and `exception` together describe one transaction and its outcome. A pool-content fixture could become an ordered list of those triples, each with its own expectation. A single-transaction fixture is then the same fixture with a list of length one.
+- **Same consumer, run in a loop.** A direct consumer built for this format (build the state, build the pool, submit as remote, read the status) becomes the inner step of a pool-content consumer. The new parts are keeping the pool between steps and reading more outcomes.
+- **Separate fixture directory.** The later format would use its own directory (for example `mempool_sequence_tests`). Existing consumers then never receive fixtures they cannot run, and this format does not need a version field to tell the two apart.
+
+### Questions the pool-content format needs to answer
+
+These are recorded here so they are not lost. They do not affect the single-transaction format:
+
+- **More outcomes than broadcast.** Replacement and eviction affect transactions that were already announced. Clients do not announce a removal on the network, so a Hive consumer cannot see it. The format would need a standard way to query the pool, or would be limited to direct consumption.
+- **Which rules are uniform.** Replacement bumps, slot limits, and pool capacity are client policy for types 0–4. EIP-8141 writes several pool-content rules into the EIP (one pending transaction per sender, the paymaster limits, and the 10% conventional bump), so frame transactions may be the first area where pool-content tests can be shared between clients.
+- **Events between transactions.** Re-validation needs new heads between submissions. The format would need block events in the sequence, which brings in the blockchain test machinery.
+- **Spec oracle.** Pool-content expectations have no consensus counterpart. Without a specification of the pool rules, every expectation relies on the test author.
 
 ## Consumption
 
@@ -141,7 +206,7 @@ Most of the EIP's public mempool rules depend only on the transaction and the he
 
 ### Rules that need pool content
 
-The following rules depend on transactions that are already pending, so this format does not cover them. A future multi-transaction format could:
+The following rules depend on transactions that are already pending, so this format does not cover them. They belong to the later pool-content format (see [Scope](#scope-single-transaction-versus-existing-pool-content)):
 
 - At most one pending transaction per sender, and replacement by `(sender, nonce)` with the fee bump.
 - `MAX_PENDING_TXS_USING_NON_CANONICAL_PAYMASTER` and the `reserved_pending_cost` term of paymaster solvency.
