@@ -26,7 +26,7 @@ This format therefore defines the expected outcome as one boolean, [`broadcast`]
 
 A transaction with a future nonce is a `broadcast: false` test. Geth's legacy pool queues it and its blob pool rejects it, and both behaviors pass.
 
-An `eth_sendRawTransaction` call returning a hash is **not** evidence of a `true` outcome, because clients also return a hash for queued transactions.
+The consumer command reads this outcome from the pool's own status for the transaction, not from the network (see [Command-based consumption](#command-based-consumption)). An `eth_sendRawTransaction` call returning a hash is **not** evidence of a `true` outcome, because clients also return a hash for queued transactions.
 
 ## Rule categories
 
@@ -72,7 +72,7 @@ Most of the rules a client checks when a transaction arrives are in the first co
 ### Why the single-transaction format is feasible
 
 - **The starting point is the same for every client.** An empty pool on top of a given head and state is the same starting point in every client. With prior content, the starting point depends on how each client stored, ordered, and possibly already evicted the earlier transactions.
-- **The outcome is one observation.** The test checks whether the transaction is pending (direct) or announced (Hive). It needs no second query, no ordering, and no knowledge of the pool's internal tiers. A queued or dropped future-nonce transaction passes in both cases.
+- **The outcome is one observation.** The test reads whether the pool holds the transaction as executable. It needs no second query, no ordering, and no knowledge of the pool's internal tiers. A queued or dropped future-nonce transaction passes in both cases.
 - **The spec can check the expected results.** For consensus-derived rules, `fill` checks every expectation against `check_transaction`. Pool-content rules have no consensus counterpart at all.
 - **Clients already validate this way.** Geth calls `ValidateTransaction` without state and `ValidateTransactionWithState` with state, and with an empty pool the pool callbacks return zero or nothing. A consumer adds no new behavior to the client: it calls the code the network path already uses.
 - **The format reuses existing building blocks.** `pre`, `config`, the headers, and the exception mappers already exist for state and blockchain tests.
@@ -81,10 +81,10 @@ Most of the rules a client checks when a transaction arrives are in the first co
 
 These affect feasibility but do not block it:
 
-- **The pool must be truly empty.** Consumers must turn off local transaction journals and any re-injection of locally submitted transactions. Hive genesis starts with an empty pool, but a client restarted with a data directory might not.
+- **The pool must be truly empty.** The consumer is a command that builds a fresh in-memory pool for every test, with no journal, peers, or RPC, so the empty starting pool is guaranteed by construction. This is a requirement on the command, and the reason the format is not consumed through Hive (see [Why not Hive (for now)](#why-not-hive-for-now)).
 - **Policy defaults.** Minimum tip and size limits differ between clients. The format avoids their boundaries instead of testing them (see [`policy`](#-policy-fixturepolicy)).
 - **Head versus next block.** Clients may use the fork rules or gas limit of the head where the specification uses the next block. This is why transitions are excluded at first.
-- **Negative results in Hive depend on a timeout.** A missing announcement is inferred by waiting. Direct consumption has no such problem.
+- **The network path is not tested.** The command skips wire decoding, the transaction fetcher, and the announcement logic. These are outside admission and are better covered by the devp2p `eth` suite in Hive.
 - **Coverage, not correctness.** A client that ignores a pool-content rule (for example, it accepts a second pending frame transaction from the same sender) passes every single-transaction test. The single-transaction format does not catch that. The later format does.
 
 ### Keeping the pool-content format possible
@@ -93,14 +93,14 @@ The single-transaction format should be a special case of the later format, not 
 
 - **Shared inputs.** `network`, `config`, `head`, `pre`, and `policy` describe the node before any transaction arrives. A pool-content fixture needs exactly the same inputs, so it should reuse these structures unchanged.
 - **The result belongs to one transaction.** `txbytes`, `broadcast`, and `exception` together describe one transaction and its outcome. A pool-content fixture could become an ordered list of those triples, each with its own expectation. A single-transaction fixture is then the same fixture with a list of length one.
-- **Same consumer, run in a loop.** A direct consumer built for this format (build the state, build the pool, submit as remote, read the status) becomes the inner step of a pool-content consumer. The new parts are keeping the pool between steps and reading more outcomes.
+- **Same consumer, run in a loop.** The command built for this format (build the state, build the pool, submit as remote, read the status) becomes the inner step of a pool-content consumer. The new parts are keeping the pool between steps and reading more outcomes.
 - **Separate fixture directory.** The later format would use its own directory (for example `mempool_sequence_tests`). Existing consumers then never receive fixtures they cannot run, and this format does not need a version field to tell the two apart.
 
 ### Questions the pool-content format needs to answer
 
 These are recorded here so they are not lost. They do not affect the single-transaction format:
 
-- **More outcomes than broadcast.** Replacement and eviction affect transactions that were already announced. Clients do not announce a removal on the network, so a Hive consumer cannot see it. The format would need a standard way to query the pool, or would be limited to direct consumption.
+- **More outcomes than broadcast.** Replacement and eviction affect transactions that were already announced, and clients do not announce a removal on the network. A command-based consumer avoids the problem: it owns the emulated pool, so it can report the pool's contents after each step as part of its output. A new client endpoint to clear the pool or report its contents is only needed if pool-content tests must also run against a live node in Hive, and that can be decided when the format is designed.
 - **Which rules are uniform.** Replacement bumps, slot limits, and pool capacity are client policy for types 0–4. EIP-8141 writes several pool-content rules into the EIP (one pending transaction per sender, the paymaster limits, and the 10% conventional bump), so frame transactions may be the first area where pool-content tests can be shared between clients.
 - **Events between transactions.** Re-validation needs new heads between submissions. The format would need block events in the sequence, which brings in the blockchain test machinery.
 - **Spec oracle.** Pool-content expectations have no consensus counterpart. Without a specification of the pool rules, every expectation relies on the test author.
@@ -114,18 +114,34 @@ For each [`Fixture`](#fixture) test object in the JSON fixture file, perform the
 3. Configure the pool with the values in [`policy`](#-policy-fixturepolicy).
 4. Decode [`txbytes`](#-txbytes-bytes) using the network (pooled) encoding. For blob transactions, this encoding includes the sidecar.
 5. Submit the transaction to the pool as a **remote** transaction, as if a peer had sent it. Transactions submitted locally may be exempt from some checks.
-6. Observe whether the client considers the transaction executable and announces it:
-    - If [`broadcast`](#-broadcast-bool) is `true` and the transaction is not executable or not announced, fail the test.
-    - If [`broadcast`](#-broadcast-bool) is `false` and the transaction is announced, fail the test.
+6. Read the pool's own decision for the transaction hash: executable (the state in which the client would announce it), or not executable (queued, or rejected):
+    - If [`broadcast`](#-broadcast-bool) is `true` and the transaction is not executable, fail the test.
+    - If [`broadcast`](#-broadcast-bool) is `false` and the transaction is executable, fail the test.
 7. Optionally, if [`exception`](#-exception-transactionexception-mempoolexception) is present and the client rejected the transaction, compare the rejection reason with it using the client's exception mapper. A mismatch is reported but does not fail the test while the format is a prototype.
 
-### Direct consumption
+### Command-based consumption
 
-Similar to `consume direct` for state tests, a client binary can run the fixture in-process. It builds the pool on top of an in-memory state and reads the pool's status for the transaction hash, without any networking. This approach is quick and is the recommended first consumer.
+The format is consumed only through a client command, in the same way `consume direct` drives `evm statetest`. For example, geth would add `evm mempooltest <fixture.json>`. The command guarantees the empty starting pool, which is the main reason for choosing it: every test starts from an emulated pool that the command builds in memory for that test and discards afterwards.
 
-### Hive consumption
+The command must follow this contract:
 
-A Hive simulator starts the client with a genesis built from `head`, `pre`, and `config`, and connects two devp2p peers controlled by the simulator. Peer A sends the transaction (a full `Transactions` message, or an announcement followed by a `PooledTransactions` response for blob transactions). Peer B waits for a `NewPooledTransactionHashes` announcement that contains the hash. If no announcement arrives within a timeout, the outcome is `false`. This mode tests the full network path, but its negative results depend on a timeout. A positive-control transaction in the same session would make it more reliable, at the cost of making the session more than a single-transaction test.
+- **A fresh pool for each test.** For every test object, the command builds the state from `pre`, a chain view whose head is `head`, and a new pool. Nothing is shared between tests, including within one fixture file.
+- **No networking and no persistence.** The command starts no peers, no RPC server, no transaction journal, and no re-injection of local transactions. Its only input is the fixture, and its only clock is `head.timestamp`.
+- **Remote submission.** The transaction enters through the same validation path as a transaction received from a peer.
+- **The pool's own verdict as the output.** The command reports, for each test, whether the transaction ended up executable and the rejection error if there was one. The executable status stands in for the announcement: clients announce a transaction when it becomes executable, so the network layer adds no further admission decision.
+- **Machine-readable results.** The output is one JSON entry per test, with the test name, the observed outcome, the error, and a pass/fail verdict. This mirrors what `consume direct` already parses for `statetest`.
+
+Several execution clients already ship a command of this kind for state tests, and `consume direct` already knows how to call them: `evm statetest` in geth and Erigon, `nethtest` in Nethermind, and `evmtool` in Besu. Reth has no `consume direct` integration yet. EVM-only implementations such as evmone have no pool, so they are not consumers of this format. A `mempooltest` subcommand next to `statetest` reuses the client's fixture loading and pre-state building. It only adds the pool construction and the verdict.
+
+### Why not Hive (for now)
+
+A Hive consumer would test the full network path: decoding from the wire, the fetcher, and the announcement. However, this format does not need it:
+
+- **No endpoint guarantees an empty pool.** A Hive client is a full node. Hive can only assume that a freshly started client has an empty pool, and has no standard endpoint to check it or to clear it between tests. Restarting the client for every test would avoid the problem but makes each test cost a full client start.
+- **No endpoint reports the verdict.** `eth_sendRawTransaction` returns a hash for queued transactions too, and `txpool_*` methods are not standardized. The only standard signal is a devp2p announcement to a second peer, so a negative result means waiting for a timeout.
+- **The clock is not controlled.** Expiry rules and anything else that compares with the current time would see the wall clock in Hive, not `head.timestamp`.
+
+A new endpoint that clears the pool or reports its contents is not needed for single-transaction tests, because the command already provides both guarantees. Hive consumption can be added later as an end-to-end smoke test for a small subset of fixtures (for example one positive and one negative test per transaction type), reusing the devp2p `eth` suite's connection code. It would not be the conformance path.
 
 ## Structures
 
@@ -200,7 +216,7 @@ Most of the EIP's public mempool rules depend only on the transaction and the he
 - **Banned opcodes.** One parametrized test per banned opcode (`GASPRICE`, `BLOCKHASH`, `COINBASE`, `TIMESTAMP`, `NUMBER`, `PREVRANDAO`, `GASLIMIT`, `BASEFEE`, `BLOBBASEFEE`, `SLOTNUM`, `GAS`, `CREATE`, `CREATE2`, `SETDELEGATE`, `INVALID`, `SELFDESTRUCT`, `BALANCE`, `SELFBALANCE`, `SSTORE`) executed in a verify frame, directly or through a nested call. Each exception gets a positive test: `GAS` directly before a `*CALL`, `TIMESTAMP` in the canonical expiry verifier, and `CREATE`/`CREATE2`/`SETDELEGATE`/`SSTORE` to `tx.sender` in the first `deploy` frame.
 - **State access.** `SLOAD` outside `tx.sender`'s storage, including through transitive calls. Writes other than the allowed deploy writes. `CALL*`/`EXTCODE*` to an address that is empty or delegated through EIP-7702. The contracts that the verify frames call are deployed in `pre`.
 - **Approval outcome.** A prefix frame reverts, exits without its required `APPROVE`, uses a scope its flags do not allow, or never sets the payer. Some of these cases also make the transaction invalid by consensus, so the filler can check them against the specification (see below).
-- **Expiry.** The canonical expiry verifier with a deadline before, at, and after the head timestamp. The EIP refers to the node's view of the current block timestamp, so the fixture defines that view as `head.timestamp`. A consumer must use the head timestamp, not the wall clock. This needs care in Hive, where the wall clock is far ahead of the genesis timestamp.
+- **Expiry.** The canonical expiry verifier with a deadline before, at, and after the head timestamp. The EIP refers to the node's view of the current block timestamp, so the fixture defines that view as `head.timestamp`. The consumer command must use the head timestamp, not the wall clock.
 - **Paymaster solvency with an empty pool.** With nothing pending, `available_paymaster_balance` reduces to `balance - pending_withdrawal_amount`. Both values come from `pre`, where the canonical paymaster is deployed with its exact runtime code. The tests cover a canonical paymaster that is solvent, one that is insolvent only because of a pending withdrawal, a non-canonical paymaster subject to the trace rules, and a default-code payer.
 - **Signatures.** Each signature scheme (`ARBITRARY`, `SECP256K1`, `P256`) with a valid and an invalid signature, and the all-zero explicit digest.
 
@@ -228,7 +244,7 @@ The FOCIL-with-frames work already contains a related specification. `inclusion_
 
 ### Consumer impact
 
-The format adds no consumer work for frame transactions: a direct consumer still decodes `txbytes`, submits the transaction as remote, and checks whether it is pending. The cost is in the client's own frame transaction pool, which has to simulate the prefix with a tracer. A geth consumer would register the frame subpool next to the legacy and blob subpools when building `txpool.New`, and needs no other changes. The local go-ethereum checkout used for this estimate has no frame transaction support yet.
+The format adds no consumer work for frame transactions: the consumer command still decodes `txbytes`, submits the transaction as remote, and checks whether it is pending. The cost is in the client's own frame transaction pool, which has to simulate the prefix with a tracer. A geth consumer would register the frame subpool next to the legacy and blob subpools when building `txpool.New`, and needs no other changes. The local go-ethereum checkout used for this estimate has no frame transaction support yet.
 
 ## Writing tests
 
@@ -257,7 +273,7 @@ A `mempool_test` call accepts an optional `head` environment (base fee, excess b
 
 ## Implementing a consumer in go-ethereum
 
-Geth already contains almost every piece a direct consumer needs. The estimate below is based on the current `core/txpool` code.
+Geth already contains almost every piece the consumer command needs. The estimate below is based on the current `core/txpool` code.
 
 ### Building blocks that already exist
 
@@ -282,7 +298,7 @@ These are places where geth's behavior and the format's definition may diverge. 
 
 - **Head rules, not next-block rules.** `txpool.ValidateTransaction` derives the fork rules from the head header (`head.Number`, `head.Time`) and checks `tx.Gas()` against `head.GasLimit`. At a fork boundary, or when the next block's gas limit differs, the result may differ from the specification's next-block check. This is why the first iteration excludes transitions.
 - **No base fee check.** Geth does not compare `maxFeePerGas` with the next base fee during admission, so such transactions become pending and are announced. Other clients may reject them. This is why the format treats the comparison as node policy.
-- **Local versus remote.** Transactions submitted through `eth_sendRawTransaction` pass through the locals tracker. A direct consumer must call `TxPool.Add` as a remote submission to match what a peer would see.
+- **Local versus remote.** Transactions submitted through `eth_sendRawTransaction` pass through the locals tracker. The command must call `TxPool.Add` as a remote submission to match what a peer would see.
 
 ## Open questions
 
@@ -290,4 +306,4 @@ These are places where geth's behavior and the format's definition may diverge. 
 - **Fee cap below base fee.** Should this rule move from policy to the uniform category, and in which direction?
 - **A specification for mempool rules.** The mempool-only rules could be written down in the specification as non-consensus helpers (for example a `validate_pooled_transaction` function next to `check_transaction`). The filler could then verify every expectation instead of relying on review. Frame transactions need this the most, because their admission rules are long, written in the EIP, and depend on tracing EVM execution.
 - **Rejection reasons.** Should the exception become a hard check once client mappers exist, or always stay informational?
-- **Relation to the devp2p `eth` suite.** Hive's `devp2p` simulator already has `TestInvalidTxs` and `TestBlobViolations`, which send transactions over the wire and check that they are not propagated. A Hive consumer for this format could reuse that connection code.
+- **Relation to the devp2p `eth` suite.** Hive's `devp2p` simulator already has `TestInvalidTxs` and `TestBlobViolations`, which send transactions over the wire and check that they are not propagated. If a Hive smoke test is added later (see [Why not Hive (for now)](#why-not-hive-for-now)), it could reuse that connection code.
