@@ -538,6 +538,11 @@ plugins = ["pydantic.mypy"]
 module = "remerkleable.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+# pytest-xdist ships no type stubs / py.typed marker.
+module = "xdist.*"
+ignore_missing_imports = true
+
 [tool.uv]
 # Older uv versions trust a root CA with a compromised intermediate:
 # https://github.com/astral-sh/uv/security/advisories/GHSA-hq85-5cpj-mr62
