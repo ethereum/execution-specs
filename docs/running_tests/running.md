@@ -120,7 +120,7 @@ The simulator therefore remembers the first validation error each client returns
 
 ### Client Start Pipelining
 
-A worker starts the client of the next pre-allocation group queued to it while the current group's tests run, so the next group finds its client running instead of waiting for it to boot. The same applies to `consume wirex`. A worker holds at most one client started ahead, so a run with `-n 4` has at most 8 client containers alive. To make the next group known in time, the simulator keeps one more group queued per worker, handed out once the current group has at most 100 tests left; groups still run whole on one worker.
+A worker starts the client of the next pre-allocation group queued to it while the current group's tests run, so the next group finds its client running instead of waiting for it to boot. The same applies to `consume wirex`. A worker holds at most one client started ahead, so a `consume enginex` run with `-n 4` has at most 8 client containers alive; `consume wirex` adds the isolated clients of multi-target fixtures. To make the next group known in time, the simulator keeps one more group queued per worker, handed out once the current group has at most 100 tests left; groups still run whole on one worker.
 
 Pipelining is on by default; `--no-pipeline-client-start` turns it off, for example to debug a client start or on a host short of memory. The gain depends on how much CPU a client's start needs: clients that start in about a second (such as ethrex, go-ethereum and reth) hide most of each start, while clients whose start is CPU-heavy (such as Besu and Nethermind) hide less, because the start competes with the tests running next to it.
 
