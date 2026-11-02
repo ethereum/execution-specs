@@ -8,6 +8,9 @@ from typing import Any, Iterator, List, cast
 import pytest
 from hive.client import Client
 
+from execution_testing.forks import Osaka, Prague
+
+from ..simulators import multi_test_client
 from ..simulators.client_start_pipeline import (
     LOOKAHEAD_TESTS,
     GroupLookaheadScheduling,
@@ -16,6 +19,7 @@ from ..simulators.client_start_pipeline import (
 )
 from ..simulators.helpers.test_tracker import PreAllocGroupTestTracker
 from ..simulators.multi_test_client import MultiTestClientManager
+from .direct_calls import fixture_body
 
 
 class _StubClient:
@@ -324,3 +328,84 @@ class TestNextGroupItem:
     def test_nothing_queued_returns_none(self) -> None:
         """A worker at the end of its queue has nothing to start."""
         assert next_group_item([], "a") is None
+
+
+class _QueuedItem:
+    """A queued test in an xdist group, with the parameters consume sets."""
+
+    def __init__(self, group: str, pre_hash: str) -> None:
+        self.group = group
+        self.callspec = SimpleNamespace(
+            params={
+                "test_case": SimpleNamespace(pre_hash=pre_hash),
+                "client_type": SimpleNamespace(name="geth"),
+            }
+        )
+
+    def iter_markers(self, name: str) -> Iterator[Any]:
+        """Yield the item's xdist_group marker."""
+        assert name == "xdist_group"
+        yield SimpleNamespace(kwargs={"name": self.group})
+
+
+class TestStartNextGroupClient:
+    """The next group's client starts with that group's environment."""
+
+    def test_simulator_additions_carry_over(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        What a simulator adds to the environment fixture (wirex's sync
+        loop interval) or overrides in it is kept for the next group,
+        while the group-specific part comes from the next group.
+        """
+        cache: dict[Any, dict] = {}
+        current_base = multi_test_client.build_environment(
+            cast(Any, "0xcurrent"),
+            cast(Any, SimpleNamespace(fork=Prague)),
+            8551,
+            cache,
+        )
+        environment = {
+            **current_base,
+            "HIVE_SYNC_LOOP_INTERVAL_MS": "100",
+            "HIVE_NODETYPE": "archive",
+        }
+        current = _QueuedItem("current", "0xcurrent")
+        following = _QueuedItem("next", "0xnext")
+        monkeypatch.setattr(
+            multi_test_client, "queued_items", lambda _item: [following]
+        )
+        manager = MultiTestClientManager()
+        started: List[Any] = []
+        monkeypatch.setattr(
+            manager,
+            "start_ahead",
+            lambda group, start: started.append((group, start)),
+        )
+        request = SimpleNamespace(
+            config=SimpleNamespace(
+                getoption=lambda _name, _default=None: True
+            ),
+            node=current,
+        )
+        fixture_body(multi_test_client._start_next_group_client)(
+            client=None,
+            multi_test_hive_test=None,
+            multi_test_client_manager=manager,
+            fixture=SimpleNamespace(pre_hash="0xcurrent"),
+            fixtures_source=None,
+            environment=environment,
+            check_live_port=8551,
+            pre_alloc_group_cache={"0xnext": SimpleNamespace(fork=Osaka)},
+            client_genesis_cache={"0xnext": {"genesis": "next"}},
+            environment_cache=cache,
+            request=request,
+        )
+        ((group, start),) = started
+        next_environment, genesis = start.args[3], start.args[4]
+        assert group == "next"
+        assert genesis == {"genesis": "next"}
+        assert next_environment["HIVE_SYNC_LOOP_INTERVAL_MS"] == "100"
+        assert next_environment["HIVE_NODETYPE"] == "archive"
+        assert next_environment["HIVE_FORK"] == Osaka.name()
