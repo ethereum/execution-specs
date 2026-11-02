@@ -11,6 +11,11 @@ The mempool test fixture format checks transaction pool admission: given a chain
 
 Each test vector contains exactly one transaction and a binary expectation. There are no transactions in the pool before the test starts, so the result never depends on previously pooled transactions, replacement rules, eviction, or ordering. Scenarios that need prior pool content are left to a separate, later format (see [Scope: single transaction versus existing pool content](#scope-single-transaction-versus-existing-pool-content)). The format works with every transaction type, including frame transactions (see [Frame transactions](#frame-transactions)).
 
+A pool rejects transactions for two different reasons, and the format covers both:
+
+- **Invalid transactions.** The transaction could not be included in the next block (bad signature, nonce too low, insufficient balance, and so on). Every pool must reject these, and the specification decides them.
+- **Valid transactions that are not admissible.** The transaction could be included in the next block, but the public mempool still refuses to propagate it. EIP-8141 frame transactions need rules of this kind: a validation prefix that reads another account's storage or uses a banned opcode is valid on chain, but propagating it would let one block invalidate many pooled transactions cheaply. These admission rules are the reason this format exists. They are not consensus, so they do not belong in the specification, and [Where the admission rules are written](#where-the-admission-rules-are-written) proposes a home for them in this repository, outside the specification.
+
 The format reuses most of the [State Test](./state_test.md) building blocks (`pre`, `config`, a signed transaction, and an expected exception). The main difference is that the environment describes the **current chain head**, not the block in which the transaction executes. A transaction pool validates incoming transactions against the head state and derives the values of the next block from the head.
 
 A single JSON fixture file is composed of a JSON object where each key-value pair is a different [`Fixture`](#fixture) test object, with the key string representing the test name. The JSON file path plus the test name are used as the unique test identifier.
@@ -30,19 +35,19 @@ The consumer command reads this outcome from the pool's own status for the trans
 
 ## Rule categories
 
-A mempool admission check contains three kinds of rules, and the format handles each one differently.
+A mempool admission check applies three kinds of rules, and the format handles each one differently.
 
 | Category | Examples | Source of truth for the expectation |
 | --- | --- | --- |
 | Consensus-derived | Invalid signature, intrinsic gas too low, nonce too low, insufficient balance for the maximum cost, sender has non-delegation code, type not active in the fork, gas limit above the per-transaction cap, blob count above the per-block maximum, `maxFeePerBlobGas` below the next blob base fee | The specification: the transaction must fail `check_transaction` against the next block environment |
-| Mempool-only, but uniform across clients | Nonce gap (not executable), missing or malformed blob sidecar, wrong sidecar version for the fork, invalid KZG proofs, set-code transaction with an empty authorization list | Asserted by the test author with a mempool-specific exception |
+| Admission rules: valid transactions the public mempool refuses, uniform across clients | EIP-8141 validation prefix rules (prefix shapes, banned opcodes, state access, validation gas caps, expiry, paymaster solvency). Also nonce gap (not executable), missing or malformed blob sidecar, wrong sidecar version for the fork, invalid KZG proofs | The admission rules package (see [Where the admission rules are written](#where-the-admission-rules-are-written)), or the test author where the package has no rule yet |
 | Node policy | Minimum tip, maximum transaction size, `maxFeePerGas` below the next base fee, pool capacity | Not tested in the first iteration; fixtures stay clear of these limits (see [`policy`](#-policy-fixturepolicy)) |
 
-Only the consensus-derived category can be checked against the specification. The next section discusses what that means for the correctness of the tests.
+Only the consensus-derived category can be checked against the specification. The next sections discuss what that means for the correctness of the tests, and where the admission rules are written so they can be checked too.
 
 ## Correctness of expected outcomes
 
-The specification describes consensus only, so it has no place for mempool rules today and cannot simulate a mempool test. For a state test, the framework runs the specification (through `t8n`) and writes down the result, so the expected outcome is correct by construction. For a mempool test, the test author decides the outcome in most cases. The outcome is only confirmed when the fixture runs against a client that implements the rule. If the author's reading of the rule is wrong, the fixture is wrong, and the first client to run it may get a failure that is the test's fault.
+The specification describes consensus only. It has no place for mempool admission rules, and it should not have one, so it cannot simulate a mempool test by itself. For a state test, the framework runs the specification (through `t8n`) and writes down the result, so the expected outcome is correct by construction. For a mempool test, the test author decides the outcome in most cases. The outcome is only confirmed when the fixture runs against a client that implements the rule. If the author's reading of the rule is wrong, the fixture is wrong, and the first client to run it may get a failure that is the test's fault.
 
 This is the largest risk of the format. The rest of this section looks at how much of it remains and how to reduce it.
 
@@ -62,7 +67,7 @@ The risk is highest for frame transactions, which are also the main reason for h
 
 ### Reducing the risk without a mempool specification
 
-- **Record where each expectation comes from.** Each fixture's `_info` states the source of its expectation: `specification`, `framework` (computed from the inputs, such as a nonce gap or a KZG check), or `author`. When a client fails an `author` fixture, the client team and the test author both know that the test itself is one of the suspects.
+- **Record where each expectation comes from.** Each fixture's `_info` states the source of its expectation: `specification`, `framework` (computed from the inputs, such as a nonce gap or a KZG check), `rules` (computed by the admission rules package), or `author`. When a client fails an `author` fixture, the client team and the test author both know that the test itself is one of the suspects.
 - **Minimal pairs.** Every `author` negative test comes with a positive twin that differs only in the rule under test, for example the same verify frame without the banned opcode. The twin's `broadcast: true` is checked against the specification, so the negative test cannot fail for an unrelated reason, such as a balance too low to pay for the transaction. A wrong assumption is then limited to the one rule the pair is about.
 - **Cite the rule.** Every `author` test references the normative text it implements, for example the relevant part of the EIP-8141 mempool section. For types 0–4, a rule with no normative text is a sign that it is client policy and should not be tested in this format.
 - **Agreement between clients before release.** `author` fixtures are released as candidates and become part of a release only after at least two independent client implementations pass them. A disagreement is triaged as a test bug, a client bug, or an ambiguity in the EIP. The last case is useful in itself, because it means the EIP needs clarifying. This is weaker than a specification check: two clients can share a misreading, and early on only one client may implement the frame transaction pool.
@@ -80,21 +85,62 @@ The specification already has what a direct interface needs:
 - `ethereum.trace.set_evm_trace` installs a tracer that receives the live `Evm` with every event (`OpStart`, `OpEnd`, `OpException`, `EvmStop`, and others). The tracer can read the executing address, the stack (for `SLOAD` keys and call targets), the remaining gas, and the depth, without any change to the specification.
 - The frame transaction implementation (on the EIP-8141 branches) has the per-frame entry points (`check_frame_transaction`, `process_frames`). An interface could run the frames one at a time and stop once the payer is set.
 
-The interface, for example `simulate_validation_prefix(fork, head, pre, tx)`, would build the next block environment from `head`, run the prefix on a disposable state with a recording tracer, and return a structured trace: the frames run, the opcodes per frame, the storage reads with their owners, the call targets, the gas used, the approvals, and whether the payer was set. The EIP-8141 rules are then a short function over that structured trace, written in the testing framework and kept separate from the specification.
+The interface, for example `simulate_validation_prefix(fork, head, pre, tx)`, would build the next block environment from `head`, run the prefix on a disposable state with a recording tracer, and return a structured trace: the frames run, the opcodes per frame, the storage reads with their owners, the call targets, the gas used, the approvals, and whether the payer was set. The EIP-8141 admission rules are then short functions over that structured trace, written in the admission rules package outside the specification (see [Where the admission rules are written](#where-the-admission-rules-are-written)).
 
 **Costs.** The interface depends on internal, fork-specific function names. Because each fork is a full copy, it would need an adapter per fork that has frame transactions, and spec refactors can break it. `t8n` is a stable boundary, and this interface is not. The scope should therefore stay narrow: one entry point for the frame transaction validation prefix, and no general-purpose mempool engine.
 
 **Not worth a new interface:** policy rules and pool-content rules have no specification counterpart. Nonce gaps are computed from `pre`. The blob sidecar checks already use the framework's blob helpers.
 
-### Writing the rules down
+## Where the admission rules are written
 
-The rules can only be checked mechanically if they are written as code somewhere. There are three options:
+Admission rules for valid transactions need a written home that clients implement, tests cite, and the framework can run. That home should be in this repository, because the rules depend on the specification's interpreter and the tests live here. It should also be outside the specification.
 
-1. **A non-consensus module in the specification**, for example a `mempool.py` next to `fork.py` in each fork, defining `validate_pooled_transaction`. It would get the same review as the specification and would follow its fork-by-fork copying. It also expands the repository beyond consensus, and that decision belongs to the specification maintainers.
-2. **A reference checker in the testing framework** (`execution_testing`). It would use the interface from [Using the specification beyond `t8n`](#using-the-specification-beyond-t8n) to run the prefix on the specification's interpreter, apply the EIP-8141 rules to the resulting trace, and compute or verify `broadcast` and `exception` when generating fixtures. The interpreter, and with it gas accounting and opcode semantics, comes from the specification. Only the rules over the trace are new code. The bar is lower and it can start now, but it is test code: a bug in it produces wrong fixtures with confidence, so it needs the same agreement between clients as above until it has proven itself.
-3. **No code.** The rules stay in EIP text, and every non-consensus expectation is `author`.
+### Why not in the specification
 
-The recommendation is to start with option 3 plus the mitigations above for the first fixtures. In parallel, build option 2 for the EIP-8141 trace rules, which are the most error-prone to hand-write and the most valuable to automate. Option 2 can later move into the specification (option 1) if the maintainers want mempool rules there. The FOCIL-with-frames work (see [Specification oracle](#specification-oracle)) shows that replaying a validation prefix on top of the specification's interpreter is practical.
+- **They are not consensus.** A block that contains a transaction the mempool would refuse is still valid. Mixing admission rules into `src/ethereum/` would blur what the specification guarantees.
+- **They change on a different schedule.** Admission rules can be tightened or relaxed in a client release, without a hard fork. Specification forks are full copies that change only at fork boundaries.
+- **They can differ between mempools.** ERC-7562, the validation scope rules for ERC-4337 bundlers, already separates network-wide rules from local rules and allows opt-in alternative mempools with their own rules. Frame transactions may end up the same way.
+
+### Proposal: a separate package in the workspace
+
+The repository is already a UV workspace whose members live under `packages/`. The admission rules would be a new member next to `packages/testing`, for example `packages/mempool` (importable as `ethereum_mempool`):
+
+```text
+packages/mempool/src/ethereum_mempool/
+├── __init__.py
+├── rules.py                     # Rule set registry and versions
+├── frame_transaction/
+│   ├── rules.py                 # One function per admission rule, with its ID
+│   ├── prefix.py                # Validation prefix shapes
+│   └── trace.py                 # Recording tracer and structured trace
+└── adapters/
+    └── bogota.py                # Runs one fork's frame interpreter for the prefix
+```
+
+Its relationship to the rest of the repository:
+
+- **The specification never imports it.** The package imports the specification. Its adapters call the fork's frame interpreter with a recording tracer through `ethereum.trace.set_evm_trace` (see [Using the specification beyond `t8n`](#using-the-specification-beyond-t8n)). Gas accounting and opcode semantics therefore always come from the specification, and only the rules over the trace are new code.
+- **The testing framework imports it.** When generating a mempool fixture, the framework calls the package to compute `broadcast` and `exception`, or to check the test author's values. Fixtures produced this way get the `rules` expectation source.
+- **It is readable code first, like the specification.** Each rule is a small function whose docstring is the rule's normative text and carries a stable rule ID (for example `FRAME-OP-001` for banned opcodes, `FRAME-STO-001` for storage outside the sender). ERC-7562 uses the same ID scheme (`OP-011`, `STO-021`). The docs site renders the package, in the same way it renders the specification. That page becomes the written list of admission rules, and the rule IDs give EIPs, clients, and tests a stable way to refer to each rule. Identifiers follow the repository convention of descriptive names instead of EIP numbers (`frame_transaction`, not `eip8141`).
+- **It is versioned by rule set, not by fork.** Rule sets have their own version (for example `frame-transaction/1`). A fork adapter only says which interpreter to run, while the rule set says what to enforce. A rule change bumps the rule set version without touching the specification.
+
+### Alternatives considered
+
+| Home | Why not (for now) |
+| --- | --- |
+| A module inside each fork in `src/ethereum/` | Admission rules are not consensus, and they change without forks (see above) |
+| A module inside `execution_testing` | Works, but makes the rules look like test helpers: reviewed as test code, and not clearly a reference that clients can read or reuse. A good place to prototype before moving to the package |
+| Markdown pages under `docs/` only | Readable, but nothing executes them, so every expectation stays `author` |
+| The EIP text only | Stays the origin of the rules while EIP-8141 is in draft, but cannot be run. The package should cite the EIP section each rule comes from, and the EIP can later point to the rule IDs |
+
+### Recommended path
+
+1. Write the first frame transaction fixtures with `author` expectations and the mitigations above. Each test cites its EIP-8141 section.
+2. Prototype the recording tracer, the prefix adapter, and the first rules inside `execution_testing`, and switch fixtures to the `rules` expectation source as rules land.
+3. Move the code into `packages/mempool` once its shape settles, and render its rule list in the docs.
+4. Assign rule IDs and ask the EIP authors to reference them, so the EIP, the package, clients, and tests use the same names.
+
+The FOCIL-with-frames work (see [Specification oracle](#specification-oracle)) already replays a validation prefix on top of the specification's interpreter, which suggests step 2 is practical.
 
 ## Scope: single transaction versus existing pool content
 
@@ -246,7 +292,15 @@ Expected reason for the rejection. The field is missing when `broadcast` is `tru
 
 #### - `_info.expectationSource`: `str`
 
-Where the expected outcome comes from: `specification` (checked against the specification when filling), `framework` (computed from the fixture's inputs, such as a nonce gap or a KZG proof check), or `author` (asserted by the test author only). Consumers do not use it. It helps triage failures (see [Correctness of expected outcomes](#correctness-of-expected-outcomes)).
+Where the expected outcome comes from: `specification` (checked against the specification when generating the fixture), `framework` (computed from the fixture's inputs, such as a nonce gap or a KZG proof check), `rules` (computed by the admission rules package), or `author` (asserted by the test author only). Consumers do not use it. It helps triage failures (see [Correctness of expected outcomes](#correctness-of-expected-outcomes)).
+
+#### - `_info.rules`: `List[str]`
+
+IDs of the admission rules the test exercises, for example `["FRAME-OP-001"]`. Empty for tests of consensus-derived rules.
+
+#### - `mempoolRules`: `Mapping[str, str]`
+
+Admission rule set versions the expectation assumes, for example `{"frame-transaction": "1"}`. A consumer that implements a different version of a listed rule set reports the test as skipped, not failed. The field is missing when the test only exercises consensus-derived rules.
 
 ### `FixtureNextBlock`
 
@@ -295,13 +349,13 @@ Re-simulation after a new head could fit a two-step extension of this format: ad
 ### Fixture additions
 
 - `MempoolException` gains frame-specific values, for example `FRAME_PREFIX_NOT_RECOGNIZED`, `FRAME_VALIDATION_BANNED_OPCODE`, `FRAME_VALIDATION_STORAGE_ACCESS`, `FRAME_VALIDATION_GAS_EXCEEDED`, `FRAME_EXPIRED`, and `PAYMASTER_INSUFFICIENT_BALANCE`.
-- No new fixture fields are needed. Every input is already in `head`, `pre`, and `txbytes`, and the gas caps are protocol constants of the fork.
+- Frame tests set [`mempoolRules`](#-mempoolrules-mappingstr-str) to the rule set version they assume, and list the exercised rule IDs in `_info.rules`. Every other input is already in `head`, `pre`, and `txbytes`. The validation gas caps are constants of the rule set, not of the fork.
 
 ### Specification oracle
 
 The consensus check through `t8n` still applies: a frame transaction with `broadcast: true` must pass the specification's frame transaction check against the next block environment. However, the trace rules (banned opcodes, storage access, gas caps, prefix shapes) are not consensus, so the specification cannot verify those expectations today.
 
-The FOCIL-with-frames work already contains a related specification. `inclusion_list_frames.py` in the `eips/bogota/focil-frames` branch classifies frame candidates and replays their validation prefix on a disposable state. Its constants and rules differ from the mempool rules (for example `MAX_VERIFY_GAS_PER_TX = 2**18` against the mempool's `MAX_VERIFY_GAS = 100_000`), so it cannot be used as the oracle as it is. Still, it shows that a `validate_pooled_frame_transaction` function using the same frame interpreter with a trace hook is feasible. With such a function, the framework could compute `broadcast` and `exception` for every frame test instead of relying on the test author. See [Writing the rules down](#writing-the-rules-down) for where that function could live.
+The FOCIL-with-frames work already contains a related specification. `inclusion_list_frames.py` in the `eips/bogota/focil-frames` branch classifies frame candidates and replays their validation prefix on a disposable state. Its constants and rules differ from the mempool rules (for example `MAX_VERIFY_GAS_PER_TX = 2**18` against the mempool's `MAX_VERIFY_GAS = 100_000`), so it cannot be used as the oracle as it is. Still, it shows that an admission check using the same frame interpreter with a trace hook is feasible. With such a function, the framework could compute `broadcast` and `exception` for every frame test instead of relying on the test author. See [Where the admission rules are written](#where-the-admission-rules-are-written) for where that function would live.
 
 ### Consumer impact
 
@@ -365,7 +419,7 @@ These are places where geth's behavior and the format's definition may diverge. 
 
 - **Fork transitions.** Should the pool use the head fork or the next block's fork? A transition variant (for example `network: "PragueToOsakaAtTime15k"` with the head just before the boundary) would make the expectation explicit, but clients first need to agree on the answer.
 - **Fee cap below base fee.** Should this rule move from policy to the uniform category, and in which direction?
-- **Where mempool rules live.** Should they be written as a non-consensus module in the specification, a reference checker in the testing framework, or stay in EIP text only? See [Correctness of expected outcomes](#correctness-of-expected-outcomes). Frame transactions need an answer the most, because their admission rules are long and depend on tracing EVM execution.
+- **Admission rules package.** Is a separate workspace package (`packages/mempool`) the right home, who owns and reviews it, and do EIP authors agree to reference its rule IDs? See [Where the admission rules are written](#where-the-admission-rules-are-written).
 - **Release policy for `author` fixtures.** How many independent client implementations must pass a fixture before it leaves candidate status, and what happens when only one client implements a rule?
 - **Rejection reasons.** Should the exception become a hard check once client mappers exist, or always stay informational?
 - **Relation to the devp2p `eth` suite.** Hive's `devp2p` simulator already has `TestInvalidTxs` and `TestBlobViolations`, which send transactions over the wire and check that they are not propagated. If a Hive smoke test is added later (see [Why not Hive (for now)](#why-not-hive-for-now)), it could reuse that connection code.
