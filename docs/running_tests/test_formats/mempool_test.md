@@ -1,7 +1,7 @@
 # Mempool Tests (Draft) <!-- markdownlint-disable MD051 (MD051=link-fragments "Link fragments should be valid") -->
 
 !!! warning "Prototype"
-    This format is a proposal under discussion. It is not produced by `fill` yet, and its fields may change. Feedback is welcome.
+    This format is a proposal under discussion, and its fields may change. Feedback is welcome. A prototype of the `MempoolTest` spec and the first EIP-8141 tests is described in [Prototype](#prototype).
 
 The Mempool Test fixture format would be stored in the fixtures subdirectory `mempool_tests`, produced by a new `MempoolTest` test spec.
 
@@ -67,7 +67,7 @@ The risk is highest for frame transactions, which are also the main reason for h
 
 ### Reducing the risk without a mempool specification
 
-- **Record where each expectation comes from.** Each fixture's `_info` states the source of its expectation: `specification`, `framework` (computed from the inputs, such as a nonce gap or a KZG check), `rules` (computed by the admission rules package), or `author`. When a client fails an `author` fixture, the client team and the test author both know that the test itself is one of the suspects.
+- **Record where each expectation comes from.** Each fixture's `_info.mempool` states the source of its expectation: `specification`, `framework` (computed from the inputs, such as a nonce gap or a KZG check), `rules` (computed by the admission rules package), or `author`. When a client fails an `author` fixture, the client team and the test author both know that the test itself is one of the suspects.
 - **Minimal pairs.** Every `author` negative test comes with a positive twin that differs only in the rule under test, for example the same verify frame without the banned opcode. The twin's `broadcast: true` is checked against the specification, so the negative test cannot fail for an unrelated reason, such as a balance too low to pay for the transaction. A wrong assumption is then limited to the one rule the pair is about.
 - **Cite the rule.** Every `author` test references the normative text it implements, for example the relevant part of the EIP-8141 mempool section. For types 0–4, a rule with no normative text is a sign that it is client policy and should not be tested in this format.
 - **Agreement between clients before release.** `author` fixtures are released as candidates and become part of a release only after at least two independent client implementations pass them. A disagreement is triaged as a test bug, a client bug, or an ambiguity in the EIP. The last case is useful in itself, because it means the EIP needs clarifying. This is weaker than a specification check: two clients can share a misreading, and early on only one client may implement the frame transaction pool.
@@ -257,7 +257,7 @@ Fork that is active at the head block and at the next block. Fork transitions ar
 
 Chain configuration, including the chain ID and the blob schedule.
 
-#### - `head`: [`FixtureHeader`](./blockchain_test.md#fixtureheader)
+#### - `head`: [`FixtureHead`](#fixturehead)
 
 The current chain head. Its `number`, `timestamp`, `gasLimit`, `gasUsed`, `baseFeePerGas`, `excessBlobGas`, and `blobGasUsed` determine the next block environment the pool validates against. The filler sets `gasUsed` and `blobGasUsed` so that the next base fees match the values the test author chose.
 
@@ -289,17 +289,35 @@ Whether the client must admit the transaction as executable and announce it to i
 
 Expected reason for the rejection. The field is missing when `broadcast` is `true`, and optional for nonce-gap tests, where a client may keep the transaction queued instead of rejecting it.
 
-#### - `_info.expectationSource`: `str`
+#### - `_info.mempool.expectationSource`: `str`
 
 Where the expected outcome comes from: `specification` (checked against the specification when generating the fixture), `framework` (computed from the fixture's inputs, such as a nonce gap or a KZG proof check), `rules` (computed by the admission rules package), or `author` (asserted by the test author only). Consumers do not use it. It helps triage failures (see [Correctness of expected outcomes](#correctness-of-expected-outcomes)).
 
-#### - `_info.rules`: `List[str]`
+#### - `_info.mempool.rules`: `List[str]`
 
 IDs of the admission rules the test exercises, for example `["FRAME-OP-001"]`. Empty for tests of consensus-derived rules.
 
 #### - `mempoolRules`: `Mapping[str, str]`
 
 Admission rule set versions the expectation assumes, for example `{"frame-transaction": "1"}`. A consumer that implements a different version of a listed rule set reports the test as skipped, not failed. The field is missing when the test only exercises consensus-derived rules.
+
+### `FixtureHead`
+
+The header fields of the head that the pool needs. A full header is not needed: the consumer builds an in-memory chain view, not a chain it has to verify.
+
+#### - `number`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+#### - `timestamp`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+#### - `gasLimit`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+#### - `gasUsed`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+#### - `baseFeePerGas`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber) `(fork: London)`
+
+#### - `excessBlobGas`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber) `(fork: Cancun)`
+
+#### - `blobGasUsed`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber) `(fork: Cancun)`
 
 ### `FixtureNextBlock`
 
@@ -348,7 +366,7 @@ Re-simulation after a new head could fit a two-step extension of this format: ad
 ### Fixture additions
 
 - `MempoolException` gains frame-specific values, for example `FRAME_PREFIX_NOT_RECOGNIZED`, `FRAME_VALIDATION_BANNED_OPCODE`, `FRAME_VALIDATION_STORAGE_ACCESS`, `FRAME_VALIDATION_GAS_EXCEEDED`, `FRAME_EXPIRED`, and `PAYMASTER_INSUFFICIENT_BALANCE`.
-- Frame tests set [`mempoolRules`](#-mempoolrules-mappingstr-str) to the rule set version they assume, and list the exercised rule IDs in `_info.rules`. Every other input is already in `head`, `pre`, and `txbytes`. The validation gas caps are constants of the rule set, not of the fork.
+- Frame tests set [`mempoolRules`](#-mempoolrules-mappingstr-str) to the rule set version they assume, and list the exercised rule IDs in `_info.mempool.rules`. Every other input is already in `head`, `pre`, and `txbytes`. The validation gas caps are constants of the rule set, not of the fork.
 
 ### Specification oracle
 
@@ -425,6 +443,45 @@ The separation should be enforced, not only conventional:
 Other test code lives elsewhere: the admission rules package's unit tests in `packages/mempool/tests/`, and the tests of the `MempoolTest` spec and fixture model with the testing framework's own tests under `packages/testing/`.
 
 Running only mempool tests is `fill tests/mempool/`, and `fill -m mempool_test` also works.
+
+## Prototype
+
+A prototype is built on top of the EIP-8141 branch (`eips/bogota/eip-8141`), on the `mempool-tests-eip8141` branch.
+
+### Framework
+
+- `MempoolTest` spec (`packages/testing/src/execution_testing/specs/mempool.py`), used through the `mempool_test` fixture. A test passes `pre`, `tx`, an optional `env` for the next block, `broadcast`, an optional `exception`, the exercised rule IDs (`rules`), and the rule set versions (`mempool_rules`).
+- `MempoolFixture` (`fixtures/mempool.py`), written to `mempool_tests/`.
+- `MempoolException` (`exceptions/exceptions/mempool.py`), for valid transactions the mempool refuses, plus `NONCE_GAP`.
+- A collection guard (`check_mempool_test_location` in the shared plugin helpers): tests under `tests/mempool/` must use only `mempool_test`, and `mempool_test` cannot be used anywhere else.
+
+When filling, the spec runs the transaction through `t8n` against the next block, and fails the fill unless the result matches the expectation:
+
+- `broadcast: true`, or a `MempoolException`: the specification must accept the transaction. A mempool-only rejection of a transaction that is in fact invalid fails the fill, so a test cannot mistake a consensus rule for a mempool rule.
+- A `TransactionException`: the specification must raise it.
+- `MempoolException.NONCE_GAP`: the specification must raise `NONCE_MISMATCH_TOO_HIGH`.
+
+The head is derived from the next block's environment. It uses exactly its target gas and blob gas, so the base fee and excess blob gas carry over to the next block unchanged, and the spec asserts this with the fork's own calculators.
+
+### Tests
+
+`tests/mempool/bogota/eip8141_frame_transactions/`, reusing the frame transaction builders from `tests/bogota/eip8141_frame_transactions/helpers.py`:
+
+| Module | Cases | Expectation source |
+| --- | --- | --- |
+| `test_banned_opcodes.py` | Each banned opcode that a `STATICCALL` allows (`GASPRICE`, `BLOCKHASH`, `COINBASE`, `TIMESTAMP`, `NUMBER`, `PREVRANDAO`, `GASLIMIT`, `BASEFEE`, `BLOBBASEFEE`, `SLOTNUM`, `BALANCE`, `SELFBALANCE`, `GAS`), run directly in the `VERIFY` frame and in a contract it calls. Positive twins: no read, and `GAS` as the argument of a `CALL` | `author` for the rejections, `specification` for the twins |
+| `test_storage_access.py` | `SLOAD` of the sender's own storage (admitted) and of a called contract's storage (refused) | `specification` / `author` |
+| `test_transaction_validity.py` | Nonce too low (`TransactionException`), equal (admitted), and above the sender's (`NONCE_GAP`) | `specification` / `framework` |
+
+All 33 cases fill against the specification. The specification accepts every refused frame transaction, which confirms that each refusal is a mempool rule and not a consensus rule.
+
+### Not yet in the prototype
+
+- Prefix shapes, the validation gas caps, expiry, and paymaster tests.
+- The admission rules package. Rule IDs and the rule set version are constants in the tree's `spec.py` for now.
+- Blob transactions: `txbytes` is the canonical encoding, not the network encoding with the sidecar.
+- A consumer. Fixtures are produced, but no client command runs them yet.
+- `BLOCKHASH(0)` in a frame transaction's `VERIFY` frame raises an `IndexError` in the specification's `t8n` state-test path, since that path has no block hashes. The test reads the current block's hash instead, which needs no lookup. This should be looked at separately.
 
 ## Implementing a consumer in go-ethereum
 
