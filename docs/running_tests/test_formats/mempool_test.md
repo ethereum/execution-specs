@@ -385,6 +385,22 @@ def test_nonce_too_low(mempool_test: MempoolTestFiller, pre: Alloc) -> None:
 
 A `mempool_test` call accepts an optional `head` environment (base fee, excess blob gas, gas limit, timestamp). Many existing invalid-transaction state tests could also produce a mempool fixture, because a transaction that is invalid for the next block must not be broadcast. The exceptions are rules where the two outcomes differ: a nonce gap is valid in the pool but invalid in a block, and a fee cap below the base fee is a policy question.
 
+### Where the tests live
+
+Mempool tests follow the repository's existing layout: a test lives in the directory of the fork and EIP that introduced the rule it checks, whatever its fixture format. `fill` writes fixtures into a directory per format, so all mempool fixtures still end up in `mempool_tests/` in the release, wherever their source lives. A consumer selects fixtures by format, not by source directory. The repository already does this for a non-consensus format: the EIP-8070 blob pool tests use their own `blobs_test` spec inside `tests/amsterdam/eip8070_sparse_blobpool/`.
+
+| Tests | Location |
+| --- | --- |
+| EIP-8141 admission rules | `tests/bogota/eip8141_frame_transactions/test_mempool_*.py` (for example `test_mempool_prefix_shapes.py`, `test_mempool_banned_opcodes.py`, `test_mempool_storage_access.py`, `test_mempool_paymaster.py`), next to the existing frame transaction tests |
+| Rules introduced by an older EIP | The EIP's directory, for example blob sidecar checks in `tests/cancun/eip4844_blobs/test_mempool_*.py` |
+| Generic transaction checks (signature, nonce, balance, intrinsic gas) | `tests/frontier/validation/test_mempool_*.py`, next to the existing transaction validity tests |
+| The admission rules package's own unit tests | `packages/mempool/tests/` |
+| The `MempoolTest` spec and fixture model | The testing framework's own test directories under `packages/testing/` |
+
+The `test_mempool_` prefix keeps the files apart from consensus tests in the same directory. This matters in particular next to `test_admission_validity.py` in the frame transaction directory, which tests consensus validity, not mempool admission. The EIP-8141 mempool tests also reuse the directory's `spec.py` and `helpers.py` (frame builders, signature helpers, the expiry verifier) instead of copying them.
+
+A top-level `tests/mempool/` directory was considered and rejected. It would split each EIP's tests across two trees, away from the helpers and the fork ordering that `valid_from` relies on, and away from the per-EIP coverage checklists. Running only mempool tests does not need a separate directory, because `fill -m mempool_test` selects them by format, as `-m state_test` does today.
+
 ## Implementing a consumer in go-ethereum
 
 Geth already contains almost every piece the consumer command needs. The estimate below is based on the current `core/txpool` code.
