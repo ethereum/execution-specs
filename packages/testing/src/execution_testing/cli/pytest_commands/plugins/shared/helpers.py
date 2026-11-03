@@ -2,13 +2,43 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Tuple, Type
+from typing import Any, Dict, Sequence, Tuple, Type
 
 import pytest
 
-from execution_testing.specs import BaseTest
+from execution_testing.specs import BaseTest, MempoolTest
 
 BENCHMARK_DIR = Path("tests") / "benchmark"
+MEMPOOL_DIR = Path("tests") / "mempool"
+
+
+def check_mempool_test_location(
+    *,
+    rootpath: Path,
+    test_path: Path,
+    spec_parameter_names: Sequence[str],
+) -> None:
+    """
+    Raise if a mempool test lives outside the mempool directory, or a test
+    in the mempool directory uses another spec.
+
+    Admission rule limits look like protocol limits, so keeping them apart
+    from consensus tests stops them from being read as consensus rules.
+    """
+    mempool_parameter_name = MempoolTest.pytest_parameter_name()
+    in_mempool_dir = rootpath / MEMPOOL_DIR in test_path.parents
+    if in_mempool_dir and list(spec_parameter_names) != [
+        mempool_parameter_name
+    ]:
+        raise pytest.UsageError(
+            f"{test_path}: tests under {MEMPOOL_DIR} must use only "
+            f"`{mempool_parameter_name}`, got {list(spec_parameter_names)}"
+        )
+    if not in_mempool_dir and mempool_parameter_name in spec_parameter_names:
+        raise pytest.UsageError(
+            f"{test_path}: `{mempool_parameter_name}` can only be used "
+            f"under {MEMPOOL_DIR}"
+        )
 
 
 def strip_any_xdist_group_suffix(nodeid: str) -> str:
