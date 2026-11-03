@@ -29,7 +29,11 @@ from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Authorization, ExecutionGas, StateGas, VersionedHash
 from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
-from .gas import GasMeter, repay_state_gas_spill
+from .gas import (
+    GasMeter,
+    match_deferred_refill_to_spill,
+    repay_state_gas_spill,
+)
 
 __all__ = ("Environment", "Evm")
 TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
@@ -203,8 +207,12 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
     still outstanding: a cross-frame refund lands in the reservoir
     while the `gas_left` that funded the charge stays reduced, and the
     merge is where the claim and the credit first share a meter. A
-    failed child repays nothing -- its rollback restored the state
-    whose removal any refund credited.
+    cross-frame slot clear lands in the [deferred refill][deferred]
+    instead, which takes the claim before the reservoir does, so the
+    reservoir never repays `gas_left` for a refill held back until
+    settlement. A failed child repays nothing, and drops its deferred
+    refill, as its rollback restored the state whose removal any
+    refund credited.
 
     Parameters
     ----------
@@ -214,17 +222,19 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
         The child evm to incorporate.
 
     [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [deferred]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_deferred_refill
 
-    """
+    """  # noqa: E501
     child_meter = child_evm.gas_meter
     # Only the top frame commits state gas; a child never carries any.
     assert child_meter.state_gas_committed_spill == Uint(0)
 
     if child_evm.error:
         # A failed child arrives settled: rolled back to its baseline,
-        # spill refilled, refunds discarded.
+        # spill refilled, refunds and deferred refill discarded.
         assert child_meter.state_gas_spilled == Uint(0)
         assert child_meter.refund_counter == 0
+        assert child_meter.state_gas_deferred_refill == Uint(0)
         assert child_meter.state_gas_left == child_meter.state_gas_baseline
 
     # Gas returns to the parent regardless of the child's fate.
@@ -234,9 +244,14 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
     gas_meter.state_gas_left += child_meter.state_gas_left
     gas_meter.state_gas_spilled += child_meter.state_gas_spilled
     gas_meter.refund_counter += child_meter.refund_counter
+    gas_meter.state_gas_deferred_refill += (
+        child_meter.state_gas_deferred_refill
+    )
+    gas_meter.state_gas_deferred_spill += child_meter.state_gas_deferred_spill
 
     # Everything else survives only on success.
     if not child_evm.error:
+        match_deferred_refill_to_spill(gas_meter)
         repay_state_gas_spill(gas_meter)
         evm.logs += child_evm.logs
         evm.accounts_to_delete.update(child_evm.accounts_to_delete)

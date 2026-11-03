@@ -323,6 +323,28 @@ class GasMeter:
     [entry]: ref:ethereum.forks.amsterdam.vm.gas.restore_state_gas_to_entry
     """
 
+    state_gas_deferred_refill: StateGas = StateGas(Uint(0))
+    """
+    State gas refilled by clearing a slot that was zero at the start of
+    the transaction, held out of both pools until the transaction
+    settles, so neither execution nor state creation can spend it. Like
+    `refund_counter`, it joins the parent's when the frame succeeds and
+    is dropped when the frame reverts or halts, as the rollback restores
+    the slot. Settlement returns it to the sender outside the refund
+    cap.
+    """
+
+    state_gas_deferred_spill: StateGas = StateGas(Uint(0))
+    """
+    Part of `state_gas_deferred_refill` that undid [spill]. That spill
+    no longer counts as outstanding, so nothing repays it while the
+    transaction runs, but a rollback undoes its charge and returns it to
+    `gas_left`. The rest of the deferred refill undid reservoir draws,
+    which a rollback refills by resetting the reservoir.
+
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    """
+
 
 @final
 @dataclass
@@ -497,8 +519,11 @@ def restore_state_gas(gas_meter: GasMeter) -> None:
     The frame's state changes are undone, so the state gas consumed
     since the [baseline] is credited back in LIFO order: the [spill]
     returns to `gas_left` first, then the reservoir resets to the
-    baseline. The refunds accrued on the undone changes are discarded
-    with them. State gas committed as non-refillable stays charged.
+    baseline. The spill a [deferred refill][deferred] undid returns to
+    `gas_left` with it, since the rollback undoes that charge as well.
+    The refunds and deferred refills accrued on the undone changes are
+    discarded with them. State gas committed as non-refillable stays
+    charged.
 
     Parameters
     ----------
@@ -507,14 +532,19 @@ def restore_state_gas(gas_meter: GasMeter) -> None:
 
     [baseline]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_baseline
     [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [deferred]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_deferred_refill
 
     """  # noqa: E501
     gas_meter.gas_left = ExecutionGas(
-        gas_meter.gas_left + Uint(gas_meter.state_gas_spilled)
+        gas_meter.gas_left
+        + Uint(gas_meter.state_gas_spilled)
+        + Uint(gas_meter.state_gas_deferred_spill)
     )
     gas_meter.state_gas_spilled = StateGas(Uint(0))
     gas_meter.state_gas_left = gas_meter.state_gas_baseline
     gas_meter.refund_counter = 0
+    gas_meter.state_gas_deferred_refill = StateGas(Uint(0))
+    gas_meter.state_gas_deferred_spill = StateGas(Uint(0))
 
 
 def restore_state_gas_to_entry(
@@ -541,9 +571,10 @@ def restore_state_gas_to_entry(
     """  # noqa: E501
     # The baseline starts at the grant and only ever moves down.
     assert gas_meter.state_gas_baseline <= state_gas_reservoir
-    # Only pre-dispatch failures roll back to entry, and no refund
-    # accrues before dispatch.
+    # Only pre-dispatch failures roll back to entry, and no refund or
+    # deferred refill accrues before dispatch.
     assert gas_meter.refund_counter == 0
+    assert gas_meter.state_gas_deferred_refill == Uint(0)
     gas_meter.gas_left = ExecutionGas(
         gas_meter.gas_left
         + Uint(gas_meter.state_gas_spilled)
@@ -563,8 +594,10 @@ def tx_state_gas_used(
 
     Measured off the top frame's finished gas meter: the reservoir
     drawn down since the transaction's grant plus the [spill],
-    outstanding or committed. May be negative when refunds exceed
-    charges.
+    outstanding or committed, less the [deferred refill][deferred]. A
+    slot set then cleared thus adds no state growth, although its
+    refill reaches the sender only at settlement. May be negative when
+    refunds exceed charges.
 
     Parameters
     ----------
@@ -579,15 +612,23 @@ def tx_state_gas_used(
         The net state gas consumed.
 
     [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [deferred]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_deferred_refill
 
-    """
+    """  # noqa: E501
     # The baseline starts at the grant and only ever moves down.
     assert gas_meter.state_gas_baseline <= state_gas_reservoir
+    # The deferred refill that undid spill already left the spill, so
+    # only the part that undid reservoir draws is subtracted here.
+    deferred_reservoir_refill = (
+        gas_meter.state_gas_deferred_refill
+        - gas_meter.state_gas_deferred_spill
+    )
     return (
         int(state_gas_reservoir)
         - int(gas_meter.state_gas_left)
         + int(gas_meter.state_gas_spilled)
         + int(gas_meter.state_gas_committed_spill)
+        - int(deferred_reservoir_refill)
     )
 
 
@@ -614,6 +655,60 @@ def credit_state_gas_refund(gas_meter: GasMeter, amount: StateGas) -> None:
     gas_meter.gas_left = ExecutionGas(gas_meter.gas_left + Uint(from_gas_left))
     gas_meter.state_gas_spilled -= from_gas_left
     gas_meter.state_gas_left += amount - from_gas_left
+
+
+def defer_state_gas_refill(gas_meter: GasMeter, amount: StateGas) -> None:
+    """
+    Hold a slot-clear refill of `amount` back until the transaction
+    settles.
+
+    The refill undoes the pool charged last first, as
+    [`credit_state_gas_refund`][credit] does: the [spill] up to its
+    amount, then the reservoir draw. Neither pool is credited, so the
+    refill cannot fund execution or state creation later in the
+    transaction. The spill it undid moves to
+    [`state_gas_deferred_spill`][deferred-spill], out of reach of
+    [`repay_state_gas_spill`][repay].
+
+    [credit]: ref:ethereum.forks.amsterdam.vm.gas.credit_state_gas_refund
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [deferred-spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_deferred_spill
+    [repay]: ref:ethereum.forks.amsterdam.vm.gas.repay_state_gas_spill
+    """  # noqa: E501
+    from_spill = min(amount, gas_meter.state_gas_spilled)
+    gas_meter.state_gas_spilled -= from_spill
+    gas_meter.state_gas_deferred_spill += from_spill
+    gas_meter.state_gas_deferred_refill += amount
+
+
+def match_deferred_refill_to_spill(gas_meter: GasMeter) -> None:
+    """
+    Let the deferred refill undo outstanding [spill] after a child
+    merges.
+
+    A child that clears a slot its parent set defers the refill as
+    undoing a reservoir draw, since the child's own spill is smaller
+    than the refill, even when the parent's charge drew from
+    `gas_left`. Once the meters merge, the deferred refill takes over
+    that spill before [`repay_state_gas_spill`][repay] runs, so the
+    reservoir does not repay `gas_left` for a charge whose refill is
+    held back. No gas moves between the pools, only the share a
+    rollback returns to `gas_left` grows.
+
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [repay]: ref:ethereum.forks.amsterdam.vm.gas.repay_state_gas_spill
+    """
+    assert (
+        gas_meter.state_gas_deferred_spill
+        <= gas_meter.state_gas_deferred_refill
+    )
+    deferred_reservoir_refill = (
+        gas_meter.state_gas_deferred_refill
+        - gas_meter.state_gas_deferred_spill
+    )
+    matched = min(deferred_reservoir_refill, gas_meter.state_gas_spilled)
+    gas_meter.state_gas_spilled -= matched
+    gas_meter.state_gas_deferred_spill += matched
 
 
 def repay_state_gas_spill(gas_meter: GasMeter) -> None:
@@ -660,6 +755,7 @@ def forfeit_remaining_gas(gas_meter: GasMeter) -> None:
     # A rollback owes any outstanding spill back to `gas_left`; it
     # must be restored before the remainder burns.
     assert gas_meter.state_gas_spilled == Uint(0)
+    assert gas_meter.state_gas_deferred_spill == Uint(0)
     gas_meter.gas_left = ExecutionGas(Uint(0))
 
 
@@ -1174,7 +1270,9 @@ def settle_transaction_gas(
     Compute, in order:
 
     - the gas used before refunds, from the gas limit less the
-      execution gas and reservoir the top frame returned;
+      execution gas and state gas the top frame returned, so the
+      [deferred refill][deferred] returns to the sender outside the
+      refund cap;
     - the refund, capped at one fifth of that pre-refund usage;
     - the gas used, taken as the larger of the post-refund usage and the
       calldata floor, so a transaction never pays below the floor; and
@@ -1194,7 +1292,8 @@ def settle_transaction_gas(
     gas_left :
         Execution gas the top frame returned.
     state_gas_left :
-        State gas reservoir the top frame returned.
+        State gas the top frame returned: its reservoir plus its
+        deferred refill.
     refund_counter :
         The refund the top frame accrued.
     state_gas_used :
@@ -1205,9 +1304,10 @@ def settle_transaction_gas(
     settlement : `TransactionGasSettlement`
         The settled gas amounts.
 
+    [deferred]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_deferred_refill
     [EIP-7778]: https://eips.ethereum.org/EIPS/eip-7778
 
-    """
+    """  # noqa: E501
     gas_used_before_refund = tx_gas - gas_left - state_gas_left
     gas_refund = min(gas_used_before_refund // Uint(5), Uint(refund_counter))
     gas_used_after_refund = gas_used_before_refund - gas_refund

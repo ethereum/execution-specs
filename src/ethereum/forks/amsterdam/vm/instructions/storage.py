@@ -29,7 +29,7 @@ from ..gas import (
     charge_gas,
     charge_state_gas,
     check_gas,
-    credit_state_gas_refund,
+    defer_state_gas_refill,
 )
 from ..stack import pop, push
 
@@ -140,15 +140,17 @@ def sstore(evm: Evm) -> None:
 
     # STATE GAS
     # A first-time set of a zero slot pays for the state it creates; a
-    # slot set then cleared refills the earlier charge.
+    # slot set then cleared refills the earlier charge when the
+    # transaction settles.
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
             state_gas = StateGasCosts.STORAGE_SET
 
     if current_value != new_value and original_value == new_value:
         if original_value == 0:
-            # Slot set then cleared: refund the state gas charge.
-            credit_state_gas_refund(evm.gas_meter, StateGasCosts.STORAGE_SET)
+            # Slot set then cleared: hold the refill of the state gas
+            # charge back until the transaction settles.
+            defer_state_gas_refill(evm.gas_meter, StateGasCosts.STORAGE_SET)
 
     # Charge execution gas before state gas so that an execution-gas
     # OOG does not consume state gas that would inflate the parent's

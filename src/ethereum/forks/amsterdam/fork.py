@@ -1058,7 +1058,9 @@ def process_transaction(
         tx_env.gas_limit,
         tx_env.calldata_floor,
         tx_output.gas_left,
-        tx_output.state_gas_left,
+        # The deferred refill returns to the sender with the reservoir,
+        # outside the refund cap.
+        tx_output.state_gas_left + tx_output.state_gas_deferred_refill,
         tx_output.refund_counter,
         tx_output.state_gas_used,
     )

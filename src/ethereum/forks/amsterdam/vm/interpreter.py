@@ -115,6 +115,9 @@ class TransactionOutput:
     state_gas_used: int
     """Net state gas consumed; negative when refunds exceed charges."""
 
+    state_gas_deferred_refill: StateGas
+    """Slot-clear refill held back for the sender until settlement."""
+
 
 def charge_value_transfer_to_non_alive_account(
     state: TransactionState,
@@ -285,6 +288,7 @@ def process_top_level(
             state_gas_used=tx_state_gas_used(
                 gas_meter, tx_env.state_gas_reservoir
             ),
+            state_gas_deferred_refill=gas_meter.state_gas_deferred_refill,
         )
 
     if tx_env.is_create:
@@ -318,6 +322,7 @@ def process_top_level(
         state_gas_used=tx_state_gas_used(
             gas_meter, tx_env.state_gas_reservoir
         ),
+        state_gas_deferred_refill=gas_meter.state_gas_deferred_refill,
     )
 
 
