@@ -22,6 +22,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Conditional,
+    Environment,
     Fork,
     FrameSignature,
     Op,
@@ -940,5 +941,71 @@ def test_reversion_restores_charge_ownership(
         post={
             sender: Account(nonce=1),
             worker: Account(storage={SLOT_CREATED: 0, SLOT_SECOND: 1}),
+        },
+    )
+
+
+@pytest.mark.state_test_only
+@pytest.mark.parametrize(
+    "state_gas_limit_delta",
+    [
+        pytest.param(0, id="exact_budget"),
+        pytest.param(-1, id="one_below", marks=pytest.mark.exception_test),
+    ],
+)
+def test_approve_both_scopes_creates_sender_at_zero_cost(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    state_gas_limit_delta: int,
+) -> None:
+    """
+    Test the account creation charge of an absent sender that approves
+    both scopes: exactly the creation's state budget succeeds, one unit
+    short halts the frame and invalidates the transaction.
+
+    An absent sender has no balance, so `max_cost` must be zero (zero
+    base fee and `max_fee`); blockchain fixtures would not carry the
+    zero base fee, so only a state test is filled.
+    """
+    sender = pre.fund_eoa(amount=0)
+    # No opcode prices the sender's creation: approving payment charges
+    # it to the frame's state gas as the fork's new-account cost.
+    account_creation = fork.gas_costs().NEW_ACCOUNT
+    if state_gas_limit_delta == 0:
+        succeeds = True
+    elif state_gas_limit_delta == -1:
+        succeeds = False
+    else:
+        raise ValueError(
+            f"unknown state_gas_limit_delta: {state_gas_limit_delta!r}"
+        )
+    frame = verify_frame(
+        state_gas_limit=account_creation + state_gas_limit_delta,
+        state_gas_used=account_creation,
+    )
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[frame],
+        max_fee=0,
+        max_priority_fee_per_gas=0,
+        error=(
+            None
+            if succeeds
+            else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+        ),
+    )
+
+    state_test(
+        env=Environment(base_fee_per_gas=0),
+        pre=pre,
+        tx=tx,
+        post={
+            sender: (
+                Account(nonce=1, balance=0)
+                if succeeds
+                else Account.NONEXISTENT
+            )
         },
     )
