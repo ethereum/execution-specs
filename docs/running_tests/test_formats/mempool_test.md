@@ -387,19 +387,44 @@ A `mempool_test` call accepts an optional `head` environment (base fee, excess b
 
 ### Where the tests live
 
-Mempool tests follow the repository's existing layout: a test lives in the directory of the fork and EIP that introduced the rule it checks, whatever its fixture format. `fill` writes fixtures into a directory per format, so all mempool fixtures still end up in `mempool_tests/` in the release, wherever their source lives. A consumer selects fixtures by format, not by source directory. The repository already does this for a non-consensus format: the EIP-8070 blob pool tests use their own `blobs_test` spec inside `tests/amsterdam/eip8070_sparse_blobpool/`.
+Mempool tests live in their own top-level tree, `tests/mempool/`, apart from the consensus tests. The values the admission rules use (`MAX_VERIFY_GAS`, `MAX_VERIFY_STATE_GAS`, the banned opcode list, the storage access rules) look like protocol limits. An implementer reading a mempool test next to the consensus tests could take one of them for a consensus rule and enforce it during block validation. A consensus test would probably catch the mistake, but it would be confusing and would cost time. A separate tree makes the boundary obvious: anything under `tests/mempool/` is about what the public mempool propagates, never about block validity.
 
-| Tests | Location |
-| --- | --- |
-| EIP-8141 admission rules | `tests/bogota/eip8141_frame_transactions/test_mempool_*.py` (for example `test_mempool_prefix_shapes.py`, `test_mempool_banned_opcodes.py`, `test_mempool_storage_access.py`, `test_mempool_paymaster.py`), next to the existing frame transaction tests |
-| Rules introduced by an older EIP | The EIP's directory, for example blob sidecar checks in `tests/cancun/eip4844_blobs/test_mempool_*.py` |
-| Generic transaction checks (signature, nonce, balance, intrinsic gas) | `tests/frontier/validation/test_mempool_*.py`, next to the existing transaction validity tests |
-| The admission rules package's own unit tests | `packages/mempool/tests/` |
-| The `MempoolTest` spec and fixture model | The testing framework's own test directories under `packages/testing/` |
+The cost is that an EIP with mempool rules has its tests split across two trees. Few EIPs need mempool rules, so this is acceptable.
 
-The `test_mempool_` prefix keeps the files apart from consensus tests in the same directory. This matters in particular next to `test_admission_validity.py` in the frame transaction directory, which tests consensus validity, not mempool admission. The EIP-8141 mempool tests also reuse the directory's `spec.py` and `helpers.py` (frame builders, signature helpers, the expiry verifier) instead of copying them.
+The tree mirrors the fork and EIP layout of `tests/`, so EIP names, fork ordering, and coverage checklists work the same way:
 
-A top-level `tests/mempool/` directory was considered and rejected. It would split each EIP's tests across two trees, away from the helpers and the fork ordering that `valid_from` relies on, and away from the per-EIP coverage checklists. Running only mempool tests does not need a separate directory, because `fill -m mempool_test` selects them by format, as `-m state_test` does today.
+```text
+tests/mempool/
+├── __init__.py
+├── conftest.py                          # Allows only the mempool_test spec
+├── frontier/
+│   └── validation/
+│       └── test_transaction_validity.py # Signature, nonce, balance, intrinsic gas
+├── cancun/
+│   └── eip4844_blobs/
+│       └── test_blob_sidecar.py         # Sidecar format, version, KZG proofs
+└── bogota/
+    └── eip8141_frame_transactions/
+        ├── test_prefix_shapes.py
+        ├── test_banned_opcodes.py
+        ├── test_storage_access.py
+        ├── test_validation_gas.py
+        ├── test_expiry.py
+        └── test_paymaster.py
+```
+
+`tests/benchmark/` is a precedent for this. It is a separate tree for a separate purpose, it has its own internal layout, and the framework recognizes it by path (`is_benchmark_test`). Fixtures from it keep the tree in their path (`blockchain_tests/benchmark/...`), so mempool fixtures would land in `mempool_tests/mempool/...`.
+
+The separation should be enforced, not only conventional:
+
+- **The `mempool_test` spec only works under `tests/mempool/`, and tests there can only use `mempool_test`.** The tree's `conftest.py` (or a check like `is_benchmark_test`) rejects other specs, and the filler rejects `mempool_test` outside the tree.
+- **Admission rule constants come only from the admission rules package.** Mempool tests import `MAX_VERIFY_GAS` and the other values from `ethereum_mempool`, never from an EIP's consensus `spec.py`. The consensus `spec.py` files never define them.
+- **Imports go one way.** Mempool tests may reuse consensus test helpers, for example the frame transaction builders and signature helpers from `tests/bogota/eip8141_frame_transactions/`. Consensus tests never import from `tests/mempool/` or `ethereum_mempool`. A lint check can enforce this.
+- **The docs keep them apart.** The generated test documentation lists the tree as its own "Mempool" section, so an implementer browsing the tests sees mempool and consensus tests in different places.
+
+Other test code lives elsewhere: the admission rules package's unit tests in `packages/mempool/tests/`, and the tests of the `MempoolTest` spec and fixture model with the testing framework's own tests under `packages/testing/`.
+
+Running only mempool tests is `fill tests/mempool/`, and `fill -m mempool_test` also works.
 
 ## Implementing a consumer in go-ethereum
 
