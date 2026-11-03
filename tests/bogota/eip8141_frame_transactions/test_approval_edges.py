@@ -20,8 +20,10 @@ in `test_frame_transactions.py`.
 A refused `APPROVE` reverts only its own call frame (§`APPROVE`
 Behavior: "revert the current call frame"), so most tests reach it
 through a call back into the frame's target and record the call's
-result: the recorded value pins the refusal, and the transaction stays
-valid through an approval made elsewhere.
+result plus one in storage: 2 for a successful call, 1 for a refused
+one, and 0 for a call the code never reached. The recorded value pins
+the refusal, and the transaction stays valid through an approval made
+elsewhere.
 
 The default code of a codeless account calls `APPROVE` at the top level
 of its `VERIFY` frame instead, so its refusals revert that frame and
@@ -35,7 +37,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytecode,
     Bytes,
     CodeGasMeasure,
     Conditional,
@@ -52,17 +53,11 @@ from execution_testing import (
 from .helpers import (
     APPROVE_ALL,
     BASE_FEE,
-    CANARY,
     PRIORITY_FEE,
-    DefaultCodeAccounts,
-    DefaultCodeCase,
     FrameCase,
     FrameTransaction,
-    approve_execution,
-    approve_payment,
     default_frame,
     fee_budget,
-    sponsored_signatures,
     verify_frame,
 )
 from .signature_helpers import canonical_entry
@@ -73,40 +68,11 @@ REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
 
-SLOT_FIRST_CALL = 0x00
-"""Storage slot recording the outcome of a target's first self-call."""
-
-SLOT_SECOND_CALL = 0x01
-"""Storage slot recording the outcome of a target's second self-call."""
-
-SLOT_RETURN_DATA_SIZE = 0x01
-"""Storage slot recording `RETURNDATASIZE` after the approving call."""
-
-SLOT_RETURN_DATA = 0x02
-"""Storage slot recording the word the approving call returned."""
-
-SLOT_PAYER_BALANCE = 0x00
-"""Storage slot the balance probe records the payer's balance into."""
-
-SLOT_AFTER_APPROVE = 0x01
-"""Storage slot only code after a successful `APPROVE` would write."""
-
 FUNDS = 10**18
 """Balance of every approving account: far above any `max_cost` here."""
 
 FRAME_GAS = 400_000
 """Execution gas budget of the frames whose code makes nested calls."""
-
-RETURNED_WORD = 0xBEEF
-"""Word an approving call places in memory and returns."""
-
-CALL_SELF = Op.CALL(gas=Op.GAS, address=Op.ADDRESS)
-"""Call back into the executing account with no calldata."""
-
-CALL_SELF_ONE_BYTE = Op.CALL(
-    gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1
-)
-"""Call back into the executing account with one byte of calldata."""
 
 PLACEHOLDER_ENTRY = FrameSignature(
     scheme=Spec.SCHEME_ARBITRARY, signature=Bytes(b"\x01")
@@ -116,14 +82,6 @@ Signature entry 0 of a contract sender's sponsored transaction: the
 payer's default code reads entry 1, so entry 0 only has to exist, and
 an `ARBITRARY` entry needs no protocol validation.
 """
-
-
-def record_call(slot: int, call: Bytecode) -> Bytecode:
-    """
-    Record a call's result plus one, so a successful call reads 2, a
-    failed one 1, and a slot the code never reached 0.
-    """
-    return Op.SSTORE(slot, Op.ADD(1, call))
 
 
 @pytest.mark.parametrize(
@@ -169,7 +127,7 @@ def test_approve_reached_through_another_contract(
         else APPROVE_ALL
     )
     helper = pre.deploy_contract(code=helper_code, balance=FUNDS)
-    record = record_call(SLOT_FIRST_CALL, Op.CALL(gas=Op.GAS, address=helper))
+    record = Op.SSTORE(0, Op.ADD(1, Op.CALL(gas=Op.GAS, address=helper)))
     # The frame supplies no calldata; the helper's call back supplies
     # one byte.
     sender_code = Conditional(
@@ -201,7 +159,7 @@ def test_approve_reached_through_another_contract(
             sender: Account(
                 nonce=2,
                 # 2: the helper's call succeeded; 1: it was refused.
-                storage={SLOT_FIRST_CALL: 2 if reentry else 1},
+                storage={0: 2 if reentry else 1},
             ),
         },
     )
@@ -312,11 +270,14 @@ def test_split_approval_order(
         if execution_first
         else (Spec.APPROVE_PAYMENT, Spec.APPROVE_EXECUTION)
     )
+    call_self = Op.CALL(
+        gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1
+    )
     record = (
         Op.MSTORE8(0, first)
-        + record_call(SLOT_FIRST_CALL, CALL_SELF_ONE_BYTE)
+        + Op.SSTORE(0, Op.ADD(1, call_self))
         + Op.MSTORE8(0, second)
-        + record_call(SLOT_SECOND_CALL, CALL_SELF_ONE_BYTE)
+        + Op.SSTORE(1, Op.ADD(1, call_self))
     )
     sender_code = Conditional(
         condition=Op.CALLDATASIZE,
@@ -356,10 +317,7 @@ def test_split_approval_order(
         post={
             sender: Account(
                 nonce=2,
-                storage={
-                    SLOT_FIRST_CALL: 2 if execution_first else 1,
-                    SLOT_SECOND_CALL: 2,
-                },
+                storage={0: 2 if execution_first else 1, 1: 2},
             ),
         },
     )
@@ -381,7 +339,7 @@ def test_second_payment_approval_refused(
     ordering checks cannot be what refuses it.
     """
     sender = pre.fund_eoa()
-    record = record_call(SLOT_FIRST_CALL, CALL_SELF)
+    record = Op.SSTORE(0, Op.ADD(1, Op.CALL(gas=Op.GAS, address=Op.ADDRESS)))
     # The frame supplies calldata, the self-call none.
     sponsor_code = Conditional(
         condition=Op.CALLDATASIZE,
@@ -411,9 +369,7 @@ def test_second_payment_approval_refused(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            sponsor: Account(
-                nonce=1, balance=FUNDS, storage={SLOT_FIRST_CALL: 1}
-            ),
+            sponsor: Account(nonce=1, balance=FUNDS, storage={0: 1}),
         },
     )
 
@@ -451,7 +407,10 @@ def test_execution_approval_refused_once_granted(
     invalid; the sender's nonce advances once, by the sponsor's
     approval.
     """
-    record = record_call(SLOT_FIRST_CALL, CALL_SELF_ONE_BYTE)
+    call_self = Op.CALL(
+        gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1
+    )
+    record = Op.SSTORE(0, Op.ADD(1, call_self))
     # The `VERIFY` frame supplies no calldata, the `DEFAULT` frame two
     # bytes, and its self-call one.
     sender_code = Conditional(
@@ -490,9 +449,7 @@ def test_execution_approval_refused_once_granted(
         pre=pre,
         tx=tx,
         post={
-            sender: Account(
-                nonce=2, balance=FUNDS, storage={SLOT_FIRST_CALL: 1}
-            ),
+            sender: Account(nonce=2, balance=FUNDS, storage={0: 1}),
         },
     )
 
@@ -564,7 +521,10 @@ def test_scope_beyond_frame_flags_refused(
     else:
         raise ValueError(f"unknown scope: {scope!r}")
     assert scope & ~allowed, "the scope must exceed the frame's flags"
-    record = record_call(SLOT_FIRST_CALL, CALL_SELF_ONE_BYTE)
+    call_self = Op.CALL(
+        gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1
+    )
+    record = Op.SSTORE(0, Op.ADD(1, call_self))
     # The `VERIFY` frames supply no calldata, the `DEFAULT` frame two
     # bytes, and its self-call one.
     sender_code = Conditional(
@@ -610,83 +570,64 @@ def test_scope_beyond_frame_flags_refused(
         pre=pre,
         tx=tx,
         post={
-            sender: Account(nonce=2, storage={SLOT_FIRST_CALL: 1}),
+            sender: Account(nonce=2, storage={0: 1}),
         },
     )
 
 
-APPROVAL_REFUSAL_CASES = [
-    pytest.param(
-        lambda a: (
-            [approve_execution(), approve_payment(a.payer)],
-            [canonical_entry(a.sender), canonical_entry(a.payer)],
+@pytest.mark.parametrize(
+    "scopes,refused",
+    [
+        pytest.param(
+            [Spec.APPROVE_EXECUTION, Spec.APPROVE_PAYMENT],
+            False,
+            id="execution_then_payment",
         ),
-        False,
-        id="execution_then_payment",
-    ),
-    pytest.param(
         # §APPROVE Behavior, `APPROVE_PAYMENT`: "If `sender_approved ==
         # false`, revert the current call frame."
-        lambda a: (
-            [approve_payment(a.payer), approve_execution()],
-            [canonical_entry(a.sender), canonical_entry(a.payer)],
+        pytest.param(
+            [Spec.APPROVE_PAYMENT, Spec.APPROVE_EXECUTION],
+            True,
+            id="payment_before_execution",
+            marks=pytest.mark.exception_test,
         ),
-        True,
-        id="payment_before_execution",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
         # §APPROVE Behavior, `APPROVE_PAYMENT`: "If `payer` was already
         # set, revert the current call frame." The second payer can
         # afford `max_cost`, so only the first approval refuses it.
-        lambda a: (
-            [verify_frame(), approve_payment(a.payer)],
-            [canonical_entry(a.sender), canonical_entry(a.payer)],
+        pytest.param(
+            [Spec.APPROVE_EXECUTION_AND_PAYMENT, Spec.APPROVE_PAYMENT],
+            True,
+            id="second_payment_approval",
+            marks=pytest.mark.exception_test,
         ),
-        True,
-        id="second_payment_approval",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
         # §APPROVE Behavior, `APPROVE_EXECUTION`: "If `sender_approved ==
         # true`, revert the current call frame."
-        lambda a: (
+        pytest.param(
             [
-                approve_execution(),
-                approve_execution(),
-                approve_payment(a.payer),
+                Spec.APPROVE_EXECUTION,
+                Spec.APPROVE_EXECUTION,
+                Spec.APPROVE_PAYMENT,
             ],
-            [canonical_entry(a.sender), canonical_entry(a.payer)],
+            True,
+            id="second_execution_approval",
+            marks=pytest.mark.exception_test,
         ),
-        True,
-        id="second_execution_approval",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
         # §APPROVE Behavior, `APPROVE_EXECUTION_AND_PAYMENT`: "If
         # `sender_approved` or `payer` was already set, revert the
         # current call frame."
-        lambda a: (
-            [approve_execution(), verify_frame()],
-            [canonical_entry(a.sender)],
+        pytest.param(
+            [Spec.APPROVE_EXECUTION, Spec.APPROVE_EXECUTION_AND_PAYMENT],
+            True,
+            id="execution_and_payment_after_execution",
+            marks=pytest.mark.exception_test,
         ),
-        True,
-        id="execution_and_payment_after_execution",
-        marks=pytest.mark.exception_test,
-    ),
-]
-"""
-Sequences of default code approvals, each with whether one of them
-must be refused, which reverts its `VERIFY` frame.
-"""
-
-
-@pytest.mark.parametrize("case,refused", APPROVAL_REFUSAL_CASES)
+    ],
+)
 def test_default_code_approval_refusals(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    case: DefaultCodeCase,
+    scopes: List[int],
     refused: bool,
 ) -> None:
     """
@@ -694,16 +635,29 @@ def test_default_code_approval_refusals(
     calls must be refused, and check the refusal reverts its `VERIFY`
     frame and invalidates the transaction.
 
+    Each `VERIFY` frame approves one of `scopes`: a payment-only frame
+    targets a codeless payer, every other frame the codeless sender.
+
     EIP-8141 §Default code: "Call `APPROVE(allowed_scope)`." The
     default code's `APPROVE` is subject to every check of §APPROVE
     Behavior, and a refusal reverts the frame.
     """
-    accounts = DefaultCodeAccounts(pre)
-    frames, signatures = case(accounts)
+    sender = pre.fund_eoa()
+    payer = pre.fund_eoa(amount=FUNDS)
+    frames = [
+        verify_frame(flags=scope, target=payer)
+        if scope == Spec.APPROVE_PAYMENT
+        else verify_frame(flags=scope)
+        for scope in scopes
+    ]
+    signatures = [canonical_entry(sender)]
+    if Spec.APPROVE_PAYMENT in scopes:
+        # The payer's default code reads the entry at index 1.
+        signatures.append(canonical_entry(payer))
     tx = FrameTransaction.build(
         fork=fork,
-        sender=accounts.sender,
-        payer=accounts.payer,
+        sender=sender,
+        payer=payer,
         frames=frames,
         signatures=signatures,
         error=(
@@ -714,8 +668,8 @@ def test_default_code_approval_refusals(
     )
 
     post = {
-        accounts.sender: Account(nonce=0 if refused else 1),
-        accounts.payer: Account(
+        sender: Account(nonce=0 if refused else 1),
+        payer: Account(
             nonce=0,
             balance_change=(
                 0 if refused else -GasFee(tx, gas=tx.payer_gas_used())
@@ -755,15 +709,19 @@ def test_approve_return_data(
     approval context: whether a refused `APPROVE` returns data is not
     specified, so its return data is not read.
     """
-    inner = Op.MSTORE(0, RETURNED_WORD) + Op.APPROVE(
+    inner = Op.MSTORE(0, 0xBEEF) + Op.APPROVE(
         0, 32, Spec.APPROVE_EXECUTION_AND_PAYMENT if granted else 0
     )
-    record = record_call(SLOT_FIRST_CALL, CALL_SELF_ONE_BYTE)
+    call_self = Op.CALL(
+        gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1
+    )
+    record = Op.SSTORE(0, Op.ADD(1, call_self))
     if granted:
+        # Slot 1 records the return data size, slot 2 the returned word.
         record += (
-            Op.SSTORE(SLOT_RETURN_DATA_SIZE, Op.RETURNDATASIZE)
+            Op.SSTORE(1, Op.RETURNDATASIZE)
             + Op.RETURNDATACOPY(0, 0, 32)
-            + Op.SSTORE(SLOT_RETURN_DATA, Op.MLOAD(0))
+            + Op.SSTORE(2, Op.MLOAD(0))
         )
     outer = record + (Op.STOP if granted else APPROVE_ALL)
     sender_code = Conditional(
@@ -786,15 +744,7 @@ def test_approve_return_data(
         ],
     )
 
-    storage: Dict[int, int] = (
-        {
-            SLOT_FIRST_CALL: 2,
-            SLOT_RETURN_DATA_SIZE: 32,
-            SLOT_RETURN_DATA: RETURNED_WORD,
-        }
-        if granted
-        else {SLOT_FIRST_CALL: 1}
-    )
+    storage: Dict[int, int] = {0: 2, 1: 32, 2: 0xBEEF} if granted else {0: 1}
     state_test(
         pre=pre,
         tx=tx,
@@ -817,7 +767,8 @@ def test_code_after_approve_does_not_run(
     used so that the write, if reached, would succeed rather than halt
     on a static restriction.
     """
-    sender_code = APPROVE_ALL + Op.SSTORE(SLOT_AFTER_APPROVE, 1) + Op.STOP
+    # Slot 1 would only be written if code after `APPROVE` ran.
+    sender_code = APPROVE_ALL + Op.SSTORE(1, 1) + Op.STOP
     sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
 
     tx = FrameTransaction.build(
@@ -956,7 +907,7 @@ def test_default_code_approves_only_in_verify_frame(
             verify_frame(flags=Spec.APPROVE_EXECUTION),
             FrameCase(mode=mode, flags=Spec.APPROVE_PAYMENT, target=payer),
         ],
-        signatures=sponsored_signatures(sender, payer),
+        signatures=[canonical_entry(sender), canonical_entry(payer)],
         error=(
             None
             if approves
@@ -995,7 +946,7 @@ def test_max_cost_collected_at_payment_approval(
     """
     sender = pre.fund_eoa()
     payer = pre.fund_eoa(amount=FUNDS)
-    probe_code = Op.SSTORE(SLOT_PAYER_BALANCE, Op.BALANCE(payer)) + Op.STOP
+    probe_code = Op.SSTORE(0, Op.BALANCE(payer)) + Op.STOP
     probe = pre.deploy_contract(code=probe_code)
 
     tx = FrameTransaction.build(
@@ -1012,7 +963,7 @@ def test_max_cost_collected_at_payment_approval(
                 state_gas_used=probe_code.state_cost(fork),
             ),
         ],
-        signatures=sponsored_signatures(sender, payer),
+        signatures=[canonical_entry(sender), canonical_entry(payer)],
     )
     assert tx.frames is not None and tx.signatures is not None
     assert tx.max_fee is not None
@@ -1031,19 +982,9 @@ def test_max_cost_collected_at_payment_approval(
         tx=tx,
         post={
             sender: Account(nonce=1, balance_change=0),
-            probe: Account(storage={SLOT_PAYER_BALANCE: FUNDS - max_cost}),
+            probe: Account(storage={0: FUNDS - max_cost}),
         },
     )
-
-
-INNER_CALL_GAS = 50_000
-"""Execution gas a sponsor forwards to its approving self-call."""
-
-SLOT_CALL_GAS = 0x00
-"""Storage slot recording the gas the approving self-call consumed."""
-
-SLOT_SPONSOR_BALANCE = 0x00
-"""Storage slot the balance probe records the sponsor's balance into."""
 
 
 @pytest.mark.parametrize(
@@ -1075,10 +1016,11 @@ def test_sender_creation_shortfall_halts_payment_approval(
     # as `NEW_ACCOUNT` (the state gas of one new account).
     new_account_gas = fork.gas_costs().NEW_ACCOUNT
     sender = pre.fund_eoa(amount=0)
-    call = Op.CALL(gas=INNER_CALL_GAS, address=Op.ADDRESS, address_warm=True)
-    measure = CodeGasMeasure(
-        code=call, extra_stack_items=1, sstore_key=SLOT_CALL_GAS
-    )
+    # Execution gas the sponsor forwards to its approving self-call,
+    # whose consumed gas it records in slot 0.
+    inner_call_gas = 50_000
+    call = Op.CALL(gas=inner_call_gas, address=Op.ADDRESS, address_warm=True)
+    measure = CodeGasMeasure(code=call, extra_stack_items=1, sstore_key=0)
     approval = Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT)
     # The frame supplies calldata, the self-call none.
     if_true = measure + Op.STOP
@@ -1098,7 +1040,7 @@ def test_sender_creation_shortfall_halts_payment_approval(
     # creates no state, so the sender's creation is the only state charge
     # in the sponsor's frame.
     sponsor = pre.deploy_contract(
-        code=sponsor_code, balance=FUNDS, storage={SLOT_CALL_GAS: CANARY}
+        code=sponsor_code, balance=FUNDS, storage={0: 0xDEAD}
     )
     if budget_delta == 0:
         approves = True
@@ -1122,9 +1064,7 @@ def test_sender_creation_shortfall_halts_payment_approval(
         # `APPROVE`. The sponsor's frame reports the sender's creation as
         # its state gas, the receipt names the sponsor as payer, and a
         # later frame reads the sponsor's balance less `max_cost`.
-        probe_code = (
-            Op.SSTORE(SLOT_SPONSOR_BALANCE, Op.BALANCE(sponsor)) + Op.STOP
-        )
+        probe_code = Op.SSTORE(0, Op.BALANCE(sponsor)) + Op.STOP
         probe = pre.deploy_contract(code=probe_code)
         tx = FrameTransaction.build(
             fork=fork,
@@ -1155,11 +1095,10 @@ def test_sender_creation_shortfall_halts_payment_approval(
         post[sponsor] = Account(
             nonce=1,
             storage={
-                SLOT_CALL_GAS: call.gas_cost(fork)
-                + approval_path.execution_cost(fork)
+                0: call.gas_cost(fork) + approval_path.execution_cost(fork)
             },
         )
-        post[probe] = Account(storage={SLOT_SPONSOR_BALANCE: FUNDS - max_cost})
+        post[probe] = Account(storage={0: FUNDS - max_cost})
     else:
         # The self-call halts, consuming all the gas it was given (a
         # revert would return it), and approves nothing. The sponsor keeps
@@ -1179,12 +1118,15 @@ def test_sender_creation_shortfall_halts_payment_approval(
                     state_gas_used=new_account_gas,
                 ),
             ],
-            signatures=sponsored_signatures(sender, second_payer),
+            signatures=[
+                canonical_entry(sender),
+                canonical_entry(second_payer),
+            ],
         )
         post[sponsor] = Account(
             nonce=1,
             balance=FUNDS,
-            storage={SLOT_CALL_GAS: call.gas_cost(fork) + INNER_CALL_GAS},
+            storage={0: call.gas_cost(fork) + inner_call_gas},
         )
 
     state_test(

@@ -10,14 +10,12 @@ from typing import (
     Optional,
     Self,
     Sequence,
-    Tuple,
 )
 
 from execution_testing import (
     EOA,
     SECP256K1_SIGNATURE_LENGTH,
     Address,
-    Alloc,
     Bytecode,
     Bytes,
     Fork,
@@ -394,17 +392,6 @@ be able to pay from is funded with exactly this much.
 CURRENT_FRAME_INDEX = Op.TXPARAM(Spec.TXPARAM_CURRENT_FRAME_INDEX)
 """Push the executing frame's index, which keys per-frame records."""
 
-
-def sponsored_signatures(sender: EOA, payer: EOA) -> List[FrameSignature]:
-    """
-    Return the signature entries of a sponsored transaction: the
-    sender's canonical entry at index 0, which its default code reads to
-    approve execution, and the payer's at index 1, which its default
-    code reads to approve payment.
-    """
-    return [canonical_entry(sender), canonical_entry(payer)]
-
-
 BASE_FEE = 7
 """Base fee of the block a fee-sensitive test's transaction lands in."""
 
@@ -484,40 +471,3 @@ def fee_budget(
         max_fee = required_max_fee + full_tip
     max_cost = required_max_fee + min(full_tip, max_fee - required_max_fee)
     return FeeBudget(max_gas, required_max_fee, max_cost)
-
-
-CANARY = 0xDEAD
-"""
-Pre-state value of a recording slot, so overwriting it creates no state
-and a slot left untouched, by a frame that halts or never reaches the
-write, is distinguishable from a written one.
-"""
-
-
-PAYER_FUNDS = 10**18
-"""Balance of the payer EOA, far above any transaction's `max_cost`."""
-
-
-class DefaultCodeAccounts:
-    """The accounts a default code case refers to."""
-
-    def __init__(self, pre: Alloc) -> None:
-        """Fund the sender and a payer."""
-        self.sender = pre.fund_eoa()
-        self.payer = pre.fund_eoa(amount=PAYER_FUNDS)
-
-
-DefaultCodeCase = Callable[
-    [DefaultCodeAccounts], Tuple[List[FrameCase], List[FrameSignature]]
-]
-"""Build a default code case's frames and signature entries."""
-
-
-def approve_execution() -> FrameCase:
-    """Return a `VERIFY` frame on the sender approving execution only."""
-    return verify_frame(flags=Spec.APPROVE_EXECUTION)
-
-
-def approve_payment(target: Optional[Address] = None) -> FrameCase:
-    """Return a `VERIFY` frame approving payment only."""
-    return verify_frame(flags=Spec.APPROVE_PAYMENT, target=target)

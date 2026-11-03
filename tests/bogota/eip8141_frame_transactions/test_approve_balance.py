@@ -49,7 +49,6 @@ from .helpers import (
     default_frame,
     fee_budget,
     sender_frame,
-    sponsored_signatures,
     verify_frame,
 )
 from .signature_helpers import canonical_entry
@@ -59,21 +58,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
-
-EXEC_ERROR = TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
-"""A `VERIFY` frame failed, which invalidates the transaction."""
-
-TRANSFER_VALUE = 10**6
-"""Value a `SENDER` frame moves out of the payer before it approves."""
-
-DONOR_FUNDS = 10**18
-"""Balance of the contract that tops the payer up."""
-
-SENDER_FUNDS = 10**18
-"""
-Balance of the sender whose transaction is rejected before any frame
-runs, so nothing but the fee budget refuses it.
-"""
 
 
 @pytest.mark.parametrize(
@@ -146,7 +130,11 @@ def test_sender_balance_covers_max_cost(
         signatures=[canonical_entry(sender)],
         max_fee=max_fee,
         max_priority_fee_per_gas=priority_fee,
-        error=EXEC_ERROR if balance_delta else None,
+        error=(
+            TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+            if balance_delta
+            else None
+        ),
     )
 
     if balance_delta:
@@ -196,7 +184,7 @@ def test_payer_balance_covers_max_cost(
         verify_frame(flags=Spec.APPROVE_EXECUTION),
         verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
     ]
-    signatures = sponsored_signatures(sender, payer)
+    signatures = [canonical_entry(sender), canonical_entry(payer)]
     max_cost = fee_budget(fork, sender, frames, signatures).max_cost
     pre.fund_address(payer, max_cost + balance_delta)
 
@@ -206,7 +194,11 @@ def test_payer_balance_covers_max_cost(
         payer=payer,
         frames=frames,
         signatures=signatures,
-        error=EXEC_ERROR if balance_delta else None,
+        error=(
+            TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+            if balance_delta
+            else None
+        ),
     )
 
     if balance_delta:
@@ -262,27 +254,32 @@ def test_payment_approval_reads_balance_after_transfer(
     """
     sender = pre.fund_eoa(amount=0)
     recipient = pre.deploy_contract(code=Op.STOP)
+    transfer_value = 10**6
     frames = [
         verify_frame(flags=Spec.APPROVE_EXECUTION),
-        sender_frame(target=recipient, value=TRANSFER_VALUE, code=Op.STOP),
+        sender_frame(target=recipient, value=transfer_value, code=Op.STOP),
         verify_frame(flags=Spec.APPROVE_PAYMENT),
     ]
     signatures = [canonical_entry(sender), canonical_entry(sender)]
     max_cost = fee_budget(fork, sender, frames, signatures).max_cost
-    pre.fund_address(sender, TRANSFER_VALUE + max_cost + balance_delta)
+    pre.fund_address(sender, transfer_value + max_cost + balance_delta)
 
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
         frames=frames,
         signatures=signatures,
-        error=EXEC_ERROR if balance_delta else None,
+        error=(
+            TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+            if balance_delta
+            else None
+        ),
     )
 
     if balance_delta:
         post = {
             sender: Account(
-                nonce=0, balance=TRANSFER_VALUE + max_cost + balance_delta
+                nonce=0, balance=transfer_value + max_cost + balance_delta
             ),
             recipient: Account(balance=0),
         }
@@ -291,7 +288,7 @@ def test_payment_approval_reads_balance_after_transfer(
             sender: Account(
                 nonce=1, balance=max_cost - tx.payer_gas_used() * BASE_FEE
             ),
-            recipient: Account(balance=TRANSFER_VALUE),
+            recipient: Account(balance=transfer_value),
         }
     state_test(
         env=Environment(base_fee_per_gas=BASE_FEE),
@@ -333,7 +330,8 @@ def test_payment_approval_reads_balance_after_top_up(
         Op.CALL(address=payer, value=top_up, value_transfer=top_up > 0)
         + Op.STOP
     )
-    donor = pre.deploy_contract(code=donor_code, balance=DONOR_FUNDS)
+    donor_funds = 10**18
+    donor = pre.deploy_contract(code=donor_code, balance=donor_funds)
     # A `CALL` with value adds the stipend to the gas it forwards. The
     # payer has no code, so all of it comes back to the donor's frame,
     # which therefore spends the stipend less than the `CALL` charges.
@@ -347,7 +345,7 @@ def test_payment_approval_reads_balance_after_top_up(
         # The donor's `CALL` has already accessed the payer.
         verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer, warm=True),
     ]
-    signatures = sponsored_signatures(sender, payer)
+    signatures = [canonical_entry(sender), canonical_entry(payer)]
     max_cost = fee_budget(fork, sender, frames, signatures).max_cost
     pre.fund_address(payer, max_cost - 1)
 
@@ -357,7 +355,11 @@ def test_payment_approval_reads_balance_after_top_up(
         payer=payer,
         frames=frames,
         signatures=signatures,
-        error=None if top_up else EXEC_ERROR,
+        error=(
+            None
+            if top_up
+            else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+        ),
     )
 
     if top_up:
@@ -373,7 +375,7 @@ def test_payment_approval_reads_balance_after_top_up(
         post={
             sender: Account(nonce=1 if top_up else 0, balance_change=0),
             payer: payer_post,
-            donor: Account(balance=DONOR_FUNDS - top_up),
+            donor: Account(balance=donor_funds - top_up),
         },
     )
 
@@ -394,7 +396,9 @@ def test_max_fee_checked_before_frames(
     transaction and the including block's base fees and is performed
     before any frame executes."
     """
-    sender = pre.deploy_contract(code=Op.REVERT(0, 0), balance=SENDER_FUNDS)
+    # The sender can afford the transaction, so nothing but the fee
+    # budget refuses it.
+    sender = pre.deploy_contract(code=Op.REVERT(0, 0), balance=10**18)
     frames = [verify_frame()]
 
     tx = Transaction(
