@@ -204,7 +204,10 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
     while the `gas_left` that funded the charge stays reduced, and the
     merge is where the claim and the credit first share a meter. A
     failed child repays nothing -- its rollback restored the state
-    whose removal any refund credited.
+    whose removal any refund credited. The [state gas of slots the
+    child cleared][cleared] joins the parent's, so a slot the parent
+    paid for from `gas_left` and the child cleared is not repaid to
+    `gas_left` here either.
 
     Parameters
     ----------
@@ -214,6 +217,7 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
         The child evm to incorporate.
 
     [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [cleared]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_cleared
 
     """
     child_meter = child_evm.gas_meter
@@ -225,6 +229,7 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
         # spill refilled, refunds discarded.
         assert child_meter.state_gas_spilled == Uint(0)
         assert child_meter.refund_counter == 0
+        assert child_meter.state_gas_cleared == Uint(0)
         assert child_meter.state_gas_left == child_meter.state_gas_baseline
 
     # Gas returns to the parent regardless of the child's fate.
@@ -234,6 +239,7 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
     gas_meter.state_gas_left += child_meter.state_gas_left
     gas_meter.state_gas_spilled += child_meter.state_gas_spilled
     gas_meter.refund_counter += child_meter.refund_counter
+    gas_meter.state_gas_cleared += child_meter.state_gas_cleared
 
     # Everything else survives only on success.
     if not child_evm.error:
