@@ -409,10 +409,7 @@ class FeeBudget(NamedTuple):
     """`max_gas` at the base fee plus the blob gas at the blob base fee."""
 
     max_cost: int
-    """
-    `required_max_fee` plus the largest tip `max_fee` leaves room for:
-    what the payer escrows when it approves payment.
-    """
+    """`required_max_fee` plus the tip room: what the payer escrows."""
 
 
 def fee_budget(
@@ -427,20 +424,11 @@ def fee_budget(
     excess_blob_gas: int = 0,
 ) -> FeeBudget:
     """
-    Return the fee budget of a transaction `sender` sends with `frames`
-    and `signatures` in a block at `BASE_FEE` and the blob base fee of
-    `excess_blob_gas`.
-
-    `signatures` defaults to the entries a transaction defaults to: the
-    sender's canonical entry, or none for a contract sender. An unsigned
-    entry over the canonical hash is priced at its signed length, since
-    only the length of its raw bytes enters the cost, so the budget is
-    known before the transaction is signed. `max_fee` defaults to one
-    with room for the whole tip.
-
-    `frames` are priced as given: a `FrameCase` with budget deltas must
-    be settled first (`FrameTransaction.build` does), or pass
-    `tx.frames` after building.
+    Return the fee budget of `sender`'s transaction with `frames` and
+    `signatures` at `BASE_FEE`, pricing unsigned canonical secp256k1 entries
+    at their signed length. `signatures` defaults to the sender's canonical
+    entry (none for a contract sender), `max_fee` to room for the full
+    tip. Pass settled frames, such as `tx.frames` after building.
     """
     if signatures is None:
         signatures = (

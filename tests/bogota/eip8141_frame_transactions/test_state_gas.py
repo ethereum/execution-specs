@@ -960,28 +960,13 @@ def test_approve_both_scopes_creates_sender_at_zero_cost(
     state_gas_limit_delta: int,
 ) -> None:
     """
-    Charge the account creation of an absent sender that approves both
-    execution and payment of a transaction costing nothing.
+    Test the account creation charge of an absent sender that approves
+    both scopes: exactly the creation's state budget succeeds, one unit
+    short halts the frame and invalidates the transaction.
 
-    EIP-8141 `APPROVE` (`APPROVE_EXECUTION_AND_PAYMENT`): "If
-    `resolved_target` has insufficient balance, revert the current call
-    frame" and "Immediately before incrementing the sender's nonce, if
-    `tx.sender` does not exist under the existence rule of
-    [EIP-8037](./eip-8037.md)", charge the state gas of one new account
-    "from the current frame's `state_gas_left`. If the pool cannot
-    cover the charge, halt the current call frame exceptionally without
-    applying any approval effects."
-
-    An absent sender holds no balance, so this path is only reachable
-    when `max_cost` is zero: a block with a zero base fee and a
-    transaction with a zero `max_fee`. The sender's single `VERIFY`
-    frame approves both scopes through its default code. With exactly
-    the account creation of state budget the transaction is valid, the
-    sender exists with nonce one, and the receipt reports the creation;
-    one unit short, the frame halts and the transaction is invalid.
-
-    Only a state test is filled: the blocks of the blockchain fixtures
-    generated from it do not carry the zero base fee.
+    An absent sender has no balance, so `max_cost` must be zero (zero
+    base fee and `max_fee`); blockchain fixtures would not carry the
+    zero base fee, so only a state test is filled.
     """
     sender = pre.fund_eoa(amount=0)
     # No opcode prices the sender's creation: approving payment charges
