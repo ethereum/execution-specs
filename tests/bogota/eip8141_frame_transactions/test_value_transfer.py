@@ -95,7 +95,7 @@ def test_value_transfer(
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
-        frames=[verify_frame(), value_frame],
+        frames=[verify_frame(logs=[]), value_frame],
     )
 
     post = {sender: Account(nonce=1)}

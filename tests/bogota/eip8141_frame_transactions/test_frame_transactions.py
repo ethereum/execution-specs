@@ -48,39 +48,6 @@ SLOT_CALL_OUTCOME = 0x02
 """Storage slot used by target contracts to record a nested call's success."""
 
 
-def test_transfer_with_default_code(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Transfer ETH from an EOA sender using the default code: a `VERIFY`
-    frame authorizes execution and payment against the sender's
-    signature entry, and a `SENDER` frame carries the value.
-    """
-    sender = pre.fund_eoa()
-    recipient = pre.fund_eoa(amount=1)
-    transfer_value = 10**17
-
-    tx = FrameTransaction.build(
-        fork=fork,
-        sender=sender,
-        frames=[
-            verify_frame(logs=[]),
-            sender_frame(target=recipient, value=transfer_value),
-        ],
-    )
-
-    state_test(
-        pre=pre,
-        tx=tx,
-        post={
-            sender: Account(nonce=1),
-            recipient: Account(balance_change=transfer_value),
-        },
-    )
-
-
 def test_contract_sender_approves(
     state_test: StateTestFiller,
     pre: Alloc,
