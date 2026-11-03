@@ -2,32 +2,10 @@
 `APPROVE` edge-case tests for
 [EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141).
 
-Each test isolates one check of §`APPROVE` Behavior, or one consequence
-of it, so that a client skipping that check alone fails it:
-
-- who may approve (`ADDRESS == resolved_target`, however the code at
-  that address was reached);
-- which scopes a frame may approve, in which order, and how often;
-- what `APPROVE` returns, what it costs, and that it ends its call;
-- when `max_cost` leaves the payer;
-- that only the `VERIFY`-mode default code approves for a codeless
-  account.
-
-That an exceptional halt discards an approval as a revert does is
-pinned by `test_frame_revert_discards_the_approval_it_granted[halts]`
-in `test_frame_transactions.py`.
-
-A refused `APPROVE` reverts only its own call frame (§`APPROVE`
-Behavior: "revert the current call frame"), so most tests reach it
-through a call back into the frame's target and record the call's
-result plus one in storage: 2 for a successful call, 1 for a refused
-one, and 0 for a call the code never reached. The recorded value pins
-the refusal, and the transaction stays valid through an approval made
-elsewhere.
-
-The default code of a codeless account calls `APPROVE` at the top level
-of its `VERIFY` frame instead, so its refusals revert that frame and
-invalidate the transaction.
+Each test isolates one check of §`APPROVE` Behavior. A refused
+`APPROVE` reverts only its own call frame, so most tests reach it
+through a self-call and store the call's result plus one: 2 for
+success, 1 for a refusal, 0 if the call never ran.
 """
 
 from typing import Dict, List
@@ -78,9 +56,8 @@ PLACEHOLDER_ENTRY = FrameSignature(
     scheme=Spec.SCHEME_ARBITRARY, signature=Bytes(b"\x01")
 )
 """
-Signature entry 0 of a contract sender's sponsored transaction: the
-payer's default code reads entry 1, so entry 0 only has to exist, and
-an `ARBITRARY` entry needs no protocol validation.
+Entry 0 of a contract sender's sponsored transaction: only the payer's
+entry 1 is read, and an `ARBITRARY` entry needs no validation.
 """
 
 
@@ -98,25 +75,11 @@ def test_approve_reached_through_another_contract(
     reentry: bool,
 ) -> None:
     """
-    The sender's frame code calls a helper contract. In
-    `helper_calls_back_into_target` the helper calls back into the
-    sender, whose code approves: the approval succeeds, since only the
-    approving code's `ADDRESS` is checked, not the call chain that
-    reached it. In `helper_approves_itself` the helper runs `APPROVE`
-    at its own address: the approval is refused, and the sender then
-    approves at the frame's top level.
+    Test that `APPROVE` checks only `ADDRESS`, not the call chain.
 
-    EIP-8141 §`APPROVE` Behavior: "If `ADDRESS != resolved_target`,
-    revert." Nothing else in the behavior refers to the caller.
-
-    Nothing is approved before the helper runs, the frame allows both
-    scopes, and both the sender and the helper can afford `max_cost`,
-    so in `helper_approves_itself` the `ADDRESS` check is the only one
-    that refuses, even for a client that checks the balance of
-    `ADDRESS` rather than of the resolved target. Had the helper's
-    approval succeeded, the sender's own `APPROVE` would revert the
-    frame, discarding both approvals, and the transaction would have no
-    payer.
+    A helper that calls back into the sender lets the sender approve. A
+    helper that runs `APPROVE` itself is refused, as every other check
+    passes, and the sender then approves at the frame's top level.
     """
     helper_code = (
         Op.POP(
@@ -181,26 +144,9 @@ def test_approve_in_library_code(
     call_opcode: Opcode,
 ) -> None:
     """
-    A contract sender's `VERIFY` frame runs a library's `APPROVE`
-    through `DELEGATECALL` or `CALLCODE`, and the approval succeeds;
-    through `CALL` or `STATICCALL`, the library's `APPROVE` is refused
-    and the frame reverts.
-
-    EIP-8141 §`APPROVE` Behavior: "If `ADDRESS != resolved_target`,
-    revert." §Rationale, `APPROVE` calling convention: "Because
-    `DELEGATECALL` preserves `ADDRESS`, code executed via
-    `DELEGATECALL` from the resolved target may also execute `APPROVE`
-    successfully." `CALLCODE` also runs the library's code at the
-    caller's `ADDRESS`; `CALL` and `STATICCALL` run it at the library's
-    own. A `VERIFY` frame is already static and `APPROVE` writes past
-    that restriction, so `STATICCALL` adds no check of its own.
-
-    The frame reverts unless the library call succeeded, and a failed
-    `VERIFY` frame makes the transaction invalid. The library can
-    afford `max_cost` too, so under `CALL` and `STATICCALL` the
-    `ADDRESS` check is the only one that refuses, even for a client
-    that checks the balance of `ADDRESS` rather than of the resolved
-    target.
+    Test that a library's `APPROVE` succeeds through `DELEGATECALL` and
+    `CALLCODE`, which keep the caller's `ADDRESS`, and is refused
+    through `CALL` and `STATICCALL`, which reverts the `VERIFY` frame.
     """
     if call_opcode in (Op.DELEGATECALL, Op.CALLCODE):
         approves = True
@@ -249,21 +195,11 @@ def test_split_approval_order(
     execution_first: bool,
 ) -> None:
     """
-    Approve execution and payment in two separate self-calls of one
-    frame. Execution first, both approvals succeed. Payment first, the
-    payment approval is refused, the execution approval then succeeds,
-    and a later sponsor frame approves payment instead.
+    Test that payment cannot be approved before execution.
 
-    EIP-8141 §`APPROVE` Behavior, `APPROVE_PAYMENT`: "If
-    `sender_approved == false`, revert the current call frame."
-    `APPROVE_EXECUTION` has no such ordering condition.
-
-    Each self-call passes its scope as one byte of calldata, and the
-    frame records both calls' results. In `payment_then_execution`
-    nothing else refuses the payment approval: no payer is set, the
-    frame allows the scope, and the sender can afford `max_cost`. Had
-    it succeeded, the sender would be bound as payer and the sponsor's
-    later approval would be refused, invalidating the transaction.
+    One frame approves each scope in its own self-call. Execution first,
+    both succeed; payment first, the payment approval is refused and a
+    later sponsor frame pays instead.
     """
     first, second = (
         (Spec.APPROVE_EXECUTION, Spec.APPROVE_PAYMENT)
@@ -329,14 +265,8 @@ def test_second_payment_approval_refused(
     fork: Fork,
 ) -> None:
     """
-    After the sender approved payment, a sponsor contract that can
-    afford `max_cost` tries to approve payment too: its approval is
-    refused, it keeps its balance, and the sender stays the payer.
-
-    EIP-8141 §`APPROVE` Behavior, `APPROVE_PAYMENT`: "If `payer` was
-    already set, revert the current call frame." The sponsor's balance
-    covers `max_cost` and execution is approved, so the balance and
-    ordering checks cannot be what refuses it.
+    Test that a sponsor's payment approval is refused once the sender
+    is the payer, although the sponsor can afford `max_cost`.
     """
     sender = pre.fund_eoa()
     record = Op.SSTORE(0, Op.ADD(1, Op.CALL(gas=Op.GAS, address=Op.ADDRESS)))
@@ -391,21 +321,8 @@ def test_execution_approval_refused_once_granted(
     scope: int,
 ) -> None:
     """
-    After a `VERIFY` frame approved execution, a later frame of the
-    sender tries to approve execution again, alone or together with
-    payment: the approval is refused, and a sponsor approves payment.
-
-    EIP-8141 §`APPROVE` Behavior: for `APPROVE_EXECUTION`, "If
-    `sender_approved == true`, revert the current call frame."; for
-    `APPROVE_EXECUTION_AND_PAYMENT`, "If `sender_approved` or `payer`
-    was already set, revert the current call frame."
-
-    The later frame allows the scope and the sender can afford
-    `max_cost`, so only the existing approval refuses it. Had the
-    combined approval succeeded, the sender would be the payer, the
-    sponsor's approval would be refused, and the transaction would be
-    invalid; the sender's nonce advances once, by the sponsor's
-    approval.
+    Test that execution cannot be approved again, alone or with
+    payment, once a `VERIFY` frame approved it; a sponsor then pays.
     """
     call_self = Op.CALL(
         gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1
@@ -497,16 +414,9 @@ def test_scope_beyond_frame_flags_refused(
     scope: int,
 ) -> None:
     """
-    A contract sender's `DEFAULT` frame allows `allowed`, and a
-    self-call asks for `scope`, which has a bit the frame does not
-    allow: the approval is refused, and later frames approve instead.
-
-    EIP-8141 §`APPROVE` Behavior: "Ensure that `scope` is one of the
-    caller's allowed scopes in `frame.flags`, otherwise revert."
-
-    Nothing else refuses: the sender is the resolved target, it can
-    afford `max_cost`, no payer is set, and execution is approved
-    beforehand exactly when `scope` is payment alone.
+    Test that a self-call asking for a scope outside the frame's flags
+    is refused, with every other check passing, and later frames
+    approve instead.
     """
     if scope == Spec.APPROVE_PAYMENT:
         # Approved by the first frame, so the ordering check passes.
@@ -631,16 +541,10 @@ def test_default_code_approval_refusals(
     refused: bool,
 ) -> None:
     """
-    Order default code approvals so that the `APPROVE` one of them
-    calls must be refused, and check the refusal reverts its `VERIFY`
-    frame and invalidates the transaction.
-
-    Each `VERIFY` frame approves one of `scopes`: a payment-only frame
-    targets a codeless payer, every other frame the codeless sender.
-
-    EIP-8141 §Default code: "Call `APPROVE(allowed_scope)`." The
-    default code's `APPROVE` is subject to every check of §APPROVE
-    Behavior, and a refusal reverts the frame.
+    Test that default code `APPROVE` is subject to the ordering checks:
+    a refused one reverts its `VERIFY` frame and invalidates the
+    transaction. Payment-only frames target the payer, the others the
+    sender.
     """
     sender = pre.fund_eoa()
     payer = pre.fund_eoa(amount=FUNDS)
@@ -693,21 +597,9 @@ def test_approve_return_data(
     granted: bool,
 ) -> None:
     """
-    A self-call writes a word to memory and runs `APPROVE` over it. A
-    granted approval returns the word to the caller as return data. An
-    approval with scope 0 is refused, and the frame then approves at
-    its top level.
-
-    EIP-8141 §`APPROVE` Instruction: "The `offset` and `length`
-    operands designate a memory region that becomes the call frame's
-    return data, following `RETURN` semantics." §`APPROVE` Behavior:
-    "Ensure that `scope` is one of the caller's allowed scopes in
-    `frame.flags`, otherwise revert. To check this, evaluate that
-    `scope != 0` and [...]".
-
-    The refused case pins only the call's failure and the untouched
-    approval context: whether a refused `APPROVE` returns data is not
-    specified, so its return data is not read.
+    Test that a granted `APPROVE` returns its memory region to the
+    caller as return data, and that scope 0 is refused. A refused
+    call's return data is not read: the EIP leaves it unspecified.
     """
     inner = Op.MSTORE(0, 0xBEEF) + Op.APPROVE(
         0, 32, Spec.APPROVE_EXECUTION_AND_PAYMENT if granted else 0
@@ -758,14 +650,9 @@ def test_code_after_approve_does_not_run(
     fork: Fork,
 ) -> None:
     """
-    A frame's code approves, then writes storage: the write never
-    runs, and the frame's receipt reports the entry access and the
-    `APPROVE` and its operands alone.
-
-    EIP-8141 §`APPROVE` Instruction: "The `APPROVE` instruction exits
-    the current EVM call frame successfully". A `DEFAULT` frame is
-    used so that the write, if reached, would succeed rather than halt
-    on a static restriction.
+    Test that `APPROVE` ends its call frame: the storage write after it
+    never runs. A `DEFAULT` frame is used so the write would otherwise
+    succeed.
     """
     # Slot 1 would only be written if code after `APPROVE` ran.
     sender_code = APPROVE_ALL + Op.SSTORE(1, 1) + Op.STOP
@@ -817,16 +704,9 @@ def test_approve_memory_expansion_gas(
     budget_delta: int,
 ) -> None:
     """
-    A contract sender's `VERIFY` frame approves with a non-empty
-    return-data region, budgeted exactly the entry access, the operand
-    pushes and the region's memory expansion, and one gas less.
-
-    EIP-8141 §`APPROVE` Gas: "`APPROVE` charges the memory expansion
-    gas for the return-data region `[offset, offset + length)`, with no
-    additional execution-gas base cost, matching `RETURN`." At the
-    exact budget the approval succeeds and the receipt reports the
-    whole budget; one gas short the frame halts out of gas, and a
-    failed `VERIFY` frame makes the transaction invalid.
+    Test that `APPROVE` charges memory expansion for its return-data
+    region and no base cost: the exact budget succeeds, one gas less
+    halts the `VERIFY` frame and invalidates the transaction.
     """
     sender_code = Op.APPROVE(
         offset,
@@ -881,20 +761,9 @@ def test_default_code_approves_only_in_verify_frame(
     approves: bool,
 ) -> None:
     """
-    A codeless sponsor is the target of a frame flagged to approve
-    payment, with its valid signature entry at index 1. In a `VERIFY`
-    frame the default code approves payment; in a `DEFAULT` or
-    `SENDER` frame it returns like empty code, so no frame sets a payer
-    and the transaction is invalid.
-
-    EIP-8141 §Default code: "If `mode` is `VERIFY`: [...] Call
-    `APPROVE(allowed_scope)`." and "If `mode` is `SENDER` or
-    `DEFAULT`: Return successfully as if calling empty code."
-    §Behavior: "After executing all frames, verify that `payer` has
-    been set [...]. If it is not, the whole transaction is invalid."
-
-    The `verify_frame` case is the control: the same flags, target and
-    signature entries bind the sponsor as payer.
+    Test that a codeless payer's default code approves payment only in
+    a `VERIFY` frame. In a `DEFAULT` or `SENDER` frame it returns like
+    empty code, so no payer is set and the transaction is invalid.
     """
     sender = pre.fund_eoa()
     payer = pre.fund_eoa(amount=FUNDS)
@@ -928,21 +797,9 @@ def test_max_cost_collected_at_payment_approval(
     fork: Fork,
 ) -> None:
     """
-    A frame after a sponsor's payment approval reads the sponsor's
-    balance: `max_cost` has already left it, before any settlement.
-
-    EIP-8141 §`APPROVE` Behavior, `APPROVE_PAYMENT`: "Increment the
-    sender's nonce, set `payer = resolved_target`, and collect the
-    transaction's `max_cost` from `payer`." §Fee budget defines
-    `max_cost = required_max_fee + max_priority_fee`, with
-    `required_max_fee = max_gas * base_fee_per_gas` and
-    `max_priority_fee = min(tx.fees.max_priority_fee_per_gas * max_gas,
-    tx.fees.max_fee - required_max_fee)`.
-
-    The default `max_fee` leaves room for the full tip, so `max_cost`
-    is `max_gas` priced at the base fee plus the tip. The sender keeps
-    its balance: the collection comes from the paying frame's resolved
-    target.
+    Test that `max_cost`, the base fee plus the full tip on `max_gas`,
+    leaves the payer when it approves payment: a later frame reads the
+    reduced balance.
     """
     sender = pre.fund_eoa()
     payer = pre.fund_eoa(amount=FUNDS)
@@ -1001,16 +858,10 @@ def test_sender_creation_shortfall_halts_payment_approval(
     budget_delta: int,
 ) -> None:
     """
-    The sender does not exist yet. A sponsor contract approves payment
-    from a self-call, with a state budget of exactly the new account's
-    state gas for the sender, or one gas less.
-
-    EIP-8141 §`APPROVE` Behavior, `APPROVE_PAYMENT`: "Immediately
-    before incrementing the sender's nonce, if `tx.sender` does not
-    exist [...], charge" the new account's state gas "from the current
-    frame's `state_gas_left`. If the pool cannot cover the charge, halt
-    the current call frame exceptionally without applying any approval
-    effects."
+    Test the new-account charge for an absent sender when a sponsor
+    approves payment: with exactly that state budget the approval
+    succeeds; one gas short the self-call halts without approving, and
+    a second sponsor pays.
     """
     # No opcode makes this charge: `APPROVE` creates the sender, priced
     # as `NEW_ACCOUNT` (the state gas of one new account).

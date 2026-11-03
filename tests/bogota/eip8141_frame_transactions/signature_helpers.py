@@ -122,12 +122,8 @@ def p256_entry(
 
 def canonical_entry(account: EOA, **overrides: Any) -> FrameSignature:
     """
-    Return a secp256k1 entry over the canonical signature hash, with
-    `account` as its explicit signer and its key signing it when the
-    transaction is signed, whether or not `account` sends it.
-
-    Keyword arguments override the corresponding entry fields, for
-    variants that differ from the canonical entry in a single field.
+    Return a secp256k1 entry over the canonical hash with `account` as
+    signer, sender or not; keyword arguments override single fields.
     """
     fields: Dict[str, Any] = dict(
         scheme=Spec.SCHEME_SECP256K1,
