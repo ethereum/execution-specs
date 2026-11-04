@@ -69,6 +69,7 @@ logger = logging.getLogger(__name__)
 pytest_plugins = (
     "execution_testing.cli.pytest_commands.plugins.pytest_hive.pytest_hive",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.base",
+    "execution_testing.cli.pytest_commands.plugins.consume.simulators.client_start_pipeline",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.multi_test_client",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.test_case_description",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.timing_data",

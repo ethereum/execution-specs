@@ -118,6 +118,12 @@ Clients typically cache the blocks they reject. Because a client is reused acros
 
 The simulator therefore remembers the first validation error each client returns per invalid block. When a rejection does not match the test's expected exception, it is verified against the client's first rejection of the same block: it is accepted and logged ("Accepting mismatched validation error") if that first rejection matched the expected exception, and fails the test as before otherwise. This is sound because an identical block hash implies an identical block built on an identical parent chain, so the real validation outcome is deterministic. `consume engine` starts a fresh client per test and is unaffected.
 
+### Client Start Pipelining
+
+A worker starts the client of the next pre-allocation group queued to it while the current group's tests run, so the next group finds its client running instead of waiting for it to boot. The same applies to `consume wirex`. A worker holds at most one client started ahead, so a `consume enginex` run with `-n 4` has at most 8 client containers alive; `consume wirex` adds the isolated clients of multi-target fixtures. To make the next group known in time, the simulator keeps one more group queued per worker, handed out once the current group has at most 100 tests left; groups still run whole on one worker.
+
+Pipelining is on by default; `--no-pipeline-client-start` turns it off, for example to debug a client start or on a host short of memory. The gain depends on how much CPU a client's start needs: clients that start in about a second (such as ethrex, go-ethereum and reth) hide most of each start, while clients whose start is CPU-heavy (such as Besu and Nethermind) hide less, because the start competes with the tests running next to it.
+
 ### Engine vs EngineX
 
 |                         | `consume engine`                                                     | `consume enginex`                                                                          |

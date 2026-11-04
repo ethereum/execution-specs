@@ -4,6 +4,8 @@ import io
 import json
 import logging
 import time
+from concurrent.futures import Future, ThreadPoolExecutor
+from functools import partial
 from typing import TYPE_CHECKING, Any, Callable, Generator, cast
 
 import pytest
@@ -17,9 +19,15 @@ from execution_testing.fixtures import (
     PreAllocGroup,
 )
 from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.fixtures.consume import TestCaseBase
 from execution_testing.test_types import AllocGroupHash
 
 from ..consume import FixturesSource
+from .client_start_pipeline import (
+    next_group_item,
+    pipeline_client_start,
+    queued_items,
+)
 from .helpers.ruleset import ruleset
 from .helpers.test_tracker import (
     PreAllocGroupTestTracker,
@@ -50,6 +58,15 @@ class MultiTestClientManager:
     def __init__(self) -> None:
         """Initialize the multi-test client manager."""
         self.clients: dict[str, Client] = {}  # group_identifier -> Client
+        self.pending_start: tuple[str, Future[Client]] | None = None
+        """
+        The one client started ahead of its group, with the group's
+        identifier, until a test of the group claims it (see
+        `start_ahead`).
+        """
+        self._starter = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="client-start"
+        )
         self.test_tracker: PreAllocGroupTestTracker | None = None
         self.stop_callbacks: list[Callable[[Client], None]] = []
         """
@@ -67,11 +84,57 @@ class MultiTestClientManager:
         self.test_tracker = tracker
         logger.debug("Test tracker registered with MultiTestClientManager")
 
+    def start_ahead(
+        self, group_identifier: str, start: Callable[[], Client]
+    ) -> None:
+        """
+        Start a group's client on a background thread, ahead of its tests.
+
+        At most one client is started ahead at a time; the group's first
+        test claims it through `get_client`, waiting for the start to
+        finish if it has not yet.
+        """
+        assert self.pending_start is None, "a client is already started ahead"
+        logger.info(f"⏩ Starting client ahead for group {group_identifier}")
+        self.pending_start = (group_identifier, self._starter.submit(start))
+
+    def _claim_pending_start(self, group_identifier: str) -> None:
+        """
+        Wait for the client started ahead for this group and register it.
+
+        A start that failed is logged and dropped, so the caller starts
+        a client the usual way. The start stays pending until it is
+        waited for, so an interrupted wait leaves it to the session-end
+        cleanup.
+        """
+        if self.pending_start is None:
+            return
+        identifier, future = self.pending_start
+        if identifier != group_identifier:
+            return
+        wait_start = time.perf_counter()
+        try:
+            client = future.result()
+        except Exception as e:
+            self.pending_start = None
+            logger.warning(
+                f"Starting the client ahead for group {group_identifier} "
+                f"failed: {e!r}"
+            )
+            return
+        self.pending_start = None
+        logger.info(
+            f"⏱ phase=client_start_wait group={group_identifier} "
+            f"ms={(time.perf_counter() - wait_start) * 1000:.1f}"
+        )
+        self.register_client(group_identifier, client)
+
     def get_client(self, group_identifier: str) -> Client | None:
         """
         Get the client instance for a group.
 
         """
+        self._claim_pending_start(group_identifier)
         if group_identifier in self.clients:
             logger.debug(f"Found existing client for group {group_identifier}")
             return self.clients[group_identifier]
@@ -140,6 +203,9 @@ class MultiTestClientManager:
         # Stop the client immediately when all tests in the group are complete
         if is_group_complete:
             logger.info(f"✓ Group {group_identifier} complete")
+            # A group whose tests never asked for its client (all
+            # skipped, say) still owns the client started ahead for it.
+            self._claim_pending_start(group_identifier)
             if group_identifier in self.clients:
                 client = self.clients[group_identifier]
                 try:
@@ -163,7 +229,10 @@ class MultiTestClientManager:
                     self._notify_stopped(client)
 
     def stop_all_clients(self) -> None:
-        """Stop all remaining clients (called at session end)."""
+        """Stop all remaining clients (at module and session end)."""
+        if self.pending_start is not None:
+            self._claim_pending_start(self.pending_start[0])
+        self._starter.shutdown()
         if not self.clients:
             logger.info("No clients to clean up")
             return
@@ -200,6 +269,24 @@ def multi_test_client_manager(
         manager.stop_all_clients()
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _stop_clients_before_shared_test_ends(
+    multi_test_hive_test: HiveTest,
+    multi_test_client_manager: MultiTestClientManager,
+) -> Generator[None, None, None]:
+    """
+    Stop the remaining clients before the shared hive test ends.
+
+    Every client belongs to the module's shared hive test. Stopped only at
+    session end, after that test has ended, a client whose start ahead was
+    still running when the run was interrupted would never be stopped.
+    Requesting the shared test here tears this fixture down first.
+    """
+    del multi_test_hive_test  # requested only so it ends after this
+    yield
+    multi_test_client_manager.stop_all_clients()
+
+
 @pytest.fixture(scope="session")
 def pre_alloc_group_cache() -> dict[AllocGroupHash, PreAllocGroup]:
     """Cache for pre-allocation groups to avoid reloading from disk."""
@@ -218,15 +305,12 @@ def environment_cache() -> dict[AllocGroupHash, dict]:
     return {}
 
 
-@pytest.fixture(scope="function")
-def pre_alloc_group(
-    fixture: BlockchainEngineXFixture,
+def load_pre_alloc_group(
+    pre_hash: AllocGroupHash,
     fixtures_source: FixturesSource,
     pre_alloc_group_cache: dict[AllocGroupHash, PreAllocGroup],
 ) -> PreAllocGroup:
-    """Load the pre-allocation group for the current test case."""
-    pre_hash = fixture.pre_hash
-
+    """Load a pre-allocation group from the fixtures, through the cache."""
     # Check cache first
     if pre_hash in pre_alloc_group_cache:
         logger.debug(f"Using cached pre-alloc group for {pre_hash}")
@@ -266,20 +350,23 @@ def pre_alloc_group(
 
 
 @pytest.fixture(scope="function")
-def client_genesis(
-    pre_alloc_group: PreAllocGroup,
+def pre_alloc_group(
     fixture: BlockchainEngineXFixture,
+    fixtures_source: FixturesSource,
+    pre_alloc_group_cache: dict[AllocGroupHash, PreAllocGroup],
+) -> PreAllocGroup:
+    """Load the pre-allocation group for the current test case."""
+    return load_pre_alloc_group(
+        fixture.pre_hash, fixtures_source, pre_alloc_group_cache
+    )
+
+
+def build_client_genesis(
+    pre_hash: AllocGroupHash,
+    pre_alloc_group: PreAllocGroup,
     client_genesis_cache: dict[AllocGroupHash, dict],
 ) -> dict:
-    """
-    Convert pre-alloc group genesis header and pre-state to client genesis.
-
-    Parallel to single_test_client.client_genesis but uses
-    PreAllocGroup. Use caching to avoid redundant to_json calls
-    for tests sharing the same pre_hash.
-    """
-    pre_hash = fixture.pre_hash
-
+    """Convert a pre-alloc group to client genesis, through the cache."""
     if pre_hash in client_genesis_cache:
         return client_genesis_cache[pre_hash]
 
@@ -298,21 +385,30 @@ def client_genesis(
 
 
 @pytest.fixture(scope="function")
-def environment(
+def client_genesis(
     pre_alloc_group: PreAllocGroup,
     fixture: BlockchainEngineXFixture,
+    client_genesis_cache: dict[AllocGroupHash, dict],
+) -> dict:
+    """
+    Convert pre-alloc group genesis header and pre-state to client genesis.
+
+    Parallel to single_test_client.client_genesis but uses
+    PreAllocGroup. Use caching to avoid redundant to_json calls
+    for tests sharing the same pre_hash.
+    """
+    return build_client_genesis(
+        fixture.pre_hash, pre_alloc_group, client_genesis_cache
+    )
+
+
+def build_environment(
+    pre_hash: AllocGroupHash,
+    pre_alloc_group: PreAllocGroup,
     check_live_port: int,
     environment_cache: dict[AllocGroupHash, dict],
 ) -> dict:
-    """
-    Define environment variables for multi-test client startup.
-
-    Parallel to single_test_client.environment but uses
-    PreAllocGroup. Use caching to avoid redundant computation
-    for tests sharing the same pre_hash.
-    """
-    pre_hash = fixture.pre_hash
-
+    """Build a pre-alloc group's client environment, through the cache."""
     if pre_hash in environment_cache:
         return environment_cache[pre_hash]
 
@@ -349,6 +445,25 @@ def environment(
     return env
 
 
+@pytest.fixture(scope="function")
+def environment(
+    pre_alloc_group: PreAllocGroup,
+    fixture: BlockchainEngineXFixture,
+    check_live_port: int,
+    environment_cache: dict[AllocGroupHash, dict],
+) -> dict:
+    """
+    Define environment variables for multi-test client startup.
+
+    Parallel to single_test_client.environment but uses
+    PreAllocGroup. Use caching to avoid redundant computation
+    for tests sharing the same pre_hash.
+    """
+    return build_environment(
+        fixture.pre_hash, pre_alloc_group, check_live_port, environment_cache
+    )
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _configure_client_manager(
     multi_test_client_manager: MultiTestClientManager,
@@ -378,6 +493,125 @@ def _per_test_reporting(
     hive_test.register_multi_test_client(client)
 
 
+@pytest.fixture(scope="function", autouse=True)
+def _start_next_group_client(
+    client: Client,
+    multi_test_hive_test: HiveTest,
+    multi_test_client_manager: MultiTestClientManager,
+    fixture: BlockchainEngineXFixture,
+    fixtures_source: FixturesSource,
+    environment: dict[str, str],
+    check_live_port: int,
+    pre_alloc_group_cache: dict[AllocGroupHash, PreAllocGroup],
+    client_genesis_cache: dict[AllocGroupHash, dict],
+    environment_cache: dict[AllocGroupHash, dict],
+    request: pytest.FixtureRequest,
+) -> None:
+    """
+    Start the next queued group's client once this test's is ready.
+
+    Only while pipelining client starts (`--no-pipeline-client-start`
+    turns it off), and only when no client is already started ahead.
+    The next group's environment is this test's with the group-specific
+    part swapped, so it keeps what a simulator adds to the environment
+    fixture (as wirex does).
+    """
+    del client  # requested only so this runs once the client is ready
+    if not pipeline_client_start(request.config):
+        return
+    if multi_test_client_manager.pending_start is not None:
+        return
+    next_item = next_group_item(
+        queued_items(request.node), group_identifier_of(request.node)
+    )
+    if next_item is None:
+        return
+    next_group = group_identifier_of(next_item)
+    if next_group in multi_test_client_manager.clients:
+        return
+    try:
+        params = cast(pytest.Function, next_item).callspec.params
+        pre_hash = cast(TestCaseBase, params["test_case"]).pre_hash
+        assert pre_hash is not None, "the next test has no pre-alloc group"
+        group = load_pre_alloc_group(
+            pre_hash, fixtures_source, pre_alloc_group_cache
+        )
+        genesis = build_client_genesis(pre_hash, group, client_genesis_cache)
+        current_base = environment_cache[fixture.pre_hash]
+        next_environment = {
+            **build_environment(
+                pre_hash, group, check_live_port, environment_cache
+            ),
+            **{
+                k: v
+                for k, v in environment.items()
+                if current_base.get(k) != v
+            },
+        }
+    except Exception as e:
+        logger.warning(f"Cannot start the client of {next_group} ahead: {e!r}")
+        return
+    multi_test_client_manager.start_ahead(
+        next_group,
+        partial(
+            start_hive_client,
+            multi_test_hive_test,
+            next_group,
+            cast(ClientType, params["client_type"]),
+            next_environment,
+            genesis,
+        ),
+    )
+
+
+def start_hive_client(
+    multi_test_hive_test: HiveTest,
+    identifier: str,
+    client_type: ClientType,
+    environment: dict[str, str],
+    client_genesis: dict[str, Any],
+) -> Client:
+    """
+    Start a multi-test client for `identifier` under the shared hive test.
+
+    Safe to call from a background thread (see `start_ahead`).
+    """
+    serialize_start = time.perf_counter()
+    genesis_bytes = json.dumps(client_genesis).encode("utf-8")
+    buffered_genesis = io.BufferedReader(
+        cast(io.RawIOBase, io.BytesIO(genesis_bytes))
+    )
+    logger.info(
+        f"⏱ phase=genesis_serialize group={identifier} "
+        f"ms={(time.perf_counter() - serialize_start) * 1000:.1f}"
+    )
+
+    logger.info(f"🚀 Starting client ({client_type.name}) for {identifier}")
+
+    start_requested = time.perf_counter()
+    resolved_client = multi_test_hive_test.start_client(
+        client_type=client_type,
+        environment=environment,
+        files={"/genesis.json": buffered_genesis},
+    )
+
+    assert resolved_client is not None, (
+        f"Unable to connect to client ({client_type.name}) via "
+        "Hive. Check the client or Hive server logs for more "
+        "information."
+    )
+
+    # The hive start-client API only returns once the client answers its
+    # liveness check, so this spans container creation, boot and that wait.
+    logger.info(
+        f"⏱ phase=client_start group={identifier} "
+        f"ms={(time.perf_counter() - start_requested) * 1000:.1f}"
+    )
+    logger.info(f"Client ({client_type.name}) ready for {identifier}")
+    resolved_client.multi_test = True
+    return resolved_client
+
+
 def boot_managed_client(
     multi_test_hive_test: HiveTest,
     multi_test_client_manager: MultiTestClientManager,
@@ -393,42 +627,15 @@ def boot_managed_client(
     `identifier` is usually a group's, but any unique key works; the
     session-end cleanup stops every registered client.
     """
-    serialize_start = time.perf_counter()
-    genesis_bytes = json.dumps(client_genesis).encode("utf-8")
-    buffered_genesis = io.BufferedReader(
-        cast(io.RawIOBase, io.BytesIO(genesis_bytes))
-    )
-    logger.info(
-        f"⏱ phase=genesis_serialize group={identifier} "
-        f"ms={(time.perf_counter() - serialize_start) * 1000:.1f}"
-    )
-
-    logger.info(f"🚀 Starting client ({client_type.name}) for {identifier}")
-
-    start_requested = time.perf_counter()
     with total_timing_data.time("Start client"):
-        resolved_client = multi_test_hive_test.start_client(
-            client_type=client_type,
-            environment=environment,
-            files={"/genesis.json": buffered_genesis},
+        resolved_client = start_hive_client(
+            multi_test_hive_test,
+            identifier,
+            client_type,
+            environment,
+            client_genesis,
         )
-
-    assert resolved_client is not None, (
-        f"Unable to connect to client ({client_type.name}) via "
-        "Hive. Check the client or Hive server logs for more "
-        "information."
-    )
-
-    # The hive start-client API only returns once the client answers its
-    # liveness check, so this spans container creation, boot and that wait.
-    logger.info(
-        f"⏱ phase=client_start group={identifier} "
-        f"ms={(time.perf_counter() - start_requested) * 1000:.1f}"
-    )
-    logger.info(f"Client ({client_type.name}) ready for {identifier}")
-
     multi_test_client_manager.register_client(identifier, resolved_client)
-    resolved_client.multi_test = True
     return resolved_client
 
 
