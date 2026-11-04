@@ -14,9 +14,6 @@ same signatures for contracts, such as a wallet that reads an
 An EOA migrates to a leanSPHINCS wallet by adopting the wallet's code
 with `SETCODEFROM` ([EIP-8298](https://eips.ethereum.org/EIPS/eip-8298)),
 after which its secp256k1 key no longer authorizes it.
-
-Key generation and signing take tens of seconds each; the framework
-caches both on disk, so only the first fill of a test pays for them.
 """
 
 from typing import Callable, Optional

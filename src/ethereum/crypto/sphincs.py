@@ -6,15 +6,17 @@ The scheme is the configuration that [EthLib] specifies in Lean: FORS with
 of heights 10, 8 and 8, sign the FORS key up to the public key. It allows
 up to 2^30 signatures per key.
 
-The operations call EthLib's bindings of that specification.
+Verification calls [py-lean-pq], the Python bindings of leanVM's
+implementation of that specification.
 
 [EthLib]: https://github.com/ethereum/EthLib
+[py-lean-pq]: https://github.com/ethereum/lean-pq-bindings
 """
 
 from typing import Final
 
+import py_lean_pq
 from ethereum_types.bytes import Bytes, Bytes32
-from ethlib.cryptography import sphincs
 
 SPHINCS_PUBLIC_KEY_LENGTH: Final[int] = 32
 """
@@ -48,4 +50,10 @@ def sphincs_verify(
     assert len(public_key) == SPHINCS_PUBLIC_KEY_LENGTH
     assert len(message) == SPHINCS_MESSAGE_LENGTH
     assert len(signature) == SPHINCS_SIGNATURE_LENGTH
-    return sphincs.verify(bytes(public_key), bytes(message), bytes(signature))
+    try:
+        py_lean_pq.sphincs_verify(
+            bytes(public_key), bytes(message), bytes(signature)
+        )
+    except py_lean_pq.LeanPqError:
+        return False
+    return True
