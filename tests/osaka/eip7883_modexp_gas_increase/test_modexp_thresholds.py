@@ -60,7 +60,7 @@ def test_vectors_from_eip(
     ids=lambda v: v.name,
 )
 @EIPChecklist.Precompile.Test.Inputs.Invalid()
-@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_from("Byzantium")
 def test_vectors_from_legacy_tests(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -338,7 +338,7 @@ def test_modexp_call_operations(
 )
 @EIPChecklist.Precompile.Test.GasUsage.Dynamic()
 @EIPChecklist.Precompile.Test.ExcessiveGasUsage()
-@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_from("Byzantium")
 def test_modexp_gas_usage_contract_wrapper(
     state_test: StateTestFiller,
     pre: Alloc,
