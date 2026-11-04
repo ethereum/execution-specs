@@ -106,3 +106,16 @@ deploy_required_contracts = _create_execute_subcommand(
         EXECUTE_PATH / "execute_deploy_required_contracts.py"
     ],
 )
+
+testing_build_block = _create_execute_subcommand(
+    "testing-build-block",
+    "pytest-testing-build-block.ini",
+    "Commit bloat transactions via the Nethermind `testing_*` RPCs.",
+    required_args=[
+        "--bloat-rpc-url=http://localhost:8545",
+        "--bloat-engine-url=http://localhost:8551",
+        "--bloat-jwt-secret-file=./keystore/jwt.hex",
+        "--bloat-signer-key=<hex>",
+        "--bloat-chain-id=1",
+    ],
+)
