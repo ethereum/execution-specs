@@ -49,9 +49,6 @@ BN254_ADD = Address(0x06)
 P256VERIFY = Address(0x100)
 """The `P256VERIFY` precompile, which sits above the low precompiles."""
 
-IN_THE_GAP = Address(0x12)
-"""Codeless address between the low precompiles and `P256VERIFY`."""
-
 OFF_THE_CURVE = b"\xff" * 128
 """`BN254_ADD` input that is not a pair of curve points."""
 
@@ -216,6 +213,7 @@ def test_verify_frame_target_above_the_precompile_gap(
 def test_verify_frame_target_inside_the_precompile_gap(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Run the default code for a `VERIFY` frame targeting a codeless
@@ -224,13 +222,17 @@ def test_verify_frame_target_inside_the_precompile_gap(
     address range spanning the gap would dispatch instead and accept
     it.
     """
+    in_the_gap = Address(
+        max(n for a in fork.precompiles() if (n := int.from_bytes(a)) < 0x100)
+        + 1
+    )
     sender = pre.fund_eoa()
 
     tx = Transaction(
         sender=sender,
         frames=[
             verify_frame(),
-            verify_frame(flags=Spec.APPROVE_NONE, target=IN_THE_GAP),
+            verify_frame(flags=Spec.APPROVE_NONE, target=in_the_gap),
         ],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )
