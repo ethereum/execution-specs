@@ -9,7 +9,20 @@ from pydantic import Field
 from execution_testing.base_types import Address, Bytes
 from execution_testing.forks import Fork
 from execution_testing.test_types import EOA, Transaction, ceiling_division
-from execution_testing.vm import Bytecode, ForkOpcodeInterface, Op
+from execution_testing.vm import (
+    Bytecode,
+    ForkOpcodeInterface,
+    Op,
+    Opcodes,
+)
+
+SSTORE_SENTRY_GAS = 2_300
+"""
+EIP-2200 SSTORE reentrancy sentry: the minimum gas that must be *present*
+(not consumed) when an ``SSTORE`` executes, otherwise the opcode aborts with
+"not enough gas for reentrancy sentry". This value has been fixed at 2300
+across every fork since Istanbul.
+"""
 
 
 class Initcode(Bytecode):
@@ -1122,6 +1135,43 @@ class IteratingBytecode(Bytecode):
             iterating_subcall_gas_cost * 64 // 63
         ) - iterating_subcall_gas_cost
 
+    def sstore_sentry_reserve(self, *, fork: Type[ForkOpcodeInterface]) -> int:
+        """
+        Return the extra execution gas the transaction gas limit must carry so
+        the *final* ``SSTORE`` of the last iteration clears the EIP-2200
+        reentrancy sentry.
+
+        The sentry requires ``SSTORE_SENTRY_GAS`` gas to be *present* (not
+        consumed) when the opcode runs. The gas still due from the final
+        ``SSTORE`` to the end of execution -- the ``SSTORE`` itself, the loop
+        tail after it, and the cleanup phase -- is the least gas present at any
+        ``SSTORE`` in the whole run. When a cheap ``SSTORE`` (e.g. a no-op or a
+        warm dirty write, priced below the sentry) sits near the end of the
+        iteration, that amount can fall short of the sentry, so the loop must
+        carry the difference as an unconsumed reserve. Loops whose final
+        ``SSTORE`` already leaves the sentry available (and loops with no
+        ``SSTORE``) need no reserve.
+        """
+        # The last iteration executes the warm body; use it since it is the
+        # cheapest and therefore the tightest against the sentry.
+        ops = self.warm_iterating.opcode_list
+        sstore_positions = [
+            i for i, opcode in enumerate(ops) if opcode == Opcodes.SSTORE
+        ]
+        if not sstore_positions:
+            return 0
+
+        tail = Bytecode()
+        for opcode in ops[sstore_positions[-1] :]:
+            tail = tail + opcode
+        present_at_final_sstore = tail.execution_cost(
+            fork=fork
+        ) + self.cleanup.execution_cost(fork=fork)
+
+        # The sentry fails when present <= SSTORE_SENTRY_GAS, so at least
+        # SSTORE_SENTRY_GAS + 1 must be present.
+        return max(0, SSTORE_SENTRY_GAS + 1 - present_at_final_sstore)
+
     def execution_gas_cost_by_iteration_count(
         self, *, fork: Type[ForkOpcodeInterface], iteration_count: int
     ) -> int:
@@ -1260,6 +1310,7 @@ class IteratingBytecode(Bytecode):
             **intrinsic_cost_kwargs,
         )
         tx_gas_limit += self.iterating_subcall_reserve(fork=fork)
+        tx_gas_limit += self.sstore_sentry_reserve(fork=fork)
         if include_state_gas_reservoir:
             tx_gas_limit += self.state_gas_cost_by_iteration_count(
                 fork=fork, iteration_count=iteration_count
@@ -1288,7 +1339,9 @@ class IteratingBytecode(Bytecode):
             return True
 
         if caps.gas_limit is not None and (
-            self.iterating_subcall_reserve(fork=fork) + tx_execution_gas_cost
+            self.iterating_subcall_reserve(fork=fork)
+            + self.sstore_sentry_reserve(fork=fork)
+            + tx_execution_gas_cost
             > caps.gas_limit
         ):
             return True
