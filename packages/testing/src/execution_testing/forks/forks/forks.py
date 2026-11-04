@@ -351,6 +351,14 @@ class Frontier(BaseFork):
         return max(minimum_block_gas_limit, bal_minimum_block_gas_limit)
 
     @classmethod
+    def maximum_block_gas_limit(cls) -> int:
+        """
+        Return the largest gas limit a block header may carry, the largest
+        signed 64-bit integer.
+        """
+        return 2**63 - 1
+
+    @classmethod
     def opcode_gas_map(
         cls,
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
