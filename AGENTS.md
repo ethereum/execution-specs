@@ -55,6 +55,7 @@ skills as `/name` commands through symlinked folders in `.claude/skills/`.
 - Filling test fixtures → run `/fill-tests` first
 - Running local fixtures against clients in Hive → run `/consume-hive`
 - Implementing an EIP or modifying fork code in `src/` → run `/implement-eip` first
+- Adding an unscheduled feature to `src/ethereum/unscheduled/` → run `/add-unscheduled-feature` first
 - Modifying GitHub Actions workflows → run `/edit-workflow` first
 - Assessing EIP complexity or scope → run `/assess-eip`
 - Working on EIP test coverage or checklists → run `/eip-checklist` first
@@ -70,6 +71,7 @@ skills as `/name` commands through symlinked folders in `.claude/skills/`.
 - `/fill-tests` — `fill` CLI reference, flags, debugging, benchmark tests
 - `/consume-hive` — run local fixtures against client images for the specified network
 - `/implement-eip` — fork structure, import rules, adding opcodes/precompiles/tx types
+- `/add-unscheduled-feature` — move unscheduled EIPs from a `projects/*` branch into a feature built on the latest fork
 - `/edit-workflow` — GitHub Actions conventions and version pinning
 - `/assess-eip` — structured EIP complexity assessment
 - `/eip-checklist` — EIP testing checklist system for tracking coverage

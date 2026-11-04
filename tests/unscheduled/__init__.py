@@ -1,4 +1,5 @@
 """
-Test cases for unscheduled EVM functionality. A temporary home for features
-that are not yet CFI'd for inclusion in the next hardfork.
+Test cases for unscheduled features, one directory per feature with one
+directory per EIP inside it. Each feature is filled with its own fork, for
+example `--fork EvmifiedIdentity`.
 """
