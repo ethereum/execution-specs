@@ -56,10 +56,10 @@ class EIP8141(BaseFork):
         """
         Add a precompile for leanSPHINCS signature verification.
 
-        SPHINCS_VERIFY = 0x101
+        SPHINCS_VERIFY = 0x12
         """
         return [
-            Address(0x101, label="SPHINCS_VERIFY"),
+            Address(0x12, label="SPHINCS_VERIFY"),
         ] + super(EIP8141, cls).precompiles()
 
     @classmethod

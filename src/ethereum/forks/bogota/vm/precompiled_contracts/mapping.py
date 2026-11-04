@@ -76,6 +76,6 @@ PRE_COMPILED_CONTRACTS: Dict[Address, Callable] = {
     BLS12_PAIRING_ADDRESS: bls12_pairing,
     BLS12_MAP_FP_TO_G1_ADDRESS: bls12_map_fp_to_g1,
     BLS12_MAP_FP2_TO_G2_ADDRESS: bls12_map_fp2_to_g2,
-    P256VERIFY_ADDRESS: p256verify,
     SPHINCS_VERIFY_ADDRESS: sphincs_verify,
+    P256VERIFY_ADDRESS: p256verify,
 }
