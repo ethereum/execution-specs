@@ -995,6 +995,7 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
     the predefined ``LIMIT_MINIMUM`` then this function's check fails because
     the gas limit doesn't allow for a sufficient or reasonable amount of gas to
     be used on a block.
+    A gas limit above ``LIMIT_MAXIMUM`` fails as well.
 
     Parameters
     ----------
@@ -1016,6 +1017,8 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
     if gas_limit <= parent_gas_limit - max_adjustment_delta:
         return False
     if gas_limit < GasCosts.LIMIT_MINIMUM:
+        return False
+    if gas_limit > GasCosts.LIMIT_MAXIMUM:
         return False
 
     return True
