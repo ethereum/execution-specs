@@ -5971,6 +5971,240 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#FF](https://www.evm.codes/#FF)
     """
 
+    # EIP-8141 Frame Transaction Opcodes
+
+    APPROVE = Opcode(
+        0xAA,
+        popped_stack_items=3,
+        pushed_stack_items=0,
+        kwargs=["offset", "size", "scope"],
+        terminating=True,
+        metadata={"new_memory_size": 0, "old_memory_size": 0},
+    )
+    """
+    APPROVE(offset, size, scope)
+    ----
+
+    Description
+    ----
+    Exit the current call frame successfully like RETURN while updating
+    the transaction-scoped approval context of an EIP-8141 frame
+    transaction according to `scope` (bitmask: 1=payment, 2=execution,
+    3=both).
+
+    Inputs
+    ----
+    - offset: byte offset in memory of the return data
+    - size: byte size of the return data
+    - scope: requested approval scope
+
+    Outputs
+    ----
+    None (terminates the current context)
+
+    Fork
+    ----
+    Bogota
+
+    Gas: 0 (plus memory expansion)
+    """
+
+    TXPARAM = Opcode(
+        0xB0,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["param"],
+    )
+    """
+    TXPARAM(param)
+    ----
+
+    Description
+    ----
+    Push transaction-scoped information of the executing EIP-8141 frame
+    transaction (type, nonce, sender, fees, max cost, signature hash,
+    frame count, current frame index, signature count).
+
+    Inputs
+    ----
+    - param: parameter selector (0x00-0x0B)
+
+    Outputs
+    ----
+    - value: the requested transaction parameter
+
+    Fork
+    ----
+    Bogota
+
+    Gas: 2
+    """
+
+    FRAMEDATALOAD = Opcode(
+        0xB1,
+        popped_stack_items=2,
+        pushed_stack_items=1,
+        kwargs=["offset", "frame_index"],
+    )
+    """
+    FRAMEDATALOAD(offset, frame_index)
+    ----
+
+    Description
+    ----
+    Load one 32-byte word from the chosen frame's data with
+    CALLDATALOAD semantics (EIP-8141).
+
+    Inputs
+    ----
+    - offset: byte offset in the frame data
+    - frame_index: index of the frame
+
+    Outputs
+    ----
+    - value: 32-byte word from the frame data
+
+    Fork
+    ----
+    Bogota
+
+    Gas: 3
+    """
+
+    FRAMEDATACOPY = Opcode(
+        0xB2,
+        popped_stack_items=4,
+        pushed_stack_items=0,
+        kwargs=["dest_offset", "offset", "size", "frame_index"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
+    )
+    """
+    FRAMEDATACOPY(dest_offset, offset, size, frame_index)
+    ----
+
+    Description
+    ----
+    Copy the chosen frame's data into memory with CALLDATACOPY
+    semantics (EIP-8141).
+
+    Inputs
+    ----
+    - dest_offset: byte offset in memory to copy to
+    - offset: byte offset in the frame data to copy from
+    - size: number of bytes to copy
+    - frame_index: index of the frame
+
+    Outputs
+    ----
+    None
+
+    Fork
+    ----
+    Bogota
+
+    Gas: 3 + 3 * ceil(size / 32) (plus memory expansion)
+    """
+
+    FRAMEPARAM = Opcode(
+        0xB3,
+        popped_stack_items=2,
+        pushed_stack_items=1,
+        kwargs=["frame_index", "param"],
+    )
+    """
+    FRAMEPARAM(frame_index, param)
+    ----
+
+    Description
+    ----
+    Push frame-scoped information of the chosen frame of the executing
+    EIP-8141 frame transaction (resolved target, gas limit, mode,
+    flags, data length, status, allowed approval scope, atomic batch
+    bit, value).
+
+    Inputs
+    ----
+    - frame_index: index of the frame
+    - param: parameter selector (0x00-0x08)
+
+    Outputs
+    ----
+    - value: the requested frame parameter
+
+    Fork
+    ----
+    Bogota
+
+    Gas: 2
+    """
+
+    SIGPARAM = Opcode(
+        0xB4,
+        popped_stack_items=2,
+        pushed_stack_items=1,
+        kwargs=["signature_index", "param"],
+    )
+    """
+    SIGPARAM(signature_index, param)
+    ----
+
+    Description
+    ----
+    Push signature-scoped metadata of the chosen signature entry of the
+    executing EIP-8141 frame transaction (effective signer, scheme,
+    msg, signature length — the last for ARBITRARY entries only).
+
+    Inputs
+    ----
+    - signature_index: index of the signature entry
+    - param: parameter selector (0x00-0x03)
+
+    Outputs
+    ----
+    - value: the requested signature parameter
+
+    Fork
+    ----
+    Bogota
+
+    Gas: 2
+    """
+
+    SIGDATACOPY = Opcode(
+        0xB5,
+        popped_stack_items=4,
+        pushed_stack_items=0,
+        kwargs=["dest_offset", "offset", "size", "signature_index"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
+    )
+    """
+    SIGDATACOPY(dest_offset, offset, size, signature_index)
+    ----
+
+    Description
+    ----
+    Copy an ARBITRARY signature entry's raw signature bytes into memory
+    with CALLDATACOPY semantics (EIP-8141). Exceptionally halts for a
+    protocol-validated entry or an out-of-bounds index.
+
+    Inputs
+    ----
+    - dest_offset: byte offset in memory to copy to
+    - offset: byte offset in the signature bytes to copy from
+    - size: number of bytes to copy
+    - signature_index: index of the signature entry
+
+    Outputs
+    ----
+    None
+
+    Fork
+    ----
+    Bogota
+
+    Gas: 3 + 3 * ceil(size / 32) (plus memory expansion)
+    """
+
 
 _push_opcodes_byte_list: List[Opcode] = [
     Opcodes.PUSH1,

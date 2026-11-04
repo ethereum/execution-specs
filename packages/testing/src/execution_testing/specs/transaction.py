@@ -54,6 +54,40 @@ class TransactionTest(BaseTest):
         del fork, fixture_format
         return {}
 
+    def _intrinsic_gas(self, fork: Fork) -> int:
+        """Return the intrinsic gas of the transaction under test."""
+        if self.tx.frames is not None:
+            # EIP-8141: a frame transaction is priced from its frames
+            # and its signature entries, whose raw bytes are part of
+            # the price, so price it signed.
+            signed = self.tx.with_signature_and_sender()
+            assert signed.frames is not None
+            assert signed.signatures is not None
+            frame_intrinsic_gas_cost_calculator = (
+                fork.frame_transaction_intrinsic_cost_calculator()
+            )
+            return frame_intrinsic_gas_cost_calculator(
+                frames=signed.frames,
+                signatures=signed.signatures,
+                sender=signed.sender,
+                return_cost_deducted_prior_execution=True,
+            )
+        intrinsic_gas_cost_calculator = (
+            fork.transaction_intrinsic_cost_calculator()
+        )
+        return intrinsic_gas_cost_calculator(
+            calldata=self.tx.data,
+            contract_creation=self.tx.to is None,
+            access_list=self.tx.access_list,
+            authorization_list_or_count=self.tx.authorization_list,
+            sends_value=self.tx.value > 0,
+            recipient_type=(
+                RecipientType.SELF
+                if self.tx.to == self.tx.sender
+                else RecipientType.CONTRACT
+            ),
+        )
+
     def make_transaction_test_fixture(
         self,
     ) -> FillResult:
@@ -67,25 +101,10 @@ class TransactionTest(BaseTest):
                 sender=None,
             )
         else:
-            intrinsic_gas_cost_calculator = (
-                fork.transitions_from().transaction_intrinsic_cost_calculator()
-            )
-            intrinsic_gas = intrinsic_gas_cost_calculator(
-                calldata=self.tx.data,
-                contract_creation=self.tx.to is None,
-                access_list=self.tx.access_list,
-                authorization_list_or_count=self.tx.authorization_list,
-                sends_value=self.tx.value > 0,
-                recipient_type=(
-                    RecipientType.SELF
-                    if self.tx.to == self.tx.sender
-                    else RecipientType.CONTRACT
-                ),
-            )
             result = FixtureResult(
                 exception=None,
                 hash=self.tx.hash,
-                intrinsic_gas=intrinsic_gas,
+                intrinsic_gas=self._intrinsic_gas(fork),
                 sender=self.tx.sender,
             )
 

@@ -78,7 +78,7 @@ def test_eip1559_tx_validity(
 @pytest.mark.inclusion_test
 @pytest.mark.valid_from("SpuriousDragon")
 @pytest.mark.exception_test
-@pytest.mark.with_all_tx_types
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type != 6)
 def test_invalid_chain_id(
     state_test: StateTestFiller,
     pre: Alloc,

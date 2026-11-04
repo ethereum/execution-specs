@@ -35,6 +35,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
+# The frame variant grants the SENDER frame half the environment's gas,
+# but the quadratic memory expansion for the callee's return buffer
+# needs more than that, so the frame runs out of gas and reverts.
+@pytest.mark.frame_tx_incompatible
 def test_callcode_to_precompile_from_contract_initialization(
     state_test: StateTestFiller,
     fork: Fork,

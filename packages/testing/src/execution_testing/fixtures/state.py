@@ -25,6 +25,8 @@ from .base import BaseFixture
 from .common import (
     FixtureAuthorizationTuple,
     FixtureBlobSchedule,
+    FixtureFrame,
+    FixtureFrameSignature,
     FixtureTransactionReceipt,
 )
 
@@ -51,6 +53,7 @@ class FixtureTransaction(TransactionFixtureConverter):
     gas_price: ZeroPaddedHexNumber | None = None
     max_priority_fee_per_gas: ZeroPaddedHexNumber | None = None
     max_fee_per_gas: ZeroPaddedHexNumber | None = None
+    max_fee: ZeroPaddedHexNumber | None = None
     gas_limit: List[ZeroPaddedHexNumber]
     to: Address | None = None
     value: List[ZeroPaddedHexNumber]
@@ -58,6 +61,8 @@ class FixtureTransaction(TransactionFixtureConverter):
     access_lists: List[List[AccessList] | None] | None = None
     authorization_list: List[FixtureAuthorizationTuple] | None = None
     initcodes: List[Bytes] | None = None
+    frames: List[FixtureFrame] | None = None
+    signatures: List[FixtureFrameSignature] | None = None
     max_fee_per_blob_gas: ZeroPaddedHexNumber | None = None
     blob_versioned_hashes: Sequence[Hash] | None = None
     sender: Address | None = None
