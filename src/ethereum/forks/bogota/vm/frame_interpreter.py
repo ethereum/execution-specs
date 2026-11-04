@@ -402,10 +402,10 @@ def execute_default_verify_code(
     frame exceptionally.
 
     The default code approves the scope allowed by the frame's flags,
-    provided the transaction carries an authorizing secp256k1
-    signature entry over the canonical signature hash whose resolved
-    signer is the frame's resolved target: the entry at index 0 for
-    frames allowed to approve execution, or at index 1 for
+    provided the transaction carries an authorizing secp256k1 or
+    leanSPHINCS signature entry over the canonical signature hash
+    whose resolved signer is the frame's resolved target: the entry at
+    index 0 for frames allowed to approve execution, or at index 1 for
     payment-only frames. Anything else reverts the frame — which, for
     a `VERIFY` frame, invalidates the transaction.
     """
@@ -429,8 +429,12 @@ def execute_default_verify_code(
         return FrameStatus.FAILURE
     signature = tx.signatures[signature_index]
 
-    # Only a protocol-validated secp256k1 signature authorizes.
-    if signature.scheme != FrameSignatureScheme.SECP256K1:
+    # Only a protocol-validated secp256k1 or leanSPHINCS signature
+    # authorizes.
+    if signature.scheme not in (
+        FrameSignatureScheme.SECP256K1,
+        FrameSignatureScheme.SPHINCS,
+    ):
         return FrameStatus.FAILURE
     # The signature must cover the canonical signature hash.
     if len(signature.message) != 0:

@@ -109,6 +109,7 @@ class GasCosts:
     # Precompiles
     PRECOMPILE_ECRECOVER: Final[ExecutionGas] = ExecutionGas(Uint(3000))
     PRECOMPILE_P256VERIFY: Final[ExecutionGas] = ExecutionGas(Uint(6900))
+    PRECOMPILE_SPHINCS_VERIFY: Final[ExecutionGas] = ExecutionGas(Uint(29520))
     PRECOMPILE_SHA256_BASE: Final[ExecutionGas] = ExecutionGas(Uint(60))
     PRECOMPILE_SHA256_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(12))
     PRECOMPILE_RIPEMD160_BASE: Final[ExecutionGas] = ExecutionGas(Uint(600))
@@ -206,6 +207,20 @@ class GasCosts:
     Cost for verifying a [`P256`][s] signature in a [`FrameTransaction`][ftx].
 
     [s]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.P256
+    [ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
+    """  # noqa: E501
+
+    FRAME_SIGNATURE_SCHEME_SPHINCS: Final[ExecutionGas] = ExecutionGas(
+        Uint(29520)
+    )
+    """
+    Cost for verifying a [`SPHINCS`][s] signature in a
+    [`FrameTransaction`][ftx].
+
+    Verification is a constant 492 Keccak-f[1600] permutations, each
+    priced as a `KECCAK256` of one 136-byte block: 30 + 6 * 5 = 60.
+
+    [s]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.SPHINCS
     [ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
     """  # noqa: E501
 
