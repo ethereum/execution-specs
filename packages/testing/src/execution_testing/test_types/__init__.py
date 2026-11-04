@@ -52,6 +52,7 @@ from .receipt_types import (
     verify_log,
     verify_transaction_receipt,
 )
+from .sphincs import SphincsKey
 from .system_contract_interactions import (
     SystemContractInteractionBase,
     SystemContractInteractionContract,
@@ -115,6 +116,7 @@ __all__ = (
     "FrameReceipt",
     "FrameSignature",
     "FrameSignatureScheme",
+    "SphincsKey",
     "FrameStatus",
     "LogMismatchError",
     "NetworkWrappedTransaction",

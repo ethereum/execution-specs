@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -842,6 +842,7 @@ dependencies = [
     { name = "cryptography" },
     { name = "ethereum-rlp" },
     { name = "ethereum-types" },
+    { name = "ethlib" },
     { name = "libcst" },
     { name = "platformdirs" },
     { name = "py-ecc" },
@@ -955,6 +956,7 @@ requires-dist = [
     { name = "ethash", marker = "extra == 'optimized'", specifier = ">=1.1.0,<2" },
     { name = "ethereum-rlp", specifier = ">=0.1.6,<0.2" },
     { name = "ethereum-types", specifier = ">=0.4.1,<0.5" },
+    { name = "ethlib", directory = "../EthLib-master" },
     { name = "libcst", specifier = ">=1.8,<2" },
     { name = "platformdirs", specifier = ">=4.2,<5" },
     { name = "py-ecc", specifier = ">=8.0.0b2,<9" },
@@ -1208,6 +1210,19 @@ sdist = { url = "https://files.pythonhosted.org/packages/e5/bf/6c15ea3372a19b4df
 wheels = [
     { url = "https://files.pythonhosted.org/packages/78/f6/466c684cee5eacd6413f33284a8bd45686564e7c5974d5cda331c9577c4e/ethereum_types-0.4.1-py3-none-any.whl", hash = "sha256:33de3e2a0c0e57ea1b67802485de556b92d557aae7c8c640070800f2b4f639e3", size = 12162, upload-time = "2026-06-08T16:57:05.382Z" },
 ]
+
+[[package]]
+name = "ethlib"
+version = "0.2.0"
+source = { directory = "../EthLib-master" }
+
+[package.metadata]
+requires-dist = [
+    { name = "py-ecc", marker = "extra == 'test'", specifier = "==8.0.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = "==9.0.3" },
+    { name = "ruamel-yaml", marker = "extra == 'test'", specifier = "==0.19.1" },
+]
+provides-extras = ["test"]
 
 [[package]]
 name = "execnet"

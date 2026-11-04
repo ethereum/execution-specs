@@ -10,7 +10,7 @@ https://eips.ethereum.org/EIPS/eip-8141
 from dataclasses import replace
 from typing import Callable, Dict, List, Mapping, Sequence
 
-from execution_testing.base_types import Bytes
+from execution_testing.base_types import Address, Bytes
 from execution_testing.base_types.conversions import BytesConvertible
 from execution_testing.vm import OpcodeBase, Opcodes
 
@@ -52,6 +52,17 @@ class EIP8141(BaseFork):
         return super(EIP8141, cls).tx_types() + [6]
 
     @classmethod
+    def precompiles(cls) -> List[Address]:
+        """
+        Add a precompile for leanSPHINCS signature verification.
+
+        SPHINCS_VERIFY = 0x101
+        """
+        return [
+            Address(0x101, label="SPHINCS_VERIFY"),
+        ] + super(EIP8141, cls).precompiles()
+
+    @classmethod
     def valid_opcodes(cls) -> List[Opcodes]:
         """
         Add the frame transaction instructions. Outside a frame
@@ -82,6 +93,8 @@ class EIP8141(BaseFork):
             FRAME_SIGNATURE_SCHEME_ARBITRARY=100,
             FRAME_SIGNATURE_SCHEME_SECP256K1=2_800,
             FRAME_SIGNATURE_SCHEME_P256=6_700,
+            FRAME_SIGNATURE_SCHEME_SPHINCS=29_520,
+            PRECOMPILE_SPHINCS_VERIFY=29_520,
         )
 
     @classmethod
@@ -182,6 +195,7 @@ class EIP8141(BaseFork):
             0: gas_costs.FRAME_SIGNATURE_SCHEME_ARBITRARY,
             1: gas_costs.FRAME_SIGNATURE_SCHEME_SECP256K1,
             2: gas_costs.FRAME_SIGNATURE_SCHEME_P256,
+            3: gas_costs.FRAME_SIGNATURE_SCHEME_SPHINCS,
         }
         value_transfer_cost = 0
         for frame in frames:

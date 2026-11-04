@@ -34,6 +34,7 @@ from . import (
     POINT_EVALUATION_ADDRESS,
     RIPEMD160_ADDRESS,
     SHA256_ADDRESS,
+    SPHINCS_VERIFY_ADDRESS,
 )
 from .alt_bn128 import alt_bn128_add, alt_bn128_mul, alt_bn128_pairing_check
 from .blake2f import blake2f
@@ -55,6 +56,7 @@ from .p256verify import p256verify
 from .point_evaluation import point_evaluation
 from .ripemd160 import ripemd160
 from .sha256 import sha256
+from .sphincs_verify import sphincs_verify
 
 PRE_COMPILED_CONTRACTS: Dict[Address, Callable] = {
     ECRECOVER_ADDRESS: ecrecover,
@@ -75,4 +77,5 @@ PRE_COMPILED_CONTRACTS: Dict[Address, Callable] = {
     BLS12_MAP_FP_TO_G1_ADDRESS: bls12_map_fp_to_g1,
     BLS12_MAP_FP2_TO_G2_ADDRESS: bls12_map_fp2_to_g2,
     P256VERIFY_ADDRESS: p256verify,
+    SPHINCS_VERIFY_ADDRESS: sphincs_verify,
 }

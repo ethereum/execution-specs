@@ -29,6 +29,11 @@ from ethereum.crypto.elliptic_curve import (
     secp256r1_verify,
 )
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.crypto.sphincs import (
+    SPHINCS_PUBLIC_KEY_LENGTH,
+    SPHINCS_SIGNATURE_LENGTH,
+    sphincs_verify,
+)
 from ethereum.exceptions import InvalidSignatureError, NonceOverflowError
 from ethereum.state import Address
 
@@ -358,6 +363,14 @@ class FrameSignatureScheme(UintEnum, boundary=STRICT):
     Signature over the NIST P-256 (secp256r1) curve.
     """
 
+    SPHINCS = Uint(3)
+    """
+    Stateless hash-based leanSPHINCS signature over Keccak-256 (see
+    [`sphincs_verify`][sv]).
+
+    [sv]: ref:ethereum.crypto.sphincs.sphincs_verify
+    """
+
 
 @final
 @slotted_freezable
@@ -382,10 +395,11 @@ class FrameSignature:
     """
     Scheme-dependent signer metadata.
 
-    For [`SECP256K1`] and [`P256`], this is a 20-byte address.
+    For [`SECP256K1`], [`P256`] and [`SPHINCS`], this is a 20-byte address.
 
     [`SECP256K1`]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.SECP256K1
     [`P256`]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.P256
+    [`SPHINCS`]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.SPHINCS
     """  # noqa: E501
 
     message: Bytes0 | Bytes32
@@ -546,9 +560,10 @@ def validate_signature(
     case.
 
     An empty `signer` resolves to `sender`. For the protocol-validated
-    schemes ([`SECP256K1`][k1] and [`P256`][p256]) the raw signature
-    bytes must be canonical — one unique encoding per signature, with
-    low-`s` — and must authenticate the resolved signer. The protocol
+    schemes ([`SECP256K1`][k1], [`P256`][p256] and [`SPHINCS`][sphincs])
+    the raw signature bytes must authenticate the resolved signer; for
+    the elliptic curve schemes they must also be canonical — one unique
+    encoding per signature, with low-`s`. The protocol
     does not cryptographically validate [`ARBITRARY`][arb] entries and
     assigns them no resolved signer — `None` is returned — so their
     `signer` must be empty.
@@ -557,6 +572,7 @@ def validate_signature(
     [csh]: ref:ethereum.forks.bogota.transactions.frame_transaction.compute_frame_signature_hash
     [k1]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.SECP256K1
     [p256]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.P256
+    [sphincs]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.SPHINCS
     [arb]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.ARBITRARY
     """  # noqa: E501
     signature_scheme = frame_signature.scheme
@@ -627,6 +643,31 @@ def validate_signature(
                 secp256r1_verify(r, s, qx, qy, message)
             except ValueError as e:
                 raise InvalidSignatureError("invalid p256 public key") from e
+
+            return Address(resolved_signer)
+
+        case FrameSignatureScheme.SPHINCS:
+            # The public key precedes the signature, as P256 appends its
+            # public key, so that the signer is the key's address.
+            if (
+                len(signature)
+                != SPHINCS_PUBLIC_KEY_LENGTH + SPHINCS_SIGNATURE_LENGTH
+            ):
+                raise InvalidSignatureError(
+                    "SPHINCS signature must be "
+                    f"{SPHINCS_PUBLIC_KEY_LENGTH + SPHINCS_SIGNATURE_LENGTH}"
+                    " bytes"
+                )
+
+            public_key = signature[:SPHINCS_PUBLIC_KEY_LENGTH]
+            sphincs_signature = signature[SPHINCS_PUBLIC_KEY_LENGTH:]
+
+            if resolved_signer != keccak256(public_key)[12:]:
+                raise InvalidFrameError(
+                    "signer does not match in sphincs scheme"
+                )
+            if not sphincs_verify(public_key, message, sphincs_signature):
+                raise InvalidSignatureError("invalid sphincs signature")
 
             return Address(resolved_signer)
 
@@ -907,6 +948,8 @@ def signature_verification_gas(signature: FrameSignature) -> ExecutionGas:
             return GasCosts.FRAME_SIGNATURE_SCHEME_SECP256K1
         case FrameSignatureScheme.P256:
             return GasCosts.FRAME_SIGNATURE_SCHEME_P256
+        case FrameSignatureScheme.SPHINCS:
+            return GasCosts.FRAME_SIGNATURE_SCHEME_SPHINCS
         case FrameSignatureScheme.ARBITRARY:
             return GasCosts.FRAME_SIGNATURE_SCHEME_ARBITRARY
         case _ as unreachable:

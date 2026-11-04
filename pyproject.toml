@@ -29,6 +29,7 @@ dependencies = [
     "cryptography>=45.0.1,<46",
     "platformdirs>=4.2,<5",
     "libcst>=1.8,<2",
+    "ethlib>=0.2.0",
 ]
 
 [tool.setuptools.package-dir]
@@ -550,3 +551,8 @@ members = ["packages/*"]
 
 [tool.uv.sources]
 ethereum-execution-testing = { workspace = true }
+# EthLib's leanSPHINCS bindings are not released yet: check out
+# ethereum/EthLib master (03b7e4d or later) as `EthLib-master` next to
+# this repository, run `lake exe cache get`, and build it with `lean` on
+# `PATH`.
+ethlib = { path = "../EthLib-master" }
