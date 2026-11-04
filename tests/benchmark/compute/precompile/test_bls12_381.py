@@ -25,9 +25,34 @@ from py_ecc import optimized_bls12_381 as bls_curve
 
 from tests.benchmark.helper.precompile import Precompile
 from tests.prague.eip2537_bls_12_381_precompiles import spec as bls12381_spec
+from tests.prague.eip2537_bls_12_381_precompiles.helpers import (
+    BLSPointGenerator,
+)
 from tests.prague.eip2537_bls_12_381_precompiles.spec import (
+    PointG1,
+    PointG2,
     build_gas_calculation_function_map,
 )
+
+# Well-formed points the precompiles must reject, one per failing check.
+G1_NOT_IN_SUBGROUP = bls12381_spec.Spec.P1_NOT_IN_SUBGROUP
+G1_OFF_CURVE = PointG1(bls12381_spec.Spec.G1.x, bls12381_spec.Spec.G1.y + 1)
+G2_NOT_IN_SUBGROUP = bls12381_spec.Spec.P2_NOT_IN_SUBGROUP
+G2_OFF_CURVE = PointG2(
+    bls12381_spec.Spec.G2.x,
+    (bls12381_spec.Spec.G2.y[0], bls12381_spec.Spec.G2.y[1] + 1),
+)
+
+
+def _is_valid_point(point: PointG1 | PointG2) -> bool:
+    """Return whether a point is on the curve and in the subgroup."""
+    if isinstance(point, PointG1):
+        return BLSPointGenerator.is_on_curve_g1(
+            point.x, point.y
+        ) and BLSPointGenerator.check_in_g1_subgroup(point)
+    return BLSPointGenerator.is_on_curve_g2(
+        point.x, point.y
+    ) and BLSPointGenerator.check_in_g2_subgroup(point)
 
 
 @pytest.mark.parametrize(
@@ -166,6 +191,61 @@ def test_bls12_pairing(
     )
 
 
+@pytest.mark.parametrize(
+    "invalid_point",
+    [
+        pytest.param(G1_NOT_IN_SUBGROUP, id="g1_not_in_subgroup"),
+        pytest.param(G1_OFF_CURVE, id="g1_off_curve"),
+        pytest.param(G2_NOT_IN_SUBGROUP, id="g2_not_in_subgroup"),
+        pytest.param(G2_OFF_CURVE, id="g2_off_curve"),
+    ],
+)
+@pytest.mark.parametrize("num_pairs", [1, 3, 6, 12, 24])
+def test_bls12_pairing_invalid_last_pair(
+    benchmark_test: BenchmarkTestFiller,
+    fork: Fork,
+    num_pairs: int,
+    invalid_point: PointG1 | PointG2,
+) -> None:
+    """
+    Benchmark BLS12_PAIRING calls that fail on their last pair.
+
+    A client that checks pairs in order validates every earlier one first.
+    A failing call consumes all the gas it is given, so each call is given
+    exactly its price.
+    """
+    precompile_address = bls12381_spec.Spec.PAIRING
+    if precompile_address not in fork.precompiles():
+        pytest.skip("BLS12_PAIRING precompile not enabled")
+    assert not _is_valid_point(invalid_point)
+
+    if isinstance(invalid_point, PointG1):
+        invalid_pair = invalid_point + bls12381_spec.Spec.G2
+    else:
+        invalid_pair = bls12381_spec.Spec.G1 + invalid_point
+    calldata = Bytes(
+        (bls12381_spec.Spec.G1 + bls12381_spec.Spec.G2) * (num_pairs - 1)
+        + invalid_pair
+    )
+    gas_calc_map = build_gas_calculation_function_map(fork.gas_costs())
+    precompile_cost = gas_calc_map[precompile_address](len(calldata))
+
+    benchmark_test(
+        target_opcode=Precompile.BLS12_PAIRING,
+        code_generator=JumpLoopGenerator(
+            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
+            attack_block=Op.POP(
+                Op.STATICCALL(
+                    gas=precompile_cost,
+                    address=precompile_address,
+                    args_size=Op.CALLDATASIZE,
+                ),
+            ),
+            tx_kwargs={"data": calldata},
+        ),
+    )
+
+
 def _generate_bls12_g1_point(seed: int) -> Bytes:
     """Generate a valid BLS12-381 G1 point from a seed."""
     rng = random.Random(seed)
@@ -277,6 +357,94 @@ def test_bls12_msm(
             attack_block=Op.POP(
                 Op.STATICCALL(
                     gas=Op.GAS,
+                    address=precompile_address,
+                    args_size=len(input_data),
+                ),
+            ),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "precompile_address,generate_point,invalid_point,target",
+    [
+        pytest.param(
+            bls12381_spec.Spec.G1MSM,
+            _generate_bls12_g1_point,
+            G1_NOT_IN_SUBGROUP,
+            Precompile.BLS12_G1MSM,
+            id="bls12_g1msm-not_in_subgroup",
+        ),
+        pytest.param(
+            bls12381_spec.Spec.G1MSM,
+            _generate_bls12_g1_point,
+            G1_OFF_CURVE,
+            Precompile.BLS12_G1MSM,
+            id="bls12_g1msm-off_curve",
+        ),
+        pytest.param(
+            bls12381_spec.Spec.G2MSM,
+            _generate_bls12_g2_point,
+            G2_NOT_IN_SUBGROUP,
+            Precompile.BLS12_G2MSM,
+            id="bls12_g2msm-not_in_subgroup",
+        ),
+        pytest.param(
+            bls12381_spec.Spec.G2MSM,
+            _generate_bls12_g2_point,
+            G2_OFF_CURVE,
+            Precompile.BLS12_G2MSM,
+            id="bls12_g2msm-off_curve",
+        ),
+    ],
+)
+@pytest.mark.parametrize("k", [1, 16, 64])
+def test_bls12_msm_invalid_last_point(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    precompile_address: int,
+    generate_point: Callable[[int], Bytes],
+    invalid_point: PointG1 | PointG2,
+    target: OpcodeTarget,
+    k: int,
+) -> None:
+    """
+    Benchmark BLS12 MSM calls that fail on their last point.
+
+    A client that checks points in order validates every earlier one first.
+    A failing call consumes all the gas it is given, so each call is given
+    exactly its price.
+    """
+    if precompile_address not in fork.precompiles():
+        pytest.skip(f"{target} precompile not enabled")
+    assert not _is_valid_point(invalid_point)
+
+    valid_input = _msm_worstcase_input(k, generate_point)
+    point = bytes(invalid_point)
+    last_point = len(valid_input) - len(point) - len(bls12381_spec.Scalar(0))
+    input_data = Bytes(
+        valid_input[:last_point]
+        + point
+        + valid_input[last_point + len(point) :]
+    )
+    gas_calc_map = build_gas_calculation_function_map(fork.gas_costs())
+    precompile_cost = gas_calc_map[precompile_address](len(input_data))
+    if precompile_cost > min(tx_gas_limit, gas_benchmark_value):
+        pytest.skip(
+            f"one {len(input_data)}-byte MSM call costs {precompile_cost} "
+            "gas, more than a single transaction can spend"
+        )
+
+    benchmark_test(
+        target_opcode=target,
+        code_generator=JumpLoopGenerator(
+            setup=_load_input_from_code(pre, fork, input_data),
+            attack_block=Op.POP(
+                Op.STATICCALL(
+                    gas=precompile_cost,
                     address=precompile_address,
                     args_size=len(input_data),
                 ),
