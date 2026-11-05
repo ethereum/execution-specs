@@ -184,6 +184,11 @@ returnData
 stateGas
 stateGasCost
 
+# packages/testing/src/execution_testing/evm_tools/t8n/evm_trace/
+# eip3155.py - used by the EELS t8n in `client_clis`, outside the paths
+# that Vulture checks
+trace_to_dict
+
 # packages/testing/src/execution_testing/evm_tools/daemon.py -
 # overrides `BaseHTTPRequestHandler.log_request`
 log_request
