@@ -1,12 +1,16 @@
 """BlockchainTest types."""
 
+import hashlib
+import json
 from functools import cached_property
 from typing import (
+    IO,
     TYPE_CHECKING,
     Annotated,
     Any,
     ClassVar,
     Dict,
+    Iterator,
     List,
     Literal,
     Self,
@@ -28,6 +32,7 @@ from pydantic import (
     ConfigDict,
     Field,
     PlainSerializer,
+    PrivateAttr,
     computed_field,
     model_serializer,
     model_validator,
@@ -95,6 +100,7 @@ from .common import (
     FixtureBlobSchedule,
     FixtureTransactionReceipt,
 )
+from .spill import PayloadBuffer, canonical_json
 
 if TYPE_CHECKING:
     from execution_testing.rpc.rpc_types import PayloadAttributes
@@ -1141,6 +1147,87 @@ class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
             "consumers compare expected vs. observed gas without replay."
         ),
     )
+
+    _spilled: Dict[str, PayloadBuffer] = PrivateAttr(default_factory=dict)
+
+    def spill_field(self, alias: str, payloads: PayloadBuffer) -> None:
+        """
+        Serve `alias` from a disk-backed list instead of the model field.
+
+        A buffer that never spilled is left alone: the field already
+        holds it.
+        """
+        if payloads.spilled:
+            self._spilled[alias] = payloads
+
+    def _canonical_chunks(self) -> Iterator[str]:
+        """
+        Yield the fixture as canonical JSON, one chunk at a time.
+
+        Reproduces `canonical_json(doc)` exactly, so the digest is
+        unchanged.
+        """
+        doc = self.json_dict
+        yield "{"
+        for i, key in enumerate(sorted(doc)):
+            if i:
+                yield ","
+            yield canonical_json(key)
+            yield ":"
+            spilled = self._spilled.get(key)
+            if spilled is None:
+                yield canonical_json(doc[key])
+                continue
+            yield "["
+            for j, canonical in enumerate(spilled.iter_canonical()):
+                if j:
+                    yield ","
+                yield canonical
+            yield "]"
+        yield "}"
+
+    @cached_property
+    def hash(self) -> str:
+        """
+        Returns the hash of the fixture.
+
+        Feeds chunks into the digest rather than building the document
+        first, which held three full-size copies at once.
+        """
+        h = hashlib.sha256()
+        for chunk in self._canonical_chunks():
+            h.update(chunk.encode("utf-8"))
+        return f"0x{h.hexdigest()}"
+
+    def write_json(self, f: IO[str], hash_only: bool = False) -> None:
+        """
+        Write the fixture document to `f`.
+
+        A spilled array streams element by element; without one this is
+        what `json.dump(..., indent=4)` writes.
+        """
+        if not self._spilled:
+            super().write_json(f, hash_only=hash_only)
+            return
+        doc = self.json_dict_with_info(hash_only=hash_only)
+        f.write("{\n")
+        for i, (key, value) in enumerate(doc.items()):
+            if i:
+                f.write(",\n")
+            f.write(f"    {json.dumps(key)}: ")
+            spilled = self._spilled.get(key)
+            if spilled is None:
+                text = json.dumps(value, indent=4)
+                f.write(text.replace("\n", "\n    "))
+                continue
+            f.write("[\n")
+            for j, payload in enumerate(spilled):
+                if j:
+                    f.write(",\n")
+                text = json.dumps(payload, indent=4)
+                f.write("        " + text.replace("\n", "\n        "))
+            f.write("\n    ]")
+        f.write("\n}")
 
 
 class StatefulPreRunFixture(CamelModel):
