@@ -40,6 +40,7 @@ from .helpers import (
     contract_address_from_hash,
     eoa_from_hash,
 )
+from .leansphincs import LeanSphincsKey
 from .phase_manager import TestPhase, TestPhaseManager
 from .receipt_types import (
     FrameReceipt,
@@ -115,6 +116,7 @@ __all__ = (
     "FrameReceipt",
     "FrameSignature",
     "FrameSignatureScheme",
+    "LeanSphincsKey",
     "FrameStatus",
     "LogMismatchError",
     "NetworkWrappedTransaction",

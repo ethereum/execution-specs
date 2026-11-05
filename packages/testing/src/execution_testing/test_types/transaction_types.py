@@ -42,6 +42,7 @@ from execution_testing.logging import (
 from .account_types import EOA
 from .blob_types import Blob
 from .chain_config_types import ChainConfigDefaults
+from .leansphincs import LEANSPHINCS_SIGNATURE_LENGTH, LeanSphincsKey
 from .phase_manager import TestPhase, TestPhaseManager
 from .receipt_types import TransactionReceipt
 from .utils import int_to_bytes, keccak256
@@ -103,6 +104,7 @@ class FrameSignatureScheme(IntEnum):
     ARBITRARY = 0
     SECP256K1 = 1
     P256 = 2
+    LEANSPHINCS = 3
 
 
 @dataclass
@@ -334,12 +336,26 @@ class FrameSignature(FrameSignatureGeneric[HexNumber]):
     automatically when the transaction is signed: entries with an
     explicit 32-byte `msg` sign that digest, while entries with an empty
     `msg` sign the canonical transaction signature hash.
+
+    An entry with `leansphincs_key` set is signed with that leanSPHINCS
+    key instead. Its `signer` is left as given, so a `LEANSPHINCS` entry
+    sets it to the key's public key.
     """
 
     secret_key: Hash | None = Field(None, exclude=True)
+    leansphincs_key: LeanSphincsKey | None = Field(None, exclude=True)
 
-    def signed_over(self, digest: bytes, key: Hash) -> None:
-        """Fill the raw signature bytes by signing `digest` with `key`."""
+    model_config = {"arbitrary_types_allowed": True}
+
+    def signed_over(self, digest: bytes, key: Hash | None = None) -> None:
+        """
+        Fill the raw signature bytes by signing `digest` with `key`, or
+        with `leansphincs_key`.
+        """
+        if self.leansphincs_key is not None:
+            self.signature = Bytes(self.leansphincs_key.sign(digest))
+            return
+        assert key is not None, "secret_key must be set"
         signature_bytes = PrivateKey(key).sign_recoverable(digest)
         # EIP-8141 secp256k1 encoding: v (1 byte) || r || s, v in {0, 1}.
         self.signature = Bytes(
@@ -806,6 +822,8 @@ class Transaction(
                 self.signatures = []
 
         def resolve_key(sig: FrameSignature) -> Hash | None:
+            if sig.leansphincs_key is not None:
+                return None
             if sig.secret_key is not None:
                 return sig.secret_key
             if (
@@ -818,34 +836,33 @@ class Transaction(
 
         # Explicit-digest entries first: their raw bytes are part of the
         # canonical signature hash signed by empty-msg entries.
+        def signable(sig: FrameSignature) -> bool:
+            if len(sig.signature) > 0:
+                return False
+            if sig.leansphincs_key is not None:
+                return True
+            if sig.scheme == FrameSignatureScheme.SECP256K1:
+                return resolve_key(sig) is not None
+            return False
+
         for sig in self.signatures:
-            if (
-                sig.scheme != FrameSignatureScheme.SECP256K1
-                or len(sig.signature) > 0
-            ):
+            if not signable(sig) or len(sig.msg) != 32:
                 continue
-            if len(sig.msg) != 32:
-                continue
-            key = resolve_key(sig)
-            if key is not None:
-                sig.signed_over(bytes(sig.msg), key)
+            sig.signed_over(bytes(sig.msg), resolve_key(sig))
 
         # The canonical signature hash commits to the length of each
         # empty-msg entry's raw bytes, so reserve the signature's length
         # before hashing.
         empty_msg_entries = []
         for sig in self.signatures:
-            if (
-                sig.scheme != FrameSignatureScheme.SECP256K1
-                or len(sig.signature) > 0
-            ):
+            if not signable(sig) or len(sig.msg) != 0:
                 continue
-            if len(sig.msg) != 0:
-                continue
-            key = resolve_key(sig)
-            if key is not None:
-                sig.signature = Bytes(bytes(SECP256K1_SIGNATURE_LENGTH))
-                empty_msg_entries.append((sig, key))
+            if sig.leansphincs_key is not None:
+                length = LEANSPHINCS_SIGNATURE_LENGTH
+            else:
+                length = SECP256K1_SIGNATURE_LENGTH
+            sig.signature = Bytes(bytes(length))
+            empty_msg_entries.append((sig, resolve_key(sig)))
 
         sig_hash = self.rlp_signing_bytes().keccak256()
         for sig, key in empty_msg_entries:
