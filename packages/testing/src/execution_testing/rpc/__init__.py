@@ -28,6 +28,7 @@ from .rpc_types import (
     ForkConfigBlobSchedule,
     JSONRPCRequest,
     JSONRPCResponse,
+    LiveBlock,
     RPCCall,
     TransactionProtocol,
 )
@@ -49,6 +50,7 @@ __all__ = [
     "ForkchoiceUpdateTimeoutError",
     "JSONRPCRequest",
     "JSONRPCResponse",
+    "LiveBlock",
     "NetRPC",
     "NewPayloadTimeoutError",
     "RPCCall",

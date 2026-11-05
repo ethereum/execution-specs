@@ -35,6 +35,7 @@ from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     ForkchoiceUpdateResponse,
     JSONRPCError,
+    LiveBlock,
     PayloadAttributes,
     PayloadStatus,
     PayloadStatusEnum,
@@ -256,6 +257,18 @@ class FakeEngine:
 GENESIS_HASH = Hash(0)
 
 
+def _live_block(block_hash: Hash | str) -> LiveBlock:
+    """Return a block, as `eth_getBlockBy*` answers it, with `block_hash`."""
+    return LiveBlock(
+        number=0,
+        hash=Hash(block_hash),
+        timestamp=0,
+        state_root=Hash(0),
+        gas_limit=30_000_000,
+        fee_recipient=Address(0),
+    )
+
+
 @dataclass
 class FakeEth:
     """
@@ -276,7 +289,7 @@ class FakeEth:
         """Return the head once it has been imported."""
         del block_hash, full_txs
         if self.clock.now >= self.imported_at:
-            return {"hash": self.head_hash}
+            return _live_block(self.head_hash)
         return None
 
     def get_block_by_number(
@@ -287,8 +300,8 @@ class FakeEth:
         if block_number in self.overrides:
             return self.overrides[block_number]
         if block_number == 0:
-            return {"hash": str(GENESIS_HASH)}
-        return {"hash": self.head_hash}
+            return _live_block(GENESIS_HASH)
+        return _live_block(self.head_hash)
 
 
 @dataclass
@@ -1032,7 +1045,7 @@ CONFIRMATION_FAILURES = {
     ),
     "wrong-latest-head": (
         {},
-        {"latest": {"hash": str(Hash(2))}},
+        {"latest": _live_block(Hash(2))},
         f"Client head is {Hash(2)}",
     ),
     "missing-latest-head": ({}, {"latest": None}, "returned no head block"),
@@ -1072,9 +1085,11 @@ def _genesis(state_root: int) -> FixtureHeader:
     )
 
 
-def _rpc_block(header: FixtureHeader) -> dict[str, Any]:
+def _rpc_block(header: FixtureHeader) -> LiveBlock:
     """Return `header` as `eth_getBlockByNumber` answers it."""
-    return header.model_dump(mode="json", by_alias=True)
+    block = header.model_dump(mode="json", by_alias=True)
+    block["hash"] = str(header.block_hash)
+    return LiveBlock.model_validate(block)
 
 
 GENESIS_ANSWERS = {
@@ -1093,7 +1108,7 @@ GENESIS_ANSWERS = {
 )
 def test_a_client_runs_only_on_the_groups_genesis(
     clock: FakeClock,
-    answer: dict[str, Any] | None,
+    answer: LiveBlock | None,
     failure: tuple[type[Exception], str] | None,
 ) -> None:
     """A client on another genesis, or none, fails before any announcement."""

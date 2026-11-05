@@ -26,6 +26,7 @@ from execution_testing.forks import (
     Paris,
     ParisToShanghaiAtTime15k,
 )
+from execution_testing.rpc import LiveBlock
 from execution_testing.test_types.block_types import Withdrawal
 
 from ..simulators.helpers.exceptions import LoggedError
@@ -532,7 +533,16 @@ class TestClientHeadLookup:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """The latest block's number and hash, under the lookup timeout."""
-        rpc = _HeadRPC({"number": "0x45", "hash": "0x" + "11" * 32})
+        rpc = _HeadRPC(
+            LiveBlock(
+                number=0x45,
+                hash=Hash("0x" + "11" * 32),
+                timestamp=0,
+                state_root=Hash(0),
+                gas_limit=30_000_000,
+                fee_recipient=Address(0),
+            )
+        )
         monkeypatch.setattr(client_policy, "EthRPC", rpc)
         head = client_policy.client_head(cast(Any, self.CLIENT))
         assert head == (69, bytes.fromhex("11" * 32))
