@@ -263,21 +263,27 @@ class ClientBackend:
             transactions=txs,
             extra_data=Bytes(env.extra_data),
         )
-        self._finalize(
-            get_payload_response,
-            parent_beacon_block_root=(
-                payload_attributes.parent_beacon_block_root
-            ),
-            block_fork=block_fork,
-        )
+        receipts: List[TransactionReceipt] = []
+        # An expected-invalid block is corrupted after the build. Importing
+        # the valid original would move the head (and post-state) past a
+        # block the test says is rejected, so it stays out of the chain,
+        # and without an imported block there are no receipts to fetch.
+        if not transition_tool_data.expect_invalid:
+            self._finalize(
+                get_payload_response,
+                parent_beacon_block_root=(
+                    payload_attributes.parent_beacon_block_root
+                ),
+                block_fork=block_fork,
+            )
+            receipts = self._fetch_receipts(
+                txs, get_payload_response.execution_payload.block_hash
+            )
         np_version = block_fork.engine_new_payload_version()
         fcu_version = block_fork.engine_forkchoice_updated_version()
         assert np_version is not None
         assert fcu_version is not None
 
-        receipts = self._fetch_receipts(
-            txs, get_payload_response.execution_payload.block_hash
-        )
         result = self._build_result(
             built_payload=get_payload_response.execution_payload,
             execution_requests=get_payload_response.execution_requests,
