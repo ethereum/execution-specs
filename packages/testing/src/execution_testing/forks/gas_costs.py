@@ -83,7 +83,7 @@ class GasCosts:
     FRAME_SIGNATURE_SCHEME_ARBITRARY: int = 0
     FRAME_SIGNATURE_SCHEME_SECP256K1: int = 0
     FRAME_SIGNATURE_SCHEME_P256: int = 0
-    FRAME_SIGNATURE_SCHEME_SPHINCS: int = 0
+    FRAME_SIGNATURE_SCHEME_LEANSPHINCS: int = 0
     # Intrinsic cost of each non-zero EIP-8250 nonce key; 0 before keyed
     # nonces are introduced.
     KEYED_NONCE_ACCESS: int = 0
@@ -120,7 +120,6 @@ class GasCosts:
     PRECOMPILE_BLS_PAIRING_BASE: int
     PRECOMPILE_BLS_PAIRING_PER_PAIR: int
     PRECOMPILE_P256VERIFY: int
-    PRECOMPILE_SPHINCS_VERIFY: int = 0
 
     # Block Access Lists
     BLOCK_ACCESS_LIST_ITEM: int
