@@ -626,6 +626,7 @@ class StateTest(BaseTest):
                 blocks=[[self.tx]],
                 post=self.post,
                 benchmark_mode=benchmark_mode,
+                expected_block_access_list=self.expected_block_access_list,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
 
