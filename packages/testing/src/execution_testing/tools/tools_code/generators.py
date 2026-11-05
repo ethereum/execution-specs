@@ -66,12 +66,20 @@ class Initcode(Bytecode):
         # DUP2
         initcode += Op.DUP2
 
-        # PUSH1: initcode_length=9 + push_length_size + initcode_prefix_bytes
-        no_prefix_length = 0x09 + push_length_size
-        assert no_prefix_length + len(initcode_prefix) <= 0xFF, (
-            "initcode prefix too long"
-        )
-        initcode += Op.PUSH1(no_prefix_length + len(initcode_prefix))
+        # PUSHN: offset of the deploy code, which is 9 + push_length_size +
+        # initcode_prefix_bytes with a PUSH1. A long prefix (e.g. the SSTOREs
+        # `execute` emits for a contract with many storage slots) needs a
+        # wider PUSH, and each extra push byte moves the deploy code one byte
+        # further.
+        deploy_code_offset = 0x09 + push_length_size + len(initcode_prefix)
+        push_offset_size = 1
+        while deploy_code_offset + push_offset_size - 1 >= 1 << (
+            8 * push_offset_size
+        ):
+            push_offset_size += 1
+        deploy_code_offset += push_offset_size - 1
+        push_offset = getattr(Op, f"PUSH{push_offset_size}")
+        initcode += push_offset(deploy_code_offset)
 
         # DUP3
         initcode += Op.DUP3
