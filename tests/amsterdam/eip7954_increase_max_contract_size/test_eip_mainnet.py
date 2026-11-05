@@ -112,11 +112,25 @@ def test_over_max_initcode_size_mainnet(
     alice = pre.fund_eoa()
     create_address = compute_create_address(address=alice, nonce=0)
 
+    # Only enough gas to clear the intrinsic check, so the rejection
+    # can only come from the initcode size limit.
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=initcode,
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor_gas = fork.transaction_data_floor_cost_calculator()(
+        data=initcode, contract_creation=True
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        contract_creation=True,
+    )
+
     tx = Transaction(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        gas_limit=max(floor_gas, intrinsic_gas + top_frame_state_gas),
         error=TransactionException.INITCODE_SIZE_EXCEEDED,
     )
 
@@ -143,11 +157,15 @@ def test_max_code_size_with_max_initcode_mainnet(
     target, target_code = max_code_size_contract
 
     alice = pre.fund_eoa()
+    gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + target_code.gas_cost(fork)
+    )
 
     tx = Transaction(
         sender=alice,
         to=target,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        gas_limit=gas_limit,
     )
 
     post = {
