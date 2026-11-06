@@ -97,7 +97,9 @@ def test_static_log(
     The result slot is seeded with a sentinel, so the stored 0 is
     observable, and a final store shows the caller completed.
     """
-    topics = [0] * (topic_count - 1) + [last_topic] if topic_count else []
+    topics: list[int | Bytecode] = []
+    if last_topic is not None:
+        topics = [*([0] * (topic_count - 1)), last_topic]
     log = LOG_OPCODES[topic_count](offset, size, *topics)
     callee = pre.deploy_contract(
         code=Op.MSTORE(0, MEMORY_WORD) + log + Op.STOP

@@ -12,6 +12,7 @@ state_tests/stStaticCall/static_call_OOG_additionalGasCosts2_ParisFiller.json
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Op,
     StateTestFiller,
@@ -49,6 +50,7 @@ def test_static_call_oog_additional_gas_costs(
     Verify the transaction runs out of gas and reverts the caller's
     stores, whether the STATICCALL target exists or not.
     """
+    callee: Address
     if callee_exists:
         callee = pre.fund_eoa(amount=CALLEE_BALANCE)
     else:

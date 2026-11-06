@@ -66,7 +66,7 @@ def test_static_return_bounds(
         code += Op.SSTORE(slot, Op.STATICCALL(gas=CALL_GAS, address=callee))
     if then_out_of_gas:
         code += OUT_OF_GAS_MEMORY
-    seeded = dict.fromkeys(range(1, len(RETURN_BOUNDS) + 1), SENTINEL)
+    seeded: dict = dict.fromkeys(range(1, len(RETURN_BOUNDS) + 1), SENTINEL)
     target = pre.deploy_contract(code=code + Op.STOP, storage=seeded)
 
     tx = Transaction(sender=pre.fund_eoa(), to=target, gas_limit=TX_GAS)

@@ -14,6 +14,7 @@ state_tests/stStaticCall/static_ABAcallsSuicide0Filler.json
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Bytecode,
     Hash,
@@ -32,7 +33,10 @@ COUNTER_SLOT = 0
 
 
 def frame_code(
-    body: str, writes: str, call_gas: Bytecode | int, callee: Bytecode | int
+    body: str,
+    writes: str,
+    call_gas: Bytecode | int,
+    callee: Bytecode | Address,
 ) -> Bytecode:
     """Return the code of one side of the A <-> B ping-pong."""
     store = Op.SSTORE if writes == "storage" else Op.MSTORE

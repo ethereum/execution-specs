@@ -34,7 +34,7 @@ def test_static_internal_call_store_clears_oog(
     pre: Alloc,
 ) -> None:
     """Verify the callee's storage clears fail and are not applied."""
-    callee_storage = dict.fromkeys(CLEARED_SLOTS, 12)
+    callee_storage: dict = dict.fromkeys(CLEARED_SLOTS, 12)
     callee = pre.deploy_contract(
         code=sum((Op.SSTORE(slot, 0) for slot in CLEARED_SLOTS), Bytecode())
         + Op.STOP,
