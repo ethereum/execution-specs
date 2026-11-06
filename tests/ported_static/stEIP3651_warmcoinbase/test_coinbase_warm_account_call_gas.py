@@ -10,10 +10,8 @@ EXTCODESIZE and EXTCODECOPY charge an extra warm code-read.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -84,7 +82,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_coinbase_warm_account_call_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -94,10 +91,8 @@ def test_coinbase_warm_account_call_gas(
     v: int,
 ) -> None:
     """Test_coinbase_warm_account_call_gas."""
-    coinbase = Address(0x50228C44ED92561D94511E8518A75AA463BD444B)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
-    pre[coinbase] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -259,8 +254,6 @@ def test_coinbase_warm_account_call_gas(
         Bytes("693c6139") + Hash(0x7),
     ]
 
-    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
-
     tx = Transaction(
         sender=sender,
         to=target,
@@ -274,4 +267,4 @@ def test_coinbase_warm_account_call_gas(
     expected_gas = warm_access + (warm_access if ext_code_read else 0)
     post = {target: Account(storage={0: expected_gas})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
