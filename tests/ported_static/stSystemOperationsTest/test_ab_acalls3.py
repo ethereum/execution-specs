@@ -9,6 +9,7 @@ level's counter bump and transfer persist: the counters and balances
 pin exactly how many rounds the budget sustains.
 
 Ported from:
+state_tests/stSystemOperationsTest/ABAcalls2Filler.json
 state_tests/stSystemOperationsTest/ABAcalls3Filler.json
 
 @manually-enhanced: Do not overwrite. The post state (counters and
@@ -40,8 +41,10 @@ GAS_RESERVE = 100_000
 A_CALL_VALUE = 1
 # One transfer per level up to the call-depth limit can never run dry.
 A_INITIAL_BALANCE = A_CALL_VALUE * 1024
-# Ported budget; pins how many rounds the recursion sustains.
+# Ported budget of ABAcalls3; ABAcalls2 used 1e9, now capped at the
+# Osaka transaction gas limit cap so it runs on every fork.
 TX_GAS_LIMIT = 10_000_000
+MAX_TX_GAS_LIMIT = 2**24
 
 
 def predict_depths(
@@ -157,13 +160,24 @@ def predict_depths(
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stSystemOperationsTest/ABAcalls3Filler.json"],
+    [
+        "state_tests/stSystemOperationsTest/ABAcalls2Filler.json",
+        "state_tests/stSystemOperationsTest/ABAcalls3Filler.json",
+    ],
 )
 @pytest.mark.valid_from("Berlin")
+@pytest.mark.parametrize(
+    "tx_gas_limit",
+    [
+        pytest.param(MAX_TX_GAS_LIMIT, id="ab_acalls2"),
+        pytest.param(TX_GAS_LIMIT, id="ab_acalls3"),
+    ],
+)
 def test_ab_acalls3(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    tx_gas_limit: int,
 ) -> None:
     """Pin how many rounds a reserve-throttled A<->B recursion runs."""
 
@@ -198,10 +212,10 @@ def test_ab_acalls3(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract_a,
-        gas_limit=TX_GAS_LIMIT,
+        gas_limit=tx_gas_limit,
     )
 
-    a_count, b_count = predict_depths(fork, TX_GAS_LIMIT, contract_b)
+    a_count, b_count = predict_depths(fork, tx_gas_limit, contract_b)
     # Each completed B level keeps the wei its calling A level sent.
     post = {
         contract_a: Account(
