@@ -1,454 +1,533 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Test JUMP, JUMPI and LLL control flow constructs.
 
 Ported from:
 state_tests/VMTests/vmIOandFlowOperations/jumpFiller.yml
+state_tests/VMTests/vmIOandFlowOperations/jumpiFiller.yml
+state_tests/VMTests/vmIOandFlowOperations/loopsConditionalsFiller.yml
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
-    Hash,
+    Bytecode,
+    Fork,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+SENTINEL = 0x0BAD
 
-@pytest.mark.ported_from(
-    ["state_tests/VMTests/vmIOandFlowOperations/jumpFiller.yml"],
-)
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize(
-    "d, g, v",
-    [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="jump-hyperspace",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="jump-hyperspace",
-        ),
-        pytest.param(
-            2,
-            0,
-            0,
-            id="jump-stop-dest",
-        ),
-        pytest.param(
-            3,
-            0,
-            0,
-            id="jump-hyperspace",
-        ),
-        pytest.param(
-            4,
-            0,
-            0,
-            id="jump-not-jumpdest",
-        ),
-        pytest.param(
-            5,
-            0,
-            0,
-            id="endless-loop",
-        ),
-        pytest.param(
-            6,
-            0,
-            0,
-            id="jump-dest",
-        ),
-        pytest.param(
-            7,
-            0,
-            0,
-            id="jump-dest",
-        ),
-        pytest.param(
-            8,
-            0,
-            0,
-            id="jump-dynamic",
-        ),
-        pytest.param(
-            9,
-            0,
-            0,
-            id="jump-2-push",
-        ),
-        pytest.param(
-            10,
-            0,
-            0,
-            id="jump-2-push",
-        ),
-        pytest.param(
-            11,
-            0,
-            0,
-            id="jump-not-jumpdest",
-        ),
-        pytest.param(
-            12,
-            0,
-            0,
-            id="jump-not-jumpdest",
-        ),
-        pytest.param(
-            13,
-            0,
-            0,
-            id="jump-hyperspace",
-        ),
-        pytest.param(
-            14,
-            0,
-            0,
-            id="jump-hyperspace",
-        ),
-        pytest.param(
-            15,
-            0,
-            0,
-            id="jump-hyperspace",
-        ),
-        pytest.param(
-            16,
-            0,
-            0,
-            id="jump-to-list",
-        ),
-    ],
-)
-@pytest.mark.pre_alloc_mutable
-def test_jump(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    d: int,
-    g: int,
-    v: int,
-) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x0000000000000000000000000000000000001000)
-    contract_1 = Address(0x0000000000000000000000000000000000001001)
-    contract_2 = Address(0x0000000000000000000000000000000000001002)
-    contract_3 = Address(0x0000000000000000000000000000000000001003)
-    contract_4 = Address(0x0000000000000000000000000000000000001004)
-    contract_5 = Address(0x0000000000000000000000000000000000001005)
-    contract_6 = Address(0x0000000000000000000000000000000000001006)
-    contract_7 = Address(0x0000000000000000000000000000000000001007)
-    contract_8 = Address(0x0000000000000000000000000000000000001008)
-    contract_9 = Address(0x0000000000000000000000000000000000001009)
-    contract_10 = Address(0x000000000000000000000000000000000000100A)
-    contract_11 = Address(0x000000000000000000000000000000000000100B)
-    contract_12 = Address(0x000000000000000000000000000000000000100C)
-    contract_13 = Address(0x000000000000000000000000000000000000100D)
-    contract_14 = Address(0x000000000000000000000000000000000000100E)
-    contract_15 = Address(0x000000000000000000000000000000000000100F)
-    contract_16 = Address(0x0000000000000000000000000000000000001010)
-    contract_17 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0x100000000000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
-    # Source: lll
-    # {
-    #   [[0]] 0x600D
-    #   (asm 0x10 0x20 mul jump jumpdest)
-    # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x600D)
+CASES = [
+    # jump
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x600D)
         + Op.JUMP(pc=Op.MUL(0x20, 0x10))
         + Op.JUMPDEST
         + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #   [[0]] 0x600D
-    #   (asm 0x01 0x10 0x20 mul jumpi jumpdest)
-    # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x600D)
+        {0: SENTINEL},
+        id="jump-jump-hyperspace_1",
+    ),
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x600D)
         + Op.JUMPI(pc=Op.MUL(0x20, 0x10), condition=0x1)
         + Op.JUMPDEST
         + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
-    )
-    # Source: raw
-    # 0x600456005B61600D60005500
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMP(pc=0x4)
+        {0: SENTINEL},
+        id="jump-jump-hyperspace_2",
+    ),
+    pytest.param(
+        Op.JUMP(pc=0x4)
         + Op.STOP
         + Op.JUMPDEST
         + Op.SSTORE(key=0x0, value=0x600D)
         + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #   [[0]] 0x600D
-    #   (asm 0x0fffffff jump)
-    # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x600D)
-        + Op.JUMP(pc=0xFFFFFFF)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001003),  # noqa: E501
-    )
-    # Source: raw
-    # 0x602360085660015b600255
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x23]
+        {0: 24589},
+        id="jump-jump-stop-dest",
+    ),
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x600D) + Op.JUMP(pc=0xFFFFFFF) + Op.STOP,
+        {0: SENTINEL},
+        id="jump-jump-hyperspace_3",
+    ),
+    pytest.param(
+        Op.PUSH1[0x23]
         + Op.JUMP(pc=0x8)
         + Op.PUSH1[0x1]
         + Op.JUMPDEST
         + Op.PUSH1[0x2]
         + Op.SSTORE,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001004),  # noqa: E501
-    )
-    # Source: raw
-    # 0x61600D6000555B600656
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x600D) + Op.JUMPDEST + Op.JUMP(pc=0x6),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001005),  # noqa: E501
-    )
-    # Source: raw
-    # 0x61600D60085660FF5B600055
-    contract_6 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH2[0x600D]
+        {0: SENTINEL},
+        id="jump-jump-not-jumpdest_1",
+    ),
+    pytest.param(
+        Op.PUSH2[0x600D]
         + Op.JUMP(pc=0x8)
         + Op.PUSH1[0xFF]
         + Op.JUMPDEST
         + Op.PUSH1[0x0]
         + Op.SSTORE,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001006),  # noqa: E501
-    )
-    # Source: raw
-    # 0x600B565B61600D600055005B600356
-    contract_7 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMP(pc=0xB)
+        {0: 24589},
+        id="jump-jump-dest_1",
+    ),
+    pytest.param(
+        Op.JUMP(pc=0xB)
         + Op.JUMPDEST
         + Op.SSTORE(key=0x0, value=0x600D)
         + Op.STOP
         + Op.JUMPDEST
         + Op.JUMP(pc=0x3),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001007),  # noqa: E501
-    )
-    # Source: raw
-    # 0x600260050156005B61600D600055
-    contract_8 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMP(pc=Op.ADD(0x5, 0x2))
+        {0: 24589},
+        id="jump-jump-dest_2",
+    ),
+    pytest.param(
+        Op.JUMP(pc=Op.ADD(0x5, 0x2))
         + Op.STOP
         + Op.JUMPDEST
         + Op.SSTORE(key=0x0, value=0x600D),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001008),  # noqa: E501
-    )
-    # Source: raw
-    # 0x60055600605B61600D600055
-    contract_9 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMP(pc=0x5)
+        {0: 24589},
+        id="jump-jump-dynamic",
+    ),
+    pytest.param(
+        Op.JUMP(pc=0x5)
         + Op.STOP
         + Op.PUSH1[0x5B]
         + Op.SSTORE(key=0x0, value=0x600D),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001009),  # noqa: E501
-    )
-    # Source: raw
-    # 0x60055600600161600D600055
-    contract_10 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMP(pc=0x5)
+        {0: SENTINEL},
+        id="jump-jump-2-push_1",
+    ),
+    pytest.param(
+        Op.JUMP(pc=0x5)
         + Op.STOP
         + Op.PUSH1[0x1]
         + Op.SSTORE(key=0x0, value=0x600D),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000100A),  # noqa: E501
-    )
-    # Source: raw
-    # 0x61600D600055600B565A5B5A600155
-    contract_11 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x600D)
+        {0: SENTINEL},
+        id="jump-jump-2-push_2",
+    ),
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x600D)
         + Op.JUMP(pc=0xB)
         + Op.GAS
         + Op.JUMPDEST
         + Op.SSTORE(key=0x1, value=Op.GAS),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000100B),  # noqa: E501
-    )
-    # Source: raw
-    # 0x61600D6000556009565A5B5A600155
-    contract_12 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x600D)
+        {0: SENTINEL},
+        id="jump-jump-not-jumpdest_2",
+    ),
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x600D)
         + Op.JUMP(pc=0x9)
         + Op.GAS
         + Op.JUMPDEST
         + Op.SSTORE(key=0x1, value=Op.GAS),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000100C),  # noqa: E501
-    )
-    # Source: raw
-    # 0x6801000000000000000b565b5b6001600155
-    contract_13 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMP(pc=0x1000000000000000B)
+        {0: SENTINEL},
+        id="jump-jump-not-jumpdest_3",
+    ),
+    pytest.param(
+        Op.JUMP(pc=0x1000000000000000B)
         + Op.JUMPDEST * 2
         + Op.SSTORE(key=0x1, value=0x1),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000100D),  # noqa: E501
-    )
-    # Source: raw
-    # 0x640100000007565b5b6001600155
-    contract_14 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMP(pc=0x100000007)
+        {0: SENTINEL},
+        id="jump-jump-hyperspace_4",
+    ),
+    pytest.param(
+        Op.JUMP(pc=0x100000007)
         + Op.JUMPDEST * 2
         + Op.SSTORE(key=0x1, value=0x1),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000100E),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #   @0 (- 0 1)
-    #   (asm 0 mload jump 0x600D 0x00 sstore)
-    # }
-    contract_15 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(Op.MLOAD(offset=0x0))
+        {0: SENTINEL},
+        id="jump-jump-hyperspace_5",
+    ),
+    pytest.param(
+        Op.POP(Op.MLOAD(offset=0x0))
         + Op.POP(Op.SUB(0x0, 0x1))
         + Op.JUMP(pc=Op.MLOAD(offset=0x0))
         + Op.SSTORE(key=0x0, value=0x600D)
         + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000100F),  # noqa: E501
-    )
-    # Source: raw
-    # 0x600E565B5B5B5B5B5B5B5B5B5B5B5B5B5B5B5B61600D600055
-    contract_16 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMP(pc=0xE)
+        {0: SENTINEL},
+        id="jump-jump-hyperspace_6",
+    ),
+    pytest.param(
+        Op.JUMP(pc=0xE) + Op.JUMPDEST * 16 + Op.SSTORE(key=0x0, value=0x600D),
+        {0: 24589},
+        id="jump-jump-to-list",
+    ),
+    # jumpi
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x600D)
+        + Op.JUMPI(pc=Op.MUL(0x20, 0x10), condition=0x0)
+        + Op.JUMPDEST
+        + Op.STOP,
+        {0: 24589},
+        id="jumpi-not-jump-hyperspace_1",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0x6, condition=0x1)
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
+        {0: 24589},
+        id="jumpi-jump-stop-dest",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0x6, condition=0x0)
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
+        {0: SENTINEL},
+        id="jumpi-not-jump-stop-dest",
+    ),
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x600D)
+        + Op.JUMPI(pc=0xFFFFFFF, condition=0xFF)
+        + Op.STOP,
+        {0: SENTINEL},
+        id="jumpi-jump-hyperspace_3",
+    ),
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x600D)
+        + Op.JUMPI(pc=0xFFFFFFF, condition=0x0)
+        + Op.STOP,
+        {0: 24589},
+        id="jumpi-not-jump-hyperspace_3",
+    ),
+    pytest.param(
+        Op.PUSH1[0x23]
+        + Op.JUMPI(pc=0x8, condition=0x1)
+        + Op.PUSH1[0x1]
+        + Op.JUMPDEST
+        + Op.PUSH1[0x2]
+        + Op.SSTORE,
+        {0: SENTINEL},
+        id="jumpi-jump-not-jumpdest_1",
+    ),
+    pytest.param(
+        Op.PUSH2[0x600D]
+        + Op.JUMPI(pc=0xA, condition=0x1)
+        + Op.PUSH1[0xFF]
+        + Op.JUMPDEST
+        + Op.PUSH1[0x0]
+        + Op.SSTORE,
+        {0: 24589},
+        id="jumpi-jump-dest_1",
+    ),
+    pytest.param(
+        Op.JUMP(pc=0xB)
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.JUMPI(pc=0x3, condition=0x1),
+        {0: 24589},
+        id="jumpi-jump-dest_2",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=Op.ADD(0x5, 0x4), condition=0x1)
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x0, value=0x600D),
+        {0: 24589},
+        id="jumpi-jump-dynamic",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=Op.ADD(0x5, 0x4), condition=0x0)
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x0, value=0x600D),
+        {0: SENTINEL},
+        id="jumpi-not-jump-dynamic",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0x7, condition=0x1)
+        + Op.STOP
+        + Op.PUSH1[0x5B]
+        + Op.SSTORE(key=0x0, value=0x600D),
+        {0: SENTINEL},
+        id="jumpi-jump-2-push_1",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0x7, condition=0x1)
+        + Op.STOP
+        + Op.PUSH1[0x1]
+        + Op.SSTORE(key=0x0, value=0x600D),
+        {0: SENTINEL},
+        id="jumpi-jump-2-push_2",
+    ),
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x600D)
+        + Op.JUMPI(pc=0xD, condition=0x1)
+        + Op.GAS
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x1, value=Op.GAS),
+        {0: SENTINEL},
+        id="jumpi-jump-not-jumpdest_2",
+    ),
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x600D)
+        + Op.JUMPI(pc=0xB, condition=0x1)
+        + Op.GAS
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x1, value=Op.GAS),
+        {0: SENTINEL},
+        id="jumpi-jump-not-jumpdest_3",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0x1000000000000000D, condition=0x11)
+        + Op.JUMPDEST * 2
+        + Op.SSTORE(key=0x0, value=0x600D),
+        {0: SENTINEL},
+        id="jumpi-jump-hyperspace_4",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0x1000000000000000D, condition=0x0)
+        + Op.JUMPDEST * 2
+        + Op.SSTORE(key=0x0, value=0x600D),
+        {0: 24589},
+        id="jumpi-not-jump-hyperspace_4",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0x100000009, condition=0x11)
+        + Op.JUMPDEST * 2
+        + Op.SSTORE(key=0x0, value=0x600D),
+        {0: SENTINEL},
+        id="jumpi-jump-hyperspace_5",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0x100000009, condition=0x0)
+        + Op.JUMPDEST * 2
+        + Op.SSTORE(key=0x0, value=0x600D),
+        {0: 24589},
+        id="jumpi-not-jump-hyperspace_5",
+    ),
+    pytest.param(
+        Op.POP(Op.MLOAD(offset=0x0))
+        + Op.POP(Op.SUB(0x0, 0x1))
+        + Op.JUMPI(pc=Op.MLOAD(offset=0x0), condition=0x1)
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
+        {0: SENTINEL},
+        id="jumpi-jump-hyperspace_6",
+    ),
+    pytest.param(
+        Op.POP(Op.MLOAD(offset=0x0))
+        + Op.POP(Op.SUB(0x0, 0x1))
+        + Op.JUMPI(pc=Op.MLOAD(offset=0x0), condition=0x0)
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
+        {0: 24589},
+        id="jumpi-not-jump-hyperspace_6",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0xE, condition=0x1)
         + Op.JUMPDEST * 16
         + Op.SSTORE(key=0x0, value=0x600D),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001010),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #     ; limited gas because of the endless loop
-    #     (delegatecall 0x10000 (+ 0x1000 $4) 0 0 0 0)
-    # }
-    contract_17 = pre.deploy_contract(  # noqa: F841
-        code=Op.DELEGATECALL(
-            gas=0x10000,
-            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
+        {0: 24589},
+        id="jumpi-jump-to-list",
+    ),
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x600D)
+        + Op.MSTORE(offset=0x0, value=0x10)
+        + Op.JUMPDEST
+        + Op.SUB(Op.MLOAD(offset=0x0), 0x1)
+        + Op.MSTORE(offset=0x0, value=Op.DUP1)
+        + Op.PUSH1[0xB]
+        + Op.JUMPI,
+        {0: 24589},
+        id="jumpi-loop",
+    ),
+    # loopsConditionals
+    pytest.param(
+        Op.JUMPI(pc=0xF, condition=Op.ISZERO(Op.GT(0x1, 0x0)))
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.JUMPDEST
         + Op.STOP,
-        storage={0: 2989},
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
-    )
+        {0: 24589},
+        id="loopsConditionals-whenTrue",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0xF, condition=Op.ISZERO(Op.LT(0x1, 0x0)))
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.JUMPDEST
+        + Op.STOP,
+        {0: SENTINEL},
+        id="loopsConditionals-whenFalse",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0xE, condition=Op.LT(0x1, 0x0))
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.JUMPDEST
+        + Op.STOP,
+        {0: 24589},
+        id="loopsConditionals-unlessTrue",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0xE, condition=Op.GT(0x1, 0x0))
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.JUMPDEST
+        + Op.STOP,
+        {0: SENTINEL},
+        id="loopsConditionals-unlessFalse",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0xE, condition=Op.GT(0x1, 0x0))
+        + Op.PUSH2[0x60A7]
+        + Op.JUMP(pc=0x12)
+        + Op.JUMPDEST
+        + Op.PUSH2[0x600D]
+        + Op.JUMPDEST
+        + Op.PUSH1[0x0]
+        + Op.SSTORE
+        + Op.STOP,
+        {0: 24589},
+        id="loopsConditionals-ifTrue",
+    ),
+    pytest.param(
+        Op.JUMPI(pc=0xE, condition=Op.LT(0x1, 0x0))
+        + Op.PUSH2[0x60A7]
+        + Op.JUMP(pc=0x12)
+        + Op.JUMPDEST
+        + Op.PUSH2[0x600D]
+        + Op.JUMPDEST
+        + Op.PUSH1[0x0]
+        + Op.SSTORE
+        + Op.STOP,
+        {0: 24743},
+        id="loopsConditionals-ifFalse",
+    ),
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x10)
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.JUMPDEST
+        + Op.JUMPI(pc=0x27, condition=Op.ISZERO(Op.SLOAD(key=0x0)))
+        + Op.SSTORE(key=0x0, value=Op.SUB(Op.SLOAD(key=0x0), 0x1))
+        + Op.SSTORE(key=0x1, value=Op.MUL(Op.SLOAD(key=0x1), 0x2))
+        + Op.JUMP(pc=0xA)
+        + Op.JUMPDEST
+        + Op.STOP,
+        {0: 0, 1: 0x10000},
+        id="loopsConditionals-while",
+    ),
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x10)
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.JUMPDEST
+        + Op.JUMPI(pc=0x29, condition=Op.EQ(Op.SLOAD(key=0x0), 0x0))
+        + Op.SSTORE(key=0x0, value=Op.SUB(Op.SLOAD(key=0x0), 0x1))
+        + Op.SSTORE(key=0x1, value=Op.MUL(Op.SLOAD(key=0x1), 0x2))
+        + Op.JUMP(pc=0xA)
+        + Op.JUMPDEST
+        + Op.STOP,
+        {0: 0, 1: 0x10000},
+        id="loopsConditionals-until",
+    ),
+    pytest.param(
+        Op.SSTORE(key=0x0, value=0x10)
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.JUMPDEST
+        + Op.JUMPI(pc=0x2A, condition=Op.ISZERO(Op.GT(Op.SLOAD(key=0x0), 0x0)))
+        + Op.SSTORE(key=0x1, value=Op.MUL(Op.SLOAD(key=0x1), 0x2))
+        + Op.SSTORE(key=0x0, value=Op.SUB(Op.SLOAD(key=0x0), 0x1))
+        + Op.JUMP(pc=0xA)
+        + Op.JUMPDEST
+        + Op.STOP,
+        {0: 0, 1: 0x10000},
+        id="loopsConditionals-for",
+    ),
+    pytest.param(
+        Op.MSTORE(offset=0x80, value=0xA)
+        + Op.JUMPDEST
+        + Op.JUMPI(
+            pc=0x26, condition=Op.ISZERO(Op.GT(Op.MLOAD(offset=0x80), 0x0))
+        )
+        + Op.MSTORE(
+            offset=0xA0,
+            value=Op.ADD(Op.MLOAD(offset=0x80), Op.MLOAD(offset=0xA0)),
+        )
+        + Op.MSTORE(offset=0x80, value=Op.SUB(Op.MLOAD(offset=0x80), 0x1))
+        + Op.JUMP(pc=0x5)
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0xA0))
+        + Op.STOP,
+        {0: 55},
+        id="loopsConditionals-for_loop1",
+    ),
+    pytest.param(
+        Op.MSTORE(offset=0x80, value=0x0)
+        + Op.JUMPDEST
+        + Op.JUMPI(
+            pc=0x27,
+            condition=Op.ISZERO(Op.ISZERO(Op.GT(Op.MLOAD(offset=0x80), 0xA))),
+        )
+        + Op.MSTORE(
+            offset=0xA0,
+            value=Op.ADD(Op.MLOAD(offset=0x80), Op.MLOAD(offset=0xA0)),
+        )
+        + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
+        + Op.JUMP(pc=0x5)
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0xA0))
+        + Op.STOP,
+        {0: 55},
+        id="loopsConditionals-for_loop2",
+    ),
+]
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {
-                "data": [0, 1, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {contract_17: Account(storage={0: 2989})},
-        },
-        {
-            "indexes": {"data": [2, 6, 7, 8, 16], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_17: Account(storage={0: 24589})},
-        },
-    ]
 
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+@pytest.mark.ported_from(
+    [
+        "state_tests/VMTests/vmIOandFlowOperations/jumpFiller.yml",
+        "state_tests/VMTests/vmIOandFlowOperations/jumpiFiller.yml",
+        "state_tests/VMTests/vmIOandFlowOperations/loopsConditionalsFiller.yml",
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("code, storage", CASES)
+def test_jump(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    code: Bytecode,
+    storage: dict,
+) -> None:
+    """Run a control flow case and check the storage it leaves."""
+    contract = pre.deploy_contract(code=code, storage={0: SENTINEL})
+    tx = Transaction(sender=pre.fund_eoa(), to=contract)
+    post = {contract: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
 
-    tx_data = [
-        Bytes("693c6139") + Hash(0x0),
-        Bytes("693c6139") + Hash(0x1),
-        Bytes("693c6139") + Hash(0x2),
-        Bytes("693c6139") + Hash(0x3),
-        Bytes("693c6139") + Hash(0x4),
-        Bytes("693c6139") + Hash(0x5),
-        Bytes("693c6139") + Hash(0x6),
-        Bytes("693c6139") + Hash(0x7),
-        Bytes("693c6139") + Hash(0x8),
-        Bytes("693c6139") + Hash(0x9),
-        Bytes("693c6139") + Hash(0xA),
-        Bytes("693c6139") + Hash(0xB),
-        Bytes("693c6139") + Hash(0xC),
-        Bytes("693c6139") + Hash(0xD),
-        Bytes("693c6139") + Hash(0xE),
-        Bytes("693c6139") + Hash(0xF),
-        Bytes("693c6139") + Hash(0x10),
-    ]
-    tx_gas = [16777216]
-    tx_value = [1]
 
+@pytest.mark.ported_from(
+    [
+        "state_tests/VMTests/vmIOandFlowOperations/jumpFiller.yml",
+        "state_tests/VMTests/vmIOandFlowOperations/jumpiFiller.yml",
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize(
+    "loop_jump",
+    [
+        pytest.param(Op.JUMP(pc=0x6), id="jump-endless-loop"),
+        pytest.param(Op.JUMPI(pc=0x6, condition=0x6), id="jumpi-endless-loop"),
+    ],
+)
+def test_endless_loop(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    loop_jump: Bytecode,
+) -> None:
+    """Revert a storage write when a jump loops until out of gas."""
+    code = Op.SSTORE(key=0x0, value=0x600D) + Op.JUMPDEST + loop_jump
+    contract = pre.deploy_contract(code=code, storage={0: SENTINEL})
     tx = Transaction(
-        sender=sender,
-        to=contract_17,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+        sender=pre.fund_eoa(),
+        to=contract,
+        gas_limit=fork.transaction_intrinsic_cost_calculator()() + 100_000,
     )
-
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    post = {contract: Account(storage={0: SENTINEL})}
+    state_test(pre=pre, post=post, tx=tx)
