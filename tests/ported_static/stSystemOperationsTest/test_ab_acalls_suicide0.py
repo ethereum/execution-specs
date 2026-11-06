@@ -8,10 +8,7 @@ state_tests/stSystemOperationsTest/ABAcallsSuicide0Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,76 +22,39 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSystemOperationsTest/ABAcallsSuicide0Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_ab_acalls_suicide0(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test_ab_acalls_suicide0."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    """
+    Call B with value, then SELFDESTRUCT to B; B calls back to A.
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
+    B stores one plus the result of its call back into A.
+    """
+    sender = pre.fund_eoa()
 
-    # Source: lll
-    # {  [[ (PC) ]] (CALL 100000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 24 0 0 0 0) (SELFDESTRUCT <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>)  }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=Op.PC,
-            value=Op.CALL(
-                gas=0x186A0,
-                address=0x24940009F045E4134ED2AB242BE610D312FE9A29,
-                value=0x18,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SELFDESTRUCT(address=0x24940009F045E4134ED2AB242BE610D312FE9A29)
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x10481E52C494FD0D78604B0F9207A89008F7E9A9),  # noqa: E501
-    )
     # Source: lll
     # { [[ (PC) ]] (ADD 1 (CALL 50000 <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87> 23 0 0 0 0)) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    b_value = Op.ADD(1, Op.CALL(gas=50000, address=Op.CALLER, value=0x17))
+    contract_b = pre.deploy_contract(
+        code=Op.SSTORE(key=Op.PC, value=b_value) + Op.STOP,
+        balance=23,
+    )
+    # Source: lll
+    # {  [[ (PC) ]] (CALL 100000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 24 0 0 0 0) (SELFDESTRUCT <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>)  }  # noqa: E501
+    contract_a = pre.deploy_contract(
         code=Op.SSTORE(
             key=Op.PC,
-            value=Op.ADD(
-                0x1,
-                Op.CALL(
-                    gas=0xC350,
-                    address=0x10481E52C494FD0D78604B0F9207A89008F7E9A9,
-                    value=0x17,
-                    args_offset=0x0,
-                    args_size=0x0,
-                    ret_offset=0x0,
-                    ret_size=0x0,
-                ),
-            ),
+            value=Op.CALL(gas=100000, address=contract_b, value=0x18),
         )
+        + Op.SELFDESTRUCT(address=contract_b)
         + Op.STOP,
-        balance=23,
-        nonce=0,
-        address=Address(0x24940009F045E4134ED2AB242BE610D312FE9A29),  # noqa: E501
+        balance=0xDE0B6B3A7640000,
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        value=0x186A0,
-    )
+    tx = Transaction(sender=sender, to=contract_a)
 
-    post = {addr: Account(storage={38: 1})}
+    # B's store key is the offset of its PC, right after the value.
+    post = {contract_b: Account(storage={len(b_value): 1})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
