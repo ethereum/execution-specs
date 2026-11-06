@@ -336,19 +336,45 @@ class StateTest(BaseTest):
             )
 
         if self.env.excess_blob_gas:
-            # The excess blob gas environment value means the value of the
-            # context (block header) where the transaction is executed. In a
-            # blockchain test, we need to indirectly set the excess blob gas by
-            # setting the excess blob gas of the genesis block to the expected
-            # value plus the BLOB_TARGET_GAS_PER_BLOCK, which is the value that
-            # will be subtracted from the excess blob gas when the first block
-            # is mined.
-            kwargs["excess_blob_gas"] = self.env.excess_blob_gas + (
-                genesis_fork.target_blobs_per_block()
-                * genesis_fork.blob_gas_per_blob()
+            kwargs["excess_blob_gas"] = self._genesis_excess_blob_gas(
+                genesis_fork=genesis_fork,
+                genesis_base_fee_per_gas=Environment(**kwargs)
+                .set_fork_requirements(genesis_fork)
+                .base_fee_per_gas,
             )
 
         return Environment(**kwargs)
+
+    def _genesis_excess_blob_gas(
+        self, *, genesis_fork: Fork, genesis_base_fee_per_gas: Any
+    ) -> int:
+        """
+        Return the genesis excess blob gas from which the first block, which
+        uses no blob gas, computes the state test's excess blob gas.
+
+        That is one block's blob gas target more, except from EIP-7918 on,
+        where a parent base fee above the blob reserve price leaves the
+        excess unchanged. In that case an excess below one block's target
+        cannot follow any genesis, so the genesis adds the target as before.
+        """
+        excess_blob_gas = int(self.env.excess_blob_gas or 0)
+        fork = self.fork.fork_at(
+            block_number=self.env.number, timestamp=self.env.timestamp
+        )
+        calculator = fork.excess_blob_gas_calculator()
+        target = (
+            genesis_fork.target_blobs_per_block()
+            * genesis_fork.blob_gas_per_blob()
+        )
+        for candidate in (excess_blob_gas + target, excess_blob_gas):
+            child = calculator(
+                parent_excess_blob_gas=candidate,
+                parent_blob_gas_used=0,
+                parent_base_fee_per_gas=int(genesis_base_fee_per_gas or 0),
+            )
+            if child == excess_blob_gas:
+                return candidate
+        return excess_blob_gas + target
 
     def _generate_blockchain_blocks(self) -> List[Block]:
         """

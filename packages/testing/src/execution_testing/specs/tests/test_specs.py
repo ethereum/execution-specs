@@ -11,7 +11,14 @@ from execution_testing.fixtures import (
     LabeledFixtureFormat,
     StateFixture,
 )
-from execution_testing.forks import Amsterdam, Istanbul
+from execution_testing.forks import (
+    Amsterdam,
+    Cancun,
+    Fork,
+    Istanbul,
+    Osaka,
+    Prague,
+)
 from execution_testing.test_types import Alloc, Environment, Transaction
 
 from ..base import BaseTest
@@ -200,6 +207,60 @@ def test_state_test_conversion_checks_the_env_first() -> None:
     )
     with pytest.raises(ValueError, match="excess_blob_gas"):
         state_test.generate_blockchain_test()
+
+
+@pytest.mark.parametrize("fork", [Cancun, Prague, Osaka, Amsterdam])
+@pytest.mark.parametrize(
+    "base_fee_per_gas,excess_blob_gas",
+    [
+        (7, 1),
+        (7, 2**17),
+        (7, 10**7),
+        # From EIP-7918 on these base fees are above the blob reserve
+        # price, and only an excess of at least one block's target can
+        # follow a genesis.
+        (1000, 10**7),
+        (10**9, 10**7),
+    ],
+)
+def test_state_test_blockchain_form_keeps_the_block_env(
+    fork: Fork, base_fee_per_gas: int, excess_blob_gas: int
+) -> None:
+    """
+    Verify the block a state test's blockchain form runs in has the state
+    test's base fee and excess blob gas.
+
+    From EIP-7918 on, a parent base fee above the blob reserve price keeps
+    the excess blob gas unchanged, so the genesis cannot always add a
+    block's target.
+    """
+    state_test = StateTest(
+        env=Environment(
+            base_fee_per_gas=base_fee_per_gas, excess_blob_gas=excess_blob_gas
+        ),
+        pre=Alloc(),
+        post=Alloc(),
+        tx=Transaction(),
+        fork=fork,
+    )
+    blockchain_test = state_test.generate_blockchain_test()
+    genesis = blockchain_test.genesis_environment.set_fork_requirements(fork)
+    assert genesis.base_fee_per_gas is not None
+    assert genesis.excess_blob_gas is not None
+    block_base_fee = fork.base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=int(genesis.base_fee_per_gas),
+        parent_gas_used=0,
+        parent_gas_limit=int(genesis.gas_limit),
+    )
+    block_excess_blob_gas = fork.excess_blob_gas_calculator()(
+        parent_excess_blob_gas=int(genesis.excess_blob_gas),
+        parent_blob_gas_used=0,
+        parent_base_fee_per_gas=int(genesis.base_fee_per_gas),
+    )
+    assert (block_base_fee, block_excess_blob_gas) == (
+        base_fee_per_gas,
+        excess_blob_gas,
+    )
 
 
 def test_blobs_test_rejects_empty_custody_columns_updates() -> None:
