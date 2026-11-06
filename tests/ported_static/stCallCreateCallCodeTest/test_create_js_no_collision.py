@@ -8,10 +8,8 @@ state_tests/stCallCreateCallCodeTest/createJS_NoCollisionFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     StateTestFiller,
     Transaction,
@@ -33,17 +31,7 @@ def test_create_js_no_collision(
     pre: Alloc,
 ) -> None:
     """Deploy legacy contract normally."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x9184E72A000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=3000000 if fork >= Amsterdam else 1000000,
-    )
 
     tx = Transaction(
         sender=sender,
@@ -61,4 +49,4 @@ def test_create_js_no_collision(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

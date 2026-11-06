@@ -14,10 +14,8 @@ the higher gas budget doesn't change that post-state on any fork.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -39,7 +37,6 @@ def test_create_contract_via_transaction_cost53000(
     fork: Fork,
 ) -> None:
     """Trigger transaction creating gasPrice in the state."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     # On EIP-8037 the contract-creation tx needs more gas to clear the
     # intrinsic floor, and the sender therefore needs more balance to
     # afford the upfront cost. Pre-EIP-8037 keeps the original values.
@@ -50,15 +47,6 @@ def test_create_contract_via_transaction_cost53000(
         sender_amount = 0x4C4B40
     sender = pre.fund_eoa(amount=sender_amount)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
     tx = Transaction(
         sender=sender,
         to=None,
@@ -68,4 +56,4 @@ def test_create_contract_via_transaction_cost53000(
 
     post = {sender: Account(nonce=1)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Environment,
     Fork,
     StateTestFiller,
     Transaction,
@@ -32,12 +31,6 @@ def test_test_random_test(
     pre: Alloc,
 ) -> None:
     """Test_test_random_test."""
-    env = Environment(
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        gas_limit=3000000 if fork >= Amsterdam else 1000000,
-    )
     sender = pre.fund_eoa()
 
     # Source: raw
@@ -76,4 +69,4 @@ def test_test_random_test(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
