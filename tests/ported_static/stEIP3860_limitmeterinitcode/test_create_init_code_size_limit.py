@@ -1,14 +1,14 @@
 """
-Test_create_init_code_size_limit.
+Run CREATE/CREATE2 with init code at and one byte over the size limit.
 
 Ported from:
 state_tests/Shanghai/stEIP3860_limitmeterinitcode/createInitCodeSizeLimitFiller.yml
+state_tests/Shanghai/stEIP3860_limitmeterinitcode/create2InitCodeSizeLimitFiller.yml
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Hash,
     StateTestFiller,
@@ -18,52 +18,41 @@ from execution_testing import (
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
-
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+CREATE_GAS_AT_LIMIT = {Op.CREATE: 46323, Op.CREATE2: 55539}
 
 
 @pytest.mark.ported_from(
     [
-        "state_tests/Shanghai/stEIP3860_limitmeterinitcode/createInitCodeSizeLimitFiller.yml"  # noqa: E501
+        "state_tests/Shanghai/stEIP3860_limitmeterinitcode/createInitCodeSizeLimitFiller.yml",  # noqa: E501
+        "state_tests/Shanghai/stEIP3860_limitmeterinitcode/create2InitCodeSizeLimitFiller.yml",  # noqa: E501
     ],
 )
 @pytest.mark.valid_from("Cancun")
-# Kept before EIP-7954: the 0xC000 / 0xC001 initcode sizes are baked into
-# the vectors. The raised limit is covered with fork-derived sizes by
+# Kept before EIP-7954: the measured CREATE gas is pinned for the 0xC000
+# initcode size. The raised limit is covered with fork-derived sizes by
 # tests/shanghai/eip3860_initcode and
 # tests/amsterdam/eip7954_increase_max_contract_size.
 @pytest.mark.valid_before("EIP7954")
+@pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
 @pytest.mark.parametrize(
-    "d, g, v",
-    [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="valid",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="invalid",
-        ),
-    ],
+    "oversize", [pytest.param(0, id="valid"), pytest.param(1, id="invalid")]
 )
 def test_create_init_code_size_limit(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    opcode: Op,
+    oversize: int,
 ) -> None:
-    """Test_create_init_code_size_limit."""
-    sender = pre.fund_eoa(amount=0xBEBC200)
+    """Run CREATE/CREATE2 with init code at and over the size limit."""
+    sender = pre.fund_eoa()
+    initcode_size = fork.max_initcode_size() + oversize
+    salt = 0xDEADBEEF
+    runtime_code = bytes.fromhex("600a80600080396000f3")
+    initcode = runtime_code.ljust(initcode_size, b"\0")
 
     # Source: yul
     # berlin
@@ -73,46 +62,54 @@ def test_create_init_code_size_limit(
     #   // get initcode size from calldata
     #   let initcode_size := calldataload(0)
     #   let gas_before := gas()
-    #   let create_result := create(0, 0, initcode_size)
+    #   let create_result := create2(0, 0, initcode_size, 0xdeadbeef)
     #   sstore(10, sub(gas_before, gas()))
     #   sstore(0, create_result)
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.SHL(0xB0, 0x600A80600080396000F3)
+    creator_code = (
+        Op.SHL(0xB0, int.from_bytes(runtime_code, "big"))
         + Op.PUSH1[0x0]
         + Op.SWAP1
         + Op.DUP2
         + Op.MSTORE
         + Op.CALLDATALOAD
-        + Op.GAS
-        + Op.SWAP1
-        + Op.PUSH1[0x0]
-        + Op.DUP1
-        + Op.CREATE
-        + Op.SWAP1
+    )
+    if opcode == Op.CREATE2:
+        creator_code += (
+            Op.PUSH4[salt]
+            + Op.GAS
+            + Op.SWAP2
+            + Op.PUSH1[0x0]
+            + Op.DUP1
+            + Op.CREATE2
+        )
+    else:
+        creator_code += Op.GAS + Op.SWAP1 + Op.PUSH1[0x0] + Op.DUP1 + Op.CREATE
+    creator_code += (
+        Op.SWAP1
         + Op.GAS
         + Op.SWAP1
         + Op.SSTORE(key=0xA, value=Op.SUB)
         + Op.PUSH1[0x0]
         + Op.SSTORE
-        + Op.STOP,
-        nonce=1,
+        + Op.STOP
     )
+    creator = pre.deploy_contract(code=creator_code)
     # Source: yul
     # berlin
     # {
     #   mstore(0, calldataload(0))
-    #   let call_result := call(10000000, 0xc0de, 0, 0, calldatasize(), 0, 0)
+    #   let call_result := call(10000000, <creator>, 0, 0, calldatasize(), 0, 0)  # noqa: E501
     #   sstore(0, call_result)
     #   sstore(1, 1)
     # }
-    contract_0 = pre.deploy_contract(
+    caller = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
         + Op.SSTORE(
             key=0x0,
             value=Op.CALL(
                 gas=0x989680,
-                address=contract_1,
+                address=creator,
                 value=Op.DUP1,
                 args_offset=Op.DUP2,
                 args_size=Op.CALLDATASIZE,
@@ -122,58 +119,30 @@ def test_create_init_code_size_limit(
         )
         + Op.SSTORE(key=Op.DUP1, value=0x1)
         + Op.STOP,
-        nonce=1,
+    )
+    created = compute_create_address(
+        address=creator, nonce=1, salt=salt, initcode=initcode, opcode=opcode
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(storage={0: 1, 1: 1}),
-                contract_1: Account(
-                    storage={
-                        0: compute_create_address(address=contract_1, nonce=1),
-                        10: 46323,
-                    },
-                ),
-                compute_create_address(address=contract_1, nonce=1): Account(
-                    storage={},
-                    code=bytes.fromhex("600a80600080396000f3"),
-                    balance=0,
-                    nonce=1,
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(storage={0: 0, 1: 1}, nonce=1),
-                contract_1: Account(storage={}),
-                Address(
-                    0x682327124C5D2DC0CD2158BA65D37AC3D2140C91
-                ): Account.NONEXISTENT,
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Hash(0xC000),
-        Hash(0xC001),
-    ]
-    tx_gas = [15000000]
+    post: dict = {sender: Account(nonce=1)}
+    if oversize:
+        post[caller] = Account(storage={0: 0, 1: 1})
+        post[creator] = Account(storage={}, nonce=1)
+        post[created] = Account.NONEXISTENT
+    else:
+        post[caller] = Account(storage={0: 1, 1: 1})
+        post[creator] = Account(
+            storage={0: created, 10: CREATE_GAS_AT_LIMIT[opcode]}, nonce=2
+        )
+        post[created] = Account(
+            storage={}, code=runtime_code, balance=0, nonce=1
+        )
 
     tx = Transaction(
         sender=sender,
-        to=contract_0,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        error=_exc,
+        to=caller,
+        data=Hash(initcode_size),
+        gas_limit=15_000_000,
     )
 
     state_test(pre=pre, post=post, tx=tx)
