@@ -27,10 +27,9 @@ Amsterdam numbers.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
+    Bytecode,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -44,6 +43,34 @@ from tests.ported_static.post_state_resolution import (
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+
+def if_then(
+    start: int, condition: Bytecode, body: Bytecode, has_value: bool
+) -> Bytecode:
+    """
+    Build the LLL `(if condition body NOP)` layout at code offset `start`.
+
+    Jump destinations are derived from the code length, so the layout
+    holds for any address push width.
+    """
+    skip = Op.PUSH1[0] if has_value else Op.POP(0)
+    head = (
+        len(Op.JUMPI(pc=Op.PUSH2[0], condition=condition))
+        + len(skip)
+        + len(Op.JUMP(pc=Op.PUSH2[0]))
+    )
+    then = start + head
+    end = then + len(Op.JUMPDEST) + len(body)
+    code = (
+        Op.JUMPI(pc=Op.PUSH2[then], condition=condition)
+        + skip
+        + Op.JUMP(pc=Op.PUSH2[end])
+        + Op.JUMPDEST
+        + body
+        + Op.JUMPDEST
+    )
+    return code + Op.POP if has_value else code
 
 
 @pytest.mark.ported_from(
@@ -283,7 +310,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_eip2929(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -293,29 +319,13 @@ def test_eip2929(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x000000000000000000000000000000000000CA11)
-    contract_1 = Address(0x000000000000000000000000000000CA1100CA11)
-    contract_2 = Address(0x00000000000000000000000000000000CA110100)
-    contract_3 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     # Source: raw
     # 0x00
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000CA11),  # noqa: E501
     )
     # Source: lll
     # {
@@ -324,18 +334,14 @@ def test_eip2929(
     contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SLOAD(key=0x100) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x00000000000000000000000000000000CA110100),  # noqa: E501
     )
     # Source: lll
     # {
     #      (balance 0xca11)
     # }
     contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.BALANCE(address=0xCA11) + Op.STOP,
+        code=Op.BALANCE(address=contract_0) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000CA1100CA11),  # noqa: E501
     )
     # Source: lll
     # {
@@ -369,491 +375,52 @@ def test_eip2929(
     #        (if (= @operation 21) (call 0x1000 0xca11 0 0 0 0 0) NOP) ; CALL
     #        (if (= @operation 22) (callcode 0x1000 0xca11 0 0 0 0 0) NOP) ; CALLCODE  # noqa: E501
     # ... (35 more lines)
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.GAS)
+    measured = [
+        (0x1, Op.SLOAD(key=0x100), True),
+        (0x2, Op.SSTORE(key=0x100, value=0x5), False),
+        (0xB, Op.BALANCE(address=contract_0), True),
+        (0xC, Op.EXTCODESIZE(address=contract_0), True),
+        (
+            0xD,
+            Op.EXTCODECOPY(
+                address=contract_0, dest_offset=0, offset=0, size=0
+            ),
+            False,
+        ),
+        (0xE, Op.EXTCODEHASH(address=contract_0), True),
+        (0x15, Op.CALL(gas=0x1000, address=contract_0), True),
+        (0x16, Op.CALLCODE(gas=0x1000, address=contract_0), True),
+        (0x17, Op.DELEGATECALL(gas=0x1000, address=contract_0), True),
+        (0x18, Op.STATICCALL(gas=0x1000, address=contract_0), True),
+        (0x1F, Op.CALL(gas=0x1000, address=contract_1), True),
+        (0x20, Op.CALLCODE(gas=0x1000, address=contract_2), True),
+        (0x21, Op.DELEGATECALL(gas=0x1000, address=contract_2), True),
+    ]
+    measurement = (
+        Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.MSTORE(offset=0x20, value=Op.GAS)
         + Op.POP(Op.BALANCE(address=contract_1))
         + Op.POP(Op.BALANCE(address=contract_2))
-        + Op.MSTORE(offset=0x40, value=Op.CALLDATALOAD(offset=0x4))
-        + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.JUMPI(
-            pc=Op.PUSH2[0x31], condition=Op.EQ(Op.MLOAD(offset=0x40), 0x1)
-        )
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=Op.PUSH2[0x36])
-        + Op.JUMPDEST
-        + Op.SLOAD(key=0x100)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(
-            pc=Op.PUSH2[0x49], condition=Op.EQ(Op.MLOAD(offset=0x40), 0x2)
-        )
-        + Op.POP(0x0)
-        + Op.JUMP(pc=Op.PUSH2[0x50])
-        + Op.JUMPDEST
-        + Op.SSTORE(key=0x100, value=0x5)
-        + Op.JUMPDEST
-        + Op.JUMPI(
-            pc=Op.PUSH2[0x61], condition=Op.EQ(Op.MLOAD(offset=0x40), 0xB)
-        )
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=Op.PUSH2[0x66])
-        + Op.JUMPDEST
-        + Op.BALANCE(address=contract_0)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(
-            pc=Op.PUSH2[0x78], condition=Op.EQ(Op.MLOAD(offset=0x40), 0xC)
-        )
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=Op.PUSH2[0x7D])
-        + Op.JUMPDEST
-        + Op.EXTCODESIZE(address=contract_0)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(
-            pc=Op.PUSH2[0x90], condition=Op.EQ(Op.MLOAD(offset=0x40), 0xD)
-        )
-        + Op.POP(0x0)
-        + Op.JUMP(pc=Op.PUSH2[0x9B])
-        + Op.JUMPDEST
-        + Op.EXTCODECOPY(
-            address=contract_0, dest_offset=0x0, offset=0x0, size=0x0
-        )
-        + Op.JUMPDEST
-        + Op.JUMPI(
-            pc=Op.PUSH2[0xAC], condition=Op.EQ(Op.MLOAD(offset=0x40), 0xE)
-        )
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=Op.PUSH2[0xB1])
-        + Op.JUMPDEST
-        + Op.EXTCODEHASH(address=contract_0)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(
-            pc=Op.PUSH2[0xC3], condition=Op.EQ(Op.MLOAD(offset=0x40), 0x15)
-        )
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=Op.PUSH2[0xD5])
-        + Op.JUMPDEST
-        + Op.CALL(
-            gas=0x1000,
-            address=contract_0,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(
-            pc=Op.PUSH2[0xE7], condition=Op.EQ(Op.MLOAD(offset=0x40), 0x16)
-        )
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=Op.PUSH2[0xF9])
-        + Op.JUMPDEST
-        + Op.CALLCODE(
-            gas=0x1000,
-            address=contract_0,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x10B, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x17))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x11B)
-        + Op.JUMPDEST
-        + Op.DELEGATECALL(
-            gas=0x1000,
-            address=contract_0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x12D, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x18))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x13D)
-        + Op.JUMPDEST
-        + Op.STATICCALL(
-            gas=0x1000,
-            address=contract_0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x14F, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x1F))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x164)
-        + Op.JUMPDEST
-        + Op.CALL(
-            gas=0x1000,
-            address=contract_1,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x176, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x20))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x18A)
-        + Op.JUMPDEST
-        + Op.CALLCODE(
-            gas=0x1000,
-            address=contract_2,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x19C, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x21))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x1AE)
-        + Op.JUMPDEST
-        + Op.DELEGATECALL(
-            gas=0x1000,
-            address=contract_2,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.MSTORE(offset=0x20, value=Op.GAS)
-        + Op.SSTORE(
-            key=0x0,
+    )
+    for slot in range(3):
+        measurement += Op.MSTORE(
+            offset=0x40, value=Op.CALLDATALOAD(offset=4 + 32 * slot)
+        ) + Op.MSTORE(offset=0x0, value=Op.GAS)
+        for operation, body, has_value in measured:
+            condition = Op.EQ(Op.MLOAD(offset=0x40), operation)
+            measurement += if_then(
+                len(measurement), condition, body, has_value
+            )
+        measurement += Op.MSTORE(offset=0x20, value=Op.GAS) + Op.SSTORE(
+            key=slot,
             value=Op.SUB(
                 Op.SUB(Op.MLOAD(offset=0x0), Op.MLOAD(offset=0x20)), 0x22A
             ),
         )
-        + Op.MSTORE(offset=0x40, value=Op.CALLDATALOAD(offset=0x24))
-        + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.JUMPI(pc=0x1DC, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x1))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x1E1)
-        + Op.JUMPDEST
-        + Op.SLOAD(key=0x100)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x1F4, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x2))
-        + Op.POP(0x0)
-        + Op.JUMP(pc=0x1FB)
-        + Op.JUMPDEST
-        + Op.SSTORE(key=0x100, value=0x5)
-        + Op.JUMPDEST
-        + Op.JUMPI(pc=0x20C, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xB))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x211)
-        + Op.JUMPDEST
-        + Op.BALANCE(address=contract_0)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x223, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xC))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x228)
-        + Op.JUMPDEST
-        + Op.EXTCODESIZE(address=contract_0)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x23B, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xD))
-        + Op.POP(0x0)
-        + Op.JUMP(pc=0x246)
-        + Op.JUMPDEST
-        + Op.EXTCODECOPY(
-            address=contract_0, dest_offset=0x0, offset=0x0, size=0x0
-        )
-        + Op.JUMPDEST
-        + Op.JUMPI(pc=0x257, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xE))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x25C)
-        + Op.JUMPDEST
-        + Op.EXTCODEHASH(address=contract_0)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x26E, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x15))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x280)
-        + Op.JUMPDEST
-        + Op.CALL(
-            gas=0x1000,
-            address=contract_0,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x292, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x16))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x2A4)
-        + Op.JUMPDEST
-        + Op.CALLCODE(
-            gas=0x1000,
-            address=contract_0,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x2B6, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x17))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x2C6)
-        + Op.JUMPDEST
-        + Op.DELEGATECALL(
-            gas=0x1000,
-            address=contract_0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x2D8, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x18))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x2E8)
-        + Op.JUMPDEST
-        + Op.STATICCALL(
-            gas=0x1000,
-            address=contract_0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x2FA, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x1F))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x30F)
-        + Op.JUMPDEST
-        + Op.CALL(
-            gas=0x1000,
-            address=contract_1,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x321, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x20))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x335)
-        + Op.JUMPDEST
-        + Op.CALLCODE(
-            gas=0x1000,
-            address=contract_2,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x347, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x21))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x359)
-        + Op.JUMPDEST
-        + Op.DELEGATECALL(
-            gas=0x1000,
-            address=contract_2,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.MSTORE(offset=0x20, value=Op.GAS)
-        + Op.SSTORE(
-            key=0x1,
-            value=Op.SUB(
-                Op.SUB(Op.MLOAD(offset=0x0), Op.MLOAD(offset=0x20)), 0x22A
-            ),
-        )
-        + Op.MSTORE(offset=0x40, value=Op.CALLDATALOAD(offset=0x44))
-        + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.JUMPI(pc=0x387, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x1))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x38C)
-        + Op.JUMPDEST
-        + Op.SLOAD(key=0x100)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x39F, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x2))
-        + Op.POP(0x0)
-        + Op.JUMP(pc=0x3A6)
-        + Op.JUMPDEST
-        + Op.SSTORE(key=0x100, value=0x5)
-        + Op.JUMPDEST
-        + Op.JUMPI(pc=0x3B7, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xB))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x3BC)
-        + Op.JUMPDEST
-        + Op.BALANCE(address=contract_0)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x3CE, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xC))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x3D3)
-        + Op.JUMPDEST
-        + Op.EXTCODESIZE(address=contract_0)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x3E6, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xD))
-        + Op.POP(0x0)
-        + Op.JUMP(pc=0x3F1)
-        + Op.JUMPDEST
-        + Op.EXTCODECOPY(
-            address=contract_0, dest_offset=0x0, offset=0x0, size=0x0
-        )
-        + Op.JUMPDEST
-        + Op.JUMPI(pc=0x402, condition=Op.EQ(Op.MLOAD(offset=0x40), 0xE))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x407)
-        + Op.JUMPDEST
-        + Op.EXTCODEHASH(address=contract_0)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x419, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x15))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x42B)
-        + Op.JUMPDEST
-        + Op.CALL(
-            gas=0x1000,
-            address=contract_0,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x43D, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x16))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x44F)
-        + Op.JUMPDEST
-        + Op.CALLCODE(
-            gas=0x1000,
-            address=contract_0,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x461, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x17))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x471)
-        + Op.JUMPDEST
-        + Op.DELEGATECALL(
-            gas=0x1000,
-            address=contract_0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x483, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x18))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x493)
-        + Op.JUMPDEST
-        + Op.STATICCALL(
-            gas=0x1000,
-            address=contract_0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x4A5, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x1F))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x4BA)
-        + Op.JUMPDEST
-        + Op.CALL(
-            gas=0x1000,
-            address=contract_1,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x4CC, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x20))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x4E0)
-        + Op.JUMPDEST
-        + Op.CALLCODE(
-            gas=0x1000,
-            address=contract_2,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(pc=0x4F2, condition=Op.EQ(Op.MLOAD(offset=0x40), 0x21))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x504)
-        + Op.JUMPDEST
-        + Op.DELEGATECALL(
-            gas=0x1000,
-            address=contract_2,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.MSTORE(offset=0x20, value=Op.GAS)
-        + Op.SSTORE(
-            key=0x2,
-            value=Op.SUB(
-                Op.SUB(Op.MLOAD(offset=0x0), Op.MLOAD(offset=0x20)), 0x22A
-            ),
-        )
-        + Op.SSTORE(key=0x100, value=0x0)
-        + Op.STOP,
+    contract_3 = pre.deploy_contract(
+        code=measurement + Op.SSTORE(key=0x100, value=0x0) + Op.STOP,
         storage={256: 24743},
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
     )
 
     # EIP-8038 access-repricing component deltas (each 0 pre-EIP-8037).
@@ -1111,4 +678,4 @@ def test_eip2929(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
