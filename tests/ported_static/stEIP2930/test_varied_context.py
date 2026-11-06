@@ -23,16 +23,16 @@ under-funded cold path still runs out of gas.
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
     Address,
     Alloc,
     Bytes,
-    Environment,
+    Conditional,
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create2_address,
     compute_create_address,
 )
 from execution_testing.forks import Cancun, Fork
@@ -44,6 +44,8 @@ from tests.ported_static.post_state_resolution import (
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+CREATE2_SALT = 0x5A17
 
 
 @pytest.mark.ported_from(
@@ -271,7 +273,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_varied_context(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -281,47 +282,8 @@ def test_varied_context(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x0000000000000000000000000000000000001000)
-    contract_1 = Address(0x0000000000000000000000000000000000001001)
-    contract_2 = Address(0x0000000000000000000000000000000000001002)
-    contract_3 = Address(0x000000000000000000000000000000000000C057)
-    contract_4 = Address(0x0000000000000000000000000000000000001003)
-    contract_5 = Address(0x00000000000000000000000000000000EAD0C057)
-    contract_6 = Address(0x0000000000000000000000000000000000001010)
-    contract_7 = Address(0x0000000000000000000000000000000000001011)
-    contract_8 = Address(0x00000000000000000000000000000000DEAD0111)
-    contract_9 = Address(0x0000000000000000000000000000000000001012)
-    contract_10 = Address(0x00000000000000000000000000000000DEAD0112)
-    contract_11 = Address(0x0000000000000000000000000000000000001013)
-    contract_12 = Address(0x000000000000000000000000000000000000F113)
-    contract_13 = Address(0x0000000000000000000000000000000000001014)
-    contract_14 = Address(0x000000000000000000000000000000000000F114)
-    contract_15 = Address(0x0000000000000000000000000000000000001015)
-    contract_16 = Address(0x000000000000000000000000000000000000F115)
-    contract_17 = Address(0x0000000000000000000000000000000000001016)
-    contract_18 = Address(0x0000000000000000000000000000000000001020)
-    contract_19 = Address(0x0000000000000000000000000000000000001021)
-    contract_20 = Address(0x0000000000000000000000000000000000001022)
-    contract_21 = Address(0x0000000000000000000000000000000000001023)
-    contract_22 = Address(0x0000000000000000000000000000000000001024)
-    contract_23 = Address(0x0000000000000000000000000000000000001025)
-    contract_24 = Address(0x0000000000000000000000000000000000001026)
-    contract_25 = Address(0x000000000000000000000000000000000000F126)
-    contract_26 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #    ; 0xC057: DELEGATE_VALID DELEGATE_INVALID
@@ -350,7 +312,7 @@ def test_varied_context(
     #
     #  ; The 16 is the cost of the extra opcodes
     # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
+    contract_3 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x2)
         + Op.MSTORE(
@@ -368,8 +330,6 @@ def test_varied_context(
         + Op.STOP,
         storage={24743: 57005},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000C057),  # noqa: E501
     )
     # Source: lll
     # {
@@ -385,7 +345,7 @@ def test_varied_context(
     #
     #  (return 0x00 0x20) ; a.k.a. @0
     # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
+    contract_5 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.MSTORE(offset=0x20, value=Op.SLOAD(key=0x60A7))
         + Op.MSTORE(
@@ -396,8 +356,6 @@ def test_varied_context(
         + Op.STOP,
         storage={24743: 57005},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x00000000000000000000000000000000EAD0C057),  # noqa: E501
     )
     # Source: lll
     # {
@@ -426,7 +384,7 @@ def test_varied_context(
     #
     #  (revert 0 0x40)
     # }
-    contract_6 = pre.deploy_contract(  # noqa: F841
+    contract_6 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x2)
         + Op.MSTORE(
@@ -443,8 +401,6 @@ def test_varied_context(
         + Op.STOP,
         storage={24743: 48879},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001010),  # noqa: E501
     )
     # Source: lll
     # {
@@ -453,13 +409,11 @@ def test_varied_context(
     #
     #    (selfdestruct 0)
     # }
-    contract_8 = pre.deploy_contract(  # noqa: F841
+    contract_8 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0xDEAD)
         + Op.SELFDESTRUCT(address=0x0)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x00000000000000000000000000000000DEAD0111),  # noqa: E501
     )
     # Source: lll
     # {
@@ -468,14 +422,12 @@ def test_varied_context(
     #
     #    (selfdestruct 0)
     # }
-    contract_10 = pre.deploy_contract(  # noqa: F841
+    contract_10 = pre.deploy_contract(
         code=Op.POP(Op.SLOAD(key=0x0))
         + Op.SELFDESTRUCT(address=0x0)
         + Op.STOP,
         storage={0: 0xDEAD0060A7},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x00000000000000000000000000000000DEAD0112),  # noqa: E501
     )
     # Source: lll
     # {  ; STATIC_WRITE_VALID     STATIC_WRITE_INVALID
@@ -485,40 +437,34 @@ def test_varied_context(
     #    [0] 0x600D
     #    (return 0 0x20)
     # }
-    contract_12 = pre.deploy_contract(  # noqa: F841
+    contract_12 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0xDEAD60A7)
         + Op.MSTORE(offset=0x0, value=0x600D)
         + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000F113),  # noqa: E501
     )
     # Source: lll
     # {  ; WRITE_INVALID_OOG    WRITE_VALID_NO_OOG
     #
     #   [[0]] 0x600D
     # }
-    contract_14 = pre.deploy_contract(  # noqa: F841
+    contract_14 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x600D) + Op.STOP,
         storage={0: 2989},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000F114),  # noqa: E501
     )
     # Source: lll
     # {  ; READ_INVALID_OOG    READ_VALID_NO_OOG
     #    [0] @@0x60A7
     #    [[0]] 0x600D
     # }
-    contract_16 = pre.deploy_contract(  # noqa: F841
+    contract_16 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.SLOAD(key=0x60A7))
         + Op.SSTORE(key=0x0, value=0x600D)
         + Op.STOP,
         storage={0: 2989, 24743: 57005},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000F115),  # noqa: E501
     )
     # Source: lll
     # {
@@ -552,7 +498,7 @@ def test_varied_context(
     #          [0] (gas)
     #          [[0]] 0xFFFF
     # ... (14 more lines)
-    contract_18 = pre.deploy_contract(  # noqa: F841
+    contract_18 = pre.deploy_contract(
         code=Op.PUSH1[0x6]
         + Op.CODECOPY(dest_offset=0x100, offset=0x33, size=Op.DUP1)
         + Op.PUSH2[0x200]
@@ -581,8 +527,6 @@ def test_varied_context(
         + Op.RETURN(offset=0x0, size=0x10)
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001020),  # noqa: E501
     )
     # Source: lll
     # {
@@ -616,7 +560,7 @@ def test_varied_context(
     #          [0] (gas)
     #          [[0]] 0xFFFF
     # ... (14 more lines)
-    contract_19 = pre.deploy_contract(  # noqa: F841
+    contract_19 = pre.deploy_contract(
         code=Op.PUSH1[0x6]
         + Op.CODECOPY(dest_offset=0x100, offset=0x36, size=Op.DUP1)
         + Op.PUSH2[0x200]
@@ -631,7 +575,7 @@ def test_varied_context(
                 value=0x0,
                 offset=0x0,
                 size=Op.ADD(0x100, Op.MLOAD(offset=0x200)),
-                salt=0x5A17,
+                salt=CREATE2_SALT,
             ),
         )
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x240))
@@ -646,8 +590,6 @@ def test_varied_context(
         + Op.RETURN(offset=0x0, size=0x10)
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001021),  # noqa: E501
     )
     # Source: lll
     # {
@@ -681,7 +623,7 @@ def test_varied_context(
     #     (lll
     #       {
     # ... (13 more lines)
-    contract_20 = pre.deploy_contract(  # noqa: F841
+    contract_20 = pre.deploy_contract(
         code=Op.PUSH1[0x13]
         + Op.CODECOPY(dest_offset=0x100, offset=0x44, size=Op.DUP1)
         + Op.PUSH2[0x200]
@@ -720,8 +662,6 @@ def test_varied_context(
         + Op.RETURN(offset=0x0, size=0x80)
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001022),  # noqa: E501
     )
     # Source: lll
     # {
@@ -755,7 +695,7 @@ def test_varied_context(
     #     (lll
     #       {
     # ... (13 more lines)
-    contract_21 = pre.deploy_contract(  # noqa: F841
+    contract_21 = pre.deploy_contract(
         code=Op.PUSH1[0x13]
         + Op.CODECOPY(dest_offset=0x100, offset=0x47, size=Op.DUP1)
         + Op.PUSH2[0x200]
@@ -770,7 +710,7 @@ def test_varied_context(
                 value=0x0,
                 offset=0x0,
                 size=Op.ADD(0x100, Op.MLOAD(offset=0x200)),
-                salt=0x5A17,
+                salt=CREATE2_SALT,
             ),
         )
         + Op.POP(
@@ -795,8 +735,6 @@ def test_varied_context(
         + Op.RETURN(offset=0x0, size=0x80)
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001023),  # noqa: E501
     )
     # Source: lll
     # {
@@ -830,7 +768,7 @@ def test_varied_context(
     #       {
     #          ; write to storage
     # ... (18 more lines)
-    contract_22 = pre.deploy_contract(  # noqa: F841
+    contract_22 = pre.deploy_contract(
         code=Op.PUSH1[0x13]
         + Op.CODECOPY(dest_offset=0x100, offset=0x44, size=Op.DUP1)
         + Op.PUSH2[0x200]
@@ -872,8 +810,6 @@ def test_varied_context(
         + Op.RETURN(offset=0x0, size=0x80)
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001024),  # noqa: E501
     )
     # Source: lll
     # {
@@ -907,7 +843,7 @@ def test_varied_context(
     #       {
     #          ; write to storage
     # ... (18 more lines)
-    contract_23 = pre.deploy_contract(  # noqa: F841
+    contract_23 = pre.deploy_contract(
         code=Op.PUSH1[0x13]
         + Op.CODECOPY(dest_offset=0x100, offset=0x47, size=Op.DUP1)
         + Op.PUSH2[0x200]
@@ -922,7 +858,7 @@ def test_varied_context(
                 value=0x0,
                 offset=0x0,
                 size=Op.ADD(0x100, Op.MLOAD(offset=0x200)),
-                salt=0x5A17,
+                salt=CREATE2_SALT,
             ),
         )
         + Op.POP(
@@ -950,8 +886,6 @@ def test_varied_context(
         + Op.RETURN(offset=0x0, size=0x80)
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001025),  # noqa: E501
     )
     # Source: lll
     # {
@@ -964,7 +898,7 @@ def test_varied_context(
     #   (if (= @@1 0) {[[1]] @0} {[[2]] @0})
     #
     # }
-    contract_25 = pre.deploy_contract(  # noqa: F841
+    contract_25 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x60A7)
         + Op.MSTORE(offset=0x0, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
@@ -976,8 +910,6 @@ def test_varied_context(
         + Op.JUMPDEST
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000F126),  # noqa: E501
     )
     # Source: lll
     # {
@@ -985,10 +917,10 @@ def test_varied_context(
     #
     #    (delegatecall (gas) 0xC057 0 0 0 0)
     # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.DELEGATECALL(
             gas=Op.GAS,
-            address=0xC057,
+            address=contract_3,
             args_offset=0x0,
             args_size=0x0,
             ret_offset=0x0,
@@ -996,18 +928,16 @@ def test_varied_context(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: lll
     # {
     #    ; CALLCODE_VALID       CALLCODE_INVALID
     #    (callcode (gas) 0xC057 0 0 0 0 0)
     # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.CALLCODE(
             gas=Op.GAS,
-            address=0xC057,
+            address=contract_3,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -1016,18 +946,16 @@ def test_varied_context(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
     # Source: lll
     # {
     #    ; CALL_VALID    CALL_INVALID
     #    (call (gas) 0xC057 0 0 0 0 0)
     # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.CALL(
             gas=Op.GAS,
-            address=0xC057,
+            address=contract_3,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -1036,8 +964,6 @@ def test_varied_context(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
     )
     # Source: lll
     # {
@@ -1047,11 +973,11 @@ def test_varied_context(
     #    (staticcall (gas) 0xEAD0C057 0 0 0 0x20)
     #    [[0]] @0
     # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
+    contract_4 = pre.deploy_contract(
         code=Op.POP(
             Op.STATICCALL(
                 gas=Op.GAS,
-                address=0xEAD0C057,
+                address=contract_5,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -1061,8 +987,6 @@ def test_varied_context(
         + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001003),  # noqa: E501
     )
     # Source: lll
     # {
@@ -1071,12 +995,12 @@ def test_varied_context(
     #    (call (gas) 0xDEAD0111 0 0 0 0 0)
     #    [[0]] (- @0 (gas) 0x7fe8)
     # }
-    contract_7 = pre.deploy_contract(  # noqa: F841
+    contract_7 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=0xDEAD0111,
+                address=contract_8,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -1089,8 +1013,6 @@ def test_varied_context(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001011),  # noqa: E501
     )
     # Source: lll
     # {
@@ -1099,12 +1021,12 @@ def test_varied_context(
     #    (call (gas) 0xDEAD0112 0 0 0 0 0)
     #    [[0]] (- @0 (gas) 0x7fe8)
     # }
-    contract_9 = pre.deploy_contract(  # noqa: F841
+    contract_9 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=0xDEAD0112,
+                address=contract_10,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -1117,8 +1039,6 @@ def test_varied_context(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001012),  # noqa: E501
     )
     # Source: lll
     # {  ; STATIC_WRITE_VALID     STATIC_WRITE_INVALID
@@ -1130,12 +1050,12 @@ def test_varied_context(
     #
     #    [[0]] @0x00
     # }
-    contract_11 = pre.deploy_contract(  # noqa: F841
+    contract_11 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0xBAD)
         + Op.POP(
             Op.STATICCALL(
                 gas=Op.GAS,
-                address=0xF113,
+                address=contract_12,
                 args_offset=0x0,
                 args_size=0x0,
                 ret_offset=0x0,
@@ -1146,8 +1066,6 @@ def test_varied_context(
         + Op.STOP,
         storage={0: 24743},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001013),  # noqa: E501
     )
     # Source: lll
     # {  ; WRITE_INVALID_OOG    WRITE_VALID_NO_OOG
@@ -1172,10 +1090,10 @@ def test_varied_context(
         _cold_reset.gas_cost(fork) - _cold_reset.gas_cost(Cancun)
     )
 
-    contract_13 = pre.deploy_contract(  # noqa: F841
+    contract_13 = pre.deploy_contract(
         code=Op.CALL(
             gas=valid_write_gas,
-            address=0xF114,
+            address=contract_14,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -1184,17 +1102,15 @@ def test_varied_context(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001014),  # noqa: E501
     )
     # Source: lll
     # {  ; READ_INVALID_OOG    READ_VALID_NO_OOG
     #    (call 0x1800 0xF115 0 0 0 0 0x20)
     # }
-    contract_15 = pre.deploy_contract(  # noqa: F841
+    contract_15 = pre.deploy_contract(
         code=Op.CALL(
             gas=valid_read_gas,
-            address=0xF115,
+            address=contract_16,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -1203,8 +1119,6 @@ def test_varied_context(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001015),  # noqa: E501
     )
     # Source: lll
     # {
@@ -1212,11 +1126,11 @@ def test_varied_context(
     #   (call (gas) 0xF126 0 0 0 0 0)
     #   (call (gas) 0xF126 0 0 0 0 0)
     # }
-    contract_24 = pre.deploy_contract(  # noqa: F841
+    contract_24 = pre.deploy_contract(
         code=Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=0xF126,
+                address=contract_25,
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -1226,7 +1140,7 @@ def test_varied_context(
         )
         + Op.CALL(
             gas=Op.GAS,
-            address=0xF126,
+            address=contract_25,
             value=0x0,
             args_offset=0x0,
             args_size=0x0,
@@ -1235,8 +1149,6 @@ def test_varied_context(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001026),  # noqa: E501
     )
     # Source: lll
     # {
@@ -1247,11 +1159,11 @@ def test_varied_context(
     #     [[0]] @0x00
     #     [[1]] @0x20
     # }
-    contract_26 = pre.deploy_contract(  # noqa: F841
+    contract_26 = pre.deploy_contract(
         code=Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+                address=Op.CALLDATALOAD(offset=0x4),
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -1262,8 +1174,6 @@ def test_varied_context(
         + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20))
         + Op.STOP,
-        nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
     # Source: lll
     # {  ; RECURSE_VALID   RECURSE_INVALID
@@ -1297,7 +1207,7 @@ def test_varied_context(
     #
     #
     # ... (13 more lines)
-    contract_17 = pre.deploy_contract(  # noqa: F841
+    contract_17 = pre.deploy_contract(
         code=Op.POP(Op.SLOAD(key=0x0))
         + Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0xBEEF, value=0x2)
@@ -1335,26 +1245,14 @@ def test_varied_context(
         + Op.SSTORE(
             key=Op.ADD(0x400, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x60)
         )
-        + Op.JUMPI(pc=0x9B, condition=Op.GT(Op.SLOAD(key=0x0), 0x0))
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0xB4)
-        + Op.JUMPDEST
-        + Op.SSTORE(key=0x0, value=Op.SUB(Op.SLOAD(key=0x0), 0x1))
-        + Op.CALL(
-            gas=Op.GAS,
-            address=0x1016,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
+        + Conditional(
+            condition=Op.GT(Op.SLOAD(key=0x0), 0x0),
+            if_true=Op.SSTORE(key=0x0, value=Op.SUB(Op.SLOAD(key=0x0), 0x1))
+            + Op.POP(Op.CALL(address=Op.ADDRESS)),
         )
-        + Op.JUMPDEST
         + Op.STOP,
         storage={0: 15, 24743: 57005},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001016),  # noqa: E501
     )
 
     # EIP-8037/8038 reprice several access components. With an empty
@@ -1362,6 +1260,41 @@ def test_varied_context(
     # regular gas, which `Op.GAS` observes. Derive each delta from the
     # fork's own gas model so it is exactly 0 pre-EIP-8037 and tracks
     # parameter changes.
+    def create_initcode(
+        creator: Address, head: tuple[int, int], tail: tuple[int, int]
+    ) -> bytes:
+        """
+        Return the init code a creator assembles from its own code.
+
+        `head` (offset, size) is copied to memory 0 and `tail` to 0x100.
+        """
+        account = pre[creator]
+        assert account is not None
+        code = bytes(account.code)
+        return (
+            code[head[0] : head[0] + head[1]].ljust(0x100, b"\0")
+            + code[tail[0] : tail[0] + tail[1]]
+        )
+
+    created_18 = compute_create_address(address=contract_18, nonce=1)
+    created_20 = compute_create_address(address=contract_20, nonce=1)
+    created_22 = compute_create_address(address=contract_22, nonce=1)
+    created_19 = compute_create2_address(
+        contract_19,
+        CREATE2_SALT,
+        create_initcode(contract_19, (0x3C, 0x21), (0x36, 0x6)),
+    )
+    created_21 = compute_create2_address(
+        contract_21,
+        CREATE2_SALT,
+        create_initcode(contract_21, (0x5A, 0xF), (0x47, 0x13)),
+    )
+    created_23 = compute_create2_address(
+        contract_23,
+        CREATE2_SALT,
+        create_initcode(contract_23, (0x5A, 0x21), (0x47, 0x13)),
+    )
+
     gas_costs = fork.gas_costs()
 
     def _sstore_delta(**metadata: int) -> int:
@@ -1762,7 +1695,7 @@ def test_varied_context(
             "indexes": {"data": [22], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                compute_create_address(address=contract_18, nonce=0): Account(
+                created_18: Account(
                     storage={0: 65535, 1: (20017 + warm_set_delta)}
                 ),
             },
@@ -1771,7 +1704,7 @@ def test_varied_context(
             "indexes": {"data": [23], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                compute_create_address(address=contract_18, nonce=0): Account(
+                created_18: Account(
                     storage={0: 65535, 1: (22117 + cold_set_delta)}
                 ),
             },
@@ -1780,7 +1713,7 @@ def test_varied_context(
             "indexes": {"data": [24], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address(0xD82F21135ED7D7D833A9F2A0F1CF6C3DA214B8E3): Account(
+                created_19: Account(
                     storage={0: 65535, 1: (20017 + warm_set_delta)}
                 ),
             },
@@ -1789,7 +1722,7 @@ def test_varied_context(
             "indexes": {"data": [25], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address(0xD82F21135ED7D7D833A9F2A0F1CF6C3DA214B8E3): Account(
+                created_19: Account(
                     storage={0: 65535, 1: (22117 + cold_set_delta)}
                 ),
             },
@@ -1798,7 +1731,7 @@ def test_varied_context(
             "indexes": {"data": [26], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                compute_create_address(address=contract_20, nonce=0): Account(
+                created_20: Account(
                     storage={0: 65535, 1: (20017 + warm_set_delta)}
                 ),
             },
@@ -1807,7 +1740,7 @@ def test_varied_context(
             "indexes": {"data": [27], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                compute_create_address(address=contract_20, nonce=0): Account(
+                created_20: Account(
                     storage={0: 65535, 1: (22117 + cold_set_delta)}
                 ),
             },
@@ -1816,7 +1749,7 @@ def test_varied_context(
             "indexes": {"data": [28], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address(0x530508498D2AA75D8E591612809FEC3D37A45615): Account(
+                created_21: Account(
                     storage={0: 65535, 1: (20017 + warm_set_delta)}
                 ),
             },
@@ -1825,7 +1758,7 @@ def test_varied_context(
             "indexes": {"data": [29], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address(0x530508498D2AA75D8E591612809FEC3D37A45615): Account(
+                created_21: Account(
                     storage={0: 65535, 1: (22117 + cold_set_delta)}
                 ),
             },
@@ -1834,7 +1767,7 @@ def test_varied_context(
             "indexes": {"data": [30], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                compute_create_address(address=contract_22, nonce=0): Account(
+                created_22: Account(
                     storage={0: 65535, 1: (20017 + warm_set_delta), 2: 117}
                 ),
             },
@@ -1843,7 +1776,7 @@ def test_varied_context(
             "indexes": {"data": [31], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                compute_create_address(address=contract_22, nonce=0): Account(
+                created_22: Account(
                     storage={0: 65535, 1: (22117 + cold_set_delta), 2: 117}
                 ),
             },
@@ -1852,7 +1785,7 @@ def test_varied_context(
             "indexes": {"data": [32], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address(0x83FBDAE70258AC0FA837B701CC63CEDF48D4B6BF): Account(
+                created_23: Account(
                     storage={0: 65535, 1: (20017 + warm_set_delta), 2: 117}
                 ),
             },
@@ -1861,7 +1794,7 @@ def test_varied_context(
             "indexes": {"data": [33], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address(0x83FBDAE70258AC0FA837B701CC63CEDF48D4B6BF): Account(
+                created_23: Account(
                     storage={0: 65535, 1: (22117 + cold_set_delta), 2: 117}
                 ),
             },
@@ -1889,44 +1822,43 @@ def test_varied_context(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("693c6139") + Hash(0x0),
-        Bytes("693c6139") + Hash(0x0),
-        Bytes("693c6139") + Hash(0x2),
-        Bytes("693c6139") + Hash(0x2),
-        Bytes("693c6139") + Hash(0x1),
-        Bytes("693c6139") + Hash(0x1),
-        Bytes("693c6139") + Hash(0x3),
-        Bytes("693c6139") + Hash(0x3),
-        Bytes("693c6139") + Hash(0x10),
-        Bytes("693c6139") + Hash(0x10),
-        Bytes("693c6139") + Hash(0x11),
-        Bytes("693c6139") + Hash(0x11),
-        Bytes("693c6139") + Hash(0x12),
-        Bytes("693c6139") + Hash(0x12),
-        Bytes("693c6139") + Hash(0x13),
-        Bytes("693c6139") + Hash(0x13),
-        Bytes("693c6139") + Hash(0x14),
-        Bytes("693c6139") + Hash(0x14),
-        Bytes("693c6139") + Hash(0x15),
-        Bytes("693c6139") + Hash(0x15),
-        Bytes("693c6139") + Hash(0x16),
-        Bytes("693c6139") + Hash(0x16),
-        Bytes("693c6139") + Hash(0x20),
-        Bytes("693c6139") + Hash(0x20),
-        Bytes("693c6139") + Hash(0x21),
-        Bytes("693c6139") + Hash(0x21),
-        Bytes("693c6139") + Hash(0x22),
-        Bytes("693c6139") + Hash(0x22),
-        Bytes("693c6139") + Hash(0x23),
-        Bytes("693c6139") + Hash(0x23),
-        Bytes("693c6139") + Hash(0x24),
-        Bytes("693c6139") + Hash(0x24),
-        Bytes("693c6139") + Hash(0x25),
-        Bytes("693c6139") + Hash(0x25),
-        Bytes("693c6139") + Hash(0x26),
-        Bytes("693c6139") + Hash(0x26),
+        Bytes("693c6139") + Hash(contract_0, left_padding=True),
+        Bytes("693c6139") + Hash(contract_0, left_padding=True),
+        Bytes("693c6139") + Hash(contract_2, left_padding=True),
+        Bytes("693c6139") + Hash(contract_2, left_padding=True),
+        Bytes("693c6139") + Hash(contract_1, left_padding=True),
+        Bytes("693c6139") + Hash(contract_1, left_padding=True),
+        Bytes("693c6139") + Hash(contract_4, left_padding=True),
+        Bytes("693c6139") + Hash(contract_4, left_padding=True),
+        Bytes("693c6139") + Hash(contract_6, left_padding=True),
+        Bytes("693c6139") + Hash(contract_6, left_padding=True),
+        Bytes("693c6139") + Hash(contract_7, left_padding=True),
+        Bytes("693c6139") + Hash(contract_7, left_padding=True),
+        Bytes("693c6139") + Hash(contract_9, left_padding=True),
+        Bytes("693c6139") + Hash(contract_9, left_padding=True),
+        Bytes("693c6139") + Hash(contract_11, left_padding=True),
+        Bytes("693c6139") + Hash(contract_11, left_padding=True),
+        Bytes("693c6139") + Hash(contract_13, left_padding=True),
+        Bytes("693c6139") + Hash(contract_13, left_padding=True),
+        Bytes("693c6139") + Hash(contract_15, left_padding=True),
+        Bytes("693c6139") + Hash(contract_15, left_padding=True),
+        Bytes("693c6139") + Hash(contract_17, left_padding=True),
+        Bytes("693c6139") + Hash(contract_17, left_padding=True),
+        Bytes("693c6139") + Hash(contract_18, left_padding=True),
+        Bytes("693c6139") + Hash(contract_18, left_padding=True),
+        Bytes("693c6139") + Hash(contract_19, left_padding=True),
+        Bytes("693c6139") + Hash(contract_19, left_padding=True),
+        Bytes("693c6139") + Hash(contract_20, left_padding=True),
+        Bytes("693c6139") + Hash(contract_20, left_padding=True),
+        Bytes("693c6139") + Hash(contract_21, left_padding=True),
+        Bytes("693c6139") + Hash(contract_21, left_padding=True),
+        Bytes("693c6139") + Hash(contract_22, left_padding=True),
+        Bytes("693c6139") + Hash(contract_22, left_padding=True),
+        Bytes("693c6139") + Hash(contract_23, left_padding=True),
+        Bytes("693c6139") + Hash(contract_23, left_padding=True),
+        Bytes("693c6139") + Hash(contract_24, left_padding=True),
+        Bytes("693c6139") + Hash(contract_24, left_padding=True),
     ]
-    tx_gas = [16777216]
     tx_value = [100000]
     tx_access_lists: dict[int, list] = {
         0: [
@@ -2283,7 +2215,7 @@ def test_varied_context(
         ],
         22: [
             AccessList(
-                address=Address(0xF342E57F24E0333F3AF34AF08FDBBE9C72CBD37C),
+                address=created_18,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -2293,7 +2225,7 @@ def test_varied_context(
         ],
         23: [
             AccessList(
-                address=Address(0xF342E57F24E0333F3AF34AF08FDBBE9C72CBD37C),
+                address=created_18,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
@@ -2303,7 +2235,7 @@ def test_varied_context(
         ],
         24: [
             AccessList(
-                address=Address(0xD82F21135ED7D7D833A9F2A0F1CF6C3DA214B8E3),
+                address=created_19,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -2313,7 +2245,7 @@ def test_varied_context(
         ],
         25: [
             AccessList(
-                address=Address(0xF342E57F24E0333F3AF34AF08FDBBE9C72CBD37C),
+                address=created_18,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -2323,7 +2255,7 @@ def test_varied_context(
         ],
         26: [
             AccessList(
-                address=Address(0x58FD03A2D731B2FB751E4A0F593D373EE77D39E6),
+                address=created_20,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -2333,7 +2265,7 @@ def test_varied_context(
         ],
         27: [
             AccessList(
-                address=Address(0x58FD03A2D731B2FB751E4A0F593D373EE77D39E6),
+                address=created_20,
                 storage_keys=[
                     Hash(
                         "0x000000000000000000000000000000000000000000000000000000000000ffff"  # noqa: E501
@@ -2343,7 +2275,7 @@ def test_varied_context(
         ],
         28: [
             AccessList(
-                address=Address(0x530508498D2AA75D8E591612809FEC3D37A45615),
+                address=created_21,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -2353,7 +2285,7 @@ def test_varied_context(
         ],
         29: [
             AccessList(
-                address=Address(0x58FD03A2D731B2FB751E4A0F593D373EE77D39E6),
+                address=created_20,
                 storage_keys=[
                     Hash(
                         "0x000000000000000000000000000000000000000000000000000000000000ffff"  # noqa: E501
@@ -2363,7 +2295,7 @@ def test_varied_context(
         ],
         30: [
             AccessList(
-                address=Address(0xB76AB2D646C4DF221EDD345957D0A396A2AB1B6D),
+                address=created_22,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -2373,7 +2305,7 @@ def test_varied_context(
         ],
         31: [
             AccessList(
-                address=Address(0x58FD03A2D731B2FB751E4A0F593D373EE77D39E6),
+                address=created_20,
                 storage_keys=[
                     Hash(
                         "0x000000000000000000000000000000000000000000000000000000000000ffff"  # noqa: E501
@@ -2383,7 +2315,7 @@ def test_varied_context(
         ],
         32: [
             AccessList(
-                address=Address(0x83FBDAE70258AC0FA837B701CC63CEDF48D4B6BF),
+                address=created_23,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -2393,7 +2325,7 @@ def test_varied_context(
         ],
         33: [
             AccessList(
-                address=Address(0x58FD03A2D731B2FB751E4A0F593D373EE77D39E6),
+                address=created_20,
                 storage_keys=[
                     Hash(
                         "0x000000000000000000000000000000000000000000000000000000000000ffff"  # noqa: E501
@@ -2427,10 +2359,10 @@ def test_varied_context(
         sender=sender,
         to=contract_26,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
+        state_gas_reservoir=0,
         value=tx_value[v],
         access_list=tx_access_lists.get(d),
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
