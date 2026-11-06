@@ -1,15 +1,18 @@
 """
-Calls a contract that runs CREATE which deploy a code. then OOG happens...
+CALLCODE a contract that runs CREATE/CREATE2, then copy its return data.
+
+The callee stops without returning data, so copying 32 bytes overruns the
+buffer and halts the caller, reverting the creation made in its context.
 
 Ported from:
 state_tests/stCreateTest/CreateOOGafterInitCodeReturndata3Filler.json
+state_tests/stCreate2/Create2OOGafterInitCodeReturndata3Filler.json
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -19,56 +22,70 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+INITCODE_WORD = 0x6460016001556000526005601BF3
+INITCODE = INITCODE_WORD.to_bytes(32, "big")[0x12:]
+DEPLOYED_CODE = bytes.fromhex("6001600155")
+UNTOUCHED = 0xFF
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stCreateTest/CreateOOGafterInitCodeReturndata3Filler.json"],
+    [
+        "state_tests/stCreateTest/CreateOOGafterInitCodeReturndata3Filler.json",  # noqa: E501
+        "state_tests/stCreate2/Create2OOGafterInitCodeReturndata3Filler.json",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
+@pytest.mark.parametrize(
+    "copy_size",
+    [pytest.param(0, id="in_bounds"), pytest.param(32, id="overrun")],
+)
 def test_create_oo_gafter_init_code_returndata3(
     state_test: StateTestFiller,
     pre: Alloc,
+    opcode: Op,
+    copy_size: int,
 ) -> None:
-    """Calls a contract that runs CREATE which deploy a code."""
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    """CALLCODE a creating contract, then copy its return data."""
+    sender = pre.fund_eoa()
 
     # Source: lll
-    # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE 0 18 14) }
-    contract_1 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x6460016001556000526005601BF3)
-        + Op.CREATE(value=0x0, offset=0x12, size=0xE)
-        + Op.STOP,
+    # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE2 0 18 14 0) }
+    if opcode == Op.CREATE2:
+        create = Op.CREATE2(value=0, offset=0x12, size=len(INITCODE), salt=0)
+    else:
+        create = Op.CREATE(value=0, offset=0x12, size=len(INITCODE))
+    creator = pre.deploy_contract(
+        code=Op.MSTORE(offset=0, value=INITCODE_WORD) + create + Op.STOP,
     )
     # Source: lll
-    # { (CALLCODE (GAS) 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 32) (RETURNDATACOPY 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
-    contract_0 = pre.deploy_contract(
-        code=Op.POP(
-            Op.CALLCODE(
-                gas=Op.GAS,
-                address=contract_1,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x20,
-            )
-        )
-        + Op.RETURNDATACOPY(dest_offset=0x0, offset=0x0, size=0x20)
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
+    # { (CALLCODE (GAS) <creator> 0 0 0 0 32) (RETURNDATACOPY 0 0 32) [[ 1 ]] (MLOAD 0) }  # noqa: E501
+    caller = pre.deploy_contract(
+        code=Op.POP(Op.CALLCODE(address=creator, ret_size=0x20))
+        + Op.RETURNDATACOPY(dest_offset=0, offset=0, size=copy_size)
+        + Op.SSTORE(key=1, value=Op.MLOAD(offset=0))
+        + Op.SSTORE(key=2, value=1)
         + Op.STOP,
+        storage={1: UNTOUCHED},
+    )
+    created = compute_create_address(
+        address=caller, nonce=1, salt=0, initcode=INITCODE, opcode=opcode
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=Bytes(""),
-        gas_limit=55000,
-    )
+    tx = Transaction(sender=sender, to=caller)
 
-    post = {
-        contract_0: Account(storage={1: 0}),
-        compute_create_address(
-            address=contract_1, nonce=1
-        ): Account.NONEXISTENT,
-    }
+    post: dict
+    if copy_size == 0:
+        post = {
+            caller: Account(storage={1: 0, 2: 1}, nonce=2),
+            created: Account(code=DEPLOYED_CODE, nonce=1),
+            creator: Account(nonce=1),
+        }
+    else:
+        post = {
+            caller: Account(storage={1: UNTOUCHED}, nonce=1),
+            created: Account.NONEXISTENT,
+            creator: Account(nonce=1),
+        }
 
     state_test(pre=pre, post=post, tx=tx)

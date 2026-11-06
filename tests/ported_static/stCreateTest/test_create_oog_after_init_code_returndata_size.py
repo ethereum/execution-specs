@@ -1,10 +1,12 @@
 """
-Verify that a CREATE whose child runs its init code to completion but cannot
-afford the code deposit leaves no return data behind: the creation fails, no
-account is deployed, and RETURNDATASIZE in the parent frame reads zero.
+Verify that a CREATE/CREATE2 whose child runs its init code to completion but
+cannot afford the code deposit leaves no return data behind: the creation
+fails, no account is deployed, and RETURNDATASIZE in the parent frame reads
+zero.
 
 Ported from:
 state_tests/stCreateTest/CreateOOGafterInitCodeReturndataSizeFiller.json
+state_tests/stCreate2/Create2OOGafterInitCodeReturndataSizeFiller.json
 
 @manually-enhanced: Do not overwrite. The filler probed RETURNDATASIZE
 indirectly, through the extra gas an `EXP` with a non-zero exponent costs;
@@ -33,16 +35,19 @@ CALL_STATUS_SLOT = 0x2
 
 @pytest.mark.ported_from(
     [
-        "state_tests/stCreateTest/CreateOOGafterInitCodeReturndataSizeFiller.json"  # noqa: E501
+        "state_tests/stCreateTest/CreateOOGafterInitCodeReturndataSizeFiller.json",  # noqa: E501
+        "state_tests/stCreate2/Create2OOGafterInitCodeReturndataSizeFiller.json",  # noqa: E501
     ],
 )
 @pytest.mark.valid_from("Berlin")
+@pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
 def test_create_oog_after_init_code_returndata_size(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    opcode: Op,
 ) -> None:
-    """CREATE fails at the code deposit; no return data is produced."""
+    """CREATE/CREATE2 fails at the code deposit; no return data is produced."""
     # The child returns this many zero bytes out of memory it never wrote to.
     # Only the size matters: depositing them is what it cannot afford, and
     # `code_deposit_size` folds that charge into RETURN's own gas cost, so the
@@ -63,14 +68,25 @@ def test_create_oog_after_init_code_returndata_size(
         value=int.from_bytes(initcode_bytes, "big"),
         new_memory_size=0x20,
     )
-    create_code = Op.CREATE(
-        value=0x0,
-        offset=32 - len(initcode_bytes),
-        size=len(initcode_bytes),
-        new_memory_size=0x20,
-        old_memory_size=0x20,
-        init_code_size=len(initcode_bytes),
-    )
+    if opcode == Op.CREATE2:
+        create_code = Op.CREATE2(
+            value=0x0,
+            offset=32 - len(initcode_bytes),
+            size=len(initcode_bytes),
+            salt=0,
+            new_memory_size=0x20,
+            old_memory_size=0x20,
+            init_code_size=len(initcode_bytes),
+        )
+    else:
+        create_code = Op.CREATE(
+            value=0x0,
+            offset=32 - len(initcode_bytes),
+            size=len(initcode_bytes),
+            new_memory_size=0x20,
+            old_memory_size=0x20,
+            init_code_size=len(initcode_bytes),
+        )
     # Returning the observation rather than storing it is what makes this
     # test possible at all: the parent runs this on the 1/64 CREATE leaves
     # it, and no SSTORE fits there -- EIP-2200 halts any SSTORE outright
@@ -151,7 +167,13 @@ def test_create_oog_after_init_code_returndata_size(
                 RETURN_DATA_SIZE_SLOT: 1,
             }
         ),
-        compute_create_address(address=parent, nonce=1): Account.NONEXISTENT,
+        compute_create_address(
+            address=parent,
+            nonce=1,
+            salt=0,
+            initcode=initcode_bytes,
+            opcode=opcode,
+        ): Account.NONEXISTENT,
     }
 
     state_test(pre=pre, post=post, tx=tx)
