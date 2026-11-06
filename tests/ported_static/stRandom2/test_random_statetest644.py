@@ -28,7 +28,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom2/randomStatetest644Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest644(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -114,14 +113,14 @@ def test_random_statetest644(
         )
         + Op.SLOAD(key=0xACB22D3FE0B1ECEA101F659FD3FCFE7D9F16)
         + Op.EXTCODECOPY(
-            address=0x2EBBA385BD7F6DDE6C57E2D3929A11A1EA0DA7E,
+            address=Op.ADDRESS,
             dest_offset=0x118942,
             offset=0x32B792,
             size=0x73B023,
         )
         + Op.CALL(
             gas=0xB2DF5D6,
-            address=0x2EBBA385BD7F6DDE6C57E2D3929A11A1EA0DA7E,
+            address=Op.ADDRESS,
             value=0x6BD26962,
             args_offset=0x5B60D5,
             args_size=0x1ACB67,
@@ -132,7 +131,6 @@ def test_random_statetest644(
         + Op.ORIGIN,
         balance=0x532F42C819FA5BED,
         nonce=28,
-        address=Address(0x02EBBA385BD7F6DDE6C57E2D3929A11A1EA0DA7E),  # noqa: E501
     )
 
     tx_data = Bytes(

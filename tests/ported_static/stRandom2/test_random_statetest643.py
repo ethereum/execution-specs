@@ -8,7 +8,6 @@ state_tests/stRandom2/randomStatetest643Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Environment,
     StateTestFiller,
@@ -24,7 +23,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom2/randomStatetest643Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest643(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -69,7 +67,7 @@ def test_random_statetest643(
         + Op.GAS
         + Op.DELEGATECALL(
             gas=0x38F86B9A,
-            address=0x971AB94B9C20484B37B157476A9F106F639779ED,
+            address=Op.ADDRESS,
             args_offset=0x84319,
             args_size=0x120847,
             ret_offset=0x71DD59,
@@ -77,7 +75,6 @@ def test_random_statetest643(
         ),
         balance=0x262E8DE142312A2D,
         nonce=243,
-        address=Address(0x971AB94B9C20484B37B157476A9F106F639779ED),  # noqa: E501
     )
 
     env = Environment(fee_recipient=sender, prev_randao=0x20000)

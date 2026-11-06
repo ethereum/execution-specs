@@ -43,7 +43,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest645(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -53,10 +52,8 @@ def test_random_statetest645(
     v: int,
 ) -> None:
     """Geth Failed this test on Frontier and Homestead."""
-    addr_2 = Address(0x9E9C03F8F885C32813DB5207FD04870F08327F30)
     sender = pre.fund_eoa(amount=0x6F1F70FEA641F30A)
 
-    pre[addr_2] = Account(balance=0xB3508C0F8A22F8A1, nonce=28)
     # Source: raw
     # 0x58679b8e24022d8c28f3620b55a06384bc2f83136515b61916f0f579ea3e9d28799d45aa77bf1fc1a84edf0193dea2d610209eaaf9c814  # noqa: E501
     addr = pre.deploy_contract(
@@ -105,7 +102,6 @@ def test_random_statetest645(
         addr: Account(storage={}, nonce=29),
         sender: Account(storage={}, code=b"", nonce=1),
         coinbase: Account(storage={}, nonce=175),
-        addr_2: Account(storage={}, code=b"", nonce=28),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
