@@ -166,7 +166,7 @@ def test_static_call1024_pre_calls2(
             "indexes": {"data": 1, "gas": -1, "value": -1},
             "network": [">=Cancun<Osaka"],
             "result": {
-                addr_2: Account(storage={0: 0, 1: 0, 2: 0, 3: 0}),
+                addr_3: Account(storage={0: 0, 1: 0, 2: 0, 3: 0}),
                 target: Account(storage={0: 1, 1: 1}),
             },
         },

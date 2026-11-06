@@ -3,6 +3,7 @@ Test_static_call1024_balance_too_low.
 
 Ported from:
 state_tests/stStaticCall/static_Call1024BalanceTooLowFiller.json
+state_tests/stStaticCall/static_Call1024BalanceTooLow2Filler.json
 """
 
 import pytest
@@ -27,7 +28,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stStaticCall/static_Call1024BalanceTooLowFiller.json"],
+    [
+        "state_tests/stStaticCall/static_Call1024BalanceTooLowFiller.json",
+        "state_tests/stStaticCall/static_Call1024BalanceTooLow2Filler.json",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
