@@ -15,6 +15,7 @@ from execution_testing import (
     Transaction,
     TransactionException,
 )
+from execution_testing.forks import Fork
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -28,26 +29,29 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_transaction_intinsic_bug_paris(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Bug discovered on ropsten https://github."""
-    sender = pre.fund_eoa(amount=0x2FAF094)
-
-    addr = pre.fund_eoa()
-
-    env = Environment(base_fee_per_gas=20)
+    """Reject a sender funded for the effective price but not the max fee."""
+    gas_limit = 50_000
+    priority_fee = 20
+    value = 0x2DC6C14
+    base_fee = Environment().set_fork_requirements(fork).base_fee_per_gas
+    assert base_fee is not None
+    sender_balance = gas_limit * (base_fee + priority_fee) + value
+    sender = pre.fund_eoa(amount=sender_balance)
 
     tx = Transaction(
         sender=sender,
-        to=addr,
+        to=pre.fund_eoa(),
         data=Bytes("00"),
-        gas_limit=50000,
-        value=0x2DC6C14,
+        gas_limit=gas_limit,
+        value=value,
         max_fee_per_gas=1000,
-        max_priority_fee_per_gas=20,
+        max_priority_fee_per_gas=priority_fee,
         access_list=[],
         error=TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
     )
 
-    post = {sender: Account(balance=0x2FAF094)}
+    post = {sender: Account(balance=sender_balance)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

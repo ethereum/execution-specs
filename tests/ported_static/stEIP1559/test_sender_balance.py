@@ -34,7 +34,8 @@ def test_sender_balance(
     fork: Fork,
 ) -> None:
     """Origin balance during execution reflects the effective gas price."""
-    base_fee = 11
+    base_fee = Environment().set_fork_requirements(fork).base_fee_per_gas
+    assert base_fee is not None
     priority_fee = 100
     max_fee = 1000
     sender_balance = 0xDE0B6B3A7640000
@@ -43,7 +44,6 @@ def test_sender_balance(
     # validity check would reserve more — the point of the test).
     effective_gas_price = base_fee + priority_fee
 
-    env = Environment(base_fee_per_gas=base_fee)
     sender = pre.fund_eoa(amount=sender_balance)
 
     # Source: yul: { sstore(0, balance(caller())) }
@@ -81,4 +81,4 @@ def test_sender_balance(
         )
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
