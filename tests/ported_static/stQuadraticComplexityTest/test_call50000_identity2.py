@@ -10,14 +10,12 @@ from execution_testing import (
     Account,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
-from tests.ported_static.constants import HIGH_GAS_LIMIT
 from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
@@ -30,7 +28,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stQuadraticComplexityTest/Call50000_identity2Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_until("Prague")
 @pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
@@ -95,7 +92,7 @@ def test_call50000_identity2(
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun<Osaka"],
+            "network": [">=Cancun"],
             "result": {
                 sender: Account(storage={}, code=b"", nonce=1),
                 target: Account(
@@ -107,7 +104,7 @@ def test_call50000_identity2(
         },
         {
             "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun<Osaka"],
+            "network": [">=Cancun"],
             "result": {
                 sender: Account(storage={}, code=b"", nonce=1),
                 target: Account(
@@ -124,10 +121,8 @@ def test_call50000_identity2(
     tx_data = [
         Bytes(""),
     ]
-    tx_gas = [150000, 250000000]
+    tx_gas = [150000, 2**24]
     tx_value = [10]
-
-    env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
     tx = Transaction(
         sender=sender,
@@ -138,4 +133,4 @@ def test_call50000_identity2(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
