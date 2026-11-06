@@ -8,10 +8,8 @@ state_tests/stTransactionTest/EmptyTransaction3Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     StateTestFiller,
     Transaction,
@@ -33,17 +31,7 @@ def test_empty_transaction3(
     pre: Alloc,
 ) -> None:
     """Test_empty_transaction3."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x5F5E100)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=3000000 if fork >= Amsterdam else 1000000,
-    )
 
     tx = Transaction(
         sender=sender,
@@ -57,4 +45,4 @@ def test_empty_transaction3(
         sender: Account(nonce=1),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
