@@ -1,21 +1,21 @@
 """
-Test_call_low_level_creates_solidity.
+Create a contract that calls back into its creator.
 
 Ported from:
 state_tests/stSolidityTest/CallLowLevelCreatesSolidityFiller.json
+
+@manually-enhanced: Do not overwrite. The self address comes from
+ADDRESS, padded to keep the jump and CODECOPY offsets.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Fork,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -26,14 +26,12 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSolidityTest/CallLowLevelCreatesSolidityFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_call_low_level_creates_solidity(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_call_low_level_creates_solidity."""
-    sender = pre.fund_eoa(amount=0x5F5E100)
+    sender = pre.fund_eoa()
 
     # Source: raw
     # 0x60003560e060020a9004806330debb4214610021578063c04062261461003257005b61002c6004356100c7565b60006000f35b61003a610044565b8060005260206000f35b60006000600160008190555073<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>600181905550606a6100d2600039606a60006000f0905080600160a060020a03166319ab453c600060008260e060020a026000526004600154600160a060020a03168152602001600060008660325a03f16100bc57005b505060005491505090565b80600081905550505600605e80600c6000396000f30060003560e060020a9004806319ab453c14601557005b601e6004356024565b60006000f35b80600160a060020a03166330debb42600060008260e060020a02600052600460e18152602001600060008660325a03f1605957005b50505056  # noqa: E501
@@ -65,7 +63,10 @@ def test_call_low_level_creates_solidity(
         + Op.SWAP1
         + Op.SSTORE
         + Op.POP
-        + Op.PUSH20[0x5DA6FBE439A0C3AB33F813671A4E7767EE0A263B]
+        # Self address, padded to the filler's PUSH20 width.
+        + Op.ADDRESS
+        + Op.PUSH18[0x0]
+        + Op.POP
         + Op.PUSH1[0x1]
         + Op.DUP2
         + Op.SWAP1
@@ -141,15 +142,12 @@ def test_call_low_level_creates_solidity(
         + Op.JUMPDEST
         + Op.POP * 3
         + Op.JUMP,
-        balance=0x186A0,
-        address=Address(0x5DA6FBE439A0C3AB33F813671A4E7767EE0A263B),  # noqa: E501
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
         data=Bytes("c0406226"),
-        gas_limit=2350000 if fork >= Amsterdam else 350000,
         value=1,
     )
 
