@@ -16,8 +16,6 @@ from execution_testing import (
 )
 from execution_testing.vm import Op
 
-from tests.ported_static.constants import HIGH_GAS_LIMIT
-
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
@@ -26,7 +24,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom/randomStatetest150Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_until("Prague")
 def test_random_statetest150(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -134,17 +131,15 @@ def test_random_statetest150(
         ),
     )
 
-    env = Environment(
-        fee_recipient=coinbase, prev_randao=0x20000, gas_limit=HIGH_GAS_LIMIT
-    )
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
+        gas_limit=16_777_216,
         to=target,
         data=Bytes(
             "70afe04f9b9074d39383f0718bb0b14ecdb6680c54b4c20ae65044c572a5c832c15f55e8c1b63ffbb7da41d4c8faa43f087b1960b54938bbdb14f35e3552723ad2053a3c74b98d0320f74bbe4ff06630f30e1caa6e13797a14d07bb94ae4972ce38da7aefa2ab07aedb81397137b698a63675aa8895c5b1207be9262507b0866acfa180cfbbdff5572fb9a74b245d1180e80a93b2dc5bcf891e1b84d6c66ab13b03e937d4268f4e9be0381417c1db9b7341c9912e685e38ee499f1fb82b027b84e01ef235f18b95b0bf567fcfcc5181f51c6dd0465d063d0f11f267ccd81aa8d4fda65e7e213e5ae4a6da0c6493209753a089323c5bfdde091556681b0648f59b8b2684d82a240f7d5b8eefd645e6320270660e960467877a8561129b7114a617d36423905813b7dc594d88b0eb751ba946f54595f624b07da116f0971fc6e540a966364c8a1df698688b1ba91f9ac7a74f878a61c87ad3240d656c9ee80fd90d4f8c01ca89c8bc537380df079ba8a2e6f2a3cbeb6bfb9687a7cc323f2a9eafd81789ae783355764b23354ba3f693c4d774ed6ab89da8846604172ad96ab938a4beff64adf9594812f491a0ba98e6f77d4c40454047c20cfb2625c43608dc26d032e6f8b53bfc1243fbd23a14c077e2071997635fdb2ffb317cd0e116f1ea7649dcf80ead9dea010cc4e456893f16d7c534f980d27c3312f34fbf5c8ba9b"  # noqa: E501
         ),
-        gas_limit=2042667010,
         value=0x6C44FB37,
     )
 

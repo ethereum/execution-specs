@@ -15,8 +15,6 @@ from execution_testing import (
 )
 from execution_testing.vm import Op
 
-from tests.ported_static.constants import HIGH_GAS_LIMIT
-
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
@@ -25,7 +23,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom2/randomStatetest618Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_until("Prague")
 def test_random_statetest618(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -71,12 +68,11 @@ def test_random_statetest618(
         + Op.PC,
     )
 
-    env = Environment(
-        fee_recipient=coinbase, prev_randao=0x20000, gas_limit=HIGH_GAS_LIMIT
-    )
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
+        gas_limit=16_777_216,
         to=target,
         data=(
             Op.SGT(
@@ -99,7 +95,6 @@ def test_random_statetest618(
             + Op.GASPRICE
             + Op.PC
         ),
-        gas_limit=1024268380,
         value=0x535500B1,
     )
 
