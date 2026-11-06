@@ -18,8 +18,6 @@ from execution_testing import (
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
-from tests.ported_static.constants import HIGH_GAS_LIMIT
-
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
@@ -139,9 +137,7 @@ def test_random_statetest644(
     floor_cost = fork.transaction_data_floor_cost_calculator()(
         data=tx_data, sends_value=True
     )
-    env = Environment(
-        fee_recipient=coinbase, prev_randao=0x20000, gas_limit=HIGH_GAS_LIMIT
-    )
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
