@@ -3,6 +3,9 @@ Test_random_statetest53.
 
 Ported from:
 state_tests/stRandom/randomStatetest53Filler.json
+state_tests/stRandom/randomStatetest341Filler.json
+state_tests/stRandom2/randomStatetest448Filler.json
+state_tests/stRandom2/randomStatetest589Filler.json
 """
 
 import pytest
@@ -20,7 +23,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stRandom/randomStatetest53Filler.json"],
+    [
+        "state_tests/stRandom/randomStatetest53Filler.json",
+        "state_tests/stRandom/randomStatetest341Filler.json",
+        "state_tests/stRandom2/randomStatetest448Filler.json",
+        "state_tests/stRandom2/randomStatetest589Filler.json",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 def test_random_statetest53(

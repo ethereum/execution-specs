@@ -3,6 +3,7 @@ Test_random_statetest36.
 
 Ported from:
 state_tests/stRandom/randomStatetest36Filler.json
+state_tests/stRandom2/randomStatetest476Filler.json
 """
 
 import pytest
@@ -23,7 +24,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stRandom/randomStatetest36Filler.json"],
+    [
+        "state_tests/stRandom/randomStatetest36Filler.json",
+        "state_tests/stRandom2/randomStatetest476Filler.json",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")

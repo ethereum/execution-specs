@@ -2,6 +2,7 @@
 Test_random_statetest641.
 
 Ported from:
+state_tests/stRandom2/randomStatetestFiller.json
 state_tests/stRandom2/randomStatetest641Filler.json
 
 @manually-enhanced: Do not overwrite. tx `gas_limit` has been removed.
@@ -23,7 +24,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stRandom2/randomStatetest641Filler.json"],
+    [
+        "state_tests/stRandom2/randomStatetestFiller.json",
+        "state_tests/stRandom2/randomStatetest641Filler.json",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 def test_random_statetest641(
