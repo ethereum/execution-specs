@@ -1,28 +1,44 @@
 """
-Test_overflow_gas_require2.
+Send a transaction with a 2**60 gas limit in a 2**63 - 1 gas block.
 
 Ported from:
 state_tests/stTransactionTest/OverflowGasRequire2Filler.json
+
+@manually-enhanced: Do not overwrite. The fee is derived from the
+intrinsic gas; from Osaka on the gas limit cap rejects the transaction.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
+    GasFee,
     StateTestFiller,
     Transaction,
+    TransactionException,
 )
 from execution_testing.forks import Fork
 
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post_fork,
-)
-
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+
+GAS_LIMIT = 2**60
+BLOCK_ENV = Environment(gas_limit=2**63 - 1, base_fee_per_gas=10)
+
+
+def overflow_tx(pre: Alloc, error: TransactionException | None) -> Transaction:
+    """Return the 2**60 gas transaction from a maximally funded sender."""
+    return Transaction(
+        sender=pre.fund_eoa(amount=2**256 - 1),
+        to=pre.nonexistent_account(),
+        data=Bytes("3240349548983454"),
+        gas_limit=GAS_LIMIT,
+        gas_price=80,
+        error=error,
+    )
 
 
 @pytest.mark.ported_from(
@@ -35,51 +51,28 @@ def test_overflow_gas_require2(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """Test_overflow_gas_require2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(
-        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-    )
+    """Charge only the intrinsic gas of the 2**60 gas transaction."""
+    tx = overflow_tx(pre, error=None)
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(calldata=tx.data)
+    post = {
+        tx.sender: Account(nonce=1, balance_change=-GasFee(tx, gas=intrinsic))
+    }
+    state_test(env=BLOCK_ENV, pre=pre, post=post, tx=tx)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
-    expect_entries_: list[dict] = [
-        {
-            "network": ["Cancun"],
-            "result": {
-                sender: Account(
-                    balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE6357F,  # noqa: E501
-                    nonce=1,
-                ),
-            },
-        },
-        {
-            "network": ["Prague"],
-            "result": {
-                sender: Account(
-                    balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE5F97F,  # noqa: E501
-                    nonce=1,
-                ),
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post_fork(expect_entries_, fork)
-
-    tx = Transaction(
-        sender=sender,
-        to=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
-        data=Bytes("3240349548983454"),
-        gas_limit=1152921504606846976,
-        gas_price=80,
-        error=_exc,
-    )
-
-    state_test(env=env, pre=pre, post=post, tx=tx)
+@pytest.mark.ported_from(
+    ["state_tests/stTransactionTest/OverflowGasRequire2Filler.json"],
+)
+@pytest.mark.valid_from("Osaka")
+@pytest.mark.exception_test
+def test_overflow_gas_require2_over_cap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """Reject the 2**60 gas transaction over the gas limit cap."""
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None and GAS_LIMIT > cap
+    tx = overflow_tx(pre, error=TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM)
+    post = {tx.sender: Account(nonce=0, balance_change=0)}
+    state_test(env=BLOCK_ENV, pre=pre, post=post, tx=tx)
