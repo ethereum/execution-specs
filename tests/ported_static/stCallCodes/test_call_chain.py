@@ -1,6 +1,6 @@
 """
-Chains of CALL / CALLCODE / DELEGATECALL: where each level's storage writes
-land, and what context the innermost code observes.
+Chains of CALL / CALLCODE / DELEGATECALL / STATICCALL: where each level's
+storage writes land, and what context the innermost code observes.
 
 Ported from:
 state_tests/stCallCodes/callcallcall_000Filler.json
@@ -188,6 +188,129 @@ state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcall_100_OOGMAfterF
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcallcode_101_OOGMAfterFiller.json
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_110_OOGMAfterFiller.json
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecallcode_111_OOGMAfterFiller.json
+state_tests/stStaticCall/static_callcall_00Filler.json
+state_tests/stStaticCall/static_callcallcall_000Filler.json
+state_tests/stStaticCall/static_callcallcallcode_001Filler.json
+state_tests/stStaticCall/static_callcallcallcode_001_2Filler.json
+state_tests/stStaticCall/static_callcallcode_01_2Filler.json
+state_tests/stStaticCall/static_callcallcodecall_010Filler.json
+state_tests/stStaticCall/static_callcallcodecall_010_2Filler.json
+state_tests/stStaticCall/static_callcallcodecallcode_011Filler.json
+state_tests/stStaticCall/static_callcallcodecallcode_011_2Filler.json
+state_tests/stStaticCall/static_callcodecall_10Filler.json
+state_tests/stStaticCall/static_callcodecall_10_2Filler.json
+state_tests/stStaticCall/static_callcodecallcall_100Filler.json
+state_tests/stStaticCall/static_callcodecallcall_100_2Filler.json
+state_tests/stStaticCall/static_callcodecallcallcode_101Filler.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_2Filler.json
+state_tests/stStaticCall/static_callcodecallcodecall_1102Filler.json
+state_tests/stStaticCall/static_callcodecallcodecall_110Filler.json
+state_tests/stStaticCall/static_callcodecallcodecall_110_2Filler.json
+state_tests/stStaticCall/static_calldelcode_01Filler.json
+state_tests/stStaticCall/static_callcall_00_OOGEFiller.json
+state_tests/stStaticCall/static_callcall_00_OOGE_1Filler.json
+state_tests/stStaticCall/static_callcall_00_OOGE_2Filler.json
+state_tests/stStaticCall/static_callcallcall_000_OOGEFiller.json
+state_tests/stStaticCall/static_callcallcallcode_001_OOGEFiller.json
+state_tests/stStaticCall/static_callcallcallcode_001_OOGE_2Filler.json
+state_tests/stStaticCall/static_callcallcode_01_OOGE_2Filler.json
+state_tests/stStaticCall/static_callcallcodecall_010_OOGEFiller.json
+state_tests/stStaticCall/static_callcallcodecall_010_OOGE_2Filler.json
+state_tests/stStaticCall/static_callcallcodecallcode_011_OOGEFiller.json
+state_tests/stStaticCall/static_callcallcodecallcode_011_OOGE_2Filler.json
+state_tests/stStaticCall/static_callcodecall_10_OOGEFiller.json
+state_tests/stStaticCall/static_callcodecall_10_OOGE_2Filler.json
+state_tests/stStaticCall/static_callcodecallcall_100_OOGE2Filler.json
+state_tests/stStaticCall/static_callcodecallcall_100_OOGEFiller.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_OOGEFiller.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_OOGE_2Filler.json
+state_tests/stStaticCall/static_callcodecallcodecall_110_OOGE2Filler.json
+state_tests/stStaticCall/static_callcodecallcodecall_110_OOGEFiller.json
+state_tests/stStaticCall/static_calldelcode_01_OOGEFiller.json
+state_tests/stStaticCall/static_callcallcall_000_OOGMBeforeFiller.json
+state_tests/stStaticCall/static_callcallcallcode_001_OOGMBefore2Filler.json
+state_tests/stStaticCall/static_callcallcallcode_001_OOGMBeforeFiller.json
+state_tests/stStaticCall/static_callcallcodecall_010_OOGMBefore2Filler.json
+state_tests/stStaticCall/static_callcallcodecall_010_OOGMBeforeFiller.json
+state_tests/stStaticCall/static_callcallcodecallcode_011_OOGMBefore2Filler.json
+state_tests/stStaticCall/static_callcallcodecallcode_011_OOGMBeforeFiller.json
+state_tests/stStaticCall/static_callcodecallcall_100_OOGMBefore2Filler.json
+state_tests/stStaticCall/static_callcodecallcall_100_OOGMBeforeFiller.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_OOGMBefore2Filler.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_OOGMBeforeFiller.json
+state_tests/stStaticCall/static_callcodecallcodecall_110_OOGMBefore2Filler.json
+state_tests/stStaticCall/static_callcodecallcodecall_110_OOGMBeforeFiller.json
+state_tests/stStaticCall/static_callcallcall_000_OOGMAfter2Filler.json
+state_tests/stStaticCall/static_callcallcall_000_OOGMAfterFiller.json
+state_tests/stStaticCall/static_callcallcallcode_001_OOGMAfter2Filler.json
+state_tests/stStaticCall/static_callcallcallcode_001_OOGMAfterFiller.json
+state_tests/stStaticCall/static_callcallcallcode_001_OOGMAfter_2Filler.json
+state_tests/stStaticCall/static_callcallcallcode_001_OOGMAfter_3Filler.json
+state_tests/stStaticCall/static_callcallcodecall_010_OOGMAfter2Filler.json
+state_tests/stStaticCall/static_callcallcodecall_010_OOGMAfterFiller.json
+state_tests/stStaticCall/static_callcallcodecall_010_OOGMAfter_2Filler.json
+state_tests/stStaticCall/static_callcallcodecall_010_OOGMAfter_3Filler.json
+state_tests/stStaticCall/static_callcallcodecallcode_011_OOGMAfter2Filler.json
+state_tests/stStaticCall/static_callcallcodecallcode_011_OOGMAfterFiller.json
+state_tests/stStaticCall/static_callcallcodecallcode_011_OOGMAfter_1Filler.json
+state_tests/stStaticCall/static_callcallcodecallcode_011_OOGMAfter_2Filler.json
+state_tests/stStaticCall/static_callcodecallcall_100_OOGMAfter2Filler.json
+state_tests/stStaticCall/static_callcodecallcall_100_OOGMAfterFiller.json
+state_tests/stStaticCall/static_callcodecallcall_100_OOGMAfter_2Filler.json
+state_tests/stStaticCall/static_callcodecallcall_100_OOGMAfter_3Filler.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_OOGMAfter2Filler.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_OOGMAfterFiller.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_OOGMAfter_1Filler.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_OOGMAfter_3Filler.json
+state_tests/stStaticCall/static_callcodecallcodecall_110_OOGMAfter2Filler.json
+state_tests/stStaticCall/static_callcodecallcodecall_110_OOGMAfterFiller.json
+state_tests/stStaticCall/static_callcodecallcodecall_110_OOGMAfter_2Filler.json
+state_tests/stStaticCall/static_callcodecallcodecall_110_OOGMAfter_3Filler.json
+state_tests/stStaticCall/static_callcall_00_SuicideEndFiller.json
+state_tests/stStaticCall/static_callcallcall_000_SuicideEndFiller.json
+state_tests/stStaticCall/static_callcallcallcode_001_SuicideEnd2Filler.json
+state_tests/stStaticCall/static_callcallcallcode_001_SuicideEndFiller.json
+state_tests/stStaticCall/static_callcallcode_01_SuicideEnd2Filler.json
+state_tests/stStaticCall/static_callcallcode_01_SuicideEndFiller.json
+state_tests/stStaticCall/static_callcallcodecall_010_SuicideEnd2Filler.json
+state_tests/stStaticCall/static_callcallcodecall_010_SuicideEndFiller.json
+state_tests/stStaticCall/static_callcallcodecallcode_011_SuicideEnd2Filler.json
+state_tests/stStaticCall/static_callcallcodecallcode_011_SuicideEndFiller.json
+state_tests/stStaticCall/static_callcodecall_10_SuicideEnd2Filler.json
+state_tests/stStaticCall/static_callcodecall_10_SuicideEndFiller.json
+state_tests/stStaticCall/static_callcodecallcall_100_SuicideEnd2Filler.json
+state_tests/stStaticCall/static_callcodecallcall_100_SuicideEndFiller.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_SuicideEnd2Filler.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_SuicideEndFiller.json
+state_tests/stStaticCall/static_callcodecallcodecall_110_SuicideEnd2Filler.json
+state_tests/stStaticCall/static_callcodecallcodecall_110_SuicideEndFiller.json
+state_tests/stStaticCall/static_callcodecallcodecallcode_111_SuicideEndFiller.json
+state_tests/stStaticCall/static_callcallcall_000_SuicideMiddleFiller.json
+state_tests/stStaticCall/static_callcallcallcode_001_SuicideMiddle2Filler.json
+state_tests/stStaticCall/static_callcallcallcode_001_SuicideMiddleFiller.json
+state_tests/stStaticCall/static_callcallcodecall_010_SuicideMiddle2Filler.json
+state_tests/stStaticCall/static_callcallcodecall_010_SuicideMiddleFiller.json
+state_tests/stStaticCall/static_callcallcodecallcode_011_SuicideMiddle2Filler.json
+state_tests/stStaticCall/static_callcallcodecallcode_011_SuicideMiddleFiller.json
+state_tests/stStaticCall/static_callcodecallcall_100_SuicideMiddle2Filler.json
+state_tests/stStaticCall/static_callcodecallcall_100_SuicideMiddleFiller.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_SuicideMiddle2Filler.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_SuicideMiddleFiller.json
+state_tests/stStaticCall/static_callcodecallcodecall_110_SuicideMiddle2Filler.json
+state_tests/stStaticCall/static_callcodecallcodecall_110_SuicideMiddleFiller.json
+state_tests/stStaticCall/static_callcallcall_ABCB_RECURSIVEFiller.json
+state_tests/stStaticCall/static_callcallcallcode_ABCB_RECURSIVE2Filler.json
+state_tests/stStaticCall/static_callcallcallcode_ABCB_RECURSIVEFiller.json
+state_tests/stStaticCall/static_callcallcodecall_ABCB_RECURSIVE2Filler.json
+state_tests/stStaticCall/static_callcallcodecall_ABCB_RECURSIVEFiller.json
+state_tests/stStaticCall/static_callcallcodecallcode_ABCB_RECURSIVE2Filler.json
+state_tests/stStaticCall/static_callcallcodecallcode_ABCB_RECURSIVEFiller.json
+state_tests/stStaticCall/static_callcodecallcall_ABCB_RECURSIVE2Filler.json
+state_tests/stStaticCall/static_callcodecallcall_ABCB_RECURSIVEFiller.json
+state_tests/stStaticCall/static_callcodecallcallcode_ABCB_RECURSIVE2Filler.json
+state_tests/stStaticCall/static_callcodecallcallcode_ABCB_RECURSIVEFiller.json
+state_tests/stStaticCall/static_callcodecallcodecall_ABCB_RECURSIVE2Filler.json
+state_tests/stStaticCall/static_callcodecallcodecall_ABCB_RECURSIVEFiller.json
 
 @manually-enhanced: Do not overwrite. The fillers are one chain test copied
 into three directories, each substituting a different pair of call opcodes,
@@ -214,6 +337,19 @@ In the out-of-gas chains one frame (the innermost, or a calling frame
 before or after its own call) runs out of gas expanding memory to 3 MB for a
 KECCAK256, which takes about 19.2M gas. Only the call into that frame
 is given bounded gas, so its caller keeps enough to record the failure.
+
+The stStaticCall fillers are the same chains with STATICCALL in them, and
+copies of each with CALLCODE or DELEGATECALL swapped in. Their frames below
+a STATICCALL only wrote memory, so their posts asserted almost nothing (the
+ABCB_RECURSIVE ones only zeros), and they embedded each other's addresses.
+They collapse to chains of all four opcodes with at least one STATICCALL.
+Every frame returns how many frames below it returned, plus the innermost
+frame's CALLER, CALLVALUE and ADDRESS, so a static frame's outcome reaches
+the top level, which stores it. Non-static frames also store their call's
+success, as above. A write, a CALL with value or a SELFDESTRUCT in a static
+frame halts it; a SELFDESTRUCT in a non-static frame (reached through
+CALLCODE or DELEGATECALL above the first STATICCALL) succeeds and moves the
+balance to a fresh beneficiary.
 """
 
 from dataclasses import dataclass
@@ -271,7 +407,7 @@ class Frame:
 
     def enter(self, opcode: Op, callee: Address, value: int) -> "Frame":
         """Return the context in which `opcode` runs `callee`'s code."""
-        if opcode == Op.CALL:
+        if opcode in (Op.CALL, Op.STATICCALL):
             return Frame(address=callee, caller=self.address, value=value)
         if opcode == Op.CALLCODE:
             return Frame(
@@ -1122,3 +1258,568 @@ def test_three_level_call_chain_oogm_after(
         failing_level=1,
         after_call=True,
     )
+
+
+STATIC_CALL_OPCODES = {**CALL_OPCODES, "staticcall": Op.STATICCALL}
+RETURN_SIZE = 0x80
+SUCCESS_OFFSET = 0x80
+RESULT_SLOTS = {"count": 0x10, "caller": 0x11, "value": 0x12, "address": 0x13}
+FAULT_SLOT = 0x1F
+
+
+def static_call_chains(depth: int) -> list:
+    """
+    Return every chain of `depth` call opcodes, STATICCALL included, that
+    has at least one STATICCALL, as a pytest parameter.
+    """
+    return [
+        pytest.param(
+            tuple(STATIC_CALL_OPCODES[name] for name in names),
+            id="_".join(names),
+        )
+        for names in product(STATIC_CALL_OPCODES, repeat=depth)
+        if "staticcall" in names
+    ]
+
+
+@dataclass
+class StaticChainResult:
+    """Outcome of one frame of a simulated static call chain."""
+
+    success: bool
+    returned: tuple[int | Address, ...] | None
+    effects: list[tuple]
+
+
+def run_static_call_chain(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    chain: tuple[Op, ...],
+    *,
+    value: int = 0,
+    fault: str | None = None,
+    fault_level: int = 0,
+    before_call: bool = False,
+) -> None:
+    """
+    Call down `chain`, one contract per opcode, and check what the top level
+    learns from the frames below and where non-static frames' writes land.
+
+    Every frame below the top returns `RETURN_SIZE` bytes: the number of
+    frames below it that returned, plus one for its own call's success,
+    followed by the innermost frame's CALLER, CALLVALUE and ADDRESS. The
+    top level stores them in `RESULT_SLOTS`; a non-static level `n` also
+    stores its call's success in slot `n`. CALL and CALLCODE carry `value`.
+
+    `fault` is injected in the frame at `fault_level` (the innermost frame
+    when it equals the chain's length), before or after its call:
+    `"sstore"` writes `FAULT_SLOT`, `"out_of_gas"` expands memory until it
+    runs out of gas (only the call into it has bounded gas), and
+    `"self_destruct"` self-destructs to a fresh beneficiary.
+    """
+    depth = len(chain)
+    static = [
+        any(opcode == Op.STATICCALL for opcode in chain[:level])
+        for level in range(depth + 1)
+    ]
+    beneficiary = pre.nonexistent_account()
+
+    def fault_code(level: int) -> Bytecode:
+        if fault is None or level != fault_level:
+            return Bytecode()
+        if fault == "sstore":
+            return Op.SSTORE(FAULT_SLOT, 1)
+        if fault == "out_of_gas":
+            return OUT_OF_GAS_MEMORY
+        if fault == "self_destruct":
+            return Op.SELFDESTRUCT(beneficiary)
+        raise ValueError(f"Unknown fault: {fault}")
+
+    def call_value(opcode: Op) -> int:
+        return value if opcode in (Op.CALL, Op.CALLCODE) else 0
+
+    # Construct the innermost contract.
+    contracts = [
+        pre.deploy_contract(
+            code=fault_code(depth)
+            + Op.MSTORE(0x00, 1)
+            + Op.MSTORE(0x20, Op.CALLER)
+            + Op.MSTORE(0x40, Op.CALLVALUE)
+            + Op.MSTORE(0x60, Op.ADDRESS)
+            + Op.RETURN(0, RETURN_SIZE),
+            balance=CONTRACT_BALANCE,
+        )
+    ]
+
+    # Construct the calling contracts, from the innermost one outward.
+    for level in reversed(range(depth)):
+        opcode = chain[level]
+        gas = (
+            OUT_OF_GAS_CALL_GAS
+            if fault == "out_of_gas" and level == fault_level - 1
+            else Op.GAS
+        )
+        if opcode in (Op.CALL, Op.CALLCODE):
+            call = opcode(
+                gas=gas,
+                address=contracts[0],
+                value=call_value(opcode),
+                ret_size=RETURN_SIZE,
+            )
+        else:
+            call = opcode(gas=gas, address=contracts[0], ret_size=RETURN_SIZE)
+        code = (
+            (fault_code(level) if before_call else Bytecode())
+            + Op.MSTORE(SUCCESS_OFFSET, call)
+            + Op.MSTORE(0, Op.ADD(Op.MLOAD(0), Op.MLOAD(SUCCESS_OFFSET)))
+        )
+        if not static[level]:
+            code += Op.SSTORE(level, Op.MLOAD(SUCCESS_OFFSET))
+        if not before_call:
+            code += fault_code(level)
+        if level == 0:
+            code += (
+                Op.SSTORE(RESULT_SLOTS["count"], Op.MLOAD(0x00))
+                + Op.SSTORE(RESULT_SLOTS["caller"], Op.MLOAD(0x20))
+                + Op.SSTORE(RESULT_SLOTS["value"], Op.MLOAD(0x40))
+                + Op.SSTORE(RESULT_SLOTS["address"], Op.MLOAD(0x60))
+                + Op.STOP
+            )
+        else:
+            code += Op.RETURN(0, RETURN_SIZE)
+        contracts.insert(
+            0, pre.deploy_contract(code=code, balance=CONTRACT_BALANCE)
+        )
+
+    # Construct the transaction.
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, to=contracts[0])
+
+    # Simulate each frame's context.
+    frames = [Frame(address=contracts[0], caller=sender, value=0)]
+    for opcode, callee in zip(chain, contracts[1:], strict=True):
+        frames.append(frames[-1].enter(opcode, callee, call_value(opcode)))
+
+    def apply_fault(level: int) -> StaticChainResult | None:
+        """Return the frame's outcome if the fault ends it."""
+        if fault is None or level != fault_level:
+            return None
+        if fault == "out_of_gas" or static[level]:
+            return StaticChainResult(False, None, [])
+        if fault == "self_destruct":
+            return StaticChainResult(
+                True, None, [("destroy", frames[level].address)]
+            )
+        return None
+
+    def run(level: int) -> StaticChainResult:
+        """Simulate the frame at `level` and everything below it."""
+        effects: list[tuple] = []
+        if level == depth or before_call:
+            ended = apply_fault(level)
+            if ended is not None:
+                return ended
+            if fault == "sstore" and level == fault_level:
+                effects.append(("store", frames[level].address, FAULT_SLOT, 1))
+        if level == depth:
+            leaf = frames[depth]
+            return StaticChainResult(
+                True, (1, leaf.caller, leaf.value, leaf.address), effects
+            )
+        opcode = chain[level]
+        sent = call_value(opcode)
+        if static[level] and opcode == Op.CALL and sent > 0:
+            return StaticChainResult(False, None, [])
+        callee = run(level + 1)
+        returned: tuple[int | Address, ...] = (0, 0, 0, 0)
+        if callee.success:
+            if opcode == Op.CALL and sent > 0:
+                effects.append(
+                    (
+                        "transfer",
+                        frames[level].address,
+                        contracts[level + 1],
+                        sent,
+                    )
+                )
+            effects += callee.effects
+            if callee.returned is not None:
+                returned = callee.returned
+        count = int(returned[0]) + int(callee.success)
+        returned = (count, *returned[1:])
+        if not static[level]:
+            effects.append(
+                ("store", frames[level].address, level, int(callee.success))
+            )
+        if not before_call:
+            ended = apply_fault(level)
+            if ended is not None:
+                return StaticChainResult(
+                    ended.success,
+                    None,
+                    effects + ended.effects if ended.success else [],
+                )
+            if fault == "sstore" and level == fault_level:
+                effects.append(("store", frames[level].address, FAULT_SLOT, 1))
+        if level == 0:
+            for key, word in zip(RESULT_SLOTS.values(), returned, strict=True):
+                effects.append(("store", contracts[0], key, word))
+        return StaticChainResult(True, returned, effects)
+
+    # Apply the simulated effects to the pre-state.
+    storage: dict[Address, dict[int, int | Address]] = {
+        c: {} for c in contracts
+    }
+    balance = dict.fromkeys(contracts, CONTRACT_BALANCE)
+    balance[beneficiary] = 0
+    for effect in run(0).effects:
+        if effect[0] == "store":
+            _, address, slot, word = effect
+            storage[address][slot] = word
+        elif effect[0] == "transfer":
+            _, source, destination, amount = effect
+            balance[source] -= amount
+            balance[destination] += amount
+        else:
+            _, destroyed = effect
+            balance[beneficiary] += balance[destroyed]
+            balance[destroyed] = 0
+
+    # Construct the expected post-state.
+    post: dict[Address, Account | None] = {
+        contract: Account(storage=storage[contract], balance=balance[contract])
+        for contract in contracts
+    }
+    post[beneficiary] = (
+        Account(balance=balance[beneficiary])
+        if balance[beneficiary] > 0
+        else Account.NONEXISTENT
+    )
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stStaticCall/static_callcall_00Filler.json",
+        "state_tests/stStaticCall/static_callcallcall_000Filler.json",
+        "state_tests/stStaticCall/static_callcallcallcode_001Filler.json",
+        "state_tests/stStaticCall/static_callcallcallcode_001_2Filler.json",
+        "state_tests/stStaticCall/static_callcallcode_01_2Filler.json",
+        "state_tests/stStaticCall/static_callcallcodecall_010Filler.json",
+        "state_tests/stStaticCall/static_callcallcodecall_010_2Filler.json",
+        "state_tests/stStaticCall/static_callcallcodecallcode_011Filler.json",
+        "state_tests/stStaticCall/static_callcallcodecallcode_011_2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecall_10Filler.json",
+        "state_tests/stStaticCall/static_callcodecall_10_2Filler.json",
+        "state_tests/stStaticCall/static_callcodecallcall_100Filler.json",
+        "state_tests/stStaticCall/static_callcodecallcall_100_2Filler.json",
+        "state_tests/stStaticCall/static_callcodecallcallcode_101Filler.json",
+        "state_tests/stStaticCall/static_callcodecallcallcode_101_2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_1102Filler.json",
+        "state_tests/stStaticCall/static_callcodecallcodecall_110Filler.json",
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_calldelcode_01Filler.json",
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("value", [0, 1], ids=["no_value", "with_value"])
+@pytest.mark.parametrize(
+    "leaf_writes", [False, True], ids=["leaf_reads", "leaf_writes"]
+)
+@pytest.mark.parametrize(
+    "chain", static_call_chains(2) + static_call_chains(3)
+)
+def test_static_call_chain(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    chain: tuple[Op, ...],
+    leaf_writes: bool,
+    value: int,
+) -> None:
+    """
+    Call down a chain with a STATICCALL in it to code that only reads its
+    context or, with `leaf_writes`, first writes storage.
+    """
+    run_static_call_chain(
+        state_test,
+        pre,
+        chain,
+        value=value,
+        fault="sstore" if leaf_writes else None,
+        fault_level=len(chain),
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stStaticCall/static_callcall_00_OOGEFiller.json",
+        "state_tests/stStaticCall/static_callcall_00_OOGE_1Filler.json",
+        "state_tests/stStaticCall/static_callcall_00_OOGE_2Filler.json",
+        "state_tests/stStaticCall/static_callcallcall_000_OOGEFiller.json",
+        "state_tests/stStaticCall/static_callcallcall_000_OOGMAfter2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcall_000_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcall_000_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcallcode_001_OOGEFiller.json",
+        "state_tests/stStaticCall/static_callcallcallcode_001_OOGE_2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcallcode_001_OOGMAfter2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcallcode_001_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcallcode_001_OOGMAfter_2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcallcode_001_OOGMAfter_3Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcallcode_001_OOGMBefore2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcallcode_001_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcode_01_OOGE_2Filler.json",
+        "state_tests/stStaticCall/static_callcallcodecall_010_OOGEFiller.json",
+        "state_tests/stStaticCall/static_callcallcodecall_010_OOGE_2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecall_010_OOGMAfter2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecall_010_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecall_010_OOGMAfter_2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecall_010_OOGMAfter_3Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecall_010_OOGMBefore2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecall_010_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_011_OOGEFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_011_OOGE_2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_011_OOGMAfter2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_011_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_011_OOGMAfter_1Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_011_OOGMAfter_2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_011_OOGMBefore2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_011_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecall_10_OOGEFiller.json",
+        "state_tests/stStaticCall/static_callcodecall_10_OOGE_2Filler.json",
+        "state_tests/stStaticCall/static_callcodecallcall_100_OOGE2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcall_100_OOGEFiller.json",
+        "state_tests/stStaticCall/static_callcodecallcall_100_OOGMAfter2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcall_100_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcall_100_OOGMAfter_2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcall_100_OOGMAfter_3Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcall_100_OOGMBefore2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcall_100_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_101_OOGEFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_101_OOGE_2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_101_OOGMAfter2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_101_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_101_OOGMAfter_1Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_101_OOGMAfter_3Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_101_OOGMBefore2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_101_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_OOGE2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_OOGEFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_OOGMAfter2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_OOGMAfterFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_OOGMAfter_2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_OOGMAfter_3Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_OOGMBefore2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_OOGMBeforeFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_calldelcode_01_OOGEFiller.json",
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize(
+    "from_end, before_call",
+    [
+        pytest.param(0, False, id="ooge"),
+        pytest.param(1, True, id="oogm_before"),
+        pytest.param(1, False, id="oogm_after"),
+    ],
+)
+@pytest.mark.parametrize(
+    "chain", static_call_chains(2) + static_call_chains(3)
+)
+def test_static_call_chain_out_of_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    chain: tuple[Op, ...],
+    from_end: int,
+    before_call: bool,
+) -> None:
+    """
+    Call down a chain with a STATICCALL in it, where the innermost frame,
+    or the frame calling it (before or after its call), runs out of gas.
+    """
+    run_static_call_chain(
+        state_test,
+        pre,
+        chain,
+        fault="out_of_gas",
+        fault_level=len(chain) - from_end,
+        before_call=before_call,
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stStaticCall/static_callcall_00_SuicideEndFiller.json",
+        "state_tests/stStaticCall/static_callcallcall_000_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcall_000_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcallcode_001_SuicideEnd2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcallcode_001_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcallcode_001_SuicideMiddle2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcallcode_001_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcode_01_SuicideEnd2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcode_01_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecall_010_SuicideEnd2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecall_010_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecall_010_SuicideMiddle2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecall_010_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_011_SuicideEnd2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_011_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_011_SuicideMiddle2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_011_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecall_10_SuicideEnd2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecall_10_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcall_100_SuicideEnd2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcall_100_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcall_100_SuicideMiddle2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcall_100_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_101_SuicideEnd2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_101_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_101_SuicideMiddle2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_101_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_SuicideEnd2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_SuicideEndFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_SuicideMiddle2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_SuicideMiddleFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecallcode_111_SuicideEndFiller.json",  # noqa: E501
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize(
+    "before_call",
+    [
+        pytest.param(False, id="suicide_end"),
+        pytest.param(True, id="suicide_middle"),
+    ],
+)
+@pytest.mark.parametrize(
+    "chain", static_call_chains(2) + static_call_chains(3)
+)
+def test_static_call_chain_self_destruct(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    chain: tuple[Op, ...],
+    before_call: bool,
+) -> None:
+    """
+    Call down a chain with a STATICCALL in it, where the frame calling the
+    innermost code self-destructs before or after its call.
+    """
+    run_static_call_chain(
+        state_test,
+        pre,
+        chain,
+        fault="self_destruct",
+        fault_level=len(chain) - 1,
+        before_call=before_call,
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stStaticCall/static_callcallcall_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcallcode_ABCB_RECURSIVE2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecall_ABCB_RECURSIVE2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecall_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_ABCB_RECURSIVE2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcallcodecallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcall_ABCB_RECURSIVE2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcall_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_ABCB_RECURSIVE2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcallcode_ABCB_RECURSIVEFiller.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_ABCB_RECURSIVE2Filler.json",  # noqa: E501
+        "state_tests/stStaticCall/static_callcodecallcodecall_ABCB_RECURSIVEFiller.json",  # noqa: E501
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("rounds", [0, 1, 40], ids=lambda r: f"rounds_{r}")
+@pytest.mark.parametrize("chain", static_call_chains(3))
+def test_static_recursive_call_chain(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    chain: tuple[Op, Op, Op],
+    rounds: int,
+) -> None:
+    """
+    Call A -> B -> C, where C calls B again for `rounds` more rounds of
+    B -> C, and the last C calls B with no gas so that call fails.
+
+    Every frame returns how many frames below it returned, plus one for its
+    own call's success, and A stores it, so the recursion is observable
+    through the static frames, which cannot write.
+    """
+    a_to_b, b_to_c, c_to_b = chain
+    count_offset = 2 * ROUNDS_OFFSET
+    count_and_return = Op.MSTORE(
+        count_offset, Op.ADD(Op.MLOAD(count_offset), Op.MLOAD(SUCCESS_OFFSET))
+    ) + Op.RETURN(count_offset, 32)
+
+    # Construct C, which calls back the address it receives as calldata
+    # with one round less, or with no gas once no rounds are left.
+    rounds_left = Op.CALLDATALOAD(ROUNDS_OFFSET)
+    c = pre.deploy_contract(
+        code=Op.CALLDATACOPY(dest_offset=0, offset=0, size=WINDOW)
+        + Op.MSTORE(ROUNDS_OFFSET, Op.SUB(rounds_left, 1))
+        + Op.MSTORE(
+            SUCCESS_OFFSET,
+            c_to_b(
+                gas=Op.MUL(Op.GAS, Op.ISZERO(Op.ISZERO(rounds_left))),
+                address=Op.CALLDATALOAD(0),
+                args_size=WINDOW,
+                ret_offset=count_offset,
+                ret_size=32,
+            ),
+        )
+        + count_and_return,
+        balance=CONTRACT_BALANCE,
+    )
+
+    # Construct B, which forwards its calldata to C.
+    b = pre.deploy_contract(
+        code=Op.CALLDATACOPY(dest_offset=0, offset=0, size=WINDOW)
+        + Op.MSTORE(
+            SUCCESS_OFFSET,
+            b_to_c(
+                address=c,
+                args_size=WINDOW,
+                ret_offset=count_offset,
+                ret_size=32,
+            ),
+        )
+        + count_and_return,
+        balance=CONTRACT_BALANCE,
+    )
+
+    # Construct A, which passes B's address and the round count down as
+    # calldata and stores the count.
+    a = pre.deploy_contract(
+        code=Op.MSTORE(0, b)
+        + Op.MSTORE(ROUNDS_OFFSET, rounds)
+        + Op.MSTORE(
+            SUCCESS_OFFSET,
+            a_to_b(
+                address=b,
+                args_size=WINDOW,
+                ret_offset=count_offset,
+                ret_size=32,
+            ),
+        )
+        + Op.SSTORE(
+            0, Op.ADD(Op.MLOAD(count_offset), Op.MLOAD(SUCCESS_OFFSET))
+        )
+        + Op.STOP,
+        balance=CONTRACT_BALANCE,
+    )
+
+    # Construct the transaction.
+    tx = Transaction(sender=pre.fund_eoa(), to=a)
+
+    # Every call but the last C's succeeds: A, B and C, then two frames per
+    # round, each count one call.
+    post = {
+        a: Account(storage={0: 2 + 2 * rounds}, balance=CONTRACT_BALANCE),
+        b: Account(storage={}, balance=CONTRACT_BALANCE),
+        c: Account(storage={}, balance=CONTRACT_BALANCE),
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
