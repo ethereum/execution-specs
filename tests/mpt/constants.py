@@ -167,6 +167,21 @@ ADDR_EXT_MERGE_TRIO: Final = (65755, 66515, 66334)
 TWO_ADDRS_EXT4_SIBLING_DEPTH1: Final = 65545
 TWO_ADDRS_EXT4_SIBLING_DEPTH3: Final = 68252
 
+# The storage shape of EXT_ABOVE_DEEP_BRANCH over addresses, with the left
+# subtree's first nibble a restricted to 1 or e: with b = a + 1, both must
+# be free of the genesis, sender and coinbase accounts on every fork from
+# Osaka. Prefixes 10, 1f0, 1f8, 201b4 (x2), 201b0, 201c and new 200.
+ADDR_EXT_ABOVE_DEEP_BRANCH: Final = (
+    65613,
+    65872,
+    65822,
+    146752,
+    152928,
+    163618,
+    82263,
+)
+ADDR_EXT_ABOVE_DEEP_BRANCH_NEW: Final = 68415
+
 # --- CREATE2 salts ------------------------------------------------------
 
 # Smallest salt whose factory-created address for `DELETE_INITCODE` is a

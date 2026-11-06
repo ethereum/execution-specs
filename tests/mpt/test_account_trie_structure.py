@@ -51,6 +51,8 @@ from execution_testing import (
 from execution_testing.base_types import StorageRootType
 
 from .constants import (
+    ADDR_EXT_ABOVE_DEEP_BRANCH,
+    ADDR_EXT_ABOVE_DEEP_BRANCH_NEW,
     ADDR_EXT_MERGE_TRIO,
     COLLAPSE_SALT,
     DELETE_INITCODE,
@@ -216,6 +218,58 @@ def test_insert_full_branch_during_execution(
         post={
             payer: Account(balance=0),
             **{a: Account(balance=1) for a in addresses},
+        },
+    )
+
+
+def test_insert_splits_extension_above_deep_branch(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Create an account between a skipped subtree and a deeper branch.
+
+    pre:  .. -> {1: branch@1, 2: ext(2) -> branch@3 -> {..}}
+    post: .. -> {.., 2: ext(1) -> branch@2 -> {new, branch@3}}
+    The account trie version of the storage test of the same name: the new
+    leaf sorts after the unchanged subtree under `1f` and before the
+    committed branches under `201` below the extension it splits.
+    """
+    committed = [Address(x) for x in ADDR_EXT_ABOVE_DEEP_BRANCH]
+    new = Address(ADDR_EXT_ABOVE_DEEP_BRANCH_NEW)
+    for i, address in enumerate(committed):
+        pre.fund_address(address, amount=i + 1)
+    sender = pre.fund_eoa()
+    a_leaf, a_left, deep = committed[0], committed[1], committed[3]
+    assert node_at(account_shape(pre, a_leaf), 1) == ("branch", 2)
+    assert node_at(account_shape(pre, a_left), 2) == ("branch", 2)
+    assert account_shape(pre, deep)[1:] == [
+        (1, "ext", 2),
+        (3, "branch", 2),
+        (4, "branch", 2),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    after = _after_block(pre) + [new]
+    assert account_shape(after, deep)[1:] == [
+        (1, "ext", 1),
+        (2, "branch", 2),
+        (3, "branch", 2),
+        (4, "branch", 2),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    assert account_shape(after, new)[1:] == [
+        (1, "ext", 1),
+        (2, "branch", 2),
+        (3, "leaf", 61),
+    ]
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=sender, to=new, value=1),
+        post={
+            new: Account(balance=1),
+            **{a: Account(balance=i + 1) for i, a in enumerate(committed)},
         },
     )
 
