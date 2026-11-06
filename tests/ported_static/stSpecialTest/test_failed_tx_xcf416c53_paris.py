@@ -32,7 +32,7 @@ def test_failed_tx_xcf416c53_paris(
 ) -> None:
     """Test_failed_tx_xcf416c53_paris."""
     addr = Address(0x0000000000000000000000000000000000000003)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     pre[addr] = Account(balance=10)
     # Source: raw
@@ -79,11 +79,10 @@ def test_failed_tx_xcf416c53_paris(
         to=target,
         data=Bytes("97dd3054") + Hash(0x0) + Hash(0x2BC),
         gas_limit=16300000,
-        nonce=1,
     )
 
     post = {
-        sender: Account(nonce=2),
+        sender: Account(nonce=1),
         addr: Account(balance=10),
     }
 
