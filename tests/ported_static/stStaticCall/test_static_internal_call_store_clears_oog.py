@@ -1,111 +1,55 @@
 """
-Test_static_internal_call_store_clears_oog.
+STATICCALL a contract that clears its storage.
 
 Ported from:
 state_tests/stStaticCall/static_InternalCallStoreClearsOOGFiller.json
+
+@manually-enhanced: Do not overwrite. Callee is no longer address 0.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
+    Bytecode,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+CLEARED_SLOTS = range(10)
+RESULT_SLOT = 1
+RESULT_SENTINEL = 0xFF
 
 
 @pytest.mark.ported_from(
     ["state_tests/stStaticCall/static_InternalCallStoreClearsOOGFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.slow
-@pytest.mark.pre_alloc_mutable
 def test_static_internal_call_store_clears_oog(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test_static_internal_call_store_clears_oog."""
-    sender = pre.fund_eoa(amount=0x5F5E100)
-
-    # Source: lll
-    # {(SSTORE 0 0)(SSTORE 1 0)(SSTORE 2 0)(SSTORE 3 0)(SSTORE 4 0)(SSTORE 5 0)(SSTORE 6 0)(SSTORE 7 0)(SSTORE 8 0)(SSTORE 9 0)}  # noqa: E501
-    contract_0 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=0x0)
-        + Op.SSTORE(key=0x1, value=0x0)
-        + Op.SSTORE(key=0x2, value=0x0)
-        + Op.SSTORE(key=0x3, value=0x0)
-        + Op.SSTORE(key=0x4, value=0x0)
-        + Op.SSTORE(key=0x5, value=0x0)
-        + Op.SSTORE(key=0x6, value=0x0)
-        + Op.SSTORE(key=0x7, value=0x0)
-        + Op.SSTORE(key=0x8, value=0x0)
-        + Op.SSTORE(key=0x9, value=0x0)
+    """Verify the callee's storage clears fail and are not applied."""
+    callee_storage = dict.fromkeys(CLEARED_SLOTS, 12)
+    callee = pre.deploy_contract(
+        code=sum((Op.SSTORE(slot, 0) for slot in CLEARED_SLOTS), Bytecode())
         + Op.STOP,
-        storage={
-            0: 12,
-            1: 12,
-            2: 12,
-            3: 12,
-            4: 12,
-            5: 12,
-            6: 12,
-            7: 12,
-            8: 12,
-            9: 12,
-        },
-        address=Address(0x0000000000000000000000000000000000000000),  # noqa: E501
+        storage=callee_storage,
     )
-    # Source: lll
-    # { [[ 1 ]] (STATICCALL 40000 0 0 0 0 0) }
-    contract_1 = pre.deploy_contract(
-        code=Op.SSTORE(
-            key=0x1,
-            value=Op.STATICCALL(
-                gas=0x9C40,
-                address=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
-        balance=10,
-        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
+    caller = pre.deploy_contract(
+        code=Op.SSTORE(RESULT_SLOT, Op.STATICCALL(address=callee)) + Op.STOP,
+        storage={RESULT_SLOT: RESULT_SENTINEL},
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=contract_1,
-        data=Bytes(""),
-        gas_limit=160000,
-        value=10,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=caller)
 
     post = {
-        contract_0: Account(
-            storage={
-                0: 12,
-                1: 12,
-                2: 12,
-                3: 12,
-                4: 12,
-                5: 12,
-                6: 12,
-                7: 12,
-                8: 12,
-                9: 12,
-            },
-            balance=0,
-        ),
-        sender: Account(nonce=1),
-        contract_1: Account(storage={1: contract_0}, balance=20),
+        callee: Account(storage=callee_storage),
+        caller: Account(storage={RESULT_SLOT: 0}),
     }
 
     state_test(pre=pre, post=post, tx=tx)
