@@ -124,6 +124,17 @@ VALUE_BOUNDARY_PAIR: Final = (247476, 515151)
 # (even, 28-byte compact path), s has 55 (odd, also 28 bytes).
 INLINE_TRIO: Final = (175378, 2311414, 458416)
 
+# Seven committed slots and a new one that sorts between the end of a
+# subtree and a deeper committed branch. With b = a + 1, the hashes start:
+# `[a, y]` (y != f); `[a, f, u]`, `[a, f, v]`; a pair sharing exactly
+# `[b, 0, q, c, d]` (q > 0); `[b, 0, q, c, d2]`; `[b, 0, q, c2]` (c2 > c);
+# new `[b, 0, q2]` (q2 < q). The set with the smallest largest slot, each
+# member the smallest slot with its prefix, has prefixes 20, 2f5, 2f6,
+# 30c63 (x2), 30c60, 30c7 and new 300. Trie: root branch -> {2: branch ->
+# {leaf, branch}, 3: ext(2) -> branch@3 -> {branch@4 -> {..}, leaf}}.
+EXT_ABOVE_DEEP_BRANCH: Final = (485, 243, 304, 9857, 33603, 27818, 3070)
+EXT_ABOVE_DEEP_BRANCH_NEW: Final = 2620
+
 # --- addresses ----------------------------------------------------------
 
 # Same rules over 20-byte addresses. `pre.fund_address` raises if a mined

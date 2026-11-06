@@ -33,6 +33,8 @@ from .constants import (
     BRANCH_SURVIVOR_TRIO,
     EMBEDDED_LEAF_PAIR,
     EMBEDDED_LEAF_PAIR_SIBLING_DEPTH4,
+    EXT_ABOVE_DEEP_BRANCH,
+    EXT_ABOVE_DEEP_BRANCH_NEW,
     EXT_MERGE_TRIO,
     EXT_MERGE_TRIO_SIBLING_DEPTH3,
     HASHED_LEAF_PAIR,
@@ -434,6 +436,82 @@ def test_insert_splits_nested_extension_first_nibble(
         pre=pre,
         tx=Transaction(sender=pre.fund_eoa(), to=contract),
         post={contract: Account(storage={l1: 1, l2: 2, l3: 3, new: 4})},
+    )
+
+
+def test_insert_splits_extension_above_deep_branch(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Insert a key between an unchanged subtree and a deeper stored branch.
+
+    pre:  branch@0 -> {2: branch@1, 3: ext(2) -> branch@3 -> {..}}
+    post: branch@0 -> {.., 3: ext(1) -> branch@2 -> {new, branch@3}}
+    The new key sorts after the unchanged subtree under `2f` and before the
+    branches under `30c` that sit below the extension it splits. A client
+    that rebuilds the root from committed nodes must not skip it.
+    """
+    committed = EXT_ABOVE_DEEP_BRANCH
+    new = EXT_ABOVE_DEEP_BRANCH_NEW
+    deep = committed[3]
+    assert storage_shape(committed, deep) == [
+        (0, "branch", 2),
+        (1, "ext", 2),
+        (3, "branch", 2),
+        (4, "branch", 2),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    assert storage_shape([*committed, new], deep) == [
+        (0, "branch", 2),
+        (1, "ext", 1),
+        (2, "branch", 2),
+        (3, "branch", 2),
+        (4, "branch", 2),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    assert storage_shape([*committed, new], new)[-1] == (3, "leaf", 61)
+    storage = _storage(committed)
+    contract = pre.deploy_contract(
+        code=_writer_code([(new, 9)]), storage=storage
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={**storage, new: 9})},
+    )
+
+
+def test_insert_splits_extension_above_deep_branch_next_block(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Build the deep-branch trie in one block, insert into the gap in the next.
+
+    Same keys as `test_insert_splits_extension_above_deep_branch`, but the
+    committed nodes come from block 1 instead of genesis, so block 2's root
+    is computed from nodes the client wrote itself.
+    """
+    committed = EXT_ABOVE_DEEP_BRANCH
+    new = EXT_ABOVE_DEEP_BRANCH_NEW
+    storage = _storage(committed)
+    contract = pre.deploy_contract(code=SLOT_WRITER)
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={**storage, new: 9})},
+        blocks=[
+            Block(
+                txs=[
+                    _write(sender, contract, s, storage[s]) for s in committed
+                ],
+                expected_post_state={contract: Account(storage=storage)},
+            ),
+            Block(txs=[_write(sender, contract, new, 9)]),
+        ],
     )
 
 
