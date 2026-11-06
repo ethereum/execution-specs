@@ -92,6 +92,7 @@ def gas_limit_cases_at_maximum(
     )
 
 
+@pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize_by_fork("gas_limit", gas_limit_cases_at_maximum)
 def test_block_gas_limit_above_maximum(
     blockchain_test: BlockchainTestFiller,
