@@ -14,7 +14,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 from tests.ported_static.post_state_resolution import (
@@ -24,12 +24,18 @@ from tests.ported_static.post_state_resolution import (
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+# The filler used an 80M budget and a 0x04000000 threshold for "the
+# call took all the gas"; both are lowered to fit the Osaka tx gas
+# limit cap. A failing call burns nearly the whole budget, a REVERT
+# only a few thousand gas.
+TX_GAS_LIMIT = 16_000_000
+ALL_GAS_THRESHOLD = 0x00100000
+
 
 @pytest.mark.ported_from(
     ["state_tests/stRevertTest/costRevertFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_until("Prague")
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -212,6 +218,11 @@ def test_cost_revert(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
+    # EIP-8038 cold account access reprice; 0 before EIP-8038.
+    cold_account_delta = (
+        fork.gas_costs().COLD_ACCOUNT_ACCESS
+        - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
+    )
     sender = pre.fund_eoa(amount=0x100000000000)
 
     # Source: lll
@@ -419,7 +430,10 @@ def test_cost_revert(
             ),
         )
         + Op.JUMPDEST
-        + Op.JUMPI(pc=0x100, condition=Op.GT(Op.SLOAD(key=0x0), 0x4000000))
+        + Op.JUMPI(
+            pc=0x100,
+            condition=Op.GT(Op.SLOAD(key=0x0), Op.PUSH4[ALL_GAS_THRESHOLD]),
+        )
         + Op.SLOAD(key=0x0)
         + Op.JUMP(pc=0x105)
         + Op.JUMPDEST
@@ -434,8 +448,10 @@ def test_cost_revert(
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0, 21, 14, 7], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_7: Account(storage={0: 2609})},
+            "network": [">=Cancun"],
+            "result": {
+                contract_7: Account(storage={0: 2609 + cold_account_delta})
+            },
         },
         {
             "indexes": {
@@ -468,7 +484,7 @@ def test_cost_revert(
                 "gas": -1,
                 "value": -1,
             },
-            "network": [">=Cancun<Osaka"],
+            "network": [">=Cancun"],
             "result": {contract_7: Account(storage={0: 0xFFFFFF})},
         },
     ]
@@ -505,7 +521,7 @@ def test_cost_revert(
         Bytes("1a8451e6") + Hash(contract_5, left_padding=True) + Hash(0x3),
         Bytes("1a8451e6") + Hash(contract_6, left_padding=True) + Hash(0x3),
     ]
-    tx_gas = [80000000]
+    tx_gas = [TX_GAS_LIMIT]
     tx_value = [1]
 
     tx = Transaction(
