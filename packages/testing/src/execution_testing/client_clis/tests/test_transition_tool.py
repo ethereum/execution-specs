@@ -5,7 +5,8 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Type
+from types import SimpleNamespace
+from typing import Any, Type, cast
 
 import ijson  # type: ignore[import-untyped]
 import pytest
@@ -28,6 +29,7 @@ from execution_testing.client_clis.cli_types import (
     LazyAllocStr,
     OpcodeCount,
     Result,
+    TransactionReceipt,
     TransitionToolInput,
     TransitionToolOutput,
 )
@@ -582,3 +584,99 @@ def test_an_opcode_count_accepts_every_name_geth_reports() -> None:
         "ADD": 3,
         "0xb8": 2,
     }
+
+
+class _CollectTracesSelf:
+    """
+    Minimal stand-in for a ``TransitionTool`` instance.
+
+    ``TransitionTool.collect_traces`` only touches ``self.traces`` and
+    ``self.append_traces``. Instantiating a real subclass requires an
+    exception_mapper, binary discovery, etc. — all unrelated to what
+    we're testing here.
+    """
+
+    def __init__(self) -> None:
+        self.traces: list = []
+
+    def append_traces(self, new_traces: Any) -> None:
+        self.traces.append(new_traces)
+
+
+def _make_receipt(tx_hash: str) -> TransactionReceipt:
+    return TransactionReceipt.model_validate({"transactionHash": tx_hash})
+
+
+def _make_temp_dir(path: Path) -> Any:
+    """
+    Minimal stand-in for a ``tempfile.TemporaryDirectory``.
+
+    ``TransitionTool.collect_traces`` only reads ``temp_dir.name``, so
+    the tests reuse a pytest ``tmp_path`` subdirectory instead of
+    relying on garbage collection to clean up a real one.
+    """
+    return SimpleNamespace(name=str(path))
+
+
+def test_collect_traces_writes_empty_placeholder_for_missing_trace(
+    tmp_path: Path,
+) -> None:
+    """
+    Regression for issue #2758.
+
+    When a tx produces a receipt but no trace file (TransactionEnd
+    tracer event never fired, e.g. EIP-3607 collisions), an empty
+    placeholder file must be written into ``debug_output_path`` so a
+    later ``--verify-traces`` run loads a matching shape from disk.
+    """
+    tx_hash_present = "0x" + "a" * 64
+    tx_hash_missing = "0x" + "b" * 64
+
+    t8n_dir = tmp_path / "t8n"
+    t8n_dir.mkdir()
+    # Only write a trace for the first receipt; the second is missing.
+    (t8n_dir / f"trace-0-{tx_hash_present}.jsonl").write_text(
+        '{"output":"0x","gasUsed":"0x5208"}\n'
+    )
+
+    debug_dir = tmp_path / "dump"
+    debug_dir.mkdir()
+
+    receipts = [_make_receipt(tx_hash_present), _make_receipt(tx_hash_missing)]
+
+    self_obj = _CollectTracesSelf()
+    TransitionTool.collect_traces(
+        cast(TransitionTool, self_obj),
+        receipts,
+        _make_temp_dir(t8n_dir),
+        debug_output_path=debug_dir,
+    )
+
+    placeholder = debug_dir / f"trace-1-{tx_hash_missing}.jsonl"
+    copied = debug_dir / f"trace-0-{tx_hash_present}.jsonl"
+    assert placeholder.exists(), "missing-trace placeholder not written"
+    assert placeholder.read_text() == ""
+    assert copied.exists(), "present trace was not copied to dump dir"
+
+
+def test_collect_traces_no_placeholder_without_debug_path(
+    tmp_path: Path,
+) -> None:
+    """
+    With ``debug_output_path=None`` the missing-trace branch must still
+    produce an in-memory empty ``TransactionTraces`` but must not write
+    to disk.
+    """
+    tx_hash = "0x" + "c" * 64
+    t8n_dir = tmp_path / "t8n"
+    t8n_dir.mkdir()
+    self_obj = _CollectTracesSelf()
+    TransitionTool.collect_traces(
+        cast(TransitionTool, self_obj),
+        [_make_receipt(tx_hash)],
+        _make_temp_dir(t8n_dir),
+        debug_output_path=None,
+    )
+    assert len(self_obj.traces) == 1
+    assert len(self_obj.traces[0].root) == 1
+    assert self_obj.traces[0].root[0].traces == []
