@@ -1,5 +1,6 @@
 """Ethereum blockchain test spec definition and filler."""
 
+from dataclasses import dataclass
 from hashlib import sha256
 from pprint import pprint
 from typing import (
@@ -918,6 +919,36 @@ def _split_blocks_by_phase(blocks: List[Block]) -> List[Block]:
     return out
 
 
+@dataclass(kw_only=True)
+class ChainRun:
+    """Result of running the blocks of a test on top of its genesis."""
+
+    pre: Alloc
+    """Allocation of the genesis block."""
+
+    genesis: FixtureBlock
+    """Genesis block the chain is built on."""
+
+    blocks: List[BuiltBlock]
+    """Built blocks, in the order of the test's blocks."""
+
+    alloc: Alloc
+    """State after the last valid block."""
+
+    env: Environment
+    """Environment of a block built on top of the last valid block."""
+
+    head: Hash
+    """Hash of the last valid block."""
+
+    state_root: Hash
+    """State root of the last valid block."""
+
+    benchmark_gas_used: int | None = None
+    benchmark_block_gas_used: int | None = None
+    benchmark_opcode_count: OpcodeCount | None = None
+
+
 class BlockchainTest(BaseTest):
     """Filler type that tests multiple blocks (valid or invalid) in a chain."""
 
@@ -1532,56 +1563,40 @@ class BlockchainTest(BaseTest):
             print_traces(t8n.get_traces())
             raise e
 
-    def make_fixture(
+    def run_blocks(
         self,
         t8n: FillerBackend,
-    ) -> FillResult:
-        """Create a fixture from the blockchain test definition."""
-        for i, block in enumerate(self.blocks):
-            overrides = block.engine_payload_only_overrides()
-            if overrides:
-                raise Exception(
-                    f"test correctness: block {i} sets {', '.join(overrides)}"
-                    ", which only reach the engine payload and cannot be "
-                    "expressed in an RLP blockchain fixture. Mark the test "
-                    "`blockchain_test_engine_only`."
-                )
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
+        *,
+        check_exception_test: bool = True,
+    ) -> ChainRun:
+        """
+        Build the genesis block and run the test's blocks on top of it.
 
-        fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
-
-        pre, genesis = self.make_genesis(BlockchainFixture)
-
+        A block the test expects to be invalid does not advance the
+        chain: the next block builds on its parent. After each block, the
+        block verifications and the block's `expected_post_state` are
+        checked, and after the last block, the test's `post`.
+        """
+        pre, genesis = self.make_genesis(fixture_format)
         alloc: Alloc | LazyAlloc = pre
         state_root = genesis.header.state_root
         env = environment_from_parent_header(genesis.header)
         head = genesis.header.block_hash
         invalid_blocks = 0
         context = RecordedPostStateContext()
+        built_blocks: List[BuiltBlock] = []
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
-        for i, block in enumerate(self.blocks):
-            # This is the most common case, the RLP needs to be constructed
-            # based on the transactions to be included in the block.
-            # Set the environment according to the block to execute.
+        for block in self.blocks:
             built_block = self.generate_block_data(
                 t8n=t8n,
                 block=block,
                 previous_env=env,
                 previous_alloc=alloc,
             )
-            block_number = int(built_block.header.number)
-            if (
-                built_block.block_access_list is not None
-                and built_block.block_access_list.has_rlp_override
-            ):
-                raise Exception(
-                    f"test correctness: block {i}'s block access list "
-                    "modifier re-encodes the list, but block RLP does not "
-                    "carry the block access list, so an RLP blockchain "
-                    "fixture cannot deliver the re-encoded bytes. Mark the "
-                    "test `blockchain_test_engine_only`."
-                )
+            built_blocks.append(built_block)
             is_last_block = block is self.blocks[-1]
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
                 benchmark_gas_used = built_block.cumulative_gas_used()
@@ -1590,21 +1605,8 @@ class BlockchainTest(BaseTest):
             if self.verifications:
                 self.run_block_verifications(
                     result=built_block.result,
-                    block_number=block_number,
+                    block_number=int(built_block.header.number),
                 )
-            include_receipts = (
-                block.include_receipts_in_output
-                if block.include_receipts_in_output is not None
-                else self.include_tx_receipts_in_output
-            )
-            fixture_blocks.append(
-                built_block.get_fixture_block(
-                    include_receipts=include_receipts
-                )
-            )
-
-            # BAL verification already done in to_fixture_bal() if
-            # expected_block_access_list set
 
             if block.exception is None:
                 built_block.record_landings(context)
@@ -1626,22 +1628,78 @@ class BlockchainTest(BaseTest):
                     context=context,
                     expected_state=block.expected_post_state,
                 )
-        self.check_exception_test(exception=invalid_blocks > 0)
+        if check_exception_test:
+            self.check_exception_test(exception=invalid_blocks > 0)
         alloc = alloc.materialize() if isinstance(alloc, LazyAlloc) else alloc
         self.verify_post_state(
             t8n=t8n, pre_alloc=pre, got_alloc=alloc, context=context
         )
+        return ChainRun(
+            pre=pre,
+            genesis=genesis,
+            blocks=built_blocks,
+            alloc=alloc,
+            env=env,
+            head=head,
+            state_root=state_root,
+            benchmark_gas_used=benchmark_gas_used,
+            benchmark_block_gas_used=benchmark_block_gas_used,
+            benchmark_opcode_count=benchmark_opcode_count,
+        )
+
+    def make_fixture(
+        self,
+        t8n: FillerBackend,
+    ) -> FillResult:
+        """Create a fixture from the blockchain test definition."""
+        for i, block in enumerate(self.blocks):
+            overrides = block.engine_payload_only_overrides()
+            if overrides:
+                raise Exception(
+                    f"test correctness: block {i} sets {', '.join(overrides)}"
+                    ", which only reach the engine payload and cannot be "
+                    "expressed in an RLP blockchain fixture. Mark the test "
+                    "`blockchain_test_engine_only`."
+                )
+
+        chain = self.run_blocks(t8n, BlockchainFixture)
+        fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
+        for i, (block, built_block) in enumerate(
+            zip(self.blocks, chain.blocks, strict=True)
+        ):
+            if (
+                built_block.block_access_list is not None
+                and built_block.block_access_list.has_rlp_override
+            ):
+                raise Exception(
+                    f"test correctness: block {i}'s block access list "
+                    "modifier re-encodes the list, but block RLP does not "
+                    "carry the block access list, so an RLP blockchain "
+                    "fixture cannot deliver the re-encoded bytes. Mark the "
+                    "test `blockchain_test_engine_only`."
+                )
+            include_receipts = (
+                block.include_receipts_in_output
+                if block.include_receipts_in_output is not None
+                else self.include_tx_receipts_in_output
+            )
+            fixture_blocks.append(
+                built_block.get_fixture_block(
+                    include_receipts=include_receipts
+                )
+            )
+
         fixture = BlockchainFixture(
             fork=self.fork,
-            genesis=genesis.header,
-            genesis_rlp=genesis.rlp,
+            genesis=chain.genesis.header,
+            genesis_rlp=chain.genesis.rlp,
             blocks=fixture_blocks,
-            last_block_hash=head,
-            pre=pre,
-            post_state=alloc
+            last_block_hash=chain.head,
+            pre=chain.pre,
+            post_state=chain.alloc
             if self.include_full_post_state_in_output
             else None,
-            post_state_hash=state_root
+            post_state_hash=chain.state_root
             if not self.include_full_post_state_in_output
             else None,
             config=FixtureConfig(
@@ -1655,9 +1713,9 @@ class BlockchainTest(BaseTest):
         return FillResult(
             fixture=fixture,
             gas_optimization=None,
-            benchmark_gas_used=benchmark_gas_used,
-            benchmark_block_gas_used=benchmark_block_gas_used,
-            benchmark_opcode_count=benchmark_opcode_count,
+            benchmark_gas_used=chain.benchmark_gas_used,
+            benchmark_block_gas_used=chain.benchmark_block_gas_used,
+            benchmark_opcode_count=chain.benchmark_opcode_count,
             post_verifications=PostVerifications.from_alloc(self.post),
         )
 
@@ -1790,7 +1848,6 @@ class BlockchainTest(BaseTest):
         | LabeledFixtureFormat = BlockchainEngineFixture,
     ) -> FillResult:
         """Create a hive fixture from the blocktest definition."""
-        fixture_payloads: List[FixtureEngineNewPayload] = []
         sync_payload_candidates: List[
             Tuple[BuiltBlock, Alloc | LazyAlloc]
         ] = []
@@ -1807,66 +1864,25 @@ class BlockchainTest(BaseTest):
             else set()
         )
 
-        pre, genesis = self.make_genesis(fixture_format)
-        alloc: Alloc | LazyAlloc = pre
-        state_root = genesis.header.state_root
-        env = environment_from_parent_header(genesis.header)
-        head_hash = genesis.header.block_hash
-        invalid_blocks = 0
-        context = RecordedPostStateContext()
-        benchmark_gas_used: int | None = None
-        benchmark_block_gas_used: int | None = None
-        benchmark_opcode_count: OpcodeCount | None = None
-        for block_index, block in enumerate(self.blocks):
-            built_block = self.generate_block_data(
-                t8n=t8n,
-                block=block,
-                previous_env=env,
-                previous_alloc=alloc,
-            )
-            block_number = int(built_block.header.number)
-            is_last_block = block is self.blocks[-1]
-            if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
-                benchmark_gas_used = built_block.cumulative_gas_used()
-                benchmark_block_gas_used = built_block.block_gas_used()
-                benchmark_opcode_count = built_block.result.opcode_count
-            if self.verifications:
-                self.run_block_verifications(
-                    result=built_block.result,
-                    block_number=block_number,
-                )
+        chain = self.run_blocks(t8n, fixture_format)
+        fixture_payloads: List[FixtureEngineNewPayload] = []
+        # A rejected leaf is rolled back, so the state available at it is
+        # that of its last valid ancestor.
+        leaf_alloc: Alloc | LazyAlloc = chain.pre
+        for block_index, (block, built_block) in enumerate(
+            zip(self.blocks, chain.blocks, strict=True)
+        ):
             fixture_payloads.append(
                 built_block.get_fixture_engine_new_payload()
             )
             if block.exception is None:
-                built_block.record_landings(context)
-                alloc = built_block.alloc
-                state_root = built_block.state_root
-                env = apply_new_parent(built_block.env, built_block.header)
-                head_hash = built_block.header.block_hash
-            else:
-                invalid_blocks += 1
-
+                leaf_alloc = built_block.alloc
             if block_index in sync_payload_leaf_indices:
-                # A valid leaf uses its post-state. An invalid leaf did
-                # not advance ``alloc``, so it retains its valid parent's
-                # state - exactly the context build_sync_payload needs.
                 leaf_hash = built_block.header.block_hash
                 if leaf_hash not in sync_payload_leaf_hashes:
-                    sync_payload_candidates.append((built_block, alloc))
+                    sync_payload_candidates.append((built_block, leaf_alloc))
                     sync_payload_leaf_hashes.add(leaf_hash)
 
-            if block.expected_post_state:
-                self.verify_post_state(
-                    t8n=t8n,
-                    pre_alloc=pre,
-                    got_alloc=alloc.materialize()
-                    if isinstance(alloc, LazyAlloc)
-                    else alloc,
-                    context=context,
-                    expected_state=block.expected_post_state,
-                )
-        self.check_exception_test(exception=invalid_blocks > 0)
         fcu_version = (
             self.fork.transitions_from().engine_forkchoice_updated_version()
         )
@@ -1875,18 +1891,13 @@ class BlockchainTest(BaseTest):
             " The framework should never try to execute this test case."
         )
 
-        alloc = alloc.materialize() if isinstance(alloc, LazyAlloc) else alloc
-        self.verify_post_state(
-            t8n=t8n, pre_alloc=pre, got_alloc=alloc, context=context
-        )
-
         # Create base fixture data, common to all fixture formats
         fixture_data: Dict[str, Any] = {
             "fork": self.fork,
-            "genesis": genesis.header,
+            "genesis": chain.genesis.header,
             "payloads": fixture_payloads,
-            "last_block_hash": head_hash,
-            "post_state_hash": state_root
+            "last_block_hash": chain.head,
+            "post_state_hash": chain.state_root
             if not self.include_full_post_state_in_output
             else None,
             "config": FixtureConfig(
@@ -1910,10 +1921,12 @@ class BlockchainTest(BaseTest):
                     "run?"
                 )
             fixture_data["pre_hash"] = pre_alloc_group_hash
-            fixture_data["post_state_diff"] = alloc.calculate_diff(self.pre)
+            fixture_data["post_state_diff"] = chain.alloc.calculate_diff(
+                self.pre
+            )
         elif fixture_format == BlockchainEngineSyncFixture:
             # Sync fixture format
-            assert genesis.header.block_hash != head_hash, (
+            assert chain.genesis.header.block_hash != chain.head, (
                 "Invalid payload tests negative test via sync is not "
                 "supported yet."
             )
@@ -1923,16 +1936,16 @@ class BlockchainTest(BaseTest):
             sync_built_block = self.generate_block_data(
                 t8n=t8n,
                 block=Block(),
-                previous_env=env,
-                previous_alloc=alloc,
+                previous_env=chain.env,
+                previous_alloc=chain.alloc,
             )
             fixture_data.update(
                 {
                     "sync_payload": (
                         sync_built_block.get_fixture_engine_new_payload()
                     ),
-                    "pre": pre,
-                    "post_state": alloc
+                    "pre": chain.pre,
+                    "post_state": chain.alloc
                     if self.include_full_post_state_in_output
                     else None,
                 }
@@ -1941,8 +1954,8 @@ class BlockchainTest(BaseTest):
             # Standard engine fixture
             fixture_data.update(
                 {
-                    "pre": pre,
-                    "post_state": alloc
+                    "pre": chain.pre,
+                    "post_state": chain.alloc
                     if self.include_full_post_state_in_output
                     else None,
                 }
@@ -1964,9 +1977,9 @@ class BlockchainTest(BaseTest):
         return FillResult(
             fixture=fixture,
             gas_optimization=None,
-            benchmark_gas_used=benchmark_gas_used,
-            benchmark_block_gas_used=benchmark_block_gas_used,
-            benchmark_opcode_count=benchmark_opcode_count,
+            benchmark_gas_used=chain.benchmark_gas_used,
+            benchmark_block_gas_used=chain.benchmark_block_gas_used,
+            benchmark_opcode_count=chain.benchmark_opcode_count,
             post_verifications=PostVerifications.from_alloc(self.post),
         )
 
