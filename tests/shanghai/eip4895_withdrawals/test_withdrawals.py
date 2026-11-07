@@ -656,21 +656,21 @@ def test_zero_amount(
         ),
         # No value, touched account
         Withdrawal(
-            index=0,
+            index=1,
             validator_index=0,
             address=zero_balance_contract,
             amount=0,
         ),
         # Withdrawal with value
         Withdrawal(
-            index=1,
+            index=2,
             validator_index=0,
             address=empty_accounts[1],
             amount=1,
         ),
         # Withdrawal with maximum amount
         Withdrawal(
-            index=2,
+            index=3,
             validator_index=0,
             address=empty_accounts[2],
             amount=2**64 - 1,
