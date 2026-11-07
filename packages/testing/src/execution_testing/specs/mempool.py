@@ -59,7 +59,13 @@ class MempoolTest(BaseTest):
     pre: Alloc
     tx: Transaction
     broadcast: bool
-    exception: TransactionException | MempoolException | None = None
+    exception: (
+        List[MempoolException] | TransactionException | MempoolException | None
+    ) = None
+    """
+    Why the pool refuses the transaction. A list names every rule the
+    transaction breaks, when a pool may report any of them.
+    """
     rules: List[str] = Field(default_factory=list)
     """IDs of the admission rules the test exercises."""
     mempool_rules: Dict[str, str] | None = None
@@ -94,6 +100,12 @@ class MempoolTest(BaseTest):
             return None
         if isinstance(self.exception, TransactionException):
             return self.exception
+        if isinstance(self.exception, list):
+            assert not any(
+                exception in CONSENSUS_EXCEPTION_OF
+                for exception in self.exception
+            ), "a list of rejections only names mempool rules"
+            return None
         return CONSENSUS_EXCEPTION_OF.get(self.exception)
 
     def expectation_source(self) -> str:
@@ -102,7 +114,10 @@ class MempoolTest(BaseTest):
             self.exception, TransactionException
         ):
             return "specification"
-        if self.exception in CONSENSUS_EXCEPTION_OF:
+        if (
+            not isinstance(self.exception, list)
+            and self.exception in CONSENSUS_EXCEPTION_OF
+        ):
             return "framework"
         return "author"
 

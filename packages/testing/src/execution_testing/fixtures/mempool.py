@@ -1,6 +1,6 @@
 """MempoolTest types."""
 
-from typing import Annotated, ClassVar, Dict
+from typing import Annotated, ClassVar, Dict, List
 
 from pydantic import BeforeValidator, Field, PlainSerializer
 
@@ -24,11 +24,14 @@ from .base import BaseFixture
 from .state import FixtureConfig
 
 MempoolRejection = Annotated[
-    TransactionException | MempoolException,
+    List[MempoolException] | TransactionException | MempoolException,
     BeforeValidator(from_pipe_str),
     PlainSerializer(to_pipe_str),
 ]
-"""Reason the pool refuses a transaction."""
+"""
+Reason the pool refuses a transaction, or a list of reasons any of which
+a pool may report, for a transaction that breaks several rules at once.
+"""
 
 
 class FixtureHead(CamelModel):
