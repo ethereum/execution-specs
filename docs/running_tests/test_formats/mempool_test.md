@@ -289,6 +289,8 @@ Whether the client must admit the transaction as executable and announce it to i
 
 Expected reason for the rejection. The field is missing when `broadcast` is `true`, and optional for nonce-gap tests, where a client may keep the transaction queued instead of rejecting it.
 
+A transaction can break several mempool rules at once, and which one a client reports first depends on the order of its checks. For example, a `deploy` frame that `CREATE2`s the wallet at another address both writes outside the sender and installs no code at it. The field then lists every broken rule separated by `|` (as in `FRAME_DEPLOY_CODE_NOT_INSTALLED|FRAME_VALIDATION_STATE_WRITE`), and any of them is a correct reason.
+
 #### - `_info.mempool.expectationSource`: `str`
 
 Where the expected outcome comes from: `specification` (checked against the specification when generating the fixture), `framework` (computed from the fixture's inputs, such as a nonce gap or a KZG proof check), `rules` (computed by the admission rules package), or `author` (asserted by the test author only). Consumers do not use it. It helps triage failures (see [Correctness of expected outcomes](#correctness-of-expected-outcomes)).
@@ -446,13 +448,13 @@ Running only mempool tests is `fill tests/mempool/`, and `fill -m mempool_test` 
 
 ## Prototype
 
-A prototype is built on top of the EIP-8141 branch (`eips/bogota/eip-8141`), on the `mempool-tests-eip8141` branch.
+A prototype is built on `forks/bogota`, which includes EIP-8141.
 
 ### Framework
 
 - `MempoolTest` spec (`packages/testing/src/execution_testing/specs/mempool.py`), used through the `mempool_test` fixture. A test passes `pre`, `tx`, an optional `env` for the next block, `broadcast`, an optional `exception`, the exercised rule IDs (`rules`), and the rule set versions (`mempool_rules`).
 - `MempoolFixture` (`fixtures/mempool.py`), written to `mempool_tests/`.
-- `MempoolException` (`exceptions/exceptions/mempool.py`), for valid transactions the mempool refuses, plus `NONCE_GAP`.
+- `MempoolException` (`exceptions/exceptions/mempool.py`), for valid transactions the mempool refuses, plus `NONCE_GAP`. A test may expect a list of them when its transaction breaks several rules at once.
 - A collection guard (`check_mempool_test_location` in the shared plugin helpers): tests under `tests/mempool/` must use only `mempool_test`, and `mempool_test` cannot be used anywhere else.
 
 When filling, the spec runs the transaction through `t8n` against the next block, and fails the fill unless the result matches the expectation:
@@ -465,19 +467,23 @@ The head is derived from the next block's environment. It uses exactly its targe
 
 ### Tests
 
-`tests/mempool/bogota/eip8141_frame_transactions/`, reusing the frame transaction builders from `tests/bogota/eip8141_frame_transactions/helpers.py`:
+`tests/mempool/bogota/eip8141_frame_transactions/`, building frame transactions with the framework's `Frame` and `Transaction`, and signing entries with its `EOA` and `P256Signer` signers:
 
 | Module | Cases | Expectation source |
 | --- | --- | --- |
 | `test_banned_opcodes.py` | Each banned opcode that a `STATICCALL` allows (`GASPRICE`, `BLOCKHASH`, `COINBASE`, `TIMESTAMP`, `NUMBER`, `PREVRANDAO`, `GASLIMIT`, `BASEFEE`, `BLOBBASEFEE`, `SLOTNUM`, `BALANCE`, `SELFBALANCE`, `GAS`), run directly in the `VERIFY` frame and in a contract it calls. Positive twins: no read, and `GAS` as the argument of a `CALL` | `author` for the rejections, `specification` for the twins |
 | `test_storage_access.py` | `SLOAD` of the sender's own storage (admitted) and of a called contract's storage (refused) | `specification` / `author` |
 | `test_transaction_validity.py` | Nonce too low (`TransactionException`), equal (admitted), and above the sender's (`NONCE_GAP`) | `specification` / `framework` |
+| `test_account_deployment.py` | Counterfactual deployment, `[deploy, self_verify, user_op]`, for `ARBITRARY`, `SECP256K1` and `P256` wallets. Admitted: the baseline, a nonexistent sender with a default-code payer (`[deploy, only_verify, pay]`), a constructor writing the sender's storage, a proxy wallet reading it through `DELEGATECALL`, prefix budgets exactly at `MAX_VERIFY_GAS` (with the signature cost) and `MAX_VERIFY_STATE_GAS`, and an already deployed wallet without a `deploy` frame. Refused: budgets one gas over either cap, a front-run deployment re-signed for the new nonce, a `deploy` frame that installs nothing, installs elsewhere or reverts, a factory writing or reading its own storage, a constructor creating a second contract or running `TIMESTAMP`, `NUMBER` or `BALANCE`, two `deploy` frames, a `deploy` frame with flags, and an `ARBITRARY` wallet reading `GAS` outside a call | `author` for the mempool refusals, `specification` for the rest |
 
-All 33 cases fill against the specification. The specification accepts every refused frame transaction, which confirms that each refusal is a mempool rule and not a consensus rule.
+`test_account_deployment.py` also covers cases that the specification refuses, so a client must not broadcast them either: the front-run transaction still signed for nonce 0, initcode that reverts, a `deploy` frame in `VERIFY` mode, and a `deploy` frame after the `VERIFY` frame. Its helpers (`deployment.py`) define the factory, the wallets per scheme, and tight frame budgets: the consensus tests budget frames generously, above the mempool caps.
+
+All 104 cases fill against the specification. The specification accepts every refused frame transaction, which confirms that each refusal is a mempool rule and not a consensus rule.
 
 ### Not yet in the prototype
 
-- Prefix shapes, the validation gas caps, expiry, and paymaster tests.
+- Expiry tests, the canonical paymaster (no canonical implementation exists yet), and `[expiry_verify, deploy, self_verify]`, which the EIP leaves ambiguous: a `deploy` frame must be first, while an `expiry_verify` frame is skipped when matching prefix shapes.
+- `LEANSPHINCS` wallets, keyed nonces (EIP-8250), `SETDELEGATE` in a `deploy` frame (EIP-7819), and the EIP-7997 factory predeploy. None of these is in this branch's Bogota.
 - The admission rules package. Rule IDs and the rule set version are constants in the tree's `spec.py` for now.
 - Blob transactions: `txbytes` is the canonical encoding, not the network encoding with the sidecar.
 - A consumer. Fixtures are produced, but no client command runs them yet.
