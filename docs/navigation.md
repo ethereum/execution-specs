@@ -73,6 +73,7 @@
           * [Consume Commands](running_tests/consume/index.md)
               * [Consume Cache & Fixture Inputs](running_tests/consume/cache.md)
               * [Consume Direct](running_tests/consume/direct.md)
+              * [Client Test Runners](running_tests/consume/client_runners.md)
               * [Consume Simulators](running_tests/consume/simulators.md)
               * [Consume WireX](running_tests/consume/wirex.md)
               * [Exception Tests](running_tests/consume/exceptions.md)
