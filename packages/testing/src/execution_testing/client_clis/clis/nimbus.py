@@ -135,6 +135,7 @@ class NimbusExceptionMapper(ExceptionMapper):
             "Invalid timestamp"
         ),
         BlockException.INVALID_GASLIMIT: "invalid gas limit",
+        BlockException.GASLIMIT_TOO_BIG: "gasLimit exceeds GAS_LIMIT_MAXIMUM",
         BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
             "gasUsed should be non negative and smaller or equal gasLimit"
         ),

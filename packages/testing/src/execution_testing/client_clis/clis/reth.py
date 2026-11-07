@@ -139,6 +139,9 @@ class RethExceptionMapper(ExceptionMapper):
             r"child gas_limit \d+ is below the max allowed decrease .*|"
             r"child gas limit \d+ is below the minimum allowed limit"
         ),
+        BlockException.GASLIMIT_TOO_BIG: (
+            r"header gas limit \(\d+\) exceed the maximum allowed gas limit"
+        ),
         BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
             r"block timestamp \d+ is in the past compared to "
             r"the parent timestamp \d+"
