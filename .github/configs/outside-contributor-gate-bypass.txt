@@ -1,0 +1,28 @@
+# Outside contributors the gate never closes, one GitHub login per line.
+# List people we trust without write access, such as EIP authors and EL
+# client or tooling team members. Keep it in step with the bypass list for
+# the open pull request limit in the repository settings.
+AnkushinDaniil
+barnabasbusa
+benaadams
+bshastry
+chfast
+flcl42
+Gabriel-Trintinalia
+gcolvin
+ilitteri
+jihoonsong
+kamilchodola
+leolara
+Marchhill
+MariusVanDerWijden
+nerolation
+pdobacz
+pk910
+qu0b
+rakita
+raxhvl
+SamWilsn
+shubham5080
+skylenet
+yperbasis

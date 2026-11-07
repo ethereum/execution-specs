@@ -3,7 +3,7 @@
 <!-- Don't submit this PR if it could expose a mainnet bug, see SECURITY.md in the repo root for details -->
 
 ### Related Issues or PRs
-<!-- Reference any related issues using the GitHub issue number (e.g., Fixes #123). Default is N/A. -->
+<!-- Reference any related issues using the GitHub issue number (e.g., Fixes #123). A first pull request must reference an issue its author is assigned to, see CONTRIBUTING.md. Default is N/A. -->
 N/A.
 
 ### Checklist
