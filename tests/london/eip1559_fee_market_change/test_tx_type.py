@@ -5,7 +5,9 @@ from typing import Generator
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
+    AuthorizationTuple,
     ChainConfig,
     Fork,
     ParameterSet,
@@ -91,6 +93,13 @@ def test_invalid_chain_id(
     to = pre.fund_eoa(0xDEADBEEE)
 
     blob_versioned_hashes = add_kzg_version([0], 1) if tx_type == 3 else None
+    # An empty authorization list would make a type 4 transaction invalid
+    # for a second reason, so give it one valid authorization.
+    authorization_list = (
+        [AuthorizationTuple(signer=pre.fund_eoa(amount=0), address=Address(1))]
+        if tx_type == 4
+        else None
+    )
     tx = Transaction(
         sender=pre.fund_eoa(),
         value=1,
@@ -99,6 +108,7 @@ def test_invalid_chain_id(
         to=to,
         error=TransactionException.INVALID_CHAINID,
         blob_versioned_hashes=blob_versioned_hashes,
+        authorization_list=authorization_list,
     )
 
     state_test(
