@@ -124,14 +124,16 @@ VALUE_BOUNDARY_PAIR: Final = (247476, 515151)
 # (even, 28-byte compact path), s has 55 (odd, also 28 bytes).
 INLINE_TRIO: Final = (175378, 2311414, 458416)
 
-# Seven committed slots and a new one that sorts between the end of a
-# subtree and a deeper committed branch. With b = a + 1, the hashes start:
-# `[a, y]` (y != f); `[a, f, u]`, `[a, f, v]`; a pair sharing exactly
-# `[b, 0, q, c, d]` (q > 0); `[b, 0, q, c, d2]`; `[b, 0, q, c2]` (c2 > c);
-# new `[b, 0, q2]` (q2 < q). The set with the smallest largest slot, each
-# member the smallest slot with its prefix, has prefixes 20, 2f5, 2f6,
-# 30c63 (x2), 30c60, 30c7 and new 300. Trie: root branch -> {2: branch ->
-# {leaf, branch}, 3: ext(2) -> branch@3 -> {branch@4 -> {..}, leaf}}.
+# Prefixes 20, 2f5, 2f6, 30c63 (x2), 30c60, 30c7; the sibling 300 sorts
+# between the subtree under 2f and the committed branches under 30c, and
+# splits the extension above them. Trie: branch@0 -> {2: branch@1 ->
+# {leaf, branch@2}, 3: ext(2) -> branch@3 -> {branch@4 -> {..}, leaf}}.
+# Rule, for first nibbles n and n + 1 and nibbles q > 0, r and v: the
+# smallest slot under n0; the smallest under nf, and the smallest under nf
+# with another third nibble; a pair under (n+1)0qrv differing at the
+# sixth nibble; the smallest under (n+1)0qr with the lowest other fifth
+# nibble, under (n+1)0q(r+1) and, the sibling, under (n+1)00. n, q, r, v
+# and the pair minimise the largest slot.
 EXT_ABOVE_DEEP_BRANCH: Final = (485, 243, 304, 9857, 33603, 27818, 3070)
 EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2: Final = 2620
 
@@ -167,10 +169,10 @@ ADDR_EXT_MERGE_TRIO: Final = (65755, 66515, 66334)
 TWO_ADDRS_EXT4_SIBLING_DEPTH1: Final = 65545
 TWO_ADDRS_EXT4_SIBLING_DEPTH3: Final = 68252
 
-# The storage shape of EXT_ABOVE_DEEP_BRANCH over addresses, with the left
-# subtree's first nibble a restricted to 1 or e: with b = a + 1, both must
-# be free of the genesis, sender and coinbase accounts on every fork from
-# Osaka. Prefixes 10, 1f0, 1f8, 201b4 (x2), 201b0, 201c and new 200.
+# EXT_ABOVE_DEEP_BRANCH's rule over addresses, with n restricted to 1 or
+# e: the first nibbles n and n + 1 must be free of the genesis, sender and
+# coinbase accounts on every fork from Osaka. Prefixes 10, 1f0, 1f8,
+# 201b4 (x2), 201b0, 201c; the sibling 200.
 ADDR_EXT_ABOVE_DEEP_BRANCH: Final = (
     65613,
     65872,
