@@ -23,15 +23,23 @@ if (typeof document$ == "undefined") {
 // the body would stay on the original page). Links with a `target` attribute
 // are skipped by instant navigation. This replaces the MkDocs hook
 // `docs/hooks/reference_new_tab.py`, as Zensical does not run MkDocs hooks.
-// The trailing slash after `reference` avoids matching unrelated paths like
-// `reference_specification/`.
-const REFERENCE_HREF =
-  /^(?:\.\.\/|\.\/)*(?:specs\/)?reference\/(?:index\.html)?$/;
+// Zensical's instant navigation rewrites hrefs to absolute URLs, so match on
+// the resolved path (`a.href`), not the raw attribute: same origin and a path
+// ending in `specs/reference/`. The trailing slash avoids matching unrelated
+// paths like `reference_specification/`.
+const REFERENCE_PATH = /\/specs\/reference\/(?:index\.html)?$/;
 
 const openReferenceInNewTab = () => {
   document.querySelectorAll("a[href]").forEach((a) => {
     if (a.hasAttribute("target")) return;
-    if (!REFERENCE_HREF.test(a.getAttribute("href"))) return;
+    let url;
+    try {
+      url = new URL(a.href, document.baseURI);
+    } catch {
+      return;
+    }
+    if (url.origin !== window.location.origin) return;
+    if (!REFERENCE_PATH.test(url.pathname)) return;
     a.setAttribute("target", "_blank");
     a.setAttribute("rel", "noopener");
   });
