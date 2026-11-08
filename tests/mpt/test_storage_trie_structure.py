@@ -453,7 +453,13 @@ def test_insert_splits_extension_above_deep_branch(
     """
     committed = EXT_ABOVE_DEEP_BRANCH
     new = EXT_ABOVE_DEEP_BRANCH_NEW
-    deep = committed[3]
+    left, deep = committed[1], committed[3]
+    assert storage_shape(committed, left) == [
+        (0, "branch", 2),
+        (1, "branch", 2),
+        (2, "branch", 2),
+        (3, "leaf", 61),
+    ]
     assert storage_shape(committed, deep) == [
         (0, "branch", 2),
         (1, "ext", 2),

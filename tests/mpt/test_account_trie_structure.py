@@ -239,9 +239,12 @@ def test_insert_splits_extension_above_deep_branch(
     for i, address in enumerate(committed):
         pre.fund_address(address, amount=i + 1)
     sender = pre.fund_eoa()
-    a_leaf, a_left, deep = committed[0], committed[1], committed[3]
-    assert node_at(account_shape(pre, a_leaf), 1) == ("branch", 2)
-    assert node_at(account_shape(pre, a_left), 2) == ("branch", 2)
+    left, deep = committed[1], committed[3]
+    assert account_shape(pre, left)[1:] == [
+        (1, "branch", 2),
+        (2, "branch", 2),
+        (3, "leaf", 61),
+    ]
     assert account_shape(pre, deep)[1:] == [
         (1, "ext", 2),
         (3, "branch", 2),
