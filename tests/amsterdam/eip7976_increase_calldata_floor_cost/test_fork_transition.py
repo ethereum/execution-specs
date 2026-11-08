@@ -69,7 +69,7 @@ def expected_floors(fork: TransitionFork, data: bytes) -> tuple[int, int]:
         pre_costs.TX_BASE + pre_tokens * pre_costs.TX_DATA_TOKEN_FLOOR
     )
 
-    post_floor_tokens = len(data) * int(post_costs.TX_DATA_TOKEN_STANDARD)
+    post_floor_tokens = len(data) * 4
     expected_post = int(
         post_costs.TX_BASE
         + post_costs.COLD_ACCOUNT_ACCESS
