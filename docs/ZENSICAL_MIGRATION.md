@@ -113,8 +113,8 @@ pages (run in Python); Zensical caches rendered pages in `.cache/`.
 
 - CI changes (`docs-build.yaml` site_url rewrite, path filters) were linted
   with actionlint but not run.
-- The `site.js` replacement for the reference-new-tab hook was checked in headless Chrome only, not
-  in a browser.
+- The `site.js` replacement for the reference-new-tab hook was checked in
+  headless Chrome only, not by clicking in a desktop browser.
 - `zensical serve --strict` is unsupported (it prints a warning); `docs-serve`
   does not pass it.
 - `zensical serve` does not regenerate the test case reference when tests
