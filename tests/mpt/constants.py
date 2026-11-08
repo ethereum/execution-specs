@@ -133,7 +133,7 @@ INLINE_TRIO: Final = (175378, 2311414, 458416)
 # 30c63 (x2), 30c60, 30c7 and new 300. Trie: root branch -> {2: branch ->
 # {leaf, branch}, 3: ext(2) -> branch@3 -> {branch@4 -> {..}, leaf}}.
 EXT_ABOVE_DEEP_BRANCH: Final = (485, 243, 304, 9857, 33603, 27818, 3070)
-EXT_ABOVE_DEEP_BRANCH_NEW: Final = 2620
+EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2: Final = 2620
 
 # --- addresses ----------------------------------------------------------
 
@@ -180,7 +180,7 @@ ADDR_EXT_ABOVE_DEEP_BRANCH: Final = (
     163618,
     82263,
 )
-ADDR_EXT_ABOVE_DEEP_BRANCH_NEW: Final = 68415
+ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2: Final = 68415
 
 # --- CREATE2 salts ------------------------------------------------------
 

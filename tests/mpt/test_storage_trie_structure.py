@@ -34,7 +34,7 @@ from .constants import (
     EMBEDDED_LEAF_PAIR,
     EMBEDDED_LEAF_PAIR_SIBLING_DEPTH4,
     EXT_ABOVE_DEEP_BRANCH,
-    EXT_ABOVE_DEEP_BRANCH_NEW,
+    EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2,
     EXT_MERGE_TRIO,
     EXT_MERGE_TRIO_SIBLING_DEPTH3,
     HASHED_LEAF_PAIR,
@@ -452,7 +452,7 @@ def test_insert_splits_extension_above_deep_branch(
     that rebuilds the root from committed nodes must not skip it.
     """
     committed = EXT_ABOVE_DEEP_BRANCH
-    new = EXT_ABOVE_DEEP_BRANCH_NEW
+    new = EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2
     left, deep = committed[1], committed[3]
     assert storage_shape(committed, left) == [
         (0, "branch", 2),
@@ -490,7 +490,7 @@ def test_insert_splits_extension_above_deep_branch(
     )
 
 
-def test_insert_splits_extension_above_deep_branch_next_block(
+def test_insert_splits_extension_above_deep_branch_across_blocks(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
@@ -501,7 +501,7 @@ def test_insert_splits_extension_above_deep_branch_next_block(
     is computed from nodes the client wrote itself.
     """
     committed = EXT_ABOVE_DEEP_BRANCH
-    new = EXT_ABOVE_DEEP_BRANCH_NEW
+    new = EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2
     storage = _storage(committed)
     contract = pre.deploy_contract(code=SLOT_WRITER)
     sender = pre.fund_eoa()

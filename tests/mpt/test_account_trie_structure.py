@@ -52,7 +52,7 @@ from execution_testing.base_types import StorageRootType
 
 from .constants import (
     ADDR_EXT_ABOVE_DEEP_BRANCH,
-    ADDR_EXT_ABOVE_DEEP_BRANCH_NEW,
+    ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2,
     ADDR_EXT_MERGE_TRIO,
     COLLAPSE_SALT,
     DELETE_INITCODE,
@@ -235,7 +235,7 @@ def test_insert_splits_extension_above_deep_branch(
     committed branches under `201` below the extension it splits.
     """
     committed = [Address(x) for x in ADDR_EXT_ABOVE_DEEP_BRANCH]
-    new = Address(ADDR_EXT_ABOVE_DEEP_BRANCH_NEW)
+    new = Address(ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2)
     for i, address in enumerate(committed):
         pre.fund_address(address, amount=i + 1)
     sender = pre.fund_eoa()
