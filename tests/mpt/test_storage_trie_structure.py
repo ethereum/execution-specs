@@ -443,13 +443,13 @@ def test_insert_splits_extension_above_deep_branch(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    Insert a key between an unchanged subtree and a deeper stored branch.
+    Insert a key between an unchanged subtree and a deeper committed branch.
 
     pre:  branch@0 -> {2: branch@1, 3: ext(2) -> branch@3 -> {..}}
     post: branch@0 -> {.., 3: ext(1) -> branch@2 -> {new, branch@3}}
     The new key sorts after the unchanged subtree under `2f` and before the
-    branches under `30c` that sit below the extension it splits. A client
-    that rebuilds the root from committed nodes must not skip it.
+    committed branches under `30c` that sit below the extension it splits.
+    A client that rebuilds the root from committed nodes must not skip it.
     """
     committed = EXT_ABOVE_DEEP_BRANCH
     new = EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2
@@ -496,9 +496,11 @@ def test_insert_splits_extension_above_deep_branch_across_blocks(
     """
     Build the deep-branch trie in one block, insert into the gap in the next.
 
-    Same keys as `test_insert_splits_extension_above_deep_branch`, but the
-    committed nodes come from block 1 instead of genesis, so block 2's root
-    is computed from nodes the client wrote itself.
+    pre:  empty; block 1 writes the committed slots
+    post: block 2 writes the new slot and splits the extension, as in
+          `test_insert_splits_extension_above_deep_branch`
+    The committed nodes come from block 1 instead of genesis, so block 2's
+    root is computed from nodes the client wrote itself.
     """
     committed = EXT_ABOVE_DEEP_BRANCH
     new = EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2

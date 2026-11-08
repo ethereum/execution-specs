@@ -226,13 +226,15 @@ def test_insert_splits_extension_above_deep_branch(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
     """
-    Create an account between a skipped subtree and a deeper branch.
+    Create an account between an unchanged subtree and a deeper branch.
 
-    pre:  .. -> {1: branch@1, 2: ext(2) -> branch@3 -> {..}}
-    post: .. -> {.., 2: ext(1) -> branch@2 -> {new, branch@3}}
+    pre:  branch@0 -> {.., 1: branch@1, 2: ext(2) -> branch@3 -> {..}}
+    post: branch@0 -> {.., 2: ext(1) -> branch@2 -> {new, branch@3}}
     The account trie version of the storage test of the same name: the new
     leaf sorts after the unchanged subtree under `1f` and before the
-    committed branches under `201` below the extension it splits.
+    committed branches under `201` below the extension it splits. No other
+    account starts with the mined first nibbles 1 and 2, so the shape
+    asserts pin every node below the root.
     """
     committed = [Address(x) for x in ADDR_EXT_ABOVE_DEEP_BRANCH]
     new = Address(ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2)
