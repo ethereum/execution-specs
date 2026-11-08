@@ -26,6 +26,7 @@ from execution_testing import (
     Hash,
     Header,
     Op,
+    ReceiptStatusExpected,
     StateTestFiller,
     Storage,
     Transaction,
@@ -222,7 +223,7 @@ def test_block_gas_used_execution_dominates(
             )
         ],
         post={contract: Account(storage=storage)},
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected()],
     )
 
 

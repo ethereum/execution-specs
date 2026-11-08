@@ -8,7 +8,6 @@ state_tests/stEIP1559/transactionIntinsicBug_ParisFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -32,19 +31,11 @@ def test_transaction_intinsic_bug_paris(
     pre: Alloc,
 ) -> None:
     """Bug discovered on ropsten https://github."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x2FAF094, nonce=1)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=20,
-        gas_limit=71794957647893862,
-    )
+    addr = pre.fund_eoa(amount=10)
 
-    addr = pre.fund_eoa(amount=10)  # noqa: F841
+    env = Environment(base_fee_per_gas=20)
 
     tx = Transaction(
         sender=sender,

@@ -8,10 +8,8 @@ state_tests/stInitCodeTest/CallContractToCreateContractWhichWouldCreateContractI
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     StateTestFiller,
     Transaction,
@@ -30,33 +28,21 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_call_contract_to_create_contract_which_would_create_contract_in_init_code(  # noqa: E501
     state_test: StateTestFiller,
     fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_call_contract_to_create_contract_which_would_create_contract_i..."""  # noqa: E501
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
     sender = pre.fund_eoa(amount=0x3B9ACA00)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # {(MSTORE 0 0x600c600055602060406000f0)(CREATE 0 20 12)}
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0x600C600055602060406000F0)
         + Op.CREATE(value=0x0, offset=0x14, size=0xC)
         + Op.STOP,
         balance=1,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -67,15 +53,15 @@ def test_call_contract_to_create_contract_which_would_create_contract_in_init_co
     )
 
     post = {
-        contract_0: Account(balance=1, nonce=1),
+        contract_0: Account(balance=1, nonce=2),
         compute_create_address(
-            address=compute_create_address(address=contract_0, nonce=0),
+            address=compute_create_address(address=contract_0, nonce=1),
             nonce=0,
         ): Account.NONEXISTENT,
         sender: Account(nonce=1),
-        compute_create_address(address=contract_0, nonce=0): Account(
+        compute_create_address(address=contract_0, nonce=1): Account(
             storage={0: 12}, nonce=2
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

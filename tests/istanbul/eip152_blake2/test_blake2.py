@@ -511,17 +511,6 @@ def test_blake2b_gas(
             ),
             id="EIP-152-modified-case8-data9-large-gas-limit",
         ),
-        pytest.param(
-            Blake2bInput(
-                rounds=8000000,
-            ),
-            ExpectedOutput(
-                data_1="0x6d2ce9e534d50e18ff866ae92d70cceba79bbcd14c63819fe48752c8aca87a4b",
-                data_2="0xb7dcc230d22a4047f0486cfcfb50a17b24b2899eb8fca370f22240adb5170189",
-            ),
-            id="EIP-152-case8-data9-large-gas-limit",
-            marks=pytest.mark.skip("Times-out during fill"),
-        ),
     ],
 )
 @pytest.mark.slow()

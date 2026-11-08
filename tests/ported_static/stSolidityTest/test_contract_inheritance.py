@@ -8,10 +8,8 @@ state_tests/stSolidityTest/ContractInheritanceFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -26,27 +24,16 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
-@pytest.mark.pre_alloc_mutable
 def test_contract_inheritance(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_contract_inheritance."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x12A05F200)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
     # Source: raw
     # 0x7c010000000000000000000000000000000000000000000000000000000060003504633e0bca3b8114610039578063c0406226146100a857005b6100b55b600160008060456101ec8339604560006000f091508173ffffffffffffffffffffffffffffffffffffffff166381bda09b60206000827c010000000000000000000000000000000000000000000000000000000002600052600460006000866161da5a03f161011957005b6100bf60006100c961003d565b8060005260206000f35b8060005260206000f35b600080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0016919091179081905560ff16919050565b505060005163ffffffff166002141561019d575b5b505090565b505060005163ffffffff1660011415610194575b60456101a7600039604560006000f090508073ffffffffffffffffffffffffffffffffffffffff166381bda09b60206000827c010000000000000000000000000000000000000000000000000000000002600052600460006000866161da5a03f16100ff57005b60009250610114565b600092506101145600603980600c6000396000f3007c0100000000000000000000000000000000000000000000000000000000600035046381bda09b8114602d57005b60026000818152602090f3603980600c6000396000f3007c0100000000000000000000000000000000000000000000000000000000600035046381bda09b8114602d57005b60016000818152602090f3  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.DIV(
             Op.CALLDATALOAD(offset=0x0),
             0x100000000000000000000000000000000000000000000000000000000,
@@ -202,7 +189,6 @@ def test_contract_inheritance(
         + Op.SWAP1
         + Op.RETURN,
         balance=0x186A0,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -214,4 +200,4 @@ def test_contract_inheritance(
 
     post = {target: Account(storage={0: 1})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

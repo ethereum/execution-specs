@@ -257,12 +257,20 @@ def test_block_execution_gas_limit(
         pytest.param(1, id="exceeded", marks=pytest.mark.exception_test),
     ],
 )
+@pytest.mark.parametrize(
+    "tx1_declares_more",
+    [
+        pytest.param(False, id="tx1_declares_less"),
+        pytest.param(True, id="tx1_declares_more"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_block_state_gas_limit_boundary(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     delta: int,
+    tx1_declares_more: bool,
 ) -> None:
     """
     Verify the per-tx state check at the strict-greater-than boundary.
@@ -273,7 +281,10 @@ def test_block_state_gas_limit_boundary(
     by 1 (delta=1, rejected with `GAS_ALLOWANCE_EXCEEDED`).
 
     The execution check is asserted to pass so rejection on delta=1 is
-    pinned to the state dimension.
+    pinned to the state dimension. With `tx1_declares_more`, tx1 declares
+    the whole block gas limit, so a client checking the transactions in
+    order of declared gas, as a parallel executor might, admits tx2 first
+    and would accept the block.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -290,12 +301,16 @@ def test_block_state_gas_limit_boundary(
 
     tx1_state = tx1_code.state_cost(fork)
     tx1_execution = intrinsic_cost() + tx1_code.gas_cost(fork) - tx1_state
-    tx1_gas = gas_limit_cap + tx1_state
+    if tx1_declares_more:
+        tx1_gas = block_gas_limit
+    else:
+        tx1_gas = gas_limit_cap + tx1_state
 
     # tx2: worst-case state contribution = tx.gas (strict EIP rule).
     # Plain call, so intrinsic_state is zero.
     state_available = block_gas_limit - tx1_state
     tx2_gas = state_available + delta
+    assert (tx1_gas > tx2_gas) == tx1_declares_more
 
     # Pin the rejection (when delta > 0) to the state check: the
     # execution check must not fire.

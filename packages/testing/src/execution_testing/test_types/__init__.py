@@ -41,7 +41,15 @@ from .helpers import (
     eoa_from_hash,
 )
 from .phase_manager import TestPhase, TestPhaseManager
-from .receipt_types import TransactionLog, TransactionReceipt
+from .receipt_types import (
+    LogMismatchError,
+    TransactionLog,
+    TransactionReceipt,
+    TransactionReceiptIncompleteError,
+    TransactionReceiptMismatchError,
+    verify_log,
+    verify_transaction_receipt,
+)
 from .system_contract_interactions import (
     SystemContractInteractionBase,
     SystemContractInteractionContract,
@@ -88,6 +96,7 @@ __all__ = (
     "EOA",
     "fee_increment_blocks",
     "GasFee",
+    "LogMismatchError",
     "NetworkWrappedTransaction",
     "PostStateContext",
     "Removable",
@@ -103,6 +112,8 @@ __all__ = (
     "TransactionDefaults",
     "TransactionLog",
     "TransactionReceipt",
+    "TransactionReceiptIncompleteError",
+    "TransactionReceiptMismatchError",
     "TransactionTestMetadata",
     "TransactionType",
     "Withdrawal",
@@ -115,4 +126,6 @@ __all__ = (
     "eoa_from_hash",
     "keccak256",
     "relay_contract_code",
+    "verify_log",
+    "verify_transaction_receipt",
 )

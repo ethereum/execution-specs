@@ -18,10 +18,8 @@ not hardcode the Amsterdam value.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -43,17 +41,7 @@ def test_refund_max(
     fork: Fork,
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D848C3A0, nonce=1)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=1000,
-        gas_limit=16777216,
-    )
 
     # Source: yul
     # berlin
@@ -71,7 +59,7 @@ def test_refund_max(
     #    // Get rid of Yul optimizations
     #    newVal := msize()
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.PUSH1[0x0]
         + Op.SSTORE(key=0x0, value=Op.DUP1)
         + Op.SSTORE(key=0x1, value=Op.DUP1)
@@ -123,4 +111,4 @@ def test_refund_max(
 
     post = {sender: Account(balance=0xE8D55F7E90 - 1000 * extra_gas_used)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

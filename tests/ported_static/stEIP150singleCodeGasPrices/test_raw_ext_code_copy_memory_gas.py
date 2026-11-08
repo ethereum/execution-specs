@@ -17,10 +17,8 @@ forks. Do not hardcode it.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -37,7 +35,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_raw_ext_code_copy_memory_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -50,36 +47,24 @@ def test_raw_ext_code_copy_memory_gas(
     cold_extcodecopy = Op.EXTCODECOPY.with_metadata(address_warm=False)
     cancun_extcodecopy_cost = cold_extcodecopy.gas_cost(Cancun)
     code_read_delta = cold_extcodecopy.gas_cost(fork) - cancun_extcodecopy_cost
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
 
     # Source: raw
     # 0x0112233445566778899101112131415161718191202122232425
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=bytes.fromhex(
             "0112233445566778899101112131415161718191202122232425"
         ),
-        nonce=0,
     )
     # Source: lll
     # { [0] (GAS) (EXTCODECOPY <contract:0x094f5374fce5edbc8e2a8697c15331677e6ebf0b> 32 0 11120) [[1]] (SUB @0 (GAS)) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.EXTCODECOPY(
             address=addr, dest_offset=0x20, offset=0x0, size=0x2B70
         )
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -91,4 +76,4 @@ def test_raw_ext_code_copy_memory_gas(
 
     post = {target: Account(storage={1: 4948 + code_read_delta})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

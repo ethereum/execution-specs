@@ -85,6 +85,15 @@ pytestmark = [
             None,
             id="multiple_points_zero_scalar",
         ),
+        pytest.param(  # Scalar above Q with bit 255 set on the multi-pair path
+            Spec.G2
+            + Scalar(2**256 - 1)
+            + Spec.G2
+            + Scalar(Spec.Q - (2**256 - 1) % Spec.Q),
+            Spec.INF_G2,
+            None,
+            id="max_scalar_sum_to_identity",
+        ),
         # Cases with maximum discount table (test vector for gas cost
         # calculation)
         pytest.param(
@@ -245,6 +254,15 @@ def test_valid(
             + PointG2(Spec.P2.x, (Spec.P2.y[0], Spec.P2.y[1] + Spec.P))
             + Scalar(0),
             id="y_c1_above_p_pos_1",
+        ),
+        pytest.param(
+            Spec.G2
+            + Scalar(1)
+            + PointG2(
+                (Spec.P2.x[0] | Spec.MAX_FP_BIT_SET, Spec.P2.x[1]), Spec.P2.y
+            )
+            + Scalar(0),
+            id="non_zero_byte_16_boundary_violation_x1_pos_1",
         ),
     ],
     # Input length tests can be found in

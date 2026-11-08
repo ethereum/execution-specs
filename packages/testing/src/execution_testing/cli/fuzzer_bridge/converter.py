@@ -252,7 +252,7 @@ def blockchain_test_from_fuzzer(
     )
 
     return BlockchainTest(
-        pre=pre,
+        pre=pre.with_genesis_accounts(),
         fork=fork,
         blocks=blocks,
         post={},  # Post-state verification can be added later

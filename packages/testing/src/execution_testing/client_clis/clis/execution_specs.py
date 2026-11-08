@@ -72,11 +72,14 @@ class ExecutionSpecsTransitionTool(TransitionTool):
 
     def version(self) -> str:
         """Version of the t8n tool."""
-        # Use package metadata rather than `ethereum.__version__` to avoid
-        # importing `ethereum` here (see `__init__` for why it must stay lazy).
-        from importlib.metadata import version
+        if self.cached_version is None:
+            # Use package metadata rather than `ethereum.__version__` to
+            # avoid importing `ethereum` here (see `__init__` for why it must
+            # stay lazy).
+            from importlib.metadata import version
 
-        return version("ethereum-execution")
+            self.cached_version = version("ethereum-execution")
+        return self.cached_version
 
     def is_fork_supported(self, fork: Fork) -> bool:
         """Return True if the fork is supported by the tool."""
@@ -113,10 +116,10 @@ class ExecutionSpecsTransitionTool(TransitionTool):
 
         del slow_request, profiler
 
-        temp_dir = tempfile.TemporaryDirectory()
-
+        temp_dir: tempfile.TemporaryDirectory[str] | None = None
         tracers = None
         if self.trace:
+            temp_dir = tempfile.TemporaryDirectory()
             # TODO: Eip3155 traces still round-trip through tempfile
             # JSON — the tracer writes one ``trace-<i>.jsonl`` per tx
             # to ``output_basedir`` and ``collect_traces`` reads them
@@ -135,7 +138,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
             )
 
         count_tracer = None
-        if self.supports_opcode_count:
+        if self.supports_opcode_count and self.opcode_count is not None:
             count_tracer = CountTracer()
             if tracers is None:
                 tracers = GroupTracer()
@@ -175,11 +178,11 @@ class ExecutionSpecsTransitionTool(TransitionTool):
                 },
             )
 
-        if self.trace:
+        if temp_dir is not None:
             self.collect_traces(
                 output.result.receipts, temp_dir, debug_output_path
             )
-        temp_dir.cleanup()
+            temp_dir.cleanup()
 
         return output
 

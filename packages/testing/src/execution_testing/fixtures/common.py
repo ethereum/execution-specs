@@ -180,4 +180,7 @@ class FixtureTransactionReceipt(CamelModel, RLPSerializable):
         model_as_dict = receipt.model_dump(
             exclude_none=True, include=set(cls.model_fields.keys())
         ) | {"ty": tx.ty, "transaction_hash": tx.hash}
+        # t8n tools such as Besu's report a receipt without logs as
+        # `"logs": null`.
+        model_as_dict.setdefault("logs", [])
         return cls(**model_as_dict)

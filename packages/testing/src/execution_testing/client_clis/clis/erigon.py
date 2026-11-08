@@ -120,6 +120,9 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.GAS_USED_OVERFLOW: "block gas used overflow",
     }
     mapping_regex = {
+        TransactionException.TYPE_3_TX_ZERO_BLOBS: (
+            r"blob txn must contain at least one blob versioned hash"
+        ),
         # In-range r that is not an x-coordinate on the curve: the range
         # check passes and libsecp256k1 recovery itself fails.
         TransactionException.INVALID_SIGNATURE_VRS: r"recovery failed",
@@ -167,7 +170,7 @@ class ErigonEvm(EthereumCLI):
     default_binary = Path("evm")
     # Cheap pre-filter shared with go-ethereum; the binary probe in
     # `detect_binary` is what actually confirms Erigon.
-    detect_binary_pattern = re.compile(r"^evm(\.exe)? version\b")
+    detect_binary_pattern = re.compile(r"^evm(\.exe)?\b")
     # Erigon-only subcommand, used as the disambiguating fingerprint.
     erigon_marker = "enginextest"
     cached_version: Optional[str] = None
@@ -219,8 +222,6 @@ class ErigonEvm(EthereumCLI):
                 stderr=subprocess.PIPE,
                 text=True,
             )
-        except subprocess.CalledProcessError as e:
-            raise Exception("Command failed with non-zero status.") from e
         except Exception as e:
             raise Exception("Unexpected exception calling evm tool.") from e
 

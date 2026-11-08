@@ -8,7 +8,6 @@ state_tests/stRandom/randomStatetest211Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -25,27 +24,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom/randomStatetest211Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest211(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_random_statetest211."""
-    coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
     # Source: raw
     # 0x7e7a980b5b1c50ebb63d8e2211d3a79e841ee5e5946b7969dfb6ca1309c99e8f68d4ee9a50996902ee4e6937e1d07ad872cf04eb2a61fc336025a3648d5818a6457dc24f19f38d3deebb09968c812740339c6df46af95b7b0283acb1944a8ca37fbaaafeac115b9ec5adc16fea5a3a828d3483e495506a790ca75d8238ebbed6477c213d0177c10b33b6cf9362273973809ac39f11dffee928f3fb18e975186fb4a74e56142d4431bfa392dd5f71d32b6c40a2bd0beb6a8b24fc592b25f0680306f11e049124ec396ea3858d3339145af8c1c16747bea056639a7faf446cd9c7bf446ed2de67f1665adc479874053c2c53f0fc53a12af3c1951fdc7a5d20aee8f96874f392a4aa2a84a99c9390ab4bd4c39f521a2b91c2ea90  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.LOG3(
             offset=0x25,
             size=0xFC33,
@@ -73,11 +61,10 @@ def test_random_statetest211(
         + Op.PUSH21[0x53C2C53F0FC53A12AF3C1951FDC7A5D20AEE8F968]
         + Op.PUSH21[0xF392A4AA2A84A99C9390AB4BD4C39F521A2B91C2EA]
         + Op.SWAP1,
-        nonce=0,
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
+    coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,
             condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
@@ -88,9 +75,9 @@ def test_random_statetest211(
             key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
         ),
         balance=46,
-        nonce=0,
-        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
@@ -103,8 +90,8 @@ def test_random_statetest211(
     )
 
     post = {
-        target: Account(storage={}, nonce=0),
-        coinbase: Account(storage={}, nonce=0),
+        target: Account(storage={}, nonce=1),
+        coinbase: Account(storage={}, nonce=1),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 

@@ -15,12 +15,10 @@ the original hardcoded 22000/100000 limits intact there.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     RecipientType,
     StateTestFiller,
@@ -37,19 +35,13 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_transaction_to_addressh160minus_one(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """Test_transaction_to_addressh160minus_one."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
-    )
-
-    pre[sender] = Account(balance=0x3B9ACA00)
+    sender = pre.fund_eoa(amount=0x3B9ACA00)
 
     # EIP-2780 charges ``NEW_ACCOUNT`` state gas at the top frame when
     # value is sent to an empty recipient; with the default zero
@@ -61,14 +53,6 @@ def test_transaction_to_addressh160minus_one(
         sends_value=True,
     )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000 + top_frame_state_gas,
-    )
     tx = Transaction(
         sender=sender,
         to=Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF),
@@ -83,4 +67,4 @@ def test_transaction_to_addressh160minus_one(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

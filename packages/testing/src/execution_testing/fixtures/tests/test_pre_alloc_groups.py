@@ -4,13 +4,17 @@ import json
 from pathlib import Path
 from typing import Dict
 
+import ethereum.state as spec_state
 import pytest
+from ethereum_types.bytes import Bytes20
+from ethereum_types.numeric import U256, Uint
 
-from execution_testing.base_types import Address
+from execution_testing.base_types import Address, StateCommitment
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.fixtures.pre_alloc_groups import (
     TEST_GROUP_INDEX_FILE,
     GroupIndexEntry,
+    GroupPreAlloc,
     PreAllocGroupBuilder,
     pack_pre_alloc_groups,
     packed_group_hash_for_test,
@@ -623,3 +627,36 @@ def test_builder_genesis_carries_the_environment() -> None:
             f"{field} did not reach the genesis header: "
             f"{getattr(environment, field)} != {getattr(genesis, field)}"
         )
+
+
+def test_structural_copy_drops_group_caches() -> None:
+    """
+    A copy that executes blocks reports its own state root and dump, not the
+    group's cached genesis ones.
+    """
+    address = Address(0x1234)
+    group = GroupPreAlloc.model_validate({address: Account(balance=1)})
+    group.migrate_state_commitment(StateCommitment.MPT)
+    genesis_root = group.state_root()
+    genesis_dump = group.model_dump(mode="json")
+    group._cached_state_root = genesis_root
+
+    copied = group.structural_copy()
+    diff = spec_state.BlockDiff(
+        account_changes={
+            Bytes20(address): spec_state.Account(
+                nonce=Uint(1),
+                balance=U256(2),
+                code_hash=spec_state.EMPTY_CODE_HASH,
+            )
+        }
+    )
+    copied.compute_state_root(diff)
+    copied.apply_diff(diff)
+
+    expected = Alloc.model_validate({address: Account(nonce=1, balance=2)})
+    expected.migrate_state_commitment(StateCommitment.MPT)
+    assert copied.state_root() == expected.state_root() != genesis_root
+    assert copied.model_dump(mode="json") != genesis_dump
+    assert group.state_root() == genesis_root
+    assert group.model_dump(mode="json") == genesis_dump

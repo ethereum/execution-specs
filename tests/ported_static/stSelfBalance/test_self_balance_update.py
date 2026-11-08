@@ -8,10 +8,8 @@ state_tests/stSelfBalance/selfBalanceUpdateFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     StateTestFiller,
     Transaction,
@@ -27,27 +25,17 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSelfBalance/selfBalanceUpdateFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_self_balance_update(
     state_test: StateTestFiller,
     fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_self_balance_update."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # (asm SELFBALANCE DUP1 1 SSTORE 0 0 0 0 1 0 0 CALL POP SELFBALANCE DUP1 2 SSTORE SWAP1 SUB 3 SSTORE)  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SELFBALANCE
         + Op.SSTORE(key=0x1, value=Op.DUP1)
         + Op.POP(
@@ -67,7 +55,6 @@ def test_self_balance_update(
         + Op.SSTORE(key=0x3, value=Op.SUB)
         + Op.STOP,
         balance=500,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -79,4 +66,4 @@ def test_self_balance_update(
 
     post = {target: Account(storage={1: 500, 2: 499, 3: 1})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

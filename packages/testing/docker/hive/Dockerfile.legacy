@@ -1,0 +1,20 @@
+# Deprecated build arguments variant of a hive simulator image, published as
+# <simulator>:latest-legacy beside `latest`. hive's default eels Dockerfiles
+# select it when a caller passes the old Dockerfile.git arguments `fixtures`
+# or `branch` without a `tag`; otherwise they use the plain image with no
+# build steps at all. The ONBUILD steps below therefore run only for those
+# callers, in hive's wrapper build: eels-legacy-build (legacy_build.sh)
+# reproduces the source build and the entry point prints a deprecation
+# notice. Remove with ethereum/execution-specs#3866.
+#
+#   docker build -f packages/testing/docker/hive/Dockerfile.legacy \
+#       --build-arg IMAGE_REF=ghcr.io/ethereum/execution-specs/hive/consume-engine:latest \
+#       -t ghcr.io/ethereum/execution-specs/hive/consume-engine:latest-legacy \
+#       packages/testing/docker/hive
+ARG IMAGE_REF
+FROM ${IMAGE_REF}
+
+ONBUILD ARG fixtures
+ONBUILD ARG branch
+ONBUILD COPY Dockerfile fixtures.tar.gz* /staged/
+ONBUILD RUN eels-legacy-build

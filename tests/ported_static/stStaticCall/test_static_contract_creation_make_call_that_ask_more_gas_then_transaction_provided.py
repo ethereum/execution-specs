@@ -8,9 +8,7 @@ state_tests/stStaticCall/static_contractCreationMakeCallThatAskMoreGasThenTransa
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -62,7 +60,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_provided(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
@@ -72,14 +69,6 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
     v: int,
 ) -> None:
     """Test_static_contract_creation_make_call_that_ask_more_gas_then_tran..."""  # noqa: E501
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_1 = Address(0x1000000000000000000000000000000000000001)
-    contract_2 = Address(0x2000000000000000000000000000000000000001)
-    contract_3 = Address(0x3000000000000000000000000000000000000001)
-    contract_4 = Address(0x4000000000000000000000000000000000000001)
-    contract_5 = Address(0x5000000000000000000000000000000000000001)
-    contract_6 = Address(0x4000000000000000000000000000000000000004)
     sender_amount = 0x10C8E0
     if fork.is_eip_enabled(8037):
         sender_amount += (
@@ -88,32 +77,21 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         ) * 10
     sender = pre.fund_eoa(amount=sender_amount)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
     # Source: lll
     # {(SSTORE 1 1)}
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         balance=0x186A0,
-        nonce=0,
     )
     # Source: lll
     # {(MSTORE 1 1)}
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         balance=0x186A0,
-        nonce=0,
     )
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
-    contract_3 = pre.deploy_contract(  # noqa: F841
+    contract_3 = pre.deploy_contract(
         code=Op.JUMPDEST
         + Op.JUMPI(
             pc=0x1C, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
@@ -124,14 +102,12 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         + Op.JUMPDEST
         + Op.STOP,
         balance=0x186A0,
-        nonce=0,
     )
     # Source: lll
     # { (MSTORE 1 1) }
-    contract_6 = pre.deploy_contract(  # noqa: F841
+    contract_6 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         balance=0x186A0,
-        nonce=0,
     )
     # Source: lll
     # {(STATICCALL 50000 0x1000000000000000000000000000000000000001 0 64 0 64)}
@@ -146,7 +122,6 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         )
         + Op.STOP,
         balance=0x186A0,
-        nonce=0,
     )
     # Source: lll
     # { (CALLCODE 1000000 0x4000000000000000000000000000000000000004 0 0 0 0 0) }  # noqa: E501
@@ -162,11 +137,10 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         )
         + Op.STOP,
         balance=0x186A0,
-        nonce=0,
     )
     # Source: lll
     # { (CALLCODE 1000 0x4000000000000000000000000000000000000004 0 0 0 0 0) }
-    contract_4 = pre.deploy_contract(  # noqa: F841
+    contract_4 = pre.deploy_contract(
         code=Op.CALLCODE(
             gas=0x3E8,
             address=contract_6,
@@ -178,7 +152,6 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         )
         + Op.STOP,
         balance=0x186A0,
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
@@ -270,4 +243,4 @@ def test_static_contract_creation_make_call_that_ask_more_gas_then_transaction_p
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

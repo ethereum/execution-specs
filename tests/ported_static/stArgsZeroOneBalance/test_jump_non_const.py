@@ -8,10 +8,8 @@ state_tests/stArgsZeroOneBalance/jumpNonConstFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -47,7 +45,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_jump_non_const(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -57,27 +54,12 @@ def test_jump_non_const(
     v: int,
 ) -> None:
     """Test_jump_non_const."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
 
     # Source: lll
     # { (JUMP (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>)) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMP(
-            pc=Op.BALANCE(address=0xA82AE24D0D34B26FCB664DACD3E18371C9315E79)
-        )
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xA82AE24D0D34B26FCB664DACD3E18371C9315E79),  # noqa: E501
+    target = pre.deploy_contract(
+        code=Op.JUMP(pc=Op.BALANCE(address=Op.ADDRESS)) + Op.STOP,
     )
 
     expect_entries_: list[dict] = [
@@ -110,4 +92,4 @@ def test_jump_non_const(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

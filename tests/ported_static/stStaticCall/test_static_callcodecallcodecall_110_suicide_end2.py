@@ -11,7 +11,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Storage,
     Transaction,
@@ -61,29 +60,18 @@ def test_static_callcodecallcodecall_110_suicide_end2(
     v: int,
 ) -> None:
     """Test_static_callcodecallcodecall_110_suicide_end2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=30000000,
-    )
 
     # Source: lll
     # {  (MSTORE 3 1) }
     addr_3 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0x48E2D4C0B593BFEBE5DDB4F13AA355B8BD83DDD3),  # noqa: E501
     )
     # Source: lll
     # {  [[ 0 ]] (CALLCODE 150000 <contract:0x1000000000000000000000000000000000000001> (CALLVALUE) 0 64 0 64 ) [[ 1 ]] (GAS) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALLCODE(
@@ -99,7 +87,6 @@ def test_static_callcodecallcodecall_110_suicide_end2(
         + Op.SSTORE(key=0x1, value=Op.GAS)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
         address=Address(0x44D09DDF088DD88C0E91FA7EF74973FF94AD7414),  # noqa: E501
     )
     # Source: lll
@@ -116,7 +103,6 @@ def test_static_callcodecallcodecall_110_suicide_end2(
         )
         + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0x1D36753CD1D8D4795799D3F4D0925C63F72B2685),  # noqa: E501
     )
     # Source: lll
@@ -135,7 +121,6 @@ def test_static_callcodecallcodecall_110_suicide_end2(
         + Op.SELFDESTRUCT(address=0x1D36753CD1D8D4795799D3F4D0925C63F72B2685)
         + Op.STOP,
         balance=0x2540BE400,
-        nonce=0,
         address=Address(0xB7770360E0B87603E3D9C87C866451760C95ABCA),  # noqa: E501
     )
 
@@ -147,7 +132,7 @@ def test_static_callcodecallcodecall_110_suicide_end2(
                 "indexes": {"data": -1, "gas": -1, "value": -1},
                 "network": [">=Cancun"],
                 "result": {
-                    target: Account(storage=target_storage, balance=0, nonce=0)
+                    target: Account(storage=target_storage, balance=0, nonce=1)
                 },
             },
         ]
@@ -160,7 +145,7 @@ def test_static_callcodecallcodecall_110_suicide_end2(
                     target: Account(
                         storage={0: 1, 1: 0x2CEBFF},
                         balance=0,
-                        nonce=0,
+                        nonce=1,
                     )
                 },
             },
@@ -171,7 +156,7 @@ def test_static_callcodecallcodecall_110_suicide_end2(
                     target: Account(
                         storage={0: 1, 1: 0x2CB7A7},
                         balance=0,
-                        nonce=0,
+                        nonce=1,
                     )
                 },
             },
@@ -194,4 +179,4 @@ def test_static_callcodecallcodecall_110_suicide_end2(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

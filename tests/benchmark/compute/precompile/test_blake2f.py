@@ -12,6 +12,7 @@ from execution_testing import (
     Fork,
     JumpLoopGenerator,
     Op,
+    ReceiptStatusExpected,
     Transaction,
     WhileGas,
 )
@@ -203,7 +204,7 @@ def test_blake2f_uncachable(
     benchmark_test(
         target_opcode=Op.STATICCALL,
         skip_gas_used_validation=True,
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected()],
         blocks=[Block(txs=txs)],
         expected_opcode_count=expected_opcode_count,
     )

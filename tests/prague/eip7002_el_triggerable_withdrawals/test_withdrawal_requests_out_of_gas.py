@@ -4,10 +4,6 @@ Out-of-gas withdrawal request tests.
 Tests that withdrawal requests whose triggering call runs out of gas are not
 included in the block, for
 [EIP-7002: Execution layer triggerable withdrawals](https://eips.ethereum.org/EIPS/eip-7002).
-
-The gas limits are supplied per-request via the interaction's `gas_limits`
-list rather than being baked into the withdrawal request descriptor, keeping
-the gas concern isolated to these dedicated tests.
 """
 
 from typing import List
@@ -18,7 +14,11 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Environment,
+    Fork,
+    Op,
+    ParameterSet,
     SystemContractInteractionContract,
+    SystemContractInteractionMeasuredOutOfGasContract,
     SystemContractInteractionTransaction,
     WithdrawalRequest,
 )
@@ -31,52 +31,66 @@ REFERENCE_SPEC_VERSION = ref_spec_7002.version
 pytestmark = pytest.mark.valid_from("Prague")
 
 
-@pytest.mark.parametrize(
-    "system_contract_interactions_per_block",
-    [
-        pytest.param(
+def out_of_gas_cases(fork: Fork) -> List[ParameterSet]:
+    """Return the out-of-gas cases, deriving the starved gas from `fork`."""
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+
+    def transactions_starving(
+        index: int,
+    ) -> List[List[SystemContractInteractionTransaction]]:
+        requests = [
+            WithdrawalRequest(validator_pubkey=i + 1, amount=0)
+            for i in range(2)
+        ]
+        requests[index].valid = False
+        # The intrinsic cost alone leaves the predeploy too little gas to
+        # enqueue anything. The transaction pays the request fee as value.
+        gas_limits: List[int | None] = [None, None]
+        gas_limits[index] = intrinsic_cost(
+            calldata=requests[index].calldata, sends_value=True
+        )
+        return [
             [
-                [
-                    SystemContractInteractionTransaction(
-                        requests=[
-                            WithdrawalRequest(
-                                validator_pubkey=0x01,
-                                amount=0,
-                                valid=False,
-                            ),
-                            WithdrawalRequest(
-                                validator_pubkey=0x02,
-                                amount=0,
-                            ),
-                        ],
-                        # Value obtained from trace minus one
-                        gas_limits=[114_247 - 1, None],
-                    ),
-                ],
-            ],
+                SystemContractInteractionTransaction(
+                    requests=requests, gas_limits=gas_limits
+                )
+            ]
+        ]
+
+    # The predeploy ends with a warm SSTORE, which EIP-2200 rejects unless
+    # more than the call stipend remains, so the requirement exceeds the
+    # measured consumption by that sentry.
+    warm_sstore = Op.SSTORE(
+        key_warm=True, original_value=0, current_value=1, new_value=2
+    ).gas_cost(fork)
+    sentry_margin = fork.call_value_stipend() - warm_sstore + 1
+    # The relay measures the requirement on the second request, then forwards
+    # one gas less to the third and exactly the requirement to the fourth.
+    boundary_requests = [
+        WithdrawalRequest(validator_pubkey=i + 1, amount=0) for i in range(4)
+    ]
+    boundary_requests[2].valid = False
+
+    return [
+        pytest.param(
+            transactions_starving(0),
             id="single_block_multiple_withdrawal_request_first_oog",
+        ),
+        pytest.param(
+            transactions_starving(1),
+            id="single_block_multiple_withdrawal_request_last_oog",
         ),
         pytest.param(
             [
                 [
-                    SystemContractInteractionTransaction(
-                        requests=[
-                            WithdrawalRequest(
-                                validator_pubkey=0x01,
-                                amount=0,
-                            ),
-                            WithdrawalRequest(
-                                validator_pubkey=0x02,
-                                amount=0,
-                                valid=False,
-                            ),
-                        ],
-                        # Value obtained from trace minus one
-                        gas_limits=[None, 80_047 - 1],
+                    SystemContractInteractionMeasuredOutOfGasContract(
+                        requests=boundary_requests,
+                        exact_gas_indices=[3],
+                        exact_gas_margin=sentry_margin,
                     ),
                 ],
             ],
-            id="single_block_multiple_withdrawal_request_last_oog",
+            id="single_block_multiple_withdrawal_requests_from_contract_gas_boundary",
         ),
         pytest.param(
             [
@@ -136,7 +150,11 @@ pytestmark = pytest.mark.valid_from("Prague")
             ],
             id="single_block_multiple_withdrawal_requests_from_contract_last_oog",
         ),
-    ],
+    ]
+
+
+@pytest.mark.parametrize_by_fork(
+    "system_contract_interactions_per_block", out_of_gas_cases
 )
 def test_withdrawal_requests_out_of_gas(
     blockchain_test: BlockchainTestFiller,
@@ -146,10 +164,6 @@ def test_withdrawal_requests_out_of_gas(
     """
     Test that a withdrawal request whose triggering call runs out of gas is
     not included, while the other requests in the block are.
-
-    The gas limits are supplied per-request via the interaction's `gas_limits`
-    list rather than being baked into the withdrawal request descriptor,
-    keeping the gas concern isolated to these dedicated tests.
     """
     blockchain_test(
         genesis_environment=Environment(),

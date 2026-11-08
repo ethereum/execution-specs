@@ -8,9 +8,7 @@ state_tests/stBugs/staticcall_createfailsFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -44,7 +42,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_staticcall_createfails(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -54,24 +51,11 @@ def test_staticcall_createfails(
     v: int,
 ) -> None:
     """Test_staticcall_createfails."""
-    coinbase = Address(0x1000000000000000000000000000000000000000)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_2 = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0x38BEEC8FEECA2598)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=23826461031063688,
-    )
 
     # Source: lll
     # { [[1]] (STATICCALL 70000 (CALLDATALOAD 0) 0 0 0 0) }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x1,
             value=Op.STATICCALL(
@@ -86,23 +70,20 @@ def test_staticcall_createfails(
         + Op.STOP,
         storage={1: 1},
         nonce=63,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 1 1) [[2]] (CREATE 1 1 1) }
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x1, value=0x1)
         + Op.SSTORE(key=0x2, value=Op.CREATE(value=0x1, offset=0x1, size=0x1))
         + Op.STOP,
         nonce=63,
-        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
     # Source: raw
     # 0x60006000f0
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.PUSH1[0x0] * 2 + Op.CREATE,
         nonce=63,
-        address=Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
     tx_data = [
@@ -125,4 +106,4 @@ def test_staticcall_createfails(
         ): Account.NONEXISTENT,
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

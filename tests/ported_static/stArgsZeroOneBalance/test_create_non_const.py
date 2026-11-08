@@ -8,10 +8,8 @@ state_tests/stArgsZeroOneBalance/createNonConstFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -48,7 +46,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_create_non_const(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -58,39 +55,20 @@ def test_create_non_const(
     v: int,
 ) -> None:
     """Test_create_non_const."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
 
     # Source: lll
     # { [[ 0 ]] (CREATE (BALANCE 0x095e7baea6a6c7c4c2dfeb977efac326af552d87) (BALANCE 0x095e7baea6a6c7c4c2dfeb977efac326af552d87) (BALANCE 0x095e7baea6a6c7c4c2dfeb977efac326af552d87)) }  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CREATE(
-                value=Op.BALANCE(
-                    address=0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87
-                ),
-                offset=Op.BALANCE(
-                    address=0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87
-                ),
-                size=Op.BALANCE(
-                    address=0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87
-                ),
+                value=Op.BALANCE(address=Op.ADDRESS),
+                offset=Op.BALANCE(address=Op.ADDRESS),
+                size=Op.BALANCE(address=Op.ADDRESS),
             ),
         )
         + Op.STOP,
-        nonce=0,
-        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -100,7 +78,7 @@ def test_create_non_const(
             "result": {
                 contract_0: Account(
                     storage={
-                        0: compute_create_address(address=contract_0, nonce=0),
+                        0: compute_create_address(address=contract_0, nonce=1),
                     },
                 ),
             },
@@ -111,7 +89,7 @@ def test_create_non_const(
             "result": {
                 contract_0: Account(
                     storage={
-                        0: compute_create_address(address=contract_0, nonce=0),
+                        0: compute_create_address(address=contract_0, nonce=1),
                     },
                 ),
             },
@@ -135,4 +113,4 @@ def test_create_non_const(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -16,7 +16,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     BuilderExitRequest,
-    Fork,
     Header,
     Requests,
     SystemContractInteractionTransaction,
@@ -34,15 +33,10 @@ pytestmark = [
 
 
 @pytest.fixture
-def inhibited_pre(pre: Alloc, fork: Fork) -> Alloc:
+def inhibited_pre(pre: Alloc) -> Alloc:
     """Seed the builder exit predeploy with the disable inhibitor set."""
-    predeploy = Alloc.model_validate(fork.pre_allocation_blockchain())[
-        BuilderExitRequest.system_contract_address
-    ]
-    assert predeploy is not None
-    pre[BuilderExitRequest.system_contract_address] = Account(
-        nonce=predeploy.nonce,
-        code=predeploy.code,
+    pre.update_account(
+        BuilderExitRequest.system_contract_address,
         storage={BuilderExitRequest.excess_slot: Spec.EXCESS_INHIBITOR},
     )
     return pre

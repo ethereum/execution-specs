@@ -20,7 +20,11 @@ from execution_testing import (
     TransitionFork,
     add_kzg_version,
 )
-from execution_testing.forks import BPO2ToBPO3AtTime15k
+from execution_testing.forks import (
+    BPO_SCENARIOS,
+    Amsterdam,
+    transition_fork_from_to,
+)
 
 from .spec import Spec, ref_spec_7918
 
@@ -128,7 +132,7 @@ def genesis_excess_blob_gas(
     if current_excess_blob_gas > parent_excess_blob_gas:
         minimum = 0
         maximum = genesis_excess_blob_gas
-        while minimum < maximum:
+        while minimum <= maximum:
             mid = (minimum + maximum) // 2
             next_excess_blob_gas = excess_blob_gas_calculator(
                 parent_excess_blob_gas=mid,
@@ -529,9 +533,13 @@ def get_fork_scenarios(fork: TransitionFork) -> Iterator[ParameterSet]:
                         ),
                     )
 
-    if fork == BPO2ToBPO3AtTime15k:
-        # Explicitly add the exact scenario that triggered the Fusaka Devnet-4
-        # fork.
+    amsterdam_increase, _ = BPO_SCENARIOS[Amsterdam]
+    if fork == transition_fork_from_to(Amsterdam, amsterdam_increase):
+        # The exact scenario that forked Fusaka Devnet-4 at its BPO2 to BPO3
+        # transition. Amsterdam keeps BPO2's blob schedule and its increase
+        # raises it to BPO3's target and max, so the same blocks reach the
+        # same excess blob gas. The update fraction differs from BPO3's, but
+        # the blob base fee at this excess is the same.
         yield pytest.param(
             0x32,
             0x125BF5F,
@@ -556,7 +564,6 @@ def get_fork_scenarios(fork: TransitionFork) -> Iterator[ParameterSet]:
 )
 @pytest.mark.valid_at_transition_to("Osaka", subsequent_forks=True)
 @pytest.mark.valid_for_bpo_forks()
-@pytest.mark.slow()
 def test_reserve_price_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

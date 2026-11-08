@@ -76,14 +76,6 @@ def test_coinbase_t01(
     coinbase = Address(0x7704D8A022A1BA8F3539FC82C7D7FB065ABC0DF3)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=100,
-    )
-
     pre[coinbase] = Account(balance=0, nonce=1)
     # Source: yul
     # berlin
@@ -95,7 +87,7 @@ def test_coinbase_t01(
     #   // The 24 is the cost of twi gas(), seven pushes(), a pop(), and an mstore()  # noqa: E501
     #   sstore(0, sub(sub(mload(0), mload(0x20)),33))
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(
             Op.CALL(
@@ -163,6 +155,8 @@ def test_coinbase_t01(
             ),
         ],
     }
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,

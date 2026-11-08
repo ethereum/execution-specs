@@ -11,11 +11,9 @@ state-gas folded in); pre-EIP-8037 unchanged.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -32,7 +30,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_transaction_create_auto_suicide_contract(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -46,21 +43,7 @@ def test_transaction_create_auto_suicide_contract(
         tx_gas_limit = 300_000
         sender_balance = 10000000
 
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
-    pre[sender] = Account(balance=sender_balance)
+    sender = pre.fund_eoa(amount=sender_balance)
 
     tx = Transaction(
         sender=sender,
@@ -84,4 +67,4 @@ def test_transaction_create_auto_suicide_contract(
         ): Account.NONEXISTENT,
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

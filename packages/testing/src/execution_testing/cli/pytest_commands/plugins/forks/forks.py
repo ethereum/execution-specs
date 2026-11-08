@@ -1629,6 +1629,9 @@ def pytest_collection_modifyitems(
     deselected: List[pytest.Item] = []
     # function name -> (reason, total, deselected_count)
     filter_stats: Dict[str, Tuple[str, int, int]] = {}
+    # Items share few distinct validity marker combinations, so compute the
+    # fork set once per combination.
+    fork_sets: Dict[Tuple[Any, ...], Set[Fork | TransitionFork]] = {}
 
     for i, item in enumerate(items):
         params = _get_item_params(item)
@@ -1662,12 +1665,23 @@ def pytest_collection_modifyitems(
         if fork is None:
             continue
 
-        markers = item.iter_markers()
+        markers = [
+            marker
+            for marker in item.iter_markers()
+            if ValidityMarker.is_validity_or_filter_marker(marker.name)
+        ]
 
         try:
-            valid_fork_set = ValidityMarker.get_test_fork_set_from_markers(
-                markers
+            key = tuple(
+                (marker.name, marker.args, tuple(marker.kwargs.items()))
+                for marker in markers
             )
+            valid_fork_set = fork_sets.get(key)
+            if valid_fork_set is None:
+                valid_fork_set = ValidityMarker.get_test_fork_set_from_markers(
+                    iter(markers)
+                )
+                fork_sets[key] = valid_fork_set
         except Exception as e:
             pytest.exit(
                 f"Error in test '{item.name}': {e}",
@@ -1689,9 +1703,9 @@ def pytest_collection_modifyitems(
                 returncode=pytest.ExitCode.USAGE_ERROR,
             )
 
-    # Remove items in reverse order to maintain indices
-    for i in reversed(items_to_remove):
-        del items[i]
+    # Rebuild in one pass since deleting by index is quadratic
+    removed = set(items_to_remove)
+    items[:] = [item for i, item in enumerate(items) if i not in removed]
 
     if deselected:
         config.hook.pytest_deselected(items=deselected)

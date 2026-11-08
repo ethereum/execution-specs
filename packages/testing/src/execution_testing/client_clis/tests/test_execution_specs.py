@@ -9,6 +9,7 @@ from shutil import which
 from typing import Dict, List, Type
 
 import pytest
+from ethereum import trace
 from pydantic import TypeAdapter
 
 from execution_testing.base_types import StateCommitment, to_json
@@ -209,3 +210,47 @@ def test_evm_t8n(
                 t8n_result.pop("opcodeCount")
 
         assert t8n_result == expected.get("result")
+
+
+@pytest.mark.parametrize(
+    "test_dir", sorted(os.listdir(path=FIXTURES_ROOT))[:1]
+)
+@pytest.mark.parametrize("count_opcodes", [True, False])
+def test_evm_t8n_restores_the_active_tracer(
+    default_t8n: TransitionTool,
+    alloc: Alloc,
+    txs: List[Transaction],
+    env: Environment,
+    count_opcodes: bool,
+) -> None:
+    """
+    A transition that counts opcodes swaps its tracer in only while it runs,
+    and one that does not leaves the active tracer alone.
+    """
+    events: List[object] = []
+
+    def sentinel(evm: object, event: trace.TraceEvent) -> None:
+        del evm
+        events.append(event)
+
+    previous = trace.set_evm_trace(sentinel)
+    try:
+        default_t8n.count_opcodes = count_opcodes
+        default_t8n.reset_opcode_count()
+        default_t8n.evaluate(
+            transition_tool_data=TransitionTool.TransitionToolData(
+                alloc=alloc,
+                txs=txs,
+                env=env,
+                fork=Berlin,
+                chain_id=1,
+                reward=0,
+                blob_schedule=Berlin.blob_schedule(),
+            ),
+        )
+        assert trace.set_evm_trace(sentinel) is sentinel
+        assert bool(events) is not count_opcodes
+    finally:
+        trace.set_evm_trace(previous)
+        default_t8n.count_opcodes = True
+        default_t8n.reset_opcode_count()

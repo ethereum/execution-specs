@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Dict, List, Sequence
 
-from execution_testing.base_types import Address, HexNumber
+from execution_testing.base_types import Address
 from execution_testing.client_clis import Result
 from execution_testing.exceptions import (
     BlockException,
@@ -17,8 +17,7 @@ from execution_testing.forks import Fork
 from execution_testing.test_types import (
     PostStateContext,
     Transaction,
-    TransactionLog,
-    TransactionReceipt,
+    verify_transaction_receipt,
 )
 from execution_testing.test_types.balance_expectations import (
     TransactionKey,
@@ -117,74 +116,6 @@ class ExecutionExceptionMismatchError(Exception):
             f"\n   What: {execution_context.value} exception mismatch!"
             f"\n   Want: {want_exception}"
             f'\n    Got: "{got_exception}" ("{got_message}")'
-        )
-        super().__init__(message)
-
-
-class TransactionReceiptMismatchError(Exception):
-    """
-    Exception used when the actual transaction receipt differs from the
-    expected one.
-    """
-
-    def __init__(
-        self,
-        index: int,
-        field_name: str,
-        expected_value: Any,
-        actual_value: Any,
-    ):
-        """Initialize the exception."""
-        message = (
-            f"\nTransactionReceiptMismatch (pos={index}):"
-            f"\n   What: {field_name} mismatch!"
-            f"\n   Want: {expected_value}"
-            f"\n    Got: {actual_value}"
-        )
-        super().__init__(message)
-
-
-class TransactionReceiptIncompleteError(Exception):
-    """
-    Exception used when the transition tool returns incomplete information
-    required to validate the test.
-    """
-
-    def __init__(
-        self,
-        index: int,
-        field_name: str,
-        expected_value: Any,
-    ):
-        """Initialize the exception."""
-        message = (
-            f"\nTransactionReceiptIncomplete (pos={index}):"
-            f"\n   What: {field_name} missing!"
-            f"\n   Want: {expected_value}"
-            f"\n    Got: MISSING"
-        )
-        super().__init__(message)
-
-
-class LogMismatchError(Exception):
-    """
-    Exception used when an actual log field differs from the expected one.
-    """
-
-    def __init__(
-        self,
-        index: int,
-        log_index: int,
-        field_name: str,
-        expected_value: Any,
-        actual_value: Any,
-    ):
-        """Initialize the exception."""
-        message = (
-            f"\nLogMismatch (pos={index}, log={log_index}):"
-            f"\n   What: {field_name} mismatch!"
-            f"\n   Want: {expected_value}"
-            f"\n    Got: {actual_value}"
         )
         super().__init__(message)
 
@@ -292,134 +223,6 @@ class BlockExceptionInfo(ExceptionInfo):
             context={"number": block_number},
             **kwargs,
         )
-
-
-def verify_log(
-    tx_index: int,
-    log_index: int,
-    expected: TransactionLog,
-    actual: TransactionLog,
-) -> None:
-    """Verify a single log matches expected values (only specified fields)."""
-    if expected.address is not None and expected.address != actual.address:
-        raise LogMismatchError(
-            index=tx_index,
-            log_index=log_index,
-            field_name="address",
-            expected_value=expected.address,
-            actual_value=actual.address,
-        )
-    if expected.topics is not None and expected.topics != actual.topics:
-        raise LogMismatchError(
-            index=tx_index,
-            log_index=log_index,
-            field_name="topics",
-            expected_value=expected.topics,
-            actual_value=actual.topics,
-        )
-    if expected.data is not None and expected.data != actual.data:
-        raise LogMismatchError(
-            index=tx_index,
-            log_index=log_index,
-            field_name="data",
-            expected_value=expected.data,
-            actual_value=actual.data,
-        )
-
-
-def verify_transaction_receipt(
-    *,
-    transaction_index: int,
-    previous_cumulative_gas_used: int | None,
-    expected_receipt: TransactionReceipt | None,
-    actual_receipt: TransactionReceipt | None,
-) -> None:
-    """
-    Verify the actual receipt against the expected one.
-
-    If the expected receipt is None, validation is skipped.
-
-    Only verifies non-None values in the expected receipt if any.
-    """
-    if expected_receipt is None:
-        return
-    assert actual_receipt is not None
-    if (
-        expected_receipt.cumulative_gas_used is not None
-        and actual_receipt.cumulative_gas_used
-        != expected_receipt.cumulative_gas_used
-    ):
-        raise TransactionReceiptMismatchError(
-            index=transaction_index,
-            field_name="cumulative_gas_used",
-            expected_value=expected_receipt.cumulative_gas_used,
-            actual_value=actual_receipt.cumulative_gas_used,
-        )
-    if expected_receipt.gas_used is not None:
-        actual_gas_used: int
-        if actual_receipt.gas_used is not None:
-            actual_gas_used = actual_receipt.gas_used
-        else:
-            if previous_cumulative_gas_used is None:
-                raise TransactionReceiptIncompleteError(
-                    index=transaction_index - 1,
-                    field_name="cumulative_gas_used",
-                    expected_value=expected_receipt.gas_used,
-                )
-            current_cumulative_gas_used = actual_receipt.cumulative_gas_used
-            if current_cumulative_gas_used is None:
-                raise TransactionReceiptIncompleteError(
-                    index=transaction_index,
-                    field_name="cumulative_gas_used",
-                    expected_value=expected_receipt.gas_used,
-                )
-            actual_gas_used = HexNumber(
-                current_cumulative_gas_used - previous_cumulative_gas_used
-            )
-        if expected_receipt.gas_used != actual_gas_used:
-            raise TransactionReceiptMismatchError(
-                index=transaction_index,
-                field_name="gas_used",
-                expected_value=expected_receipt.gas_used,
-                actual_value=actual_gas_used,
-            )
-    if expected_receipt.logs is not None:
-        actual_logs = actual_receipt.logs
-        if actual_logs is None:
-            raise TransactionReceiptIncompleteError(
-                index=transaction_index,
-                field_name="logs",
-                expected_value=expected_receipt.logs,
-            )
-        expected_logs = expected_receipt.logs
-        if len(expected_logs) != len(actual_logs):
-            raise LogMismatchError(
-                index=transaction_index,
-                log_index=0,
-                field_name="log_count",
-                expected_value=len(expected_logs),
-                actual_value=len(actual_logs),
-            )
-        for log_idx, (expected, actual) in enumerate(
-            zip(expected_logs, actual_logs, strict=True)
-        ):
-            verify_log(transaction_index, log_idx, expected, actual)
-    if expected_receipt.status is not None:
-        if actual_receipt.status is None:
-            raise TransactionReceiptIncompleteError(
-                index=transaction_index,
-                field_name="status/succeeded",
-                expected_value=expected_receipt.status,
-            )
-        if expected_receipt.status != actual_receipt.status:
-            raise TransactionReceiptMismatchError(
-                index=transaction_index,
-                field_name="status/succeeded",
-                expected_value=expected_receipt.status,
-                actual_value=actual_receipt.status,
-            )
-
-    # TODO: Add more fields as needed
 
 
 def verify_transactions(

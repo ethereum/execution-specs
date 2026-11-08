@@ -11,10 +11,8 @@ to cover EIP-8037 state-gas spill; pre-EIP-8037 unchanged.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -32,7 +30,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_create_name_registrator_zero_mem2(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -44,22 +41,11 @@ def test_create_name_registrator_zero_mem2(
     if fork.is_eip_enabled(8037):
         tx_gas_limit = 1_000_000
 
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
 
     # Source: lll
     # { (MSTORE 0 0x601080600c6000396000f3006000355415600957005b60203560003555) [[ 0 ]] (CREATE 23 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0) }  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0,
             value=0x601080600C6000396000F3006000355415600957005B60203560003555,
@@ -74,7 +60,6 @@ def test_create_name_registrator_zero_mem2(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -88,10 +73,10 @@ def test_create_name_registrator_zero_mem2(
     post = {
         contract_0: Account(
             storage={
-                0: compute_create_address(address=contract_0, nonce=0),
+                0: compute_create_address(address=contract_0, nonce=1),
             },
-            nonce=1,
+            nonce=2,
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

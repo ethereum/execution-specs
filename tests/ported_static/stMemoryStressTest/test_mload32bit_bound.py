@@ -8,10 +8,8 @@ state_tests/stMemoryStressTest/mload32bitBoundFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -47,7 +45,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_mload32bit_bound(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -57,24 +54,16 @@ def test_mload32bit_bound(
     v: int,
 ) -> None:
     """Test_mload32bit_bound."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x3E801F4FA93760)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=17592320524892,
-    )
 
     # Source: lll
     # { [[ 1 ]] (MLOAD 4294967296) }
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x100000000)) + Op.STOP,
+    target_code = (
+        Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x100000000)) + Op.STOP
+    )
+    target = pre.deploy_contract(
+        code=target_code,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
@@ -84,8 +73,8 @@ def test_mload32bit_bound(
             "result": {
                 target: Account(
                     storage={},
-                    code=bytes.fromhex("6401000000005160015500"),
-                    nonce=0,
+                    code=target_code,
+                    nonce=1,
                 ),
                 sender: Account(storage={}, code=b"", nonce=1),
             },
@@ -96,8 +85,8 @@ def test_mload32bit_bound(
             "result": {
                 target: Account(
                     storage={},
-                    code=bytes.fromhex("6401000000005160015500"),
-                    nonce=0,
+                    code=target_code,
+                    nonce=1,
                 ),
                 sender: Account(storage={}, code=b"", nonce=1),
             },
@@ -121,4 +110,4 @@ def test_mload32bit_bound(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

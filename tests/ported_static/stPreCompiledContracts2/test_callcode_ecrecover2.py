@@ -8,10 +8,8 @@ state_tests/stPreCompiledContracts2/CALLCODEEcrecover2Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,27 +23,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stPreCompiledContracts2/CALLCODEEcrecover2Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_callcode_ecrecover2(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_callcode_ecrecover2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
 
     # Source: lll
     # { (MSTORE 0 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c) (MSTORE 32 28) (MSTORE 33 0x73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f) (MSTORE 65 0xeeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549) [[ 2 ]] (CALLCODE 100000 1 0 0 97 97 32) [[ 0 ]] (MOD (MLOAD 97) (EXP 2 160)) [[ 1 ]] (EQ (ORIGIN) (SLOAD 0))  }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0,
             value=0x18C547E4F7B0F325AD1E56F57E26C745B09A3E503D86E00E5255FF7F715D3D1C,  # noqa: E501
@@ -77,7 +64,6 @@ def test_callcode_ecrecover2(
         + Op.SSTORE(key=0x1, value=Op.EQ(Op.ORIGIN, Op.SLOAD(key=0x0)))
         + Op.STOP,
         balance=0x1312D00,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -90,4 +76,4 @@ def test_callcode_ecrecover2(
 
     post = {target: Account(storage={2: 1})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

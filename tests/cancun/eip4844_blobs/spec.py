@@ -291,6 +291,69 @@ class SpecHelpers:
         )
 
     @classmethod
+    def get_blob_counts(
+        cls,
+        *,
+        fork: Fork,
+        upper: int,
+        lower: int = 0,
+    ) -> List[int]:
+        """
+        Get the blob counts from `lower` to `upper` to test on `fork`.
+
+        A blob parameter only (BPO) fork changes nothing but the blob
+        schedule, so on one only the counts at the edges of that schedule are
+        tested: both bounds, the counts next to them, and the counts around
+        the target.
+        """
+        counts = range(lower, upper + 1)
+        if not fork.bpo_fork():
+            return list(counts)
+        target = fork.target_blobs_per_block()
+        edges = {
+            lower,
+            lower + 1,
+            target - 1,
+            target,
+            target + 1,
+            upper - 1,
+            upper,
+        }
+        return [count for count in counts if count in edges]
+
+    @classmethod
+    def get_blob_count_offsets(cls, *, fork: Fork, limit: int) -> List[int]:
+        """
+        Get the non-zero offsets from `-limit` to `limit` to test on `fork`.
+
+        On a blob parameter only (BPO) fork, only the largest and the
+        smallest offsets in each direction are tested.
+        """
+        if fork.bpo_fork():
+            return [-limit, -1, 1, limit]
+        return [x for x in range(-limit, limit + 1) if x != 0]
+
+    @classmethod
+    def get_reserve_price_boundary_base_fee(
+        cls,
+        *,
+        fork: Fork,
+        parent_excess_blob_gas: int,
+    ) -> int:
+        """
+        Get the highest parent base fee per gas that leaves the EIP-7918
+        reserve price inactive for the given parent excess blob gas.
+
+        Any base fee above the returned value activates the reserve price.
+        """
+        blob_base_cost = fork.blob_base_cost()
+        gas_per_blob = fork.blob_gas_per_blob()
+        blob_base_fee = fork.blob_gas_price_calculator()(
+            excess_blob_gas=parent_excess_blob_gas
+        )
+        return gas_per_blob * blob_base_fee // blob_base_cost
+
+    @classmethod
     def get_blob_combinations(
         cls,
         blob_count: int,

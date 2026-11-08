@@ -14,6 +14,7 @@ from execution_testing import (
     Hash,
     IteratingBytecode,
     Op,
+    ReceiptStatusExpected,
     RecipientType,
     TestPhaseManager,
     Transaction,
@@ -244,5 +245,5 @@ def run_bloated_eoa_benchmark(
         pre=pre,
         blocks=blocks,
         skip_gas_used_validation=True,
-        expected_receipt_status=True,
+        verifications=[ReceiptStatusExpected()],
     )

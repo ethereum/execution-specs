@@ -7,9 +7,7 @@ state_tests/stRandom2/randomStatetest406Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -28,32 +26,18 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom2/randomStatetest406Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest406(
     state_test: StateTestFiller,
     fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_random_statetest406."""
-    coinbase = Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5)
-    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(
+    coinbase_code = (
+        Op.JUMPI(
             pc=0x9,
             condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
         )
@@ -61,20 +45,21 @@ def test_random_statetest406(
         + Op.JUMPDEST
         + Op.SSTORE(
             key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
-        ),
+        )
+    )
+    coinbase = pre.deploy_contract(
+        code=coinbase_code,
         balance=46,
-        nonce=0,
-        address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
     )
     # Source: raw
     # 0x7f00000000000000000000000000000000000000000000000000000000000000007f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7e7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b58b8e99f33c647165337e389f7b9c909cba5560005155  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.PUSH32[0x0]
-        + Op.PUSH32[0x945304EB96065B2A98B57A48A06AE28D285A71B5]
+        + Op.PUSH32[coinbase]
         + Op.PUSH32[
             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
         ]
-        + Op.PUSH32[0x945304EB96065B2A98B57A48A06AE28D285A71B5]
+        + Op.PUSH32[coinbase]
         + Op.PUSH32[
             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
         ]
@@ -84,15 +69,26 @@ def test_random_statetest406(
         )
         + Op.MLOAD(offset=0x0)
         + Op.SSTORE,
-        nonce=0,
-        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=Bytes(
-            "7f00000000000000000000000000000000000000000000000000000000000000007f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7e7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b58b8e99f33c647165337e389f7b9c909cba"  # noqa: E501
+        data=(
+            Op.PUSH32[0x0]
+            + Op.PUSH32[coinbase]
+            + Op.PUSH32[
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+            ]
+            + Op.PUSH32[coinbase]
+            + Op.PUSH32[
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+            ]
+            + Bytes("7e7f000000000000000000000000")
+            + coinbase
+            + Bytes("8b8e99f33c647165337e389f7b9c909cba")
         ),
         gas_limit=2100000 if fork >= Amsterdam else 100000,
         value=0x4527B6AD,
@@ -104,12 +100,12 @@ def test_random_statetest406(
                 0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE,  # noqa: E501
                 0xB58B8E99F33C647165337E389F7B9C909CBA: 0x7F000000000000000000000000945304EB96065B2A98B57A48A06AE28D285A,  # noqa: E501
             },
-            nonce=0,
+            nonce=1,
         ),
         coinbase: Account(
             storage={},
-            code=bytes.fromhex("6000355415600957005b60203560003555"),
-            nonce=0,
+            code=coinbase_code,
+            nonce=1,
         ),
         sender: Account(storage={}, code=b"", nonce=1),
     }

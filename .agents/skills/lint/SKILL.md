@@ -13,7 +13,7 @@ Run the full static analysis suite and fix issues. This matches the CI check on 
 just static
 ```
 
-This runs ruff, mypy, codespell, ethereum-spec-lint, and actionlint in one pass. If everything passes, you're done.
+This runs ruff (lint and format check), mypy, codespell, ethereum-spec-lint, vulture, actionlint, and a `uv.lock` freshness check in one pass. If everything passes, you're done.
 
 ## Step 2: Auto-Fix Formatting and Lint Issues
 
@@ -36,6 +36,8 @@ just static
 - **codespell errors**: fix typos, or add intentional words via `just whitelist <word>`
 - **ethereum-spec-lint errors**: fix import isolation violations (see `/implement-eip` for import rules)
 - **actionlint errors**: fix workflow YAML issues (see `/edit-workflow`)
+- **vulture (deadcode) errors**: remove the dead code, or add a genuine false positive to `vulture_whitelist.py`
+- **lock-check errors**: run `uv lock` and commit the updated `uv.lock`
 
 ## Step 4: Final Verification
 

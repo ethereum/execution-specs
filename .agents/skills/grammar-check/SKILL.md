@@ -60,5 +60,5 @@ path/to/file.py:15-17 - "multi-line docstring issue"
 ## Important
 
 - Report findings only, do not auto-fix
-- Be conservative: only flag clear errors, not style preferences
-- When uncertain, skip rather than false-positive
+- Flag grammar errors, not style preferences
+- Report uncertain cases too, with `(uncertain)` after the location, so the reader can filter them

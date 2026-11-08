@@ -220,6 +220,9 @@ class EthereumCLI:
         Return True if a CLI's `binary_output` matches the
         class's expected output.
 
+        The pattern is searched for anywhere in the output, so it can key on
+        the tool's name rather than on how its version line is laid out.
+
         `binary` is the resolved path to the tool being probed. Subclasses may
         use it to disambiguate tools that share a version banner by inspecting
         the binary itself (e.g. its subcommands), instead of relying on the
@@ -232,7 +235,7 @@ class EthereumCLI:
             f"Trying to match {binary_output} against this "
             f"pattern: {cls.detect_binary_pattern}"
         )
-        match_result = cls.detect_binary_pattern.match(binary_output)
+        match_result = cls.detect_binary_pattern.search(binary_output)
         match_successful: bool = match_result is not None
 
         return match_successful

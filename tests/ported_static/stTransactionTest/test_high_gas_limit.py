@@ -14,12 +14,10 @@ covers the spillover and stays exactly 0 on pre-EIP-2780 forks.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     RecipientType,
     StateTestFiller,
@@ -34,28 +32,13 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stTransactionTest/HighGasLimitFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_high_gas_limit(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """Test_high_gas_limit."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x50EADFB1030587AB3A993A6ECC073041FC3B45E119DAA31A13D78C7E209631A5
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
-
-    pre[sender] = Account(balance=2**128 - 1)
+    sender = pre.fund_eoa(amount=2**128 - 1)
 
     # EIP-2780 charges ``NEW_ACCOUNT`` state gas at the top frame when
     # value is sent to an empty recipient; with the default zero
@@ -80,4 +63,4 @@ def test_high_gas_limit(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

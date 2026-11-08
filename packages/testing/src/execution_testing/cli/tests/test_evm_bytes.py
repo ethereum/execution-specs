@@ -1,5 +1,7 @@
 """Test suite for `cli.evm_bytes` module."""
 
+import random
+
 import pytest
 
 from execution_testing.vm import Op
@@ -76,9 +78,22 @@ truncated_push_vectors = [
     pytest.param("0x60", "Op.PUSH1[0x0]", id="push1_missing_data_zero_pads"),
     pytest.param(
         "0x6160",
-        "Op.PUSH2[0x60]",
+        "Op.PUSH2[0x6000]",
         id="push2_missing_trailing_byte_zero_pads",
     ),
+    pytest.param(
+        "0x7f01",
+        "Op.PUSH32[0x1" + "00" * 31 + "]",
+        id="push32_missing_trailing_bytes_zero_pads",
+    ),
+]
+stack_immediate_vectors = [
+    pytest.param("0xe6", "Op.DUPN[145]", id="dupn_missing_immediate"),
+    pytest.param("0xe680", "Op.DUPN[17]", id="dupn_valid_immediate"),
+    pytest.param("0xe600", "Op.DUPN[145]", id="dupn_zero_immediate"),
+    pytest.param("0xe65b", 'Op.DUPN[b"\\x5b"]', id="dupn_invalid_immediate"),
+    pytest.param("0xe780", "Op.SWAPN[17]", id="swapn_valid_immediate"),
+    pytest.param("0xe77f", 'Op.SWAPN[b"\\x7f"]', id="swapn_invalid_immediate"),
 ]
 malformed_hex_strings = [
     pytest.param("0xZZ", id="non_hex_chars_with_prefix"),
@@ -158,7 +173,11 @@ DUPLICATES = [Op.NOOP]
 def test_individual_opcodes(opcode: Op) -> None:
     """Test each opcode individually."""
     data_portion = b""
-    if opcode.data_portion_length > 0:
+    if opcode in {Op.DUPN, Op.SWAPN}:
+        # The 0x00 immediate decodes to stack index 145 (EIP-8024).
+        expected_output = f"Op.{opcode._name_}[145]"
+        data_portion = b"\x00"
+    elif opcode.data_portion_length > 0:
         expected_output = f"Op.{opcode._name_}[0x0]"
         data_portion = b"\x00" * opcode.data_portion_length
     else:
@@ -166,6 +185,70 @@ def test_individual_opcodes(opcode: Op) -> None:
 
     bytecode = opcode.int().to_bytes(1, byteorder="big") + data_portion
     assert process_evm_bytes_string("0x" + bytecode.hex()) == expected_output
+
+
+@pytest.mark.parametrize(
+    ("evm_bytes", "python_opcodes"), stack_immediate_vectors
+)
+def test_evm_bytes_stack_immediates(
+    evm_bytes: str, python_opcodes: str
+) -> None:
+    """DUPN/SWAPN immediates are decoded to the stack index `Op` takes."""
+    assert process_evm_bytes_string(evm_bytes) == python_opcodes
+
+
+def _round_trip(bytecode: bytes) -> bytes:
+    """Convert `bytecode` to Python opcodes and encode them again."""
+    python_opcodes = process_evm_bytes_string("0x" + bytecode.hex())
+    return bytes(eval(python_opcodes, {"Op": Op}))
+
+
+def _immediates(opcode: Op) -> list[bytes]:
+    """Return full and truncated immediates to test for `opcode`."""
+    length = opcode.data_portion_length
+    if length == 0:
+        return [b""]
+    if length == 1:
+        full = [bytes([value]) for value in range(256)]
+    else:
+        full = [
+            b"\x00" * length,
+            b"\xff" * length,
+            bytes(range(1, length + 1)),
+        ]
+    truncated = [full[-1][:size] for size in range(length)]
+    return full + truncated
+
+
+@pytest.mark.parametrize("opcode", list(Op), ids=lambda op: op._name_)
+def test_evm_bytes_round_trip(opcode: Op) -> None:
+    """
+    The output re-encodes to the input, with a truncated immediate
+    right-padded with zeros.
+    """
+    length = opcode.data_portion_length
+    for immediate in _immediates(opcode):
+        bytecode = opcode.int().to_bytes(1, "big") + immediate
+        expected = bytecode + b"\x00" * (length - len(immediate))
+        assert _round_trip(bytecode) == expected, (
+            f"Bytecode does not round-trip via evm_bytes: {bytecode.hex()}"
+        )
+
+
+def test_evm_bytes_round_trip_random_code() -> None:
+    """Random opcode sequences re-encode to the input bytecode."""
+    rng = random.Random(0)
+    opcodes = list(Op)
+    for _ in range(500):
+        bytecode = b""
+        for _ in range(rng.randint(1, 12)):
+            opcode = rng.choice(opcodes)
+            bytecode += opcode.int().to_bytes(1, "big") + rng.randbytes(
+                opcode.data_portion_length
+            )
+        assert _round_trip(bytecode) == bytecode, (
+            f"Bytecode does not round-trip via evm_bytes: {bytecode.hex()}"
+        )
 
 
 @pytest.mark.parametrize("evm_bytes", malformed_hex_strings)

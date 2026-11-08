@@ -5,11 +5,13 @@ Ported from:
 state_tests/stEIP1559/lowGasLimitFiller.yml
 
 @manually-enhanced: Do not overwrite. The `-g3` case must sit just below
-the fork intrinsic to trigger `INTRINSIC_GAS_TOO_LOW`. EIP-2780 decomposes
-and lowers the intrinsic, so the original hardcoded `20000` is no longer
-below it; instead derive `intrinsic - 1` from the fork's
+the fork intrinsic to be rejected. EIP-2780 decomposes and lowers the
+intrinsic, so the original hardcoded `20000` is no longer below it;
+instead derive `intrinsic - 1` from the fork's
 `transaction_intrinsic_cost_calculator()` for the single zero-byte
-calldata so the boundary stays correct across the repricing.
+calldata so the boundary stays correct across the repricing. The
+expected exception names the threshold the limit misses: the standard
+cost, or from EIP-7623 the calldata floor.
 """
 
 import pytest
@@ -103,6 +105,22 @@ def test_low_gas_limit(
         nonce=0,
     )
 
+    intrinsic_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic = intrinsic_cost_calculator(calldata=Bytes("00"))
+    standard_cost = intrinsic_cost_calculator(
+        calldata=Bytes("00"), return_cost_deducted_prior_execution=True
+    )
+    if fork.is_eip_enabled(7623):
+        # The calldata floor of one zero byte exceeds its standard cost, so
+        # the -g3 limit misses only the floor.
+        assert standard_cost < intrinsic
+        below_intrinsic_exception = (
+            TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
+        )
+    else:
+        assert standard_cost == intrinsic
+        below_intrinsic_exception = TransactionException.INTRINSIC_GAS_TOO_LOW
+
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": 0, "value": -1},
@@ -126,9 +144,7 @@ def test_low_gas_limit(
             "indexes": {"data": -1, "gas": 3, "value": -1},
             "network": [">=Cancun"],
             "result": {},
-            "expect_exception": {
-                ">=Cancun": TransactionException.INTRINSIC_GAS_TOO_LOW
-            },
+            "expect_exception": {">=Cancun": below_intrinsic_exception},
         },
     ]
 
@@ -137,12 +153,6 @@ def test_low_gas_limit(
     tx_data = [
         Bytes("00"),
     ]
-    # -g3 must sit below the fork's intrinsic to trigger
-    # ``INTRINSIC_GAS_TOO_LOW``. EIP-2780 lowers the intrinsic so the
-    # original ``20000`` is no longer below it; derive the boundary.
-    intrinsic = fork.transaction_intrinsic_cost_calculator()(
-        calldata=Bytes("00"),
-    )
     tx_gas = [90000, 50000, 25000, intrinsic - 1]
     tx_access_lists: dict[int, list] = {
         0: [],

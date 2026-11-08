@@ -8,6 +8,7 @@ test_module_with_verify_sync = textwrap.dedent(
     import pytest
     from execution_testing import  (
         Account,
+        Alloc,
         BlockException,
         Block,
         Environment,
@@ -21,7 +22,7 @@ test_module_with_verify_sync = textwrap.dedent(
     @pytest.mark.valid_at("Cancun")
     def test_verify_sync_default(blockchain_test) -> None:
         blockchain_test(
-            pre={TestAddress: TEST_ADDRESS},
+            pre=Alloc({TestAddress: TEST_ADDRESS}).with_genesis_accounts(),
             post={},
             blocks=[Block(txs=[Transaction(gas_limit=0x5208)])]
         )
@@ -31,7 +32,7 @@ test_module_with_verify_sync = textwrap.dedent(
     @pytest.mark.verify_sync
     def test_verify_sync_with_marker(blockchain_test) -> None:
         blockchain_test(
-            pre={TestAddress: TEST_ADDRESS},
+            pre=Alloc({TestAddress: TEST_ADDRESS}).with_genesis_accounts(),
             post={},
             blocks=[Block(txs=[Transaction(gas_limit=0x5208)])]
         )
@@ -48,7 +49,7 @@ test_module_with_verify_sync = textwrap.dedent(
     )
     def test_verify_sync_with_param_marks(blockchain_test, has_exception) -> None:
         blockchain_test(
-            pre={TestAddress: TEST_ADDRESS},
+            pre=Alloc({TestAddress: TEST_ADDRESS}).with_genesis_accounts(),
             post={},
             blocks=[
                 Block(

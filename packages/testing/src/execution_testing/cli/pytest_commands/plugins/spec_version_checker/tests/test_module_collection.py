@@ -6,7 +6,10 @@ import pytest
 
 from execution_testing.forks import get_deployed_forks, get_forks
 
-LATEST_FORK = get_forks()[-1]
+# The sample EIP test targets a protocol upgrade, not an opt-in BPO scenario.
+LATEST_FORK = next(
+    fork for fork in reversed(get_forks()) if not fork.bpo_fork()
+)
 LAST_DEPLOYED_FORK = get_deployed_forks()[-1]
 
 VERSION_CHECK_ITEM = "*/eip9999_example/test_example.py::test_eip_spec_version"

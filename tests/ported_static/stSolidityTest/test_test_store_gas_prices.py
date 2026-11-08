@@ -8,10 +8,8 @@ state_tests/stSolidityTest/TestStoreGasPricesFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -26,27 +24,16 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
-@pytest.mark.pre_alloc_mutable
 def test_test_store_gas_prices(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_test_store_gas_prices."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x746A528800)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
     # Source: raw
     # 0x7c01000000000000000000000000000000000000000000000000000000006000350463c04062268114602d57005b6033603d565b8060005260206000f35b600060005a600160205590505a81036000555a600260205590505a81036001555a600260205590505a81036002555a65168aa8d53fe660205590505a81036003555a600260205590505a81036004555a600060205590505a81036005555a5060019291505056  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.DIV(
             Op.CALLDATALOAD(offset=0x0),
             0x100000000000000000000000000000000000000000000000000000000,
@@ -98,7 +85,6 @@ def test_test_store_gas_prices(
         + Op.POP * 2
         + Op.JUMP,
         balance=0x186A0,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -114,4 +100,4 @@ def test_test_store_gas_prices(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -211,7 +211,8 @@ def test_valid_multi_inf(
     Test maximum input given the current environment gas limit for the
     BLS12_PAIRING precompile.
     """
-    extra_gas = 100_000
+    gas_costs = fork.gas_costs()
+    extra_gas = 70_000 + gas_costs.STORAGE_SET + gas_costs.COLD_STORAGE_ACCESS
 
     max_gas_limit = fork.transaction_gas_limit_cap() or Environment().gas_limit
 
@@ -284,6 +285,14 @@ def test_valid_multi_inf(
         pytest.param(
             Spec.INF_G1 + Spec.P2_NOT_IN_SUBGROUP,
             id="p2_not_in_subgroup",
+        ),
+        pytest.param(
+            Spec.G1 + Spec.G2 + Spec.P1_NOT_IN_SUBGROUP + Spec.G2,
+            id="p1_not_in_subgroup_pos_1",
+        ),
+        pytest.param(
+            Spec.G1 + Spec.G2 + Spec.G1 + Spec.P2_NOT_IN_SUBGROUP,
+            id="p2_not_in_subgroup_pos_1",
         ),
         # Points not in the subgroup or not on the curve randomly generated.
         pytest.param(
@@ -425,7 +434,8 @@ def test_invalid_multi_inf(
     Test maximum input given the current environment gas limit for the
     BLS12_PAIRING precompile and an invalid tail.
     """
-    extra_gas = 100_000
+    gas_costs = fork.gas_costs()
+    extra_gas = 70_000 + gas_costs.STORAGE_SET + gas_costs.COLD_STORAGE_ACCESS
 
     max_gas_limit = fork.transaction_gas_limit_cap() or Environment().gas_limit
 

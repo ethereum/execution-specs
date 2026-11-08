@@ -5,6 +5,10 @@ Merge multiple .meta/index.json files from split fixture builds.
 Accept fixture directories as arguments, load each directory's
 `.meta/index.json`, merge them via `IndexFile.merge()`, and write
 the result to the specified output path.
+
+Every split must contain an index: a directory without one is an
+incomplete or failed download, so fail rather than silently release
+fixtures without that fork range.
 """
 
 import sys
@@ -30,13 +34,9 @@ def main() -> None:
     for d in fixture_dirs:
         index_path = d / ".meta" / "index.json"
         if not index_path.exists():
-            print(f"Skipping {d} (no .meta/index.json)")
-            continue
+            print(f"Error: {d} has no .meta/index.json", file=sys.stderr)
+            sys.exit(1)
         indexes.append(IndexFile.model_validate_json(index_path.read_text()))
-
-    if not indexes:
-        print("No index files found, nothing to merge.")
-        sys.exit(0)
 
     merged = IndexFile.merge(indexes)
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -8,10 +8,8 @@ state_tests/stSystemOperationsTest/multiSelfdestructFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -65,7 +63,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_multi_selfdestruct(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -78,18 +75,7 @@ def test_multi_selfdestruct(
     Implements: SUC000, SUC001, SUC002, SUC003, SUC004, SUC005
     .
     """
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x000000000000000000000000000000000000DEAD)
-    contract_1 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=1000,
-    )
+    sender = pre.fund_eoa()
 
     # Source: yul
     # berlin
@@ -114,7 +100,7 @@ def test_multi_selfdestruct(
     #    }
     #
     # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.SHR(0xF8, Op.CALLDATALOAD(offset=0x0))
         + Op.AND(Op.SHR(0xE8, Op.CALLDATALOAD(offset=0x0)), 0xFFFF)
         + Op.JUMPI(pc=0x34, condition=Op.EQ(Op.DUP3, 0x0))
@@ -133,8 +119,6 @@ def test_multi_selfdestruct(
         + Op.JUMPDEST
         + Op.STOP,
         balance=3,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000000DEAD),  # noqa: E501
     )
     # Source: yul
     # berlin
@@ -168,7 +152,7 @@ def test_multi_selfdestruct(
     #    }
     #    case 4 {
     # ... (22 more lines)
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.MSTORE8(offset=0x0, value=0xFF)
         + Op.MSTORE8(offset=0x1, value=0x10)
         + Op.MSTORE8(offset=0x2, value=0x0)
@@ -176,7 +160,7 @@ def test_multi_selfdestruct(
             key=0x0,
             value=Op.CALL(
                 gas=Op.GAS,
-                address=contract_0,
+                address=Op.PUSH20[contract_0],
                 value=Op.DUP1,
                 args_offset=Op.DUP2,
                 args_size=0x3,
@@ -185,21 +169,21 @@ def test_multi_selfdestruct(
             ),
         )
         + Op.SSTORE(key=0x1, value=Op.BALANCE(address=0x1000))
-        + Op.SSTORE(key=0x2, value=Op.BALANCE(address=contract_0))
+        + Op.SSTORE(key=0x2, value=Op.BALANCE(address=Op.PUSH20[contract_0]))
         + Op.SHR(0xF8, Op.CALLDATALOAD(offset=0x0))
-        + Op.JUMPI(pc=0xCE, condition=Op.EQ(0x1, Op.DUP1))
-        + Op.JUMPI(pc=0xBC, condition=Op.EQ(0x2, Op.DUP1))
-        + Op.JUMPI(pc=0xA5, condition=Op.EQ(0x3, Op.DUP1))
-        + Op.JUMPI(pc=0x8A, condition=Op.EQ(0x4, Op.DUP1))
+        + Op.JUMPI(pc=0x14F, condition=Op.EQ(0x1, Op.DUP1))
+        + Op.JUMPI(pc=0x12B, condition=Op.EQ(0x2, Op.DUP1))
+        + Op.JUMPI(pc=0x102, condition=Op.EQ(0x3, Op.DUP1))
+        + Op.JUMPI(pc=0xD5, condition=Op.EQ(0x4, Op.DUP1))
         + Op.PUSH1[0x5]
-        + Op.JUMPI(pc=0x58, condition=Op.EQ)
+        + Op.JUMPI(pc=0x7F, condition=Op.EQ)
         + Op.REVERT(offset=Op.DUP1, size=0x0)
         + Op.JUMPDEST
         + Op.MSTORE8(offset=0x0, value=0x1)
         + Op.MSTORE8(offset=0x2, value=0x1)
         + Op.CALL(
             gas=Op.GAS,
-            address=contract_0,
+            address=Op.PUSH20[contract_0],
             value=0x2,
             args_offset=Op.DUP2,
             args_size=0x3,
@@ -210,7 +194,7 @@ def test_multi_selfdestruct(
         + Op.PUSH1[0x10]
         + Op.SSTORE
         + Op.SSTORE(key=0x11, value=Op.BALANCE(address=0x1000))
-        + Op.SSTORE(key=0x12, value=Op.BALANCE(address=contract_0))
+        + Op.SSTORE(key=0x12, value=Op.BALANCE(address=Op.PUSH20[contract_0]))
         + Op.SSTORE(key=0x13, value=Op.BALANCE(address=0x1001))
         + Op.STOP
         + Op.JUMPDEST
@@ -219,51 +203,51 @@ def test_multi_selfdestruct(
         + Op.MSTORE8(offset=0x2, value=0x1)
         + Op.CALL(
             gas=Op.GAS,
-            address=contract_0,
+            address=Op.PUSH20[contract_0],
             value=Op.DUP1,
             args_offset=Op.DUP2,
             args_size=0x3,
             ret_offset=Op.DUP1,
             ret_size=0x0,
         )
-        + Op.JUMP(pc=0x70)
+        + Op.JUMP(pc=0xA9)
         + Op.JUMPDEST
         + Op.POP
         + Op.MSTORE8(offset=0x2, value=0x1)
         + Op.CALL(
             gas=Op.GAS,
-            address=contract_0,
+            address=Op.PUSH20[contract_0],
             value=0x2,
             args_offset=Op.DUP2,
             args_size=0x3,
             ret_offset=Op.DUP1,
             ret_size=0x0,
         )
-        + Op.JUMP(pc=0x70)
+        + Op.JUMP(pc=0xA9)
         + Op.JUMPDEST
         + Op.POP
         + Op.CALL(
             gas=Op.GAS,
-            address=contract_0,
+            address=Op.PUSH20[contract_0],
             value=0x2,
             args_offset=Op.DUP2,
             args_size=0x3,
             ret_offset=Op.DUP1,
             ret_size=0x0,
         )
-        + Op.JUMP(pc=0x70)
+        + Op.JUMP(pc=0xA9)
         + Op.JUMPDEST
         + Op.POP
         + Op.CALL(
             gas=Op.GAS,
-            address=contract_0,
+            address=Op.PUSH20[contract_0],
             value=0x2,
             args_offset=Op.DUP1,
             args_size=0x3,
             ret_offset=Op.DUP1,
             ret_size=0x0,
         )
-        + Op.JUMP(pc=0x70),
+        + Op.JUMP(pc=0xA9),
         storage={
             0: 24743,
             1: 24743,
@@ -273,7 +257,6 @@ def test_multi_selfdestruct(
             19: 24743,
         },
         balance=0x5F5E100,
-        nonce=1,
     )
 
     expect_entries_: list[dict] = [
@@ -345,9 +328,8 @@ def test_multi_selfdestruct(
         to=contract_1,
         data=tx_data[d],
         gas_limit=tx_gas[g],
-        nonce=1,
         gas_price=1000,
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -11,7 +11,6 @@ manually (see PR #2784).
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -21,6 +20,7 @@ from execution_testing import (
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
+from tests.ported_static.constants import HIGH_GAS_LIMIT
 from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
@@ -52,7 +52,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_call50000(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -62,17 +61,7 @@ def test_call50000(
     v: int,
 ) -> None:
     """Test_call50000."""
-    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=860000000,
-    )
 
     addr = pre.fund_eoa(amount=7000)
     # Source: lll
@@ -86,7 +75,7 @@ def test_call50000(
             key=0x0,
             value=Op.CALL(
                 gas=0x640,
-                address=addr,
+                address=Op.PUSH20[addr],
                 value=0x1,
                 args_offset=0x0,
                 args_size=0xC350,
@@ -103,7 +92,6 @@ def test_call50000(
     target = pre.deploy_contract(
         code=target_code,
         balance=0xFFFFFFFFFFFFF,
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
@@ -116,7 +104,7 @@ def test_call50000(
                 target: Account(
                     storage={},
                     code=bytes(target_code),
-                    nonce=0,
+                    nonce=1,
                 ),
             },
         },
@@ -129,7 +117,7 @@ def test_call50000(
                 target: Account(
                     storage={},
                     code=bytes(target_code),
-                    nonce=0,
+                    nonce=1,
                 ),
             },
         },
@@ -142,6 +130,8 @@ def test_call50000(
     ]
     tx_gas = [150000, 250000000]
     tx_value = [10]
+
+    env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
     tx = Transaction(
         sender=sender,

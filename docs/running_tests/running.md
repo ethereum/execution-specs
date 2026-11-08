@@ -16,6 +16,7 @@ Both `consume` and `execute` provide sub-commands which correspond to different 
 | [`consume engine`](#engine)             | Client imports blocks via Engine API `EngineNewPayload` in Hive                         | EVM, block processing, Engine API                            | Staging, Hive | System test                       |
 | [`consume enginex`](#enginex)           | Client imports blocks via Engine API in Hive, optimized by client reuse            | EVM, block processing, Engine API, chain reorgs (implicit\*\*) | Staging, Hive | System test                       |
 | [`consume sync`](#sync)                 | Client syncs from another client using Engine API in Hive                               | EVM, block processing, Engine API, P2P sync                  | Staging, Hive | System test                       |
+| [`consume wirex`](#wirex)               | Client full syncs fixture blocks from a mock devp2p peer in Hive, with client reuse     | EVM, block processing, Engine API (sync trigger), devp2p     | Staging, Hive | System test                       |
 | [`consume rlp`](#rlp)                   | Client imports RLP-encoded blocks upon start-up in Hive                                 | EVM, block processing, RLP import (sync\*)                   | Staging, Hive | System test                       |
 | [`build-block`](#block-building)        | Client builds blocks via `testing_buildBlockV1` in Hive, validated against fixture       | EVM, block production, Engine API (testing namespace)        | Staging, Hive | System test                       |
 | [`execute hive`](./execute/hive.md)     | Tests executed against a client via JSON RPC `eth_sendRawTransaction` in Hive           | EVM, JSON RPC, mempool                                       | Staging, Hive | System test                       |
@@ -105,11 +106,23 @@ Every test after the first in a pre-allocation group consequently exercises the 
 
     It does mean, however, that a test which fails under `consume enginex` but passes under `consume engine` is more likely to indicate a bug in the client's reorg, head state rollback or block caching logic than in its EVM or block validation logic.
 
+### Client Replacement After Deep Chains
+
+The forkchoice update to genesis at the start of each test makes the client unwind the whole chain the previous test left. Some clients cannot reliably make a rewind beyond a certain depth, so the simulator replaces their client with a fresh one after a test whose deepest valid block is above a per-client limit (`MAX_REUSED_HEAD_NUMBER` in the enginex simulator). The next test in the group starts on the fresh client, and the group's remaining tests reuse it as usual.
+
+Only ethrex is listed, with a limit of 128 blocks: it keeps the state of its latest 128 blocks in memory and rebuilds older state from a journal that can record the wrong block hash when two blocks at the same height share a post-state root. In `tests@v21.0.1`, eight tests leave a head above block 128, so ethrex starts eight extra clients per run. Other clients are always reused.
+
 ### Bad-Block Cache Handling
 
 Clients typically cache the blocks they reject. Because a client is reused across a pre-allocation group, its bad-block cache persists between tests: if two tests in a group contain an identical invalid block, the client validates the first submission for real and returns the specific validation error, but may answer the resubmission from its cache with a generic error (e.g. geth's and reth's "links to previously rejected block" or Nethermind's "is known to be a part of an invalid chain") that maps to no known exception.
 
 The simulator therefore remembers the first validation error each client returns per invalid block. When a rejection does not match the test's expected exception, it is verified against the client's first rejection of the same block: it is accepted and logged ("Accepting mismatched validation error") if that first rejection matched the expected exception, and fails the test as before otherwise. This is sound because an identical block hash implies an identical block built on an identical parent chain, so the real validation outcome is deterministic. `consume engine` starts a fresh client per test and is unaffected.
+
+### Client Start Pipelining
+
+A worker starts the client of the next pre-allocation group queued to it while the current group's tests run, so the next group finds its client running instead of waiting for it to boot. The same applies to `consume wirex`. A worker holds at most one client started ahead, so a `consume enginex` run with `-n 4` has at most 8 client containers alive; `consume wirex` adds the isolated clients of multi-target fixtures. To make the next group known in time, the simulator keeps one more group queued per worker, handed out once the current group has at most 100 tests left; groups still run whole on one worker.
+
+Pipelining is on by default; `--no-pipeline-client-start` turns it off, for example to debug a client start or on a host short of memory. The gain depends on how much CPU a client's start needs: clients that start in about a second (such as ethrex, go-ethereum and reth) hide most of each start, while clients whose start is CPU-heavy (such as Besu and Nethermind) hide less, because the start competes with the tests running next to it.
 
 ### Engine vs EngineX
 
@@ -172,6 +185,25 @@ The `consume sync` command:
 4. **Triggers synchronization** by sending the target block to the sync client via `engine_newPayload` followed by `engine_forkchoiceUpdated` requests.
 5. **Monitors sync progress** and validates that the sync client reaches the same state.
 6. **Verifies final state** matches between both clients.
+
+## WireX
+
+| Nomenclature   |                            |
+| -------------- | -------------------------- |
+| Command        | `consume wirex`            |
+| Simulator      | `eels/consume-wirex`       |
+| Fixture format | `blockchain_test_engine_x` |
+
+The WireX method makes the client under test full sync each test's chain from a mock devp2p peer, reusing one client per pre-allocation group as `consume enginex` does. It intends to replace `consume rlp` for post-Merge forks: the same blocks travel the client's production peer-to-peer path instead of a client-specific offline import.
+
+The `consume wirex` command, for each pre-allocation group:
+
+1. **Initializes the execution client** with the group's shared genesis state.
+2. **Connects a mock devp2p peer** to the client (RLPx and eth handshakes).
+3. **Syncs each fixture's chains.** For each sync target, WireX installs the chain on the peer, names its head over the Engine API, waits while the client downloads and executes the missing blocks, and checks the outcome and that the blocks traveled over devp2p.
+4. **Stops the client** when all tests in the group complete.
+
+Hive has no `eels/consume-wirex` simulator image yet, so WireX runs only against `./hive --dev`. `eels/consume-wirex` is the name its results are reported under. See [Consume WireX](./consume/wirex.md) for options, the full flow and the exceptions to client reuse.
 
 ## Block Building
 

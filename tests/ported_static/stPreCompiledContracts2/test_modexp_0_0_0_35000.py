@@ -10,7 +10,6 @@ Amsterdam to cover EIP-8037 state-gas spill; pre-EIP-8037 unchanged.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
@@ -70,105 +69,74 @@ def test_modexp_0_0_0_35000(
     v: int,
 ) -> None:
     """Puts the base 0, exponent 0 and modulus 0 into the MODEXP..."""
-    coinbase = Address(0x3535353535353535353535353535353535353535)
-    contract_0 = Address(0xC305C901078781C232A2A521C2AF7980F8385EE9)
-    contract_1 = Address(0x0000000000000000000000000000000000000001)
-    contract_2 = Address(0x0000000000000000000000000000000000000005)
-    contract_3 = Address(0x0000000000000000000000000000000000000008)
-    contract_4 = Address(0x0000000000000000000000000000000000000003)
-    contract_5 = Address(0x0000000000000000000000000000000000000006)
-    contract_6 = Address(0x0000000000000000000000000000000000000007)
-    contract_7 = Address(0x0000000000000000000000000000000000000004)
-    contract_8 = Address(0x0000000000000000000000000000000000000002)
-    sender = EOA(
-        key=0x44852B2A670ADE5407E78FB2863C51DE9FCB96542A07186FE3AEDA6BB8A116D
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A761FE12)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
-    pre[sender] = Account(balance=0xDE0B6B3A761FE12, nonce=1)
     # Source: hex
     # 0x
-    coinbase = pre.deploy_contract(  # noqa: F841
+    coinbase = pre.deploy_contract(
         code="",
         balance=0x201EE,
-        nonce=0,
         address=Address(0x3535353535353535353535353535353535353535),  # noqa: E501
     )
     # Source: hex
     # 0x
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code="",
         balance=1,
-        nonce=0,
         address=Address(0x0000000000000000000000000000000000000001),  # noqa: E501
     )
     # Source: hex
     # 0x
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code="",
         balance=1,
-        nonce=0,
         address=Address(0x0000000000000000000000000000000000000005),  # noqa: E501
     )
     # Source: hex
     # 0x
-    contract_3 = pre.deploy_contract(  # noqa: F841
+    contract_3 = pre.deploy_contract(
         code="",
         balance=1,
-        nonce=0,
         address=Address(0x0000000000000000000000000000000000000008),  # noqa: E501
     )
     # Source: hex
     # 0x
-    contract_4 = pre.deploy_contract(  # noqa: F841
+    contract_4 = pre.deploy_contract(
         code="",
         balance=1,
-        nonce=0,
         address=Address(0x0000000000000000000000000000000000000003),  # noqa: E501
     )
     # Source: hex
     # 0x
-    contract_5 = pre.deploy_contract(  # noqa: F841
+    contract_5 = pre.deploy_contract(
         code="",
         balance=1,
-        nonce=0,
         address=Address(0x0000000000000000000000000000000000000006),  # noqa: E501
     )
     # Source: hex
     # 0x
-    contract_6 = pre.deploy_contract(  # noqa: F841
+    contract_6 = pre.deploy_contract(
         code="",
         balance=1,
-        nonce=0,
         address=Address(0x0000000000000000000000000000000000000007),  # noqa: E501
     )
     # Source: hex
     # 0x
-    contract_7 = pre.deploy_contract(  # noqa: F841
+    contract_7 = pre.deploy_contract(
         code="",
         balance=1,
-        nonce=0,
         address=Address(0x0000000000000000000000000000000000000004),  # noqa: E501
     )
     # Source: hex
     # 0x
-    contract_8 = pre.deploy_contract(  # noqa: F841
+    contract_8 = pre.deploy_contract(
         code="",
         balance=1,
-        nonce=0,
         address=Address(0x0000000000000000000000000000000000000002),  # noqa: E501
     )
     # Source: hex
     # 0x600035601c52740100000000000000000000000000000000000000006020526fffffffffffffffffffffffffffffffff6040527fffffffffffffffffffffffffffffffff000000000000000000000000000000016060527402540be3fffffffffffffffffffffffffdabf41c006080527ffffffffffffffffffffffffdabf41c00000000000000000000000002540be40060a0526330c8d1da600051141561012b5760846004356004013511151558576004356004013560200160043560040161014037600161024061014051610160600060056305f5e0fff11558576001610220526102206021806102808284600060046015f150505061028080516020820120905060005561028060206020820352604081510160206001820306601f820103905060208203f350005b  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x1C, value=Op.CALLDATALOAD(offset=0x0))
         + Op.MSTORE(
             offset=0x20, value=0x10000000000000000000000000000000000000000
@@ -275,16 +243,17 @@ def test_modexp_0_0_0_35000(
         # EIP-8037 state-gas spill OoGs the SSTORE; bump to fit.
         tx_gas = [200000, 200000, 200000, 200000]
 
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
+
     tx = Transaction(
         sender=sender,
         to=contract_0,
         data=tx_data[d],
         gas_limit=tx_gas[g],
-        nonce=1,
     )
 
     post = {
-        contract_1: Account(storage={}, code=b"", balance=1, nonce=0),
+        contract_1: Account(storage={}, code=b"", balance=1, nonce=1),
         contract_0: Account(
             storage={
                 0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
@@ -292,14 +261,14 @@ def test_modexp_0_0_0_35000(
             balance=0,
             nonce=1,
         ),
-        contract_2: Account(storage={}, code=b"", balance=1, nonce=0),
-        contract_3: Account(storage={}, code=b"", balance=1, nonce=0),
-        contract_4: Account(storage={}, code=b"", balance=1, nonce=0),
-        sender: Account(nonce=2),
-        contract_5: Account(storage={}, code=b"", balance=1, nonce=0),
-        contract_6: Account(storage={}, code=b"", balance=1, nonce=0),
-        contract_7: Account(storage={}, code=b"", balance=1, nonce=0),
-        contract_8: Account(storage={}, code=b"", balance=1, nonce=0),
+        contract_2: Account(storage={}, code=b"", balance=1, nonce=1),
+        contract_3: Account(storage={}, code=b"", balance=1, nonce=1),
+        contract_4: Account(storage={}, code=b"", balance=1, nonce=1),
+        sender: Account(nonce=1),
+        contract_5: Account(storage={}, code=b"", balance=1, nonce=1),
+        contract_6: Account(storage={}, code=b"", balance=1, nonce=1),
+        contract_7: Account(storage={}, code=b"", balance=1, nonce=1),
+        contract_8: Account(storage={}, code=b"", balance=1, nonce=1),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

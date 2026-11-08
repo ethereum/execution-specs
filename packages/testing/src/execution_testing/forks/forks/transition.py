@@ -1,11 +1,16 @@
 """List of all transition fork definitions."""
 
+from types import new_class
+from typing import Type
+
+from ..base_fork import BaseFork
 from ..transition_base_fork import TransitionBaseClass, transition_fork
 from .forks import (
     BPO1,
     BPO2,
     BPO3,
     BPO4,
+    BPO_SCENARIOS,
     Amsterdam,
     Berlin,
     Bogota,
@@ -98,3 +103,38 @@ class BPO3ToBPO4AtTime15k(TransitionBaseClass):
     """BPO3 to BPO4 transition at Timestamp 15k."""
 
     pass
+
+
+def add_bpo_scenario_transition(
+    from_fork: Type[BaseFork], to_fork: Type[BaseFork]
+) -> None:
+    """
+    Add the transition from `from_fork` to `to_fork` at timestamp 15k.
+
+    The name leaves out the fork prefix of a scenario of `from_fork`, as in
+    `AmsterdamToBPOIncreaseAtTime15k`.
+    """
+    to_name = to_fork.name().removeprefix(from_fork.name())
+    name = f"{from_fork.name()}To{to_name}AtTime15k"
+    doc = f"{from_fork.name()} to {to_name} transition at Timestamp 15k."
+    globals()[name] = transition_fork(
+        to_fork=to_fork, from_fork=from_fork, at_timestamp=15_000
+    )(
+        new_class(
+            name,
+            (TransitionBaseClass,),
+            exec_body=lambda namespace: namespace.update(
+                __module__=__name__, __doc__=doc
+            ),
+        )
+    )
+
+
+def add_bpo_scenario_transitions() -> None:
+    """Add the transitions from each fork into its BPO scenarios at 15k."""
+    for fork, scenarios in BPO_SCENARIOS.items():
+        for scenario in scenarios:
+            add_bpo_scenario_transition(fork, scenario)
+
+
+add_bpo_scenario_transitions()

@@ -29,7 +29,12 @@ class ChecklistCommand(PytestCommand):
 
 def _last_development_fork() -> str | None:
     """Return the name of the last development fork, if any."""
-    dev_forks = get_development_forks()
+    # Skip BPO forks, including the generated scenarios, so the default
+    # `--until` names the newest protocol fork. The range still includes
+    # that fork's scenarios.
+    dev_forks = [
+        fork for fork in get_development_forks() if not fork.bpo_fork()
+    ]
     return dev_forks[-1].name() if dev_forks else None
 
 
@@ -98,8 +103,9 @@ def checklist(
     """
     del kwargs
 
-    # Add output directory to pytest args
-    args = ["--checklist-output", output]
+    # Add output directory to pytest args. Only primary formats are counted
+    # in the checklist, so the other formats need not be generated.
+    args = ["--checklist-output", output, "--primary-format-only"]
 
     # Add EIP filter if specified
     for eip_num in eip:

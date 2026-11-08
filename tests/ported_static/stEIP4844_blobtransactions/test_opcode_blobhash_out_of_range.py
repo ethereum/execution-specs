@@ -7,13 +7,10 @@ state_tests/Cancun/stEIP4844_blobtransactions/opcodeBlobhashOutOfRangeFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     AccessList,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -30,42 +27,25 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_opcode_blobhash_out_of_range(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """BLOB003, BLOB004."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=7,
-        excess_blob_gas=0,
-        gas_limit=68719476736,
-    )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {
     #    ; Can also add lll style comments here
     #    [[0]] (BLOBHASH 0)
     #    [[1]] (BLOBHASH 10)
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.BLOBHASH(index=0x0))
         + Op.SSTORE(key=0x1, value=Op.BLOBHASH(index=0xA))
         + Op.STOP,
         storage={0: 1, 1: 1},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0C4D6F62D3C85069CEA2411284BD520AC87FB7EB),  # noqa: E501
     )
 
     tx = Transaction(
@@ -108,4 +88,4 @@ def test_opcode_blobhash_out_of_range(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

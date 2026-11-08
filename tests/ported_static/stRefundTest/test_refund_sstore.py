@@ -20,10 +20,8 @@ value.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -45,24 +43,14 @@ def test_refund_sstore(
     fork: Fork,
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D631F190, nonce=1)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=1000,
-        gas_limit=16777216,
-    )
 
     # Source: yul
     # berlin
     # {
     #    sstore(0,0x0)
     # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=Op.DUP1, value=0x0) + Op.STOP,
         storage={0: 24743},
         balance=0xDE0B6B3A7640000,
@@ -124,4 +112,4 @@ def test_refund_sstore(
 
     post = {sender: Account(balance=0xE8D4EE4E00 - 1000 * gas_used_delta)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -8,10 +8,8 @@ state_tests/stMemoryStressTest/JUMP_Bounds2Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -43,7 +41,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_jump_bounds2(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -53,28 +50,20 @@ def test_jump_bounds2(
     v: int,
 ) -> None:
     """Test_jump_bounds2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x7FFFFFFFFFFFFFFF)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
     # Source: raw
     # 0x63ffffffff5667ffffffffffffffff566fffffffffffffffffffffffffffffffff567fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff56  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMP(pc=0xFFFFFFFF)
+    target_code = (
+        Op.JUMP(pc=0xFFFFFFFF)
         + Op.JUMP(pc=0xFFFFFFFFFFFFFFFF)
         + Op.JUMP(pc=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
         + Op.JUMP(
             pc=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-        ),
-        nonce=0,
+        )
+    )
+    target = pre.deploy_contract(
+        code=target_code,
     )
 
     tx_data = [
@@ -93,11 +82,9 @@ def test_jump_bounds2(
 
     post = {
         target: Account(
-            code=bytes.fromhex(
-                "63ffffffff5667ffffffffffffffff566fffffffffffffffffffffffffffffffff567fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff56"  # noqa: E501
-            ),
+            code=target_code,
             balance=0,
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

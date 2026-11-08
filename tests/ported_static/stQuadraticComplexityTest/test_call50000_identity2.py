@@ -8,7 +8,6 @@ state_tests/stQuadraticComplexityTest/Call50000_identity2Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -18,6 +17,7 @@ from execution_testing import (
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
+from tests.ported_static.constants import HIGH_GAS_LIMIT
 from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
@@ -49,7 +49,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_call50000_identity2(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -59,22 +58,12 @@ def test_call50000_identity2(
     v: int,
 ) -> None:
     """Test_call50000_identity2."""
-    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=882500000,
-    )
 
     # Source: lll
     # { (def 'i 0x80) [ 1 ] 42 (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (CALL 1564 4 1 0 50000 1 50000) ) [[ 1 ]] @i [[ 2 ]] @1 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x1, value=0x2A)
+    target_code = (
+        Op.MSTORE(offset=0x1, value=0x2A)
         + Op.JUMPDEST
         + Op.JUMPI(
             pc=0x32, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
@@ -96,9 +85,11 @@ def test_call50000_identity2(
         + Op.JUMPDEST
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x80))
         + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x1))
-        + Op.STOP,
+        + Op.STOP
+    )
+    target = pre.deploy_contract(
+        code=target_code,
         balance=0xFFFFFFFFFFFFF,
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
@@ -109,10 +100,8 @@ def test_call50000_identity2(
                 sender: Account(storage={}, code=b"", nonce=1),
                 target: Account(
                     storage={},
-                    code=bytes.fromhex(
-                        "602a6001525b61c350608051101560325761c350600161c35060006001600461061cf16000556001608051016080526005565b60805160015560015160025500"  # noqa: E501
-                    ),
-                    nonce=0,
+                    code=target_code,
+                    nonce=1,
                 ),
             },
         },
@@ -123,10 +112,8 @@ def test_call50000_identity2(
                 sender: Account(storage={}, code=b"", nonce=1),
                 target: Account(
                     storage={},
-                    code=bytes.fromhex(
-                        "602a6001525b61c350608051101560325761c350600161c35060006001600461061cf16000556001608051016080526005565b60805160015560015160025500"  # noqa: E501
-                    ),
-                    nonce=0,
+                    code=target_code,
+                    nonce=1,
                 ),
             },
         },
@@ -139,6 +126,8 @@ def test_call50000_identity2(
     ]
     tx_gas = [150000, 250000000]
     tx_value = [10]
+
+    env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
     tx = Transaction(
         sender=sender,

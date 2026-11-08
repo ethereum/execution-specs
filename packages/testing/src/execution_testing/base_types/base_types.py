@@ -186,9 +186,7 @@ class Bytes(bytes, ToStringSchema):
             return input_bytes
         return super(Bytes, cls).__new__(cls, to_bytes(input_bytes))
 
-    def __hash__(self) -> int:
-        """Return the hash of the bytes."""
-        return super(Bytes, self).__hash__()
+    __hash__ = bytes.__hash__
 
     def __str__(self) -> str:
         """Return the hexadecimal representation of the bytes."""
@@ -370,9 +368,8 @@ class FixedSizeBytes(Bytes):
             ),
         )
 
-    def __hash__(self) -> int:
-        """Return the hash of the bytes."""
-        return super(FixedSizeBytes, self).__hash__()
+    # Defining `__eq__` drops the inherited hash, so restore the C one.
+    __hash__ = bytes.__hash__
 
     def __eq__(self, other: object) -> bool:
         """Compare two FixedSizeBytes objects to be equal."""

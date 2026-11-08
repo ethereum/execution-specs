@@ -59,13 +59,8 @@ def keyless_deployment_tx() -> Transaction:
 
 
 def remove_factory_contract(pre: Alloc) -> None:
-    """
-    Drop the fork's factory contract from the genesis allocation.
-
-    Merging an all-zero account over the pre-allocation entry removes it
-    entirely, so the chain starts without the factory.
-    """
-    pre[FACTORY] = Account(nonce=0, balance=0, code=b"")
+    """Drop the fork's factory contract from the genesis allocation."""
+    del pre[FACTORY]
 
 
 @pytest.mark.valid_at_transition_to("Amsterdam")

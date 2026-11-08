@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
+from ...forks import get_forks
 from ..pytest_commands.checklist import checklist
 
 
@@ -46,3 +47,14 @@ def test_checklist_explicit_paths_skip_include_benchmark(
     assert "--include-benchmark" not in args
     assert "tests/prague/eip7702_set_code_tx" in args
     assert "tests" not in args
+
+
+def test_checklist_default_until_skips_bpo_scenarios(
+    runner: CliRunner,
+) -> None:
+    """The default `--until` is the newest protocol fork, not a BPO."""
+    args = _captured_execute_args(runner)
+
+    until = args[args.index("--until") + 1]
+    bpo_forks = {fork.name() for fork in get_forks() if fork.bpo_fork()}
+    assert until not in bpo_forks

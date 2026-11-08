@@ -8,7 +8,6 @@ state_tests/stRandom2/randomStatetest639Filler.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -16,6 +15,8 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+
+from tests.ported_static.constants import HIGH_GAS_LIMIT
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -26,27 +27,16 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest639(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_random_statetest639."""
-    coinbase = Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
+    coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,
             condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
@@ -57,12 +47,10 @@ def test_random_statetest639(
             key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
         ),
         balance=46,
-        nonce=0,
-        address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
     # Source: raw
     # 0x6e993d78e80807a0d34bdbfa4e0afa9d7eab95e6f8772a548229700e2dcc612ac9ceeb898af8436680a2e1074df8ced0137964d71c8fe8a10fb58f8706ea3ee1b54a0848e742ca357e3d023460c161b1f5a17c48da2ae1e6987c52223414746fab0e39130693d15a48d39b5130096a7c1570c4fb89343ef5d10e912decba682bf205de79e84c573c9e2b0ffbd4d6117e40046b4c2d77156ada28960d9bb97f56d243429aa245c32e1f800a686ebe298dd08349d864486d7a1569b5aae495776bb5e71206cd09f54d1cd713966557567542184c74b95cc0d8ac3d0e05d0264b8d42a3563826123fc0d964521b61b86374591a821818672ef0dea05d259bc4f98c34418d9e7a677173b211649c07df7670aca688053842de6157c4fb5e678adc0611fcc20a1d836ec69b9370d09b83f1b0293a1b102d6d73978584b14fb2ab517001867e6545dd2dc3438f9c7828f6d3c6e4da98113ce2486c1ad028dc9947b28590071b977e651d352b078cb96b27f9ff7252c9f3ce9e5151ae7af1064ab8a5d92ed543b9d59c341f85bb22aa2fa7d7ee7310ac8f519e66da165b9efe3663657b1e28f4eb3e7338391339af5346d12c14bbc0863c26d7e999776c7939cefac542ed69f518bbef5461c0df385004f5411c3faaa65c7b6abf900ca1ef1f40bb938f727695a1ca14012ba07cc01548f3df75544b11bb52b7693bed7e2fc1537b2f8d63c4db4c3d8fc72b6f5f7e7b4d1ec8c1ac89230936975d19626788f03504a8c9acf66437d6d885607778bee6fe54742ddc9a7d8373dbfe2e21aacf8816944c02ef983260156009600960186329ec801e73<contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>6356837182f175259fc2ea2df7d720fb0914ed44bcb12b8ff15e712ef67d868fe7fba6b46fac671a45bcace82fa83b87b8744835ac63d2b6cf3d157d7526909f9c4d1efbf68d780af1c0f2dabbfc53d2c71dc461bf7f788e3a9c48cd1df8d146a7df97125985162ecd37b059204323d066cb4709a3a1715f7c4a9fb905c26ba87933ef2499d3447d5cd4df27a6205c8a1ce06719c3e065e66ab80222ff7ed1f72f533a1160330dbd8dcd0489ec2dac84d7522a4d8732c5ae9e08d9a251682fb33fa08ecc05197d897a1d5f28328caa78ca6cd6b86fd08a1748fa959665861d18c25a3cae79732fe4fb3ad8b48c17c8efeeb5ec22be8b20ec4eae2955d65b9a6c1415c23047aa8f2c29aeddd78765c1bc3eda63416d84cdb9b8d7942020db3b1ed861a966475eb6ef9f9920692a879ee6bf9d0a1dd9d386  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SGT(
             0xAB95E6F8772A548229700E2DCC612AC9CEEB898AF8436680A2E1074DF8CED0,
             0x993D78E80807A0D34BDBFA4E0AFA9D,
@@ -110,7 +98,7 @@ def test_random_statetest639(
         + Op.ORIGIN
         + Op.CALL(
             gas=0x56837182,
-            address=0x9FECB32D9AE49C08DA1E2551BA9257BE9A181E76,
+            address=Op.ADDRESS,
             value=0x29EC801E,
             args_offset=0x18,
             args_size=0x9,
@@ -142,8 +130,10 @@ def test_random_statetest639(
         + Op.PUSH7[0x475EB6EF9F9920]
         + Op.PUSH10[0x2A879EE6BF9D0A1DD9D3]
         + Op.DUP7,
-        nonce=0,
-        address=Address(0x9FECB32D9AE49C08DA1E2551BA9257BE9A181E76),  # noqa: E501
+    )
+
+    env = Environment(
+        fee_recipient=coinbase, prev_randao=0x20000, gas_limit=HIGH_GAS_LIMIT
     )
 
     tx = Transaction(
@@ -155,8 +145,8 @@ def test_random_statetest639(
     )
 
     post = {
-        target: Account(storage={}, nonce=0),
-        coinbase: Account(storage={}, nonce=0),
+        target: Account(storage={}, nonce=1),
+        coinbase: Account(storage={}, nonce=1),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 

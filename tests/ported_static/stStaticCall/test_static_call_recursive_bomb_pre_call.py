@@ -17,6 +17,8 @@ from execution_testing import (
 )
 from execution_testing.vm import Op
 
+from tests.ported_static.constants import HIGH_GAS_LIMIT
+
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
@@ -33,21 +35,13 @@ def test_static_call_recursive_bomb_pre_call(
     pre: Alloc,
 ) -> None:
     """Test_static_call_recursive_bomb_pre_call."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     # Source: lll
     # { (STATICCALL 100000 0xbad304eb96065b2a98b57a48a06ae28d285a71b5 0 0 0 0) [[ 0 ]] (DELEGATECALL 0x7ffffffffffffff <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0) [[ 1 ]] 1 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.POP(
             Op.STATICCALL(
                 gas=0x186A0,
@@ -72,7 +66,6 @@ def test_static_call_recursive_bomb_pre_call(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
         balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-        nonce=0,
         address=Address(0x6A441A35B94353A66FFD7FD1E54550ACECB81AAF),  # noqa: E501
     )
     # Source: lll
@@ -89,7 +82,6 @@ def test_static_call_recursive_bomb_pre_call(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
         address=Address(0x72E480206054168CFA7D5C6A1BD8C3FFE26A4D82),  # noqa: E501
     )
 

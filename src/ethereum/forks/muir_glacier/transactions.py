@@ -157,7 +157,10 @@ def chain_id(tx: Transaction) -> None | U64:
         return None
     if tx.v < U256(35):
         raise InvalidSignatureError("bad v")
-    return U64((tx.v - U256(35)) >> U256(1))
+    tx_chain_id = (tx.v - U256(35)) >> U256(1)
+    if tx_chain_id > U256(U64.MAX_VALUE):
+        raise InvalidSignatureError("bad v")
+    return U64(tx_chain_id)
 
 
 def recover_sender(tx: Transaction) -> Address:

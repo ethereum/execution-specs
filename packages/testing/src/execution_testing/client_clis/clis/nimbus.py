@@ -41,11 +41,13 @@ class NimbusTransitionTool(TransitionTool):
         )
         args = [str(self.binary), "--help"]
         try:
-            result = subprocess.run(args, capture_output=True, text=True)
+            result = subprocess.run(
+                args, capture_output=True, text=True, check=True
+            )
         except subprocess.CalledProcessError as e:
             raise Exception(
                 f"evm process unexpectedly returned "
-                f"a non-zero status code: {e}."
+                f"a non-zero status code: {e}. Stderr: {e.stderr}"
             ) from e
         except Exception as e:
             raise Exception(
@@ -115,6 +117,11 @@ class NimbusExceptionMapper(ExceptionMapper):
         ),
         TransactionException.INITCODE_SIZE_EXCEEDED: (
             "max initcode size exceeded"
+        ),
+        # Nimbus decodes a legacy v as a 64-bit integer, so a v past that
+        # fails decoding the payload.
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            "Failed to decode block in payload: integer out of bounds"
         ),
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
             # TODO:

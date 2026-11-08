@@ -21,7 +21,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -78,27 +77,14 @@ def test_callcode_dynamic_code2_self_call(
         inner_call_gas = 0xF4240
         outer_call_gas = 0x1E8480
 
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x1100000000000000000000000000000000000000)
-    contract_1 = Address(0xA000000000000000000000000000000000000000)
-    contract_2 = Address(0x1000000000000000000000000000000000000000)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
     )
 
     pre[sender] = Account(balance=0x2386F26FC10000)
     # Source: lll
     # { (CALL 800000 (CALLDATALOAD 0) 0 0 0 0 0) }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.CALL(
             gas=outer_call_gas,
             address=Op.CALLDATALOAD(offset=0x0),
@@ -114,7 +100,7 @@ def test_callcode_dynamic_code2_self_call(
     )
     # Source: lll
     # {  (MSTORE 0 0x604060006040600060007313136008b64ff592819b2fa6d43f2835c452020e62) (MSTORE 32 0x0186a0f2600b5533600c55000000000000000000000000000000000000000000)  (CREATE 1 0 64) }  # noqa: E501
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0,
             value=0x604060006040600060007313136008B64FF592819B2FA6D43F2835C452020E62,  # noqa: E501
@@ -131,7 +117,7 @@ def test_callcode_dynamic_code2_self_call(
     )
     # Source: lll
     # {(seq [[10]] (CREATE 0 0 (lll(seq  [[122]] (CALLCODE 100000 0x13136008b64ff592819b2fa6d43f2835c452020e 0 0 64 0 64)  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS) [[21]] (ORIGIN) [[22]] (CALLER)   )0) )  )0)   )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)                   )}  # noqa: E501
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.PUSH1[0x46]
         + Op.CODECOPY(dest_offset=0x0, offset=0x27, size=Op.DUP1)
         + Op.PUSH1[0x0] * 2
@@ -228,4 +214,4 @@ def test_callcode_dynamic_code2_self_call(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

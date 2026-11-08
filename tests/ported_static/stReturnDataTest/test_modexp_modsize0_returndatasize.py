@@ -8,10 +8,8 @@ state_tests/stReturnDataTest/modexp_modsize0_returndatasizeFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -66,7 +64,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_modexp_modsize0_returndatasize(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -76,20 +73,11 @@ def test_modexp_modsize0_returndatasize(
     v: int,
 ) -> None:
     """Test_modexp_modsize0_returndatasize."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # { (CALLDATACOPY 0 0 (CALLDATASIZE)) [[1]] (CALLCODE (GAS) 5 0 0 (CALLDATASIZE) 1000 32) [[2]](MLOAD 1000) [[3]](RETURNDATASIZE) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALLDATACOPY(dest_offset=0x0, offset=0x0, size=Op.CALLDATASIZE)
         + Op.SSTORE(
             key=0x1,
@@ -107,7 +95,6 @@ def test_modexp_modsize0_returndatasize(
         + Op.SSTORE(key=0x3, value=Op.RETURNDATASIZE)
         + Op.STOP,
         storage={3: 0xFFFFFFFF},
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
@@ -203,4 +190,4 @@ def test_modexp_modsize0_returndatasize(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

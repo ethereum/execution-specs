@@ -7,12 +7,9 @@ state_tests/VMTests/vmBitwiseLogicOperation/byteFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -109,7 +106,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_byte(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -119,173 +115,125 @@ def test_byte(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x0000000000000000000000000000000000001000)
-    contract_1 = Address(0x0000000000000000000000000000000000001001)
-    contract_2 = Address(0x0000000000000000000000000000000000001002)
-    contract_3 = Address(0x0000000000000000000000000000000000001003)
-    contract_4 = Address(0x0000000000000000000000000000000000001004)
-    contract_5 = Address(0x0000000000000000000000000000000000001005)
-    contract_6 = Address(0x0000000000000000000000000000000000001006)
-    contract_7 = Address(0x0000000000000000000000000000000000001007)
-    contract_8 = Address(0x0000000000000000000000000000000000001008)
-    contract_9 = Address(0x0000000000000000000000000000000000001009)
-    contract_10 = Address(0x000000000000000000000000000000000000100A)
-    contract_11 = Address(0x0000000000000000000000000000000000000200)
-    contract_12 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: lll
     # {
     #    [[0]] (byte (- 31 0) 0x8040201008040201)
     # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0, value=Op.BYTE(Op.SUB(0x1F, 0x0), 0x8040201008040201)
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
     # Source: lll
     # {
     #    [[0]] (byte (- 31 1) 0x8040201008040201)
     # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0, value=Op.BYTE(Op.SUB(0x1F, 0x1), 0x8040201008040201)
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
     )
     # Source: lll
     # {
     #    [[0]] (byte (- 31 2) 0x8040201008040201)
     # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0, value=Op.BYTE(Op.SUB(0x1F, 0x2), 0x8040201008040201)
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
     # Source: lll
     # {
     #    [[0]] (byte (- 31 3) 0x8040201008040201)
     # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
+    contract_3 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0, value=Op.BYTE(Op.SUB(0x1F, 0x3), 0x8040201008040201)
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001003),  # noqa: E501
     )
     # Source: lll
     # {
     #    [[0]] (byte (- 31 4) 0x8040201008040201)
     # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
+    contract_4 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0, value=Op.BYTE(Op.SUB(0x1F, 0x4), 0x8040201008040201)
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001004),  # noqa: E501
     )
     # Source: lll
     # {
     #    [[0]] (byte (- 31 5) 0x8040201008040201)
     # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
+    contract_5 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0, value=Op.BYTE(Op.SUB(0x1F, 0x5), 0x8040201008040201)
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001005),  # noqa: E501
     )
     # Source: lll
     # {
     #    [[0]] (byte (- 31 6) 0x8040201008040201)
     # }
-    contract_6 = pre.deploy_contract(  # noqa: F841
+    contract_6 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0, value=Op.BYTE(Op.SUB(0x1F, 0x6), 0x8040201008040201)
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001006),  # noqa: E501
     )
     # Source: lll
     # {
     #    [[0]] (byte (- 31 7) 0x8040201008040201)
     # }
-    contract_7 = pre.deploy_contract(  # noqa: F841
+    contract_7 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0, value=Op.BYTE(Op.SUB(0x1F, 0x7), 0x8040201008040201)
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001007),  # noqa: E501
     )
     # Source: lll
     # {
     #    [[0]] (byte (- 31 31) 0x8040201008040201)
     # }
-    contract_8 = pre.deploy_contract(  # noqa: F841
+    contract_8 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0, value=Op.BYTE(Op.SUB(0x1F, 0x1F), 0x8040201008040201)
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001008),  # noqa: E501
     )
     # Source: lll
     # {
     #    [[0]] (byte (sdiv 31 32) 0x8040201008040201)
     # }
-    contract_9 = pre.deploy_contract(  # noqa: F841
+    contract_9 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0, value=Op.BYTE(Op.SDIV(0x1F, 0x20), 0x8040201008040201)
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001009),  # noqa: E501
     )
     # Source: raw
     # 0x641234523456601F1A8001600155
-    contract_10 = pre.deploy_contract(  # noqa: F841
+    contract_10 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x1, value=Op.ADD(Op.DUP1, Op.BYTE(0x1F, 0x1234523456))
         ),
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000100A),  # noqa: E501
     )
     # Source: lll
     # {
@@ -301,7 +249,7 @@ def test_byte(
     #       [i] (+ @i 1)
     #    })  ; while loop
     # }
-    contract_11 = pre.deploy_contract(  # noqa: F841
+    contract_11 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x100, value=0x0)
         + Op.JUMPDEST
         + Op.JUMPI(
@@ -319,14 +267,12 @@ def test_byte(
         + Op.JUMPDEST
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000200),  # noqa: E501
     )
     # Source: lll
     # {
     #     (call 0xffffff $4 0 0 0 0 0)
     # }
-    contract_12 = pre.deploy_contract(  # noqa: F841
+    contract_12 = pre.deploy_contract(
         code=Op.CALL(
             gas=0xFFFFFF,
             address=Op.CALLDATALOAD(offset=0x4),
@@ -338,8 +284,6 @@ def test_byte(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -470,4 +414,4 @@ def test_byte(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

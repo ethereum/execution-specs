@@ -7,11 +7,9 @@ state_tests/stStaticCall/static_callToDelCallOpCodeCheckFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -33,24 +31,11 @@ def test_static_call_to_del_call_op_code_check(
     pre: Alloc,
 ) -> None:
     """Test_static_call_to_del_call_op_code_check."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # {  [[ 0 ]] (STATICCALL 100000 (CALLDATALOAD 0) 0 0 0 0)  }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.STATICCALL(
@@ -64,12 +49,11 @@ def test_static_call_to_del_call_op_code_check(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
         address=Address(0x7EF8271E6CDB0A23220B73BF3E9697E173F9D015),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 0 (DELEGATECALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0)) (if (= 1 (MLOAD 0)) (MSTORE 1 1) (SSTORE 1 1) ) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0,
             value=Op.DELEGATECALL(
@@ -89,7 +73,6 @@ def test_static_call_to_del_call_op_code_check(
         + Op.JUMPDEST
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
         address=Address(0x692BDB71BF492107772D8FB07345FAA13B37937B),  # noqa: E501
     )
     # Source: lll
@@ -97,9 +80,7 @@ def test_static_call_to_del_call_op_code_check(
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x22,
-            condition=Op.EQ(
-                0xEBAF50DEBF10E08302FE4280C32DF010463CA297, Op.ORIGIN
-            ),
+            condition=Op.EQ(Op.PUSH20[sender], Op.ORIGIN),
         )
         + Op.SSTORE(key=0x1, value=0x2)
         + Op.JUMP(pc=0x28)
@@ -136,7 +117,6 @@ def test_static_call_to_del_call_op_code_check(
         + Op.JUMPDEST
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
         address=Address(0x114CA039127835CA3472EF43E00D15E2D8623286),  # noqa: E501
     )
 
@@ -150,4 +130,4 @@ def test_static_call_to_del_call_op_code_check(
 
     post = {target: Account(storage={0: 1})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

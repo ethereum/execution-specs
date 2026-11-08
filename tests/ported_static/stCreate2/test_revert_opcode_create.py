@@ -8,10 +8,8 @@ state_tests/stCreate2/RevertOpcodeCreateFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -47,7 +45,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_revert_opcode_create(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -57,21 +54,11 @@ def test_revert_opcode_create(
     v: int,
 ) -> None:
     """RevertOpcodeCreate for CREATE2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: lll
     # { (MSTORE 0 0x600160005560016000fd6011600155 ) [[1]](CREATE2 1 17 15 0) [[0]] 12 }  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0x600160005560016000FD6011600155)
         + Op.SSTORE(
             key=0x1,
@@ -80,19 +67,18 @@ def test_revert_opcode_create(
         + Op.SSTORE(key=0x0, value=0xC)
         + Op.STOP,
         balance=1,
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": 0, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 12, 1: 0}, nonce=1)},
+            "result": {contract_0: Account(storage={0: 12, 1: 0}, nonce=2)},
         },
         {
             "indexes": {"data": -1, "gas": 1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_0: Account(nonce=0)},
+            "result": {contract_0: Account(nonce=1)},
         },
     ]
 
@@ -111,4 +97,4 @@ def test_revert_opcode_create(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

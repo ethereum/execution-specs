@@ -14,7 +14,6 @@ from execution_testing import (
     Transaction,
 )
 
-from .conftest import G2_FIELD_POINTS_MAP_TO_IDENTITY
 from .helpers import vectors_from_file
 from .spec import FP2, PointG2, Spec, ref_spec_2537
 
@@ -87,42 +86,6 @@ def test_valid(
     tx: Transaction,
 ) -> None:
     """Test the BLS12_MAP_FP2_TO_G2 precompile."""
-    state_test(
-        env=Environment(),
-        pre=pre,
-        tx=tx,
-        post=post,
-    )
-
-
-@pytest.mark.parametrize("expected_output", [Spec.INF_G2], ids=[""])
-@pytest.mark.parametrize(
-    "input_data,vector_gas_value",
-    [
-        pytest.param(t, None, id=f"isogeny_kernel_{i}")
-        for i, t in enumerate(G2_FIELD_POINTS_MAP_TO_IDENTITY)
-    ],
-)
-def test_isogeny_kernel_values(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    post: dict,
-    tx: Transaction,
-) -> None:
-    """
-    Test the BLS12_MAP_FP2_TO_G2 precompile with isogeny kernel values. Note
-    this test only exists to align with the G1 test.
-    `G2_FIELD_POINTS_MAP_TO_IDENTITY` is empty so there are no cases.
-
-    The isogeny kernel is simply the set of special field values, that after
-    the two step mapping (first SWU onto an auxiliary curve, then a 3-degree
-    isogeny back to G2), collapse exactly to the identity point.
-
-    For the G2 case the only kernel element is the point at infinity, and SWU
-    never produces the identity point from a finite input t. Hence
-    `G2_FIELD_POINTS_MAP_TO_IDENTITY` is empty. Please proceed to the generator
-    in `helpers.py` for more details.
-    """
     state_test(
         env=Environment(),
         pre=pre,

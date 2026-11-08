@@ -41,26 +41,17 @@ def test_transaction_colliding_with_non_empty_account_calls(
         key=0x402790500EA083A617EC567407D9EC3BBB3A5C8B812547D9F66E8D7878B8A75D
     )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=71794957647893862,
-    )
-
     pre[coinbase] = Account(balance=0, nonce=1)
     pre[sender] = Account(
         balance=0xDE0B6B3A7640000, code=Op.SSTORE(key=0x1, value=0x0)
     )
     # Source: raw
     # 0x6000600155
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x0),
-        nonce=0,
-        address=Address(0xD857DAD5866E190FD86B79F027FB8EE8E60FBDA7),  # noqa: E501
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,

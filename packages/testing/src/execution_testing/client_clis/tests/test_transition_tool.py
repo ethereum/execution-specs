@@ -3,6 +3,7 @@
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Type
 
@@ -12,6 +13,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt
 
 from execution_testing.base_types import StateCommitment
 from execution_testing.client_clis import (
+    BesuTransitionTool,
     CLINotFoundInPathError,
     EvmOneTransitionTool,
     ExecutionSpecsTransitionTool,
@@ -153,6 +155,21 @@ def test_a_matched_tool_that_cannot_be_built_raises(
         TransitionTool.from_binary_path(
             binary_path=Path("evmone"), server_url="http://localhost:1"
         )
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="uses a shell script")
+@pytest.mark.parametrize(
+    "tool", [GethTransitionTool, BesuTransitionTool, NimbusTransitionTool]
+)
+def test_a_failing_help_probe_raises(
+    tmp_path: Path, tool: Type[TransitionTool]
+) -> None:
+    """A tool whose `--help` probe fails raises with the tool's stderr."""
+    binary = tmp_path / "evm"
+    binary.write_text("#!/bin/sh\necho 'cannot start' >&2\nexit 3\n")
+    binary.chmod(0o755)
+    with pytest.raises(Exception, match="cannot start"):
+        tool(binary=binary)
 
 
 def test_unknown_binary_path() -> None:

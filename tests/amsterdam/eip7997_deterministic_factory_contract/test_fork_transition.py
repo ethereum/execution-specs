@@ -48,9 +48,11 @@ def test_factory_deploys_across_transition(
     alone cannot catch it, since the `CREATE2` address does not depend on the
     factory nonce.
     """
-    factory = pre.deploy_contract(
+    factory = Address(Spec.FACTORY_ADDRESS)
+    # Replace the factory the fork allocates at genesis with an already-used
+    # one.
+    pre[factory] = Account(
         code=Spec.FACTORY_BYTECODE,
-        address=Address(Spec.FACTORY_ADDRESS),
         nonce=pre_fork_nonce,
         balance=1,
         storage={0: 1},
@@ -134,18 +136,12 @@ def test_factory_untouched_across_transition(
     """
     factory = Address(Spec.FACTORY_ADDRESS)
     if factory_pre_state == "absent":
-        # Merging an all-zero account into the fork's pre-allocation removes
-        # the factory contract from the genesis allocation entirely.
-        pre[factory] = Account(nonce=0, balance=0, code=b"")
+        del pre[factory]
         factory_post = Account.NONEXISTENT
     elif factory_pre_state == "foreign_code":
         foreign_code = Op.SSTORE(0, 1) + Op.STOP
-        pre.deploy_contract(
-            code=foreign_code,
-            address=factory,
-            nonce=7,
-            balance=1,
-            storage={0: 1},
+        pre[factory] = Account(
+            code=foreign_code, nonce=7, balance=1, storage={0: 1}
         )
         factory_post = Account(
             nonce=7, balance=1, code=foreign_code, storage={0: 1}

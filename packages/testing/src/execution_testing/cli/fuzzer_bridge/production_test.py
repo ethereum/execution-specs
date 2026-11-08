@@ -207,7 +207,7 @@ class FuzzerBridge:
         test = BlockchainTest(
             genesis_environment=test_params["genesis_environment"],
             fork=fork,
-            pre=test_params["pre"],
+            pre=test_params["pre"].with_genesis_accounts(),
             post=test_params["post"],
             blocks=test_params["blocks"],
             chain_id=test_params["chain_id"],

@@ -1,15 +1,33 @@
-name: Setup PyPy Build Toolchain
+name: Setup PyPy Environment
 description: |
-  Install the native toolchain needed to build sdists for PyPy jobs.
-  Several dependencies publish no PyPy wheels and are built from source:
-  libcst needs Rust; pycryptodome, PyYAML, regex, and MarkupSafe need a C
-  compiler. CPython jobs install wheels only and must not use this action.
+  Sync the PyPy environment for PyPy jobs. Several dependencies publish
+  no PyPy wheels and are built from source: libcst needs Rust;
+  pycryptodome, PyYAML, regex, and MarkupSafe need a C compiler. The uv
+  cache usually holds those builds, so the toolchains are installed only
+  when the sync has to build one. CPython jobs install wheels only and
+  must not use this action.
+inputs:
+  directory:
+    description: Directory the job runs `uv run` from
+    default: "."
 runs:
   using: "composite"
   steps:
+    - name: Sync from cached builds
+      id: cached
+      continue-on-error: true
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+      run: uv sync --python pypy3.11.15 --no-dev --group test
     - name: Install C and Rust toolchains
+      if: steps.cached.outcome == 'failure'
       shell: bash
       run: |
         sudo apt-get -q update
         sudo DEBIAN_FRONTEND=noninteractive apt-get -qy install build-essential rustup
         rustup update --no-self-update 1.89.0 && rustup default 1.89.0
+    - name: Sync with source builds
+      if: steps.cached.outcome == 'failure'
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+      run: uv sync --python pypy3.11.15 --no-dev --group test

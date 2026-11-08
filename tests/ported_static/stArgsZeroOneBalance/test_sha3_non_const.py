@@ -7,12 +7,9 @@ state_tests/stArgsZeroOneBalance/sha3NonConstFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -48,7 +45,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_sha3_non_const(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -58,38 +54,19 @@ def test_sha3_non_const(
     v: int,
 ) -> None:
     """Test_sha3_non_const."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { [[ 0 ]](KECCAK256 (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>)) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.SHA3(
-                offset=Op.BALANCE(
-                    address=0x8F7ECEEA4B37C6F7FAF5D64D64FBFFBCD14B79A4
-                ),
-                size=Op.BALANCE(
-                    address=0x8F7ECEEA4B37C6F7FAF5D64D64FBFFBCD14B79A4
-                ),
+                offset=Op.BALANCE(address=Op.ADDRESS),
+                size=Op.BALANCE(address=Op.ADDRESS),
             ),
         )
         + Op.STOP,
-        nonce=0,
-        address=Address(0x8F7ECEEA4B37C6F7FAF5D64D64FBFFBCD14B79A4),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -134,4 +111,4 @@ def test_sha3_non_const(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

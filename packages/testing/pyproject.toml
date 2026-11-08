@@ -34,6 +34,8 @@ dependencies = [
     "pytest-metadata>=3,<4",
     "pytest-xdist>=3.3.1,<4",
     "spec256k1>=0.2.3,<0.3",
+    "pycryptodome>=3.22,<4",
+    "cryptography>=45.0.1,<46",
     "trie>=3.1.0,<4",
     "semver>=3.0.1,<4",
     "pydantic>=2.12.3,<3",
@@ -146,7 +148,9 @@ markers = [
 ]
 
 [tool.uv]
-required-version = ">=0.7.0"
+# Older uv versions trust a root CA with a compromised intermediate:
+# https://github.com/astral-sh/uv/security/advisories/GHSA-hq85-5cpj-mr62
+required-version = ">=0.13.4"
 
 [tool.uv.sources]
 ethereum-execution = { workspace = true }

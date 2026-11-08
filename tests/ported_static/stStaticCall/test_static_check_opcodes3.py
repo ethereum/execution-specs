@@ -7,11 +7,9 @@ state_tests/stStaticCall/static_CheckOpcodes3Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -107,24 +105,11 @@ def test_static_check_opcodes3(
     v: int,
 ) -> None:
     """Test_static_check_opcodes3."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
-    )
+    sender = pre.fund_eoa(amount=0xE8D4A51000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
-
-    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[1]] (STATICCALL 100000 (CALLDATALOAD 0) 0 0 0 0) }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x1,
             value=Op.STATICCALL(
@@ -137,7 +122,6 @@ def test_static_check_opcodes3(
             ),
         )
         + Op.STOP,
-        nonce=0,
         address=Address(0x50F628D871A69F2DB31E98D7FBF8AE6F1FC0D55C),  # noqa: E501
     )
     # Source: lll
@@ -161,12 +145,11 @@ def test_static_check_opcodes3(
         + Op.MSTORE(offset=0x1, value=0x1)
         + Op.JUMPDEST
         + Op.STOP,
-        nonce=0,
         address=Address(0x2E5DC1C94AF89D7C115126FCEBAD7A5C50F5FE35),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 <contract:0xa100000000000000000000000000000000000001>) (MSTORE 0 (CALL 100000 <contract:0xb000000000000000000000000000000000000001> 0 0 32 0 0))  (if (= 1 (MLOAD 0)) (MSTORE 1 1) (SSTORE 1 2) ) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0, value=0xA131950507C8977B0DE1790C8E76A1A28DD92805
         )
@@ -190,12 +173,11 @@ def test_static_check_opcodes3(
         + Op.JUMPDEST
         + Op.STOP,
         balance=10,
-        nonce=0,
         address=Address(0xF697C2D8963DF21523B18E96CAAF6C7703A1882E),  # noqa: E501
     )
     # Source: lll
     # {(MSTORE 0 <contract:0xa100000000000000000000000000000000000001>) (MSTORE 0 (CALL 100000 <contract:0xb000000000000000000000000000000000000001> 1 0 32 0 0)) (MSTORE 1 1) (MSTORE 2 1) }  # noqa: E501
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0, value=0xA131950507C8977B0DE1790C8E76A1A28DD92805
         )
@@ -215,12 +197,11 @@ def test_static_check_opcodes3(
         + Op.MSTORE(offset=0x2, value=0x1)
         + Op.STOP,
         balance=10,
-        nonce=0,
         address=Address(0x9B68A6B37AF295C7FD23AA2269DB8C875C2B86B4),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 32 <contract:0xa300000000000000000000000000000000000001>) (MSTORE 0 (CALLCODE 100000 <contract:0xb000000000000000000000000000000000000001> 0 32 64 0 0)) (if (= 1 (MLOAD 0)) (MSTORE 1 1) (SSTORE 1 2)) }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x20, value=0xB93CF5121157D61AB42345F5A5E9815B19CEC2CC
         )
@@ -244,12 +225,11 @@ def test_static_check_opcodes3(
         + Op.JUMPDEST
         + Op.STOP,
         balance=10,
-        nonce=0,
         address=Address(0xBA044A82B25080BC96678B9FA77678E014605C48),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 <contract:0xa400000000000000000000000000000000000001>) (MSTORE 0 (CALLCODE 100000 <contract:0xb000000000000000000000000000000000000001> 1 0 32 0 0)) (if (= 1 (MLOAD 0)) (MSTORE 1 1) (SSTORE 1 2)) }  # noqa: E501
-    addr_4 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0, value=0x6D797B6A2C5F22885C4068990F19AE845D698A79
         )
@@ -273,12 +253,11 @@ def test_static_check_opcodes3(
         + Op.JUMPDEST
         + Op.STOP,
         balance=10,
-        nonce=0,
         address=Address(0xE541572CE4B4CCBB2B92AAB0FB852F018D51C512),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 0 <contract:0xa500000000000000000000000000000000000001>) (MSTORE 0 (DELEGATECALL 100000 <contract:0xb000000000000000000000000000000000000001> 0 32 0 0)) (if (= 1 (MLOAD 0)) (MSTORE 1 1) (SSTORE 1 2)) }  # noqa: E501
-    addr_5 = pre.deploy_contract(  # noqa: F841
+    addr_5 = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0, value=0x4AF0C90F8F7B7834E7E7BD57DDA960412F9650F9
         )
@@ -301,7 +280,6 @@ def test_static_check_opcodes3(
         + Op.JUMPDEST
         + Op.STOP,
         balance=10,
-        nonce=0,
         address=Address(0x8113F9FC0868700534ECBECF1120A812CB1AF0AC),  # noqa: E501
     )
     # Source: lll
@@ -309,9 +287,7 @@ def test_static_check_opcodes3(
     addr_7 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x22,
-            condition=Op.EQ(
-                0xFAA10B404AB607779993C016CD5DA73AE1F29D7E, Op.ORIGIN
-            ),
+            condition=Op.EQ(Op.PUSH20[sender], Op.ORIGIN),
         )
         + Op.SSTORE(key=0x1, value=0x2)
         + Op.JUMP(pc=0x28)
@@ -347,7 +323,6 @@ def test_static_check_opcodes3(
         + Op.MSTORE(offset=0x1, value=0x1)
         + Op.JUMPDEST
         + Op.STOP,
-        nonce=0,
         address=Address(0xA131950507C8977B0DE1790C8E76A1A28DD92805),  # noqa: E501
     )
     # Source: lll
@@ -355,9 +330,7 @@ def test_static_check_opcodes3(
     addr_8 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x22,
-            condition=Op.EQ(
-                0xFAA10B404AB607779993C016CD5DA73AE1F29D7E, Op.ORIGIN
-            ),
+            condition=Op.EQ(Op.PUSH20[sender], Op.ORIGIN),
         )
         + Op.SSTORE(key=0x1, value=0x2)
         + Op.JUMP(pc=0x28)
@@ -393,7 +366,6 @@ def test_static_check_opcodes3(
         + Op.MSTORE(offset=0x1, value=0x1)
         + Op.JUMPDEST
         + Op.STOP,
-        nonce=0,
         address=Address(0xEF6A70E5546CA5339758B2F3B819780625C233C3),  # noqa: E501
     )
     # Source: lll
@@ -401,9 +373,7 @@ def test_static_check_opcodes3(
     addr_9 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x22,
-            condition=Op.EQ(
-                0xFAA10B404AB607779993C016CD5DA73AE1F29D7E, Op.ORIGIN
-            ),
+            condition=Op.EQ(Op.PUSH20[sender], Op.ORIGIN),
         )
         + Op.SSTORE(key=0x1, value=0x2)
         + Op.JUMP(pc=0x28)
@@ -439,7 +409,6 @@ def test_static_check_opcodes3(
         + Op.MSTORE(offset=0x1, value=0x1)
         + Op.JUMPDEST
         + Op.STOP,
-        nonce=0,
         address=Address(0xB93CF5121157D61AB42345F5A5E9815B19CEC2CC),  # noqa: E501
     )
     # Source: lll
@@ -447,9 +416,7 @@ def test_static_check_opcodes3(
     addr_10 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x22,
-            condition=Op.EQ(
-                0xFAA10B404AB607779993C016CD5DA73AE1F29D7E, Op.ORIGIN
-            ),
+            condition=Op.EQ(Op.PUSH20[sender], Op.ORIGIN),
         )
         + Op.SSTORE(key=0x1, value=0x2)
         + Op.JUMP(pc=0x28)
@@ -485,7 +452,6 @@ def test_static_check_opcodes3(
         + Op.MSTORE(offset=0x1, value=0x1)
         + Op.JUMPDEST
         + Op.STOP,
-        nonce=0,
         address=Address(0x6D797B6A2C5F22885C4068990F19AE845D698A79),  # noqa: E501
     )
     # Source: lll
@@ -493,9 +459,7 @@ def test_static_check_opcodes3(
     addr_11 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x22,
-            condition=Op.EQ(
-                0xFAA10B404AB607779993C016CD5DA73AE1F29D7E, Op.ORIGIN
-            ),
+            condition=Op.EQ(Op.PUSH20[sender], Op.ORIGIN),
         )
         + Op.SSTORE(key=0x1, value=0x2)
         + Op.JUMP(pc=0x28)
@@ -531,7 +495,6 @@ def test_static_check_opcodes3(
         + Op.MSTORE(offset=0x1, value=0x1)
         + Op.JUMPDEST
         + Op.STOP,
-        nonce=0,
         address=Address(0x4AF0C90F8F7B7834E7E7BD57DDA960412F9650F9),  # noqa: E501
     )
 
@@ -575,4 +538,4 @@ def test_static_check_opcodes3(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

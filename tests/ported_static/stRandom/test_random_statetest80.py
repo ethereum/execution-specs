@@ -9,9 +9,7 @@ state_tests/stRandom/randomStatetest80Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -28,30 +26,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom/randomStatetest80Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest80(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_random_statetest80."""
-    coinbase = Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5)
-    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(  # noqa: F841
+    coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,
             condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
@@ -62,17 +46,15 @@ def test_random_statetest80(
             key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
         ),
         balance=46,
-        nonce=0,
-        address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
     )
     # Source: raw
     # 0x7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57f0000000000000000000000010000000000000000000000000000000000000000117fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7e7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b5681069127b3b9c877d6f6169ff3660005155  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH32[0x945304EB96065B2A98B57A48A06AE28D285A71B5]
+    contract_0 = pre.deploy_contract(
+        code=Op.PUSH32[coinbase]
         + Op.PUSH32[0xC350]
         + Op.GT(
             Op.PUSH32[0x10000000000000000000000000000000000000000],
-            Op.PUSH32[0x945304EB96065B2A98B57A48A06AE28D285A71B5],
+            Op.PUSH32[coinbase],
         )
         + Op.PUSH32[
             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -81,15 +63,26 @@ def test_random_statetest80(
             key=0xB5681069127B3B9C877D6F6169FF36600051,
             value=0x7F000000000000000000000000945304EB96065B2A98B57A48A06AE28D285A,  # noqa: E501
         ),
-        nonce=0,
-        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=Bytes(
-            "7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57f0000000000000000000000010000000000000000000000000000000000000000117fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7e7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b5681069127b3b9c877d6f6169ff36"  # noqa: E501
+        data=(
+            Op.PUSH32[coinbase]
+            + Op.PUSH32[0xC350]
+            + Op.GT(
+                Op.PUSH32[0x10000000000000000000000000000000000000000],
+                Op.PUSH32[coinbase],
+            )
+            + Op.PUSH32[
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+            ]
+            + Bytes("7e7f000000000000000000000000")
+            + coinbase
+            + Bytes("681069127b3b9c877d6f6169ff36")
         ),
         value=0x1ED9A5B6,
     )
@@ -99,9 +92,9 @@ def test_random_statetest80(
             storage={
                 0xB5681069127B3B9C877D6F6169FF36600051: 0x7F000000000000000000000000945304EB96065B2A98B57A48A06AE28D285A,  # noqa: E501
             },
-            nonce=0,
+            nonce=1,
         ),
-        coinbase: Account(storage={}, nonce=0),
+        coinbase: Account(storage={}, nonce=1),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 

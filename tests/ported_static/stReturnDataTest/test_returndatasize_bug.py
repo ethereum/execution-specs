@@ -8,10 +8,8 @@ state_tests/stReturnDataTest/returndatasize_bugFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,27 +23,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stReturnDataTest/returndatasize_bugFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_returndatasize_bug(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """RETURNDATASIZE after a failing CALL (due to insufficient balance)..."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x6400000000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=111669149696,
-    )
 
     # Source: lll
     # { (CALL 10 1 50000 0 0 0 0) (SSTORE 1 1) }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.POP(
             Op.CALL(
                 gas=0xA,
@@ -59,11 +46,10 @@ def test_returndatasize_bug(
         )
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
-        nonce=0,
     )
     # Source: lll
     # { (CALL 1 <contract:0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 50000 0 0 0 0) (SSTORE 0 (RETURNDATASIZE)) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.POP(
             Op.CALL(
                 gas=0x1,
@@ -79,7 +65,6 @@ def test_returndatasize_bug(
         + Op.STOP,
         storage={0: 1},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -94,4 +79,4 @@ def test_returndatasize_bug(
         addr: Account(storage={1: 0}),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

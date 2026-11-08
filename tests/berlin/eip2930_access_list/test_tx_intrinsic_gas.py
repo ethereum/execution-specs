@@ -30,55 +30,53 @@ pytestmark = pytest.mark.valid_from("Berlin")
 
 tx_intrinsic_gas_data_vectors = [
     pytest.param(Bytes(b""), id="data_empty"),
-    pytest.param(Bytes(b"0x00"), id="data_1_zero_byte"),
-    pytest.param(Bytes(b"0x00000000"), id="data_4_zero_byte"),
-    pytest.param(Bytes(b"0xFF"), id="data_1_non_zero_byte"),
-    pytest.param(Bytes(b"0x00FF"), id="data_1_zero_byte_1_non_zero_byte"),
+    pytest.param(Bytes("0x00"), id="data_1_zero_byte"),
+    pytest.param(Bytes("0x00000000"), id="data_4_zero_byte"),
+    pytest.param(Bytes("0xFF"), id="data_1_non_zero_byte"),
+    pytest.param(Bytes("0x00FF"), id="data_1_zero_byte_1_non_zero_byte"),
     pytest.param(
-        Bytes(b"0xFE00"), id="data_1_zero_byte_1_non_zero_byte_reversed"
+        Bytes("0xFE00"), id="data_1_zero_byte_1_non_zero_byte_reversed"
     ),
-    pytest.param(
-        Bytes(b"0x0102030405060708090A0B0C0D0E0F10"), id="data_set_1"
-    ),
+    pytest.param(Bytes("0x0102030405060708090A0B0C0D0E0F10"), id="data_set_1"),
     pytest.param(
         Bytes(
-            b"0x00010203040506000708090A0B0C0D0E0F10111200131415161718191a1b1c1d1e1f"
+            "0x00010203040506000708090A0B0C0D0E0F10111200131415161718191a1b1c1d1e1f"
         ),
         id="data_set_2",
     ),
     pytest.param(
         Bytes(
-            b"0x0102030405060708090A0B0C0D0E0F101112131415161718191a1b1c1d1e1f20"
+            "0x0102030405060708090A0B0C0D0E0F101112131415161718191a1b1c1d1e1f20"
         ),
         id="data_set_3",
     ),
     pytest.param(
         Bytes(
-            b"0x01020304050607080910111213141516171819202122232425262728293031"
+            "0x01020304050607080910111213141516171819202122232425262728293031"
         ),
         id="data_set_31_bytes",
     ),
     pytest.param(
         Bytes(
-            b"0x000102030405060708090A0B0C0D0E0F101112131415161718191a1b1c1d1e1f"
+            "0x000102030405060708090A0B0C0D0E0F101112131415161718191a1b1c1d1e1f"
         ),
         id="data_set_32_bytes",
     ),
     pytest.param(
         Bytes(
-            b"0x010203040506070809101112131415161718192021222324252627282930313233"
+            "0x010203040506070809101112131415161718192021222324252627282930313233"
         ),
         id="data_set_33_bytes",
     ),
     pytest.param(
         Bytes(
-            b"0x000000000000000000000000000000000000000000000000000000000000000000"
+            "0x000000000000000000000000000000000000000000000000000000000000000000"
         ),
         id="data_set_33_empty_bytes",
     ),
     pytest.param(
         Bytes(
-            b"0x000000000000000000000000000000000000000000000000000000000000000000010203040506070809101112131415161718192021222324252627282930313233"
+            "0x000000000000000000000000000000000000000000000000000000000000000000010203040506070809101112131415161718192021222324252627282930313233"
         ),
         id="data_set_66_bytes_half_zeros",
     ),
@@ -143,6 +141,26 @@ tx_intrinsic_gas_access_list_vectors = [
 ]
 
 
+def threshold_missed_below_intrinsic(
+    fork: Fork, data: Bytes, access_list: List[AccessList]
+) -> str:
+    """Name the threshold a gas limit one below the intrinsic cost misses."""
+    standard_cost = fork.transaction_intrinsic_cost_calculator()(
+        calldata=data,
+        access_list=access_list,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor_cost = fork.transaction_data_floor_cost_calculator()(
+        data=data, access_list=access_list
+    )
+    if standard_cost > floor_cost:
+        return "standard_cost"
+    elif floor_cost > standard_cost:
+        return "calldata_floor"
+    else:
+        return "standard_cost_and_calldata_floor"
+
+
 @pytest.mark.inclusion_test
 @pytest.mark.ported_from(
     [
@@ -154,11 +172,33 @@ tx_intrinsic_gas_access_list_vectors = [
 @pytest.mark.parametrize("data", tx_intrinsic_gas_data_vectors)
 @pytest.mark.parametrize("access_list", tx_intrinsic_gas_access_list_vectors)
 @pytest.mark.parametrize(
-    "below_intrinsic",
+    "missed_threshold",
     [
-        pytest.param(False),
-        pytest.param(True, marks=pytest.mark.exception_test),
+        pytest.param(None, id="at_intrinsic"),
+        pytest.param(
+            "standard_cost",
+            id="below_standard_cost",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            "calldata_floor",
+            id="below_calldata_floor",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            "standard_cost_and_calldata_floor",
+            id="below_standard_cost_and_calldata_floor",
+            marks=pytest.mark.exception_test,
+        ),
     ],
+)
+@pytest.mark.filter_combinations(
+    lambda fork, data, access_list, missed_threshold, **_: (
+        missed_threshold is None
+        or missed_threshold
+        == threshold_missed_below_intrinsic(fork, data, access_list)
+    ),
+    reason="one gas below the intrinsic cost misses another threshold",
 )
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in [1, 2])
 @pytest.mark.slow()
@@ -169,33 +209,31 @@ def test_tx_intrinsic_gas(
     fork: Fork,
     data: Bytes,
     access_list: List[AccessList],
-    below_intrinsic: bool,
+    missed_threshold: str | None,
 ) -> None:
     """Transaction intrinsic gas calculation on EIP2930."""
-    intrinsic_gas_cost_calculator = (
-        fork.transaction_intrinsic_cost_calculator()
-    )
-    intrinsic_gas_cost = intrinsic_gas_cost_calculator(
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
         calldata=data, access_list=access_list
     )
 
-    exception: List[TransactionException] | TransactionException | None = None
-    if below_intrinsic:
-        data_floor_gas_cost_calculator = (
-            fork.transaction_data_floor_cost_calculator()
-        )
-        data_floor_gas_cost = data_floor_gas_cost_calculator(data=data)
-        if data_floor_gas_cost > intrinsic_gas_cost:
+    exception: List[TransactionException] | TransactionException | None
+    if missed_threshold is None:
+        gas_limit = intrinsic_gas_cost
+        exception = None
+    else:
+        gas_limit = intrinsic_gas_cost - 1
+        if missed_threshold == "standard_cost":
+            exception = TransactionException.INTRINSIC_GAS_TOO_LOW
+        elif missed_threshold == "calldata_floor":
             exception = TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
-        elif data_floor_gas_cost == intrinsic_gas_cost:
-            # Depending on the implementation, client might raise either
-            # exception.
+        elif missed_threshold == "standard_cost_and_calldata_floor":
+            # The spec checks max(standard cost, floor), so either is valid.
             exception = [
                 TransactionException.INTRINSIC_GAS_TOO_LOW,
                 TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST,
             ]
         else:
-            exception = TransactionException.INTRINSIC_GAS_TOO_LOW
+            raise ValueError(f"Unknown threshold: {missed_threshold}")
 
     tx = Transaction(
         ty=tx_type,
@@ -203,7 +241,7 @@ def test_tx_intrinsic_gas(
         to=pre.deploy_contract(code=Op.SSTORE(0, Op.ADD(1, 1))),
         data=data,
         access_list=access_list,
-        gas_limit=intrinsic_gas_cost + (-1 if below_intrinsic else 0),
+        gas_limit=gas_limit,
         error=exception,
         protected=True,
     )

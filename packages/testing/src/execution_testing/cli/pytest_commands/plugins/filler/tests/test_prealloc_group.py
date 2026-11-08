@@ -2,7 +2,7 @@
 
 import textwrap
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Mapping
 from unittest.mock import Mock
 
 import pytest
@@ -37,6 +37,12 @@ class MockTest(BaseTest):
             fork=fork,
             genesis_environment=genesis_environment,
         )
+
+    @classmethod
+    def genesis_pre_allocation(cls, **kwargs: Any) -> Mapping:
+        """Mock genesis pre-allocation method."""
+        del kwargs
+        return {}
 
     def generate(self, *args: Any, **kwargs: Any) -> FillResult:
         """Mock generate method."""

@@ -19,13 +19,11 @@ import argparse
 import fnmatch
 import json
 import os
-from typing import Any, Dict, List, Optional, TextIO, Tuple
+from typing import Any, Dict, List, Optional, TextIO
 
-from ethereum_rlp import rlp
 from ethereum_spec_tools.forks import Hardfork
 from ethereum_spec_tools.loaders.fork_loader import ForkLoad
 from ethereum_spec_tools.utils import FatalError, find_fork, parse_hex_or_int
-from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64
 
 from . import T8N, ForkCache
@@ -170,7 +168,7 @@ def _parse_txs_json_to_testing(
     raw_txs_json: Any,
     fork_module: Hardfork,
     transaction_cls: Any,
-) -> Tuple[List[Any], Bytes]:
+) -> List[Any]:
     """
     Parse a JSON tx array into signed testing ``Transaction`` objects.
 
@@ -182,7 +180,7 @@ def _parse_txs_json_to_testing(
     rejected — this path only handles JSON arrays.
     """
     if raw_txs_json is None:
-        return [], Bytes(b"")
+        return []
     if isinstance(raw_txs_json, str):
         raise NotImplementedError(
             "RLP-encoded `txs` input is not supported by the testing "
@@ -202,8 +200,7 @@ def _parse_txs_json_to_testing(
                 tx.protected = False
             tx.sign()
         txs.append(tx)
-    body = Bytes(rlp.encode([tx.rlp() for tx in txs]))
-    return txs, body
+    return txs
 
 
 def _parse_blob_params_from_options(
@@ -346,7 +343,7 @@ def build_t8n_from_cli_options(
 
     alloc = TestingAlloc.model_validate(raw_alloc_json)
     env = TestingEnvironment.model_validate(raw_env_json)
-    txs, _body = _parse_txs_json_to_testing(
+    txs = _parse_txs_json_to_testing(
         raw_txs_json, fork_module, TestingTransaction
     )
 

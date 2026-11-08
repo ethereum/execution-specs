@@ -34,19 +34,10 @@ def test_call_infinite_loop(
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = pre.fund_eoa(amount=0x1DCD6500)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
     pre[coinbase] = Account(balance=0, nonce=1)
     # Source: raw
     # 0x60003560e060020a90048063296df0df1460295780634893d88a146035578063981a316514604157005b602f604d565b60006000f35b603b6062565b60006000f35b6047605a565b60006000f35b5b600115605857604e565b565b60606062565b565b6068605a565b56  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x0)
         + Op.EXP(0x2, 0xE0)
         + Op.SWAP1
@@ -86,8 +77,9 @@ def test_call_infinite_loop(
         + Op.JUMPDEST
         + Op.JUMP,
         balance=0x186A0,
-        nonce=0,
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,

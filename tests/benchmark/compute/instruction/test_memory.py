@@ -22,6 +22,7 @@ from execution_testing import (
     Hash,
     JumpLoopGenerator,
     Op,
+    ReceiptStatusExpected,
     Transaction,
     WhileGas,
 )
@@ -243,5 +244,5 @@ def test_nested_frame_memory(
     benchmark_test(
         blocks=[Block(txs=txs)],
         skip_gas_used_validation=True,
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected()],
     )

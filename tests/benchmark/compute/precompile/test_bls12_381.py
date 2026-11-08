@@ -16,6 +16,7 @@ from execution_testing import (
     JumpLoopGenerator,
     Op,
     OpcodeTarget,
+    ReceiptStatusExpected,
     Transaction,
     While,
     WhileGas,
@@ -477,7 +478,7 @@ def test_bls12_381_uncachable(
     benchmark_test(
         target_opcode=target,
         skip_gas_used_validation=True,
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected()],
         blocks=[Block(txs=txs)],
         expected_opcode_count=expected_opcode_count,
     )
@@ -608,7 +609,7 @@ def test_bls12_pairing_uncachable(
     benchmark_test(
         target_opcode=Precompile.BLS12_PAIRING,
         skip_gas_used_validation=True,
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected()],
         blocks=[Block(txs=txs)],
         expected_opcode_count=expected_opcode_count,
     )

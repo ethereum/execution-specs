@@ -687,7 +687,7 @@ def test_switch(
     state_test = StateTest(
         env=Environment(),
         fork=Cancun,
-        pre=pre,
+        pre=pre.with_genesis_accounts(),
         tx=tx,
         post=post,
     )

@@ -82,24 +82,14 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
         key=0x3696BFBDBC65B14F4DC76D7762E0567E1DD55F053314276E47969D22E70A554E
     )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
     pre[coinbase] = Account(balance=0, nonce=1)
     pre[sender] = Account(balance=0xDE0B6B3A7640000, code=Op.STOP)
     pre[addr] = Account(balance=10)
     # Source: raw
     # 0x00
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.STOP,
         balance=10,
-        nonce=0,
-        address=Address(0xCC7C3C64708397216F5F8AEB34A43F1749693FA9),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -140,6 +130,8 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
     ]
     tx_gas = [400000]
     tx_value = [100000]
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,

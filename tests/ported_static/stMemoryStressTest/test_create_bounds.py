@@ -8,10 +8,8 @@ state_tests/stMemoryStressTest/CREATE_BoundsFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -44,7 +42,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_create_bounds(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -54,22 +51,11 @@ def test_create_bounds(
     v: int,
 ) -> None:
     """Test_create_bounds."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x1000000000000000000000000000000000000000)
     sender = pre.fund_eoa(amount=2**128 - 1)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
 
     # Source: lll
     # {  (MSTORE 0 0x6001600155601080600c6000396000f3006000355415600957005b6020356000 )  (MSTORE8 32 0x35) (MSTORE8 33 0x55) (CREATE 1 0 0) (CREATE 1 0 0xfffffff) }  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0,
             value=0x6001600155601080600C6000396000F3006000355415600957005B6020356000,  # noqa: E501
@@ -80,7 +66,6 @@ def test_create_bounds(
         + Op.CREATE(value=0x1, offset=0x0, size=0xFFFFFFF)
         + Op.STOP,
         balance=100,
-        nonce=0,
     )
 
     tx_data = [
@@ -98,11 +83,11 @@ def test_create_bounds(
     post = {
         contract_0: Account(balance=100),
         compute_create_address(
-            address=contract_0, nonce=0
+            address=contract_0, nonce=1
         ): Account.NONEXISTENT,
         compute_create_address(
-            address=contract_0, nonce=1
+            address=contract_0, nonce=2
         ): Account.NONEXISTENT,
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

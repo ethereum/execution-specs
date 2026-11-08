@@ -106,9 +106,10 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
         ] and not self._has_parallelism_flag(args):
             modified_args.extend(["-n", str(hive_parallelism)])
 
-        # For enginex: ensure xdist uses loadgroup distribution so tests with
-        # the same xdist_group marker (pre-alloc group) run on the same worker
-        if self.command_name == "enginex":
+        # For enginex and wirex: ensure xdist uses loadgroup distribution so
+        # tests with the same xdist_group marker (pre-alloc group) run on the
+        # same worker
+        if self.command_name in ("enginex", "wirex"):
             modified_args = self._ensure_loadgroup_dist(modified_args)
 
         if os.getenv("HIVE_RANDOM_SEED") is not None:
@@ -123,6 +124,7 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
             "engine",
             "enginex",
             "sync",
+            "wirex",
             "rlp",
             "build_block",
         }
@@ -152,11 +154,11 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
 
     def _ensure_loadgroup_dist(self, args: List[str]) -> List[str]:
         """
-        Ensure EngineX xdist runs keep pre-alloc groups on one worker.
+        Ensure grouped simulator runs keep pre-alloc groups on one worker.
 
-        EngineX client cleanup depends on each worker seeing every test in a
-        group. Any xdist distribution mode other than loadgroup can split a
-        pre-alloc group across workers, causing each worker to start its own
+        Simulator client cleanup depends on each worker seeing every test in
+        a group. Any xdist distribution mode other than loadgroup can split
+        a pre-alloc group across workers, causing each worker to start its own
         group client and defer cleanup until session teardown.
 
         `--dist=loadgroup` is inert when xdist is not active (no `-n`), so
@@ -206,8 +208,9 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
             modified_args.extend(["--dist", "loadgroup"])
         if changed_dist:
             warnings.warn(
-                "`consume enginex` requires `--dist=loadgroup`; overriding "
-                "the provided xdist distribution mode.",
+                f"`consume {self.command_name}` requires "
+                "`--dist=loadgroup`; overriding the provided xdist "
+                "distribution mode.",
                 stacklevel=2,
             )
 

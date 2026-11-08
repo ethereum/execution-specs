@@ -1,11 +1,11 @@
 """Helper functions for the EIP-2537 BLS12-381 precompiles tests."""
 
+import functools
 import hashlib
 import os
 from typing import Annotated, Any, List, Optional
 
 import pytest
-from joblib import Memory
 from py_ecc.bls12_381 import FQ, FQ2, add, field_modulus, multiply
 from pydantic import (
     BaseModel,
@@ -17,6 +17,23 @@ from pydantic import (
 from pydantic.alias_generators import to_pascal
 
 from .spec import FP, FP2, PointG1, PointG2, Spec
+
+try:
+    from joblib import Memory
+except AttributeError:
+    # joblib's bundled cloudpickle fails to import on PyPy 7.3.22+, whose
+    # `pickle.Pickler` has no `dispatch` table (cloudpipe/cloudpickle#592).
+    # Fall back to an in-process cache until a fixed release ships.
+    class Memory:  # type: ignore[no-redef]
+        """In-process stand-in for `joblib.Memory`."""
+
+        def __init__(self, location: str, verbose: int) -> None:
+            """Ignore the disk cache settings."""
+            del location, verbose
+
+        def cache(self, func: Any) -> Any:
+            """Memoize `func` for the lifetime of the process."""
+            return functools.lru_cache(maxsize=None)(func)
 
 
 def current_python_script_directory(*args: str) -> str:

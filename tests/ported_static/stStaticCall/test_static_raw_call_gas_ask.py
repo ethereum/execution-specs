@@ -32,7 +32,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         pytest.param(True, id="with_mem_expansion"),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_raw_call_gas_ask(
     state_test: StateTestFiller,
     pre: Alloc,

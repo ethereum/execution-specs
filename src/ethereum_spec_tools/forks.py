@@ -7,6 +7,7 @@ Detects Python packages that specify Ethereum hardforks.
 import importlib
 import importlib.abc
 import importlib.util
+import multiprocessing
 import pkgutil
 import random
 import sys
@@ -320,6 +321,11 @@ class Hardfork:
             builder = ForkBuilder(template_name, clone_name)
 
             builder.output = Path(directory.name)
+            # Clones are built inside the caller's process, such as a fill
+            # worker. Where pools start processes with `fork`, parallel
+            # codemods would duplicate that process once per CPU.
+            if multiprocessing.get_start_method() == "fork":
+                builder.jobs = 1
 
             if overrides.fork_criteria is not None:
                 builder.fork_criteria = overrides.fork_criteria

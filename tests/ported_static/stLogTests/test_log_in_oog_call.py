@@ -8,10 +8,8 @@ state_tests/stLogTests/logInOOG_CallFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -25,36 +23,24 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stLogTests/logInOOG_CallFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_log_in_oog_call(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_log_in_oog_call."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
 
     # Source: lll
     # { (LOG0 0 32) (MLOAD 0xffffffffffffffff) }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.LOG0(offset=0x0, size=0x20)
         + Op.MLOAD(offset=0xFFFFFFFFFFFFFFFF)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
     # Source: lll
     # { [[ 0 ]] (CALL 100000 <contract:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 23 0 0 0 0) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
@@ -69,7 +55,6 @@ def test_log_in_oog_call(
         )
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -82,4 +67,4 @@ def test_log_in_oog_call(
 
     post = {target: Account(storage={0: 0})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

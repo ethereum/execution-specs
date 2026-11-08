@@ -567,6 +567,8 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
     transaction (RLP list prefix).
     """
     if isinstance(tx, Bytes):
+        if len(tx) == 0:
+            raise InvalidBlock("empty transaction")
         if tx[0] == 1:
             return rlp.decode_to(AccessListTransaction, tx[1:])
         elif tx[0] == 2:
@@ -575,8 +577,7 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
             return rlp.decode_to(BlobTransaction, tx[1:])
         elif tx[0] == 4:
             return rlp.decode_to(SetCodeTransaction, tx[1:])
-        elif tx[0] >= 0xC0:
-            assert tx[0] <= 0xFE
+        elif 0xC0 <= tx[0] <= 0xFE:
             return rlp.decode_to(LegacyTransaction, tx)
         else:
             raise TransactionTypeError(tx[0])
@@ -604,8 +605,9 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
 
     The gas limit of a transaction may not exceed [`TX_MAX_TOTAL_GAS_LIMIT`]
     ([EIP-8037]). [`TX_MAX_GAS_LIMIT`] ([EIP-7825]) bounds only the
-    execution-gas a transaction can spend, so it is checked against the
-    intrinsic execution cost rather than against the gas limit.
+    execution-gas a transaction can spend, so it is checked against the larger
+    of the intrinsic execution cost and the [EIP-7623] calldata floor rather
+    than against the gas limit.
 
     This function takes a transaction and gas_limit as parameters and
     returns the intrinsic gas costs for the transaction after validation.
@@ -870,7 +872,10 @@ def chain_id(tx: Transaction) -> None | U64:
         if tx.v < U256(35):
             raise InvalidSignatureError("bad v")
 
-        return U64((tx.v - U256(35)) >> U256(1))
+        tx_chain_id = (tx.v - U256(35)) >> U256(1)
+        if tx_chain_id > U256(U64.MAX_VALUE):
+            raise InvalidSignatureError("bad v")
+        return U64(tx_chain_id)
     else:
         return tx.chain_id
 

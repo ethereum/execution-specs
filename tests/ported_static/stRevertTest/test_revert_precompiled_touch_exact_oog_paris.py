@@ -10,7 +10,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -613,7 +612,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_revert_precompiled_touch_exact_oog_paris(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -623,37 +621,28 @@ def test_revert_precompiled_touch_exact_oog_paris(
     v: int,
 ) -> None:
     """Test_revert_precompiled_touch_exact_oog_paris."""
-    coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
-    addr_5 = Address(0x0000000000000000000000000000000000000001)
-    addr_6 = Address(0x0000000000000000000000000000000000000002)
-    addr_7 = Address(0x0000000000000000000000000000000000000003)
-    addr_8 = Address(0x0000000000000000000000000000000000000004)
-    addr_9 = Address(0x0000000000000000000000000000000000000005)
-    addr_10 = Address(0x0000000000000000000000000000000000000006)
-    addr_11 = Address(0x0000000000000000000000000000000000000007)
-    addr_12 = Address(0x0000000000000000000000000000000000000008)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
+    precompile_1 = Address(0x0000000000000000000000000000000000000001)
+    precompile_2 = Address(0x0000000000000000000000000000000000000002)
+    precompile_3 = Address(0x0000000000000000000000000000000000000003)
+    precompile_4 = Address(0x0000000000000000000000000000000000000004)
+    precompile_5 = Address(0x0000000000000000000000000000000000000005)
+    precompile_6 = Address(0x0000000000000000000000000000000000000006)
+    precompile_7 = Address(0x0000000000000000000000000000000000000007)
+    precompile_8 = Address(0x0000000000000000000000000000000000000008)
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=4012015,
-    )
+    pre.fund_address(precompile_1, amount=1)
+    pre.fund_address(precompile_2, amount=1)
+    pre.fund_address(precompile_3, amount=1)
+    pre.fund_address(precompile_4, amount=1)
+    pre.fund_address(precompile_5, amount=1)
+    pre.fund_address(precompile_6, amount=1)
+    pre.fund_address(precompile_7, amount=1)
+    pre.fund_address(precompile_8, amount=1)
 
-    pre[addr_5] = Account(balance=1)
-    pre[addr_6] = Account(balance=1)
-    pre[addr_7] = Account(balance=1)
-    pre[addr_8] = Account(balance=1)
-    pre[addr_9] = Account(balance=1)
-    pre[addr_10] = Account(balance=1)
-    pre[addr_11] = Account(balance=1)
-    pre[addr_12] = Account(balance=1)
     # Source: lll
     # {  (CALLCODE (GAS) (CALLDATALOAD 0) 0 0 (CALLDATALOAD 32) 0 0) }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.CALLCODE(
             gas=Op.GAS,
             address=Op.CALLDATALOAD(offset=0x0),
@@ -664,12 +653,10 @@ def test_revert_precompiled_touch_exact_oog_paris(
             ret_size=0x0,
         )
         + Op.STOP,
-        nonce=0,
-        address=Address(0x6C7FAC59C79986689878E37545DF629F68278098),  # noqa: E501
     )
     # Source: lll
     # { (CALL (GAS) (CALLDATASIZE) 0 0 0 0 0) }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.CALL(
             gas=Op.GAS,
             address=Op.CALLDATASIZE,
@@ -680,12 +667,10 @@ def test_revert_precompiled_touch_exact_oog_paris(
             ret_size=0x0,
         )
         + Op.STOP,
-        nonce=0,
-        address=Address(0xA2F144D2206204D88E039B31BB7DB14A28A06FED),  # noqa: E501
     )
     # Source: lll
     # { (DELEGATECALL (GAS) (CALLDATASIZE) 0 0 0 0) }
-    addr_2 = pre.deploy_contract(  # noqa: F841
+    addr_2 = pre.deploy_contract(
         code=Op.DELEGATECALL(
             gas=Op.GAS,
             address=Op.CALLDATASIZE,
@@ -695,12 +680,10 @@ def test_revert_precompiled_touch_exact_oog_paris(
             ret_size=0x0,
         )
         + Op.STOP,
-        nonce=0,
-        address=Address(0x81F666FDC784482530048E74CEE651EA98A0733D),  # noqa: E501
     )
     # Source: lll
     # { (CALLCODE (GAS) (CALLDATASIZE) 0 0 0 0 0) }
-    addr_3 = pre.deploy_contract(  # noqa: F841
+    addr_3 = pre.deploy_contract(
         code=Op.CALLCODE(
             gas=Op.GAS,
             address=Op.CALLDATASIZE,
@@ -711,12 +694,10 @@ def test_revert_precompiled_touch_exact_oog_paris(
             ret_size=0x0,
         )
         + Op.STOP,
-        nonce=0,
-        address=Address(0x33506407E929A3834EA7BFA65F86B41C7B7E57B9),  # noqa: E501
     )
     # Source: lll
     # { (STATICCALL (GAS) (CALLDATASIZE) 0 0 0 0)  }
-    addr_4 = pre.deploy_contract(  # noqa: F841
+    addr_4 = pre.deploy_contract(
         code=Op.STATICCALL(
             gas=Op.GAS,
             address=Op.CALLDATASIZE,
@@ -726,217 +707,208 @@ def test_revert_precompiled_touch_exact_oog_paris(
             ret_size=0x0,
         )
         + Op.STOP,
-        nonce=0,
-        address=Address(0xC02FFF115E5EEE4FF4420EBA1CB7CB8772E0598E),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0, 8, 16, 24], "gas": 0, "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_5: Account(nonce=0)},
+            "result": {precompile_1: Account(nonce=0)},
         },
         {
             "indexes": {"data": [1, 25, 9, 17], "gas": 0, "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_6: Account(nonce=0)},
+            "result": {precompile_2: Account(nonce=0)},
         },
         {
             "indexes": {"data": [18, 26, 2, 10], "gas": 0, "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_7: Account(nonce=0)},
+            "result": {precompile_3: Account(nonce=0)},
         },
         {
             "indexes": {"data": [11, 19, 3, 27], "gas": 0, "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_8: Account(nonce=0)},
+            "result": {precompile_4: Account(nonce=0)},
         },
         {
             "indexes": {"data": [20, 28, 4, 12], "gas": 0, "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_9: Account(nonce=0)},
+            "result": {precompile_5: Account(nonce=0)},
         },
         {
             "indexes": {"data": [29, 13, 21, 5], "gas": 0, "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_10: Account(nonce=0)},
+            "result": {precompile_6: Account(nonce=0)},
         },
         {
             "indexes": {"data": [22, 30, 6, 14], "gas": 0, "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_11: Account(nonce=0)},
+            "result": {precompile_7: Account(nonce=0)},
         },
         {
             "indexes": {"data": [31, 15, 23, 7], "gas": 0, "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_12: Account(nonce=0)},
+            "result": {precompile_8: Account(nonce=0)},
         },
         {
             "indexes": {"data": [8, 16], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_5: Account(nonce=0)},
+            "result": {precompile_1: Account(nonce=0)},
         },
         {
             "indexes": {"data": [0, 24], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_5: Account(nonce=0)},
+            "result": {precompile_1: Account(nonce=0)},
         },
         {
             "indexes": {"data": [9, 17], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_6: Account(nonce=0)},
+            "result": {precompile_2: Account(nonce=0)},
         },
         {
             "indexes": {"data": [1, 25], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_6: Account(nonce=0)},
+            "result": {precompile_2: Account(nonce=0)},
         },
         {
             "indexes": {"data": [10, 18], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_7: Account(nonce=0)},
+            "result": {precompile_3: Account(nonce=0)},
         },
         {
             "indexes": {"data": [2, 26], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_7: Account(nonce=0)},
+            "result": {precompile_3: Account(nonce=0)},
         },
         {
             "indexes": {"data": [19, 11], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_8: Account(nonce=0)},
+            "result": {precompile_4: Account(nonce=0)},
         },
         {
             "indexes": {"data": [27, 3], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_8: Account(nonce=0)},
+            "result": {precompile_4: Account(nonce=0)},
         },
         {
             "indexes": {"data": [12, 20], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_9: Account(nonce=0)},
+            "result": {precompile_5: Account(nonce=0)},
         },
         {
             "indexes": {"data": [4, 28], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_9: Account(nonce=0)},
+            "result": {precompile_5: Account(nonce=0)},
         },
         {
             "indexes": {"data": [21, 13], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_10: Account(nonce=0)},
+            "result": {precompile_6: Account(nonce=0)},
         },
         {
             "indexes": {"data": [29, 5], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_10: Account(nonce=0)},
+            "result": {precompile_6: Account(nonce=0)},
         },
         {
             "indexes": {"data": [14, 22], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_11: Account(nonce=0)},
+            "result": {precompile_7: Account(nonce=0)},
         },
         {
             "indexes": {"data": [6, 30], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_11: Account(nonce=0)},
+            "result": {precompile_7: Account(nonce=0)},
         },
         {
             "indexes": {"data": [23, 15], "gas": [1, 2], "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_12: Account(nonce=0)},
+            "result": {precompile_8: Account(nonce=0)},
         },
         {
             "indexes": {"data": [31, 7], "gas": 2, "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_12: Account(nonce=0)},
+            "result": {precompile_8: Account(nonce=0)},
         },
         {
             "indexes": {"data": [31, 7], "gas": 1, "value": -1},
             "network": [">=Cancun"],
-            "result": {addr_12: Account(nonce=0)},
+            "result": {precompile_8: Account(nonce=0)},
         },
     ]
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Hash(0x1000000000000000000000000000000000000000)
-        + Hash(addr_5, left_padding=True),
-        Hash(0x1000000000000000000000000000000000000000)
-        + Hash(addr_6, left_padding=True),
-        Hash(0x1000000000000000000000000000000000000000)
-        + Hash(addr_7, left_padding=True),
-        Hash(0x1000000000000000000000000000000000000000)
-        + Hash(addr_8, left_padding=True),
-        Hash(0x1000000000000000000000000000000000000000)
-        + Hash(addr_9, left_padding=True),
-        Hash(0x1000000000000000000000000000000000000000)
-        + Hash(addr_10, left_padding=True),
-        Hash(0x1000000000000000000000000000000000000000)
-        + Hash(addr_11, left_padding=True),
-        Hash(0x1000000000000000000000000000000000000000)
-        + Hash(addr_12, left_padding=True),
-        Hash(0x2000000000000000000000000000000000000000)
-        + Hash(addr_5, left_padding=True),
-        Hash(0x2000000000000000000000000000000000000000)
-        + Hash(addr_6, left_padding=True),
-        Hash(0x2000000000000000000000000000000000000000)
-        + Hash(addr_7, left_padding=True),
-        Hash(0x2000000000000000000000000000000000000000)
-        + Hash(addr_8, left_padding=True),
-        Hash(0x2000000000000000000000000000000000000000)
-        + Hash(addr_9, left_padding=True),
-        Hash(0x2000000000000000000000000000000000000000)
-        + Hash(addr_10, left_padding=True),
-        Hash(0x2000000000000000000000000000000000000000)
-        + Hash(addr_11, left_padding=True),
-        Hash(0x2000000000000000000000000000000000000000)
-        + Hash(addr_12, left_padding=True),
-        Hash(0x3000000000000000000000000000000000000000)
-        + Hash(addr_5, left_padding=True),
-        Hash(0x3000000000000000000000000000000000000000)
-        + Hash(addr_6, left_padding=True),
-        Hash(0x3000000000000000000000000000000000000000)
-        + Hash(addr_7, left_padding=True),
-        Hash(0x3000000000000000000000000000000000000000)
-        + Hash(addr_8, left_padding=True),
-        Hash(0x3000000000000000000000000000000000000000)
-        + Hash(addr_9, left_padding=True),
-        Hash(0x3000000000000000000000000000000000000000)
-        + Hash(addr_10, left_padding=True),
-        Hash(0x3000000000000000000000000000000000000000)
-        + Hash(addr_11, left_padding=True),
-        Hash(0x3000000000000000000000000000000000000000)
-        + Hash(addr_12, left_padding=True),
-        Hash(0x4000000000000000000000000000000000000000)
-        + Hash(addr_5, left_padding=True),
-        Hash(0x4000000000000000000000000000000000000000)
-        + Hash(addr_6, left_padding=True),
-        Hash(0x4000000000000000000000000000000000000000)
-        + Hash(addr_7, left_padding=True),
-        Hash(0x4000000000000000000000000000000000000000)
-        + Hash(addr_8, left_padding=True),
-        Hash(0x4000000000000000000000000000000000000000)
-        + Hash(addr_9, left_padding=True),
-        Hash(0x4000000000000000000000000000000000000000)
-        + Hash(addr_10, left_padding=True),
-        Hash(0x4000000000000000000000000000000000000000)
-        + Hash(addr_11, left_padding=True),
-        Hash(0x4000000000000000000000000000000000000000)
-        + Hash(addr_12, left_padding=True),
+        Hash(addr, left_padding=True) + Hash(precompile_1, left_padding=True),
+        Hash(addr, left_padding=True) + Hash(precompile_2, left_padding=True),
+        Hash(addr, left_padding=True) + Hash(precompile_3, left_padding=True),
+        Hash(addr, left_padding=True) + Hash(precompile_4, left_padding=True),
+        Hash(addr, left_padding=True) + Hash(precompile_5, left_padding=True),
+        Hash(addr, left_padding=True) + Hash(precompile_6, left_padding=True),
+        Hash(addr, left_padding=True) + Hash(precompile_7, left_padding=True),
+        Hash(addr, left_padding=True) + Hash(precompile_8, left_padding=True),
+        Hash(addr_2, left_padding=True)
+        + Hash(precompile_1, left_padding=True),
+        Hash(addr_2, left_padding=True)
+        + Hash(precompile_2, left_padding=True),
+        Hash(addr_2, left_padding=True)
+        + Hash(precompile_3, left_padding=True),
+        Hash(addr_2, left_padding=True)
+        + Hash(precompile_4, left_padding=True),
+        Hash(addr_2, left_padding=True)
+        + Hash(precompile_5, left_padding=True),
+        Hash(addr_2, left_padding=True)
+        + Hash(precompile_6, left_padding=True),
+        Hash(addr_2, left_padding=True)
+        + Hash(precompile_7, left_padding=True),
+        Hash(addr_2, left_padding=True)
+        + Hash(precompile_8, left_padding=True),
+        Hash(addr_3, left_padding=True)
+        + Hash(precompile_1, left_padding=True),
+        Hash(addr_3, left_padding=True)
+        + Hash(precompile_2, left_padding=True),
+        Hash(addr_3, left_padding=True)
+        + Hash(precompile_3, left_padding=True),
+        Hash(addr_3, left_padding=True)
+        + Hash(precompile_4, left_padding=True),
+        Hash(addr_3, left_padding=True)
+        + Hash(precompile_5, left_padding=True),
+        Hash(addr_3, left_padding=True)
+        + Hash(precompile_6, left_padding=True),
+        Hash(addr_3, left_padding=True)
+        + Hash(precompile_7, left_padding=True),
+        Hash(addr_3, left_padding=True)
+        + Hash(precompile_8, left_padding=True),
+        Hash(addr_4, left_padding=True)
+        + Hash(precompile_1, left_padding=True),
+        Hash(addr_4, left_padding=True)
+        + Hash(precompile_2, left_padding=True),
+        Hash(addr_4, left_padding=True)
+        + Hash(precompile_3, left_padding=True),
+        Hash(addr_4, left_padding=True)
+        + Hash(precompile_4, left_padding=True),
+        Hash(addr_4, left_padding=True)
+        + Hash(precompile_5, left_padding=True),
+        Hash(addr_4, left_padding=True)
+        + Hash(precompile_6, left_padding=True),
+        Hash(addr_4, left_padding=True)
+        + Hash(precompile_7, left_padding=True),
+        Hash(addr_4, left_padding=True)
+        + Hash(precompile_8, left_padding=True),
     ]
     # The original ported test uses gas_limit tuned for an exact-OOG
     # boundary on the CALLCODE-to-precompile path. EIP-7976 bumps the
     # calldata floor cost per token from 10 to 16 (Amsterdam, with
     # 8037), which would push the floor above the tightest budget.
     # Shift gas_limit by the intrinsic delta so the same execution
-    # budget is preserved on every fork.
+    # budget is preserved on every fork. The baseline is the filler's
+    # calldata, whose dispatcher address `0x1000...` has one nonzero byte.
     current_intrinsic = fork.transaction_intrinsic_cost_calculator()(
         calldata=tx_data[d]
     )
     baseline_intrinsic = Prague.transaction_intrinsic_cost_calculator()(
-        calldata=tx_data[d]
+        calldata=Hash(0x1000000000000000000000000000000000000000) + Hash(0x1)
     )
     intrinsic_delta = current_intrinsic - baseline_intrinsic
     tx_gas = [
@@ -951,8 +923,7 @@ def test_revert_precompiled_touch_exact_oog_paris(
         to=target,
         data=tx_data[d],
         gas_limit=max(tx_gas[g], floor_cost),
-        nonce=1,
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

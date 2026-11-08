@@ -471,7 +471,6 @@ def block(
     "blobs_per_tx",
     SpecHelpers.all_valid_blob_combinations,
 )
-@pytest.mark.parametrize("block_base_fee_per_gas", [7, 100])
 @pytest.mark.valid_from("Cancun")
 def test_valid_blob_tx_combinations(
     blockchain_test: BlockchainTestFiller,
@@ -782,7 +781,6 @@ def test_insufficient_balance_blob_tx(
     [b"", b"\x00", b"\x01"],
     ids=["no_calldata", "single_zero_calldata", "single_one_calldata"],
 )
-@pytest.mark.parametrize("block_base_fee_per_gas", [7, 100])
 @pytest.mark.parametrize("tx_max_fee_per_blob_gas_multiplier", [1, 100, 10000])
 @pytest.mark.valid_from("Cancun")
 def test_sufficient_balance_blob_tx(

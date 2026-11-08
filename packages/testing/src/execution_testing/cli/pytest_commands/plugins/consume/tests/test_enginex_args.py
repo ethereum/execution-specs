@@ -1,4 +1,9 @@
-"""Tests for EngineX consume argument processing."""
+"""
+Tests for the multi-test simulators' consume argument processing.
+
+`consume enginex` and `consume wirex` reuse one client per group of
+tests, so xdist must keep each group on one worker.
+"""
 
 import pytest
 
@@ -6,7 +11,11 @@ from execution_testing.cli.pytest_commands.processors import (
     HiveEnvironmentProcessor,
 )
 
+MULTI_TEST_SIMULATORS = ("enginex", "wirex")
+"""The simulators that must distribute tests by xdist group."""
 
+
+@pytest.mark.parametrize("simulator", MULTI_TEST_SIMULATORS)
 @pytest.mark.parametrize(
     "parallelism_args",
     [
@@ -17,13 +26,15 @@ from execution_testing.cli.pytest_commands.processors import (
         ["--numprocesses=6"],
     ],
 )
-def test_enginex_parallelism_uses_loadgroup(
-    monkeypatch: pytest.MonkeyPatch, parallelism_args: list[str]
+def test_parallelism_uses_loadgroup(
+    monkeypatch: pytest.MonkeyPatch,
+    simulator: str,
+    parallelism_args: list[str],
 ) -> None:
-    """EngineX must use xdist loadgroup for every supported -n spelling."""
+    """Loadgroup is used for every supported -n spelling."""
     monkeypatch.delenv("HIVE_PARALLELISM", raising=False)
 
-    args = HiveEnvironmentProcessor("enginex").process_args(
+    args = HiveEnvironmentProcessor(simulator).process_args(
         [*parallelism_args]
     )
 
@@ -31,6 +42,7 @@ def test_enginex_parallelism_uses_loadgroup(
     assert args[args.index("--dist") + 1] == "loadgroup"
 
 
+@pytest.mark.parametrize("simulator", MULTI_TEST_SIMULATORS)
 @pytest.mark.parametrize(
     "dist_args",
     [
@@ -38,14 +50,14 @@ def test_enginex_parallelism_uses_loadgroup(
         ["--dist=load"],
     ],
 )
-def test_enginex_parallelism_overrides_non_loadgroup_dist(
-    monkeypatch: pytest.MonkeyPatch, dist_args: list[str]
+def test_parallelism_overrides_non_loadgroup_dist(
+    monkeypatch: pytest.MonkeyPatch, simulator: str, dist_args: list[str]
 ) -> None:
-    """EngineX overrides incompatible xdist distribution modes."""
+    """Incompatible xdist distribution modes are overridden."""
     monkeypatch.delenv("HIVE_PARALLELISM", raising=False)
 
     with pytest.warns(UserWarning, match="requires `--dist=loadgroup`"):
-        args = HiveEnvironmentProcessor("enginex").process_args(
+        args = HiveEnvironmentProcessor(simulator).process_args(
             ["-n=6", *dist_args]
         )
 
@@ -56,6 +68,7 @@ def test_enginex_parallelism_overrides_non_loadgroup_dist(
         assert "--dist=loadgroup" in args
 
 
+@pytest.mark.parametrize("simulator", MULTI_TEST_SIMULATORS)
 @pytest.mark.parametrize(
     "dist_args",
     [
@@ -64,11 +77,11 @@ def test_enginex_parallelism_overrides_non_loadgroup_dist(
         ["--dist", "load", "-d"],
     ],
 )
-def test_enginex_strips_xdist_load_shorthand(
-    monkeypatch: pytest.MonkeyPatch, dist_args: list[str]
+def test_xdist_load_shorthand_is_stripped(
+    monkeypatch: pytest.MonkeyPatch, simulator: str, dist_args: list[str]
 ) -> None:
     """
-    EngineX removes xdist's `-d` shorthand for `--dist=load`.
+    The `-d` shorthand for `--dist=load` is removed.
 
     `-d` overrides any `--dist` value within pytest-xdist's cmdline
     hook, so overriding `--dist` alone is not enough.
@@ -76,7 +89,7 @@ def test_enginex_strips_xdist_load_shorthand(
     monkeypatch.delenv("HIVE_PARALLELISM", raising=False)
 
     with pytest.warns(UserWarning, match="requires `--dist=loadgroup`"):
-        args = HiveEnvironmentProcessor("enginex").process_args(
+        args = HiveEnvironmentProcessor(simulator).process_args(
             ["-n=6", *dist_args]
         )
 
@@ -87,13 +100,14 @@ def test_enginex_strips_xdist_load_shorthand(
         assert "--dist=loadgroup" in args
 
 
-def test_enginex_without_parallelism_still_sets_loadgroup(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize("simulator", MULTI_TEST_SIMULATORS)
+def test_without_parallelism_loadgroup_is_still_set(
+    monkeypatch: pytest.MonkeyPatch, simulator: str
 ) -> None:
     """Loadgroup is set even without xdist args (inert without `-n`)."""
     monkeypatch.delenv("HIVE_PARALLELISM", raising=False)
 
-    args = HiveEnvironmentProcessor("enginex").process_args([])
+    args = HiveEnvironmentProcessor(simulator).process_args([])
 
     assert args[args.index("--dist") + 1] == "loadgroup"
 
@@ -101,7 +115,7 @@ def test_enginex_without_parallelism_still_sets_loadgroup(
 def test_consume_engine_parallelism_does_not_force_loadgroup(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The loadgroup override is scoped to consume enginex."""
+    """The loadgroup override is scoped to the multi-test simulators."""
     monkeypatch.delenv("HIVE_PARALLELISM", raising=False)
 
     args = HiveEnvironmentProcessor("engine").process_args(["-n=6"])

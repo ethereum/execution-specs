@@ -347,7 +347,6 @@ def test_fee_decays_to_minimum(
 def test_fee_getter_inhibited(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
     request_class: Type[FeeSystemContractRequest],
 ) -> None:
     """
@@ -357,13 +356,8 @@ def test_fee_getter_inhibited(
     clears it, the same query in the next block returns the minimum fee.
     """
     predeploy = request_class.system_contract_address
-    genesis_account = Alloc.model_validate(fork.pre_allocation_blockchain())[
-        predeploy
-    ]
-    assert genesis_account is not None
-    pre[predeploy] = Account(
-        nonce=genesis_account.nonce,
-        code=genesis_account.code,
+    pre.update_account(
+        predeploy,
         storage={request_class.excess_slot: Spec.EXCESS_INHIBITOR},
     )
 

@@ -1,0 +1,34 @@
+# Ignore file of packages/testing/docker/base/Dockerfile. BuildKit reads it from
+# beside the Dockerfile; the paths are relative to the build context, which is
+# the repository root. Keep the context to the source tree: exclude VCS data,
+# virtualenvs, caches, generated fixtures, logs, docs and worktrees.
+.git
+.github
+.claude
+.worktrees
+.venv
+venv
+.tox
+.just
+.mypy_cache
+.ruff_cache
+.pytest_cache
+**/__pycache__
+**/*.py[cod]
+**/*.egg-info
+build
+dist
+site
+tmp
+traces
+logs
+**/*.log
+cached_downloads
+docs
+fixtures
+fixtures-*
+fixtures_*
+tests/**/fixtures
+tests/execution-spec-generated-tests
+tests/t8n_testdata
+tests/json_loader/bench_gas_fixtures

@@ -34,19 +34,10 @@ def test_call_recursive_methods(
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = pre.fund_eoa(amount=0x12A05F200)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
     pre[coinbase] = Account(balance=0, nonce=1)
     # Source: raw
     # 0x7c01000000000000000000000000000000000000000000000000000000006000350463296df0df811460415780634893d88a14604d578063981a316514605957005b60476065565b60006000f35b6053607a565b60006000f35b605f6072565b60006000f35b5b6001156070576066565b565b6078607a565b565b60806072565b56  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.DIV(
             Op.CALLDATALOAD(offset=0x0),
             0x100000000000000000000000000000000000000000000000000000000,
@@ -86,8 +77,9 @@ def test_call_recursive_methods(
         + Op.JUMPDEST
         + Op.JUMP,
         balance=0x186A0,
-        nonce=0,
     )
+
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,

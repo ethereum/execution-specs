@@ -17,6 +17,7 @@ from .forks.forks import (
     BPO3,
     BPO4,
     BPO5,
+    BPO_SCENARIOS,
     Amsterdam,
     ArrowGlacier,
     Berlin,
@@ -96,6 +97,7 @@ from .requests import (
 )
 
 __all__ = [
+    "BPO_SCENARIOS",
     "BuilderDepositRequest",
     "BuilderExitRequest",
     "ConsolidationRequest",

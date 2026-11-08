@@ -1,6 +1,6 @@
 """Ethereum transaction test spec definition and filler."""
 
-from typing import Callable, ClassVar, Generator, Sequence, Type
+from typing import Callable, ClassVar, Generator, Mapping, Sequence, Type
 
 from execution_testing.client_clis import TransitionTool
 from execution_testing.execution import (
@@ -15,6 +15,7 @@ from execution_testing.fixtures import (
     TransactionFixture,
 )
 from execution_testing.fixtures.transaction import FixtureResult
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.recipient_type import RecipientType
 from execution_testing.test_types import Alloc, Transaction
 
@@ -41,6 +42,17 @@ class TransactionTest(BaseTest):
             "An execute test derived from a transaction test",
         ),
     ]
+
+    @classmethod
+    def genesis_pre_allocation(
+        cls,
+        *,
+        fork: Fork | TransitionFork,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
+    ) -> Mapping:
+        """Return no accounts: this spec has no genesis."""
+        del fork, fixture_format
+        return {}
 
     def make_transaction_test_fixture(
         self,

@@ -12,9 +12,7 @@ unchanged.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -32,7 +30,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_create_e_contract_create_ne_contract_in_init_tr(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -46,25 +43,13 @@ def test_create_e_contract_create_ne_contract_in_init_tr(
         inner_call_gas = 200000
         tx_gas_limit = 1_000_000
 
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
 
     # Source: lll
     # {[[1]]12}
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
         balance=0xE8D4A51000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -94,4 +79,4 @@ def test_create_e_contract_create_ne_contract_in_init_tr(
         ): Account(code=bytes.fromhex("600c600055")),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
