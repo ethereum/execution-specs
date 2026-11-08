@@ -227,6 +227,11 @@ actionlint = [
 ]
 doc = [
     "docc>=0.6.1,<0.7.0",
+    # rdocc, the Rust port of docc, runs in shadow mode via
+    # `just docs-spec-rdocc`. It is not on PyPI yet, so it is not listed or
+    # locked. Once published, add `"rdocc>=0.1,<0.2",` here and run `uv lock`;
+    # the binary-only wheel puts `rdocc` on the environment's PATH and
+    # `uv run rdocc` picks it up. [tool.docc] is read unchanged.
     "fladrif>=0.2.0,<0.3.0",
     "mistletoe>=1.5.0,<2",
 ]

@@ -279,6 +279,33 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  # Shadow job for rdocc (Rust port of docc). NOT ENABLED: rdocc is not on
+  # PyPI yet. To enable, add rdocc to the `doc` dependency group (see the
+  # comment in pyproject.toml), uncomment, and keep it non-blocking until
+  # cut-over. It builds the same `[tool.docc]` site and uploads it so it can
+  # be compared with the docc artifact; it does not feed `combine`.
+  #
+  # spec-docs-rdocc:
+  #   name: "Build Spec Docs (rdocc, shadow)"
+  #   runs-on: ubuntu-latest
+  #   needs: check-should-publish
+  #   if: github.event_name == 'pull_request'
+  #   continue-on-error: true
+  #   steps:
+  #     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #     - uses: ./.github/actions/setup-uv
+  #     - name: Build spec documentation with rdocc (full, with diffs)
+  #       run: just docs-spec-rdocc
+  #       env:
+  #         DOCC_SKIP_DIFFS: ""
+  #     - name: Upload rdocc spec docs artifact
+  #       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+  #       with:
+  #         name: docs-spec-rdocc-${{ github.run_id }}
+  #         path: .just/docs-spec-rdocc/
+  #         retention-days: 7
+  #         if-no-files-found: error
+
   combine:
     name: "Combine and Upload"
     runs-on: ubuntu-latest

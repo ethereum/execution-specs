@@ -513,6 +513,27 @@ docs-spec $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""):
 [group('docs')]
 docs-spec-fast: (docs-spec "1")
 
+# rdocc (Rust port of docc) command. Defaults to `uv run rdocc`, which finds
+# rdocc in the project environment (once it is in the `doc` dependency group)
+# or on PATH. Override with RDOCC, e.g. a local wheel:
+#   RDOCC="uvx --from ../rdocc/target/wheels/rdocc-0.1.0-py3-none-manylinux_2_34_x86_64.whl rdocc"
+rdocc := env("RDOCC", "uv run rdocc")
+
+# Generate documentation for EELS using rdocc (reads [tool.docc]; same output as docc)
+[group('docs')]
+docs-spec-rdocc $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""):
+    {{ rdocc }} --output "{{ output_dir }}/docs-spec-rdocc"
+    @echo "documentation available under file://{{ output_dir }}/docs-spec-rdocc/index.html"
+
+# Differences are reported, not fatal. Byte-identical output needs docc 0.6.2
+# with the determinism patch (see the rdocc repository); the locked docc 0.6.1
+# differs in attribute headers and in hash-order-dependent ids and search.js.
+#
+# Shadow mode: build spec docs with docc and rdocc and list differing files
+[group('docs')]
+docs-spec-shadow $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""): (docs-spec DOCC_SKIP_DIFFS) (docs-spec-rdocc DOCC_SKIP_DIFFS)
+    diff -rq "{{ output_dir }}/docs-spec" "{{ output_dir }}/docs-spec-rdocc" && echo "docc and rdocc output identical" || echo "docc and rdocc output differ (see above)"
+
 # Build spec docs in parallel shards for fast PR validation
 [group('docs')]
 docs-spec-parallel shards="4":
