@@ -92,8 +92,8 @@ def nav_path_to_sanitized_str_tuple(nav_path: Path) -> tuple:
 
 class FileOpener(Protocol):
     """
-    Protocol to replace `mkdocs_gen_files` so it doesn't have to be
-    imported/installed for unit tests.
+    Protocol for the object used to write generated pages (implemented by
+    `gen_test_doc.DocsFileWriter`; easily faked in unit tests).
     """
 
     def open(self, path: Path, mode: str) -> ContextManager[IO[Any]]:
@@ -319,7 +319,7 @@ class MarkdownPageProps(PagePropsBase):
         """
         Write the page to the target directory.
 
-        We read the md file and write it with `mkdocs_gen_files`.
+        We read the md file and write it with the given file opener.
         """
         template = jinja2_env.get_template(self.template)
         rendered_content = template.render(**asdict(self))

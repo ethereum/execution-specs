@@ -17,7 +17,7 @@ import pytest
 
 from .gen_test_doc.page_props import EipChecklistPageProps
 
-logger = logging.getLogger("mkdocs")
+logger = logging.getLogger("gen_docs")
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -44,7 +44,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         dest="checklist_doc_gen",
         default=False,
-        help="Generate checklists for documentation (uses mkdocs_gen_files)",
+        help="Generate checklists for documentation (used by gen_test_doc)",
     )
 
 

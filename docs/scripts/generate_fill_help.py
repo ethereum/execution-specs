@@ -12,10 +12,9 @@ import logging
 import subprocess
 import sys
 import textwrap
+from pathlib import Path
 
-import mkdocs_gen_files
-
-logger = logging.getLogger("mkdocs")
+logger = logging.getLogger("gen_docs")
 
 
 def get_fill_help_output() -> str:
@@ -76,7 +75,7 @@ def format_help_output(help_text: str, max_width: int = 88) -> str:
     return "\n".join(formatted_lines)
 
 
-def generate_command_line_options_docs():
+def generate_command_line_options_docs(docs_dir: Path) -> None:
     """Generate a standalone page with just the fill command-line options."""
     # Get and format the help output
     help_output = get_fill_help_output()
@@ -103,15 +102,18 @@ def generate_command_line_options_docs():
         *This page was automatically generated from `fill --help` output.*
         """)
 
-    # Write the generated content to a virtual file
-    with mkdocs_gen_files.open(
-        "filling_tests/filling_tests_command_line_options.md", "w"
-    ) as f:
-        f.write(page_content)
+    # Write the generated content to the docs directory
+    output_file = (
+        docs_dir / "filling_tests" / "filling_tests_command_line_options.md"
+    )
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_file.write_text(page_content)
 
     logger.info(
         "Generated filling_tests_command_line_options.md from fill --help."
     )
 
 
-generate_command_line_options_docs()
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    generate_command_line_options_docs(Path("docs"))
