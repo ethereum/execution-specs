@@ -82,7 +82,7 @@ uv run checklist --eip 7702 --eip 2930
 
 ### Automatic Generation in Documentation
 
-When building the documentation with `mkdocs`, checklists are automatically generated for all EIPs that have tests with checklist markers. The checklists appear in the test documentation alongside the test modules.
+When building the documentation (`just docs`), checklists are automatically generated for all EIPs that have tests with checklist markers. The checklists appear in the test documentation alongside the test modules.
 
 ## External Coverage and Not Applicable Items
 

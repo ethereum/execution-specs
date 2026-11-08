@@ -468,6 +468,8 @@ skip = [
     "*/json_loader/fixtures",
     "fixtures.*",
     "tmp",
+    # Generated docs pages (docs/scripts/gen_docs.py)
+    "docs/tests",
     "*.coverage*",
     "uv.lock",
 ]
