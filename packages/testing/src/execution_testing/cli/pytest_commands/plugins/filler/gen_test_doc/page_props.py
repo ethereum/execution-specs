@@ -168,9 +168,16 @@ class EipChecklistPageProps(PagePropsBase):
     def write_page(
         self, file_opener: FileOpener, jinja2_env: Environment
     ) -> None:
-        """Write the page to the target directory."""
+        """
+        Write the page to the target directory.
+
+        Filled checklists list every test case ID and can be huge (MBs), so
+        they are excluded from the site search index (Zensical's search index
+        rejects overly large sections).
+        """
         del jinja2_env
         with file_opener.open(self.target_output_file, "w") as destination:
+            destination.write("---\nsearch:\n  exclude: true\n---\n\n")
             destination.write("\n".join(self.lines))
 
 
