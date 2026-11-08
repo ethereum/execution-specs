@@ -520,25 +520,30 @@ docs-spec-parallel shards="4":
     uv run python -m ethereum_spec_tools.docc_shards \
         -n {{ shards }} -o "{{ output_dir }}/docs-spec-parallel"
 
-# Build HTML site documentation with mkdocs
+# Generate the untracked docs pages (test case reference, fill --help, ...)
 [group('docs')]
-docs *args:
-    uv run mkdocs build --strict -d "{{ output_dir }}/docs/site" "$@"
+docs-gen *args:
+    uv run python docs/scripts/gen_docs.py "$@"
 
-# Build HTML site documentation with mkdocs (skip test case reference)
+# Build HTML site documentation with Zensical (output: .just/docs/site)
 [group('docs')]
-docs-fast *args:
-    FAST_DOCS=True uv run mkdocs build --strict -d "{{ output_dir }}/docs/site" "$@"
+docs *args: docs-gen
+    uv run zensical build --strict "$@"
 
-# Serve site documentation locally with mkdocs (live reload)
+# Build HTML site documentation with Zensical (partial test case reference)
 [group('docs')]
-docs-serve *args:
-    uv run mkdocs serve "$@"
+docs-fast *args: (docs-gen "--fast")
+    uv run zensical build --strict "$@"
 
-# Serve site documentation locally with mkdocs (skip test case reference)
+# Serve site documentation locally with Zensical (live reload; pages are not regenerated)
 [group('docs')]
-docs-serve-fast *args:
-    FAST_DOCS=True uv run mkdocs serve "$@"
+docs-serve *args: docs-gen
+    uv run zensical serve "$@"
+
+# Serve site documentation locally with Zensical (partial test case reference)
+[group('docs')]
+docs-serve-fast *args: (docs-gen "--fast")
+    uv run zensical serve "$@"
 
 # Lint markdown files (markdownlint)
 [group('docs')]

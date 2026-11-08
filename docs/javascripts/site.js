@@ -16,7 +16,29 @@ if (typeof document$ == "undefined") {
   document$.subscribe = $(document).ready;
 }
 
+// Open links to the `docc`-rendered spec reference in a new tab.
+//
+// The reference is not a page of this site, so `navigation.instant` must not
+// try to XHR-swap it into the current DOM (the URL and title would update but
+// the body would stay on the original page). Links with a `target` attribute
+// are skipped by instant navigation. This replaces the MkDocs hook
+// `docs/hooks/reference_new_tab.py`, as Zensical does not run MkDocs hooks.
+// The trailing slash after `reference` avoids matching unrelated paths like
+// `reference_specification/`.
+const REFERENCE_HREF =
+  /^(?:\.\.\/|\.\/)*(?:specs\/)?reference\/(?:index\.html)?$/;
+
+const openReferenceInNewTab = () => {
+  document.querySelectorAll("a[href]").forEach((a) => {
+    if (a.hasAttribute("target")) return;
+    if (!REFERENCE_HREF.test(a.getAttribute("href"))) return;
+    a.setAttribute("target", "_blank");
+    a.setAttribute("rel", "noopener");
+  });
+};
+
 document$.subscribe(() => {
+  openReferenceInNewTab();
   initDataTable();
 
   if (table) {

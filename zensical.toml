@@ -1,0 +1,133 @@
+# Zensical configuration for the execution-specs documentation site.
+#
+# Build with `just docs` (or `just docs-fast`), which first runs
+# `docs/scripts/gen_docs.py` to write the generated pages (test case
+# reference, fill CLI help, CONTRIBUTING/SECURITY copies) into `docs/`.
+#
+# Zensical does not interpolate environment variables in `zensical.toml`.
+# CI overrides `site_url` per branch (see .github/workflows/docs-build.yaml).
+[project]
+site_name = "Ethereum Execution Specs"
+site_description = "The Ethereum Execution Layer Specifications and Tests"
+site_url = "https://steel.ethereum.foundation/docs/execution-specs/"
+repo_url = "https://github.com/ethereum/execution-specs"
+repo_name = "execution-specs"
+copyright = "Copyright: 2026, Ethereum Community"
+docs_dir = "docs"
+site_dir = ".just/docs/site"
+
+# Generator inputs and the migration notes are not site pages.
+exclude_docs = """
+/ZENSICAL_MIGRATION.md
+/scripts/
+/templates/
+"""
+
+watch = ["packages/testing/src"]
+
+extra_javascript = [
+  "https://code.jquery.com/jquery-3.7.1.min.js",
+  "https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js",
+  "https://cdn.datatables.net/2.1.7/js/dataTables.min.js",
+  "https://cdn.datatables.net/buttons/3.1.2/js/dataTables.buttons.js",
+  "https://cdn.datatables.net/buttons/3.1.2/js/buttons.dataTables.js",
+  "https://cdn.datatables.net/buttons/3.1.2/js/buttons.colVis.min.js",
+  "javascripts/site.js",
+]
+
+extra_css = [
+  "https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css",
+  "https://cdn.datatables.net/2.1.7/css/dataTables.dataTables.min.css",
+  "https://cdn.datatables.net/buttons/3.1.2/css/buttons.dataTables.css",
+  "stylesheets/custom.css",
+]
+
+[project.theme]
+# `classic` keeps the Material for MkDocs look so custom.css/site.js apply.
+variant = "classic"
+logo = "img/eth-diamond-white.png"
+favicon = "img/eth-diamond-orange.svg"
+language = "en"
+features = [
+  "content.code.copy",
+  "search.suggest",
+  "search.highlight",
+  "content.tabs.link",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.prune",
+  "navigation.tabs",
+  "navigation.footer",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "deep-orange"
+accent = "deep-orange"
+toggle.icon = "material/brightness-7"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "deep-orange"
+accent = "deep-orange"
+toggle.icon = "material/brightness-4"
+toggle.name = "Switch to light mode"
+
+# --- Plugins (native Zensical reimplementations) ---
+
+[project.plugins.literate-nav]
+nav_file = "navigation.md"
+
+[project.plugins.glightbox]
+
+[project.plugins.search]
+
+# Native social cards (no cairo/pillow needed); cheap enough to always build.
+[project.plugins.social]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "google"
+members_order = "source"
+group_by_category = false
+
+# --- Markdown extensions ---
+
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+mkdocs-click = {}
+toc.permalink = true
+toc.toc_depth = 4
+pymdownx.arithmatex.generic = true
+pymdownx.betterem.smart_enable = "all"
+pymdownx.caret = {}
+pymdownx.details = {}
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+pymdownx.highlight = {}
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.mark = {}
+pymdownx.smartsymbols = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+pymdownx.tabbed.alternate_style = true
+pymdownx.tasklist.custom_checkbox = true
+pymdownx.tilde = {}
+
+[project.markdown_extensions.pymdownx.magiclink]
+repo_url_shortener = true
+repo_url_shorthand = true
+social_url_shorthand = true
+social_url_shortener = true
+user = "ethereum"
+repo = "execution-specs"
+normalize_issue_symbols = true
