@@ -64,11 +64,12 @@ published site (`exclude_docs` in `zensical.toml`).
 Generated paths are gitignored and excluded from markdownlint's default globs
 and from codespell.
 
-Side effect: the base branch's `just docs` failed locally with
-`Failed to determine target doc version during strict build (set
-GEN_TEST_DOC_VERSION env var)`, because `gen_test_doc` treats `--strict` in
-`sys.argv` as a deploy build. The generator no longer runs inside
-`mkdocs build --strict`, so this no longer triggers.
+Note: `gen_test_doc` treats `--strict` in `sys.argv` as a deploy build and
+requires `GEN_TEST_DOC_VERSION` (the Justfile exports it as `local`). The
+generator no longer runs inside `mkdocs build --strict`, so this check no
+longer triggers; the variable is still exported.
+
+`eest clean` now also removes `docs/tests`.
 
 Checklist pages (`tests/**/checklist.md`) are now excluded from search: one
 filled checklist is about 2 MB and exceeded Zensical's per-section search
