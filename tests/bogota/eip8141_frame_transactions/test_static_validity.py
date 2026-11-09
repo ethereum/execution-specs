@@ -542,6 +542,21 @@ EXPIRY_VERIFIER_CASES = [
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
+        [verify_frame(), expiry_frame(flags=Spec.APPROVE_EXECUTION)],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="expiry_frame_with_execution_flag",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [
+            verify_frame(),
+            expiry_frame(flags=Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="expiry_frame_with_execution_and_payment_flags",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
         # The expiry verifier creates no state, so its frame must
         # declare no state gas budget.
         [verify_frame(), expiry_frame(state_gas_limit=1)],
