@@ -90,6 +90,25 @@ def nav_path_to_sanitized_str_tuple(nav_path: Path) -> tuple:
     return tuple(sanitize_string_title(part) for part in nav_path.parts)
 
 
+TABLE_DELIMITER_ROW = re.compile(r"^\|(?:\s*:?-+:?\s*\|)+\s*$")
+TABLE_CELL_PADDING = re.compile(r" {2,}\|")
+
+
+def compact_table_row(line: str) -> str:
+    """
+    Remove the alignment padding from a Markdown table row.
+
+    The checklist template pads its table cells to align the columns, which
+    makes up a third of a filled checklist page and slows down Zensical's
+    link reference scanner considerably. The rendered HTML is the same.
+    """
+    if not line.startswith("|"):
+        return line
+    if TABLE_DELIMITER_ROW.match(line):
+        return "|" + " --- |" * (line.count("|") - 1)
+    return TABLE_CELL_PADDING.sub(" |", line)
+
+
 class FileOpener(Protocol):
     """
     Protocol for the object used to write generated pages (implemented by
@@ -171,14 +190,17 @@ class EipChecklistPageProps(PagePropsBase):
         """
         Write the page to the target directory.
 
-        Filled checklists list every test case ID and can be huge (MBs), so
-        they are excluded from the site search index (Zensical's search index
-        rejects overly large sections).
+        Filled checklists are excluded from the site search index: when
+        they listed every test case ID they were huge (MBs) and Zensical's
+        search index rejects overly large sections. They now list one entry
+        per test function (see `EIP.generate_filled_checklist_lines`).
         """
         del jinja2_env
         with file_opener.open(self.target_output_file, "w") as destination:
             destination.write("---\nsearch:\n  exclude: true\n---\n\n")
-            destination.write("\n".join(self.lines))
+            destination.write(
+                "\n".join(compact_table_row(line) for line in self.lines)
+            )
 
 
 @dataclass

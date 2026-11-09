@@ -9,6 +9,7 @@ docs/writing_tests/checklist_templates/eip_testing_checklist_template.md
 import logging
 import os
 import re
+from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import ClassVar, Dict, List, Set, Tuple, Type
@@ -286,11 +287,39 @@ class EIP:
     @property
     def warnings(self) -> List[ChecklistWarning]:
         """Return the detected inconsistencies in the checklist."""
+        return self._warnings(self.items)
+
+    @staticmethod
+    def _warnings(items: Dict[str, EIPItem]) -> List[ChecklistWarning]:
+        """Return the detected inconsistencies in `items`."""
         warnings = []
         for warning_cls in ALL_CHECKLIST_WARNINGS.values():
-            if warning := warning_cls.from_items(self.items):
+            if warning := warning_cls.from_items(items):
                 warnings.append(warning)
         return warnings
+
+    def _items_by_test_function(self) -> Dict[str, EIPItem]:
+        """
+        Return a copy of the items whose tests are collapsed to one entry
+        per test function, with the number of collected test IDs.
+
+        A filled checklist otherwise lists every parametrized test ID; for
+        the docs site this produces multi-MB pages that are slow to render.
+        """
+        collapsed = {}
+        for item_id, item in self.items.items():
+            counts: Dict[str, int] = defaultdict(int)
+            for node_id in item.tests:
+                counts[node_id.split("[", 1)[0]] += 1
+            collapsed[item_id] = replace(
+                item,
+                tests={
+                    f"`{function_id}` ({count} test "
+                    f"case{'s' if count > 1 else ''})"
+                    for function_id, count in counts.items()
+                },
+            )
+        return collapsed
 
     def mark_not_applicable(self) -> None:
         """Read the not-applicable items from the EIP."""
@@ -348,13 +377,25 @@ class EIP:
                 for id_covered in ids:
                     self.items[id_covered].external_coverage_reason = reason
 
-    def generate_filled_checklist_lines(self) -> List[str]:
-        """Generate the filled checklist lines for a specific EIP."""
+    def generate_filled_checklist_lines(
+        self, *, group_by_test_function: bool = False
+    ) -> List[str]:
+        """
+        Generate the filled checklist lines for a specific EIP.
+
+        If `group_by_test_function` is set, list each covering test function
+        once (with its number of test IDs) instead of every test ID.
+        """
         # Create a copy of the template content
         lines = TEMPLATE_CONTENT.splitlines()
 
         self.mark_not_applicable()
         self.mark_external_coverage()
+        items = (
+            self._items_by_test_function()
+            if group_by_test_function
+            else self.items
+        )
 
         for index, line in enumerate(lines):
             if template_item := EIPItem.from_checklist_line(
@@ -364,7 +405,7 @@ class EIP:
                 # Share its coverage while preserving each description.
                 lines[index] = str(
                     replace(
-                        self.items[template_item.id],
+                        items[template_item.id],
                         description=template_item.description,
                     )
                 )
@@ -380,10 +421,11 @@ class EIP:
 
         # Last, add the warnings if there are any, this must be the last thing
         # we do to avoid shifting the lines below the percentage line
-        if self.warnings:
+        warnings = self._warnings(items)
+        if warnings:
             warnings_line_idx = lines.index(WARNINGS_LINE)
             warnings_lines = ["", "## ⚠️ Checklist Warnings ⚠️", ""]
-            for warning in self.warnings:
+            for warning in warnings:
                 warnings_lines.extend(warning.lines())
             lines[warnings_line_idx:warnings_line_idx] = warnings_lines
 
@@ -568,7 +610,9 @@ class EIPChecklistCollector:
                     pytest_node_id="",
                     package_name="checklist",
                     eip=eip.number,
-                    lines=eip.generate_filled_checklist_lines(),
+                    lines=eip.generate_filled_checklist_lines(
+                        group_by_test_function=True
+                    ),
                 )
             else:
                 checklist_path = eip.generate_filled_checklist(

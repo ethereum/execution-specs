@@ -229,3 +229,41 @@ def test_repeated_checklist_rows(coverage_kind: str) -> None:
         assert f"| {status} | {evidence} |" in rendered
     assert eip.covered_items == (0 if coverage_kind == "not_applicable" else 1)
     assert eip.total_items == total - (coverage_kind == "not_applicable")
+
+
+def test_group_by_test_function_collapses_parametrized_ids() -> None:
+    """
+    Docs checklists list each covering test function once, with a count,
+    while the default output keeps every test ID.
+    """
+    eip = EIP(number=7981)
+    item_id = next(iter(eip.items))
+    module = "tests/prague/eip7981_x/test_x.py"
+    for fork in ("Prague", "Osaka"):
+        eip.add_covered_test(item_id, f"{module}::test_a[fork_{fork}-x]")
+    eip.add_covered_test(item_id, f"{module}::test_b")
+    prefix = f"| `{item_id}` |"
+
+    (row,) = [
+        line
+        for line in eip.generate_filled_checklist_lines(
+            group_by_test_function=True
+        )
+        if line.startswith(prefix)
+    ][:1]
+    assert row.endswith(
+        f"| ✅ | `{module}::test_a` (2 test cases), "
+        f"`{module}::test_b` (1 test case) |"
+    )
+    assert eip.items[item_id].tests == {
+        f"{module}::test_a[fork_Prague-x]",
+        f"{module}::test_a[fork_Osaka-x]",
+        f"{module}::test_b",
+    }
+
+    (row,) = [
+        line
+        for line in eip.generate_filled_checklist_lines()
+        if line.startswith(prefix)
+    ][:1]
+    assert f"{module}::test_a[fork_Osaka-x]" in row
