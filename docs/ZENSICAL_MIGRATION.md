@@ -33,7 +33,7 @@ published site (`exclude_docs` in `zensical.toml`).
 | plugin `gen-files` | Replaced | Unsupported by Zensical. `docs/scripts/gen_docs.py` writes real (gitignored) Markdown files into `docs/` before the build. See below. |
 | plugin `git-authors` | Dropped | Unsupported (on Zensical's "planned" list). Missing: the per-page "Contributors" footer (author names/emails from git history). |
 | `hooks: reference_new_tab.py` | Replaced | Zensical does not run MkDocs hooks. Same logic (add `target="_blank"` to links to the `docc` spec reference so instant navigation doesn't intercept them) now runs in `docs/javascripts/site.js` on each page load. It matches the resolved URL, because instant navigation rewrites hrefs to absolute URLs (a first version matched the raw attribute and never fired). Checked in headless Chrome. |
-| `extra.version.provider: mike` | Dropped | Nothing deploys with mike (steel-website deploys per branch path); Zensical would need the `squidfunk/mike` fork. No visible loss expected (no `versions.json` is published). |
+| `extra.version.provider: mike` | Dropped | Nothing deploys with mike (steel-website deploys per branch path); Zensical would need the `squidfunk/mike` fork. No visible loss: steel-website publishes its own `/docs/versions.json` and injects its own version selector (`scripts/assemble-docs.py`), which replaces the theme's mike selector. |
 | `site_url: !ENV [SITE_URL, ...]` | Changed | `zensical.toml` has no env var support. CI rewrites `site_url` with `sed` before `just docs` (unverified, CI not run). |
 | `watch` | Reduced | Only `packages/testing/src` (mkdocstrings sources). Generated pages are not regenerated while serving; re-run `just docs-gen`. |
 | `extra_javascript` / `extra_css` | Ported | Unchanged. |
