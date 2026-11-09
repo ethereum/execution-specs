@@ -715,6 +715,26 @@ SIGNATURE_CASES = [
     ),
     pytest.param(
         lambda _pre, sender: [
+            with_tampered_components(
+                signed_digest_entry(sender.key), r=SECP256K1N - 1
+            )
+        ],
+        TransactionException.TYPE_6_INVALID_SIGNATURE,
+        id="secp256k1_r_not_on_curve",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        lambda _pre, sender: [
+            with_tampered_components(
+                signed_digest_entry(sender.key), r=SECP256K1N - 2
+            )
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="secp256k1_r_recovers_stranger",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        lambda _pre, sender: [
             with_tampered_components(signed_digest_entry(sender.key), s=0)
         ],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
