@@ -328,7 +328,7 @@ class TestCanonicalSecureTrieValidation:
 
         with pytest.raises(
             AssertionError,
-            match="Encountered unresolved HashedNode during witness lookup",
+            match="Witness is missing a trie node",
         ):
             witness_state.get_account_optional(_ADDR1)
 
@@ -353,6 +353,6 @@ class TestCanonicalSecureTrieValidation:
 
         with pytest.raises(
             AssertionError,
-            match="Encountered unresolved HashedNode during witness lookup",
+            match="Witness is missing a trie node",
         ):
             witness_state.get_storage(_ADDR1, _SLOT1)
