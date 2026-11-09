@@ -1,8 +1,10 @@
 """
 Malformed nodes in the witness state.
 
-The guest decodes and checks a witness node only when executing the block
-needs it, so only a malformed node that the block needs makes it invalid.
+A malformed witness node that executing the block needs makes it invalid.
+These tests don't cover a malformed node that the block doesn't need, since
+a guest may reject it by checking witness nodes up front, or accept it by
+checking them only when it reaches them.
 """
 
 from dataclasses import replace
@@ -367,14 +369,10 @@ def _state_root_slot(address: Address) -> int:
     return keccak256(bytes(address))[0] >> 4
 
 
-def _absent_target(pre: Alloc) -> Tuple[Address, int]:
+def _absent_target(pre: Alloc) -> Address:
     """
-    Pick an absent account, and an empty slot of the state trie root other
-    than the one that the account's first nibble selects.
-
-    The account's own slot is empty too. A read of the account reaches a
-    malformed node put in its own slot, but never one put in the returned
-    slot.
+    Pick an absent account whose first nibble selects an empty slot of the
+    state trie root.
 
     The account's second nibble is zero. A read of the account then takes
     slot zero of a branch put in its slot, and runs along the zero-nibble
@@ -385,18 +383,13 @@ def _absent_target(pre: Alloc) -> Tuple[Address, int]:
         _state_root_slot(address)
         for address in merge_with_amsterdam_pre_alloc(pre)
     }
-    free_slots = [slot for slot in range(16) if slot not in used_slots]
-    assert len(free_slots) >= 2, "the state trie root needs two empty slots"
-    target = next(
+    assert len(used_slots) < 16, "the state trie root needs an empty slot"
+    return next(
         Address(value)
         for value in range(0x1000, 0x2000)
-        if _state_root_slot(Address(value)) in free_slots
+        if _state_root_slot(Address(value)) not in used_slots
         and keccak256(bytes(Address(value)))[0] & 0xF == 0
     )
-    other_slot = next(
-        slot for slot in free_slots if slot != _state_root_slot(target)
-    )
-    return target, other_slot
 
 
 def _storage_root_slot(key: int) -> int:
@@ -404,26 +397,24 @@ def _storage_root_slot(key: int) -> int:
     return keccak256(U256(key).to_be_bytes32())[0] >> 4
 
 
-def _absent_storage_key() -> Tuple[int, int]:
+def _sibling_storage_slot() -> int:
     """
-    Pick an absent storage key, and a slot of the storage trie root other
-    than the ones that the first nibbles of the key and of `STORAGE_SLOT`
-    select.
-
-    The key doesn't share a slot with `STORAGE_SLOT` either. A read of the
-    key reaches a malformed node put in its own slot, but never one put in
-    the returned slot.
+    Pick a slot of the storage trie root other than the one that
+    `STORAGE_SLOT` leads to.
     """
     used_slot = _storage_root_slot(STORAGE_SLOT)
-    key = next(
+    return next(slot for slot in range(16) if slot != used_slot)
+
+
+def _absent_storage_key() -> int:
+    """
+    Pick an absent storage key that leads to a different slot of the storage
+    trie root than `STORAGE_SLOT`.
+    """
+    used_slot = _storage_root_slot(STORAGE_SLOT)
+    return next(
         key for key in range(256) if _storage_root_slot(key) != used_slot
     )
-    other_slot = next(
-        slot
-        for slot in range(16)
-        if slot not in (used_slot, _storage_root_slot(key))
-    )
-    return key, other_slot
 
 
 def _target_read_block(
@@ -431,31 +422,33 @@ def _target_read_block(
     node_rlp: TrieBytes,
     children: Tuple[TrieBytes, ...] = (),
     *,
-    on_target_path: bool,
-    expected_success: bool,
     by_hash: bool = False,
 ) -> Block:
     """
     Build a block that calls an absent target account, on a parent state
     with the node encoded as `node_rlp`, and the hashed `children` it refers
-    to, in a free slot of the state trie root.
+    to, in the slot of the state trie root that the target's path leaves
+    through.
 
-    The node goes in the slot that the target's path leaves the root through
-    if `on_target_path` is set, and in a slot that the block doesn't read
-    otherwise. The root refers to the node by hash if `by_hash` is set.
+    The read of the target reaches the node, so the block fails stateless
+    validation. The root refers to the node by hash if `by_hash` is set.
     """
     sender = pre.fund_eoa()
-    target, unread_slot = _absent_target(pre)
-    slot = _state_root_slot(target) if on_target_path else unread_slot
+    target = _absent_target(pre)
     return Block(
         txs=[Transaction(sender=sender, to=target, value=0)],
         # Paying the fees to the sender keeps the fee recipient off the
         # absent accounts that the block reads.
         fee_recipient=sender,
         stateless_input_bytes_modifier=_with_malformed_parent_state(
-            _in_state_root_slot(slot, node_rlp, children, by_hash=by_hash)
+            _in_state_root_slot(
+                _state_root_slot(target),
+                node_rlp,
+                children,
+                by_hash=by_hash,
+            )
         ),
-        expected_stateless_validation_success=expected_success,
+        expected_stateless_validation_success=False,
     )
 
 
@@ -477,24 +470,18 @@ def _target_read_block(
         pytest.param(_leaf(2, b"\x01"), id="embedded_leaf_short_of_key"),
     ],
 )
-@pytest.mark.parametrize("read", [False, True], ids=["unread", "read"])
 def test_witness_state_secured_trie_path_length(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     leaf: TrieBytes,
-    read: bool,
 ) -> None:
     """
-    Reject a leaf whose path does not end at the secured key length only
-    when the block reads through it.
+    Reject a leaf whose path does not end at the secured key length when the
+    block reads through it.
     """
     blockchain_test(
         pre=pre,
-        blocks=[
-            _target_read_block(
-                pre, leaf, on_target_path=read, expected_success=not read
-            )
-        ],
+        blocks=[_target_read_block(pre, leaf)],
         post={},
     )
 
@@ -518,19 +505,16 @@ def test_witness_state_secured_trie_path_length(
         ),
     ],
 )
-@pytest.mark.parametrize("read", [False, True], ids=["unread", "read"])
 def test_witness_state_secured_storage_trie_path_length(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     leaf: TrieBytes,
-    read: bool,
 ) -> None:
     """
     Reject a storage leaf whose path does not end at the secured key length
-    only when the block reads through it.
+    when the block reads through it.
     """
-    absent_key, unread_slot = _absent_storage_key()
-    slot = _storage_root_slot(absent_key) if read else unread_slot
+    absent_key = _absent_storage_key()
     contract = pre.deploy_contract(
         code=Op.SLOAD(absent_key) + Op.STOP,
         storage={STORAGE_SLOT: 1},
@@ -543,36 +527,32 @@ def test_witness_state_secured_storage_trie_path_length(
             Block(
                 txs=[Transaction(sender=sender, to=contract)],
                 stateless_input_bytes_modifier=_with_malformed_parent_state(
-                    _as_only_storage_sibling(contract, slot, leaf)
+                    _as_only_storage_sibling(
+                        contract, _storage_root_slot(absent_key), leaf
+                    )
                 ),
-                expected_stateless_validation_success=not read,
+                expected_stateless_validation_success=False,
             )
         ],
         post={},
     )
 
 
-@pytest.mark.parametrize(
-    "collapse", [False, True], ids=["no_collapse", "collapse"]
-)
 def test_witness_state_secured_trie_path_length_on_collapse(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    collapse: bool,
 ) -> None:
     """
-    Reject a leaf whose path does not end at the secured key length only
-    when a storage deletion collapses its parent branch onto it.
+    Reject a leaf whose path does not end at the secured key length when a
+    storage deletion collapses its parent branch onto it.
     """
     # Clearing the slot leaves the malformed leaf as the only child of the
-    # storage root branch, while rewriting it keeps the branch as it is.
-    new_value = 0 if collapse else 2
+    # storage root branch.
     contract = pre.deploy_contract(
-        code=Op.SSTORE(STORAGE_SLOT, new_value) + Op.STOP,
+        code=Op.SSTORE(STORAGE_SLOT, 0) + Op.STOP,
         storage={STORAGE_SLOT: 1},
     )
     sender = pre.fund_eoa()
-    _, sibling_slot = _absent_storage_key()
 
     blockchain_test(
         pre=pre,
@@ -582,12 +562,12 @@ def test_witness_state_secured_trie_path_length_on_collapse(
                 stateless_input_bytes_modifier=_with_malformed_parent_state(
                     _as_only_storage_sibling(
                         contract,
-                        sibling_slot,
+                        _sibling_storage_slot(),
                         # One nibble too long below the storage root.
                         _leaf(64, STORAGE_LEAF_VALUE),
                     )
                 ),
-                expected_stateless_validation_success=not collapse,
+                expected_stateless_validation_success=False,
             )
         ],
         post={},
@@ -652,28 +632,27 @@ def _short_branch() -> TrieBytes:
     return branch_rlp
 
 
-@pytest.mark.parametrize(
-    "child_in_witness",
-    [True, False],
-    ids=["malformed_child", "child_missing_from_witness"],
-)
 def test_witness_state_collapse_onto_extension_skips_its_child(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    child_in_witness: bool,
 ) -> None:
     """
     Accept a storage deletion that collapses a branch onto an extension whose
-    child is malformed, since the collapse only needs the child's reference.
+    child is missing from the witness, since the collapse only needs the
+    child's reference.
     """
     contract = pre.deploy_contract(
         code=Op.SSTORE(STORAGE_SLOT, 0) + Op.STOP,
         storage={STORAGE_SLOT: 1},
     )
     sender = pre.fund_eoa()
-    _, sibling_slot = _absent_storage_key()
-    # The child is a leaf, which an extension may not point to.
-    extension, children = _extension_to_leaf(STORAGE_LEAF_VALUE)
+    # The child hash stands for a branch that the block doesn't need, so the
+    # witness doesn't hold it.
+    extension = TrieBytes(
+        rlp.encode(
+            [nibble_list_to_compact(b"\x00", False), keccak256(b"branch")]
+        )
+    )
 
     blockchain_test(
         pre=pre,
@@ -682,10 +661,7 @@ def test_witness_state_collapse_onto_extension_skips_its_child(
                 txs=[Transaction(sender=sender, to=contract)],
                 stateless_input_bytes_modifier=_with_malformed_parent_state(
                     _as_only_storage_sibling(
-                        contract,
-                        sibling_slot,
-                        extension,
-                        children if child_in_witness else (),
+                        contract, _sibling_storage_slot(), extension
                     )
                 ),
                 expected_stateless_validation_success=True,
@@ -725,50 +701,30 @@ def test_witness_state_collapse_onto_extension_skips_its_child(
         ),
     ],
 )
-@pytest.mark.parametrize("read", [False, True], ids=["unread", "read"])
 def test_witness_state_malformed_node(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     node: TrieBytes,
     children: Tuple[TrieBytes, ...],
-    read: bool,
 ) -> None:
-    """Reject a malformed state node only when the block reads through it."""
+    """Reject a malformed state node that the block reads through."""
     blockchain_test(
         pre=pre,
-        blocks=[
-            _target_read_block(
-                pre,
-                node,
-                children,
-                on_target_path=read,
-                expected_success=not read,
-            )
-        ],
+        blocks=[_target_read_block(pre, node, children)],
         post={},
     )
 
 
-@pytest.mark.parametrize("read", [False, True], ids=["unread", "read"])
 def test_witness_state_hash_reference_to_short_node(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    read: bool,
 ) -> None:
     """
-    Reject a state node referenced by hash although it is short enough to
-    embed, only when the block reads through it.
+    Reject a state node that the block reads through, referenced by hash
+    although it is short enough to embed.
     """
     blockchain_test(
         pre=pre,
-        blocks=[
-            _target_read_block(
-                pre,
-                _short_branch(),
-                on_target_path=read,
-                expected_success=not read,
-                by_hash=True,
-            )
-        ],
+        blocks=[_target_read_block(pre, _short_branch(), by_hash=True)],
         post={},
     )

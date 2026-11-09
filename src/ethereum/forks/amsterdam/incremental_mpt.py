@@ -1111,6 +1111,12 @@ def decode_witness_to_mpt(
     operation first reaches it. A malformed witness node that no operation
     reaches therefore has no effect on the result.
 
+    A guest doesn't have to match this. It may check the witness nodes
+    below `root_hash` before an operation reaches them, and reject the block
+    over a malformed one that the block doesn't need. A real state has no
+    malformed nodes, so this only changes the result for a parent state built
+    by hand.
+
     [`HashedNode`]: ref:ethereum.forks.amsterdam.incremental_mpt.HashedNode
     """
     root_node: MutableNode = None
