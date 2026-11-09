@@ -772,7 +772,7 @@ def calculate_intrinsic_cost(
         )
 
     # EIP-7976 floor tokens: all calldata bytes count uniformly.
-    floor_tokens_in_calldata = ulen(tx.data) * GasCosts.TX_DATA_TOKEN_STANDARD
+    floor_tokens_in_calldata = ulen(tx.data) * Uint(4)
 
     # Decomposed execution-gas intrinsic base (EIP-2780), which also
     # anchors the calldata floor.
