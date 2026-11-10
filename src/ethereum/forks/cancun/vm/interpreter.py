@@ -52,7 +52,6 @@ from .exceptions import (
     InvalidOpcode,
     OutOfGasError,
     Revert,
-    StackDepthLimitError,
 )
 from .instructions import Ops, op_implementation
 from .runtime import get_valid_jump_destinations
@@ -214,8 +213,8 @@ def process_message(message: Message) -> Evm:
 
     """
     tx_state = message.tx_env.state
-    if message.depth > STACK_DEPTH_LIMIT:
-        raise StackDepthLimitError("Stack depth limit reached")
+    # CALL/CREATE validate child depth before dispatching a message.
+    assert message.depth <= STACK_DEPTH_LIMIT
 
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)
