@@ -279,11 +279,14 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-  # Shadow job for rdocc (Rust port of docc). NOT ENABLED: rdocc is not on
-  # PyPI yet. To enable, add rdocc to the `doc` dependency group (see the
-  # comment in pyproject.toml), uncomment, and keep it non-blocking until
-  # cut-over. It builds the same `[tool.docc]` site and uploads it so it can
-  # be compared with the docc artifact; it does not feed `combine`.
+  # Shadow job for rdocc (Rust port of docc). NOT ENABLED: rdocc has no
+  # release yet. To enable, add the rdocc wheel URLs from an ethspecs/rdocc
+  # release to the `doc` dependency group, uncomment, and keep it
+  # non-blocking until cut-over. As written it only builds the same
+  # `[tool.docc]` site with rdocc and uploads it; it does not feed `combine`
+  # and does not compare. To fail on drift, diff it against the docc
+  # artifact (`just docs-spec-shadow` does this locally), which needs docc
+  # with the determinism patch for a byte-identical comparison.
   #
   # spec-docs-rdocc:
   #   name: "Build Spec Docs (rdocc, shadow)"
