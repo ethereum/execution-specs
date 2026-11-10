@@ -514,8 +514,10 @@ docs-spec $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""):
 docs-spec-fast: (docs-spec "1")
 
 # rdocc (Rust port of docc) command. Defaults to `uv run rdocc`, which finds
-# rdocc in the project environment (once it is in the `doc` dependency group)
-# or on PATH. Override with RDOCC, e.g. a local wheel:
+# rdocc in the project environment or on PATH. rdocc is not on PyPI: once
+# ethspecs/rdocc has a release, add the wheel URL lines from its release
+# notes to the `doc` dependency group (one per platform, by environment
+# marker) and run `uv lock`. Override with RDOCC, e.g. a local wheel:
 #   RDOCC="uvx --from ../rdocc/target/wheels/rdocc-0.1.0-py3-none-manylinux_2_34_x86_64.whl rdocc"
 rdocc := env("RDOCC", "uv run rdocc")
 
