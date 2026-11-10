@@ -503,44 +503,21 @@ bench-opcode-config *args: (_tmp-logs "bench-opcode-config")
 
 export DYLD_FALLBACK_LIBRARY_PATH := if os() == "macos" { "/opt/homebrew/lib" } else { "" }
 
-# Generate documentation for EELS using docc
-[group('docs')]
-docs-spec $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""):
-    uv run docc --output "{{ output_dir }}/docs-spec"
-    uv run python -c 'import pathlib; print("documentation available under file://{0}".format(pathlib.Path(r"{{ output_dir }}") / "docs-spec" / "index.html"))'
-
-# Generate documentation for EELS using docc, skipping the slow per-fork diff render
-[group('docs')]
-docs-spec-fast: (docs-spec "1")
-
-# rdocc (Rust port of docc) command. Defaults to `uv run rdocc`, which finds
-# rdocc in the project environment or on PATH. rdocc is not on PyPI: once
-# ethspecs/rdocc has a release, add the wheel URL lines from its release
-# notes to the `doc` dependency group (one per platform, by environment
-# marker) and run `uv lock`. Override with RDOCC, e.g. a local wheel:
-#   RDOCC="uvx --from ../rdocc/target/wheels/rdocc-0.1.0-py3-none-manylinux_2_34_x86_64.whl rdocc"
+# rdocc (Rust port of docc) command. Defaults to `uv run rdocc`: the
+# binary-only wheel from the ethspecs/rdocc GitHub release, locked in the `doc`
+# dependency group. Override with RDOCC, e.g. a local build:
+#   RDOCC=../rdocc/target/release/rdocc just docs-spec
 rdocc := env("RDOCC", "uv run rdocc")
 
-# Generate documentation for EELS using rdocc (reads [tool.docc]; same output as docc)
+# Generate documentation for EELS with rdocc (reads [tool.docc])
 [group('docs')]
-docs-spec-rdocc $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""):
-    {{ rdocc }} --output "{{ output_dir }}/docs-spec-rdocc"
-    @echo "documentation available under file://{{ output_dir }}/docs-spec-rdocc/index.html"
+docs-spec $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""):
+    {{ rdocc }} --output "{{ output_dir }}/docs-spec"
+    @echo "documentation available under file://{{ output_dir }}/docs-spec/index.html"
 
-# Differences are reported, not fatal. Byte-identical output needs docc 0.6.2
-# with the determinism patch (see the rdocc repository); the locked docc 0.6.1
-# differs in attribute headers and in hash-order-dependent ids and search.js.
-#
-# Shadow mode: build spec docs with docc and rdocc and list differing files
+# Generate documentation for EELS, skipping the per-fork diff pages
 [group('docs')]
-docs-spec-shadow $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""): (docs-spec DOCC_SKIP_DIFFS) (docs-spec-rdocc DOCC_SKIP_DIFFS)
-    diff -rq "{{ output_dir }}/docs-spec" "{{ output_dir }}/docs-spec-rdocc" && echo "docc and rdocc output identical" || echo "docc and rdocc output differ (see above)"
-
-# Build spec docs in parallel shards for fast PR validation
-[group('docs')]
-docs-spec-parallel shards="4":
-    uv run python -m ethereum_spec_tools.docc_shards \
-        -n {{ shards }} -o "{{ output_dir }}/docs-spec-parallel"
+docs-spec-fast: (docs-spec "1")
 
 # Generate the untracked docs pages (test case reference, fill --help, ...)
 [group('docs')]

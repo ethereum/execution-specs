@@ -260,15 +260,11 @@ jobs:
 
       - uses: ./.github/actions/setup-uv
 
-      - name: Build spec documentation (parallel shards)
-        if: github.event_name == 'pull_request'
-        run: just docs-spec-parallel
-
+      # rdocc builds the full site, per-fork diff pages included, in seconds,
+      # so pull requests and every branch build the same thing as the default
+      # branch.
       - name: Build spec documentation
-        if: github.event_name != 'pull_request'
         run: just docs-spec
-        env:
-          DOCC_SKIP_DIFFS: ${{ case(github.event_name == 'push' && github.ref_name == github.event.repository.default_branch, '', '1') }}
 
       - name: Upload spec docs artifact
         if: needs.check-should-publish.outputs.should_publish == 'true'
@@ -278,36 +274,6 @@ jobs:
           path: .just/docs-spec/
           retention-days: 1
           if-no-files-found: error
-
-  # Shadow job for rdocc (Rust port of docc). NOT ENABLED: rdocc has no
-  # release yet. To enable, add the rdocc wheel URLs from an ethspecs/rdocc
-  # release to the `doc` dependency group, uncomment, and keep it
-  # non-blocking until cut-over. As written it only builds the same
-  # `[tool.docc]` site with rdocc and uploads it; it does not feed `combine`
-  # and does not compare. To fail on drift, diff it against the docc
-  # artifact (`just docs-spec-shadow` does this locally), which needs docc
-  # with the determinism patch for a byte-identical comparison.
-  #
-  # spec-docs-rdocc:
-  #   name: "Build Spec Docs (rdocc, shadow)"
-  #   runs-on: ubuntu-latest
-  #   needs: check-should-publish
-  #   if: github.event_name == 'pull_request'
-  #   continue-on-error: true
-  #   steps:
-  #     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-  #     - uses: ./.github/actions/setup-uv
-  #     - name: Build spec documentation with rdocc (full, with diffs)
-  #       run: just docs-spec-rdocc
-  #       env:
-  #         DOCC_SKIP_DIFFS: ""
-  #     - name: Upload rdocc spec docs artifact
-  #       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-  #       with:
-  #         name: docs-spec-rdocc-${{ github.run_id }}
-  #         path: .just/docs-spec-rdocc/
-  #         retention-days: 7
-  #         if-no-files-found: error
 
   combine:
     name: "Combine and Upload"

@@ -226,14 +226,12 @@ actionlint = [
     "shellcheck-py>=0.10",
 ]
 doc = [
+    # rdocc (Rust port of docc) builds the spec reference (`just docs-spec`).
+    # It is released only on GitHub (ethspecs/rdocc): paste the wheel URL
+    # lines from the release notes here, one per platform by environment
+    # marker, and run `uv lock`.
+    # TODO(rdocc): add the lines from the first release, then remove docc.
     "docc>=0.6.1,<0.7.0",
-    # rdocc, the Rust port of docc, runs in shadow mode via
-    # `just docs-spec-rdocc`. It is released only on GitHub (ethspecs/rdocc),
-    # so it is not listed or locked yet. Once released, paste the wheel URL
-    # lines from the release notes here (one per platform, by environment
-    # marker) and run `uv lock`; the binary-only wheel puts `rdocc` on the
-    # environment's PATH and `uv run rdocc` picks it up. [tool.docc] is read
-    # unchanged.
     "fladrif>=0.2.0,<0.3.0",
     "mistletoe>=1.5.0,<2",
 ]
