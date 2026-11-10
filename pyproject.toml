@@ -470,6 +470,9 @@ skip = [
     "tmp",
     # Generated docs pages (docs/scripts/gen_docs.py)
     "docs/tests",
+    # Vendored third-party files (docs/vendor)
+    "*.min.js",
+    "*.min.css",
     "*.coverage*",
     "uv.lock",
 ]

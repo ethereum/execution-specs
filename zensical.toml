@@ -34,6 +34,10 @@ extra_javascript = [
   "https://cdn.datatables.net/buttons/3.1.2/js/dataTables.buttons.js",
   "https://cdn.datatables.net/buttons/3.1.2/js/buttons.dataTables.js",
   "https://cdn.datatables.net/buttons/3.1.2/js/buttons.colVis.min.js",
+  # GLightbox 3.3.1 (MIT, docs/vendor/glightbox/LICENSE). The theme loads
+  # GLightbox from unpkg.com unless the global already exists, so serve it
+  # from this site instead (the MkDocs glightbox plugin did the same).
+  "vendor/glightbox/glightbox.min.js",
   "javascripts/site.js",
 ]
 
@@ -41,6 +45,7 @@ extra_css = [
   "https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css",
   "https://cdn.datatables.net/2.1.7/css/dataTables.dataTables.min.css",
   "https://cdn.datatables.net/buttons/3.1.2/css/buttons.dataTables.css",
+  "vendor/glightbox/glightbox.min.css",
   "stylesheets/custom.css",
 ]
 
