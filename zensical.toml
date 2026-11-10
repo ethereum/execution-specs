@@ -16,11 +16,10 @@ copyright = "Copyright: 2026, Ethereum Community"
 docs_dir = "docs"
 site_dir = ".just/docs/site"
 
-# Generator inputs, literate-nav files (docs/navigation.md and the generated
-# docs/tests/navigation.md) and the migration notes are not site pages.
+# Generator inputs and literate-nav files (docs/navigation.md and the
+# generated docs/tests/navigation.md) are not site pages.
 exclude_docs = """
 navigation.md
-/ZENSICAL_MIGRATION.md
 /scripts/
 /templates/
 """
