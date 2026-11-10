@@ -155,11 +155,18 @@ class Evm:
 
     pc: Uint
     stack: List[U256]
+    # EIP-7979: return addresses, pushed only by `CALLSUB`, popped only by
+    # `RETURNSUB`, and not otherwise accessible to EVM code. At most
+    # `RETURN_STACK_LIMIT` (interpreter.py) of them.
+    return_stack: List[Uint]
     memory: bytearray
     # Init code for a creation; the resolved code for a call.
     code: Bytes
     gas_meter: GasMeter
     valid_jump_destinations: Set[Uint]
+    # EIP-7979: positions of `CALLDEST` instructions, the only valid
+    # destinations of a `CALLSUB`. Every one is also a valid jump destination.
+    valid_call_destinations: Set[Uint]
     logs: Tuple[Log, ...]
     running: bool
 
