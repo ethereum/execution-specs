@@ -36,6 +36,10 @@ def generate_test_case_reference(
         "execution_testing.cli.pytest_commands.plugins.filler.gen_test_doc.gen_test_doc",
         "-p",
         "execution_testing.cli.pytest_commands.plugins.filler.eip_checklist",
+        # No tests run; skip the plugin's `gc.collect()` calls at exit,
+        # which take ~10s with the ~95k collected items in memory.
+        "-p",
+        "no:unraisableexception",
         "--gen-docs",
         f"--gen-docs-target-fork={target_fork}",
         f"--gen-docs-output-dir={docs_dir}",
