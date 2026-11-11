@@ -284,11 +284,6 @@ class EIP:
             else "🔴"
         )
 
-    @property
-    def warnings(self) -> List[ChecklistWarning]:
-        """Return the detected inconsistencies in the checklist."""
-        return self._warnings(self.items)
-
     @staticmethod
     def _warnings(items: Dict[str, EIPItem]) -> List[ChecklistWarning]:
         """Return the detected inconsistencies in `items`."""
