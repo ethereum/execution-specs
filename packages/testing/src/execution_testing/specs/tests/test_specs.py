@@ -12,6 +12,8 @@ from execution_testing.fixtures import (
     StateFixture,
 )
 from execution_testing.forks import (
+    BPO1,
+    BPO2,
     Amsterdam,
     Cancun,
     Fork,
@@ -217,6 +219,8 @@ def test_state_test_conversion_checks_the_env_first() -> None:
         (Cancun, 1000),
         (Prague, 1000),
         (Osaka, 1000),
+        (BPO1, 1000),
+        (BPO2, 1000),
         (Amsterdam, 1000),
         # The first block runs under BPO1's blob schedule, the genesis
         # under Osaka's.
@@ -230,8 +234,8 @@ def test_state_test_conversion_checks_the_env_first() -> None:
         (7, 2**17),
         (7, 10**7),
         # From EIP-7918 on these base fees are above the blob reserve
-        # price, and only an excess of at least one block's target can
-        # follow a genesis.
+        # price, so only an excess of at least one block's target has an
+        # exact genesis.
         (1000, 10**7),
         (10**9, 10**7),
     ],
@@ -245,10 +249,6 @@ def test_state_test_blockchain_form_keeps_the_block_env(
     """
     Verify the block a state test's blockchain form runs in has the state
     test's base fee and excess blob gas.
-
-    From EIP-7918 on, a parent base fee above the blob reserve price keeps
-    the excess blob gas unchanged, so the genesis cannot always add a
-    block's target.
     """
     state_test = StateTest(
         env=Environment(
@@ -283,6 +283,22 @@ def test_state_test_blockchain_form_keeps_the_block_env(
         base_fee_per_gas,
         excess_blob_gas,
     )
+
+
+def test_state_test_excess_without_a_genesis_is_rejected() -> None:
+    """
+    Verify a state test whose excess blob gas no genesis can give its
+    first block fails to convert instead of running at another excess.
+    """
+    state_test = StateTest(
+        env=Environment(base_fee_per_gas=1000, excess_blob_gas=1),
+        pre=Alloc(),
+        post=Alloc(),
+        tx=Transaction(),
+        fork=Osaka,
+    )
+    with pytest.raises(ValueError, match="no genesis gives block 1"):
+        state_test.generate_blockchain_test()
 
 
 def test_blobs_test_rejects_empty_custody_columns_updates() -> None:
