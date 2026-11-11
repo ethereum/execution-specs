@@ -109,13 +109,13 @@ def test_sender_balance_covers_max_cost(
     )
 
     if balance_delta:
-        post = Account(nonce=0, balance=max_cost + balance_delta)
+        post = Account(nonce_change=0, balance_change=0)
     else:
         # With the full tip in the budget, the payer pays the base fee
         # and the tip on every unit of gas used.
         post = Account(
-            nonce=1,
-            balance=max_cost - tx.payer_gas_used() * (BASE_FEE + priority_fee),
+            nonce_change=1,
+            balance_change=-tx.payer_gas_used() * (BASE_FEE + priority_fee),
         )
     state_test(
         env=Environment(base_fee_per_gas=BASE_FEE),
@@ -169,17 +169,19 @@ def test_payer_balance_covers_max_cost(
     )
 
     if balance_delta:
-        payer_post = Account(nonce=0, balance=max_cost + balance_delta)
+        payer_post = Account(nonce_change=0, balance_change=0)
     else:
         payer_post = Account(
-            nonce=0, balance=max_cost - tx.payer_gas_used() * BASE_FEE
+            nonce_change=0, balance_change=-tx.payer_gas_used() * BASE_FEE
         )
     state_test(
         env=Environment(base_fee_per_gas=BASE_FEE),
         pre=pre,
         tx=tx,
         post={
-            sender: Account(nonce=0 if balance_delta else 1, balance_change=0),
+            sender: Account(
+                nonce_change=0 if balance_delta else 1, balance_change=0
+            ),
             payer: payer_post,
         },
     )
@@ -234,17 +236,18 @@ def test_payment_approval_reads_balance_after_transfer(
 
     if balance_delta:
         post = {
-            sender: Account(
-                nonce=0, balance=transfer_value + max_cost + balance_delta
-            ),
-            recipient: Account(balance=0),
+            sender: Account(nonce_change=0, balance_change=0),
+            recipient: Account(balance_change=0),
         }
     else:
         post = {
             sender: Account(
-                nonce=1, balance=max_cost - tx.payer_gas_used() * BASE_FEE
+                nonce_change=1,
+                balance_change=-(
+                    transfer_value + tx.payer_gas_used() * BASE_FEE
+                ),
             ),
-            recipient: Account(balance=transfer_value),
+            recipient: Account(balance_change=transfer_value),
         }
     state_test(
         env=Environment(base_fee_per_gas=BASE_FEE),
@@ -278,8 +281,7 @@ def test_payment_approval_reads_balance_after_top_up(
         Op.CALL(address=payer, value=top_up, value_transfer=top_up > 0)
         + Op.STOP
     )
-    donor_funds = 10**18
-    donor = pre.deploy_contract(code=donor_code, balance=donor_funds)
+    donor = pre.deploy_contract(code=donor_code, balance=10**18)
     # A `CALL` with value adds the stipend to the gas it forwards. The
     # payer has no code, so all of it comes back to the donor's frame,
     # which therefore spends the stipend less than the `CALL` charges.
@@ -311,18 +313,20 @@ def test_payment_approval_reads_balance_after_top_up(
     )
 
     if top_up:
+        # The top-up comes in and the fee goes out.
         payer_post = Account(
-            nonce=0, balance=max_cost - tx.payer_gas_used() * BASE_FEE
+            nonce_change=0,
+            balance_change=top_up - tx.payer_gas_used() * BASE_FEE,
         )
     else:
-        payer_post = Account(nonce=0, balance=max_cost - 1)
+        payer_post = Account(nonce_change=0, balance_change=0)
     state_test(
         env=Environment(base_fee_per_gas=BASE_FEE),
         pre=pre,
         tx=tx,
         post={
-            sender: Account(nonce=1 if top_up else 0, balance_change=0),
+            sender: Account(nonce_change=1 if top_up else 0, balance_change=0),
             payer: payer_post,
-            donor: Account(balance=donor_funds - top_up),
+            donor: Account(balance_change=-top_up),
         },
     )
