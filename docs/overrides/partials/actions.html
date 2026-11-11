@@ -1,0 +1,37 @@
+{#-
+  Page actions, based on the Zensical theme's partials/actions.html (MIT).
+
+  A page can name its source file, relative to the repository root, with an
+  `edit_path` front matter key; an empty `edit_path` hides the edit and view
+  buttons. The generated test case reference (docs/tests/) and the copied
+  CONTRIBUTING and SECURITY pages use it. Generated pages without
+  `edit_path` get no buttons, since their default target doesn't exist.
+-#}
+{%- set repo_edit_base = config.repo_url ~ "/" ~ (config.edit_uri | replace("/docs", "") | trim("/")) ~ "/" -%}
+{%- if page.meta.edit_path is defined -%}
+  {%- set edit_url = (repo_edit_base ~ page.meta.edit_path) if page.meta.edit_path else none -%}
+{%- elif page.edit_url and "/docs/tests/" in page.edit_url -%}
+  {%- set edit_url = none -%}
+{%- else -%}
+  {%- set edit_url = page.edit_url -%}
+{%- endif -%}
+{% if "content.action.copy" in features and page.markdown_url %}
+  <button type="button" title="{{ lang.t('action.copy') }}" aria-label="{{ lang.t('action.copy') }}" class="md-content__button md-icon" data-md-copy-url="{{ page.markdown_url | url }}">
+    {% set icon = config.theme.icon.copy or "material/content-copy" %}
+    {% include ".icons/" ~ icon ~ ".svg" %}
+  </button>
+{% endif %}
+{% if edit_url %}
+  {% if "content.action.edit" in features %}
+    <a href="{{ edit_url }}" title="{{ lang.t('action.edit') }}" class="md-content__button md-icon" rel="edit">
+      {% set icon = config.theme.icon.edit or "material/file-edit-outline" %}
+      {% include ".icons/" ~ icon ~ ".svg" %}
+    </a>
+  {% endif %}
+  {% if "content.action.view" in features %}
+    <a href="{{ edit_url | replace('/edit/', '/blob/') }}" title="{{ lang.t('action.view') }}" class="md-content__button md-icon">
+      {% set icon = config.theme.icon.view or "material/file-eye-outline" %}
+      {% include ".icons/" ~ icon ~ ".svg" %}
+    </a>
+  {% endif %}
+{% endif %}

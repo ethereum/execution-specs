@@ -11,6 +11,9 @@ site_name = "Ethereum Execution Specs"
 site_description = "The Ethereum Execution Layer Specifications and Tests"
 site_url = "https://steel.ethereum.foundation/docs/execution-specs/"
 repo_url = "https://github.com/ethereum/execution-specs"
+# Edit and view buttons. Generated pages set their own source file with
+# `edit_path` front matter (docs/overrides/partials/actions.html).
+edit_uri = "edit/forks/bogota/docs/"
 repo_name = "execution-specs"
 copyright = "Copyright: 2026, Ethereum Community"
 docs_dir = "docs"
@@ -20,6 +23,7 @@ site_dir = ".just/docs/site"
 # generated docs/tests/navigation.md) are not site pages.
 exclude_docs = """
 navigation.md
+/overrides/
 /scripts/
 /templates/
 """
@@ -49,6 +53,7 @@ extra_css = [
 ]
 
 [project.theme]
+custom_dir = "docs/overrides"
 # Zensical's own look. The header is light, so use the orange logo.
 variant = "modern"
 logo = "img/eth-diamond-orange.svg"
@@ -77,6 +82,8 @@ features = [
   "navigation.instant.preview",
   "content.code.select",
   "content.lazy",
+  "content.action.edit",
+  "content.action.view",
 ]
 
 [[project.theme.palette]]

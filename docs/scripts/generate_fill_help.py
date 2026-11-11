@@ -82,7 +82,10 @@ def generate_command_line_options_docs(docs_dir: Path) -> None:
     formatted_output = format_help_output(help_output)
 
     # Create the complete page content
-    page_content = textwrap.dedent(f"""\
+    # An empty `edit_path` hides the edit and view buttons
+    # (docs/overrides/partials/actions.html): there is no single source file.
+    front_matter = '---\nedit_path: ""\n---\n\n'
+    page_content = front_matter + textwrap.dedent(f"""\
         # Fill Command-Line Options
 
         Fill is a [pytest](https://docs.pytest.org/en/stable/)-based command.

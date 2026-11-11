@@ -29,6 +29,9 @@ def copy_markdown_file(
 
     try:
         with open(destination_file, "w") as destination:
+            # Point the page's edit and view buttons at the source file
+            # (docs/overrides/partials/actions.html).
+            destination.write(f"---\nedit_path: {source_path}\n---\n\n")
             with open(source_file, "r") as f:
                 for line in f.readlines():
                     if fix_links:

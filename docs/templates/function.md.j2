@@ -1,14 +1,13 @@
 {% extends "base.md.j2" %}
-{% block title %}
----
+{% block front_matter %}
 search:
   exclude: true
----
 {#
-    don't include function pages in the mkdocs-material site search index
+    don't include function pages in the site search index
     see https://github.com/ethereum/execution-spec-tests/issues/1291
 #}
-
+{% endblock %}
+{% block title %}
 # `{{ title }}()`
 {% endblock %}
 {% block additional_content %}
