@@ -524,6 +524,18 @@ CASES: dict[Opcodes, Case] = {
         terminates=True,
         discarded=True,
     ),
+    # --- EIP-7906's instructions exceptionally halt outside an `ASSERT`
+    # frame.
+    Op.TXTRACE: Case(
+        Op.TXTRACE(param=0x0, index=0x0), terminates=True, discarded=True
+    ),
+    Op.EVENTDATACOPY: Case(
+        Op.EVENTDATACOPY(
+            event_index=0x0, dest_offset=0x0, offset=0x0, size=0x0
+        ),
+        terminates=True,
+        discarded=True,
+    ),
     # Reaching other accounts.
 }
 CASES.update({_push_op(n): _push_case(n) for n in range(1, 33)})
