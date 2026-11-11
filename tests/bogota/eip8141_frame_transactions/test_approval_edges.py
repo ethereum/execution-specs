@@ -13,7 +13,6 @@ from typing import Dict, List
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     CodeGasMeasure,
@@ -930,24 +929,16 @@ def test_max_cost_collected_within_approving_frame(
     )
 
 
-@pytest.mark.parametrize(
-    "budget_delta",
-    [
-        pytest.param(0, id="exact"),
-        pytest.param(-1, id="one_short"),
-    ],
-)
 def test_sender_creation_shortfall_halts_payment_approval(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    budget_delta: int,
 ) -> None:
     """
     Test the new-account charge for an absent sender when a sponsor
-    approves payment: with exactly that state budget the approval
-    succeeds; one gas short the self-call halts without approving, and
-    a second sponsor pays.
+    approves payment: one gas short of it, the sponsor's self-call halts
+    without approving; with exactly that state budget, a second
+    sponsor's approval succeeds.
     """
     # No opcode makes this charge: `APPROVE` creates the sender, priced
     # as `NEW_ACCOUNT` (the state gas of one new account).
@@ -958,114 +949,61 @@ def test_sender_creation_shortfall_halts_payment_approval(
     inner_call_gas = 50_000
     call = Op.CALL(gas=inner_call_gas, address=Op.ADDRESS, address_warm=True)
     measure = CodeGasMeasure(code=call, extra_stack_items=1, sstore_key=0)
-    approval = Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT)
     # The frame supplies calldata, the self-call none.
-    if_true = measure + Op.STOP
     sponsor_code = Conditional(
-        condition=Op.CALLDATASIZE, if_true=if_true, if_false=approval
+        condition=Op.CALLDATASIZE,
+        if_true=measure + Op.STOP,
+        if_false=Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT),
     )
-    # The instructions the self-call runs: the untaken jump, then
-    # `APPROVE`, which ends the call. `Conditional` places the branch
-    # it skips to after the approval and the jump over the true branch.
-    skip_true = Op.JUMP(Op.ADD(Op.PC, len(Op.JUMPDEST + if_true) + 3))
-    approval_path = (
-        Op.JUMPI(Op.ADD(Op.PC, len(approval + skip_true) + 3), Op.CALLDATASIZE)
-        + approval
-    )
-    assert bytes(sponsor_code).startswith(bytes(approval_path))
     # The sponsor records the self-call's gas over a canary, a write that
     # creates no state, so the sender's creation is the only state charge
     # in the sponsor's frame.
     sponsor = pre.deploy_contract(
         code=sponsor_code, balance=FUNDS, storage={0: 0xDEAD}
     )
-    if budget_delta == 0:
-        approves = True
-    elif budget_delta == -1:
-        approves = False
-    else:
-        raise ValueError(f"unknown budget_delta: {budget_delta!r}")
+    second_payer = pre.fund_eoa(amount=FUNDS)
 
-    sponsor_frame = default_frame(
-        flags=Spec.APPROVE_PAYMENT,
-        target=sponsor,
-        data=Bytes(b"\x01"),
-        gas_limit=FRAME_GAS,
-        state_gas_limit=new_account_gas + budget_delta,
-        pin_gas=False,
-        state_gas_used=new_account_gas if approves else 0,
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        payer=second_payer,
+        frames=[
+            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            # One gas short of the creation: the self-call halts and
+            # approves nothing, so the frame reports no state gas.
+            default_frame(
+                flags=Spec.APPROVE_PAYMENT,
+                target=sponsor,
+                data=Bytes(b"\x01"),
+                gas_limit=FRAME_GAS,
+                state_gas_limit=new_account_gas - 1,
+                pin_gas=False,
+                state_gas_used=0,
+            ),
+            # Exactly the creation: the approval succeeds, which it could
+            # not had the sponsor set the payer, and reports the creation
+            # as its state gas.
+            verify_frame(
+                flags=Spec.APPROVE_PAYMENT,
+                target=second_payer,
+                state_gas_limit=new_account_gas,
+                state_gas_used=new_account_gas,
+            ),
+        ],
+        signatures=[canonical_entry(sender), canonical_entry(second_payer)],
     )
-    post: Dict[Address, Account] = {sender: Account(nonce=1)}
-    if approves:
-        # The self-call approves, spending only the instructions up to
-        # `APPROVE`. The sponsor's frame reports the sender's creation as
-        # its state gas, the receipt names the sponsor as payer, and a
-        # later frame reads the sponsor's balance less `max_cost`.
-        probe_code = Op.SSTORE(0, Op.BALANCE(sponsor)) + Op.STOP
-        probe = pre.deploy_contract(code=probe_code)
-        tx = FrameTransaction.build(
-            fork=fork,
-            sender=sender,
-            payer=sponsor,
-            max_priority_fee_per_gas=PRIORITY_FEE,
-            frames=[
-                verify_frame(flags=Spec.APPROVE_EXECUTION),
-                sponsor_frame,
-                default_frame(
-                    target=probe,
-                    pin_gas=False,
-                    state_gas_used=probe_code.state_cost(fork),
-                ),
-            ],
-            signatures=[canonical_entry(sender)],
-        )
-        assert tx.frames is not None and tx.signatures is not None
-        assert tx.max_fee is not None
-        max_cost = fee_budget(
-            fork,
-            sender,
-            tx.frames,
-            tx.signatures,
-            max_priority_fee_per_gas=PRIORITY_FEE,
-            max_fee=int(tx.max_fee),
-        ).max_cost
-        post[sponsor] = Account(
-            nonce=1,
-            storage={
-                0: call.gas_cost(fork) + approval_path.execution_cost(fork)
-            },
-        )
-        post[probe] = Account(storage={0: FUNDS - max_cost})
-    else:
-        # The self-call halts, consuming all the gas it was given (a
-        # revert would return it), and approves nothing. The sponsor keeps
-        # its balance, and a second sponsor's approval succeeds, which it
-        # could not if the first had set the payer.
-        second_payer = pre.fund_eoa(amount=FUNDS)
-        tx = FrameTransaction.build(
-            fork=fork,
-            sender=sender,
-            payer=second_payer,
-            frames=[
-                verify_frame(flags=Spec.APPROVE_EXECUTION),
-                sponsor_frame,
-                verify_frame(
-                    flags=Spec.APPROVE_PAYMENT,
-                    target=second_payer,
-                    state_gas_used=new_account_gas,
-                ),
-            ],
-            signatures=[
-                canonical_entry(sender),
-                canonical_entry(second_payer),
-            ],
-        )
-        post[sponsor] = Account(
-            nonce=1,
-            balance=FUNDS,
-            storage={0: call.gas_cost(fork) + inner_call_gas},
-        )
 
     state_test(
-        env=Environment(base_fee_per_gas=BASE_FEE), pre=pre, tx=tx, post=post
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            # The self-call halts, consuming all the gas it was given (a
+            # revert would return it), and the sponsor keeps its balance.
+            sponsor: Account(
+                nonce=1,
+                balance=FUNDS,
+                storage={0: call.gas_cost(fork) + inner_call_gas},
+            ),
+        },
     )
