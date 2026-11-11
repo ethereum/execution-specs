@@ -27,7 +27,6 @@ on:
       - forks/bogota
     paths: &docs_paths
       - "src/ethereum/**"
-      - "src/ethereum_spec_tools/docc.py"
       - "src/ethereum_spec_tools/forks.py"
       - "static/**"
       - "docs/**"
@@ -260,15 +259,11 @@ jobs:
 
       - uses: ./.github/actions/setup-uv
 
-      - name: Build spec documentation (parallel shards)
-        if: github.event_name == 'pull_request'
-        run: just docs-spec-parallel
-
+      # rdocc builds the full site, per-fork diff pages included, in seconds,
+      # so pull requests and every branch build the same thing as the default
+      # branch.
       - name: Build spec documentation
-        if: github.event_name != 'pull_request'
         run: just docs-spec
-        env:
-          DOCC_SKIP_DIFFS: ${{ case(github.event_name == 'push' && github.ref_name == github.event.repository.default_branch, '', '1') }}
 
       - name: Upload spec docs artifact
         if: needs.check-should-publish.outputs.should_publish == 'true'

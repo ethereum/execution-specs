@@ -503,21 +503,21 @@ bench-opcode-config *args: (_tmp-logs "bench-opcode-config")
 
 export DYLD_FALLBACK_LIBRARY_PATH := if os() == "macos" { "/opt/homebrew/lib" } else { "" }
 
-# Generate documentation for EELS using docc
+# rdocc (Rust port of docc) command. Defaults to `uv run rdocc`: the
+# binary-only wheel from the ethspecs/rdocc GitHub release, locked in the `doc`
+# dependency group. Override with RDOCC, e.g. a local build:
+#   RDOCC=../rdocc/target/release/rdocc just docs-spec
+rdocc := env("RDOCC", "uv run rdocc")
+
+# Generate documentation for EELS with rdocc (reads [tool.docc])
 [group('docs')]
 docs-spec $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""):
-    uv run docc --output "{{ output_dir }}/docs-spec"
-    uv run python -c 'import pathlib; print("documentation available under file://{0}".format(pathlib.Path(r"{{ output_dir }}") / "docs-spec" / "index.html"))'
+    {{ rdocc }} --output "{{ output_dir }}/docs-spec"
+    @echo "documentation available under file://{{ output_dir }}/docs-spec/index.html"
 
-# Generate documentation for EELS using docc, skipping the slow per-fork diff render
+# Generate documentation for EELS, skipping the per-fork diff pages
 [group('docs')]
 docs-spec-fast: (docs-spec "1")
-
-# Build spec docs in parallel shards for fast PR validation
-[group('docs')]
-docs-spec-parallel shards="4":
-    uv run python -m ethereum_spec_tools.docc_shards \
-        -n {{ shards }} -o "{{ output_dir }}/docs-spec-parallel"
 
 # Generate the untracked docs pages (test case reference, fill --help, ...)
 [group('docs')]
