@@ -602,7 +602,9 @@ def test_approve_return_data(
     call's return data is not read: the EIP leaves it unspecified.
     """
     inner = Op.MSTORE(0, 0xBEEF) + Op.APPROVE(
-        0, 32, Spec.APPROVE_EXECUTION_AND_PAYMENT if granted else 0
+        0,
+        32,
+        Spec.APPROVE_EXECUTION_AND_PAYMENT if granted else Spec.APPROVE_NONE,
     )
     call_self = Op.CALL(
         gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1
