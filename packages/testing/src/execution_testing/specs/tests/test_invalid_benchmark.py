@@ -268,15 +268,6 @@ def test_phase_is_derived_when_not_given() -> None:
             id="payload_only_override",
         ),
         pytest.param(
-            _invalid_block().copy(
-                expected_block_access_list=(
-                    BlockAccessListExpectation().modify(lambda bal: bal)
-                )
-            ),
-            "block access list",
-            id="block_access_list_modifier",
-        ),
-        pytest.param(
             Block(
                 txs=[_tx(TestPhase.SETUP)],
                 rlp_modifier=Header(gas_used=GAS_USED - 1),
@@ -308,7 +299,17 @@ def test_refusal_names_the_block_it_cannot_fill() -> None:
 
 
 def test_fillable_blocks_pass_the_gate() -> None:
-    """A header-corrupted invalid block is fillable."""
+    """A header- or block-access-list-corrupted invalid block is fillable."""
     validate_stateful_blocks(
-        [Block(txs=[_tx(TestPhase.SETUP)]), _invalid_block()]
+        [
+            Block(txs=[_tx(TestPhase.SETUP)]),
+            _invalid_block(),
+            Block(
+                txs=[_tx(TestPhase.EXECUTION)],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=(
+                    BlockAccessListExpectation().modify(lambda bal: bal)
+                ),
+            ),
+        ]
     )
